@@ -53,13 +53,13 @@ class TestSchemaRequirementsCoverage:
 class TestValidateToolSchema:
     def test_valid_schema_passes(self):
         inp = {"properties": {"prompt": {}, "negative_prompt": {}}}
-        out = {"properties": {"asset_id": {}}}
+        out = {"properties": {"assets": {}}}
         errors = validate_tool_schema("text-to-image", inp, out)
         assert errors == []
 
     def test_missing_required_input_fails(self):
         inp = {"properties": {}}
-        out = {"properties": {"asset_id": {}}}
+        out = {"properties": {"assets": {}}}
         errors = validate_tool_schema("text-to-image", inp, out)
         assert any("prompt" in e for e in errors)
 
@@ -67,7 +67,7 @@ class TestValidateToolSchema:
         inp = {"properties": {"prompt": {}}}
         out = {"properties": {}}
         errors = validate_tool_schema("text-to-image", inp, out)
-        assert any("asset_id" in e for e in errors)
+        assert any("assets" in e for e in errors)
 
     def test_unknown_task_type_fails(self):
         errors = validate_tool_schema("does-not-exist", {}, {})
@@ -76,19 +76,19 @@ class TestValidateToolSchema:
     def test_image_to_video_requires_input_images(self):
         # image-to-video requires input_images
         inp = {"properties": {"input_images": {}}}
-        out = {"properties": {"asset_id": {}}}
+        out = {"properties": {"assets": {}}}
         errors = validate_tool_schema("image-to-video", inp, out)
         assert not any("required input" in e.lower() for e in errors)
 
     def test_image_to_video_missing_input_images_fails(self):
         inp = {"properties": {"prompt": {}}}
-        out = {"properties": {"asset_id": {}}}
+        out = {"properties": {"assets": {}}}
         errors = validate_tool_schema("image-to-video", inp, out)
         assert any("input_images" in e for e in errors)
 
     def test_alias_resolves_in_validation(self):
         inp = {"properties": {"prompt": {}, "input_images": {}}}
-        out = {"properties": {"asset_id": {}}}
+        out = {"properties": {"assets": {}}}
         errors = validate_tool_schema("image-edit", inp, out)
         assert errors == []
 
@@ -115,13 +115,13 @@ class TestIsKnownTaskType:
 class TestValidateToolSchemaMulti:
     def test_multiple_types_all_pass(self):
         inp = {"properties": {"prompt": {}, "input_images": {}, "negative_prompt": {}}}
-        out = {"properties": {"asset_id": {}}}
+        out = {"properties": {"assets": {}}}
         errors = validate_tool_schema_multi(["text-to-image", "image-to-image"], inp, out)
         assert errors == []
 
     def test_errors_prefixed_with_task_type(self):
         inp = {"properties": {"prompt": {}}}
-        out = {"properties": {"asset_id": {}}}
+        out = {"properties": {"assets": {}}}
         errors = validate_tool_schema_multi(["text-to-image", "image-to-image"], inp, out)
         # text-to-image should pass, image-to-image should fail (missing input_images)
         assert any(e.startswith("[image-to-image]") for e in errors)
