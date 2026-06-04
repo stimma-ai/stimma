@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")" >/dev/null 2>&1 && pwd)"
+
+if [[ "$(uname)" == "Darwin" ]]; then
+  SOURCE="${BASH_SOURCE[0]}"
+  while [ -h "$SOURCE" ]; do
+    DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+  done
+  SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+fi
+
+if command -v deno >/dev/null 2>&1; then
+  DENO_BIN="$(command -v deno)"
+else
+  echo "Deno is not installed. Installing Deno..."
+  curl -fsSL https://deno.land/install.sh | sh
+  DENO_INSTALL="${DENO_INSTALL:-$HOME/.deno}"
+  DENO_BIN="$DENO_INSTALL/bin/deno"
+  export PATH="$DENO_INSTALL/bin:$PATH"
+fi
+
+exec "$DENO_BIN" run --allow-read --allow-write --allow-env --allow-run --allow-net "$SCRIPT_DIR/stimma.ts" "$@"

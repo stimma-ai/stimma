@@ -1,0 +1,60 @@
+name: Build / Desktop
+run-name: Build / Desktop - ${{ inputs.channel }} - ${{ inputs.ref }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build (branch, tag, or SHA)
+        required: true
+        default: main
+      channel:
+        description: Release channel for updater endpoint
+        required: true
+        default: sandbox
+        type: choice
+        options:
+          - sandbox
+          - alpha
+          - beta
+          - production
+      version:
+        description: App version to embed (semver)
+        required: false
+        default: ""
+      publish_updates:
+        description: Publish updater and download artifacts to Cloudflare R2
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  macos:
+    name: macOS
+    uses: ./.github/workflows/release-macos.yml
+    with:
+      ref: ${{ inputs.ref }}
+      channel: ${{ inputs.channel }}
+      version: ${{ inputs.version }}
+      publish_updates: ${{ inputs.publish_updates }}
+    secrets: inherit
+
+  windows:
+    name: Windows
+    uses: ./.github/workflows/release-windows.yml
+    with:
+      ref: ${{ inputs.ref }}
+      channel: ${{ inputs.channel }}
+      version: ${{ inputs.version }}
+      publish_updates: ${{ inputs.publish_updates }}
+    secrets: inherit
+
+  linux:
+    name: Linux AppImage
+    uses: ./.github/workflows/linux-appimage.yml
+    with:
+      ref: ${{ inputs.ref }}
+      channel: ${{ inputs.channel }}
+      version: ${{ inputs.version }}
+      publish_updates: ${{ inputs.publish_updates }}
+    secrets: inherit

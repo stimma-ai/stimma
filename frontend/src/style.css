@@ -1,0 +1,501 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  ============================================================================
+  SEMANTIC COLOR GUIDELINES
+  ============================================================================
+
+  Use these Tailwind color tokens consistently across the application:
+
+  STATUS & STATES:
+  - Success/Complete:       green-500, green-400, green-600
+  - Error/Failed:           red-500, red-400, red-600
+  - Warning:                amber-500, amber-400, amber-600
+  - Info/Processing:        blue-500, blue-400, blue-600
+  - Special Processing:     purple-500, purple-400, purple-600
+  - Pending/Neutral:        gray-500, gray-400, gray-600
+
+  ACTIONS:
+  - Primary Actions:        indigo-500, indigo-600
+  - Destructive Actions:    red-500, red-600
+  - Positive Actions:       green-500, green-600
+  - Boards:                 amber-500, amber-600
+
+  MEDIA TYPE ICONS:
+  - Video:                  green-500 (semantic: complete/playable)
+  - Image:                  blue-400 (semantic: info/visual)
+
+  SELECTION STATES:
+  - Positive Filter:        bg-blue-500/15 border-blue-500/50 text-blue-400
+  - Negative Filter:        bg-red-500/15 border-red-500/50 text-red-400
+  - Focus Ring:             border-indigo-500
+  - Selected Item:          bg-indigo-500/20 border-indigo-500
+
+  OPACITY CONVENTIONS:
+  - Hover backgrounds:      /10 - /15
+  - Selection backgrounds:  /15 - /20
+  - Active backgrounds:     /30
+  - Borders:                /30 - /50
+  - Hover borders:          /60 - /80
+  - Solid text:             400 shade (dark theme) or 600 shade (light theme)
+
+  ============================================================================
+*/
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: var(--color-base);
+  color: var(--color-text-primary);
+  overflow: hidden;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Global subtle scrollbar styling */
+/* Use standard properties first (Safari 16.4+, Firefox), then webkit fallback */
+* {
+  /* Standard CSS Scrollbars - works in Safari 16.4+, Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+}
+
+/* Webkit scrollbar styling - Chrome, older Safari, Tauri/WKWebView */
+/* Applied to all scrollable elements */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.4);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(156, 163, 175, 0.6);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* For elements that need custom scrollbars in Safari/WKWebView, add this class */
+/* Safari requires overflow to be explicitly set for scrollbar styling to work */
+.custom-scrollbar {
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.4);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(156, 163, 175, 0.6);
+}
+
+/* Chat input scroll wrapper - trackless scrollbar */
+/* scrollbar-width: auto overrides the global * { scrollbar-width: thin } so that
+   ::-webkit-scrollbar pseudo-elements take effect in Safari/WKWebView. */
+.chat-input-scroll-wrap {
+  scrollbar-width: auto !important;
+  scrollbar-color: auto !important;
+}
+.chat-input-scroll-wrap::-webkit-scrollbar {
+  width: 12px;
+  background: transparent;
+}
+.chat-input-scroll-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-input-scroll-wrap::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.4);
+  border-radius: 6px;
+}
+.chat-input-scroll-wrap::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(156, 163, 175, 0.6);
+}
+/* Hide native textarea scrollbar entirely */
+.chat-input-textarea {
+  overflow: hidden !important;
+}
+.chat-input-textarea::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* ============================================
+   Theme Token Definitions
+   ============================================ */
+
+/* Stimma Cloud branding colors (theme-independent) */
+:root {
+  --stimma-cloud-start: #0d9488;
+  --stimma-cloud-mid: #06b6d4;
+  --stimma-cloud-end: #6366f1;
+
+  /* Slider thumb colors (used in pseudo-elements that can't use Tailwind classes) */
+  --slider-thumb: rgb(99 102 241); /* indigo-500 */
+  --slider-thumb-hover: rgb(129 140 248); /* indigo-400 */
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --color-base: #0f0f0f;
+  --color-surface: #1a1a1a;
+  --color-surface-raised: #2a2a2a;
+  --color-surface-overlay: #0a0a0a;
+  --color-surface-hover: #3a3a3a;
+  --color-surface-active: #4a4a4a;
+
+  /* Text */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #b4b4bb;
+  --color-text-tertiary: #a1a1aa;
+  --color-text-muted: #71717a;
+
+  /* Borders */
+  --color-border: #333333;
+  --color-border-subtle: rgba(255,255,255,0.1);
+  --color-border-strong: #444444;
+
+  /* Overlays */
+  --color-overlay-faint: rgba(255,255,255,0.02);
+  --color-overlay-subtle: rgba(255,255,255,0.05);
+  --color-overlay-hover: rgba(255,255,255,0.06);
+  --color-overlay-light: rgba(255,255,255,0.1);
+  --color-overlay-medium: rgba(255,255,255,0.15);
+  --color-overlay-strong: rgba(255,255,255,0.2);
+  --color-backdrop: rgba(0,0,0,0.6);
+
+  /* Slideshow */
+  --color-slideshow-matt: #000000;
+  --color-surface-elevated: rgba(20,20,20,0.95);
+
+  /* Lineage */
+  --color-lineage-edge: #3a3a3a;
+  --color-lineage-edge-inspired: #6d3a9e;
+  --color-lineage-minimap-bg: rgba(0,0,0,0.6);
+  --color-lineage-minimap-edge: rgba(255,255,255,0.25);
+  --color-lineage-minimap-edge-inspired: rgba(168,85,247,0.35);
+  --color-lineage-minimap-node: rgba(255,255,255,0.5);
+  --color-lineage-minimap-viewport-fill: rgba(255,255,255,0.06);
+  --color-lineage-minimap-viewport-stroke: rgba(255,255,255,0.6);
+  --color-lineage-controls-bg: rgba(0,0,0,0.5);
+
+  /* Scrollbar */
+  --color-scrollbar-thumb: rgba(156, 163, 175, 0.4);
+  --color-scrollbar-thumb-hover: rgba(156, 163, 175, 0.6);
+
+  /* Recipe graph node palette — refined matte status & type colors.
+     Status owns the card chrome (tint + left flag); type owns a small chip
+     in the title row. Edge colors use the same matte school. */
+  --color-recipe-done-tint:    #1c2520;
+  --color-recipe-done-soft:    #345740;
+  --color-recipe-done-strong:  #79c294;
+  --color-recipe-done-mid:     #4d8d63;
+
+  --color-recipe-run-tint:     #28221a;
+  --color-recipe-run-soft:     #564524;
+  --color-recipe-run-strong:   #e2bb66;
+  --color-recipe-run-mid:      #9d7f37;
+
+  --color-recipe-fail-tint:    #281c1a;
+  --color-recipe-fail-soft:    #5a2c28;
+  --color-recipe-fail-strong:  #e08e85;
+
+  --color-recipe-await-tint:   #211d2e;
+  --color-recipe-await-soft:   #3e3460;
+  --color-recipe-await-strong: #a59beb;
+
+  --color-recipe-stale-tint:   #28241a;
+  --color-recipe-stale-soft:   #574c28;
+  --color-recipe-stale-strong: #d4b76a;
+
+  --color-recipe-type-tool-tint:    #2a2113;
+  --color-recipe-type-tool-strong:  #dab36a;
+  --color-recipe-type-llm-tint:     #221f3a;
+  --color-recipe-type-llm-strong:   #a09bf0;
+  --color-recipe-type-code-tint:    #14302d;
+  --color-recipe-type-code-strong:  #5fc6bd;
+  --color-recipe-type-hitl-tint:    #281c2a;
+  --color-recipe-type-hitl-strong:  #d29ad8;
+  --color-recipe-type-info-tint:    #14302a;
+  --color-recipe-type-info-strong:  #5fc6bd;
+  --color-recipe-type-input-tint:   #28241f;
+  --color-recipe-type-input-strong: #b5ad9d;
+  --color-recipe-type-output-tint:  #2a1c25;
+  --color-recipe-type-output-strong:#e29ec0;
+  --color-recipe-type-control-tint: #2a2317;
+  --color-recipe-type-control-strong: #d4af65;
+  --color-recipe-type-create-tint:  #2a1c25;
+  --color-recipe-type-create-strong:#e29ec0;
+
+  --color-recipe-edge-media:   #d68a76;
+  --color-recipe-edge-tool:    #8794d8;
+  --color-recipe-edge-llm:     #6fb5a8;
+  --color-recipe-edge-code:    #d4af65;
+  --color-recipe-edge-hitl:    #d29ad8;
+  --color-recipe-edge-info:    #5fc6bd;
+  --color-recipe-edge-input:   #98948a;
+  --color-recipe-edge-control: #d4af65;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Surfaces */
+  --color-base: #ffffff;
+  --color-surface: #f4f4f5;
+  --color-surface-raised: #e4e4e7;
+  --color-surface-overlay: #ffffff;
+  --color-surface-hover: #d4d4d8;
+  --color-surface-active: #a1a1aa;
+
+  /* Text */
+  --color-text-primary: #18181b;
+  --color-text-secondary: #52525b;
+  --color-text-tertiary: #71717a;
+  --color-text-muted: #a1a1aa;
+
+  /* Borders */
+  --color-border: #d4d4d8;
+  --color-border-subtle: rgba(0,0,0,0.08);
+  --color-border-strong: #a1a1aa;
+
+  /* Overlays */
+  --color-overlay-faint: rgba(0,0,0,0.015);
+  --color-overlay-subtle: rgba(0,0,0,0.03);
+  --color-overlay-hover: rgba(0,0,0,0.04);
+  --color-overlay-light: rgba(0,0,0,0.06);
+  --color-overlay-medium: rgba(0,0,0,0.1);
+  --color-overlay-strong: rgba(0,0,0,0.15);
+  --color-backdrop: rgba(0,0,0,0.4);
+
+  /* Slideshow */
+  --color-slideshow-matt: #f5f5f5;
+  --color-surface-elevated: rgba(255,255,255,0.95);
+
+  /* Lineage */
+  --color-lineage-edge: #c4c4c8;
+  --color-lineage-edge-inspired: #a855f7;
+  --color-lineage-minimap-bg: rgba(255,255,255,0.7);
+  --color-lineage-minimap-edge: rgba(0,0,0,0.2);
+  --color-lineage-minimap-edge-inspired: rgba(168,85,247,0.4);
+  --color-lineage-minimap-node: rgba(0,0,0,0.4);
+  --color-lineage-minimap-viewport-fill: rgba(0,0,0,0.05);
+  --color-lineage-minimap-viewport-stroke: rgba(0,0,0,0.4);
+  --color-lineage-controls-bg: rgba(255,255,255,0.7);
+
+  /* Scrollbar */
+  --color-scrollbar-thumb: rgba(0, 0, 0, 0.25);
+  --color-scrollbar-thumb-hover: rgba(0, 0, 0, 0.4);
+
+  /* Recipe graph node palette (light theme). See dark theme for shape. */
+  --color-recipe-done-tint:    #ecf1e8;
+  --color-recipe-done-soft:    #cad8cc;
+  --color-recipe-done-strong:  #2f7649;
+  --color-recipe-done-mid:     #6ba081;
+
+  --color-recipe-run-tint:     #f1ecdd;
+  --color-recipe-run-soft:     #d9d2b5;
+  --color-recipe-run-strong:   #9c6a18;
+  --color-recipe-run-mid:      #c79f48;
+
+  --color-recipe-fail-tint:    #f0e3de;
+  --color-recipe-fail-soft:    #d8bfb9;
+  --color-recipe-fail-strong:  #95413c;
+
+  --color-recipe-await-tint:   #ebe8f3;
+  --color-recipe-await-soft:   #cabddf;
+  --color-recipe-await-strong: #5a4a9c;
+
+  --color-recipe-stale-tint:   #efeadc;
+  --color-recipe-stale-soft:   #d0c4a3;
+  --color-recipe-stale-strong: #7a6429;
+
+  --color-recipe-type-tool-tint:    #efe6d4;
+  --color-recipe-type-tool-strong:  #7c5512;
+  --color-recipe-type-llm-tint:     #e8e7f4;
+  --color-recipe-type-llm-strong:   #4842a8;
+  --color-recipe-type-code-tint:    #d9eceb;
+  --color-recipe-type-code-strong:  #0e6f6a;
+  --color-recipe-type-hitl-tint:    #efe5ed;
+  --color-recipe-type-hitl-strong:  #774081;
+  --color-recipe-type-info-tint:    #dbeae9;
+  --color-recipe-type-info-strong:  #266c64;
+  --color-recipe-type-input-tint:   #ebe9e3;
+  --color-recipe-type-input-strong: #5b554a;
+  --color-recipe-type-output-tint:  #f3e3ea;
+  --color-recipe-type-output-strong:#95386b;
+  --color-recipe-type-control-tint: #f1eadb;
+  --color-recipe-type-control-strong: #856030;
+  --color-recipe-type-create-tint:  #f3e3e8;
+  --color-recipe-type-create-strong:#94376b;
+
+  --color-recipe-edge-media:   #b85f48;
+  --color-recipe-edge-tool:    #3f53a8;
+  --color-recipe-edge-llm:     #3d7a72;
+  --color-recipe-edge-code:    #9c7724;
+  --color-recipe-edge-hitl:    #774081;
+  --color-recipe-edge-info:    #266c64;
+  --color-recipe-edge-input:   #6b675c;
+  --color-recipe-edge-control: #856030;
+}
+
+/* Utility class to reserve space for scrollbar */
+.scrollbar-stable {
+  scrollbar-gutter: stable;
+}
+
+/* Global select styling for Safari/WKWebView (Tauri) */
+/* Resets native appearance to fix rendering glitches with dropdown popups */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+  background-position: right 4px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 28px !important; /* Must override Tailwind padding utilities */
+}
+
+select option {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+/* Utility class for icon containers that receive SVG via v-html */
+/* Use on the parent element to ensure the SVG fills the container */
+/* Required for Safari/WKWebView where SVGs without explicit dimensions don't auto-size */
+.icon-container > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+/* Checkerboard pattern for transparent image backgrounds - standard light/white pattern */
+.bg-checker {
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(45deg, #c0c0c0 25%, transparent 25%),
+    linear-gradient(-45deg, #c0c0c0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #c0c0c0 75%),
+    linear-gradient(-45deg, transparent 75%, #c0c0c0 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+}
+
+/* ============================================
+   Stimma Cloud Branding
+   ============================================ */
+
+/* Gradient text for Stimma Cloud labels */
+.stimma-cloud-text {
+  background: linear-gradient(135deg, var(--stimma-cloud-start), var(--stimma-cloud-mid), var(--stimma-cloud-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Subtle gradient border for Stimma Cloud items (cards, list items) */
+.stimma-cloud-border {
+  position: relative;
+  border: none;
+}
+
+.stimma-cloud-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.4), rgba(6, 182, 212, 0.4), rgba(99, 102, 241, 0.4));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.stimma-cloud-border:hover::before {
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.6), rgba(6, 182, 212, 0.6), rgba(99, 102, 241, 0.6));
+}
+
+/* Solid variant - always visible at full strength, no hover effect */
+.stimma-cloud-border-solid {
+  position: relative;
+  border: none;
+}
+
+.stimma-cloud-border-solid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.6), rgba(6, 182, 212, 0.6), rgba(99, 102, 241, 0.6));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Recipe step expand/collapse — animates height: auto via the
+   grid-template-rows 0fr → 1fr trick so rows ease open/closed instead of
+   snapping. Used by RecipeView trace rows, info rows, HITL rows, and
+   iteration groups. */
+.recipe-expand-enter-active,
+.recipe-expand-leave-active {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 180ms ease, opacity 180ms ease;
+}
+.recipe-expand-enter-active > *,
+.recipe-expand-leave-active > * {
+  overflow: hidden;
+  min-height: 0;
+}
+.recipe-expand-enter-from,
+.recipe-expand-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.recipe-expand-enter-to,
+.recipe-expand-leave-from {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link href="https://cdn.fontshare.com/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+  <title>Stimma</title>
+  <script>
+    // Prevent flash of wrong theme on load
+    (function() {
+      var pref = localStorage.getItem('stimma-theme') || 'system';
+      var theme = pref;
+      if (pref === 'system') {
+        theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <style>
+    /* Critical theme colors inlined to prevent flash before CSS bundle loads */
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --color-base: #0f0f0f;
+      --color-surface-overlay: #0a0a0a;
+      --color-text-primary: #ffffff;
+    }
+    [data-theme="light"] {
+      color-scheme: light;
+      --color-base: #ffffff;
+      --color-surface-overlay: #ffffff;
+      --color-text-primary: #18181b;
+    }
+    body { background: var(--color-base); color: var(--color-text-primary); }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

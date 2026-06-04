@@ -1,0 +1,2186 @@
+<template>
+  <div class="bg-surface border-b border-edge flex-shrink-0">
+    <!-- SVG gradient definition for Stimma Cloud branding -->
+    <svg class="absolute w-0 h-0" aria-hidden="true">
+      <defs>
+        <linearGradient id="stimma-gradient-filter" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#0d9488" />
+          <stop offset="50%" stop-color="#06b6d4" />
+          <stop offset="100%" stop-color="#6366f1" />
+        </linearGradient>
+      </defs>
+    </svg>
+
+    <!-- Filter Selection Strip (Shopping Cart) -->
+    <div class="flex justify-between items-center px-6 py-3 gap-4 flex-wrap">
+      <!-- Left Side: Filter Toggle Button -->
+      <button class="text-content-secondary px-4 h-9 rounded-lg text-sm cursor-pointer flex items-center gap-2 transition-colors flex-shrink-0 hover:bg-overlay-subtle" @click="toggleCriteriaPanel">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
+        </svg>
+        Filters
+        <svg class="w-4 h-4 transition-transform ml-1" :class="{ 'rotate-180': showCriteriaPanel }" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+
+      <div class="flex gap-2 flex-wrap flex-1">
+        <!-- Marker Toggle Buttons (Always First) - 3-state: none, positive (blue), negative (red) -->
+        <button
+          v-for="marker in markers"
+          :key="marker.id"
+          :class="[
+            'inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors cursor-pointer',
+            isMarkerPositive(marker.id)
+              ? 'bg-blue-500/15 border border-blue-500/50 text-blue-500'
+              : isMarkerNegative(marker.id)
+              ? 'bg-red-500/15 border border-red-500/50 text-red-500'
+              : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
+          ]"
+          :title="marker.name"
+          @click="toggleMarker(marker.id)"
+        >
+          <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="marker.icon_svg" />
+        </button>
+
+        <!-- Similar Search Badge -->
+        <div v-if="similarSearchActive && similarSearchSourceItems && similarSearchSourceItems.length > 0" class="inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
+          <MagnifyingGlassCircleIcon class="w-5 h-5 flex-shrink-0" />
+          <span class="leading-none">Similar to</span>
+          <div
+            v-for="item in similarSearchSourceItems"
+            :key="item.id"
+            class="w-8 h-8 bg-surface-raised rounded border border-edge-subtle overflow-hidden"
+          >
+            <img
+              :src="getThumbnailUrl(item.file_hash)"
+              class="w-full h-full object-cover bg-checker"
+              :alt="item.file_path"
+              :title="item.file_path"
+            />
+          </div>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="emit('clear-similar')">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Caption Query Badge -->
+        <div v-if="localCaptionQuery && captioningEnabledRef" class="inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
+          <span class="leading-none">Caption: {{ localCaptionQuery }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearCaptionQuery">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Prompt Query Badge -->
+        <div v-if="localPromptQuery" class="inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
+          <span class="leading-none">Prompt: {{ localPromptQuery }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearPromptQuery">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Text Similarity Badge -->
+        <div v-if="localSimilarToText" class="inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
+          <MagnifyingGlassCircleIcon class="w-5 h-5 flex-shrink-0" />
+          <span class="leading-none">{{ localSimilarToText }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearSimilarToText">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Media Type Badges -->
+        <div v-for="mediaType in localMediaTypes"
+             :key="mediaType"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isMediaTypeExcluded(mediaType) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             @click="toggleExcludeMediaType(mediaType)">
+          <span class="leading-none">{{ { images: 'Images', videos: 'Videos', audio: 'Audio', text: 'Text', sets: 'Sets', grids: 'Grids', layouts: 'Layouts' }[mediaType] || mediaType }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeMediaType(mediaType)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Resolution Badges -->
+        <div v-for="resolution in localResolutions"
+             :key="resolution"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isResolutionExcluded(resolution) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             @click="toggleExcludeResolution(resolution)">
+          <span class="leading-none">{{ resolution.charAt(0).toUpperCase() + resolution.slice(1) }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeResolution(resolution)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Keyword Badges -->
+        <template v-if="captioningEnabledRef">
+        <div v-for="keyword in allKeywords"
+             :key="keyword"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isExcluded(keyword) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             @click="toggleExcludeKeyword(keyword)">
+          <span class="leading-none">{{ keyword }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeKeyword(keyword)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        </template>
+
+        <!-- Tag Badges -->
+        <div v-for="tag in allTags"
+             :key="tag.id"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isTagExcluded(tag.id) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             @click="toggleExcludeTag(tag.id)">
+          <span class="leading-none">{{ tag.tag }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeTag(tag.id)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Tool Badges -->
+        <div v-for="tool in allTools"
+             :key="tool.full_tool_id"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isToolExcluded(tool.full_tool_id) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             @click="toggleExcludeTool(tool.full_tool_id)">
+          <span class="leading-none">{{ getToolName(tool) }}</span>
+          <svg v-if="isToolStimmaCloud(tool)" class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="url(#stimma-gradient-filter)" :title="getToolProvider(tool)">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+          </svg>
+          <span v-else-if="getToolProvider(tool)" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full opacity-60 bg-black/10">{{ getToolProvider(tool) }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeTool(tool.full_tool_id)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Folder Badges -->
+        <div v-for="folder in allFolders"
+             :key="folder"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isFolderExcluded(folder) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             @click="toggleExcludeFolder(folder)">
+          <span class="leading-none">{{ getFolderName(folder) }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeFolder(folder)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- File Date Badge (no toggle, just blue) -->
+        <div v-if="selectedDateRange" class="inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
+          <span class="leading-none">{{ getDateRangeLabel() }}</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearDateRange">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Expiring Badge (not shown in trash mode) -->
+        <div v-if="!isTrashMode && (localShowExpiring || localExcludeExpiring)"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', localExcludeExpiring ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             @click="toggleExpiringExclusion">
+          <span class="leading-none">Expiring</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearExpiringFilter">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Right Side Controls -->
+      <div class="flex items-center gap-2">
+      <!-- Unified Pill Group -->
+      <div class="flex items-center gap-1">
+        <!-- Item count -->
+        <span v-if="totalCount !== null" class="px-3 py-2 text-sm text-content-tertiary font-medium whitespace-nowrap">{{ itemCountText }}</span>
+        <!-- Sort dropdown (not shown in trash mode - trash always sorts by deleted date) -->
+        <select v-if="!isTrashMode" v-model="localSortBy" @change="emitUpdate" class="bg-transparent text-content px-3 py-2 text-sm cursor-pointer focus:outline-none appearance-none rounded-lg pr-7 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMyA0LjVMNiA3LjVMOSA0LjUiIHN0cm9rZT0iIzg4OCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==')] bg-no-repeat bg-[right_0.5rem_center]">
+          <option value="similarity" :disabled="!similarSearchActive && !localSimilarToText">Similarity</option>
+          <option value="created_desc">Newest First</option>
+          <option value="created_asc">Oldest First</option>
+          <option value="random">Random</option>
+        </select>
+        <!-- Shuffle button - only visible when in random mode (not in trash mode) -->
+        <button v-if="!isTrashMode && localSortBy === 'random'" @click="handleShuffle" class="px-3 py-2 cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle rounded-lg text-content-secondary hover:text-indigo-400" title="Shuffle order">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
+          </svg>
+        </button>
+      </div>
+        <!-- 3-dot menu for saved view actions (not shown in trash mode) -->
+        <div v-if="!isTrashMode && savedViewId" class="relative" ref="savedViewMenuRef">
+          <button
+            @click="showSavedViewMenu = !showSavedViewMenu"
+            class="text-content-secondary p-2 rounded-lg cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle"
+            title="View options"
+          >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+            </svg>
+          </button>
+          <!-- Dropdown menu -->
+          <div
+            v-if="showSavedViewMenu"
+            class="absolute right-0 top-full mt-1 bg-surface-raised border border-edge-strong rounded-md shadow-lg z-50 py-1 min-w-[160px]"
+          >
+            <div class="px-4 py-2 text-xs text-content-tertiary uppercase tracking-wider">Saved View</div>
+            <button
+              @click="handleRenameView"
+              class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+              </svg>
+              Rename
+            </button>
+            <div class="border-t border-edge-strong my-1"></div>
+            <button
+              @click="handleMoveUp"
+              class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+              </svg>
+              Move Up
+            </button>
+            <button
+              @click="handleMoveDown"
+              class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+              Move Down
+            </button>
+            <div v-if="hasActiveFilters" class="border-t border-edge-strong my-1"></div>
+            <button
+              v-if="hasActiveFilters"
+              @click="showSavedViewMenu = false; clearAllFilters()"
+              class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear Filters
+            </button>
+            <div class="border-t border-edge-strong my-1"></div>
+            <button
+              @click="handleDeleteView"
+              class="w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete
+            </button>
+          </div>
+        </div>
+        <!-- 3-dot menu for browse actions (save view, clear filters) - shown when filters/sort are non-default -->
+        <div v-if="!isTrashMode && !savedViewId && (canSaveView || hasActiveFilters)" class="relative" ref="browseMenuRef">
+          <button
+            @click="showBrowseMenu = !showBrowseMenu"
+            class="text-content-secondary p-2 rounded-lg cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle"
+            title="Filter options"
+          >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+            </svg>
+          </button>
+          <div
+            v-if="showBrowseMenu"
+            class="absolute right-0 top-full mt-1 bg-surface-raised border border-edge-strong rounded-md shadow-lg z-50 py-1 min-w-[160px]"
+          >
+            <button
+              v-if="canSaveView"
+              @click="showBrowseMenu = false; emit('save-view')"
+              class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+              </svg>
+              Save View
+            </button>
+            <div v-if="canSaveView && hasActiveFilters" class="border-t border-edge-strong my-1"></div>
+            <button
+              v-if="hasActiveFilters"
+              @click="showBrowseMenu = false; clearAllFilters()"
+              class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear Filters
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expandable Criteria Panel -->
+    <transition name="slide-down">
+      <div v-if="showCriteriaPanel" class="border-t border-edge bg-overlay-faint relative">
+        <!-- Loading spinner -->
+        <div v-if="isLoading" class="absolute top-0 left-0 right-0 bottom-0 bg-[rgba(26,26,26,0.8)] flex items-center justify-center z-10 backdrop-blur-[2px]">
+          <div class="w-8 h-8 border-[3px] border-edge border-t-indigo-500 rounded-full spinner"></div>
+        </div>
+        <div ref="criteriaScrollContainer" class="flex gap-6 px-6 py-6 overflow-x-auto overflow-y-hidden transition-opacity" :class="{ 'opacity-50 pointer-events-none': isLoading }" @wheel="handleHorizontalScroll">
+          <!-- Created Column -->
+          <div class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">CREATED</h4>
+            <div class="flex flex-col gap-2">
+              <button
+                v-for="range in dateRanges"
+                :key="range.value"
+                @click="selectDateRange(range.value)"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': selectedDateRange === range.value }, selectedDateRange === range.value ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', selectedDateRange === range.value ? 'text-content font-semibold' : 'text-content-secondary']">{{ range.label }}</span>
+                <span :class="['text-xs', selectedDateRange === range.value ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.date_ranges[range.value] || 0 }})</span>
+              </button>
+              <a @click="openCustomDatePicker" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
+                Custom range...
+              </a>
+            </div>
+          </div>
+
+          <!-- Asset Type Column -->
+          <div class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">ASSET TYPE</h4>
+            <div class="flex flex-col gap-2">
+              <div
+                @click="toggleMediaType('images')"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('images') }, isMediaTypeSelected('images') ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isMediaTypeSelected('images') ? 'text-content font-semibold' : 'text-content-secondary']">Images</span>
+                <span :class="['text-xs', isMediaTypeSelected('images') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.images }})</span>
+              </div>
+              <div
+                @click="toggleMediaType('videos')"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('videos') }, isMediaTypeSelected('videos') ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isMediaTypeSelected('videos') ? 'text-content font-semibold' : 'text-content-secondary']">Videos</span>
+                <span :class="['text-xs', isMediaTypeSelected('videos') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.videos }})</span>
+              </div>
+              <div
+                @click="toggleMediaType('audio')"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('audio') }, isMediaTypeSelected('audio') ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isMediaTypeSelected('audio') ? 'text-content font-semibold' : 'text-content-secondary']">Audio</span>
+                <span :class="['text-xs', isMediaTypeSelected('audio') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.audio }})</span>
+              </div>
+              <div
+                @click="toggleMediaType('text')"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('text') }, isMediaTypeSelected('text') ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isMediaTypeSelected('text') ? 'text-content font-semibold' : 'text-content-secondary']">Text</span>
+                <span :class="['text-xs', isMediaTypeSelected('text') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.text }})</span>
+              </div>
+              <div
+                @click="toggleMediaType('sets')"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('sets') }, isMediaTypeSelected('sets') ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isMediaTypeSelected('sets') ? 'text-content font-semibold' : 'text-content-secondary']">Sets</span>
+                <span :class="['text-xs', isMediaTypeSelected('sets') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.sets }})</span>
+              </div>
+              <div
+                @click="toggleMediaType('grids')"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('grids') }, isMediaTypeSelected('grids') ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isMediaTypeSelected('grids') ? 'text-content font-semibold' : 'text-content-secondary']">Grids</span>
+                <span :class="['text-xs', isMediaTypeSelected('grids') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.grids }})</span>
+              </div>
+              <div
+                @click="toggleMediaType('layouts')"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('layouts') }, isMediaTypeSelected('layouts') ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isMediaTypeSelected('layouts') ? 'text-content font-semibold' : 'text-content-secondary']">Layouts</span>
+                <span :class="['text-xs', isMediaTypeSelected('layouts') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.layouts }})</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Folders Column -->
+          <div class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">FOLDERS</h4>
+            <div class="flex flex-col gap-2">
+              <div v-if="!isLoading && folders.length === 0" class="text-sm text-content-muted italic py-2 text-center">
+                None
+              </div>
+              <div
+                v-for="folder in foldersLimited"
+                :key="folder"
+                @click="toggleFolder(folder)"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isFolderSelected(folder) }, isFolderSelected(folder) ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isFolderSelected(folder) ? 'text-content font-semibold' : 'text-content-secondary']">{{ getFolderName(folder) }}</span>
+                <span :class="['text-xs', isFolderSelected(folder) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.folders[folder] || 0 }})</span>
+              </div>
+              <a v-if="folders.length > 5" @click="showFolderModal = true" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
+                View more ({{ folders.length }})
+              </a>
+            </div>
+          </div>
+
+          <!-- Tags Column -->
+          <div class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">TAGS</h4>
+            <div class="flex flex-col gap-2">
+              <!-- No tags placeholder -->
+              <div v-if="!isLoading && tags.length === 0" class="text-sm text-content-muted italic py-2 text-center">
+                None
+              </div>
+              <!-- Top tags (clickable) -->
+              <div
+                v-for="tag in tagsLimited"
+                :key="tag.id"
+                @click="toggleTag(tag.id)"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isTagSelected(tag.id) }, isTagSelected(tag.id) ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isTagSelected(tag.id) ? 'text-content font-semibold' : 'text-content-secondary']">{{ tag.tag }}</span>
+                <span :class="['text-xs', isTagSelected(tag.id) ? 'text-content-tertiary' : 'text-content-muted']">({{ tag.usage_count || 0 }})</span>
+              </div>
+              <!-- View More Link -->
+              <a v-if="tags.length > 5" @click="showTagModal = true" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
+                View more
+              </a>
+            </div>
+          </div>
+
+          <!-- Tools Column -->
+          <div v-if="(filterCounts.tools && filterCounts.tools.length > 0) || (selectedTools.length > 0 || excludedTools.length > 0)" class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">TOOLS</h4>
+            <div class="flex flex-col gap-2">
+              <div v-if="!isLoading && toolsLimited.length === 0" class="text-sm text-content-muted italic py-2 text-center">
+                None
+              </div>
+              <div
+                v-for="tool in toolsLimited"
+                :key="tool.full_tool_id"
+                @click="toggleTool(tool.full_tool_id)"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isToolSelected(tool.full_tool_id) }, isToolSelected(tool.full_tool_id) ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span class="flex items-center gap-1.5 min-w-0">
+                  <span :class="['text-sm truncate', isToolSelected(tool.full_tool_id) ? 'text-content font-semibold' : 'text-content-secondary']" :title="getToolName(tool)">{{ getToolName(tool) }}</span>
+                  <svg v-if="isToolStimmaCloud(tool)" class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="url(#stimma-gradient-filter)" :title="getToolProvider(tool)">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+                  </svg>
+                  <span v-else-if="getToolProvider(tool)" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full flex-shrink-0 text-content-muted bg-overlay-subtle">{{ getToolProvider(tool) }}</span>
+                </span>
+                <span :class="['text-xs flex-shrink-0', isToolSelected(tool.full_tool_id) ? 'text-content-tertiary' : 'text-content-muted']">({{ tool.count || 0 }})</span>
+              </div>
+              <a v-if="(filterCounts.tools || []).length > 5" @click="showToolModal = true" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
+                View more
+              </a>
+            </div>
+          </div>
+
+          <!-- Keywords Column -->
+          <div v-if="captioningEnabledRef" class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">KEYWORDS</h4>
+            <div class="flex flex-col gap-2">
+              <!-- No keywords placeholder -->
+              <div v-if="!isLoading && topKeywords.length === 0" class="text-sm text-content-muted italic py-2 text-center">
+                None
+              </div>
+              <!-- Top keywords (clickable) -->
+              <div
+                v-for="kw in topKeywordsLimited"
+                :key="kw.keyword"
+                @click="toggleKeyword(kw.keyword)"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isKeywordSelected(kw.keyword) }, isKeywordSelected(kw.keyword) ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isKeywordSelected(kw.keyword) ? 'text-content font-semibold' : 'text-content-secondary']">{{ kw.keyword }}</span>
+                <span :class="['text-xs', isKeywordSelected(kw.keyword) ? 'text-content-tertiary' : 'text-content-muted']">({{ kw.count }})</span>
+              </div>
+              <!-- View More Link -->
+              <a v-if="topKeywords.length > 0" @click="openKeywordModal" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
+                View more
+              </a>
+            </div>
+          </div>
+
+          <!-- Text Filter Column -->
+          <div class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">AI SEARCH</h4>
+            <div class="flex flex-col gap-2">
+              <input v-no-autocorrect
+                type="text"
+                v-model="localSimilarToText"
+                @input="debouncedUpdate"
+                @keyup.enter="emitUpdate"
+                placeholder="Search"
+                class="bg-surface-raised border border-edge-strong text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-indigo-500"
+              />
+              <h5 class="m-0 mt-2 text-xs uppercase tracking-wider text-content-tertiary font-semibold">PROMPT FILTER</h5>
+              <input v-no-autocorrect
+                type="text"
+                v-model="localPromptQuery"
+                @input="debouncedUpdate"
+                placeholder="Filter"
+                class="bg-surface-raised border border-edge-strong text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
+          <!-- Utility Column (far right) - not shown in trash mode -->
+          <div v-if="!isTrashMode" class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">UTILITY</h4>
+            <div class="flex flex-col gap-2">
+              <div
+                @click="toggleExpiringFilter('expiring')"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isExpiringFilterSelected() }, isExpiringFilterSelected() ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isExpiringFilterSelected() ? 'text-content font-semibold' : 'text-content-secondary']">Expiring</span>
+                <span :class="['text-xs', isExpiringFilterSelected() ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.expiring || 0 }})</span>
+              </div>
+            </div>
+            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">RESOLUTION</h4>
+            <div class="flex flex-col gap-2">
+              <div
+                @click="toggleResolution('small')"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isResolutionSelected('small') }, isResolutionSelected('small') ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isResolutionSelected('small') ? 'text-content font-semibold' : 'text-content-secondary']">Small</span>
+                <span :class="['text-xs', isResolutionSelected('small') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.resolution.small }})</span>
+              </div>
+              <div
+                @click="toggleResolution('medium')"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isResolutionSelected('medium') }, isResolutionSelected('medium') ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isResolutionSelected('medium') ? 'text-content font-semibold' : 'text-content-secondary']">Medium</span>
+                <span :class="['text-xs', isResolutionSelected('medium') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.resolution.medium }})</span>
+              </div>
+              <div
+                @click="toggleResolution('large')"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isResolutionSelected('large') }, isResolutionSelected('large') ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', isResolutionSelected('large') ? 'text-content font-semibold' : 'text-content-secondary']">Large</span>
+                <span :class="['text-xs', isResolutionSelected('large') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.resolution.large }})</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Keyword Modal -->
+    <KeywordModal
+      v-if="showKeywordModal && captioningEnabledRef"
+      :selectedKeywords="selectedKeywords"
+      :filterParams="modalFilterParams"
+      @toggle-keyword="toggleKeyword"
+      @close="showKeywordModal = false"
+    />
+
+    <!-- Tool Modal -->
+    <ToolModal
+      v-if="showToolModal"
+      :tools="filterCounts.tools || []"
+      :selectedTools="[...selectedTools, ...excludedTools]"
+      @toggle-tool="toggleTool"
+      @close="showToolModal = false"
+    />
+
+    <!-- Custom Date Picker Modal -->
+    <div v-if="showDatePickerModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showDatePickerModal = false">
+      <div class="bg-surface-raised border border-edge-strong rounded-lg p-6 w-96 max-w-[90vw]" @click.stop>
+        <h3 class="text-lg font-semibold text-content mb-4">Custom Date Range</h3>
+
+        <div class="flex flex-col gap-4">
+          <div>
+            <label class="block text-sm text-content-tertiary mb-2">From (optional)</label>
+            <input v-no-autocorrect
+              type="date"
+              v-model="customAfterDate"
+              @keyup.enter="applyCustomDateRange"
+              class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-indigo-500 date-input"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm text-content-tertiary mb-2">To (optional)</label>
+            <input v-no-autocorrect
+              type="date"
+              v-model="customBeforeDate"
+              @keyup.enter="applyCustomDateRange"
+              class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-indigo-500 date-input"
+            />
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+          <button
+            @click="applyCustomDateRange"
+            class="flex-1 bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-indigo-600"
+          >
+            Apply
+          </button>
+          <button
+            @click="showDatePickerModal = false"
+            class="flex-1 bg-transparent border border-edge-strong text-content-secondary px-4 py-2 rounded-md text-sm cursor-pointer transition-all hover:bg-overlay-subtle"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { MagnifyingGlassCircleIcon } from '@heroicons/vue/24/solid'
+import { useMediaApi } from '../composables/useMediaApi'
+import { getCurrentProfileId } from '../composables/useProfile'
+import { STIMMA_CLOUD_PROVIDER_ID } from '../utils/stimmaCloud'
+import { captioningEnabledRef } from '../appConfig'
+import { useTelemetry } from '../composables/useTelemetry'
+
+const { track: trackTelemetry } = useTelemetry()
+
+const { getThumbnailUrl } = useMediaApi()
+import KeywordModal from './KeywordModal.vue'
+import ToolModal from './ToolModal.vue'
+
+const props = defineProps({
+  captionQuery: String,
+  promptQuery: String,
+  mediaTypes: Array,
+  excludedMediaTypes: Array,
+  resolutions: Array,
+  excludedResolutions: Array,
+  sortBy: String,
+  selectedKeywords: Array,
+  excludedKeywords: Array,
+  selectedFolders: Array,
+  excludedFolders: Array,
+  selectedTags: Array,           // New: user-defined tags
+  excludedTags: Array,           // New: excluded tags
+  selectedTools: Array,          // Tool lineage filter (full_tool_id strings)
+  excludedTools: Array,          // Excluded tool lineage filter
+  selectedMarkers: Array,         // New: selected markers (by ID)
+  excludedMarkers: Array,         // New: excluded markers (by ID)
+  markers: { type: Array, default: () => [] },  // Available markers from backend
+  showExpiring: Boolean,          // New: filter for expiring images (positive)
+  excludeExpiring: Boolean,       // New: filter to exclude expiring images (negative)
+  createdAfter: String,           // ISO datetime string for file date filter
+  createdBefore: String,          // ISO datetime string for file date filter
+  totalCount: Number,
+  similarSearchActive: Boolean,
+  similarSearchSourceItem: Object,  // Kept for backwards compat
+  similarSearchSourceItems: Array,   // Array of reference items for multi-select
+  similarToText: String,             // Text-based similarity search
+  similarityThreshold: { type: Number, default: 0.75 },
+  defaultCollapsed: { type: Boolean, default: true }, // Start collapsed
+  savedViewId: { type: Number, default: null },  // If viewing a saved view
+  savedViewName: { type: String, default: null },  // Name of the saved view
+  isTrashMode: { type: Boolean, default: false }  // Trash view mode
+})
+
+const emit = defineEmits([
+  'update:captionQuery',
+  'update:promptQuery',
+  'update:mediaTypes',
+  'update:excludedMediaTypes',
+  'update:resolutions',
+  'update:excludedResolutions',
+  'update:sortBy',
+  'update:selectedKeywords',
+  'update:excludedKeywords',
+  'update:selectedFolders',
+  'update:excludedFolders',
+  'update:selectedTags',       // New: tags filter
+  'update:excludedTags',       // New: excluded tags
+  'update:selectedTools',      // Tool lineage filter
+  'update:excludedTools',      // Excluded tool lineage filter
+  'update:selectedMarkers',    // New: markers filter
+  'update:excludedMarkers',    // New: excluded markers filter
+  'update:showExpiring',       // New: expiring filter (positive)
+  'update:excludeExpiring',    // New: exclude expiring filter (negative)
+  'update:createdAfter',       // New: file date filter
+  'update:createdBefore',      // New: file date filter
+  'update:similarToText',
+  'update:similarityThreshold',
+  'update',
+  'clear-similar',
+  'shuffle',
+  'save-view',
+  'delete-view',
+  'rename-view',
+  'move-up',
+  'move-down'
+])
+
+const { getTopKeywords, getTags, getConfig, getFilterCounts, getTrashFilterCounts, fetchMedia, getTrash } = useMediaApi()
+
+const localCaptionQuery = ref(props.captionQuery || '')
+const localPromptQuery = ref(props.promptQuery || '')
+const localSimilarToText = ref(props.similarToText || '')
+const localMediaTypes = ref(props.mediaTypes || [])
+const localExcludedMediaTypes = ref(props.excludedMediaTypes || [])
+const localResolutions = ref(props.resolutions || [])
+const localExcludedResolutions = ref(props.excludedResolutions || [])
+const localSortBy = ref(props.sortBy)
+const selectedKeywords = ref(props.selectedKeywords || [])
+const excludedKeywords = ref(props.excludedKeywords || [])
+const selectedFolders = ref(props.selectedFolders || [])
+const excludedFolders = ref(props.excludedFolders || [])
+const selectedTags = ref(props.selectedTags || [])        // New: tags
+const excludedTags = ref(props.excludedTags || [])        // New: excluded tags
+const selectedTools = ref(props.selectedTools || [])      // Tool lineage filter
+const excludedTools = ref(props.excludedTools || [])      // Excluded tool lineage filter
+const selectedMarkers = ref(props.selectedMarkers || [])  // New: markers
+const excludedMarkers = ref(props.excludedMarkers || [])  // New: excluded markers
+const localShowExpiring = ref(props.showExpiring || false)  // New: expiring filter (positive)
+const localExcludeExpiring = ref(props.excludeExpiring || false)  // New: exclude expiring filter (negative)
+const localSimilarityThreshold = ref(props.similarityThreshold ?? 0.75)
+const localCreatedAfter = ref(props.createdAfter || null)  // New: file date filter
+const localCreatedBefore = ref(props.createdBefore || null)  // New: file date filter
+
+// Initialize selectedDateRange based on existing date filters
+function detectDateRangeFromProps() {
+  if (!props.createdAfter && !props.createdBefore) return null
+  // If both dates exist or just one, it's a custom range
+  return 'custom'
+}
+
+const selectedDateRange = ref(detectDateRangeFromProps())  // Track which quick range is selected (e.g., '24hrs', '7d', 'custom')
+const customAfterDate = ref('')  // Temporary state for custom date picker
+const customBeforeDate = ref('')  // Temporary state for custom date picker
+
+const topKeywords = ref([])
+const tags = ref([])  // All available tags with counts
+const folders = ref([])
+const filterCounts = ref({
+  media_type: { images: 0, videos: 0, audio: 0, text: 0, sets: 0, grids: 0, layouts: 0 },
+  resolution: { small: 0, medium: 0, large: 0 },
+  folders: {},
+  keywords: {},
+  tools: [],
+  date_ranges: {},
+  expiring: 0
+})
+const showKeywordModal = ref(false)
+const showTagModal = ref(false)
+const showToolModal = ref(false)
+const showFolderModal = ref(false)
+const showDatePickerModal = ref(false)
+const showCriteriaPanel = ref(!props.defaultCollapsed)
+const showSavedViewMenu = ref(false)
+const savedViewMenuRef = ref(null)
+const showBrowseMenu = ref(false)
+const browseMenuRef = ref(null)
+const criteriaScrollContainer = ref(null)
+const hasLoadedCounts = ref(false)  // Track if counts have been loaded
+const canToggle = true // Allow toggling inclusion/exclusion
+const isLoading = ref(true)
+const unfilteredTotalCount = ref(null)  // Total count with no filters applied
+
+// Date range presets
+const dateRanges = [
+  { label: 'Last 24 hours', value: '24hrs' },
+  { label: 'Last 7 days', value: '7d' },
+  { label: 'Last 30 days', value: '30d' },
+  { label: 'Last 90 days', value: '90d' },
+  { label: 'Last year', value: '365d' }
+]
+
+let debounceTimer = null
+
+// Check if any filters are active
+const hasActiveFilters = computed(() => {
+  return !!(
+    localCaptionQuery.value ||
+    localPromptQuery.value ||
+    localSimilarToText.value ||
+    (localMediaTypes.value && localMediaTypes.value.length > 0) ||
+    (localExcludedMediaTypes.value && localExcludedMediaTypes.value.length > 0) ||
+    (localResolutions.value && localResolutions.value.length > 0) ||
+    (localExcludedResolutions.value && localExcludedResolutions.value.length > 0) ||
+    (selectedKeywords.value && selectedKeywords.value.length > 0) ||
+    (excludedKeywords.value && excludedKeywords.value.length > 0) ||
+    (selectedFolders.value && selectedFolders.value.length > 0) ||
+    (excludedFolders.value && excludedFolders.value.length > 0) ||
+    (selectedTags.value && selectedTags.value.length > 0) ||
+    (excludedTags.value && excludedTags.value.length > 0) ||
+    (selectedTools.value && selectedTools.value.length > 0) ||
+    (excludedTools.value && excludedTools.value.length > 0) ||
+    (selectedMarkers.value && selectedMarkers.value.length > 0) ||
+    (excludedMarkers.value && excludedMarkers.value.length > 0) ||
+    localShowExpiring.value ||
+    localExcludeExpiring.value ||
+    props.similarSearchActive ||
+    localCreatedAfter.value ||
+    localCreatedBefore.value
+  )
+})
+
+// Check if filters/sort are non-default (for showing Save View button)
+const canSaveView = computed(() => {
+  // Don't show on saved view pages (they have their own controls)
+  if (props.savedViewId) return false
+  // Show if any filters are active or sort is not default
+  return hasActiveFilters.value || localSortBy.value !== 'created_desc'
+})
+
+// Display text for item count
+const itemCountText = computed(() => {
+  if (props.totalCount === null) return ''
+
+  if (hasActiveFilters.value && unfilteredTotalCount.value !== null) {
+    return `${props.totalCount} of ${unfilteredTotalCount.value} items`
+  }
+
+  return `${props.totalCount} items`
+})
+
+// Top keywords for inline display - show selected keywords first, then top keywords
+const topKeywordsLimited = computed(() => {
+  const selectedKws = selectedKeywords.value || []
+  const excludedKws = excludedKeywords.value || []
+  const allSelectedKws = [...selectedKws, ...excludedKws]
+
+  // Get counts from filterCounts if available
+  const getCounts = (keyword) => {
+    if (filterCounts.value && filterCounts.value.keywords && filterCounts.value.keywords[keyword] !== undefined) {
+      return filterCounts.value.keywords[keyword]
+    }
+    // Fallback to topKeywords
+    const found = topKeywords.value.find(kw => kw.keyword === keyword)
+    return found ? found.count : 0
+  }
+
+  // Start with all selected keywords
+  const result = allSelectedKws.map(keyword => ({
+    keyword,
+    count: getCounts(keyword)
+  }))
+
+  // Add top keywords that aren't already selected, up to 5 total
+  const remainingSlots = 5 - result.length
+  if (remainingSlots > 0) {
+    const topKws = topKeywords.value
+      .filter(kw => !allSelectedKws.includes(kw.keyword))
+      .slice(0, remainingSlots)
+      .map(kw => ({
+        keyword: kw.keyword,
+        count: getCounts(kw.keyword)
+      }))
+    result.push(...topKws)
+  }
+
+  return result
+})
+
+// Top 5 folders for inline display
+const foldersLimited = computed(() => {
+  return folders.value.slice(0, 5)
+})
+
+// All keywords (both selected and excluded) for showing badges
+const allKeywords = computed(() => {
+  const selected = selectedKeywords.value || []
+  const excluded = excludedKeywords.value || []
+  // Combine and deduplicate
+  return [...new Set([...selected, ...excluded])]
+})
+
+// All folders (both selected and excluded) for showing badges
+const allFolders = computed(() => {
+  const selected = selectedFolders.value || []
+  const excluded = excludedFolders.value || []
+  // Combine and deduplicate
+  return [...new Set([...selected, ...excluded])]
+})
+
+// All tags (both selected and excluded) for showing badges
+const allTags = computed(() => {
+  const selectedIds = selectedTags.value || []
+  const excludedIds = excludedTags.value || []
+  // Combine and deduplicate
+  const allIds = [...new Set([...selectedIds, ...excludedIds])]
+  // Return tag objects from tags.value, with fallback for unresolved IDs
+  const resolved = tags.value.filter(tag => allIds.includes(tag.id))
+  const resolvedIds = new Set(resolved.map(t => t.id))
+  const fallbacks = allIds
+    .filter(id => !resolvedIds.has(id))
+    .map(id => ({ id, tag: `Tag #${id}` }))
+  return [...resolved, ...fallbacks]
+})
+
+// Top 5 tags for inline display
+const tagsLimited = computed(() => {
+  const selectedIds = selectedTags.value || []
+  const excludedIds = excludedTags.value || []
+  const allSelectedIds = [...selectedIds, ...excludedIds]
+
+  // Start with all selected tags
+  const result = tags.value.filter(tag => allSelectedIds.includes(tag.id))
+
+  // Add more tags up to 5 total
+  const remainingSlots = 5 - result.length
+  if (remainingSlots > 0) {
+    const moreTags = tags.value
+      .filter(tag => !allSelectedIds.includes(tag.id))
+      .slice(0, remainingSlots)
+    result.push(...moreTags)
+  }
+
+  return result
+})
+
+// All tools (both selected and excluded) for showing badges
+const allTools = computed(() => {
+  const selectedIds = selectedTools.value || []
+  const excludedIds = excludedTools.value || []
+  const allIds = [...new Set([...selectedIds, ...excludedIds])]
+  // Return tool objects from filterCounts.tools, with fallback for unresolved IDs
+  const tools = filterCounts.value.tools || []
+  const resolved = tools.filter(t => allIds.includes(t.full_tool_id))
+  const resolvedIds = new Set(resolved.map(t => t.full_tool_id))
+  const fallbacks = allIds
+    .filter(id => !resolvedIds.has(id))
+    .map(id => ({ full_tool_id: id, tool_name: id.split(':').pop() || id }))
+  return [...resolved, ...fallbacks]
+})
+
+// Top 5 tools for inline display in criteria panel
+const toolsLimited = computed(() => {
+  const selectedIds = selectedTools.value || []
+  const excludedIds = excludedTools.value || []
+  const allSelectedIds = [...selectedIds, ...excludedIds]
+  const tools = filterCounts.value.tools || []
+
+  // Start with all selected tools
+  const result = tools.filter(t => allSelectedIds.includes(t.full_tool_id))
+
+  // Add more tools up to 5 total
+  const remainingSlots = 5 - result.length
+  if (remainingSlots > 0) {
+    const moreTools = tools
+      .filter(t => !allSelectedIds.includes(t.full_tool_id))
+      .slice(0, remainingSlots)
+    result.push(...moreTools)
+  }
+
+  return result
+})
+
+// Filter params to pass to keyword modal
+const modalFilterParams = computed(() => {
+  const params = {}
+
+  if (props.captionQuery) params.caption_query = props.captionQuery
+  if (props.promptQuery) params.prompt_query = props.promptQuery
+  if (props.mediaTypes && props.mediaTypes.length > 0) {
+    params.media_types = props.mediaTypes.join(',')
+  }
+  if (props.excludedMediaTypes && props.excludedMediaTypes.length > 0) {
+    params.excluded_media_types = props.excludedMediaTypes.join(',')
+  }
+  if (props.resolutions && props.resolutions.length > 0) {
+    params.resolutions = props.resolutions.join(',')
+  }
+  if (props.excludedResolutions && props.excludedResolutions.length > 0) {
+    params.excluded_resolutions = props.excludedResolutions.join(',')
+  }
+  if (props.selectedFolders && props.selectedFolders.length > 0) {
+    params.folders = props.selectedFolders.join(',')
+  }
+  if (props.excludedFolders && props.excludedFolders.length > 0) {
+    params.excluded_folders = props.excludedFolders.join(',')
+  }
+  if (props.selectedTags && props.selectedTags.length > 0) {
+    params.tag_ids = props.selectedTags.join(',')
+  }
+  if (props.selectedTools && props.selectedTools.length > 0) {
+    params.tool_ids = props.selectedTools.join(',')
+  }
+  if (props.excludedTools && props.excludedTools.length > 0) {
+    params.excluded_tool_ids = props.excludedTools.join(',')
+  }
+  if (props.selectedMarkers && props.selectedMarkers.length > 0) {
+    params.marker_ids = props.selectedMarkers.join(',')
+  }
+  if (props.similarSearchActive && props.similarSearchSourceItems && props.similarSearchSourceItems.length > 0) {
+    params.similar_to = props.similarSearchSourceItems.map(item => item.id).join(',')
+    if (props.similarityThreshold) {
+      params.similarity_threshold = props.similarityThreshold
+    }
+  }
+  return params
+})
+
+function debouncedUpdate() {
+  clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    emitUpdate()
+  }, 500)  // Increased from 300ms to 500ms
+}
+
+function emitUpdate() {
+  emit('update:captionQuery', localCaptionQuery.value)
+  emit('update:promptQuery', localPromptQuery.value)
+  emit('update:similarToText', localSimilarToText.value)
+  emit('update:mediaTypes', localMediaTypes.value)
+  emit('update:excludedMediaTypes', localExcludedMediaTypes.value)
+  emit('update:resolutions', localResolutions.value)
+  emit('update:excludedResolutions', localExcludedResolutions.value)
+  emit('update:sortBy', localSortBy.value)
+  emit('update:selectedKeywords', selectedKeywords.value)
+  emit('update:excludedKeywords', excludedKeywords.value)
+  emit('update:selectedFolders', selectedFolders.value)
+  emit('update:excludedFolders', excludedFolders.value)
+  emit('update:selectedTags', selectedTags.value)              // New: tags
+  emit('update:excludedTags', excludedTags.value)              // New: excluded tags
+  emit('update:selectedTools', selectedTools.value)            // Tool lineage filter
+  emit('update:excludedTools', excludedTools.value)            // Excluded tool lineage filter
+  emit('update:selectedMarkers', selectedMarkers.value)        // New: markers
+  emit('update:excludedMarkers', excludedMarkers.value)        // New: excluded markers
+  emit('update:showExpiring', localShowExpiring.value)         // New: expiring filter (positive)
+  emit('update:excludeExpiring', localExcludeExpiring.value)   // New: exclude expiring filter (negative)
+  emit('update:createdAfter', localCreatedAfter.value)         // New: file date filter
+  emit('update:createdBefore', localCreatedBefore.value)       // New: file date filter
+  emit('update:similarityThreshold', localSimilarityThreshold.value)
+  emit('update')
+
+  // Track which filter types are active (not the values)
+  const filterFlags = {
+    hasMediaTypeFilter: (localMediaTypes.value?.length > 0 || localExcludedMediaTypes.value?.length > 0),
+    hasResolutionFilter: (localResolutions.value?.length > 0 || localExcludedResolutions.value?.length > 0),
+    hasKeywordFilter: (selectedKeywords.value?.length > 0 || excludedKeywords.value?.length > 0),
+    hasFolderFilter: (selectedFolders.value?.length > 0 || excludedFolders.value?.length > 0),
+    hasTagFilter: (selectedTags.value?.length > 0 || excludedTags.value?.length > 0),
+    hasToolFilter: (selectedTools.value?.length > 0 || excludedTools.value?.length > 0),
+    hasMarkerFilter: (selectedMarkers.value?.length > 0 || excludedMarkers.value?.length > 0),
+    hasDateFilter: (!!localCreatedAfter.value || !!localCreatedBefore.value),
+  }
+  if (Object.values(filterFlags).some(Boolean)) {
+    trackTelemetry('filter_applied', filterFlags)
+  }
+}
+
+// Media type toggle (add/remove from cart)
+function toggleMediaType(type) {
+  const isIncluded = localMediaTypes.value.includes(type)
+  const isExcluded = localExcludedMediaTypes.value.includes(type)
+
+  if (isIncluded || isExcluded) {
+    // Remove from cart
+    localMediaTypes.value = localMediaTypes.value.filter(t => t !== type)
+    localExcludedMediaTypes.value = localExcludedMediaTypes.value.filter(t => t !== type)
+  } else {
+    // Add to cart as included
+    localMediaTypes.value.push(type)
+  }
+  emitUpdate()
+}
+
+function isMediaTypeSelected(type) {
+  return localMediaTypes.value.includes(type) || localExcludedMediaTypes.value.includes(type)
+}
+
+function isMediaTypeExcluded(type) {
+  return localExcludedMediaTypes.value.includes(type)
+}
+
+// Toggle between include/exclude in the badge
+function toggleExcludeMediaType(type) {
+  const isExcluded = localExcludedMediaTypes.value.includes(type)
+
+  if (isExcluded) {
+    // Switch from excluded to included
+    localExcludedMediaTypes.value = localExcludedMediaTypes.value.filter(t => t !== type)
+    localMediaTypes.value.push(type)
+  } else {
+    // Switch from included to excluded
+    localMediaTypes.value = localMediaTypes.value.filter(t => t !== type)
+    localExcludedMediaTypes.value.push(type)
+  }
+  emitUpdate()
+}
+
+// Remove from cart entirely
+function removeMediaType(type) {
+  localMediaTypes.value = localMediaTypes.value.filter(t => t !== type)
+  localExcludedMediaTypes.value = localExcludedMediaTypes.value.filter(t => t !== type)
+  emitUpdate()
+}
+
+// Resolution toggle (add/remove from cart)
+function toggleResolution(res) {
+  const isIncluded = localResolutions.value.includes(res)
+  const isExcluded = localExcludedResolutions.value.includes(res)
+
+  if (isIncluded || isExcluded) {
+    // Remove from cart
+    localResolutions.value = localResolutions.value.filter(r => r !== res)
+    localExcludedResolutions.value = localExcludedResolutions.value.filter(r => r !== res)
+  } else {
+    // Add to cart as included
+    localResolutions.value.push(res)
+  }
+  emitUpdate()
+}
+
+function isResolutionSelected(res) {
+  return localResolutions.value.includes(res) || localExcludedResolutions.value.includes(res)
+}
+
+function isResolutionExcluded(res) {
+  return localExcludedResolutions.value.includes(res)
+}
+
+// Toggle between include/exclude in the badge
+function toggleExcludeResolution(res) {
+  const isExcluded = localExcludedResolutions.value.includes(res)
+
+  if (isExcluded) {
+    // Switch from excluded to included
+    localExcludedResolutions.value = localExcludedResolutions.value.filter(r => r !== res)
+    localResolutions.value.push(res)
+  } else {
+    // Switch from included to excluded
+    localResolutions.value = localResolutions.value.filter(r => r !== res)
+    localExcludedResolutions.value.push(res)
+  }
+  emitUpdate()
+}
+
+// Remove from cart entirely
+function removeResolution(res) {
+  localResolutions.value = localResolutions.value.filter(r => r !== res)
+  localExcludedResolutions.value = localExcludedResolutions.value.filter(r => r !== res)
+  emitUpdate()
+}
+
+
+// Keyword management
+function toggleKeyword(keyword) {
+  const index = selectedKeywords.value.indexOf(keyword)
+  if (index === -1) {
+    selectedKeywords.value.push(keyword)
+    // Remove from excluded if it was there
+    const excludedIndex = excludedKeywords.value.indexOf(keyword)
+    if (excludedIndex !== -1) {
+      excludedKeywords.value.splice(excludedIndex, 1)
+    }
+  } else {
+    selectedKeywords.value.splice(index, 1)
+    // Also remove from excluded
+    const excludedIndex = excludedKeywords.value.indexOf(keyword)
+    if (excludedIndex !== -1) {
+      excludedKeywords.value.splice(excludedIndex, 1)
+    }
+  }
+  emitUpdate()
+}
+
+function isKeywordSelected(keyword) {
+  return selectedKeywords.value.includes(keyword)
+}
+
+function isExcluded(keyword) {
+  return excludedKeywords.value.includes(keyword)
+}
+
+function toggleExcludeKeyword(keyword) {
+  const index = excludedKeywords.value.indexOf(keyword)
+  if (index === -1) {
+    // Add to excluded
+    excludedKeywords.value.push(keyword)
+    // Remove from selected if it was there
+    const selectedIndex = selectedKeywords.value.indexOf(keyword)
+    if (selectedIndex !== -1) {
+      selectedKeywords.value.splice(selectedIndex, 1)
+    }
+  } else {
+    // Remove from excluded
+    excludedKeywords.value.splice(index, 1)
+    // Add back to selected
+    if (!selectedKeywords.value.includes(keyword)) {
+      selectedKeywords.value.push(keyword)
+    }
+  }
+  emitUpdate()
+}
+
+function removeKeyword(keyword) {
+  const index = selectedKeywords.value.indexOf(keyword)
+  if (index !== -1) {
+    selectedKeywords.value.splice(index, 1)
+  }
+  const excludedIndex = excludedKeywords.value.indexOf(keyword)
+  if (excludedIndex !== -1) {
+    excludedKeywords.value.splice(excludedIndex, 1)
+  }
+  emitUpdate()
+}
+
+// Clear functions for badges
+function clearCaptionQuery() {
+  localCaptionQuery.value = ''
+  emitUpdate()
+}
+
+function clearPromptQuery() {
+  localPromptQuery.value = ''
+  emitUpdate()
+}
+
+function clearSimilarToText() {
+  localSimilarToText.value = ''
+  emitUpdate()
+}
+
+function clearAllFilters() {
+  localCaptionQuery.value = ''
+  localPromptQuery.value = ''
+  localSimilarToText.value = ''
+  localMediaTypes.value = []
+  localExcludedMediaTypes.value = []
+  localResolutions.value = []
+  localExcludedResolutions.value = []
+  selectedKeywords.value = []
+  excludedKeywords.value = []
+  selectedFolders.value = []
+  excludedFolders.value = []
+  selectedTags.value = []
+  excludedTags.value = []
+  selectedTools.value = []
+  excludedTools.value = []
+  selectedMarkers.value = []
+  excludedMarkers.value = []
+  localShowExpiring.value = false
+  localExcludeExpiring.value = false
+  localCreatedAfter.value = null
+  localCreatedBefore.value = null
+  localSortBy.value = 'created_desc'
+  emit('clear-similar')
+  emitUpdate()
+}
+
+function removeFolder(folder) {
+  const index = selectedFolders.value.indexOf(folder)
+  if (index !== -1) {
+    selectedFolders.value.splice(index, 1)
+  }
+  const excludedIndex = excludedFolders.value.indexOf(folder)
+  if (excludedIndex !== -1) {
+    excludedFolders.value.splice(excludedIndex, 1)
+  }
+  emitUpdate()
+}
+
+// Tag functions
+function toggleTag(tagId) {
+  const index = selectedTags.value.indexOf(tagId)
+  if (index === -1) {
+    selectedTags.value.push(tagId)
+    // Remove from excluded if it was there
+    const excludedIndex = excludedTags.value.indexOf(tagId)
+    if (excludedIndex !== -1) {
+      excludedTags.value.splice(excludedIndex, 1)
+    }
+  } else {
+    selectedTags.value.splice(index, 1)
+    // Also remove from excluded
+    const excludedIndex = excludedTags.value.indexOf(tagId)
+    if (excludedIndex !== -1) {
+      excludedTags.value.splice(excludedIndex, 1)
+    }
+  }
+  emitUpdate()
+}
+
+function isTagSelected(tagId) {
+  return selectedTags.value.includes(tagId)
+}
+
+function isTagExcluded(tagId) {
+  return excludedTags.value.includes(tagId)
+}
+
+function toggleExcludeTag(tagId) {
+  const index = excludedTags.value.indexOf(tagId)
+  if (index === -1) {
+    // Add to excluded
+    excludedTags.value.push(tagId)
+    // Remove from selected if it was there
+    const selectedIndex = selectedTags.value.indexOf(tagId)
+    if (selectedIndex !== -1) {
+      selectedTags.value.splice(selectedIndex, 1)
+    }
+  } else {
+    // Remove from excluded
+    excludedTags.value.splice(index, 1)
+    // Add back to selected
+    if (!selectedTags.value.includes(tagId)) {
+      selectedTags.value.push(tagId)
+    }
+  }
+  emitUpdate()
+}
+
+function removeTag(tagId) {
+  const index = selectedTags.value.indexOf(tagId)
+  if (index !== -1) {
+    selectedTags.value.splice(index, 1)
+  }
+  const excludedIndex = excludedTags.value.indexOf(tagId)
+  if (excludedIndex !== -1) {
+    excludedTags.value.splice(excludedIndex, 1)
+  }
+  emitUpdate()
+}
+
+// Tool functions
+function getToolName(tool) {
+  if (typeof tool === 'object' && tool.name) return tool.name
+  return typeof tool === 'string' ? tool : String(tool)
+}
+
+function getToolProvider(tool) {
+  if (typeof tool === 'object' && tool.provider_name) return tool.provider_name
+  return ''
+}
+
+function isToolStimmaCloud(tool) {
+  return typeof tool === 'object' && tool.provider_id === STIMMA_CLOUD_PROVIDER_ID
+}
+
+function getToolDisplayName(tool) {
+  const name = getToolName(tool)
+  const provider = getToolProvider(tool)
+  return provider ? `${name} (${provider})` : name
+}
+
+function toggleTool(fullToolId) {
+  const index = selectedTools.value.indexOf(fullToolId)
+  if (index === -1) {
+    selectedTools.value.push(fullToolId)
+    // Remove from excluded if it was there
+    const excludedIndex = excludedTools.value.indexOf(fullToolId)
+    if (excludedIndex !== -1) {
+      excludedTools.value.splice(excludedIndex, 1)
+    }
+  } else {
+    selectedTools.value.splice(index, 1)
+    // Also remove from excluded
+    const excludedIndex = excludedTools.value.indexOf(fullToolId)
+    if (excludedIndex !== -1) {
+      excludedTools.value.splice(excludedIndex, 1)
+    }
+  }
+  emitUpdate()
+}
+
+function isToolSelected(fullToolId) {
+  return selectedTools.value.includes(fullToolId) || excludedTools.value.includes(fullToolId)
+}
+
+function isToolExcluded(fullToolId) {
+  return excludedTools.value.includes(fullToolId)
+}
+
+function toggleExcludeTool(fullToolId) {
+  const index = excludedTools.value.indexOf(fullToolId)
+  if (index === -1) {
+    // Add to excluded
+    excludedTools.value.push(fullToolId)
+    // Remove from selected if it was there
+    const selectedIndex = selectedTools.value.indexOf(fullToolId)
+    if (selectedIndex !== -1) {
+      selectedTools.value.splice(selectedIndex, 1)
+    }
+  } else {
+    // Remove from excluded
+    excludedTools.value.splice(index, 1)
+    // Add back to selected
+    if (!selectedTools.value.includes(fullToolId)) {
+      selectedTools.value.push(fullToolId)
+    }
+  }
+  emitUpdate()
+}
+
+function removeTool(fullToolId) {
+  const index = selectedTools.value.indexOf(fullToolId)
+  if (index !== -1) {
+    selectedTools.value.splice(index, 1)
+  }
+  const excludedIndex = excludedTools.value.indexOf(fullToolId)
+  if (excludedIndex !== -1) {
+    excludedTools.value.splice(excludedIndex, 1)
+  }
+  emitUpdate()
+}
+
+async function toggleCriteriaPanel() {
+  showCriteriaPanel.value = !showCriteriaPanel.value
+
+  // Load keywords and counts on first open (tags and folders already loaded on mount)
+  if (showCriteriaPanel.value && !hasLoadedCounts.value) {
+    hasLoadedCounts.value = true
+    isLoading.value = true
+    try {
+      await Promise.all([
+        loadTopKeywords(),
+        loadFilterCounts()
+      ])
+    } finally {
+      isLoading.value = false
+    }
+  }
+}
+
+function handleShuffle() {
+  emit('shuffle')
+}
+
+// Convert vertical mouse wheel to horizontal scroll in the criteria panel
+function handleHorizontalScroll(event) {
+  if (!criteriaScrollContainer.value) return
+
+  const container = criteriaScrollContainer.value
+  const hasHorizontalScroll = container.scrollWidth > container.clientWidth
+
+  // Only convert if there's vertical scroll (deltaY) and the container actually has horizontal overflow
+  if (event.deltaY !== 0 && hasHorizontalScroll) {
+    event.preventDefault()
+    container.scrollLeft += event.deltaY
+  }
+}
+
+// Folder management (add/remove from cart)
+function toggleFolder(folder) {
+  const isIncluded = selectedFolders.value.includes(folder)
+  const isExcluded = excludedFolders.value.includes(folder)
+
+  if (isIncluded || isExcluded) {
+    // Remove from cart
+    const index = selectedFolders.value.indexOf(folder)
+    if (index !== -1) {
+      selectedFolders.value.splice(index, 1)
+    }
+    const excludedIndex = excludedFolders.value.indexOf(folder)
+    if (excludedIndex !== -1) {
+      excludedFolders.value.splice(excludedIndex, 1)
+    }
+  } else {
+    // Add to cart as included
+    selectedFolders.value.push(folder)
+  }
+  emitUpdate()
+}
+
+function isFolderSelected(folder) {
+  return selectedFolders.value.includes(folder) || excludedFolders.value.includes(folder)
+}
+
+function isFolderExcluded(folder) {
+  return excludedFolders.value.includes(folder)
+}
+
+// Toggle between include/exclude in the badge
+function toggleExcludeFolder(folder) {
+  const isExcluded = excludedFolders.value.includes(folder)
+
+  if (isExcluded) {
+    // Switch from excluded to included
+    const index = excludedFolders.value.indexOf(folder)
+    if (index !== -1) {
+      excludedFolders.value.splice(index, 1)
+    }
+    selectedFolders.value.push(folder)
+  } else {
+    // Switch from included to excluded
+    const index = selectedFolders.value.indexOf(folder)
+    if (index !== -1) {
+      selectedFolders.value.splice(index, 1)
+    }
+    excludedFolders.value.push(folder)
+  }
+  emitUpdate()
+}
+
+function getFolderName(folderPath) {
+  // Get the last part of the path as the folder name
+  const parts = folderPath.split('/')
+  return parts[parts.length - 1] || folderPath
+}
+
+// Date range functions
+function selectDateRange(rangeValue) {
+  // If clicking the same range again, clear it (toggle off)
+  if (selectedDateRange.value === rangeValue) {
+    clearDateRange()
+    return
+  }
+
+  const now = new Date()
+  let afterDate = null
+
+  // Calculate the start date based on the selected range
+  switch (rangeValue) {
+    case '2hrs':
+      afterDate = new Date(now.getTime() - 2 * 60 * 60 * 1000)
+      break
+    case '24hrs':
+      afterDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+      break
+    case '72hrs':
+      afterDate = new Date(now.getTime() - 72 * 60 * 60 * 1000)
+      break
+    case '7d':
+      afterDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      break
+    case '30d':
+      afterDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      break
+    case '90d':
+      afterDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+      break
+    case '365d':
+      afterDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+      break
+  }
+
+  if (afterDate) {
+    selectedDateRange.value = rangeValue
+    localCreatedAfter.value = afterDate.toISOString()
+    localCreatedBefore.value = null  // No upper bound for quick ranges
+    emitUpdate()
+  }
+}
+
+function clearDateRange() {
+  selectedDateRange.value = null
+  localCreatedAfter.value = null
+  localCreatedBefore.value = null
+  emitUpdate()
+}
+
+function getDateRangeLabel() {
+  if (selectedDateRange.value === 'custom') {
+    // Format custom date range for display
+    const parts = []
+    if (localCreatedAfter.value) {
+      const date = new Date(localCreatedAfter.value)
+      parts.push(date.toLocaleDateString())
+    }
+    if (localCreatedBefore.value) {
+      const date = new Date(localCreatedBefore.value)
+      if (parts.length > 0) {
+        parts.push(' - ')
+      }
+      parts.push(date.toLocaleDateString())
+    }
+    return parts.join('') || 'Custom range'
+  }
+  const range = dateRanges.find(r => r.value === selectedDateRange.value)
+  return range ? range.label : ''
+}
+
+function openCustomDatePicker() {
+  // Initialize with current values if they exist
+  if (localCreatedAfter.value) {
+    const date = new Date(localCreatedAfter.value)
+    customAfterDate.value = date.toISOString().slice(0, 10)
+  } else {
+    customAfterDate.value = ''
+  }
+  if (localCreatedBefore.value) {
+    const date = new Date(localCreatedBefore.value)
+    customBeforeDate.value = date.toISOString().slice(0, 10)
+  } else {
+    customBeforeDate.value = ''
+  }
+  showDatePickerModal.value = true
+}
+
+function applyCustomDateRange() {
+  selectedDateRange.value = 'custom'
+
+  // For date-only inputs, set time to start/end of day
+  if (customAfterDate.value) {
+    const afterDate = new Date(customAfterDate.value)
+    afterDate.setHours(0, 0, 0, 0)
+    localCreatedAfter.value = afterDate.toISOString()
+  } else {
+    localCreatedAfter.value = null
+  }
+
+  if (customBeforeDate.value) {
+    const beforeDate = new Date(customBeforeDate.value)
+    beforeDate.setHours(23, 59, 59, 999)
+    localCreatedBefore.value = beforeDate.toISOString()
+  } else {
+    localCreatedBefore.value = null
+  }
+
+  showDatePickerModal.value = false
+  emitUpdate()
+}
+
+function setCustomDateRange(afterDate, beforeDate) {
+  selectedDateRange.value = 'custom'
+  localCreatedAfter.value = afterDate
+  localCreatedBefore.value = beforeDate
+  showDatePickerModal.value = false
+  emitUpdate()
+}
+
+// Marker functions - 3-state toggle
+function isMarkerPositive(markerId) {
+  return (selectedMarkers.value || []).includes(markerId)
+}
+
+function isMarkerNegative(markerId) {
+  return (excludedMarkers.value || []).includes(markerId)
+}
+
+function toggleMarker(markerId) {
+  const isPositive = isMarkerPositive(markerId)
+  const isNegative = isMarkerNegative(markerId)
+
+  if (!isPositive && !isNegative) {
+    // State 1: None -> Positive (blue)
+    selectedMarkers.value = [...selectedMarkers.value, markerId]
+  } else if (isPositive) {
+    // State 2: Positive -> Negative (red)
+    selectedMarkers.value = selectedMarkers.value.filter(id => id !== markerId)
+    excludedMarkers.value = [...excludedMarkers.value, markerId]
+  } else {
+    // State 3: Negative -> None
+    excludedMarkers.value = excludedMarkers.value.filter(id => id !== markerId)
+  }
+
+  emitUpdate()
+}
+
+// Expiring filter functions - 3-state toggle
+function isExpiringFilterSelected() {
+  return localShowExpiring.value
+}
+
+function toggleExpiringFilter() {
+  const isPositive = localShowExpiring.value
+  const isNegative = localExcludeExpiring.value
+
+  if (!isPositive && !isNegative) {
+    // State 1: None -> Positive (green)
+    localShowExpiring.value = true
+    localExcludeExpiring.value = false
+  } else if (isPositive) {
+    // State 2: Positive -> Negative (red)
+    localShowExpiring.value = false
+    localExcludeExpiring.value = true
+  } else {
+    // State 3: Negative -> None
+    localShowExpiring.value = false
+    localExcludeExpiring.value = false
+  }
+
+  emitUpdate()
+}
+
+function toggleExpiringExclusion() {
+  const isExcluded = localExcludeExpiring.value
+
+  if (isExcluded) {
+    // Switch from excluded to included
+    localExcludeExpiring.value = false
+    localShowExpiring.value = true
+  } else {
+    // Switch from included to excluded
+    localShowExpiring.value = false
+    localExcludeExpiring.value = true
+  }
+  emitUpdate()
+}
+
+function clearExpiringFilter() {
+  localShowExpiring.value = false
+  localExcludeExpiring.value = false
+  emitUpdate()
+}
+
+// Saved view menu functions
+function handleDeleteView() {
+  showSavedViewMenu.value = false
+  emit('delete-view')
+}
+
+function handleRenameView() {
+  showSavedViewMenu.value = false
+  emit('rename-view')
+}
+
+function handleMoveUp() {
+  showSavedViewMenu.value = false
+  emit('move-up')
+}
+
+function handleMoveDown() {
+  showSavedViewMenu.value = false
+  emit('move-down')
+}
+
+function handleClickOutside(event) {
+  if (savedViewMenuRef.value && !savedViewMenuRef.value.contains(event.target)) {
+    showSavedViewMenu.value = false
+  }
+  if (browseMenuRef.value && !browseMenuRef.value.contains(event.target)) {
+    showBrowseMenu.value = false
+  }
+}
+
+// Load top keywords
+async function loadTopKeywords() {
+  try {
+    const params = {
+      ...modalFilterParams.value,
+      limit: 200
+    }
+    const response = await getTopKeywords(params)
+    topKeywords.value = response.keywords
+    console.log('Loaded keywords:', topKeywords.value.length)
+  } catch (error) {
+    console.error('Failed to load keywords:', error)
+  }
+}
+
+// Open keyword modal (loading happens inside the modal now)
+function openKeywordModal() {
+  showKeywordModal.value = true
+}
+
+// Load tags from API
+async function loadTags() {
+  try {
+    const response = await getTags(true)
+    tags.value = response
+    console.log('Loaded tags:', tags.value.length)
+  } catch (error) {
+    console.error('Failed to load tags:', error)
+  }
+}
+
+// Load folders from config
+async function loadFolders() {
+  try {
+    const response = await getConfig()
+    folders.value = response.media_paths || []
+    console.log('Loaded folders:', folders.value)
+  } catch (error) {
+    console.error('Failed to load folders:', error)
+  }
+}
+
+// Load unfiltered total count
+async function loadUnfilteredCount() {
+  try {
+    const params = {
+      page: 1,
+      page_size: 1
+    }
+
+    // Use appropriate endpoint based on mode
+    if (props.isTrashMode) {
+      const response = await getTrash(params)
+      unfilteredTotalCount.value = response.total
+    } else {
+      const response = await fetchMedia(params)
+      unfilteredTotalCount.value = response.total
+    }
+  } catch (error) {
+    console.error('Failed to load unfiltered count:', error)
+  }
+}
+
+// Load filter counts
+async function loadFilterCounts() {
+  try {
+    const params = {
+      keyword_limit: 50  // Get preview counts for top 50 keywords to ensure we cover the top 5 displayed
+    }
+
+    // Pass current filter state
+    if (props.captionQuery) params.caption_query = props.captionQuery
+    if (props.promptQuery) params.prompt_query = props.promptQuery
+    if (props.mediaTypes && props.mediaTypes.length > 0) {
+      params.media_types = props.mediaTypes.join(',')
+    }
+    if (props.excludedMediaTypes && props.excludedMediaTypes.length > 0) {
+      params.excluded_media_types = props.excludedMediaTypes.join(',')
+    }
+    if (props.resolutions && props.resolutions.length > 0) {
+      params.resolutions = props.resolutions.join(',')
+    }
+    if (props.excludedResolutions && props.excludedResolutions.length > 0) {
+      params.excluded_resolutions = props.excludedResolutions.join(',')
+    }
+    if (props.selectedKeywords && props.selectedKeywords.length > 0) {
+      params.keywords = props.selectedKeywords.join(',')
+    }
+    if (props.excludedKeywords && props.excludedKeywords.length > 0) {
+      params.excluded_keywords = props.excludedKeywords.join(',')
+    }
+    if (props.selectedFolders && props.selectedFolders.length > 0) {
+      params.folders = props.selectedFolders.join(',')
+    }
+    if (props.excludedFolders && props.excludedFolders.length > 0) {
+      params.excluded_folders = props.excludedFolders.join(',')
+    }
+    if (props.selectedTags && props.selectedTags.length > 0) {
+      params.tag_ids = props.selectedTags.join(',')
+    }
+    if (props.excludedTags && props.excludedTags.length > 0) {
+      params.excluded_tag_ids = props.excludedTags.join(',')
+    }
+    if (props.selectedTools && props.selectedTools.length > 0) {
+      params.tool_ids = props.selectedTools.join(',')
+    }
+    if (props.excludedTools && props.excludedTools.length > 0) {
+      params.excluded_tool_ids = props.excludedTools.join(',')
+    }
+    if (props.selectedMarkers && props.selectedMarkers.length > 0) {
+      params.marker_ids = props.selectedMarkers.join(',')
+    }
+    if (props.excludedMarkers && props.excludedMarkers.length > 0) {
+      params.excluded_marker_ids = props.excludedMarkers.join(',')
+    }
+
+    // Include similarity filter if active (not applicable in trash mode)
+    if (!props.isTrashMode && props.similarSearchActive && props.similarSearchSourceItems && props.similarSearchSourceItems.length > 0) {
+      params.similar_to = props.similarSearchSourceItems.map(item => item.id).join(',')
+      if (props.similarityThreshold) {
+        params.similarity_threshold = props.similarityThreshold
+      }
+    }
+
+    // Call appropriate endpoint based on mode
+    const response = props.isTrashMode
+      ? await getTrashFilterCounts(params)
+      : await getFilterCounts(params)
+    filterCounts.value = response
+    // Update tags from filter counts (includes filtered usage_count)
+    if (response.tags) {
+      tags.value = response.tags
+    }
+    console.log('Loaded filter counts:', filterCounts.value)
+    console.log('Keyword preview counts:', filterCounts.value.keywords)
+  } catch (error) {
+    console.error('Failed to load filter counts:', error)
+  }
+}
+
+// Sync with props - use functions that avoid creating new array references
+function syncArray(local, prop) {
+  const newVal = prop || []
+  // Only update if content actually changed (avoid reference changes triggering loops)
+  if (JSON.stringify(local.value) !== JSON.stringify(newVal)) {
+    local.value = newVal
+  }
+}
+
+watch(() => props.captionQuery, (val) => localCaptionQuery.value = val || '')
+watch(() => props.promptQuery, (val) => localPromptQuery.value = val || '')
+watch(() => props.similarToText, (val) => localSimilarToText.value = val || '')
+watch(() => props.mediaTypes, (val) => syncArray(localMediaTypes, val))
+watch(() => props.excludedMediaTypes, (val) => syncArray(localExcludedMediaTypes, val))
+watch(() => props.resolutions, (val) => syncArray(localResolutions, val))
+watch(() => props.excludedResolutions, (val) => syncArray(localExcludedResolutions, val))
+watch(() => props.sortBy, (val) => localSortBy.value = val)
+watch(() => props.selectedKeywords, (val) => syncArray(selectedKeywords, val))
+watch(() => props.excludedKeywords, (val) => syncArray(excludedKeywords, val))
+watch(() => props.selectedFolders, (val) => syncArray(selectedFolders, val))
+watch(() => props.excludedFolders, (val) => syncArray(excludedFolders, val))
+watch(() => props.similarityThreshold, (val) => localSimilarityThreshold.value = val ?? 0.75)
+watch(() => props.createdAfter, (val) => {
+  localCreatedAfter.value = val || null
+  // Update selectedDateRange when props change
+  selectedDateRange.value = detectDateRangeFromProps()
+})
+watch(() => props.createdBefore, (val) => {
+  localCreatedBefore.value = val || null
+  // Update selectedDateRange when props change
+  selectedDateRange.value = detectDateRangeFromProps()
+})
+watch(() => props.selectedTags, (val) => syncArray(selectedTags, val))
+watch(() => props.excludedTags, (val) => syncArray(excludedTags, val))
+watch(() => props.selectedTools, (val) => syncArray(selectedTools, val))
+watch(() => props.excludedTools, (val) => syncArray(excludedTools, val))
+watch(() => props.selectedMarkers, (val) => syncArray(selectedMarkers, val))
+watch(() => props.excludedMarkers, (val) => syncArray(excludedMarkers, val))
+watch(() => props.showExpiring, (val) => localShowExpiring.value = val || false)
+watch(() => props.excludeExpiring, (val) => localExcludeExpiring.value = val || false)
+// Reload counts when similarity search changes
+watch(() => props.similarSearchActive, () => {
+  loadFilterCounts()
+})
+
+// Auto-switch to similarity sort when text search is entered
+watch(localSimilarToText, (newVal, oldVal) => {
+  if (newVal && newVal.trim() && (!oldVal || !oldVal.trim())) {
+    // Text search activated - switch to similarity sort
+    localSortBy.value = 'similarity'
+  } else if ((!newVal || !newVal.trim()) && oldVal && oldVal.trim()) {
+    // Text search cleared - revert to default sort
+    if (localSortBy.value === 'similarity') {
+      localSortBy.value = 'created_desc'
+    }
+  }
+})
+
+// Debounced watcher for filter changes to reload preview counts
+let filterCountsDebounceTimer = null
+watch(
+  () => [
+    props.captionQuery,
+    props.promptQuery,
+    props.mediaTypes,
+    props.excludedMediaTypes,
+    props.resolutions,
+    props.excludedResolutions,
+    props.selectedKeywords,
+    props.excludedKeywords,
+    props.selectedFolders,
+    props.excludedFolders,
+    props.selectedTags,
+    props.excludedTags,
+    props.selectedTools,
+    props.excludedTools,
+    props.selectedMarkers,
+    props.excludedMarkers,
+    props.similarSearchSourceItems,
+    props.similarityThreshold
+  ],
+  () => {
+    // Clear existing timer
+    if (filterCountsDebounceTimer) {
+      clearTimeout(filterCountsDebounceTimer)
+    }
+
+    // Set new timer (500ms debounce)
+    filterCountsDebounceTimer = setTimeout(() => {
+      loadFilterCounts()
+      loadTopKeywords()  // Also reload top keywords when filters change
+    }, 500)
+  },
+  { deep: true }
+)
+
+// Handle profile changes - reload all filter data for new profile
+async function handleProfileChanged() {
+  console.log('[FilterBar] Profile changed, reloading filter data')
+
+  // Reset local state
+  topKeywords.value = []
+  tags.value = []
+  folders.value = []
+  filterCounts.value = {
+    media_type: { images: 0, videos: 0, audio: 0, text: 0, sets: 0, grids: 0, layouts: 0 },
+    resolution: { small: 0, medium: 0, large: 0 },
+    folders: {},
+    keywords: {},
+    date_ranges: {},
+    expiring: 0
+  }
+  unfilteredTotalCount.value = null
+  hasLoadedCounts.value = false
+
+  // Always reload folders and tags (needed even when panel is closed)
+  loadUnfilteredCount()
+  await Promise.all([
+    loadTags(),
+    loadFolders()
+  ])
+
+  // If panel is open, also reload keywords and counts
+  if (showCriteriaPanel.value) {
+    hasLoadedCounts.value = true
+    isLoading.value = true
+    try {
+      await Promise.all([
+        loadTopKeywords(),
+        loadFilterCounts()
+      ])
+    } finally {
+      isLoading.value = false
+    }
+  }
+}
+
+onMounted(async () => {
+  // Click outside handler for saved view menu
+  document.addEventListener('click', handleClickOutside)
+
+  // Always load unfiltered count immediately for "X of Y" display
+  loadUnfilteredCount()
+
+  // Always load tags and folders immediately so they can be displayed in the shopping cart strip
+  // even when the panel is closed (e.g., when filtering by tag/folder from slideshow)
+  await Promise.all([
+    loadTags(),
+    loadFolders()
+  ])
+
+  // If panel is already open, load keywords and counts immediately
+  // Otherwise they'll load when panel is first opened
+  if (showCriteriaPanel.value) {
+    hasLoadedCounts.value = true
+    isLoading.value = true
+    try {
+      await Promise.all([
+        loadTopKeywords(),
+        loadFilterCounts()
+      ])
+    } finally {
+      isLoading.value = false
+    }
+  } else {
+    isLoading.value = false
+  }
+
+  // Listen for profile changes
+  window.addEventListener('profile-changed', handleProfileChanged)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('profile-changed', handleProfileChanged)
+  document.removeEventListener('click', handleClickOutside)
+})
+
+// Expose methods for parent components to call
+defineExpose({
+  refreshTags: loadTags,
+  reloadForProfile: handleProfileChanged
+})
+</script>
+
+<style scoped>
+/* Spinner animation */
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Range slider custom styling */
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--slider-thumb);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  background: var(--slider-thumb-hover);
+}
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--slider-thumb);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s;
+}
+
+.slider::-moz-range-thumb:hover {
+  background: var(--slider-thumb-hover);
+}
+
+/* Slide Down Animation */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease;
+  max-height: 500px;
+  overflow: hidden;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* Custom Scrollbar for Horizontal Overflow in Filter Panel */
+.overflow-x-auto::-webkit-scrollbar {
+  -webkit-appearance: none;
+  height: 8px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 4px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.5);
+}
+
+/* Firefox scrollbar */
+.overflow-x-auto {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+}
+
+/* Dark mode styling for date inputs and calendar popups */
+.date-input {
+  color-scheme: dark;
+}
+
+.date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+}
+
+.date-input::-webkit-datetime-edit {
+  color: white;
+}
+
+.date-input::-webkit-datetime-edit-fields-wrapper {
+  color: white;
+}
+
+.date-input::-webkit-datetime-edit-text {
+  color: var(--color-text-muted);
+}
+
+.date-input::-webkit-datetime-edit-month-field,
+.date-input::-webkit-datetime-edit-day-field,
+.date-input::-webkit-datetime-edit-year-field {
+  color: var(--color-text-primary);
+}
+</style>

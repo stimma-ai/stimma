@@ -1,0 +1,66 @@
+/* Plugin tabs styles - vertical sidebar on left */
+
+.stimma-tabs {
+  display: flex;
+  flex-direction: column;
+  padding: var(--stimma-spacing-sm);
+  background-color: rgb(var(--stimma-color-background));
+  border-right: 1px solid var(--stimma-border-color);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.stimma-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.stimma-tabs__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--stimma-spacing-md);
+}
+
+.stimma-tabs__tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--stimma-spacing-sm);
+  border-radius: var(--stimma-border-radius);
+  transition: all var(--stimma-transition-duration) var(--stimma-transition-timing);
+  min-width: 56px;
+}
+
+.stimma-tabs__tab:hover:not(:disabled) {
+  background-color: rgba(var(--stimma-color-foreground), 0.05);
+}
+
+.stimma-tabs__tab--active {
+  background-color: rgba(var(--stimma-color-primary), 0.1);
+  color: rgb(var(--stimma-color-primary));
+}
+
+.stimma-tabs__tab--active:hover:not(:disabled) {
+  background-color: rgba(var(--stimma-color-primary), 0.15);
+}
+
+.stimma-tabs__icon {
+  width: 24px;
+  height: 24px;
+  margin-bottom: 2px;
+  opacity: 0.65;
+}
+
+.stimma-tabs__tab--active .stimma-tabs__icon {
+  opacity: 1;
+}
+
+.stimma-tabs__label {
+  font-size: var(--stimma-font-size-sm);
+  white-space: nowrap;
+  opacity: 0.65;
+}
+
+.stimma-tabs__tab--active .stimma-tabs__label {
+  opacity: 1;
+}

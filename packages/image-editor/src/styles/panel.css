@@ -1,0 +1,45 @@
+/* Plugin panel styles */
+
+.stimma-panel {
+  padding: var(--stimma-spacing-md);
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.stimma-panel__header {
+  font-size: var(--stimma-font-size-lg);
+  font-weight: 600;
+  margin-bottom: var(--stimma-spacing-md);
+}
+
+.stimma-panel__section {
+  margin-bottom: var(--stimma-spacing-lg);
+}
+
+.stimma-panel__section-title {
+  font-size: var(--stimma-font-size-sm);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgb(var(--stimma-color-secondary));
+  margin-bottom: var(--stimma-spacing-sm);
+}
+
+.stimma-panel__row {
+  display: flex;
+  align-items: center;
+  gap: var(--stimma-spacing-sm);
+  margin-bottom: var(--stimma-spacing-sm);
+  min-width: 0;
+}
+
+.stimma-panel__label {
+  flex: 0 0 80px;
+  font-size: var(--stimma-font-size-sm);
+  color: rgb(var(--stimma-color-secondary));
+}
+
+.stimma-panel__control {
+  flex: 1;
+  min-width: 0;
+}

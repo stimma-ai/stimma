@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../packages/image-editor/src/*", "src/*"],
+      "@stimma/image-editor": ["../packages/image-editor/src/index.ts"],
+      "@stimma/image-editor/style.css": ["../packages/image-editor/src/styles/index.css"]
+    }
+  },
+  "include": ["src/**/*.js", "src/**/*.ts", "src/**/*.vue"]
+}

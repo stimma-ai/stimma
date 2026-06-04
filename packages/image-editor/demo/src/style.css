@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  transition: background-color 150ms ease-out;
+}
+
+/* Dark mode body background matching stimma palette */
+.dark body,
+body:has(.dark) {
+  background-color: #0f0f0f;
+}

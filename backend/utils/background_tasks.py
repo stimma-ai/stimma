@@ -1,0 +1,315 @@
+"""Background tasks for media monitoring and cleanup."""
+import asyncio
+from core.logging import get_logger
+from datetime import datetime
+from sqlalchemy import select, func, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from database import MediaItem
+from database_registry import get_database_registry
+from config import get_settings
+
+log = get_logger(__name__)
+
+# Processing phases to monitor
+BROADCAST_PHASES = ['metadata', 'clip', 'face_detection', 'vlm_caption']
+
+
+async def monitor_media_changes(ws_manager):
+    """
+    Background task to monitor for new media additions and broadcast via WebSocket.
+    Checks database periodically and emits 'media_added' events when new items are detected.
+    """
+    last_total_count = 0
+
+    while True:
+        try:
+            await asyncio.sleep(5)  # Check every 5 seconds
+
+            # Get current total count across ALL profile databases
+            settings = get_settings()
+            registry = get_database_registry()
+            current_total = 0
+
+            for profile in settings.profiles:
+                # Skip profiles not in registry (may have been removed)
+                if not registry.has_profile(profile.id):
+                    continue
+                db = registry.get_database(profile.id)
+                async with db.async_session_maker() as session:
+                    result = await session.execute(select(func.count()).select_from(MediaItem))
+                    current_total += result.scalar() or 0
+
+            # Check if new items were added
+            if current_total > last_total_count and last_total_count > 0:
+                new_count = current_total - last_total_count
+                log.info(f"MEDIA MONITOR: Detected {new_count} new items (total: {current_total})")
+
+                # Broadcast to all connected WebSocket clients (global event)
+                await ws_manager.broadcast('media_added', {
+                    'count': new_count,
+                    'total': current_total,
+                    'timestamp': datetime.now().isoformat()
+                }, include_profile=False)
+
+            last_total_count = current_total
+
+        except asyncio.CancelledError:
+            log.info("MEDIA MONITOR: Shutting down")
+            break
+        except Exception as e:
+            log.error(f"MEDIA MONITOR: Error: {e}", exc_info=True)
+            await asyncio.sleep(30)  # Longer sleep on error
+
+
+async def cleanup_expired_images(ws_manager):
+    """
+    Background task to automatically mark expired generated images as deleted.
+    Dynamically schedules based on next expiration time, with fallback to periodic checks.
+
+    """
+    from cleanup_service import CleanupService
+
+    cleanup_service = CleanupService()
+
+    log.info("CLEANUP: Auto-delete cleanup task started, waiting 5 seconds before first check...")
+
+    # Initial delay before first check
+    await asyncio.sleep(5)
+
+    log.info("CLEANUP: Beginning cleanup loop")
+
+    while True:
+        try:
+            # Run cleanup for ALL profile databases
+            settings = get_settings()
+            registry = get_database_registry()
+
+            all_deleted_ids: list[int] = []
+            earliest_expiration = None
+
+            for profile in settings.profiles:
+                # Skip profiles not in registry (may have been removed)
+                if not registry.has_profile(profile.id):
+                    continue
+
+                # Get folder configs for this profile
+                folder_configs = {folder.path: folder for folder in profile.folders}
+
+                # Run cleanup on this profile's database
+                db = registry.get_database(profile.id)
+                async with db.async_session_maker() as session:
+                    deleted_ids, next_expiration = await cleanup_service.cleanup_expired_images(session, folder_configs)
+                    all_deleted_ids.extend(deleted_ids)
+
+                    # Track earliest expiration across all profiles
+                    if next_expiration:
+                        if earliest_expiration is None or next_expiration < earliest_expiration:
+                            earliest_expiration = next_expiration
+
+            next_expiration = earliest_expiration
+
+            if all_deleted_ids:
+                # Broadcast events to update frontend UI
+                # Use bulk event for efficiency when there are many deletions
+                if len(all_deleted_ids) > 1:
+                    await ws_manager.broadcast('media_bulk_deleted', {
+                        'media_ids': all_deleted_ids,
+                        'reason': 'auto_delete_expired'
+                    }, include_profile=False)
+                else:
+                    # Single item - use individual event
+                    await ws_manager.broadcast('media_deleted', {
+                        'media_id': all_deleted_ids[0],
+                        'reason': 'auto_delete_expired'
+                    }, include_profile=False)
+
+                log.info(f"CLEANUP: Deleted {len(all_deleted_ids)} expired images and broadcast events")
+
+            # Calculate next sleep duration
+            if next_expiration:
+                # Sleep until next expiration, with a small buffer
+                now = datetime.utcnow()
+                sleep_seconds = (next_expiration - now).total_seconds() + 1  # +1 second buffer
+
+                # If already expired or very soon, check immediately (but at least 1 second)
+                # Otherwise clamp between 1 second and 300 seconds (5 minutes max)
+                if sleep_seconds < 1:
+                    sleep_seconds = 1
+                else:
+                    sleep_seconds = min(sleep_seconds, 300)
+
+                log.info(f"CLEANUP: Next expiration in {sleep_seconds:.1f} seconds at {next_expiration.isoformat()}")
+            else:
+                # No pending expirations, check again in 60 seconds
+                sleep_seconds = 60
+                log.debug("CLEANUP: No pending expirations, checking again in 60 seconds")
+
+            await asyncio.sleep(sleep_seconds)
+
+        except asyncio.CancelledError:
+            log.info("CLEANUP: Shutting down")
+            break
+        except Exception as e:
+            log.error(f"CLEANUP: Error during cleanup: {e}", exc_info=True)
+            await asyncio.sleep(60)  # Wait 60 seconds on error before retrying
+
+
+async def monitor_processing_stats(ws_manager):
+    """
+    Background task to monitor processing stats and broadcast via WebSocket.
+    This bridges the multiprocessing gap - the ingestion worker runs in a separate
+    process and can't access WebSocket connections, so this task queries the DB
+    and broadcasts stats from the main web server process.
+
+    Uses a single aggregated query and 2-second interval to minimize DB load.
+    Aggregates stats across ALL profile databases.
+    """
+    from sqlalchemy import case
+
+    while True:
+        try:
+            await asyncio.sleep(5)  # Update every 5 seconds - stats don't need real-time updates
+
+            # Query stats from ALL profile databases
+            settings = get_settings()
+            registry = get_database_registry()
+
+            # Initialize aggregated phase_stats
+            phase_stats = {}
+            for phase in BROADCAST_PHASES:
+                phase_stats[phase] = {status: 0 for status in ['pending', 'processing', 'completed', 'failed']}
+
+            for profile in settings.profiles:
+                # Skip profiles not in registry (may have been removed)
+                if not registry.has_profile(profile.id):
+                    continue
+                db = registry.get_database(profile.id)
+                async with db.async_session_maker() as session:
+                    # Build a single query that counts all phase/status combinations
+                    columns = []
+                    for phase in BROADCAST_PHASES:
+                        status_col = getattr(MediaItem, f"{phase}_status")
+                        for status in ['pending', 'processing', 'completed', 'failed']:
+                            columns.append(
+                                func.sum(case((status_col == status, 1), else_=0)).label(f"{phase}_{status}")
+                            )
+
+                    result = await session.execute(select(*columns))
+                    row = result.one()
+
+                    # Aggregate results from this profile
+                    for phase in BROADCAST_PHASES:
+                        for status in ['pending', 'processing', 'completed', 'failed']:
+                            phase_stats[phase][status] += getattr(row, f"{phase}_{status}") or 0
+
+            # Broadcast to all connected WebSocket clients (global event, no profile filtering)
+            await ws_manager.broadcast('processing_stats', {'phase_stats': phase_stats}, include_profile=False)
+
+        except asyncio.CancelledError:
+            log.info("PROCESSING STATS MONITOR: Shutting down")
+            break
+        except Exception as e:
+            log.error(f"PROCESSING STATS MONITOR: Error: {e}", exc_info=True)
+            await asyncio.sleep(5)  # Longer sleep on error
+
+
+async def clear_auto_delete_for_media(session: AsyncSession, media_ids: list[int], ws_manager):
+    """
+    Clear auto-delete settings for media items when they are tagged, marked, or collected.
+    This prevents auto-deletion of images that the user has actively curated.
+
+    Args:
+        session: Database session
+        media_ids: List of media item IDs to clear auto-delete for
+        ws_manager: WebSocket manager for broadcasting events
+    """
+    if not media_ids:
+        return
+
+    # Find media items with auto-delete set
+    query = select(MediaItem).where(
+        and_(
+            MediaItem.id.in_(media_ids),
+            MediaItem.auto_delete_at.isnot(None)
+        )
+    )
+    result = await session.execute(query)
+    media_items = result.scalars().all()
+
+    if not media_items:
+        return
+
+    # Clear auto-delete settings
+    affected_media_ids = []
+    for media_item in media_items:
+        media_item.auto_delete_at = None
+        affected_media_ids.append(media_item.id)
+        log.info(f"Cleared auto-delete for media {media_item.id}")
+
+    await session.commit()
+
+    # Broadcast WebSocket events to update UI
+    for media_id in affected_media_ids:
+        await ws_manager.broadcast('auto_delete_removed', {
+            'media_id': media_id
+        })
+
+
+async def monitor_system_warnings(ws_manager):
+    """
+    Background task to monitor system requirements and broadcast warnings.
+    Checks FFmpeg availability every 5 minutes and broadcasts events when status changes.
+    """
+    from ffmpeg_checker import get_ffmpeg_checker
+
+    # Track active warnings to detect state changes
+    active_warnings = set()
+
+    while True:
+        try:
+            await asyncio.sleep(300)  # Check every 5 minutes
+
+            checker = get_ffmpeg_checker()
+            ffmpeg_available, ffprobe_available = checker.check_availability()
+
+            warning_key = "ffmpeg_missing"
+
+            # Check if FFmpeg is missing
+            if not ffmpeg_available or not ffprobe_available:
+                # FFmpeg is missing
+                if warning_key not in active_warnings:
+                    # New warning - broadcast it
+                    active_warnings.add(warning_key)
+
+                    missing_tools = []
+                    if not ffmpeg_available:
+                        missing_tools.append("ffmpeg")
+                    if not ffprobe_available:
+                        missing_tools.append("ffprobe")
+
+                    log.warning(f"SYSTEM WARNING: FFmpeg components missing: {', '.join(missing_tools)}")
+
+                    await ws_manager.broadcast('system_warning', {
+                        'type': 'ffmpeg_missing',
+                        'title': 'FFmpeg Required',
+                        'message': f'FFmpeg is not installed on your system. Missing: {", ".join(missing_tools)}',
+                        'action_url': 'https://stimma.ai/link/ffmpeg'
+                    }, include_profile=False)
+            else:
+                # FFmpeg is available
+                if warning_key in active_warnings:
+                    # Warning cleared - broadcast cleared event
+                    active_warnings.remove(warning_key)
+                    log.info("SYSTEM WARNING: FFmpeg is now available")
+
+                    await ws_manager.broadcast('system_warning_cleared', {
+                        'type': 'ffmpeg_missing'
+                    }, include_profile=False)
+
+        except asyncio.CancelledError:
+            log.info("SYSTEM WARNINGS MONITOR: Shutting down")
+            break
+        except Exception as e:
+            log.error(f"SYSTEM WARNINGS MONITOR: Error: {e}", exc_info=True)
+            await asyncio.sleep(300)  # Wait 5 minutes on error before retrying

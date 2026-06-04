@@ -1,0 +1,18 @@
+/* Stimma Image Editor Styles */
+
+/* CSS Custom Properties */
+@import './variables.css';
+
+/* Base styles */
+@import './base.css';
+
+/* Component styles */
+@import './editor.css';
+@import './toolbar.css';
+@import './tabs.css';
+@import './canvas.css';
+@import './panel.css';
+
+/* Common component styles */
+@import './common/button.css';
+@import './common/slider.css';

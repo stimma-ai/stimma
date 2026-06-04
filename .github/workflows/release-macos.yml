@@ -1,0 +1,502 @@
+name: Release / macOS
+run-name: ${{ github.event_name == 'push' && format('Release / macOS - {0}', github.ref_name) || format('Release / macOS - {0}', inputs.channel) }}
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      channel:
+        required: true
+        type: string
+      version:
+        required: false
+        type: string
+      publish_updates:
+        required: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release-macos:
+    name: Build and publish macOS
+    runs-on: [self-hosted, macOS, ARM64]
+
+    env:
+      RUST_BACKTRACE: 1
+      STIMMA_RELEASE_CHANNEL: ${{ github.event_name == 'push' && (contains(github.ref_name, '-alpha.') && 'alpha' || contains(github.ref_name, '-beta.') && 'beta' || 'production') || inputs.channel }}
+      STIMMA_UPDATE_BASE_URL: ${{ vars.STIMMA_UPDATE_BASE_URL || 'https://updates.stimma.ai' }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      R2_S3_ENDPOINT: ${{ vars.R2_S3_ENDPOINT }}
+      GITHUB_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Prepare Actions tool cache
+        run: |
+          set -euo pipefail
+          TOOL_CACHE="${RUNNER_TEMP}/toolcache"
+          mkdir -p "$TOOL_CACHE"
+          {
+            echo "RUNNER_TOOL_CACHE=$TOOL_CACHE"
+            echo "AGENT_TOOLSDIRECTORY=$TOOL_CACHE"
+          } >> "$GITHUB_ENV"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref || inputs.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          save-if: false
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        run: uv python install 3.11
+
+      - name: Build image editor package
+        working-directory: packages/image-editor
+        run: |
+          npm install
+          npm run build
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm install
+
+      - name: Install backend deps
+        working-directory: backend
+        run: uv sync --python 3.11 --all-extras --locked
+
+      - name: Resolve app version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          TAG_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${INPUT_VERSION}"
+          if [ -z "$VERSION" ] && [ "$EVENT_NAME" = "push" ]; then
+            if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9]+)?$ ]]; then
+              echo "Release tags must look like v1.2.3, v1.2.3-alpha.1, or v1.2.3-beta.1."
+              exit 1
+            fi
+            VERSION="${TAG_NAME#v}"
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION="0.0.0-${CHANNEL}.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set app version in build manifests
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          tmp_file="$(mktemp)"
+          jq --arg version "$VERSION" '.version = $version | .bundle.targets = ["app"]' src-tauri/tauri.conf.json > "$tmp_file"
+          mv "$tmp_file" src-tauri/tauri.conf.json
+
+          sed -i '' -E "s/^version = \"[^\"]+\"/version = \"${VERSION}\"/" src-tauri/Cargo.toml
+
+      - name: Set app identity for channel
+        env:
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+        run: |
+          set -euo pipefail
+          case "$CHANNEL" in
+            production)
+              BUNDLE_ID="ai.stimma.stimma"
+              PRODUCT_NAME="Stimma"
+              ;;
+            beta)
+              BUNDLE_ID="ai.stimma.stimma.beta"
+              PRODUCT_NAME="Stimma Beta"
+              ;;
+            alpha)
+              BUNDLE_ID="ai.stimma.stimma.alpha"
+              PRODUCT_NAME="Stimma Alpha"
+              ;;
+            *)
+              BUNDLE_ID="ai.stimma.stimma.debug"
+              PRODUCT_NAME="Stimma Debug"
+              ;;
+          esac
+          tmp_file="$(mktemp)"
+          jq --arg id "$BUNDLE_ID" --arg product "$PRODUCT_NAME" \
+            '.identifier = $id | .productName = $product | .app.windows |= map(.title = $product)' \
+            src-tauri/tauri.conf.json > "$tmp_file"
+          mv "$tmp_file" src-tauri/tauri.conf.json
+          echo "Set app identity to: $PRODUCT_NAME ($BUNDLE_ID)"
+
+      - name: Configure updater endpoint in tauri config
+        env:
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          UPDATER_PUBKEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          UPDATE_ENDPOINT="${STIMMA_UPDATE_BASE_URL}/stimma/${CHANNEL}/darwin-aarch64/latest.json"
+          if [ -z "${UPDATER_PUBKEY:-}" ]; then
+            echo "TAURI_SIGNING_PUBLIC_KEY is required for updater-enabled builds."
+            exit 1
+          fi
+
+          tmp_file="$(mktemp)"
+          jq \
+            --arg endpoint "$UPDATE_ENDPOINT" \
+            --arg pubkey "$UPDATER_PUBKEY" \
+            '.plugins.updater.active = true | .plugins.updater.endpoints = [$endpoint] | .plugins.updater.pubkey = $pubkey' \
+            src-tauri/tauri.conf.json > "$tmp_file"
+          mv "$tmp_file" src-tauri/tauri.conf.json
+
+      - name: Generate channel icons
+        env:
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+        working-directory: backend
+        run: uv run python ../scripts/generate-icons.py --channel "$CHANNEL"
+
+      - name: Import Apple signing certificate
+        if: vars.ENABLE_APPLE_SIGNING == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLE_CERTIFICATE:-}" ] || [ -z "${APPLE_CERTIFICATE_PASSWORD:-}" ]; then
+            echo "APPLE_CERTIFICATE and APPLE_CERTIFICATE_PASSWORD are required when ENABLE_APPLE_SIGNING=true."
+            exit 1
+          fi
+
+          CERT_PATH="$RUNNER_TEMP/apple-signing.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/apple-signing-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+          ORIGINAL_KEYCHAINS="$(security list-keychains -d user | sed 's/[ "]//g')"
+
+          security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          rm -f "$KEYCHAIN_PATH" "$KEYCHAIN_PATH"-shm "$KEYCHAIN_PATH"-wal
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/pkgbuild \
+            -T /usr/bin/productbuild \
+            -k "$KEYCHAIN_PATH"
+          security set-keychain-settings -t 3600 -u "$KEYCHAIN_PATH"
+          curl -fsSLo "$RUNNER_TEMP/DeveloperIDG2CA.cer" "https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer"
+          curl -fsSLo "$RUNNER_TEMP/DeveloperIDCA.cer" "https://www.apple.com/certificateauthority/DeveloperIDCA.cer"
+          security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$KEYCHAIN_PATH" -T /usr/bin/codesign || true
+          security import "$RUNNER_TEMP/DeveloperIDCA.cer" -k "$KEYCHAIN_PATH" -T /usr/bin/codesign || true
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s $ORIGINAL_KEYCHAINS "$KEYCHAIN_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH" | tee "$RUNNER_TEMP/codesigning-identities.txt"
+          if ! grep -qE '[1-9][0-9]* valid identities found' "$RUNNER_TEMP/codesigning-identities.txt"; then
+            echo "No codesigning identities are available after importing Apple certificate."
+            exit 1
+          fi
+
+      - name: Work around protected macOS provenance xattrs
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          cat > "$RUNNER_TEMP/bin/xattr" <<'SH'
+          #!/bin/bash
+          if [ "${1:-}" = "-crs" ]; then
+            /usr/bin/xattr "$@" 2> "$RUNNER_TEMP/xattr.err"
+            status=$?
+            if [ "$status" -ne 0 ]; then
+              cat "$RUNNER_TEMP/xattr.err" >&2
+              echo "Ignoring xattr cleanup failure; macOS may protect com.apple.provenance on self-hosted runners." >&2
+            fi
+            exit 0
+          fi
+          exec /usr/bin/xattr "$@"
+          SH
+          chmod +x "$RUNNER_TEMP/bin/xattr"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Detach stale Stimma DMG mounts
+        run: |
+          set -euo pipefail
+          find /Volumes -maxdepth 1 -type d \( -name "Stimma" -o -name "Stimma [0-9]*" -o -name "Stimma Alpha" -o -name "Stimma Alpha [0-9]*" \) -print0 |
+            while IFS= read -r -d '' volume; do
+              hdiutil detach "$volume" || diskutil unmount force "$volume" || true
+            done
+
+      - name: Build signed and notarized macOS app
+        if: vars.ENABLE_APPLE_SIGNING == 'true'
+        env:
+          VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/darwin-aarch64/latest.json
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -o pipefail
+          tools/stimma app build 2>&1 | tee macos-build.log
+
+      - name: Build macOS app (Apple signing disabled)
+        if: vars.ENABLE_APPLE_SIGNING != 'true'
+        env:
+          VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/darwin-aarch64/latest.json
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -o pipefail
+          tools/stimma app build 2>&1 | tee macos-build.log
+
+      - name: Create macOS DMG
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          APP_BUNDLE="$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)"
+          if [ -z "$APP_BUNDLE" ]; then
+            echo "Expected macOS .app bundle was not generated."
+            exit 1
+          fi
+
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP_BUNDLE/Contents/Info.plist")"
+          PRODUCT_NAME="$(basename "$APP_BUNDLE" .app)"
+          DMG_DIR="src-tauri/target/release/bundle/dmg"
+          STAGING_DIR="$RUNNER_TEMP/stimma-dmg-staging"
+          DMG_FILE="${DMG_DIR}/${PRODUCT_NAME}_${VERSION}_aarch64.dmg"
+          RAW_DMG_FILE="${DMG_DIR}/${PRODUCT_NAME}_${VERSION}_aarch64.raw.dmg"
+
+          rm -rf "$STAGING_DIR"
+          mkdir -p "$STAGING_DIR" "$DMG_DIR"
+          ditto --noextattr --noqtn "$APP_BUNDLE" "$STAGING_DIR/$(basename "$APP_BUNDLE")"
+          xattr -cr "$STAGING_DIR/$(basename "$APP_BUNDLE")" || true
+          ln -s /Applications "$STAGING_DIR/Applications"
+          rm -f "$DMG_FILE" "$RAW_DMG_FILE"
+
+          hdiutil makehybrid \
+            -hfs \
+            -hfs-volume-name "$PRODUCT_NAME" \
+            -o "$RAW_DMG_FILE" \
+            "$STAGING_DIR"
+          hdiutil convert "$RAW_DMG_FILE" -format UDZO -o "$DMG_FILE"
+          rm -f "$RAW_DMG_FILE"
+
+          if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            codesign --force --sign "$APPLE_SIGNING_IDENTITY" "$DMG_FILE"
+            codesign --verify --verbose=2 "$DMG_FILE"
+          fi
+
+      - name: Collect build artifacts
+        id: collect
+        run: |
+          set -euo pipefail
+          DMG_FILE="$(find src-tauri/target/release/bundle/dmg -name '*.dmg' | head -n 1)"
+          APP_TAR="$(find src-tauri/target/release/bundle/macos -name '*.app.tar.gz' | head -n 1)"
+          APP_SIG="${APP_TAR}.sig"
+          APP_BUNDLE="$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' | head -n 1)"
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP_BUNDLE/Contents/Info.plist")"
+
+          if [ -z "$DMG_FILE" ] || [ -z "$APP_TAR" ] || [ -z "$APP_BUNDLE" ] || [ ! -f "$APP_SIG" ]; then
+            echo "Expected DMG and updater artifacts were not generated."
+            exit 1
+          fi
+
+          echo "dmg_file=$DMG_FILE" >> "$GITHUB_OUTPUT"
+          echo "app_tar=$APP_TAR" >> "$GITHUB_OUTPUT"
+          echo "app_sig=$APP_SIG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: stimma-macos-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
+          retention-days: 10
+          path: |
+            ${{ steps.collect.outputs.dmg_file }}
+            ${{ steps.collect.outputs.app_tar }}
+            ${{ steps.collect.outputs.app_sig }}
+
+      - name: Publish GitHub release assets
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          prerelease: ${{ env.STIMMA_RELEASE_CHANNEL != 'production' }}
+          generate_release_notes: true
+          files: |
+            ${{ steps.collect.outputs.dmg_file }}
+            ${{ steps.collect.outputs.app_tar }}
+            ${{ steps.collect.outputs.app_sig }}
+
+      - name: Publish updater artifacts to Cloudflare R2
+        if: github.event_name == 'push' || inputs.publish_updates == true
+        env:
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DMG_FILE: ${{ steps.collect.outputs.dmg_file }}
+          APP_TAR: ${{ steps.collect.outputs.app_tar }}
+          APP_SIG: ${{ steps.collect.outputs.app_sig }}
+          BUCKET: ${{ env.R2_BUCKET }}
+          R2_S3_ENDPOINT: ${{ env.R2_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BUCKET:-}" ]; then
+            echo "R2_BUCKET repo variable is required."
+            exit 1
+          fi
+          if [ -z "${R2_S3_ENDPOINT:-}" ]; then
+            echo "R2_S3_ENDPOINT repo variable is required."
+            exit 1
+          fi
+          if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+            echo "R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY secrets are required."
+            exit 1
+          fi
+          R2_S3_ENDPOINT="$(printf '%s' "$R2_S3_ENDPOINT" | tr -d '[:space:]')"
+          AWS_ACCESS_KEY_ID="$(printf '%s' "$AWS_ACCESS_KEY_ID" | tr -d '[:space:]')"
+          AWS_SECRET_ACCESS_KEY="$(printf '%s' "$AWS_SECRET_ACCESS_KEY" | tr -d '[:space:]')"
+          export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+
+          VERSIONED_PREFIX="stimma/${CHANNEL}/darwin-aarch64/${VERSION}"
+          BASENAME="$(basename "$APP_TAR")"
+          DMG_BASENAME="$(basename "$DMG_FILE")"
+          BASENAME_URL="$(python3 -c 'from urllib.parse import quote; import sys; print(quote(sys.argv[1]))' "$BASENAME")"
+          DMG_BASENAME_URL="$(python3 -c 'from urllib.parse import quote; import sys; print(quote(sys.argv[1]))' "$DMG_BASENAME")"
+          SIG_VALUE="$(tr -d '\n' < "$APP_SIG")"
+          URL="${STIMMA_UPDATE_BASE_URL}/${VERSIONED_PREFIX}/${BASENAME_URL}"
+          DOWNLOAD_URL="${STIMMA_UPDATE_BASE_URL}/${VERSIONED_PREFIX}/${DMG_BASENAME_URL}"
+          DOWNLOAD_SIZE="$(stat -f%z "$DMG_FILE")"
+          DOWNLOAD_SHA256="$(shasum -a 256 "$DMG_FILE" | awk '{print $1}')"
+
+          aws s3 cp "$DMG_FILE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${DMG_BASENAME}" --content-type application/x-apple-diskimage --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
+          aws s3 cp "$APP_TAR" "s3://${BUCKET}/${VERSIONED_PREFIX}/${BASENAME}" --content-type application/gzip --endpoint-url "$R2_S3_ENDPOINT"
+          aws s3 cp "$APP_SIG" "s3://${BUCKET}/${VERSIONED_PREFIX}/${BASENAME}.sig" --content-type text/plain --endpoint-url "$R2_S3_ENDPOINT"
+
+          cat > latest.json <<JSON
+          {
+            "version": "${VERSION}",
+            "notes": "Manual CI build",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": {
+              "darwin-aarch64": {
+                "signature": "${SIG_VALUE}",
+                "url": "${URL}"
+              }
+            }
+          }
+          JSON
+
+          EXISTING_LATEST="existing-latest.json"
+          set +e
+          aws s3 cp "s3://${BUCKET}/stimma/${CHANNEL}/darwin-aarch64/latest.json" "$EXISTING_LATEST" --endpoint-url "$R2_S3_ENDPOINT"
+          existing_fetch_code=$?
+          set -e
+          if [ "$existing_fetch_code" -ne 0 ]; then
+            echo "No existing darwin-aarch64 latest.json found in release bucket."
+            rm -f "$EXISTING_LATEST"
+          fi
+
+          set +e
+          CANDIDATE_VERSION="$VERSION" EXISTING_MANIFEST="$EXISTING_LATEST" CHANNEL="$CHANNEL" python3 - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+
+          def key(version: str):
+              m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-(?:(alpha|beta)\.)?(\d+))?$", version)
+              if not m:
+                  raise SystemExit(f"Unparseable version: {version}")
+              core = tuple(int(m.group(i)) for i in range(1, 4))
+              channel = m.group(4) or os.environ["CHANNEL"]
+              n = int(m.group(5) or 0)
+              rank = {"alpha": 1, "beta": 2, "production": 3}.get(channel, 0)
+              return (*core, rank, n)
+
+          candidate = os.environ["CANDIDATE_VERSION"]
+          existing_path = os.environ["EXISTING_MANIFEST"]
+          existing = None
+          if os.path.exists(existing_path):
+              with open(existing_path, encoding="utf-8") as manifest:
+                  existing = json.load(manifest).get("version")
+          if existing and key(candidate) < key(existing):
+              print(f"Refusing to move darwin-aarch64 latest.json backward from {existing} to {candidate}.")
+              sys.exit(42)
+          print(f"Publishing latest manifest for {candidate}; existing={existing or 'none'}.")
+          PY
+          guard_code=$?
+          set -e
+          if [ "$guard_code" -eq 42 ]; then
+            echo "Skipping latest.json and download.json publish because a newer manifest already exists."
+            exit 0
+          elif [ "$guard_code" -ne 0 ]; then
+            exit "$guard_code"
+          fi
+
+          aws s3 cp latest.json "s3://${BUCKET}/stimma/${CHANNEL}/darwin-aarch64/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+
+          cat > download.json <<JSON
+          {
+            "version": "${VERSION}",
+            "channel": "${CHANNEL}",
+            "platform": "darwin-aarch64",
+            "filename": "${DMG_BASENAME}",
+            "url": "${DOWNLOAD_URL}",
+            "size": ${DOWNLOAD_SIZE},
+            "sha256": "${DOWNLOAD_SHA256}",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          JSON
+
+          aws s3 cp download.json "s3://${BUCKET}/stimma/${CHANNEL}/darwin-aarch64/download.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+
+      - name: Purge Cloudflare cache for latest manifest
+        if: github.event_name == 'push' || inputs.publish_updates == true
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ZONE_ID:-}" ]; then
+            echo "CF_API_TOKEN and CF_ZONE_ID secrets are required."
+            exit 1
+          fi
+
+          MANIFEST_URL="${STIMMA_UPDATE_BASE_URL}/stimma/${CHANNEL}/darwin-aarch64/latest.json"
+          DOWNLOAD_MANIFEST_URL="${STIMMA_UPDATE_BASE_URL}/stimma/${CHANNEL}/darwin-aarch64/download.json"
+          curl -fsS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "{\"files\":[\"${MANIFEST_URL}\",\"${DOWNLOAD_MANIFEST_URL}\"]}"

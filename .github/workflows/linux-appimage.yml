@@ -1,0 +1,431 @@
+name: Build / Linux AppImage
+run-name: ${{ github.event_name == 'push' && format('Build / Linux AppImage - {0}', github.ref_name) || format('Build / Linux AppImage - {0}', inputs.channel) }}
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      channel:
+        required: true
+        type: string
+      version:
+        required: false
+        type: string
+      publish_updates:
+        required: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  linux-appimage:
+    name: Build Linux AppImage
+    runs-on: [self-hosted, Linux, X64]
+
+    env:
+      RUST_BACKTRACE: 1
+      STIMMA_RELEASE_CHANNEL: ${{ github.event_name == 'push' && (contains(github.ref_name, '-alpha.') && 'alpha' || contains(github.ref_name, '-beta.') && 'beta' || 'production') || inputs.channel }}
+      STIMMA_UPDATE_BASE_URL: ${{ vars.STIMMA_UPDATE_BASE_URL || 'https://updates.stimma.ai' }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      R2_S3_ENDPOINT: ${{ vars.R2_S3_ENDPOINT }}
+      GITHUB_TOKEN: ${{ github.token }}
+      UV_PYTHON_DOWNLOADS: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref || inputs.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          save-if: false
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Preflight environment
+        run: |
+          set -euo pipefail
+          uname -a
+          lsb_release -a || true
+          node --version
+          npm --version
+          rustc --version
+          cargo --version
+          uv --version
+          command -v file
+          command -v patchelf
+          command -v xdg-open
+          pkg-config --modversion webkit2gtk-4.1
+          pkg-config --modversion javascriptcoregtk-4.1
+
+      - name: Setup Python via uv
+        run: |
+          set -euo pipefail
+          uv python install --force 3.11
+          uv run --python 3.11 python --version
+
+      - name: Build image editor package
+        working-directory: packages/image-editor
+        run: |
+          npm install
+          npm run build
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm install
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/linux-x86_64/latest.json
+        run: npm run build
+
+      - name: Install backend deps
+        working-directory: backend
+        run: uv sync --all-extras --locked
+
+      - name: Resolve app version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${INPUT_VERSION}"
+          if [ -z "$VERSION" ] && [ "$EVENT_NAME" = "push" ]; then
+            if [[ ! "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9]+)?$ ]]; then
+              echo "Release tags must look like v1.2.3, v1.2.3-alpha.1, or v1.2.3-beta.1."
+              exit 1
+            fi
+            VERSION="${REF_NAME#v}"
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION="0.0.0-${CHANNEL}.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set Linux AppImage build config
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          UPDATER_PUBKEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          uv run --python 3.11 python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["VERSION"]
+          channel = os.environ["CHANNEL"]
+          updater_pubkey = os.environ.get("UPDATER_PUBKEY", "")
+          if not updater_pubkey:
+              raise SystemExit("TAURI_SIGNING_PUBLIC_KEY is required for updater-enabled builds.")
+          bundle_ids = {
+              "production": "ai.stimma.stimma",
+              "beta": "ai.stimma.stimma.beta",
+              "alpha": "ai.stimma.stimma.alpha",
+          }
+          product_names = {
+              "production": "Stimma",
+              "beta": "Stimma Beta",
+              "alpha": "Stimma Alpha",
+          }
+
+          tauri = Path("src-tauri/tauri.conf.json")
+          cfg = json.loads(tauri.read_text(encoding="utf-8"))
+          cfg["version"] = version
+          cfg["identifier"] = bundle_ids.get(channel, "ai.stimma.stimma.debug")
+          cfg["productName"] = product_names.get(channel, "Stimma Debug")
+          for window in cfg.get("app", {}).get("windows", []):
+              window["title"] = cfg["productName"]
+          cfg.setdefault("build", {}).pop("beforeBuildCommand", None)
+          cfg.setdefault("bundle", {})["targets"] = ["appimage"]
+          cfg["bundle"]["createUpdaterArtifacts"] = "v1Compatible"
+          cfg.setdefault("plugins", {}).setdefault("updater", {})["active"] = True
+          cfg["plugins"]["updater"]["endpoints"] = [
+              f"{os.environ.get('STIMMA_UPDATE_BASE_URL', 'https://updates.stimma.ai')}/stimma/{channel}/linux-x86_64/latest.json"
+          ]
+          cfg["plugins"]["updater"]["pubkey"] = updater_pubkey
+          tauri.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+
+          cargo = Path("src-tauri/Cargo.toml")
+          text = cargo.read_text(encoding="utf-8")
+          text = re.sub(r'^version\s*=\s*"[^"]+"', f'version = "{version}"', text, count=1, flags=re.MULTILINE)
+          cargo.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Generate channel icons
+        env:
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+        working-directory: backend
+        run: uv run --python 3.11 python ../scripts/generate-icons.py --channel "$CHANNEL"
+
+      - name: Build Linux AppImage
+        env:
+          VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/linux-x86_64/latest.json
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          RUST_LOG: tauri_bundler=trace
+        run: tools/stimma app build
+
+      - name: Print Linux payload stats
+        if: always()
+        run: |
+          set -euo pipefail
+          root="src-tauri/binaries/stimma-backend-x86_64-unknown-linux-gnu"
+          if [ -d "$root" ]; then
+            find "$root" -type f | wc -l
+            du -sh "$root"
+          else
+            echo "Linux backend payload root not found: $root"
+          fi
+
+      - name: Smoke-check bundled backend launcher
+        run: |
+          set -euo pipefail
+          root="src-tauri/binaries/stimma-backend-x86_64-unknown-linux-gnu"
+          test -x "$root/run.sh"
+          env PYTHONHOME=/tmp/stimma-bad-pythonhome PYTHONPATH=/tmp/stimma-bad-pythonpath "$root/run.sh" --help >/tmp/stimma-backend-help.txt
+          head -40 /tmp/stimma-backend-help.txt
+
+      - name: Smoke-check AppImage backend launcher
+        run: |
+          set -euo pipefail
+          appdir="$(find src-tauri/target/release/bundle/appimage -maxdepth 1 -name '*.AppDir' -print -quit)"
+          test -n "$appdir"
+          backend="$(find "$appdir/usr/lib" -path '*/stimma-backend/run.sh' -print -quit)"
+          test -n "$backend"
+          test -x "$backend"
+          env PYTHONHOME="$appdir/usr" PYTHONPATH="$appdir/usr/share/pyshared:" "$backend" --help >/tmp/stimma-appdir-backend-help.txt
+          head -40 /tmp/stimma-appdir-backend-help.txt
+
+      - name: Dump bundle diagnostics on failure
+        if: failure()
+        run: |
+          find src-tauri/target/release/bundle -maxdepth 4 -type f -print 2>/dev/null || true
+
+      - name: Collect build artifacts
+        id: collect
+        run: |
+          set -euo pipefail
+          bundle_dir="src-tauri/target/release/bundle/appimage"
+          appimage="$(find "$bundle_dir" -maxdepth 1 -name '*.AppImage' -print -quit)"
+          updater_archive="$(find "$bundle_dir" -maxdepth 1 -name '*.AppImage.tar.gz' -print -quit)"
+          updater_sig="${updater_archive}.sig"
+
+          if [ -z "$appimage" ]; then
+            echo "AppImage was not generated."
+            exit 1
+          fi
+
+          echo "appimage_file=$appimage" >> "$GITHUB_OUTPUT"
+          if [ -n "$updater_archive" ] && [ -f "$updater_sig" ]; then
+            echo "updater_archive=$updater_archive" >> "$GITHUB_OUTPUT"
+            echo "updater_sig=$updater_sig" >> "$GITHUB_OUTPUT"
+          else
+            echo "updater_archive=" >> "$GITHUB_OUTPUT"
+            echo "updater_sig=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload AppImage artifact
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: stimma-linux-appimage-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
+          retention-days: 10
+          path: ${{ steps.collect.outputs.appimage_file }}
+
+      - name: Upload updater artifacts
+        if: steps.collect.outputs.updater_archive != ''
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: stimma-linux-updater-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
+          retention-days: 10
+          path: |
+            ${{ steps.collect.outputs.updater_archive }}
+            ${{ steps.collect.outputs.updater_sig }}
+
+      - name: Publish GitHub release assets
+        if: github.event_name == 'push' && steps.collect.outputs.updater_archive != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          prerelease: ${{ env.STIMMA_RELEASE_CHANNEL != 'production' }}
+          generate_release_notes: true
+          files: |
+            ${{ steps.collect.outputs.appimage_file }}
+            ${{ steps.collect.outputs.updater_archive }}
+            ${{ steps.collect.outputs.updater_sig }}
+
+      - name: Publish Linux artifacts to Cloudflare R2
+        if: (github.event_name == 'push' || inputs.publish_updates == true) && steps.collect.outputs.updater_archive != ''
+        env:
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          VERSION: ${{ steps.version.outputs.version }}
+          APPIMAGE_FILE: ${{ steps.collect.outputs.appimage_file }}
+          UPDATER_ARCHIVE: ${{ steps.collect.outputs.updater_archive }}
+          UPDATER_SIG: ${{ steps.collect.outputs.updater_sig }}
+          BUCKET: ${{ env.R2_BUCKET }}
+          R2_S3_ENDPOINT: ${{ env.R2_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BUCKET:-}" ]; then
+            echo "R2_BUCKET repo variable is required."
+            exit 1
+          fi
+          if [ -z "${R2_S3_ENDPOINT:-}" ]; then
+            echo "R2_S3_ENDPOINT repo variable is required."
+            exit 1
+          fi
+          if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+            echo "R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY secrets are required."
+            exit 1
+          fi
+          R2_S3_ENDPOINT="$(printf '%s' "$R2_S3_ENDPOINT" | tr -d '[:space:]')"
+          AWS_ACCESS_KEY_ID="$(printf '%s' "$AWS_ACCESS_KEY_ID" | tr -d '[:space:]')"
+          AWS_SECRET_ACCESS_KEY="$(printf '%s' "$AWS_SECRET_ACCESS_KEY" | tr -d '[:space:]')"
+          export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+
+          VERSIONED_PREFIX="stimma/${CHANNEL}/linux-x86_64/${VERSION}"
+          APPIMAGE_BASENAME="$(basename "$APPIMAGE_FILE")"
+          UPDATER_BASENAME="$(basename "$UPDATER_ARCHIVE")"
+          APPIMAGE_BASENAME_URL="$(python3 -c 'from urllib.parse import quote; import sys; print(quote(sys.argv[1]))' "$APPIMAGE_BASENAME")"
+          UPDATER_BASENAME_URL="$(python3 -c 'from urllib.parse import quote; import sys; print(quote(sys.argv[1]))' "$UPDATER_BASENAME")"
+          SIG_VALUE="$(tr -d '\n' < "$UPDATER_SIG")"
+          UPDATER_URL="${STIMMA_UPDATE_BASE_URL}/${VERSIONED_PREFIX}/${UPDATER_BASENAME_URL}"
+          DOWNLOAD_URL="${STIMMA_UPDATE_BASE_URL}/${VERSIONED_PREFIX}/${APPIMAGE_BASENAME_URL}"
+          DOWNLOAD_SIZE="$(stat -c%s "$APPIMAGE_FILE")"
+          DOWNLOAD_SHA256="$(sha256sum "$APPIMAGE_FILE" | awk '{print $1}')"
+
+          uvx --python 3.11 --from awscli aws s3 cp "$APPIMAGE_FILE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${APPIMAGE_BASENAME}" --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli aws s3 cp "$UPDATER_ARCHIVE" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}" --content-type application/gzip --endpoint-url "$R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli aws s3 cp "$UPDATER_SIG" "s3://${BUCKET}/${VERSIONED_PREFIX}/${UPDATER_BASENAME}.sig" --content-type text/plain --endpoint-url "$R2_S3_ENDPOINT"
+
+          cat > latest.json <<JSON
+          {
+            "version": "${VERSION}",
+            "notes": "Manual CI build",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": {
+              "linux-x86_64": {
+                "signature": "${SIG_VALUE}",
+                "url": "${UPDATER_URL}"
+              }
+            }
+          }
+          JSON
+
+          EXISTING_LATEST="existing-latest.json"
+          set +e
+          uvx --python 3.11 --from awscli aws s3 cp "s3://${BUCKET}/stimma/${CHANNEL}/linux-x86_64/latest.json" "$EXISTING_LATEST" --endpoint-url "$R2_S3_ENDPOINT"
+          existing_fetch_code=$?
+          set -e
+          if [ "$existing_fetch_code" -ne 0 ]; then
+            echo "No existing linux-x86_64 latest.json found in release bucket."
+            rm -f "$EXISTING_LATEST"
+          fi
+
+          set +e
+          CANDIDATE_VERSION="$VERSION" EXISTING_MANIFEST="$EXISTING_LATEST" CHANNEL="$CHANNEL" python3 - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+
+          def key(version: str):
+              m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-(?:(alpha|beta)\.)?(\d+))?$", version)
+              if not m:
+                  raise SystemExit(f"Unparseable version: {version}")
+              core = tuple(int(m.group(i)) for i in range(1, 4))
+              channel = m.group(4) or os.environ["CHANNEL"]
+              n = int(m.group(5) or 0)
+              rank = {"alpha": 1, "beta": 2, "production": 3}.get(channel, 0)
+              return (*core, rank, n)
+
+          candidate = os.environ["CANDIDATE_VERSION"]
+          existing_path = os.environ["EXISTING_MANIFEST"]
+          existing = None
+          if os.path.exists(existing_path):
+              with open(existing_path, encoding="utf-8") as manifest:
+                  existing = json.load(manifest).get("version")
+          if existing and key(candidate) < key(existing):
+              print(f"Refusing to move linux-x86_64 latest.json backward from {existing} to {candidate}.")
+              sys.exit(42)
+          print(f"Publishing latest manifest for {candidate}; existing={existing or 'none'}.")
+          PY
+          guard_code=$?
+          set -e
+          if [ "$guard_code" -eq 42 ]; then
+            echo "Skipping latest.json and download.json publish because a newer manifest already exists."
+            exit 0
+          elif [ "$guard_code" -ne 0 ]; then
+            exit "$guard_code"
+          fi
+
+          uvx --python 3.11 --from awscli aws s3 cp latest.json "s3://${BUCKET}/stimma/${CHANNEL}/linux-x86_64/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+
+          cat > download.json <<JSON
+          {
+            "version": "${VERSION}",
+            "channel": "${CHANNEL}",
+            "platform": "linux-x86_64",
+            "filename": "${APPIMAGE_BASENAME}",
+            "url": "${DOWNLOAD_URL}",
+            "size": ${DOWNLOAD_SIZE},
+            "sha256": "${DOWNLOAD_SHA256}",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          JSON
+
+          uvx --python 3.11 --from awscli aws s3 cp download.json "s3://${BUCKET}/stimma/${CHANNEL}/linux-x86_64/download.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$R2_S3_ENDPOINT"
+
+      - name: Purge Cloudflare cache for Linux manifests
+        if: (github.event_name == 'push' || inputs.publish_updates == true) && steps.collect.outputs.updater_archive != ''
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CF_API_TOKEN:-}" ] || [ -z "${CF_ZONE_ID:-}" ]; then
+            echo "CF_API_TOKEN and CF_ZONE_ID secrets are required."
+            exit 1
+          fi
+
+          MANIFEST_URL="${STIMMA_UPDATE_BASE_URL}/stimma/${CHANNEL}/linux-x86_64/latest.json"
+          DOWNLOAD_MANIFEST_URL="${STIMMA_UPDATE_BASE_URL}/stimma/${CHANNEL}/linux-x86_64/download.json"
+          curl -fsS -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "{\"files\":[\"${MANIFEST_URL}\",\"${DOWNLOAD_MANIFEST_URL}\"]}"

@@ -1,0 +1,25 @@
+{
+  "summary": {
+    "canny_iou_mean": 0.16925434387351473,
+    "canny_f1_tolerant_mean": 0.5502743858236461,
+    "canny_density_delta_mean": 0.712329219683763,
+    "lineart_f1_tolerant_mean": 0.9971787688409055,
+    "lineart_density_delta_mean": 0.05684187543084076,
+    "depth_psnr_mean": 24.456331829919414,
+    "face_landmark_rmse_ref_mean": 4.339615797996521,
+    "face_landmark_rmse_new_mean": 3.1358070611953734,
+    "face_landmark_rmse_delta_mean": -1.2038087368011474
+  },
+  "thresholds": {
+    "canny_iou_mean": 0.12,
+    "canny_f1_tolerant_mean": 0.5,
+    "canny_density_delta_mean": 0.85,
+    "lineart_f1_tolerant_mean": 0.62,
+    "lineart_density_delta_mean": 0.7,
+    "depth_psnr_mean": 20.0,
+    "face_landmark_rmse_new_mean": 6.0,
+    "face_landmark_rmse_delta_mean": 2.0
+  },
+  "failures": [],
+  "banned_dylibs": []
+}

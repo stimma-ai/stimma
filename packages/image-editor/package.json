@@ -1,0 +1,47 @@
+{
+  "name": "@stimma/image-editor",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/stimma-image-editor.umd.cjs",
+  "module": "./dist/stimma-image-editor.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/stimma-image-editor.js",
+      "require": "./dist/stimma-image-editor.umd.cjs",
+      "types": "./dist/index.d.ts"
+    },
+    "./style.css": "./dist/style.css",
+    "./plugins": {
+      "import": "./dist/plugins/index.js",
+      "types": "./dist/plugins/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "lint": "eslint src --ext .ts,.vue",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "peerDependencies": {
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@vitejs/plugin-vue": "^5.2.0",
+    "@vue/test-utils": "^2.4.0",
+    "eslint": "^8.56.0",
+    "typescript": "~5.6.0",
+    "vite": "^5.4.0",
+    "vite-plugin-dts": "^4.3.0",
+    "vitest": "^2.1.0",
+    "vue": "^3.5.0",
+    "vue-tsc": "^2.1.0"
+  }
+}

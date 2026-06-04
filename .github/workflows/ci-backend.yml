@@ -1,0 +1,43 @@
+name: CI / Backend
+run-name: CI / Backend - ${{ github.ref_name || 'manual' }}
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "backend/**"
+      - "tools/stimma"
+      - "tools/stimma.ts"
+      - ".github/workflows/ci-backend.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - "tools/stimma"
+      - "tools/stimma.ts"
+      - ".github/workflows/ci-backend.yml"
+
+jobs:
+  backend-tests:
+    name: Run backend tests
+    runs-on: [self-hosted, linux]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install backend deps
+        working-directory: backend
+        run: uv sync --all-extras --locked
+
+      - name: Run backend tests
+        run: tools/stimma test backend -vv -rA --maxfail=1
