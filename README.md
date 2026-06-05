@@ -107,7 +107,7 @@ tool_providers:
     auth_token: ${GPU_TOKEN}
 ```
 
-See [docs/TOOLS_PROTOCOL.md](docs/TOOLS_PROTOCOL.md) for the full specification.
+See the [Stimma Tools Protocol spec](https://github.com/stimma-ai/stimma-tools-protocol) for the full specification.
 
 ## Architecture
 

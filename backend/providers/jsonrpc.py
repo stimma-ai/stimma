@@ -4,7 +4,7 @@ JSON-RPC provider for external tool integration.
 Implements the Stimma Tools Protocol (STP) for connecting to external
 tool providers via WebSocket or stdio transport.
 
-See docs/TOOLS_PROTOCOL.md for the full protocol specification.
+See https://github.com/stimma-ai/stimma-tools-protocol for the full protocol specification.
 """
 
 import asyncio

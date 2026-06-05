@@ -507,7 +507,7 @@ class ToolProviderConfig(BaseModel):
     - stdio: External JSON-RPC subprocess providers
     - websocket: External JSON-RPC websocket providers
 
-    See docs/TOOLS_PROTOCOL.md for protocol details.
+    See https://github.com/stimma-ai/stimma-tools-protocol for protocol details.
     """
     id: str  # Unique provider ID
     name: Optional[str] = None  # Human-readable display name (defaults to id if not set)

@@ -80,7 +80,7 @@ Use these Tailwind color classes consistently across the UI:
 
 See the docs/ folder. In particular:
 
-- If you are working on tools or the Stimma Tools Protocol (STP), see docs/TOOLS_PROTOCOL.md
+- If you are working on tools or the Stimma Tools Protocol (STP), see the spec at https://github.com/stimma-ai/stimma-tools-protocol
 - If you are working on the agent, **read docs/AGENT_V2_PRINCIPLES.md first** — it defines the design philosophy, anti-patterns to avoid, and diagnosis checklist for agent bugs
 - If you are creating or modifying skills, see docs/SKILL_AUTHORING.md — covers both markdown-only skills and skills with bundled Python code
 

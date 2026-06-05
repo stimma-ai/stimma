@@ -6,7 +6,8 @@ Writes two parallel records on output:
   - An A1111-style `parameters` string for ecosystem interop
     (CivitAI, Forge, Automatic1111, etc.).
   - A `stimma` sidecar JSON object mirroring the STP execute-request
-    shape (a single `parameters` object; see docs/TOOLS_PROTOCOL.md).
+    shape (a single `parameters` object; see
+    https://github.com/stimma-ai/stimma-tools-protocol).
 
 PNG carries them as `parameters` and `stimma` tEXt chunks.
 JPEG carries them as EXIF UserComment (A1111) + MakerNote (Stimma).
