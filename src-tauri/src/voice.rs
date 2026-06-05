@@ -1,0 +1,527 @@
+//! On-device push-to-talk voice transcription.
+//!
+//! Audio is captured with `cpal`, downsampled to 16 kHz mono, and fed to a
+//! locally-loaded Whisper model (whisper.cpp via `whisper-rs`, Metal-accelerated
+//! on macOS). While the user holds the key, we re-transcribe the whole utterance
+//! every ~600 ms and stream interim text to the frontend over a Tauri `Channel`;
+//! on release we run one final pass and return the clean transcript.
+
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use futures_util::StreamExt;
+use serde::Serialize;
+use tauri::ipc::Channel;
+use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+
+const SAMPLE_RATE: u32 = 16_000;
+/// Minimum audio (in samples at 16 kHz) before we bother running Whisper.
+const MIN_SAMPLES: usize = SAMPLE_RATE as usize / 2; // 0.5s
+/// How long to wait between interim transcription passes.
+const INTERIM_INTERVAL_MS: u64 = 600;
+/// Peak amplitude below which a buffer is treated as silence (no speech).
+const SILENCE_PEAK: f32 = 0.01;
+
+// ---------------------------------------------------------------------------
+// Model registry
+// ---------------------------------------------------------------------------
+
+/// Returns `(filename, download_url)` for a known model id, or `None`.
+fn model_info(model_id: &str) -> Option<(&'static str, &'static str)> {
+    match model_id {
+        "base.en" => Some((
+            "ggml-base.en.bin",
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+        )),
+        "small.en" => Some((
+            "ggml-small.en.bin",
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
+        )),
+        _ => None,
+    }
+}
+
+fn models_dir(app: &tauri::AppHandle) -> PathBuf {
+    let bundle_id = app.config().identifier.clone();
+    let (_data, cache) = crate::get_app_dirs(&bundle_id);
+    cache.join("whisper-models")
+}
+
+fn model_path(app: &tauri::AppHandle, model_id: &str) -> Result<PathBuf, String> {
+    let (filename, _) = model_info(model_id).ok_or_else(|| format!("unknown model: {model_id}"))?;
+    Ok(models_dir(app).join(filename))
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+/// A live capture/transcription session. The worker thread owns the cpal
+/// stream (which is `!Send`); we communicate with it through these shared
+/// flags and the result slot.
+struct Session {
+    stop: Arc<AtomicBool>,
+    finished: Arc<AtomicBool>,
+    result: Arc<Mutex<String>>,
+}
+
+pub struct VoiceState {
+    /// Cached loaded model, keyed by model id, kept warm across sessions.
+    ctx: Mutex<Option<(String, Arc<WhisperContext>)>>,
+    session: Mutex<Option<Session>>,
+}
+
+impl VoiceState {
+    pub fn new() -> Self {
+        Self {
+            ctx: Mutex::new(None),
+            session: Mutex::new(None),
+        }
+    }
+}
+
+/// Loads the requested model, reusing the cached context when the id matches.
+fn ensure_ctx(
+    state: &VoiceState,
+    app: &tauri::AppHandle,
+    model_id: &str,
+) -> Result<Arc<WhisperContext>, String> {
+    let mut guard = state.ctx.lock().unwrap();
+    if let Some((id, ctx)) = guard.as_ref() {
+        if id == model_id {
+            return Ok(ctx.clone());
+        }
+    }
+    let path = model_path(app, model_id)?;
+    if !path.exists() {
+        return Err(format!("model {model_id} not downloaded"));
+    }
+    let path_str = path.to_str().ok_or("model path is not valid UTF-8")?;
+    let ctx = WhisperContext::new_with_params(path_str, WhisperContextParameters::default())
+        .map_err(|e| format!("failed to load model: {e}"))?;
+    let ctx = Arc::new(ctx);
+    *guard = Some((model_id.to_string(), ctx.clone()));
+    Ok(ctx)
+}
+
+// ---------------------------------------------------------------------------
+// Events streamed to the frontend
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Serialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum DownloadEvent {
+    Progress { downloaded: u64, total: Option<u64> },
+    Done,
+    Error { message: String },
+}
+
+#[derive(Clone, Serialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum TranscriptEvent {
+    /// Capture started successfully (mic is live).
+    Started,
+    /// Interim transcript of the utterance so far.
+    Partial { text: String },
+    Error { message: String },
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelStatus {
+    base_en: bool,
+    small_en: bool,
+}
+
+// ---------------------------------------------------------------------------
+// Commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn voice_model_status(app: tauri::AppHandle) -> Result<ModelStatus, String> {
+    Ok(ModelStatus {
+        base_en: model_path(&app, "base.en")?.exists(),
+        small_en: model_path(&app, "small.en")?.exists(),
+    })
+}
+
+#[tauri::command]
+pub async fn voice_download_model(
+    app: tauri::AppHandle,
+    model_id: String,
+    on_event: Channel<DownloadEvent>,
+) -> Result<(), String> {
+    let result = download_model_inner(&app, &model_id, &on_event).await;
+    if let Err(e) = &result {
+        let _ = on_event.send(DownloadEvent::Error { message: e.clone() });
+    }
+    result
+}
+
+async fn download_model_inner(
+    app: &tauri::AppHandle,
+    model_id: &str,
+    on_event: &Channel<DownloadEvent>,
+) -> Result<(), String> {
+    use std::io::Write;
+
+    let (filename, url) = model_info(model_id).ok_or_else(|| format!("unknown model: {model_id}"))?;
+    let dir = models_dir(app);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+
+    let final_path = dir.join(filename);
+    if final_path.exists() {
+        let _ = on_event.send(DownloadEvent::Done);
+        return Ok(());
+    }
+
+    let tmp_path = dir.join(format!("{filename}.part"));
+    let resp = reqwest::get(url).await.map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("download failed with status {}", resp.status()));
+    }
+    let total = resp.content_length();
+
+    let mut file = std::fs::File::create(&tmp_path).map_err(|e| e.to_string())?;
+    let mut stream = resp.bytes_stream();
+    let mut downloaded: u64 = 0;
+    let mut last_emit: u64 = 0;
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| e.to_string())?;
+        file.write_all(&chunk).map_err(|e| e.to_string())?;
+        downloaded += chunk.len() as u64;
+        // Throttle progress events to ~1 per MB.
+        if downloaded - last_emit >= 1_000_000 {
+            last_emit = downloaded;
+            let _ = on_event.send(DownloadEvent::Progress { downloaded, total });
+        }
+    }
+    file.flush().map_err(|e| e.to_string())?;
+    drop(file);
+
+    std::fs::rename(&tmp_path, &final_path).map_err(|e| e.to_string())?;
+    let _ = on_event.send(DownloadEvent::Done);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn voice_start(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Arc<VoiceState>>,
+    model_id: String,
+    on_event: Channel<TranscriptEvent>,
+) -> Result<(), String> {
+    // Tear down any previous session first.
+    if let Some(prev) = state.session.lock().unwrap().take() {
+        prev.stop.store(true, Ordering::SeqCst);
+    }
+
+    let ctx = ensure_ctx(&state, &app, &model_id)?;
+
+    let stop = Arc::new(AtomicBool::new(false));
+    let finished = Arc::new(AtomicBool::new(false));
+    let result = Arc::new(Mutex::new(String::new()));
+
+    {
+        let mut s = state.session.lock().unwrap();
+        *s = Some(Session {
+            stop: stop.clone(),
+            finished: finished.clone(),
+            result: result.clone(),
+        });
+    }
+
+    // The cpal stream is `!Send`, so it must be built and dropped on the same
+    // thread. We own the whole capture+decode loop here.
+    std::thread::spawn(move || {
+        capture_and_transcribe(ctx, stop, finished, result, on_event);
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn voice_stop(state: tauri::State<'_, Arc<VoiceState>>) -> Result<String, String> {
+    let session = state.session.lock().unwrap().take();
+    let session = match session {
+        Some(s) => s,
+        None => return Ok(String::new()),
+    };
+
+    session.stop.store(true, Ordering::SeqCst);
+
+    // Wait for the worker to run its final pass (bounded so we never hang).
+    for _ in 0..200 {
+        if session.finished.load(Ordering::SeqCst) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+
+    let text = session.result.lock().unwrap().clone();
+    Ok(text)
+}
+
+#[tauri::command]
+pub async fn voice_cancel(state: tauri::State<'_, Arc<VoiceState>>) -> Result<(), String> {
+    if let Some(session) = state.session.lock().unwrap().take() {
+        session.stop.store(true, Ordering::SeqCst);
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Capture + transcription worker (runs on its own thread)
+// ---------------------------------------------------------------------------
+
+fn capture_and_transcribe(
+    ctx: Arc<WhisperContext>,
+    stop: Arc<AtomicBool>,
+    finished: Arc<AtomicBool>,
+    result: Arc<Mutex<String>>,
+    on_event: Channel<TranscriptEvent>,
+) {
+    // Ensure `finished` is always set, even on early return, so voice_stop
+    // never waits the full timeout.
+    struct FinishGuard(Arc<AtomicBool>);
+    impl Drop for FinishGuard {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+    let _guard = FinishGuard(finished.clone());
+
+    let fail = |msg: String| {
+        log::error!("[voice] {msg}");
+        let _ = on_event.send(TranscriptEvent::Error { message: msg });
+    };
+
+    let host = cpal::default_host();
+    let device = match host.default_input_device() {
+        Some(d) => d,
+        None => return fail("No microphone found".into()),
+    };
+    let config = match device.default_input_config() {
+        Ok(c) => c,
+        Err(e) => return fail(format!("Could not open microphone: {e}")),
+    };
+
+    let in_rate = config.sample_rate().0;
+    let channels = config.channels() as usize;
+    let sample_format = config.sample_format();
+    let stream_cfg: cpal::StreamConfig = config.into();
+
+    // Raw mono samples at the device's native rate.
+    let raw: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
+    let err_fn = |e| log::error!("[voice] stream error: {e}");
+
+    let stream = match sample_format {
+        cpal::SampleFormat::F32 => {
+            let raw_cb = raw.clone();
+            device.build_input_stream(
+                &stream_cfg,
+                move |data: &[f32], _: &_| push_mono(&raw_cb, data, channels, |s| s),
+                err_fn,
+                None,
+            )
+        }
+        cpal::SampleFormat::I16 => {
+            let raw_cb = raw.clone();
+            device.build_input_stream(
+                &stream_cfg,
+                move |data: &[i16], _: &_| push_mono(&raw_cb, data, channels, |s| s as f32 / 32768.0),
+                err_fn,
+                None,
+            )
+        }
+        cpal::SampleFormat::U16 => {
+            let raw_cb = raw.clone();
+            device.build_input_stream(
+                &stream_cfg,
+                move |data: &[u16], _: &_| {
+                    push_mono(&raw_cb, data, channels, |s| (s as f32 - 32768.0) / 32768.0)
+                },
+                err_fn,
+                None,
+            )
+        }
+        other => return fail(format!("Unsupported audio sample format: {other:?}")),
+    };
+
+    let stream = match stream {
+        Ok(s) => s,
+        Err(e) => return fail(format!("Could not start microphone: {e}")),
+    };
+    if let Err(e) = stream.play() {
+        return fail(format!("Could not start microphone: {e}"));
+    }
+
+    log::info!(
+        "[voice] capturing from '{}' @ {} Hz, {} ch, {:?}",
+        device.name().unwrap_or_else(|_| "unknown".into()),
+        in_rate,
+        channels,
+        sample_format
+    );
+    let _ = on_event.send(TranscriptEvent::Started);
+
+    loop {
+        // Sleep up to the interim interval, but wake promptly on stop.
+        let mut waited = 0u64;
+        while waited < INTERIM_INTERVAL_MS && !stop.load(Ordering::SeqCst) {
+            std::thread::sleep(Duration::from_millis(50));
+            waited += 50;
+        }
+        let stopping = stop.load(Ordering::SeqCst);
+
+        let samples = {
+            let buf = raw.lock().unwrap();
+            resample_to_16k(&buf, in_rate)
+        };
+        let peak = samples.iter().fold(0.0f32, |m, &s| m.max(s.abs()));
+
+        // Skip near-silent buffers: Whisper otherwise hallucinates non-speech
+        // annotations like "[BLANK_AUDIO]" on silence.
+        let speech = samples.len() >= MIN_SAMPLES && peak >= SILENCE_PEAK;
+
+        if speech {
+            match run_whisper(&ctx, &samples) {
+                Ok(text) => {
+                    let cleaned = clean_transcript(&text);
+                    if stopping {
+                        *result.lock().unwrap() = cleaned;
+                    } else if !cleaned.is_empty() {
+                        let _ = on_event.send(TranscriptEvent::Partial { text: cleaned });
+                    }
+                }
+                Err(e) => log::error!("[voice] transcription failed: {e}"),
+            }
+        } else if stopping {
+            log::info!("[voice] no speech captured (samples={}, peak={:.4})", samples.len(), peak);
+        }
+
+        if stopping {
+            break;
+        }
+    }
+
+    drop(stream);
+    // `_guard` sets `finished` on drop here.
+}
+
+/// Downmix interleaved frames to mono and append to the shared buffer.
+fn push_mono<T: Copy>(
+    buf: &Arc<Mutex<Vec<f32>>>,
+    data: &[T],
+    channels: usize,
+    to_f32: impl Fn(T) -> f32,
+) {
+    if channels == 0 {
+        return;
+    }
+    let mut b = buf.lock().unwrap();
+    for frame in data.chunks(channels) {
+        let sum: f32 = frame.iter().map(|&s| to_f32(s)).sum();
+        b.push(sum / channels as f32);
+    }
+}
+
+fn run_whisper(ctx: &WhisperContext, samples: &[f32]) -> Result<String, String> {
+    let mut state = ctx.create_state().map_err(|e| e.to_string())?;
+
+    let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+    params.set_n_threads(4);
+    params.set_translate(false);
+    params.set_language(Some("en"));
+    params.set_print_special(false);
+    params.set_print_progress(false);
+    params.set_print_realtime(false);
+    params.set_print_timestamps(false);
+    params.set_suppress_blank(true);
+
+    state.full(params, samples).map_err(|e| e.to_string())?;
+
+    let n = state.full_n_segments().map_err(|e| e.to_string())?;
+    let mut out = String::new();
+    for i in 0..n {
+        let seg = state.full_get_segment_text(i).map_err(|e| e.to_string())?;
+        out.push_str(&seg);
+    }
+    Ok(out.trim().to_string())
+}
+
+/// Strips Whisper's non-speech annotations, e.g. `[BLANK_AUDIO]`, `(music)`,
+/// `*laughs*`, which it emits during silence or background noise.
+fn clean_transcript(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut depth: i32 = 0;
+    for ch in text.chars() {
+        match ch {
+            '[' | '(' => depth += 1,
+            ']' | ')' => depth = (depth - 1).max(0),
+            '*' => {}
+            _ if depth == 0 => out.push(ch),
+            _ => {}
+        }
+    }
+    // Collapse whitespace left behind by removed annotations.
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+// ---------------------------------------------------------------------------
+// Resampling (device rate -> 16 kHz mono)
+// ---------------------------------------------------------------------------
+
+fn resample_to_16k(input: &[f32], in_rate: u32) -> Vec<f32> {
+    if input.is_empty() {
+        return Vec::new();
+    }
+    if in_rate == SAMPLE_RATE {
+        return input.to_vec();
+    }
+    let ratio = SAMPLE_RATE as f64 / in_rate as f64;
+    if ratio < 1.0 {
+        // Downsampling: box-filter low-pass before decimation to curb aliasing.
+        let width = (in_rate as f64 / SAMPLE_RATE as f64).round().max(1.0) as usize;
+        let filtered = box_lowpass(input, width);
+        linear_resample(&filtered, ratio)
+    } else {
+        linear_resample(input, ratio)
+    }
+}
+
+/// Causal moving-average low-pass.
+fn box_lowpass(input: &[f32], width: usize) -> Vec<f32> {
+    if width <= 1 {
+        return input.to_vec();
+    }
+    let mut out = Vec::with_capacity(input.len());
+    let mut acc = 0.0f32;
+    for i in 0..input.len() {
+        acc += input[i];
+        if i >= width {
+            acc -= input[i - width];
+        }
+        let denom = if i + 1 < width { i + 1 } else { width } as f32;
+        out.push(acc / denom);
+    }
+    out
+}
+
+fn linear_resample(input: &[f32], ratio: f64) -> Vec<f32> {
+    let out_len = ((input.len() as f64) * ratio).round() as usize;
+    let mut out = Vec::with_capacity(out_len);
+    for i in 0..out_len {
+        let src = i as f64 / ratio;
+        let idx = src.floor() as usize;
+        let frac = (src - idx as f64) as f32;
+        let a = input.get(idx).copied().unwrap_or(0.0);
+        let b = input.get(idx + 1).copied().unwrap_or(a);
+        out.push(a + (b - a) * frac);
+    }
+    out
+}

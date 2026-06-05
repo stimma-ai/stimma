@@ -1,0 +1,865 @@
+<template>
+  <!-- Toast notifications (global, always visible) -->
+  <ToastContainer />
+
+  <!-- FFmpeg warning modal (global) -->
+  <FFmpegWarningModal />
+
+  <!-- Image/generation details popup (global, opened via useMediaDetailsModal) -->
+  <MediaDetailsModal />
+
+  <!-- Full-screen lock screen when PIN is required -->
+  <div v-if="isLocked" class="fixed inset-0 z-[10050] bg-surface-overlay">
+    <!-- Draggable title bar region -->
+    <div class="absolute top-0 left-0 right-0 h-14" data-tauri-drag-region />
+    <!-- Profile switcher in top-right corner -->
+    <div class="absolute top-4 right-4">
+      <div class="relative lock-screen-profile-dropdown">
+        <button
+          @click="toggleLockScreenProfileDropdown"
+          class="flex items-center gap-2 px-3 py-1.5 bg-overlay-subtle border border-edge-subtle rounded-lg text-sm text-content-secondary cursor-pointer transition-all hover:bg-overlay-hover hover:border-edge"
+        >
+          <svg class="w-4 h-4 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+          </svg>
+          <span class="max-w-[100px] truncate">{{ lockedProfileName }}</span>
+          <svg class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': lockScreenProfileDropdownOpen }" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          </svg>
+        </button>
+
+        <transition name="dropdown">
+          <div
+            v-if="lockScreenProfileDropdownOpen"
+            class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-[10060] min-w-[200px] overflow-hidden"
+          >
+            <div class="py-1">
+              <button
+                v-for="profile in profiles"
+                :key="profile.id"
+                class="w-full px-4 py-2 text-left text-sm transition-colors flex items-center gap-2"
+                :class="profile.id === currentProfileId ? 'bg-overlay-light text-content' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
+                @click="switchToProfileFromLockScreen(profile)"
+              >
+                <svg v-if="profile.id === currentProfileId" class="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                </svg>
+                <span v-else class="w-4 h-4 flex-shrink-0"></span>
+                <span class="truncate flex-1">{{ profile.name }}</span>
+                <svg v-if="profile.has_pin" class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </transition>
+      </div>
+    </div>
+
+    <!-- Centered lock content -->
+    <div class="flex items-center justify-center h-full">
+      <div class="w-80">
+        <!-- Lock icon and title -->
+        <div class="text-center mb-6">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/20 flex items-center justify-center">
+            <svg class="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+            </svg>
+          </div>
+          <h1 class="text-xl font-semibold text-content">Welcome back</h1>
+          <p class="text-sm text-content-tertiary mt-1">{{ lockedProfileName }}</p>
+        </div>
+
+        <!-- PIN Input -->
+        <div class="bg-surface border border-edge rounded-lg p-4">
+          <label class="block text-sm text-content-tertiary mb-2">Enter your PIN</label>
+          <input
+            ref="lockScreenPinInput"
+            v-model="lockScreenPin"
+            type="password"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            maxlength="20"
+            class="w-full px-4 py-3 bg-base border border-edge rounded-lg text-content text-center text-xl tracking-widest focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            placeholder="PIN"
+            autocomplete="off"
+            @keydown.enter="submitLockScreenPin"
+          />
+          <p v-if="lockScreenError" class="mt-2 text-sm text-red-500 text-center">
+            {{ lockScreenError }}
+          </p>
+          <button
+            @click="submitLockScreenPin"
+            :disabled="!lockScreenPin || lockScreenSubmitting"
+            class="w-full mt-3 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <svg v-if="lockScreenSubmitting" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>{{ lockScreenSubmitting ? 'Verifying...' : 'Unlock' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No-chrome mode for standalone pages like LLM trace viewer -->
+  <div v-else-if="noChrome" class="w-full h-screen overflow-auto bg-base">
+    <!-- Draggable title bar region -->
+    <div class="sticky top-0 left-0 right-0 h-8 z-50" data-tauri-drag-region />
+    <router-view />
+  </div>
+
+  <!-- Normal app with sidebar and topbar -->
+  <div v-else class="w-full h-screen flex overflow-hidden bg-base">
+    <!-- Sidebar - fixed on wide screens, overlay on narrow -->
+    <NavigationSidebar
+      :is-open="sidebarOpen"
+      :is-mobile="isMobile"
+      @close="closeSidebar"
+      @open-settings="openSettings($event)"
+    />
+
+    <!-- Settings Modal -->
+    <SettingsModal
+      :show="settingsOpen"
+      :initial-section="settingsSection"
+      @close="settingsOpen = false"
+    />
+
+    <!-- Main area (header + content) -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- Static top bar -->
+      <TopBar
+        class="top-bar"
+        @open-settings="openSettings($event)"
+      />
+
+      <ProjectScopeBar
+        v-if="projectChrome.project && !slideshowActive"
+        :project="projectChrome.project"
+        :active-name="projectChrome.activeRouteName"
+      />
+
+      <!-- Page content -->
+      <div class="flex-1 overflow-hidden flex flex-col relative">
+        <router-view v-slot="{ Component, route }">
+          <!-- Keep views alive to preserve state when navigating between tabs -->
+          <!-- Use unique keys so each tool/chat gets its own cached instance -->
+          <KeepAlive :max="20">
+            <component :is="Component" :key="getComponentKey(route)" />
+          </KeepAlive>
+        </router-view>
+
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import axios from 'axios'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import NavigationSidebar from './components/NavigationSidebar.vue'
+import ProjectScopeBar from './components/ProjectScopeBar.vue'
+import TopBar from './components/TopBar.vue'
+import ToastContainer from './components/ToastContainer.vue'
+import FFmpegWarningModal from './components/FFmpegWarningModal.vue'
+import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
+import SettingsModal from './components/settings/SettingsModal.vue'
+import { useProfile } from './composables/useProfile'
+import { useAuth } from './composables/useAuth'
+import {
+  profileRequiresPin,
+  hasCachedPin,
+  cachePin,
+  startIdleTracking,
+} from './composables/usePinLock'
+import { getApiBase, isTauri } from './apiConfig'
+import { useSettingsApi } from './composables/useSettingsApi'
+import {
+  devModeRef,
+  setAppModifier,
+  setDevMode,
+  setCaptioningEnabled,
+  setInstallId,
+  setSessionRecordingEnabled,
+  setTelemetryEnabled,
+} from './appConfig'
+import { initPostHog } from './composables/usePostHog'
+import { runStartupCleanup } from './utils/storageCleanup'
+import { setCloudBaseUrl } from './composables/useCloudAccount'
+import { useRouteRestore } from './composables/useRouteRestore'
+import { useTabNavigation } from './composables/useTabNavigation'
+import { useTheme } from './composables/useTheme'
+import { useMediaApi } from './composables/useMediaApi'
+import { useWorkspaceTabs } from './composables/useWorkspaceTabs'
+import { useToasts } from './composables/useToasts'
+import { useAppUpdater } from './composables/useAppUpdater'
+import { useSkillsApi } from './composables/useSkillsApi'
+import { setupLayoutRenderer } from './composables/useLayoutRenderer'
+import { makeGlobalKey } from './utils/storageKeys'
+
+const route = useRoute()
+const router = useRouter()
+const { getBoard, getProject } = useMediaApi()
+const { currentProfileId, profiles, loadProfiles, setCurrentProfileId } = useProfile()
+const { isAuthenticated, initAuth } = useAuth()
+const { fetchSettings, updateDeveloperMode } = useSettingsApi()
+const { runAutoInstall, checkUpdates: checkSkillUpdates, updateFromMarketplace } = useSkillsApi()
+import { setWildcards, setSegments } from './composables/useWildcards'
+const { restoreRoute, setupPersistence } = useRouteRestore()
+const { slideshowActive } = useTabNavigation()
+const { setTheme } = useTheme()
+const {
+  allTabs, findNextTab, removeTab,
+  reopenLastClosed, getNextTab, getPrevTab
+} = useWorkspaceTabs()
+const { addToast } = useToasts()
+const {
+  updatesEnabled,
+  loadPreferences: loadUpdatePreferences,
+  checkForUpdates,
+} = useAppUpdater()
+
+const sidebarOpen = ref(false)
+const settingsOpen = ref(false)
+const settingsSection = ref('folders')
+
+function openSettings(section = 'folders') {
+  settingsSection.value = section
+  settingsOpen.value = true
+}
+const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
+
+// Lock screen state
+const isLocked = ref(false)
+const lockScreenPin = ref('')
+const lockScreenError = ref('')
+const lockScreenSubmitting = ref(false)
+const lockScreenPinInput = ref(null)
+const lockScreenProfileDropdownOpen = ref(false)
+
+function toggleLockScreenProfileDropdown() {
+  lockScreenProfileDropdownOpen.value = !lockScreenProfileDropdownOpen.value
+  if (lockScreenProfileDropdownOpen.value) {
+    setTimeout(() => {
+      document.addEventListener('click', handleLockScreenProfileClickOutside)
+    }, 0)
+  } else {
+    document.removeEventListener('click', handleLockScreenProfileClickOutside)
+  }
+}
+
+function handleLockScreenProfileClickOutside(event) {
+  const dropdown = event.target.closest('.lock-screen-profile-dropdown')
+  if (!dropdown && lockScreenProfileDropdownOpen.value) {
+    lockScreenProfileDropdownOpen.value = false
+    document.removeEventListener('click', handleLockScreenProfileClickOutside)
+  }
+}
+
+const lockedProfileName = computed(() => {
+  const profile = profiles.value.find(p => p.id === currentProfileId.value)
+  return profile?.name || ''
+})
+
+// Check if current route wants no chrome (sidebar/topbar)
+const noChrome = computed(() => route.meta?.noChrome === true)
+const projectChrome = ref({
+  project: null,
+  activeRouteName: '',
+  surfaceLabel: ''
+})
+
+// Generate a unique component key for each route
+// For tools and chats, include the ID so each gets its own cached instance
+function getComponentKey(route) {
+  if (route.name === 'tool') {
+    const projectId = route.query.project_id
+    if (projectId) return `tool-${route.params.fullToolId}-project-${projectId}`
+    return `tool-${route.params.fullToolId}`
+  }
+  if (route.name === 'chat') {
+    return `chat-${route.params.id}`
+  }
+  if (route.name === 'board-detail') {
+    return `board-${route.params.id}`
+  }
+  if (route.name === 'saved-view') {
+    return `saved-view-${route.params.id}`
+  }
+  // Image editor - each editorId gets its own cached instance
+  if (route.name === 'edit-image' || route.name === 'edit-image-empty') {
+    return `editor-${route.params.editorId}`
+  }
+  if (route.name === 'edit-image-landing') {
+    return 'image-editor-landing'
+  }
+  if (route.name === 'lineage') {
+    return `lineage-${route.params.mediaId}`
+  }
+  if (route.name === 'recipe') {
+    return `recipe-${route.params.id}`
+  }
+  // For other routes, use the route name for consistent caching
+  return route.name || route.path
+}
+
+const projectRouteNameBySurface = {
+  overview: 'project-overview',
+  assets: 'project-assets',
+  chats: 'project-chats',
+  boards: 'project-boards',
+  recipes: 'project-recipes',
+  tools: 'project-tools',
+  settings: 'project-settings'
+}
+
+async function resolveProjectChrome() {
+  try {
+    const routeName = String(route.name || '')
+    let projectId = null
+    let activeRouteName = ''
+    let surfaceLabel = ''
+
+    if (routeName.startsWith('project-')) {
+      projectId = Number.parseInt(String(route.params.id), 10)
+      activeRouteName = routeName
+      surfaceLabel = routeName.replace('project-', '').replace(/^\w/, (c) => c.toUpperCase())
+    } else if (routeName === 'board-detail') {
+      const board = await getBoard(Number.parseInt(String(route.params.id), 10))
+      projectId = board?.project_id ?? null
+      activeRouteName = projectId != null ? projectRouteNameBySurface.boards : ''
+      surfaceLabel = projectId != null ? 'Board' : ''
+    } else if (routeName === 'chat') {
+      const response = await axios.get(`${getApiBase()}/chats/${route.params.id}`)
+      projectId = response.data?.project_id ?? null
+      activeRouteName = projectId != null ? projectRouteNameBySurface.chats : ''
+      surfaceLabel = projectId != null ? 'Chat' : ''
+    } else if (routeName === 'recipe') {
+      const response = await axios.get(`${getApiBase()}/recipes/${route.params.id}`)
+      projectId = response.data?.project_id ?? null
+      activeRouteName = projectId != null ? projectRouteNameBySurface.recipes : ''
+      surfaceLabel = projectId != null ? 'Recipe' : ''
+    } else if (routeName === 'tool' || routeName === 'all-tools' || routeName === 'upload') {
+      const rawProjectId = route.query.project_id
+      if (typeof rawProjectId === 'string' && rawProjectId.trim()) {
+        projectId = Number.parseInt(rawProjectId, 10)
+        activeRouteName = ''
+        surfaceLabel = routeName === 'upload' ? 'Upload' : routeName === 'tool' ? 'Tool' : 'Tools'
+      }
+    }
+
+    if (!projectId || !Number.isFinite(projectId)) {
+      projectChrome.value = {
+        project: null,
+        activeRouteName: '',
+        surfaceLabel: ''
+      }
+      return
+    }
+
+    const project = await getProject(projectId)
+    projectChrome.value = {
+      project,
+      activeRouteName,
+      surfaceLabel
+    }
+  } catch {
+    projectChrome.value = {
+      project: null,
+      activeRouteName: '',
+      surfaceLabel: ''
+    }
+  }
+}
+
+// Sidebar is always visible (no collapsing)
+const isMobile = computed(() => false)
+
+function openSidebar() {
+  sidebarOpen.value = true
+}
+
+function closeSidebar() {
+  sidebarOpen.value = false
+}
+
+function handleResize() {
+  windowWidth.value = window.innerWidth
+  // Auto-close sidebar when switching to desktop
+  if (!isMobile.value) {
+    sidebarOpen.value = false
+  }
+}
+
+function getActiveTabId() {
+  if (route.name === 'tool') {
+    const projectId = route.query.project_id
+    if (projectId) return `tool:${route.params.fullToolId}:project:${projectId}`
+    return `tool:${route.params.fullToolId}`
+  }
+  if (route.name === 'chat') return `chat:${route.params.id}`
+  if (route.name === 'board-detail') return `board:${route.params.id}`
+  if (String(route.name || '').startsWith('project-')) return `project:${route.params.id}`
+  if (route.name === 'edit-image' || route.name === 'edit-image-empty') return `editor:${route.params.editorId}`
+  if (route.name === 'recipe') return `recipe:${route.params.id}`
+  return null
+}
+
+function navigateToTab(tab) {
+  if (tab.type === 'tool') {
+    const query = tab.projectId ? { project_id: String(tab.projectId) } : undefined
+    router.push({ name: 'tool', params: { fullToolId: tab.entityId }, query })
+  }
+  else if (tab.type === 'chat') router.push({ name: 'chat', params: { id: tab.entityId } })
+  else if (tab.type === 'board') router.push({ name: 'board-detail', params: { id: tab.entityId } })
+  else if (tab.type === 'project') router.push({ name: 'project-overview', params: { id: tab.entityId } })
+  else if (tab.type === 'editor') {
+    if (tab.editorMediaId) router.push({ name: 'edit-image', params: { editorId: tab.entityId, mediaId: tab.editorMediaId } })
+    else router.push({ name: 'edit-image-empty', params: { editorId: tab.entityId } })
+  }
+  else if (tab.type === 'recipe') router.push({ name: 'recipe', params: { id: tab.entityId } })
+}
+
+async function toggleDeveloperMode() {
+  const nextEnabled = !devModeRef.value
+
+  setDevMode(nextEnabled)
+  addToast(`Developer mode ${nextEnabled ? 'enabled' : 'disabled'}`, 'info', 2500)
+
+  try {
+    await updateDeveloperMode(nextEnabled)
+  } catch (error) {
+    setDevMode(!nextEnabled)
+    addToast('Failed to update developer mode', 'error', 3000)
+    console.error('[App] Failed to persist developer mode toggle:', error)
+  }
+}
+
+function handleKeydown(e) {
+  // Cmd/Ctrl+, to open Settings
+  if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+    e.preventDefault()
+    settingsOpen.value = true
+  }
+
+  // Cmd/Ctrl+Shift+D: toggle developer mode
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyD') {
+    e.preventDefault()
+    void toggleDeveloperMode()
+    return
+  }
+
+  // Cmd/Ctrl+R to refresh in Tauri (browser handles this natively)
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'r' && isTauri()) {
+    e.preventDefault()
+    window.location.reload()
+  }
+
+  // --- Workspace tab shortcuts ---
+
+  // Cmd/Ctrl+W: Close active workspace tab (blocked for pinned tabs)
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'w') {
+    const activeId = getActiveTabId()
+    if (activeId) {
+      e.preventDefault()
+      const tab = allTabs.value.find(t => t.id === activeId)
+      if (tab?.pinned) {
+        addToast('Unpin this tab before closing it', 'warning', 3000)
+        return
+      }
+      const next = findNextTab(new Set([activeId]))
+      if (next) navigateToTab(next)
+      else router.push({ name: 'browse' })
+      removeTab(activeId)
+    }
+  }
+
+  // Cmd/Ctrl+Shift+W: Close the window (same as clicking the red close button).
+  // Fires the same CloseRequested event the X does; the Rust handler intercepts
+  // it and hides the window to keep the backend warm rather than quitting.
+  // On Windows/Linux this hides to the tray identically.
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'w' || e.key === 'W') && isTauri()) {
+    e.preventDefault()
+    void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+      void getCurrentWindow().close()
+    })
+    return
+  }
+
+  // Cmd/Ctrl+Shift+T: Reopen last closed tab
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 't' || e.key === 'T')) {
+    const reopened = reopenLastClosed()
+    if (reopened) {
+      e.preventDefault()
+      navigateToTab(reopened)
+    }
+  }
+
+  // Ctrl+Tab: Next tab
+  if (e.ctrlKey && !e.shiftKey && e.key === 'Tab') {
+    const activeId = getActiveTabId()
+    if (activeId) {
+      const next = getNextTab(activeId)
+      if (next) {
+        e.preventDefault()
+        navigateToTab(next)
+      }
+    }
+  }
+
+  // Ctrl+Shift+Tab: Previous tab
+  if (e.ctrlKey && e.shiftKey && e.key === 'Tab') {
+    const activeId = getActiveTabId()
+    if (activeId) {
+      const prev = getPrevTab(activeId)
+      if (prev) {
+        e.preventDefault()
+        navigateToTab(prev)
+      }
+    }
+  }
+}
+
+// Lock screen handlers
+async function submitLockScreenPin() {
+  if (!lockScreenPin.value || lockScreenSubmitting.value) return
+
+  lockScreenSubmitting.value = true
+  lockScreenError.value = ''
+
+  try {
+    const response = await fetch(`${getApiBase()}/profiles/${currentProfileId.value}/verify-pin`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Profile-ID': currentProfileId.value
+      },
+      body: JSON.stringify({ pin: lockScreenPin.value })
+    })
+
+    if (response.ok) {
+      // Cache the PIN and unlock
+      cachePin(currentProfileId.value, lockScreenPin.value)
+      isLocked.value = false
+      lockScreenPin.value = ''
+      lockScreenError.value = ''
+      // The startup settings fetch was rejected while locked, so wildcards,
+      // segments, theme, etc. never loaded. Re-run it now that the PIN is cached.
+      try {
+        await loadAppSettings()
+      } catch (e) {
+        console.warn('[App] Failed to reload settings after PIN unlock:', e)
+      }
+    } else {
+      const data = await response.json().catch(() => ({}))
+      lockScreenError.value = data.detail || 'Invalid PIN'
+      lockScreenPin.value = ''
+    }
+  } catch (error) {
+    lockScreenError.value = 'Failed to verify PIN'
+    console.error('[App] PIN verification error:', error)
+  } finally {
+    lockScreenSubmitting.value = false
+    // Re-focus input after error
+    await nextTick()
+    lockScreenPinInput.value?.focus()
+  }
+}
+
+async function switchToProfileFromLockScreen(profile) {
+  // Close dropdown
+  lockScreenProfileDropdownOpen.value = false
+  document.removeEventListener('click', handleLockScreenProfileClickOutside)
+
+  // If clicking current profile, do nothing
+  if (profile.id === currentProfileId.value) return
+
+  // If target profile has PIN and we don't have it cached, show lock for that profile
+  if (profile.has_pin && !hasCachedPin(profile.id)) {
+    setCurrentProfileId(profile.id)
+    lockScreenPin.value = ''
+    lockScreenError.value = ''
+    await nextTick()
+    lockScreenPinInput.value?.focus()
+    return
+  }
+
+  // Otherwise switch and unlock (or stay unlocked if no PIN)
+  setCurrentProfileId(profile.id)
+  isLocked.value = profile.has_pin && !hasCachedPin(profile.id)
+  if (!isLocked.value) {
+    // Reload to refresh data for new profile
+    window.location.reload()
+  }
+}
+
+// Check if current profile requires PIN on startup
+// Load settings and apply all the side effects that depend on them.
+// Extracted so it can run both at startup and again after a PIN unlock —
+// when booting on a locked profile, the startup fetch is rejected with
+// "PIN required", so this must re-run once the PIN is entered or
+// settings-derived state (wildcards, segments, theme, etc.) stays empty.
+async function loadAppSettings() {
+  const settings = await fetchSettings()
+  setAppModifier(settings.bundle_id)
+  // App modifier is now set, so localStorage key prefix is stable — purge
+  // legacy masks/paint (now in IndexedDB) and the old tool-descriptor cache.
+  runStartupCleanup()
+  setCloudBaseUrl(settings.cloud_base_url)
+  setDevMode(settings.developer_mode)
+  setCaptioningEnabled(settings.background_work?.captioning?.enabled)
+  setInstallId(settings.install_id)
+  setTelemetryEnabled(settings.telemetry_enabled)
+  setSessionRecordingEnabled(settings.posthog_session_recording)
+  initPostHog()
+  // Sync theme from backend config (backend is source of truth,
+  // localStorage is used for instant flash prevention on load)
+  if (settings.theme) {
+    setTheme(settings.theme)
+  }
+  // Cache wildcards and prompt segments for prompt expansion
+  if (settings.wildcards) {
+    setWildcards(settings.wildcards)
+  }
+  if (settings.prompt_segments) {
+    setSegments(settings.prompt_segments)
+  }
+  // Notify components that settings (especially bundle_id) are now available
+  window.dispatchEvent(new CustomEvent('settings-loaded'))
+}
+
+async function checkStartupPin() {
+  // Fire-and-forget auth init (login is optional, not blocking)
+  initAuth()
+
+  await loadProfiles()
+
+  // Load settings to get bundle_id for localStorage key namespacing.
+  // If the current profile is PIN-locked this is rejected ("PIN required");
+  // loadAppSettings() is retried after unlock in submitLockScreenPin().
+  try {
+    await loadAppSettings()
+  } catch (e) {
+    console.warn('[App] Failed to load bundle_id from settings:', e)
+  }
+
+  void syncMarketplaceSkills()
+
+  // Start persisting route changes
+  setupPersistence()
+
+  const profileId = currentProfileId.value
+  const requiresPin = await profileRequiresPin(profileId)
+  if (requiresPin && !hasCachedPin(profileId)) {
+    isLocked.value = true
+    await nextTick()
+    lockScreenPinInput.value?.focus()
+  } else {
+    // Show onboarding on first launch
+    if (!localStorage.getItem(makeGlobalKey('onboarding_completed'))) {
+      router.push({ name: 'onboarding' })
+      return
+    }
+    // Restore saved route if not locked
+    restoreRoute()
+  }
+}
+
+// Focus PIN input when lock screen shows, restore route when unlocking
+watch(isLocked, async (locked, wasLocked) => {
+  if (locked) {
+    await nextTick()
+    lockScreenPinInput.value?.focus()
+  } else if (wasLocked) {
+    // Restore saved route after unlocking
+    restoreRoute()
+  }
+})
+
+watch(currentProfileId, (profileId, previousProfileId) => {
+  if (profileId && profileId !== previousProfileId) {
+    void syncMarketplaceSkills(profileId)
+  }
+})
+
+watch(
+  () => [route.name, route.params.id, route.query.project_id],
+  () => {
+    resolveProjectChrome()
+  },
+  { immediate: true }
+)
+
+// When user signs in via settings, refresh cloud-specific state (credits, tier)
+watch(isAuthenticated, async (authenticated) => {
+  if (authenticated) {
+    // Notify components so cloud account info can refresh
+    window.dispatchEvent(new CustomEvent('settings-loaded'))
+  }
+})
+
+// Handle auto-lock event from idle timeout
+function handleAutoLock(event) {
+  const { profileId } = event.detail
+  if (profileId === currentProfileId.value) {
+    console.log('[App] Auto-lock triggered for profile:', profileId)
+    isLocked.value = true
+    lockScreenPin.value = ''
+    lockScreenError.value = ''
+  }
+}
+
+let updateIntervalId = null
+const syncedMarketplaceSkillProfiles = new Set()
+const marketplaceSkillSyncByProfile = new Map()
+
+async function syncMarketplaceSkills(profileId = currentProfileId.value) {
+  if (!profileId || syncedMarketplaceSkillProfiles.has(profileId)) return
+
+  const existingRun = marketplaceSkillSyncByProfile.get(profileId)
+  if (existingRun) {
+    await existingRun
+    return
+  }
+
+  const run = (async () => {
+    let skillsChanged = false
+
+    try {
+      const result = await runAutoInstall()
+      if ((result.installed || []).length > 0) {
+        skillsChanged = true
+      }
+    } catch (error) {
+      console.warn('[App] Failed to auto-install default skills:', error)
+    }
+
+    try {
+      const updates = await checkSkillUpdates()
+      for (const update of updates) {
+        try {
+          await updateFromMarketplace(update.name)
+          skillsChanged = true
+        } catch (error) {
+          console.warn(`[App] Failed to update skill ${update.name}:`, error)
+        }
+      }
+    } catch (error) {
+      console.warn('[App] Failed to check for skill updates:', error)
+    }
+
+    if (skillsChanged) {
+      window.dispatchEvent(new CustomEvent('skills-changed'))
+    }
+    syncedMarketplaceSkillProfiles.add(profileId)
+  })()
+
+  marketplaceSkillSyncByProfile.set(profileId, run)
+  try {
+    await run
+  } finally {
+    marketplaceSkillSyncByProfile.delete(profileId)
+  }
+}
+
+async function startUpdaterLoop() {
+  if (!updatesEnabled.value) return
+
+  await loadUpdatePreferences()
+  await checkForUpdates('auto')
+
+  if (updateIntervalId) {
+    window.clearInterval(updateIntervalId)
+  }
+  updateIntervalId = window.setInterval(() => {
+    checkForUpdates('auto')
+  }, 6 * 60 * 60 * 1000)
+}
+
+function handleOpenSettings(e) {
+  openSettings(e.detail || 'folders')
+}
+
+onMounted(async () => {
+  window.addEventListener('resize', handleResize)
+  window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('pin-auto-locked', handleAutoLock)
+  window.addEventListener('open-settings', handleOpenSettings)
+
+  // Register the WS handler that lets the backend ask us to render
+  // .stimmalayout HTML to PNG bytes via the real browser engine.
+  setupLayoutRenderer()
+
+  // Start idle tracking for PIN timeout
+  startIdleTracking()
+
+  // Check if we need PIN entry on startup
+  checkStartupPin()
+  startUpdaterLoop()
+
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('pin-auto-locked', handleAutoLock)
+  window.removeEventListener('open-settings', handleOpenSettings)
+  if (updateIntervalId) {
+    window.clearInterval(updateIntervalId)
+    updateIntervalId = null
+  }
+})
+</script>
+
+<style>
+/* Slide out NavigationSidebar and TopBar in slideshow focus mode */
+.navigation-sidebar {
+  transition: margin-left 0.3s ease, opacity 0.3s ease;
+}
+
+.top-bar {
+  transition: margin-top 0.3s ease, opacity 0.3s ease;
+}
+
+body.slideshow-focus-mode .navigation-sidebar {
+  margin-left: 0 !important;
+  width: 0 !important; /* Override inline width style from resizable sidebar */
+  flex-basis: 0 !important;
+  min-width: 0 !important;
+  border-right-width: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+body.slideshow-focus-mode .sidebar-overlay {
+  display: none !important;
+}
+
+body.slideshow-focus-mode .top-bar {
+  margin-top: -56px; /* h-14 = 3.5rem = 56px */
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.slideshow-cursor-hidden,
+body.slideshow-cursor-hidden *:not([data-context-menu] *):not([data-context-menu]) {
+  cursor: none !important;
+}
+
+/* Lock screen profile dropdown transition */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.2s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+</style>

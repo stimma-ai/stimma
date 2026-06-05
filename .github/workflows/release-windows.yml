@@ -1,0 +1,504 @@
+name: Release / Windows
+run-name: ${{ github.event_name == 'push' && format('Release / Windows - {0}', github.ref_name) || format('Release / Windows - {0}', inputs.channel) }}
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      channel:
+        required: true
+        type: string
+      version:
+        required: false
+        type: string
+      publish_updates:
+        required: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    name: Build and publish Windows
+    runs-on: [self-hosted, Windows, X64]
+
+    env:
+      RUST_BACKTRACE: 1
+      STIMMA_RELEASE_CHANNEL: ${{ github.event_name == 'push' && (contains(github.ref_name, '-alpha.') && 'alpha' || contains(github.ref_name, '-beta.') && 'beta' || 'production') || inputs.channel }}
+      STIMMA_UPDATE_BASE_URL: ${{ vars.STIMMA_UPDATE_BASE_URL || 'https://updates.stimma.ai' }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      R2_S3_ENDPOINT: ${{ vars.R2_S3_ENDPOINT }}
+      GITHUB_TOKEN: ${{ github.token }}
+      UV_PYTHON_DOWNLOADS: true
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: utf-8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref || inputs.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Rust
+        shell: powershell
+        run: |
+          $cargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
+          $rustupExe = Join-Path $cargoBin "rustup.exe"
+
+          if (!(Test-Path $rustupExe)) {
+            Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "rustup-init.exe"
+            .\rustup-init.exe -y --default-toolchain stable --profile minimal --no-modify-path
+          } else {
+            & $rustupExe toolchain install stable --profile minimal
+            & $rustupExe default stable
+          }
+
+          $cargoBin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          & (Join-Path $cargoBin "rustc.exe") --version
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          save-if: false
+
+      - name: Ensure Visual Studio Build Tools
+        shell: powershell
+        run: |
+          $vcvarsCandidates = @(
+            "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\VsDevCmd.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\18\Community\Common7\Tools\VsDevCmd.bat",
+            "C:\BuildTools\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          )
+          $vcvars = $vcvarsCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $vcvars) {
+            $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+            $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+            $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+            if (-not $isAdmin) {
+              throw "MSVC toolchain is missing and runner is not elevated. Install Visual Studio Build Tools 2022 (C++ Build Tools workload) on this machine, or run the runner service with admin rights."
+            }
+
+            $installer = Join-Path $env:RUNNER_TEMP "vs_BuildTools.exe"
+            $logPath = Join-Path $env:RUNNER_TEMP "vs-buildtools-install.log"
+            Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_BuildTools.exe" -OutFile $installer
+            $args = @(
+              "--quiet", "--wait", "--norestart", "--nocache",
+              "--installPath", "C:\BuildTools",
+              "--add", "Microsoft.VisualStudio.Workload.VCTools",
+              "--includeRecommended",
+              "--log", $logPath
+            )
+            $p = Start-Process -FilePath $installer -ArgumentList $args -PassThru -Wait
+            if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) {
+              if (Test-Path $logPath) {
+                Write-Host "VS Build Tools installer log tail:"
+                Get-Content -Path $logPath -Tail 200 | Write-Host
+              }
+              throw "VS Build Tools install failed with exit code $($p.ExitCode)."
+            }
+          }
+
+      - name: Activate MSVC build tools environment
+        shell: powershell
+        run: |
+          $vcvarsCandidates = @(
+            "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\VsDevCmd.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\18\Community\Common7\Tools\VsDevCmd.bat",
+            "C:\BuildTools\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          )
+          $vcvars = $vcvarsCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $vcvars) {
+            throw "Could not find vcvars64.bat after Visual Studio installation."
+          }
+
+          if ($vcvars -like "*VsDevCmd.bat") {
+            $envDump = cmd.exe /s /c "`"$vcvars`" -arch=x64 -host_arch=x64 >nul && set"
+          } else {
+            $envDump = cmd.exe /s /c "`"$vcvars`" amd64 >nul && set"
+          }
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to initialize MSVC environment with $vcvars."
+          }
+          $envDump | ForEach-Object {
+            if ($_ -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+              $name = $Matches[1]
+              $value = $Matches[2]
+              Set-Item -Path ("Env:{0}" -f $name) -Value $value
+              "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+            }
+          }
+
+          $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
+          $link = Get-Command link.exe -ErrorAction SilentlyContinue
+          if (-not $cl -or -not $link) {
+            Write-Host "MSVC activation script used: $vcvars"
+            throw "MSVC environment activation did not expose cl.exe/link.exe."
+          }
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Preflight Environment
+        shell: powershell
+        run: |
+          Write-Host "Runner: $env:COMPUTERNAME"
+          node --version
+          npm --version
+          rustc --version
+          cargo --version
+          uv --version
+          "ok" | Out-File -FilePath (Join-Path $env:RUNNER_TEMP "stimma-write-test.txt") -Encoding utf8
+
+      - name: Setup Python via uv
+        shell: powershell
+        run: |
+          uv python install --force 3.11
+          uv run --python 3.11 python --version
+
+      - name: Build image editor package
+        working-directory: packages/image-editor
+        run: |
+          npm install
+          npm run build
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm install
+
+      - name: Install backend deps
+        working-directory: backend
+        run: uv sync --all-extras --locked
+
+      - name: Resolve app version
+        id: version
+        shell: powershell
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          TAG_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          $version = $env:INPUT_VERSION
+          if ([string]::IsNullOrWhiteSpace($version) -and $env:EVENT_NAME -eq "push") {
+            if ($env:TAG_NAME -notmatch '^v\d+\.\d+\.\d+(-(alpha|beta)\.\d+)?$') {
+              throw "Release tags must look like v1.2.3, v1.2.3-alpha.1, or v1.2.3-beta.1."
+            }
+            $version = $env:TAG_NAME -replace '^v', ''
+          }
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            $version = "0.0.0-$($env:CHANNEL).${{ github.run_number }}"
+          }
+          $windowsVersion = $version
+          if ($version -match '^(\d+\.\d+\.\d+)-[A-Za-z]+\.(\d+)$') {
+            $windowsVersion = "$($matches[1])-$($matches[2])"
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "windows_version=$windowsVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Set app version in build manifests
+        shell: powershell
+        env:
+          VERSION: ${{ steps.version.outputs.windows_version }}
+        run: |
+          @'
+          import json
+          import re
+          from pathlib import Path
+
+          version = r"""${{ steps.version.outputs.windows_version }}"""
+
+          tauri = Path("src-tauri/tauri.conf.json")
+          cfg = json.loads(tauri.read_text(encoding="utf-8"))
+          cfg["version"] = version
+          channel = r"""${{ env.STIMMA_RELEASE_CHANNEL }}"""
+          bundle_ids = {"production": "ai.stimma.stimma", "beta": "ai.stimma.stimma.beta", "alpha": "ai.stimma.stimma.alpha"}
+          product_names = {"production": "Stimma", "beta": "Stimma Beta", "alpha": "Stimma Alpha"}
+          cfg["identifier"] = bundle_ids.get(channel, "ai.stimma.stimma.debug")
+          cfg["productName"] = product_names.get(channel, "Stimma Debug")
+          for window in cfg.get("app", {}).get("windows", []):
+              window["title"] = cfg["productName"]
+          cfg.setdefault("bundle", {})["targets"] = "nsis"
+          cfg.setdefault("bundle", {})["createUpdaterArtifacts"] = "v1Compatible"
+          cfg.setdefault("bundle", {}).setdefault("windows", {}).setdefault("nsis", {})["installMode"] = "currentUser"
+          cfg.setdefault("bundle", {}).setdefault("resources", {})["binaries/stimma-backend-x86_64-pc-windows-msvc"] = "stimma-backend"
+          tauri.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+
+          cargo = Path("src-tauri/Cargo.toml")
+          text = cargo.read_text(encoding="utf-8")
+          text = re.sub(r'^version\s*=\s*"[^"]+"', f'version = "{version}"', text, count=1, flags=re.MULTILINE)
+          cargo.write_text(text, encoding="utf-8")
+          '@ | uv run --python 3.11 python -
+
+      - name: Configure updater endpoint in tauri config
+        shell: powershell
+        env:
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          UPDATER_PUBKEY: ${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:UPDATER_PUBKEY)) {
+            Write-Error "TAURI_SIGNING_PUBLIC_KEY is required for updater-enabled builds."
+          }
+
+          @'
+          import json
+          from pathlib import Path
+
+          path = Path("src-tauri/tauri.conf.json")
+          cfg = json.loads(path.read_text(encoding="utf-8"))
+          cfg.setdefault("plugins", {}).setdefault("updater", {})["active"] = True
+          cfg["plugins"]["updater"].setdefault("windows", {})["installMode"] = "passive"
+          cfg["plugins"]["updater"]["windows"].pop("installerArgs", None)
+          cfg.setdefault("bundle", {}).setdefault("resources", {})["binaries/stimma-backend-x86_64-pc-windows-msvc"] = "stimma-backend"
+          cfg["plugins"]["updater"]["endpoints"] = [r"""${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/windows-x86_64/latest.json"""]
+          cfg["plugins"]["updater"]["pubkey"] = r"""${{ secrets.TAURI_SIGNING_PUBLIC_KEY }}"""
+          path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+          '@ | uv run --python 3.11 python -
+
+      - name: Generate channel icons
+        env:
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+        working-directory: backend
+        run: uv run --python 3.11 python ../scripts/generate-icons.py --channel "$env:CHANNEL"
+
+      - name: Build Windows app
+        shell: powershell
+        env:
+          VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/windows-x86_64/latest.json
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          RUST_LOG: tauri_bundler=trace
+        run: powershell -ExecutionPolicy Bypass -File tools/stimma.ps1 app build
+
+      - name: Print MSI payload stats
+        if: always()
+        shell: powershell
+        run: |
+          $root = "src-tauri/binaries/stimma-backend-x86_64-pc-windows-msvc"
+          if (Test-Path $root) {
+            $files = Get-ChildItem -Path $root -Recurse -File -ErrorAction SilentlyContinue
+            $count = ($files | Measure-Object).Count
+            $size = ($files | Measure-Object -Property Length -Sum).Sum
+            Write-Host "MSI backend payload files: $count"
+            Write-Host ("MSI backend payload size bytes: {0}" -f $size)
+          } else {
+            Write-Host "MSI payload root not found: $root"
+          }
+
+      - name: Dump bundle diagnostics on failure
+        if: failure()
+        shell: powershell
+        run: |
+          Write-Host "Bundle directory:"
+          Get-ChildItem -Path "src-tauri/target/release/bundle" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName,Length | Format-Table -AutoSize
+
+      - name: Collect build artifacts
+        id: collect
+        shell: powershell
+        run: |
+          $bundleDir = "src-tauri/target/release/bundle"
+
+          # NSIS installer (.exe)
+          $installer = Get-ChildItem -Path $bundleDir -Recurse -Filter *.exe | Where-Object { $_.Name -like "*setup*" -or $_.Directory.Name -eq "nsis" } | Select-Object -First 1
+          if (-not $installer) { throw "NSIS installer was not generated." }
+
+          # NSIS updater artifact (.nsis.zip + .nsis.zip.sig)
+          $archive = Get-ChildItem -Path $bundleDir -Recurse -Filter "*.nsis.zip" | Select-Object -First 1
+          $sig = if ($archive) { Get-Item "$($archive.FullName).sig" -ErrorAction SilentlyContinue } else { $null }
+
+          "installer_file=$($installer.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          if ($archive -and $sig) {
+            "app_archive=$($archive.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "app_sig=$($sig.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+            "app_archive=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "app_sig=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+
+      - name: Upload workflow artifacts
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: stimma-windows-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
+          retention-days: 10
+          path: |
+            ${{ steps.collect.outputs.installer_file }}
+            ${{ steps.collect.outputs.app_archive }}
+            ${{ steps.collect.outputs.app_sig }}
+
+      - name: Publish GitHub release assets
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          prerelease: ${{ env.STIMMA_RELEASE_CHANNEL != 'production' }}
+          generate_release_notes: true
+          files: |
+            ${{ steps.collect.outputs.installer_file }}
+            ${{ steps.collect.outputs.app_archive }}
+            ${{ steps.collect.outputs.app_sig }}
+
+      - name: Publish updater artifacts to Cloudflare R2
+        if: (github.event_name == 'push' || inputs.publish_updates == true) && steps.collect.outputs.app_archive != ''
+        shell: powershell
+        env:
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+          VERSION: ${{ steps.version.outputs.windows_version }}
+          PUBLIC_VERSION: ${{ steps.version.outputs.version }}
+          INSTALLER_FILE: ${{ steps.collect.outputs.installer_file }}
+          APP_ARCHIVE: ${{ steps.collect.outputs.app_archive }}
+          APP_SIG: ${{ steps.collect.outputs.app_sig }}
+          BUCKET: ${{ env.R2_BUCKET }}
+          R2_S3_ENDPOINT: ${{ env.R2_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:BUCKET)) { throw "R2_BUCKET repo variable is required." }
+          if ([string]::IsNullOrWhiteSpace($env:R2_S3_ENDPOINT)) { throw "R2_S3_ENDPOINT repo variable is required." }
+
+          # Trim secrets to strip trailing newlines that break AWS signature headers
+          $env:R2_S3_ENDPOINT = $env:R2_S3_ENDPOINT.Trim()
+          $env:AWS_ACCESS_KEY_ID = $env:AWS_ACCESS_KEY_ID.Trim()
+          $env:AWS_SECRET_ACCESS_KEY = $env:AWS_SECRET_ACCESS_KEY.Trim()
+
+          $versionedPrefix = "stimma/$env:CHANNEL/windows-x86_64/$env:VERSION"
+          $basename = [System.IO.Path]::GetFileName($env:APP_ARCHIVE)
+          $installerBasename = [System.IO.Path]::GetFileName($env:INSTALLER_FILE)
+          $basenameUrl = [System.Uri]::EscapeDataString($basename)
+          $installerBasenameUrl = [System.Uri]::EscapeDataString($installerBasename)
+          $sigValue = (Get-Content -Path $env:APP_SIG -Raw).Trim()
+          $url = "$env:STIMMA_UPDATE_BASE_URL/$versionedPrefix/$basenameUrl"
+          $downloadUrl = "$env:STIMMA_UPDATE_BASE_URL/$versionedPrefix/$installerBasenameUrl"
+          $downloadSize = (Get-Item $env:INSTALLER_FILE).Length
+          $downloadSha256 = (Get-FileHash -Path $env:INSTALLER_FILE -Algorithm SHA256).Hash.ToLowerInvariant()
+
+          uvx --python 3.11 --from awscli aws s3 cp "$env:INSTALLER_FILE" "s3://$env:BUCKET/$versionedPrefix/$installerBasename" --content-type application/vnd.microsoft.portable-executable --cache-control "public, max-age=31536000, immutable" --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli aws s3 cp "$env:APP_ARCHIVE" "s3://$env:BUCKET/$versionedPrefix/$basename" --content-type application/zip --endpoint-url "$env:R2_S3_ENDPOINT"
+          uvx --python 3.11 --from awscli aws s3 cp "$env:APP_SIG" "s3://$env:BUCKET/$versionedPrefix/$basename.sig" --content-type text/plain --endpoint-url "$env:R2_S3_ENDPOINT"
+
+          # Write without BOM — Tauri's updater (serde_json) chokes on UTF-8 BOM
+          $latestJson = @"
+          {
+            "version": "$env:VERSION",
+            "notes": "Manual CI build",
+            "pub_date": "$(Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")",
+            "platforms": {
+              "windows-x86_64": {
+                "signature": "$sigValue",
+                "url": "$url"
+              }
+            }
+          }
+          "@
+          [System.IO.File]::WriteAllText((Join-Path $PWD "latest.json"), $latestJson, [System.Text.UTF8Encoding]::new($false))
+
+          $existingLatest = Join-Path $PWD "existing-latest.json"
+          uvx --python 3.11 --from awscli aws s3 cp "s3://$env:BUCKET/stimma/$env:CHANNEL/windows-x86_64/latest.json" $existingLatest --endpoint-url "$env:R2_S3_ENDPOINT"
+          $existingFetchCode = $LASTEXITCODE
+          if ($existingFetchCode -ne 0) {
+            Write-Host "No existing windows-x86_64 latest.json found in release bucket."
+            Remove-Item $existingLatest -ErrorAction SilentlyContinue
+          }
+
+          $guardScript = @'
+          import json
+          import os
+          import re
+          import sys
+
+          def key(version):
+              m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-(?:(alpha|beta)\.)?(\d+))?$", version)
+              if not m:
+                  raise SystemExit(f"Unparseable version: {version}")
+              core = tuple(int(m.group(i)) for i in range(1, 4))
+              channel = m.group(4) or os.environ["CHANNEL"]
+              n = int(m.group(5) or 0)
+              rank = {"alpha": 1, "beta": 2, "production": 3}.get(channel, 0)
+              return (*core, rank, n)
+
+          candidate = os.environ["CANDIDATE_VERSION"]
+          existing_path = os.environ["EXISTING_MANIFEST"]
+          existing = None
+          if os.path.exists(existing_path):
+              with open(existing_path, encoding="utf-8") as manifest:
+                  existing = json.load(manifest).get("version")
+          if existing and key(candidate) < key(existing):
+              print(f"Refusing to move windows-x86_64 latest.json backward from {existing} to {candidate}.")
+              sys.exit(42)
+          print(f"Publishing latest manifest for {candidate}; existing={existing or 'none'}.")
+          '@
+          $env:CANDIDATE_VERSION = $env:VERSION
+          $env:EXISTING_MANIFEST = $existingLatest
+          $guardScript | uv run --python 3.11 python -
+          if ($LASTEXITCODE -eq 42) {
+            Write-Host "Skipping latest.json and download.json publish because a newer manifest already exists."
+            exit 0
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          uvx --python 3.11 --from awscli aws s3 cp latest.json "s3://$env:BUCKET/stimma/$env:CHANNEL/windows-x86_64/latest.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$env:R2_S3_ENDPOINT"
+
+          $downloadJson = @"
+          {
+            "version": "$env:PUBLIC_VERSION",
+            "channel": "$env:CHANNEL",
+            "platform": "windows-x86_64",
+            "filename": "$installerBasename",
+            "url": "$downloadUrl",
+            "size": $downloadSize,
+            "sha256": "$downloadSha256",
+            "pub_date": "$(Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")"
+          }
+          "@
+          [System.IO.File]::WriteAllText((Join-Path $PWD "download.json"), $downloadJson, [System.Text.UTF8Encoding]::new($false))
+
+          uvx --python 3.11 --from awscli aws s3 cp download.json "s3://$env:BUCKET/stimma/$env:CHANNEL/windows-x86_64/download.json" --content-type application/json --cache-control "no-cache" --endpoint-url "$env:R2_S3_ENDPOINT"
+
+      - name: Purge Cloudflare cache for latest manifest
+        if: (github.event_name == 'push' || inputs.publish_updates == true) && steps.collect.outputs.app_archive != ''
+        shell: powershell
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CF_API_TOKEN) -or [string]::IsNullOrWhiteSpace($env:CF_ZONE_ID)) {
+            throw "CF_API_TOKEN and CF_ZONE_ID secrets are required."
+          }
+
+          $manifestUrl = "$env:STIMMA_UPDATE_BASE_URL/stimma/$env:CHANNEL/windows-x86_64/latest.json"
+          $downloadManifestUrl = "$env:STIMMA_UPDATE_BASE_URL/stimma/$env:CHANNEL/windows-x86_64/download.json"
+          $body = @{ files = @($manifestUrl, $downloadManifestUrl) } | ConvertTo-Json -Compress
+          Invoke-RestMethod -Method Post -Uri "https://api.cloudflare.com/client/v4/zones/$env:CF_ZONE_ID/purge_cache" -Headers @{ Authorization = "Bearer $env:CF_API_TOKEN"; "Content-Type" = "application/json" } -Body $body | Out-Null

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="apertureGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f093fb;stop-opacity:1" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="48" fill="#0a0a0a" stroke="url(#apertureGradient)" stroke-width="2"/>
+
+  <!-- Aperture blades (6 blades forming hexagon) -->
+  <g fill="url(#apertureGradient)" filter="url(#glow)">
+    <!-- Blade 1 -->
+    <path d="M 50 50 L 50 15 L 70 27.5 Z" opacity="0.9"/>
+    <!-- Blade 2 -->
+    <path d="M 50 50 L 70 27.5 L 85 50 Z" opacity="0.85"/>
+    <!-- Blade 3 -->
+    <path d="M 50 50 L 85 50 L 70 72.5 Z" opacity="0.8"/>
+    <!-- Blade 4 -->
+    <path d="M 50 50 L 70 72.5 L 50 85 Z" opacity="0.85"/>
+    <!-- Blade 5 -->
+    <path d="M 50 50 L 50 85 L 30 72.5 Z" opacity="0.9"/>
+    <!-- Blade 6 -->
+    <path d="M 50 50 L 30 72.5 L 15 50 Z" opacity="0.85"/>
+    <!-- Blade 7 -->
+    <path d="M 50 50 L 15 50 L 30 27.5 Z" opacity="0.8"/>
+    <!-- Blade 8 -->
+    <path d="M 50 50 L 30 27.5 L 50 15 Z" opacity="0.85"/>
+  </g>
+
+  <!-- Center circle -->
+  <circle cx="50" cy="50" r="8" fill="#0a0a0a" stroke="url(#apertureGradient)" stroke-width="1.5"/>
+</svg>

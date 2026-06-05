@@ -1,0 +1,89 @@
+/* Button component styles */
+
+.stimma-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--stimma-spacing-xs);
+  padding: var(--stimma-spacing-sm) var(--stimma-spacing-md);
+  border-radius: var(--stimma-border-radius);
+  font-size: var(--stimma-font-size);
+  font-weight: 500;
+  transition: all var(--stimma-transition-duration) var(--stimma-transition-timing);
+  white-space: nowrap;
+}
+
+.stimma-button--default {
+  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  color: rgb(var(--stimma-color-foreground));
+}
+
+.stimma-button--default:hover:not(:disabled) {
+  background-color: rgba(var(--stimma-color-foreground), 0.15);
+}
+
+.stimma-button--primary {
+  background-color: rgb(var(--stimma-color-primary));
+  color: white;
+}
+
+.stimma-button--primary:hover:not(:disabled) {
+  background-color: rgba(var(--stimma-color-primary), 0.9);
+}
+
+.stimma-button--ghost {
+  background-color: transparent;
+  color: rgb(var(--stimma-color-foreground));
+}
+
+.stimma-button--ghost:hover:not(:disabled) {
+  background-color: rgba(var(--stimma-color-foreground), 0.1);
+}
+
+.stimma-button--sm {
+  padding: var(--stimma-spacing-xs) var(--stimma-spacing-sm);
+  font-size: var(--stimma-font-size-sm);
+}
+
+.stimma-button--lg {
+  padding: var(--stimma-spacing-md) var(--stimma-spacing-lg);
+  font-size: var(--stimma-font-size-lg);
+}
+
+.stimma-button--icon {
+  padding: var(--stimma-spacing-sm);
+}
+
+.stimma-button--full {
+  width: 100%;
+}
+
+.stimma-button__icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Button group */
+.stimma-button-group {
+  display: inline-flex;
+  border-radius: var(--stimma-border-radius);
+  overflow: hidden;
+}
+
+.stimma-button-group .stimma-button {
+  border-radius: 0;
+}
+
+.stimma-button-group .stimma-button:first-child {
+  border-top-left-radius: var(--stimma-border-radius);
+  border-bottom-left-radius: var(--stimma-border-radius);
+}
+
+.stimma-button-group .stimma-button:last-child {
+  border-top-right-radius: var(--stimma-border-radius);
+  border-bottom-right-radius: var(--stimma-border-radius);
+}
+
+.stimma-button-group .stimma-button + .stimma-button {
+  margin-left: 1px;
+}

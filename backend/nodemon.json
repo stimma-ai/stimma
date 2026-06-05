@@ -1,0 +1,8 @@
+{
+  "watch": ["*.py", "**/*.py"],
+  "ignore": ["*.db", "*.db-*", "__pycache__", "venv", ".venv", "agent/evals/results"],
+  "ext": "py",
+  "exec": "uv run python main.py --app=dev --port=9191",
+  "signal": "SIGTERM",
+  "delay": "500"
+}

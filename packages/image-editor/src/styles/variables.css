@@ -1,0 +1,54 @@
+:root {
+  /* Colors (RGB values without rgb()) */
+  --stimma-color-background: 255, 255, 255;
+  --stimma-color-foreground: 30, 30, 30;
+  --stimma-color-primary: 59, 130, 246;
+  --stimma-color-secondary: 107, 114, 128;
+  --stimma-color-surface: 245, 245, 245;
+  --stimma-color-focus: 59, 130, 246;
+  --stimma-color-error: 239, 68, 68;
+  --stimma-color-success: 34, 197, 94;
+
+  /* Borders */
+  --stimma-border-radius: 6px;
+  --stimma-border-radius-sm: 4px;
+  --stimma-border-radius-round: 9999px;
+  --stimma-border-color: rgba(0, 0, 0, 0.1);
+
+  /* Typography */
+  --stimma-font-family: system-ui, -apple-system, sans-serif;
+  --stimma-font-size: 14px;
+  --stimma-font-size-sm: 12px;
+  --stimma-font-size-lg: 16px;
+
+  /* Spacing */
+  --stimma-spacing-xs: 4px;
+  --stimma-spacing-sm: 8px;
+  --stimma-spacing-md: 16px;
+  --stimma-spacing-lg: 24px;
+  --stimma-spacing-xl: 32px;
+
+  /* Animations */
+  --stimma-transition-duration: 150ms;
+  --stimma-transition-timing: ease-out;
+
+  /* Editor specific */
+  --stimma-toolbar-height: 48px;
+  --stimma-tabs-height: 56px;
+  --stimma-panel-width: 280px;
+  --stimma-mask-opacity: 0.5;
+
+  /* Canvas colors */
+  --stimma-canvas-background: 220, 220, 220;
+}
+
+/* Dark theme - matches stimma app palette */
+[data-stimma-theme="dark"],
+.stimma-editor--dark {
+  --stimma-color-background: 30, 30, 30;
+  --stimma-color-foreground: 255, 255, 255;
+  --stimma-color-secondary: 156, 163, 175;
+  --stimma-color-surface: 38, 38, 38;
+  --stimma-border-color: rgba(156, 163, 175, 0.2);
+  --stimma-canvas-background: 18, 18, 18;
+}

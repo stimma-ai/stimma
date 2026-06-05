@@ -1,0 +1,158 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.pyc
+*.pyo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Eval results (generated output)
+backend/agent/evals/results/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Application Cache
+thumbnail_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS - macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# OS - Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# OS - Linux
+*~
+.directory
+.Trash-*
+
+# Node.js / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+dist/
+dist-ssr/
+*.local
+frontend/dist/
+frontend/node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Models & Cache (ML models, not Python models)
+/models/
+!backend/models/
+.cache/
+~/.cache/clip/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Playwright
+.playwright-mcp/
+playwright-report/
+test-results/
+
+# Tauri
+src-tauri/target/
+src-tauri/binaries/stimma-backend-*
+src-tauri/binaries/stimma-watchdog-*
+src-tauri/gen/
+
+# Tauri build outputs (if moved out of target/)
+*.app/
+*.dmg
+*.deb
+*.AppImage
+*.rpm
+
+# Configuration (uncomment to ignore your personal config)
+# config.yaml
+
+*.db*
+
+target
+.git.bak
+python-standalone
+build-experimental
+backend/output
+*.zip
+.dev.vars
+.dev.vars.*
+.claude/settings.local.json
+.mcp.json
+.wrangler
+.env.*

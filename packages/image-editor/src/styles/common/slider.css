@@ -1,0 +1,104 @@
+/* Slider component styles */
+
+.stimma-slider {
+  display: flex;
+  align-items: center;
+  gap: var(--stimma-spacing-sm);
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+}
+
+.stimma-slider__track {
+  flex: 1;
+  height: 4px;
+  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  border-radius: var(--stimma-border-radius-round);
+  position: relative;
+  cursor: pointer;
+}
+
+.stimma-slider__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background-color: rgb(var(--stimma-color-primary));
+  border-radius: var(--stimma-border-radius-round);
+  pointer-events: none;
+}
+
+.stimma-slider__thumb {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  background-color: white;
+  border: 2px solid rgb(var(--stimma-color-primary));
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform var(--stimma-transition-duration) var(--stimma-transition-timing);
+}
+
+.stimma-slider__thumb:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.stimma-slider__thumb:active {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.stimma-slider__value {
+  flex: 0 0 36px;
+  text-align: right;
+  font-size: var(--stimma-font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--stimma-color-secondary));
+}
+
+/* Input range fallback */
+.stimma-slider__input {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.stimma-slider__input::-webkit-slider-runnable-track {
+  height: 4px;
+  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  border-radius: var(--stimma-border-radius-round);
+}
+
+.stimma-slider__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background-color: white;
+  border: 2px solid rgb(var(--stimma-color-primary));
+  border-radius: 50%;
+  margin-top: -6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.stimma-slider__input::-moz-range-track {
+  height: 4px;
+  background-color: rgba(var(--stimma-color-foreground), 0.1);
+  border-radius: var(--stimma-border-radius-round);
+}
+
+.stimma-slider__input::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background-color: white;
+  border: 2px solid rgb(var(--stimma-color-primary));
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}

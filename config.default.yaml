@@ -1,0 +1,80 @@
+# Stimma Configuration Template
+#
+# This file is used as a template when creating a new config.yaml.
+# The actual config is stored in your OS-specific data directory:
+#   - macOS: ~/Library/Application Support/stimma[-modifier]/config.yaml
+#   - Windows: %APPDATA%/stimma[-modifier]/config.yaml
+#   - Linux: ~/.local/share/stimma[-modifier]/config.yaml
+#
+# Copy this file to modify settings, or edit the config.yaml in your data directory.
+
+# ============ PROFILE SETTINGS ============
+# Each profile has its own database (stimma_v1.db in the profile folder), folders, and markers
+profiles:
+  - id: __PROFILE_ID__
+    name: "Default"
+    folders:
+      - path: ""
+        allow_generate: true
+        is_uploads_folder: true
+        uploads_subfolder: "uploads"
+    markers:
+      - name: favorite
+        icon_svg: heroicons:heart
+        color: "#ef4444"
+      - name: library
+        icon_svg: heroicons:bookmark
+        color: "#3b82f6"
+
+# ============ TOOL PROVIDERS ============
+# Configure tool providers for image generation and manipulation.
+# Supports external JSON-RPC providers (stdio or websocket).
+# tool_providers: []
+
+# ============ GENERATOR BACKENDS ============
+# Legacy generator configuration (deprecated - use tool_providers instead)
+# generators: []
+
+# ============ LLM CONFIGURATION ============
+# Configure LLMs for the copilot agent and prompt enhancement.
+# Two roles:
+#   - agent: Main copilot model (large, capable)
+#   - agent-fast: Mid-sized model for prompt enhancement, captioning, lora matching
+#
+# Each role supports three sources (switch without losing config):
+#   - source: 'auto' | 'stimma_cloud' | 'endpoint'
+#   - endpoint: OpenAI-compatible endpoint config (vLLM, LM Studio, Ollama, etc.)
+#
+# Default uses Stimma Cloud when available, then a configured local endpoint.
+
+default_model: auto  # Global default model slug for chat model picker
+
+llms:
+  agent:
+    source: auto
+  agent-fast:
+    source: auto
+
+# ============ CLIP CONFIGURATION ============
+clip:
+  model: "ViT-g-14"
+  pretrained: "laion2b_s12b_b42k"
+
+# ============ FACE DETECTION ============
+face_detection:
+  enabled: true
+  min_confidence: 0.5
+  max_faces: 10
+  parallelism: 2
+
+# ============ TELEMETRY ============
+# Anonymous usage telemetry helps improve Stimma.
+# Set enabled to false to opt out, or set DO_NOT_TRACK=1 env var.
+telemetry:
+  enabled: true
+
+# ============ SERVER SETTINGS ============
+server:
+  host: "127.0.0.1"
+  port: 8000
+  log_level: INFO  # DEBUG, INFO, WARNING, ERROR
