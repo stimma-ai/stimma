@@ -18,11 +18,18 @@ class TestInvalidAttributes:
 
     def test_valid_stimma_methods_no_warnings(self):
         code = """
-result = await stimma.call_tool("comfyui:flux", prompt="cat")
+from stimma.tools.text_to_image import gen
+result = await gen(prompt="cat")
 stimma.show(result)
 """
         warnings = lint_code(code)
         assert warnings == []
+
+    def test_call_tool_removed_redirects_to_import(self):
+        warnings = lint_code('await stimma.call_tool("comfyui:flux", prompt="cat")')
+        assert len(warnings) == 1
+        assert "removed" in warnings[0].message
+        assert "stimma.tools" in warnings[0].suggestion
 
     def test_valid_library_methods_no_warnings(self):
         code = """
@@ -68,7 +75,7 @@ class TestAwaitLinting:
         assert "sync" in warnings[0].message
 
     def test_missing_await_on_async_method(self):
-        warnings = lint_code("result = stimma.call_tool('flux', prompt='cat')")
+        warnings = lint_code("result = stimma.llm('describe a cat')")
         assert len(warnings) == 1
         assert "async" in warnings[0].message
         assert "must await" in warnings[0].message
@@ -79,11 +86,11 @@ class TestAwaitLinting:
         assert "must await" in warnings[0].message
 
     def test_proper_await_no_warning(self):
-        warnings = lint_code("result = await stimma.call_tool('flux', prompt='cat')")
+        warnings = lint_code("result = await stimma.llm('describe a cat')")
         assert warnings == []
 
     def test_unawaited_expression_statement(self):
-        warnings = lint_code("stimma.call_tool('flux', prompt='cat')")
+        warnings = lint_code("stimma.llm('describe a cat')")
         assert len(warnings) == 1
         assert "must await" in warnings[0].message
 
@@ -97,7 +104,7 @@ class TestAntiPatterns:
     def test_async_def_main(self):
         code = """
 async def main():
-    result = await stimma.call_tool("flux", prompt="cat")
+    result = await stimma.llm("describe a cat")
     stimma.show(result)
 """
         warnings = lint_code(code)
@@ -107,7 +114,7 @@ async def main():
     def test_regular_async_def_is_fine(self):
         code = """
 async def process_item(item):
-    return await stimma.call_tool("flux", prompt=item)
+    return await stimma.llm(item)
 """
         warnings = lint_code(code)
         assert warnings == []
@@ -170,8 +177,8 @@ await show(results)
 
     def test_missing_await_on_async_bare_import(self):
         code = """
-from stimma import call_tool
-result = call_tool("comfyui:flux", prompt="cat")
+from stimma import llm
+result = llm("describe a cat")
 """
         warnings = lint_code(code)
         assert len(warnings) == 1
@@ -180,41 +187,50 @@ result = call_tool("comfyui:flux", prompt="cat")
 
     def test_bare_import_correct_usage_no_warnings(self):
         code = """
-from stimma import call_tool, show
-result = await call_tool("comfyui:flux", prompt="cat")
+from stimma import llm, show
+result = await llm("describe a cat")
 show(result)
 """
         warnings = lint_code(code)
         assert warnings == []
 
-    def test_bare_import_gather_with_unawaited_coroutines(self):
-        """Coroutines passed as args to asyncio.gather should not warn."""
+    def test_tool_import_missing_await(self):
+        """Tools imported from stimma.tools.<task> are async — catch missing await."""
         code = """
-results = await asyncio.gather(
-    stimma.call_tool("flux", prompt="a"),
-    stimma.call_tool("flux", prompt="b"),
-)
-"""
-        warnings = lint_code(code)
-        assert not any("call_tool" in w.message and "must await" in w.message for w in warnings)
-
-    def test_bare_import_aliased(self):
-        code = """
-from stimma import call_tool as gen
-result = gen("comfyui:flux", prompt="cat")
+from stimma.tools.text_to_image import gen
+result = gen(prompt="cat")
 """
         warnings = lint_code(code)
         assert len(warnings) == 1
         assert "must await" in warnings[0].message
 
-    def test_bare_import_dict_arg_to_call_tool(self):
+    def test_tool_import_proper_await_no_warning(self):
         code = """
-from stimma import call_tool
-await call_tool("comfyui:flux", {"prompt": "cat"})
+from stimma.tools.text_to_image import gen
+result = await gen(prompt="cat")
+"""
+        warnings = lint_code(code)
+        assert warnings == []
+
+    def test_gather_with_unawaited_coroutines(self):
+        """Coroutines passed as args to asyncio.gather should not warn must-await."""
+        code = """
+results = await asyncio.gather(
+    stimma.llm("a"),
+    stimma.llm("b"),
+)
+"""
+        warnings = lint_code(code)
+        assert not any("must await" in w.message for w in warnings)
+
+    def test_bare_import_aliased(self):
+        code = """
+from stimma import llm as describe
+result = describe("a cat")
 """
         warnings = lint_code(code)
         assert len(warnings) == 1
-        assert "flat keyword" in warnings[0].message
+        assert "must await" in warnings[0].message
 
     def test_bare_import_mixed_with_stimma_dot(self):
         """Both styles in the same code should both be linted."""
@@ -253,14 +269,14 @@ class TestAwaitNonAwaitable:
         assert "asyncio.gather" in warnings[0].suggestion
 
     def test_await_list_comprehension(self):
-        code = 'results = await [stimma.call_tool("flux", prompt=p) for p in prompts]'
+        code = 'results = await [stimma.llm(p) for p in prompts]'
         warnings = lint_code(code)
         assert len(warnings) == 1
         assert "Cannot await a list" in warnings[0].message
         assert "asyncio.gather" in warnings[0].suggestion
 
     def test_await_generator_expression(self):
-        code = 'results = await (stimma.call_tool("flux", prompt=p) for p in prompts)'
+        code = 'results = await (stimma.llm(p) for p in prompts)'
         warnings = lint_code(code)
         assert len(warnings) == 1
         assert "Cannot await a generator" in warnings[0].message
@@ -341,4 +357,4 @@ class TestFormatting:
         assert "Line" in output
         assert "stimma.generate" in output
         assert "Fix the code" in output
-        assert "agent-level sdk_help tool outside run_code" in output
+        assert ".stimma/tools/" in output

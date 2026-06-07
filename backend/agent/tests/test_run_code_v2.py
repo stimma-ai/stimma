@@ -4,12 +4,47 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
+from dataclasses import dataclass, field
+
 from agent.v2.permissions import GATED_TOOLS
 from agent.v2.prompts import get_system_prompt
 from agent.v2.tools.run_code import run_code
 from agent.v2.tools_registry import get_tool, get_tools_schema
 from database import ChatItem, MediaItem, MediaLineage
 from tests.helpers.media import create_media_item, generate_test_image
+
+
+@dataclass
+class _MockDescriptor:
+    name: str = "Mock Tool"
+    description: str = "A mock generation tool."
+    task_types: list = field(default_factory=lambda: ["text-to-image"])
+    parameter_schema: dict = field(default_factory=lambda: {
+        "type": "object",
+        "properties": {
+            "prompt": {"type": "string"},
+            "input_images": {"type": "array", "items": {"type": "integer"}},
+            "steps": {"type": "integer", "default": 20},
+        },
+        "required": ["prompt"],
+    })
+    task_type: str = None
+    subtitle: str = ""
+
+
+def _patch_mock_registry(monkeypatch, *, tool_id="mock:gen", task_types=("text-to-image",)):
+    """Expose a single mock tool so `from stimma.tools.<task> import gen` resolves
+    in the run_code sandbox (the import binding is built from the live registry)."""
+    desc = _MockDescriptor(task_types=list(task_types))
+
+    class _Reg:
+        def list_all_tools(self):
+            return [(tool_id, None, desc)]
+
+    monkeypatch.setattr(
+        "providers.registry.ProviderRegistry.get_instance",
+        lambda *a, **k: _Reg(),
+    )
 
 
 @pytest.mark.asyncio
@@ -175,6 +210,7 @@ async def test_run_code_sdk_call_tool_and_save_preserves_lineage(session, test_c
 
     monkeypatch.setattr("agent.v2.code_runtime.execute_call_tool", _fake_execute_call_tool)
     monkeypatch.setattr("agent.v2.tools.library._get_default_folder", lambda _=None: str(output_dir))
+    _patch_mock_registry(monkeypatch, task_types=("image-to-image",))
 
     async def _noop_validate(*args, **kwargs):
         return []
@@ -182,7 +218,8 @@ async def test_run_code_sdk_call_tool_and_save_preserves_lineage(session, test_c
 
     result = await run_code(
         code=(
-            f"generated = await stimma.call_tool('mock:tool', prompt='edit', input_images=[{parent.id}], steps=6)\n"
+            "from stimma.tools.image_to_image import gen\n"
+            f"generated = await gen(prompt='edit', input_images=[{parent.id}], steps=6)\n"
             "saved = await stimma.library.save(generated)\n"
             "print(json.dumps(saved))\n"
         ),
@@ -195,7 +232,7 @@ async def test_run_code_sdk_call_tool_and_save_preserves_lineage(session, test_c
     saved = json.loads(json_text)
     saved_media = await session.get(MediaItem, saved["media_id"])
     assert saved_media is not None
-    assert saved_media.tool_id == "mock:tool"
+    assert saved_media.tool_id == "mock:gen"
 
     lineage_rows = (
         await session.execute(
@@ -246,6 +283,7 @@ async def test_run_code_show_tool_result_prefers_media_id(session, test_chat, tm
 
     monkeypatch.setattr("agent.v2.code_runtime.execute_call_tool", _fake_execute_call_tool)
     monkeypatch.setattr("utils.websocket.ws_manager", _FakeWsManager())
+    _patch_mock_registry(monkeypatch, task_types=("text-to-image",))
 
     async def _noop_validate(*args, **kwargs):
         return []
@@ -253,7 +291,8 @@ async def test_run_code_show_tool_result_prefers_media_id(session, test_chat, tm
 
     await run_code(
         code=(
-            "generated = await stimma.call_tool('mock:tool', prompt='cat')\n"
+            "from stimma.tools.text_to_image import gen\n"
+            "generated = await gen(prompt='cat')\n"
             "stimma.show(generated)\n"
         ),
         session=session,

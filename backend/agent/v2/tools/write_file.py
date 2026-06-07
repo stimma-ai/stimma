@@ -4,6 +4,7 @@ from pathlib import Path
 
 from ..tools_registry import tool, ToolParameter
 from ._workspace_files import (
+    readonly_workspace_error,
     MAX_FILE_SIZE,
     maybe_sync_recipe_program,
     resolve_workspace_path,
@@ -36,6 +37,10 @@ async def write_file(file_path: str | None = None, content: str | None = None, *
         return "Error: file_path is required."
     if content is None:
         return "Error: content is required. Pass the full file content as a string."
+
+    ro_err = readonly_workspace_error(file_path)
+    if ro_err:
+        return ro_err
 
     resolved, err = resolve_workspace_path(workspace_dir, file_path)
     if err:

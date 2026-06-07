@@ -1016,6 +1016,18 @@ async def _run_agentic_loop(
             notepad_state=notepad_state,
         )
 
+    # Materialize the read-only .stimma/ tool catalog into the workspace so the
+    # agent (and recipe author) can browse tools with ls/grep/cat and call them
+    # via `from stimma.tools.<task> import <tool>`. Single source of truth shared
+    # with the run_code import namespace; idempotent + fingerprinted, so this is
+    # a cheap no-op when the provider catalog hasn't changed.
+    try:
+        from .tool_fs import materialize_tool_fs
+        from providers.registry import ProviderRegistry
+        materialize_tool_fs(ProviderRegistry.get_instance(), workspace_dir)
+    except Exception as e:
+        log.warning(f"Failed to materialize .stimma/ tool catalog: {e}")
+
     # Track invoked skills for run_code lib modules
     _invoked_skills: set[str] = set()
     _invoked_result = await session.execute(

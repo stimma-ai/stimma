@@ -136,6 +136,7 @@ async def execute_call_tool(
     tool_id: str,
     inputs: Dict[str, Any],
     parameters: Optional[Dict[str, Any]] = None,
+    task_type_override: Optional[str] = None,
     **kwargs,
 ) -> Dict[str, Any]:
     # Extract controlnet config if the agent passed it inline
@@ -153,11 +154,16 @@ async def execute_call_tool(
     provider_tool = registry.get_tool(tool_id)
     if not provider_tool:
         raise ValueError(
-            f"Tool '{tool_id}' not found. Use list_tools(task_type=\"...\") to see available tools."
+            f"Tool '{tool_id}' not found. Browse .stimma/tools/ (or import from stimma.tools.<category>) for valid tools."
         )
 
     provider, tool_descriptor = provider_tool
-    task_type = _resolve_effective_task_type(tool_descriptor, inputs)
+    if task_type_override and task_type_override in (tool_descriptor.task_types or []):
+        # Explicit namespace import (stimma.tools.<task>.<tool>) pins the task type
+        # deterministically rather than inferring it from input shape.
+        task_type = task_type_override
+    else:
+        task_type = _resolve_effective_task_type(tool_descriptor, inputs)
 
     log.info(f"[call_tool_v2] Executing {tool_id} ({tool_descriptor.name}), task_type={task_type}")
 
@@ -246,7 +252,7 @@ async def execute_call_tool(
         if not supported_cn:
             raise ValueError(
                 f"Tool '{tool_id}' does not support controlnet. "
-                f"Use get_schema to find a tool with x-controlnet support on input_images, "
+                f"Browse .stimma/tools/ for a tool whose stub lists controlnet preprocessors, "
                 f"or use an image-to-image tool that supports controlnet."
             )
         if cn_preprocessor not in supported_cn:
@@ -343,9 +349,15 @@ async def execute_call_tool(
             if l and l.get("path")
         ],
         "negative_prompt": final_params.get("negative_prompt", ""),
-        **{k: v for k, v in final_params.items() if k not in [
+        # Pass through any remaining tool-specific generation params, but NEVER
+        # the input-bucket keys: those are set explicitly above from `inputs`,
+        # and final_params still holds their schema DEFAULTS (e.g. prompt="",
+        # width=1024) which would otherwise clobber the real values and produce
+        # empty-prompt / default-dimension (unconditional) generations.
+        **{k: v for k, v in final_params.items() if k not in (
             "steps", "cfg", "guidance", "sampler", "scheduler", "loras", "negative_prompt",
-        ]},
+            "prompt", "width", "height", "seed", "input_images",
+        )},
     })
 
     # Forward controlnet metadata so lineage resolution picks it up

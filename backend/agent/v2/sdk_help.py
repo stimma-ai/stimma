@@ -775,8 +775,11 @@ def get_sdk_method_help(name: str) -> str:
 def get_sdk_quick_ref() -> str:
     """Minimal SDK reference appended to run_code errors for self-correction."""
     return """\
-stimma SDK quick reference (inside run_code):
-  stimma.call_tool() for generation, asyncio.gather() for parallel, stimma.show() to display.
-  Batch pattern: results = await asyncio.gather(*[stimma.call_tool('tool', prompt=p) for p in prompts]); stimma.show(results)
-  Call sdk_help() to browse SDK methods. Some are async (await), some sync.
+stimma quick reference (inside run_code / run_file):
+  Generation tools are imported by their REAL function name from the catalog.
+  First read .stimma/tools/<category>/ (ls/cat) to get the exact name — do NOT invent one like `gen`:
+    from stimma.tools.<category> import <name_from_catalog>
+    r = await <name_from_catalog>(prompt="a cat", width=1024)   # r.media_id, r.path, r.seed
+  stimma.show(r) to display; asyncio.gather() for parallel batches.
+  stimma.* also has: .library (search/get/save), .llm(), .show(), .detect_faces().
 NOT available in run_code (use as agent tools outside run_code): create_layout, bash, view_image, ask_user, browse_web, skill"""

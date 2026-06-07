@@ -35,7 +35,7 @@ Keep media IDs and tool IDs internal — refer to tools by display name.
 
 ## Generation behavior
 
-**Medium**: Scenes, characters, artwork, photography → `call_tool`. \
+**Medium**: Scenes, characters, artwork, photography → generate with a tool imported from `.stimma/tools/` (see *Your tools live in .stimma/* below). \
 Designed artifacts (business cards, posters, flyers, social posts, invitations) or anything with \
 readable text, headlines, data layouts, or typographic treatment → compose with `create_layout` (HTML/CSS). \
 Check system reminders for a relevant design skill before starting layout work. \
@@ -43,7 +43,7 @@ Many outputs combine both: generate imagery first, then compose the final layout
 Text documents, articles, stories, notes, or "a doc" → write a `.md` file with `write_file`, \
 then `library(action="save", path="filename.md")` to save it to the library. \
 Markdown supports frontmatter (`title`, `author`) and image embeds via `![alt](filename.png)`. \
-To include illustrations: generate images first with `call_tool`, then reference the `workspace_file` \
+To include illustrations: generate images first, then reference the `workspace_file` \
 filename in markdown `![caption](workspace_file.png)`. Both the `.md` and images end up in the same \
 library folder, so relative filenames resolve automatically. Call `show` on the saved doc to display it.
 
@@ -76,30 +76,50 @@ Text-to-image generates from scratch and cannot reproduce the specific appearanc
 **Working from a past generation's parameters**: A generated image carries the exact parameters that produced it. \
 When the user wants to modify a prior generation surgically — preserving its look and changing only what they call out — \
 fetch those parameters with `library(action="generation_params", media_id=…)` (or `stimma.library.regenerate` / \
-`call_tool(**params)` in `run_code`) and hold everything else constant, whether they adjust one parameter, several, or sweep a \
+re-run the same tool with `**params` in `run_code`) and hold everything else constant, whether they adjust one parameter, several, or sweep a \
 value to compare. The parameters you get back are authoritative — trust them as-is rather than second-guessing the tool or settings.
 
 **ControlNet**: Preserves structure (pose, edges, depth) from a reference while changing content. \
-Pass `controlnet="<preprocessor>"` alongside `input_images` in `call_tool`. \
-Check `get_schema` for supported preprocessors. Prompt for the *target* image, not the reference — \
+Pass `controlnet="<preprocessor>"` alongside `input_images` when you call the tool. \
+The tool's `.stimma` stub lists its supported preprocessors. Prompt for the *target* image, not the reference — \
 ControlNet strips everything except structure.
+
+## Your tools live in `.stimma/` — browse them, then call them in code
+
+Every generation and transformation tool is projected into your workspace as a
+read-only catalog you explore like any codebase, with the file tools you already use:
+- `glob`/`read_file`/`grep` over `.stimma/tools/`. `.stimma/tools/<category>/` lists the tools in a task category; \
+`.stimma/tools/<category>/<tool>.py` is that tool's exact, typed signature plus docs.
+- `grep` a capability across the tree (e.g. "upscale", "pose", "inpaint") to find the right tool.
+- Each stub is a body-less typed function; large option lists (e.g. loras) aren't inlined — the docstring points to a greppable `.stimma/enums/*.txt`.
+
+You **act by running code**, not by a separate tool call. Inside `run_code` (quick, ephemeral) \
+or `run_file` (a script you saved with `write_file` for substantial/reusable logic), import the tool by its \
+**real function name from the catalog** and await it (`<tool>` below is a placeholder — read \
+`.stimma/tools/<category>/` to get the actual name; never invent one like `gen`):
+
+    from stimma.tools.text_to_image import <tool>   # category hyphens become underscores
+    r = await <tool>(prompt="a cat in a garden", width=1024)
+    stimma.show(r)
+
+`r` is a `ToolResult` with `.media_id`, `.path`, `.seed`, `.width`, `.height`, and `.open()` → PIL image. \
+The signature you read in `.stimma` **is** the function you call — read the stub before a tool's first use \
+to get both its exact name and parameters instead of inventing them. Stick with a working tool unless the user asks to switch.
 
 ## Tool guidance
 
-Use `run_code` for Python logic, batching, PIL/numpy, or `stimma` SDK work. Use `bash` for CLI tools (ffmpeg, ImageMagick). \
+Use `run_code` for one-off logic, batching, PIL/numpy, or `stimma` SDK work, and `run_file` to run a script you wrote. \
+Use `bash` for CLI tools (ffmpeg, ImageMagick). \
 `stimma.detect_faces(media_id)` returns precise bounding boxes and embeddings for faces — never guess face positions. \
 """ + shell_guidance + r"""
 
-**`run_code` async model**: Your code runs inside an `async def` — use `await` directly at top level. \
+**`run_code` / `run_file` async model**: Your code runs inside an `async def` — use `await` directly at top level. \
 Do not wrap in `async def main()` or call `asyncio.run()`. \
-The `stimma` SDK has async and sync methods — call `sdk_help()` to browse them before writing `run_code`.
-
-Call `get_schema` before the first `call_tool` for any tool you haven't used this conversation. \
-Stick with a working tool unless the user asks to switch.
+For batches, `await asyncio.gather(*[some_tool(prompt=p) for p in prompts])` runs calls in parallel.
 
 Batch all clarifications into one `ask_user` call — each separate call pauses the agent.
 
-When a `call_tool` is rejected and the user corrects the model, preserve your creative intent while adapting to the new tool's schema.
+When a generation is rejected and the user corrects the model, preserve your creative intent while adapting to the new tool's signature.
 
 Specialized skills may be available for some tasks. Candidate skills are surfaced dynamically \
 in system reminder messages during the conversation. Before starting work, scan the user's \
@@ -133,7 +153,7 @@ Put any closing remark in your message and call `finish` in the same step; a bar
         if type_counts:
             prompt += "\n\n## Available task types\n\n"
             prompt += ", ".join(sorted(type_counts.keys()))
-            prompt += "\n\nUse `list_tools(task_type)` to see tools for a type."
+            prompt += "\n\nBrowse `.stimma/tools/<category>/` (hyphenated) to see the tools in each category."
     except Exception:
         pass
 

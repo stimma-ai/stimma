@@ -263,21 +263,24 @@ splits them for you based on the tool's schema. Writing
 the call is doing so the recipe row can render as the action ("Generate
 Image") instead of the model name. Tools that support multiple tasks
 (text-to-image AND image-to-image, etc.) need it to disambiguate; even
-single-task tools must pass it for consistency. Read it off
-``get_schema(tool_id=...).task_types`` and pass one of the listed values.
+single-task tools must pass it for consistency. The tool's stub (see below)
+lists its ``task_type`` in the docstring; pass one of the listed values.
 
-Before your first ``tool(...)`` in a recipe, discover real tool ids:
+Before your first ``tool(...)`` in a recipe, discover real tool ids by browsing
+the read-only catalog in your workspace with ``read_file`` / ``glob`` / ``grep``:
 
-1. ``list_task_types()`` — see the task categories that exist (text-to-image,
-   image-to-image, upscale, remove-background, inpaint, etc.).
-2. ``list_tools(task_type="...")`` — see the real registered tool ids for
-   that category.
-3. ``get_schema(tool_id="...")`` — confirm the exact parameter names, types,
-   and the tool's declared ``task_types`` before you write the
-   ``tool(...)`` call.
+1. ``glob`` or ``ls`` ``.stimma/tools/`` — see the task categories that exist
+   (text-to-image, image-to-image, upscale, remove-background, inpaint, etc.),
+   and ``.stimma/tools/<category>/`` for the tools in one.
+2. ``grep`` a capability across ``.stimma/tools/`` (e.g. "upscale", "pose") to
+   locate the right tool file.
+3. ``read_file`` ``.stimma/tools/<category>/<tool>.py`` — the stub's docstring
+   gives you the exact ``tool_id`` and ``task_type`` to write, and its signature
+   gives the parameter names/types. It even shows the ``tool(...)`` line to copy.
 
-Tool ids are opaque and provider-specific — discovered ids are the only ones
-the runtime accepts. The discovery tools cost one turn each; use them.
+Tool ids are opaque and provider-specific — the catalog ids are the only ones
+the runtime accepts. Large option lists (e.g. loras) aren't inlined in the stub;
+its docstring points to a greppable ``.stimma/enums/*.txt``.
 
 **llm(prompt, *, model="agent", think=False, response_format=None, system=None, images=None, n=1)**
 — calls an LLM at recipe evaluation time.
@@ -898,7 +901,7 @@ Each primitive has a fixed shape contract:
 
 | Primitive                                    | Resolves to                                      |
 |----------------------------------------------|--------------------------------------------------|
-| ``tool(id)``                                 | single value (media int for image/video; check ``get_schema``) |
+| ``tool(id)``                                 | single value (media int for image/video; check the tool's ``.stimma`` stub) |
 | ``llm("prompt")`` (no response_format)       | str                                              |
 | ``llm("prompt", response_format={...})``     | dict (keys = your declared schema)               |
 | ``code(fn, output_type="json")``             | whatever fn returns (dict/scalar)                |
@@ -933,8 +936,8 @@ Three rules follow from the table:
    ``hitl.select`` or ``foreach`` fails at runtime — it's a dict, not a list.
 
 2. **Check tool shapes before wiring.** Before any new ``tool(...)`` call,
-   ``get_schema(tool_id="...")`` tells you both its required inputs and
-   what it returns. A tool that wants ``list[media]`` won't accept a
+   read the tool's ``.stimma/tools/<category>/<tool>.py`` stub — it gives both
+   its required inputs and what it returns. A tool that wants ``list[media]`` won't accept a
    single media node, and vice versa. A plain ``tool(...)`` returns a
    scalar; a ``foreach`` over tool calls returns a list.
 
@@ -1092,14 +1095,13 @@ agent sandbox. You have:
   - ``analyze_recipe``, ``recipe_update`` — recipe-only tools for reading
     phase/equation state and updating the recipe's metadata.
   - ``read_file`` / ``write_file`` / ``edit_file`` / ``glob`` / ``grep``
-    — for editing ``program.py``.
-  - ``list_task_types`` / ``list_tools`` / ``get_schema`` /
-    ``search_options`` — STP tool discovery for the ``tool(...)`` DSL
-    primitive's ``tool_id`` argument.
+    — for editing ``program.py`` AND for browsing the read-only ``.stimma/tools/``
+    catalog to discover ``tool_id`` / ``task_type`` / parameters for the
+    ``tool(...)`` DSL primitive (see "discover real tool ids" above).
   - ``ask_user``, ``finish``, ``save_memory``, ``skill``, ``show``,
     ``view_image`` — shared utilities.
 
-You do **not** have ``run_code``, ``sdk_help``, ``library``, ``call_tool``,
+You do **not** have ``run_code``, ``library``, ``call_tool``,
 or ``stimma.library`` inside the recipe sandbox. Media lives in the recipe
 graph via NodeRefs and is pulled into callables as ``Media`` objects; you
 don't fetch by id.

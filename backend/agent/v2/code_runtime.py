@@ -430,16 +430,12 @@ class StimmaLibraryAPI:
         return json.loads(raw)
 
     async def generation_params(self, media_id: int) -> dict[str, Any]:
-        """Return a call_tool-ready recipe that reproduces an existing image.
+        """Return a flat dict of params that reproduces an existing image.
 
-        The result is a flat dict you can spread straight into call_tool:
-        tool_id, prompt, seed (top level), loras as [{path, weight}], width,
-        height, and input_images for image-to-image sources. To remix, fetch
-        it, change one field, and resubmit:
-
-            p = await stimma.library.generation_params(123)
-            p["loras"] = [{"path": "new_style"}]
-            result = await stimma.call_tool(**p)
+        Contains tool_id, prompt, seed, loras as [{path, weight}], width,
+        height, and input_images for image-to-image sources. To remix, prefer
+        stimma.library.regenerate(media_id, **overrides); or read it, change a
+        field, and re-run the tool imported from stimma.tools.<task>.
         """
         from .tools.library import fetch_generation_params
 
@@ -448,9 +444,9 @@ class StimmaLibraryAPI:
     async def regenerate(self, media_id: int, **overrides: Any) -> "ToolResult":
         """Reproduce an existing image, overriding any params you pass.
 
-        Convenience over generation_params + call_tool. Pass overrides as flat
-        kwargs (loras=..., prompt=..., seed=...). Pass seed=None for a fresh
-        random seed:
+        Convenience that fetches the original generation params and re-dispatches
+        the tool. Pass overrides as flat kwargs (loras=..., prompt=..., seed=...).
+        Pass seed=None for a fresh random seed:
 
             result = await stimma.library.regenerate(123, loras=[{"path": "new_style"}])
         """
@@ -463,7 +459,7 @@ class StimmaLibraryAPI:
                 f"Media {media_id} has no recorded generating tool (imported/external image) — "
                 "pass tool_id= to regenerate it."
             )
-        return await self._sdk.call_tool(**params)
+        return await self._sdk._dispatch_tool(**params)
 
     async def save(
         self,
@@ -629,14 +625,16 @@ class StimmaSDK:
             height=result["height"],
         )
 
-    async def call_tool(self, tool_id: str, _params_dict: dict | None = None, **kwargs) -> ToolResult:
-        # Accept positional dict as convenience fallback — models often write
-        # stimma.call_tool("tool", {"prompt": "..."}) instead of flat kwargs.
+    async def _dispatch_tool(self, tool_id: str, _params_dict: dict | None = None, _task_type: str | None = None, **kwargs) -> ToolResult:
+        # Internal tool dispatch. This is NOT the public surface: the agent calls
+        # tools via `from stimma.tools.<task> import <tool>; await <tool>(...)`,
+        # whose bindings (tool_fs.build_tools_namespace) route here. Kept private
+        # so there is exactly one public way to call a tool.
         if _params_dict is not None:
             if not isinstance(_params_dict, dict):
                 raise TypeError(
-                    f"stimma.call_tool() second argument must be a dict, got {type(_params_dict).__name__}. "
-                    'Use flat keyword args: await stimma.call_tool("tool_id", prompt="...", width=1024)'
+                    f"tool params must be a dict, got {type(_params_dict).__name__}. "
+                    'Pass flat keyword args: await some_tool(prompt="...", width=1024)'
                 )
             for k, v in _params_dict.items():
                 kwargs.setdefault(k, v)
@@ -691,6 +689,7 @@ class StimmaSDK:
                 tool_id=tool_id,
                 inputs=inputs,
                 parameters=parameters or None,
+                task_type_override=_task_type,
                 session=self.session,
                 chat_id=self.chat_id,
                 workspace_dir=self.workspace_dir,
@@ -1440,6 +1439,19 @@ async def run_code_in_sandbox(
         *coros, return_exceptions=return_exceptions,
     )
 
+    # Build the `stimma.tools.<task>` import namespace from the live tool
+    # registry, bound to this sdk instance. These modules mirror the read-only
+    # `.stimma/tools/` stubs the agent browses — same source of truth, so the
+    # signature it `cat`s is the function it `await`s.
+    _tools_namespace: dict[str, Any] = {}
+    try:
+        from providers.registry import ProviderRegistry
+        from .tool_fs import build_manifest, build_tools_namespace
+        _tool_manifest = build_manifest(ProviderRegistry.get_instance())
+        _tools_namespace = build_tools_namespace(sdk_instance, _tool_manifest)
+    except Exception as e:
+        log.warning(f"run_code: failed to build stimma.tools namespace: {e}")
+
     # Wrap __import__ so `import stimma`, `import tqdm`, and
     # `import asyncio` return the sandbox-patched versions.
     _original_import = builtins["__import__"]
@@ -1450,6 +1462,8 @@ async def run_code_in_sandbox(
             return tqdm_module
         if name == "asyncio":
             return _patched_asyncio
+        if name in _tools_namespace:
+            return _tools_namespace[name]
         return _original_import(name, globals, locals, fromlist, level)
     builtins["__import__"] = _import_with_extras
 
@@ -1574,7 +1588,8 @@ async def run_code_in_sandbox(
             error_msg += (
                 "\n\nHint: You cannot await a list or comprehension directly. "
                 "Use asyncio.gather to run multiple coroutines concurrently:\n"
-                "  results = await asyncio.gather(*[stimma.call_tool('tool', prompt=p) for p in prompts])"
+                "  from stimma.tools.<category> import <tool>   # real name from .stimma/tools/\n"
+                "  results = await asyncio.gather(*[<tool>(prompt=p) for p in prompts])"
             )
             has_specific_hint = True
         # Hint for agent-only tool NameErrors (e.g. create_layout, bash)

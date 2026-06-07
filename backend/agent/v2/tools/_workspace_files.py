@@ -11,6 +11,23 @@ _log = get_logger(__name__)
 # Extensions recognised as images (for read_file image handling)
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"}
 
+# The .stimma/ tree is an auto-generated, read-only projection of the tool
+# catalog. It is browsable (read/glob/grep) but must not be edited — the runtime
+# owns it and overwrites it.
+READONLY_PREFIX = ".stimma/"
+
+
+def readonly_workspace_error(file_path: str) -> str | None:
+    """Return an error if file_path targets the read-only .stimma/ tree, else None."""
+    normalized = (file_path or "").replace("\\", "/").lstrip("./")
+    if normalized == ".stimma" or normalized.startswith(READONLY_PREFIX):
+        return (
+            "Error: .stimma/ is a generated, read-only view of available tools — "
+            "it cannot be edited. Browse it with read_file/glob/grep; it refreshes "
+            "automatically when the tool catalog changes."
+        )
+    return None
+
 
 def resolve_workspace_path(workspace_dir: str, file_path: str) -> tuple[Path, str | None]:
     """Resolve a relative file_path within workspace_dir.

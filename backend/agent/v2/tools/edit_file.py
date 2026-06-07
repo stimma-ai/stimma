@@ -4,7 +4,7 @@ import difflib
 import json
 
 from ..tools_registry import tool, ToolParameter
-from ._workspace_files import maybe_sync_recipe_program, resolve_workspace_path
+from ._workspace_files import maybe_sync_recipe_program, readonly_workspace_error, resolve_workspace_path
 
 
 @tool(
@@ -51,6 +51,10 @@ async def edit_file(
         return "Error: old_string is required."
     if new_string is None:
         return "Error: new_string is required."
+
+    ro_err = readonly_workspace_error(file_path)
+    if ro_err:
+        return ro_err
 
     resolved, err = resolve_workspace_path(workspace_dir, file_path)
     if err:

@@ -14,6 +14,26 @@ from typing import Any, Callable, List, Dict, Optional
 VALID_SCOPES = frozenset({"agent", "recipe", "both"})
 
 
+# Tools retired from the agent surface in favour of the filesystem tool catalog
+# (.stimma/) plus code-only invocation (run_code / run_file). The agent now
+# discovers tools by reading .stimma/tools/ with read_file/glob/grep and calls
+# them via `from stimma.tools.<task> import <tool>`, instead of this RPC funnel.
+#
+# The underlying implementations are deliberately NOT deleted — execute_call_tool
+# still backs the stimma.tools.* import bindings (via StimmaSDK._dispatch_tool), and
+# _get_schema / get_tool_display_name / get_sdk_quick_ref are reused by the lint and
+# help paths. They are simply hidden from the model and made uninvocable here, in one
+# place, so a stale schema or hallucinated name can't reach them.
+RETIRED_TOOLS = frozenset({
+    "call_tool",
+    "list_task_types",
+    "list_tools",
+    "get_schema",
+    "search_options",
+    "sdk_help",
+})
+
+
 @dataclass
 class ToolParameter:
     name: str
@@ -124,7 +144,11 @@ def get_tools_schema(scope: str = "agent") -> List[dict]:
             f"get_tools_schema: invalid scope {scope!r}; must be one of "
             f"{sorted(VALID_SCOPES)}"
         )
-    return [t.to_openai_schema() for t in _tools.values() if t.visible_in(scope)]
+    return [
+        t.to_openai_schema()
+        for t in _tools.values()
+        if t.visible_in(scope) and t.name not in RETIRED_TOOLS
+    ]
 
 
 def get_tool(name: str, scope: Optional[str] = None) -> Optional[Tool]:
@@ -132,6 +156,8 @@ def get_tool(name: str, scope: Optional[str] = None) -> Optional[Tool]:
     tool exists but isn't visible in that scope — so a stale schema or
     hallucinated name can't slip an agent-only tool into recipe chat.
     """
+    if name in RETIRED_TOOLS:
+        return None
     t = _tools.get(name)
     if t is None:
         return None

@@ -20,8 +20,7 @@ from dataclasses import dataclass
 AGENT_ONLY_TOOLS = frozenset({
     "create_layout", "bash", "view_image", "ask_user",
     "browse_web",
-    "list_tools", "get_schema", "search_options",
-    "skill", "sdk_help", "notepad",
+    "skill", "notepad",
 })
 
 
@@ -134,6 +133,9 @@ class _LintVisitor(ast.NodeVisitor):
         self.library_kwargs = library_kwargs
         # Track bare imports: from stimma import X → {local_name: stimma_method_name}
         self.bare_imports: dict[str, str] = {}
+        # Track tool imports: from stimma.tools.<task> import gen → {local_name}.
+        # These are async tool functions; used to catch a missing `await`.
+        self.tool_imports: set[str] = set()
 
     # ── from stimma import X ──────────────────────────────────────
 
@@ -142,6 +144,9 @@ class _LintVisitor(ast.NodeVisitor):
             for alias in node.names:
                 local = alias.asname or alias.name
                 self.bare_imports[local] = alias.name
+        elif node.module and node.module.startswith("stimma.tools") and node.names:
+            for alias in node.names:
+                self.tool_imports.add(alias.asname or alias.name)
         self.generic_visit(node)
 
     # ── stimma.foo / stimma.library.foo attribute access ────────────
@@ -166,7 +171,16 @@ class _LintVisitor(ast.NodeVisitor):
         # stimma.X (direct attribute)
         elif isinstance(node.value, ast.Name) and node.value.id == "stimma":
             attr = node.attr
-            if (
+            if attr == "call_tool":
+                self.warnings.append(LintWarning(
+                    line=node.lineno,
+                    message="stimma.call_tool() was removed — call tools by importing them.",
+                    suggestion=(
+                        "Browse .stimma/tools/, then: "
+                        "`from stimma.tools.<task> import <tool>; r = await <tool>(...)`"
+                    ),
+                ))
+            elif (
                 attr not in self.stimma_methods
                 and attr != "library"
                 and not attr.startswith("_")
@@ -264,18 +278,7 @@ class _LintVisitor(ast.NodeVisitor):
                 suggestion="Use `await` directly at the top level.",
             ))
 
-        # stimma.call_tool("tool", {...}) — dict as positional arg
         name, is_library = self._resolve_call(node)
-        if name == "call_tool" and not is_library:
-            if len(node.args) >= 2 and isinstance(node.args[1], ast.Dict):
-                self.warnings.append(LintWarning(
-                    line=node.lineno,
-                    message="stimma.call_tool() takes flat keyword arguments, not a dict.",
-                    suggestion=(
-                        'Use: await stimma.call_tool("tool_id", prompt="...", width=1024) '
-                        "— pass each parameter as a keyword argument."
-                    ),
-                ))
 
         # stimma.method(**kwargs) — validate kwargs against actual signatures
         if name is not None:
@@ -332,6 +335,14 @@ class _LintVisitor(ast.NodeVisitor):
         if isinstance(node, ast.Await):
             return  # properly awaited
         if not isinstance(node, ast.Call):
+            return
+        # Tool functions imported from stimma.tools.<task> are async.
+        if isinstance(node.func, ast.Name) and node.func.id in self.tool_imports:
+            self.warnings.append(LintWarning(
+                line=lineno,
+                message=f"{node.func.id}() is an async tool — you must await it.",
+                suggestion=f"Add `await`: `r = await {node.func.id}(...)`",
+            ))
             return
         name, is_library = self._resolve_call(node)
         if name is None:
@@ -407,7 +418,7 @@ def format_lint_errors(warnings: list[LintWarning]) -> str:
         lines.append(f"  Line {w.line}: {w.message}")
         if w.suggestion:
             lines.append(f"    → {w.suggestion}")
-    lines.append("\nFix the code and try again. Use the agent-level sdk_help tool outside run_code if unsure about the API.")
+    lines.append("\nFix the code and try again. Browse .stimma/tools/ for tool signatures if unsure about the API.")
     return "\n".join(lines)
 
 

@@ -9,11 +9,12 @@ from ..tools_registry import tool, ToolParameter
     description=(
         "Execute Python code in a restricted workspace sandbox with a pre-injected `stimma` SDK. "
         "Code already runs inside `async def` — use `await` directly at the top level. Do NOT wrap in `async def main()` or use `asyncio.run()`. "
-        "`stimma` is already available — no import needed. "
-        "All tool access is through stimma.* methods — bare tool names like call_tool() or progress() do not exist here. "
-        "Use the agent-level sdk_help tool outside run_code to browse SDK methods before first use — some are async (must await), some are sync. "
+        "`stimma` is already available — no import needed (it has .show, .library, .llm, etc.). "
+        "Generation/transformation tools are imported by their REAL name from the catalog: read .stimma/tools/<category>/ first "
+        "(ls/cat) to get the exact function name — do NOT invent a placeholder like `gen`. Then `from stimma.tools.<category> import <name_from_catalog>` "
+        "and `r = await <name_from_catalog>(...)` — the awaited result is a ToolResult (.media_id, .path, .seed). "
         "When generating multiple images, ALWAYS use asyncio.gather() to run them in parallel — this enables the progress display and is significantly faster. "
-        "Batch pattern: `results = await asyncio.gather(*[stimma.call_tool('tool', prompt=p) for p in prompts]); stimma.show(results)` "
+        "Batch: import the tool once, then `results = await asyncio.gather(*[<tool>(prompt=p) for p in prompts]); stimma.show(results)` "
         "If run_code already called stimma.show(), do NOT call the show tool again afterward — images are already visible. "
         + ALLOWED_MODULES_PROMPT_DESCRIPTION
         + " Enabled skills may provide additional importable modules — check the skills inventory."
