@@ -278,7 +278,10 @@ async function createAndPushTag(tagName: string): Promise<void> {
     console.error(`Tag already exists: ${tagName}`);
     Deno.exit(1);
   }
-  await run("git", ["tag", tagName], { cwd: repoRoot });
+  // Annotated tag with a message — works regardless of the repo's
+  // tag.gpgSign / forceSignAnnotated git config (a lightweight `git tag <name>`
+  // fails with "no tag message?" when annotation is forced).
+  await run("git", ["tag", "-a", tagName, "-m", `Release ${tagName}`], { cwd: repoRoot });
   await run("git", ["push", "origin", `refs/tags/${tagName}`], { cwd: repoRoot });
   console.log(`Tagged and pushed: ${tagName}`);
 }
