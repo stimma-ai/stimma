@@ -279,7 +279,7 @@
                   >
                     <option value="reasoning_effort">reasoning_effort</option>
                     <option value="openrouter">reasoning (OpenRouter)</option>
-                    <option value="enable_thinking">chat_template_kwargs.enable_thinking</option>
+                    <option value="enable_thinking">enable_thinking</option>
                     <option value="think">think (Ollama)</option>
                     <option value="reasoning_budget">reasoning_budget (llama.cpp)</option>
                     <option value="none">Always on — no control</option>

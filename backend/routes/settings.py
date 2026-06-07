@@ -1422,6 +1422,7 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
 
     # Cloud configs resolve+inject reasoning server-side; only profile local ones.
     is_local = "stimma.ai" not in (config.get_api_base() or "")
+    is_openrouter = "openrouter.ai" in (config.get_api_base() or "")
     runtime: Optional[str] = None
     reasoning_output: Optional[str] = None
     reasoning_off: Optional[bool] = None  # did it reason when asked NOT to?
@@ -1496,8 +1497,23 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
         reasoning_on = False
         scenarios["thinking"] = LLMScenarioResult(passed=False, elapsed_ms=_ms(t0), error=str(e)[:200])
 
+    # --- Verify the OFF switch for the chosen method ---
+    # Probe 2 picks the dialect that turns reasoning ON, but the utility path
+    # mostly needs it OFF. Some self-hosted vLLM/Qwen builds honor
+    # reasoning_effort:"high" for ON yet ignore reasoning_effort:"none" for OFF —
+    # they blank the reasoning field but still spend the full token budget
+    # reasoning, which starves the answer and stalls the call. The template-level
+    # enable_thinking flag is the reliable lever there, so when it verifiably
+    # suppresses reasoning on a reasoning-eliciting prompt, prefer it.
+    if reasoning_on and reasoning_method == "reasoning_effort" and is_local and not is_openrouter:
+        try:
+            off_check = await _think_probe({"chat_template_kwargs": {"enable_thinking": False}})
+            if not off_check.thinking:
+                reasoning_method = "enable_thinking"
+        except Exception:
+            pass
+
     # --- Classify reasoning mode (method was set above by whichever probe reasoned) ---
-    is_openrouter = "openrouter.ai" in (config.get_api_base() or "")
     reasoning_mode: Optional[str] = None
     if is_local:
         if reasoning_off or reasoning_on:
