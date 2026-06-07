@@ -812,16 +812,22 @@
           ↻
         </button>
 
-        <!-- Volume + click popup (video only) -->
-        <div v-if="isVideo" class="relative" ref="volumeButtonRef">
+        <!-- Click speaker to mute/unmute; hover for the volume popup (video only) -->
+        <div
+          v-if="isVideo"
+          class="relative"
+          ref="volumeButtonRef"
+          @mouseenter="onVolumeHoverEnter"
+          @mouseleave="onVolumeHoverLeave"
+        >
           <button
-            @click="handleVolumeButtonClick"
+            @click="toggleMute"
             :class="[
               'bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all',
               { '!text-[#ec4899] hover:!text-[#f472b6]': !isMuted },
               'hover:bg-white/10 hover:text-white'
             ]"
-            title="Volume (m to mute)"
+            title="Mute/unmute (m) — hover for volume"
           >
             <SpeakerWaveIcon v-if="!isMuted && volume > 0.5" class="w-5 h-5" />
             <SpeakerWaveIcon v-else-if="!isMuted && volume > 0" class="w-5 h-5 scale-90" />
@@ -2844,19 +2850,42 @@ function toggleMute() {
     } else {
       isMuted.value = true
     }
+    // Apply to the element immediately (the isMuted watcher also does this, but
+    // setting it here keeps the DOM in lockstep with the toggle within the gesture).
+    if (videoElement.value) {
+      videoElement.value.muted = isMuted.value
+      if (!isMuted.value) videoElement.value.volume = volume.value
+    }
   }
 }
 
-function handleVolumeButtonClick() {
-  if (preventClick.value) return
+let volumeHoverTimer = null
+function onVolumeHoverEnter() {
   if (!isVideo.value) return
-  showVolumeSlider.value = !showVolumeSlider.value
+  if (volumeHoverTimer) {
+    clearTimeout(volumeHoverTimer)
+    volumeHoverTimer = null
+  }
+  showVolumeSlider.value = true
+}
+function onVolumeHoverLeave() {
+  // Small delay so moving the cursor across the gap into the popup doesn't close it.
+  if (volumeHoverTimer) clearTimeout(volumeHoverTimer)
+  volumeHoverTimer = setTimeout(() => {
+    showVolumeSlider.value = false
+    volumeHoverTimer = null
+  }, 200)
 }
 
 function handleVolumeInput(event) {
   const val = parseFloat(event.target.value)
   volume.value = val
   isMuted.value = val === 0
+  // Apply immediately (see toggleMute) so dragging the slider updates audio live.
+  if (videoElement.value) {
+    videoElement.value.muted = isMuted.value
+    videoElement.value.volume = val
+  }
 }
 
 function closeVolumeSlider(event) {
