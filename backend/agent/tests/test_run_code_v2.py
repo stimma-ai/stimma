@@ -193,7 +193,8 @@ async def test_run_code_sdk_call_tool_and_save_preserves_lineage(session, test_c
     tool_output = workspace / "tool-output.png"
     generate_test_image(tool_output, width=64, height=48, color=(90, 10, 220))
 
-    async def _fake_execute_call_tool(*, tool_id, inputs, parameters=None, **kwargs):
+    async def _fake_execute_call_tool(*, tool_id, parameters=None, **kwargs):
+        params = parameters or {}
         return {
             "media_id": 999,
             "path": str(tool_output),
@@ -203,8 +204,8 @@ async def test_run_code_sdk_call_tool_and_save_preserves_lineage(session, test_c
             "tool_id": tool_id,
             "tool_name": "Mock Tool",
             "task_type": "image-to-image",
-            "parameters": parameters or {},
-            "input_media_ids": list(inputs.get("input_images") or []),
+            "parameters": params,
+            "input_media_ids": list(params.get("input_images") or []),
             "duration_ms": 12,
         }
 
@@ -266,7 +267,7 @@ async def test_run_code_show_tool_result_prefers_media_id(session, test_chat, tm
         async def broadcast(self, event, payload):
             return None
 
-    async def _fake_execute_call_tool(*, tool_id, inputs, parameters=None, **kwargs):
+    async def _fake_execute_call_tool(*, tool_id, parameters=None, **kwargs):
         return {
             "media_id": media.id,
             "path": str(external_output),

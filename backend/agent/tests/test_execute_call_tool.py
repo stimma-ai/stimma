@@ -2,7 +2,7 @@
 
 The integration tests in test_run_code_v2.py mock execute_call_tool away, so
 they cannot catch bugs inside it. These exercise the real function and assert
-that explicitly-provided input-bucket values (prompt, width, height, seed)
+that explicitly-provided parameter values (prompt, width, height, seed)
 reach the provider intact — and are NOT clobbered by the tool's schema defaults.
 """
 
@@ -71,8 +71,10 @@ async def test_input_values_not_clobbered_by_schema_defaults():
         with pytest.raises(RuntimeError, match="__stop__"):
             await ct.execute_call_tool(
                 tool_id="comfyui:mock",
-                inputs={"prompt": "a vivid prompt", "width": 896, "height": 1152},
-                parameters={"steps": 12, "guidance": 1, "sampler": "euler", "loras": []},
+                parameters={
+                    "prompt": "a vivid prompt", "width": 896, "height": 1152,
+                    "steps": 12, "guidance": 1, "sampler": "euler", "loras": [],
+                },
                 task_type_override="text-to-image",
                 session=object(),
             )

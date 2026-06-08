@@ -57,38 +57,27 @@ def _coerce_dict_arg(value: Any) -> Any:
 
 
 def _extract_controlnet_config(
-    inputs: Dict[str, Any],
-    parameters: Optional[Dict[str, Any]],
+    params: Dict[str, Any],
 ) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
-    """Extract and remove controlnet config from inputs/parameters.
+    """Extract and remove controlnet config from the parameters dict.
 
     Returns (preprocessor_name, cn_params) or (None, None).
     """
     # Strip hallucinated keys silently
     for key in _CONTROLNET_STRIP_KEYS:
-        if inputs:
-            inputs.pop(key, None)
-        if parameters:
-            parameters.pop(key, None)
+        params.pop(key, None)
 
-    # Find the preprocessor name from either dict
+    # Find the preprocessor name
     preprocessor = None
     for key in _CONTROLNET_TYPE_KEYS:
-        if inputs and key in inputs:
-            preprocessor = inputs.pop(key)
-        if parameters and key in parameters:
-            val = parameters.pop(key)
-            if preprocessor is None:
-                preprocessor = val
+        if key in params:
+            preprocessor = params.pop(key)
 
     if preprocessor is None:
         return None, None
 
     # Also extract optional controlnet_params
-    cn_params = None
-    for d in (inputs, parameters):
-        if d and "controlnet_params" in d:
-            cn_params = d.pop("controlnet_params")
+    cn_params = params.pop("controlnet_params", None)
 
     # Validate
     if preprocessor not in CONTROLNET_PREPROCESSORS:
@@ -100,12 +89,12 @@ def _extract_controlnet_config(
     return preprocessor, cn_params
 
 
-def _resolve_effective_task_type(tool_descriptor, inputs: Dict[str, Any]) -> str:
+def _resolve_effective_task_type(tool_descriptor, params: Dict[str, Any]) -> str:
     """Mirror ToolView task-type resolution for multi-task tools."""
     task_types = list(tool_descriptor.task_types or [])
     primary = tool_descriptor.task_type or (task_types[0] if task_types else "unknown")
 
-    input_images = inputs.get("input_images", []) or []
+    input_images = params.get("input_images", []) or []
     has_input_images = isinstance(input_images, list) and len(input_images) > 0
 
     if has_input_images and "image-to-image" in task_types:
@@ -134,13 +123,17 @@ def _get_default_folder(workspace_dir: Optional[str] = None) -> str:
 
 async def execute_call_tool(
     tool_id: str,
-    inputs: Dict[str, Any],
     parameters: Optional[Dict[str, Any]] = None,
     task_type_override: Optional[str] = None,
     **kwargs,
 ) -> Dict[str, Any]:
+    # STP tools have a SINGLE parameter namespace: prompt, input_images, mask,
+    # width/height, seed, loras and every tool-specific knob live together in one
+    # dict keyed by name (matching the tool's parameter_schema).
+    params: Dict[str, Any] = dict(parameters or {})
+
     # Extract controlnet config if the agent passed it inline
-    cn_preprocessor, cn_params = _extract_controlnet_config(inputs, parameters)
+    cn_preprocessor, cn_params = _extract_controlnet_config(params)
 
     session: AsyncSession = kwargs.get("session")
 
@@ -163,28 +156,20 @@ async def execute_call_tool(
         # deterministically rather than inferring it from input shape.
         task_type = task_type_override
     else:
-        task_type = _resolve_effective_task_type(tool_descriptor, inputs)
+        task_type = _resolve_effective_task_type(tool_descriptor, params)
 
     log.info(f"[call_tool_v2] Executing {tool_id} ({tool_descriptor.name}), task_type={task_type}")
 
-    # 2. Build parameters from schema defaults + overrides
+    # 2. Overlay the caller's parameters on top of the tool's schema defaults so
+    #    omitted knobs fall back to defaults while any provided value always wins.
     param_schema = tool_descriptor.parameter_schema or {}
-    default_params = {}
+    final_params: Dict[str, Any] = {}
     for prop_name, prop_info in param_schema.get("properties", {}).items():
         if "default" in prop_info:
-            default_params[prop_name] = prop_info["default"]
+            final_params[prop_name] = prop_info["default"]
+    final_params.update(params)
 
-    final_params = default_params.copy()
-    if parameters:
-        final_params.update(parameters)
-
-    # 3. Move param-like keys from inputs to params
-    PARAM_KEYS = {"steps", "cfg", "guidance", "sampler", "scheduler", "loras", "negative_prompt"}
-    for key in PARAM_KEYS:
-        if key in inputs:
-            final_params[key] = inputs.pop(key)
-
-    # 4. Resolve LoRAs
+    # 3. Resolve LoRAs
     loras = final_params.get("loras", [])
     if loras:
         # Accept either the input shape ({path, weight}) or the stored/recorded
@@ -204,17 +189,17 @@ async def execute_call_tool(
         except ValueError as e:
             raise ValueError(f"Error resolving LoRAs: {e}") from e
 
-    # 5. Handle dimensions
-    width = inputs.pop("width", None) or final_params.pop("width", 1024)
-    height = inputs.pop("height", None) or final_params.pop("height", 1024)
+    # 4. Handle dimensions
+    width = final_params.pop("width", None) or 1024
+    height = final_params.pop("height", None) or 1024
 
     allowed_dims = _get_allowed_dimensions(tool_descriptor)
     if allowed_dims:
         width, height = _snap_to_allowed(width, height, allowed_dims)
 
-    # 6. Capture input media IDs for lineage parity with ToolView payloads
-    input_images = inputs.get("input_images", [])
-    input_media_ids = inputs.get("input_media_ids")
+    # 5. Capture input media IDs for lineage parity with ToolView payloads
+    input_images = final_params.get("input_images", [])
+    input_media_ids = final_params.get("input_media_ids")
     if isinstance(input_images, list) and not input_media_ids:
         derived_ids = []
         for img in input_images:
@@ -240,9 +225,9 @@ async def execute_call_tool(
                     else:
                         log.warning(f"[call_tool_v2] Could not resolve input path to media_id: {img}")
         if derived_ids:
-            inputs["input_media_ids"] = derived_ids
+            final_params["input_media_ids"] = derived_ids
 
-    # 6b. Inline controlnet preprocessing when the agent passed controlnet=
+    # 5b. Inline controlnet preprocessing when the agent passed controlnet=
     if cn_preprocessor:
         # Validate that the tool actually supports this controlnet preprocessor
         param_schema = tool_descriptor.parameter_schema or {}
@@ -261,7 +246,7 @@ async def execute_call_tool(
                 f"Supported: {', '.join(sorted(supported_cn))}."
             )
 
-        raw_images = inputs.get("input_images", []) or []
+        raw_images = final_params.get("input_images", []) or []
         if not raw_images:
             raise ValueError(
                 f"controlnet='{cn_preprocessor}' requires input_images with at least one media_id."
@@ -300,23 +285,34 @@ async def execute_call_tool(
             preprocessors_list.append(cn_preprocessor)
             preprocessor_params_list.append(cn_params)
 
-        inputs["input_images"] = preprocessed_images
-        inputs["_original_input_paths"] = original_paths
-        inputs["_input_preprocessors"] = preprocessors_list
-        inputs["_input_preprocessor_params"] = preprocessor_params_list
+        final_params["input_images"] = preprocessed_images
+        final_params["_original_input_paths"] = original_paths
+        final_params["_input_preprocessors"] = preprocessors_list
+        final_params["_input_preprocessor_params"] = preprocessor_params_list
         log.info(f"[call_tool_v2] Inline controlnet preprocessing: {cn_preprocessor} on {len(raw_images)} image(s)")
 
+    # Re-read input_images in case controlnet preprocessing rewrote it.
+    input_images = final_params.get("input_images", [])
+
     # Extract prompt before building the job params
-    prompt = inputs.get("prompt", "")
-    seed = inputs.get("seed") or final_params.get("seed")
+    prompt = final_params.get("prompt", "")
+    seed = final_params.get("seed")
     # Always ensure a concrete seed for reproducibility tracking
     if seed is None or seed == -1:
         seed = random.randint(0, 2**32 - 1)
 
-    # 7. Build the single flat parameters dict and execute via generation queue
-    #    (same lineage path as ToolView). Everything — inputs and generation
-    #    params alike — lives in one dict matching the tool's parameter_schema.
-    param_props = (tool_descriptor.parameter_schema or {}).get("properties", {})
+    # 6. Build the flat job-params dict and execute via the generation queue
+    #    (same lineage path as ToolView). Schema-gated well-known fields first,
+    #    then every remaining tool-specific param, then generation knobs, then
+    #    controlnet lineage metadata.
+    param_props = param_schema.get("properties", {})
+    _GEN_KEYS = {"steps", "cfg", "guidance", "sampler", "scheduler", "loras", "negative_prompt"}
+    _CONTROLNET_META_KEYS = {
+        '_original_input_paths', '_input_preprocessors',
+        '_input_preprocessor_params', '_original_input_hashes',
+    }
+    _SET_EXPLICITLY = {"prompt", "input_images", "width", "height", "seed"}
+
     job_params: Dict[str, Any] = {}
     if "prompt" in param_props:
         job_params["prompt"] = prompt
@@ -324,17 +320,14 @@ async def execute_call_tool(
         job_params["width"] = width
         job_params["height"] = height
     if input_images and "input_images" in param_props:
-        job_params["input_images"] = inputs["input_images"]
+        job_params["input_images"] = final_params["input_images"]
     job_params["seed"] = seed
 
-    # Add remaining inputs (excluding controlnet metadata which is appended last)
-    _CONTROLNET_META_KEYS = {
-        '_original_input_paths', '_input_preprocessors',
-        '_input_preprocessor_params', '_original_input_hashes',
-    }
-    for key, value in inputs.items():
-        if key not in ("prompt", "input_images", "width", "height", "seed"):
-            job_params[key] = value
+    # Remaining tool-specific params (mask, input_media_ids, strength, ...).
+    for key, value in final_params.items():
+        if key in _SET_EXPLICITLY or key in _GEN_KEYS or key in _CONTROLNET_META_KEYS:
+            continue
+        job_params[key] = value
 
     # Generation parameters (steps, cfg, loras, etc.)
     job_params.update({
@@ -349,20 +342,11 @@ async def execute_call_tool(
             if l and l.get("path")
         ],
         "negative_prompt": final_params.get("negative_prompt", ""),
-        # Pass through any remaining tool-specific generation params, but NEVER
-        # the input-bucket keys: those are set explicitly above from `inputs`,
-        # and final_params still holds their schema DEFAULTS (e.g. prompt="",
-        # width=1024) which would otherwise clobber the real values and produce
-        # empty-prompt / default-dimension (unconditional) generations.
-        **{k: v for k, v in final_params.items() if k not in (
-            "steps", "cfg", "guidance", "sampler", "scheduler", "loras", "negative_prompt",
-            "prompt", "width", "height", "seed", "input_images",
-        )},
     })
 
     # Forward controlnet metadata so lineage resolution picks it up
     for meta_key in _CONTROLNET_META_KEYS:
-        val = job_params.pop(meta_key, None) or inputs.get(meta_key)
+        val = final_params.get(meta_key)
         if val is not None:
             job_params[meta_key] = val
 
@@ -439,6 +423,15 @@ async def execute_call_tool(
     elif not media_file_path:
         log.warning(f"[call_tool_v2] Could not find file path for media {media_id}")
 
+    # The recorded "parameters" echo (→ generation_metadata.parameters) is the
+    # generation-knob view: drop the positional well-known input fields and the
+    # internal controlnet lineage keys so the metadata shape stays stable.
+    _INPUT_POSITION_KEYS = {"prompt", "input_images", "width", "height", "seed", "input_media_ids"}
+    recorded_params = {
+        k: v for k, v in final_params.items()
+        if k not in _INPUT_POSITION_KEYS and not k.startswith("_")
+    }
+
     return {
         "media_id": media_id,
         "path": workspace_path or media_file_path,
@@ -448,8 +441,8 @@ async def execute_call_tool(
         "tool_id": tool_id,
         "tool_name": tool_descriptor.name,
         "task_type": task_type,
-        "parameters": final_params,
-        "input_media_ids": list(inputs.get("input_media_ids") or []),
+        "parameters": recorded_params,
+        "input_media_ids": list(final_params.get("input_media_ids") or []),
         "duration_ms": int((time.perf_counter() - started_at) * 1000),
     }
 
@@ -458,10 +451,12 @@ async def execute_call_tool(
     name="call_tool",
     description=(
         "Execute an STP generation tool. Use discover first to find tool_id and check schema. "
-        "Inputs: prompt, input_images (list of media_id ints or preprocessed paths), width, height (for aspect ratio). "
-        "Only pass: prompt, seed, loras, input_images, width, height. All other parameters use schema defaults automatically. "
-        "Omit seed for random results (the default). Only pass seed for reproducibility. "
-        "For controlnet, pass controlnet='pose' (or canny, depth, lineart, etc.) alongside input_images — preprocessing happens automatically."
+        "Pass all tool arguments in a single `parameters` object: prompt, input_images (list of "
+        "media_id ints or preprocessed paths), width, height (for aspect ratio), seed, loras, plus "
+        "any tool-specific generation knobs (steps, cfg, guidance, ...). Omitted parameters use "
+        "schema defaults automatically. Omit seed for random results (the default). Only pass seed "
+        "for reproducibility. For controlnet, pass controlnet='pose' (or canny, depth, lineart, etc.) "
+        "alongside input_images — preprocessing happens automatically."
     ),
     parameters=[
         ToolParameter(
@@ -470,15 +465,9 @@ async def execute_call_tool(
             description="Full tool ID (e.g. 'comfyui:flux-schnell')",
         ),
         ToolParameter(
-            name="inputs",
-            type="object",
-            description="Tool inputs: prompt (required), input_images, width, height, controlnet. Omit seed for random.",
-        ),
-        ToolParameter(
             name="parameters",
             type="object",
-            description="Override generation parameters: steps, cfg, guidance, loras, etc.",
-            required=False,
+            description="All tool arguments in one object: prompt (required), input_images, width, height, seed, loras, and any tool-specific generation params (steps, cfg, guidance, ...). Omit seed for random.",
         ),
         ToolParameter(
             name="controlnet",
@@ -491,52 +480,45 @@ async def execute_call_tool(
 )
 async def call_tool(
     tool_id: Optional[str] = None,
-    inputs: Optional[Dict[str, Any]] = None,
     parameters: Optional[Dict[str, Any]] = None,
     controlnet: Optional[str] = None,
     **kwargs,
 ) -> str:
-    # Some models wrap every arg under "inputs" so that ``tool_id`` lands
-    # nested ({"inputs": {"tool_id": ..., "prompt": ..., ...}}). Lift it
+    # Some models wrap every arg under "parameters" so that ``tool_id`` lands
+    # nested ({"parameters": {"tool_id": ..., "prompt": ..., ...}}). Lift it
     # back out before the missing-arg check below fires.
-    if tool_id is None and isinstance(inputs, dict) and isinstance(inputs.get("tool_id"), str):
-        tool_id = inputs.pop("tool_id")
+    if tool_id is None and isinstance(parameters, dict) and isinstance(parameters.get("tool_id"), str):
+        tool_id = parameters.pop("tool_id")
 
     if tool_id is None:
         return "Error: call_tool() missing required argument: 'tool_id'"
 
-    # Some models (e.g. GPT-5.4) flatten inputs to top-level args instead of nesting under "inputs".
-    # Detect and recover: if inputs is missing but known input keys appear in kwargs, rebuild inputs.
-    if inputs is None:
-        _input_keys = {"prompt", "input_images", "width", "height", "seed"}
-        flat = {k: kwargs.pop(k) for k in list(kwargs) if k in _input_keys}
+    # Some models (e.g. GPT-5.4) flatten args to top-level instead of nesting under
+    # "parameters". Recover: if parameters is missing but known fields appear in
+    # kwargs, rebuild the parameters object from them.
+    if parameters is None:
+        _known_keys = {"prompt", "input_images", "width", "height", "seed"}
+        flat = {k: kwargs.pop(k) for k in list(kwargs) if k in _known_keys}
         if flat:
-            inputs = flat
+            parameters = flat
         else:
-            return "Error: call_tool() missing required argument: 'inputs'"
+            return "Error: call_tool() missing required argument: 'parameters'"
     # Some models pass dict-valued args as JSON-encoded strings (vLLM tool-call
     # template hiccups, Claude-XML "<parameter=...>" escapes, weaker models that
     # double-encode). Try to recover by json-decoding; only error out if the
     # decoded value still isn't a dict, so the agent gets a clear next step.
-    inputs = _coerce_dict_arg(inputs)
-    if not isinstance(inputs, dict):
-        return (
-            f"Error: 'inputs' must be a JSON object, got {type(inputs).__name__}. "
-            'Example: inputs={"prompt": "a golden retriever in a meadow"}'
-        )
     parameters = _coerce_dict_arg(parameters)
-    if parameters is not None and not isinstance(parameters, dict):
+    if not isinstance(parameters, dict):
         return (
-            f"Error: 'parameters' must be a JSON object or omitted, got {type(parameters).__name__}. "
-            'Example: parameters={"steps": 8, "guidance": 1}'
+            f"Error: 'parameters' must be a JSON object, got {type(parameters).__name__}. "
+            'Example: parameters={"prompt": "a golden retriever in a meadow"}'
         )
-    # Route top-level controlnet param into inputs so execute_call_tool sees it
+    # Route top-level controlnet param into parameters so execute_call_tool sees it
     if controlnet:
-        inputs["controlnet"] = controlnet
+        parameters["controlnet"] = controlnet
     try:
         result = await execute_call_tool(
             tool_id=tool_id,
-            inputs=inputs,
             parameters=parameters,
             **kwargs,
         )

@@ -675,20 +675,14 @@ class StimmaSDK:
                 kwargs["_input_preprocessors"] = preprocessors
                 kwargs["_input_preprocessor_params"] = preprocessor_params
 
-        input_keys = {
-            "prompt", "input_images", "width", "height", "seed", "input_media_ids",
-            "controlnet", "controlnet_params",
-            "_original_input_paths", "_input_preprocessors",
-            "_input_preprocessor_params", "_original_input_hashes",
-        }
-        inputs = {k: v for k, v in kwargs.items() if k in input_keys}
-        parameters = {k: v for k, v in kwargs.items() if k not in input_keys}
-        prompt_for_record = inputs.get("prompt") if isinstance(inputs.get("prompt"), str) else None
+        # Single STP parameter namespace — hand the flat kwargs straight through.
+        parameters = dict(kwargs)
+        prompt_val = parameters.get("prompt")
+        prompt_for_record = prompt_val if isinstance(prompt_val, str) else None
         try:
             result = await execute_call_tool(
                 tool_id=tool_id,
-                inputs=inputs,
-                parameters=parameters or None,
+                parameters=parameters,
                 task_type_override=_task_type,
                 session=self.session,
                 chat_id=self.chat_id,

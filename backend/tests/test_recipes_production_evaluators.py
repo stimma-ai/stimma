@@ -297,42 +297,67 @@ class TestToolCallEvaluator:
         assert captured["input_images"] == [42]
 
 
-class TestSplitInputsAndParameters:
-    """_split_inputs_and_parameters now just hands the flat DSL kwargs through.
-
-    With the single parameter_schema (no input/parameters duality), everything
-    flows as one flat bag into execute_call_tool, which re-merges its two
-    buckets anyway. So the whole dict goes into ``inputs`` and ``parameters``
-    is always empty.
+class TestRunSingleToolJob:
+    """_run_single_tool_job hands the flat DSL kwargs straight through as a
+    single ``parameters`` namespace — there is no input/parameters split.
     """
 
-    def test_all_kwargs_flow_through_as_inputs(self):
-        from recipe_runtime.production_evaluators import _split_inputs_and_parameters
-        inputs, params = _split_inputs_and_parameters(
+    @pytest.mark.asyncio
+    async def test_flat_kwargs_pass_through_as_parameters(self, monkeypatch):
+        from contextlib import asynccontextmanager
+        import recipe_runtime.production_evaluators as pe
+
+        captured: dict[str, Any] = {}
+
+        async def fake_execute(tool_id, parameters=None, **kwargs):
+            captured["tool_id"] = tool_id
+            captured["parameters"] = parameters
+            captured["kwargs"] = kwargs
+            return {"media_id": 1, "path": "/tmp/x.png"}
+
+        @asynccontextmanager
+        async def fake_session():
+            yield object()
+
+        monkeypatch.setattr("agent.v2.tools.call_tool.execute_call_tool", fake_execute)
+        monkeypatch.setattr(pe, "_open_session", fake_session)
+
+        await pe._run_single_tool_job(
             "fake:upscaler",
             {"input_image": 42, "resolution": 3200, "color_correction": "lab"},
+            seed=7,
+            project_id=99,
         )
-        assert inputs == {"input_image": 42, "resolution": 3200, "color_correction": "lab"}
-        assert params == {}
 
-    def test_unknown_keys_stay_in_inputs(self):
-        # Agent-side PARAM_KEYS (steps, cfg, ...) and controlnet extras all
-        # reach execute_call_tool via inputs.
-        from recipe_runtime.production_evaluators import _split_inputs_and_parameters
-        inputs, params = _split_inputs_and_parameters(
-            "fake:tool",
-            {"prompt": "x", "steps": 30, "controlnet": "canny"},
-        )
-        assert inputs == {"prompt": "x", "steps": 30, "controlnet": "canny"}
-        assert params == {}
+        assert captured["tool_id"] == "fake:upscaler"
+        assert captured["parameters"] == {
+            "input_image": 42, "resolution": 3200, "color_correction": "lab", "seed": 7,
+        }
+        assert captured["kwargs"]["project_id"] == 99
 
-    def test_unknown_tool_passes_through(self):
-        from recipe_runtime.production_evaluators import _split_inputs_and_parameters
-        inputs, params = _split_inputs_and_parameters(
-            "nope:unknown", {"resolution": 3200, "prompt": "p"},
+    @pytest.mark.asyncio
+    async def test_explicit_seed_is_not_overwritten(self, monkeypatch):
+        from contextlib import asynccontextmanager
+        import recipe_runtime.production_evaluators as pe
+
+        captured: dict[str, Any] = {}
+
+        async def fake_execute(tool_id, parameters=None, **kwargs):
+            captured["parameters"] = parameters
+            return {"media_id": 1, "path": "/tmp/x.png"}
+
+        @asynccontextmanager
+        async def fake_session():
+            yield object()
+
+        monkeypatch.setattr("agent.v2.tools.call_tool.execute_call_tool", fake_execute)
+        monkeypatch.setattr(pe, "_open_session", fake_session)
+
+        await pe._run_single_tool_job(
+            "fake:tool", {"prompt": "x", "seed": 123}, seed=999,
         )
-        assert inputs == {"resolution": 3200, "prompt": "p"}
-        assert params == {}
+        # a seed already in the kwargs wins over the derived per-job seed
+        assert captured["parameters"]["seed"] == 123
 
 
 async def _noop_tag(*args, **kwargs):

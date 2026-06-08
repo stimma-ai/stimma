@@ -484,20 +484,6 @@ def _normalize_tool_media_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _split_inputs_and_parameters(
-    tool_id: str, merged: dict[str, Any]
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Hand the flat DSL kwargs to ``execute_call_tool``.
-
-    The DSL's ``tool(...)`` takes one flat kwargs space, matching the tool's
-    single ``parameter_schema``. ``execute_call_tool`` re-merges its two
-    buckets into one flat job-params dict anyway, so we pass the whole bag as
-    ``inputs`` (its PARAM_KEYS pullout and controlnet / workspace-path handling
-    still run).
-    """
-    return dict(merged), {}
-
-
 async def _run_single_tool_job(
     tool_id: str,
     inputs: dict[str, Any],
@@ -505,17 +491,21 @@ async def _run_single_tool_job(
     seed: Optional[int],
     project_id: Optional[int] = None,
 ) -> dict[str, Any]:
-    """Run one ``execute_call_tool`` invocation in a dedicated session."""
+    """Run one ``execute_call_tool`` invocation in a dedicated session.
+
+    The DSL's ``tool(...)`` takes one flat kwargs space, matching the tool's
+    single ``parameter_schema``; ``execute_call_tool`` consumes that same single
+    ``parameters`` namespace, so the whole bag passes straight through.
+    """
     from agent.v2.tools.call_tool import execute_call_tool
 
-    split_inputs, split_params = _split_inputs_and_parameters(tool_id, inputs)
-    if seed is not None and "seed" not in split_inputs:
-        split_inputs["seed"] = seed
+    parameters = dict(inputs)
+    if seed is not None and "seed" not in parameters:
+        parameters["seed"] = seed
     async with _open_session() as session:
         return await execute_call_tool(
             tool_id=tool_id,
-            inputs=split_inputs,
-            parameters=split_params or None,
+            parameters=parameters,
             session=session,
             project_id=project_id,
         )
