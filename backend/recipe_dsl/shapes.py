@@ -409,6 +409,11 @@ class ToolParamExpectation:
 
 _MEDIA_ARRAY_CONTROLS = frozenset({"image_picker", "video_frame_picker"})
 
+# Kwargs `tool()` accepts that are NOT part of any tool's parameter_schema. They
+# are resolved into real schema params before dispatch (see resolve_params_from),
+# so schema validators must exempt them from the unknown-kwarg check.
+RESERVED_TOOL_KWARGS = frozenset({"params_from"})
+
 
 def parse_tool_param_expectations(
     parameter_schema: Optional[dict],
@@ -535,6 +540,7 @@ __all__ = [
     "find_bad_subscripts",
     "ToolParamExpectation",
     "parse_tool_param_expectations",
+    "RESERVED_TOOL_KWARGS",
     "shape_matches_scalar_kind",
     "shape_matches_array",
 ]

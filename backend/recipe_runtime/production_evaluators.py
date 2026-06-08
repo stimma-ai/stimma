@@ -552,6 +552,14 @@ class ToolCallEvaluator:
         inputs = _normalize_tool_media_inputs(
             _merge_tool_inputs(request.definition, request.resolved_inputs)
         )
+        # `params_from`: seed the call from a prior library item's recorded
+        # generation parameters, then let the recipe's own kwargs win. Resolved
+        # the same way as the agent's run_code path so both behave identically.
+        params_from = inputs.pop("params_from", None)
+        if params_from is not None:
+            from agent.v2.tools.library import resolve_params_from
+            async with _open_session() as session:
+                inputs = await resolve_params_from(session, tool_id, params_from, inputs)
         _validate_tool_inputs(tool_id, inputs)
 
         try:

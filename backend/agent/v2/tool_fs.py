@@ -44,6 +44,11 @@ log = get_logger(__name__)
 # file referenced from the docstring.
 ENUM_INLINE_THRESHOLD = 100
 
+# Bumped whenever stub *rendering* changes (not just the catalog). Folded into the
+# materialization fingerprint so a logic change refreshes already-cached .stimma/
+# trees, instead of waiting for a provider/schema change to invalidate them.
+_RENDERER_VERSION = 2
+
 # Params the model should not fill in unprompted. Shown in the signature with
 # their default, grouped under one docstring line rather than hidden — the agent
 # can see they exist without being tempted to override them.
@@ -343,6 +348,10 @@ def render_tool_stub(
 
     params, enum_spills = _render_params(schema, binding.tool_id, enum_threshold=enum_threshold)
     controlnet_ids = _collect_controlnet(schema)
+    # Generative tools (those that take a prompt) can seed a call from a prior
+    # result's recorded parameters. Synthesized like `controlnet` — not in the
+    # provider schema, resolved at dispatch.
+    supports_params_from = "prompt" in (schema.get("properties") or {})
 
     lines: list[str] = []
     lines.append('"""AUTO-GENERATED — read-only. Regenerated when providers change."""')
@@ -365,6 +374,8 @@ def render_tool_stub(
     if controlnet_ids:
         cn_lit = ", ".join(repr(c) for c in controlnet_ids)
         lines.append(f"    controlnet: Literal[{cn_lit}] | None = None,")
+    if supports_params_from:
+        lines.append("    params_from: int | None = None,")
     lines.append(") -> ToolResult:")
 
     # Docstring
@@ -402,6 +413,14 @@ def render_tool_stub(
         doc.append("controlnet preprocessors:")
         for cid in controlnet_ids:
             doc.append(f"    {cid}: {_CONTROLNET_DESCRIPTIONS.get(cid, cid)}")
+    if supports_params_from:
+        doc.append("")
+        doc.append("Reuse a prior result's settings:")
+        doc.append(
+            "    params_from: a library media id. Start from that image's recorded "
+            "generation parameters (its settings, not its pixels) and override only what you pass."
+        )
+        doc.append("    e.g. params_from=42, seed=None → same image, fresh seed.")
 
     lines.append('    """')
     for d in doc:
@@ -435,7 +454,7 @@ resolve to the live tool with that exact signature.
 
 ## Call a tool (run_code / run_file — this is how you act)
 Import it by the REAL function name you read from this directory (the `.py`
-filename / the `def` in the stub) — never a placeholder like `gen`:
+filename / the `def` in the stub):
 
     from stimma.tools.text_to_image import <tool>   # <tool> = a real name from .stimma/tools/text-to-image/
     r = await <tool>(prompt="a cat", width=1024)
@@ -488,6 +507,7 @@ def materialize_tool_fs(
     # Fingerprint the catalog so we can skip the whole walk when nothing changed.
     fp_src = json.dumps(
         {
+            "renderer": _RENDERER_VERSION,
             "threshold": enum_threshold,
             "tools": {
                 module: {fn: b.tool_id for fn, b in funcs.items()}

@@ -777,7 +777,7 @@ def get_sdk_quick_ref() -> str:
     return """\
 stimma quick reference (inside run_code / run_file):
   Generation tools are imported by their REAL function name from the catalog.
-  First read .stimma/tools/<category>/ (ls/cat) to get the exact name — do NOT invent one like `gen`:
+  First read .stimma/tools/<category>/ (ls/cat) to get the exact name, then:
     from stimma.tools.<category> import <name_from_catalog>
     r = await <name_from_catalog>(prompt="a cat", width=1024)   # r.media_id, r.path, r.seed
   stimma.show(r) to display; asyncio.gather() for parallel batches.

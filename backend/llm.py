@@ -350,9 +350,15 @@ def _apply_endpoint_reasoning(
 async def _inject_local_system(
     config: LLMConfig, messages: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
-    """Prepend Stimma's content policy (if enabled) and any extra system prompt
-    as leading system messages. Stable text at the front keeps prompt caching
-    intact."""
+    """Fold Stimma's content policy (if enabled) and any extra system prompt
+    into a single leading system message. Stable text at the front keeps prompt
+    caching intact.
+
+    These extras are merged into the conversation's existing system message
+    rather than prepended as additional system messages: some chat templates
+    (e.g. stricter Qwen builds) permit only one system message at index 0 and
+    return 400 "System message must be at the beginning" on a second one. One
+    merged system message is accepted everywhere."""
     extras: List[str] = []
     if getattr(config, "content_policy_enabled", True):
         try:
@@ -367,7 +373,16 @@ async def _inject_local_system(
         extras.append(extra_prompt)
     if not extras:
         return messages
-    return [{"role": "system", "content": t} for t in extras] + list(messages)
+
+    merged_extra = "\n\n".join(extras)
+    msgs = list(messages)
+    # Merge into the leading system message if there is one; otherwise add a
+    # single system message at the front.
+    if msgs and msgs[0].get("role") == "system" and isinstance(msgs[0].get("content"), str):
+        head = dict(msgs[0])
+        head["content"] = f"{merged_extra}\n\n{head['content']}"
+        return [head] + msgs[1:]
+    return [{"role": "system", "content": merged_extra}] + msgs
 
 
 # ──────────────────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ from agent.v2.tools.library import (
     library,
     _normalize_loras_for_input,
     fetch_generation_params,
+    resolve_params_from,
 )
 from tests.helpers.media import create_media_item
 
@@ -255,6 +256,60 @@ async def test_generation_params_includes_input_images_for_image_to_image(sessio
     # source_image is reused; mask_image is not folded into input_images
     assert params["input_images"] == [555]
     assert params["seed"] == 42
+
+
+@pytest.mark.asyncio
+async def test_params_from_inherits_omitted_and_explicit_wins(session):
+    # The core fix: a knob the caller omits inherits from the source item (not the
+    # tool's schema default), while anything the caller passes wins — including
+    # seed=None for a fresh seed.
+    media = await create_media_item(
+        session,
+        width=1152,
+        height=896,
+        tool_id="builtin:comfyui:text-to-image:z-image-turbo",
+        generation_metadata=json.dumps({
+            "task_type": "text-to-image",
+            "tool_id": "builtin:comfyui:text-to-image:z-image-turbo",
+            "prompt": "a knight in a forest",
+            "parameters": {
+                "steps": 4,
+                "cfg": 1.5,
+                "seed": 999,
+                "loras": [{"lora": "/models/style.safetensors", "weight": 0.7}],
+            },
+            # A recorded source image must NOT bleed in as content via params_from.
+            "source_inputs": [{"media_id": 555, "role": "source_image"}],
+            "generated_at": "2026-03-10T12:47:44.185375",
+        }),
+    )
+
+    merged = await resolve_params_from(
+        session,
+        "builtin:comfyui:text-to-image:z-image-turbo",
+        media.id,
+        {"prompt": "a knight on a beach", "seed": None},
+    )
+
+    # Explicit kwargs win.
+    assert merged["prompt"] == "a knight on a beach"
+    assert merged["seed"] is None
+    # Omitted knobs inherit from the source item.
+    assert merged["steps"] == 4
+    assert merged["cfg"] == 1.5
+    assert merged["loras"] == [{"path": "/models/style.safetensors", "weight": 0.7}]
+    assert merged["width"] == 1152
+    # Settings only — provenance and the source image's pixels never carry over.
+    assert "tool_id" not in merged
+    assert "input_images" not in merged
+
+
+@pytest.mark.asyncio
+async def test_params_from_rejects_image_without_recorded_params(session):
+    media = await create_media_item(session, extracted_prompt="imported photo", generation_metadata=None)
+
+    with pytest.raises(RuntimeError, match="no recorded generation parameters"):
+        await resolve_params_from(session, "builtin:comfyui:text-to-image:z-image-turbo", media.id, {})
 
 
 @pytest.mark.asyncio

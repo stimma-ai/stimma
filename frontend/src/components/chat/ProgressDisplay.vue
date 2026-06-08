@@ -26,6 +26,9 @@
     <div v-else-if="displayData.status === 'timed_out'" class="mt-1.5">
       <span class="text-xs text-amber-400">Timed out</span>
     </div>
+    <div v-else-if="displayData.status === 'error'" class="mt-1.5">
+      <span class="text-xs text-red-400">Failed</span>
+    </div>
 
     <!-- Thumbnail grid (hidden when empty) -->
     <div
@@ -73,7 +76,7 @@ const props = defineProps({
     // Expected shape:
     // {
     //   title?: string,
-    //   status: "in_progress" | "completed" | "cancelled" | "timed_out",
+    //   status: "in_progress" | "completed" | "cancelled" | "timed_out" | "error",
     //   current: number,
     //   total: number,
     //   previews: number[]  // media_id ints
@@ -97,6 +100,7 @@ const barColorClass = computed(() => {
     case 'completed': return 'bg-green-500'
     case 'cancelled':
     case 'timed_out': return 'bg-amber-500'
+    case 'error': return 'bg-red-500'
     default: return 'bg-blue-500'
   }
 })

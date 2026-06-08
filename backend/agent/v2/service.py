@@ -1075,6 +1075,14 @@ async def _run_agentic_loop(
     any_tool_executed = False
     consecutive_textonly = 0
     needs_continuation: list[bool] = []
+    # Whether the user has seen anything this run — a non-empty assistant
+    # message or surfaced media. Lets us catch a turn that ends (via `finish`
+    # or empty narration) having shown nothing, which reasoning models do when
+    # they spend the whole turn in the think block. `empty_finish_nudged` keeps
+    # that recovery one-shot so a model that insists on finishing empty can't
+    # spin against max_turns.
+    produced_visible_output = False
+    empty_finish_nudged = False
 
     # If resuming with pending tool calls, execute them first
     if pending_tool_calls:
@@ -1219,6 +1227,8 @@ async def _run_agentic_loop(
 
         content = resp.content
         reasoning = resp.thinking
+        if content and content.strip():
+            produced_visible_output = True
 
         # Accumulate token usage for this session
         cumulative_usage["prompt_tokens"] += resp.usage.prompt_tokens
@@ -1414,8 +1424,26 @@ async def _run_agentic_loop(
                     except (json.JSONDecodeError, TypeError):
                         pass
 
-            # The model invoked `finish` — explicit end of turn.
+            # The model invoked `finish` — explicit end of turn. `finish` is
+            # pure control flow; the assistant's message is its closing remark.
+            # But if the model finishes having surfaced nothing this run — no
+            # message and no shown media — the turn produced zero visible
+            # output (common when a reasoning model empties the whole turn into
+            # the think block, e.g. greets in its reasoning then just finishes).
+            # Nudge once for a real reply before accepting the finish; the empty
+            # assistant item is dropped from history (conversation.py), so the
+            # retry is a clean re-sample.
             if finish_requested:
+                visible = produced_visible_output or bool(shown_media_ids)
+                if not visible and not empty_finish_nudged:
+                    empty_finish_nudged = True
+                    pending_stall_nudge = (
+                        "<system-reminder>\n"
+                        "You called `finish` but haven't sent the user any message or shown any result, "
+                        "so they would see nothing. Reply with a brief message now, then finish.\n"
+                        "</system-reminder>"
+                    )
+                    continue
                 break
 
             # A tool ran: the model is working and has made progress, so any
@@ -1426,14 +1454,22 @@ async def _run_agentic_loop(
             continue
 
         # Text response with no tool call. This is only a real end-of-turn if
-        # the model hasn't started working yet (a plain conversational reply).
-        # Once it has acted, ending on narration is a stall — the model was
-        # supposed to either keep going or call `finish`. Nudge it once; if it
-        # stalls again without making progress, give up so it can't spin.
+        # the model produced a visible reply and hasn't started working yet (a
+        # plain conversational answer). Two cases are NOT valid ends and get one
+        # nudge before we give up, so the model can neither stall silently nor
+        # spin:
+        #   - narration stall: it already acted, then ended on a message with no
+        #     `finish` (it was supposed to keep going or call `finish`).
+        #   - empty turn: no visible message AND no tool call. Some reasoning
+        #     models spend the whole turn inside the think block and emit no
+        #     post-think content, so the user would see nothing. The empty
+        #     assistant item is dropped from history (see conversation.py), so
+        #     the retry is a clean re-sample, not a turn conditioned on silence.
         _raise_if_interrupted(chat_id)
         consecutive_textonly += 1
+        empty_turn = not (content and content.strip())
         work_in_flight = bool(needs_continuation) or any_tool_executed
-        if work_in_flight and consecutive_textonly < 2:
+        if (work_in_flight or empty_turn) and consecutive_textonly < 2:
             if needs_continuation:
                 # Stronger signal: a tool reported unresolved work (e.g. the
                 # recipe build is still broken). Point the model straight at it.
@@ -1443,6 +1479,14 @@ async def _run_agentic_loop(
                     "Your last tool call reported unresolved work (the recipe build is still broken). "
                     "Continue with the tool call that fixes it — do not end on a narration-only message. "
                     "Call `finish` only once the work is actually done.\n"
+                    "</system-reminder>"
+                )
+            elif empty_turn:
+                pending_stall_nudge = (
+                    "<system-reminder>\n"
+                    "Your last turn produced no message and no tool call, so nothing was sent to the user. "
+                    "Reply with a message now, or make the appropriate tool call if there is work to do. "
+                    "Call `finish` only once you are genuinely done.\n"
                     "</system-reminder>"
                 )
             else:

@@ -674,6 +674,57 @@ class TestToolInputValidator:
             g = build_graph_from_callable(r, inputs={"x": "v"})
             assert g.all_equations()
 
+    def test_params_from_kwarg_is_accepted(self):
+        """``params_from`` is a synthesized reuse-a-prior-result convenience; it
+        isn't in any tool's schema, so it must be exempt from the unknown-kwarg
+        check rather than rejected like ``parameters={...}``.
+        """
+        tools = {
+            "fake:gen": _FakeDescriptor(
+                input_schema={
+                    "type": "object",
+                    "required": ["prompt"],
+                    "properties": {"prompt": {"type": "string"}},
+                },
+            ),
+        }
+        with _with_fake_registry(tools):
+            @recipe(
+                name="r",
+                inputs={"x": dsl_input(type="str")},
+                outputs={"out": dsl_output(type="media")},
+            )
+            def r(x):
+                with phase("p"):
+                    return tool("fake:gen", task_type="text-to-image", prompt="a", params_from=42)
+
+            g = build_graph_from_callable(r, inputs={"x": "v"})
+            assert g.all_equations()
+
+    def test_params_from_must_be_scalar_media_id(self):
+        tools = {
+            "fake:gen": _FakeDescriptor(
+                input_schema={
+                    "type": "object",
+                    "required": ["prompt"],
+                    "properties": {"prompt": {"type": "string"}},
+                },
+            ),
+        }
+        with _with_fake_registry(tools):
+            @recipe(
+                name="r",
+                inputs={"x": dsl_input(type="str")},
+                outputs={"out": dsl_output(type="media")},
+            )
+            def r(x):
+                with phase("p"):
+                    return tool("fake:gen", task_type="text-to-image", prompt="a", params_from=[1, 2])
+
+            with pytest.raises(ProgramLoadError) as excinfo:
+                build_graph_from_callable(r, inputs={"x": "v"})
+            assert "params_from" in str(excinfo.value)
+
     def test_no_registry_is_permissive(self):
         """Without a provider registry available, validation is skipped."""
         @recipe(

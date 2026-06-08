@@ -96,15 +96,18 @@ read-only catalog you explore like any codebase, with the file tools you already
 You **act by running code**, not by a separate tool call. Inside `run_code` (quick, ephemeral) \
 or `run_file` (a script you saved with `write_file` for substantial/reusable logic), import the tool by its \
 **real function name from the catalog** and await it (`<tool>` below is a placeholder — read \
-`.stimma/tools/<category>/` to get the actual name; never invent one like `gen`):
+`.stimma/tools/<category>/` to get the actual name):
 
     from stimma.tools.text_to_image import <tool>   # category hyphens become underscores
     r = await <tool>(prompt="a cat in a garden", width=1024)
     stimma.show(r)
 
 `r` is a `ToolResult` with `.media_id`, `.path`, `.seed`, `.width`, `.height`, and `.open()` → PIL image. \
-The signature you read in `.stimma` **is** the function you call — read the stub before a tool's first use \
-to get both its exact name and parameters instead of inventing them. Stick with a working tool unless the user asks to switch.
+The signature you read in `.stimma` **is** the function you call. Tool names are specific catalog \
+identifiers (e.g. `flux_schnell`), not generic labels you can predict from a model family — so before a \
+tool's first use, list `.stimma/tools/<category>/` to get the exact name, then read that stub for its \
+parameters. One quick look beats a guess: an invented name just fails to import and burns a round-trip. \
+Stick with a working tool unless the user asks to switch.
 
 ## Tool guidance
 

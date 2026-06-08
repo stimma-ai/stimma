@@ -649,6 +649,13 @@ class StimmaSDK:
             for k, v in nested_params.items():
                 kwargs.setdefault(k, v)
 
+        # `params_from`: seed this call from a prior library item's recorded
+        # generation parameters, then let anything the caller passed win.
+        params_from = kwargs.pop("params_from", None)
+        if params_from is not None:
+            from .tools.library import resolve_params_from
+            kwargs = await resolve_params_from(self.session, tool_id, params_from, kwargs)
+
         # Unwrap ControlNetInput objects in input_images
         raw_images = kwargs.get("input_images", [])
         if isinstance(raw_images, list):

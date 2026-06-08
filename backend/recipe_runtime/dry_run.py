@@ -24,6 +24,7 @@ from recipe_dsl.shapes import (
     Scalar,
     Shape,
     UNKNOWN,
+    RESERVED_TOOL_KWARGS,
     describe as describe_shape,
     parse_tool_param_expectations,
     shape_from_literal,
@@ -248,7 +249,7 @@ def _validate_tool_schema_for_dry_run(tool_id: str, params: dict[str, Any]) -> N
     if not expectations:
         return
 
-    unknown = [name for name in params if name not in expectations]
+    unknown = [name for name in params if name not in expectations and name not in RESERVED_TOOL_KWARGS]
     if unknown:
         names = ", ".join(repr(n) for n in sorted(unknown))
         raise EvaluatorError(

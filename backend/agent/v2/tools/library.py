@@ -763,6 +763,55 @@ async def fetch_generation_params(
     return build_generation_params(item, _parse_generation_metadata(item))
 
 
+# Generation inputs every image/media tool understands. These stay portable when
+# reusing a prior result's parameters via `params_from`, even when a particular
+# tool's schema doesn't enumerate them explicitly.
+_UNIVERSAL_GEN_KEYS = frozenset(
+    {"prompt", "negative_prompt", "seed", "loras", "width", "height"}
+)
+
+
+async def resolve_params_from(
+    session: AsyncSession,
+    tool_id: str,
+    media_id: int,
+    explicit: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Seed a tool call from a prior library item's recorded generation params.
+
+    Starts from ``media_id``'s recorded parameters, then lets explicitly-passed
+    values win. Carries knobs only (prompt, seed, loras, dimensions, sampler, …)
+    — never the source image's pixels — so reusing settings can't quietly turn a
+    generation into an edit; an input-image parameter is for that. A knob the
+    caller omits inherits from the source item instead of snapping back to the
+    tool's schema default. Precedence: schema default < params_from item <
+    explicit. Shared by the agent (run_code) and recipe execution paths so both
+    behave identically.
+    """
+    base = await fetch_generation_params(session, media_id)
+    if not base.get("tool_id"):
+        raise RuntimeError(
+            f"Media {media_id} has no recorded generation parameters "
+            f"(imported or externally-created image) — nothing for params_from to reuse."
+        )
+    base.pop("tool_id", None)       # provenance, not a tool input
+    base.pop("input_images", None)  # content, not a setting — never inherit pixels
+
+    # Cross-tool safety: reusing settings into a *different* tool keeps only the
+    # knobs it accepts (plus the universal generation inputs), so params it
+    # doesn't understand are dropped rather than forwarded and rejected.
+    try:
+        from providers.registry import ProviderRegistry
+        provider_tool = ProviderRegistry.get_instance().get_tool(tool_id)
+    except Exception:
+        provider_tool = None
+    if provider_tool:
+        props = set((provider_tool[1].parameter_schema or {}).get("properties") or {})
+        base = {k: v for k, v in base.items() if k in props or k in _UNIVERSAL_GEN_KEYS}
+
+    return {**base, **explicit}
+
+
 async def _load_lineage_data(session: AsyncSession, media_id: int) -> Dict[str, Any]:
     """Load immediate parents/children with the same semantics as the media API."""
     sources_result = await session.execute(

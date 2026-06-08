@@ -131,6 +131,48 @@ def test_stub_is_valid_python_and_typed():
     assert not spills  # no large enums here
 
 
+def test_generative_stub_gets_params_from_kwarg():
+    """A prompt-bearing (generative) tool exposes `params_from` so the agent can
+    seed a call from a prior result's recorded parameters instead of re-typing
+    them; the kwarg is optional and keyword-only."""
+    m = tool_fs.build_manifest(_registry())
+    binding = m.by_module["text_to_image"]["flux_klein_9b"]
+    text, _ = tool_fs.render_tool_stub(binding)
+    assert "params_from: int | None = None" in text
+    tree = ast.parse(text)
+    fn = next(n for n in tree.body if isinstance(n, ast.AsyncFunctionDef))
+    assert "params_from" in {a.arg for a in fn.args.kwonlyargs}
+    # The docstring draws the settings-vs-pixels line so it can't be mistaken for
+    # an image/reference input.
+    assert "not its pixels" in text
+
+
+def test_non_generative_stub_has_no_params_from():
+    """A transform tool with no prompt (e.g. upscale) has no generation recipe to
+    reuse, so `params_from` is not synthesized onto it."""
+    binding = tool_fs.ToolBinding(
+        func_name="upscale",
+        module="upscale",
+        task_type="upscale",
+        tool_id="comfyui:upscale",
+        descriptor=FakeDescriptor(
+            name="Upscale",
+            description="2x upscaler.",
+            task_types=["upscale"],
+            parameter_schema={
+                "type": "object",
+                "properties": {
+                    "input_image": {"type": "string"},
+                    "scale": {"type": "integer", "default": 2},
+                },
+                "required": ["input_image"],
+            },
+        ),
+    )
+    text, _ = tool_fs.render_tool_stub(binding)
+    assert "params_from" not in text
+
+
 def test_large_enum_spills_to_file_not_signature():
     m = tool_fs.build_manifest(_registry())
     binding = m.by_module["text_to_image"]["big_lora_model"]

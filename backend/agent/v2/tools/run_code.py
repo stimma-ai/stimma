@@ -11,7 +11,7 @@ from ..tools_registry import tool, ToolParameter
         "Code already runs inside `async def` — use `await` directly at the top level. Do NOT wrap in `async def main()` or use `asyncio.run()`. "
         "`stimma` is already available — no import needed (it has .show, .library, .llm, etc.). "
         "Generation/transformation tools are imported by their REAL name from the catalog: read .stimma/tools/<category>/ first "
-        "(ls/cat) to get the exact function name — do NOT invent a placeholder like `gen`. Then `from stimma.tools.<category> import <name_from_catalog>` "
+        "(ls/cat) to get the exact function name, then `from stimma.tools.<category> import <name_from_catalog>` "
         "and `r = await <name_from_catalog>(...)` — the awaited result is a ToolResult (.media_id, .path, .seed). "
         "When generating multiple images, ALWAYS use asyncio.gather() to run them in parallel — this enables the progress display and is significantly faster. "
         "Batch: import the tool once, then `results = await asyncio.gather(*[<tool>(prompt=p) for p in prompts]); stimma.show(results)` "

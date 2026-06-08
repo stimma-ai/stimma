@@ -70,6 +70,7 @@ from .shapes import (
     ToolParamExpectation,
     TupleShape,
     UNKNOWN,
+    RESERVED_TOOL_KWARGS,
     describe as describe_shape,
     find_bad_subscripts,
     parse_tool_param_expectations,
@@ -402,6 +403,19 @@ def _validate_tool_call_shapes(
     ``Unknown`` shapes always pass — this validator is additive, it never
     trips on opaque upstreams.
     """
+    # `params_from` is a synthesized cross-tool convenience (reuse a prior
+    # result's recorded parameters), not part of any tool's parameter_schema —
+    # validate it as a single media id and exempt it from the schema checks.
+    pf = params.get("params_from")
+    if pf is not None and not isinstance(pf, (int, NodeRef)):
+        raise DSLMisuseError(
+            f"tool({tool_id!r}): params_from must be a single media id (int)",
+            suggestion=(
+                "Pass params_from=<media_id> to start from that image's recorded "
+                "generation parameters, then override only the kwargs you want to change."
+            ),
+        )
+
     param_schema = _get_tool_schema(tool_id)
     if param_schema is None:
         return
@@ -412,7 +426,7 @@ def _validate_tool_call_shapes(
     # Reject kwargs that don't appear in either schema. This is how we catch
     # e.g. ``parameters={...}`` (a kwarg literally named "parameters") — the
     # agent was treating tool() like call_tool's nested API.
-    unknown = [name for name in params if name not in expectations]
+    unknown = [name for name in params if name not in expectations and name not in RESERVED_TOOL_KWARGS]
     if unknown:
         names = ", ".join(repr(n) for n in sorted(unknown))
         known = sorted(expectations.keys())
