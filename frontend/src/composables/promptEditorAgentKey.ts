@@ -17,7 +17,7 @@ export interface PromptEditorAgent {
   lastReply: Ref<string>
   messages: Ref<AgentMessage[]>
   clearHistory: () => void
-  /** Per-request extended-thinking toggle (the lightbulb). Default on. */
+  /** Extended-thinking toggle — a persisted per-tool setting (default off). */
   thinking: Ref<boolean>
   /** Take a coarse-grained undo snapshot (used before pill-applied edits). */
   snapshot: () => void

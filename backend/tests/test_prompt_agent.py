@@ -40,6 +40,23 @@ def test_core_tools_present():
         assert name in TOOL_NAMES
 
 
+def test_notes_tools_present():
+    # Per-tool Instructions write tools (TOOLVIEW_INTELLIGENCE #1). Memory was
+    # folded into Instructions for this feature — those tools must NOT exist here.
+    for name in ("set_instructions", "edit_instructions"):
+        assert name in TOOL_NAMES
+    for name in ("set_memory", "edit_memory"):
+        assert name not in TOOL_NAMES
+
+
+def test_agent_system_prompt_has_notes_principle():
+    from prompts import get_prompt
+    sp = get_prompt("prompt_enhancement", "agent_system_prompt")
+    assert sp, "agent_system_prompt must be configured"
+    assert "INSTRUCTIONS" in sp
+    assert "set_instructions" in sp
+
+
 # --- Endpoint wiring (LLM mocked) ------------------------------------------
 
 @dataclass

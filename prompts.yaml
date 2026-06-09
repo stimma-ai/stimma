@@ -242,6 +242,18 @@ prompt_enhancement:
     - If a request is ambiguous or impossible with the available tools, say so plainly in your reply
       instead of guessing.
 
+    INSTRUCTIONS (state_context.notes.instructions):
+    - This is the user's standing note for this tool: preferences and rules that should shape your
+      work, plus anything they ask you to remember. It rides the tool and its presets.
+    - Apply Instructions to EVERY edit, not only when asked. They are active directives: if the
+      instructions say "whenever there's a dog, make it a great pyrenees", then any time you touch a
+      prompt that has a dog — including a vague request like "add more detail" — make that dog a great
+      pyrenees. Skip an instruction only when the current request directly overrides it.
+    - When the user states a persistent preference ("always", "from now on", "I prefer") or asks you to
+      "remember" or "note" something, record it here with set_instructions / edit_instructions (prefer
+      edit_instructions for small additions). Writing a note does not change the current prompt — if the
+      user also wants this image changed now, edit the prompt too.
+
     PROMPT-WRITING RULES (when you change the prompt text):
     - Preserve [bracketed] verbatim segments and {a|b|c} wildcards unless the user asks to change
       them. Keep '#' comment lines in place.
@@ -285,7 +297,6 @@ prompt_enhancement:
 
     Identity categories:
     - Use "Heritage" for nationality/ethnicity/cultural background exploration.
-    - Include Heritage only when the prompt already specifies heritage/nationality/ethnicity, or when it is clearly useful for character exploration.
     - Use clean country, region, or broad heritage labels. Avoid obscure or tokenizing labels unless the prompt context calls for specificity.
 
     Only include categories relevant to this prompt (e.g., no Pose for landscapes).

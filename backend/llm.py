@@ -526,17 +526,21 @@ async def llm_complete_text(
     *,
     max_tokens: int = 500,
     temperature: float = 0.3,
+    enable_thinking: bool = False,
 ) -> str:
     """Make a completion call and return just the text content.
 
-    Disables thinking, strips tags. For prompt enhancement, captioning, etc.
+    Thinking is OFF by default (prompt enhancement, captioning, etc.); pass
+    enable_thinking=True for callers that want the model to reason first — slower,
+    but can improve quality on weaker models. Strips tags either way. Uses the
+    shared agent_llm_options so the thinking dialect matches the agent loop.
     """
-    extra_body = {"chat_template_kwargs": {"enable_thinking": False}}
+    from agent.v2.llm_options import agent_llm_options
     resp = await llm_completion(
         config, messages,
         max_tokens=max_tokens,
         temperature=temperature,
-        extra_body=extra_body,
+        **agent_llm_options(enable_thinking=enable_thinking),
     )
     if resp.content:
         return resp.content

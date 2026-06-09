@@ -181,6 +181,56 @@
       </TransitionGroup>
     </template>
 
+    <!-- Per-tool settings drawer (toggled by the wrench in the toolbar below):
+         Instructions (the user's standing guidance) + Memory (durable facts the
+         agent records). Both co-edited by user + agent; ride the tool and any
+         preset saved from it. Expands upward above the input with a height tween. -->
+    <div
+      v-if="agent"
+      class="overflow-hidden transition-all duration-300 ease-out"
+      :class="showSettings ? 'max-h-[640px] opacity-100 mb-2.5' : 'max-h-0 opacity-0 mb-0'"
+    >
+      <div class="bg-surface-overlay border border-edge rounded-xl p-3.5">
+        <div class="flex items-center mb-3">
+          <span class="text-xs font-semibold text-content-secondary">Agent settings</span>
+          <button
+            @click="showSettings = false"
+            class="ml-auto w-6 h-6 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-white/[0.05] transition-colors"
+            title="Close"
+          >
+            <ChevronUpIcon class="w-4 h-4" />
+          </button>
+        </div>
+
+        <!-- Instructions -->
+        <div class="mb-3.5">
+          <label class="block text-xs font-medium text-content-tertiary mb-1.5">Instructions</label>
+          <textarea v-no-autocorrect
+            v-model="instructionsText"
+            rows="3"
+            placeholder="Standing guidance for this tool — e.g. prefer portrait framing, keep skin texture realistic, avoid harsh lighting."
+            class="w-full bg-surface border border-edge rounded-lg text-content text-xs px-3 py-2 focus:outline-none focus:border-blue-500/50 resize-y font-sans leading-relaxed"
+          ></textarea>
+        </div>
+
+        <!-- Thinking -->
+        <div class="pt-3 border-t border-edge">
+          <label class="flex gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              :checked="agent.thinking.value"
+              @change="agent.thinking.value = $event.target.checked"
+              class="mt-0.5 accent-blue-500 w-3.5 h-3.5 shrink-0"
+            />
+            <div class="min-w-0">
+              <div class="text-xs text-content">Enable Thinking</div>
+              <div class="text-[11px] text-content-muted mt-0.5 leading-relaxed">Lets the agent reason before acting. Slower, but can improve quality on some models.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
     <!-- Feedback input box (mirrors ChatView's input: text on top, toolbar row) -->
     <div class="bg-surface border border-edge rounded-2xl overflow-hidden">
       <input v-no-autocorrect
@@ -215,15 +265,17 @@
           >
             <ArrowUturnRightIcon class="w-4 h-4" />
           </button>
+          <VoiceInputButton ref="voiceBtn" icon-class="w-4 h-4" :get-text="getFeedbackText" :set-text="setFeedbackText" :focus="focusFeedback" />
+          <!-- Agent settings (Instructions, Thinking) — expands the drawer above. -->
           <button
             v-if="agent"
-            @click="agent.thinking.value = !agent.thinking.value"
-            class="w-8 h-8 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-white/[0.05] transition-colors"
-            :title="agent.thinking.value ? 'Thinking on — click to disable (faster)' : 'Thinking off — click to enable (better reasoning)'"
+            @click="showSettings = !showSettings"
+            class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+            :class="showSettings ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : 'text-content-muted hover:text-content-secondary hover:bg-white/[0.05]'"
+            title="Agent settings — Instructions & Thinking"
           >
-            <LightBulbOutlineIcon class="w-3.5 h-3.5 transition-opacity" :class="agent.thinking.value ? 'opacity-100' : 'opacity-30'" />
+            <WrenchIcon class="w-4 h-4" />
           </button>
-          <VoiceInputButton ref="voiceBtn" icon-class="w-4 h-4" :get-text="getFeedbackText" :set-text="setFeedbackText" :focus="focusFeedback" />
         </div>
 
         <button
@@ -293,9 +345,9 @@
           </svg>
           <ChevronDownIcon v-else-if="item.subitems && item.subitems.length > 0" class="w-3 h-3 ml-0.5 text-content-tertiary inline" />
         </button>
-        <!-- Refresh pill at end -->
+        <!-- Refresh pill at end — recomputes the sections AND their options. -->
         <button
-          @click="categories.length > 0 ? refreshOptions() : fetchIdeas(true)"
+          @click="fetchIdeas(true)"
           :disabled="isLoadingIdeas"
           class="px-2.5 py-1 rounded-full text-xs transition-colors bg-surface text-content-muted hover:text-content-muted hover:bg-surface-raised border border-surface-raised"
           title="Refresh ideas"
@@ -382,7 +434,7 @@ import type { PromptEditorAgent } from '../../composables/promptEditorAgentKey'
 import { PROMPT_EDITOR_AGENT_KEY } from '../../composables/promptEditorAgentKey'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
 import { SparklesIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon, BugAntIcon, ArrowPathIcon, ChevronDownIcon, LightBulbIcon } from '@heroicons/vue/24/solid'
-import { LightBulbIcon as LightBulbOutlineIcon } from '@heroicons/vue/24/outline'
+import { WrenchIcon, ChevronUpIcon } from '@heroicons/vue/24/outline'
 import axios from 'axios'
 import { extractVerbatim, restoreVerbatim, verifyVerbatimPreserved } from '../../utils/promptProcessor'
 import SuggestionSubmenu from './SuggestionSubmenu.vue'
@@ -416,6 +468,8 @@ interface Props {
   hasPrompt?: boolean
   /** Placeholder for the feedback input. */
   placeholder?: string
+  /** Per-tool Instructions — standing guidance, co-edited by user + agent. */
+  instructions?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -423,15 +477,38 @@ const props = withDefaults(defineProps<Props>(), {
   prompt: '',
   hasPrompt: false,
   placeholder: '',
+  instructions: '',
 })
 
 const emit = defineEmits<{
   (e: 'update:prompt', value: string): void
+  (e: 'update:instructions', value: string): void
 }>()
+
+// Writable proxy for the per-tool Instructions panel. Edits flow up via v-model
+// so they land in the tool's working state (and any preset saved from it); the
+// agent edits the same field through set/edit_instructions.
+const instructionsText = computed({
+  get: () => props.instructions ?? '',
+  set: (v: string) => emit('update:instructions', v),
+})
+// Settings drawer (wrench toggle) holds Instructions + the thinking toggle.
+// Collapsed by default — these are occasional fields.
+const showSettings = ref(false)
 
 // Injected page-wide mini-agent. Present → full-agent mode (drives the whole
 // screen via tool calls); absent → prompt-only mode (single-shot /enhance).
 const agent = inject<PromptEditorAgent | null>(PROMPT_EDITOR_AGENT_KEY, null)
+
+// Extras sent on every suggestion request so ideas + dropdown options honor the
+// tool's standing Instructions and follow the thinking toggle, exactly like the
+// agent loop does.
+function suggestionExtras() {
+  return {
+    instructions: props.instructions || '',
+    thinking: agent?.thinking?.value ?? false,
+  }
+}
 
 const inputPlaceholder = computed(() => {
   if (props.placeholder) return props.placeholder
@@ -867,6 +944,7 @@ async function fetchIdeas(force = false) {
     // Phase 1: Get categories
     const catResponse = await axios.post('/api/prompt/suggest-categories', {
       prompt: promptForIdeas,
+      ...suggestionExtras(),
       debug: showDebug.value
     }, {
       signal: ideasAbortController.signal
@@ -1000,6 +1078,7 @@ async function fetchOptionsBatch(promptForIdeas: string, cats: CategoryItem[], e
       allow_wildcard: cat.allow_wildcard
     })),
     exclude_by_category: excludeMap || {},
+    ...suggestionExtras(),
     debug: showDebug.value
   }, {
     signal: ideasAbortController?.signal
@@ -1008,50 +1087,6 @@ async function fetchOptionsBatch(promptForIdeas: string, cats: CategoryItem[], e
 }
 
 // Refresh options only (keep categories stable, exclude previous options)
-async function refreshOptions() {
-  if (categories.value.length === 0 || !props.prompt.trim()) return
-
-  isRefreshingIdeas.value = true
-
-  if (ideasAbortController) {
-    ideasAbortController.abort()
-  }
-  ideasAbortController = new AbortController()
-
-  const { processed: promptForIdeas } = extractVerbatim(props.prompt)
-
-  const excludeMap: Record<string, string[]> = {}
-  for (const cat of categories.value) {
-    excludeMap[cat.category] = previousOptionsByCategory.value[cat.category] || []
-  }
-
-  try {
-    const results = await fetchOptionsBatch(promptForIdeas, categories.value, excludeMap)
-
-    for (const result of results) {
-      const category = result.category as string
-      const subitems = (result.subitems || []) as string[]
-      if (subitems.length > 0) {
-        const idx = suggestions.value.findIndex(s => s.category === category)
-        if (idx !== -1) {
-          suggestions.value[idx] = { ...suggestions.value[idx], subitems }
-        }
-        if (!previousOptionsByCategory.value[category]) {
-          previousOptionsByCategory.value[category] = []
-        }
-        previousOptionsByCategory.value[category].push(...subitems)
-      }
-    }
-  } catch (err: any) {
-    if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return
-    console.error('Failed to refresh options:', err)
-  } finally {
-    isRefreshingIdeas.value = false
-    isLoadingIdeas.value = false
-    ideasAbortController = null
-  }
-}
-
 // Handle click on a suggestion item
 function handleSuggestionClick(item: SuggestionItem, event: MouseEvent) {
   if (loadingOptionsByCategory.value[item.category]) return
@@ -1136,6 +1171,7 @@ async function handleSubmenuRefresh() {
         allow_wildcard: cat.allow_wildcard
       },
       exclude: exclude,
+      ...suggestionExtras(),
       debug: showDebug.value
     }, {
       signal: ideasAbortController?.signal
@@ -1175,6 +1211,7 @@ function closeSubmenu() {
 let promptChangeDebounceTimer: ReturnType<typeof setTimeout> | null = null
 const PROMPT_CHANGE_DEBOUNCE_MS = 3000
 const SIGNIFICANT_CHANGE_THRESHOLD = 0.7  // 70% change required to trigger refetch
+const INSTRUCTIONS_CHANGE_DEBOUNCE_MS = 1500  // wait for the user to stop typing instructions
 
 function calculatePromptDifference(a: string, b: string): number {
   if (!a || !b) return 1
@@ -1210,6 +1247,20 @@ watch(() => props.prompt, (newValue) => {
       fetchIdeas(true)
     }
   }, PROMPT_CHANGE_DEBOUNCE_MS)
+})
+
+// Instructions feed the suggestion prompts, so when they change — the user types
+// in the drawer, or the agent edits them — re-run ideas so the sections and their
+// options reflect the new guidance. Without this, suggestions only refresh on a
+// prompt change and the instructions look ignored. Debounced so typing doesn't thrash.
+let instructionsChangeTimer: ReturnType<typeof setTimeout> | null = null
+watch(() => props.instructions, () => {
+  if (!props.hasPrompt || !props.prompt.trim()) return
+  if (instructionsChangeTimer) clearTimeout(instructionsChangeTimer)
+  instructionsChangeTimer = setTimeout(() => {
+    instructionsChangeTimer = null
+    if (props.prompt.trim()) fetchIdeas(true)
+  }, INSTRUCTIONS_CHANGE_DEBOUNCE_MS)
 })
 
 onMounted(() => {
@@ -1312,6 +1363,7 @@ async function refreshCategoryCmd(key: string): Promise<string> {
       prompt: promptForIdeas,
       category: { label: cat.label, category: cat.category, allow_wildcard: cat.allow_wildcard },
       exclude,
+      ...suggestionExtras(),
     })
     const newSubitems: string[] = response.data.subitems || []
     if (newSubitems.length > 0) {

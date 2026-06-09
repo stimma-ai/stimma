@@ -138,6 +138,11 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     }
     state.autoMarkerIds = globalPrefs.value.autoMarkerIds || []
 
+    // Per-tool agent Instructions ride the state blob, so they travel with the
+    // tool's working state AND any preset saved from it.
+    state.agentInstructions = globalPrefs.value.agentInstructions || ''
+    state.agentThinking = globalPrefs.value.agentThinking ?? false
+
     // Include ALL loras with their enabled state
     state.loras = toolLoras.value.map(l => ({
       lora: l.lora,
@@ -159,6 +164,8 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       varyPrompt: { enabled: false, instructions: '' }
     }
     globalPrefs.value.autoMarkerIds = state.autoMarkerIds ?? []
+    globalPrefs.value.agentInstructions = state.agentInstructions ?? ''
+    globalPrefs.value.agentThinking = state.agentThinking ?? false
 
     // Apply ALL model params from state (except ephemeral)
     for (const [key, value] of Object.entries(state)) {
@@ -232,6 +239,19 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     for (const key of allKeys) {
       if (EPHEMERAL_STATE_KEYS.has(key)) continue
       if (key === 'inputImages' || key === 'inputVideos') continue
+
+      // agentInstructions defaults to '' but older states omit the key entirely;
+      // treat absent and empty as equal so loading a pre-feature preset doesn't
+      // read as modified the instant it loads.
+      if (key === 'agentInstructions' || key === 'agentMemory') {
+        if ((currentState[key] || '') !== (base[key] || '')) return true
+        continue
+      }
+      // agentThinking defaults to false; absent (older state) == false.
+      if (key === 'agentThinking') {
+        if ((currentState[key] ?? false) !== (base[key] ?? false)) return true
+        continue
+      }
 
       const currentVal = JSON.stringify(currentState[key])
       const baseVal = JSON.stringify(base[key])
@@ -343,6 +363,9 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
         varyPrompt: { enabled: false, instructions: '' }
       },
       autoMarkerIds: [],
+      // Per-tool Instructions are durable scaffolding for the tool (like the
+      // LoRA pool above) — a generation reset keeps them.
+      agentInstructions: globalPrefs.value.agentInstructions ?? '',
       loras: preservedLoras
     }
 

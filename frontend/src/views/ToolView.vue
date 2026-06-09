@@ -338,6 +338,7 @@
             ref="promptAgentChatRef"
             :prompt="globalPrefs.prompt"
             :has-prompt="hasPrompt"
+            v-model:instructions="globalPrefs.agentInstructions"
           />
         </Teleport>
 
@@ -2461,6 +2462,8 @@ function getCurrentState() {
     prompt: globalPrefs.value.prompt,
     negative_prompt: modelParams.value.negative_prompt,
     promptOptions: globalPrefs.value.promptOptions,
+    agentInstructions: globalPrefs.value.agentInstructions || '',
+    agentThinking: globalPrefs.value.agentThinking ?? false,
   }
 }
 
@@ -3669,6 +3672,13 @@ function getStateContext(): Record<string, any> {
     modified: !!isModified.value,
   }
 
+  // Per-tool agent Instructions — the user's standing guidance for this tool,
+  // edited via set/edit_instructions. Always surface (even when empty) so the
+  // agent knows the current text for surgical edits.
+  ctx.notes = {
+    instructions: globalPrefs.value.agentInstructions || '',
+  }
+
   return ctx
 }
 
@@ -3872,6 +3882,33 @@ async function runTool(name: string, args: any): Promise<string> {
       return `${args.option} ${enabled ? 'on' : 'off'}.`
     }
 
+    // ── Per-tool Instructions ──
+    // Mirror the set_prompt / edit_prompt pair: whole-blob set + exact
+    // search/replace. Rides globalPrefs and auto-persists via the debounced
+    // tool-state watcher (and into a preset when saved).
+    case 'set_instructions': {
+      globalPrefs.value.agentInstructions = String(args.content ?? '')
+      return 'ok'
+    }
+    case 'edit_instructions': {
+      const oldStr = String(args.old_string ?? '')
+      const newStr = String(args.new_string ?? '')
+      const current = globalPrefs.value.agentInstructions || ''
+      // Empty old_string = "add this" — append (covers the first write to an
+      // empty note, which the agent does via edit_* rather than set_*).
+      if (!oldStr) {
+        globalPrefs.value.agentInstructions = current ? `${current}\n${newStr}` : newStr
+        return 'ok'
+      }
+      if (!current.includes(oldStr)) {
+        return `old_string not found in Instructions. Current Instructions: ${JSON.stringify(current)}`
+      }
+      globalPrefs.value.agentInstructions = args.replace_all
+        ? current.split(oldStr).join(newStr)
+        : current.replace(oldStr, newStr)
+      return 'ok'
+    }
+
     // ── Actions (Tier 2) ──
     case 'generate': {
       if (!canSubmit.value) return 'Cannot generate: required inputs are missing.'
@@ -3945,15 +3982,25 @@ async function runTool(name: string, args: any): Promise<string> {
   }
 }
 
-// Per-request thinking toggle (the lightbulb). Routed through the shared
-// agent_llm_options() on the backend — not a parallel mechanism.
-const promptAgentThinking = ref(true)
+// Extended-thinking toggle. It's a normal per-tool setting: backed by
+// globalPrefs so it persists, scopes to the tool/project, and rides presets like
+// any other param (see buildToolState/applyToolState/getCurrentState). Defaults
+// off — the prompt-agent does single-step editor control; the user turns it on
+// per tool when a weaker model needs the extra reasoning.
+const promptAgentThinking = computed<boolean>({
+  get: () => globalPrefs.value.agentThinking ?? false,
+  set: (v: boolean) => { globalPrefs.value.agentThinking = v },
+})
 
 // Snapshot for undo lazily — once per run, before the first MUTATING tool — so
 // non-mutating tools (undo/redo/search/generate) behave like the buttons and
 // don't create spurious undo entries or clear the redo stack.
+// Instructions live outside the undo snapshot — durable per-tool scaffolding,
+// like the LoRA pool — so writing them shouldn't create an undo entry or clear
+// the redo stack.
 const AGENT_NON_MUTATING_TOOLS = new Set([
   'undo', 'redo', 'search_loras', 'generate', 'start_forever_mode', 'stop_forever_mode',
+  'set_instructions', 'edit_instructions',
 ])
 let agentRunSnapshotTaken = false
 

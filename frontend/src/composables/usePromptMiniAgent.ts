@@ -39,7 +39,8 @@ export interface MiniAgentContext {
   /** Called before each tool executes — lets the host snapshot lazily so that
    *  non-mutating tools (undo/redo/search) don't trigger an undo entry. */
   onBeforeTool?: (name: string) => void
-  /** Per-request thinking override (the lightbulb). Defaults to on if absent. */
+  /** Per-request thinking override (the lightbulb). Defaults to off if absent —
+   *  single-step editor control doesn't need reasoning, and off is faster. */
   getThinking?: () => boolean
 }
 
@@ -124,7 +125,7 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
         const resp = await axios.post('/api/prompt/agent/step', {
           conversation_history: wireHistory,
           state_context: stateForTurn,
-          thinking: ctx.getThinking ? ctx.getThinking() : true,
+          thinking: ctx.getThinking ? ctx.getThinking() : false,
           session_id: sessionId.value,
         })
         const data = resp.data as { message: string; tool_calls: AgentToolCall[]; thinking?: string | null }

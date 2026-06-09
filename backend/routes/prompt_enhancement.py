@@ -49,6 +49,10 @@ class CategoryItem(BaseModel):
 
 class SuggestCategoriesRequest(BaseModel):
     prompt: str
+    # Per-tool standing Instructions (the agent note) — factored into suggestions.
+    instructions: Optional[str] = None
+    # Let the model reason first (the editor's thinking toggle). Slower; off by default.
+    thinking: bool = False
     debug: bool = False
 
 
@@ -62,6 +66,8 @@ class SuggestOptionsRequest(BaseModel):
     prompt: str
     category: CategoryItem
     exclude: List[str] = []
+    instructions: Optional[str] = None
+    thinking: bool = False
     debug: bool = False
 
 
@@ -78,6 +84,8 @@ class SuggestOptionsBatchRequest(BaseModel):
     prompt: str
     categories: List[CategoryItem]
     exclude_by_category: dict[str, List[str]] = {}
+    instructions: Optional[str] = None
+    thinking: bool = False
     debug: bool = False
 
 
@@ -131,20 +139,6 @@ _CENTRAL_HUMAN_RE = re.compile(
     re.IGNORECASE,
 )
 
-_IDENTITY_MARKER_RE = re.compile(
-    r"\b("
-    r"ethnicity|ethnic|nationality|heritage|ancestry|cultural background|"
-    r"asian|african|european|latino|latina|hispanic|middle eastern|arab|indigenous|native|"
-    r"american|british|canadian|mexican|brazilian|argentinian|colombian|peruvian|"
-    r"french|italian|spanish|german|swedish|norwegian|polish|greek|russian|ukrainian|"
-    r"nigerian|ethiopian|kenyan|egyptian|moroccan|south african|"
-    r"chinese|japanese|korean|vietnamese|thai|filipino|indian|pakistani|persian|turkish"
-    r")\b",
-    re.IGNORECASE,
-)
-
-_IDENTITY_CATEGORY_KEYS = {"ethnicity", "nationality", "heritage", "ancestry", "race"}
-
 _CENTRAL_HUMAN_CORE_CATEGORIES = (
     CategoryItem(label="Expression", category="expression", allow_wildcard=False),
     CategoryItem(label="Pose", category="pose", allow_wildcard=False),
@@ -159,21 +153,24 @@ def _normalize_category_key(category: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", category.strip().lower()).strip("_")
 
 
-def _stabilize_suggestion_categories(prompt: str, categories: List[CategoryItem]) -> List[CategoryItem]:
-    """Keep suggestion categories consistent without making the LLM prompt rigid."""
-    mentions_identity = bool(_IDENTITY_MARKER_RE.search(prompt))
+def _stabilize_suggestion_categories(
+    prompt: str,
+    categories: List[CategoryItem],
+    has_instructions: bool = False,
+) -> List[CategoryItem]:
+    """Lightly tidy the model's category list — we trust its choices.
+
+    Normalizes keys and dedupes. For central-human prompts WITHOUT user
+    Instructions we also keep the common portrait dimensions present and first
+    (consistency across refreshes); Instructions turn that off so the model's list
+    passes through. Capped at MAX_CATEGORIES so a runaway model can't flood the UI.
+    """
+    MAX_CATEGORIES = 20
     normalized: List[CategoryItem] = []
     seen: set[str] = set()
 
     for item in categories:
         key = _normalize_category_key(item.category or item.label)
-
-        if key in _IDENTITY_CATEGORY_KEYS:
-            if not mentions_identity:
-                continue
-            item = CategoryItem(label="Heritage", category="heritage", allow_wildcard=True)
-            key = "heritage"
-
         if not key or key in seen:
             continue
         seen.add(key)
@@ -183,8 +180,9 @@ def _stabilize_suggestion_categories(prompt: str, categories: List[CategoryItem]
             allow_wildcard=item.allow_wildcard,
         ))
 
-    if not _CENTRAL_HUMAN_RE.search(prompt):
-        return normalized[:10]
+    # Explicit user instructions: trust them fully — no forced core set.
+    if has_instructions or not _CENTRAL_HUMAN_RE.search(prompt):
+        return normalized[:MAX_CATEGORIES]
 
     by_key = {item.category: item for item in normalized}
     result: List[CategoryItem] = []
@@ -200,7 +198,7 @@ def _stabilize_suggestion_categories(prompt: str, categories: List[CategoryItem]
             continue
         result.append(item)
         added.add(item.category)
-        if len(result) >= 8:
+        if len(result) >= MAX_CATEGORIES:
             break
 
     return result
@@ -506,18 +504,28 @@ def _parse_options_response(response_content: str) -> tuple[List[str], Optional[
     if refusal:
         return [], refusal
 
-    try:
-        json_match = re.search(r'\[.*\]', response_content, re.DOTALL)
-        if json_match:
-            response_content = json_match.group(0)
+    # Collect string items from every flat array in the response. Small models
+    # sometimes emit several arrays (one per line) instead of one — a plain
+    # json.loads then fails with "Extra data". Parsing each bracket group and
+    # merging is robust to that, and to leading/trailing prose.
+    arrays = re.findall(r'\[[^\[\]]*\]', response_content, re.DOTALL)
+    if not arrays:
+        # Fall back to a single greedy match (handles odd whitespace).
+        m = re.search(r'\[.*\]', response_content, re.DOTALL)
+        if m:
+            arrays = [m.group(0)]
 
-        data = json.loads(response_content)
+    options: List[str] = []
+    seen: set[str] = set()
+    parsed_any = False
+    for chunk in arrays:
+        try:
+            data = json.loads(chunk)
+        except json.JSONDecodeError:
+            continue
         if not isinstance(data, list):
-            log.error(f"Options response is not an array: {type(data)}")
-            return [], None
-
-        options = []
-        seen = set()
+            continue
+        parsed_any = True
         for item in data:
             if isinstance(item, str) and item.strip():
                 normalized = item.strip().lower()
@@ -525,12 +533,11 @@ def _parse_options_response(response_content: str) -> tuple[List[str], Optional[
                     seen.add(normalized)
                     options.append(item.strip())
 
-        return options, None
-
-    except json.JSONDecodeError as e:
-        log.error(f"Failed to parse options JSON: {e}")
-        log.error(f"Response content: {response_content[:500]}")
+    if not parsed_any:
+        log.error(f"Failed to parse options JSON. Response content: {response_content[:500]}")
         return [], None
+
+    return options, None
 
 
 @router.post("/suggest-categories", response_model=SuggestCategoriesResponse)
@@ -547,6 +554,14 @@ async def suggest_categories(request: SuggestCategoriesRequest):
         raise HTTPException(status_code=500, detail="suggest_categories_system_prompt not configured")
 
     system_prompt = prompt_from_file
+    if request.instructions and request.instructions.strip():
+        system_prompt = (
+            f"{prompt_from_file}\n\n"
+            "USER INSTRUCTIONS — the user's standing requirements for this tool. Follow them exactly. "
+            "They take priority over the guidance above: include every dimension the user requires "
+            "(even ones you wouldn't normally suggest), and omit any they say to exclude:\n"
+            f"{request.instructions.strip()}"
+        )
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -557,7 +572,7 @@ async def suggest_categories(request: SuggestCategoriesRequest):
     if request.debug:
         debug_info = {
             "system_prompt": system_prompt,
-            "user_prompt": request.prompt,
+            "user_prompt": user_content,
             "raw_response": None,
         }
 
@@ -580,7 +595,7 @@ async def suggest_categories(request: SuggestCategoriesRequest):
                     messages=messages,
                     max_tokens=8192,
                     temperature=0.3 + (attempt * 0.1),
-
+                    enable_thinking=request.thinking,
                 )
 
                 last_response = response_content
@@ -597,7 +612,11 @@ async def suggest_categories(request: SuggestCategoriesRequest):
                 log.info(f"Suggest-categories attempt {attempt + 1}: got {len(response_content)} chars response")
 
                 categories, refusal = _parse_categories_response(response_content)
-                categories = _stabilize_suggestion_categories(request.prompt, categories)
+                categories = _stabilize_suggestion_categories(
+                    request.prompt,
+                    categories,
+                    has_instructions=bool(request.instructions and request.instructions.strip()),
+                )
 
                 if refusal:
                     log.warning(f"Suggest-categories detected refusal: {refusal[:100]}")
@@ -664,6 +683,8 @@ async def suggest_options_batch(request: SuggestOptionsBatchRequest):
                     prompt=request.prompt,
                     category=category,
                     exclude=request.exclude_by_category.get(category.category, []),
+                    instructions=request.instructions,
+                    thinking=request.thinking,
                     debug=request.debug,
                 )
             )
@@ -708,6 +729,12 @@ async def _suggest_options_impl(request: SuggestOptionsRequest) -> SuggestOption
         exclude_section = f"\n\nDo NOT repeat any of these previously shown options: [{exclude_list}]. Generate completely fresh alternatives."
 
     system_prompt = prompt_from_file.replace("{exclude_section}", exclude_section)
+    if request.instructions and request.instructions.strip():
+        system_prompt += (
+            "\n\nUSER INSTRUCTIONS — the user's standing requirements for this tool. Honor them "
+            "strictly: only include values they permit, and respect any ranges or limits they set:\n"
+            f"{request.instructions.strip()}"
+        )
 
     user_content = f"""Prompt: {request.prompt}
 
@@ -740,7 +767,7 @@ Category: {request.category.label} ({request.category.category})"""
                 messages=messages,
                 max_tokens=8192,
                 temperature=0.8,
-
+                enable_thinking=request.thinking,
             )
             try:
                 _span.update(output={"response_chars": len(response_content) if response_content else 0})

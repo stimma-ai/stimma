@@ -263,6 +263,39 @@ _OPTION_TOOLS = [
     ),
 ]
 
+# --- G2. Per-tool Instructions ----------------------------------------------
+# A single per-tool/preset note (Instructions), co-edited by the user and the
+# agent. It rides the state_context every turn, so the agent always sees the
+# current text and can target surgical edits. Edits mirror the set_prompt /
+# edit_prompt pair (whole-blob set + exact search/replace) so notes edit the
+# same way the prompt does.
+_NOTES_TOOLS = [
+    _fn(
+        "set_instructions",
+        "Replace the ENTIRE Instructions — the user's standing notes for this tool: preferences and "
+        "rules that should shape your future edits (e.g. 'prefer portrait framing', 'whenever there's a "
+        "dog make it a great pyrenees', 'keep lighting soft'), plus anything the user asks you to "
+        "remember or note here. Use for a full rewrite; empty string clears it; prefer "
+        "edit_instructions for small changes. Recording a note does not touch the current prompt; if "
+        "the user also wants this image changed now, edit the prompt too.",
+        {"content": {"type": "string"}},
+        ["content"],
+    ),
+    _fn(
+        "edit_instructions",
+        "Surgically edit the Instructions by exact string replacement — the right tool for ADDING one "
+        "note or rule, including anything the user asks you to 'remember'. old_string must match the "
+        "current Instructions exactly (see state_context.notes); an empty old_string appends. Replaces "
+        "the first occurrence unless replace_all is true.",
+        {
+            "old_string": {"type": "string"},
+            "new_string": {"type": "string"},
+            "replace_all": {"type": "boolean", "description": "Replace all occurrences. Default false."},
+        },
+        ["old_string", "new_string"],
+    ),
+]
+
 # --- H. Actions with side effects (Tier 2) ----------------------------------
 _ACTION_TOOLS = [
     _fn("generate", "Run generation once with the current settings (same as clicking Run). Only do "
@@ -324,6 +357,7 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
     *_LORA_TOOLS,
     *_MARKER_TOOLS,
     *_OPTION_TOOLS,
+    *_NOTES_TOOLS,
     *_ACTION_TOOLS,
     *_HISTORY_TOOLS,
     *_PRESET_TOOLS,

@@ -70,6 +70,12 @@ export interface GlobalPrefs {
   inputVideos: any[]
   promptOptions: PromptOptions
   autoMarkerIds: number[]
+  // Per-tool agent note (rides the tool + any preset saved from it): standing
+  // guidance co-edited by the user and the agent.
+  agentInstructions: string
+  // Per-tool extended-thinking toggle — a normal tool setting (persisted,
+  // scoped, rides presets). Defaults off.
+  agentThinking: boolean
 }
 
 export interface UIState {
@@ -105,7 +111,9 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     inputImages: [],
     inputVideos: [],
     promptOptions: { ...DEFAULT_PROMPT_OPTIONS },
-    autoMarkerIds: []
+    autoMarkerIds: [],
+    agentInstructions: '',
+    agentThinking: false
   })
 
   // UI state
@@ -143,7 +151,9 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
             autoImprove: data.promptOptions?.autoImprove ?? { enabled: false, instructions: '' },
             varyPrompt: data.promptOptions?.varyPrompt ?? { enabled: false, instructions: '' }
           },
-          autoMarkerIds: data.autoMarkerIds ?? []
+          autoMarkerIds: data.autoMarkerIds ?? [],
+          agentInstructions: data.agentInstructions ?? '',
+          agentThinking: data.agentThinking ?? false
         }
       }
     } catch (err) {
@@ -344,7 +354,9 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
       inputImages: [],
       inputVideos: [],
       promptOptions: { ...DEFAULT_PROMPT_OPTIONS },
-      autoMarkerIds: []
+      autoMarkerIds: [],
+      agentInstructions: '',
+      agentThinking: false
     }
     uiState.value = {
       selectedGenerator: '',
