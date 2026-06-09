@@ -336,6 +336,26 @@ async def _run_tool_step(
     # restores the chain (lands in generation_metadata.parameters).
     parameters["post_processing_chain"] = all_steps
 
+    # Relative upscale: the step stores scale_factor because the input isn't
+    # known at config time. Resolve it against the actual input here — same
+    # math as ToolView's picker (short edge × factor → the resolution param).
+    if "scale_factor" in parameters and "resolution" not in parameters:
+        scale = parameters.pop("scale_factor")
+        try:
+            from providers.registry import ProviderRegistry
+            provider_tool = ProviderRegistry.get_instance().get_tool(tool_id)
+            schema_props = (provider_tool[1].parameter_schema or {}).get("properties", {}) if provider_tool else {}
+            if "resolution" in schema_props:
+                async with db.async_session_maker() as session:
+                    result = await session.execute(
+                        select(MediaItem.width, MediaItem.height).where(MediaItem.id == input_media_id)
+                    )
+                    row = result.first()
+                if row and row[0] and row[1]:
+                    parameters["resolution"] = int(round(min(row[0], row[1]) * float(scale)))
+        except Exception as e:
+            log.warning(f"[postproc] Could not resolve scale_factor for {tool_id}: {e}")
+
     async with db.async_session_maker() as session:
         result = await execute_call_tool(
             tool_id=tool_id,

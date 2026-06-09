@@ -5,33 +5,31 @@
     </div>
     <div v-else class="flex flex-col gap-4">
       <!-- In-flight progress: slim landscape bars docked at the top of the
-           results area — one per job/batch/chain, stacked. Never a full tile. -->
-      <div v-if="activeDisplayItems.length > 0 || chainRunsList.length > 0" class="flex flex-col gap-2">
-        <!-- Running/paused post-processing chains: step dots + Retry on failure -->
-        <ChainProgressBar
-          v-for="run in chainRunsList"
-          :key="`chain-${run.id}`"
-          :run="run"
-          @retry="$emit('retry-chain', $event)"
-          @dismiss="$emit('dismiss-chain', $event)"
-        />
+           results area — one per job/batch/chain, stacked newest-first so
+           finishing work flows into the completed list below. -->
+      <div v-if="activeDisplayItems.length > 0" class="flex flex-col gap-2">
         <template v-for="item in activeDisplayItems" :key="item.key">
           <!-- Active individual job (queued/processing/enhancing) -->
           <GenerationProgressBar
             v-if="item.type === 'active-job'"
+            :name="item.job.model_name || 'Generation'"
             :status="item.job.status === 'enhancing' ? 'enhancing' : item.job.status === 'processing' ? 'processing' : 'queued'"
-            :sublabel="getJobPrompt(item.job)"
             @cancel="$emit('cancel-job', item.job.id)"
-            @info="$emit('show-job-info', item.job)"
           />
           <!-- Active batch (in progress) -->
           <GenerationProgressBar
             v-else-if="item.type === 'active-batch'"
+            :name="`${item.batch.jobs?.[0]?.model_name || 'Batch'} · ${item.batch.completed + item.batch.failed}/${item.batch.total}`"
             :status="item.batch.inProgress > 0 ? 'processing' : 'queued'"
-            :label="`Batch ${item.batch.completed + item.batch.failed}/${item.batch.total}`"
             :progress="item.batch.total ? (item.batch.completed + item.batch.failed) / item.batch.total : null"
-            :show-info="false"
             @cancel="$emit('cancel-and-dismiss-batch', item.batch.batch_id)"
+          />
+          <!-- Running/paused post-processing chain: step dots + Retry on failure -->
+          <ChainProgressBar
+            v-else-if="item.type === 'chain-run'"
+            :run="item.run"
+            @retry="$emit('retry-chain', $event)"
+            @dismiss="$emit('dismiss-chain', $event)"
           />
         </template>
       </div>
@@ -336,7 +334,6 @@ const emit = defineEmits<{
   (e: 'dismiss-chain', chainRunId: number): void
 }>()
 
-const chainRunsList = computed(() => props.activeChainRuns)
 
 // Get all batch job IDs for filtering
 const batchJobIds = computed(() => {
@@ -406,10 +403,11 @@ const displayedJobs = computed(() =>
 const unifiedDisplayItems = computed(() => {
   const items: Array<{
     key: string
-    type: 'active-job' | 'active-batch' | 'completed-batch' | 'completed-job' | 'failed-job'
+    type: 'active-job' | 'active-batch' | 'chain-run' | 'completed-batch' | 'completed-job' | 'failed-job'
     timestamp: Date
     job?: Job
     batch?: BatchInfo
+    run?: ChainRun
   }> = []
 
   // Add active individual jobs (not in batches)
@@ -433,6 +431,17 @@ const unifiedDisplayItems = computed(() => {
       type: 'active-batch',
       timestamp: new Date(earliestJob?.created_at || Date.now()),
       batch
+    })
+  }
+
+  // Add running/paused post-processing chains — sorted into the active flow
+  // by start time so the stack reads newest-at-top like the job bars.
+  for (const run of props.activeChainRuns) {
+    items.push({
+      key: `chain-${run.id}`,
+      type: 'chain-run',
+      timestamp: new Date((run as any).created_at || Date.now()),
+      run
     })
   }
 
@@ -478,9 +487,10 @@ const unifiedDisplayItems = computed(() => {
   }
 
   // Sort: active items first (by created_at desc), then completed/failed (by completed_at desc)
+  const isActiveType = (t: string) => t === 'active-job' || t === 'active-batch' || t === 'chain-run'
   return items.sort((a, b) => {
-    const aIsActive = a.type === 'active-job' || a.type === 'active-batch'
-    const bIsActive = b.type === 'active-job' || b.type === 'active-batch'
+    const aIsActive = isActiveType(a.type)
+    const bIsActive = isActiveType(b.type)
 
     // Active items always come first
     if (aIsActive && !bIsActive) return -1
@@ -492,16 +502,14 @@ const unifiedDisplayItems = computed(() => {
 })
 
 // Split display items into active and completed for separate rendering
+const ACTIVE_ITEM_TYPES = new Set(['active-job', 'active-batch', 'chain-run'])
+
 const activeDisplayItems = computed(() =>
-  unifiedDisplayItems.value.filter(item =>
-    item.type === 'active-job' || item.type === 'active-batch'
-  )
+  unifiedDisplayItems.value.filter(item => ACTIVE_ITEM_TYPES.has(item.type))
 )
 
 const completedDisplayItems = computed(() =>
-  unifiedDisplayItems.value.filter(item =>
-    item.type !== 'active-job' && item.type !== 'active-batch'
-  )
+  unifiedDisplayItems.value.filter(item => !ACTIVE_ITEM_TYPES.has(item.type))
 )
 
 // Helper functions

@@ -2,16 +2,7 @@
   <div class="mb-6">
     <!-- Panel header -->
     <div class="flex items-center justify-between mb-3">
-      <span class="flex items-center gap-1.5 text-xs font-medium text-content-muted uppercase tracking-wide">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 text-purple-400">
-          <path d="M9.638 1.093a.75.75 0 01.724 0l8.5 4.75a.75.75 0 010 1.314l-8.5 4.75a.75.75 0 01-.724 0l-8.5-4.75a.75.75 0 010-1.314l8.5-4.75z" />
-          <path d="M3.265 10.602l5.649 3.156a2.25 2.25 0 002.172 0l5.649-3.156 1.127.63a.75.75 0 010 1.31l-8.5 4.75a.75.75 0 01-.724 0l-8.5-4.75a.75.75 0 010-1.31l1.127-.63z" />
-        </svg>
-        Post-processing
-        <span v-if="chain.steps.length" class="px-1.5 py-px rounded-full bg-white/[0.06] text-[10px] text-content-tertiary normal-case tracking-normal">
-          {{ chain.steps.length }} step{{ chain.steps.length === 1 ? '' : 's' }}
-        </span>
-      </span>
+      <span class="text-xs font-medium text-content-muted uppercase tracking-wide">Post-processing</span>
       <label class="inline-flex items-center gap-2 cursor-pointer">
         <span class="text-xs text-content-tertiary">{{ chain.enabled ? 'On' : 'Off' }}</span>
         <input
@@ -37,6 +28,7 @@
             :step="step"
             :title="stepTitle(step)"
             :summary="stepSummary(step)"
+            :provider="stepProvider(step)"
             :expanded="expandedIds.has(step.id)"
             :incompatible="mediaFlow.incompatibleStepIds.has(step.id)"
             :needed-input="stepNeededInput(step)"
@@ -95,6 +87,7 @@ import ChainStepCard from './ChainStepCard.vue'
 import ChainStepSettings from './ChainStepSettings.vue'
 import AddStepMenu from './AddStepMenu.vue'
 import { useProvidersApi, type ProviderTool } from '../../../composables/useProvidersApi'
+import { isStimmaCloudTool } from '../../../utils/stimmaCloud'
 import {
   CHAIN_TOOL_TASK_TYPES,
   chainMediaFlow,
@@ -191,7 +184,17 @@ function removeStep(id: string) {
 function updateStepSettings(id: string, settings: Record<string, any>) {
   updateChain(c => ({
     ...c,
-    steps: c.steps.map(s => (s.id === id ? { ...s, settings: { ...s.settings, ...settings } } : s)),
+    steps: c.steps.map(s => {
+      if (s.id !== id) return s
+      // undefined in the patch means "remove this setting" (e.g. switching
+      // the upscale picker between scale_factor and resolution)
+      const merged = { ...s.settings }
+      for (const [k, v] of Object.entries(settings)) {
+        if (v === undefined) delete merged[k]
+        else merged[k] = v
+      }
+      return { ...s, settings: merged }
+    }),
   }))
 }
 
@@ -254,11 +257,7 @@ function stepTitle(step: ChainStep): string {
 }
 
 function stepSummary(step: ChainStep): string {
-  if (step.kind === 'tool') {
-    const overrides = Object.keys(step.settings).length
-    const base = `STP tool · ${step.task_type || 'image → image'}`
-    return overrides ? `${base} · ${overrides} setting${overrides === 1 ? '' : 's'}` : base
-  }
+  if (step.kind === 'tool') return ''
   const def = getChainFilterDef(step.filter_id || '')
   if (!def) return 'Built-in filter'
   const parts = def.params
@@ -266,6 +265,18 @@ function stepSummary(step: ChainStep): string {
     .slice(0, 3)
     .map(p => `${p.label.toLowerCase()} ${step.settings[p.name]}`)
   return parts.length ? parts.join(' · ') : def.description
+}
+
+// Standard provider treatment for tool-step sub rows (Stimma Cloud gradient
+// badge or provider-name pill — same as AllToolsView).
+function stepProvider(step: ChainStep): { name: string; isStimmaCloud: boolean } | null {
+  if (step.kind !== 'tool' || !step.tool_id) return null
+  const tool = toolById(step.tool_id)
+  const providerId = tool?.provider_id || step.tool_id.split(':')[0]
+  return {
+    name: tool?.provider_name || providerId,
+    isStimmaCloud: isStimmaCloudTool(tool || { provider_id: providerId }),
+  }
 }
 
 function stepNeededInput(step: ChainStep): string {

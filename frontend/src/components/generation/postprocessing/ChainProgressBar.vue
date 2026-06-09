@@ -22,13 +22,10 @@
       </div>
     </div>
 
-    <!-- Label + step dots -->
+    <!-- Current step name + step dots — one clean line each, no wrapping -->
     <div class="flex-1 min-w-0">
-      <div class="flex items-baseline gap-2">
-        <span :class="['text-xs font-medium', failed ? 'text-red-500' : 'text-content']">
-          {{ failed ? 'Post-processing failed' : 'Post-processing' }}
-        </span>
-        <span class="text-[11px] text-content-muted truncate">{{ currentStepLabel }}</span>
+      <div :class="['text-xs font-medium truncate whitespace-nowrap', failed ? 'text-red-500' : 'text-content']">
+        {{ failed ? `Failed — ${currentStepLabel}` : currentStepLabel }}
       </div>
       <div class="mt-1.5 flex items-center gap-1.5">
         <!-- Step dots: done = green, running = blue ring, failed = red, queued = hollow -->
@@ -45,7 +42,7 @@
           ]"
           :title="dotTitle(i)"
         ></span>
-        <span class="text-[10px] text-content-muted ml-1">{{ doneCount }} of {{ run.step_count }}</span>
+        <span class="text-[10px] text-content-muted ml-1 whitespace-nowrap">{{ doneCount }} of {{ run.step_count }}</span>
       </div>
     </div>
 
@@ -126,9 +123,7 @@ function stepLabel(step: any): string {
 
 const currentStepLabel = computed(() => {
   const idx = Math.min(props.run.step_index, (props.run.chain || []).length - 1)
-  const step = (props.run.chain || [])[idx]
-  if (failed.value) return props.run.error || stepLabel(step)
-  return stepLabel(step)
+  return stepLabel((props.run.chain || [])[idx])
 })
 
 function dotTitle(i: number): string {

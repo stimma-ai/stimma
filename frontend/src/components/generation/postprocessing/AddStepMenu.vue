@@ -31,14 +31,14 @@
           class="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-overlay-faint transition-colors"
           @click="$emit('add-tool', tool)"
         >
-          <div class="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 bg-purple-500/15 text-purple-400">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-              <path fill-rule="evenodd" d="M14.5 10a4.5 4.5 0 004.284-5.882c-.105-.324-.51-.391-.752-.15L15.34 6.66a.454.454 0 01-.493.11 3.01 3.01 0 01-1.618-1.616.455.455 0 01.11-.494l2.694-2.692c.24-.241.174-.647-.15-.752a4.5 4.5 0 00-5.873 4.575c.055.873-.128 1.808-.8 2.368l-7.23 6.024a2.724 2.724 0 103.837 3.837l6.024-7.23c.56-.672 1.495-.855 2.368-.8.096.007.193.01.291.01zM5 16a1 1 0 11-2 0 1 1 0 012 0z" clip-rule="evenodd" />
+          <div :class="['w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0', getTaskTypeGradientClass(chainTaskType(tool))]">
+            <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" :d="getTaskTypeIconPath(chainTaskType(tool))" />
             </svg>
           </div>
           <div class="flex-1 min-w-0">
             <div class="text-sm text-content truncate">{{ tool.name }}</div>
-            <div class="text-xs text-content-muted truncate">{{ tool.subtitle || taskTypeLabel(tool) }}</div>
+            <div class="text-xs text-content-muted truncate">{{ tool.subtitle || tool.provider_name || tool.provider_id }}</div>
           </div>
         </button>
       </template>
@@ -78,6 +78,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { ProviderTool } from '../../../composables/useProvidersApi'
 import type { ChainFilterDef } from '@stimma/image-editor'
+import { getTaskTypeGradientClass, getTaskTypeIconPath } from '../../../utils/taskTypeIcons'
+import { CHAIN_TOOL_TASK_TYPES } from '../../../utils/postProcessingChain'
 
 const props = defineProps<{
   /** Candidate STP tool steps (already filtered to chain-compatible task types). */
@@ -114,9 +116,11 @@ const filteredFilters = computed(() => {
   )
 })
 
-function taskTypeLabel(tool: ProviderTool): string {
+// The chain-relevant task type, for the standard task-type icon treatment.
+function chainTaskType(tool: ProviderTool): string {
+  const chainTypes = new Set<string>(CHAIN_TOOL_TASK_TYPES)
   const tts = tool.task_types?.length ? tool.task_types : [tool.task_type]
-  return tts.join(', ')
+  return tts.find(tt => chainTypes.has(tt)) || tool.task_type
 }
 
 function onClickOutside(ev: MouseEvent) {

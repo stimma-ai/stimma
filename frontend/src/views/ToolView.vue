@@ -4298,7 +4298,13 @@ async function openSlideshow(job: any) {
   if (!job.result_media_id || !jobsManager) return
 
   const index = jobsManager.sortedCompletedJobs.value.findIndex((j: any) => j.id === job.id)
-  if (index === -1) return
+  if (index === -1) {
+    // Not a tracked job (e.g. a completed post-processing chain's final image,
+    // which is library media rather than one of this page's jobs) — show it
+    // standalone.
+    openSingleImageSlideshow(job.result_media_id)
+    return
+  }
 
   enterSlideshow({
     totalCount: jobsManager.totalCompletedCount.value,

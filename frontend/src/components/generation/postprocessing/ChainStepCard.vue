@@ -29,22 +29,25 @@
         </svg>
       </span>
 
-      <!-- Type icon: purple square = STP tool, neutral = built-in filter -->
+      <!-- Type icon: standard task-type treatment for tools, neutral for filters -->
       <div
-        :class="[
-          'w-[30px] h-[30px] rounded-md flex items-center justify-center flex-shrink-0',
-          step.kind === 'tool' ? 'bg-purple-500/15 text-purple-400' : 'bg-white/[0.06] text-content-tertiary',
-        ]"
+        v-if="step.kind === 'tool'"
+        :class="['w-[30px] h-[30px] rounded-md flex items-center justify-center flex-shrink-0', getTaskTypeGradientClass(step.task_type || '')]"
       >
-        <svg v-if="step.kind === 'tool'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-          <path fill-rule="evenodd" d="M14.5 10a4.5 4.5 0 004.284-5.882c-.105-.324-.51-.391-.752-.15L15.34 6.66a.454.454 0 01-.493.11 3.01 3.01 0 01-1.618-1.616.455.455 0 01.11-.494l2.694-2.692c.24-.241.174-.647-.15-.752a4.5 4.5 0 00-5.873 4.575c.055.873-.128 1.808-.8 2.368l-7.23 6.024a2.724 2.724 0 103.837 3.837l6.024-7.23c.56-.672 1.495-.855 2.368-.8.096.007.193.01.291.01zM5 16a1 1 0 11-2 0 1 1 0 012 0z" clip-rule="evenodd" />
+        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" :d="getTaskTypeIconPath(step.task_type || '')" />
         </svg>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+      </div>
+      <div
+        v-else
+        class="w-[30px] h-[30px] rounded-md flex items-center justify-center flex-shrink-0 bg-white/[0.06] text-content-tertiary"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
           <path d="M10 3.75a2 2 0 10-4 0 2 2 0 004 0zM17.25 4.5a.75.75 0 000-1.5h-5.5a.75.75 0 000 1.5h5.5zM5 3.75a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5a.75.75 0 01.75.75zM4.25 17a.75.75 0 000-1.5h-1.5a.75.75 0 000 1.5h1.5zM17.25 17a.75.75 0 000-1.5h-5.5a.75.75 0 000 1.5h5.5zM9 10a.75.75 0 01-.75.75h-5.5a.75.75 0 010-1.5h5.5A.75.75 0 019 10zM17.25 10.75a.75.75 0 000-1.5h-1.5a.75.75 0 000 1.5h1.5zM14 16.25a2 2 0 10-4 0 2 2 0 004 0zM10 8a2 2 0 114 0 2 2 0 01-4 0z" />
         </svg>
       </div>
 
-      <!-- Name + one-line summary -->
+      <!-- Name + sub row (provider badge for tools, settings summary for filters) -->
       <button
         type="button"
         class="flex-1 min-w-0 text-left"
@@ -54,11 +57,22 @@
           {{ title }}
           <span v-if="unavailable" class="text-[10px] font-medium text-amber-500 uppercase tracking-wide">unavailable</span>
         </div>
-        <div class="text-xs text-content-muted truncate mt-0.5">
+        <div class="text-xs text-content-muted truncate mt-0.5 flex items-center gap-1.5">
           <template v-if="incompatible">
             <span class="text-amber-500">Needs {{ neededInput }} input — will be skipped</span>
           </template>
-          <template v-else>{{ summary }}</template>
+          <template v-else-if="step.kind === 'tool' && provider">
+            <span
+              v-if="provider.isStimmaCloud"
+              class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-teal-600/10 border border-teal-600/25"
+            >
+              <span class="stimma-cloud-text">Stimma Cloud</span>
+            </span>
+            <span v-else class="px-2 py-0.5 text-[10px] font-medium rounded-full border border-edge text-content-secondary">
+              {{ provider.name }}
+            </span>
+          </template>
+          <template v-else-if="step.kind === 'filter'">{{ summary }}</template>
         </div>
       </button>
 
@@ -125,6 +139,7 @@
 import { computed, reactive } from 'vue'
 import ActionMenu from '../../ActionMenu.vue'
 import MediaImage from '../../media/MediaImage.vue'
+import { getTaskTypeGradientClass, getTaskTypeIconPath } from '../../../utils/taskTypeIcons'
 import type { ChainStep } from '../../../utils/postProcessingChain'
 
 const props = defineProps<{
@@ -132,6 +147,8 @@ const props = defineProps<{
   title: string
   summary: string
   expanded: boolean
+  /** Standard provider treatment for the sub row (tool steps). */
+  provider?: { name: string; isStimmaCloud: boolean } | null
   incompatible?: boolean
   neededInput?: string
   unavailable?: boolean
