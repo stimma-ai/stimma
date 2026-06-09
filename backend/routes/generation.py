@@ -1419,6 +1419,9 @@ async def generate_config_from_media(
                     video_config["fps"] = params["fps"]
                 # Include loras
                 video_config["loras"] = params.get("loras", [])
+                # Post-processing chain recorded in lineage (the steps that ran)
+                if params.get("post_processing_chain"):
+                    video_config["post_processing_chain"] = params["post_processing_chain"]
                 # Include original source inputs (start/end frames) with resolved file paths
                 raw_source_inputs = gen_meta.get("source_inputs", [])
                 resolved = await _resolve_source_inputs(db, raw_source_inputs)
@@ -1475,6 +1478,11 @@ async def generate_config_from_media(
                 full_params["frame_count"] = params["frame_count"]
             if params.get("fps") is not None:
                 full_params["fps"] = params["fps"]
+
+            # Post-processing chain recorded in lineage (the steps that ran) —
+            # Remix merges it back into the on-screen chain.
+            if params.get("post_processing_chain"):
+                full_params["post_processing_chain"] = params["post_processing_chain"]
 
             # Determine compatibility and filter params if needed
             is_exact_match = source_tool_id is not None and source_tool_id == target_tool_id

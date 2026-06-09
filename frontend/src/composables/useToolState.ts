@@ -3,6 +3,7 @@ import { usePresetsApi } from './usePresetsApi'
 import { getToolDefaults } from '../utils/generationDefaults'
 import { getCurrentProfileId } from './useProfile'
 import { makeToolProfileKey } from '../utils/storageKeys'
+import { emptyChain, normalizeChain, type PostProcessingChain } from '../utils/postProcessingChain'
 
 // Tool state type (parameters, loras, etc.)
 export type ToolState = Record<string, any>
@@ -30,6 +31,7 @@ export interface UseToolStateOptions {
   globalPrefs: Ref<any>
   modelParams: Ref<any>
   toolLoras: Ref<Array<{ lora: string; weight: number; enabled: boolean }>>
+  toolChain: Ref<PostProcessingChain>
   uiState: Ref<any>
   saveToolState: (toolId: string, state: ToolState) => Promise<void>
 }
@@ -80,7 +82,7 @@ export interface UseToolStateReturn {
 }
 
 export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
-  const { fullToolId, tool, globalPrefs, modelParams, toolLoras, uiState, saveToolState } = options
+  const { fullToolId, tool, globalPrefs, modelParams, toolLoras, toolChain, uiState, saveToolState } = options
   const storageToolId = options.scopedToolId || fullToolId
 
   // Preset state
@@ -150,6 +152,14 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       enabled: l.enabled
     }))
 
+    // Post-processing chain rides the state blob like the LoRA pool — full
+    // chain including disabled steps (the editing surface; lineage separately
+    // records only the steps that ran).
+    state.postProcessingChain = {
+      enabled: toolChain.value.enabled,
+      steps: toolChain.value.steps.map(s => ({ ...s, settings: { ...s.settings } }))
+    }
+
     return state
   }
 
@@ -180,6 +190,11 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       weight: l.weight,
       enabled: l.enabled ?? true
     }))
+
+    // Apply post-processing chain (including disabled steps)
+    toolChain.value = state.postProcessingChain
+      ? normalizeChain(state.postProcessingChain)
+      : emptyChain()
   }
 
   // Save current state to localStorage (working copy)
@@ -366,7 +381,13 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       // Per-tool Instructions are durable scaffolding for the tool (like the
       // LoRA pool above) — a generation reset keeps them.
       agentInstructions: globalPrefs.value.agentInstructions ?? '',
-      loras: preservedLoras
+      loras: preservedLoras,
+      // Keep the chain's steps (workflow scaffolding, like the LoRA pool) but
+      // turn post-processing off.
+      postProcessingChain: {
+        enabled: false,
+        steps: toolChain.value.steps.map(s => ({ ...s, settings: { ...s.settings } }))
+      }
     }
 
     applyToolState(defaultState)
@@ -462,7 +483,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     stopWatching()
     nextTick(() => {
       watchStopHandles.push(
-        watch([globalPrefs, modelParams, toolLoras, uiState], debouncedSaveState, { deep: true })
+        watch([globalPrefs, modelParams, toolLoras, toolChain, uiState], debouncedSaveState, { deep: true })
       )
 
       watchStopHandles.push(

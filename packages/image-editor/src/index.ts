@@ -104,3 +104,11 @@ export {
   summarizeEditorDebugError,
   clearEditorDebugEvents,
 } from './utils/editorDebug';
+
+export {
+  CHAIN_FILTER_DEFS,
+  COLOR_FILTER_OPTIONS,
+  getChainFilterDef,
+  getChainFilterDefaults,
+} from './filterDefs';
+export type { ChainFilterDef, ChainFilterParam } from './filterDefs';

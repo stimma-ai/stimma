@@ -17,6 +17,8 @@ export interface LoraConfig {
   weight: number
 }
 
+import type { RecordedChainStep } from './postProcessingChain'
+
 export interface GenerationConfigUpdate {
   // Prompt-related
   prompt?: string
@@ -44,6 +46,9 @@ export interface GenerationConfigUpdate {
     endImage?: SourceInput
   }
 
+  // Post-processing chain recorded in the image's lineage (the steps that ran).
+  // Merged LoRA-style into the on-screen chain by applyAdaptedConfig.
+  postProcessingChain?: RecordedChainStep[]
 }
 
 export interface ParseOptions {
@@ -139,6 +144,11 @@ export function parseGenerationConfig(
   // Upscale specific (tools with resolution param)
   if (options.hasResolution) {
     if (data.resolution !== undefined) result.modelParams.resolution = data.resolution
+  }
+
+  // --- Post-processing chain ---
+  if (Array.isArray(data.post_processing_chain) && data.post_processing_chain.length > 0) {
+    result.postProcessingChain = data.post_processing_chain
   }
 
   // --- Source inputs ---

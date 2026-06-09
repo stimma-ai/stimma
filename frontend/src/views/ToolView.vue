@@ -502,143 +502,20 @@
           @upload="uploadLora"
         />
 
+        <!-- Post-processing chain (auto-runs after each generation when On) -->
+        <PostProcessingPanel
+          v-model:chain="toolChain"
+          :current-tool-id="fullToolIdFromProps"
+        />
+
         <!-- Generic Parameters (dynamic from tool schema, grouped) -->
-        <template v-for="paramGroup in groupedGenericParams" :key="paramGroup.group || 'ungrouped'">
-          <div class="mb-6">
-            <!-- Group header - collapsible if paramGroup.collapsible is true -->
-            <div v-if="paramGroup.label" class="mb-3">
-              <button
-                v-if="paramGroup.collapsible"
-                @click="toggleGroupCollapsed(paramGroup.group)"
-                type="button"
-                class="flex items-center gap-2 text-xs font-medium text-content-muted uppercase tracking-wide hover:text-content-tertiary transition-colors"
-              >
-                <span :class="['transition-transform text-[10px]', getGroupCollapsed(paramGroup.group) ? '' : 'rotate-90']">&#9654;</span>
-                {{ paramGroup.label }}
-              </button>
-              <span v-else class="text-xs font-medium text-content-muted uppercase tracking-wide">{{ paramGroup.label }}</span>
-            </div>
-            <!-- Parameters list (settings-style: label+desc on left, control on right) -->
-            <div v-show="!paramGroup.collapsible || !getGroupCollapsed(paramGroup.group)" class="rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]">
-              <template v-for="param in paramGroup.params" :key="param.name">
-                <!-- Skip if visibleWhen condition not met -->
-                <template v-if="!param.visibleWhen || modelParams[param.visibleWhen.param] === param.visibleWhen.value">
-                  <!-- Seed control with randomize checkbox -->
-                  <div v-if="param.control === 'seed'" class="flex items-center justify-between gap-4 px-4 py-3">
-                    <div class="min-w-0 flex-1">
-                      <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                      <div v-if="param.description" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
-                    </div>
-                    <div class="flex items-center justify-end gap-3 flex-wrap">
-                      <input v-no-autocorrect
-                        :value="modelParams[param.name]"
-                        @input="modelParams[param.name] = parseIntOrNull(($event.target as HTMLInputElement).value)"
-                        type="number"
-                        :disabled="modelParams.randomizeSeed ?? true"
-                        class="w-28 sm:w-36 px-2 py-1.5 bg-base border border-edge rounded text-content text-sm disabled:opacity-40 focus:outline-none focus:border-blue-500"
-                      >
-                      <label class="flex items-center gap-1.5 text-xs text-content-tertiary cursor-pointer">
-                        <input v-no-autocorrect
-                          :checked="modelParams.randomizeSeed ?? true"
-                          @change="modelParams.randomizeSeed = ($event.target as HTMLInputElement).checked"
-                          type="checkbox"
-                          class="w-3.5 h-3.5 rounded"
-                        >
-                        <span>Randomize</span>
-                      </label>
-                    </div>
-                  </div>
-                  <!-- Enum/Select -->
-                  <div v-else-if="param.enum" class="flex items-center justify-between gap-4 px-4 py-3">
-                    <div class="min-w-0 flex-1">
-                      <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                      <div v-if="param.description" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
-                    </div>
-                    <div class="min-w-0 max-w-[45%] flex-shrink-0">
-                      <SettingsDropdown
-                        :model-value="String(modelParams[param.name] ?? param.default)"
-                        @update:model-value="modelParams[param.name] = $event"
-                        :options="param.enum.map((opt: string) => ({ value: opt, label: param.enumLabels?.[opt] || formatEnumOption(opt, param.format) }))"
-                      />
-                    </div>
-                  </div>
-                  <!-- Number/Slider -->
-                  <div v-else-if="param.type === 'number' || param.type === 'integer'" class="flex items-center justify-between gap-4 px-4 py-3">
-                    <div class="min-w-0 flex-1">
-                      <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                      <div v-if="param.description" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
-                    </div>
-                    <div class="flex min-w-0 w-[45%] max-w-[360px] flex-shrink-0 items-center justify-end gap-2">
-                      <input v-no-autocorrect
-                        type="range"
-                        :value="modelParams[param.name] ?? param.default"
-                        @input="modelParams[param.name] = Number(($event.target as HTMLInputElement).value)"
-                        :min="param.minimum ?? 0"
-                        :max="param.maximum ?? 100"
-                        :step="param.step ?? (param.type === 'integer' ? 1 : 0.1)"
-                        class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
-                      />
-                      <input v-no-autocorrect
-                        v-if="editingParam === param.name"
-                        type="text"
-                        :value="modelParams[param.name] ?? param.default"
-                        @blur="commitParamEdit(param, $event)"
-                        @keydown.enter="commitParamEdit(param, $event)"
-                        @keydown.escape="editingParam = null"
-                        class="w-16 flex-shrink-0 text-sm text-content-secondary bg-base border border-edge rounded px-2 py-1 text-right focus:outline-none focus:border-blue-500"
-                        ref="paramEditInput"
-                      />
-                      <span
-                        v-else
-                        @dblclick="startParamEdit(param.name)"
-                        class="w-12 flex-shrink-0 text-sm text-content-tertiary text-right cursor-text hover:text-content-secondary select-none"
-                        :title="'Double-click to edit'"
-                      >{{ formatGenericParamValue(param, modelParams[param.name] ?? param.default) }}</span>
-                    </div>
-                  </div>
-                  <!-- Boolean/Checkbox -->
-                  <div v-else-if="param.type === 'boolean'" class="flex items-center justify-between gap-4 px-4 py-3">
-                    <div class="w-[55%] flex-shrink-0">
-                      <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                      <div v-if="param.description" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
-                    </div>
-                    <input v-no-autocorrect
-                      type="checkbox"
-                      :checked="modelParams[param.name] ?? param.default"
-                      @change="modelParams[param.name] = ($event.target as HTMLInputElement).checked"
-                      class="flex-shrink-0 w-4 h-4 rounded border-edge bg-base text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
-                    />
-                  </div>
-                  <!-- String input (textarea for x-control: textarea, otherwise single-line) -->
-                  <div v-else-if="param.type === 'string'" class="px-4 py-3">
-                    <div class="flex items-center justify-between gap-4 mb-2">
-                      <div class="w-[55%] flex-shrink-0">
-                        <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                        <div v-if="param.description && param.control !== 'textarea'" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
-                      </div>
-                    </div>
-                    <textarea v-no-autocorrect
-                      v-if="param.control === 'textarea'"
-                      :value="modelParams[param.name] ?? param.default ?? ''"
-                      @input="modelParams[param.name] = ($event.target as HTMLTextAreaElement).value"
-                      rows="4"
-                      :placeholder="param.description || ''"
-                      class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm resize-y focus:outline-none focus:border-blue-500 font-sans"
-                    ></textarea>
-                    <input v-no-autocorrect
-                      v-else
-                      type="text"
-                      :value="modelParams[param.name] ?? param.default ?? ''"
-                      @input="modelParams[param.name] = ($event.target as HTMLInputElement).value"
-                      :placeholder="param.description"
-                      class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                </template>
-              </template>
-            </div>
-          </div>
-        </template>
+        <SchemaParamGroup
+          :groups="groupedGenericParams"
+          :values="modelParams"
+          :is-group-collapsed="getGroupCollapsed"
+          :on-toggle-group-collapsed="toggleGroupCollapsed"
+          @update:param="(name, value) => { modelParams[name] = value }"
+        />
 
         <div v-if="submissionError" class="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-500 text-sm">
           {{ submissionError }}
@@ -905,6 +782,9 @@ import {
   VideoImagePicker
 } from '../components/generation'
 import HopToToolMenu from '../components/HopToToolMenu.vue'
+import PostProcessingPanel from '../components/generation/postprocessing/PostProcessingPanel.vue'
+import SchemaParamGroup from '../components/generation/SchemaParamGroup.vue'
+import { emptyChain, mergeRecordedChain, normalizeChain, toRecordedSteps, type PostProcessingChain } from '../utils/postProcessingChain'
 import RemixBanner from '../components/generation/RemixBanner.vue'
 import PromptAgentChat from '../components/generation/PromptAgentChat.vue'
 import JobsGrid from '../components/generation/JobsGrid.vue'
@@ -1086,36 +966,7 @@ async function copyToolJson() {
   }
 }
 
-// Inline param editing state
-const editingParam = ref<string | null>(null)
-
-function startParamEdit(paramName: string) {
-  editingParam.value = paramName
-  // Focus the input after Vue renders it
-  nextTick(() => {
-    const input = document.querySelector(`input[ref="paramEditInput"]`) as HTMLInputElement
-    if (input) {
-      input.focus()
-      input.select()
-    }
-  })
-}
-
-function commitParamEdit(param: any, event: Event) {
-  const input = event.target as HTMLInputElement
-  const rawValue = input.value.replace(/%$/, '')  // Strip % suffix if present
-  const numValue = Number(rawValue)
-
-  if (!isNaN(numValue)) {
-    // Clamp to min/max
-    const min = param.minimum ?? 0
-    const max = param.maximum ?? 100
-    const clamped = Math.max(min, Math.min(max, numValue))
-    modelParams.value[param.name] = param.type === 'integer' ? Math.round(clamped) : clamped
-  }
-
-  editingParam.value = null
-}
+// Note: inline param editing now lives in SchemaParamGroup
 
 // Tool availability computed properties
 const toolAvailability = computed(() => tool.value?.availability || 'available')
@@ -1239,48 +1090,7 @@ const maskEditorModalOpen = ref(false)
 // Note: hasVideoFrames, hasMask, hasLoras, hasScaleFactor, hasUpscaleResolution, showUpscalePicker, hasResolution, hasFrameCount, outputsVideo, isFromScratch
 // are now provided by useToolSchemaFeatures composable
 
-// Format enum option for display based on x-format hint
-function formatEnumOption(value: string, format?: string): string {
-  if (format === 'filename') {
-    // Strip folder path and common extensions (for checkpoints, loras, etc.)
-    return value
-      .replace(/^.*\//, '')  // Remove folder path
-      .replace(/\.(safetensors|ckpt|pt|bin)$/i, '')  // Remove extension
-  }
-  // Default: just return the value as-is
-  return value
-}
-
-// Format generic parameter value for display
-function formatGenericParamValue(param: any, value: any): string {
-  if (value === undefined || value === null) return ''
-  const step = param.step ?? (param.type === 'integer' ? 1 : 0.1)
-  let formatted: string
-  if (step < 1) {
-    // Determine decimal places from step
-    const decimals = step.toString().split('.')[1]?.length || 1
-    formatted = Number(value).toFixed(decimals)
-  } else {
-    formatted = String(value)
-  }
-  // Apply format suffix
-  if (param.format === 'percent') {
-    formatted += '%'
-  } else if (param.unit === 'frames') {
-    // Show seconds based on fps
-    const fps = modelParams.value.fps || 16
-    const seconds = (Number(value) / fps).toFixed(1)
-    formatted += ` (~${seconds}s)`
-  }
-  return formatted
-}
-
-// Parse integer from string, returning null for invalid input
-function parseIntOrNull(value: string): number | null {
-  const parsed = parseInt(value, 10)
-  return isNaN(parsed) ? null : parsed
-}
-
+// Note: generic-param formatting/editing helpers now live in SchemaParamGroup
 
 // Note: promptPlaceholder is now provided by useToolSchemaFeatures composable
 
@@ -1772,6 +1582,9 @@ function getToolEnabledLoras(): Array<{ lora: string; weight: number }> {
     .map(l => ({ lora: l.lora, weight: l.weight }))
 }
 
+// Post-processing chain — rides tool state / presets like the LoRA pool
+const toolChain = ref<PostProcessingChain>(emptyChain())
+
 // Track idle count for auto-stop feature (generations without user changes)
 const foreverModeIdleCount = ref(0)
 
@@ -2177,6 +1990,7 @@ const {
   globalPrefs,
   modelParams,
   toolLoras,
+  toolChain,
   uiState,
   saveToolState,
 })
@@ -2464,6 +2278,7 @@ function getCurrentState() {
     promptOptions: globalPrefs.value.promptOptions,
     agentInstructions: globalPrefs.value.agentInstructions || '',
     agentThinking: globalPrefs.value.agentThinking ?? false,
+    postProcessingChain: toolChain.value,
   }
 }
 
@@ -2773,6 +2588,14 @@ function applyAdaptedConfig(update: GenerationConfigUpdate): string {
     if (samplingParams.length > 0) {
       applied.push('sampling params')
     }
+  }
+
+  // Apply the recorded post-processing chain — same non-destructive merge
+  // philosophy as LoRAs: recorded steps are enabled/configured/added, extra
+  // on-screen steps are disabled (kept), active steps take the recorded order.
+  if (update.postProcessingChain && update.postProcessingChain.length > 0) {
+    toolChain.value = mergeRecordedChain(toolChain.value, update.postProcessingChain)
+    applied.push(`${update.postProcessingChain.length}-step chain`)
   }
 
   // Apply source inputs — clear if not provided so stale images don't carry over
@@ -3157,6 +2980,16 @@ async function submitOneJob() {
     capturedState.parameters.inspired_by_media_id = remixSource.value.mediaId
   }
 
+  // Attach the post-processing chain (enabled steps, in run order). It rides
+  // job parameters so it lands in generation_metadata.parameters and triggers
+  // the chain executor when the base generation completes.
+  if (toolChain.value.enabled) {
+    const recordedSteps = toRecordedSteps(toolChain.value)
+    if (recordedSteps.length > 0) {
+      capturedState.parameters.post_processing_chain = recordedSteps
+    }
+  }
+
   // Randomize seed for next submission (after capturing current seed)
   if (modelParams.value.randomizeSeed) {
     modelParams.value.seed = generateRandomSeed()
@@ -3325,6 +3158,9 @@ interface EditorSnapshot {
   modelParams: Record<string, any>
   autoMarkerIds: number[]
   categories: any
+  // The chain is part of the undo snapshot (unlike the LoRA pool, which is
+  // deliberately outside it) — editing the chain is a prompt-altitude action.
+  postProcessingChain: PostProcessingChain
 }
 
 const undo = usePromptEditorUndo<EditorSnapshot>({
@@ -3337,6 +3173,7 @@ const undo = usePromptEditorUndo<EditorSnapshot>({
     categories: promptAgentChatRef.value?.getCategoriesSnapshot
       ? JSON.parse(JSON.stringify(promptAgentChatRef.value.getCategoriesSnapshot()))
       : null,
+    postProcessingChain: JSON.parse(JSON.stringify(toolChain.value)),
   }),
   restore: (snap) => {
     globalPrefs.value.prompt = snap.prompt
@@ -3347,6 +3184,9 @@ const undo = usePromptEditorUndo<EditorSnapshot>({
     globalPrefs.value.autoMarkerIds = [...(snap.autoMarkerIds ?? [])]
     if (snap.categories && promptAgentChatRef.value?.setCategoriesSnapshot) {
       promptAgentChatRef.value.setCategoriesSnapshot(snap.categories)
+    }
+    if (snap.postProcessingChain) {
+      toolChain.value = normalizeChain(snap.postProcessingChain)
     }
   },
 })
