@@ -12,9 +12,7 @@ media, and can be retried from the failed step. There is no Stop.
 from __future__ import annotations
 
 import asyncio
-import io
 import json
-import os
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -189,9 +187,17 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
 
             started = time.perf_counter()
             try:
+                # Built-in filters are catalog tools on the lightweight
+                # provider — a filter step is just a tool step spelled
+                # compactly (filter_id ↔ builtin:<filter_id>).
                 if step.get("kind") == "filter":
-                    out_media_id = await _run_filter_step(
-                        db, step, current_media_id, project_id, steps
+                    tool_step = {
+                        "tool_id": f"builtin:{step.get('filter_id')}",
+                        "task_type": "filter",
+                        "settings": step.get("settings"),
+                    }
+                    out_media_id = await _run_tool_step(
+                        db, tool_step, current_media_id, project_id, steps
                     )
                 else:
                     out_media_id = await _run_tool_step(
@@ -399,93 +405,3 @@ async def _run_tool_step(
     if not media_id:
         raise RuntimeError(f"Tool step {tool_id} produced no media")
     return media_id
-
-
-async def _run_filter_step(
-    db,
-    step: Dict[str, Any],
-    input_media_id: int,
-    project_id: Optional[int],
-    all_steps: List[Dict[str, Any]],
-) -> int:
-    """Apply one built-in filter server-side and save the result as a new
-    media item with lineage — the same shape as an editor save-edit."""
-    from PIL import Image
-
-    from upload_service import UploadService
-    from utils.lineage import record_lineage, propagate_tool_lineage
-    from .builtin_filters import apply_builtin_filter
-
-    filter_id = step.get("filter_id")
-    if not filter_id:
-        raise ValueError("Filter step has no filter_id")
-    settings = dict(step.get("settings") or {})
-
-    async with db.async_session_maker() as session:
-        result = await session.execute(
-            select(MediaItem.file_path).where(MediaItem.id == input_media_id)
-        )
-        row = result.first()
-    if not row or not row[0] or not os.path.exists(row[0]):
-        raise ValueError(f"Input media {input_media_id} has no readable file")
-    source_path = row[0]
-
-    def _apply() -> bytes:
-        with Image.open(source_path) as img:
-            img.load()
-            out = apply_builtin_filter(filter_id, img, settings)
-            buf = io.BytesIO()
-            out.save(buf, format="PNG")
-            return buf.getvalue()
-
-    # Pixel work off the event loop
-    file_content = await asyncio.to_thread(_apply)
-
-    base = os.path.splitext(os.path.basename(source_path))[0]
-    upload_service = UploadService()
-    media_item, _file_path = await upload_service.upload_file(
-        file_content,
-        f"{base}_{filter_id}.png",
-        project_id=project_id,
-    )
-
-    # Lineage + metadata. The step is a plain "filter" operation — no tool
-    # badge — whose parameters are the filter id + its settings. The trace
-    # inherits the input's full history (the same inheritance generated media
-    # gets), so the lineage panel reads: previous history → this filter.
-    async with db.async_session_maker() as session:
-        result = await session.execute(
-            select(MediaItem).where(MediaItem.id == media_item.id)
-        )
-        db_item = result.scalar_one_or_none()
-        if db_item:
-            await record_lineage(
-                session=session,
-                media_id=db_item.id,
-                source_media_ids=[input_media_id],
-                task_type="filter",
-            )
-            db_item.tool_id = "builtin:stimma:filter"
-            await propagate_tool_lineage(
-                session, db_item.id, [input_media_id], own_tool_id="builtin:stimma:filter"
-            )
-
-            from generation_queue import get_generation_queue
-            lineage_trace = await get_generation_queue()._get_inherited_lineage(session, input_media_id)
-
-            db_item.generation_metadata = json.dumps({
-                "version": 3,
-                "source": "stimma",
-                "task_type": "filter",
-                "parameters": {
-                    "filter_id": filter_id,
-                    **settings,
-                    "post_processing_chain": all_steps,
-                },
-                "generated_at": datetime.utcnow().isoformat() + "Z",
-                "source_inputs": [{"media_id": input_media_id, "role": "source_image"}],
-                "lineage_trace": lineage_trace,
-            })
-            await session.commit()
-
-    return media_item.id

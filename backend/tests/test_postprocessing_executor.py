@@ -7,12 +7,26 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import pytest_asyncio
 from PIL import Image
 from sqlalchemy import select
 
 from database import GenerationJob, MediaItem, MediaLineage, PostProcessingChainRun
 from postprocessing.executor import start_chain_for_job, CHAIN_INSTANCE_ID
 from tests.helpers.media import create_media_item, generate_test_image
+
+
+# loop_scope="function": the worker tasks must live on the TEST's event loop
+# (the project default puts async fixtures on the module loop, which doesn't
+# run while a test is executing — workers would be frozen).
+@pytest_asyncio.fixture(autouse=True, loop_scope="function")
+async def queue_workers(generation_app):
+    """Filter steps run as builtin tools through the generation queue, so
+    these tests need live queue workers (other modules process jobs manually)."""
+    queue = generation_app.state.generation_queue
+    await queue.start_workers(num_workers=2)
+    yield
+    await queue.stop_workers()
 
 
 def _fake_job(job_id=99001, instance_id="client-test"):
@@ -105,10 +119,11 @@ class TestChainExecutorFilters:
         meta = json.loads(final.generation_metadata)
         assert meta["parameters"]["post_processing_chain"] == steps
         assert meta["task_type"] == "filter"
-        # A filter step is a plain "filter" operation — never attributed to the
-        # image editor (or any tool badge).
+        # Filters are ordinary builtin catalog tools — recorded like any tool
+        # invocation, never attributed to the image editor.
         assert "image-editor" not in (final.generation_metadata or "")
-        assert meta.get("tool_id") is None
+        assert meta.get("tool_id") == "builtin:filter"
+        assert meta["parameters"].get("filter") == "mono"
         # The trace inherits the input's history: base, then the intermediate.
         trace_ids = [e.get("media_id") for e in meta["lineage_trace"]]
         assert trace_ids == [base.id, intermediate_id]

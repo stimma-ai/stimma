@@ -3,7 +3,7 @@
 NumPy/PIL ports of the editor's Canvas pixel math (packages/image-editor/
 src/utils/colorMatrix.ts and utils/effects.ts). The chain auto-runs server-
 side after generation, so the editor's client-side filters are re-implemented
-here on the shared definitions in filter_defs.py — golden tests assert the
+here on the shared definitions in defs.py — golden tests assert the
 ported color math visually matches the editor.
 """
 
@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List
 import numpy as np
 from PIL import Image, ImageFilter
 
-from .filter_defs import FILTER_MATRICES, get_filter_def
+from .defs import FILTER_MATRICES, get_filter_def
 
 
 # --- Color matrix math (port of colorMatrix.ts) ------------------------------

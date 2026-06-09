@@ -452,6 +452,16 @@ async def generation_app(generation_temp_appdata_dir: Path):
             test_provider.max_concurrent
         )
 
+        # Builtin lightweight provider (in-process filter tools etc.)
+        from providers import get_lightweight_provider
+        builtin_provider = get_lightweight_provider()
+        await builtin_provider.connect()
+        await provider_registry.register(builtin_provider)
+        await backend_registry.register_backend(
+            builtin_provider.provider_id,
+            builtin_provider.max_concurrent
+        )
+
         # Initialize generation queue with mock WebSocket manager
         from generation_queue import get_generation_queue
         from tests.helpers.ws import MockWebSocketManager
@@ -478,6 +488,7 @@ async def generation_app(generation_temp_appdata_dir: Path):
 
         # Cleanup
         await provider_registry.unregister(test_provider.provider_id)
+        await provider_registry.unregister(builtin_provider.provider_id)
         await registry.dispose_all()
 
 

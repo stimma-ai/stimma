@@ -3,7 +3,7 @@
     <!-- Panel header -->
     <div class="flex items-center justify-between mb-3">
       <span class="text-xs font-medium text-content-muted uppercase tracking-wide">Post-processing</span>
-      <label class="inline-flex items-center gap-2 cursor-pointer">
+      <label v-if="chain.steps.length" class="inline-flex items-center gap-2 cursor-pointer">
         <span class="text-xs text-content-tertiary">{{ chain.enabled ? 'On' : 'Off' }}</span>
         <input
           type="checkbox"
@@ -21,6 +21,7 @@
         <!-- Insertion indicator (drag reorder) -->
         <div v-if="drag.active && drag.overIndex === index" class="h-0.5 bg-blue-500 rounded my-1"></div>
         <div
+          :class="index > 0 ? 'mt-1.5' : ''"
           @dragover.prevent="onDragOver($event, index)"
           @drop.prevent="onDrop(index)"
         >
@@ -48,10 +49,6 @@
               />
             </template>
           </ChainStepCard>
-        </div>
-        <!-- Connector -->
-        <div v-if="index < chain.steps.length - 1" class="flex justify-center py-0.5 text-content-muted/40">
-          <svg width="11" height="7" viewBox="0 0 11 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1.5l3.5 3.5L9 1.5" /></svg>
         </div>
       </template>
       <div v-if="drag.active && drag.overIndex === chain.steps.length" class="h-0.5 bg-blue-500 rounded my-1"></div>
@@ -154,6 +151,9 @@ const candidateTools = computed(() => {
   return allTools.value.filter(t => {
     if (t.full_tool_id === props.currentToolId) return false
     if (t.availability === 'unconfigured') return false
+    // Built-in filters are catalog tools too, but the menu presents them in
+    // its dedicated Filters group — don't list them twice.
+    if (t.provider_id === 'builtin' && t.task_type === 'filter') return false
     const tts = (t.task_types?.length ? t.task_types : [t.task_type]).filter(tt => chainTypes.has(tt))
     if (!tts.length) return false
     return tts.some(tt => stageTypes.value.has(stepInputMedia(tt, 'tool')))
@@ -224,7 +224,9 @@ function insertStep(step: ChainStep) {
   updateChain(c => {
     const steps = [...c.steps]
     steps.splice(at < 0 ? steps.length : at, 0, step)
-    return { ...c, steps }
+    // Adding a step turns the chain on — going from empty to a working
+    // pipeline shouldn't cost the user an extra click on the global switch.
+    return { ...c, enabled: true, steps }
   })
   expandStep(step.id)
 }

@@ -2282,7 +2282,7 @@ class GenerationQueue:
             # This ensures generation parameters and lineage are captured consistently for ALL tools
             # Previously this excluded builtin providers and only covered text-to-image/image-to-image,
             # but that caused inconsistent parameter capture (e.g., inpaint-image was missing params)
-            _IMAGE_TASK_TYPES = {'text-to-image', 'image-to-image', 'inpaint-image', 'outpaint-image', 'upscale-image', 'remove-background'}
+            _IMAGE_TASK_TYPES = {'text-to-image', 'image-to-image', 'inpaint-image', 'outpaint-image', 'upscale-image', 'remove-background', 'filter'}
             needs_metadata = task_type in _IMAGE_TASK_TYPES
 
             # Build metadata with full generation parameters

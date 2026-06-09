@@ -14,8 +14,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from postprocessing import builtin_filters as bf
-from postprocessing.filter_defs import (
+from filters import ops as bf
+from filters.defs import (
     CHAIN_FILTER_DEFS,
     COLOR_FILTER_IDS,
     FILTER_MATRICES,
@@ -126,6 +126,34 @@ def test_chain_filter_defs_match_editor():
 def test_every_def_has_a_handler():
     for d in CHAIN_FILTER_DEFS:
         assert d["id"] in bf.FILTER_HANDLERS
+
+
+async def test_filters_register_as_builtin_tools_with_valid_schemas():
+    """Filters are first-class catalog tools on the lightweight provider —
+    one per definition, task type 'filter', schema passing task validation."""
+    from providers.lightweight import LightweightProvider
+    from tasks.schemas import validate_tool_schema
+
+    provider = LightweightProvider()
+    await provider.connect()
+    try:
+        tools = {t.id: t for t in await provider.list_tools()}
+        for d in CHAIN_FILTER_DEFS:
+            tool = tools.get(d["id"])
+            assert tool is not None, f"filter {d['id']} not registered"
+            assert tool.task_type == "filter"
+            assert tool.name == d["label"]
+            errors = validate_tool_schema("filter", tool.parameter_schema, tool.output_schema)
+            assert not errors, f"{d['id']}: {errors}"
+            # Every def param appears in the schema with its default
+            props = tool.parameter_schema["properties"]
+            for p in d["params"]:
+                assert p["name"] in props, f"{d['id']}.{p['name']} missing from schema"
+                assert props[p["name"]].get("default") == p["default"]
+            # Not hidden from the catalog — these are app capabilities
+            assert not (tool.metadata or {}).get("agent_only")
+    finally:
+        await provider.disconnect()
 
 
 # --- Filter math ----------------------------------------------------------------

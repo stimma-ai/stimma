@@ -167,6 +167,40 @@ class LightweightProvider(ToolProvider):
             metadata={"agent_only": True},
         ))
 
+        self._register_filter_tools()
+
+    def _register_filter_tools(self) -> None:
+        """Register the built-in image filters (task type "filter").
+
+        One tool per filter definition — the same Filters/Levels/Effects set
+        the image editor exposes, shared via filters.defs. Being ordinary
+        catalog tools makes them first-class capabilities: the chat agent,
+        recipes, ToolView, and post-processing chains all invoke them through
+        the normal tool path.
+        """
+        from filters.defs import CHAIN_FILTER_DEFS
+        from filters.schemas import FILTER_OUTPUT_SCHEMA, build_filter_parameter_schema
+
+        for filter_def in CHAIN_FILTER_DEFS:
+            self._register_tool(LightweightTool(
+                id=filter_def["id"],
+                name=filter_def["label"],
+                description=filter_def.get("description") or filter_def["label"],
+                task_type="filter",
+                parameter_schema=build_filter_parameter_schema(filter_def),
+                output_schema=FILTER_OUTPUT_SCHEMA,
+                execute_fn=self._make_filter_executor(filter_def["id"]),
+            ))
+
+    def _make_filter_executor(self, filter_id: str) -> Callable:
+        async def _execute(
+            parameters: Dict[str, Any],
+            job_id: str,
+            progress_callback: Optional[Callable] = None,
+        ) -> ExecutionResult:
+            return await self._execute_filter(filter_id, parameters)
+        return _execute
+
     def _register_tool(self, tool: LightweightTool) -> None:
         """Register a single lightweight tool."""
         self._tools[tool.id] = tool
@@ -230,13 +264,14 @@ class LightweightProvider(ToolProvider):
             # Execute the tool with the single parameters dict
             result = await tool.execute_fn(parameters, job_id, progress_callback)
 
-            # If output_path specified, copy the result file there
+            # If output_path specified, move the result file there (tool
+            # outputs land in temp files; the move is also the cleanup)
             if output_path and result.success and result.metadata.get("output_path"):
                 import shutil
                 from pathlib import Path
                 src_path = result.metadata["output_path"]
-                if Path(src_path).exists():
-                    shutil.copy2(src_path, output_path)
+                if Path(src_path).exists() and str(src_path) != str(output_path):
+                    shutil.move(src_path, output_path)
                     result.metadata["output_path"] = output_path
 
             yield ExecutionProgress(
@@ -257,6 +292,48 @@ class LightweightProvider(ToolProvider):
     # =========================================================================
     # Tool Implementations
     # =========================================================================
+
+    async def _execute_filter(
+        self,
+        filter_id: str,
+        parameters: Dict[str, Any],
+    ) -> ExecutionResult:
+        """Apply one built-in filter to the input image."""
+        import tempfile
+        import time
+
+        from filters.ops import apply_builtin_filter
+
+        input_images = parameters.get("input_images", [])
+        image_path = input_images[0] if input_images else None
+        if not image_path or not Path(str(image_path)).exists():
+            return ExecutionResult(success=False, error="No input image provided")
+
+        settings = {
+            k: v for k, v in parameters.items()
+            if k not in ("input_images", "input_media_ids", "tool_id")
+            and not k.startswith("_")
+        }
+
+        started = time.perf_counter()
+
+        def _apply() -> str:
+            with Image.open(image_path) as img:
+                img.load()
+                out = apply_builtin_filter(filter_id, img, settings)
+                fd, tmp_path = tempfile.mkstemp(suffix=".png", prefix=f"filter_{filter_id}_")
+                import os
+                os.close(fd)
+                out.save(tmp_path, format="PNG")
+                return tmp_path
+
+        tmp_path = await asyncio.to_thread(_apply)
+
+        return ExecutionResult(
+            success=True,
+            generation_time=time.perf_counter() - started,
+            metadata={"output_path": tmp_path, "filter_id": filter_id},
+        )
 
     async def _execute_detect_objects(
         self,
