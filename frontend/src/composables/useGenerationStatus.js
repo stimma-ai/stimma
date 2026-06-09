@@ -130,10 +130,17 @@ export function useGenerationStatus() {
   // Check if a specific tool has active jobs
   // Handles formats: tool-{id}, tool-{id}@@{uuid} (new), tool-{id}-{uuid} (legacy)
   // Note: toolId (full_tool_id) uses colons, but generator_instance_id uses underscores
-  const isToolActive = (toolId) => {
+  //
+  // projectId scopes the lookup to a project-scoped tool instance. Project-scoped
+  // ToolViews build their generator_instance_id with a `__project_{id}` suffix (see
+  // ToolView.vue projectSuffix/toolIdForStorage), so the global instance and a
+  // project-scoped instance of the same tool are distinct. Without this, both the
+  // global and project rows in the sidebar share one lookup and spin together.
+  const isToolActive = (toolId, projectId = null) => {
     // Convert colons to underscores to match the storage-safe format used in generator_instance_id
     const storageToolId = toolId.replace(/:/g, '_')
-    const prefix = `tool-${storageToolId}`
+    const projectSuffix = projectId ? `__project_${projectId}` : ''
+    const prefix = `tool-${storageToolId}${projectSuffix}`
     return Object.entries(activeJobsByInstanceId.value).some(([instanceId, count]) => {
       if (count <= 0) return false
       // Exact match (no tab GUID suffix)

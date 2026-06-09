@@ -1245,7 +1245,7 @@ function isTabActive(tab: WorkspaceTab): boolean {
 }
 
 function isTabGenerating(tab: WorkspaceTab): boolean {
-  if (tab.type === 'tool') return isToolGenerating(tab.entityId)
+  if (tab.type === 'tool') return isToolGenerating(tab.entityId, tab.projectId ?? null)
   if (tab.type === 'chat') return generatingChatIds.value.has(parseInt(tab.entityId, 10))
   return false
 }
