@@ -141,6 +141,10 @@ class GenerationQueue:
         """Set the WebSocket manager for broadcasting events."""
         self._websocket_manager = ws_manager
 
+    def get_websocket_manager(self):
+        """Get the WebSocket manager (None until the app wires it)."""
+        return self._websocket_manager
+
     def _prune_expired_pending(self):
         """Remove pending request timestamps older than PENDING_REQUEST_TTL.
 
@@ -2635,6 +2639,24 @@ class GenerationQueue:
                         media_item=media_item,
                         profile_id=profile_id
                     )
+
+                # Kick off the post-processing chain when the job carries one.
+                # Chain-step jobs run under CHAIN_INSTANCE_ID so a chain never
+                # re-triggers itself.
+                post_chain = params.get('post_processing_chain')
+                if post_chain:
+                    from postprocessing.executor import CHAIN_INSTANCE_ID, start_chain_for_job
+                    if job.generator_instance_id != CHAIN_INSTANCE_ID:
+                        try:
+                            await start_chain_for_job(
+                                job=job,
+                                base_media_id=media_item.id,
+                                chain_steps=post_chain,
+                                profile_id=profile_id,
+                                websocket_manager=self._websocket_manager,
+                            )
+                        except Exception as e:
+                            log.error(f"Job {job.id}: Failed to start post-processing chain: {e}", exc_info=True)
 
             else:
                 log.error(f"Job {job.id}: Media not ready, did not broadcast to clients")

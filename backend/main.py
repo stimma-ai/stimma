@@ -146,6 +146,7 @@ from routes import (
     media,
     media_files,
     models,
+    postprocessing,
     preferences,
     projects,
     processing,
@@ -189,6 +190,7 @@ app.include_router(tags.router)
 app.include_router(trash.router)
 app.include_router(keywords.router)
 app.include_router(generation.router)
+app.include_router(postprocessing.router)
 app.include_router(processing.router)
 app.include_router(media_files.router)
 app.include_router(preferences.router)

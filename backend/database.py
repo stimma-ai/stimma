@@ -1327,6 +1327,53 @@ class LLMTrace(Base):
         }
 
 
+class PostProcessingChainRun(Base):
+    """One execution of a post-processing chain after a base generation.
+
+    Tracks per-step progress so the UI can render step dots, and persists the
+    pause-on-failure state (last good media + failed step) for Retry.
+    """
+    __tablename__ = "postprocessing_chain_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, nullable=False, index=True)  # base generation job
+    base_media_id = Column(Integer, nullable=False)  # the generation the chain starts from
+    project_id = Column(Integer, nullable=True)
+
+    chain = Column(Text, nullable=False)  # JSON: the enabled steps being run
+    step_index = Column(Integer, nullable=False, default=0)  # current (or failed) step
+    step_count = Column(Integer, nullable=False)
+    step_results = Column(Text, nullable=True)  # JSON: per-step {status, media_id, duration_ms, error}
+
+    status = Column(String, nullable=False, default='running', index=True)  # running, paused, completed, failed
+    last_good_media_id = Column(Integer, nullable=True)  # input to the current step; kept on failure
+    final_media_id = Column(Integer, nullable=True)
+    error = Column(String, nullable=True)
+
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)  # soft delete
+
+    def to_dict(self):
+        import json
+        return {
+            "id": self.id,
+            "job_id": self.job_id,
+            "base_media_id": self.base_media_id,
+            "project_id": self.project_id,
+            "chain": json.loads(self.chain) if self.chain else [],
+            "step_index": self.step_index,
+            "step_count": self.step_count,
+            "step_results": json.loads(self.step_results) if self.step_results else [],
+            "status": self.status,
+            "last_good_media_id": self.last_good_media_id,
+            "final_media_id": self.final_media_id,
+            "error": self.error,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class Database:
     def __init__(self, db_path: str = "stimma.db"):
         self.db_path = db_path

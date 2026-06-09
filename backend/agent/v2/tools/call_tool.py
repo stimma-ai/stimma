@@ -358,7 +358,7 @@ async def execute_call_tool(
         parameters=job_params,
         tool_id=tool_id,
         task_type=task_type,
-        generator_instance_id="agent",
+        generator_instance_id=kwargs.get("generator_instance_id") or "agent",
         project_id=kwargs.get("project_id"),
     )
 

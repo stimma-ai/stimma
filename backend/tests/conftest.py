@@ -294,6 +294,7 @@ profiles:
     folders:
       - path: "{output_folder}"
         allow_generate: true
+        is_uploads_folder: true
     markers:
       - id: favorite-test-id
         name: favorite
@@ -393,7 +394,8 @@ async def generation_app(generation_temp_appdata_dir: Path):
         # Import and include routers (including generation and tools)
         from routes import (
             boards, media, markers, tags, trash,
-            saved_views, profiles, keywords, generation, tools
+            saved_views, profiles, keywords, generation, tools,
+            postprocessing,
         )
         app.include_router(media.router)
         app.include_router(boards.router)
@@ -404,6 +406,7 @@ async def generation_app(generation_temp_appdata_dir: Path):
         app.include_router(profiles.router)
         app.include_router(keywords.router)
         app.include_router(generation.router)
+        app.include_router(postprocessing.router)
         app.include_router(tools.router)
 
         # Sync markers
