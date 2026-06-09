@@ -344,6 +344,13 @@ const displayParams = computed(() => {
     if (key === 'scale') fv = `${value}×`
     result.push({ label, value: fv, fullWidth: fv.length > 16 })
   }
+
+  // Post-processing chain (the steps that ran) — compact summary, no JSON wall
+  const chain = params.post_processing_chain
+  if (Array.isArray(chain) && chain.length) {
+    const names = chain.map(s => s.kind === 'filter' ? s.filter_id : (s.tool_name || s.tool_id)).filter(Boolean)
+    result.push({ label: 'Post-processing', value: names.join(' → '), fullWidth: true })
+  }
   return result
 })
 
