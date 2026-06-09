@@ -217,6 +217,7 @@
 import { computed, watch, onMounted } from 'vue'
 import { MediaImage } from './index'
 import { useMarkers } from '../../composables/useMarkers'
+import { getFilterDisplayLabel } from '@stimma/image-editor'
 
 const props = defineProps({
   // Full media item (must include `id` and generation_metadata)
@@ -314,6 +315,7 @@ const stepLabelOverrides = {
   target_megapixels: 'Target MP', aspect_ratio: 'Aspect Ratio',
   padding_percent: 'Padding', padding: 'Padding', item_count: 'Items',
   cell_count: 'Cells', clip_skip: 'Clip Skip', checkpoint: 'Model',
+  filter_id: 'Filter',
 }
 
 const displayParams = computed(() => {
@@ -338,6 +340,7 @@ const displayParams = computed(() => {
 
     const label = stepLabelOverrides[key] || key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     let fv = String(value)
+    if (key === 'filter_id' || key === 'filter') fv = getFilterDisplayLabel(fv)
     if (typeof value === 'boolean') fv = value ? 'Yes' : 'No'
     if (key === 'generation_time') fv = `${value}s`
     if (key === 'padding_percent' || key === 'confidence') fv = `${(value * 100).toFixed(0)}%`
