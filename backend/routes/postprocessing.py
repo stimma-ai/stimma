@@ -62,7 +62,11 @@ async def dismiss_chain_run_endpoint(
     session: AsyncSession = Depends(get_db_session),
 ):
     """Soft-delete a chain run so it stops appearing as an in-flight/paused bar.
-    Used to clear failed or restart-interrupted runs the user wants gone."""
+    If a step is still running, interrupt it first (fire-and-forget for
+    providers that don't support it). Used to clear failed, restart-interrupted,
+    or genuinely in-flight runs the user wants gone."""
+    from postprocessing.executor import cancel_chain_run
+
     result = await session.execute(
         select(PostProcessingChainRun).where(
             PostProcessingChainRun.id == chain_run_id,
@@ -72,6 +76,9 @@ async def dismiss_chain_run_endpoint(
     run = result.scalar_one_or_none()
     if not run:
         raise HTTPException(status_code=404, detail="Chain run not found")
+
+    # Send the interrupt to the in-flight step (if any) before removing the row.
+    cancel_chain_run(chain_run_id)
     run.deleted_at = datetime.utcnow()
     await session.commit()
     return {"status": "dismissed", "chain_run_id": chain_run_id}

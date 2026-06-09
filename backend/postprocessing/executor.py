@@ -38,7 +38,8 @@ _VIDEO_INPUT_TASKS = {"upscale-video"}
 _VIDEO_OUTPUT_TASKS = {"image-to-video", "upscale-video"}
 
 # Track in-flight chain tasks so they aren't garbage collected.
-_running_tasks: set[asyncio.Task] = set()
+# In-flight chain tasks, keyed by run id so a run can be cancelled by id.
+_running_tasks: dict[int, asyncio.Task] = {}
 
 
 def _step_input_type(step: Dict[str, Any]) -> str:
@@ -164,8 +165,24 @@ async def _base_job_instance_id(session, job_id: int) -> Optional[str]:
 
 def _spawn(run_id: int, profile_id: str, job_instance_id: Optional[str], websocket_manager) -> None:
     task = asyncio.create_task(_run_chain(run_id, profile_id, job_instance_id, websocket_manager))
-    _running_tasks.add(task)
-    task.add_done_callback(_running_tasks.discard)
+    _running_tasks[run_id] = task
+    task.add_done_callback(lambda t, rid=run_id: _running_tasks.pop(rid, None))
+
+
+def cancel_chain_run(run_id: int) -> bool:
+    """Cancel a chain run's in-flight task, if one is live in this process.
+
+    Cancelling the task raises CancelledError inside the running step's
+    execute_call_tool, which forwards the interrupt to the provider via
+    cancel_job — the same path normal job cancellation uses. Providers that
+    don't support interruption simply no-op (fire-and-forget). Returns True if
+    a live task was signalled; False if there was nothing running (already
+    done, or orphaned by a restart)."""
+    task = _running_tasks.get(run_id)
+    if task and not task.done():
+        task.cancel()
+        return True
+    return False
 
 
 async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str], websocket_manager) -> None:
