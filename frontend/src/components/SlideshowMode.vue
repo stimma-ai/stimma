@@ -3533,6 +3533,46 @@ function handleDoubleTap(event) {
   }
 }
 
+// Reconcile the slideshow total against the parent's authoritative count after a
+// removal. Only the pageProvider/generate-forever path (ToolView) needs this: its
+// parent count (totalCompletedCount) is capped at 50 and refilled from a backlog, so
+// deleting an older image often does NOT lower it. Decrementing localTotalCount
+// locally there made the count drift down permanently as `media_deleted` events
+// arrived during generation — causing the visible count to tick down, spurious index
+// clamps (the image "advancing" on its own), and eventually localTotalCount<=0 ->
+// close() (the slideshow dismissing itself). Snapping to the parent count on the next
+// tick (after the parent's reactive count settles) keeps it correct in every case.
+async function reconcilePageProviderTotal() {
+  await nextTick()
+  localTotalCount.value = props.totalCount
+  if (localTotalCount.value <= 0) {
+    close()
+    return
+  }
+  if (currentIndex.value >= localTotalCount.value) {
+    currentIndex.value = localTotalCount.value - 1
+  }
+}
+
+// Adjust the slideshow total after `removedCount` item(s) were removed.
+// pageProvider path: the parent count is authoritative (capped/refilled), so reconcile
+// to it rather than decrementing locally. mediaList path: keep the immediate optimistic
+// decrement; the effectiveTotal watch reconciles it (that count is not capped).
+function applyRemovalToCount(removedCount) {
+  if (!props.mediaList) {
+    void reconcilePageProviderTotal()
+    return
+  }
+  localTotalCount.value -= removedCount
+  if (localTotalCount.value <= 0) {
+    close()
+    return
+  }
+  if (currentIndex.value >= localTotalCount.value) {
+    currentIndex.value = localTotalCount.value - 1
+  }
+}
+
 async function handleDeleteCurrentItem() {
   if (!currentItem.value) return
 
@@ -3547,24 +3587,16 @@ async function handleDeleteCurrentItem() {
 
     // Mark as locally removed so strip skips it
     localRemovedIds.value = new Set([...localRemovedIds.value, deletedId])
-    localTotalCount.value--
 
     // Also update shared mediaList so grid sees the removal
     if (props.mediaList) {
       props.mediaList.removeItem(deletedId)
     }
 
-    // If no items left, close
-    if (localTotalCount.value <= 0) {
-      close()
-      return
-    }
-
-    // Adjust index if we're now past the end
-    if (currentIndex.value >= localTotalCount.value) {
-      currentIndex.value = localTotalCount.value - 1
-    }
-    // Otherwise stay at same index - the next item will appear here
+    // Reconcile the total (and close/clamp if needed). On the pageProvider path this
+    // snaps to the authoritative parent count; otherwise stay at the same index and
+    // the next item will appear here.
+    applyRemovalToCount(1)
 
   } catch (error) {
     console.error('Failed to delete media:', error)
@@ -3630,23 +3662,14 @@ async function handleRestoreCurrentItem() {
 
     // Mark as locally removed so strip skips it (it's leaving trash view)
     localRemovedIds.value = new Set([...localRemovedIds.value, restoredId])
-    localTotalCount.value--
 
     // Also update shared mediaList so grid sees the removal
     if (props.mediaList) {
       props.mediaList.removeItem(restoredId)
     }
 
-    // If no items left, close
-    if (localTotalCount.value <= 0) {
-      close()
-      return
-    }
-
-    // Adjust index if we're now past the end
-    if (currentIndex.value >= localTotalCount.value) {
-      currentIndex.value = localTotalCount.value - 1
-    }
+    // Reconcile the total (and close/clamp if needed)
+    applyRemovalToCount(1)
 
   } catch (error) {
     console.error('Failed to restore media:', error)
@@ -4250,7 +4273,6 @@ function handleMediaDeletedWs(data) {
 
   // External deletion - mark as removed and advance
   localRemovedIds.value = new Set([...localRemovedIds.value, media_id])
-  localTotalCount.value--
 
   // Update shared mediaList so grid sees the removal
   if (props.mediaList) {
@@ -4265,13 +4287,7 @@ function handleMediaDeletedWs(data) {
     }
   }
 
-  if (localTotalCount.value <= 0) {
-    close()
-    return
-  }
-  if (currentIndex.value >= localTotalCount.value) {
-    currentIndex.value = localTotalCount.value - 1
-  }
+  applyRemovalToCount(1)
 }
 
 // WebSocket handler: media_bulk_deleted
@@ -4283,7 +4299,6 @@ function handleMediaBulkDeletedWs(data) {
   if (externalIds.length === 0) return
 
   localRemovedIds.value = new Set([...localRemovedIds.value, ...externalIds])
-  localTotalCount.value -= externalIds.length
 
   if (props.mediaList) {
     props.mediaList.removeItems(externalIds)
@@ -4296,13 +4311,7 @@ function handleMediaBulkDeletedWs(data) {
     }
   }
 
-  if (localTotalCount.value <= 0) {
-    close()
-    return
-  }
-  if (currentIndex.value >= localTotalCount.value) {
-    currentIndex.value = localTotalCount.value - 1
-  }
+  applyRemovalToCount(externalIds.length)
 }
 
 // WebSocket handler: auto_delete_removed
@@ -4610,6 +4619,15 @@ watch(() => props.totalCount, (newValue, oldValue) => {
   }
 
   localTotalCount.value = newValue
+
+  // pageProvider path: the parent count is authoritative, so close when it genuinely
+  // empties (e.g. the last item was deleted). The mediaList path closes via
+  // applyRemovalToCount instead. Guard on a real >0 -> 0 transition so we never close
+  // on the initial mount.
+  if (!props.mediaList && oldValue !== undefined && oldValue > 0 && newValue <= 0) {
+    close()
+    return
+  }
 
   // Resiliency fallback: if total count increased while viewing newest image,
   // trigger the same auto-advance path even if websocket completion was missed.
