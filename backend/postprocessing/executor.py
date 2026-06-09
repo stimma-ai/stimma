@@ -449,7 +449,10 @@ async def _run_filter_step(
         project_id=project_id,
     )
 
-    # Lineage + metadata (mirrors the editor save-edit path)
+    # Lineage + metadata. The step is a plain "filter" operation — no tool
+    # badge — whose parameters are the filter id + its settings. The trace
+    # inherits the input's full history (the same inheritance generated media
+    # gets), so the lineage panel reads: previous history → this filter.
     async with db.async_session_maker() as session:
         result = await session.execute(
             select(MediaItem).where(MediaItem.id == media_item.id)
@@ -462,14 +465,17 @@ async def _run_filter_step(
                 source_media_ids=[input_media_id],
                 task_type="filter",
             )
-            db_item.tool_id = "builtin:stimma:image-editor"
+            db_item.tool_id = "builtin:stimma:filter"
             await propagate_tool_lineage(
-                session, db_item.id, [input_media_id], own_tool_id="builtin:stimma:image-editor"
+                session, db_item.id, [input_media_id], own_tool_id="builtin:stimma:filter"
             )
+
+            from generation_queue import get_generation_queue
+            lineage_trace = await get_generation_queue()._get_inherited_lineage(session, input_media_id)
+
             db_item.generation_metadata = json.dumps({
                 "version": 3,
                 "source": "stimma",
-                "tool_id": "builtin:stimma:image-editor",
                 "task_type": "filter",
                 "parameters": {
                     "filter_id": filter_id,
@@ -478,11 +484,7 @@ async def _run_filter_step(
                 },
                 "generated_at": datetime.utcnow().isoformat() + "Z",
                 "source_inputs": [{"media_id": input_media_id, "role": "source_image"}],
-                "lineage_trace": [{
-                    "media_id": db_item.id,
-                    "task_type": "filter",
-                    "source_media_ids": [input_media_id],
-                }],
+                "lineage_trace": lineage_trace,
             })
             await session.commit()
 
