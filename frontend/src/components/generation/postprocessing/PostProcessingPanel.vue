@@ -52,28 +52,30 @@
         </div>
       </template>
       <div v-if="drag.active && drag.overIndex === chain.steps.length" class="h-0.5 bg-blue-500 rounded my-1"></div>
+    </div>
 
-      <!-- Add step (dashed row) -->
-      <div class="relative" :class="chain.steps.length ? 'mt-2' : ''" @dragover.prevent="onDragOver($event, chain.steps.length)" @drop.prevent="onDrop(chain.steps.length)">
-        <button
-          type="button"
-          class="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-edge-subtle px-3 py-2 text-xs text-content-muted hover:text-content-secondary hover:border-edge transition-colors"
-          @click="toggleAddMenu"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-            <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-          </svg>
-          Add step
-        </button>
-        <AddStepMenu
-          v-if="addMenuOpen"
-          :tools="candidateTools"
-          :filters="candidateFilters"
-          @add-tool="addToolStep"
-          @add-filter="addFilterStep"
-          @close="addMenuOpen = false"
-        />
-      </div>
+    <!-- Add step (dashed row) — outside the disabled-dim wrapper: adding a step
+         auto-enables the chain, and an opacity ancestor would composite the
+         dropdown translucently over the controls behind it. -->
+    <div class="relative" :class="chain.steps.length ? 'mt-2' : ''" @dragover.prevent="onDragOver($event, chain.steps.length)" @drop.prevent="onDrop(chain.steps.length)">
+      <button
+        type="button"
+        class="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-edge-subtle px-3 py-2 text-xs text-content-muted hover:text-content-secondary hover:border-edge transition-colors"
+        @click="toggleAddMenu"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+          <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+        </svg>
+        Add step
+      </button>
+      <AddStepMenu
+        v-if="addMenuOpen"
+        :tools="candidateTools"
+        :filters="candidateFilters"
+        @add-tool="addToolStep"
+        @add-filter="addFilterStep"
+        @close="addMenuOpen = false"
+      />
     </div>
   </div>
 </template>
