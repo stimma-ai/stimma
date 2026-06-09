@@ -34,6 +34,14 @@ TASK_SCHEMA_REQUIREMENTS: Dict[str, Dict[str, List[str]]] = {
         "optional_input": ["negative_prompt"],
         "required_output": ["assets"],
     },
+    # Deterministic image→image transforms (no prompt): provider-shipped
+    # filters that slot into post-processing chains. Tool-specific knobs are
+    # free-form parameters.
+    TaskType.FILTER.value: {
+        "required_input": ["input_images"],
+        "optional_input": [],
+        "required_output": ["assets"],
+    },
     TaskType.IMAGE_TO_VIDEO.value: {
         "required_input": ["input_images"],
         "optional_input": ["prompt", "negative_prompt"],

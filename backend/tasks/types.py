@@ -8,6 +8,7 @@ class TaskType(str, Enum):
 
     TEXT_TO_IMAGE = "text-to-image"
     IMAGE_TO_IMAGE = "image-to-image"
+    FILTER = "filter"
     IMAGE_TO_VIDEO = "image-to-video"
     TEXT_TO_VIDEO = "text-to-video"
     UPSCALE_IMAGE = "upscale-image"
