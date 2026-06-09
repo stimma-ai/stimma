@@ -788,7 +788,8 @@ import {
 import HopToToolMenu from '../components/HopToToolMenu.vue'
 import PostProcessingPanel from '../components/generation/postprocessing/PostProcessingPanel.vue'
 import SchemaParamGroup from '../components/generation/SchemaParamGroup.vue'
-import { emptyChain, mergeRecordedChain, normalizeChain, toRecordedSteps, type PostProcessingChain } from '../utils/postProcessingChain'
+import { CHAIN_TOOL_TASK_TYPES, emptyChain, mergeRecordedChain, newStepId, normalizeChain, stepInputMedia, toRecordedSteps, type ChainStep, type PostProcessingChain } from '../utils/postProcessingChain'
+import { CHAIN_FILTER_DEFS, getChainFilterDef, getChainFilterDefaults } from '@stimma/image-editor'
 import RemixBanner from '../components/generation/RemixBanner.vue'
 import PromptAgentChat from '../components/generation/PromptAgentChat.vue'
 import JobsGrid from '../components/generation/JobsGrid.vue'
@@ -914,7 +915,7 @@ onMounted(() => window.addEventListener('keydown', stageKeydown))
 onUnmounted(() => window.removeEventListener('keydown', stageKeydown))
 
 const { enterSlideshowMode, exitSlideshowMode, slideshowActive } = useTabNavigation()
-const { getProviderTool, getToolState, saveToolState, refreshProviderTools, subscribeToProviderChanges, uploadToTool } = useProvidersApi()
+const { getProviderTool, getToolState, saveToolState, refreshProviderTools, subscribeToProviderChanges, uploadToTool, fetchProvidersAndTools } = useProvidersApi()
 
 // WebSocket subscription for provider status changes
 let unsubscribeFromProviderChanges: (() => void) | null = null
@@ -3278,6 +3279,39 @@ function resolveLora(ref: string): { path: string; name: string } | null {
   return hit || null
 }
 
+// Resolve a chain step reference — step id, 1-based position, or name — to
+// its index in toolChain. Returns an error string when nothing matches.
+function resolveChainStep(ref: any): { step: ChainStep; index: number } | string {
+  const steps = toolChain.value.steps
+  if (!steps.length) return 'The post-processing chain is empty.'
+  const want = String(ref ?? '').trim()
+  if (!want) return 'A step reference (id, position, or name) is required.'
+  // Exact id
+  let index = steps.findIndex(s => s.id === want)
+  // 1-based position
+  if (index < 0 && /^\d+$/.test(want)) {
+    const pos = parseInt(want, 10) - 1
+    if (pos >= 0 && pos < steps.length) index = pos
+  }
+  // Name (tool name / filter id) substring
+  if (index < 0) {
+    const needle = want.toLowerCase()
+    index = steps.findIndex(s =>
+      (s.kind === 'tool' ? `${s.tool_name || ''} ${s.tool_id || ''}` : (s.filter_id || ''))
+        .toLowerCase().includes(needle)
+    )
+  }
+  if (index < 0) {
+    return `No chain step matches "${want}". See state_context.post_processing.steps.`
+  }
+  return { step: steps[index], index }
+}
+
+// Mutate the chain immutably so the tool-state watcher and panel both react.
+function updateToolChainSteps(mutate: (steps: ChainStep[]) => ChainStep[]) {
+  toolChain.value = { ...toolChain.value, steps: mutate([...toolChain.value.steps]) }
+}
+
 // Drive the resolution picker(s) with parity to the user. Resolution is a
 // dedicated multi-mode control, not a parameter_schema entry, so it gets its
 // own command. Reuses the same math the pickers use.
@@ -3502,6 +3536,23 @@ function getStateContext(): Record<string, any> {
     }
   }
 
+  // Post-processing chain — current steps (with ids for addressing) plus the
+  // built-in filter ids the agent can add. STP tool steps are resolved by
+  // name via add_chain_step.
+  ctx.post_processing = {
+    enabled: toolChain.value.enabled,
+    steps: toolChain.value.steps.map((s, i) => ({
+      id: s.id,
+      position: i + 1,
+      kind: s.kind,
+      name: s.kind === 'tool' ? (s.tool_name || s.tool_id) : s.filter_id,
+      ...(s.kind === 'tool' ? { tool_id: s.tool_id, task_type: s.task_type } : { filter_id: s.filter_id }),
+      enabled: s.enabled,
+      settings: s.settings,
+    })),
+    available_filters: CHAIN_FILTER_DEFS.map(f => ({ id: f.id, label: f.label, params: f.params.map(p => p.name) })),
+  }
+
   // Markers. set_auto_markers works by name, so surface the current selection
   // as names too (not raw ids) — otherwise the agent can't tell what's applied.
   const availableMarkers = jobsManager?.availableMarkers.value || []
@@ -3709,6 +3760,131 @@ async function runTool(name: string, args: any): Promise<string> {
         toolLoras.value = [...toolLoras.value, { lora: match.path, weight: 1.0, enabled }]
       }
       return `${enabled ? 'Enabled' : 'Disabled'} ${match.name}${existing ? '' : ' (added)'}.`
+    }
+
+    // ── Post-processing chain ──
+    case 'set_postprocessing_enabled': {
+      const enabled = !!args.enabled
+      toolChain.value = { ...toolChain.value, enabled }
+      return `Post-processing ${enabled ? 'on' : 'off'} (${toolChain.value.steps.length} step${toolChain.value.steps.length === 1 ? '' : 's'}).`
+    }
+    case 'add_chain_step': {
+      const kind = args.kind === 'filter' ? 'filter' : args.kind === 'tool' ? 'tool' : null
+      if (!kind) return 'Error: kind must be "tool" or "filter".'
+      const ref = String(args.ref ?? '').trim()
+      if (!ref) return 'Error: ref is required (filter id, or STP tool name/id).'
+
+      let step: ChainStep
+      if (kind === 'filter') {
+        const needle = ref.toLowerCase()
+        const def = CHAIN_FILTER_DEFS.find(f => f.id === needle)
+          || CHAIN_FILTER_DEFS.find(f => f.label.toLowerCase() === needle)
+          || CHAIN_FILTER_DEFS.find(f => f.id.includes(needle) || f.label.toLowerCase().includes(needle))
+        if (!def) {
+          return `No built-in filter matches "${ref}". Available: ${CHAIN_FILTER_DEFS.map(f => f.id).join(', ')}.`
+        }
+        step = {
+          id: newStepId(),
+          kind: 'filter',
+          enabled: true,
+          filter_id: def.id,
+          settings: { ...getChainFilterDefaults(def.id), ...(args.settings || {}) },
+        }
+      } else {
+        let tools: ProviderTool[] = []
+        try {
+          tools = (await fetchProvidersAndTools()).tools
+        } catch {
+          return 'Error: could not load the tool catalog.'
+        }
+        const chainTypes = new Set<string>(CHAIN_TOOL_TASK_TYPES)
+        const candidates = tools.filter(t => {
+          if (t.full_tool_id === fullToolIdFromProps) return false
+          const tts = (t.task_types?.length ? t.task_types : [t.task_type])
+          return tts.some(tt => chainTypes.has(tt))
+        })
+        const needle = ref.toLowerCase()
+        const match = candidates.find(t => t.full_tool_id.toLowerCase() === needle)
+          || candidates.find(t => t.name.toLowerCase() === needle)
+          || candidates.find(t => t.name.toLowerCase().includes(needle) || t.full_tool_id.toLowerCase().includes(needle))
+        if (!match) {
+          const sample = candidates.slice(0, 8).map(t => t.name).join(', ')
+          return `No chain-compatible STP tool matches "${ref}".${sample ? ` Some options: ${sample}.` : ''}`
+        }
+        const tts = (match.task_types?.length ? match.task_types : [match.task_type])
+          .filter(tt => chainTypes.has(tt))
+        const taskType = tts.find(tt => stepInputMedia(tt, 'tool') === 'image') || tts[0]
+        step = {
+          id: newStepId(),
+          kind: 'tool',
+          enabled: true,
+          tool_id: match.full_tool_id,
+          task_type: taskType,
+          tool_name: match.name,
+          settings: { ...(args.settings || {}) },
+        }
+      }
+
+      const steps = toolChain.value.steps
+      let pos = steps.length
+      if (args.position != null) {
+        const p = Math.round(Number(args.position)) - 1
+        if (!Number.isNaN(p)) pos = Math.max(0, Math.min(steps.length, p))
+      }
+      updateToolChainSteps(list => {
+        list.splice(pos, 0, step)
+        return list
+      })
+      return `Added ${kind} step "${step.kind === 'tool' ? step.tool_name : step.filter_id}" at position ${pos + 1} (id ${step.id}).`
+    }
+    case 'remove_chain_step': {
+      const hit = resolveChainStep(args.step)
+      if (typeof hit === 'string') return hit
+      updateToolChainSteps(list => list.filter((_, i) => i !== hit.index))
+      return `Removed step ${hit.index + 1} (${hit.step.kind === 'tool' ? hit.step.tool_name : hit.step.filter_id}).`
+    }
+    case 'reorder_chain_step': {
+      const hit = resolveChainStep(args.step)
+      if (typeof hit === 'string') return hit
+      const to = Math.round(Number(args.to_position)) - 1
+      if (Number.isNaN(to) || to < 0 || to >= toolChain.value.steps.length) {
+        return `to_position out of range (1-${toolChain.value.steps.length}).`
+      }
+      updateToolChainSteps(list => {
+        const [moved] = list.splice(hit.index, 1)
+        list.splice(to, 0, moved)
+        return list
+      })
+      return `Moved step to position ${to + 1}.`
+    }
+    case 'configure_chain_step': {
+      const hit = resolveChainStep(args.step)
+      if (typeof hit === 'string') return hit
+      const settings = args.settings
+      if (!settings || typeof settings !== 'object') return 'Error: settings must be an object.'
+      if (hit.step.kind === 'filter') {
+        const def = getChainFilterDef(hit.step.filter_id || '')
+        const valid = new Set((def?.params || []).map(p => p.name))
+        const unknown = Object.keys(settings).filter(k => !valid.has(k))
+        if (unknown.length) {
+          return `Unknown setting(s) ${unknown.join(', ')} for filter "${hit.step.filter_id}". Valid: ${[...valid].join(', ')}.`
+        }
+      }
+      updateToolChainSteps(list => {
+        list[hit.index] = { ...list[hit.index], settings: { ...list[hit.index].settings, ...settings } }
+        return list
+      })
+      return `Updated settings on step ${hit.index + 1}: ${Object.keys(settings).join(', ')}.`
+    }
+    case 'set_chain_step_enabled': {
+      const hit = resolveChainStep(args.step)
+      if (typeof hit === 'string') return hit
+      const enabled = !!args.enabled
+      updateToolChainSteps(list => {
+        list[hit.index] = { ...list[hit.index], enabled }
+        return list
+      })
+      return `${enabled ? 'Enabled' : 'Disabled'} step ${hit.index + 1}.`
     }
 
     // ── Markers ──

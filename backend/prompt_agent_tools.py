@@ -244,6 +244,70 @@ _LORA_TOOLS = [
     ),
 ]
 
+# --- E2. Post-processing chain ------------------------------------------------
+# A linear list of media→media steps that auto-runs after each generation
+# ("after you generate, always upscale 2× and fix the face"). Current steps and
+# the built-in filter ids are in state_context.post_processing; steps are
+# addressed by id, 1-based position, or name.
+_CHAIN_TOOLS = [
+    _fn(
+        "set_postprocessing_enabled",
+        "Turn the post-processing chain on or off (the panel's header toggle). When on, the "
+        "enabled steps run automatically after every generation.",
+        {"enabled": {"type": "boolean"}},
+        ["enabled"],
+    ),
+    _fn(
+        "add_chain_step",
+        "Append (or insert) a step in the post-processing chain. kind 'filter' = a built-in "
+        "filter from state_context.post_processing.available_filters; kind 'tool' = an STP "
+        "image→image tool resolved by name (e.g. 'upscale', 'face restore'). Steps ship with "
+        "sensible defaults — pass settings only for explicit requests.",
+        {
+            "kind": {"type": "string", "enum": ["tool", "filter"]},
+            "ref": {"type": "string", "description": "Filter id, or STP tool name/id."},
+            "position": {"type": "integer", "description": "1-based insert position; appends if omitted."},
+            "settings": {"type": "object", "description": "Initial setting overrides."},
+        },
+        ["kind", "ref"],
+    ),
+    _fn(
+        "remove_chain_step",
+        "Remove a step from the chain. To keep it but stop it running, use "
+        "set_chain_step_enabled instead.",
+        {"step": {"type": "string", "description": "Step id, 1-based position, or name."}},
+        ["step"],
+    ),
+    _fn(
+        "reorder_chain_step",
+        "Move a chain step to a new position.",
+        {
+            "step": {"type": "string", "description": "Step id, 1-based position, or name."},
+            "to_position": {"type": "integer", "description": "1-based target position."},
+        },
+        ["step", "to_position"],
+    ),
+    _fn(
+        "configure_chain_step",
+        "Update a chain step's settings (merged into its current settings). Filter params are in "
+        "state_context.post_processing.available_filters; tool steps accept that tool's schema params.",
+        {
+            "step": {"type": "string", "description": "Step id, 1-based position, or name."},
+            "settings": {"type": "object"},
+        },
+        ["step", "settings"],
+    ),
+    _fn(
+        "set_chain_step_enabled",
+        "Enable or disable one chain step in place (disabled steps are kept and skipped on run).",
+        {
+            "step": {"type": "string", "description": "Step id, 1-based position, or name."},
+            "enabled": {"type": "boolean"},
+        },
+        ["step", "enabled"],
+    ),
+]
+
 # --- F. Markers -------------------------------------------------------------
 _MARKER_TOOLS = [
     _fn(
@@ -363,6 +427,7 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
     *_CATEGORY_TOOLS,
     *_IMAGE_TOOLS,
     *_LORA_TOOLS,
+    *_CHAIN_TOOLS,
     *_MARKER_TOOLS,
     *_OPTION_TOOLS,
     *_NOTES_TOOLS,
