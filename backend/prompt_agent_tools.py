@@ -86,6 +86,14 @@ _PARAM_TOOLS = [
         ["enabled"],
     ),
     _fn(
+        "set_batch_size",
+        "Set the batch size — how many images one click of Run queues (same as the Run "
+        "button's batch dropdown). 1 means a single generation. Each image is queued "
+        "separately with its own seed, exactly like pressing Run that many times.",
+        {"size": {"type": "integer", "description": "Images per run, 1-8.", "minimum": 1, "maximum": 8}},
+        ["size"],
+    ),
+    _fn(
         "set_resolution",
         "Set the output image size. Resolution is a dedicated control and is NOT a key in "
         "parameter_schema — use THIS tool for anything about image size, aspect ratio, or "

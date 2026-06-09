@@ -3670,6 +3670,9 @@ function getStateContext(): Record<string, any> {
     }
   }
 
+  // Batch size — images queued per Run click (set_batch_size).
+  ctx.batch_size = uiState.value.batchSize ?? 1
+
   // Forever mode.
   ctx.forever = {
     active: uiState.value.generateForeverMode ?? false,
@@ -3754,6 +3757,13 @@ async function runTool(name: string, args: any): Promise<string> {
     case 'set_randomize_seed': {
       modelParams.value.randomizeSeed = !!args.enabled
       return `Randomize seed ${args.enabled ? 'on' : 'off'}.`
+    }
+    case 'set_batch_size': {
+      const num = Math.round(Number(args.size))
+      if (Number.isNaN(num)) return 'Error: batch size must be an integer.'
+      const clamped = Math.min(8, Math.max(1, num))
+      uiState.value.batchSize = clamped
+      return `Set batch size = ${clamped} (image${clamped === 1 ? '' : 's'} per run).`
     }
     case 'set_resolution':
       return setResolution(args || {})
@@ -4013,6 +4023,9 @@ const promptAgentThinking = computed<boolean>({
 const AGENT_NON_MUTATING_TOOLS = new Set([
   'undo', 'redo', 'search_loras', 'generate', 'start_forever_mode', 'stop_forever_mode',
   'set_instructions', 'edit_instructions',
+  // Batch size lives in uiState, outside the undo snapshot — like forever mode
+  // and the LoRA pool — so writing it shouldn't create an undo entry.
+  'set_batch_size',
 ])
 let agentRunSnapshotTaken = false
 
