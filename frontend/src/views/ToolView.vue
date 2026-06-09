@@ -637,7 +637,6 @@
           :media-generation-times="jobsManager.mediaGenerationTimes.value"
           :batch-jobs="jobsManager.batchJobs.value"
           :active-chain-runs="jobsManager.activeChainRuns.value"
-          :completed-chain-runs="jobsManager.completedChainRuns.value"
           :is-video="outputsVideo"
           :image-mode="uiState.imageMode"
           :current-media-id="layoutMode === 'stage' ? stageCurrentMediaId : null"
@@ -4298,13 +4297,7 @@ async function openSlideshow(job: any) {
   if (!job.result_media_id || !jobsManager) return
 
   const index = jobsManager.sortedCompletedJobs.value.findIndex((j: any) => j.id === job.id)
-  if (index === -1) {
-    // Not a tracked job (e.g. a completed post-processing chain's final image,
-    // which is library media rather than one of this page's jobs) — show it
-    // standalone.
-    openSingleImageSlideshow(job.result_media_id)
-    return
-  }
+  if (index === -1) return
 
   enterSlideshow({
     totalCount: jobsManager.totalCompletedCount.value,

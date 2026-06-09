@@ -240,6 +240,13 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
                 )
             )
             await session.commit()
+
+        # The base job IS the result-strip item: point it at the chain's final
+        # output and re-broadcast it, so its tile becomes the final image (the
+        # base and intermediates stay reachable via lineage). Do this before
+        # the chain-completed broadcast so the tile never flashes the base.
+        await _finalize_base_job(db, profile_id, job_id, current_media_id, websocket_manager)
+
         await _broadcast(websocket_manager, db, run_id, profile_id, job_instance_id)
         log.info(f"[postproc] Run {run_id} completed; final media {current_media_id} (base {base_media_id}, job {job_id})")
 
@@ -256,6 +263,29 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
             await _broadcast(websocket_manager, db, run_id, profile_id, job_instance_id)
         except Exception:
             pass
+
+
+async def _finalize_base_job(db, profile_id: str, job_id: int, final_media_id: int, websocket_manager) -> None:
+    from database import GenerationJob
+
+    try:
+        async with db.async_session_maker() as session:
+            await session.execute(
+                update(GenerationJob)
+                .where(GenerationJob.id == job_id)
+                .values(result_media_id=final_media_id)
+            )
+            await session.commit()
+        if websocket_manager:
+            from generation_queue import get_generation_queue
+            job_dict = await get_generation_queue().get_job(job_id, profile_id=profile_id)
+            if job_dict:
+                await websocket_manager.broadcast("generation_job_completed", {
+                    "job": job_dict,
+                    "generator_instance_id": job_dict.get("generator_instance_id"),
+                })
+    except Exception as e:
+        log.warning(f"[postproc] Failed to point job {job_id} at final media {final_media_id}: {e}")
 
 
 async def _save_progress(

@@ -294,9 +294,10 @@ interface Props {
   mediaMarkers?: Record<number, Marker[]>
   mediaGenerationTimes?: Record<number, number>
   batchJobs?: Record<string, BatchInfo>
-  // Post-processing chains: in-flight/paused (bars) + completed (result tiles)
+  // In-flight/paused post-processing chains (rendered as progress bars; a
+  // completed chain has no presence of its own — the base job's tile becomes
+  // the final image)
   activeChainRuns?: ChainRun[]
-  completedChainRuns?: ChainRun[]
   imageMode?: 'cover' | 'fit'
   emptyMessage?: string
   isVideo?: boolean
@@ -312,7 +313,6 @@ const props = withDefaults(defineProps<Props>(), {
   mediaGenerationTimes: () => ({}),
   batchJobs: () => ({}),
   activeChainRuns: () => [],
-  completedChainRuns: () => [],
   imageMode: 'cover',
   emptyMessage: 'No jobs yet',
   isVideo: false,
@@ -466,23 +466,6 @@ const unifiedDisplayItems = computed(() => {
       type: job.status === 'failed' ? 'failed-job' : 'completed-job',
       timestamp: new Date(job.completed_at || job.created_at || Date.now()),
       job
-    })
-  }
-
-  // Completed post-processing chains: the final image gets a result tile
-  // (chain-step jobs themselves are filtered out of this page's job list).
-  for (const run of props.completedChainRuns) {
-    if (!run.final_media_id) continue
-    items.push({
-      key: `chain-final-${run.id}`,
-      type: 'completed-job',
-      timestamp: new Date(run.updated_at || Date.now()),
-      job: {
-        id: -run.id, // synthetic id; never collides with real job ids
-        status: 'completed',
-        result_media_id: run.final_media_id,
-        completed_at: run.updated_at,
-      }
     })
   }
 

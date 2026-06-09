@@ -10,7 +10,7 @@ import pytest
 from PIL import Image
 from sqlalchemy import select
 
-from database import MediaItem, MediaLineage, PostProcessingChainRun
+from database import GenerationJob, MediaItem, MediaLineage, PostProcessingChainRun
 from postprocessing.executor import start_chain_for_job, CHAIN_INSTANCE_ID
 from tests.helpers.media import create_media_item, generate_test_image
 
@@ -105,6 +105,45 @@ class TestChainExecutorFilters:
         meta = json.loads(final.generation_metadata)
         assert meta["parameters"]["post_processing_chain"] == steps
         assert meta["task_type"] == "filter"
+
+    async def test_completed_chain_points_base_job_at_final_media(self, generation_app, generation_db_session, mock_ws, tmp_path):
+        # The base job IS the result-strip item: when its chain completes, the
+        # job's result_media_id becomes the chain's final output.
+        base = await _make_base_media(generation_db_session, tmp_path, "chain_jobptr.png")
+
+        async with generation_db_session() as session:
+            job = GenerationJob(
+                status="completed",
+                task_type="text-to-image",
+                generator_type="test",
+                generator_name="test",
+                model_name="Test Tool",
+                parameters="{}",
+                folder_path=str(tmp_path),
+                generator_instance_id="client-test",
+                result_media_id=base.id,
+            )
+            session.add(job)
+            await session.commit()
+            await session.refresh(job)
+            job_id = job.id
+
+        steps = [{"kind": "filter", "filter_id": "resize", "settings": {"long_edge": 32}}]
+        run_id = await start_chain_for_job(
+            job=_fake_job(job_id=job_id),
+            base_media_id=base.id,
+            chain_steps=steps,
+            profile_id="default",
+            websocket_manager=mock_ws,
+        )
+        run = await _wait_for_run(generation_db_session, run_id)
+        assert run.status == "completed"
+        assert run.final_media_id != base.id
+
+        async with generation_db_session() as session:
+            result = await session.execute(select(GenerationJob).where(GenerationJob.id == job_id))
+            refreshed = result.scalar_one()
+        assert refreshed.result_media_id == run.final_media_id
 
     async def test_incompatible_step_is_skipped_not_failed(self, generation_app, generation_db_session, mock_ws, tmp_path):
         base = await _make_base_media(generation_db_session, tmp_path, "chain_skip.png")

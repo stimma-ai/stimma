@@ -46,6 +46,18 @@ export function useGenerationJobs(options = {}) {
   // WebSocket unsubscribe functions
   const unsubscribers = []
 
+  // Jobs whose post-processing chain is still running/paused: the job stays
+  // "in progress" (represented by the chain bar) until the chain finishes and
+  // the backend points the job at the final image.
+  const jobIdsWithActiveChain = computed(() => {
+    const ids = new Set()
+    for (const run of Object.values(chainRuns.value)) {
+      if (dismissedChainRuns.value.has(run.id)) continue
+      if (['running', 'paused'].includes(run.status)) ids.add(run.job_id)
+    }
+    return ids
+  })
+
   // Computed: filtered and sorted jobs list
   const allJobs = computed(() => {
     // Filter out jobs with deleted/unavailable media
@@ -80,7 +92,9 @@ export function useGenerationJobs(options = {}) {
       ...filteredJobs.filter(j => ['queued', 'assigned', 'processing'].includes(j.status))
     ]
     const failed = filteredJobs.filter(j => j.status === 'failed')
-    const completed = filteredJobs.filter(j => j.status === 'completed').slice(0, 50)
+    const completed = filteredJobs
+      .filter(j => j.status === 'completed' && !jobIdsWithActiveChain.value.has(j.id))
+      .slice(0, 50)
 
     return [
       ...active.sort(sortByDate),
@@ -563,23 +577,12 @@ export function useGenerationJobs(options = {}) {
     dismissedChainRuns.value = new Set(dismissedChainRuns.value)
   }
 
-  // Bars for in-flight/paused chains (newest first)
+  // Bars for in-flight/paused chains (newest first). On completion the chain
+  // has no presence of its own — the base job's tile becomes the final image.
   const activeChainRuns = computed(() =>
     Object.values(chainRuns.value)
       .filter(r => !dismissedChainRuns.value.has(r.id) && ['running', 'paused'].includes(r.status))
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-  )
-
-  // Completed chains surface their final image as a result tile
-  const completedChainRuns = computed(() =>
-    Object.values(chainRuns.value)
-      .filter(r =>
-        !dismissedChainRuns.value.has(r.id) &&
-        r.status === 'completed' &&
-        r.final_media_id &&
-        !failedMediaLoads.value.has(r.final_media_id)
-      )
-      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
   )
 
   // Public methods
@@ -863,7 +866,6 @@ export function useGenerationJobs(options = {}) {
     batchJobs,
     chainRuns,
     activeChainRuns,
-    completedChainRuns,
 
     // Methods
     init,
