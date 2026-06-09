@@ -87,6 +87,7 @@ export interface UIState {
   generateForeverMode: boolean
   generateForeverConcurrency: number
   generateForeverIdleLimit: number  // 0 = no limit, default 50
+  batchSize: number  // Images queued per Run click (1-8). 1 = single generation.
   imageMode: string
   layoutMode: 'studio' | 'stage'  // 'studio' = controls primary, 'stage' = image primary
 }
@@ -126,6 +127,7 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     generateForeverMode: false,
     generateForeverConcurrency: 2,
     generateForeverIdleLimit: 50,  // Default: auto-stop after 50 images with no user changes
+    batchSize: 1,
     imageMode: 'fit',
     layoutMode: 'studio'
   })
@@ -197,6 +199,7 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
           generateForeverMode: false,
           generateForeverConcurrency: data.generateForeverConcurrency ?? 2,
           generateForeverIdleLimit: data.generateForeverIdleLimit ?? 50,
+          batchSize: Math.min(8, Math.max(1, data.batchSize ?? 1)),
           imageMode: data.imageMode ?? 'fit',
           layoutMode: data.layoutMode === 'stage' ? 'stage' : 'studio'
         }
@@ -367,6 +370,7 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
       generateForeverMode: false,
       generateForeverConcurrency: 2,
       generateForeverIdleLimit: 50,
+      batchSize: 1,
       imageMode: 'fit',
       layoutMode: 'studio'
     }

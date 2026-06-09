@@ -241,15 +241,14 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <!-- Generate/Process Button -->
-            <button
-              @click="submitJob"
+            <!-- Generate/Process Button (split: Run + batch-size dropdown) -->
+            <BatchRunButton
+              :batch-size="uiState.batchSize"
               :disabled="!canSubmit"
-              class="px-4 py-2 bg-blue-500 rounded-lg text-white text-sm font-semibold cursor-pointer transition-colors disabled:bg-[#1a2a3a] disabled:cursor-not-allowed disabled:opacity-50 hover:bg-blue-600 flex items-center justify-center gap-2"
-            >
-              <span>Run</span>
-              <span class="text-xs opacity-70 font-normal">{{ isMac ? '⌘↵' : 'Ctrl+↵' }}</span>
-            </button>
+              :is-mac="isMac"
+              @run="submitJob"
+              @update:batch-size="uiState.batchSize = $event"
+            />
 
             <!-- Forever Mode Toggle -->
             <ForeverModeButton
@@ -885,6 +884,7 @@ import { useCompare } from '../composables/useCompare'
 import ResolutionPicker from '../components/ResolutionPicker.vue'
 import AutoDeletePicker from '../components/AutoDeletePicker.vue'
 import ForeverModeButton from '../components/ForeverModeButton.vue'
+import BatchRunButton from '../components/BatchRunButton.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import { MediaContextMenu, MediaImage } from '../components/media'
 import {
@@ -3092,7 +3092,19 @@ async function handleHopToTool(targetTool: { full_tool_id: string; name: string 
 }
 
 // Job submission
+// Run click: queue `batchSize` generations back-to-back. A batch is just the
+// shortcut to pressing Run N times — no grouping. Each iteration captures the
+// current seed and (when randomize is on) rolls a fresh one for the next, so a
+// batch yields N distinct seeds exactly as repeated clicks would.
 async function submitJob() {
+  if (!tool.value || !canSubmit.value) return
+  const count = Math.min(8, Math.max(1, uiState.value.batchSize || 1))
+  for (let i = 0; i < count; i++) {
+    await submitOneJob()
+  }
+}
+
+async function submitOneJob() {
   if (!tool.value || !canSubmit.value) {
     return
   }
