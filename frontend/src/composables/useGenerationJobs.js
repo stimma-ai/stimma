@@ -39,6 +39,10 @@ export function useGenerationJobs(options = {}) {
   const batches = ref({})  // batch_id -> { total, completed, failed, output_set_id, status }
   const dismissedBatches = ref(new Set())  // batch_ids that have been dismissed
 
+  // Post-processing chain runs: chain_run_id -> run dict (see /api/postprocessing)
+  const chainRuns = ref({})
+  const dismissedChainRuns = ref(new Set())
+
   // WebSocket unsubscribe functions
   const unsubscribers = []
 
@@ -232,6 +236,8 @@ export function useGenerationJobs(options = {}) {
       failedMediaLoads.value = new Set()
       dismissedJobs.value = new Set()
       dismissedBatches.value = new Set()
+      chainRuns.value = {}
+      dismissedChainRuns.value = new Set()
 
       let url = `${getAPIBase()}/generate/jobs?limit=100`
       if (generatorInstanceId) {
@@ -503,6 +509,79 @@ export function useGenerationJobs(options = {}) {
     console.log(`Batch ${batch_id} completed: ${completed}/${total} succeeded, status=${status}`)
   }
 
+  // --- Post-processing chain runs -------------------------------------------
+
+  function trackChainRun(run) {
+    chainRuns.value = { ...chainRuns.value, [run.id]: run }
+    // Load thumbnails for the base, step outputs, and final
+    const ids = new Set()
+    if (run.base_media_id) ids.add(run.base_media_id)
+    if (run.last_good_media_id) ids.add(run.last_good_media_id)
+    if (run.final_media_id) ids.add(run.final_media_id)
+    for (const r of run.step_results || []) {
+      if (r.media_id) ids.add(r.media_id)
+    }
+    for (const id of ids) {
+      if (!mediaHashes.value[id]) loadMediaHash(id, false)
+    }
+  }
+
+  function handleChainProgress(data) {
+    const run = data.chain_run
+    if (!run) return
+    const currentProfile = getCurrentProfileId()
+    if (data.profile_id && data.profile_id !== currentProfile) return
+    // Chain bars belong to the page whose base job started them
+    if (generatorInstanceId && data.generator_instance_id && data.generator_instance_id !== generatorInstanceId) {
+      return
+    }
+    trackChainRun(run)
+  }
+
+  // Restore in-flight/paused chain runs after a reload
+  async function loadChainRuns() {
+    try {
+      const response = await axios.get(`${getAPIBase()}/postprocessing/runs?status=running,paused`)
+      for (const run of response.data?.runs || []) {
+        trackChainRun(run)
+      }
+    } catch (err) {
+      console.error('Failed to load chain runs:', err)
+    }
+  }
+
+  async function retryChainRun(runId) {
+    try {
+      await axios.post(`${getAPIBase()}/postprocessing/runs/${runId}/retry`)
+    } catch (err) {
+      console.error('Failed to retry chain run:', err)
+    }
+  }
+
+  function dismissChainRun(runId) {
+    dismissedChainRuns.value.add(runId)
+    dismissedChainRuns.value = new Set(dismissedChainRuns.value)
+  }
+
+  // Bars for in-flight/paused chains (newest first)
+  const activeChainRuns = computed(() =>
+    Object.values(chainRuns.value)
+      .filter(r => !dismissedChainRuns.value.has(r.id) && ['running', 'paused'].includes(r.status))
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  )
+
+  // Completed chains surface their final image as a result tile
+  const completedChainRuns = computed(() =>
+    Object.values(chainRuns.value)
+      .filter(r =>
+        !dismissedChainRuns.value.has(r.id) &&
+        r.status === 'completed' &&
+        r.final_media_id &&
+        !failedMediaLoads.value.has(r.final_media_id)
+      )
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+  )
+
   // Public methods
   function getMediaHash(mediaId) {
     return mediaHashes.value[mediaId] || ''
@@ -727,12 +806,15 @@ export function useGenerationJobs(options = {}) {
     unsubscribers.push(onWebSocketEvent('media_bulk_deleted', handleBulkMediaDeleted))
     unsubscribers.push(onWebSocketEvent('batch_job_completed', handleBatchJobCompleted))
     unsubscribers.push(onWebSocketEvent('batch_completed', handleBatchCompleted))
+    unsubscribers.push(onWebSocketEvent('postprocessing_chain_progress', handleChainProgress))
 
-    // Then load initial data
+    // Then load initial data (chain runs after jobs — loadJobs resets the
+    // chain-run state, so populating must come second)
     await Promise.all([
       loadJobs(),
       loadMarkers()
     ])
+    await loadChainRuns()
 
     // On disconnect, remove all in-flight jobs - they're dead
     unsubscribers.push(onWebSocketEvent('websocket_disconnected', () => {
@@ -779,6 +861,9 @@ export function useGenerationJobs(options = {}) {
     totalCompletedCount,
     batches,
     batchJobs,
+    chainRuns,
+    activeChainRuns,
+    completedChainRuns,
 
     // Methods
     init,
@@ -792,6 +877,8 @@ export function useGenerationJobs(options = {}) {
     dismissJob,
     dismissBatch,
     retryJob,
+    retryChainRun,
+    dismissChainRun,
     cancelJob,
     cancelAllQueued,
     handleMediaLoadError,

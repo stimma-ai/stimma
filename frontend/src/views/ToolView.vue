@@ -636,6 +636,8 @@
           :media-markers="jobsManager.mediaMarkers.value"
           :media-generation-times="jobsManager.mediaGenerationTimes.value"
           :batch-jobs="jobsManager.batchJobs.value"
+          :active-chain-runs="jobsManager.activeChainRuns.value"
+          :completed-chain-runs="jobsManager.completedChainRuns.value"
           :is-video="outputsVideo"
           :image-mode="uiState.imageMode"
           :current-media-id="layoutMode === 'stage' ? stageCurrentMediaId : null"
@@ -647,6 +649,8 @@
           @cancel-job="cancelJob"
           @cancel-and-dismiss-batch="cancelAndDismissBatch"
           @dismiss-batch="dismissBatch"
+          @retry-chain="jobsManager.retryChainRun"
+          @dismiss-chain="jobsManager.dismissChainRun"
           @media-load-error="handleMediaLoadError"
           @show-job-info="showJobInfo"
         />

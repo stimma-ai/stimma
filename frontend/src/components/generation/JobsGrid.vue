@@ -4,105 +4,35 @@
       <p>{{ emptyMessage }}</p>
     </div>
     <div v-else class="flex flex-col gap-4">
-      <!-- Active items (queued/processing) — same full-width grid as completed -->
-      <div v-if="activeDisplayItems.length > 0" class="grid grid-cols-1 gap-4">
+      <!-- In-flight progress: slim landscape bars docked at the top of the
+           results area — one per job/batch/chain, stacked. Never a full tile. -->
+      <div v-if="activeDisplayItems.length > 0 || chainRunsList.length > 0" class="flex flex-col gap-2">
+        <!-- Running/paused post-processing chains: step dots + Retry on failure -->
+        <ChainProgressBar
+          v-for="run in chainRunsList"
+          :key="`chain-${run.id}`"
+          :run="run"
+          @retry="$emit('retry-chain', $event)"
+          @dismiss="$emit('dismiss-chain', $event)"
+        />
         <template v-for="item in activeDisplayItems" :key="item.key">
-          <!-- Active individual job (queued/processing/enhancing) - square tile -->
-          <template v-if="item.type === 'active-job'">
-            <div
-              class="group relative aspect-square rounded-lg overflow-hidden bg-surface-raised border border-edge"
-            >
-              <!-- Cancel button (top right, visible on hover) -->
-              <button
-                @click.stop="$emit('cancel-job', item.job.id)"
-                class="absolute top-1 right-1 z-10 w-5 h-5 flex items-center justify-center bg-black/60 backdrop-blur-md hover:bg-red-500/80 rounded-lg text-white/70 hover:text-white text-xs transition-colors opacity-0 group-hover:opacity-100"
-                title="Cancel"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
-                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                </svg>
-              </button>
-
-              <!-- Info button (bottom right, visible on hover) -->
-              <button
-                @click.stop="$emit('show-job-info', item.job)"
-                class="absolute bottom-1 right-1 z-10 w-5 h-5 flex items-center justify-center bg-black/60 backdrop-blur-md hover:bg-blue-500/80 rounded-lg text-white/70 hover:text-white text-xs transition-colors opacity-0 group-hover:opacity-100"
-                title="Show info"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
-                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
-                </svg>
-              </button>
-
-              <!-- Status indicator centered -->
-              <div class="absolute inset-0 flex flex-col items-center justify-center gap-1">
-                <!-- Spinner for processing -->
-                <template v-if="item.job.status === 'processing'">
-                  <div class="w-8 h-8 border-[3px] border-edge-strong border-t-blue-500 rounded-full animate-spin"></div>
-                </template>
-                <!-- Sparkle spinner for enhancing (LLM working) -->
-                <template v-else-if="item.job.status === 'enhancing'">
-                  <div class="w-8 h-8 border-[3px] border-edge-strong border-t-purple-500 rounded-full animate-spin"></div>
-                  <span class="text-[10px] text-purple-500 font-medium">AI</span>
-                </template>
-                <!-- Clock for queued -->
-                <template v-else>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 text-content-muted">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
-                  </svg>
-                </template>
-              </div>
-            </div>
-          </template>
-
-          <!-- Active batch (in progress) - square tile matching individual jobs -->
-          <template v-else-if="item.type === 'active-batch'">
-            <div
-              class="group relative aspect-square rounded-lg overflow-hidden bg-surface-raised border border-edge"
-            >
-              <!-- Cancel button (top right, visible on hover) -->
-              <button
-                @click.stop="$emit('cancel-and-dismiss-batch', item.batch.batch_id)"
-                class="absolute top-1 right-1 z-10 w-5 h-5 flex items-center justify-center bg-black/60 backdrop-blur-md hover:bg-red-500/80 rounded-lg text-white/70 hover:text-white text-xs transition-colors opacity-0 group-hover:opacity-100"
-                title="Cancel batch"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
-                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                </svg>
-              </button>
-
-              <!-- Status indicator centered -->
-              <div class="absolute inset-0 flex flex-col items-center justify-center gap-1">
-                <!-- Spinner (processing or queued) -->
-                <template v-if="item.batch.inProgress > 0">
-                  <div class="w-8 h-8 border-[3px] border-edge-strong border-t-blue-500 rounded-full animate-spin"></div>
-                </template>
-                <template v-else>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6 text-content-muted">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
-                  </svg>
-                </template>
-                <!-- Progress count -->
-                <span class="text-xs text-content-tertiary font-medium">{{ item.batch.completed + item.batch.failed }}/{{ item.batch.total }}</span>
-              </div>
-
-              <!-- Mini progress bar at bottom -->
-              <div class="absolute bottom-0 left-0 right-0 h-1 bg-surface">
-                <div class="h-full flex">
-                  <div
-                    v-if="item.batch.completed > 0"
-                    class="h-full bg-blue-500 transition-all duration-300"
-                    :style="{ width: `${(item.batch.completed / item.batch.total) * 100}%` }"
-                  />
-                  <div
-                    v-if="item.batch.failed > 0"
-                    class="h-full bg-red-500 transition-all duration-300"
-                    :style="{ width: `${(item.batch.failed / item.batch.total) * 100}%` }"
-                  />
-                </div>
-              </div>
-            </div>
-          </template>
+          <!-- Active individual job (queued/processing/enhancing) -->
+          <GenerationProgressBar
+            v-if="item.type === 'active-job'"
+            :status="item.job.status === 'enhancing' ? 'enhancing' : item.job.status === 'processing' ? 'processing' : 'queued'"
+            :sublabel="getJobPrompt(item.job)"
+            @cancel="$emit('cancel-job', item.job.id)"
+            @info="$emit('show-job-info', item.job)"
+          />
+          <!-- Active batch (in progress) -->
+          <GenerationProgressBar
+            v-else-if="item.type === 'active-batch'"
+            :status="item.batch.inProgress > 0 ? 'processing' : 'queued'"
+            :label="`Batch ${item.batch.completed + item.batch.failed}/${item.batch.total}`"
+            :progress="item.batch.total ? (item.batch.completed + item.batch.failed) / item.batch.total : null"
+            :show-info="false"
+            @cancel="$emit('cancel-and-dismiss-batch', item.batch.batch_id)"
+          />
         </template>
       </div>
 
@@ -293,6 +223,8 @@
 import { computed } from 'vue'
 import { formatRemainingTime } from '../../utils/timeFormat'
 import { MediaImage, AppImage } from '../media'
+import GenerationProgressBar from './postprocessing/GenerationProgressBar.vue'
+import ChainProgressBar from './postprocessing/ChainProgressBar.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
@@ -342,6 +274,21 @@ interface BatchInfo {
   jobs: Job[]
 }
 
+interface ChainRun {
+  id: number
+  job_id: number
+  base_media_id: number
+  chain: any[]
+  step_index: number
+  step_count: number
+  step_results: Array<{ status: string; media_id?: number; error?: string }>
+  status: string
+  last_good_media_id?: number
+  final_media_id?: number
+  error?: string
+  updated_at?: string
+}
+
 interface Props {
   jobs: Job[]
   markers?: Marker[]
@@ -349,6 +296,9 @@ interface Props {
   mediaMarkers?: Record<number, Marker[]>
   mediaGenerationTimes?: Record<number, number>
   batchJobs?: Record<string, BatchInfo>
+  // Post-processing chains: in-flight/paused (bars) + completed (result tiles)
+  activeChainRuns?: ChainRun[]
+  completedChainRuns?: ChainRun[]
   imageMode?: 'cover' | 'fit'
   emptyMessage?: string
   isVideo?: boolean
@@ -363,6 +313,8 @@ const props = withDefaults(defineProps<Props>(), {
   mediaMarkers: () => ({}),
   mediaGenerationTimes: () => ({}),
   batchJobs: () => ({}),
+  activeChainRuns: () => [],
+  completedChainRuns: () => [],
   imageMode: 'cover',
   emptyMessage: 'No jobs yet',
   isVideo: false,
@@ -380,7 +332,11 @@ const emit = defineEmits<{
   (e: 'clear-queue'): void
   (e: 'show-job-info', job: Job): void
   (e: 'media-load-error', mediaId: number): void
+  (e: 'retry-chain', chainRunId: number): void
+  (e: 'dismiss-chain', chainRunId: number): void
 }>()
+
+const chainRunsList = computed(() => props.activeChainRuns)
 
 // Get all batch job IDs for filtering
 const batchJobIds = computed(() => {
@@ -501,6 +457,23 @@ const unifiedDisplayItems = computed(() => {
       type: job.status === 'failed' ? 'failed-job' : 'completed-job',
       timestamp: new Date(job.completed_at || job.created_at || Date.now()),
       job
+    })
+  }
+
+  // Completed post-processing chains: the final image gets a result tile
+  // (chain-step jobs themselves are filtered out of this page's job list).
+  for (const run of props.completedChainRuns) {
+    if (!run.final_media_id) continue
+    items.push({
+      key: `chain-final-${run.id}`,
+      type: 'completed-job',
+      timestamp: new Date(run.updated_at || Date.now()),
+      job: {
+        id: -run.id, // synthetic id; never collides with real job ids
+        status: 'completed',
+        result_media_id: run.final_media_id,
+        completed_at: run.updated_at,
+      }
     })
   }
 
