@@ -18,32 +18,8 @@
       />
     </div>
 
-    <div class="max-h-72 overflow-y-auto py-1">
-      <!-- STP tools -->
-      <template v-if="filteredTools.length">
-        <div class="px-3 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-content-muted">
-          STP tools <span class="text-purple-400 normal-case tracking-normal">image → image</span>
-        </div>
-        <button
-          v-for="tool in filteredTools"
-          :key="tool.full_tool_id"
-          type="button"
-          class="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-overlay-faint transition-colors"
-          @click="$emit('add-tool', tool)"
-        >
-          <div :class="['w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0', getTaskTypeGradientClass(chainTaskType(tool))]">
-            <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" :d="getTaskTypeIconPath(chainTaskType(tool))" />
-            </svg>
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="text-sm text-content truncate">{{ tool.name }}</div>
-            <div class="text-xs text-content-muted truncate">{{ tool.subtitle || tool.provider_name || tool.provider_id }}</div>
-          </div>
-        </button>
-      </template>
-
-      <!-- Built-in filters -->
+    <div class="max-h-96 overflow-y-auto py-1">
+      <!-- Built-in filters (highest priority) -->
       <template v-if="filteredFilters.length">
         <div class="px-3 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-content-muted">
           Filters
@@ -63,6 +39,30 @@
           <div class="flex-1 min-w-0">
             <div class="text-sm text-content truncate">{{ filter.label }}</div>
             <div class="text-xs text-content-muted truncate">{{ filter.description }}</div>
+          </div>
+        </button>
+      </template>
+
+      <!-- STP tools, grouped by category in priority order -->
+      <template v-for="group in toolGroups" :key="group.label">
+        <div class="px-3 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-content-muted">
+          {{ group.label }}
+        </div>
+        <button
+          v-for="tool in group.tools"
+          :key="tool.full_tool_id"
+          type="button"
+          class="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-overlay-faint transition-colors"
+          @click="$emit('add-tool', tool)"
+        >
+          <div :class="['w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0', getTaskTypeGradientClass(chainTaskType(tool))]">
+            <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" :d="getTaskTypeIconPath(chainTaskType(tool))" />
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm text-content truncate">{{ tool.name }}</div>
+            <div class="text-xs text-content-muted truncate">{{ tool.subtitle || tool.provider_name || tool.provider_id }}</div>
           </div>
         </button>
       </template>
@@ -122,6 +122,31 @@ function chainTaskType(tool: ProviderTool): string {
   const tts = tool.task_types?.length ? tool.task_types : [tool.task_type]
   return tts.find(tt => chainTypes.has(tt)) || tool.task_type
 }
+
+// Tool steps are grouped by category in the order people reach for them.
+// Anything whose task type isn't listed falls into a trailing "Other" group.
+const TOOL_CATEGORIES: { label: string; taskTypes: string[] }[] = [
+  { label: 'Upscale', taskTypes: ['upscale-image', 'upscale-video'] },
+  { label: 'Background Removal', taskTypes: ['remove-background'] },
+  { label: 'Image Edit', taskTypes: ['image-to-image'] },
+  { label: 'Image to Video', taskTypes: ['image-to-video'] },
+]
+
+const toolGroups = computed(() => {
+  const buckets = TOOL_CATEGORIES.map(c => ({ label: c.label, tools: [] as ProviderTool[] }))
+  const other = { label: 'Other', tools: [] as ProviderTool[] }
+  for (const tool of filteredTools.value) {
+    const tt = chainTaskType(tool)
+    // Built-in filters are surfaced authoritatively by the Filters section
+    // above; the provider also registers them as 'filter' STP tools, so skip
+    // those here to avoid listing every filter twice.
+    if (tt === 'filter') continue
+    const idx = TOOL_CATEGORIES.findIndex(c => c.taskTypes.includes(tt))
+    if (idx >= 0) buckets[idx].tools.push(tool)
+    else other.tools.push(tool)
+  }
+  return [...buckets, other].filter(g => g.tools.length)
+})
 
 function onClickOutside(ev: MouseEvent) {
   if (menuRef.value && !menuRef.value.contains(ev.target as Node)) {

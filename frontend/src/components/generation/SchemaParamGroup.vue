@@ -226,7 +226,19 @@ function formatEnumOption(value: string, format?: string): string {
       .replace(/^.*\//, '')
       .replace(/\.(safetensors|ckpt|pt|bin)$/i, '')
   }
+  return humanizeEnumOption(value)
+}
+
+// Turn raw enum tokens (nearest_neighbor, high-quality, lanczos) into nicely
+// title-cased labels. Tokens that carry their own casing or digits (acronyms
+// like RGB, sizes like 1024x1024, ratios like 16:9) are left untouched.
+function humanizeEnumOption(value: string): string {
+  if (!/[a-z]/.test(value)) return value
   return value
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map(w => (/[A-Z]/.test(w) || /\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(' ')
 }
 
 function formatGenericParamValue(param: GenericParam, value: any): string {

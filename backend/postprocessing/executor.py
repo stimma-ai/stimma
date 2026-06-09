@@ -126,6 +126,33 @@ async def retry_chain_run(chain_run_id: int, profile_id: str, websocket_manager)
     return True
 
 
+async def reconcile_interrupted_runs(profile_id: str) -> int:
+    """Mark chain runs left 'running' by a previous process as 'paused'.
+
+    A chain run is an in-memory asyncio task; if the backend restarts mid-step
+    the task dies but the row stays 'running' forever — a stuck progress bar
+    with nothing driving it. Run at startup (like cleanup_stale_jobs for jobs)
+    so orphans become paused: they stop reading as in-flight and gain the
+    Retry/Dismiss controls. We deliberately do NOT auto-resume — a step costs
+    compute, so resumption stays an explicit user action."""
+    db = get_database_registry().get_database(profile_id)
+    async with db.async_session_maker() as session:
+        result = await session.execute(
+            update(PostProcessingChainRun)
+            .where(
+                PostProcessingChainRun.status == "running",
+                PostProcessingChainRun.deleted_at.is_(None),
+            )
+            .values(
+                status="paused",
+                error="Interrupted by server restart",
+                updated_at=datetime.utcnow(),
+            )
+        )
+        await session.commit()
+        return result.rowcount or 0
+
+
 async def _base_job_instance_id(session, job_id: int) -> Optional[str]:
     from database import GenerationJob
     result = await session.execute(

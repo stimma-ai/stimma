@@ -88,9 +88,16 @@ export default {
           '0%, 100%': { opacity: '1' },
           '50%':      { opacity: '0.55' },
         },
+        // Travelling sheen for an indeterminate progress segment — honest
+        // "working, position unknown", unlike a bar parked at a fixed width.
+        'shimmer': {
+          '0%':   { backgroundPosition: '150% 0' },
+          '100%': { backgroundPosition: '-150% 0' },
+        },
       },
       animation: {
         'pulse-soft': 'pulse-soft 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'shimmer': 'shimmer 2.2s linear infinite',
       },
       typography: {
         DEFAULT: {

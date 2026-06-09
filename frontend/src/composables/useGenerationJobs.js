@@ -572,9 +572,16 @@ export function useGenerationJobs(options = {}) {
     }
   }
 
-  function dismissChainRun(runId) {
+  async function dismissChainRun(runId) {
+    // Hide immediately (also suppresses any late progress broadcast for this
+    // run), then soft-delete server-side so it doesn't return on reload.
     dismissedChainRuns.value.add(runId)
     dismissedChainRuns.value = new Set(dismissedChainRuns.value)
+    try {
+      await axios.delete(`${getAPIBase()}/postprocessing/runs/${runId}`)
+    } catch (err) {
+      console.error('Failed to dismiss chain run:', err)
+    }
   }
 
   // Bars for in-flight/paused chains (newest first). On completion the chain

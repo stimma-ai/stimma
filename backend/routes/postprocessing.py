@@ -1,5 +1,7 @@
 """Post-processing chain run endpoints: progress listing + retry."""
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,6 +54,27 @@ async def get_chain_run(
     if not run:
         raise HTTPException(status_code=404, detail="Chain run not found")
     return run.to_dict()
+
+
+@router.delete("/runs/{chain_run_id}")
+async def dismiss_chain_run_endpoint(
+    chain_run_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Soft-delete a chain run so it stops appearing as an in-flight/paused bar.
+    Used to clear failed or restart-interrupted runs the user wants gone."""
+    result = await session.execute(
+        select(PostProcessingChainRun).where(
+            PostProcessingChainRun.id == chain_run_id,
+            PostProcessingChainRun.deleted_at.is_(None),
+        )
+    )
+    run = result.scalar_one_or_none()
+    if not run:
+        raise HTTPException(status_code=404, detail="Chain run not found")
+    run.deleted_at = datetime.utcnow()
+    await session.commit()
+    return {"status": "dismissed", "chain_run_id": chain_run_id}
 
 
 @router.post("/runs/{chain_run_id}/retry")

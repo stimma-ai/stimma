@@ -958,6 +958,18 @@ async def lifespan(app: FastAPI):
         generation_queue = get_generation_queue()
         await generation_queue.cleanup_stale_jobs()
 
+        # Post-processing chain runs are in-memory tasks with no resume; mark any
+        # left 'running' by a previous process as paused so they aren't stuck
+        # in-flight bars after a restart.
+        try:
+            from postprocessing.executor import reconcile_interrupted_runs
+            for profile in settings.profiles:
+                reconciled = await reconcile_interrupted_runs(profile.id)
+                if reconciled:
+                    log.info("paused interrupted chain runs", profile=profile.id, count=reconciled)
+        except Exception:
+            log.exception("failed to reconcile interrupted chain runs")
+
         # Reconcile denormalized recipe.pending_task_count from each profile's
         # per-recipe state.db. Catches drift from any missed WebSocket events
         # across an ungraceful shutdown so the landing view and sidebar

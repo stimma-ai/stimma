@@ -10,26 +10,25 @@
       <div v-if="activeDisplayItems.length > 0" class="flex flex-col gap-2">
         <template v-for="item in activeDisplayItems" :key="item.key">
           <!-- Active individual job (queued/processing/enhancing) -->
-          <GenerationProgressBar
+          <PipelineProgressBar
             v-if="item.type === 'active-job'"
-            :name="item.job.model_name || 'Generation'"
-            :status="item.job.status === 'enhancing' ? 'enhancing' : item.job.status === 'processing' ? 'processing' : 'queued'"
+            v-bind="jobModel(item.job)"
             @cancel="$emit('cancel-job', item.job.id)"
           />
-          <!-- Active batch (in progress) -->
-          <GenerationProgressBar
+          <!-- Active batch (in progress) — determinate fraction -->
+          <PipelineProgressBar
             v-else-if="item.type === 'active-batch'"
-            :name="`${item.batch.jobs?.[0]?.model_name || 'Batch'} · ${item.batch.completed + item.batch.failed}/${item.batch.total}`"
-            :status="item.batch.inProgress > 0 ? 'processing' : 'queued'"
-            :progress="item.batch.total ? (item.batch.completed + item.batch.failed) / item.batch.total : null"
+            v-bind="batchModel(item.batch)"
             @cancel="$emit('cancel-and-dismiss-batch', item.batch.batch_id)"
           />
-          <!-- Running/paused post-processing chain: step dots + Retry on failure -->
-          <ChainProgressBar
+          <!-- Running/paused post-processing chain: same segmented pipeline,
+               generation shown as the first (done) stage for continuity. -->
+          <PipelineProgressBar
             v-else-if="item.type === 'chain-run'"
-            :run="item.run"
-            @retry="$emit('retry-chain', $event)"
-            @dismiss="$emit('dismiss-chain', $event)"
+            v-bind="chainModel(item.run)"
+            @retry="$emit('retry-chain', item.run.id)"
+            @dismiss="$emit('dismiss-chain', item.run.id)"
+            @cancel="$emit('dismiss-chain', item.run.id)"
           />
         </template>
       </div>
@@ -221,8 +220,7 @@
 import { computed } from 'vue'
 import { formatRemainingTime } from '../../utils/timeFormat'
 import { MediaImage, AppImage } from '../media'
-import GenerationProgressBar from './postprocessing/GenerationProgressBar.vue'
-import ChainProgressBar from './postprocessing/ChainProgressBar.vue'
+import PipelineProgressBar from './postprocessing/PipelineProgressBar.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
@@ -494,6 +492,93 @@ const activeDisplayItems = computed(() =>
 const completedDisplayItems = computed(() =>
   unifiedDisplayItems.value.filter(item => !ACTIVE_ITEM_TYPES.has(item.type))
 )
+
+// --- PipelineProgressBar models ---------------------------------------------
+// Each active item (job / batch / chain) is normalised into the same segmented
+// pipeline props so generation and post-processing read as one continuous flow.
+
+function jobModel(job: Job) {
+  const enhancing = job.status === 'enhancing'
+  const processing = job.status === 'processing'
+  return {
+    name: job.model_name || 'Generation',
+    status: enhancing ? 'enhancing' : processing ? 'processing' : 'queued',
+    label: enhancing ? 'Enhancing prompt…' : processing ? 'Generating…' : 'Queued…',
+    segments: [{ status: (processing || enhancing ? 'active' : 'pending') as const }],
+  }
+}
+
+function batchModel(batch: BatchInfo) {
+  const done = batch.completed + batch.failed
+  return {
+    name: batch.jobs?.[0]?.model_name || 'Batch',
+    status: batch.inProgress > 0 ? 'processing' : 'queued',
+    label: `${done} of ${batch.total} done`,
+    progress: batch.total ? done / batch.total : null,
+  }
+}
+
+function chainStepLabel(step: any): string {
+  if (!step) return 'step'
+  return step.kind === 'filter' ? (step.filter_id || 'filter') : (step.tool_name || step.tool_id || 'tool')
+}
+
+const CHAIN_STATUS_WORD: Record<string, string> = {
+  done: 'done', running: 'running', failed: 'failed',
+  skipped_incompatible: 'skipped (incompatible input)', queued: 'queued',
+}
+
+function chainModel(run: ChainRun) {
+  const failed = run.status === 'paused' || run.status === 'failed'
+  const results = run.step_results || []
+  const chain = run.chain || []
+
+  // Steps skipped as incompatible were no-ops — drop them from the live
+  // pipeline (and the "of N" count) entirely; they aren't part of the work
+  // that ran, same as a step the user disabled up front.
+  const kept = results
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => r.status !== 'skipped_incompatible')
+
+  // Generation is the first, always-done stage; the kept chain steps follow.
+  const stepSegments = kept.map(({ r, i }) => ({
+    status: (r.status === 'done' ? 'done'
+      : r.status === 'running' ? 'active'
+      : r.status === 'failed' ? 'failed'
+      : 'pending') as 'done' | 'active' | 'pending' | 'failed',
+    title: `${chainStepLabel(chain[i])} — ${CHAIN_STATUS_WORD[r.status] || r.status}`,
+  }))
+  const segments = [{ status: 'done' as const, title: 'Generated' }, ...stepSegments]
+
+  // Locate the step the user should be told about, within the kept steps: the
+  // failed one, else the running one, else the latest reached.
+  let focusPos = kept.findIndex(({ r }) => r.status === 'failed')
+  if (focusPos < 0) focusPos = kept.findIndex(({ r }) => r.status === 'running')
+  if (focusPos < 0) focusPos = Math.max(0, kept.filter(({ i }) => i <= run.step_index).length - 1)
+  const focusOrigIdx = kept[focusPos]?.i ?? 0
+
+  const total = kept.length + 1                          // +1 for generation
+  const position = Math.min(focusPos + 2, total)         // generation is position 1
+  const stepName = chainStepLabel(chain[focusOrigIdx])
+  const label = failed
+    ? `${stepName} failed — step ${position} of ${total}`
+    : `${stepName} — step ${position} of ${total}`
+
+  // Single-step chains read better titled by their one tool (matching the
+  // generation bars); multi-step chains get the umbrella "Post-processing".
+  const name = kept.length > 1
+    ? 'Post-processing'
+    : (kept.length ? chainStepLabel(chain[kept[0].i]) : 'Post-processing')
+
+  return {
+    name,
+    label,
+    segments,
+    thumbMediaId: run.last_good_media_id || run.base_media_id,
+    failed,
+    showRetry: failed,
+  }
+}
 
 // Helper functions
 function getMediaHash(mediaId: number): string {
