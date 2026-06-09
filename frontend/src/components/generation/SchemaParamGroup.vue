@@ -1,6 +1,6 @@
 <template>
   <template v-for="paramGroup in groups" :key="paramGroup.group || 'ungrouped'">
-    <div class="mb-6 last:mb-0">
+    <div :class="flat ? 'mb-3 last:mb-0' : 'mb-6 last:mb-0'">
       <!-- Group header - collapsible if paramGroup.collapsible is true -->
       <div v-if="paramGroup.label" class="mb-3">
         <button
@@ -15,12 +15,12 @@
         <span v-else class="text-xs font-medium text-content-muted uppercase tracking-wide">{{ paramGroup.label }}</span>
       </div>
       <!-- Parameters list (settings-style: label+desc on left, control on right) -->
-      <div v-show="!paramGroup.collapsible || !isCollapsed(paramGroup.group)" class="rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]">
+      <div v-show="!paramGroup.collapsible || !isCollapsed(paramGroup.group)" :class="flat ? 'divide-y divide-white/[0.06]' : 'rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]'">
         <template v-for="param in paramGroup.params" :key="param.name">
           <!-- Skip if visibleWhen condition not met -->
           <template v-if="!param.visibleWhen || values[param.visibleWhen.param] === param.visibleWhen.value">
             <!-- Seed control with randomize checkbox -->
-            <div v-if="param.control === 'seed'" class="flex items-center justify-between gap-4 px-4 py-3">
+            <div v-if="param.control === 'seed'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
                 <div class="text-sm font-medium text-content">{{ param.label }}</div>
                 <div v-if="param.description" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
@@ -45,7 +45,7 @@
               </div>
             </div>
             <!-- Enum/Select -->
-            <div v-else-if="param.enum" class="flex items-center justify-between gap-4 px-4 py-3">
+            <div v-else-if="param.enum" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
                 <div class="text-sm font-medium text-content">{{ param.label }}</div>
                 <div v-if="param.description" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
@@ -59,7 +59,7 @@
               </div>
             </div>
             <!-- Number/Slider -->
-            <div v-else-if="param.type === 'number' || param.type === 'integer'" class="flex items-center justify-between gap-4 px-4 py-3">
+            <div v-else-if="param.type === 'number' || param.type === 'integer'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
                 <div class="text-sm font-medium text-content">{{ param.label }}</div>
                 <div v-if="param.description" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
@@ -93,7 +93,7 @@
               </div>
             </div>
             <!-- Boolean/Checkbox -->
-            <div v-else-if="param.type === 'boolean'" class="flex items-center justify-between gap-4 px-4 py-3">
+            <div v-else-if="param.type === 'boolean'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="w-[55%] flex-shrink-0">
                 <div class="text-sm font-medium text-content">{{ param.label }}</div>
                 <div v-if="param.description" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
@@ -106,7 +106,7 @@
               />
             </div>
             <!-- String input (textarea for x-control: textarea, otherwise single-line) -->
-            <div v-else-if="param.type === 'string'" class="px-4 py-3">
+            <div v-else-if="param.type === 'string'" :class="rowPad">
               <div class="flex items-center justify-between gap-4 mb-2">
                 <div class="w-[55%] flex-shrink-0">
                   <div class="text-sm font-medium text-content">{{ param.label }}</div>
@@ -138,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import SettingsDropdown from '../ui/SettingsDropdown.vue'
 import type { GenericParam, GenericParamGroup } from '../../composables/useToolSchemaFeatures'
 
@@ -149,10 +149,15 @@ import type { GenericParam, GenericParamGroup } from '../../composables/useToolS
 const props = defineProps<{
   groups: GenericParamGroup[]
   values: Record<string, any>
+  /** Flat variant for embedding inside an already-boxed container (e.g. an
+      expanded chain step card) — rows only, no border/background bubble. */
+  flat?: boolean
   /** Optional external collapse persistence (ToolView persists per tool). */
   isGroupCollapsed?: (groupLabel: string | null) => boolean
   onToggleGroupCollapsed?: (groupLabel: string | null) => void
 }>()
+
+const rowPad = computed(() => (props.flat ? 'px-1 py-2' : 'px-4 py-3'))
 
 const emit = defineEmits<{
   (e: 'update:param', name: string, value: any): void
