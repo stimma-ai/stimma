@@ -46,7 +46,7 @@
       <!-- Built-in filters -->
       <template v-if="filteredFilters.length">
         <div class="px-3 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-content-muted">
-          Filters <span class="text-green-500 normal-case tracking-normal">built-in</span>
+          Filters
         </div>
         <button
           v-for="filter in filteredFilters"

@@ -154,12 +154,13 @@ export const CHAIN_TOOL_TASK_TYPES = [
   'filter',
   'image-to-image',
   'upscale-image',
+  'remove-background',
   'image-to-video',
   'upscale-video',
 ] as const
 
 /** Steps that take an image and emit an image. */
-const IMAGE_IN_IMAGE_OUT = new Set(['filter', 'image-to-image', 'upscale-image'])
+const IMAGE_IN_IMAGE_OUT = new Set(['filter', 'image-to-image', 'upscale-image', 'remove-background'])
 
 export function stepInputMedia(taskType: string | undefined, kind: ChainStepKind): 'image' | 'video' {
   if (kind === 'filter') return 'image'
@@ -175,18 +176,26 @@ export function stepOutputMedia(taskType: string | undefined, kind: ChainStepKin
 /**
  * Walk the enabled chain and compute the running media type entering each
  * step (by step id), plus the ids of enabled steps whose input type doesn't
- * match. Used by both the Add menu (filter offerings) and the cards (flag
- * incompatible steps); the executor enforces the same rule server-side.
+ * match. Used by both the Add menu (offerings + insertion point) and the
+ * cards (flag incompatible steps); the executor enforces the same rule
+ * server-side.
+ *
+ * `initial` is the base generation's output type (a chain on a video tool
+ * starts from a video).
  */
-export function chainMediaFlow(chain: PostProcessingChain): {
+export function chainMediaFlow(chain: PostProcessingChain, initial: 'image' | 'video' = 'image'): {
   inputTypeByStepId: Record<string, 'image' | 'video'>
   incompatibleStepIds: Set<string>
   finalType: 'image' | 'video'
+  /** Running media type entering each insertion position (0..steps.length). */
+  positionTypes: Array<'image' | 'video'>
 } {
-  let running: 'image' | 'video' = 'image'
+  let running: 'image' | 'video' = initial
   const inputTypeByStepId: Record<string, 'image' | 'video'> = {}
   const incompatibleStepIds = new Set<string>()
+  const positionTypes: Array<'image' | 'video'> = []
   for (const step of chain.steps) {
+    positionTypes.push(running)
     inputTypeByStepId[step.id] = running
     if (!step.enabled) continue
     if (stepInputMedia(step.task_type, step.kind) !== running) {
@@ -195,5 +204,25 @@ export function chainMediaFlow(chain: PostProcessingChain): {
     }
     running = stepOutputMedia(step.task_type, step.kind)
   }
-  return { inputTypeByStepId, incompatibleStepIds, finalType: running }
+  positionTypes.push(running)
+  return { inputTypeByStepId, incompatibleStepIds, finalType: running, positionTypes }
+}
+
+/**
+ * Where a new step taking `inputType` should be inserted: the LAST position
+ * whose running media type matches. An image step added to a chain that
+ * already transitions to video lands just before the video transition —
+ * adding earlier-stage steps never requires removing later ones.
+ * Returns -1 when no position accepts the input type.
+ */
+export function defaultInsertIndex(
+  chain: PostProcessingChain,
+  inputType: 'image' | 'video',
+  initial: 'image' | 'video' = 'image',
+): number {
+  const { positionTypes } = chainMediaFlow(chain, initial)
+  for (let p = positionTypes.length - 1; p >= 0; p--) {
+    if (positionTypes[p] === inputType) return p
+  }
+  return -1
 }

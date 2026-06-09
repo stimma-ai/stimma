@@ -506,6 +506,7 @@
         <PostProcessingPanel
           v-model:chain="toolChain"
           :current-tool-id="fullToolIdFromProps"
+          :base-media-type="outputsVideo ? 'video' : 'image'"
         />
 
         <!-- Generic Parameters (dynamic from tool schema, grouped) -->
@@ -787,7 +788,7 @@ import {
 import HopToToolMenu from '../components/HopToToolMenu.vue'
 import PostProcessingPanel from '../components/generation/postprocessing/PostProcessingPanel.vue'
 import SchemaParamGroup from '../components/generation/SchemaParamGroup.vue'
-import { CHAIN_TOOL_TASK_TYPES, emptyChain, mergeRecordedChain, newStepId, normalizeChain, stepInputMedia, toRecordedSteps, type ChainStep, type PostProcessingChain } from '../utils/postProcessingChain'
+import { CHAIN_TOOL_TASK_TYPES, defaultInsertIndex, emptyChain, mergeRecordedChain, newStepId, normalizeChain, stepInputMedia, toRecordedSteps, type ChainStep, type PostProcessingChain } from '../utils/postProcessingChain'
 import { CHAIN_FILTER_DEFS, getChainFilterDef, getChainFilterDefaults } from '@stimma/image-editor'
 import RemixBanner from '../components/generation/RemixBanner.vue'
 import PromptAgentChat from '../components/generation/PromptAgentChat.vue'
@@ -3825,7 +3826,11 @@ async function runTool(name: string, args: any): Promise<string> {
       }
 
       const steps = toolChain.value.steps
-      let pos = steps.length
+      // Default position: the latest stage that accepts the step's input type
+      // (an image step lands before the chain's video transition).
+      const baseType = outputsVideo.value ? 'video' : 'image'
+      const smart = defaultInsertIndex(toolChain.value, stepInputMedia(step.task_type, step.kind), baseType)
+      let pos = smart < 0 ? steps.length : smart
       if (args.position != null) {
         const p = Math.round(Number(args.position)) - 1
         if (!Number.isNaN(p)) pos = Math.max(0, Math.min(steps.length, p))

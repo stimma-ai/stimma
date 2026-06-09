@@ -73,6 +73,7 @@
         :groups="groupedGenericParams"
         :values="step.settings"
         flat
+        disable-collapse
         @update:param="updateSetting"
       />
       <div v-if="!groupedGenericParams.length && !hasPrompt && !showUpscalePicker && !hasAspectRatio && !hasMegapixels" class="text-xs text-content-muted py-1">

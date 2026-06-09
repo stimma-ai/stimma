@@ -4,7 +4,7 @@
       <!-- Group header - collapsible if paramGroup.collapsible is true -->
       <div v-if="paramGroup.label" class="mb-3">
         <button
-          v-if="paramGroup.collapsible"
+          v-if="paramGroup.collapsible && !disableCollapse"
           @click="toggleCollapsed(paramGroup.group)"
           type="button"
           class="flex items-center gap-2 text-xs font-medium text-content-muted uppercase tracking-wide hover:text-content-tertiary transition-colors"
@@ -15,7 +15,7 @@
         <span v-else class="text-xs font-medium text-content-muted uppercase tracking-wide">{{ paramGroup.label }}</span>
       </div>
       <!-- Parameters list (settings-style: label+desc on left, control on right) -->
-      <div v-show="!paramGroup.collapsible || !isCollapsed(paramGroup.group)" :class="flat ? 'divide-y divide-white/[0.06]' : 'rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]'">
+      <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" :class="flat ? 'divide-y divide-white/[0.06]' : 'rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]'">
         <template v-for="param in paramGroup.params" :key="param.name">
           <!-- Skip if visibleWhen condition not met -->
           <template v-if="!param.visibleWhen || values[param.visibleWhen.param] === param.visibleWhen.value">
@@ -152,6 +152,10 @@ const props = defineProps<{
   /** Flat variant for embedding inside an already-boxed container (e.g. an
       expanded chain step card) — rows only, no border/background bubble. */
   flat?: boolean
+  /** Render collapsible groups (e.g. Advanced) always open, header as a plain
+      label. One chevron per surface is enough — drop this prop to restore the
+      per-group disclosure behavior. */
+  disableCollapse?: boolean
   /** Optional external collapse persistence (ToolView persists per tool). */
   isGroupCollapsed?: (groupLabel: string | null) => boolean
   onToggleGroupCollapsed?: (groupLabel: string | null) => void

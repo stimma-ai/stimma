@@ -56,7 +56,7 @@ class TestChainExecutorFilters:
 
         steps = [
             {"kind": "filter", "filter_id": "resize", "settings": {"long_edge": 48}},
-            {"kind": "filter", "filter_id": "color-filter", "settings": {"filter": "mono"}},
+            {"kind": "filter", "filter_id": "filter", "settings": {"filter": "mono"}},
         ]
         run_id = await start_chain_for_job(
             job=_fake_job(),
@@ -179,7 +179,7 @@ class TestChainExecutorFilters:
 
         steps = [
             {"kind": "filter", "filter_id": "resize", "settings": {"long_edge": 40}},
-            {"kind": "filter", "filter_id": "color-filter", "settings": {"filter": "not-a-filter"}},
+            {"kind": "filter", "filter_id": "filter", "settings": {"filter": "not-a-filter"}},
         ]
         run_id = await start_chain_for_job(
             job=_fake_job(job_id=99003),
@@ -202,7 +202,7 @@ class TestChainExecutorFilters:
     async def test_retry_resumes_from_failed_step(self, generation_app, generation_client, generation_db_session, mock_ws, tmp_path):
         base = await _make_base_media(generation_db_session, tmp_path, "chain_retry.png")
 
-        steps = [{"kind": "filter", "filter_id": "color-filter", "settings": {"filter": "not-a-filter"}}]
+        steps = [{"kind": "filter", "filter_id": "filter", "settings": {"filter": "not-a-filter"}}]
         run_id = await start_chain_for_job(
             job=_fake_job(job_id=99004),
             base_media_id=base.id,

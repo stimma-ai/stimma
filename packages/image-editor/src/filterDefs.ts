@@ -39,37 +39,32 @@ export const COLOR_FILTER_OPTIONS = FILTER_CATEGORIES
   .map(f => ({ value: f.id, label: f.label }));
 
 /**
- * The chain's built-in filter registry (MVP set — mirrors the editor's simple
- * half; heavy creative effects are deliberately deferred).
+ * The chain's built-in filter registry. Terminology mirrors the editor's
+ * panels exactly — Filters (presets), Levels, and the Effects set — so the
+ * chain feels like the same tools in another place. The heavy creative
+ * effects (VHS, glitch, halftone, dither, split toning, gradient map, color
+ * isolation) are deliberately deferred.
  */
 export const CHAIN_FILTER_DEFS: ChainFilterDef[] = [
   {
-    id: 'color-filter',
-    label: 'Color Filter',
-    description: 'Apply a color preset (film, B&W, …)',
+    id: 'filter',
+    label: 'Filter',
+    description: 'Chrome, Vivid, Sepia, film stocks…',
     params: [
       { name: 'filter', label: 'Filter', type: 'enum', default: 'chrome', options: COLOR_FILTER_OPTIONS },
     ],
   },
   {
-    id: 'color-grade',
-    label: 'Color Grade',
-    description: 'Temp, contrast, saturation…',
+    id: 'levels',
+    label: 'Levels',
+    description: 'Brightness, contrast, saturation…',
     params: [
-      { name: 'temperature', label: 'Temperature', type: 'number', default: 0, min: -100, max: 100, step: 1 },
       { name: 'brightness', label: 'Brightness', type: 'number', default: 0, min: -100, max: 100, step: 1 },
       { name: 'contrast', label: 'Contrast', type: 'number', default: 0, min: -100, max: 100, step: 1 },
       { name: 'saturation', label: 'Saturation', type: 'number', default: 0, min: -100, max: 100, step: 1 },
       { name: 'exposure', label: 'Exposure', type: 'number', default: 0, min: -100, max: 100, step: 1 },
+      { name: 'temperature', label: 'Temperature', type: 'number', default: 0, min: -100, max: 100, step: 1 },
       { name: 'gamma', label: 'Gamma', type: 'number', default: 1, min: 0.2, max: 2.2, step: 0.05 },
-    ],
-  },
-  {
-    id: 'sharpen',
-    label: 'Sharpen',
-    description: 'Unsharp mask',
-    params: [
-      { name: 'amount', label: 'Amount', type: 'number', default: 30, min: 0, max: 100, step: 1 },
     ],
   },
   {
@@ -81,9 +76,58 @@ export const CHAIN_FILTER_DEFS: ChainFilterDef[] = [
     ],
   },
   {
+    id: 'sharpen',
+    label: 'Sharpen',
+    description: 'Unsharp mask',
+    params: [
+      { name: 'amount', label: 'Amount', type: 'number', default: 30, min: 0, max: 100, step: 1 },
+    ],
+  },
+  {
     id: 'clarity',
     label: 'Clarity',
     description: 'Local contrast boost',
+    params: [
+      { name: 'amount', label: 'Amount', type: 'number', default: 30, min: 0, max: 100, step: 1 },
+    ],
+  },
+  {
+    id: 'motion-blur',
+    label: 'Motion Blur',
+    description: 'Directional blur',
+    params: [
+      { name: 'amount', label: 'Amount', type: 'number', default: 30, min: 0, max: 100, step: 1 },
+      { name: 'angle', label: 'Direction', type: 'number', default: 0, min: -180, max: 180, step: 1 },
+    ],
+  },
+  {
+    id: 'glow',
+    label: 'Glow',
+    description: 'Soft bloom on highlights',
+    params: [
+      { name: 'amount', label: 'Amount', type: 'number', default: 30, min: 0, max: 100, step: 1 },
+    ],
+  },
+  {
+    id: 'noise',
+    label: 'Noise',
+    description: 'Film grain',
+    params: [
+      { name: 'amount', label: 'Amount', type: 'number', default: 20, min: 0, max: 100, step: 1 },
+    ],
+  },
+  {
+    id: 'pixelate',
+    label: 'Pixelate',
+    description: 'Mosaic blocks',
+    params: [
+      { name: 'amount', label: 'Amount', type: 'number', default: 20, min: 0, max: 100, step: 1 },
+    ],
+  },
+  {
+    id: 'chromatic-aberration',
+    label: 'Chromatic',
+    description: 'RGB channel offset',
     params: [
       { name: 'amount', label: 'Amount', type: 'number', default: 30, min: 0, max: 100, step: 1 },
     ],
@@ -125,8 +169,30 @@ export const CHAIN_FILTER_DEFS: ChainFilterDef[] = [
   },
 ];
 
+// Pre-release ids that were renamed when terminology aligned with the editor.
+const LEGACY_FILTER_IDS: Record<string, string> = {
+  'color-filter': 'filter',
+  'color-grade': 'levels',
+};
+
 export function getChainFilterDef(filterId: string): ChainFilterDef | undefined {
-  return CHAIN_FILTER_DEFS.find(f => f.id === filterId);
+  const id = LEGACY_FILTER_IDS[filterId] || filterId;
+  return CHAIN_FILTER_DEFS.find(f => f.id === id);
+}
+
+/**
+ * User-facing label for a filter id or color-preset id ("vignette" →
+ * "Vignette", "tri-x-400" → "Tri-X 400"). Falls back to title-casing.
+ */
+export function getFilterDisplayLabel(id: string): string {
+  const def = getChainFilterDef(id);
+  if (def) return def.label;
+  const preset = COLOR_FILTER_OPTIONS.find(o => o.value === id);
+  if (preset) return preset.label;
+  return String(id)
+    .split('-')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 export function getChainFilterDefaults(filterId: string): Record<string, number | string> {

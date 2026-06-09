@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List
 import numpy as np
 from PIL import Image, ImageFilter
 
-from .filter_defs import FILTER_MATRICES, get_filter_def
+from .filter_defs import FILTER_MATRICES, LEGACY_FILTER_IDS, get_filter_def
 
 
 # --- Color matrix math (port of colorMatrix.ts) ------------------------------
@@ -176,7 +176,7 @@ def _from_rgba(arr: np.ndarray, had_alpha: bool) -> Image.Image:
 
 # --- Filter handlers -----------------------------------------------------------
 
-def _f_color_filter(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
+def _f_filter(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
     filter_id = str(settings.get("filter", "chrome"))
     matrix = FILTER_MATRICES.get(filter_id)
     if matrix is None:
@@ -185,7 +185,7 @@ def _f_color_filter(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
     return _from_rgba(apply_color_matrix(_to_rgba(img), matrix), had_alpha)
 
 
-def _f_color_grade(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
+def _f_levels(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
     matrix = combine_adjustments({
         "brightness": float(settings.get("brightness", 0) or 0),
         "contrast": float(settings.get("contrast", 0) or 0),
@@ -223,6 +223,92 @@ def _f_clarity(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
     rgba = _to_rgba(img)
     blurred = _to_rgba(_gaussian(img, 20.0))
     return _from_rgba(_unsharp(rgba, blurred, amount / 100.0), had_alpha)
+
+
+def _f_motion_blur(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
+    amount = float(settings.get("amount", 30) or 0)
+    if amount <= 0:
+        return img
+    angle = float(settings.get("angle", 0) or 0)
+    had_alpha = img.mode in ("RGBA", "LA", "PA")
+    src = _to_rgba(img).astype(np.float32)
+    h, w = src.shape[:2]
+
+    radians = math.radians(angle)
+    dx, dy = math.cos(radians), math.sin(radians)
+    samples = max(3, int(amount // 3))
+    max_offset = amount / 2.0
+
+    acc = np.zeros_like(src)
+    for i in range(samples):
+        t = (i / (samples - 1)) - 0.5
+        ox = int(round(dx * t * max_offset * 2))
+        oy = int(round(dy * t * max_offset * 2))
+        xs = np.clip(np.arange(w) - ox, 0, w - 1)
+        ys = np.clip(np.arange(h) - oy, 0, h - 1)
+        acc += src[ys][:, xs]
+    out = np.clip(acc / samples, 0, 255).astype(np.uint8)
+    return _from_rgba(out, had_alpha)
+
+
+def _f_glow(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
+    amount = float(settings.get("amount", 30) or 0)
+    if amount <= 0:
+        return img
+    had_alpha = img.mode in ("RGBA", "LA", "PA")
+    base = _to_rgba(img).astype(np.float32)
+    # Bright pass: blur(amount*2 px) then brightness(1.5), like the editor's
+    # CSS filter chain.
+    glow = _to_rgba(_gaussian(img, amount * 2.0)).astype(np.float32)
+    glow[..., :3] = np.clip(glow[..., :3] * 1.5, 0, 255)
+    # Screen blend at alpha amount/100.
+    a = amount / 100.0
+    screen = 255.0 - (255.0 - base[..., :3]) * (255.0 - glow[..., :3]) / 255.0
+    out = base.copy()
+    out[..., :3] = base[..., :3] * (1.0 - a) + screen * a
+    return _from_rgba(np.clip(out, 0, 255).astype(np.uint8), had_alpha)
+
+
+def _f_noise(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
+    amount = float(settings.get("amount", 20) or 0)
+    if amount <= 0:
+        return img
+    had_alpha = img.mode in ("RGBA", "LA", "PA")
+    rgba = _to_rgba(img).astype(np.float32)
+    intensity = amount * 2.55
+    rng = np.random.default_rng()
+    # Same noise value across R/G/B per pixel (monochrome grain, like the editor)
+    noise = (rng.random(rgba.shape[:2], dtype=np.float32) - 0.5) * intensity
+    rgba[..., :3] += noise[..., None]
+    return _from_rgba(np.clip(rgba, 0, 255).astype(np.uint8), had_alpha)
+
+
+def _f_pixelate(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
+    amount = float(settings.get("amount", 20) or 0)
+    if amount <= 0:
+        return img
+    pixel_size = max(2, int(amount // 2))
+    w, h = img.size
+    small = img.resize(
+        (max(1, w // pixel_size), max(1, h // pixel_size)), Image.NEAREST
+    )
+    return small.resize((w, h), Image.NEAREST)
+
+
+def _f_chromatic_aberration(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
+    amount = float(settings.get("amount", 30) or 0)
+    offset = int(amount // 5)
+    if offset <= 0:
+        return img
+    had_alpha = img.mode in ("RGBA", "LA", "PA")
+    rgba = _to_rgba(img)
+    w = rgba.shape[1]
+    out = rgba.copy()
+    xs_r = np.clip(np.arange(w) - offset, 0, w - 1)  # red samples from the left
+    xs_b = np.clip(np.arange(w) + offset, 0, w - 1)  # blue samples from the right
+    out[..., 0] = rgba[:, xs_r, 0]
+    out[..., 2] = rgba[:, xs_b, 2]
+    return _from_rgba(out, had_alpha)
 
 
 def _f_vignette(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
@@ -274,11 +360,16 @@ def _f_resize(img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
 
 
 FILTER_HANDLERS: Dict[str, Callable[[Image.Image, Dict[str, Any]], Image.Image]] = {
-    "color-filter": _f_color_filter,
-    "color-grade": _f_color_grade,
-    "sharpen": _f_sharpen,
+    "filter": _f_filter,
+    "levels": _f_levels,
     "blur": _f_blur,
+    "sharpen": _f_sharpen,
     "clarity": _f_clarity,
+    "motion-blur": _f_motion_blur,
+    "glow": _f_glow,
+    "noise": _f_noise,
+    "pixelate": _f_pixelate,
+    "chromatic-aberration": _f_chromatic_aberration,
     "vignette": _f_vignette,
     "crop": _f_crop,
     "resize": _f_resize,
@@ -287,6 +378,7 @@ FILTER_HANDLERS: Dict[str, Callable[[Image.Image, Dict[str, Any]], Image.Image]]
 
 def apply_builtin_filter(filter_id: str, img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
     """Apply one built-in filter to a PIL image. Settings overlay the def defaults."""
+    filter_id = LEGACY_FILTER_IDS.get(filter_id, filter_id)
     handler = FILTER_HANDLERS.get(filter_id)
     if handler is None:
         raise ValueError(f"Unknown built-in filter: {filter_id}")

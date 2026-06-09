@@ -150,7 +150,7 @@ def test_color_matrix_application_matches_reference():
 
 
 def test_mono_filter_is_grayscale():
-    out = np.array(bf.apply_builtin_filter("color-filter", _gradient_image(), {"filter": "mono"}))
+    out = np.array(bf.apply_builtin_filter("filter", _gradient_image(), {"filter": "mono"}))
     assert np.array_equal(out[..., 0], out[..., 1])
     assert np.array_equal(out[..., 1], out[..., 2])
 
@@ -165,15 +165,15 @@ def test_matrix_composition_matches_editor_semantics():
     assert composed == pytest.approx(manual)
 
 
-def test_color_grade_neutral_settings_is_identity():
+def test_levels_neutral_settings_is_identity():
     img = _gradient_image()
-    out = bf.apply_builtin_filter("color-grade", img, get_filter_defaults("color-grade"))
+    out = bf.apply_builtin_filter("levels", img, get_filter_defaults("levels"))
     assert np.array_equal(np.array(out), np.array(img))
 
 
-def test_color_grade_brightness_shifts_up():
+def test_levels_brightness_shifts_up():
     img = _gradient_image()
-    out = bf.apply_builtin_filter("color-grade", img, {"brightness": 50})
+    out = bf.apply_builtin_filter("levels", img, {"brightness": 50})
     assert np.array(out).astype(int).mean() > np.array(img).astype(int).mean()
 
 
@@ -224,9 +224,57 @@ def test_resize_scales_long_edge():
 
 def test_alpha_preserved_through_color_filter():
     img = Image.new("RGBA", (8, 8), (100, 150, 200, 128))
-    out = bf.apply_builtin_filter("color-filter", img, {"filter": "warm"})
+    out = bf.apply_builtin_filter("filter", img, {"filter": "warm"})
     assert out.mode == "RGBA"
     assert np.array(out)[..., 3].min() > 0
+
+
+def test_noise_increases_variance():
+    img = Image.new("RGB", (64, 64), (128, 128, 128))
+    out = bf.apply_builtin_filter("noise", img, {"amount": 50})
+    assert np.array(out).astype(float).var() > 1.0
+
+
+def test_pixelate_creates_uniform_blocks():
+    out = np.array(bf.apply_builtin_filter("pixelate", _gradient_image(), {"amount": 40}))
+    # pixel size = 20 → the first 20x20 block is one flat color
+    block = out[:20, :20]
+    assert (block == block[0, 0]).all()
+
+
+def test_glow_brightens():
+    img = _gradient_image()
+    out = bf.apply_builtin_filter("glow", img, {"amount": 60})
+    assert np.array(out).astype(int).mean() > np.array(img).astype(int).mean()
+
+
+def test_chromatic_aberration_offsets_red_and_blue():
+    img = _gradient_image()
+    out = np.array(bf.apply_builtin_filter("chromatic-aberration", img, {"amount": 50}))
+    src = np.array(img)
+    # offset = 10: red sampled from the left, blue from the right; green untouched
+    assert np.array_equal(out[:, 20, 0], src[:, 10, 0])
+    assert np.array_equal(out[:, 20, 2], src[:, 30, 2])
+    assert np.array_equal(out[..., 1], src[..., 1])
+
+
+def test_motion_blur_smears_along_direction():
+    # A vertical white stripe blurred horizontally spreads; blurred vertically doesn't.
+    arr = np.zeros((40, 40, 3), dtype=np.uint8)
+    arr[:, 19:21] = 255
+    img = Image.fromarray(arr)
+    horizontal = np.array(bf.apply_builtin_filter("motion-blur", img, {"amount": 60, "angle": 0}))
+    vertical = np.array(bf.apply_builtin_filter("motion-blur", img, {"amount": 60, "angle": 90}))
+    assert (horizontal[..., 0] > 0).sum() > (vertical[..., 0] > 0).sum()
+
+
+def test_legacy_filter_ids_still_resolve():
+    # Pre-release chains used color-filter / color-grade
+    out = np.array(bf.apply_builtin_filter("color-filter", _gradient_image(), {"filter": "mono"}))
+    assert np.array_equal(out[..., 0], out[..., 1])
+    img = _gradient_image()
+    out2 = bf.apply_builtin_filter("color-grade", img, {"brightness": 50})
+    assert np.array(out2).astype(int).mean() > np.array(img).astype(int).mean()
 
 
 def test_unknown_filter_id_raises():

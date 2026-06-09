@@ -110,5 +110,6 @@ export {
   COLOR_FILTER_OPTIONS,
   getChainFilterDef,
   getChainFilterDefaults,
+  getFilterDisplayLabel,
 } from './filterDefs';
 export type { ChainFilterDef, ChainFilterParam } from './filterDefs';

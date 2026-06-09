@@ -62,15 +62,12 @@
             <span class="text-amber-500">Needs {{ neededInput }} input — will be skipped</span>
           </template>
           <template v-else-if="step.kind === 'tool' && provider">
+            <!-- Standard provider treatment (same as the sidebar): plain text,
+                 gradient-colored for Stimma Cloud -->
             <span
-              v-if="provider.isStimmaCloud"
-              class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-teal-600/10 border border-teal-600/25"
-            >
-              <span class="stimma-cloud-text">Stimma Cloud</span>
-            </span>
-            <span v-else class="px-2 py-0.5 text-[10px] font-medium rounded-full border border-edge text-content-secondary">
-              {{ provider.name }}
-            </span>
+              class="truncate text-[11px]"
+              :class="provider.isStimmaCloud ? 'stimma-cloud-text font-medium' : 'text-content-muted'"
+            >{{ provider.name }}</span>
           </template>
           <template v-else-if="step.kind === 'filter'">{{ summary }}</template>
         </div>

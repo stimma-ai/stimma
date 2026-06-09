@@ -91,6 +91,7 @@ import { isStimmaCloudTool } from '../../../utils/stimmaCloud'
 import {
   CHAIN_TOOL_TASK_TYPES,
   chainMediaFlow,
+  defaultInsertIndex,
   newStepId,
   stepInputMedia,
   type ChainStep,
@@ -107,6 +108,8 @@ const props = defineProps<{
   chain: PostProcessingChain
   /** The ToolView's own tool — excluded from the Add menu's offerings. */
   currentToolId?: string
+  /** The base generation's output type (a video tool's chain starts from video). */
+  baseMediaType?: 'image' | 'video'
   /** Optional per-step output thumbnails (step id → media id) from the last run. */
   stepThumbs?: Record<string, number>
 }>()
@@ -137,26 +140,29 @@ function toolById(fullToolId?: string): ProviderTool | undefined {
   return allTools.value.find(t => t.full_tool_id === fullToolId)
 }
 
-const mediaFlow = computed(() => chainMediaFlow(props.chain))
+const baseType = computed<'image' | 'video'>(() => props.baseMediaType || 'image')
 
-// Tools offered in the Add menu: chain-compatible task types whose input
-// matches the chain's current output media type (a video step flips the
-// running type to video — only video-accepting steps may follow).
+const mediaFlow = computed(() => chainMediaFlow(props.chain, baseType.value))
+
+// Media types present at ANY insertion position. A step is offered if some
+// stage of the chain accepts it — picking one inserts it at the latest stage
+// that does (so image steps stay addable after a video transition).
+const stageTypes = computed(() => new Set(mediaFlow.value.positionTypes))
+
 const candidateTools = computed(() => {
-  const running = mediaFlow.value.finalType
   const chainTypes = new Set<string>(CHAIN_TOOL_TASK_TYPES)
   return allTools.value.filter(t => {
     if (t.full_tool_id === props.currentToolId) return false
     if (t.availability === 'unconfigured') return false
     const tts = (t.task_types?.length ? t.task_types : [t.task_type]).filter(tt => chainTypes.has(tt))
     if (!tts.length) return false
-    return tts.some(tt => stepInputMedia(tt, 'tool') === running)
+    return tts.some(tt => stageTypes.value.has(stepInputMedia(tt, 'tool')))
   })
 })
 
-// In-app filters are image-only; hide them once the chain outputs video.
+// In-app filters operate on images — offered while the chain has an image stage.
 const candidateFilters = computed<ChainFilterDef[]>(() =>
-  mediaFlow.value.finalType === 'image' ? CHAIN_FILTER_DEFS : []
+  stageTypes.value.has('image') ? CHAIN_FILTER_DEFS : []
 )
 
 // --- Chain mutations --------------------------------------------------------
@@ -203,17 +209,29 @@ function toggleAddMenu() {
   addMenuOpen.value = !addMenuOpen.value
 }
 
-// Resolve the chain task type a tool step should run as.
+// Resolve the chain task type a tool step should run as — prefer one whose
+// input type has a stage in the chain.
 function chainTaskTypeFor(tool: ProviderTool): string {
-  const running = mediaFlow.value.finalType
   const tts = (tool.task_types?.length ? tool.task_types : [tool.task_type])
     .filter(tt => (CHAIN_TOOL_TASK_TYPES as readonly string[]).includes(tt))
-  return tts.find(tt => stepInputMedia(tt, 'tool') === running) || tts[0]
+  return tts.find(tt => stageTypes.value.has(stepInputMedia(tt, 'tool'))) || tts[0]
+}
+
+// Insert a new step at the latest stage that accepts its input type (an image
+// step lands just before the chain's video transition, not at the end).
+function insertStep(step: ChainStep) {
+  const at = defaultInsertIndex(props.chain, stepInputMedia(step.task_type, step.kind), baseType.value)
+  updateChain(c => {
+    const steps = [...c.steps]
+    steps.splice(at < 0 ? steps.length : at, 0, step)
+    return { ...c, steps }
+  })
+  expandStep(step.id)
 }
 
 function addToolStep(tool: ProviderTool) {
   addMenuOpen.value = false
-  const step: ChainStep = {
+  insertStep({
     id: newStepId(),
     kind: 'tool',
     enabled: true,
@@ -221,20 +239,18 @@ function addToolStep(tool: ProviderTool) {
     task_type: chainTaskTypeFor(tool),
     tool_name: tool.name,
     settings: {}, // empty = the tool's schema defaults (overlaid at execution)
-  }
-  updateChain(c => ({ ...c, steps: [...c.steps, step] }))
+  })
 }
 
 function addFilterStep(filter: ChainFilterDef) {
   addMenuOpen.value = false
-  const step: ChainStep = {
+  insertStep({
     id: newStepId(),
     kind: 'filter',
     enabled: true,
     filter_id: filter.id,
     settings: getChainFilterDefaults(filter.id),
-  }
-  updateChain(c => ({ ...c, steps: [...c.steps, step] }))
+  })
 }
 
 // --- Expand / collapse -------------------------------------------------------
@@ -244,6 +260,14 @@ function toggleExpanded(id: string) {
   const next = new Set(expandedIds.value)
   if (next.has(id)) next.delete(id)
   else next.add(id)
+  expandedIds.value = next
+}
+
+// A freshly added step opens expanded — tuning its settings is the very next
+// thing the user does.
+function expandStep(id: string) {
+  const next = new Set(expandedIds.value)
+  next.add(id)
   expandedIds.value = next
 }
 

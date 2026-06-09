@@ -130,30 +130,26 @@ FILTER_MATRICES: Dict[str, List[float]] = {
 COLOR_FILTER_IDS: List[str] = [k for k in FILTER_MATRICES if k != "none"]
 
 # Mirrors CHAIN_FILTER_DEFS in packages/image-editor/src/filterDefs.ts.
+# Terminology matches the editor's panels: Filters (presets), Levels, Effects.
 CHAIN_FILTER_DEFS: List[Dict[str, Any]] = [
     {
-        "id": "color-filter",
-        "label": "Color Filter",
+        "id": "filter",
+        "label": "Filter",
         "params": [
             {"name": "filter", "type": "enum", "default": "chrome", "options": COLOR_FILTER_IDS},
         ],
     },
     {
-        "id": "color-grade",
-        "label": "Color Grade",
+        "id": "levels",
+        "label": "Levels",
         "params": [
-            {"name": "temperature", "type": "number", "default": 0, "min": -100, "max": 100},
             {"name": "brightness", "type": "number", "default": 0, "min": -100, "max": 100},
             {"name": "contrast", "type": "number", "default": 0, "min": -100, "max": 100},
             {"name": "saturation", "type": "number", "default": 0, "min": -100, "max": 100},
             {"name": "exposure", "type": "number", "default": 0, "min": -100, "max": 100},
+            {"name": "temperature", "type": "number", "default": 0, "min": -100, "max": 100},
             {"name": "gamma", "type": "number", "default": 1, "min": 0.2, "max": 2.2},
         ],
-    },
-    {
-        "id": "sharpen",
-        "label": "Sharpen",
-        "params": [{"name": "amount", "type": "number", "default": 30, "min": 0, "max": 100}],
     },
     {
         "id": "blur",
@@ -161,8 +157,41 @@ CHAIN_FILTER_DEFS: List[Dict[str, Any]] = [
         "params": [{"name": "amount", "type": "number", "default": 20, "min": 0, "max": 100}],
     },
     {
+        "id": "sharpen",
+        "label": "Sharpen",
+        "params": [{"name": "amount", "type": "number", "default": 30, "min": 0, "max": 100}],
+    },
+    {
         "id": "clarity",
         "label": "Clarity",
+        "params": [{"name": "amount", "type": "number", "default": 30, "min": 0, "max": 100}],
+    },
+    {
+        "id": "motion-blur",
+        "label": "Motion Blur",
+        "params": [
+            {"name": "amount", "type": "number", "default": 30, "min": 0, "max": 100},
+            {"name": "angle", "type": "number", "default": 0, "min": -180, "max": 180},
+        ],
+    },
+    {
+        "id": "glow",
+        "label": "Glow",
+        "params": [{"name": "amount", "type": "number", "default": 30, "min": 0, "max": 100}],
+    },
+    {
+        "id": "noise",
+        "label": "Noise",
+        "params": [{"name": "amount", "type": "number", "default": 20, "min": 0, "max": 100}],
+    },
+    {
+        "id": "pixelate",
+        "label": "Pixelate",
+        "params": [{"name": "amount", "type": "number", "default": 20, "min": 0, "max": 100}],
+    },
+    {
+        "id": "chromatic-aberration",
+        "label": "Chromatic",
         "params": [{"name": "amount", "type": "number", "default": 30, "min": 0, "max": 100}],
     },
     {
@@ -186,7 +215,15 @@ CHAIN_FILTER_DEFS: List[Dict[str, Any]] = [
 ]
 
 
+# Pre-release ids renamed when terminology aligned with the editor.
+LEGACY_FILTER_IDS: Dict[str, str] = {
+    "color-filter": "filter",
+    "color-grade": "levels",
+}
+
+
 def get_filter_def(filter_id: str) -> Optional[Dict[str, Any]]:
+    filter_id = LEGACY_FILTER_IDS.get(filter_id, filter_id)
     for d in CHAIN_FILTER_DEFS:
         if d["id"] == filter_id:
             return d

@@ -755,6 +755,7 @@ import { useProvidersApi } from '../composables/useProvidersApi'
 import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { copyToClipboard } from '../utils/clipboard'
+import { getFilterDisplayLabel } from '@stimma/image-editor'
 import { isImage as isImageType, hasVisualContent, getMediaType } from '../utils/mediaTypes'
 
 const props = defineProps({
@@ -1273,6 +1274,7 @@ function getToolDisplayName(step) {
     if (colonIndex !== -1) return step.tool_id.substring(colonIndex + 1)
     return step.tool_id
   }
+  if (step.task_type === 'filter') return 'Filter'
   return step.task_type || 'imported'
 }
 
@@ -1363,6 +1365,7 @@ const stepLabelOverrides = {
   cell_count: 'Cells',
   clip_skip: 'Clip Skip',
   checkpoint: 'Model',
+  filter_id: 'Filter',
 }
 
 const fullWidthParams = new Set(['checkpoint'])
@@ -1411,6 +1414,7 @@ function formatStepParamLabel(key) {
 
 function formatStepParamValue(key, value) {
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (key === 'filter_id' || key === 'filter') return getFilterDisplayLabel(String(value))
   if (key === 'generation_time') return `${value}s`
   if (key === 'resolution') return `${value}p`
   if (key === 'padding_percent') return `${(value * 100).toFixed(0)}%`
