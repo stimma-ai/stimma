@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List
 import numpy as np
 from PIL import Image, ImageFilter
 
-from .filter_defs import FILTER_MATRICES, LEGACY_FILTER_IDS, get_filter_def
+from .filter_defs import FILTER_MATRICES, get_filter_def
 
 
 # --- Color matrix math (port of colorMatrix.ts) ------------------------------
@@ -378,7 +378,6 @@ FILTER_HANDLERS: Dict[str, Callable[[Image.Image, Dict[str, Any]], Image.Image]]
 
 def apply_builtin_filter(filter_id: str, img: Image.Image, settings: Dict[str, Any]) -> Image.Image:
     """Apply one built-in filter to a PIL image. Settings overlay the def defaults."""
-    filter_id = LEGACY_FILTER_IDS.get(filter_id, filter_id)
     handler = FILTER_HANDLERS.get(filter_id)
     if handler is None:
         raise ValueError(f"Unknown built-in filter: {filter_id}")

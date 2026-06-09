@@ -126,7 +126,7 @@ FILTER_MATRICES: Dict[str, List[float]] = {
     ],
 }
 
-# Color preset ids offered by the color-filter step (everything except "none").
+# Color preset ids offered by the Filter step (everything except "none").
 COLOR_FILTER_IDS: List[str] = [k for k in FILTER_MATRICES if k != "none"]
 
 # Mirrors CHAIN_FILTER_DEFS in packages/image-editor/src/filterDefs.ts.
@@ -215,15 +215,7 @@ CHAIN_FILTER_DEFS: List[Dict[str, Any]] = [
 ]
 
 
-# Pre-release ids renamed when terminology aligned with the editor.
-LEGACY_FILTER_IDS: Dict[str, str] = {
-    "color-filter": "filter",
-    "color-grade": "levels",
-}
-
-
 def get_filter_def(filter_id: str) -> Optional[Dict[str, Any]]:
-    filter_id = LEGACY_FILTER_IDS.get(filter_id, filter_id)
     for d in CHAIN_FILTER_DEFS:
         if d["id"] == filter_id:
             return d

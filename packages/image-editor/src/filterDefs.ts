@@ -169,15 +169,8 @@ export const CHAIN_FILTER_DEFS: ChainFilterDef[] = [
   },
 ];
 
-// Pre-release ids that were renamed when terminology aligned with the editor.
-const LEGACY_FILTER_IDS: Record<string, string> = {
-  'color-filter': 'filter',
-  'color-grade': 'levels',
-};
-
 export function getChainFilterDef(filterId: string): ChainFilterDef | undefined {
-  const id = LEGACY_FILTER_IDS[filterId] || filterId;
-  return CHAIN_FILTER_DEFS.find(f => f.id === id);
+  return CHAIN_FILTER_DEFS.find(f => f.id === filterId);
 }
 
 /**

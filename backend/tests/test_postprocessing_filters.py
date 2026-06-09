@@ -268,15 +268,6 @@ def test_motion_blur_smears_along_direction():
     assert (horizontal[..., 0] > 0).sum() > (vertical[..., 0] > 0).sum()
 
 
-def test_legacy_filter_ids_still_resolve():
-    # Pre-release chains used color-filter / color-grade
-    out = np.array(bf.apply_builtin_filter("color-filter", _gradient_image(), {"filter": "mono"}))
-    assert np.array_equal(out[..., 0], out[..., 1])
-    img = _gradient_image()
-    out2 = bf.apply_builtin_filter("color-grade", img, {"brightness": 50})
-    assert np.array(out2).astype(int).mean() > np.array(img).astype(int).mean()
-
-
 def test_unknown_filter_id_raises():
     with pytest.raises(ValueError):
         bf.apply_builtin_filter("nope", _gradient_image(), {})
