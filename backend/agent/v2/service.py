@@ -69,6 +69,29 @@ def _max_turns_for_chat(chat: Chat) -> int:
     return 100
 
 
+def _track_skill_invoked(chat_id: int, skill_name: str) -> None:
+    """Emit skill_invoked {chatHash, skillSource, skillName?}.
+
+    The name passes only for marketplace skills (catalog data, D17) — dev /
+    user-authored skill names are user content and never egress.
+    """
+    try:
+        from object_hash import salted_hash
+        from telemetry import get_telemetry_client
+        from .skills import load_skill, telemetry_skill_source
+        loaded = load_skill(skill_name)
+        source = telemetry_skill_source(loaded.info if loaded else None)
+        props = {
+            "chatHash": salted_hash(f"chat:{chat_id}"),
+            "skillSource": source,
+        }
+        if source == "marketplace":
+            props["skillName"] = skill_name
+        get_telemetry_client().track("skill_invoked", props, category="chat")
+    except Exception:
+        pass
+
+
 def _format_raw_error(e: BaseException) -> str:
     """Build the raw-error text shown behind the chat error 'Details' disclosure.
 
@@ -746,6 +769,53 @@ async def run_agent(
     if max_turns is None:
         max_turns = _max_turns_for_chat(chat)
 
+    # Telemetry: one agent_turn_completed per run (user message -> outcome).
+    # The loop fills the stats in (tool count, resolved LLM config, last
+    # visible content for the shared refusal classifier).
+    turn_started = time.monotonic()
+    turn_stats: dict = {"tool_call_count": 0, "llm_config": None, "last_content": None}
+
+    def _track_agent_turn(status: str, error_type: Optional[str] = None) -> None:
+        try:
+            from object_hash import salted_hash
+            from telemetry import get_telemetry_client
+            from telemetry_props import llm_config_fields
+            props = {
+                "chatHash": salted_hash(f"chat:{chat_id}"),
+                **llm_config_fields(turn_stats.get("llm_config")),
+                "durationMs": int((time.monotonic() - turn_started) * 1000),
+                "toolCallCount": turn_stats.get("tool_call_count", 0),
+                "status": status,
+                "agentContext": "recipe" if chat.recipe_id is not None else "main",
+            }
+            if error_type:
+                props["errorType"] = error_type
+            get_telemetry_client().track("agent_turn_completed", props, category="chat")
+        except Exception:
+            pass
+
+    def _track_gate_encountered(gate: str) -> None:
+        try:
+            from telemetry import get_telemetry_client
+            get_telemetry_client().track("gate_encountered", {
+                "gate": gate,
+                "surface": "agent",
+            }, category="account")
+        except Exception:
+            pass
+
+    def _track_agent_error(error_type: str) -> None:
+        try:
+            from object_hash import salted_hash
+            from telemetry import get_telemetry_client
+            get_telemetry_client().track("agent_error", {
+                "errorType": error_type,
+                "chatHash": salted_hash(f"chat:{chat_id}"),
+                "agentContext": "recipe" if chat.recipe_id is not None else "main",
+            }, category="chat")
+        except Exception:
+            pass
+
     # Guard against concurrent execution
     if chat_id in _active_chat_executions:
         log.warning(f"Chat {chat_id}: Agent already running, skipping")
@@ -766,17 +836,26 @@ async def run_agent(
     await ws_manager.broadcast("agent_started", {"chat_id": chat_id})
 
     try:
-        await _run_agentic_loop(chat, session, ws_manager, max_turns, start_turn=0)
+        await _run_agentic_loop(chat, session, ws_manager, max_turns, start_turn=0, turn_stats=turn_stats)
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "completed"})
+
+        # Refusal classification (shared classifier, all agent surfaces) —
+        # only the categorical label egresses.
+        from refusal_detection import is_refusal
+        if is_refusal(turn_stats.get("last_content")):
+            _track_agent_turn("failed", error_type="refusal")
+        else:
+            _track_agent_turn("completed")
 
     except _PermissionPause:
         # Agent paused for permission — frontend will show HITL prompt
         # Don't broadcast agent_stopped; the agent is waiting, not done
-        pass
+        _track_agent_turn("paused_for_permission")
 
     except (_AgentInterrupted, asyncio.CancelledError):
         log.info(f"Chat {chat_id}: v2 agent interrupted")
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
+        _track_agent_turn("cancelled")
 
     except QuotaExceededError as e:
         log.warning(f"Chat {chat_id}: Stimma Cloud quota exceeded: {e}")
@@ -801,8 +880,9 @@ async def run_agent(
         })
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
-        from telemetry import get_telemetry_client
-        get_telemetry_client().track("agent_error", {"errorType": "quota_exceeded"})
+        _track_agent_error("quota_exceeded")
+        _track_agent_turn("quota_exceeded")
+        _track_gate_encountered("quota_exhausted")
 
     except ContentFilteredError as e:
         log.warning(f"Chat {chat_id}: Content filtered: {e}")
@@ -825,8 +905,8 @@ async def run_agent(
         })
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
-        from telemetry import get_telemetry_client
-        get_telemetry_client().track("agent_error", {"errorType": "content_filtered"})
+        _track_agent_error("content_filtered")
+        _track_agent_turn("failed", error_type="content_filtered")
 
     except LLMSubscriptionRequiredError as e:
         log.warning(f"Chat {chat_id}: Subscription required: {e}")
@@ -849,8 +929,9 @@ async def run_agent(
         })
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
-        from telemetry import get_telemetry_client
-        get_telemetry_client().track("agent_error", {"errorType": "subscription_required"})
+        _track_agent_error("subscription_required")
+        _track_agent_turn("failed", error_type="subscription_required")
+        _track_gate_encountered("tier_required")
 
     except LLMNotConfiguredError as e:
         log.warning(f"Chat {chat_id}: No LLM configured: {e}")
@@ -873,8 +954,9 @@ async def run_agent(
         })
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
-        from telemetry import get_telemetry_client
-        get_telemetry_client().track("agent_error", {"errorType": "llm_not_configured"})
+        _track_agent_error("llm_not_configured")
+        _track_agent_turn("failed", error_type="llm_not_configured")
+        _track_gate_encountered("signin_required")
 
     except Exception as e:
         log.error(f"V2 agent error for chat {chat_id}: {type(e).__name__}: {str(e)[:500]}")
@@ -892,8 +974,10 @@ async def run_agent(
         })
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
-        from telemetry import get_telemetry_client
-        get_telemetry_client().track("agent_error", {"errorType": type(e).__name__})
+        from telemetry_props import classify_agent_error
+        _error_type = classify_agent_error(e)
+        _track_agent_error(_error_type)
+        _track_agent_turn("failed", error_type=_error_type)
 
     finally:
         _active_chat_executions.discard(chat_id)
@@ -914,6 +998,7 @@ async def _run_agentic_loop(
     start_turn: int = 0,
     pending_tool_calls: Optional[list] = None,
     session_media_ids: Optional[list[int]] = None,
+    turn_stats: Optional[dict] = None,
 ) -> None:
     """Run the core loop inside a correlation scope.
 
@@ -927,6 +1012,7 @@ async def _run_agentic_loop(
         await _run_agentic_loop_inner(
             chat, session, ws_manager, max_turns,
             start_turn=start_turn,
+            turn_stats=turn_stats,
             pending_tool_calls=pending_tool_calls,
             session_media_ids=session_media_ids,
         )
@@ -940,6 +1026,7 @@ async def _run_agentic_loop_inner(
     start_turn: int = 0,
     pending_tool_calls: Optional[list] = None,
     session_media_ids: Optional[list[int]] = None,
+    turn_stats: Optional[dict] = None,
 ) -> None:
     """Core agentic loop. Extracted so resume_after_hitl can re-enter.
 
@@ -948,10 +1035,15 @@ async def _run_agentic_loop_inner(
             tool calls to execute before calling the LLM again.
         session_media_ids: Mutable list accumulating media_ids produced by
             call_tool across tool calls, used for lineage tracking.
+        turn_stats: Optional mutable dict the caller uses for the
+            agent_turn_completed telemetry event (tool count, resolved LLM
+            config, last visible content for refusal classification).
     """
     from ..hitl import HumanActionRequired
 
     chat_id = chat.id
+    if turn_stats is None:
+        turn_stats = {}
     workspace_dir = get_workspace_dir(chat_id, chat.project_id)
     project_workspace_dir = get_project_workspace(chat.project_id)
     if session_media_ids is None:
@@ -1133,6 +1225,7 @@ async def _run_agentic_loop_inner(
                 return
 
             _raise_if_interrupted(chat_id)
+            turn_stats["tool_call_count"] = turn_stats.get("tool_call_count", 0) + 1
             await _execute_tool_call(
                 fn_name, fn_arguments, tool_call_id,
                 chat_id, workspace_dir, str(project_workspace_dir) if project_workspace_dir else None, session, ws_manager,
@@ -1149,6 +1242,7 @@ async def _run_agentic_loop_inner(
                     skill_args = json.loads(fn_arguments) if fn_arguments else {}
                     if skill_args.get("action") == "invoke" and skill_args.get("name"):
                         _invoked_skills.add(skill_args["name"])
+                        _track_skill_invoked(chat_id, skill_args["name"])
                 except (json.JSONDecodeError, TypeError):
                     pass
 
@@ -1170,6 +1264,7 @@ async def _run_agentic_loop_inner(
         # Resolve LLM config first so build_messages knows the window size and
         # we don't leave a dangling "thinking.." if no model is configured.
         llm_config = await get_chat_llm_config(effective_model_slug, role='agent')
+        turn_stats["llm_config"] = llm_config
 
         messages, estimated_prompt_tokens = await build_messages(
             chat_id, session, system_prompt,
@@ -1214,6 +1309,7 @@ async def _run_agentic_loop_inner(
         reasoning = resp.thinking
         if content and content.strip():
             produced_visible_output = True
+            turn_stats["last_content"] = content
 
         # Accumulate token usage for this session
         cumulative_usage["prompt_tokens"] += resp.usage.prompt_tokens
@@ -1382,6 +1478,7 @@ async def _run_agentic_loop_inner(
 
                 # Execute tool
                 _raise_if_interrupted(chat_id)
+                turn_stats["tool_call_count"] = turn_stats.get("tool_call_count", 0) + 1
                 try:
                     await _execute_tool_call(
                         fn_name, fn_arguments, tool_call_id,
@@ -1406,6 +1503,7 @@ async def _run_agentic_loop_inner(
                         skill_args = json.loads(fn_arguments) if fn_arguments else {}
                         if skill_args.get("action") == "invoke" and skill_args.get("name"):
                             _invoked_skills.add(skill_args["name"])
+                            _track_skill_invoked(chat_id, skill_args["name"])
                     except (json.JSONDecodeError, TypeError):
                         pass
 

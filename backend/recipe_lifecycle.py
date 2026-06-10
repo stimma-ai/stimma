@@ -135,6 +135,13 @@ async def _broadcast(event: str, payload: dict[str, Any]) -> None:
             new_count = await _apply_task_count_delta(recipe_id, -1)
             if new_count is not None:
                 payload["pending_task_count"] = new_count
+    # Telemetry tap: recipe run outcomes + HITL resolution latency derive
+    # from the same broadcast stream every runtime event flows through.
+    try:
+        import recipe_telemetry
+        recipe_telemetry.on_runtime_broadcast(event, payload)
+    except Exception:  # noqa: BLE001 — telemetry never affects the app
+        pass
     await ws_manager.broadcast(event, payload)
 
 
@@ -193,6 +200,11 @@ async def recover_running_recipes(session) -> list[int]:
             runtime = get_or_create_runtime(recipe)
             await runtime.start()
             recovered.append(recipe.id)
+            try:
+                import recipe_telemetry
+                recipe_telemetry.note_started(recipe.id)
+            except Exception:  # noqa: BLE001
+                pass
         except Exception:  # noqa: BLE001 — startup should keep going
             log.exception("failed to recover running recipe %s", recipe.id)
     return recovered
@@ -396,6 +408,17 @@ async def apply_program_edit(
             recipe.updated_at = datetime.utcnow()
             await session.commit()
             await session.refresh(recipe)
+            try:
+                import recipe_telemetry
+                from object_hash import salted_hash
+                from telemetry import get_telemetry_client
+                recipe_telemetry.note_started(recipe_id)
+                get_telemetry_client().track("recipe_started", {
+                    "recipeHash": salted_hash(f"recipe:{recipe_id}"),
+                    "dryRun": False,
+                }, category="recipe")
+            except Exception:  # noqa: BLE001
+                pass
         except Exception:  # noqa: BLE001 — best-effort auto-start
             log.exception("auto-start after program edit failed", extra={"recipe_id": recipe_id})
 

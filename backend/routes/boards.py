@@ -33,6 +33,19 @@ router = APIRouter(prefix="/api/boards", tags=["boards"])
 log = get_logger(__name__)
 
 
+def _track_board_event(event: str, board_id: int, extra: dict | None = None) -> None:
+    """Emit a board event carrying boardHash (install-salted; never ids/names)."""
+    try:
+        from object_hash import salted_hash
+        from telemetry import get_telemetry_client
+        props = {"boardHash": salted_hash(f"board:{board_id}")}
+        if extra:
+            props.update(extra)
+        get_telemetry_client().track(event, props, category="organize")
+    except Exception:  # noqa: BLE001 — telemetry never affects the app
+        pass
+
+
 async def _get_board_or_404(board_id: int, session: AsyncSession) -> Board:
     result = await session.execute(
         select(Board).where(Board.id == board_id, Board.deleted_at.is_(None))
@@ -161,6 +174,11 @@ async def create_board(
     await _ensure_default_section(board.id, session)
     await session.commit()
     await session.refresh(board)
+    _created_extra: dict = {}
+    if board.project_id:
+        from object_hash import salted_hash
+        _created_extra["projectHash"] = salted_hash(f"project:{board.project_id}")
+    _track_board_event("board_created", board.id, _created_extra)
     payload = await _serialize_board(board, session)
     await ws_manager.broadcast("board_created", {"board": payload.model_dump()})
     return payload
@@ -199,6 +217,7 @@ async def delete_board(board_id: int, session: AsyncSession = Depends(get_db_ses
     board.updated_at = datetime.utcnow()
     await session.commit()
     await ws_manager.broadcast("board_deleted", {"board_id": board_id})
+    _track_board_event("board_deleted", board_id)
     return {"status": "success", "message": "Board deleted"}
 
 
@@ -243,6 +262,7 @@ async def create_board_section(
     session.add(section)
     board.updated_at = datetime.utcnow()
     await session.commit()
+    _track_board_event("board_section_added", board_id)
     payload = BoardSectionResponse(**section.to_dict(), items=[], item_count=0)
     await ws_manager.broadcast("board_section_created", {"board_id": board_id, "section": payload.model_dump()})
     await ws_manager.broadcast("board_updated", {"board": (await _serialize_board(board, session)).model_dump()})
@@ -301,6 +321,7 @@ async def delete_board_section(section_id: int, session: AsyncSession = Depends(
     await _compact_section_orders(board.id, session)
     board.updated_at = datetime.utcnow()
     await session.commit()
+    _track_board_event("board_section_removed", board.id)
     await ws_manager.broadcast("board_section_deleted", {"board_id": board.id, "section_id": section_id})
     await ws_manager.broadcast("board_updated", {"board": (await _serialize_board(board, session)).model_dump()})
     return {"status": "success"}
@@ -326,6 +347,7 @@ async def reorder_board_sections(
             section.display_order = index
     board.updated_at = datetime.utcnow()
     await session.commit()
+    _track_board_event("board_sections_reordered", board.id)
     await ws_manager.broadcast("board_updated", {"board": (await _serialize_board(board, session)).model_dump()})
     return {"status": "success"}
 
@@ -365,6 +387,7 @@ async def add_board_items(
     await session.commit()
     if added > 0:
         await clear_auto_delete_for_media(session, request.media_ids, ws_manager)
+        _track_board_event("board_items_added", board.id, {"count": added})
     payload = await _serialize_board(board, session)
     await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": payload.model_dump()})
     await ws_manager.broadcast("board_updated", {"board": payload.model_dump()})
@@ -386,6 +409,7 @@ async def remove_board_item(
     await _delete_section_if_empty(section, session)
     board.updated_at = datetime.utcnow()
     await session.commit()
+    _track_board_event("board_items_removed", board.id, {"count": 1})
     payload = await _serialize_board(board, session)
     await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": payload.model_dump()})
     await ws_manager.broadcast("board_updated", {"board": payload.model_dump()})
@@ -454,6 +478,7 @@ async def move_board_item(
 
     board.updated_at = datetime.utcnow()
     await session.commit()
+    _track_board_event("board_items_moved", board.id, {"count": 1})
     payload = await _serialize_board(board, session)
     await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": payload.model_dump()})
     await ws_manager.broadcast("board_updated", {"board": payload.model_dump()})
@@ -489,6 +514,7 @@ async def bulk_remove_board_items(
 
     board.updated_at = datetime.utcnow()
     await session.commit()
+    _track_board_event("board_items_removed", board.id, {"count": len(media_ids_set)})
     payload = await _serialize_board(board, session)
     await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": payload.model_dump()})
     await ws_manager.broadcast("board_updated", {"board": payload.model_dump()})
@@ -551,6 +577,7 @@ async def bulk_move_board_items(
 
     board.updated_at = datetime.utcnow()
     await session.commit()
+    _track_board_event("board_items_moved", board.id, {"count": len(media_ids_set)})
     payload = await _serialize_board(board, session)
     await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": payload.model_dump()})
     await ws_manager.broadcast("board_updated", {"board": payload.model_dump()})

@@ -29,6 +29,30 @@ STDERR_BUFFER_SIZE = 500
 MAX_RETRIES = 5
 
 
+def _track_connection_changed(provider, connection_type: str, state: str, in_flight_jobs: int) -> None:
+    """Emit provider_connection_changed — mid-session connection transitions.
+
+    Categorical only: connection kind, validated STP product identity, state,
+    and the count of jobs orphaned by a disconnect. Never user labels.
+    """
+    try:
+        from stp_identity import parse_server_identity
+        from telemetry import get_telemetry_client
+        props = {
+            "providerType": connection_type,
+            "state": state,
+            "inFlightJobs": in_flight_jobs,
+        }
+        identity = parse_server_identity(getattr(provider, "server", None))
+        if identity.get("productName") and identity["productName"] != "unknown":
+            props["productName"] = identity["productName"]
+        get_telemetry_client().track(
+            "provider_connection_changed", props, category="generation"
+        )
+    except Exception:
+        pass
+
+
 def _get_backend_name(provider_id: str) -> str:
     """Extract backend_name from provider_id.
 
@@ -260,6 +284,7 @@ class JsonRpcProviderManager:
                 # Unregister backend immediately so workers stop trying to use it
                 async def handle_disconnect():
                     backend_name = _get_backend_name(provider_id)
+                    orphaned_jobs = 0
                     try:
                         # Unregister from backend registry first
                         await self._backend_registry.unregister_backend(backend_name)
@@ -269,6 +294,7 @@ class JsonRpcProviderManager:
                         from generation_queue import get_generation_queue
                         queue = get_generation_queue()
                         count = await queue.cleanup_disconnected_backend(backend_name)
+                        orphaned_jobs = count or 0
                         if count > 0:
                             log.info(
                                 "requeued jobs for disconnected provider",
@@ -281,6 +307,9 @@ class JsonRpcProviderManager:
                             provider_id=provider_id,
                             error=str(e)
                         )
+                    _track_connection_changed(
+                        provider, provider_type, "disconnected", orphaned_jobs
+                    )
 
                 asyncio.create_task(handle_disconnect())
 
@@ -339,6 +368,8 @@ class JsonRpcProviderManager:
             # Broadcast tools_updated so frontend refreshes (especially for reconnects)
             from utils.websocket import ws_manager
             await ws_manager.broadcast("tools_updated", {}, include_profile=False)
+
+            _track_connection_changed(provider, provider_type, "connected", 0)
 
             return True
 

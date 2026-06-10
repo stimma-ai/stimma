@@ -94,6 +94,9 @@ class TelemetryClient:
         # Fallback session id for events fired before the frontend's first
         # request of this launch.
         self._fallback_session_id: str = str(uuid.uuid4())
+        # Wall-clock start of the current telemetry session (rotates with the
+        # frontend session id); feeds session_ended durations.
+        self._session_started_monotonic: float = time.monotonic()
 
     # ── Gating ──────────────────────────────────────────────────────────
 
@@ -281,6 +284,9 @@ class TelemetryClient:
         while True:
             try:
                 await asyncio.sleep(FLUSH_INTERVAL_SECONDS)
+                # Keep the dead-session-recovery timestamp current so a hard
+                # crash yields an accurate session_ended duration next launch.
+                self._write_lifecycle_state(dirty=True)
                 await self.flush()
             except asyncio.CancelledError:
                 raise
@@ -478,10 +484,19 @@ class TelemetryClient:
             log.info(f"telemetry: failed to check app version: {e}")
 
     async def _on_session_change(self, previous: Optional[str], current: str) -> None:
-        """Emit ``session_started`` (with the state snapshot) per session."""
+        """Emit ``session_started`` (with the state snapshot) per session.
+
+        A rotation (previous session exists) also closes the old session
+        with ``session_ended {durationMs}`` so depth metrics don't mix
+        rotated sessions.
+        """
         if not self._may_buffer():
             return
         try:
+            if previous is not None:
+                duration_ms = int((time.monotonic() - self._session_started_monotonic) * 1000)
+                self.track("session_ended", {"durationMs": duration_ms}, category="app")
+            self._session_started_monotonic = time.monotonic()
             stats = await self._get_library_stats()
             self.track("session_started", stats, category="app")
             if not self._first_session_handled:
@@ -489,6 +504,76 @@ class TelemetryClient:
                 await self._check_and_emit_app_updated()
         except Exception:
             log.exception("telemetry: session-change handler failed")
+
+    # ── App-lifecycle markers (app_launched / session_ended / first_run) ─
+
+    def _lifecycle_state_path(self):
+        import app_dirs
+        return app_dirs.get_data_dir() / "telemetry_lifecycle.json"
+
+    def _first_run_marker_path(self):
+        import app_dirs
+        return app_dirs.get_data_dir() / "telemetry_first_run"
+
+    def _handle_launch_lifecycle(self) -> None:
+        """Dirty-flag launch handling.
+
+        The lifecycle file is written dirty at startup and cleared on orderly
+        shutdown; finding it dirty on the next launch means the prior session
+        died hard. Dead-session recovery: flush a buffered ``session_ended``
+        for the dead session computed from its last persisted activity
+        timestamp, so duration distributions don't drop crashed sessions.
+        """
+        import json as _json
+        try:
+            path = self._lifecycle_state_path()
+            previous_clean = True
+            if path.exists():
+                try:
+                    state = _json.loads(path.read_text(encoding="utf-8"))
+                except Exception:
+                    state = {}
+                if state.get("dirty"):
+                    previous_clean = False
+                    started = state.get("session_started_at")
+                    last_activity = state.get("last_activity_at")
+                    if isinstance(started, (int, float)) and isinstance(last_activity, (int, float)):
+                        dead_duration = max(0, int(last_activity - started))
+                        self.track("session_ended", {"durationMs": dead_duration}, category="app")
+
+            self.track("app_launched", {"previousExitClean": previous_clean}, category="app")
+
+            # first_run: client-side funnel marker, once per install. The
+            # authoritative install count is server-side (installs.first_seen_at).
+            first_run_marker = self._first_run_marker_path()
+            if not first_run_marker.exists():
+                self.track("first_run", category="app")
+                try:
+                    first_run_marker.write_text("1", encoding="utf-8")
+                except Exception:
+                    pass
+
+            self._write_lifecycle_state(dirty=True, fresh=True)
+        except Exception:
+            log.debug("telemetry: launch lifecycle handling failed", exc_info=True)
+
+    def _write_lifecycle_state(self, dirty: bool, fresh: bool = False) -> None:
+        import json as _json
+        try:
+            path = self._lifecycle_state_path()
+            now_ms = int(time.time() * 1000)
+            if fresh or not path.exists():
+                state = {"session_started_at": now_ms}
+            else:
+                try:
+                    state = _json.loads(path.read_text(encoding="utf-8"))
+                except Exception:
+                    state = {"session_started_at": now_ms}
+            state["dirty"] = dirty
+            state["last_activity_at"] = now_ms
+            path.write_text(_json.dumps(state), encoding="utf-8")
+        except Exception:
+            pass
 
     # ── Lifecycle ───────────────────────────────────────────────────────
 
@@ -528,6 +613,7 @@ class TelemetryClient:
             log.info("telemetry disabled (DO_NOT_TRACK=1)")
             return
         self._install_exception_hooks()
+        self._handle_launch_lifecycle()
         on_session_change(self._on_session_change)
         self._flush_task = asyncio.create_task(self._flush_loop())
         log.info("telemetry started", consent=str(self._consent_state()))
@@ -541,6 +627,15 @@ class TelemetryClient:
             except asyncio.CancelledError:
                 pass
             self._flush_task = None
+        # Orderly shutdown: close the session and clear the dirty flag so the
+        # next launch reads previousExitClean: true.
+        if self._enabled_build and not is_dnt():
+            try:
+                duration_ms = int((time.monotonic() - self._session_started_monotonic) * 1000)
+                self.track("session_ended", {"durationMs": duration_ms}, category="app")
+                self._write_lifecycle_state(dirty=False)
+            except Exception:
+                pass
         try:
             await self.flush()
         except Exception:

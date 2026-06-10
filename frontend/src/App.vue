@@ -182,6 +182,7 @@
 
 <script setup>
 import axios from 'axios'
+import { useTelemetry } from './composables/useTelemetry'
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavigationSidebar from './components/NavigationSidebar.vue'
@@ -606,6 +607,8 @@ async function submitLockScreenPin() {
   }
 }
 
+const { track: trackTelemetry } = useTelemetry()
+
 async function switchToProfileFromLockScreen(profile) {
   // Close dropdown
   lockScreenProfileDropdownOpen.value = false
@@ -613,6 +616,8 @@ async function switchToProfileFromLockScreen(profile) {
 
   // If clicking current profile, do nothing
   if (profile.id === currentProfileId.value) return
+
+  trackTelemetry('profile_switched', {}, 'settings')
 
   // If target profile has PIN and we don't have it cached, show lock for that profile
   if (profile.has_pin && !hasCachedPin(profile.id)) {
@@ -741,6 +746,7 @@ function handleAutoLock(event) {
   const { profileId } = event.detail
   if (profileId === currentProfileId.value) {
     console.log('[App] Auto-lock triggered for profile:', profileId)
+    trackTelemetry('profile_locked', {}, 'settings')
     isLocked.value = true
     lockScreenPin.value = ''
     lockScreenError.value = ''

@@ -22,6 +22,17 @@ log = get_logger(__name__)
 router = APIRouter(prefix="/api/presets", tags=["presets"])
 
 
+def _preset_props(preset: "Preset") -> dict:
+    """{toolRef, presetHash} — tool ids classify via the toolRef helper and
+    preset identity is the install-salted hash (never id or name)."""
+    from object_hash import salted_hash
+    from pipeline_telemetry import tool_identity_props
+    return {
+        "toolRef": tool_identity_props(preset.tool_id).get("toolRef"),
+        "presetHash": salted_hash(f"preset:{preset.id}"),
+    }
+
+
 # --- Request/Response Models ---
 
 class PresetCreate(BaseModel):
@@ -130,7 +141,9 @@ async def create_preset(
     log.info("preset created", preset_id=preset.id, tool_id=data.tool_id)
 
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("tool_preset_saved", {"toolId": data.tool_id})
+    get_telemetry_client().track(
+        "tool_preset_saved", _preset_props(preset), category="generation"
+    )
 
     return preset.to_dict()
 
@@ -198,6 +211,11 @@ async def delete_preset(
     await session.commit()
 
     log.info("preset deleted", preset_id=preset_id)
+
+    from telemetry import get_telemetry_client
+    get_telemetry_client().track(
+        "tool_preset_deleted", _preset_props(preset), category="generation"
+    )
     return {"status": "deleted", "id": preset_id}
 
 
@@ -229,7 +247,9 @@ async def use_preset(
     await session.commit()
 
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("tool_preset_applied", {"toolId": preset.tool_id})
+    get_telemetry_client().track(
+        "tool_preset_applied", _preset_props(preset), category="generation"
+    )
 
     return {"status": "ok", "usage_count": preset.usage_count}
 

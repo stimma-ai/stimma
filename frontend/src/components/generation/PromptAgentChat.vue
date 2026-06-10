@@ -290,7 +290,7 @@
           >
             <ArrowUturnRightIcon class="w-4 h-4" />
           </button>
-          <VoiceInputButton ref="voiceBtn" icon-class="w-4 h-4" :get-text="getFeedbackText" :set-text="setFeedbackText" :focus="focusFeedback" />
+          <VoiceInputButton ref="voiceBtn" icon-class="w-4 h-4" :get-text="getFeedbackText" :set-text="setFeedbackText" :focus="focusFeedback" surface="prompt_agent" />
           <!-- Agent settings (Instructions, Thinking) — expands the drawer above. -->
           <button
             v-if="agent"
@@ -372,7 +372,7 @@
         </button>
         <!-- Refresh pill at end — recomputes the sections AND their options. -->
         <button
-          @click="fetchIdeas(true)"
+          @click="refreshIdeasClick()"
           :disabled="isLoadingIdeas"
           class="px-2.5 py-1 rounded-full text-xs transition-colors bg-surface text-content-muted hover:text-content-muted hover:bg-surface-raised border border-surface-raised"
           title="Refresh ideas"
@@ -396,7 +396,7 @@
         </svg>
         <p class="text-xs text-red-500 flex-1">{{ ideasError }}</p>
         <button
-          @click="fetchIdeas(true)"
+          @click="refreshIdeasClick()"
           :disabled="isLoadingIdeas"
           class="px-3 py-1 text-xs bg-overlay-light hover:bg-overlay-medium rounded text-content-secondary hover:text-content transition-colors disabled:opacity-50"
         >
@@ -414,7 +414,7 @@
       <!-- No ideas yet -->
       <div v-else class="py-4 flex items-center justify-center">
         <button
-          @click="fetchIdeas(true)"
+          @click="refreshIdeasClick()"
           class="text-xs text-content-muted hover:text-purple-500 transition-colors"
         >
           Click to load ideas
@@ -462,6 +462,7 @@ import { SparklesIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon, BugAntIcon, Arro
 import { WrenchIcon, ChevronUpIcon, HandThumbUpIcon, HandThumbDownIcon } from '@heroicons/vue/24/outline'
 import axios from 'axios'
 import { useFeedback } from '../../composables/useFeedback'
+import { useTelemetry } from '../../composables/useTelemetry'
 import { extractVerbatim, restoreVerbatim, verifyVerbatimPreserved } from '../../utils/promptProcessor'
 import SuggestionSubmenu from './SuggestionSubmenu.vue'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
@@ -531,6 +532,15 @@ const agent = inject<PromptEditorAgent | null>(PROMPT_EDITOR_AGENT_KEY, null)
 // payload (in-memory messages + prompt/parameter state) is posted to the
 // backend, which wraps it in the standard manifest shape.
 const { openThumbFeedback, thumbsEnabled, thumbsDisabledReason } = useFeedback()
+
+// Telemetry: prompt_agent_action — UI clicks only, closed enum pinned to the
+// actual controls: send | select_suggestion | select_option | surprise |
+// wildcard | refresh_category | refresh_suggestions | undo | redo | reset.
+// Never semantic suggestion categories (those derive from prompt content).
+const { track: trackTelemetry } = useTelemetry()
+function trackAction(action: string) {
+  trackTelemetry('prompt_agent_action', { action }, 'prompt_agent')
+}
 
 function collectPromptAgentConversation() {
   let messages: { role: string; text: string }[]
@@ -758,6 +768,7 @@ function historyDown() {
 // (reverts the whole last agent run / pill edit atomically). Prompt-only mode
 // uses the local prompt stack written back through the editor handle.
 function undo() {
+  trackAction('undo')
   if (agent) {
     agent.undo()
     return
@@ -769,6 +780,7 @@ function undo() {
 }
 
 function redo() {
+  trackAction('redo')
   if (agent) {
     agent.redo()
     return
@@ -799,6 +811,8 @@ function enhance() {
     error.value = 'Enter what you want to change'
     return
   }
+
+  trackAction('send')
 
   if (agent) {
     error.value = null
@@ -1150,6 +1164,8 @@ async function fetchOptionsBatch(promptForIdeas: string, cats: CategoryItem[], e
 function handleSuggestionClick(item: SuggestionItem, event: MouseEvent) {
   if (loadingOptionsByCategory.value[item.category]) return
 
+  trackAction('select_suggestion')
+
   if (item.subitems && item.subitems.length > 0) {
     if (activeSubmenu.value?.label === item.label) {
       activeSubmenu.value = null
@@ -1184,7 +1200,8 @@ function applyInstruction(instruction: string, _labelToRemove?: string) {
   processEnhanceQueue()
 }
 
-function handleSubmenuSelect(optionLabel: string) {
+function handleSubmenuSelect(optionLabel: string, fromSurprise = false) {
+  if (!fromSurprise) trackAction('select_option')
   if (activeSubmenu.value) {
     const category = activeSubmenu.value.label
     const instruction = `change only ${category.toLowerCase()} to ${optionLabel}`
@@ -1195,13 +1212,15 @@ function handleSubmenuSelect(optionLabel: string) {
 
 function handleSubmenuSurprise() {
   if (!activeSubmenu.value?.subitems?.length) return
+  trackAction('surprise')
   const items = activeSubmenu.value.subitems
   const pick = items[Math.floor(Math.random() * items.length)]
-  handleSubmenuSelect(pick)
+  handleSubmenuSelect(pick, true)
 }
 
 function handleSubmenuWildcard() {
   if (!activeSubmenu.value?.subitems?.length) return
+  trackAction('wildcard')
   const category = activeSubmenu.value.label
   const wildcard = `{${activeSubmenu.value.subitems.join('|')}}`
   const instruction = `insert this exact wildcard for ${category.toLowerCase()}: ${wildcard}`
@@ -1212,6 +1231,7 @@ function handleSubmenuWildcard() {
 // Refresh options for the currently open submenu category (atomic swap)
 async function handleSubmenuRefresh() {
   if (!activeSubmenu.value) return
+  trackAction('refresh_category')
 
   const cat = categories.value.find(c => c.category === activeSubmenu.value!.category)
   if (!cat) return
@@ -1439,6 +1459,11 @@ async function refreshCategoryCmd(key: string): Promise<string> {
   } finally {
     loadingOptionsByCategory.value[key] = false
   }
+}
+
+function refreshIdeasClick() {
+  trackAction('refresh_suggestions')
+  void fetchIdeas(true)
 }
 
 async function refreshIdeasCmd(): Promise<string> {

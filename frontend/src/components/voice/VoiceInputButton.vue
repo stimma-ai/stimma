@@ -50,8 +50,10 @@ const props = withDefaults(
     setText: (text: string) => void
     focus?: () => void
     iconClass?: string
+    /** Telemetry surface: main_chat | recipe_chat | prompt_agent | feedback */
+    surface?: string
   }>(),
-  { iconClass: 'w-5 h-5' }
+  { iconClass: 'w-5 h-5', surface: 'main_chat' }
 )
 
 const {
@@ -70,6 +72,7 @@ const {
   getText: () => props.getText(),
   setText: (t: string) => props.setText(t),
   focus: () => props.focus?.(),
+  surface: props.surface,
 })
 
 // Let the host input wire Space-to-dictate to its text field.

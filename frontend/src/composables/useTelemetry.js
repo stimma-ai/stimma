@@ -17,6 +17,9 @@ export function useTelemetry() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        // Survive page reloads (e.g. profile switches) — the sidecar call is
+        // tiny and local.
+        keepalive: true,
       }).catch(() => {})
     } catch {
       // fire-and-forget

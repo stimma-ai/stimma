@@ -516,6 +516,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, onBeforeUnmount, watch } from 'vue'
+import { useTelemetry } from '../composables/useTelemetry'
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import { useDeleteOperations } from '../composables/useDeleteOperations'
@@ -664,11 +665,15 @@ function openSettings() {
   emit('open-settings')
 }
 
+const { track: trackTelemetry } = useTelemetry()
+
 function selectProfile(profileId) {
   logoMenuOpen.value = false
   document.removeEventListener('click', handleLogoClickOutside)
 
   if (profileId === currentProfileId.value) return
+
+  trackTelemetry('profile_switched', {}, 'settings')
 
   setCurrentProfileId(profileId)
   // Reload page - lock screen will show if profile requires PIN
@@ -688,6 +693,7 @@ function handleInstallUpdate() {
 }
 
 function lockProfile(profileId) {
+  trackTelemetry('profile_locked', {}, 'settings')
   clearCachedPin(profileId)
   logoMenuOpen.value = false
   document.removeEventListener('click', handleLogoClickOutside)

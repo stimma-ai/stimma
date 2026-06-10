@@ -203,7 +203,10 @@ async def assemble_set(
             await broadcast_media_updated(member_items, ["superseded_by", "is_hidden"], session)
 
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("set_created", {"count": len(media_ids)})
+    get_telemetry_client().track("set_created", {
+        "count": len(media_ids),
+        "actor": "agent",
+    }, category="library")
 
     log.info(f"[assemble_set] Created set media item {set_media_item.id}: {set_file_path}")
 

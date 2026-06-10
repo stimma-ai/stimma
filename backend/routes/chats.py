@@ -469,8 +469,12 @@ async def create_chat(
         "chat": chat.to_dict()
     })
 
+    from object_hash import salted_hash
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("chat_created")
+    _chat_created_props = {"chatHash": salted_hash(f"chat:{chat.id}")}
+    if chat.project_id:
+        _chat_created_props["projectHash"] = salted_hash(f"project:{chat.project_id}")
+    get_telemetry_client().track("chat_created", _chat_created_props, category="chat")
 
     return ChatResponse(**chat.to_dict())
 
@@ -837,6 +841,12 @@ async def delete_chat(
         "chat_id": chat_id
     })
 
+    from object_hash import salted_hash
+    from telemetry import get_telemetry_client
+    get_telemetry_client().track(
+        "chat_deleted", {"chatHash": salted_hash(f"chat:{chat_id}")}, category="chat"
+    )
+
     return {"success": True}
 
 
@@ -860,8 +870,13 @@ async def batch_delete_chats(
     await session.commit()
 
     # Broadcast deletion for each chat
+    from object_hash import salted_hash
+    from telemetry import get_telemetry_client
     for chat in chats_to_delete:
         await ws_manager.broadcast("chat_deleted", {"chat_id": chat.id})
+        get_telemetry_client().track(
+            "chat_deleted", {"chatHash": salted_hash(f"chat:{chat.id}")}, category="chat"
+        )
 
     return {"success": True, "deleted": len(chats_to_delete)}
 
@@ -1402,11 +1417,13 @@ async def create_chat_item(
             )
         )
         message_count = msg_count_result.scalar()
+        from object_hash import salted_hash
         get_telemetry_client().track("chat_message_sent", {
+            "chatHash": salted_hash(f"chat:{chat_id}"),
             "hasAttachments": bool(request.attachments),
             "hasSelectedMedia": bool(request.media_ids),
             "messageCount": message_count,
-        })
+        }, category="chat")
 
     # If item_type is "user_message", trigger auto-naming and agent execution
     if request.item_type == "user_message":
@@ -1451,7 +1468,13 @@ async def create_chat_item(
             _llm_source = _llm_role.source if _llm_role else 'unknown'
         except Exception:
             _llm_source = 'unknown'
-        get_telemetry_client().track("agent_chat_sent", {"llmSource": _llm_source})
+        from object_hash import salted_hash as _salted_hash
+        if _llm_source not in ("stimma_cloud", "endpoint"):
+            _llm_source = "unknown"  # closed enum; 'auto' resolves per-call
+        get_telemetry_client().track("agent_chat_sent", {
+            "chatHash": _salted_hash(f"chat:{chat_id}"),
+            "llmSource": _llm_source,
+        }, category="chat")
 
         # Run the agent in the background with its own DB session so this POST
         # returns as soon as the user message is persisted. Blocking the request

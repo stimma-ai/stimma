@@ -242,7 +242,10 @@ async def create_parameter_sweep(
             await broadcast_media_updated(cell_items, ["superseded_by", "is_hidden"], session)
 
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("grid_created", {"count": len(media_ids)})
+    get_telemetry_client().track("grid_created", {
+        "cellCount": len(media_ids),
+        "actor": "agent",
+    }, category="library")
 
     log.info(f"[create_parameter_sweep_v2] Created grid media item {grid_media_item.id}: {grid_file_path}")
 

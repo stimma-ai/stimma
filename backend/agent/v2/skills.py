@@ -155,7 +155,32 @@ def _dev_skills_dir() -> Optional[Path]:
     if _dev_dir_logged != str(p):
         log.info(f"dev skills override active: {p} (shadows profile skills by name)")
         _dev_dir_logged = str(p)
+        _track_dev_skills_enabled(p)
     return p
+
+
+def _track_dev_skills_enabled(dev_dir: Path) -> None:
+    """Emit dev_skills_enabled {skillCount} on the configuration *transition*.
+
+    A state file remembers the last-seen dev dir so per-launch re-detection
+    doesn't re-fire (per-launch state is session_started.skillCounts.dev).
+    Count only — nothing identifying.
+    """
+    try:
+        import app_dirs
+        state_path = app_dirs.get_data_dir() / "dev_skills_state"
+        previous = state_path.read_text(encoding="utf-8").strip() if state_path.exists() else ""
+        current = str(dev_dir)
+        if previous == current:
+            return
+        state_path.write_text(current, encoding="utf-8")
+        skill_count = sum(1 for _ in _iter_skill_dirs(dev_dir))
+        from telemetry import get_telemetry_client
+        get_telemetry_client().track(
+            "dev_skills_enabled", {"skillCount": skill_count}, category="skills"
+        )
+    except Exception:
+        pass
 
 
 def _iter_effective_skill_dirs(profile_id: str):
@@ -422,6 +447,25 @@ def list_installed_skills(profile_id: Optional[str] = None) -> list[SkillInfo]:
 def list_skills(profile_id: Optional[str] = None) -> list[SkillInfo]:
     """List all installed skills. Alias for list_installed_skills."""
     return list_installed_skills(profile_id=profile_id)
+
+
+def telemetry_skill_source(info: Optional[SkillInfo]) -> str:
+    """Closed telemetry enum ``marketplace | dev | builtin`` for a skill.
+
+    ``dev`` covers both the dev_skills_dir override and user/agent-authored
+    skills (the "people building their own skills" signal). Skill names pass
+    to telemetry only when the source is ``marketplace`` (D17 — dev/user
+    skill names are user content).
+    """
+    if info is None:
+        return "dev"
+    if info.is_dev:
+        return "dev"
+    if info.is_marketplace:
+        return "marketplace"
+    if info.author in ("user", "agent"):
+        return "dev"
+    return "builtin"
 
 
 def load_skill(name: str, profile_id: Optional[str] = None) -> Optional[SkillContent]:

@@ -1476,7 +1476,10 @@ async def create_set_from_media(
     log.info(f"Set {set_media_item.id} created at {set_file_path}, members superseded: {source_ids}")
 
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("set_created", {"count": len(request.media_ids)})
+    get_telemetry_client().track("set_created", {
+        "count": len(request.media_ids),
+        "actor": "user",
+    }, category="library")
 
     return CreateSetResponse(
         media_id=set_media_item.id,
@@ -1751,7 +1754,11 @@ async def explode_set_or_grid(
 
     from telemetry import get_telemetry_client
     event_name = "set_exploded" if media.file_format == 'stimmaset.json' else "grid_exploded"
-    get_telemetry_client().track(event_name, {"count": len(member_ids)})
+    count_key = "count" if event_name == "set_exploded" else "cellCount"
+    get_telemetry_client().track(event_name, {
+        count_key: len(member_ids),
+        "actor": "user",
+    }, category="library")
 
     log.info(f"Exploded set/grid {media_id}, freed {len(member_ids)} members")
     return {"success": True, "exploded_count": len(member_ids)}

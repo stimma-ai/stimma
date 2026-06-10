@@ -91,6 +91,13 @@ async def create_project(
     await initialize_project_root(session, project)
     await session.commit()
     await session.refresh(project)
+
+    from object_hash import salted_hash
+    from telemetry import get_telemetry_client
+    get_telemetry_client().track("project_created", {
+        "projectHash": salted_hash(f"project:{project.id}"),
+    }, category="organize")
+
     return await _serialize_project(project, session)
 
 
@@ -169,6 +176,12 @@ async def delete_project(project_id: int, session: AsyncSession = Depends(get_db
         await ws_manager.broadcast("chat_deleted", {"chat_id": chat_id})
     for board_id in deleted_board_ids:
         await ws_manager.broadcast("board_deleted", {"board_id": board_id})
+
+    from object_hash import salted_hash
+    from telemetry import get_telemetry_client
+    get_telemetry_client().track("project_deleted", {
+        "projectHash": salted_hash(f"project:{project_id}"),
+    }, category="organize")
 
     return {"status": "success"}
 

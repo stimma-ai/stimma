@@ -46,8 +46,10 @@ async def trigger_rescan(session: AsyncSession = Depends(get_db_session)):
         else:
             log.info("Rescan requested via API - flag set in database (event not available)")
 
+        # Rescan is asynchronous — the imported-file count isn't known at the
+        # trigger point, so this stays a count-less usage marker.
         from telemetry import get_telemetry_client
-        get_telemetry_client().track("media_imported")
+        get_telemetry_client().track("media_imported", category="library")
 
         return {"status": "success", "message": "File rescan triggered"}
     except Exception as e:

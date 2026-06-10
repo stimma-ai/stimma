@@ -76,6 +76,17 @@ async def check_once() -> Optional[dict]:
         manifest = response.json()
         latest = manifest.get("version")
         current = get_app_version()
+
+        # Update-adoption funnel: the daily background check counts as an
+        # auto-triggered check (manual checks come from the in-app updater UI).
+        try:
+            from telemetry import get_telemetry_client
+            get_telemetry_client().track("update_checked", {"trigger": "auto"}, category="app")
+            if latest and latest != current:
+                get_telemetry_client().track("update_available", {"version": latest}, category="app")
+        except Exception:
+            pass
+
         if latest and latest != current:
             log.info("update available", latest=latest, current=current)
         else:

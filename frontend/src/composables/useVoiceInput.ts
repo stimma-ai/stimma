@@ -12,6 +12,7 @@
 
 import { ref, computed, watch } from 'vue'
 import { isTauri as checkIsTauri, initApiConfig } from '../apiConfig'
+import { useTelemetry } from './useTelemetry'
 
 export type VoiceModel = 'base.en' | 'small.en'
 export type VoiceState = 'idle' | 'downloading' | 'recording' | 'finalizing' | 'error'
@@ -80,9 +81,29 @@ export interface VoiceInputOptions {
   setText: (text: string) => void
   /** Optional: refocus the field after transcription commits. */
   focus?: () => void
+  /**
+   * Telemetry surface (closed enum: main_chat | recipe_chat | prompt_agent |
+   * feedback). No transcript is ever tracked — only surface, duration, and
+   * the committed/cancelled outcome.
+   */
+  surface?: string
 }
 
 export function useVoiceInput(opts: VoiceInputOptions) {
+  const { track } = useTelemetry()
+  let recordingStartedAt = 0
+
+  function trackUse(outcome: 'committed' | 'cancelled') {
+    if (!recordingStartedAt) return
+    const durationMs = Date.now() - recordingStartedAt
+    recordingStartedAt = 0
+    track('voice_input_used', {
+      surface: opts.surface || 'main_chat',
+      durationMs,
+      outcome,
+    }, 'feature')
+  }
+
   const state = ref<VoiceState>('idle')
   const error = ref<string | null>(null)
   const downloaded = ref(0)
@@ -126,6 +147,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     try {
       await invokeFn('voice_download_model', { modelId: model, onEvent: chan })
       if (state.value === 'downloading') state.value = 'idle'
+      track('voice_model_downloaded', { model }, 'feature')
     } catch (e) {
       error.value = String(e)
       state.value = 'error'
@@ -173,6 +195,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     }
 
     state.value = 'recording'
+    recordingStartedAt = Date.now()
     try {
       await invokeFn('voice_start', { modelId: model, onEvent: chan })
       return true
@@ -186,6 +209,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   /** End push-to-talk and commit the final transcript. */
   async function stop(): Promise<void> {
     if (state.value !== 'recording') return
+    trackUse('committed')
     state.value = 'finalizing'
     try {
       const finalText: string = await invokeFn('voice_stop')
@@ -255,6 +279,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   /** Abort without committing (best effort). */
   async function cancel(): Promise<void> {
     if (state.value === 'recording') {
+      trackUse('cancelled')
       try { await invokeFn('voice_cancel') } catch { /* ignore */ }
     }
     interim = ''

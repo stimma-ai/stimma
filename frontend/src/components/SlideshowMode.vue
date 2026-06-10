@@ -522,7 +522,7 @@
       <!-- Previous button (left side) -->
       <button
         v-if="!focusMode && !isViewingSource && canGoPrevious"
-        @click.stop="previous"
+        @click.stop="userPrevious"
         @contextmenu="handleContextMenu($event, displayItem?.id, displayItem?.file_hash)"
         :class="[
           'absolute left-0 flex items-center justify-start cursor-pointer z-[9999] group bg-transparent border-none',
@@ -540,7 +540,7 @@
       <!-- Next button (right side) -->
       <button
         v-if="!focusMode && !isViewingSource && canGoNext"
-        @click.stop="next"
+        @click.stop="userNext"
         @contextmenu="handleContextMenu($event, displayItem?.id, displayItem?.file_hash)"
         :class="[
           'absolute right-0 flex items-center justify-end cursor-pointer z-[9999] group bg-transparent border-none',
@@ -1081,6 +1081,7 @@
 import { ref, computed, onMounted, onUnmounted, onDeactivated, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useTelemetry } from '../composables/useTelemetry'
 import { addToast } from '../composables/useToasts'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
@@ -2730,14 +2731,33 @@ async function handleThumbnailError(event, item, index) {
 }
 
 // Slideshow controls
+// Telemetry: slideshow_control_used — closed enum pinned to the actual
+// controls: next | prev | play | pause | shuffle | loop | mute | unmute |
+// timer_set | focus_mode.
+const { track: trackTelemetry } = useTelemetry()
+function trackControl(control) {
+  trackTelemetry('slideshow_control_used', { control }, 'feature')
+}
+
 function toggleSlideshow() {
   if (preventClick.value) return
   isPlaying.value = !isPlaying.value
+  trackControl(isPlaying.value ? 'play' : 'pause')
   if (isPlaying.value) {
     startSlideshowTimer()
   } else {
     stopSlideshowTimer()
   }
+}
+
+function userNext() {
+  trackControl('next')
+  next()
+}
+
+function userPrevious() {
+  trackControl('prev')
+  previous()
 }
 
 function startSlideshowTimer() {
@@ -2782,6 +2802,7 @@ function decreaseDuration() {
 // Click the interval pill to step through the preset durations (wraps around).
 // Keyboard w/s still nudges up/down without wrapping.
 function cycleDuration() {
+  trackControl('timer_set')
   currentDurationIndex.value = (currentDurationIndex.value + 1) % DURATIONS.length
   resetSlideshowTimer()
 }
@@ -2789,6 +2810,7 @@ function cycleDuration() {
 // Toggle randomization
 async function toggleRandomize() {
   if (preventClick.value) return
+  trackControl('shuffle')
   const savedIndex = currentIndex.value
 
   if (isRandomized.value) {
@@ -2838,10 +2860,12 @@ function toggleCaption() {
 function toggleLoop() {
   if (preventClick.value) return
   loopEnabled.value = !loopEnabled.value
+  trackControl('loop')
 }
 
 function toggleMute() {
   if (preventClick.value) return
+  trackControl(isMuted.value ? 'unmute' : 'mute')
   if (isVideo.value) {
     if (isMuted.value) {
       // Unmute: restore to previous volume (or 50% if was 0)
@@ -2898,6 +2922,7 @@ function closeVolumeSlider(event) {
 function toggleFocusMode() {
   if (preventClick.value) return
   focusMode.value = !focusMode.value
+  trackControl('focus_mode')
 }
 
 // Cursor hiding for focus mode
@@ -3151,12 +3176,12 @@ function handleKeydown(event) {
     case 'ArrowRight':
     case 'd':
       event.preventDefault()
-      next()
+      userNext()
       break
     case 'ArrowLeft':
     case 'a':
       event.preventDefault()
-      previous()
+      userPrevious()
       break
     case 'ArrowUp':
     case 'w':

@@ -806,6 +806,28 @@ async def agent_step(request: AgentStepRequest):
     # Inject the state reminder (+ timestamp) into the last user message in place.
     _inject_last_user_context(messages, [state_reminder])
 
+    # Telemetry: one prompt_agent_step per request/response cycle. Identity
+    # fields classify through the helpers (model_family / endpoint_class);
+    # errorType domain is the shared agent error list incl. refusal.
+    import time as _time
+    from telemetry import get_telemetry_client
+    from telemetry_props import classify_agent_error, llm_config_fields
+    _step_started = _time.monotonic()
+    _llm_fields = llm_config_fields(llm_config)
+
+    def _track_step(status: str, error_type: Optional[str] = None) -> None:
+        try:
+            props = {
+                **_llm_fields,
+                "durationMs": int((_time.monotonic() - _step_started) * 1000),
+                "status": status,
+            }
+            if error_type:
+                props["errorType"] = error_type
+            get_telemetry_client().track("prompt_agent_step", props, category="prompt_agent")
+        except Exception:
+            pass
+
     with llm_correlation_context("prompt-agent"):
         try:
             resp = await llm_completion(
@@ -820,22 +842,32 @@ async def agent_step(request: AgentStepRequest):
                 **agent_llm_options(enable_thinking=request.thinking),
             )
             tool_calls = [AgentToolCall(id=tc.id, name=tc.name, arguments=tc.arguments) for tc in resp.tool_calls]
+            # Shared refusal classifier: only the categorical label egresses.
+            from refusal_detection import is_refusal
+            if not tool_calls and is_refusal(resp.content):
+                _track_step("failed", error_type="refusal")
+            else:
+                _track_step("completed")
             return AgentStepResponse(message=resp.content or "", tool_calls=tool_calls, thinking=resp.thinking)
         except asyncio.TimeoutError:
             log.error("Prompt-agent step timed out")
+            _track_step("timeout")
             raise HTTPException(status_code=504, detail="The request timed out. Try again.")
         except ContentFilteredError:
             log.warning("Prompt-agent step content-filtered")
+            _track_step("failed", error_type="content_filtered")
             raise HTTPException(
                 status_code=422,
                 detail="The model declined this request (content filter). Try rephrasing.",
             )
         except QuotaExceededError as e:
             log.warning(f"Prompt-agent step quota exceeded: {e}")
+            _track_step("failed", error_type="quota_exceeded")
             raise HTTPException(
                 status_code=429,
                 detail=str(e) or "LLM quota exceeded. Check your plan or usage and try again.",
             )
         except Exception as e:
             log.error(f"Prompt-agent step error: {e}", exc_info=True)
+            _track_step("failed", error_type=classify_agent_error(e))
             raise HTTPException(status_code=500, detail=str(e))

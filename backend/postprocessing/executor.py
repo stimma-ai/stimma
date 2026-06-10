@@ -60,6 +60,62 @@ def _step_label(step: Dict[str, Any]) -> str:
     return step.get("tool_name") or step.get("tool_id") or "tool"
 
 
+def _step_type(step: Dict[str, Any]) -> str:
+    """The step's taskType for telemetry (in-app filter steps are 'filter')."""
+    if step.get("kind") == "filter":
+        return "filter"
+    return step.get("task_type") or "unknown"
+
+
+async def _load_base_job(db, job_id: int):
+    from database import GenerationJob
+    try:
+        async with db.async_session_maker() as session:
+            result = await session.execute(
+                select(GenerationJob).where(GenerationJob.id == job_id)
+            )
+            return result.scalar_one_or_none()
+    except Exception:
+        return None
+
+
+def _run_duration_ms(run_created_at) -> int:
+    try:
+        return max(0, int((datetime.utcnow() - run_created_at).total_seconds() * 1000))
+    except Exception:
+        return 0
+
+
+async def _settle_pipeline_for_run(
+    db,
+    job_id: int,
+    status: str,
+    steps: List[Dict[str, Any]],
+    run_created_at,
+    *,
+    failed_step_index: Optional[int] = None,
+    error_message: Optional[str] = None,
+) -> None:
+    """Settle the base job's generation pipeline when its chain run ends."""
+    try:
+        from pipeline_telemetry import chain_step_tool_refs, emit_pipeline_settled
+        job = await _load_base_job(db, job_id)
+        if job is None:
+            return
+        emit_pipeline_settled(
+            job,
+            status,
+            completed_at=datetime.utcnow(),
+            postprocess_step_count=len(steps),
+            postprocess_duration_ms=_run_duration_ms(run_created_at),
+            postprocess_tool_refs=chain_step_tool_refs(steps),
+            failed_step_index=failed_step_index,
+            error_message=error_message,
+        )
+    except Exception:
+        log.debug("[postproc] pipeline settle telemetry failed", exc_info=True)
+
+
 async def start_chain_for_job(
     job,
     base_media_id: int,
@@ -123,6 +179,11 @@ async def retry_chain_run(chain_run_id: int, profile_id: str, websocket_manager)
         job_instance_id = await _base_job_instance_id(session, run.job_id)
 
     log.info(f"[postproc] Retrying chain run {chain_run_id} from step {run.step_index}")
+    try:
+        from telemetry import get_telemetry_client
+        get_telemetry_client().track("chain_retried", category="postprocess")
+    except Exception:
+        pass
     _spawn(chain_run_id, profile_id, job_instance_id, websocket_manager)
     return True
 
@@ -207,6 +268,31 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
             project_id = run.project_id
             job_id = run.job_id
             base_media_id = run.base_media_id
+            run_created_at = run.created_at
+
+        from telemetry import get_telemetry_client
+        exec_started = time.perf_counter()
+
+        # Chain-step jobs carry the base pipeline's runId so their tool_*
+        # events join the same generation_pipeline_completed row.
+        base_run_id: Optional[str] = None
+        try:
+            from pipeline_telemetry import run_id_for_job
+            base_job = await _load_base_job(db, job_id)
+            if base_job is not None:
+                base_run_id = run_id_for_job(base_job)
+        except Exception:
+            pass
+
+        def _track_chain_executed(status: str) -> None:
+            try:
+                get_telemetry_client().track("chain_executed", {
+                    "stepCount": len(steps),
+                    "status": status,
+                    "durationMs": int((time.perf_counter() - exec_started) * 1000),
+                }, category="postprocess")
+            except Exception:
+                pass
 
         current_type = await _media_type(db, current_media_id)
 
@@ -241,11 +327,13 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
                         "settings": step.get("settings"),
                     }
                     out_media_id = await _run_tool_step(
-                        db, tool_step, current_media_id, project_id, steps
+                        db, tool_step, current_media_id, project_id, steps,
+                        run_id=base_run_id,
                     )
                 else:
                     out_media_id = await _run_tool_step(
-                        db, step, current_media_id, project_id, steps
+                        db, step, current_media_id, project_id, steps,
+                        run_id=base_run_id,
                     )
             except Exception as e:
                 log.error(f"[postproc] Run {run_id} step {idx} ({_step_label(step)}) failed: {e}")
@@ -258,6 +346,21 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
                     db, run_id, idx, step_results, "paused", current_media_id, error=str(e)
                 )
                 await _broadcast(websocket_manager, db, run_id, profile_id, job_instance_id)
+
+                # Telemetry: categorical step failure + chain/pipeline settle.
+                try:
+                    from telemetry_props import classify_tool_error
+                    get_telemetry_client().track("chain_step_failed", {
+                        "stepType": _step_type(step),
+                        "errorType": classify_tool_error(str(e)),
+                    }, category="postprocess")
+                except Exception:
+                    pass
+                _track_chain_executed("failed")
+                await _settle_pipeline_for_run(
+                    db, job_id, "failed", steps, run_created_at,
+                    failed_step_index=idx, error_message=str(e),
+                )
                 return
 
             duration_ms = int((time.perf_counter() - started) * 1000)
@@ -300,6 +403,19 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
         await _broadcast(websocket_manager, db, run_id, profile_id, job_instance_id)
         log.info(f"[postproc] Run {run_id} completed; final media {current_media_id} (base {base_media_id}, job {job_id})")
 
+        _track_chain_executed("completed")
+        await _settle_pipeline_for_run(db, job_id, "completed", steps, run_created_at)
+
+    except asyncio.CancelledError:
+        # Dismissed while running — the dismiss route soft-deletes the row and
+        # emits chain_run_dismissed; here we record the cancelled outcome.
+        try:
+            _track_chain_executed("cancelled")
+            await _settle_pipeline_for_run(db, job_id, "cancelled", steps, run_created_at)
+        except Exception:
+            pass
+        raise
+
     except Exception as e:
         log.error(f"[postproc] Chain run {run_id} crashed: {e}", exc_info=True)
         try:
@@ -311,6 +427,13 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
                 )
                 await session.commit()
             await _broadcast(websocket_manager, db, run_id, profile_id, job_instance_id)
+        except Exception:
+            pass
+        try:
+            _track_chain_executed("failed")
+            await _settle_pipeline_for_run(
+                db, job_id, "failed", steps, run_created_at, error_message=str(e),
+            )
         except Exception:
             pass
 
@@ -402,6 +525,7 @@ async def _run_tool_step(
     input_media_id: int,
     project_id: Optional[int],
     all_steps: List[Dict[str, Any]],
+    run_id: Optional[str] = None,
 ) -> int:
     """Execute one STP tool step via execute_call_tool (media_id → media_id)."""
     from agent.v2.tools.call_tool import execute_call_tool
@@ -415,6 +539,9 @@ async def _run_tool_step(
     # Record the chain on the step output so remixing any chained image
     # restores the chain (lands in generation_metadata.parameters).
     parameters["post_processing_chain"] = all_steps
+    if run_id:
+        # Telemetry only: ties this step's tool_* events to the base pipeline.
+        parameters["_run_id"] = run_id
 
     # Relative upscale: the step stores scale_factor because the input isn't
     # known at config time. Resolve it against the actual input here — same

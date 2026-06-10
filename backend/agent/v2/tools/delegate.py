@@ -113,8 +113,33 @@ async def delegate_tool(
 
     effective_max_turns = min(max_turns or 20, 30)
 
+    turn_started = time.monotonic()
+
+    async def _track_delegate_turn(status: str, tool_call_count: int, error_type: str | None = None):
+        try:
+            from object_hash import salted_hash
+            from telemetry import get_telemetry_client
+            from telemetry_props import llm_config_fields
+            try:
+                llm_config = await get_chat_llm_config(effective_model_slug, role='agent')
+            except Exception:
+                llm_config = None
+            props = {
+                "chatHash": salted_hash(f"chat:{chat_id}"),
+                **llm_config_fields(llm_config),
+                "durationMs": int((time.monotonic() - turn_started) * 1000),
+                "toolCallCount": tool_call_count,
+                "status": status,
+                "agentContext": "delegate",
+            }
+            if error_type:
+                props["errorType"] = error_type
+            get_telemetry_client().track("agent_turn_completed", props, category="chat")
+        except Exception:
+            pass
+
     try:
-        result, _usage = await _run_delegate_loop(
+        result, usage = await _run_delegate_loop(
             task=task,
             context=context,
             specialist=specialist,
@@ -132,11 +157,21 @@ async def delegate_tool(
             parent_remaining=parent_remaining,
             effective_model_slug=effective_model_slug,
         )
+        # Refusal classification (shared classifier, all agent surfaces):
+        # only the categorical label egresses.
+        from refusal_detection import is_refusal
+        tool_count = usage.get("tool_call_count", 0) if isinstance(usage, dict) else 0
+        if is_refusal(result):
+            await _track_delegate_turn("failed", tool_count, error_type="refusal")
+        else:
+            await _track_delegate_turn("completed", tool_count)
         return result
     except (asyncio.CancelledError, HumanActionRequired):
         raise
     except Exception as e:
         log.error(f"Delegate error in chat {chat_id}: {type(e).__name__}: {e}")
+        from telemetry_props import classify_agent_error
+        await _track_delegate_turn("failed", 0, error_type=classify_agent_error(e))
         return f"Subagent error: {type(e).__name__}: {e}"
 
 
@@ -568,6 +603,7 @@ async def _run_delegate_loop_inner(
             else:
                 tool_def = all_tools.get(fn_name)
                 if tool_def:
+                    cumulative_usage["tool_call_count"] = cumulative_usage.get("tool_call_count", 0) + 1
                     try:
                         kwargs = json.loads(fn_arguments) if fn_arguments else {}
                         kwargs["session_media_ids"] = session_media_ids

@@ -943,28 +943,6 @@ class GenerationQueue:
 
         return backend_name, generator_type
 
-    @staticmethod
-    def _get_tool_mode(backend_name: Optional[str]) -> str:
-        if backend_name and "stimma-cloud" in backend_name:
-            return "cloud"
-        return "byoai"
-
-    def _get_provider_telemetry(self, backend_name: Optional[str]) -> dict:
-        """Get provider telemetry properties for a tool execution."""
-        props: dict = {"mode": self._get_tool_mode(backend_name)}
-        if backend_name:
-            try:
-                from providers import ProviderRegistry
-                pr = ProviderRegistry.get_instance()
-                provider = pr.get_provider(backend_name)
-                if provider:
-                    props["providerName"] = provider.provider_name
-                    if hasattr(provider, 'reported_name') and provider.reported_name:
-                        props["providerReportedName"] = provider.reported_name
-            except Exception:
-                pass
-        return props
-
     async def _create_job(
         self,
         generator_name: str,
@@ -1006,12 +984,17 @@ class GenerationQueue:
                 raise ValueError(f"Folder does not allow generation: {folder_path}")
 
             # Store batch metadata in the flat params for use during completion (first job only)
+            parameters = dict(parameters)
             if batch_id and batch_total is not None:
-                parameters = dict(parameters)
                 if batch_output_title:
                     parameters["_batch_output_title"] = batch_output_title
                 if batch_input_set_ids:
                     parameters["_batch_input_set_ids"] = batch_input_set_ids
+
+            # Run correlation: one ephemeral runId per user-initiated pipeline.
+            # Chain-step jobs arrive with the base job's _run_id already set.
+            from pipeline_telemetry import new_run_id
+            parameters.setdefault("_run_id", new_run_id())
 
             log.info(f"Creating job: backend_name={backend_name}, tool_id={tool_id}" +
                      (f", batch_id={batch_id}" if batch_id else ""))
@@ -1053,19 +1036,17 @@ class GenerationQueue:
                     broadcast_data['batch_id'] = batch_id
                 await self._websocket_manager.broadcast('generation_job_queued', broadcast_data)
 
-            # Track tool usage telemetry
+            # Track tool usage telemetry (toolRef/toolSource/modelFamily via the
+            # classification helpers — raw tool ids / model strings never egress)
             from telemetry import get_telemetry_client
-            tool_used_props = {
-                "toolId": tool_id or generator_name,
-                "taskType": task_type,
-                **self._get_provider_telemetry(backend_name),
-            }
+            from pipeline_telemetry import tool_job_props
+            tool_used_props = tool_job_props(job)
             # Add controlnet preprocessor info if present
             input_preprocessors = parameters.get("_input_preprocessors", [])
             if input_preprocessors:
                 # Use first preprocessor name (primary controlnet)
                 tool_used_props["controlnet"] = input_preprocessors[0]
-            get_telemetry_client().track("tool_used", tool_used_props)
+            get_telemetry_client().track("tool_used", tool_used_props, category="generation")
 
             return job_id
         finally:
@@ -1316,6 +1297,22 @@ class GenerationQueue:
                 job.error = 'Cancelled by user'
                 job.completed_at = datetime.utcnow()
                 await session.commit()
+
+                # Track cancellation telemetry (durationMs = elapsed-at-cancel)
+                try:
+                    from telemetry import get_telemetry_client
+                    from pipeline_telemetry import tool_job_props, emit_pipeline_settled
+                    elapsed_ms = (
+                        int((job.completed_at - job.created_at).total_seconds() * 1000)
+                        if job.created_at else 0
+                    )
+                    get_telemetry_client().track("tool_cancelled", {
+                        **tool_job_props(job),
+                        "durationMs": max(0, elapsed_ms),
+                    }, category="generation")
+                    emit_pipeline_settled(job, "cancelled", completed_at=job.completed_at)
+                except Exception:
+                    log.debug("cancel telemetry failed", exc_info=True)
 
                 # If job was processing, send cancel signal to the provider
                 if was_processing and tool_id:
@@ -1946,6 +1943,12 @@ class GenerationQueue:
                     await jobs_session.commit()
 
                     log.info(f"Batch {batch_id}: Output set created with id={output_set_id}")
+
+                    from telemetry import get_telemetry_client
+                    get_telemetry_client().track("set_created", {
+                        "count": batch_total or 1,
+                        "actor": "system",
+                    }, category="library")
                 else:
                     # Subsequent job - append to existing set
                     log.info(f"Batch {batch_id}: Appending result to output set (set_id={output_set_id}, media_id={media_item.id})")
@@ -2622,15 +2625,26 @@ class GenerationQueue:
 
                 log.info(f"Job {job.id} completed successfully and broadcast to clients")
 
-                # Track completion telemetry
+                # Track completion telemetry. durationMs = submit->result
+                # (includes queue wait), queueMs = queued-before-execution,
+                # computeMs = pure provider compute.
                 duration_ms = int((completed_at - job.created_at).total_seconds() * 1000) if job.created_at else 0
+                queue_ms = (
+                    int((job.started_at - job.created_at).total_seconds() * 1000)
+                    if job.created_at and job.started_at else 0
+                )
+                compute_ms = (
+                    int((completed_at - job.started_at).total_seconds() * 1000)
+                    if job.started_at else duration_ms
+                )
                 from telemetry import get_telemetry_client
+                from pipeline_telemetry import tool_job_props
                 get_telemetry_client().track("tool_completed", {
-                    "toolId": job.tool_id or job.generator_name,
-                    "taskType": job.task_type,
-                    **self._get_provider_telemetry(job.backend_name),
+                    **tool_job_props(job),
                     "durationMs": duration_ms,
-                })
+                    "queueMs": max(0, queue_ms),
+                    "computeMs": max(0, compute_ms),
+                }, category="generation")
 
                 # Handle batch processing if this job is part of a batch
                 if job.batch_id and media_item:
@@ -2643,20 +2657,28 @@ class GenerationQueue:
                 # Kick off the post-processing chain when the job carries one.
                 # Chain-step jobs run under CHAIN_INSTANCE_ID so a chain never
                 # re-triggers itself.
+                chain_started = False
                 post_chain = params.get('post_processing_chain')
                 if post_chain:
                     from postprocessing.executor import CHAIN_INSTANCE_ID, start_chain_for_job
                     if job.generator_instance_id != CHAIN_INSTANCE_ID:
                         try:
-                            await start_chain_for_job(
+                            chain_run_id = await start_chain_for_job(
                                 job=job,
                                 base_media_id=media_item.id,
                                 chain_steps=post_chain,
                                 profile_id=profile_id,
                                 websocket_manager=self._websocket_manager,
                             )
+                            chain_started = chain_run_id is not None
                         except Exception as e:
                             log.error(f"Job {job.id}: Failed to start post-processing chain: {e}", exc_info=True)
+
+                # Chainless pipelines settle at job completion; chained ones
+                # settle when the chain run finishes (postprocessing.executor).
+                if not chain_started:
+                    from pipeline_telemetry import emit_pipeline_settled
+                    emit_pipeline_settled(job, "completed", completed_at=completed_at)
 
             else:
                 log.error(f"Job {job.id}: Media not ready, did not broadcast to clients")
@@ -2748,25 +2770,21 @@ class GenerationQueue:
         
                         })
 
-                    # Track failure telemetry
-                    _err_type = "provider_error"
-                    _err_lower = error_msg.lower() if error_msg else ""
-                    if "timeout" in _err_lower:
-                        _err_type = "timeout"
-                    elif "cancel" in _err_lower:
-                        _err_type = "cancelled"
-                    elif "out of memory" in _err_lower or "oom" in _err_lower:
-                        _err_type = "out_of_memory"
-                    elif "connection" in _err_lower or "refused" in _err_lower:
-                        _err_type = "connection_error"
+                    # Track failure telemetry: categorical errorType + errorHash
+                    # only — the raw error text never egresses.
                     from telemetry import get_telemetry_client
+                    from telemetry_props import classify_tool_error, error_hash
+                    from pipeline_telemetry import tool_job_props, emit_pipeline_settled
                     get_telemetry_client().track("tool_failed", {
-                        "toolId": job.tool_id or job.generator_name,
-                        "taskType": job.task_type,
-                        **self._get_provider_telemetry(job.backend_name),
-                        "errorType": _err_type,
-                        "errorDetail": (error_msg or "")[:200],
-                    })
+                        **tool_job_props(job),
+                        "errorType": classify_tool_error(error_msg),
+                        "errorHash": error_hash(error_msg),
+                    }, category="generation")
+                    emit_pipeline_settled(
+                        job, "failed",
+                        completed_at=datetime.utcnow(),
+                        error_message=error_msg,
+                    )
 
                     # Notify scheduler that job is complete (even if failed)
                     if job.backend_name:

@@ -1534,6 +1534,10 @@ class TestConnectionResult:
     tool_count: Optional[int] = None
     error: Optional[str] = None
     error_type: Optional[str] = None  # "process_not_found", "connection_refused", "handshake_failed", "timeout"
+    # STP `server` software identifier ("Name/Version") from the handshake —
+    # set by the provider software (not the user); telemetry validates it via
+    # stp_identity.parse_server_identity before anything egresses.
+    server: Optional[str] = None
 
 
 async def test_provider_connection(
@@ -1705,6 +1709,7 @@ async def test_provider_connection(
             provider_name=provider_name,
             provider_version=provider_version,
             tool_count=tool_count,
+            server=params.get("server"),
         )
 
     except Exception as e:

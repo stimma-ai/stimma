@@ -65,7 +65,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
           </button>
-          <VoiceInputButton ref="voiceBtn" :get-text="getText" :set-text="setText" :focus="focusTextarea" />
+          <VoiceInputButton ref="voiceBtn" :get-text="getText" :set-text="setText" :focus="focusTextarea" :surface="voiceSurface" />
         </div>
 
         <!-- Right: slot for custom buttons, or default send -->
@@ -106,7 +106,9 @@ const props = defineProps({
   placeholder: { type: String, default: 'Type a message...' },
   rows: { type: Number, default: 2 },
   disabled: { type: Boolean, default: false },
-  attachments: { type: Array, default: () => [] }
+  attachments: { type: Array, default: () => [] },
+  // Telemetry surface for voice input: main_chat | recipe_chat
+  voiceSurface: { type: String, default: 'main_chat' }
 })
 
 const emit = defineEmits([

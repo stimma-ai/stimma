@@ -218,6 +218,11 @@ async def share_media(request: ShareRequest, session: AsyncSession = Depends(get
         result = response.json()
         share_url = result.get("url") or f"{cloud_base_url}/s/{result.get('shortcode', '')}"
 
+        from telemetry import get_telemetry_client
+        get_telemetry_client().track(
+            "media_shared_to_cloud", {"count": 1}, category="share"
+        )
+
         return ShareResponse(
             success=True,
             shortcode=result.get("shortcode"),
@@ -1057,6 +1062,12 @@ async def get_share_status():
         token = None
 
     if not token:
+        # The share surface's sign-in gate moment (conversion-funnel start).
+        from telemetry import get_telemetry_client
+        get_telemetry_client().track("gate_encountered", {
+            "gate": "signin_required",
+            "surface": "share",
+        }, category="account")
         return ShareStatusResponse(can_share=False, reason="Not signed in to Stimma Cloud")
 
     try:

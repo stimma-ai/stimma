@@ -151,7 +151,7 @@ async def install_from_marketplace(name: str):
         pass  # Don't fail the install if tracking fails
 
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("skill_marketplace_installed", {"skillName": name})
+    get_telemetry_client().track("skill_marketplace_installed", {"skillName": name}, category="skills")
 
     return {
         "name": info.name,
@@ -332,7 +332,7 @@ async def run_auto_install():
             log.warning(f"Failed to auto-install skill {name}: {e}")
 
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("skills_auto_installed", {"count": len(installed), "skills": installed})
+    get_telemetry_client().track("skills_auto_installed", {"count": len(installed), "skills": installed}, category="skills")
 
     response: dict[str, list[str] | str] = {"installed": installed}
     if failed:

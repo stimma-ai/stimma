@@ -166,8 +166,10 @@ import { getApiBase } from '../apiConfig'
 import { useCloudAccount } from '../composables/useCloudAccount'
 import { useTheme } from '../composables/useTheme'
 import { useSettingsApi } from '../composables/useSettingsApi'
+import { useTelemetry } from '../composables/useTelemetry'
 
 const router = useRouter()
+const { track } = useTelemetry()
 const { cloudBaseUrl } = useCloudAccount()
 const { themePreference: currentTheme, setTheme } = useTheme()
 const { updateTheme } = useSettingsApi()
@@ -214,6 +216,9 @@ if (isOfficial) {
 
 function markComplete() {
   localStorage.setItem(makeGlobalKey('onboarding_completed'), '1')
+  // Activation-funnel endpoint. Tracked BEFORE the consent decision lands so
+  // it buffers pre-consent and flushes together with first_run on consent-on.
+  track('onboarding_completed', {}, 'app')
   // Record the consent decision (official builds only). Until this lands,
   // consent is undetermined and the backend buffers events locally with
   // zero network (D14); dev builds have no telemetry to consent to.

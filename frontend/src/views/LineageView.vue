@@ -14,6 +14,10 @@ import { computed, ref, onActivated, onDeactivated } from 'vue'
 import { useRouter } from 'vue-router'
 import LineageTree from '../components/LineageTree.vue'
 import { useWorkspaceTabs } from '../composables/useWorkspaceTabs'
+import { useTelemetry } from '../composables/useTelemetry'
+
+const { track } = useTelemetry()
+track('lineage_viewed', {}, 'feature')
 
 const props = defineProps({
   mediaId: {

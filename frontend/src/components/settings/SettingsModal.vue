@@ -173,6 +173,7 @@
 
 <script setup>
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
+import { useTelemetry } from '../../composables/useTelemetry'
 import { useSettingsApi } from '../../composables/useSettingsApi'
 import { useWebSocket } from '../../composables/useWebSocket'
 import { setDevMode } from '../../appConfig'
@@ -544,10 +545,13 @@ async function handleProfileDelete(profileId) {
   }
 }
 
+const { track: trackTelemetry } = useTelemetry()
+
 async function handleProfileSwitch(profileId) {
   try {
     // Ensure PIN is available for the target profile before switching
     await ensurePinForProfile(profileId)
+    trackTelemetry('profile_switched', {}, 'settings')
     // Update the profile ID (this dispatches profile-changed event)
     setCurrentProfileId(profileId)
     // Wait for Vue to process the change

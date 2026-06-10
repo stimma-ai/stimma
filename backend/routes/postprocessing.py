@@ -78,9 +78,14 @@ async def dismiss_chain_run_endpoint(
         raise HTTPException(status_code=404, detail="Chain run not found")
 
     # Send the interrupt to the in-flight step (if any) before removing the row.
+    # A live in-flight task records its own cancelled chain_executed /
+    # pipeline-settle outcome from its CancelledError handler.
     cancel_chain_run(chain_run_id)
     run.deleted_at = datetime.utcnow()
     await session.commit()
+
+    from telemetry import get_telemetry_client
+    get_telemetry_client().track("chain_run_dismissed", category="postprocess")
     return {"status": "dismissed", "chain_run_id": chain_run_id}
 
 

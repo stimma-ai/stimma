@@ -53,6 +53,19 @@ from recipe_runtime import (
 from recipe_service import get_recipe_or_404
 from utils.websocket import ws_manager
 
+
+def _track_recipe_event(event: str, recipe_id: int, extra: Optional[dict] = None) -> None:
+    """Emit a recipe lifecycle event carrying recipeHash (never ids/names)."""
+    try:
+        from object_hash import salted_hash
+        from telemetry import get_telemetry_client
+        props = {"recipeHash": salted_hash(f"recipe:{recipe_id}")}
+        if extra:
+            props.update(extra)
+        get_telemetry_client().track(event, props, category="recipe")
+    except Exception:  # noqa: BLE001 — telemetry never affects the app
+        pass
+
 log = get_logger(__name__)
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
@@ -214,6 +227,12 @@ async def create_recipe(
     await session.commit()
     await session.refresh(recipe)
 
+    _created_extra: dict = {"forked": False}
+    if recipe.project_id:
+        from object_hash import salted_hash
+        _created_extra["projectHash"] = salted_hash(f"project:{recipe.project_id}")
+    _track_recipe_event("recipe_created", recipe.id, _created_extra)
+
     response = _serialize(recipe)
     await ws_manager.broadcast("recipe_created", {"recipe": response.model_dump()})
     return response
@@ -317,6 +336,9 @@ async def update_recipe(
                 recipe.updated_at = datetime.utcnow()
                 await session.commit()
                 await session.refresh(recipe)
+                import recipe_telemetry
+                recipe_telemetry.note_started(recipe_id)
+                _track_recipe_event("recipe_started", recipe_id, {"dryRun": False})
             except HTTPException:
                 # Graph doesn't build yet — leave idle so the user sees the
                 # error banner rather than a phantom "running" state.
@@ -342,6 +364,7 @@ async def delete_recipe(recipe_id: int, session: AsyncSession = Depends(get_db_s
     # WS events or writing to its state.db.
     await recipe_lifecycle.stop_and_unregister(recipe_id)
     await ws_manager.broadcast("recipe_deleted", {"recipe_id": recipe_id})
+    _track_recipe_event("recipe_deleted", recipe_id)
     return {"status": "success"}
 
 
@@ -418,6 +441,12 @@ async def fork_recipe(
 
     await session.commit()
     await session.refresh(fork)
+
+    _fork_extra: dict = {"forked": True}
+    if fork.project_id:
+        from object_hash import salted_hash
+        _fork_extra["projectHash"] = salted_hash(f"project:{fork.project_id}")
+    _track_recipe_event("recipe_created", fork.id, _fork_extra)
 
     response = _serialize(fork)
     await ws_manager.broadcast("recipe_created", {"recipe": response.model_dump()})
@@ -582,6 +611,9 @@ async def start_recipe(
         if isinstance(exc, HTTPException):
             raise
         raise HTTPException(status_code=500, detail=f"start failed: {exc}") from exc
+    import recipe_telemetry
+    recipe_telemetry.note_started(recipe_id)
+    _track_recipe_event("recipe_started", recipe_id, {"dryRun": dry_run})
     return await _set_execution_state(session, recipe, "running")
 
 
@@ -616,6 +648,7 @@ async def pause_recipe(
     runtime = recipe_registry.get_runtime(recipe_id)
     if runtime is not None:
         await runtime.pause()
+    _track_recipe_event("recipe_paused", recipe_id)
     return await _set_execution_state(session, recipe, "paused")
 
 
@@ -631,6 +664,9 @@ async def resume_recipe(
         await runtime.start()
     else:
         await runtime.resume()
+    import recipe_telemetry
+    recipe_telemetry.note_started(recipe_id)
+    _track_recipe_event("recipe_resumed", recipe_id)
     return await _set_execution_state(session, recipe, "running")
 
 
@@ -650,6 +686,7 @@ async def clear_recipe_runtime_state(
     await session.commit()
     await session.refresh(recipe)
     recipe_lifecycle.clear_cached_load_error(recipe_id)
+    _track_recipe_event("recipe_cleared", recipe_id)
     response = _serialize(recipe)
     await ws_manager.broadcast("recipe_updated", {"recipe": response.model_dump(), "recipe_id": recipe_id})
     await ws_manager.broadcast("recipe_phase_updated", {"recipe_id": recipe_id})

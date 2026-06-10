@@ -1099,11 +1099,11 @@ async def create_tool_provider_endpoint(request: CreateToolProviderRequest):
     add_tool_provider(new_provider)
 
     log.info("tool provider created", provider=request.id, type=request.type)
+    # providerType only — the user-entered label never egresses (fix #6).
     from telemetry import get_telemetry_client
     get_telemetry_client().track("tool_provider_added", {
         "providerType": request.type,
-        "providerName": request.name or request.id,
-    })
+    }, category="generation")
 
     return ToolProviderResponse(
         id=request.id,
@@ -1143,7 +1143,7 @@ async def delete_tool_provider_endpoint(provider_id: str):
 
     log.info("tool provider deleted", provider=provider_id)
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("tool_provider_removed")
+    get_telemetry_client().track("tool_provider_removed", category="generation")
     return {"status": "success", "message": "Provider deleted"}
 
 
@@ -1866,6 +1866,10 @@ async def delete_profile_endpoint(profile_id: str):
         shutil.rmtree(profile_dir)
 
     log.info("profile deleted", profile_id=profile_id)
+
+    from telemetry import get_telemetry_client
+    get_telemetry_client().track("profile_deleted", category="settings")
+
     return {"status": "success", "message": "Profile deleted"}
 
 
@@ -2296,8 +2300,14 @@ async def update_skill_endpoint(name: str, data: SkillUpdateRequest):
         profile_id=profile_id,
     )
     loaded = skills_api.load_skill(name, profile_id=profile_id)
+    # D17: this editor route fires for user-authored skills too — the name
+    # passes only when the skill is a marketplace install (catalog data).
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("skill_updated", {"skillName": name})
+    _source = skills_api.telemetry_skill_source(loaded.info if loaded else None)
+    _props = {"skillSource": _source}
+    if _source == "marketplace":
+        _props["skillName"] = name
+    get_telemetry_client().track("skill_updated", _props, category="skills")
     return _skill_detail_response(loaded.info, loaded.content)
 
 
@@ -2305,6 +2315,16 @@ async def update_skill_endpoint(name: str, data: SkillUpdateRequest):
 async def delete_skill_endpoint(name: str):
     """Uninstall a skill from the current profile."""
     profile_id = get_current_profile()
-    deleted = _skills_api().delete_skill(name, profile_id=profile_id)
+    skills_api = _skills_api()
+    # Classify before deletion (the sidecar is gone afterwards).
+    existing = skills_api.load_skill(name, profile_id=profile_id)
+    deleted = skills_api.delete_skill(name, profile_id=profile_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Skill '{name}' not found")
+
+    from telemetry import get_telemetry_client
+    _source = skills_api.telemetry_skill_source(existing.info if existing else None)
+    _props = {"skillSource": _source}
+    if _source == "marketplace":
+        _props["skillName"] = name
+    get_telemetry_client().track("skill_uninstalled", _props, category="skills")

@@ -170,10 +170,10 @@ All live in the backend; only their outputs ever egress.
 | `app_launched` | live | `{ previousExitClean: bool }` — dirty-flag file written at startup, cleared on orderly shutdown; `false` on next launch = the prior session died hard. Categorical, content-free |
 | `app_updated` | live | `{ fromVersion }` (new version rides the UA) |
 | `session_started` | live | **The per-launch state snapshot**: `{ providerCount, providers[]{providerType,toolCount,connected,productName?,productVersion?}, toolCountsBySource{builtin,marketplace,cloud,user}, llmConfig{role→{source: auto\|stimma_cloud\|endpoint, endpointClass, modelFamily}}, mediaCountsByType{image,video,audio,document,set,grid,layout}, chatCount, boardCount, recipeCount, projectCount, savedViewCount, profileCount, markerCounts{favorite,library,custom}, skillCounts{marketplace,dev,builtin} }` — counts only, no names/content. `llmConfig` role keys are the app-defined closed role set; `source` is the *configured* value, distinct from per-event *resolved* `llmSource`. `markerCounts` keys are a literal match against the shipped default marker set (anything else, including renamed defaults, counts under `custom`). `providers[]` is the one sanctioned enumeration under the counts-over-enumerations rule (bounded by configured connections; mechanical fields only) |
-| `session_ended` | planned | `{ durationMs }` — fired at shutdown **and** on the 30-min-inactivity session rotation. Dead-session recovery: when `previousExitClean: false`, the next launch flushes a buffered `session_ended{durationMs}` for the dead session from its last persisted activity timestamp |
+| `session_ended` | live | `{ durationMs }` — fired at shutdown **and** on the 30-min-inactivity session rotation. Dead-session recovery: when `previousExitClean: false`, the next launch flushes a buffered `session_ended{durationMs}` for the dead session from its last persisted activity timestamp |
 | `app_error` | live | `{ source: backend\|frontend, errorType, stackHash, module? }` — exception type, stack hash, and top app-frame module only; no messages, paths, or locals (those can contain prompts/paths). Counting only |
-| `onboarding_completed` | planned | `{}` — activation-funnel endpoint (`first_run` → `screen_viewed: onboarding` → this); all three buffer pre-consent and flush together on consent-on |
-| `first_run` | planned | `{}` — fired client-side once on first launch, buffered through onboarding per the pre-consent rule. Authoritative install counting is server-side (`installs.first_seen_at`, upserted by every endpoint) — this event is the funnel-side marker, not the count |
+| `onboarding_completed` | live | `{}` — activation-funnel endpoint (`first_run` → `screen_viewed: onboarding` → this); all three buffer pre-consent and flush together on consent-on |
+| `first_run` | live | `{}` — fired client-side once on first launch, buffered through onboarding per the pre-consent rule. Authoritative install counting is server-side (`installs.first_seen_at`, upserted by every endpoint) — this event is the funnel-side marker, not the count |
 
 ## Updates (`app`)
 
@@ -191,7 +191,7 @@ construction (the updater is official-gated).
 
 | Event | Status | Properties |
 |---|---|---|
-| `screen_viewed` | live | `{ screen }` — values: `onboarding, home, browse, trash, upload, boards, board-detail, projects, project-overview, project-assets, project-chats, project-boards, project-recipes, project-settings, project-tools, chats, chat, recipes, recipe, saved-view, all-tools, edit-image, edit-image-landing, edit-image-empty, lineage, tool, skills`. Dev-only routes (`dev-*`) excluded. No path property, ever |
+| `screen_viewed` | live | `{ screen }` — values pinned to the live router: `onboarding, home, browse, trash, upload, boards, board-detail, projects, project-overview, project-assets, project-chats, project-boards, project-recipes, project-settings, project-tools, chats, chat, recipes, recipe, saved-view, all-tools, edit-image, edit-image-landing, edit-image-empty, lineage, tool`. The skills/marketplace surface lives inside the settings modal today (no route); if it becomes a route, `skills` joins the list. Dev-only routes (`dev-*`) excluded. No path property, ever |
 
 ## Account (`account`)
 
@@ -199,7 +199,7 @@ construction (the updater is official-gated).
 |---|---|---|
 | `cloud_signed_in` | live | `{ tier }` |
 | `cloud_signed_out` | live | `{}` |
-| `gate_encountered` | planned | `{ gate: signin_required\|tier_required\|quota_exhausted, surface: tool\|agent\|skill\|share }` — fired when the user hits a cloud gate. Outcome is derived by sequence (next `cloud_signed_in` / mode switch / abandon within session), not a semantic outcome property |
+| `gate_encountered` | live | `{ gate: signin_required\|tier_required\|quota_exhausted, surface: tool\|agent\|skill\|share }` — fired when the user hits a cloud gate. Outcome is derived by sequence (next `cloud_signed_in` / mode switch / abandon within session), not a semantic outcome property. Live surfaces today: `agent` (quota/tier/sign-in errors from the agent path) and `share` (share status checked signed-out); `tool`/`skill` gate UIs don't exist yet and emit nothing until they do |
 
 ## Generation & tools (`generation`)
 
@@ -207,23 +207,23 @@ construction (the updater is official-gated).
 |---|---|---|
 | `tool_used` | live | `{ runId, toolRef, toolSource, taskType, modelFamily, mode: cloud\|byoai\|local, providerType?, controlnet? }` |
 | `tool_completed` | live | `{ runId, toolRef, toolSource, taskType, modelFamily, mode, durationMs, queueMs, computeMs, providerType? }` — `durationMs` = end-to-end (submit→result, includes queue wait), `queueMs` = time queued, `computeMs` = pure provider compute |
-| `tool_failed` | live | `{ runId, toolRef, toolSource, taskType, modelFamily, mode, errorType, errorHash, providerType? }` — `errorType` is a closed list that **must include `provider_disconnected`** so disconnect-caused failures are separable from genuine job failures |
-| `tool_cancelled` | planned | `{ runId, toolRef, toolSource, taskType, modelFamily, mode, durationMs, providerType? }` — `durationMs` = elapsed-at-cancel (cancellation latency is the best per-job frustration signal) |
-| `batch_submitted` | planned | `{ toolRef, jobCount, expandedFromSets: bool }` |
-| `forever_mode_used` | live | `{ toolRef, action }` |
+| `tool_failed` | live | `{ runId, toolRef, toolSource, taskType, modelFamily, mode, errorType, errorHash, providerType? }` — `errorType` closed list (pinned): `timeout \| cancelled \| out_of_memory \| connection_error \| provider_disconnected \| provider_error` |
+| `tool_cancelled` | live | `{ runId, toolRef, toolSource, taskType, modelFamily, mode, durationMs, providerType? }` — `durationMs` = elapsed-at-cancel (cancellation latency is the best per-job frustration signal) |
+| `batch_submitted` | live | `{ toolRef, jobCount, expandedFromSets: bool }` |
+| `forever_mode_used` | live | `{ toolRef, action: started\|stopped }` |
 | `controlnet_preview_used` | live | `{}` |
 | `config_from_media_used` | live | `{}` |
 | `auto_delete_configured` | live | `{ enabled, durationMinutes? }` |
 | `tool_provider_added` | live | `{ providerType }` — user label never sent |
 | `tool_provider_removed` | live | `{}` |
-| `provider_connection_changed` | planned | `{ providerType, productName?, state: connected\|disconnected, inFlightJobs }` — mid-session connection transitions; `inFlightJobs` = jobs orphaned by a disconnect |
+| `provider_connection_changed` | live | `{ providerType, productName?, state: connected\|disconnected, inFlightJobs }` — mid-session connection transitions; `inFlightJobs` = jobs orphaned by a disconnect. `providerType` domain (pinned, everywhere it appears): `builtin \| stdio \| websocket` — connection kinds, matching `tool_provider_added.providerType` |
 | `tool_provider_tested` | live | `{ success, providerType, productName?, productVersion? }` — product identity validated from the STP `server` field, never the free-string provider-reported version |
 | `tool_preset_saved` / `tool_preset_applied` | live | `{ toolRef, presetHash }` |
-| `preset_reverted` | planned | `{ toolRef, presetHash }` |
-| `tool_preset_deleted` | planned | `{ toolRef, presetHash }` |
-| `params_reset` | planned | `{ toolRef }` |
-| `tool_hop_used` | planned | `{ fromToolRef, toToolRef }` |
-| `generation_pipeline_completed` | planned | `{ runId, isRetry: bool, toolRef, toolSource, taskType, modelFamily, mode, source: toolview\|agent\|recipe\|forever, status: completed\|failed\|cancelled, durationMs, queueMs, genDurationMs, postprocessDurationMs, postprocessStepCount, postprocessToolRefs[], presetHash?, failedStepIndex?, errorType? }` — one event per user-initiated generation, emitted when the whole pipeline settles (generation + its post-processing chain). `durationMs` is wall-clock click→final asset; `postprocessToolRefs` is the ordered step list as a JSON array, each entry verbatim-or-hashed per the toolRef rule. `presetHash?` present when launched from a preset |
+| `preset_reverted` | live | `{ toolRef, presetHash }` |
+| `tool_preset_deleted` | live | `{ toolRef, presetHash }` |
+| `params_reset` | live | `{ toolRef }` |
+| `tool_hop_used` | live | `{ fromToolRef, toToolRef }` |
+| `generation_pipeline_completed` | live | `{ runId, isRetry: bool, toolRef, toolSource, taskType, modelFamily, mode, source: toolview\|agent\|recipe\|forever, status: completed\|failed\|cancelled, durationMs, queueMs, genDurationMs, postprocessDurationMs, postprocessStepCount, postprocessToolRefs[], presetHash?, failedStepIndex?, errorType? }` — one event per user-initiated generation, emitted when the whole pipeline settles (generation + its post-processing chain). `durationMs` is wall-clock click→final asset; `postprocessToolRefs` is the ordered step list as a JSON array, each entry verbatim-or-hashed per the toolRef rule. `presetHash?` present when launched from a preset |
 
 `modelFamily` × `taskType` is the headline product question and both
 fields are classification outputs / protocol mechanics — they stay in
@@ -234,8 +234,8 @@ see.
 
 | Event | Status | Properties |
 |---|---|---|
-| `prompt_agent_step` | planned | `{ llmSource: stimma_cloud\|endpoint\|unknown, modelFamily, endpointClass?, durationMs, status: completed\|failed\|timeout, errorType? }` — one agent request/response cycle. `errorType` domain = the shared agent error list incl. `refusal`; `endpointClass?` present when `llmSource: endpoint` |
-| `prompt_agent_action` | planned | `{ action }` — **UI clicks only**, closed enum from the actual controls: `select_suggestion \| reroll \| wildcard \| refresh_suggestions \| apply_edit \| dismiss`. Never semantic suggestion categories (those derive from prompt content) |
+| `prompt_agent_step` | live | `{ llmSource: stimma_cloud\|endpoint\|unknown, modelFamily, endpointClass?, durationMs, status: completed\|failed\|timeout, errorType? }` — one agent request/response cycle. `errorType` domain = the shared agent error list incl. `refusal`; `endpointClass?` present when `llmSource: endpoint` |
+| `prompt_agent_action` | live | `{ action }` — **UI clicks only**, closed enum pinned to the live controls: `send \| select_suggestion \| select_option \| surprise \| wildcard \| refresh_category \| refresh_suggestions \| undo \| redo`. Never semantic suggestion categories (those derive from prompt content) |
 
 ## Chat & agent (`chat`)
 
@@ -244,10 +244,10 @@ see.
 | `chat_created` | live | `{ chatHash, projectHash? }` |
 | `chat_message_sent` | live | `{ chatHash, hasAttachments, hasSelectedMedia, messageCount }` |
 | `agent_chat_sent` | live | `{ chatHash, llmSource: stimma_cloud\|endpoint\|unknown }` |
-| `agent_turn_completed` | planned | `{ chatHash, llmSource, modelFamily, endpointClass?, durationMs, toolCallCount, status: completed\|failed\|cancelled\|quota_exceeded\|paused_for_permission, errorType?, agentContext: main\|recipe\|delegate }` — `errorType?` set when `failed`, domain = the shared closed agent error list with `refusal` and `content_filtered` as distinct members |
+| `agent_turn_completed` | live | `{ chatHash, llmSource, modelFamily, endpointClass?, durationMs, toolCallCount, status: completed\|failed\|cancelled\|quota_exceeded\|paused_for_permission, errorType?, agentContext: main\|recipe\|delegate }` — `errorType?` set when `failed`, domain = the shared closed agent error list (pinned): `quota_exceeded \| content_filtered \| subscription_required \| llm_not_configured \| refusal \| timeout \| other`. A turn whose final visible content the shared classifier flags as a textual refusal reports `status: failed, errorType: refusal` |
 | `agent_error` | live | `{ errorType, chatHash?, agentContext }` — `errorType` is the same shared closed list (`quota_exceeded`, `content_filtered`, `subscription_required`, `llm_not_configured`, `refusal`, …); unknown errors map to `other`, never raw exception class names |
-| `chat_deleted` | planned | `{ chatHash }` |
-| `skill_invoked` | planned | `{ chatHash, skillSource: marketplace\|dev\|builtin, skillName? }` — `skillName` passes **only when `skillSource: marketplace`** (catalog data); dev/user skill names are user content and never pass |
+| `chat_deleted` | live | `{ chatHash }` |
+| `skill_invoked` | live | `{ chatHash, skillSource: marketplace\|dev\|builtin, skillName? }` — `skillName` passes **only when `skillSource: marketplace`** (catalog data); dev/user skill names are user content and never pass. `dev` covers both the dev_skills_dir override and user/agent-authored skills |
 
 `chatHash` turns conversation depth/retention into a measurable funnel —
 still zero content.
@@ -258,22 +258,22 @@ All recipe events carry `recipeHash` (install-salted, irreversible).
 
 | Event | Status | Properties |
 |---|---|---|
-| `recipe_created` | planned | `{ recipeHash, projectHash?, forked: bool }` |
-| `recipe_deleted` | planned | `{ recipeHash }` |
-| `recipe_started` | planned | `{ recipeHash, dryRun: bool }` |
-| `recipe_paused` / `recipe_resumed` / `recipe_cleared` | planned | `{ recipeHash }` |
-| `recipe_completed` | planned | `{ recipeHash, durationMs, taskCount, llmCallCount, toolCallCount }` |
-| `recipe_failed` | planned | `{ recipeHash, errorType, errorHash, stepKind }` — `stepKind` = the node type that killed the run, domain = the recipe runtime's closed node-type enum (`llm_call`, `tool_call`, `task`, `fetch_media`, `web_search`, …) — distinct from both the HITL `taskKind` list and the tool `taskType` list |
-| `recipe_task_resolved` | planned | `{ recipeHash, taskKind, waitDurationMs }` — HITL responses; `waitDurationMs` = task-raised→resolved |
+| `recipe_created` | live | `{ recipeHash, projectHash?, forked: bool }` |
+| `recipe_deleted` | live | `{ recipeHash }` |
+| `recipe_started` | live | `{ recipeHash, dryRun: bool }` |
+| `recipe_paused` / `recipe_resumed` / `recipe_cleared` | live | `{ recipeHash }` |
+| `recipe_completed` | live | `{ recipeHash, durationMs, taskCount, llmCallCount, toolCallCount }` — the runtime is a reactive scheduler with no single terminal transition, so "completed" = the root status summary settling to all-done for a run started this process |
+| `recipe_failed` | live | `{ recipeHash, errorType, errorHash, stepKind }` — `stepKind` = the node type that killed the run, domain = the runtime's closed `EquationType` enum (pinned): `tool_call, llm_call, llm_batch, llm_slot, code, hitl, control, recipe_input, info, create_set, create_grid, create_document, create_image, create_layout, rasterize_layout, web_search, fetch_media` — distinct from both the HITL `taskKind` list and the tool `taskType` list. Fired once per started run, on the first equation failure |
+| `recipe_task_resolved` | live | `{ recipeHash, taskKind, waitDurationMs }` — HITL responses; `taskKind` = the runtime's closed HITL kind enum (pinned: `select \| approve`); `waitDurationMs` = task-raised→resolved from the durable task row |
 
 ## Post-processing chains (`postprocess`)
 
 | Event | Status | Properties |
 |---|---|---|
-| `chain_saved` | planned | `{ chainHash, stepCount, stepTypes[] }` — `stepTypes` = ordered values from the closed `taskType` enum incl. `filter` (never tool ids or step names) |
-| `chain_executed` | planned | `{ chainHash?, stepCount, status: completed\|failed\|cancelled, durationMs }` — `chainHash?` present when running a saved chain (ad-hoc runs omit it) |
-| `chain_step_failed` | planned | `{ stepType, errorType }` — `stepType` = the step's `taskType` (in-app filter steps are `filter`) — never a tool id or step name |
-| `chain_retried` / `chain_run_dismissed` | planned | `{}` |
+| `chain_saved` | planned | `{ chainHash, stepCount, stepTypes[] }` — `stepTypes` = ordered values from the closed `taskType` enum incl. `filter` (never tool ids or step names). **No emission point yet**: chains have no saved-entity/save action today (they ride tool state and presets), so there is no chain id to hash — lands with the chain-library feature |
+| `chain_executed` | live | `{ stepCount, status: completed\|failed\|cancelled, durationMs }` — `chainHash?` joins when saved chains exist (every run is ad-hoc today, so it is always omitted) |
+| `chain_step_failed` | live | `{ stepType, errorType }` — `stepType` = the step's `taskType` (in-app filter steps are `filter`) — never a tool id or step name |
+| `chain_retried` / `chain_run_dismissed` | live | `{}` |
 
 ## Boards (`organize`)
 
@@ -281,19 +281,19 @@ All board events carry `boardHash` (install-salted, irreversible).
 
 | Event | Status | Properties |
 |---|---|---|
-| `board_created` | planned | `{ boardHash, projectHash? }` |
-| `board_deleted` | planned | `{ boardHash }` |
-| `board_items_added` / `board_items_removed` | planned | `{ boardHash, count }` |
-| `board_items_moved` | planned | `{ boardHash, count }` — moved between sections |
-| `board_section_added` / `board_section_removed` | planned | `{ boardHash }` |
-| `board_sections_reordered` | planned | `{ boardHash }` |
+| `board_created` | live | `{ boardHash, projectHash? }` |
+| `board_deleted` | live | `{ boardHash }` |
+| `board_items_added` / `board_items_removed` | live | `{ boardHash, count }` |
+| `board_items_moved` | live | `{ boardHash, count }` — moved between sections |
+| `board_section_added` / `board_section_removed` | live | `{ boardHash }` |
+| `board_sections_reordered` | live | `{ boardHash }` |
 
 ## Library (`library`)
 
 | Event | Status | Properties |
 |---|---|---|
 | `media_uploaded` | live | `{ fileCount }` |
-| `media_imported` | live | `{ count }` |
+| `media_imported` | live | `{}` — fired at the rescan trigger; the import runs asynchronously, so no count is available at the emission point (count lands when import-completion gets a seam) |
 | `media_deleted` / `media_restored` | live | `{ count }` |
 | `media_exported` | live | `{ count }` |
 | `search_used` | live | `{ queryType, hasResults }` — both mechanical. No query text, now or ever |
@@ -309,13 +309,13 @@ All board events carry `boardHash` (install-salted, irreversible).
 | `media_tagged` | live | `{ added, removed }` |
 | `media_marked` | live | `{ count, markerName }` — names matching the shipped default set (today `favorite`/`library`) pass through literally; everything else, including renamed defaults, → `markerName: "custom"` |
 | `saved_view_created` | live | `{}` |
-| `saved_view_deleted` | planned | `{}` |
-| `project_created` / `project_deleted` | planned | `{ projectHash }` |
+| `saved_view_deleted` | live | `{}` |
+| `project_created` / `project_deleted` | live | `{ projectHash }` |
 | `profile_created` | live | `{}` |
-| `profile_deleted` | planned | `{}` |
-| `profile_switched` | planned | `{}` |
-| `profile_pin_set` / `profile_pin_removed` | planned | `{}` |
-| `profile_locked` / `profile_unlocked` | planned | `{}` (PIN lock usage; never the PIN) |
+| `profile_deleted` | live | `{}` |
+| `profile_switched` | live | `{}` |
+| `profile_pin_set` / `profile_pin_removed` | live | `{}` |
+| `profile_locked` / `profile_unlocked` | live | `{}` (PIN lock usage; never the PIN) |
 | `folder_added` / `folder_removed` | live | `{ count }` (no paths) |
 | `theme_changed` | live | `{ theme }` |
 | `telemetry_enabled` | live | `{ enabled }` — fired on toggle change; the final `false` event is the last thing sent (the documented CI carve-out) |
@@ -327,21 +327,21 @@ All board events carry `boardHash` (install-salted, irreversible).
 | `skill_marketplace_installed` | live | `{ skillName }` (marketplace names are catalog data, not user content) |
 | `skills_auto_installed` | live | `{ count, skills[] }` — auto-installed skills are stock/marketplace, so names are catalog data |
 | `skill_updated` | live | `{ skillSource, skillName? }` — the editor fires this for user-authored skills too, so the name passes only when `skillSource: marketplace` |
-| `skill_uninstalled` | planned | `{ skillSource, skillName? }` — same marketplace-only name rule |
-| `dev_skills_enabled` | planned | `{ skillCount }` — fired on the configuration transition, not per-launch; count only |
+| `skill_uninstalled` | live | `{ skillSource, skillName? }` — same marketplace-only name rule |
+| `dev_skills_enabled` | live | `{ skillCount }` — fired on the configuration transition, not per-launch; count only |
 
 ## Shares (`share`)
 
 | Event | Status | Properties |
 |---|---|---|
-| `media_shared_to_cloud` | planned | `{ count }` (moderation outcomes live server-side, not in client telemetry) |
+| `media_shared_to_cloud` | live | `{ count }` (moderation outcomes live server-side, not in client telemetry) |
 
 ## Voice (`feature`)
 
 | Event | Status | Properties |
 |---|---|---|
-| `voice_model_downloaded` | planned | `{ model }` (closed list — the shipped whisper models) |
-| `voice_input_used` | planned | `{ surface: main_chat\|recipe_chat\|prompt_agent\|feedback, durationMs, outcome: committed\|cancelled }` (no transcript) |
+| `voice_model_downloaded` | live | `{ model }` (closed list — the shipped whisper models) |
+| `voice_input_used` | live | `{ surface: main_chat\|recipe_chat\|prompt_agent\|feedback, durationMs, outcome: committed\|cancelled }` (no transcript) |
 
 ## UI features (`feature`)
 
@@ -349,18 +349,18 @@ All board events carry `boardHash` (install-salted, irreversible).
 |---|---|---|
 | `slideshow_enter` | live | `{}` |
 | `slideshow_leave` | live | `{ itemsSeen }` |
-| `slideshow_control_used` | planned | `{ control }` — closed enum from the actual controls: `mute \| unmute \| fullscreen \| exit_fullscreen \| timer_set \| pause \| resume \| next \| prev \| shuffle` |
+| `slideshow_control_used` | live | `{ control }` — closed enum pinned to the live controls: `next \| prev \| play \| pause \| shuffle \| loop \| mute \| unmute \| timer_set \| focus_mode`. Fires only on user-initiated clicks/keys — never on timer auto-advance |
 | `image_editor_opened` / `edit_image_used` | live | `{}` |
-| `lineage_viewed` | planned | `{}` |
+| `lineage_viewed` | live | `{}` |
 | `remix_used`, `send_to_tool_used`, `send_to_chat_used`, `find_similar_used`, `compare_used`, `export_used`, `print_used` | live | `{}` |
 
 ## Feedback & privacy meta (`feedback`)
 
 | Event | Status | Properties |
 |---|---|---|
-| `feedback_opened` | planned | `{ source: menu\|thumb\|crash_prompt\|coachmark }` |
-| `feedback_submitted` | planned | `{ kind: feedback\|thumbs\|crash, thumb?, agentContext?, hasLogs, hasScreenshot, hasPackage }` — counting only; content goes through the consented feedback pipeline, never through telemetry |
-| `feedback_consent_set` | planned | `{ subject: thumbs\|crash, value: ask\|always\|never }` |
+| `feedback_opened` | live | `{ source: menu\|thumb\|crash_prompt\|coachmark }` |
+| `feedback_submitted` | live | `{ kind: feedback\|thumbs\|crash, thumb?, agentContext?, hasLogs, hasScreenshot, hasPackage }` — counting only; content goes through the consented feedback pipeline, never through telemetry |
+| `feedback_consent_set` | live | `{ subject: thumbs\|crash, value: ask\|always\|never }` |
 
 ## Deliberately untracked
 

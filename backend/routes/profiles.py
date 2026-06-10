@@ -200,6 +200,10 @@ async def verify_pin(profile_id: str, request: VerifyPinRequest):
     if not is_valid:
         raise HTTPException(status_code=401, detail="Invalid PIN")
 
+    # PIN lock usage — never the PIN itself.
+    from telemetry import get_telemetry_client
+    get_telemetry_client().track("profile_unlocked", category="settings")
+
     return {"valid": True}
 
 
@@ -284,6 +288,12 @@ async def set_pin(profile_id: str, request: SetPinRequest):
     # Clear PIN verification cache for this profile
     from core.middleware import clear_pin_cache
     clear_pin_cache(profile_id)
+
+    from telemetry import get_telemetry_client
+    get_telemetry_client().track(
+        "profile_pin_set" if new_hash else "profile_pin_removed",
+        category="settings",
+    )
 
     return {
         "success": True,

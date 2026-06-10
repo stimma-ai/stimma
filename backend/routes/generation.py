@@ -702,7 +702,7 @@ async def upload_bulk(
         from telemetry import get_telemetry_client
         get_telemetry_client().track("media_uploaded", {
             "fileCount": success,
-        })
+        }, category="library")
 
     return {
         "total": total,
@@ -750,7 +750,7 @@ async def preprocess_controlnet(request: ControlnetPreprocessRequest):
         output_path, width, height = await preprocess(str(source), request.preprocessor, request.preprocessor_params)
 
         from telemetry import get_telemetry_client
-        get_telemetry_client().track("controlnet_preview_used")
+        get_telemetry_client().track("controlnet_preview_used", category="generation")
 
         return {"path": output_path, "width": width, "height": height}
     except Exception as e:
@@ -806,10 +806,15 @@ async def submit_generation_job(request: GenerationJobRequest):
             parameters["auto_marker_ids"] = request.auto_marker_ids
 
         if request.auto_delete_duration is not None:
+            from generation_queue import parse_duration
             from telemetry import get_telemetry_client
-            get_telemetry_client().track("auto_delete_configured", {
-                "durationMinutes": request.auto_delete_duration,
-            })
+            delta = parse_duration(request.auto_delete_duration)
+            auto_delete_props = {"enabled": delta is not None}
+            if delta is not None:
+                auto_delete_props["durationMinutes"] = int(delta.total_seconds() // 60)
+            get_telemetry_client().track(
+                "auto_delete_configured", auto_delete_props, category="generation"
+            )
 
         job_id = await generation_queue.submit_job(
             generator_name=provider_id,  # Legacy field, use provider_id
@@ -985,6 +990,14 @@ async def submit_batch_jobs(
 
         log.info(f"Created batch {batch_id} with {len(job_ids)} jobs")
 
+        from telemetry import get_telemetry_client
+        from pipeline_telemetry import tool_identity_props
+        get_telemetry_client().track("batch_submitted", {
+            "toolRef": tool_identity_props(request.tool_id).get("toolRef"),
+            "jobCount": len(job_ids),
+            "expandedFromSets": bool(set_inputs),
+        }, category="generation")
+
         return BatchJobResponse(
             batch_id=batch_id,
             total_jobs=total_jobs,
@@ -1139,6 +1152,13 @@ async def retry_generation_job(job_id: int, session: AsyncSession = Depends(get_
     params = json.loads(job.parameters)
     params['seed'] = random.randint(0, 2**32 - 1)  # New random seed
 
+    # Telemetry run correlation: a retry is a new pipeline run launched from
+    # a retry affordance — fresh runId, isRetry on the settle event.
+    from pipeline_telemetry import new_run_id, reset_for_retry
+    params['_run_id'] = new_run_id()
+    params['_is_retry'] = True
+    reset_for_retry(job.id)
+
     job.status = 'queued'
     job.parameters = json.dumps(params)
     job.error = None
@@ -1291,7 +1311,7 @@ async def generate_config_from_media(
     from providers import ProviderRegistry
 
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("config_from_media_used")
+    get_telemetry_client().track("config_from_media_used", category="generation")
 
     # Get the media item
     result = await db.execute(select(MediaItem).filter(MediaItem.id == media_id))
@@ -1827,7 +1847,8 @@ async def delete_task_defaults(task_type: str, scope: str = "global", session: A
 async def register_forever_mode(
     generator_instance_id: str = Query(..., description="Unique ID of the generator instance (tab)"),
     backend_name: str = Query(..., description="Name of the backend to generate with"),
-    max_concurrency: int = Query(0, description="Maximum concurrent jobs for this client (0 = unlimited)")
+    max_concurrency: int = Query(0, description="Maximum concurrent jobs for this client (0 = unlimited)"),
+    tool_id: Optional[str] = Query(None, description="Full tool id (telemetry only)"),
 ):
     """
     Register a client for continuous generation (forever mode).
@@ -1840,7 +1861,11 @@ async def register_forever_mode(
     await queue.register_forever_mode(generator_instance_id, backend_name, max_concurrency)
 
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("forever_mode_used", {"action": "started"})
+    from pipeline_telemetry import tool_identity_props
+    get_telemetry_client().track("forever_mode_used", {
+        "toolRef": tool_identity_props(tool_id).get("toolRef"),
+        "action": "started",
+    }, category="generation")
 
     return {"status": "registered", "generator_instance_id": generator_instance_id, "backend_name": backend_name, "max_concurrency": max_concurrency}
 
@@ -1848,7 +1873,8 @@ async def register_forever_mode(
 @router.post("/forever/unregister")
 async def unregister_forever_mode(
     generator_instance_id: str = Query(..., description="Unique ID of the generator instance (tab)"),
-    backend_name: str = Query(..., description="Name of the backend")
+    backend_name: str = Query(..., description="Name of the backend"),
+    tool_id: Optional[str] = Query(None, description="Full tool id (telemetry only)"),
 ):
     """
     Unregister a client from continuous generation (forever mode).
@@ -1858,7 +1884,11 @@ async def unregister_forever_mode(
     await queue.unregister_forever_mode(generator_instance_id, backend_name)
 
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("forever_mode_used", {"action": "stopped"})
+    from pipeline_telemetry import tool_identity_props
+    get_telemetry_client().track("forever_mode_used", {
+        "toolRef": tool_identity_props(tool_id).get("toolRef"),
+        "action": "stopped",
+    }, category="generation")
 
     return {"status": "unregistered", "generator_instance_id": generator_instance_id, "backend_name": backend_name}
 

@@ -55,6 +55,7 @@
                   :get-text="getText"
                   :set-text="setText"
                   :focus="focusTextarea"
+                  surface="feedback"
                 />
                 <span class="text-[10px] text-content-muted pr-1">{{ message.length > 0 ? `${message.length} chars` : '' }}</span>
               </div>

@@ -174,6 +174,9 @@ async def delete_saved_view(
             "view_id": view_id
         })
 
+        from telemetry import get_telemetry_client
+        get_telemetry_client().track("saved_view_deleted", category="organize")
+
         return {"status": "success", "message": "Saved view deleted"}
     except HTTPException:
         raise

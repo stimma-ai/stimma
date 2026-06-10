@@ -1224,6 +1224,7 @@
         ref="chatInputBoxRef"
         v-model="messageInput"
         :attachments="inputAttachments"
+        :voice-surface="chat?.recipe_id ? 'recipe_chat' : 'main_chat'"
         :disabled="sending"
         @update:attachments="inputAttachments = $event"
         @submit="handleEnterKey"

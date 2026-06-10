@@ -121,7 +121,7 @@
               @select="handlePresetSelect"
               @saved="handlePresetSaved"
               @save="saveToActivePreset"
-              @revert="revertToBaseState"
+              @revert="handleRevertToBaseState"
               @clear="handleResetToDefaults"
             />
           </div>
@@ -752,6 +752,7 @@ import { useProvidersApi, type ProviderTool } from '../composables/useProvidersA
 import { useToolState, type ToolState } from '../composables/useToolState'
 import { usePresetsApi } from '../composables/usePresetsApi'
 import { useToolSchemaFeatures } from '../composables/useToolSchemaFeatures'
+import { useTelemetry } from '../composables/useTelemetry'
 import { makeGlobalKey, makeToolDbKey } from '../utils/storageKeys'
 import { getBlob, putBlob, deleteBlob } from '../utils/blobStorage'
 import { getToolDefaults } from '../utils/generationDefaults'
@@ -2289,9 +2290,20 @@ function getCurrentState() {
 
 // Note: handlePresetSelect, handlePresetSaved, clearActivePreset, revertToBaseState,
 // saveToActivePreset, saveAsToolDefaults are now provided by useToolState composable
+const { track: trackTelemetry } = useTelemetry()
+
 function handleResetToDefaults() {
+  trackTelemetry('params_reset', { _toolId: tool.value?.full_tool_id }, 'generation')
   clearActivePreset()
   remixSource.value = null
+}
+
+function handleRevertToBaseState() {
+  trackTelemetry('preset_reverted', {
+    _toolId: tool.value?.full_tool_id,
+    _presetId: activePreset.value?.id,
+  }, 'generation')
+  revertToBaseState()
 }
 
 // Load data
@@ -2844,6 +2856,11 @@ async function loadRemix(mediaId: string) {
 async function handleHopToTool(targetTool: { full_tool_id: string; name: string }) {
   if (!tool.value) return
 
+  trackTelemetry('tool_hop_used', {
+    _fromToolId: tool.value.full_tool_id,
+    _toToolId: targetTool.full_tool_id,
+  }, 'generation')
+
   loadingGenerationConfig.value = true
 
   try {
@@ -3105,7 +3122,8 @@ async function startForeverMode(concurrency: number) {
       params: {
         generator_instance_id: generatorInstanceId,
         backend_name: tool.value.generator,
-        max_concurrency: concurrency
+        max_concurrency: concurrency,
+        tool_id: tool.value.full_tool_id
       }
     })
   } catch (err) {
@@ -3121,7 +3139,8 @@ async function stopForeverMode() {
     await axios.post(`${API_BASE}/generate/forever/unregister`, null, {
       params: {
         generator_instance_id: generatorInstanceId,
-        backend_name: tool.value.generator
+        backend_name: tool.value.generator,
+        tool_id: tool.value.full_tool_id
       }
     })
   } catch (err) {
@@ -4113,7 +4132,8 @@ watch(wsConnected, async (isConnected, wasConnected) => {
             params: {
               generator_instance_id: generatorInstanceId,
               backend_name: tool.value.generator,
-              max_concurrency: uiState.value.generateForeverConcurrency
+              max_concurrency: uiState.value.generateForeverConcurrency,
+              tool_id: tool.value.full_tool_id
             }
           })
           break
@@ -4530,7 +4550,8 @@ onMounted(async () => {
         params: {
           generator_instance_id: generatorInstanceId,
           backend_name: tool.value.generator,
-          max_concurrency: uiState.value.generateForeverConcurrency
+          max_concurrency: uiState.value.generateForeverConcurrency,
+          tool_id: tool.value.full_tool_id
         }
       })
     } catch (err) {
@@ -4591,7 +4612,8 @@ onUnmounted(async () => {
       await axios.post(`${API_BASE}/generate/forever/unregister`, null, {
         params: {
           generator_instance_id: generatorInstanceId,
-          backend_name: tool.value.generator
+          backend_name: tool.value.generator,
+          tool_id: tool.value.full_tool_id
         }
       })
     } catch (err) {

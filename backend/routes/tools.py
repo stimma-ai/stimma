@@ -174,12 +174,17 @@ async def test_connection(request: TestConnectionRequest):
         timeout=10.0,
     )
 
+    # Telemetry: providerType (connection kind) + validated STP product
+    # identity only — never user labels or the free-string reported version.
+    from stp_identity import parse_server_identity
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("tool_provider_tested", {
-        "success": result.success,
-        "providerName": result.provider_name,
-        "providerVersion": result.provider_version,
-    })
+    _tested_props = {"success": result.success, "providerType": request.type}
+    _identity = parse_server_identity(getattr(result, "server", None))
+    if _identity.get("productName") and _identity["productName"] != "unknown":
+        _tested_props["productName"] = _identity["productName"]
+        if _identity.get("productVersion"):
+            _tested_props["productVersion"] = _identity["productVersion"]
+    get_telemetry_client().track("tool_provider_tested", _tested_props, category="generation")
 
     return TestConnectionResponse(
         success=result.success,
