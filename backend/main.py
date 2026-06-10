@@ -140,6 +140,7 @@ from routes import (
     boards,
     cloud,
     chats,
+    feedback,
     flags,
     generation,
     keywords,
@@ -211,6 +212,7 @@ app.include_router(presets.router)
 app.include_router(share.router)
 app.include_router(skill_marketplace.router)
 app.include_router(telemetry.router)
+app.include_router(feedback.router)
 app.include_router(flags.router)
 
 log.info(f"TIMING: routers included at {time.time() - _startup_time:.2f}s")

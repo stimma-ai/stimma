@@ -1,0 +1,623 @@
+"""
+Feedback / thumbs / crash-report client tests (WS-F).
+
+Covers:
+- log tail + secret scrubber
+- conversation package builder (manifest shape, media remap, size cap)
+- crash report writer + pending flow + batch semantics + consent gating
+- distribution gating (dev build -> thumbs/crash paths inert)
+- submission flow against a mocked cloud feedback API
+"""
+import asyncio
+import io
+import json
+import zipfile
+from datetime import datetime, timedelta
+from pathlib import Path
+
+import pytest
+
+
+# =====================================================================
+# Log tail + scrubber
+# =====================================================================
+
+
+class TestLogTail:
+    def test_tail_reads_last_n_lines(self, tmp_path):
+        from log_tail import tail_log_lines
+        log_dir = tmp_path / "Logs"
+        log_dir.mkdir()
+        (log_dir / "Stimma_log.00.txt").write_text(
+            "\n".join(f"line {i}" for i in range(300))
+        )
+        lines = tail_log_lines(200, log_dir=log_dir)
+        assert len(lines) == 200
+        assert lines[0] == "line 100"
+        assert lines[-1] == "line 299"
+
+    def test_tail_spills_into_previous_file(self, tmp_path):
+        from log_tail import tail_log_lines
+        log_dir = tmp_path / "Logs"
+        log_dir.mkdir()
+        (log_dir / "Stimma_log.01.txt").write_text(
+            "\n".join(f"old {i}" for i in range(500))
+        )
+        (log_dir / "Stimma_log.00.txt").write_text(
+            "\n".join(f"new {i}" for i in range(50))
+        )
+        lines = tail_log_lines(200, log_dir=log_dir)
+        assert len(lines) == 200
+        # Oldest first: 150 lines from .01, then all 50 from .00
+        assert lines[0] == "old 350"
+        assert lines[149] == "old 499"
+        assert lines[150] == "new 0"
+        assert lines[-1] == "new 49"
+
+    def test_tail_missing_dir_returns_empty(self, tmp_path):
+        from log_tail import tail_log_lines
+        assert tail_log_lines(200, log_dir=tmp_path / "nope") == []
+
+    def test_scrubs_authorization_header(self):
+        from log_tail import scrub_secrets
+        out = scrub_secrets("sending Authorization: Bearer sk-abc123XYZsecret to api")
+        assert "sk-abc123XYZsecret" not in out
+        assert "Authorization" in out
+        assert "[redacted]" in out
+
+    def test_scrubs_api_key_variants(self):
+        from log_tail import scrub_secrets
+        for text in (
+            "api_key=sk-deadbeef1234",
+            'api-key: "sk-deadbeef1234"',
+            "APIKEY=sk-deadbeef1234",
+        ):
+            out = scrub_secrets(text)
+            assert "sk-deadbeef1234" not in out, text
+
+    def test_scrubs_token_assignments(self):
+        from log_tail import scrub_secrets
+        out = scrub_secrets("refresh_token=AMf-vBzQ12345 id_token: eyJfoo")
+        assert "AMf-vBzQ12345" not in out
+
+    def test_token_count_lines_survive(self):
+        """A naive 'token' substring match would mangle these — they must pass."""
+        from log_tail import scrub_secrets
+        line = "completion used 1523 tokens (prompt_tokens 800, completion tokens 723)"
+        assert scrub_secrets(line) == line
+
+    def test_scrubs_jwt_shaped_strings(self):
+        from log_tail import scrub_secrets
+        jwt = "eyJhbGciOiJSUzI1NiIsImtpZCI.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4"
+        out = scrub_secrets(f"got response {jwt} ok")
+        assert jwt not in out
+
+
+# =====================================================================
+# Conversation package builder
+# =====================================================================
+
+
+async def _make_chat_with_items(db_session, tmp_path, media_count=2):
+    from database import Chat, ChatItem
+    from tests.helpers.media import generate_test_image, create_media_item
+
+    async with db_session() as session:
+        chat = Chat(name="Feedback test chat")
+        session.add(chat)
+        await session.flush()
+
+        media_ids = []
+        base = datetime.utcnow()
+        for i in range(media_count):
+            path = tmp_path / f"img_{i}.png"
+            file_hash = generate_test_image(path, color=(i * 40 % 255, 0, 0))
+            item = await create_media_item(
+                session,
+                file_path=path,
+                file_hash=file_hash,
+                created_date=base + timedelta(minutes=i),
+            )
+            media_ids.append(item.id)
+
+        session.add(ChatItem(chat_id=chat.id, item_type="user_message",
+                             message_text="make me a cat"))
+        session.add(ChatItem(chat_id=chat.id, item_type="assistant_message",
+                             message_text="Here is a cat."))
+        session.add(ChatItem(chat_id=chat.id, item_type="tool_call",
+                             tool_name="generate_image",
+                             tool_args='{"prompt": "cat"}'))
+        session.add(ChatItem(chat_id=chat.id, item_type="generated_media",
+                             media_ids=json.dumps(media_ids)))
+        await session.commit()
+        return chat.id, media_ids
+
+
+class TestPackageBuilder:
+    @pytest.mark.asyncio
+    async def test_chat_package_shape(self, db_session, tmp_path):
+        from feedback_package import build_chat_package
+
+        chat_id, media_ids = await _make_chat_with_items(db_session, tmp_path)
+        async with db_session() as session:
+            data = await build_chat_package(chat_id, session, agent_context="main")
+
+        zf = zipfile.ZipFile(io.BytesIO(data))
+        names = zf.namelist()
+        assert names[0] == "manifest.json"
+        assert names[1] == "conversation.json"
+
+        manifest = json.loads(zf.read("manifest.json"))
+        assert manifest["packageVersion"] == 1
+        assert manifest["agentContext"] == "main"
+        assert "appVersion" in manifest
+        # Both media files present and remapped to media/<n>.<ext>
+        for mid in media_ids:
+            entry = manifest["mediaMap"][str(mid)]
+            assert entry.get("file", "").startswith("media/")
+            assert entry["file"] in names
+
+        conversation = json.loads(zf.read("conversation.json"))
+        assert conversation["chat"]["id"] == chat_id
+        messages = conversation["messages"]
+        # Admin-viewer-compatible {role, text, media} entries
+        assert messages[0] == {"role": "user", "text": "make me a cat", "media": []}
+        assert messages[1]["role"] == "assistant"
+        assert any(m["role"] == "tool_call" and "generate_image" in m["text"]
+                   for m in messages)
+        media_msg = [m for m in messages if m["media"]][0]
+        assert all(name.startswith("media/") for name in media_msg["media"])
+        # Raw items preserved
+        assert len(conversation["items"]) == 4
+
+    @pytest.mark.asyncio
+    async def test_media_cap_newest_first_remainder_omitted(self, db_session, tmp_path):
+        from feedback_package import build_chat_package
+        from database import MediaItem
+        from sqlalchemy import select
+
+        chat_id, media_ids = await _make_chat_with_items(
+            db_session, tmp_path / "cap", media_count=3
+        )
+        async with db_session() as session:
+            result = await session.execute(
+                select(MediaItem).where(MediaItem.id.in_(media_ids))
+            )
+            sizes = {m.id: Path(m.file_path).stat().st_size
+                     for m in result.scalars().all()}
+        # Cap that fits exactly one media file (they're all the same size)
+        one_size = max(sizes.values())
+        async with db_session() as session:
+            data = await build_chat_package(
+                chat_id, session, max_bytes=one_size + 10
+            )
+
+        zf = zipfile.ZipFile(io.BytesIO(data))
+        manifest = json.loads(zf.read("manifest.json"))
+        included = [k for k, v in manifest["mediaMap"].items() if "file" in v]
+        omitted = [k for k, v in manifest["mediaMap"].items() if v.get("omitted")]
+        assert len(included) == 1
+        assert len(omitted) == 2
+        assert all(v["reason"] == "size_cap"
+                   for k, v in manifest["mediaMap"].items() if v.get("omitted"))
+        # Newest-first: the included one is the newest (last created)
+        assert included[0] == str(media_ids[-1])
+
+    @pytest.mark.asyncio
+    async def test_llm_traces_included(self, db_session, tmp_path):
+        from feedback_package import build_chat_package
+        from database import LLMTrace
+
+        chat_id, _ = await _make_chat_with_items(db_session, tmp_path / "tr",
+                                                 media_count=0)
+        async with db_session() as session:
+            session.add(LLMTrace(
+                chat_id=chat_id, trace_type="planner",
+                messages=json.dumps([{"role": "user", "content": "hi"}]),
+                response="plan", model="test-model",
+            ))
+            await session.commit()
+            data = await build_chat_package(chat_id, session)
+
+        zf = zipfile.ZipFile(io.BytesIO(data))
+        names = zf.namelist()
+        assert "llm_traces.json" in names
+        # conversation.json comes before llm_traces.json so the admin viewer
+        # renders the conversation, not the raw trace messages.
+        assert names.index("conversation.json") < names.index("llm_traces.json")
+        traces = json.loads(zf.read("llm_traces.json"))["traces"]
+        assert traces[0]["trace_type"] == "planner"
+
+    def test_prompt_agent_package(self):
+        from feedback_package import build_prompt_agent_package
+        data = build_prompt_agent_package({
+            "messages": [
+                {"role": "user", "content": "more dramatic"},
+                {"role": "assistant", "content": "Done — added storm clouds."},
+            ],
+            "prompt": "a cat in the rain",
+            "instructions": "keep it photoreal",
+        })
+        zf = zipfile.ZipFile(io.BytesIO(data))
+        manifest = json.loads(zf.read("manifest.json"))
+        assert manifest["agentContext"] == "prompt-agent"
+        assert manifest["packageVersion"] == 1
+        conversation = json.loads(zf.read("conversation.json"))
+        assert conversation["messages"][0] == {
+            "role": "user", "text": "more dramatic", "media": []
+        }
+        assert conversation["prompt"] == "a cat in the rain"
+
+    @pytest.mark.asyncio
+    async def test_package_summary(self, db_session, tmp_path):
+        from feedback_package import chat_package_summary
+        chat_id, media_ids = await _make_chat_with_items(db_session,
+                                                         tmp_path / "sum")
+        async with db_session() as session:
+            summary = await chat_package_summary(chat_id, session)
+        assert summary["message_count"] == 2
+        assert set(summary["media_ids"]) == set(media_ids)
+
+
+# =====================================================================
+# Crash reports
+# =====================================================================
+
+
+@pytest.fixture
+def crash_env(tmp_path, monkeypatch):
+    """Isolated crash pending dir + controllable distribution/consent."""
+    import crash_reports
+
+    pending = tmp_path / "crashes" / "pending"
+    monkeypatch.setattr(crash_reports, "get_pending_dir", lambda: pending)
+
+    state = {"consent": "ask"}
+    monkeypatch.setattr(crash_reports, "_crash_consent", lambda: state["consent"])
+
+    # Log tail source
+    import log_tail
+    monkeypatch.setattr(log_tail, "tail_log_lines",
+                        lambda n=200, log_dir=None: ["log line 1", "log line 2"])
+    return state
+
+
+def _boom():
+    try:
+        raise ValueError("kaboom with user content")
+    except ValueError as e:
+        return e
+
+
+class TestCrashReports:
+    def test_dev_build_never_writes(self, crash_env, monkeypatch):
+        import crash_reports
+        monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)
+        assert crash_reports.record_crash(_boom()) is None
+        assert crash_reports.list_pending() == []
+
+    def test_official_writes_pending_report(self, crash_env, monkeypatch):
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        path = crash_reports.record_crash(_boom())
+        assert path is not None and path.exists()
+        report = json.loads(path.read_text())
+        assert report["exceptionType"] == "ValueError"
+        assert "kaboom" in report["message"]
+        assert "ValueError" in report["stack"]
+        assert report["stackHash"]
+        assert report["logTail"] == ["log line 1", "log line 2"]
+        assert report["appVersion"]
+        assert report["appBranch"]
+        assert report["os"]
+        assert "sessionId" in report
+
+    def test_consent_never_discards(self, crash_env, monkeypatch):
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        crash_env["consent"] = "never"
+        assert crash_reports.record_crash(_boom()) is None
+        assert crash_reports.list_pending() == []
+
+    def test_batch_pending_and_discard(self, crash_env, monkeypatch):
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        crash_reports.record_crash(_boom())
+        crash_reports.record_crash(_boom())
+        crash_reports.record_crash(_boom())
+        pending = crash_reports.list_pending()
+        assert len(pending) == 3
+        assert all(p["errorType"] == "ValueError" for p in pending)
+        assert crash_reports.discard_pending() == 3
+        assert crash_reports.list_pending() == []
+
+    @pytest.mark.asyncio
+    async def test_send_pending_submits_each_and_clears(self, crash_env, monkeypatch):
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        crash_reports.record_crash(_boom())
+        crash_reports.record_crash(_boom())
+
+        submitted = []
+
+        async def fake_submit(**kwargs):
+            submitted.append(kwargs)
+            return "fake-id"
+
+        import feedback_client
+        monkeypatch.setattr(feedback_client, "submit_feedback", fake_submit)
+
+        sent = await crash_reports.send_pending(track=False)
+        assert sent == 2
+        assert crash_reports.list_pending() == []
+        for call in submitted:
+            assert call["kind"] == "crash"
+            assert call["error_hash"]
+            crash_json = json.loads(call["crash"].decode())
+            assert crash_json["exceptionType"] == "ValueError"
+            assert "logTail" not in crash_json  # rides separately as logs.txt
+            assert b"log line 1" in call["logs"]
+
+    @pytest.mark.asyncio
+    async def test_send_pending_noop_in_dev(self, crash_env, monkeypatch):
+        import crash_reports
+        # Write while official…
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        crash_reports.record_crash(_boom())
+        # …but sending in a dev build is inert.
+        monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)
+        assert await crash_reports.send_pending(track=False) == 0
+        assert len(crash_reports.list_pending()) == 1
+
+    @pytest.mark.asyncio
+    async def test_startup_check_always_sends_silently(self, crash_env, monkeypatch):
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        crash_env["consent"] = "always"
+        crash_reports.record_crash(_boom())
+
+        sent_calls = []
+
+        async def fake_send():
+            sent_calls.append(True)
+
+        monkeypatch.setattr(crash_reports, "send_pending_silently", fake_send)
+        await crash_reports.startup_check()
+        assert sent_calls == [True]
+
+    @pytest.mark.asyncio
+    async def test_startup_check_never_discards_leftovers(self, crash_env, monkeypatch):
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        crash_reports.record_crash(_boom())
+        crash_env["consent"] = "never"
+        await crash_reports.startup_check()
+        assert crash_reports.list_pending() == []
+
+
+# =====================================================================
+# Sidecar routes (gating + submission flow against a mocked cloud API)
+# =====================================================================
+
+
+@pytest.fixture(scope="module")
+async def feedback_client_fixture(test_app):
+    """httpx client with the feedback router mounted."""
+    from httpx import ASGITransport
+    import httpx as _httpx
+    from routes import feedback as feedback_routes
+
+    test_app.include_router(feedback_routes.router)
+    transport = ASGITransport(app=test_app)
+    async with _httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"X-Profile-ID": "default"},
+    ) as ac:
+        yield ac
+
+
+class FakeCloud:
+    """Mocked stimma-cloud feedback API capturing the full submit flow."""
+
+    def __init__(self):
+        self.posts = []
+        self.puts = []
+        self.completes = []
+
+    def make_async_client(self, **kwargs):
+        fake = self
+
+        class _Resp:
+            def __init__(self, status_code, payload=None):
+                self.status_code = status_code
+                self._payload = payload or {}
+
+            def json(self):
+                return self._payload
+
+        class _Client:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *a):
+                return False
+
+            async def post(self, url, json=None, headers=None, **kw):
+                if url.endswith("/complete"):
+                    fake.completes.append({"url": url, "headers": headers})
+                    return _Resp(200, {"id": "fb-1", "assets": {}})
+                fake.posts.append({"url": url, "json": json, "headers": headers})
+                wants = (json or {}).get("wants") or {}
+                return _Resp(200, {
+                    "id": "fb-1",
+                    "uploadUrls": {k: f"https://r2.example/{k}" for k in wants},
+                })
+
+            async def put(self, url, content=None, **kw):
+                fake.puts.append({"url": url, "bytes": len(content or b"")})
+                return _Resp(200)
+
+        return _Client()
+
+
+@pytest.fixture
+def fake_cloud(monkeypatch):
+    fake = FakeCloud()
+    import feedback_client
+    monkeypatch.setattr(feedback_client.httpx, "AsyncClient",
+                        lambda **kw: fake.make_async_client(**kw))
+
+    async def no_token():
+        return None
+    import firebase_auth
+    monkeypatch.setattr(firebase_auth, "get_valid_id_token", no_token)
+    return fake
+
+
+class TestFeedbackRoutes:
+    @pytest.mark.asyncio
+    async def test_state_defaults(self, feedback_client_fixture, monkeypatch):
+        monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)
+        resp = await feedback_client_fixture.get("/api/feedback/state")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["distribution"] == "dev"
+        assert data["thumbs_consent"] == "ask"
+        assert data["crash_consent"] == "ask"
+        assert data["pending_crashes"] == 0
+
+    @pytest.mark.asyncio
+    async def test_thumbs_submit_rejected_in_dev_build(
+        self, feedback_client_fixture, fake_cloud, monkeypatch
+    ):
+        monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)
+        resp = await feedback_client_fixture.post("/api/feedback/submit", json={
+            "kind": "thumbs", "thumb": "up", "message": "",
+        })
+        assert resp.status_code == 403
+        assert fake_cloud.posts == []  # nothing egressed
+
+    @pytest.mark.asyncio
+    async def test_thumbs_submit_rejected_when_consent_never(
+        self, feedback_client_fixture, fake_cloud, monkeypatch
+    ):
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        from config import get_settings
+        monkeypatch.setattr(get_settings().feedback, "thumbs_consent", "never")
+        resp = await feedback_client_fixture.post("/api/feedback/submit", json={
+            "kind": "thumbs", "thumb": "down", "message": "",
+        })
+        assert resp.status_code == 403
+        assert fake_cloud.posts == []
+
+    @pytest.mark.asyncio
+    async def test_crash_routes_gated_in_dev_build(
+        self, feedback_client_fixture, monkeypatch
+    ):
+        monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)
+        resp = await feedback_client_fixture.get("/api/feedback/crashes/pending")
+        assert resp.status_code == 200
+        assert resp.json()["reports"] == []
+        resp = await feedback_client_fixture.post(
+            "/api/feedback/crashes/decision", json={"action": "send"}
+        )
+        assert resp.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_consent_patch_gated_in_dev_build(
+        self, feedback_client_fixture, monkeypatch
+    ):
+        monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)
+        resp = await feedback_client_fixture.patch("/api/feedback/consent", json={
+            "subject": "thumbs", "value": "always",
+        })
+        assert resp.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_menu_feedback_works_in_dev_build(
+        self, feedback_client_fixture, fake_cloud
+    ):
+        """D13: the menu Feedback item works in ALL builds."""
+        resp = await feedback_client_fixture.post("/api/feedback/submit", json={
+            "kind": "feedback",
+            "message": "test message",
+            "include_logs": True,
+        })
+        assert resp.status_code == 200
+        assert resp.json()["id"] == "fb-1"
+
+        # Full flow against the mocked cloud: POST -> PUT logs -> complete
+        assert len(fake_cloud.posts) == 1
+        post = fake_cloud.posts[0]
+        assert post["json"]["kind"] == "feedback"
+        assert post["json"]["message"] == "test message"
+        assert post["json"]["wants"] == {"logs": True}
+        # Identity rides the UA helper on every request to our infra
+        assert post["headers"]["User-Agent"].startswith("Stimma/")
+        assert "install/" in post["headers"]["User-Agent"]
+        assert len(fake_cloud.puts) == 1
+        assert len(fake_cloud.completes) == 1
+        assert fake_cloud.completes[0]["headers"]["User-Agent"].startswith("Stimma/")
+
+    @pytest.mark.asyncio
+    async def test_thumbs_submit_with_chat_package(
+        self, feedback_client_fixture, fake_cloud, db_session, tmp_path, monkeypatch
+    ):
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        from config import get_settings
+        monkeypatch.setattr(get_settings().feedback, "thumbs_consent", "ask")
+        chat_id, _ = await _make_chat_with_items(db_session, tmp_path / "submit")
+
+        resp = await feedback_client_fixture.post("/api/feedback/submit", json={
+            "kind": "thumbs",
+            "thumb": "down",
+            "agent_context": "main",
+            "message": "it drew a dog",
+            "package": {"type": "chat", "chat_id": chat_id},
+        })
+        assert resp.status_code == 200
+        post = fake_cloud.posts[0]
+        assert post["json"]["kind"] == "thumbs"
+        assert post["json"]["thumb"] == "down"
+        assert post["json"]["agentContext"] == "main"
+        assert post["json"]["wants"] == {"package": True}
+        # The package PUT actually carried zip bytes
+        assert fake_cloud.puts[0]["url"].endswith("/package")
+        assert fake_cloud.puts[0]["bytes"] > 100
+
+    @pytest.mark.asyncio
+    async def test_screenshot_decoding(self, feedback_client_fixture, fake_cloud):
+        import base64
+        png = b"\x89PNG\r\n\x1a\nfakepngbytes"
+        data_url = "data:image/png;base64," + base64.b64encode(png).decode()
+        resp = await feedback_client_fixture.post("/api/feedback/submit", json={
+            "kind": "feedback",
+            "message": "with screenshot",
+            "screenshot": data_url,
+        })
+        assert resp.status_code == 200
+        assert fake_cloud.posts[-1]["json"]["wants"] == {"screenshot": True}
+        assert fake_cloud.puts[-1]["bytes"] == len(png)
+
+    @pytest.mark.asyncio
+    async def test_logs_preview_route(self, feedback_client_fixture):
+        resp = await feedback_client_fixture.get("/api/feedback/logs-preview")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "lines" in data and "text" in data
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_propagates(self, feedback_client_fixture, monkeypatch):
+        from feedback_client import FeedbackSubmitError
+
+        async def limited(**kwargs):
+            raise FeedbackSubmitError("Daily feedback limit reached", 429)
+
+        import routes.feedback  # noqa: F401 — route imports inside handler
+        import feedback_client
+        monkeypatch.setattr(feedback_client, "submit_feedback", limited)
+        resp = await feedback_client_fixture.post("/api/feedback/submit", json={
+            "kind": "feedback", "message": "over the cap",
+        })
+        assert resp.status_code == 429

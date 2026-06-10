@@ -286,6 +286,21 @@ class TelemetryConfig(BaseModel):
     hash_salt: Optional[str] = None
 
 
+class FeedbackConfig(BaseModel):
+    """Feedback / thumbs / crash-report consent state.
+
+    ``thumbs_consent`` / ``crash_reports``: ``ask`` (prompt each time),
+    ``always`` (send without prompting), ``never`` (suppress + discard).
+    Thumbs and crash reports exist only in official builds; the menu
+    Feedback item works in all builds (D13).
+    """
+    thumbs_consent: str = "ask"   # ask | always | never
+    crash_reports: str = "ask"    # ask | always | never
+    # One-time post-onboarding discovery: logo menu auto-opens with a
+    # coachmark on the Feedback item.
+    coachmark_shown: bool = False
+
+
 class ComplianceConfig(BaseModel):
     """Cached compliance-region check (official builds only).
 
@@ -573,6 +588,7 @@ class Settings(BaseSettings):
     cloud: CloudConfig = CloudConfig()
     telemetry: TelemetryConfig = TelemetryConfig()
     compliance: ComplianceConfig = ComplianceConfig()
+    feedback: FeedbackConfig = FeedbackConfig()
 
     def get_llm_role_config(self, role: str) -> LLMRoleConfig:
         """Get LLM role config by role (agent, agent-fast).

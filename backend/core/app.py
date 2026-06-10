@@ -1035,6 +1035,15 @@ async def lifespan(app: FastAPI):
                 _telemetry = get_telemetry_client()
                 await _telemetry.start()
 
+                # Crash reports (official builds only): chain the pending-
+                # report writer onto the process exception hooks (additive
+                # next to telemetry's app_error hooks — separate consent),
+                # and handle reports left by a previous run (auto-send under
+                # 'always'; 'ask' is driven by the frontend on launch).
+                import crash_reports
+                crash_reports.install_crash_hooks()
+                await crash_reports.startup_check()
+
                 # Start feature flag poller (cheap; uses cached values until
                 # the first /decide response lands).
                 from feature_flags import get_feature_flags
@@ -1365,6 +1374,13 @@ def create_app() -> FastAPI:
             # no request paths, which can embed media/entity ids.
             from telemetry import get_telemetry_client
             get_telemetry_client().capture_exception(exc)
+        except Exception:
+            pass
+        try:
+            # Consented crash-report path (content-bearing, official builds
+            # only, gated in crash_reports) — additive next to app_error.
+            import crash_reports
+            crash_reports.record_crash(exc)
         except Exception:
             pass
         return JSONResponse(

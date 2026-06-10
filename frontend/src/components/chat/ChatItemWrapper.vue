@@ -34,6 +34,32 @@
       >
         <ArrowPathRoundedSquareIcon class="w-3.5 h-3.5" />
       </button>
+      <!-- Thumbs (assistant messages; exists only in official builds —
+           dev builds render them disabled with the source-build tooltip) -->
+      <template v-if="showThumbs">
+        <button
+          @click.stop="handleThumb('up')"
+          :disabled="!thumbsEnabled"
+          class="p-1 rounded transition-colors"
+          :class="thumbsEnabled
+            ? 'text-content-muted hover:text-blue-500 hover:bg-blue-500/10'
+            : 'text-content-muted/40 cursor-default'"
+          :title="thumbsDisabledReason || 'Good response — send feedback'"
+        >
+          <HandThumbUpIcon class="w-3.5 h-3.5" />
+        </button>
+        <button
+          @click.stop="handleThumb('down')"
+          :disabled="!thumbsEnabled"
+          class="p-1 rounded transition-colors"
+          :class="thumbsEnabled
+            ? 'text-content-muted hover:text-red-500 hover:bg-red-500/10'
+            : 'text-content-muted/40 cursor-default'"
+          :title="thumbsDisabledReason || 'Bad response — send feedback'"
+        >
+          <HandThumbDownIcon class="w-3.5 h-3.5" />
+        </button>
+      </template>
       <!-- Trash -->
       <button
         @click.stop="handleTrash($event)"
@@ -57,8 +83,11 @@
 
 <script setup>
 import { ref } from 'vue'
-import { TrashIcon, BugAntIcon, PencilSquareIcon, ArrowPathRoundedSquareIcon } from '@heroicons/vue/24/outline'
+import { TrashIcon, BugAntIcon, PencilSquareIcon, ArrowPathRoundedSquareIcon, HandThumbUpIcon, HandThumbDownIcon } from '@heroicons/vue/24/outline'
 import { devModeRef } from '../../appConfig'
+import { useFeedback } from '../../composables/useFeedback'
+
+const { thumbsEnabled, thumbsDisabledReason } = useFeedback()
 
 const hovered = ref(false)
 
@@ -82,10 +111,14 @@ defineProps({
   showReplay: {
     type: Boolean,
     default: false
+  },
+  showThumbs: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['edit', 'replay', 'delete', 'delete-from-here', 'debug'])
+const emit = defineEmits(['edit', 'replay', 'delete', 'delete-from-here', 'debug', 'thumb'])
 
 function handleTrash(event) {
   if (event.shiftKey) {
@@ -93,5 +126,10 @@ function handleTrash(event) {
   } else {
     emit('delete')
   }
+}
+
+function handleThumb(direction) {
+  if (!thumbsEnabled.value) return
+  emit('thumb', direction)
 }
 </script>

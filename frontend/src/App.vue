@@ -8,6 +8,29 @@
   <!-- Image/generation details popup (global, opened via useMediaDetailsModal) -->
   <MediaDetailsModal />
 
+  <!-- Feedback modal (menu + thumbs variants; global, opened via useFeedback) -->
+  <FeedbackModal />
+
+  <!-- First-thumb consent popup (official builds; [Don't send] sends nothing) -->
+  <FeedbackConsentDialog
+    :show="feedbackConsentDialog.open"
+    subject="thumbs"
+    :package-source="feedbackConsentDialog.pendingThumb?.packageSource || null"
+    @dont-send="consentDontSend"
+    @send-once="consentSendOnce"
+    @always-send="consentAlwaysSend"
+  />
+
+  <!-- Batched crash-report consent dialog (official builds, consent 'ask') -->
+  <FeedbackConsentDialog
+    :show="crashDialog.open"
+    subject="crash"
+    :crash-count="crashDialog.reports.length"
+    @dont-send="crashDecision('dismiss')"
+    @send-once="crashDecision('send')"
+    @always-send="crashDecision('send_always')"
+  />
+
   <!-- Full-screen lock screen when PIN is required -->
   <div v-if="isLocked" class="fixed inset-0 z-[10050] bg-surface-overlay">
     <!-- Draggable title bar region -->
@@ -168,6 +191,9 @@ import ToastContainer from './components/ToastContainer.vue'
 import FFmpegWarningModal from './components/FFmpegWarningModal.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
+import FeedbackModal from './components/feedback/FeedbackModal.vue'
+import FeedbackConsentDialog from './components/feedback/FeedbackConsentDialog.vue'
+import { useFeedback } from './composables/useFeedback'
 import { useProfile } from './composables/useProfile'
 import { useAuth } from './composables/useAuth'
 import {
@@ -221,6 +247,17 @@ const {
   loadPreferences: loadUpdatePreferences,
   checkForUpdates,
 } = useAppUpdater()
+const {
+  consentDialog: feedbackConsentDialog,
+  crashDialog,
+  consentDontSend,
+  consentSendOnce,
+  consentAlwaysSend,
+  crashDecision,
+  loadState: loadFeedbackState,
+  checkPendingCrashes,
+  initCrashNotifications,
+} = useFeedback()
 
 const sidebarOpen = ref(false)
 const settingsOpen = ref(false)
@@ -798,6 +835,13 @@ onMounted(async () => {
   checkStartupPin()
   startUpdaterLoop()
 
+  // Feedback client: load consent state, then handle crash reports left by
+  // a previous run (official builds, consent 'ask' → batched dialog) and
+  // subscribe to live-crash WS notifications.
+  loadFeedbackState().then(() => {
+    checkPendingCrashes()
+  })
+  initCrashNotifications(useWebSocket().on)
 })
 
 onUnmounted(() => {
