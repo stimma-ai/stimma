@@ -179,7 +179,11 @@ Commands:
   dir               Print data directory path
   fork              List all sandboxes with sizes and ports
   fork create NAME  Copy default sandbox to a new named sandbox
-  fork destroy NAME Delete a named sandbox (data + cache)
+  fork create NAME --empty  Create a FRESH first-run sandbox (empty except
+                      .fork.json with auto-assigned ports) — backend boots it
+                      as a new install: config auto-init, consent undetermined
+  fork destroy NAME [--yes]  Delete a named sandbox (data + cache); --yes skips
+                      the confirmation prompt (required for non-interactive use)
   bd [args...]    Passthrough to beads CLI`);
   Deno.exit(1);
 }
@@ -1109,7 +1113,15 @@ async function main(): Promise<void> {
   switch (command) {
     case "dev": {
       if (sub === "frontend") {
-        await run("npm", ["run", "dev"], { cwd: join(repoRoot, "frontend"), env: officialEnv });
+        // Pass sandbox ports so forked sandboxes get their own Vite port and
+        // proxy to their own backend (vite.config.js reads these; defaults
+        // are 9191/9192, so the default sandbox is unchanged).
+        const ports = await getSandboxPorts(bundleId, sandbox);
+        const portEnv = {
+          STIMMA_BACKEND_PORT: String(ports.server),
+          STIMMA_FRONTEND_PORT: String(ports.frontend),
+        };
+        await run("npm", ["run", "dev"], { cwd: join(repoRoot, "frontend"), env: { ...portEnv, ...officialEnv } });
       } else if (sub === "backend") {
         const backendDir = join(repoRoot, "backend");
         const ports = await getSandboxPorts(bundleId, sandbox);
@@ -1288,9 +1300,10 @@ async function main(): Promise<void> {
           console.log(`${entry.name}${sizeStr}${ports}`);
         }
       } else if (sub === "create") {
-        const name = rest[0];
+        const empty = rest.includes("--empty");
+        const name = rest.find((a) => !a.startsWith("--"));
         if (!name) {
-          console.error("Usage: stimma fork create NAME");
+          console.error("Usage: stimma fork create NAME [--empty]");
           Deno.exit(1);
         }
         if (name === "default") {
@@ -1304,12 +1317,20 @@ async function main(): Promise<void> {
           console.error(`Sandbox '${name}' already exists at: ${dstData}`);
           Deno.exit(1);
         }
-        if (!(await pathExists(srcData))) {
-          console.error(`Default sandbox not found at: ${srcData}`);
-          Deno.exit(1);
+        if (empty) {
+          // Fresh first-run sandbox: data dir contains only .fork.json. The
+          // backend auto-initializes config.yaml (consent undetermined, no
+          // coachmark, no region cache) on first boot.
+          console.log(`Creating empty sandbox at ${dstData}...`);
+          await Deno.mkdir(dstData, { recursive: true });
+        } else {
+          if (!(await pathExists(srcData))) {
+            console.error(`Default sandbox not found at: ${srcData}`);
+            Deno.exit(1);
+          }
+          console.log(`Copying ${srcData} → ${dstData}...`);
+          await copyDir(srcData, dstData);
         }
-        console.log(`Copying ${srcData} → ${dstData}...`);
-        await copyDir(srcData, dstData);
         await Deno.mkdir(dstCache, { recursive: true });
         // Allocate ports: scan existing .fork.json files to find next available pair
         const root = getBundleDataRoot(bundleId);
@@ -1333,13 +1354,14 @@ async function main(): Promise<void> {
         }
         const forkConfig = { server_port: serverPort, frontend_port: serverPort + 1 };
         await Deno.writeTextFile(join(dstData, ".fork.json"), JSON.stringify(forkConfig, null, 2) + "\n");
-        console.log(`Sandbox '${name}' created.`);
+        console.log(`Sandbox '${name}' created${empty ? " (empty, first-run)" : ""}.`);
         console.log(`  Server port:   ${serverPort}`);
         console.log(`  Frontend port: ${serverPort + 1}`);
       } else if (sub === "destroy") {
-        const name = rest[0];
+        const yes = rest.includes("--yes") || rest.includes("-y");
+        const name = rest.find((a) => !a.startsWith("-"));
         if (!name) {
-          console.error("Usage: stimma fork destroy NAME");
+          console.error("Usage: stimma fork destroy NAME [--yes]");
           Deno.exit(1);
         }
         if (name === "default") {
@@ -1352,10 +1374,12 @@ async function main(): Promise<void> {
           console.error(`Sandbox '${name}' not found at: ${dataDir}`);
           Deno.exit(1);
         }
-        const answer = prompt(`Delete sandbox '${name}'? This removes all data. (y/N)`);
-        if (answer?.toLowerCase() !== "y") {
-          console.log("Aborted.");
-          Deno.exit(0);
+        if (!yes) {
+          const answer = prompt(`Delete sandbox '${name}'? This removes all data. (y/N)`);
+          if (answer?.toLowerCase() !== "y") {
+            console.log("Aborted.");
+            Deno.exit(0);
+          }
         }
         if (await pathExists(dataDir)) await Deno.remove(dataDir, { recursive: true });
         if (await pathExists(cacheDir)) await Deno.remove(cacheDir, { recursive: true });

@@ -52,6 +52,38 @@ filterable server-side. Note `dev app`/`run app` talk to the externally
 running backend on :9191 — start that backend with `--official` too if
 you want the backend surfaces live.
 
+### Fresh first-run sandbox (onboarding / consent flows)
+
+To exercise onboarding from a true first-run state (config auto-init,
+consent undetermined, no feedback coachmark, no cached compliance
+region) without touching your default sandbox, create an **empty**
+sandbox and run both servers against it with `--official`:
+
+```
+stimma fork create consent-test --empty
+stimma --sandbox=consent-test dev backend --official
+stimma --sandbox=consent-test dev frontend --official
+```
+
+`fork create --empty` makes a data dir that contains only a `.fork.json`
+with auto-assigned ports (server/frontend pairs from 9300 up, so your
+default :9191/:9192 servers are untouched). On first boot the backend
+initializes `config.yaml` with `telemetry.enabled` unset (tri-state
+null = consent undetermined), a fresh profile/database, and no
+onboarding state — `GET /api/settings` reports
+`telemetry_enabled: null` and `distribution: "official"`. `dev
+frontend` picks up the sandbox's ports automatically (Vite serves on
+the fork's frontend port and proxies to its backend port).
+
+To re-test the flow from scratch, destroy and recreate the sandbox:
+
+```
+stimma fork destroy consent-test --yes
+stimma fork create consent-test --empty
+```
+
+(`--yes` skips the destroy confirmation for scripted use.)
+
 ## Rules (enforced at audit)
 
 No PII, no prompts, no file names/paths, no generation parameters, no

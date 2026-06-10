@@ -68,10 +68,12 @@ face_detection:
   parallelism: 2
 
 # ============ TELEMETRY ============
-# Anonymous usage telemetry helps improve Stimma.
-# Set enabled to false to opt out, or set DO_NOT_TRACK=1 env var.
-telemetry:
-  enabled: true
+# Anonymous usage telemetry (official builds only). `enabled` is tri-state:
+# unset = consent undetermined (onboarding asks), true = consented,
+# false = declined. Leave it unset on first run so onboarding can ask;
+# DO_NOT_TRACK=1 env var always disables everything regardless.
+# telemetry:
+#   enabled: false
 
 # ============ SERVER SETTINGS ============
 server:
