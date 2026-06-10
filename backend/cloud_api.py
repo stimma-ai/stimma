@@ -35,10 +35,14 @@ async def fetch_user_account(id_token: str) -> CloudAccount:
     base_url = get_settings().cloud.base_url
     url = f"{base_url}/api/auth/me"
 
+    from user_agent import ua_headers
+    headers = ua_headers()
+    headers["Authorization"] = f"Bearer {id_token}"
+
     async with httpx.AsyncClient() as client:
         response = await client.get(
             url,
-            headers={"Authorization": f"Bearer {id_token}"},
+            headers=headers,
             timeout=30.0
         )
         response.raise_for_status()

@@ -247,10 +247,16 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
     is_stimma_cloud = api_base and "stimma" in api_base
 
     # Mechanical correlation IDs (chat/run/agent-context) for Stimma Cloud's
-    # server-side request grouping. Cloud only — never sent to BYOAI/custom
+    # server-side request grouping, plus the Stimma User-Agent (the single
+    # sanctioned install-id egress). Cloud only — never sent to BYOAI/custom
     # endpoints.
     if is_stimma_cloud:
         headers.update(correlation_headers())
+        try:
+            from user_agent import user_agent
+            headers["User-Agent"] = user_agent()
+        except Exception:
+            pass
 
     dump_dir = _dump_dir_for(model, session_id)
     if dump_dir is not None:

@@ -29,32 +29,6 @@
 
     <!-- Dev-only tools -->
     <template v-if="localDevMode">
-      <!-- PostHog Session Recording Toggle -->
-      <div class="mt-3 p-4 bg-surface-raised/50 rounded-lg border border-amber-500/30">
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex-1 min-w-0">
-            <h4 class="text-sm font-medium text-content">Session Recording</h4>
-            <p class="text-xs text-content-tertiary mt-0.5">
-              Records the full UI of your session — clicks, navigation, typed text (including prompts). Recordings are uploaded to Stimma Cloud and visible to Stimma developers. Off by default. Only enable on dev/test profiles for debugging or user testing.
-            </p>
-          </div>
-          <button
-            @click="toggleSessionRecording"
-            :class="[
-              'mt-0.5 relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-surface',
-              localSessionRecording ? 'bg-amber-600' : 'bg-surface-hover'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                localSessionRecording ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
       <div class="mt-3 p-4 bg-surface-raised/50 rounded-lg">
         <div class="flex items-center justify-between gap-3">
           <div class="flex-1 min-w-0">
@@ -221,17 +195,12 @@ const props = defineProps({
   developerMode: {
     type: Boolean,
     default: false
-  },
-  posthogSessionRecording: {
-    type: Boolean,
-    default: false
   }
 })
 
-const emit = defineEmits(['update-developer-mode', 'update-session-recording'])
+const emit = defineEmits(['update-developer-mode'])
 
 const localDevMode = ref(false)
-const localSessionRecording = ref(false)
 const { fetchRequestMetrics, resetRequestMetrics } = useSettingsApi()
 
 const showRequestMetricsModal = ref(false)
@@ -250,20 +219,10 @@ watch(() => props.developerMode, (newValue) => {
   localDevMode.value = newValue
 }, { immediate: true })
 
-watch(() => props.posthogSessionRecording, (newValue) => {
-  localSessionRecording.value = newValue
-}, { immediate: true })
-
 function toggleDeveloperMode() {
   const newValue = !localDevMode.value
   localDevMode.value = newValue
   emit('update-developer-mode', newValue)
-}
-
-function toggleSessionRecording() {
-  const newValue = !localSessionRecording.value
-  localSessionRecording.value = newValue
-  emit('update-session-recording', newValue)
 }
 
 const router = useRouter()

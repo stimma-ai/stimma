@@ -5,7 +5,6 @@
  * In Tauri production: Uses dynamic port from sidecar
  */
 import axios from 'axios'
-import posthog from 'posthog-js'
 
 let apiBaseUrl = '/api'
 let wsBaseUrl = '/ws'
@@ -16,6 +15,23 @@ let updateStartupStatus = null
 
 const SESSION_HEADER = 'X-Stimma-Session-Id'
 
+// Session id ownership: a plain UUID minted at app start and rotated after
+// 30 minutes of inactivity. Sent as X-Stimma-Session-Id on every sidecar
+// request; the backend stamps it onto telemetry batches.
+const SESSION_IDLE_ROTATE_MS = 30 * 60 * 1000
+
+function newSessionId() {
+  try {
+    return crypto.randomUUID()
+  } catch {
+    // Fallback for environments without crypto.randomUUID
+    return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`
+  }
+}
+
+let sessionId = newSessionId()
+let lastActivityAt = Date.now()
+
 function isSidecarUrl(url) {
   if (typeof url !== 'string') return false
   if (url.startsWith('/')) return true
@@ -24,15 +40,19 @@ function isSidecarUrl(url) {
 }
 
 function currentSessionId() {
-  try {
-    if (typeof posthog?.get_session_id === 'function') {
-      const id = posthog.get_session_id()
-      if (id) return id
-    }
-  } catch {
-    // posthog not initialized yet — header is optional, middleware tolerates absence
+  const now = Date.now()
+  if (now - lastActivityAt > SESSION_IDLE_ROTATE_MS) {
+    sessionId = newSessionId()
   }
-  return null
+  lastActivityAt = now
+  return sessionId
+}
+
+/**
+ * The current app session id (rotated on app start + 30 min inactivity).
+ */
+export function getSessionId() {
+  return currentSessionId()
 }
 
 function installSessionHeaderInterceptors() {

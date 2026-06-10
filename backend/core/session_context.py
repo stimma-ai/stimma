@@ -1,10 +1,11 @@
 """
 Session context for the desktop app sidecar.
 
-The frontend (posthog-js) is the source of truth for ``$session_id``.
-It propagates the value via the ``X-Stimma-Session-Id`` header on every
-sidecar API call. ``SessionIdMiddleware`` extracts the header and updates
-the most-recently-seen value here.
+The frontend is the source of truth for the session id (a plain UUID,
+rotated on app start and after 30 minutes of inactivity — see
+``apiConfig.js``). It propagates the value via the ``X-Stimma-Session-Id``
+header on every sidecar API call. ``SessionIdMiddleware`` extracts the
+header and updates the most-recently-seen value here.
 
 This is single-user, single-frontend — no per-request scoping needed.
 A simple module-level variable (with no lock; assignment is atomic in

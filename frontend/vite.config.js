@@ -5,8 +5,15 @@ import { resolve } from 'path'
 const backendPort = process.env.STIMMA_BACKEND_PORT || '9191'
 const frontendPort = parseInt(process.env.STIMMA_FRONTEND_PORT || '9192', 10)
 
+// Build distribution: 'dev' (default) | 'official' (set ONLY by release CI).
+// Compile-time constant — gates the consent UI in the frontend.
+const distribution = process.env.STIMMA_DISTRIBUTION === 'official' ? 'official' : 'dev'
+
 export default defineConfig(({ command }) => ({
   plugins: [vue()],
+  define: {
+    __STIMMA_DISTRIBUTION__: JSON.stringify(distribution),
+  },
   resolve: {
     alias: command === 'serve'
       ? [

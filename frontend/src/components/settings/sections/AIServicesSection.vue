@@ -326,14 +326,18 @@
       </div>
     </div>
 
-    <!-- Telemetry -->
+    <!-- Telemetry: consent toggle in official builds; in source builds the
+         same visual register states that the build contains no telemetry. -->
     <div class="mt-8 pt-6 border-t border-edge">
-      <div class="p-4 bg-surface-raised/50 rounded-lg">
+      <div v-if="isOfficial" class="p-4 bg-surface-raised/50 rounded-lg">
         <div class="flex items-center justify-between">
           <div class="flex-1 min-w-0">
             <h4 class="text-sm font-medium text-content">Usage Analytics</h4>
             <p class="text-xs text-content-tertiary mt-0.5">
               Help improve Stimma by sending anonymous usage data. No prompts, files, or personal information are collected.
+            </p>
+            <p v-if="dntActive" class="text-xs text-content-tertiary mt-1">
+              Environment override active: DO_NOT_TRACK=1 is set — nothing is sent regardless of this setting.
             </p>
           </div>
           <button
@@ -352,6 +356,12 @@
           </button>
         </div>
       </div>
+      <div v-else class="p-4 bg-surface-raised/50 rounded-lg">
+        <h4 class="text-sm font-medium text-content">Usage Analytics</h4>
+        <p class="text-xs text-content-tertiary mt-0.5">
+          You're running a source build — there's no telemetry in it. Everything stays on your machine unless you sign in to Stimma Cloud.
+        </p>
+      </div>
     </div>
 
     <div v-if="saving" class="mt-4 text-xs text-content-muted">Saving...</div>
@@ -362,6 +372,7 @@
 import { ref, watch, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
+import { isOfficialBuild } from '../../../distribution'
 import { useAvailableModels } from '../../../composables/useAvailableModels'
 import { voiceModel, isModelReady, supported as voiceSupported } from '../../../composables/useVoiceInput'
 
@@ -376,9 +387,15 @@ const props = defineProps({
   },
   telemetryEnabled: {
     type: Boolean,
-    default: true
+    default: false
+  },
+  dntActive: {
+    type: Boolean,
+    default: false
   }
 })
+
+const isOfficial = isOfficialBuild()
 
 const emit = defineEmits(['update'])
 
@@ -753,7 +770,7 @@ async function runTest(seq) {
 }
 
 // --- Telemetry ---
-watch(() => props.telemetryEnabled, (val) => { localTelemetryEnabled.value = val }, { immediate: true })
+watch(() => props.telemetryEnabled, (val) => { localTelemetryEnabled.value = val === true }, { immediate: true })
 
 async function toggleTelemetry() {
   const newValue = !localTelemetryEnabled.value

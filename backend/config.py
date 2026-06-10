@@ -273,9 +273,28 @@ class ServerConfig(BaseModel):
 
 
 class TelemetryConfig(BaseModel):
-    """Anonymous usage telemetry configuration."""
-    enabled: bool = True
+    """Anonymous usage telemetry configuration.
+
+    ``enabled`` is tri-state: None = consent undetermined (onboarding not
+    completed yet — official builds buffer events locally and send nothing,
+    see telemetry.py / D14), True = consented, False = declined.
+    """
+    enabled: Optional[bool] = None
     install_id: Optional[str] = None  # UUIDv4, auto-generated on first launch
+    # Per-install random salt for telemetry object hashes (object_hash.py).
+    # Never transmitted.
+    hash_salt: Optional[str] = None
+
+
+class ComplianceConfig(BaseModel):
+    """Cached compliance-region check (official builds only).
+
+    Populated from GET {cloud}/api/compliance/region before onboarding
+    renders; drives the consent toggle default (optin -> off, optout -> on).
+    """
+    country: Optional[str] = None
+    regime: Optional[str] = None  # 'optin' | 'optout'
+    checked_at: Optional[str] = None  # ISO8601 UTC
 
 
 class CloudConfig(BaseModel):
@@ -530,8 +549,8 @@ class Settings(BaseSettings):
     # the stimma-skills repo and pick up changes live, with no publish/install round
     # trip. Set/cleared via `stimma skills dev <path>` / `stimma skills dev --off`.
     dev_skills_dir: Optional[str] = None
-    posthog_session_recording: bool = False  # Dev opt-in: enable PostHog session replay
     theme: str = "dark"  # UI theme preference: light, dark, system
+    disable_update_check: bool = False  # Suppress the daily backend update check
     generators: List[GeneratorConfig] = []
     tool_providers: List[ToolProviderConfig] = []  # External tool providers (JSON-RPC)
     generation: Optional[GenerationUploadConfig] = None  # Upload config for reference images
@@ -553,6 +572,7 @@ class Settings(BaseSettings):
     agent: AgentConfig = AgentConfig()
     cloud: CloudConfig = CloudConfig()
     telemetry: TelemetryConfig = TelemetryConfig()
+    compliance: ComplianceConfig = ComplianceConfig()
 
     def get_llm_role_config(self, role: str) -> LLMRoleConfig:
         """Get LLM role config by role (agent, agent-fast).
@@ -695,6 +715,10 @@ class Settings(BaseSettings):
 
         # Remove deprecated thumbnail_cache_dir (now computed via app_dirs)
         config_data.pop('thumbnail_cache_dir', None)
+        # Remove deprecated posthog_session_recording (PostHog removed)
+        config_data.pop('posthog_session_recording', None)
+        # Remove deprecated tracing section (client-side Langfuse removed)
+        config_data.pop('tracing', None)
 
         # Parse the llms config structure (supports old and new formats)
         if 'llms' in config_data:

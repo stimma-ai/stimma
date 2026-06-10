@@ -183,11 +183,10 @@ import {
   setAppModifier,
   setDevMode,
   setCaptioningEnabled,
-  setInstallId,
-  setSessionRecordingEnabled,
   setTelemetryEnabled,
 } from './appConfig'
-import { initPostHog } from './composables/usePostHog'
+import { initFeatureFlags } from './composables/useFeatureFlags'
+import { useWebSocket } from './composables/useWebSocket'
 import { runStartupCleanup } from './utils/storageCleanup'
 import { setCloudBaseUrl } from './composables/useCloudAccount'
 import { useRouteRestore } from './composables/useRouteRestore'
@@ -612,10 +611,8 @@ async function loadAppSettings() {
   setCloudBaseUrl(settings.cloud_base_url)
   setDevMode(settings.developer_mode)
   setCaptioningEnabled(settings.background_work?.captioning?.enabled)
-  setInstallId(settings.install_id)
   setTelemetryEnabled(settings.telemetry_enabled)
-  setSessionRecordingEnabled(settings.posthog_session_recording)
-  initPostHog()
+  initFeatureFlags(useWebSocket().on)
   // Sync theme from backend config (backend is source of truth,
   // localStorage is used for instant flash prevention on load)
   if (settings.theme) {

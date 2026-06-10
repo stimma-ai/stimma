@@ -117,8 +117,10 @@
     <!-- Compliance footer — pinned to bottom, no box -->
     <div class="fixed bottom-0 left-0 right-0 px-7 pb-[22px] flex flex-col items-center" style="gap: 10px; background: var(--color-base); border-top: 1px solid var(--color-border-subtle); padding-top: 14px;">
 
-      <!-- Telemetry — inline, no card -->
-      <div class="flex items-center" style="gap: 10px;">
+      <!-- Telemetry — inline, no card. Official builds: consent toggle
+           (default per compliance regime). Source builds: no toggle — there
+           is no telemetry in the build. -->
+      <div v-if="isOfficial" class="flex items-center" style="gap: 10px;">
         <span class="text-content-secondary" style="font-size: 11px;">
           Share anonymous crash &amp; usage data to help improve Stimma.
           <a @click.prevent="openUrl(learnMoreUrl)" href="#" class="text-content-secondary underline underline-offset-2 hover:text-content transition-colors">Learn&nbsp;more.</a>
@@ -136,6 +138,12 @@
           ></div>
         </label>
       </div>
+      <div v-else class="flex items-center" style="gap: 10px;">
+        <span class="text-content-secondary" style="font-size: 11px;">
+          You're running a source build — there's no telemetry in it. Everything stays on your machine unless you sign in to Stimma&nbsp;Cloud.
+          <a @click.prevent="openUrl(learnMoreUrl)" href="#" class="text-content-secondary underline underline-offset-2 hover:text-content transition-colors">Learn&nbsp;more.</a>
+        </span>
+      </div>
 
       <!-- Legal -->
       <p class="text-content-secondary text-center" style="font-size: 10.5px; line-height: 1.5;">
@@ -149,9 +157,10 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { signInWithBrowser } from '../composables/useAuth'
+import { isOfficialBuild } from '../distribution'
 import { makeGlobalKey } from '../utils/storageKeys'
 import { getApiBase } from '../apiConfig'
 import { useCloudAccount } from '../composables/useCloudAccount'
@@ -183,10 +192,34 @@ function selectTheme(theme) {
 
 const showConfirm = ref(false)
 const loading = ref(false)
-const shareAnalytics = ref(true)
+const isOfficial = isOfficialBuild()
+
+// Consent toggle default per compliance regime (official builds only):
+// optin regimes (EEA/UK/CH) default OFF, optout regimes default ON.
+// The region check is resolved before this view renders (cached in config
+// after the first successful check; unreachable -> optin, re-checked next
+// launch).
+const shareAnalytics = ref(false)
+
+if (isOfficial) {
+  fetch(`${getApiBase()}/compliance/region`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((region) => {
+      shareAnalytics.value = region?.regime === 'optout'
+    })
+    .catch(() => {
+      shareAnalytics.value = false // optin-safe default
+    })
+}
 
 function markComplete() {
   localStorage.setItem(makeGlobalKey('onboarding_completed'), '1')
+  // Record the consent decision (official builds only). Until this lands,
+  // consent is undetermined and the backend buffers events locally with
+  // zero network (D14); dev builds have no telemetry to consent to.
+  if (isOfficial) {
+    saveAnalyticsPref(shareAnalytics.value)
+  }
 }
 
 async function saveAnalyticsPref(enabled) {
@@ -200,8 +233,6 @@ async function saveAnalyticsPref(enabled) {
     // Non-fatal — adjustable in Settings later
   }
 }
-
-watch(shareAnalytics, (val) => saveAnalyticsPref(val))
 
 async function handleCreateAccount() {
   loading.value = true

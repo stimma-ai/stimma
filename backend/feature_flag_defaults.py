@@ -1,9 +1,11 @@
 """
-Default values for PostHog feature flags evaluated by the sidecar.
+Local default values for feature flags evaluated by the sidecar.
 
-When adding a new flag, add it here AND to
+These are the fallbacks used before the first ``/api/feature-flags``
+fetch completes (and permanently under ``DO_NOT_TRACK=1``, which
+suppresses the fetch). When adding a new flag, add it here AND to
 ``frontend/src/featureFlagDefaults.js`` so first-launch behavior is
-deterministic before either process has fetched flag definitions.
+deterministic in both processes.
 
 Flag names should be lowercase-snake-case.
 """

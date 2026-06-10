@@ -10,7 +10,6 @@
 import { ref, readonly } from 'vue'
 import { auth, firebaseSignOut } from './firebase'
 import { isTauri, getApiBase } from '../apiConfig'
-import { identifyPostHogCloudUser, resetPostHogCloudUser } from './usePostHog'
 
 // Global reactive state (shared across all components)
 const user = ref(null)
@@ -24,15 +23,8 @@ let initialized = false
  * Helper to set user state.
  */
 function setUser(newUser) {
-  const wasAuthenticated = isAuthenticated.value
   user.value = newUser
   isAuthenticated.value = !!newUser
-
-  if (newUser?.uid) {
-    identifyPostHogCloudUser(newUser)
-  } else if (wasAuthenticated) {
-    resetPostHogCloudUser()
-  }
 }
 
 /**

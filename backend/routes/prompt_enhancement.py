@@ -369,46 +369,12 @@ def _detect_refusal(response_content: str) -> Optional[str]:
     """
     Detect if the LLM refused to generate suggestions.
     Returns the refusal message if detected, None otherwise.
+
+    Delegates to the shared refusal classifier (refusal_detection.py) —
+    the single source of truth used across all agent surfaces.
     """
-    response_lower = response_content.lower()
-
-    # Common refusal patterns
-    refusal_patterns = [
-        "i cannot",
-        "i can't",
-        "i'm unable to",
-        "i am unable to",
-        "i won't",
-        "i will not",
-        "not appropriate",
-        "not able to",
-        "cannot assist",
-        "can't assist",
-        "cannot help",
-        "can't help",
-        "cannot provide",
-        "can't provide",
-        "against my",
-        "violates",
-        "inappropriate",
-        "harmful content",
-        "explicit content",
-        "i apologize",
-        "sorry, but",
-    ]
-
-    for pattern in refusal_patterns:
-        if pattern in response_lower:
-            # Return a cleaned up version of the response (first 200 chars)
-            # Strip any JSON attempts
-            clean = response_content.strip()
-            if clean.startswith('[') or clean.startswith('{'):
-                return None  # It's JSON, not a refusal
-            # Return first sentence or 200 chars
-            first_sentence = clean.split('.')[0] + '.' if '.' in clean[:200] else clean[:200]
-            return first_sentence.strip()
-
-    return None
+    from refusal_detection import detect_refusal
+    return detect_refusal(response_content)
 
 
 def _parse_categories_response(response_content: str) -> tuple[List[CategoryItem], Optional[str]]:

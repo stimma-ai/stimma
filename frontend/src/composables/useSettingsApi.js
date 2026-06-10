@@ -181,15 +181,6 @@ export function useSettingsApi() {
   }
 
   /**
-   * Update PostHog session recording opt-in (dev-only).
-   * @param {boolean} enabled
-   */
-  async function updatePostHogSessionRecording(enabled) {
-    const response = await axios.patch(`${getAPIBase()}/settings/posthog-session-recording`, { enabled })
-    return response.data
-  }
-
-  /**
    * Update theme setting.
    * @param {string} theme - Theme preference (light, dark, system)
    */
@@ -235,7 +226,6 @@ export function useSettingsApi() {
     getDatabaseCleanupPreview,
     executeDatabaseCleanup,
     updateDeveloperMode,
-    updatePostHogSessionRecording,
     updateTheme,
     fetchRequestMetrics,
     resetRequestMetrics,

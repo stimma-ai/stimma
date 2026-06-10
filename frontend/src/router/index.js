@@ -194,15 +194,14 @@ const router = createRouter({
   routes
 })
 
-// Track screen navigation. Uses PostHog's canonical `$screen` event with a
-// `$screen_name` property — this is the native-app analog of `$pageview` and
-// powers the built-in Paths insight in $screen mode. Critically, $screen
-// events do NOT feed PostHog's Web analytics dashboard, so app navigation
-// stays separate from stimma.ai pageview traffic.
+// Track screen navigation with the catalog's `screen_viewed` event. Only
+// the route NAME is sent — never the path, which can embed entity ids
+// (/boards/<id>, /lineage/<mediaId>). Dev-only routes are excluded.
 const { track: trackNav } = useTelemetry()
 router.afterEach((to) => {
-  const screenName = to.name || to.path
-  trackNav('$screen', { $screen_name: screenName, path: to.path })
+  const screen = typeof to.name === 'string' ? to.name : null
+  if (!screen || screen.startsWith('dev-')) return
+  trackNav('screen_viewed', { screen }, 'navigation')
 })
 
 export default router

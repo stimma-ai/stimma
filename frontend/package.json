@@ -36,7 +36,6 @@
     "firebase": "^12.8.0",
     "marked": "^17.0.1",
     "modern-screenshot": "^4.7.0",
-    "posthog-js": "^1.372.1",
     "vue": "^3.3.8",
     "vue-router": "^4.2.5",
     "vue-virtual-scroll-grid": "^1.11.0",

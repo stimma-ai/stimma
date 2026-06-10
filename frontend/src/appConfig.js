@@ -16,14 +16,10 @@ const devModeRef = ref(false)
 // Reactive ref for captioning (visual analysis) feature - allows hiding all caption/keyword UI when disabled
 const captioningEnabledRef = ref(false)
 
-// Stable per-install UUID from backend settings (used as PostHog distinct_id)
-const installIdRef = ref('')
-
-// Whether PostHog session recording is opted-in (dev-only toggle)
-const sessionRecordingEnabledRef = ref(false)
-
-// Whether anonymous usage telemetry is enabled (drives PostHog opt-in/out too)
-const telemetryEnabledRef = ref(true)
+// Anonymous usage telemetry consent: true/false, or null while undetermined
+// (onboarding not completed). Official builds only — dev builds have no
+// telemetry regardless.
+const telemetryEnabledRef = ref(null)
 
 /**
  * Set the bundle ID from backend settings.
@@ -72,24 +68,12 @@ export function setCaptioningEnabled(enabled) {
   captioningEnabledRef.value = enabled === true
 }
 
-export function setInstallId(id) {
-  installIdRef.value = id || ''
-}
-
-export function getInstallId() {
-  return installIdRef.value
-}
-
-export function setSessionRecordingEnabled(enabled) {
-  sessionRecordingEnabledRef.value = enabled === true
-}
-
 export function setTelemetryEnabled(enabled) {
-  telemetryEnabledRef.value = enabled === true
+  telemetryEnabledRef.value = typeof enabled === 'boolean' ? enabled : null
 }
 
 /**
  * Reactive ref for developer mode.
  * Use this in Vue components for reactive updates.
  */
-export { devModeRef, captioningEnabledRef, installIdRef, sessionRecordingEnabledRef, telemetryEnabledRef }
+export { devModeRef, captioningEnabledRef, telemetryEnabledRef }

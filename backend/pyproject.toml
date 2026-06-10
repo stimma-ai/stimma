@@ -52,8 +52,6 @@ dependencies = [
     # HTML to PNG rendering (agent v2)
     "weasyprint>=62.0",
     "pypdfium2>=4.0",
-    # PostHog (events + error tracking, dual-write alongside our own telemetry)
-    "posthog>=7.0",
 ]
 
 [project.optional-dependencies]

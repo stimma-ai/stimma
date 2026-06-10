@@ -30,6 +30,9 @@ jobs:
 
     env:
       RUST_BACKTRACE: 1
+      # Official build marker: gates telemetry/consent/update-check in all
+      # three app layers. Release CI is the ONLY place this is set.
+      STIMMA_DISTRIBUTION: official
       STIMMA_RELEASE_CHANNEL: ${{ github.event_name == 'push' && (contains(github.ref_name, '-alpha.') && 'alpha' || contains(github.ref_name, '-beta.') && 'beta' || 'production') || inputs.channel }}
       STIMMA_UPDATE_BASE_URL: ${{ vars.STIMMA_UPDATE_BASE_URL || 'https://updates.stimma.ai' }}
       R2_BUCKET: ${{ vars.R2_BUCKET }}

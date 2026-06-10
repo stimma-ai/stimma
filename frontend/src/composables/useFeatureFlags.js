@@ -1,17 +1,17 @@
 /**
- * Feature flag composable backed by posthog-js.
+ * Feature flag composable backed by the sidecar's first-party flag bag.
+ *
+ * The backend fetches GET {cloud}/api/feature-flags (on launch, every 6 h,
+ * and on sign-in change) and reflects the bag to the frontend via
+ * GET /api/feature-flags plus the `flags_updated` WebSocket event.
  *
  * On startup we hydrate from localStorage so flag reads return correct
- * values before posthog-js finishes its first /decide round-trip — no
- * 300ms-after-launch UI flicker.
- *
- * After posthog init, ``initFeatureFlags()`` (called from
- * ``usePostHog.js``) wires ``posthog.onFeatureFlags`` to keep the
- * reactive store in sync. Components using ``isEnabled`` / ``get`` get
- * Vue refs that re-render automatically when flag values change.
+ * values before the first sidecar round-trip — no after-launch UI flicker.
+ * `featureFlagDefaults.js` provides local fallbacks for flags the server
+ * hasn't defined.
  */
 import { computed, reactive } from 'vue'
-import posthog from 'posthog-js'
+import { getApiBase } from '../apiConfig'
 import { FLAG_DEFAULTS } from '../featureFlagDefaults'
 
 const STORAGE_KEY = 'stimma:flags'
@@ -39,50 +39,46 @@ function saveCachedFlags(flags) {
   }
 }
 
-/**
- * Snapshot of the cached flag values, suitable for posthog-js
- * ``bootstrap.featureFlags`` to seed the SDK at init time.
- */
-export function getCachedFlags() {
-  return { ...state.flags }
+function applyFlags(next) {
+  if (!next || typeof next !== 'object') return
+  const changed = JSON.stringify(next) !== JSON.stringify(state.flags)
+  if (!changed) return
+  state.flags = next
+  saveCachedFlags(next)
+  const snapshot = { ...next }
+  subscribers.forEach((cb) => {
+    try {
+      cb(snapshot)
+    } catch (err) {
+      console.warn('[featureFlags] subscriber failed', err)
+    }
+  })
 }
 
 /**
- * Wire posthog-js's flag updates into the reactive store. Call once
- * after ``posthog.init()``.
+ * Wire up the sidecar flag bag: one initial fetch + live updates over the
+ * existing WebSocket. Call once at app startup (App.vue).
  */
-export function initFeatureFlags() {
+export function initFeatureFlags(wsOn) {
   if (initialized) return
   initialized = true
-  try {
-    posthog.onFeatureFlags(() => {
-      const next = {}
-      try {
-        const allFlags = posthog.featureFlags?.getFlagVariants?.() || {}
-        Object.assign(next, allFlags)
-      } catch {
-        // fall through to empty
-      }
-      const changed = JSON.stringify(next) !== JSON.stringify(state.flags)
-      if (!changed) return
-      state.flags = next
-      saveCachedFlags(next)
-      const snapshot = { ...next }
-      subscribers.forEach((cb) => {
-        try {
-          cb(snapshot)
-        } catch (err) {
-          console.warn('[featureFlags] subscriber failed', err)
-        }
-      })
+
+  fetch(`${getApiBase()}/feature-flags`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((body) => {
+      if (body && typeof body.flags === 'object') applyFlags(body.flags)
     })
-  } catch (err) {
-    console.warn('[featureFlags] onFeatureFlags wiring failed', err)
+    .catch(() => {})
+
+  if (typeof wsOn === 'function') {
+    wsOn('flags_updated', (data) => {
+      if (data && typeof data.flags === 'object') applyFlags(data.flags)
+    })
   }
 }
 
 export function useFeatureFlags() {
-  function isEnabled(name, defaultValue = false) {
+  function getBool(name, defaultValue = false) {
     return computed(() => {
       if (name in state.flags) {
         return state.flags[name] !== false && Boolean(state.flags[name])
@@ -102,10 +98,17 @@ export function useFeatureFlags() {
     })
   }
 
+  function has(name) {
+    return computed(() => name in state.flags || name in FLAG_DEFAULTS)
+  }
+
   function onChange(callback) {
     subscribers.add(callback)
     return () => subscribers.delete(callback)
   }
 
-  return { isEnabled, get, onChange }
+  // Back-compat alias
+  const isEnabled = getBool
+
+  return { getBool, get, has, isEnabled, onChange }
 }

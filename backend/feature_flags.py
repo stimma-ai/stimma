@@ -1,15 +1,23 @@
 """
-PostHog feature flag client for the sidecar.
+First-party feature flag client for the sidecar.
 
-Polls PostHog's public ``/decide`` endpoint every 30 seconds with the
-project public key. ``/decide`` returns flag values pre-evaluated for the
-distinct_id, so we don't need a personal/secure API key (which would be
-unsafe to ship in the desktop binary).
+Fetches ``GET {cloud.base_url}/api/feature-flags`` on launch, then every
+6 hours, plus on sign-in change. Identity/platform ride the User-Agent
+(user_agent.py); a Firebase bearer token is attached when signed in so
+flags can later target users/tiers. The server returns ``{}`` today — the
+client system is fully functional with an empty bag.
 
-Reads (``is_enabled`` / ``get``) are synchronous dict lookups — cheap from
-any code path. The on-disk cache (``flags.json`` in the app data dir)
-lets us seed correct values before the first poll completes, including
-on a cold start with no network.
+This fetch runs in ALL distributions (dev and official) — it is an
+operational config fetch and the install/MAU signal for source builds.
+It carries no usage data and is not gated by telemetry consent. It IS
+suppressed by ``DO_NOT_TRACK=1`` (D11: no automatic requests at all —
+local defaults only).
+
+Reads (``get_bool`` / ``get`` / ``has``) are synchronous dict lookups —
+cheap from any code path. The on-disk cache (``flags.json`` in the app
+data dir) seeds values before the first fetch completes, including on a
+cold start with no network. ``feature_flag_defaults.py`` provides local
+fallbacks for flags the server hasn't defined.
 """
 import asyncio
 import json
@@ -21,14 +29,13 @@ import httpx
 
 import app_dirs
 from core.logging import get_logger
+from distribution import is_dnt
 from feature_flag_defaults import FLAG_DEFAULTS
 
 log = get_logger(__name__)
 
-POSTHOG_HOST = "https://us.i.posthog.com"
-POSTHOG_PROJECT_KEY = "phc_qyrQKHfPzCsSvBuY5tywS2TXZyvF8Q6cZU8tmGSNpxbp"
-POLL_INTERVAL_SECONDS = 30
-DECIDE_TIMEOUT_SECONDS = 10
+FETCH_INTERVAL_SECONDS = 6 * 60 * 60  # 6 hours
+FETCH_TIMEOUT_SECONDS = 15
 
 
 def _cache_path() -> Path:
@@ -64,30 +71,43 @@ class FeatureFlagClient:
     def __init__(self) -> None:
         self._flags: Dict[str, Any] = {}
         self._poll_task: Optional[asyncio.Task] = None
+        self._refresh_event: Optional[asyncio.Event] = None
         self._subscribers: List[Callable[[Dict[str, Any]], Awaitable[None]]] = []
         self._started: bool = False
 
-    def is_enabled(self, name: str, default: bool = False) -> bool:
+    # ── Read API ────────────────────────────────────────────────────────
+
+    def get_bool(self, name: str, default: bool = False) -> bool:
         """Return whether a boolean flag is enabled."""
         value = self._flags.get(name, FLAG_DEFAULTS.get(name, default))
         return bool(value) and value is not False
 
+    # Back-compat alias for existing call sites.
+    def is_enabled(self, name: str, default: bool = False) -> bool:
+        return self.get_bool(name, default)
+
     def get(self, name: str, default: Any = None) -> Any:
-        """Return a flag value (multivariate flags return strings; boolean flags return bool)."""
+        """Return a flag value (arbitrary JSON value)."""
         if name in self._flags:
             return self._flags[name]
         if name in FLAG_DEFAULTS:
             return FLAG_DEFAULTS[name]
         return default
 
+    def has(self, name: str) -> bool:
+        """Whether the flag is defined (server bag or local defaults)."""
+        return name in self._flags or name in FLAG_DEFAULTS
+
     def all(self) -> Dict[str, Any]:
-        """Return a snapshot of the current flag dict (for diagnostics / WS push)."""
-        return dict(self._flags)
+        """Snapshot of the effective flag dict (defaults overlaid by server)."""
+        merged = dict(FLAG_DEFAULTS)
+        merged.update(self._flags)
+        return merged
 
     def subscribe(
         self, callback: Callable[[Dict[str, Any]], Awaitable[None]]
     ) -> Callable[[], None]:
-        """Register an async callback fired with the new flags dict on each change.
+        """Register an async callback fired with the new flags dict on change.
 
         Returns a function that unsubscribes when called.
         """
@@ -101,12 +121,21 @@ class FeatureFlagClient:
 
         return _unsub
 
+    # ── Lifecycle ───────────────────────────────────────────────────────
+
     async def start(self) -> None:
-        """Hydrate from disk cache and kick off the poll loop."""
+        """Hydrate from disk cache and kick off the fetch loop."""
         if self._started:
             return
         self._started = True
         self._flags = _load_cache()
+        if is_dnt():
+            log.info(
+                "feature_flags: DO_NOT_TRACK=1 — no fetch, local defaults only",
+                cached_count=len(self._flags),
+            )
+            return
+        self._refresh_event = asyncio.Event()
         self._poll_task = asyncio.create_task(self._poll_loop())
         log.info("feature_flags started", cached_count=len(self._flags))
 
@@ -120,17 +149,15 @@ class FeatureFlagClient:
             self._poll_task = None
         self._started = False
 
-    def _distinct_id(self) -> Optional[str]:
-        """Match the telemetry client's identification rule."""
-        try:
-            from telemetry import get_telemetry_client
-            tc = get_telemetry_client()
-            return tc._distinct_id()
-        except Exception:
-            return None
+    def refresh(self) -> None:
+        """Request an immediate re-fetch (e.g. on sign-in change)."""
+        if self._refresh_event is not None:
+            self._refresh_event.set()
+
+    # ── Fetching ────────────────────────────────────────────────────────
 
     async def _poll_loop(self) -> None:
-        # Initial fetch on a slight delay so install_id has a chance to settle.
+        # Initial fetch shortly after startup.
         await asyncio.sleep(0.5)
         while True:
             try:
@@ -138,38 +165,57 @@ class FeatureFlagClient:
             except asyncio.CancelledError:
                 raise
             except Exception:
-                log.exception("feature_flags: poll iteration failed")
+                log.exception("feature_flags: fetch iteration failed")
+            # Sleep until the next interval or an explicit refresh request.
             try:
-                await asyncio.sleep(POLL_INTERVAL_SECONDS)
+                self._refresh_event.clear()
+                await asyncio.wait_for(
+                    self._refresh_event.wait(), timeout=FETCH_INTERVAL_SECONDS
+                )
+            except asyncio.TimeoutError:
+                pass
             except asyncio.CancelledError:
                 raise
 
-    async def _fetch_once(self) -> None:
-        distinct_id = self._distinct_id()
-        if not distinct_id:
-            return  # no identity yet; try again next tick
-
-        payload = {
-            "api_key": POSTHOG_PROJECT_KEY,
-            "distinct_id": distinct_id,
-        }
-        url = f"{POSTHOG_HOST}/decide/?v=3"
+    async def _bearer_token(self) -> Optional[str]:
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(DECIDE_TIMEOUT_SECONDS)) as client:
-                response = await client.post(url, json=payload)
+            from firebase_auth import get_valid_id_token
+            return await get_valid_id_token()
+        except Exception:
+            return None
+
+    async def _fetch_once(self) -> None:
+        if is_dnt():
+            return
+        from config import get_settings
+        from user_agent import ua_headers
+
+        base_url = get_settings().cloud.base_url.rstrip("/")
+        url = f"{base_url}/api/feature-flags"
+        headers = ua_headers()
+        token = await self._bearer_token()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(FETCH_TIMEOUT_SECONDS)
+            ) as client:
+                response = await client.get(url, headers=headers)
             if response.status_code != 200:
                 log.debug(
-                    f"feature_flags: /decide returned status {response.status_code}"
+                    f"feature_flags: fetch returned status {response.status_code}"
                 )
                 return
             body = response.json()
         except Exception as e:
-            log.debug(f"feature_flags: /decide request failed: {e}")
+            log.debug(f"feature_flags: fetch failed: {e}")
             return
 
-        new_flags = body.get("featureFlags") or {}
-        if not isinstance(new_flags, dict):
-            return
+        new_flags = body if isinstance(body, dict) else {}
+        # Tolerate a wrapped shape ({"flags": {...}}) as well as the bare bag.
+        if isinstance(new_flags.get("flags"), dict) and len(new_flags) == 1:
+            new_flags = new_flags["flags"]
 
         if new_flags == self._flags:
             return
@@ -177,7 +223,7 @@ class FeatureFlagClient:
         self._flags = new_flags
         _save_cache(new_flags)
         log.info("feature_flags updated", count=len(new_flags))
-        snapshot = dict(new_flags)
+        snapshot = self.all()
         for cb in list(self._subscribers):
             asyncio.create_task(self._safe_call(cb, snapshot))
 
@@ -202,9 +248,17 @@ def get_feature_flags() -> FeatureFlagClient:
     return _client
 
 
+def get_bool(name: str, default: bool = False) -> bool:
+    return get_feature_flags().get_bool(name, default)
+
+
 def is_enabled(name: str, default: bool = False) -> bool:
-    return get_feature_flags().is_enabled(name, default)
+    return get_feature_flags().get_bool(name, default)
 
 
 def get(name: str, default: Any = None) -> Any:
     return get_feature_flags().get(name, default)
+
+
+def has(name: str) -> bool:
+    return get_feature_flags().has(name)

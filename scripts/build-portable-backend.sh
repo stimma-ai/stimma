@@ -113,6 +113,15 @@ rsync -a "$STAGING_DIR/backend/" "$OUTPUT_DIR/backend/"
 echo "Copying app-level runtime files..."
 cp "$PROJECT_ROOT/prompts.yaml" "$OUTPUT_DIR/"
 
+# Build distribution baked into the launchers: 'dev' (default) or 'official'
+# (set only by release CI). Runtime env still wins so the Tauri shell's
+# compile-time value can override.
+STIMMA_DISTRIBUTION_BAKED="${STIMMA_DISTRIBUTION:-dev}"
+if [ "$STIMMA_DISTRIBUTION_BAKED" != "official" ]; then
+    STIMMA_DISTRIBUTION_BAKED="dev"
+fi
+echo "Baking STIMMA_DISTRIBUTION=$STIMMA_DISTRIBUTION_BAKED into launchers..."
+
 echo "Creating launchers..."
 cat > "$OUTPUT_DIR/run.sh" << 'LAUNCHER'
 #!/bin/bash
@@ -121,8 +130,11 @@ unset PYTHONHOME
 export PYTHONUTF8=1
 export PYTHONNOUSERSITE=1
 export PYTHONPATH="$DIR:$DIR/backend"
+export STIMMA_DISTRIBUTION="${STIMMA_DISTRIBUTION:-__STIMMA_DISTRIBUTION_BAKED__}"
 exec "$DIR/python/bin/python3" "$DIR/backend/main.py" "$@"
 LAUNCHER
+sed -i.bak "s/__STIMMA_DISTRIBUTION_BAKED__/$STIMMA_DISTRIBUTION_BAKED/" "$OUTPUT_DIR/run.sh"
+rm -f "$OUTPUT_DIR/run.sh.bak"
 chmod +x "$OUTPUT_DIR/run.sh"
 
 cat > "$OUTPUT_DIR/run.cmd" << 'LAUNCHER'
@@ -130,8 +142,11 @@ cat > "$OUTPUT_DIR/run.cmd" << 'LAUNCHER'
 setlocal
 set PYTHONUTF8=1
 set PYTHONPATH=%~dp0;%~dp0backend;%PYTHONPATH%
+if not defined STIMMA_DISTRIBUTION set STIMMA_DISTRIBUTION=__STIMMA_DISTRIBUTION_BAKED__
 "%~dp0python\python.exe" "%~dp0backend\main.py" %*
 LAUNCHER
+sed -i.bak "s/__STIMMA_DISTRIBUTION_BAKED__/$STIMMA_DISTRIBUTION_BAKED/" "$OUTPUT_DIR/run.cmd"
+rm -f "$OUTPUT_DIR/run.cmd.bak"
 
 "$SCRIPT_DIR/verify-portable-runtime-surface.sh" "$OUTPUT_DIR"
 

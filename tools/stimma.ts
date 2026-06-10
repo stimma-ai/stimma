@@ -655,8 +655,13 @@ async function buildWindowsPortableBackend(target: string): Promise<void> {
   await Deno.copyFile(join(repoRoot, "prompts.yaml"), join(outputDir, "prompts.yaml"));
 
   console.log("Creating launchers...");
-  const runCmd = `@echo off\r\nsetlocal\r\nset PYTHONUTF8=1\r\nset PYTHONPATH=%~dp0;%~dp0backend;%PYTHONPATH%\r\n"%~dp0python\\python.exe" "%~dp0backend\\main.py" %*\r\n`;
-  const runSh = `#!/bin/bash\nDIR="$(cd "$(dirname "$0")" && pwd)"\nexport PYTHONUTF8=1\nexport PYTHONPATH="$DIR:$DIR/backend\${PYTHONPATH:+:$PYTHONPATH}"\nexec "$DIR/python/python.exe" "$DIR/backend/main.py" "$@"\n`;
+  // Build distribution baked into the launchers: 'dev' (default) or
+  // 'official' (set only by release CI). Runtime env still wins so the
+  // Tauri shell's compile-time value can override.
+  const distribution = Deno.env.get("STIMMA_DISTRIBUTION") === "official" ? "official" : "dev";
+  console.log(`Baking STIMMA_DISTRIBUTION=${distribution} into launchers...`);
+  const runCmd = `@echo off\r\nsetlocal\r\nset PYTHONUTF8=1\r\nset PYTHONPATH=%~dp0;%~dp0backend;%PYTHONPATH%\r\nif not defined STIMMA_DISTRIBUTION set STIMMA_DISTRIBUTION=${distribution}\r\n"%~dp0python\\python.exe" "%~dp0backend\\main.py" %*\r\n`;
+  const runSh = `#!/bin/bash\nDIR="$(cd "$(dirname "$0")" && pwd)"\nexport PYTHONUTF8=1\nexport PYTHONPATH="$DIR:$DIR/backend\${PYTHONPATH:+:$PYTHONPATH}"\nexport STIMMA_DISTRIBUTION="\${STIMMA_DISTRIBUTION:-${distribution}}"\nexec "$DIR/python/python.exe" "$DIR/backend/main.py" "$@"\n`;
   await Deno.writeTextFile(join(outputDir, "run.cmd"), runCmd);
   await Deno.writeTextFile(join(outputDir, "run.sh"), runSh);
 

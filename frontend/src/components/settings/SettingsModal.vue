@@ -140,7 +140,8 @@
                   v-if="settings"
                   :llm-settings="settings.llm_settings"
                   :cloud-base-url="settings.cloud_base_url"
-                  :telemetry-enabled="settings.telemetry_enabled"
+                  :telemetry-enabled="settings.telemetry_enabled === true"
+                  :dnt-active="settings.dnt_active === true"
                   @update="handleLlmSettingsUpdate"
                 />
               </template>
@@ -150,9 +151,7 @@
                 <DeveloperSection
                   v-if="settings"
                   :developer-mode="settings.developer_mode"
-                  :posthog-session-recording="settings.posthog_session_recording"
                   @update-developer-mode="handleDeveloperModeUpdate"
-                  @update-session-recording="handleSessionRecordingUpdate"
                 />
               </template>
             </div>
@@ -176,7 +175,7 @@
 import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import { useSettingsApi } from '../../composables/useSettingsApi'
 import { useWebSocket } from '../../composables/useWebSocket'
-import { setDevMode, setSessionRecordingEnabled } from '../../appConfig'
+import { setDevMode } from '../../appConfig'
 import { useProfile } from '../../composables/useProfile'
 import { usePinLock } from '../../composables/usePinLock'
 import SettingsSidebar from './SettingsSidebar.vue'
@@ -208,7 +207,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
-const { fetchSettings, updateFolders, updateMarkers, updateWildcards, updatePromptSegments, updateToolProvider, createToolProvider, deleteToolProvider, updateBackgroundWork, updateLlmSettings, createProfile, deleteProfile, renameProfile, rescanFolders, updateDeveloperMode, updatePostHogSessionRecording } = useSettingsApi()
+const { fetchSettings, updateFolders, updateMarkers, updateWildcards, updatePromptSegments, updateToolProvider, createToolProvider, deleteToolProvider, updateBackgroundWork, updateLlmSettings, createProfile, deleteProfile, renameProfile, rescanFolders, updateDeveloperMode } = useSettingsApi()
 const { on, off } = useWebSocket()
 const { currentProfileId, setCurrentProfileId, loadProfiles } = useProfile()
 const { showPinModal, pinModalProfileId, pinModalError, submitPin, cancelPinEntry, ensurePinForProfile } = usePinLock()
@@ -488,18 +487,6 @@ async function handleDeveloperModeUpdate(enabled) {
     await updateDeveloperMode(enabled)
   } catch (err) {
     console.error('Failed to persist developer mode:', err)
-  }
-}
-
-async function handleSessionRecordingUpdate(enabled) {
-  if (settings.value) {
-    settings.value = { ...settings.value, posthog_session_recording: enabled }
-  }
-  setSessionRecordingEnabled(enabled)
-  try {
-    await updatePostHogSessionRecording(enabled)
-  } catch (err) {
-    console.error('Failed to persist session recording setting:', err)
   }
 }
 

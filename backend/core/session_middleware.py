@@ -1,4 +1,4 @@
-"""Middleware that picks up the frontend's ``$session_id`` from request headers."""
+"""Middleware that picks up the frontend's session id from request headers."""
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 

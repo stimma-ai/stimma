@@ -272,9 +272,12 @@ class SettingsResponse(BaseModel):
     cloud_base_url: str  # Base URL for stimma.ai cloud services
     developer_mode: bool  # Show debug tools and developer options in the UI
     theme: str  # UI theme preference: light, dark, system
-    telemetry_enabled: bool  # Anonymous usage telemetry
-    posthog_session_recording: bool  # Dev opt-in: enable PostHog session replay
-    install_id: str  # Stable per-install UUID; used as PostHog distinct_id
+    # Anonymous usage telemetry consent: True/False, or None while
+    # undetermined (onboarding not completed). Official builds only —
+    # dev builds have no telemetry regardless of this value.
+    telemetry_enabled: Optional[bool] = None
+    distribution: str = "dev"  # Build distribution: 'dev' | 'official'
+    dnt_active: bool = False  # DO_NOT_TRACK=1 environment override in effect
     default_model: str = 'agent-max'  # Global default model slug
 
 
@@ -424,7 +427,7 @@ async def get_settings_all():
     Returns profile-scoped settings for the current profile and global settings.
     """
     from providers import ProviderRegistry
-    from telemetry import get_telemetry_client
+    from distribution import get_distribution, is_dnt
 
     settings = get_settings()
     current_profile_id = get_current_profile()
@@ -667,8 +670,8 @@ async def get_settings_all():
         developer_mode=settings.developer_mode,
         theme=settings.theme,
         telemetry_enabled=settings.telemetry.enabled,
-        posthog_session_recording=settings.posthog_session_recording,
-        install_id=get_telemetry_client()._ensure_install_id(),
+        distribution=get_distribution(),
+        dnt_active=is_dnt(),
         default_model=settings.default_model,
     )
 
@@ -700,19 +703,6 @@ async def update_developer_mode(request: UpdateDeveloperModeRequest):
     return {"status": "success", "developer_mode": request.enabled}
 
 
-class UpdatePostHogSessionRecordingRequest(BaseModel):
-    """Request to update PostHog session recording opt-in."""
-    enabled: bool
-
-
-@router.patch("/posthog-session-recording")
-async def update_posthog_session_recording(request: UpdatePostHogSessionRecordingRequest):
-    """Update the PostHog session recording opt-in (global, dev-only)."""
-    patch_global_section("posthog_session_recording", request.enabled)
-    log.info("posthog_session_recording updated", enabled=request.enabled)
-    return {"status": "success", "posthog_session_recording": request.enabled}
-
-
 class UpdateThemeRequest(BaseModel):
     """Request to update theme setting."""
     theme: str
@@ -738,16 +728,21 @@ class UpdateTelemetryRequest(BaseModel):
 
 @router.patch("/telemetry")
 async def update_telemetry(request: UpdateTelemetryRequest):
-    """Update the telemetry opt-in/out setting (global)."""
+    """Update the telemetry consent setting (global).
+
+    The telemetry client handles the transition: a consent-on flushes the
+    pre-consent buffer; a consent-off sends the single
+    ``telemetry_enabled {enabled: false}`` transition event last (or
+    discards the buffer when consent was never on).
+    """
     settings = get_settings()
-    patch_global_section("telemetry", {
-        "enabled": request.enabled,
-        "install_id": settings.telemetry.install_id,
-    })
+    section = settings.telemetry.model_dump()
+    section["enabled"] = request.enabled
+    patch_global_section("telemetry", section)
+    settings.telemetry.enabled = request.enabled
     log.info("telemetry updated", enabled=request.enabled)
-    if request.enabled:
-        from telemetry import get_telemetry_client
-        get_telemetry_client().track("telemetry_enabled")
+    from telemetry import get_telemetry_client
+    get_telemetry_client().on_consent_changed(request.enabled)
     return {"status": "success", "telemetry_enabled": request.enabled}
 
 

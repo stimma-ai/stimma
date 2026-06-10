@@ -206,9 +206,13 @@ async def start_auth() -> StartAuthResponse:
 
                             # 5. Track sign-in telemetry
                             from telemetry import get_telemetry_client
-                            get_telemetry_client().track("cloud_signed_in", {"tier": tier})
+                            get_telemetry_client().track("cloud_signed_in", {"tier": tier}, category="account")
 
-                            # 6. Return user info to frontend (NOT tokens - backend owns those)
+                            # 6. Re-fetch feature flags with the new identity
+                            from feature_flags import get_feature_flags
+                            get_feature_flags().refresh()
+
+                            # 7. Return user info to frontend (NOT tokens - backend owns those)
                             session['result'] = {
                                 'user': user,
                                 'tier': tier,
@@ -422,7 +426,11 @@ async def logout():
     clear_auth_state()
 
     from telemetry import get_telemetry_client
-    get_telemetry_client().track("cloud_signed_out")
+    get_telemetry_client().track("cloud_signed_out", category="account")
+
+    # Re-fetch feature flags without the signed-in identity
+    from feature_flags import get_feature_flags
+    get_feature_flags().refresh()
 
     log.info("user logged out")
 

@@ -1051,6 +1051,11 @@ async def lifespan(app: FastAPI):
                 _flags.subscribe(_broadcast_flags)
                 await _flags.start()
 
+                # Daily update check (official builds on an update branch
+                # only; off under DO_NOT_TRACK / disable_update_check).
+                import update_check
+                update_check.start()
+
                 # Lazy import to avoid loading torch at module level
                 from ingestion import get_ingestion
 
@@ -1218,6 +1223,13 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
+    # Stop the update-check task
+    try:
+        import update_check
+        await update_check.stop()
+    except Exception:
+        pass
+
     # Wait for deferred init to complete (or timeout)
     try:
         await asyncio.wait_for(deferred_init_task, timeout=1.0)
@@ -1349,16 +1361,10 @@ def create_app() -> FastAPI:
             path=request.url.path,
         )
         try:
+            # Categorical app_error only (errorType + stack hash + module) —
+            # no request paths, which can embed media/entity ids.
             from telemetry import get_telemetry_client
-            tc = get_telemetry_client()
-            tc.track("unhandled_error", {
-                "errorType": type(exc).__name__,
-                "path": request.url.path,
-            })
-            tc.capture_exception(exc, {
-                "method": request.method,
-                "path": request.url.path,
-            })
+            get_telemetry_client().capture_exception(exc)
         except Exception:
             pass
         return JSONResponse(
@@ -1370,8 +1376,8 @@ def create_app() -> FastAPI:
     # Note: Starlette middleware order is reverse - last added runs first
     app.add_middleware(ProfileMiddleware)
 
-    # Pick up the frontend's PostHog $session_id from X-Stimma-Session-Id on
-    # every request. Runs before ProfileMiddleware so the session is recorded
+    # Pick up the frontend's session id from X-Stimma-Session-Id on every
+    # request. Runs before ProfileMiddleware so the session is recorded
     # even on routes that fail profile validation.
     app.add_middleware(SessionIdMiddleware)
 

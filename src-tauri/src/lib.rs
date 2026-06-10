@@ -15,6 +15,14 @@ mod voice;
 /// Tauri process stays alive, which keeps the watchdog and backend warm.
 static QUITTING: AtomicBool = AtomicBool::new(false);
 
+/// Build distribution, baked in at compile time: "dev" (default) or
+/// "official" (set only by release CI via the STIMMA_DISTRIBUTION env var).
+/// Passed to the backend sidecar so all three layers agree.
+const STIMMA_DISTRIBUTION: &str = match option_env!("STIMMA_DISTRIBUTION") {
+    Some(v) => v,
+    None => "dev",
+};
+
 fn show_main_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
@@ -232,10 +240,16 @@ pub fn run() {
                 log::info!("[stimma] Cache dir: {:?}", cache_dir);
                 log::info!("[stimma] Spawning watchdog from: {:?}", watchdog_path);
 
+                let app_version = app.package_info().version.to_string();
+
                 let mut cmd = std::process::Command::new(&watchdog_path);
                 cmd.args(["--parent-pid", &parent_pid, "stimma-backend", "--port", "0"])
                     .env("STIMMA_DATA_DIR", &data_dir)
                     .env("STIMMA_CACHE_DIR", &cache_dir)
+                    // Build distribution (compile-time constant) and app
+                    // version, threaded through to the backend sidecar.
+                    .env("STIMMA_DISTRIBUTION", STIMMA_DISTRIBUTION)
+                    .env("STIMMA_APP_VERSION", &app_version)
                     // Prevent the bundled Python from writing .pyc files into the
                     // (code-signed) app bundle at runtime, which invalidates the
                     // macOS signature seal and triggers "app is damaged".

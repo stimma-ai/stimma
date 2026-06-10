@@ -1,149 +1,293 @@
 """
-Anonymous usage telemetry client.
+First-party anonymous usage telemetry client.
 
-Sends events directly to PostHog. Fire-and-forget: telemetry failures
-never affect app functionality.
+Official builds only: the client constructs as a permanent no-op unless
+``STIMMA_DISTRIBUTION == official`` — source/self-built installs emit
+nothing, structurally (no buffering, no network).
 
-Sessions are owned by the frontend (posthog-js). The frontend's
-``$session_id`` arrives via the ``X-Stimma-Session-Id`` header on every
-sidecar API call (see ``core.session_middleware``); we stamp it onto
-every event we emit. Events fired before the first request from the
-frontend (e.g. very early startup) go out without a session_id — that
-is fine; PostHog still records them under the install's distinct_id.
+Mechanics (official builds):
+- Buffered HTTP client posting batches to ``POST {cloud.base_url}/api/telemetry``.
+- Body: ``{sessionId, userId?, events[]}``; each event is
+  ``{event, category, properties, timestamp}`` (client occurrence time,
+  epoch ms). The body carries NO install id — identity/platform ride the
+  User-Agent (user_agent.py), the single sanctioned install-id egress.
+- Flush every 60 s / 50 events / on shutdown; ≤200 events per batch;
+  3 retries with backoff; fire-and-forget (failures never affect the app).
+- Pre-consent buffering (D14): while consent is undetermined (onboarding
+  in progress) events buffer locally with ZERO network; the buffer flushes
+  if consent lands on, and is discarded if it lands off.
+- ``DO_NOT_TRACK=1`` is absolute (D11): no buffering, no sending,
+  regardless of consent state.
+- Carve-out: the single ``telemetry_enabled {enabled: false}`` transition
+  event fired by the toggle-off itself is the last thing sent (only when
+  transitioning from consented-on).
+
+Sessions are owned by the frontend (a plain UUID, rotated on app start and
+30 min inactivity), propagated via ``X-Stimma-Session-Id`` on every sidecar
+call (see ``core.session_middleware``); batches are stamped with the
+current session id at flush time.
 """
 import asyncio
-import json
-import os
-import platform
-import subprocess
+import hashlib
 import sys
 import threading
+import time
+import traceback
 import uuid
-from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from config import get_settings
+import httpx
+
 from core.logging import get_logger
 from core.session_context import get_session_id, on_session_change
+from distribution import is_dnt, is_official
 
 log = get_logger(__name__)
 
-# PostHog project (public key — safe to ship in the binary).
-POSTHOG_PROJECT_KEY = "phc_qyrQKHfPzCsSvBuY5tywS2TXZyvF8Q6cZU8tmGSNpxbp"
-POSTHOG_HOST = "https://us.i.posthog.com"
+FLUSH_INTERVAL_SECONDS = 60
+FLUSH_EVENT_THRESHOLD = 50
+MAX_BATCH_EVENTS = 200
+MAX_BUFFERED_EVENTS = 1000  # cap for the local buffer (incl. pre-consent)
+SEND_RETRIES = 3
+RETRY_BACKOFF_SECONDS = 2.0
+SEND_TIMEOUT_SECONDS = 15.0
+
+_UNSET = object()
 
 
-def _get_os() -> str:
-    system = platform.system()
-    if system == "Darwin":
-        return "macos"
-    elif system == "Windows":
-        return "windows"
-    return "linux"
+def _stack_hash_and_module(exc: BaseException) -> tuple[str, Optional[str]]:
+    """Categorical stack fingerprint: sha1 over module:function frames.
 
-
-def _read_tauri_conf() -> dict:
-    """Read tauri.conf.json."""
+    No file paths, messages, or locals — paths can contain user content.
+    Returns (stackHash, top app-frame module name or None).
+    """
+    frames: List[str] = []
+    top_module: Optional[str] = None
     try:
-        conf_path = Path(__file__).parent.parent / "src-tauri" / "tauri.conf.json"
-        if conf_path.exists():
-            return json.loads(conf_path.read_text())
+        tb = exc.__traceback__
+        for frame_summary in traceback.extract_tb(tb):
+            # Reduce the filename to its module-ish basename (no directories).
+            name = frame_summary.filename.replace("\\", "/").rsplit("/", 1)[-1]
+            if name.endswith(".py"):
+                name = name[:-3]
+            frames.append(f"{name}:{frame_summary.name}")
+            top_module = name
     except Exception:
         pass
-    return {}
-
-
-def _get_app_version() -> str:
-    from app_context import get_bundle_id, BUNDLE_ID_STABLE
-    if get_bundle_id() != BUNDLE_ID_STABLE:
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--short", "HEAD"],
-                capture_output=True, text=True, timeout=5,
-                cwd=Path(__file__).parent.parent,
-            )
-            if result.returncode == 0:
-                return f"0.0.0-{result.stdout.strip()}"
-        except Exception:
-            pass
-        return "0.0.0"
-    return _read_tauri_conf().get("version", "0.0.0")
-
-
-def _get_app_branch() -> str:
-    """Derive app branch from bundle ID or Tauri updater endpoint.
-
-    Non-stable bundle IDs map to 'dev'.
-    Packaged installs parse the branch from the updater endpoint URL
-    (e.g. .../stimma/production/... -> 'production').
-    """
-    from app_context import get_bundle_id, BUNDLE_ID_STABLE
-    if get_bundle_id() != BUNDLE_ID_STABLE:
-        return "dev"
-
-    # Parse branch from updater endpoint: .../stimma/{branch}/...
-    conf = _read_tauri_conf()
-    endpoints = conf.get("plugins", {}).get("updater", {}).get("endpoints", [])
-    if endpoints:
-        # URL like https://updates.stimma.ai/stimma/production/darwin-aarch64/latest.json
-        parts = endpoints[0].split("/")
-        try:
-            idx = parts.index("stimma")
-            if idx + 1 < len(parts):
-                branch = parts[idx + 1]
-                if branch in ("alpha", "beta", "production"):
-                    return branch
-        except ValueError:
-            pass
-
-    return "alpha"
+    digest = hashlib.sha1(
+        f"{type(exc).__name__}|{'|'.join(frames)}".encode("utf-8")
+    ).hexdigest()
+    return digest[:16], top_module
 
 
 class TelemetryClient:
+    """Buffered first-party telemetry client (permanent no-op in dev builds)."""
+
     def __init__(self):
-        self._install_id: Optional[str] = None
-        self._app_version: str = _get_app_version()
-        self._app_branch: str = _get_app_branch()
-        self._os: str = _get_os()
-        self._first_session_handled: bool = False
+        self._enabled_build: bool = is_official()
+        self._lock = threading.Lock()
+        self._queue: List[Dict[str, Any]] = []
+        self._consent_override: Any = _UNSET
+        self._flush_task: Optional[asyncio.Task] = None
         self._started: bool = False
+        self._first_session_handled: bool = False
+        # Fallback session id for events fired before the frontend's first
+        # request of this launch.
+        self._fallback_session_id: str = str(uuid.uuid4())
 
-    def _is_enabled(self) -> bool:
+    # ── Gating ──────────────────────────────────────────────────────────
+
+    def _consent_state(self) -> Optional[bool]:
+        """Tri-state consent: True / False / None (undetermined)."""
+        if self._consent_override is not _UNSET:
+            return self._consent_override
         try:
-            if os.environ.get("DO_NOT_TRACK", "0") == "1":
-                return False
-            settings = get_settings()
-            return settings.telemetry.enabled
+            from config import get_settings
+            return get_settings().telemetry.enabled
         except Exception:
+            return None
+
+    def _may_buffer(self) -> bool:
+        """Whether events may even be buffered locally."""
+        if not self._enabled_build:
+            return False  # dev distribution: permanent no-op, no buffer
+        if is_dnt():
+            return False  # DNT: absolute, regardless of consent
+        return self._consent_state() is not False
+
+    def _may_send(self) -> bool:
+        """Whether buffered events may go on the network."""
+        if not self._enabled_build or is_dnt():
             return False
+        return self._consent_state() is True
 
-    def _ensure_install_id(self) -> str:
-        if self._install_id:
-            return self._install_id
+    # ── Public API ──────────────────────────────────────────────────────
 
+    def track(
+        self,
+        event: str,
+        properties: Optional[Dict[str, Any]] = None,
+        category: str = "app",
+    ):
+        """Record a telemetry event. Non-blocking, safe from any thread.
+
+        Dev builds: permanent no-op. DNT: no-op. Consent off: dropped.
+        Consent undetermined: buffered locally, zero network (D14).
+        """
+        if not self._may_buffer():
+            return
         try:
-            settings = get_settings()
-            if settings.telemetry.install_id:
-                self._install_id = settings.telemetry.install_id
-                return self._install_id
+            entry = {
+                "event": event,
+                "category": category,
+                "properties": dict(properties) if properties else {},
+                "timestamp": int(time.time() * 1000),
+            }
+            with self._lock:
+                self._queue.append(entry)
+                if len(self._queue) > MAX_BUFFERED_EVENTS:
+                    del self._queue[: len(self._queue) - MAX_BUFFERED_EVENTS]
+                queued = len(self._queue)
+            if queued >= FLUSH_EVENT_THRESHOLD and self._may_send():
+                self._schedule_flush()
         except Exception:
             pass
 
-        # Generate and persist new install ID
-        new_id = str(uuid.uuid4())
-        self._install_id = new_id
+    def capture_exception(
+        self,
+        exc: BaseException,
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Record an unhandled exception as a categorical ``app_error``.
 
+        Exception type, stack hash, and top app-frame module only — no
+        messages, paths, or locals (those can contain prompts/paths).
+        """
         try:
-            import config_writer
-            config_writer.patch_global_section("telemetry", {
-                "enabled": get_settings().telemetry.enabled,
-                "install_id": new_id,
-            })
-            log.info("telemetry install_id generated")
-        except Exception as e:
-            log.info(f"failed to persist telemetry install_id: {e}")
+            stack_hash, module = _stack_hash_and_module(exc)
+            props: Dict[str, Any] = {
+                "source": "backend",
+                "errorType": type(exc).__name__,
+                "stackHash": stack_hash,
+            }
+            if module:
+                props["module"] = module
+            self.track("app_error", props, category="app")
+        except Exception:
+            pass
 
-        return new_id
+    def on_consent_changed(self, enabled: bool) -> None:
+        """Handle a consent transition (onboarding or Settings toggle).
+
+        - -> on: the local buffer (incl. pre-consent events) flushes.
+        - on -> off: the single ``telemetry_enabled {enabled: false}``
+          transition event is the last thing sent (CI carve-out), followed
+          by the queued events tracked while consent was on.
+        - undetermined -> off: the buffer is discarded; nothing egresses.
+        """
+        if not self._enabled_build:
+            return
+        previous = self._consent_state()
+        self._consent_override = enabled
+
+        if is_dnt():
+            with self._lock:
+                self._queue.clear()
+            return
+
+        if enabled:
+            self.track("telemetry_enabled", {"enabled": True}, category="settings")
+            self._schedule_flush()
+            return
+
+        # Consent landed off.
+        if previous is True:
+            # Carve-out: flush what was tracked while consented, ending with
+            # the toggle-off transition event.
+            with self._lock:
+                final_batch = list(self._queue)
+                self._queue.clear()
+            final_batch.append({
+                "event": "telemetry_enabled",
+                "category": "settings",
+                "properties": {"enabled": False},
+                "timestamp": int(time.time() * 1000),
+            })
+            self._spawn(self._send_events(final_batch))
+        else:
+            # Pre-consent buffer is discarded (D14); nothing egresses.
+            with self._lock:
+                self._queue.clear()
+
+    # ── Flushing / sending ──────────────────────────────────────────────
+
+    def _spawn(self, coro) -> None:
+        try:
+            asyncio.get_running_loop().create_task(coro)
+        except RuntimeError:
+            # No running loop (early startup / exception hook in a thread):
+            # leave events queued; the periodic flush will pick them up.
+            coro.close()
+
+    def _schedule_flush(self) -> None:
+        self._spawn(self.flush())
+
+    async def flush(self) -> None:
+        """Send all queued events if consent allows. Fire-and-forget."""
+        if not self._may_send():
+            return
+        with self._lock:
+            events = list(self._queue)
+            self._queue.clear()
+        if not events:
+            return
+        await self._send_events(events)
+
+    async def _send_events(self, events: List[Dict[str, Any]]) -> None:
+        try:
+            from config import get_settings
+            from user_agent import ua_headers
+            base_url = get_settings().cloud.base_url.rstrip("/")
+            url = f"{base_url}/api/telemetry"
+            headers = ua_headers()
+            session_id = get_session_id() or self._fallback_session_id
+            user_id = self._get_user_id()
+
+            for start in range(0, len(events), MAX_BATCH_EVENTS):
+                batch = events[start:start + MAX_BATCH_EVENTS]
+                body: Dict[str, Any] = {"sessionId": session_id, "events": batch}
+                if user_id:
+                    body["userId"] = user_id
+                await self._post_with_retries(url, body, headers)
+        except Exception:
+            # Fire-and-forget: telemetry failures never affect the app.
+            pass
+
+    async def _post_with_retries(self, url: str, body: dict, headers: dict) -> None:
+        for attempt in range(SEND_RETRIES):
+            try:
+                async with httpx.AsyncClient(
+                    timeout=httpx.Timeout(SEND_TIMEOUT_SECONDS)
+                ) as client:
+                    resp = await client.post(url, json=body, headers=headers)
+                if resp.status_code < 500:
+                    return  # accepted, or a non-retryable client error
+            except Exception:
+                pass
+            if attempt < SEND_RETRIES - 1:
+                await asyncio.sleep(RETRY_BACKOFF_SECONDS * (2 ** attempt))
+
+    async def _flush_loop(self) -> None:
+        while True:
+            try:
+                await asyncio.sleep(FLUSH_INTERVAL_SECONDS)
+                await self.flush()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+
+    # ── Identity helpers ────────────────────────────────────────────────
 
     def _get_user_id(self) -> Optional[str]:
         try:
@@ -155,129 +299,15 @@ class TelemetryClient:
             pass
         return None
 
-    def _distinct_id(self) -> Optional[str]:
-        """Match the frontend's identification rule: Firebase UID if signed in,
-        else install_id. Returns None if install_id isn't ready yet."""
-        return self._get_user_id() or self._install_id
-
-    def _build_props(self, properties: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        props = dict(properties) if properties else {}
-        session_id = get_session_id()
-        if session_id:
-            props.setdefault("$session_id", session_id)
-        # Stable per-event environment metadata. PostHog also has these as
-        # person properties (set in _init_posthog), but stamping them per-event
-        # makes branch/version filtering reliable across person merges.
-        props.setdefault("appVersion", self._app_version)
-        props.setdefault("appBranch", self._app_branch)
-        props.setdefault("os", self._os)
-        return props
-
-    def track(self, event: str, properties: Optional[Dict[str, Any]] = None):
-        """Send a telemetry event to PostHog. Non-blocking, safe to call from anywhere."""
-        if not self._is_enabled():
-            return
-        try:
-            import posthog as ph
-            distinct_id = self._distinct_id()
-            if not ph.api_key or not distinct_id:
-                return
-            ph.capture(
-                distinct_id=distinct_id,
-                event=event,
-                properties=self._build_props(properties),
-                disable_geoip=False,
-            )
-        except Exception:
-            pass
-
-    def capture_exception(
-        self,
-        exc: BaseException,
-        properties: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Send an exception to PostHog Error Tracking.
-
-        Non-blocking, safe to call from anywhere. Honors the telemetry opt-out.
-        """
-        if not self._is_enabled():
-            return
-        try:
-            import posthog as ph
-            distinct_id = self._distinct_id()
-            if not ph.api_key or not distinct_id:
-                return
-            ph.capture_exception(
-                exc,
-                distinct_id=distinct_id,
-                properties=self._build_props(properties),
-            )
-        except Exception:
-            pass
-
-    def _init_posthog(self) -> None:
-        """Initialize PostHog SDK and install crash hooks.
-
-        Idempotent — safe to call multiple times. Caller should ensure install_id
-        is set before calling.
-        """
-        try:
-            import posthog as ph
-            if ph.api_key:
-                return  # already initialized
-            ph.api_key = POSTHOG_PROJECT_KEY
-            ph.host = POSTHOG_HOST
-
-            install_id = self._install_id
-            if not install_id:
-                return
-
-            # Set stable person properties (one row per install in PostHog).
-            # posthog-python 7.x replaced `identify` with `set`.
-            try:
-                ph.set(
-                    distinct_id=install_id,
-                    properties={
-                        "appVersion": self._app_version,
-                        "appBranch": self._app_branch,
-                        "os": self._os,
-                    },
-                )
-            except Exception:
-                pass
-
-            # sys.excepthook — top-level synchronous crashes
-            prev_excepthook = sys.excepthook
-
-            def _excepthook(exc_type, exc, tb):
-                if self._is_enabled() and self._install_id:
-                    try:
-                        ph.capture_exception(exc, distinct_id=self._install_id)
-                    except Exception:
-                        pass
-                prev_excepthook(exc_type, exc, tb)
-
-            sys.excepthook = _excepthook
-
-            # threading.excepthook — uncaught exceptions in threads
-            prev_thread_hook = threading.excepthook
-
-            def _thread_excepthook(args):
-                if self._is_enabled() and self._install_id and args.exc_value is not None:
-                    try:
-                        ph.capture_exception(args.exc_value, distinct_id=self._install_id)
-                    except Exception:
-                        pass
-                prev_thread_hook(args)
-
-            threading.excepthook = _thread_excepthook
-
-            log.info("posthog initialized")
-        except Exception as e:
-            log.info(f"posthog init failed: {e}")
+    # ── Launch snapshot (session_started / app_updated) ─────────────────
 
     async def _get_library_stats(self) -> dict:
-        """Query rich app state snapshot across all profiles."""
+        """Query the per-launch state snapshot across all profiles.
+
+        Counts only — no names, paths, labels, or endpoint hosts. Model and
+        endpoint identity go through the classification helpers
+        (model_family / endpoint_class / stp_identity).
+        """
         try:
             from database_registry import get_database_registry
             from database import Board, MediaItem, Marker, MediaMarker, Chat
@@ -301,11 +331,13 @@ class TelemetryClient:
             total_boards = 0
             total_chats = 0
             markers_breakdown: Dict[str, int] = {}
+            # Shipped default marker names pass through literally; everything
+            # else (including renamed defaults) counts under 'custom'.
+            default_marker_names = {"favorite", "library"}
 
             for profile_info in profiles:
                 db = registry.get_database(profile_info["id"])
                 async with db.async_session_maker() as session:
-                    # Media count with type breakdown in one query
                     alive = MediaItem.deleted_at.is_(None)
                     result = await session.execute(
                         select(
@@ -327,19 +359,16 @@ class TelemetryClient:
                     total_sets += row.sets or 0
                     total_grids += row.grids or 0
 
-                    # Boards
                     result = await session.execute(
                         select(func.count()).select_from(Board).where(Board.deleted_at.is_(None))
                     )
                     total_boards += result.scalar() or 0
 
-                    # Chats
                     result = await session.execute(
                         select(func.count()).select_from(Chat).where(Chat.deleted_at.is_(None))
                     )
                     total_chats += result.scalar() or 0
 
-                    # Markers with per-marker item counts
                     result = await session.execute(
                         select(Marker.name, func.count(MediaMarker.media_id))
                         .outerjoin(MediaMarker, and_(
@@ -349,7 +378,8 @@ class TelemetryClient:
                         .group_by(Marker.id, Marker.name)
                     )
                     for marker_name, count in result.all():
-                        markers_breakdown[marker_name] = markers_breakdown.get(marker_name, 0) + (count or 0)
+                        key = marker_name if marker_name in default_marker_names else "custom"
+                        markers_breakdown[key] = markers_breakdown.get(key, 0) + (count or 0)
 
             stats["mediaCount"] = total_media
             stats["mediaByType"] = {
@@ -362,47 +392,48 @@ class TelemetryClient:
             }
             stats["boardCount"] = total_boards
             stats["chatCount"] = total_chats
-            stats["markers"] = markers_breakdown
+            stats["markerCounts"] = markers_breakdown
 
-            # Tool providers and tools per provider
+            # Tool providers: connection-kind + STP product identity only —
+            # never ids, user labels, or provider-reported display names.
             try:
                 from providers import ProviderRegistry
                 from providers.base import ProviderStatus
+                from stp_identity import parse_server_identity
                 pr = ProviderRegistry.get_instance()
                 providers_info = []
                 for provider in pr.list_providers():
                     tools = pr.list_tools_by_provider(provider.id)
                     info: Dict[str, Any] = {
-                        "id": provider.provider_id,
-                        "name": provider.provider_name,
-                        "type": getattr(provider, 'provider_type', 'unknown'),
+                        "providerType": getattr(provider, 'provider_type', 'unknown'),
                         "toolCount": len(tools),
                         "connected": provider.status == ProviderStatus.CONNECTED,
                     }
-                    if hasattr(provider, 'reported_name') and provider.reported_name:
-                        info["reportedName"] = provider.reported_name
-                    if hasattr(provider, 'reported_version') and provider.reported_version:
-                        info["reportedVersion"] = provider.reported_version
+                    server = getattr(provider, 'server', None) or getattr(provider, '_server', None)
+                    identity = parse_server_identity(server)
+                    if identity.get("productName") and identity["productName"] != "unknown":
+                        info["productName"] = identity["productName"]
+                        if identity.get("productVersion"):
+                            info["productVersion"] = identity["productVersion"]
                     providers_info.append(info)
                 stats["providers"] = providers_info
                 stats["providerCount"] = len(providers_info)
-                stats["toolsByProvider"] = {p["id"]: p["toolCount"] for p in providers_info}
             except Exception:
                 pass
 
-            # LLM configuration snapshot
+            # LLM configuration snapshot: configured source + endpointClass +
+            # modelFamily. Never endpoint hosts/ports or raw model strings.
             try:
                 from config import get_settings
-                from urllib.parse import urlparse
+                from endpoint_class import endpoint_class
+                from model_family import model_family
                 settings = get_settings()
                 llm_snapshot: Dict[str, Any] = {}
                 for role, role_config in settings.llms.items():
                     role_info: Dict[str, Any] = {"source": role_config.source}
                     if role_config.source == "endpoint" and role_config.endpoint:
-                        parsed = urlparse(role_config.endpoint.url)
-                        role_info["endpointDomain"] = parsed.hostname or "unknown"
-                        role_info["endpointPort"] = parsed.port
-                        role_info["model"] = role_config.endpoint.model or "unknown"
+                        role_info["endpointClass"] = endpoint_class(role_config.endpoint.url)
+                        role_info["modelFamily"] = model_family(role_config.endpoint.model)
                     llm_snapshot[role] = role_info
                 stats["llmConfig"] = llm_snapshot
             except Exception:
@@ -414,21 +445,19 @@ class TelemetryClient:
             return {}
 
     async def _check_and_emit_app_updated(self) -> None:
-        """Detect app version change and emit ``app_updated`` event.
-
-        Compares the current app version against the one persisted on the
-        first profile's database, then upserts the current value.
-        """
+        """Detect app version change and emit ``app_updated``."""
         try:
             from database_registry import get_database_registry
             from database import UserPreference
             from sqlalchemy import select
+            from user_agent import get_app_version
 
             registry = get_database_registry()
             profiles = registry.list_profiles()
             if not profiles:
                 return
 
+            current_version = get_app_version()
             db = registry.get_database(profiles[0]["id"])
             async with db.async_session_maker() as session:
                 result = await session.execute(
@@ -437,59 +466,83 @@ class TelemetryClient:
                 pref = result.scalar_one_or_none()
                 previous_version = pref.value if pref else None
 
-                if previous_version is not None and previous_version != self._app_version:
-                    self.track(
-                        "app_updated",
-                        {
-                            "previousVersion": previous_version,
-                            "newVersion": self._app_version,
-                        },
-                    )
+                if previous_version is not None and previous_version != current_version:
+                    self.track("app_updated", {"fromVersion": previous_version}, category="app")
 
                 if pref:
-                    pref.value = self._app_version
+                    pref.value = current_version
                 else:
-                    session.add(UserPreference(key="telemetry_last_app_version", value=self._app_version))
+                    session.add(UserPreference(key="telemetry_last_app_version", value=current_version))
                 await session.commit()
         except Exception as e:
             log.info(f"telemetry: failed to check app version: {e}")
 
     async def _on_session_change(self, previous: Optional[str], current: str) -> None:
-        """Fired by ``core.session_context`` whenever the frontend's
-        ``$session_id`` changes. Emits a fresh ``session_started`` event with
-        rich library stats; the first time per launch, also runs the
-        ``app_updated`` version-change check.
-        """
-        if not self._is_enabled():
+        """Emit ``session_started`` (with the state snapshot) per session."""
+        if not self._may_buffer():
             return
         try:
             stats = await self._get_library_stats()
-            self.track("session_started", stats)
+            self.track("session_started", stats, category="app")
             if not self._first_session_handled:
                 self._first_session_handled = True
                 await self._check_and_emit_app_updated()
         except Exception:
             log.exception("telemetry: session-change handler failed")
 
+    # ── Lifecycle ───────────────────────────────────────────────────────
+
+    def _install_exception_hooks(self) -> None:
+        prev_excepthook = sys.excepthook
+
+        def _excepthook(exc_type, exc, tb):
+            try:
+                self.capture_exception(exc)
+            except Exception:
+                pass
+            prev_excepthook(exc_type, exc, tb)
+
+        sys.excepthook = _excepthook
+
+        prev_thread_hook = threading.excepthook
+
+        def _thread_excepthook(args):
+            if args.exc_value is not None:
+                try:
+                    self.capture_exception(args.exc_value)
+                except Exception:
+                    pass
+            prev_thread_hook(args)
+
+        threading.excepthook = _thread_excepthook
+
     async def start(self):
-        """Initialize PostHog and subscribe to session changes."""
+        """Start the flush loop and subscribe to session changes."""
         if self._started:
             return
-        self._ensure_install_id()
-        self._init_posthog()
-        on_session_change(self._on_session_change)
         self._started = True
-        log.info(
-            "telemetry started",
-            install_id=self._install_id[:8] if self._install_id else "?",
-        )
+        if not self._enabled_build:
+            log.info("telemetry disabled (dev distribution) — permanent no-op")
+            return
+        if is_dnt():
+            log.info("telemetry disabled (DO_NOT_TRACK=1)")
+            return
+        self._install_exception_hooks()
+        on_session_change(self._on_session_change)
+        self._flush_task = asyncio.create_task(self._flush_loop())
+        log.info("telemetry started", consent=str(self._consent_state()))
 
     async def stop(self):
-        """Flush PostHog's background queue so the last batch isn't dropped."""
+        """Flush remaining events and stop the loop."""
+        if self._flush_task:
+            self._flush_task.cancel()
+            try:
+                await self._flush_task
+            except asyncio.CancelledError:
+                pass
+            self._flush_task = None
         try:
-            import posthog as ph
-            if ph.api_key:
-                ph.shutdown()
+            await self.flush()
         except Exception:
             pass
         log.info("telemetry stopped")
