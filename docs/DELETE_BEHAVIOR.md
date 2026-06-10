@@ -1,6 +1,6 @@
 # Delete Behavior
 
-This document describes how permanent delete works after the resumable delete-pipeline rewrite.
+This document describes how permanent delete works.
 
 ## Goals
 

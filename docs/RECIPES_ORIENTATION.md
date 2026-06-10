@@ -1,9 +1,8 @@
 # Recipes — Orientation
 
 Single-file entry point for agents working on the Stimma recipes feature. Read
-this first. Full specs listed in §12 exist for depth. The current
-implementation diverges from the specs in load-bearing ways (see §9) — don't
-assume docs match code everywhere.
+this first. The source of truth for behavior is the code (see the file map in
+§11); §9 lists known gaps where behavior may not match expectations.
 
 ---
 
@@ -74,7 +73,7 @@ All importable from `recipe_dsl.primitives` (compat shim exists at
 
 `hitl` is a namespace object (`_Hitl()` in `primitives.py`), not a module.
 
-Full spec: `docs/RECIPES_DSL.md`. Source: `backend/recipe_dsl/primitives.py`.
+Source of truth: `backend/recipe_dsl/primitives.py`.
 
 ### Media states in recipe flows
 
@@ -117,12 +116,10 @@ re-runs. Derivation is automatic (`backend/recipe_runtime/keys.py`):
 Rules to remember:
 
 - Renaming a function changes every one of its equation keys → HITL decisions
-  on those equations are lost (the spec promises best-effort recovery; **not
-  implemented** today — see §9).
+  on those equations are lost (best-effort recovery is **not implemented**
+  today — see §9).
 - `zip_nodes` across mixed key sources (keyed + positional) currently fails
   at eval time, not build time.
-
-Spec: `docs/RECIPES_EQUATION_KEYS.md`.
 
 ---
 
@@ -215,37 +212,31 @@ Errors also surface as tasks with actions: `retry`, `skip` (only inside
 
 ## 9. Known gaps (as of 2026-04)
 
-Don't trust docs blindly — the implementation diverges from specs in these
-load-bearing ways:
+Load-bearing places where current behavior may not match expectations:
 
-1. **Shape validation is partial.** `RECIPES_SHAPE_VALIDATION.md` promises 7
-   checks; only #1 (dict subscript existence) and a piece of #3 (tool input
-   conformance, only when tool is in the registry) are wired in
-   `recipe_dsl/shapes.py`. Most shape mismatches still surface at runtime.
-2. **HITL recovery on function rename is missing.** Spec says renamed
-   equations recover HITL results via `(task_type, inputs_hash)` fallback.
-   No such fallback in `recipe_runtime/graph_diff.py`. Renames lose
-   approvals.
-3. **Task resolution API path differs from spec.** Composite
-   `{recipe_id}/{task_id}` path params are an implementation detail not in
-   `RECIPES_TECH.md`.
-4. **`code()` accepts both callable and source-string forms.** Back-compat
+1. **Shape validation is partial.** Only dict-subscript existence checking and
+   partial tool-input conformance (only when the tool is in the registry) are
+   wired in `recipe_dsl/shapes.py`. Most shape mismatches still surface at
+   runtime.
+2. **HITL recovery on function rename is missing.** There is no
+   `(task_type, inputs_hash)` fallback in `recipe_runtime/graph_diff.py`, so
+   renaming a recipe function loses HITL approvals on its equations.
+3. **`code()` accepts both callable and source-string forms.** Back-compat
    debt; shape inference differs between them.
-6. **No `recipe_phase_updated` WS event.** Phase state is derived client-side
-   from equations despite the doc mentioning the event.
+4. **No `recipe_phase_updated` WS event.** Phase state is derived client-side
+   from equations.
 
 ---
 
 ## 10. Undocumented features worth knowing
 
-- **`info()` primitive** — inline markdown cards. Used in recipes, not in the
-  DSL spec.
+- **`info()` primitive** — inline markdown cards.
 - **`analyze_recipe` agent tool** — agent-internal introspection of current
   recipe state.
 - **`EquationGraph.vue`** — interactive debug graph visualizer
   (`frontend/src/components/recipe/`).
 - **`CompletedSelectPanel.vue`, `EquationTraceRow.vue`** — polished
-  inspection UI not in the spec.
+  inspection UI.
 - **`equations.definition` JSON shape** —
   `{tool_id, n, static_params, _dynamic: {param: NodeRef, ...}}`.
 - **Program history** — each save snapshots source; forks copy history.
@@ -297,17 +288,3 @@ load-bearing ways:
 | `components/recipe/CompletedSelectPanel.vue` | Review past selections |
 | `composables/useRecipesApi.js` | REST client |
 | `composables/useRecipeState.js` | Recipe + graph state + WS |
-
----
-
-## 12. Full specs (depth references)
-
-- `docs/RECIPES.md` — user-facing overview
-- `docs/RECIPES_DEV_PLAN.md` — phase plan (historical; §9 above notes what's
-  incomplete)
-- `docs/RECIPES_DSL.md` — full DSL spec with examples + anti-patterns
-- `docs/RECIPES_EQUATION_KEYS.md` — equation / iteration key derivation
-- `docs/RECIPES_SHAPE_VALIDATION.md` — intended shape checks (only #1 and
-  part of #3 implemented)
-- `docs/RECIPES_TECH.md` — architecture, DB schema, API surface (some
-  divergence — see §9)

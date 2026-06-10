@@ -14,10 +14,10 @@ Each release channel has its own bundle identifier, set in `tauri.conf.json` and
 |---------|-----------|-----------|
 | **Stable** | `ai.stimma.stimma` | Production release |
 | **Beta** | `ai.stimma.stimma.beta` | Beta testing |
-| **Canary** | `ai.stimma.stimma.canary` | Nightly/canary builds from `main` |
+| **Alpha** | `ai.stimma.stimma.alpha` | Alpha builds (`-alpha.N` tags) |
 | **Debug** | `ai.stimma.stimma.debug` | Local development (default in `tauri.conf.json` and CLI) |
 
-Channels are fully isolated — each has its own database, settings, and cache. You can run stable and canary side-by-side without conflicts.
+Channels are fully isolated — each has its own database, settings, and cache. You can run stable and alpha side-by-side without conflicts. See `docs/RELEASE_CHANNELS.md` for how each channel is built and updated.
 
 ## Sandboxes
 
