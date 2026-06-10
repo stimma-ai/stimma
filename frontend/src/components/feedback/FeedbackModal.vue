@@ -76,6 +76,7 @@
                   <div class="text-xs text-content">Include screenshot</div>
                   <div class="text-[11px] text-content-muted mt-0.5">A capture of the app window as it looks right now.</div>
                   <div v-if="capturingScreenshot" class="text-[11px] text-content-muted mt-1">Capturing…</div>
+                  <div v-else-if="screenshotError" class="text-[11px] text-red-400 mt-1">Couldn't capture a screenshot — your feedback will be sent without one.</div>
                   <img
                     v-else-if="screenshotDataUrl"
                     :src="screenshotDataUrl"
@@ -190,6 +191,8 @@ const includeLogs = ref(false)
 const includeScreenshot = ref(false)
 const screenshotDataUrl = ref(null)
 const capturingScreenshot = ref(false)
+const screenshotError = ref(false)
+let captureToken = 0
 const submitting = ref(false)
 const error = ref(null)
 const logsPreview = ref(null)
@@ -211,6 +214,8 @@ watch(() => modal.open, async (open) => {
   includeLogs.value = false
   includeScreenshot.value = false
   screenshotDataUrl.value = null
+  screenshotError.value = false
+  captureToken++
   error.value = null
   logsPreview.value = null
   packagePreview.value = null
@@ -241,22 +246,108 @@ function onTextareaKeyup(event) {
 
 // ── Screenshot (DOM render of the app root; modals are teleported to
 //    body so the capture shows the app as the user sees it, sans modal) ──
+//
+// The whole capture races a hard deadline: modern-screenshot's <video>
+// clone path (loadMedia without a timeout + an unconditional wait for
+// `seeked`) can block forever in WKWebView, and the modal must never
+// wedge at "Capturing…" no matter what the library does.
+const CAPTURE_DEADLINE_MS = 8000
+
+function withDeadline(promise, ms) {
+  let timer = null
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`screenshot capture timed out after ${ms}ms`)), ms)
+    }),
+  ]).finally(() => clearTimeout(timer))
+}
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+
+async function captureScreenshot() {
+  // modern-screenshot does the hard part (DOM clone + resource inlining),
+  // but its built-in rasterizers are unsafe for a whole-app capture in
+  // WKWebView: cloneVideo waits unboundedly, and the Safari "fixSvgXmlDecode"
+  // redraw loop sleeps per embedded image (quadratic in image count — a
+  // media grid takes 10s+). So we build the foreignObject SVG with bounded
+  // options and rasterize it ourselves on a fixed schedule.
+  const { createContext, destroyContext, domToForeignObjectSvg } =
+    await import('modern-screenshot')
+  const node = document.getElementById('app')
+  // Downscale large windows — a feedback screenshot doesn't need retina.
+  const cssWidth = node?.clientWidth || window.innerWidth || 1
+  const scale = Math.min(1, 1600 / cssWidth)
+  const context = await createContext(node, {
+    scale,
+    // Bound every internal wait (media readiness, image fetch/decode) well
+    // under the outer deadline so slow media degrades to placeholders
+    // instead of failing the whole capture.
+    timeout: 3000,
+    // Skip <video> (unbounded clone path, see above) and nested iframes —
+    // neither is needed in a feedback screenshot.
+    filter: (el) => el.tagName !== 'VIDEO' && el.tagName !== 'IFRAME',
+    // Fonts are already loaded in this document and the SVG rasterizes in
+    // the same page, so embedding webfonts only adds fetch round-trips.
+    font: false,
+  })
+  try {
+    const svg = await domToForeignObjectSvg(context)
+    // Strip control characters that break XML parsing (WebKit is strict).
+    const xml = new XMLSerializer().serializeToString(svg)
+      .replace(/[\u0000-\u0008\v\f\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/gu, '')
+    const img = new Image()
+    img.decoding = 'sync'
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`
+    await new Promise((resolve) => {
+      img.addEventListener('load', resolve, { once: true })
+      img.addEventListener('error', resolve, { once: true })
+      setTimeout(resolve, 3000)
+    })
+    try { await img.decode() } catch { /* draw anyway */ }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.floor(context.width * scale))
+    canvas.height = Math.max(1, Math.floor(context.height * scale))
+    const ctx = canvas.getContext('2d')
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    }
+    // WebKit decodes data-URI sub-images inside the SVG asynchronously and
+    // decode() resolves before they're ready; redraw on a short fixed
+    // schedule (bounded, unlike the library's per-image loop).
+    draw()
+    for (const delay of [150, 350, 600]) {
+      await sleep(delay)
+      draw()
+    }
+    return canvas.toDataURL('image/png')
+  } finally {
+    destroyContext(context)
+  }
+}
+
 async function onScreenshotToggle() {
+  const token = ++captureToken
+  screenshotError.value = false
   if (!includeScreenshot.value) {
     screenshotDataUrl.value = null
     return
   }
   capturingScreenshot.value = true
   try {
-    const { domToPng } = await import('modern-screenshot')
-    const node = document.getElementById('app')
-    screenshotDataUrl.value = await domToPng(node, { scale: 1 })
+    const dataUrl = await withDeadline(captureScreenshot(), CAPTURE_DEADLINE_MS)
+    if (token !== captureToken) return // toggled again / modal reset meanwhile
+    screenshotDataUrl.value = dataUrl
   } catch (err) {
     console.error('[feedback] screenshot capture failed:', err)
+    if (token !== captureToken) return
     includeScreenshot.value = false
-    addToast('Could not capture a screenshot', 'error', 3000)
+    screenshotDataUrl.value = null
+    screenshotError.value = true
   } finally {
-    capturingScreenshot.value = false
+    if (token === captureToken) capturingScreenshot.value = false
   }
 }
 
