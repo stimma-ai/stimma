@@ -29,6 +29,29 @@ lands.
 - **Carve-out:** the single `telemetry_enabled {enabled: false}`
   transition event fired by the toggle-off itself is the last thing sent.
 
+## Testing official-build behavior (dev)
+
+To exercise the official-build surfaces (telemetry client, consent
+screen, thumbs feedback, crash reports) from a source checkout, pass
+`--official` to the dev/run CLI commands:
+
+```
+stimma dev backend --official     # backend telemetry/crash surfaces active
+stimma dev frontend --official    # consent UI / thumbs compiled in (Vite define)
+stimma dev app --official         # Tauri shell + its Vite dev server
+stimma run backend|frontend|app --official
+```
+
+The flag sets `STIMMA_DISTRIBUTION=official` in the child process only;
+without it nothing changes (dev default, permanent no-op). The CLI
+prints a warning banner when active because events really are sent to
+the configured cloud (after consent). On the default debug channel the
+User-Agent still reports `app_branch=dev` (branch derives from the
+bundle id; non-release bundles fall back to `dev`), so test events are
+filterable server-side. Note `dev app`/`run app` talk to the externally
+running backend on :9191 — start that backend with `--official` too if
+you want the backend surfaces live.
+
 ## Rules (enforced at audit)
 
 No PII, no prompts, no file names/paths, no generation parameters, no

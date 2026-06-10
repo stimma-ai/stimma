@@ -141,6 +141,10 @@ Flags:
   --prod              Shorthand for --channel=production
   --channel=CHANNEL   Release channel: debug (default), sandbox, alpha, beta, production
   --sandbox=NAME      Sandbox name (default: "default")
+  --official          dev/run only: set STIMMA_DISTRIBUTION=official in the child
+                      process so telemetry, consent UI, thumbs, and crash reports
+                      behave like an official build (events go to the configured
+                      cloud; app_branch stays 'dev' on the debug channel)
 
 Commands:
   dev frontend    Run Vite dev server with HMR (port 9192)
@@ -1026,10 +1030,27 @@ async function commandSkills(args: string[], bundleId: string, sandbox: string):
   console.log("These skills now shadow profile-installed built-ins; backend picks it up on config reload.");
 }
 
+// app_branch the backend's User-Agent reports for a bundle id when the
+// distribution is official (mirrors backend/user_agent.py get_app_branch).
+function appBranchForBundle(bundleId: string): string {
+  if (bundleId === "ai.stimma.stimma") return "production";
+  if (bundleId === "ai.stimma.stimma.beta") return "beta";
+  if (bundleId === "ai.stimma.stimma.alpha") return "alpha";
+  return "dev";
+}
+
+function officialBanner(bundleId: string): void {
+  console.log(
+    `⚠ STIMMA_DISTRIBUTION=official — telemetry/consent/thumbs/crash surfaces ACTIVE; ` +
+      `events will be sent to the configured cloud (app_branch will be '${appBranchForBundle(bundleId)}')`,
+  );
+}
+
 async function main(): Promise<void> {
   let args = [...Deno.args];
   let channel = "debug";
   let sandbox = "default";
+  let official = false;
 
   while (args.length > 0) {
     if (args[0] === "--prod") {
@@ -1051,10 +1072,33 @@ async function main(): Promise<void> {
       args = args.slice(1);
       continue;
     }
+    if (args[0] === "--official") {
+      official = true;
+      args = args.slice(1);
+      continue;
+    }
     break;
   }
 
+  // Also accept --official after the subcommand (e.g. `stimma dev backend --official`).
+  if (args.includes("--official")) {
+    official = true;
+    args = args.filter((a) => a !== "--official");
+  }
+
   const bundleId = CHANNEL_BUNDLE_IDS[channel];
+
+  if (official) {
+    const command0 = args[0];
+    if (command0 !== "dev" && command0 !== "run") {
+      console.error("--official is only supported with 'stimma dev ...' and 'stimma run ...'.");
+      Deno.exit(1);
+    }
+    officialBanner(bundleId);
+  }
+  // Env merged into child processes when --official is set. Empty otherwise,
+  // so the default dev behavior is completely untouched.
+  const officialEnv: Record<string, string> = official ? { STIMMA_DISTRIBUTION: "official" } : {};
 
   const command = args[0];
   if (!command) printUsage();
@@ -1065,23 +1109,26 @@ async function main(): Promise<void> {
   switch (command) {
     case "dev": {
       if (sub === "frontend") {
-        await run("npm", ["run", "dev"], { cwd: join(repoRoot, "frontend") });
+        await run("npm", ["run", "dev"], { cwd: join(repoRoot, "frontend"), env: officialEnv });
       } else if (sub === "backend") {
         const backendDir = join(repoRoot, "backend");
         const ports = await getSandboxPorts(bundleId, sandbox);
         const execStr = `uv run python main.py --bundle-id=${bundleId} --sandbox=${sandbox} --port=${ports.server}`;
         if (Deno.build.os === "windows") {
           const cmdArgs = ["nodemon", "--signal", "SIGKILL", "--exec", execStr];
-          await run("npx", cmdArgs, { cwd: backendDir });
+          await run("npx", cmdArgs, { cwd: backendDir, env: officialEnv });
         } else {
-          await run("npx", ["nodemon", "--signal", "SIGKILL", "--exec", execStr], { cwd: backendDir });
+          await run("npx", ["nodemon", "--signal", "SIGKILL", "--exec", execStr], { cwd: backendDir, env: officialEnv });
         }
       } else if (sub === "backend2") {
         const ports = await getSandboxPorts(bundleId, sandbox);
         const args2 = ["run", "--", "--bundle-id", bundleId, "--sandbox", sandbox, "--port", String(ports.server), "--console"];
-        await run("cargo", args2, { cwd: join(repoRoot, "backend2") });
+        await run("cargo", args2, { cwd: join(repoRoot, "backend2"), env: officialEnv });
       } else if (sub === "app") {
-        await run("cargo", ["tauri", "dev"], { cwd: repoRoot, env: { STIMMA_DEV: "1" } });
+        if (official) {
+          console.log("Note: 'dev app' uses the externally running backend on :9191 — start it with 'stimma dev backend --official' for backend surfaces.");
+        }
+        await run("cargo", ["tauri", "dev"], { cwd: repoRoot, env: { STIMMA_DEV: "1", ...officialEnv } });
       } else {
         printUsage();
       }
@@ -1149,13 +1196,16 @@ async function main(): Promise<void> {
       if (sub === "backend") {
         const ports = await getSandboxPorts(bundleId, sandbox);
         const args2 = ["run", "python", "main.py", `--bundle-id=${bundleId}`, `--sandbox=${sandbox}`, `--port=${ports.server}`];
-        await run("uv", args2, { cwd: join(repoRoot, "backend") });
+        await run("uv", args2, { cwd: join(repoRoot, "backend"), env: officialEnv });
       } else if (sub === "frontend") {
         const frontendDir = join(repoRoot, "frontend");
-        await run("npm", ["run", "build"], { cwd: frontendDir });
-        await run("npm", ["run", "preview"], { cwd: frontendDir });
+        await run("npm", ["run", "build"], { cwd: frontendDir, env: officialEnv });
+        await run("npm", ["run", "preview"], { cwd: frontendDir, env: officialEnv });
       } else if (sub === "app") {
-        await run("cargo", ["run", "--release"], { cwd: repoRoot, env: { STIMMA_DEV: "1" } });
+        if (official) {
+          console.log("Note: 'run app' uses the externally running backend on :9191 — start it with 'stimma run backend --official' for backend surfaces.");
+        }
+        await run("cargo", ["run", "--release"], { cwd: repoRoot, env: { STIMMA_DEV: "1", ...officialEnv } });
       } else {
         printUsage();
       }
