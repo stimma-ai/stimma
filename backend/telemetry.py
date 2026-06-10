@@ -336,10 +336,8 @@ class TelemetryClient:
             total_grids = 0
             total_boards = 0
             total_chats = 0
+            from telemetry_props import marker_name_for_telemetry
             markers_breakdown: Dict[str, int] = {}
-            # Shipped default marker names pass through literally; everything
-            # else (including renamed defaults) counts under 'custom'.
-            default_marker_names = {"favorite", "library"}
 
             for profile_info in profiles:
                 db = registry.get_database(profile_info["id"])
@@ -384,7 +382,7 @@ class TelemetryClient:
                         .group_by(Marker.id, Marker.name)
                     )
                     for marker_name, count in result.all():
-                        key = marker_name if marker_name in default_marker_names else "custom"
+                        key = marker_name_for_telemetry(marker_name)
                         markers_breakdown[key] = markers_breakdown.get(key, 0) + (count or 0)
 
             stats["mediaCount"] = total_media

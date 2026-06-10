@@ -15,6 +15,11 @@ model_family / endpoint_class / tool_ref):
 - ``llm_config_fields`` — {llmSource, modelFamily, endpointClass?} from a
   resolved LLM endpoint config. Hostnames and raw model strings never
   egress; they classify through endpoint_class / model_family.
+- ``marker_name_for_telemetry`` — catalog fix #4: names matching the
+  shipped default marker set pass through literally; everything else
+  (including renamed defaults) is user content and egresses as the
+  literal ``custom``. Used by ``media_marked`` and the
+  ``session_started.markerCounts`` snapshot.
 """
 import hashlib
 import re
@@ -44,8 +49,22 @@ AGENT_ERROR_TYPES = (
     "other",
 )
 
+# Shipped default marker names (catalog fix #4). Only these pass through
+# telemetry literally — anything else, including renamed defaults, is user
+# content and is replaced by the literal ``custom``.
+DEFAULT_MARKER_NAMES = frozenset({"favorite", "library"})
+
 _WS_RE = re.compile(r"\s+")
 _NUM_RE = re.compile(r"\d+")
+
+
+def marker_name_for_telemetry(name: Optional[str]) -> str:
+    """Marker name as it may appear in telemetry.
+
+    Shipped default names pass through literally; every other name
+    (user-created markers, renamed defaults) becomes ``custom``.
+    """
+    return name if name in DEFAULT_MARKER_NAMES else "custom"
 
 
 def error_hash(message: Optional[str]) -> str:

@@ -381,6 +381,67 @@ class TestMarkerWebSocketEvents:
             assert len(media_updated_events) >= 1
 
 
+class TestMarkerTelemetry:
+    """media_marked never egresses user marker names (catalog fix #4):
+    shipped default names pass through literally, everything else sends
+    the literal placeholder "custom"."""
+
+    @pytest.fixture
+    def captured_events(self, monkeypatch):
+        events = []
+
+        class _Capture:
+            def track(self, event, properties=None, category="app"):
+                events.append({"event": event, "properties": dict(properties or {})})
+
+        import telemetry
+        monkeypatch.setattr(telemetry, "get_telemetry_client", lambda: _Capture())
+        return events
+
+    async def test_builtin_marker_name_passes_through(
+        self, client: AsyncClient, seeded_media, marker_ids, captured_events
+    ):
+        """Shipped default marker names ('favorite') egress literally."""
+        media_ids = [m.id for m in seeded_media[:2]]
+
+        response = await client.post(
+            "/api/media/batch/markers",
+            json={"media_ids": media_ids, "marker_id": marker_ids["favorite"], "add": True},
+        )
+        assert response.status_code == 200
+
+        marked = [e for e in captured_events if e["event"] == "media_marked"]
+        assert len(marked) == 1
+        assert marked[0]["properties"] == {"count": 2, "markerName": "favorite"}
+
+    async def test_user_marker_name_egresses_as_custom(
+        self, client: AsyncClient, seeded_media, db_session, captured_events
+    ):
+        """User-created marker names are content — they send 'custom'."""
+        from database import Marker
+
+        user_marker_name = "secret client project"
+        async with db_session() as session:
+            marker = Marker(name=user_marker_name, icon_svg="<svg/>", color="#ff0000")
+            session.add(marker)
+            await session.commit()
+            await session.refresh(marker)
+            marker_id = marker.id
+
+        media_ids = [m.id for m in seeded_media[:2]]
+        response = await client.post(
+            "/api/media/batch/markers",
+            json={"media_ids": media_ids, "marker_id": marker_id, "add": True},
+        )
+        assert response.status_code == 200
+
+        marked = [e for e in captured_events if e["event"] == "media_marked"]
+        assert len(marked) == 1
+        assert marked[0]["properties"]["markerName"] == "custom"
+        # The raw name never appears anywhere in the emitted events.
+        assert user_marker_name not in repr(captured_events)
+
+
 # Fixtures specific to this test module
 
 @pytest.fixture

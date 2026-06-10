@@ -655,6 +655,9 @@ async function loadAppSettings() {
   setCaptioningEnabled(settings.background_work?.captioning?.enabled)
   setTelemetryEnabled(settings.telemetry_enabled)
   initFeatureFlags(useWebSocket().on)
+  // Auto update checks start only once the DNT state is known, and never
+  // when DO_NOT_TRACK is active (backend computes dnt_active from the env).
+  void startUpdaterLoop(settings.dnt_active === true)
   // Sync theme from backend config (backend is source of truth,
   // localStorage is used for instant flash prevention on load)
   if (settings.theme) {
@@ -754,6 +757,7 @@ function handleAutoLock(event) {
 }
 
 let updateIntervalId = null
+let updaterLoopStarted = false
 const syncedMarketplaceSkillProfiles = new Set()
 const marketplaceSkillSyncByProfile = new Map()
 
@@ -806,8 +810,15 @@ async function syncMarketplaceSkills(profileId = currentProfileId.value) {
   }
 }
 
-async function startUpdaterLoop() {
+// Started from loadAppSettings() once the DO_NOT_TRACK state is known —
+// DNT means no automatic requests of any kind, including the Tauri
+// updater's endpoint fetch. User-initiated checks (Settings → Updates)
+// remain available; only the launch check and the 6 h interval are gated.
+async function startUpdaterLoop(dntActive) {
   if (!updatesEnabled.value) return
+  if (dntActive) return
+  if (updaterLoopStarted) return
+  updaterLoopStarted = true
 
   await loadUpdatePreferences()
   await checkForUpdates('auto')
@@ -837,9 +848,9 @@ onMounted(async () => {
   // Start idle tracking for PIN timeout
   startIdleTracking()
 
-  // Check if we need PIN entry on startup
+  // Check if we need PIN entry on startup. This loads settings and starts
+  // the updater loop (DNT-gated) once the settings fetch succeeds.
   checkStartupPin()
-  startUpdaterLoop()
 
   // Feedback client: load consent state, then handle crash reports left by
   // a previous run (official builds, consent 'ask' → batched dialog) and

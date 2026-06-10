@@ -274,9 +274,12 @@ async def bulk_marker_operation(
 
         if added > 0:
             from telemetry import get_telemetry_client
+            from telemetry_props import marker_name_for_telemetry
             get_telemetry_client().track("media_marked", {
                 "count": added,
-                "markerName": marker.name,
+                # Catalog fix #4: shipped default names pass literally,
+                # user-created/renamed markers egress as "custom".
+                "markerName": marker_name_for_telemetry(marker.name),
             })
 
         return {"status": "success", "added": added, "total": len(request.media_ids)}

@@ -265,6 +265,24 @@ def test_dnt_suppresses_update_check(fresh_env, patch_settings, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_settings_api_surfaces_dnt_active(client, monkeypatch):
+    """GET /api/settings exposes ``dnt_active`` so the frontend can gate
+    the Tauri updater's automatic checks on it (D11: DNT means no
+    automatic requests of any kind, including the update-endpoint fetch).
+    The frontend starts its updater loop only when ``dnt_active`` is
+    false; manual user-initiated checks remain available."""
+    monkeypatch.delenv("DO_NOT_TRACK", raising=False)
+    response = await client.get("/api/settings")
+    assert response.status_code == 200
+    assert response.json()["dnt_active"] is False
+
+    monkeypatch.setenv("DO_NOT_TRACK", "1")
+    response = await client.get("/api/settings")
+    assert response.status_code == 200
+    assert response.json()["dnt_active"] is True
+
+
+@pytest.mark.asyncio
 async def test_dnt_suppresses_region_call(fresh_env, patch_settings, monkeypatch):
     fresh_env.setenv("STIMMA_DISTRIBUTION", "official")
     fresh_env.setenv("DO_NOT_TRACK", "1")
