@@ -77,12 +77,7 @@
                   <div class="text-[11px] text-content-muted mt-0.5">A capture of the app window as it looks right now.</div>
                   <div v-if="capturingScreenshot" class="text-[11px] text-content-muted mt-1">Capturing…</div>
                   <div v-else-if="screenshotError" class="text-[11px] text-red-400 mt-1">Couldn't capture a screenshot — your feedback will be sent without one.</div>
-                  <img
-                    v-else-if="screenshotDataUrl"
-                    :src="screenshotDataUrl"
-                    alt="Screenshot preview"
-                    class="mt-2 max-h-28 rounded-lg border border-edge"
-                  />
+                  <div v-else-if="screenshotDataUrl" class="text-[11px] text-content-muted mt-1">Captured ✓ — view it under "See what will be sent" below.</div>
                 </div>
               </label>
             </div>
