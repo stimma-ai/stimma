@@ -1088,22 +1088,12 @@ Title:"""
             {"role": "user", "content": user_prompt}
         ]
 
-        from tracing import agent_trace
-        with agent_trace(
-            "set-title",
-            input={"tool_name": tool_name, "task_type": task_type, "context": context[:300]},
-            tags=["utility", "set-title"],
-        ) as _span:
-            result = await llm_complete_text(
-                config=llm_config,
-                messages=messages,
-                max_tokens=1024,
-                temperature=0.3,
-            )
-            try:
-                _span.update(output=result)
-            except Exception:
-                pass
+        result = await llm_complete_text(
+            config=llm_config,
+            messages=messages,
+            max_tokens=1024,
+            temperature=0.3,
+        )
 
         log.info(f"SMART TITLE: LLM returned: '{result}'")
 

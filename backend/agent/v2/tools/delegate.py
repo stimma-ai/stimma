@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from llm import llm_completion, Usage, FinishReason
+from llm_correlation import llm_correlation_context
 from llm_resolver import get_effective_llm_config, get_chat_llm_config
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -322,7 +323,18 @@ async def _pause_delegate_for_permission(
     raise HumanActionRequired(hitl_action)
 
 
-async def _run_delegate_loop(
+async def _run_delegate_loop(**kwargs) -> tuple[str, dict]:
+    """Run the delegate loop inside its own correlation scope.
+
+    One delegate execution = one run id; nested LLM calls carry the
+    `delegate` agent context on Stimma Cloud requests. Both call sites
+    (delegate_tool and the HITL resume path) pass keyword args only.
+    """
+    with llm_correlation_context("delegate", chat_id=kwargs.get("chat_id")):
+        return await _run_delegate_loop_inner(**kwargs)
+
+
+async def _run_delegate_loop_inner(
     task: str,
     context: str | None,
     specialist: str | None,

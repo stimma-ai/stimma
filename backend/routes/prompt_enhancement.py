@@ -8,6 +8,7 @@ import re
 
 from prompts import get_prompt
 from llm import llm_complete_text
+from llm_correlation import llm_correlation_context
 
 router = APIRouter(prefix="/api/prompt", tags=["prompt"])
 log = get_logger(__name__)
@@ -268,17 +269,7 @@ IMPORTANT: The user's edits are INTENTIONAL. If they removed something, do NOT a
     # Trim to fit context window
     messages = trim_messages_to_fit(messages)
 
-    from tracing import agent_trace
-
-    with agent_trace(
-        "prompt-enhance",
-        input={"prompt": request.prompt, "feedback": request.feedback},
-        tags=["prompt-enhancement", "enhance"],
-        metadata={
-            "human_edited": request.human_edited,
-            "history_messages": len(request.conversation_history),
-        },
-    ) as _span:
+    with llm_correlation_context("prompt-agent"):
         try:
             # Calculate approximate input size for logging
             total_input_chars = sum(len(m.get('content', '')) for m in messages)
@@ -294,26 +285,13 @@ IMPORTANT: The user's edits are INTENTIONAL. If they removed something, do NOT a
 
             log.info(f"Enhancement complete - output: {len(enhanced_prompt)} chars")
 
-            try:
-                _span.update(output=enhanced_prompt)
-            except Exception:
-                pass
-
             return EnhancePromptResponse(enhanced_prompt=enhanced_prompt)
 
         except asyncio.TimeoutError:
             log.error("Prompt enhancement request timed out")
-            try:
-                _span.update(level="ERROR", status_message="timeout")
-            except Exception:
-                pass
             raise HTTPException(status_code=504, detail="Request timed out")
         except Exception as e:
             log.error(f"Prompt enhancement error: {e}", exc_info=True)
-            try:
-                _span.update(level="ERROR", status_message=f"{type(e).__name__}: {e}")
-            except Exception:
-                pass
             raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -363,13 +341,7 @@ async def improve_prompt(request: ImprovePromptRequest):
         {"role": "user", "content": user_content}
     ]
 
-    from tracing import agent_trace
-
-    with agent_trace(
-        "prompt-improve",
-        input={"prompt": request.prompt, "instructions": request.instructions or ""},
-        tags=["prompt-enhancement", "improve"],
-    ) as _span:
+    with llm_correlation_context("prompt-agent"):
         try:
             log.info(f"Sending prompt improve request")
 
@@ -383,26 +355,13 @@ async def improve_prompt(request: ImprovePromptRequest):
 
             log.info(f"Prompt improve successful ({len(improved_prompt)} chars)")
 
-            try:
-                _span.update(output=improved_prompt)
-            except Exception:
-                pass
-
             return ImprovePromptResponse(improved_prompt=improved_prompt)
 
         except asyncio.TimeoutError:
             log.error("Prompt improve request timed out")
-            try:
-                _span.update(level="ERROR", status_message="timeout")
-            except Exception:
-                pass
             raise HTTPException(status_code=504, detail="Request timed out")
         except Exception as e:
             log.error(f"Prompt improve error: {e}", exc_info=True)
-            try:
-                _span.update(level="ERROR", status_message=f"{type(e).__name__}: {e}")
-            except Exception:
-                pass
             raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -583,12 +542,7 @@ async def suggest_categories(request: SuggestCategoriesRequest):
         best_categories: List[CategoryItem] = []
         last_response = ""
 
-        from tracing import agent_trace
-        with agent_trace(
-            "suggest-categories",
-            input=request.prompt,
-            tags=["utility", "prompt-enhancement", "suggest-categories"],
-        ) as _span:
+        with llm_correlation_context("prompt-agent"):
             for attempt in range(MAX_RETRIES):
                 response_content = await llm_complete_text(
                     config=llm_config,
@@ -622,10 +576,6 @@ async def suggest_categories(request: SuggestCategoriesRequest):
                     log.warning(f"Suggest-categories detected refusal: {refusal[:100]}")
                     if debug_info:
                         debug_info["raw_response"] = response_content
-                    try:
-                        _span.update(output={"refusal": refusal[:200]})
-                    except Exception:
-                        pass
                     return SuggestCategoriesResponse(categories=[], debug=debug_info, message=refusal)
 
                 if len(categories) >= 3:
@@ -642,10 +592,6 @@ async def suggest_categories(request: SuggestCategoriesRequest):
                 debug_info["raw_response"] = last_response
 
             log.info(f"Suggest-categories returning {len(best_categories)} categories")
-            try:
-                _span.update(output={"categories_count": len(best_categories)})
-            except Exception:
-                pass
             return SuggestCategoriesResponse(categories=best_categories, debug=debug_info)
 
     except asyncio.TimeoutError:
@@ -756,12 +702,7 @@ Category: {request.category.label} ({request.category.category})"""
     try:
         log.info(f"Suggest-options starting - category: {request.category.label}, exclude: {len(request.exclude)} items")
 
-        from tracing import agent_trace
-        with agent_trace(
-            "suggest-options",
-            input={"category": request.category.label},
-            tags=["utility", "prompt-enhancement", "suggest-options"],
-        ) as _span:
+        with llm_correlation_context("prompt-agent"):
             response_content = await llm_complete_text(
                 config=llm_config,
                 messages=messages,
@@ -769,10 +710,6 @@ Category: {request.category.label} ({request.category.category})"""
                 temperature=0.8,
                 enable_thinking=request.thinking,
             )
-            try:
-                _span.update(output={"response_chars": len(response_content) if response_content else 0})
-            except Exception:
-                pass
 
         if debug_info:
             debug_info["raw_response"] = response_content
@@ -903,15 +840,7 @@ async def agent_step(request: AgentStepRequest):
     # Inject the state reminder (+ timestamp) into the last user message in place.
     _inject_last_user_context(messages, [state_reminder])
 
-    from tracing import agent_trace
-
-    with agent_trace(
-        "prompt-agent-step",
-        input={"history_messages": len(request.conversation_history)},
-        session_id=request.session_id,
-        tags=["prompt-enhancement", "prompt-agent"],
-        metadata={"max_ctx": max_ctx, "thinking": request.thinking},
-    ) as _span:
+    with llm_correlation_context("prompt-agent"):
         try:
             resp = await llm_completion(
                 config=llm_config,
@@ -925,38 +854,22 @@ async def agent_step(request: AgentStepRequest):
                 **agent_llm_options(enable_thinking=request.thinking),
             )
             tool_calls = [AgentToolCall(id=tc.id, name=tc.name, arguments=tc.arguments) for tc in resp.tool_calls]
-            try:
-                _span.update(output={"tool_calls": [tc.name for tc in tool_calls], "text_len": len(resp.content or "")})
-            except Exception:
-                pass
             return AgentStepResponse(message=resp.content or "", tool_calls=tool_calls, thinking=resp.thinking)
         except asyncio.TimeoutError:
             log.error("Prompt-agent step timed out")
             raise HTTPException(status_code=504, detail="The request timed out. Try again.")
         except ContentFilteredError:
             log.warning("Prompt-agent step content-filtered")
-            try:
-                _span.update(level="ERROR", status_message="content_filtered")
-            except Exception:
-                pass
             raise HTTPException(
                 status_code=422,
                 detail="The model declined this request (content filter). Try rephrasing.",
             )
         except QuotaExceededError as e:
             log.warning(f"Prompt-agent step quota exceeded: {e}")
-            try:
-                _span.update(level="ERROR", status_message="quota_exceeded")
-            except Exception:
-                pass
             raise HTTPException(
                 status_code=429,
                 detail=str(e) or "LLM quota exceeded. Check your plan or usage and try again.",
             )
         except Exception as e:
             log.error(f"Prompt-agent step error: {e}", exc_info=True)
-            try:
-                _span.update(level="ERROR", status_message=f"{type(e).__name__}: {e}")
-            except Exception:
-                pass
             raise HTTPException(status_code=500, detail=str(e))

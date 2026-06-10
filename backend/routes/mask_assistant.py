@@ -154,22 +154,12 @@ default_expand_percent: {request.default_expand_percent}"""
     llm_request = user_content
 
     try:
-        from tracing import agent_trace
-        with agent_trace(
-            "mask-assistant",
-            input={"user_input": request.user_input, "has_existing_mask": request.has_existing_mask},
-            tags=["utility", "mask-assistant"],
-        ) as _span:
-            response = await llm_complete_text(
-                config=llm_config,
-                messages=messages,
-                max_tokens=500,
-                temperature=0.3,
-            )
-            try:
-                _span.update(output=response)
-            except Exception:
-                pass
+        response = await llm_complete_text(
+            config=llm_config,
+            messages=messages,
+            max_tokens=500,
+            temperature=0.3,
+        )
 
         # Parse the response
         parsed = _parse_interpret_response(response)

@@ -14,6 +14,7 @@ from typing import Optional
 import httpx
 
 from core.logging import get_logger
+from llm_correlation import correlation_headers
 
 log = get_logger(__name__)
 
@@ -244,6 +245,12 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
 
     # Detect if this is a Stimma Cloud endpoint (for 401 retry logic)
     is_stimma_cloud = api_base and "stimma" in api_base
+
+    # Mechanical correlation IDs (chat/run/agent-context) for Stimma Cloud's
+    # server-side request grouping. Cloud only — never sent to BYOAI/custom
+    # endpoints.
+    if is_stimma_cloud:
+        headers.update(correlation_headers())
 
     dump_dir = _dump_dir_for(model, session_id)
     if dump_dir is not None:

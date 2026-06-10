@@ -90,26 +90,13 @@ class VLMService:
                 log.debug(f"VLM ANALYSIS: Image encoded ({len(image_b64)} bytes base64)")
 
                 # Make completion call with vision
-                from tracing import agent_trace
-                with agent_trace(
-                    "vlm-analysis",
-                    input={"image": image_desc, "prompt_chars": len(self.analysis_prompt)},
-                    tags=["utility", "ingestion", "vlm-analysis"],
-                ) as _span:
-                    response, error = await llm_complete_vision(
-                        config=self.config,
-                        prompt=self.analysis_prompt,
-                        image_b64=image_b64,
-                        max_tokens=800,
-                        temperature=0.3,
-                    )
-                    try:
-                        if error:
-                            _span.update(level="ERROR", status_message=error)
-                        else:
-                            _span.update(output={"response_chars": len(response) if response else 0})
-                    except Exception:
-                        pass
+                response, error = await llm_complete_vision(
+                    config=self.config,
+                    prompt=self.analysis_prompt,
+                    image_b64=image_b64,
+                    max_tokens=800,
+                    temperature=0.3,
+                )
 
                 if error:
                     log.error(f"VLM ANALYSIS: {error} for {image_desc}")

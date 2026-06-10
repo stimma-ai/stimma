@@ -283,21 +283,6 @@ class CloudConfig(BaseModel):
     base_url: str = "https://stimma.ai"
 
 
-class TracingConfig(BaseModel):
-    """Langfuse LLM tracing configuration.
-
-    The master on/off switch is the existing top-level
-    `posthog_session_recording` setting (Developer → Session Recording),
-    so agent traces only flow when session recording is enabled. The fields
-    here just hold the Langfuse credentials; env vars LANGFUSE_PUBLIC_KEY /
-    LANGFUSE_SECRET_KEY / LANGFUSE_BASE_URL override these when set.
-    """
-    langfuse_public_key: str = ""
-    langfuse_secret_key: str = ""
-    langfuse_host: str = ""  # e.g. https://langfuse.b1research.ai (no trailing /api/...)
-    sample_rate: float = 1.0  # 0.0–1.0; fraction of agent runs to trace
-
-
 class AgentToolConfig(BaseModel):
     """Tool configuration for the agent."""
     allowed_tools: List[str] = []  # Tools explicitly allowed (no permission prompt)
@@ -568,7 +553,6 @@ class Settings(BaseSettings):
     agent: AgentConfig = AgentConfig()
     cloud: CloudConfig = CloudConfig()
     telemetry: TelemetryConfig = TelemetryConfig()
-    tracing: TracingConfig = TracingConfig()
 
     def get_llm_role_config(self, role: str) -> LLMRoleConfig:
         """Get LLM role config by role (agent, agent-fast).

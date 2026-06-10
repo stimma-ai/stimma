@@ -54,8 +54,6 @@ dependencies = [
     "pypdfium2>=4.0",
     # PostHog (events + error tracking, dual-write alongside our own telemetry)
     "posthog>=7.0",
-    # Langfuse (optional LLM tracing for agentic flows; off by default)
-    "langfuse>=3.0",
 ]
 
 [project.optional-dependencies]

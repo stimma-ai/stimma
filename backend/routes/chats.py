@@ -299,23 +299,12 @@ Title:"""
             log.info(f"Chat {chat_id}: Calling LLM with model={llm_config.get_model()}, api_base={api_base}")
             log.info(f"Chat {chat_id}: Messages: {messages}")
 
-            from tracing import agent_trace
-            with agent_trace(
-                "auto-title-chat",
-                input=conversation_context[:500],
-                session_id=f"chat-{chat_id}",
-                tags=["utility", "auto-title"],
-            ) as _span:
-                new_name = await llm_complete_text(
-                    config=llm_config,
-                    messages=messages,
-                    max_tokens=48,
-                    temperature=0.2,
-                )
-                try:
-                    _span.update(output=new_name)
-                except Exception:
-                    pass
+            new_name = await llm_complete_text(
+                config=llm_config,
+                messages=messages,
+                max_tokens=48,
+                temperature=0.2,
+            )
 
             log.info(f"Chat {chat_id}: Raw LLM response: '{new_name[:200] if new_name else '(empty)'}'")
             # complete() already strips thinking tags
@@ -1633,22 +1622,12 @@ Interpret their response and return JSON with one of these formats:
 Return ONLY the JSON, no other text."""
 
     try:
-        from tracing import agent_trace
-        with agent_trace(
-            "interpret-plan-response",
-            input=text,
-            tags=["utility", "interpret-plan-response"],
-        ) as _span:
-            result_text = await llm_complete_text(
-                config=llm_config,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0,
-                max_tokens=200,
-            )
-            try:
-                _span.update(output=result_text)
-            except Exception:
-                pass
+        result_text = await llm_complete_text(
+            config=llm_config,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=200,
+        )
         result_text = result_text.strip()
         # Parse JSON from response
         if result_text.startswith("```"):

@@ -1548,22 +1548,12 @@ async def generate_config_from_media(
             # Call LLM to parse metadata
             prompt = get_prompt("metadata_to_generation") + "\n\n" + media_item.raw_metadata
 
-            from tracing import agent_trace
-            with agent_trace(
-                "metadata-to-generation",
-                input={"raw_metadata_chars": len(media_item.raw_metadata)},
-                tags=["utility", "metadata-to-generation"],
-            ) as _span:
-                llm_output = await llm_complete_text(
-                    config=settings.agent_fast_llm,
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=1000,
-                    temperature=0.1,
-                )
-                try:
-                    _span.update(output={"output_chars": len(llm_output) if llm_output else 0})
-                except Exception:
-                    pass
+            llm_output = await llm_complete_text(
+                config=settings.agent_fast_llm,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1000,
+                temperature=0.1,
+            )
             log.info(f"Raw LLM output for metadata parsing:\n{llm_output}")
 
             # Try to parse the JSON output from LLM

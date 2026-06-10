@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
@@ -178,6 +179,9 @@ class RecipeRun:
         self._stopped_event = asyncio.Event()
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._tools_changed_cb: Optional[Callable[[], None]] = None
+        # Correlation run id for this recipe run — stable across pause/resume
+        # so all of the run's Stimma Cloud LLM calls group together.
+        self._correlation_run_id = str(uuid.uuid4())
 
     # ------------------------------------------------------------------
     # Public control API
@@ -1251,6 +1255,15 @@ class RecipeRun:
     # Scheduler loop
 
     async def _run_loop(self) -> None:
+        # Correlation scope for Stimma Cloud LLM requests: equation
+        # evaluations (llm_call nodes etc.) run in tasks created inside this
+        # loop and inherit the recipe context + run id via contextvars.
+        from llm_correlation import llm_correlation_context
+
+        with llm_correlation_context("recipe", run_id=self._correlation_run_id):
+            await self._run_loop_inner()
+
+    async def _run_loop_inner(self) -> None:
         try:
             while self._state in (RunState.RUNNING,):
                 # Pause check: block here until resumed.

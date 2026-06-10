@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from llm import llm_completion, QuotaExceededError, ContentFilteredError, Usage, is_auto_tool_choice_unsupported_error, strip_thinking_tags
+from llm_correlation import llm_correlation_context
 from llm_resolver import get_effective_llm_config, get_chat_llm_config, resolve_chat_model_slug, LLMNotConfiguredError, LLMSubscriptionRequiredError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -764,182 +765,140 @@ async def run_agent(
     # Broadcast agent started
     await ws_manager.broadcast("agent_started", {"chat_id": chat_id})
 
-    from tracing import agent_trace
+    try:
+        await _run_agentic_loop(chat, session, ws_manager, max_turns, start_turn=0)
+        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "completed"})
 
-    is_recipe = chat.recipe_id is not None
-    chat_label = (chat.name or "").strip() or f"Chat {chat_id}"
-    trace_prefix = "recipe-agent" if is_recipe else "main-agent"
-    trace_name = f"{trace_prefix}: {chat_label}"
-    trace_tags = ["recipe"] if is_recipe else ["main"]
-    trace_metadata: Dict[str, Any] = {
-        "chat_id": chat_id,
-        "chat_name": chat_label,
-        "max_turns": max_turns,
-        "force_plan": force_plan,
-        "selected_media_count": len(selected_media_ids) if selected_media_ids else 0,
-    }
-    if is_recipe:
-        trace_metadata["recipe_id"] = chat.recipe_id
+    except _PermissionPause:
+        # Agent paused for permission — frontend will show HITL prompt
+        # Don't broadcast agent_stopped; the agent is waiting, not done
+        pass
 
-    def _tag_span_outcome(span, outcome: str, *, error: Optional[BaseException] = None):
-        try:
-            payload: Dict[str, Any] = {"status": outcome}
-            if error is not None:
-                payload["error"] = f"{type(error).__name__}: {error}"
-                span.update(level="ERROR", status_message=payload["error"], output=payload)
-            else:
-                span.update(output=payload)
-        except Exception:
-            pass
+    except (_AgentInterrupted, asyncio.CancelledError):
+        log.info(f"Chat {chat_id}: v2 agent interrupted")
+        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
 
-    with agent_trace(
-        trace_name,
-        input=user_message,
-        session_id=f"chat-{chat_id}",
-        tags=trace_tags,
-        metadata=trace_metadata,
-    ) as _agent_span:
-        try:
-            await _run_agentic_loop(chat, session, ws_manager, max_turns, start_turn=0)
-            _tag_span_outcome(_agent_span, "completed")
-            await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "completed"})
+    except QuotaExceededError as e:
+        log.warning(f"Chat {chat_id}: Stimma Cloud quota exceeded: {e}")
+        metadata = {
+            "error_type": "quota_exceeded",
+            "error_summary": str(e),
+            "session": e.session,
+            "weekly": e.weekly,
+            "raw_error": _format_raw_error(e),
+        }
+        error_item = ChatItem(
+            chat_id=chat_id,
+            item_type="error",
+            message_text=str(e),
+            item_metadata=json.dumps(metadata),
+        )
+        session.add(error_item)
+        await session.commit()
+        await ws_manager.broadcast("chat_item_created", {
+            "chat_id": chat_id,
+            "item": error_item.to_dict(),
+        })
+        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
-        except _PermissionPause:
-            # Agent paused for permission — frontend will show HITL prompt
-            # Don't broadcast agent_stopped; the agent is waiting, not done
-            _tag_span_outcome(_agent_span, "paused_for_permission")
+        from telemetry import get_telemetry_client
+        get_telemetry_client().track("agent_error", {"errorType": "quota_exceeded"})
 
-        except (_AgentInterrupted, asyncio.CancelledError):
-            log.info(f"Chat {chat_id}: v2 agent interrupted")
-            _tag_span_outcome(_agent_span, "cancelled")
-            await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "cancelled"})
+    except ContentFilteredError as e:
+        log.warning(f"Chat {chat_id}: Content filtered: {e}")
+        metadata = {
+            "error_type": "content_filtered",
+            "error_summary": str(e),
+            "raw_error": _format_raw_error(e),
+        }
+        error_item = ChatItem(
+            chat_id=chat_id,
+            item_type="error",
+            message_text=str(e),
+            item_metadata=json.dumps(metadata),
+        )
+        session.add(error_item)
+        await session.commit()
+        await ws_manager.broadcast("chat_item_created", {
+            "chat_id": chat_id,
+            "item": error_item.to_dict(),
+        })
+        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
-        except QuotaExceededError as e:
-            log.warning(f"Chat {chat_id}: Stimma Cloud quota exceeded: {e}")
-            metadata = {
-                "error_type": "quota_exceeded",
-                "error_summary": str(e),
-                "session": e.session,
-                "weekly": e.weekly,
-                "raw_error": _format_raw_error(e),
-            }
-            error_item = ChatItem(
-                chat_id=chat_id,
-                item_type="error",
-                message_text=str(e),
-                item_metadata=json.dumps(metadata),
-            )
-            session.add(error_item)
-            await session.commit()
-            await ws_manager.broadcast("chat_item_created", {
-                "chat_id": chat_id,
-                "item": error_item.to_dict(),
-            })
-            _tag_span_outcome(_agent_span, "quota_exceeded", error=e)
-            await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
+        from telemetry import get_telemetry_client
+        get_telemetry_client().track("agent_error", {"errorType": "content_filtered"})
 
-            from telemetry import get_telemetry_client
-            get_telemetry_client().track("agent_error", {"errorType": "quota_exceeded"})
+    except LLMSubscriptionRequiredError as e:
+        log.warning(f"Chat {chat_id}: Subscription required: {e}")
+        metadata = {
+            "error_type": e.code,
+            "error_summary": str(e),
+            "raw_error": _format_raw_error(e),
+        }
+        error_item = ChatItem(
+            chat_id=chat_id,
+            item_type="error",
+            message_text=str(e),
+            item_metadata=json.dumps(metadata),
+        )
+        session.add(error_item)
+        await session.commit()
+        await ws_manager.broadcast("chat_item_created", {
+            "chat_id": chat_id,
+            "item": error_item.to_dict(),
+        })
+        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
-        except ContentFilteredError as e:
-            log.warning(f"Chat {chat_id}: Content filtered: {e}")
-            metadata = {
-                "error_type": "content_filtered",
-                "error_summary": str(e),
-                "raw_error": _format_raw_error(e),
-            }
-            error_item = ChatItem(
-                chat_id=chat_id,
-                item_type="error",
-                message_text=str(e),
-                item_metadata=json.dumps(metadata),
-            )
-            session.add(error_item)
-            await session.commit()
-            await ws_manager.broadcast("chat_item_created", {
-                "chat_id": chat_id,
-                "item": error_item.to_dict(),
-            })
-            _tag_span_outcome(_agent_span, "content_filtered", error=e)
-            await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
+        from telemetry import get_telemetry_client
+        get_telemetry_client().track("agent_error", {"errorType": "subscription_required"})
 
-            from telemetry import get_telemetry_client
-            get_telemetry_client().track("agent_error", {"errorType": "content_filtered"})
+    except LLMNotConfiguredError as e:
+        log.warning(f"Chat {chat_id}: No LLM configured: {e}")
+        metadata = {
+            "error_type": e.code,
+            "error_summary": str(e),
+            "raw_error": _format_raw_error(e),
+        }
+        error_item = ChatItem(
+            chat_id=chat_id,
+            item_type="error",
+            message_text=str(e),
+            item_metadata=json.dumps(metadata),
+        )
+        session.add(error_item)
+        await session.commit()
+        await ws_manager.broadcast("chat_item_created", {
+            "chat_id": chat_id,
+            "item": error_item.to_dict(),
+        })
+        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
-        except LLMSubscriptionRequiredError as e:
-            log.warning(f"Chat {chat_id}: Subscription required: {e}")
-            metadata = {
-                "error_type": e.code,
-                "error_summary": str(e),
-                "raw_error": _format_raw_error(e),
-            }
-            error_item = ChatItem(
-                chat_id=chat_id,
-                item_type="error",
-                message_text=str(e),
-                item_metadata=json.dumps(metadata),
-            )
-            session.add(error_item)
-            await session.commit()
-            await ws_manager.broadcast("chat_item_created", {
-                "chat_id": chat_id,
-                "item": error_item.to_dict(),
-            })
-            _tag_span_outcome(_agent_span, "subscription_required", error=e)
-            await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
+        from telemetry import get_telemetry_client
+        get_telemetry_client().track("agent_error", {"errorType": "llm_not_configured"})
 
-            from telemetry import get_telemetry_client
-            get_telemetry_client().track("agent_error", {"errorType": "subscription_required"})
+    except Exception as e:
+        log.error(f"V2 agent error for chat {chat_id}: {type(e).__name__}: {str(e)[:500]}")
+        error_item = ChatItem(
+            chat_id=chat_id,
+            item_type="error",
+            message_text=str(e),
+            item_metadata=json.dumps({"raw_error": _format_raw_error(e)}),
+        )
+        session.add(error_item)
+        await session.commit()
+        await ws_manager.broadcast("chat_item_created", {
+            "chat_id": chat_id,
+            "item": error_item.to_dict(),
+        })
+        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
 
-        except LLMNotConfiguredError as e:
-            log.warning(f"Chat {chat_id}: No LLM configured: {e}")
-            metadata = {
-                "error_type": e.code,
-                "error_summary": str(e),
-                "raw_error": _format_raw_error(e),
-            }
-            error_item = ChatItem(
-                chat_id=chat_id,
-                item_type="error",
-                message_text=str(e),
-                item_metadata=json.dumps(metadata),
-            )
-            session.add(error_item)
-            await session.commit()
-            await ws_manager.broadcast("chat_item_created", {
-                "chat_id": chat_id,
-                "item": error_item.to_dict(),
-            })
-            _tag_span_outcome(_agent_span, "llm_not_configured", error=e)
-            await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
+        from telemetry import get_telemetry_client
+        get_telemetry_client().track("agent_error", {"errorType": type(e).__name__})
 
-            from telemetry import get_telemetry_client
-            get_telemetry_client().track("agent_error", {"errorType": "llm_not_configured"})
-
-        except Exception as e:
-            log.error(f"V2 agent error for chat {chat_id}: {type(e).__name__}: {str(e)[:500]}")
-            error_item = ChatItem(
-                chat_id=chat_id,
-                item_type="error",
-                message_text=str(e),
-                item_metadata=json.dumps({"raw_error": _format_raw_error(e)}),
-            )
-            session.add(error_item)
-            await session.commit()
-            await ws_manager.broadcast("chat_item_created", {
-                "chat_id": chat_id,
-                "item": error_item.to_dict(),
-            })
-            _tag_span_outcome(_agent_span, "error", error=e)
-            await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "error", "error": str(e)})
-
-            from telemetry import get_telemetry_client
-            get_telemetry_client().track("agent_error", {"errorType": type(e).__name__})
-
-        finally:
-            _active_chat_executions.discard(chat_id)
-            _active_chat_tasks.pop(chat_id, None)
-            _clear_interrupt(chat_id)
+    finally:
+        _active_chat_executions.discard(chat_id)
+        _active_chat_tasks.pop(chat_id, None)
+        _clear_interrupt(chat_id)
 
 
 class _PermissionPause(Exception):
@@ -948,6 +907,32 @@ class _PermissionPause(Exception):
 
 
 async def _run_agentic_loop(
+    chat: Chat,
+    session: AsyncSession,
+    ws_manager: WebSocketManager,
+    max_turns: int,
+    start_turn: int = 0,
+    pending_tool_calls: Optional[list] = None,
+    session_media_ids: Optional[list[int]] = None,
+) -> None:
+    """Run the core loop inside a correlation scope.
+
+    Each entry (fresh run or HITL resume) is one agent-loop execution: it
+    mints a run id and stamps chat id + agent context so Stimma Cloud LLM
+    requests made anywhere inside (main loop, run_code llm(), specialists)
+    carry the mechanical X-Stimma-* correlation headers.
+    """
+    agent_context = "recipe" if chat.recipe_id is not None else "main"
+    with llm_correlation_context(agent_context, chat_id=chat.id):
+        await _run_agentic_loop_inner(
+            chat, session, ws_manager, max_turns,
+            start_turn=start_turn,
+            pending_tool_calls=pending_tool_calls,
+            session_media_ids=session_media_ids,
+        )
+
+
+async def _run_agentic_loop_inner(
     chat: Chat,
     session: AsyncSession,
     ws_manager: WebSocketManager,

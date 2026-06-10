@@ -446,78 +446,22 @@ async def llm_completion(
     if extra_body:
         kwargs["extra_body"] = extra_body
 
-    from tracing import generation as _trace_generation
+    start = time.time()
+    raw = await _raw_acompletion(**kwargs)
+    elapsed = time.time() - start
 
-    gen_metadata: Dict[str, Any] = {}
-    if session_id:
-        gen_metadata["session_id"] = session_id
-    if temperature is not None:
-        gen_metadata["temperature"] = temperature
-    if max_tokens is not None:
-        gen_metadata["max_tokens"] = max_tokens
-    if tools:
-        gen_metadata["tool_count"] = len(tools)
-    if cacheable:
-        gen_metadata["cacheable"] = True
+    resp = _normalize_response(raw)
 
-    with _trace_generation(
-        "llm-completion",
-        model=model,
-        input=messages,
-        metadata=gen_metadata or None,
-    ) as gen:
-        start = time.time()
-        try:
-            raw = await _raw_acompletion(**kwargs)
-        except Exception as e:
-            try:
-                gen.update(level="ERROR", status_message=f"{type(e).__name__}: {e}")
-            except Exception:
-                pass
-            raise
-        elapsed = time.time() - start
+    # Attach timing
+    resp.elapsed_seconds = elapsed
+    if resp.usage.completion_tokens and elapsed > 0:
+        resp.tokens_per_second = resp.usage.completion_tokens / elapsed
+    log.debug(
+        f"LLM: {resp.model} {elapsed:.2f}s — "
+        f"{resp.usage.prompt_tokens}in {resp.usage.completion_tokens}out ({resp.tokens_per_second:.0f} tok/s)"
+    )
 
-        resp = _normalize_response(raw)
-
-        # Attach timing
-        resp.elapsed_seconds = elapsed
-        if resp.usage.completion_tokens and elapsed > 0:
-            resp.tokens_per_second = resp.usage.completion_tokens / elapsed
-        log.debug(
-            f"LLM: {resp.model} {elapsed:.2f}s — "
-            f"{resp.usage.prompt_tokens}in {resp.usage.completion_tokens}out ({resp.tokens_per_second:.0f} tok/s)"
-        )
-
-        try:
-            output_payload: Any
-            if resp.tool_calls:
-                output_payload = {
-                    "content": resp.content,
-                    "tool_calls": [
-                        {"name": tc.name, "arguments": tc.arguments} for tc in resp.tool_calls
-                    ],
-                }
-            else:
-                output_payload = resp.content
-            gen.update(
-                output=output_payload,
-                model=resp.model or model,
-                usage_details={
-                    "input": resp.usage.prompt_tokens or 0,
-                    "output": resp.usage.completion_tokens or 0,
-                    "total": resp.usage.total_tokens or 0,
-                },
-                metadata={
-                    "finish_reason": str(resp.finish_reason) if resp.finish_reason else None,
-                    "elapsed_seconds": round(elapsed, 3),
-                    "tokens_per_second": round(resp.tokens_per_second or 0, 1),
-                },
-            )
-        except Exception:
-            # Tracing must never affect the caller
-            pass
-
-        return resp
+    return resp
 
 
 async def llm_complete_text(

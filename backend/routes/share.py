@@ -970,24 +970,12 @@ async def _vlm_generate_title(media_item) -> SuggestTitleResponse:
 
         log.info("share title VLM direct", model=config.get_model(), image_size=len(image_b64))
         t0 = _time.monotonic()
-        from tracing import agent_trace
-        with agent_trace(
-            "share-title-vlm",
-            tags=["utility", "share", "share-title"],
-        ) as _span:
-            result, error = await llm_complete_vision(
-                config,
-                "Generate a short title (2-6 words) for this image. Reply with ONLY the title, no quotes or punctuation.",
-                image_b64,
-                max_tokens=30, temperature=0.5,
-            )
-            try:
-                if error:
-                    _span.update(level="ERROR", status_message=error)
-                else:
-                    _span.update(output=result)
-            except Exception:
-                pass
+        result, error = await llm_complete_vision(
+            config,
+            "Generate a short title (2-6 words) for this image. Reply with ONLY the title, no quotes or punctuation.",
+            image_b64,
+            max_tokens=30, temperature=0.5,
+        )
         elapsed = _time.monotonic() - t0
         log.info("share title VLM direct response", elapsed_s=round(elapsed, 2), result=result[:200] if result else None, error=error)
 
@@ -1040,17 +1028,7 @@ async def _llm_generate_title(context_parts: list[str]) -> SuggestTitleResponse:
 
         log.info("share title LLM request", model=config.get_model(), user_content=messages[1]["content"][:200])
         t0 = _time.monotonic()
-        from tracing import agent_trace
-        with agent_trace(
-            "share-title-text",
-            input=messages[1]["content"][:300],
-            tags=["utility", "share", "share-title"],
-        ) as _span:
-            result = await llm_complete_text(config, messages, max_tokens=30, temperature=0.5)
-            try:
-                _span.update(output=result)
-            except Exception:
-                pass
+        result = await llm_complete_text(config, messages, max_tokens=30, temperature=0.5)
         elapsed = _time.monotonic() - t0
         log.info("share title LLM response", elapsed_s=round(elapsed, 2), raw_result=result[:200])
 

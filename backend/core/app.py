@@ -1051,13 +1051,6 @@ async def lifespan(app: FastAPI):
                 _flags.subscribe(_broadcast_flags)
                 await _flags.start()
 
-                # Initialize Langfuse tracing if enabled in config
-                try:
-                    from tracing import init_tracing
-                    init_tracing()
-                except Exception as e:
-                    log.info(f"tracing init skipped: {e}")
-
                 # Lazy import to avoid loading torch at module level
                 from ingestion import get_ingestion
 
@@ -1222,13 +1215,6 @@ async def lifespan(app: FastAPI):
     try:
         from feature_flags import get_feature_flags
         await get_feature_flags().stop()
-    except Exception:
-        pass
-
-    # Flush Langfuse traces (no-op when disabled)
-    try:
-        from tracing import shutdown as _tracing_shutdown
-        _tracing_shutdown()
     except Exception:
         pass
 
