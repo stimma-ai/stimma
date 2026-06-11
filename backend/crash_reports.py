@@ -301,22 +301,6 @@ def list_pending() -> List[Dict[str, Any]]:
     return out
 
 
-def load_pending_full() -> List[Dict[str, Any]]:
-    """Full pending reports (for the 'see what will be sent' preview)."""
-    pending = get_pending_dir()
-    if not pending.exists():
-        return []
-    out = []
-    for path in sorted(pending.glob("*.json")):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            data["file"] = path.name
-            out.append(data)
-        except Exception:
-            pass
-    return out
-
-
 def discard_pending() -> int:
     """Delete all pending reports ([Don't send])."""
     pending = get_pending_dir()

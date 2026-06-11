@@ -97,32 +97,6 @@ async def mark_coachmark_shown():
     return {"status": "success"}
 
 
-# ── Previews ─────────────────────────────────────────────────────────────
-
-
-@router.get("/logs-preview")
-async def logs_preview():
-    """The exact (scrubbed) log tail that 'Include logs' would send."""
-    from log_tail import tail_log_lines
-    lines = tail_log_lines()
-    return {"lines": lines, "text": "\n".join(lines)}
-
-
-@router.get("/package-preview")
-async def package_preview(chat_id: int):
-    """Preview summary for a chat conversation package (no zip built)."""
-    from core.profile_context import get_current_profile
-    from database_registry import get_database_registry
-    from feedback_package import chat_package_summary
-
-    db = get_database_registry().get_database(get_current_profile())
-    async with db.async_session_maker() as session:
-        try:
-            return await chat_package_summary(chat_id, session)
-        except ValueError:
-            raise HTTPException(status_code=404, detail="Chat not found")
-
-
 # ── Submission ───────────────────────────────────────────────────────────
 
 
@@ -266,15 +240,6 @@ async def pending_crashes():
         "reports": crash_reports.list_pending(),
         "consent": get_settings().feedback.crash_reports,
     }
-
-
-@router.get("/crashes/preview")
-async def crash_preview():
-    """Full pending reports for the 'see what will be sent' preview."""
-    if not is_official():
-        return {"reports": []}
-    import crash_reports
-    return {"reports": crash_reports.load_pending_full()}
 
 
 class CrashDecisionRequest(BaseModel):

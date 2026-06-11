@@ -408,28 +408,3 @@ def build_prompt_agent_package(
         zf.writestr("manifest.json", json.dumps(manifest, indent=2))
         zf.writestr("conversation.json", json.dumps(body, indent=2))
     return buf.getvalue()
-
-
-async def chat_package_summary(chat_id: int, session) -> Dict[str, Any]:
-    """Cheap preview summary (no zip): message count + media ids."""
-    from sqlalchemy import select
-    from database import Chat, ChatItem
-
-    result = await session.execute(select(Chat).where(Chat.id == chat_id))
-    chat = result.scalar_one_or_none()
-    if chat is None:
-        raise ValueError(f"Chat {chat_id} not found")
-    result = await session.execute(
-        select(ChatItem).where(ChatItem.chat_id == chat_id).order_by(ChatItem.created_at, ChatItem.id)
-    )
-    items = list(result.scalars().all())
-    media_ids = _collect_media_ids(items)
-    message_count = sum(
-        1 for i in items if i.item_type in ("user_message", "assistant_message") and i.message_text
-    )
-    return {
-        "chat_name": chat.name,
-        "item_count": len(items),
-        "message_count": message_count,
-        "media_ids": media_ids,
-    }

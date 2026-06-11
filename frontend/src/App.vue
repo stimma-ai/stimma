@@ -8,14 +8,14 @@
   <!-- Image/generation details popup (global, opened via useMediaDetailsModal) -->
   <MediaDetailsModal />
 
-  <!-- Feedback modal (menu + thumbs variants; global, opened via useFeedback) -->
+  <!-- Feedback modal (global, opened via useFeedback) -->
   <FeedbackModal />
 
-  <!-- First-thumb consent popup (official builds; [Don't send] sends nothing) -->
+  <!-- Thumbs consent popup (official builds; [Don't send] sends nothing,
+       send buttons submit the rating directly) -->
   <FeedbackConsentDialog
     :show="feedbackConsentDialog.open"
     subject="thumbs"
-    :package-source="feedbackConsentDialog.pendingThumb?.packageSource || null"
     @dont-send="consentDontSend"
     @send-once="consentSendOnce"
     @always-send="consentAlwaysSend"

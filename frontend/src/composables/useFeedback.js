@@ -2,10 +2,10 @@
  * Feedback / thumbs / crash-report client state (WS-F).
  *
  * One global store driving:
- * - the FeedbackModal (menu variant in ALL builds — D13; compact thumb
- *   variant in official builds only),
- * - the thumbs consent popup (first-thumb 'ask' flow; [Don't send] sends
- *   nothing, not even the rating),
+ * - the FeedbackModal (menu feedback, ALL builds — D13),
+ * - the thumbs consent popup (the whole thumbs flow in official builds:
+ *   [Don't send] sends nothing, not even the rating; [Send this once] /
+ *   [Always send] submit the rating directly — no comment step),
  * - the batched crash-report consent dialog (official builds only;
  *   'always' auto-sends fully silently — D12 — so no dialog ever shows),
  * - the one-time post-onboarding Feedback coachmark flag.
@@ -31,10 +31,6 @@ const state = reactive({
 
 const modal = reactive({
   open: false,
-  variant: 'menu', // 'menu' | 'thumb'
-  thumb: null, // 'up' | 'down'
-  agentContext: null, // 'main' | 'recipe' | 'prompt-agent'
-  packageSource: null, // {type:'chat', chatId} | {type:'prompt_agent', conversation}
 })
 
 const consentDialog = reactive({
@@ -86,18 +82,14 @@ async function markCoachmarkShown() {
 // ── Entry points ─────────────────────────────────────────────────────────
 
 function openMenuFeedback(source = 'menu') {
-  modal.variant = 'menu'
-  modal.thumb = null
-  modal.agentContext = null
-  modal.packageSource = null
   modal.open = true
   trackFeedbackEvent('feedback_opened', { source })
 }
 
 /**
  * Thumb click. Official builds only (the UI renders thumbs disabled in
- * dev builds). 'ask' → consent popup first; 'always' → straight to the
- * compact modal; 'never' → inert (UI shows the disabled treatment).
+ * dev builds). 'ask' → consent popup; 'always' → submit straight away;
+ * 'never' → inert (UI shows the disabled treatment).
  */
 function openThumbFeedback({ thumb, agentContext, packageSource }) {
   if (!isOfficialBuild() || state.thumbsConsent === 'never') return
@@ -107,16 +99,29 @@ function openThumbFeedback({ thumb, agentContext, packageSource }) {
     consentDialog.pendingThumb = payload
     consentDialog.open = true
   } else {
-    openCompactModal(payload)
+    submitThumb(payload)
   }
 }
 
-function openCompactModal({ thumb, agentContext, packageSource }) {
-  modal.variant = 'thumb'
-  modal.thumb = thumb
-  modal.agentContext = agentContext || null
-  modal.packageSource = packageSource || null
-  modal.open = true
+/** Submit a thumb rating (with its conversation package, no comment). */
+async function submitThumb({ thumb, agentContext, packageSource }) {
+  const body = {
+    kind: 'thumbs',
+    thumb,
+    agent_context: agentContext || null,
+  }
+  if (packageSource?.type === 'chat') {
+    body.package = { type: 'chat', chat_id: packageSource.chatId }
+  } else if (packageSource?.type === 'prompt_agent') {
+    body.package = { type: 'prompt_agent', conversation: packageSource.conversation }
+  }
+  try {
+    await axios.post(`${getApiBase()}/feedback/submit`, body)
+    useToasts().addToast('Feedback sent — thank you!', 'success', 3500)
+  } catch (err) {
+    console.warn('[feedback] thumb submit failed:', err)
+    useToasts().addToast('Could not send feedback', 'error')
+  }
 }
 
 // Consent popup buttons ([Don't send] [Send this once] [Always send])
@@ -129,7 +134,7 @@ function consentSendOnce() {
   const payload = consentDialog.pendingThumb
   consentDialog.open = false
   consentDialog.pendingThumb = null
-  if (payload) openCompactModal(payload)
+  if (payload) submitThumb(payload)
 }
 
 async function consentAlwaysSend() {
@@ -141,7 +146,7 @@ async function consentAlwaysSend() {
   } catch (err) {
     console.warn('[feedback] failed to persist thumbs consent:', err)
   }
-  if (payload) openCompactModal(payload)
+  if (payload) submitThumb(payload)
 }
 
 function closeModal() {
