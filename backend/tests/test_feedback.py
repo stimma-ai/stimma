@@ -5,6 +5,8 @@ Covers:
 - log tail + secret scrubber
 - conversation package builder (manifest shape, media remap, size cap)
 - crash report writer + pending flow + batch semantics + consent gating
+- crash rate limiting (write-time dedupe, pending cap, send throttle,
+  429 backoff, storm behavior)
 - distribution gating (dev build -> thumbs/crash paths inert)
 - submission flow against a mocked cloud feedback API
 """
@@ -275,6 +277,9 @@ def crash_env(tmp_path, monkeypatch):
     state = {"consent": "ask"}
     monkeypatch.setattr(crash_reports, "_crash_consent", lambda: state["consent"])
 
+    # Reset the rate-limited drop-warning window (module state)
+    monkeypatch.setattr(crash_reports, "_last_drop_warning", 0.0)
+
     # Log tail source
     import log_tail
     monkeypatch.setattr(log_tail, "tail_log_lines",
@@ -282,11 +287,16 @@ def crash_env(tmp_path, monkeypatch):
     return state
 
 
-def _boom():
+def _boom(exc_type=ValueError, msg="kaboom with user content"):
     try:
-        raise ValueError("kaboom with user content")
-    except ValueError as e:
+        raise exc_type(msg)
+    except Exception as e:
         return e
+
+
+def _unique_booms(n):
+    """n crashes with n distinct stack hashes (distinct exception types)."""
+    return [_boom(type(f"CrashKind{i}Error", (RuntimeError,), {})) for i in range(n)]
 
 
 class TestCrashReports:
@@ -322,12 +332,14 @@ class TestCrashReports:
     def test_batch_pending_and_discard(self, crash_env, monkeypatch):
         import crash_reports
         monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
-        crash_reports.record_crash(_boom())
-        crash_reports.record_crash(_boom())
-        crash_reports.record_crash(_boom())
+        crash_reports.record_crash(_boom(ValueError))
+        crash_reports.record_crash(_boom(TypeError))
+        crash_reports.record_crash(_boom(RuntimeError))
         pending = crash_reports.list_pending()
         assert len(pending) == 3
-        assert all(p["errorType"] == "ValueError" for p in pending)
+        assert {p["errorType"] for p in pending} == {
+            "ValueError", "TypeError", "RuntimeError"
+        }
         assert crash_reports.discard_pending() == 3
         assert crash_reports.list_pending() == []
 
@@ -335,8 +347,8 @@ class TestCrashReports:
     async def test_send_pending_submits_each_and_clears(self, crash_env, monkeypatch):
         import crash_reports
         monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
-        crash_reports.record_crash(_boom())
-        crash_reports.record_crash(_boom())
+        crash_reports.record_crash(_boom(ValueError))
+        crash_reports.record_crash(_boom(TypeError))
 
         submitted = []
 
@@ -354,7 +366,10 @@ class TestCrashReports:
             assert call["kind"] == "crash"
             assert call["error_hash"]
             crash_json = json.loads(call["crash"].decode())
-            assert crash_json["exceptionType"] == "ValueError"
+            assert crash_json["exceptionType"] in ("ValueError", "TypeError")
+            # Loop-visibility counters ride upstream in crash.json
+            assert crash_json["occurrences"] == 1
+            assert crash_json["firstSeenAt"] and crash_json["lastSeenAt"]
             assert "logTail" not in crash_json  # rides separately as logs.txt
             assert b"log line 1" in call["logs"]
 
@@ -393,6 +408,190 @@ class TestCrashReports:
         crash_env["consent"] = "never"
         await crash_reports.startup_check()
         assert crash_reports.list_pending() == []
+
+
+# =====================================================================
+# Crash rate limiting (dedupe / cap / send throttle / backoff / storm)
+# =====================================================================
+
+
+class _FakeLog:
+    def __init__(self):
+        self.warnings = []
+
+    def warning(self, *args, **kwargs):
+        self.warnings.append((args, kwargs))
+
+    def info(self, *args, **kwargs):
+        pass
+
+
+class TestCrashRateLimiting:
+    def test_dedupe_increments_occurrences(self, crash_env, monkeypatch):
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        p1 = crash_reports.record_crash(_boom())
+        p2 = crash_reports.record_crash(_boom())
+        p3 = crash_reports.record_crash(_boom())
+        assert p1 == p2 == p3
+        pending = crash_reports.list_pending()
+        assert len(pending) == 1
+        assert pending[0]["occurrences"] == 3
+        data = json.loads(p1.read_text())
+        assert data["occurrences"] == 3
+        assert data["firstSeenAt"] <= data["lastSeenAt"]
+
+    def test_unique_cap_drops_new_with_one_warning(self, crash_env, monkeypatch):
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        fake_log = _FakeLog()
+        monkeypatch.setattr(crash_reports, "log", fake_log)
+
+        paths = [crash_reports.record_crash(e) for e in _unique_booms(14)]
+        kept = paths[:crash_reports.MAX_UNIQUE_PENDING]
+        dropped = paths[crash_reports.MAX_UNIQUE_PENDING:]
+        assert all(p is not None for p in kept)
+        assert all(p is None for p in dropped)
+        assert len(crash_reports.list_pending()) == crash_reports.MAX_UNIQUE_PENDING
+        # 4 drops -> exactly ONE warning (the log line itself is rate-limited)
+        assert len(fake_log.warnings) == 1
+        # A repeat of an already-pending crash still dedupes at the cap
+        assert crash_reports.record_crash(_boom(type(
+            "CrashKind0Error", (RuntimeError,), {}
+        ))) is not None
+        assert len(crash_reports.list_pending()) == crash_reports.MAX_UNIQUE_PENDING
+
+    def test_always_mode_evicts_oldest_at_cap(self, crash_env, monkeypatch):
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        crash_env["consent"] = "always"
+        booms = _unique_booms(11)
+        paths = [crash_reports.record_crash(e) for e in booms[:10]]
+        assert all(p is not None for p in paths)
+        newest = crash_reports.record_crash(booms[10])
+        assert newest is not None and newest.exists()  # newest wins
+        assert len(crash_reports.list_pending()) == crash_reports.MAX_UNIQUE_PENDING
+        assert sum(1 for p in paths if p.exists()) == 9  # one evicted
+
+    @pytest.mark.asyncio
+    async def test_send_throttle_rolling_24h(self, crash_env, monkeypatch):
+        import time
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        for e in _unique_booms(5):
+            crash_reports.record_crash(e)
+
+        async def fake_submit(**kwargs):
+            return "fake-id"
+
+        import feedback_client
+        monkeypatch.setattr(feedback_client, "submit_feedback", fake_submit)
+
+        # Budget is 3 per rolling 24h — the remainder stays pending
+        assert await crash_reports.send_pending(track=False) == 3
+        assert len(crash_reports.list_pending()) == 2
+        assert await crash_reports.send_pending(track=False) == 0
+        assert len(crash_reports.list_pending()) == 2
+
+        # Age the recorded sends past the window -> budget refills
+        tp = crash_reports._throttle_path()
+        state = json.loads(tp.read_text())
+        state["sendTimes"] = [t - 25 * 3600 for t in state["sendTimes"]]
+        tp.write_text(json.dumps(state))
+        assert await crash_reports.send_pending(track=False) == 2
+        assert crash_reports.list_pending() == []
+        # And the spent budget is persisted again
+        state = json.loads(tp.read_text())
+        assert len([t for t in state["sendTimes"]
+                    if time.time() - t < 24 * 3600]) == 2
+
+    @pytest.mark.asyncio
+    async def test_min_interval_between_auto_sends(self, crash_env, monkeypatch):
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+
+        async def fake_submit(**kwargs):
+            return "fake-id"
+
+        import feedback_client
+        monkeypatch.setattr(feedback_client, "submit_feedback", fake_submit)
+
+        crash_reports.record_crash(_boom(ValueError))
+        assert await crash_reports.send_pending(track=False, auto=True) == 1
+        # A fresh crash right after: auto-send is spaced out (10 min)…
+        crash_reports.record_crash(_boom(TypeError))
+        assert await crash_reports.send_pending(track=False, auto=True) == 0
+        assert len(crash_reports.list_pending()) == 1
+        # …but a manual dialog send still works (within the daily budget)
+        assert await crash_reports.send_pending(track=False) == 1
+        assert crash_reports.list_pending() == []
+
+    @pytest.mark.asyncio
+    async def test_429_backoff_stops_all_sends(self, crash_env, monkeypatch):
+        import time
+        import crash_reports
+        from feedback_client import FeedbackSubmitError
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        crash_reports.record_crash(_boom(ValueError))
+        crash_reports.record_crash(_boom(TypeError))
+
+        async def limited(**kwargs):
+            raise FeedbackSubmitError("Daily feedback limit reached", 429)
+
+        import feedback_client
+        monkeypatch.setattr(feedback_client, "submit_feedback", limited)
+        assert await crash_reports.send_pending(track=False) == 0
+        # Reports stay pending; backoff is persisted for ~24h
+        assert len(crash_reports.list_pending()) == 2
+        state = json.loads(crash_reports._throttle_path().read_text())
+        assert state["backoffUntil"] > time.time() + 23 * 3600
+
+        # Even with the server healthy again, sends stay off until backoff ends
+        async def fake_submit(**kwargs):
+            return "fake-id"
+
+        monkeypatch.setattr(feedback_client, "submit_feedback", fake_submit)
+        assert await crash_reports.send_pending(track=False) == 0
+        assert await crash_reports.send_pending(track=False, auto=True) == 0
+        assert len(crash_reports.list_pending()) == 2
+
+        # Backoff expiry restores sending
+        state["backoffUntil"] = time.time() - 1
+        crash_reports._throttle_path().write_text(json.dumps(state))
+        assert await crash_reports.send_pending(track=False) == 2
+
+    @pytest.mark.asyncio
+    async def test_crash_storm_is_deduped_and_quiet(self, crash_env, monkeypatch):
+        """100 identical crashes -> 1 pending file, counters right,
+        <=1 warning, <=1 dialog (WS) request."""
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+
+        fake_log = _FakeLog()
+        monkeypatch.setattr(crash_reports, "log", fake_log)
+
+        broadcasts = []
+        from utils.websocket import ws_manager
+
+        async def fake_broadcast(*args, **kwargs):
+            broadcasts.append(args)
+
+        monkeypatch.setattr(ws_manager, "broadcast", fake_broadcast)
+
+        for _ in range(100):
+            crash_reports.record_crash(_boom())
+        # Flush the (single) broadcast task scheduled by the first crash
+        for _ in range(3):
+            await asyncio.sleep(0)
+
+        pending = crash_reports.list_pending()
+        assert len(pending) == 1
+        assert pending[0]["occurrences"] == 100
+        full = crash_reports.load_pending_full()[0]
+        assert full["occurrences"] == 100
+        assert full["firstSeenAt"] <= full["lastSeenAt"]
+        assert len(fake_log.warnings) <= 1  # nothing to warn about here
+        assert len(broadcasts) <= 1  # ONE dialog request, not 100
 
 
 # =====================================================================
@@ -606,6 +805,37 @@ class TestFeedbackRoutes:
         assert resp.status_code == 200
         data = resp.json()
         assert "lines" in data and "text" in data
+
+    @pytest.mark.asyncio
+    async def test_crash_decision_send_while_throttled_keeps_pending(
+        self, feedback_client_fixture, monkeypatch
+    ):
+        """Manual dialog send under the client throttle: nothing egresses,
+        reports stay pending, the UI gets a 'rate_limited' status for its
+        quiet note."""
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        import crash_reports
+        monkeypatch.setattr(crash_reports, "is_send_throttled",
+                            lambda auto=False: True)
+        monkeypatch.setattr(crash_reports, "list_pending",
+                            lambda: [{"file": "1-abc.json"}])
+
+        sends = []
+
+        async def fake_send(*a, **k):
+            sends.append(True)
+            return 0
+
+        monkeypatch.setattr(crash_reports, "send_pending", fake_send)
+        resp = await feedback_client_fixture.post(
+            "/api/feedback/crashes/decision", json={"action": "send"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "rate_limited"
+        assert data["sent"] == 0
+        assert data["pending"] == 1
+        assert sends == []  # no send attempt at all
 
     @pytest.mark.asyncio
     async def test_rate_limit_propagates(self, feedback_client_fixture, monkeypatch):

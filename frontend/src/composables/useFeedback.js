@@ -16,6 +16,7 @@ import { reactive, computed } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { isOfficialBuild } from '../distribution'
+import { useToasts } from './useToasts'
 
 export const DEV_THUMBS_TOOLTIP =
   'Feedback sharing is disabled in source builds — your data stays local'
@@ -166,7 +167,11 @@ async function checkPendingCrashes() {
 
 async function crashDecision(action) {
   try {
-    await axios.post(`${getApiBase()}/feedback/crashes/decision`, { action })
+    const { data } = await axios.post(`${getApiBase()}/feedback/crashes/decision`, { action })
+    if (data?.status === 'rate_limited') {
+      // Client-side send throttle — reports stay pending; quiet note only.
+      useToasts().addToast('Crash reporting is rate-limited — report saved.', 'info')
+    }
   } catch (err) {
     console.warn('[feedback] crash decision failed:', err)
   }

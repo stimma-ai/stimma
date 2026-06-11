@@ -19,6 +19,23 @@ Consent (``feedback.crash_reports`` in config):
 - ``never``: nothing is written; new reports are discarded.
 
 Dev/source builds: never writes, never prompts (PRIVACY_PLAN §2.5).
+
+Rate limiting (client-side, ahead of the server's per-install daily cap):
+- Write-time dedupe: pending reports are keyed by stack hash. A crash
+  whose hash already has a pending report bumps ``occurrences`` +
+  ``lastSeenAt`` on the existing file instead of writing a new one — a
+  crash STORM in one session costs one small file rewrite per hit, no
+  new dialog prompts, no new send tasks.
+- Pending cap: at most MAX_UNIQUE_PENDING unique reports. Beyond that,
+  new unique crashes are dropped (one rate-limited warning, not one per
+  crash); under consent 'always' the oldest pending report is evicted
+  instead so the newest crash wins.
+- Send throttle: at most MAX_SENDS_PER_DAY crash submissions per rolling
+  24h, and at least MIN_AUTO_SEND_INTERVAL_SECONDS between auto-sends
+  (consent 'always'). Throttled sends keep reports pending.
+- Server backoff: a 429 from the feedback API stops all crash sends for
+  SERVER_BACKOFF_SECONDS; reports stay pending.
+State persists in ``<data_dir>/crashes/throttle.json``.
 """
 import asyncio
 import hashlib
@@ -34,7 +51,14 @@ from core.logging import get_logger
 log = get_logger(__name__)
 
 LOG_TAIL_LINES = 200
-MAX_PENDING_REPORTS = 20  # keep the pending dir bounded
+MAX_UNIQUE_PENDING = 10            # unique (per stack hash) pending reports
+MAX_SENDS_PER_DAY = 3              # crash submissions per rolling 24h
+SEND_WINDOW_SECONDS = 24 * 3600    # the rolling window above
+MIN_AUTO_SEND_INTERVAL_SECONDS = 600   # between consent-'always' auto-sends
+SERVER_BACKOFF_SECONDS = 24 * 3600     # after a 429 from the feedback API
+DROP_WARN_INTERVAL_SECONDS = 3600      # rate limit for the drop warning itself
+
+_last_drop_warning = 0.0  # module state — at most one drop warning per interval
 
 
 def _crash_consent() -> str:
@@ -70,10 +94,12 @@ def _stack_hash(exc: BaseException) -> str:
 
 
 def record_crash(exc: BaseException) -> Optional[Path]:
-    """Write a pending crash report. Returns the path, or None when gated.
+    """Write or update a pending crash report. Returns the path, or None.
 
     Official builds only; ``crash_reports: never`` suppresses + discards.
-    Safe to call from any thread / exception hook (pure file IO).
+    Safe to call from any thread / exception hook (pure file IO). A repeat
+    crash (same stack hash) only bumps counters on the existing pending
+    file — cheap under a crash loop, and never re-prompts the user.
     """
     from distribution import is_official
     if not is_official():
@@ -82,6 +108,33 @@ def record_crash(exc: BaseException) -> Optional[Path]:
         return None
 
     try:
+        stack_hash = _stack_hash(exc)
+        pending = get_pending_dir()
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Dedupe: same stack hash already pending → bump counters only.
+        existing = _find_pending(pending, stack_hash)
+        if existing is not None:
+            try:
+                data = json.loads(existing.read_text(encoding="utf-8"))
+                data["occurrences"] = int(data.get("occurrences") or 1) + 1
+                data["lastSeenAt"] = now_iso
+                existing.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            except Exception:
+                pass
+            return existing  # no _after_record: no dialog/send-task spam
+
+        # Unique-report cap. Consent 'always' keeps the newest crash
+        # (evict the oldest pending, silently); otherwise drop the new
+        # crash with one rate-limited warning.
+        existing_files = sorted(pending.glob("*.json")) if pending.exists() else []
+        if len(existing_files) >= MAX_UNIQUE_PENDING:
+            if _crash_consent() == "always":
+                existing_files[0].unlink(missing_ok=True)
+            else:
+                _warn_dropped()
+                return None
+
         from user_agent import get_app_version, get_app_branch, get_os
         from core.session_context import get_session_id
         from log_tail import tail_log_lines
@@ -92,7 +145,7 @@ def record_crash(exc: BaseException) -> Optional[Path]:
             session_id = None
 
         report: Dict[str, Any] = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": now_iso,
             "exceptionType": type(exc).__name__,
             "message": str(exc),
             "stack": "".join(
@@ -102,20 +155,17 @@ def record_crash(exc: BaseException) -> Optional[Path]:
             "appBranch": get_app_branch(),
             "os": get_os(),
             "sessionId": session_id,
-            "stackHash": _stack_hash(exc),
+            "stackHash": stack_hash,
+            "occurrences": 1,
+            "firstSeenAt": now_iso,
+            "lastSeenAt": now_iso,
             "logTail": tail_log_lines(LOG_TAIL_LINES),
         }
 
-        pending = get_pending_dir()
         pending.mkdir(parents=True, exist_ok=True)
         ts = int(time.time() * 1000)
-        path = pending / f"{ts}.json"
-        suffix = 0
-        while path.exists():
-            suffix += 1
-            path = pending / f"{ts}-{suffix}.json"
+        path = pending / f"{ts}-{stack_hash}.json"
         path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-        _prune_pending(pending)
 
         _after_record()
         return path
@@ -124,17 +174,31 @@ def record_crash(exc: BaseException) -> Optional[Path]:
         return None
 
 
-def _prune_pending(pending: Path) -> None:
-    try:
-        files = sorted(pending.glob("*.json"))
-        for old in files[:-MAX_PENDING_REPORTS]:
-            old.unlink(missing_ok=True)
-    except Exception:
-        pass
+def _find_pending(pending: Path, stack_hash: str) -> Optional[Path]:
+    """The pending file for a stack hash, if any (bounded by the cap)."""
+    if not pending.exists():
+        return None
+    return next(iter(sorted(pending.glob(f"*-{stack_hash}.json"))), None)
+
+
+def _warn_dropped() -> None:
+    global _last_drop_warning
+    now = time.time()
+    if now - _last_drop_warning < DROP_WARN_INTERVAL_SECONDS:
+        return
+    _last_drop_warning = now
+    log.warning(
+        "crash report dropped: pending cap reached",
+        cap=MAX_UNIQUE_PENDING,
+    )
 
 
 def _after_record() -> None:
-    """If the app is alive: auto-send (consent 'always') or notify the UI."""
+    """If the app is alive: auto-send (consent 'always') or notify the UI.
+
+    Only called for NEW unique reports — deduped repeats just bump
+    counters, so a crash loop can't spam dialogs or send tasks.
+    """
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -143,6 +207,64 @@ def _after_record() -> None:
         loop.create_task(send_pending_silently())
     else:
         loop.create_task(_broadcast_pending())
+
+
+# ── Send throttle state (persisted in <data_dir>/crashes/throttle.json) ──
+
+
+def _throttle_path() -> Path:
+    return get_pending_dir().parent / "throttle.json"
+
+
+def _load_throttle() -> Dict[str, Any]:
+    try:
+        data = json.loads(_throttle_path().read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_throttle(state: Dict[str, Any]) -> None:
+    try:
+        path = _throttle_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(state), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _send_budget(auto: bool) -> int:
+    """How many crash submissions are allowed right now (0 = throttled)."""
+    state = _load_throttle()
+    now = time.time()
+    if now < float(state.get("backoffUntil") or 0):
+        return 0  # server said 429 — back off entirely
+    if auto and now - float(state.get("lastAutoSendAt") or 0) < MIN_AUTO_SEND_INTERVAL_SECONDS:
+        return 0
+    recent = [t for t in (state.get("sendTimes") or []) if now - t < SEND_WINDOW_SECONDS]
+    return max(0, MAX_SENDS_PER_DAY - len(recent))
+
+
+def is_send_throttled(auto: bool = False) -> bool:
+    """True when the client-side send throttle blocks crash sends."""
+    return _send_budget(auto) <= 0
+
+
+def _record_send(auto: bool) -> None:
+    state = _load_throttle()
+    now = time.time()
+    times = [t for t in (state.get("sendTimes") or []) if now - t < SEND_WINDOW_SECONDS]
+    times.append(now)
+    state["sendTimes"] = times
+    if auto:
+        state["lastAutoSendAt"] = now
+    _save_throttle(state)
+
+
+def _record_server_backoff() -> None:
+    state = _load_throttle()
+    state["backoffUntil"] = time.time() + SERVER_BACKOFF_SECONDS
+    _save_throttle(state)
 
 
 async def _broadcast_pending() -> None:
@@ -172,6 +294,7 @@ def list_pending() -> List[Dict[str, Any]]:
                 "errorType": data.get("exceptionType"),
                 "message": data.get("message"),
                 "stackHash": data.get("stackHash"),
+                "occurrences": int(data.get("occurrences") or 1),
             })
         except Exception:
             path.unlink(missing_ok=True)
@@ -206,15 +329,22 @@ def discard_pending() -> int:
     return count
 
 
-async def send_pending(track: bool = True) -> int:
-    """Send every pending report as a kind='crash' feedback row.
+async def send_pending(track: bool = True, auto: bool = False) -> int:
+    """Send pending reports as kind='crash' feedback rows, throttled.
 
     Best-effort: each successfully sent report's file is deleted; on any
-    failure the remainder is left pending for a later attempt. Returns the
+    failure the remainder is left pending for a later attempt. The send
+    throttle (rolling 24h budget, auto-send spacing, 429 backoff) applies
+    to BOTH the consent-'always' auto path (``auto=True``) and manual
+    dialog sends — throttled reports simply stay pending. Returns the
     number sent.
     """
     from distribution import is_official
     if not is_official():
+        return 0
+
+    budget = _send_budget(auto)
+    if budget <= 0:
         return 0
 
     from feedback_client import submit_feedback, FeedbackSubmitError
@@ -225,6 +355,8 @@ async def send_pending(track: bool = True) -> int:
 
     sent = 0
     for path in sorted(pending.glob("*.json")):
+        if sent >= budget:
+            break  # rolling-24h budget spent — the rest stays pending
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
@@ -247,10 +379,14 @@ async def send_pending(track: bool = True) -> int:
             )
             path.unlink(missing_ok=True)
             sent += 1
+            _record_send(auto)
         except FeedbackSubmitError as e:
             log.info("crash report send failed", status=e.status_code)
             if e.status_code == 429:
-                break  # daily cap — keep the rest pending
+                # Server's daily cap — stop all crash sends for a while
+                # and keep everything pending.
+                _record_server_backoff()
+                break
         except Exception:
             log.info("crash report send failed (network)")
             break
@@ -270,9 +406,13 @@ async def send_pending(track: bool = True) -> int:
 
 
 async def send_pending_silently() -> None:
-    """Auto-send path for consent 'always' — fully silent (D12, no toast)."""
+    """Auto-send path for consent 'always' — fully silent (D12, no toast).
+
+    Throttled auto-sends (budget spent, <10 min since the last auto-send,
+    or 429 backoff) silently leave reports pending.
+    """
     try:
-        await send_pending()
+        await send_pending(auto=True)
     except Exception:
         pass
 

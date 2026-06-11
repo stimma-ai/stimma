@@ -302,5 +302,14 @@ async def crash_decision(req: CrashDecisionRequest):
             category="feedback",
         )
 
+    # Client-side send throttle (rolling 24h budget / 429 backoff): keep
+    # the reports pending and tell the UI so it can show a quiet note.
+    if crash_reports.is_send_throttled():
+        return {
+            "status": "rate_limited",
+            "sent": 0,
+            "pending": len(crash_reports.list_pending()),
+        }
+
     sent = await crash_reports.send_pending()
     return {"status": "success", "sent": sent}
