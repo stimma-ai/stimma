@@ -31,14 +31,16 @@ const SILENCE_PEAK: f32 = 0.01;
 
 /// Returns `(filename, download_url)` for a known model id, or `None`.
 fn model_info(model_id: &str) -> Option<(&'static str, &'static str)> {
+    // Weights are mirrored to our R2 bucket (free, unmetered egress) from the
+    // upstream HuggingFace repo "ggerganov/whisper.cpp".
     match model_id {
         "base.en" => Some((
             "ggml-base.en.bin",
-            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+            "https://models.stimma.ai/whisper/ggml-base.en.bin",
         )),
         "small.en" => Some((
             "ggml-small.en.bin",
-            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
+            "https://models.stimma.ai/whisper/ggml-small.en.bin",
         )),
         _ => None,
     }
