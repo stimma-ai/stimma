@@ -6,17 +6,13 @@ postprocessing (NMS, simcc decode) in numpy + PIL — no cv2 dependency.
 """
 
 import os
-import shutil
-import tempfile
-import urllib.request
-import zipfile
 from pathlib import Path
 from typing import Tuple
 
 import numpy as np
 import onnxruntime as ort
 
-import app_dirs
+import model_cache
 from core.logging import get_logger
 from utils import image_ops
 
@@ -47,47 +43,23 @@ _MODES = {
 _RTMLIB_LEGACY_CACHE = Path.home() / ".cache" / "rtmlib" / "hub" / "checkpoints"
 
 
-def _models_dir() -> Path:
-    d = app_dirs.get_cache_dir() / "models" / "dwpose"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
-
-
 def _resolve_model(url: str) -> Path:
     """Return a local path to the .onnx file referenced by `url`, downloading
-    and extracting if needed.
+    from R2 on first use.
 
-    rtmlib historically caches the same files under ~/.cache/rtmlib/hub/...;
-    we honor that path so existing installs don't re-download.
+    R2 hosts the bare end2end.onnx (extracted from the upstream OpenMMLab .zip)
+    under dwpose/<stem>.onnx. `url` is the historical OpenMMLab zip URL, kept only
+    to derive the stable filename. rtmlib historically cached the same files under
+    ~/.cache/rtmlib/hub/...; we adopt that path so existing installs don't
+    re-download.
     """
     base = os.path.basename(url)
     stem = base.rsplit(".", 1)[0]  # strip .zip
     onnx_name = f"{stem}.onnx"
-
-    primary = _models_dir() / onnx_name
-    if primary.exists():
-        return primary
-
-    legacy = _RTMLIB_LEGACY_CACHE / onnx_name
-    if legacy.exists():
-        return legacy
-
-    log.info(f"Downloading DWPose model: {url}")
-    with tempfile.TemporaryDirectory() as tmp:
-        zip_path = Path(tmp) / base
-        req = urllib.request.Request(url, headers={"User-Agent": "Stimma/1.0"})
-        with urllib.request.urlopen(req) as resp, open(zip_path, "wb") as f:
-            shutil.copyfileobj(resp, f)
-
-        with zipfile.ZipFile(zip_path) as zf:
-            members = [m for m in zf.namelist() if m.endswith("end2end.onnx")]
-            if not members:
-                raise RuntimeError(f"DWPose archive missing end2end.onnx: {url}")
-            with zf.open(members[0]) as src, open(primary, "wb") as dst:
-                shutil.copyfileobj(src, dst)
-
-    log.info(f"DWPose model installed at {primary}")
-    return primary
+    return model_cache.ensure_model(
+        f"dwpose/{onnx_name}",
+        legacy_paths=[_RTMLIB_LEGACY_CACHE / onnx_name],
+    )
 
 
 def _make_session(onnx_path: Path) -> ort.InferenceSession:

@@ -14,6 +14,7 @@ from typing import Optional
 import numpy as np
 
 import app_dirs
+import model_cache
 from core.logging import get_logger
 from utils import image_ops
 
@@ -35,9 +36,6 @@ _dwpose_model: Optional[object] = None
 _lineart_realistic_sessions: dict[str, object] = {}  # "fine" and "coarse" keys
 _lineart_anime_session: Optional[object] = None
 
-# R2 base URL for hosted ONNX models
-_MODELS_BASE_URL = "https://models.stimma.ai"
-
 
 def _get_cache_dir() -> Path:
     """Get the controlnet preview cache directory."""
@@ -46,27 +44,13 @@ def _get_cache_dir() -> Path:
     return cache_dir
 
 
-def _get_models_dir() -> Path:
-    """Get the directory for controlnet models (Depth Anything etc.)."""
-    models_dir = app_dirs.get_cache_dir() / "models"
-    models_dir.mkdir(parents=True, exist_ok=True)
-    return models_dir
-
-
-def _get_depth_anything_config() -> tuple[str, str]:
-    """
-    Resolve Depth Anything V2 model variant and source URL.
-
-    STIMMA_DEPTH_ANYTHING_MODEL supports: small, base, large.
-    """
+def _get_depth_anything_variant() -> str:
+    """Resolve Depth Anything V2 model variant (small, base, large)."""
     variant = os.getenv("STIMMA_DEPTH_ANYTHING_MODEL", "large").strip().lower()
     if variant not in {"small", "base", "large"}:
         log.warning(f"Unknown STIMMA_DEPTH_ANYTHING_MODEL={variant!r}; falling back to 'large'")
         variant = "large"
-
-    filename = f"depth_anything_v2_{variant}.onnx"
-    url = f"https://huggingface.co/onnx-community/depth-anything-v2-{variant}/resolve/main/onnx/model.onnx"
-    return filename, url
+    return variant
 
 
 def _file_hash(path: str) -> str:
@@ -114,12 +98,13 @@ def _get_depth_anything_session():
 
     import onnxruntime as ort
 
-    filename, url = _get_depth_anything_config()
-    model_path = _get_models_dir() / filename
-
-    if not model_path.exists():
-        log.info(f"Downloading Depth Anything V2 ONNX model ({filename})...")
-        _download_onnx_model(model_path, url)
+    variant = _get_depth_anything_variant()
+    filename = f"depth_anything_v2_{variant}.onnx"
+    # Older installs cached depth models flat under models/; adopt those in place.
+    model_path = model_cache.ensure_model(
+        f"depth/{filename}",
+        legacy_paths=[model_cache.models_root() / filename],
+    )
 
     log.info(f"Loading Depth Anything V2 model from {model_path}")
     _depth_anything_session = ort.InferenceSession(
@@ -127,22 +112,6 @@ def _get_depth_anything_session():
         providers=["CPUExecutionProvider"],
     )
     return _depth_anything_session
-
-
-def _download_onnx_model(dest: Path, url: str):
-    """Download ONNX model from URL."""
-    import urllib.request
-
-    log.info(f"Downloading ONNX model from {url}")
-
-    tmp_path = dest.with_suffix(".tmp")
-    try:
-        urllib.request.urlretrieve(url, str(tmp_path))
-        tmp_path.rename(dest)
-        log.info(f"Model saved to {dest} ({dest.stat().st_size / 1024 / 1024:.1f} MB)")
-    except Exception:
-        tmp_path.unlink(missing_ok=True)
-        raise
 
 
 def _depth_anything_resize_lower_bound(
@@ -236,26 +205,6 @@ def _lineart(image: np.ndarray, params: dict | None = None) -> np.ndarray:
     return image_ops.gray_to_bgr(result)
 
 
-def _download_lineart_model(filename: str, dest: Path):
-    """Download a lineart ONNX model from R2."""
-    import urllib.request
-
-    url = f"{_MODELS_BASE_URL}/{filename}"
-    log.info(f"Downloading lineart model from {url}")
-
-    tmp_path = dest.with_suffix(".tmp")
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Stimma/1.0"})
-        with urllib.request.urlopen(req) as resp, open(tmp_path, "wb") as f:
-            while chunk := resp.read(1 << 20):
-                f.write(chunk)
-        tmp_path.rename(dest)
-        log.info(f"Lineart model saved to {dest} ({dest.stat().st_size / 1024 / 1024:.1f} MB)")
-    except Exception:
-        tmp_path.unlink(missing_ok=True)
-        raise
-
-
 def _get_lineart_realistic_session(coarse: bool = False):
     """Load lineart realistic ONNX model (singleton per variant)."""
     key = "coarse" if coarse else "fine"
@@ -264,12 +213,7 @@ def _get_lineart_realistic_session(coarse: bool = False):
 
     import onnxruntime as ort
 
-    filename = f"lineart_realistic_{key}.onnx"
-    model_path = _get_models_dir() / filename
-
-    if not model_path.exists():
-        log.info(f"Downloading lineart realistic ({key}) ONNX model...")
-        _download_lineart_model(filename, model_path)
+    model_path = model_cache.ensure_model(f"lineart_realistic_{key}.onnx")
 
     log.info(f"Loading lineart realistic ({key}) model from {model_path}")
     session = ort.InferenceSession(
@@ -288,12 +232,7 @@ def _get_lineart_anime_session():
 
     import onnxruntime as ort
 
-    filename = "lineart_anime.onnx"
-    model_path = _get_models_dir() / filename
-
-    if not model_path.exists():
-        log.info("Downloading lineart anime ONNX model...")
-        _download_lineart_model(filename, model_path)
+    model_path = model_cache.ensure_model("lineart_anime.onnx")
 
     log.info(f"Loading lineart anime model from {model_path}")
     _lineart_anime_session = ort.InferenceSession(
@@ -473,8 +412,7 @@ def _preprocess_sync(image_path: str, preprocessor: str, params: dict | None = N
         params_suffix = "_" + "_".join(f"{k}{v}" for k, v in sorted(params.items()))
 
     if preprocessor == "depth":
-        model_filename, _ = _get_depth_anything_config()
-        model_tag = Path(model_filename).stem
+        model_tag = f"depth_anything_v2_{_get_depth_anything_variant()}"
         params_suffix += f"_{model_tag}"
 
     cache_path = cache_dir / f"{fhash}_{preprocessor}{params_suffix}_v3.png"

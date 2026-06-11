@@ -10,6 +10,7 @@ from PIL import Image
 import numpy as np
 from typing import Optional, Union
 from pathlib import Path
+import model_cache
 from core.logging import get_logger
 
 log = get_logger(__name__)
@@ -54,7 +55,11 @@ class CLIPService:
         log.info("Loading CLIP model (ONNX, ViT-B/32)...")
 
         try:
-            # OnnxClip automatically downloads models on first use
+            # By default onnx_clip loads its weights from inside its own package
+            # dir, downloading them from a third-party S3 bucket on first use.
+            # Instead, fetch them through our shared model cache (R2, user cache
+            # dir, atomic) and patch onnx_clip's loader to use those files.
+            self._patch_onnx_clip_loader()
             self.model = OnnxClip(batch_size=16)
 
             self._loaded = True
@@ -65,6 +70,39 @@ class CLIPService:
             self._loading = False
             log.error(f"Failed to load CLIP model: {e}")
             raise
+
+    @staticmethod
+    def _patch_onnx_clip_loader():
+        """Point onnx_clip at weights in our model cache instead of its own dir.
+
+        onnx_clip.OnnxClip._load_models() builds paths inside the package's
+        data/ dir and downloads missing files from a public S3 bucket. We replace
+        it with a loader that pulls the two ViT-B/32 ONNX files through
+        model_cache (R2 -> user cache dir, atomic) and builds the inference
+        sessions from there. Legacy paths cover dev installs that previously
+        cached the weights inside the onnx_clip package.
+        """
+        import onnxruntime as ort
+        import onnx_clip.model as oc
+
+        pkg_data = Path(oc.__file__).resolve().parent / "data"
+
+        def _load_models(model, silent):  # signature matches onnx_clip
+            image_path = model_cache.ensure_model(
+                "clip/clip_image_model_vitb32.onnx",
+                legacy_paths=[pkg_data / "clip_image_model_vitb32.onnx"],
+            )
+            text_path = model_cache.ensure_model(
+                "clip/clip_text_model_vitb32.onnx",
+                legacy_paths=[pkg_data / "clip_text_model_vitb32.onnx"],
+            )
+            providers = ort.get_available_providers()
+            return (
+                ort.InferenceSession(str(image_path), providers=providers),
+                ort.InferenceSession(str(text_path), providers=providers),
+            )
+
+        oc.OnnxClip._load_models = staticmethod(_load_models)
 
     def is_loaded(self) -> bool:
         """Check if the model is fully loaded and ready."""

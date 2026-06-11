@@ -7,48 +7,24 @@ import json
 import threading
 import os
 
+import model_cache
+
 log = get_logger(__name__)
 
-
-def _get_insightface_home():
-    """Get the InsightFace home directory (~/.insightface)."""
-    return os.path.expanduser("~/.insightface")
+# Required AuraFace model files. Mirrored to R2 (models.stimma.ai/face/) from the
+# upstream HuggingFace repo "fal/AuraFace-v1".
+_FACE_MODEL_FILES = ["scrfd_10g_bnkps.onnx", "glintr100.onnx"]
 
 
 def _ensure_auraface_models():
-    """Download AuraFace models from HuggingFace if not present."""
-    from huggingface_hub import snapshot_download
-
-    insightface_home = _get_insightface_home()
-    model_dir = os.path.join(insightface_home, "models", "auraface")
-    model_file = os.path.join(model_dir, "glintr100.onnx")
-
-    log.info(f"InsightFace home: {insightface_home}")
-    log.info(f"Looking for AuraFace model at: {model_file}")
-
-    if not os.path.exists(model_file):
-        log.info("AuraFace models not found, downloading from HuggingFace...")
-        try:
-            snapshot_download(
-                "fal/AuraFace-v1",
-                local_dir=model_dir,
-            )
-            log.info("AuraFace models downloaded successfully")
-        except Exception as e:
-            log.error(f"Failed to download AuraFace models: {e}")
-            raise RuntimeError(
-                f"AuraFace models not found at {model_dir} and download failed: {e}. "
-                "Please ensure you have internet access or manually download the models."
-            )
-    else:
-        log.info(f"AuraFace models found at: {model_dir}")
-
-    # Verify all required files exist
-    required_files = ["glintr100.onnx", "scrfd_10g_bnkps.onnx"]
-    missing_files = [f for f in required_files if not os.path.exists(os.path.join(model_dir, f))]
-    if missing_files:
-        raise RuntimeError(f"Missing required model files: {missing_files} in {model_dir}")
-
+    """Download AuraFace models from R2 on first use (into the user cache)."""
+    # Pre-model_cache installs cached these under ~/.insightface/models/auraface;
+    # adopt those in place so they don't re-download.
+    legacy_dir = Path(os.path.expanduser("~/.insightface")) / "models" / "auraface"
+    for filename in _FACE_MODEL_FILES:
+        model_cache.ensure_model(f"face/{filename}", legacy_paths=[legacy_dir / filename])
+    model_dir = str(model_cache.models_root() / "face")
+    log.info(f"AuraFace models ready at: {model_dir}")
     return model_dir
 
 

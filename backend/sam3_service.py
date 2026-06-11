@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from PIL import Image
 
+import model_cache
 from core.logging import get_logger
 
 log = get_logger(__name__)
@@ -26,8 +27,8 @@ log = get_logger(__name__)
 # Thread pool for running inference (ONNX is synchronous)
 _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sam3")
 
-# HuggingFace repo for ONNX models
-HF_REPO_ID = "wkentaro/sam3-onnx-models"
+# Models are mirrored to R2 (models.stimma.ai/sam3/) from the upstream
+# HuggingFace repo "wkentaro/sam3-onnx-models".
 
 # Model file names
 MODEL_FILES = [
@@ -96,40 +97,18 @@ class SAM3Result:
 
 
 def _get_models_dir() -> Path:
-    """Get the directory for SAM3 ONNX models."""
-    # Store in ~/.cache/stimma/sam3-onnx
-    cache_dir = Path.home() / ".cache" / "stimma" / "sam3-onnx"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return cache_dir
+    """Get the directory for SAM3 ONNX models in the user cache."""
+    return model_cache.models_root() / "sam3"
 
 
 def _ensure_models_downloaded() -> Path:
-    """Download SAM3 ONNX models from HuggingFace if not present."""
-    from huggingface_hub import hf_hub_download
-
-    models_dir = _get_models_dir()
-
-    # Check if all models exist
-    all_present = all((models_dir / f).exists() for f in MODEL_FILES)
-    if all_present:
-        log.info(f"SAM3 ONNX models already downloaded at: {models_dir}")
-        return models_dir
-
-    log.info(f"Downloading SAM3 ONNX models from HuggingFace ({HF_REPO_ID})...")
-
+    """Download SAM3 ONNX models from R2 on first use (into the user cache)."""
+    # Pre-model_cache installs cached these under ~/.cache/stimma/sam3-onnx;
+    # adopt those in place so they don't re-download.
+    legacy_dir = Path.home() / ".cache" / "stimma" / "sam3-onnx"
     for filename in MODEL_FILES:
-        local_path = models_dir / filename
-        if not local_path.exists():
-            log.info(f"Downloading {filename}...")
-            hf_hub_download(
-                repo_id=HF_REPO_ID,
-                filename=filename,
-                local_dir=models_dir,
-                local_dir_use_symlinks=False,
-            )
-
-    log.info("SAM3 ONNX models downloaded successfully")
-    return models_dir
+        model_cache.ensure_model(f"sam3/{filename}", legacy_paths=[legacy_dir / filename])
+    return _get_models_dir()
 
 
 def _compute_bbox_from_mask(mask_array: np.ndarray, original_width: int, original_height: int) -> tuple[BBox, float] | None:
