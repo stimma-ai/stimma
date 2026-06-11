@@ -135,6 +135,104 @@ async def _make_chat_with_items(db_session, tmp_path, media_count=2):
         return chat.id, media_ids
 
 
+async def _make_agent_v2_chat(db_session, tmp_path):
+    """A chat shaped like a real agent-v2 conversation: media reaches the chat
+    through media_display rows, progress_display previews, inline markdown
+    refs, tool_result payloads, and a grid composite — not item.media_id(s)."""
+    from database import Chat, ChatItem
+    from tests.helpers.media import generate_test_image, create_media_item
+
+    async with db_session() as session:
+        chat = Chat(name="Agent v2 feedback chat")
+        session.add(chat)
+        await session.flush()
+
+        base = datetime.utcnow()
+
+        async def mk(name, color, minute, **kwargs):
+            path = tmp_path / name
+            file_hash = generate_test_image(path, color=color)
+            return await create_media_item(
+                session, file_path=path, file_hash=file_hash,
+                created_date=base + timedelta(minutes=minute), **kwargs,
+            )
+
+        gen = await mk("gen_only.png", (10, 10, 10), 0)       # tool_result only
+        shown = await mk("shown.png", (200, 0, 0), 1)          # media_display row
+        preview = await mk("preview.png", (0, 200, 0), 2)      # progress preview
+        inline = await mk("inline.png", (0, 0, 200), 3)        # inline markdown
+        cell_a = await mk("cell_a.png", (50, 50, 50), 4)       # grid cell
+        cell_b = await mk("cell_b.png", (80, 80, 80), 5)       # grid cell
+
+        # Grid composite referencing the two cells by relative path
+        grid_path = tmp_path / "sweep.stimmagrid.json"
+        grid_content = {
+            "version": 1, "rows": 1, "cols": 2,
+            "cells": [{"path": "cell_a.png"}, {"path": "cell_b.png"}],
+        }
+        grid_path.write_text(json.dumps(grid_content))
+        grid = await create_media_item(
+            session, file_path=grid_path, file_format="stimmagrid.json",
+            created_date=base + timedelta(minutes=6),
+            raw_metadata=json.dumps(grid_content),
+        )
+
+        # Library row whose file is gone from disk -> must surface as missing
+        ghost = await create_media_item(
+            session, file_path=tmp_path / "ghost.png",
+            created_date=base + timedelta(minutes=7),
+        )
+        dangling_id = 987654  # referenced by the chat, no MediaItem row
+
+        session.add(ChatItem(chat_id=chat.id, item_type="user_message",
+                             message_text="make me a cat"))
+        session.add(ChatItem(chat_id=chat.id, item_type="tool_call",
+                             tool_name="call_tool", tool_call_id="tc_1",
+                             tool_args='{"tool_id": "flux", "parameters": {"prompt": "cat"}}'))
+        session.add(ChatItem(
+            chat_id=chat.id, item_type="tool_result", tool_call_id="tc_1",
+            tool_result=(
+                f"<result media_id={gen.id} width=100 height=100>"
+                f"Not yet shown to the user. Call show(media_id={gen.id})."
+            ),
+        ))
+        session.add(ChatItem(
+            chat_id=chat.id, item_type="media_display",
+            item_metadata=json.dumps({"display_data": {
+                "title": None, "status": "complete",
+                "rows": [
+                    {"id": "show_1", "input": {"type": "output_only"},
+                     "output": {"status": "complete", "media_id": shown.id}},
+                    {"id": "show_2", "input": {"type": "output_only"},
+                     "output": {"status": "complete", "media_id": grid.id,
+                                "file_format": "stimmagrid.json"}},
+                    {"id": "show_3", "input": {"type": "output_only"},
+                     "output": {"status": "complete", "media_id": ghost.id}},
+                    {"id": "show_4", "input": {"type": "output_only"},
+                     "output": {"status": "complete", "media_id": dangling_id}},
+                ],
+            }}),
+        ))
+        session.add(ChatItem(
+            chat_id=chat.id, item_type="progress_display",
+            item_metadata=json.dumps({"display_data": {
+                "title": "Generating", "status": "completed",
+                "current": 1, "total": 1, "previews": [preview.id],
+            }}),
+        ))
+        session.add(ChatItem(
+            chat_id=chat.id, item_type="assistant_message",
+            message_text=f"Here you go ![cat](media_id={inline.id})",
+        ))
+        await session.commit()
+        return chat.id, {
+            "gen": gen.id, "shown": shown.id, "preview": preview.id,
+            "inline": inline.id, "grid": grid.id,
+            "cell_a": cell_a.id, "cell_b": cell_b.id,
+            "ghost": ghost.id, "dangling": dangling_id,
+        }
+
+
 class TestPackageBuilder:
     @pytest.mark.asyncio
     async def test_chat_package_shape(self, db_session, tmp_path):
@@ -171,6 +269,45 @@ class TestPackageBuilder:
         assert all(name.startswith("media/") for name in media_msg["media"])
         # Raw items preserved
         assert len(conversation["items"]) == 4
+
+    @pytest.mark.asyncio
+    async def test_agent_v2_attachment_paths_all_collected(self, db_session, tmp_path):
+        """Media attached via media_display rows, progress previews, inline
+        markdown, tool_result payloads, and grid cells must land in the zip;
+        unreadable/unknown media must surface in the manifest as missing."""
+        from feedback_package import build_chat_package
+
+        chat_id, ids = await _make_agent_v2_chat(db_session, tmp_path)
+        async with db_session() as session:
+            data = await build_chat_package(chat_id, session, agent_context="main")
+
+        zf = zipfile.ZipFile(io.BytesIO(data))
+        names = zf.namelist()
+        manifest = json.loads(zf.read("manifest.json"))
+        media_map = manifest["mediaMap"]
+
+        # Every reachable media file is included and present in the zip
+        for key in ("gen", "shown", "preview", "inline", "grid", "cell_a", "cell_b"):
+            entry = media_map.get(str(ids[key]))
+            assert entry is not None, f"{key} (media_id {ids[key]}) absent from mediaMap"
+            assert entry.get("file", "").startswith("media/"), f"{key}: {entry}"
+            assert entry["file"] in names, f"{key}: {entry['file']} not in zip"
+
+        # Unreadable-from-disk and unknown ids surface as missing, never silently
+        assert media_map[str(ids["ghost"])] == {
+            "missing": True, "reason": "file_unavailable"
+        }
+        assert media_map[str(ids["dangling"])] == {
+            "missing": True, "reason": "not_in_library"
+        }
+
+        # The media_display-derived message references the packaged files
+        conversation = json.loads(zf.read("conversation.json"))
+        display_msgs = [m for m in conversation["messages"]
+                        if m["role"] == "media_display"]
+        assert display_msgs, "media_display item produced no message"
+        shown_name = media_map[str(ids["shown"])]["file"]
+        assert shown_name in display_msgs[0]["media"]
 
     @pytest.mark.asyncio
     async def test_media_cap_newest_first_remainder_omitted(self, db_session, tmp_path):

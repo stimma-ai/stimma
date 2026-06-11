@@ -14,8 +14,16 @@ Two sources:
 - prompt-agent (frontend-transient): the frontend posts its in-memory
   conversation + prompt/parameter state; wrapped in the same manifest shape.
 
+Media is collected from every attachment path the chat UI renders:
+item.media_id / media_ids columns, item_metadata attachments,
+media_display rows, progress_display previews, inline markdown refs in
+message text, tool_result generation payloads, and grid/set composite
+cells (expanded recursively).
+
 Cap: 100 MB. Media is added newest-first until the cap; the remainder is
-listed in the manifest as omitted.
+listed in the manifest as omitted. Referenced media that cannot be read
+from disk (or has no library row) is listed in the manifest as missing —
+never silently absent.
 
 The zip MUST stay renderable by the admin inbox viewer
 (AdminFeedbackDetail.vue): it scans JSON entries (zip order) for arrays of
@@ -24,6 +32,7 @@ under ``messages`` and is written before llm_traces.json.
 """
 import io
 import json
+import re
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,8 +54,19 @@ def _app_version() -> str:
         return "0.0.0"
 
 
-def _collect_media_ids(items: List[Any]) -> List[int]:
-    """Media ids referenced by chat items, in item order, de-duplicated."""
+# Inline refs rendered by the chat UI: ![caption](media_id=123) / ![caption](media:123)
+_INLINE_MEDIA_RE = re.compile(r"!\[[^\]]*\]\(media(?:_id=|:)(\d+)\)")
+# Generation outputs referenced by call_tool result strings: <result media_id=123 ...>
+_TOOL_RESULT_MEDIA_RE = re.compile(r"<result media_id=(\d+)")
+
+_COMPOSITE_FORMATS = ("stimmaset.json", "stimmagrid.json")
+
+
+def _media_ids_for_item(item: Any) -> List[int]:
+    """Media ids referenced by one chat item, across every attachment path:
+    media_id / media_ids columns, metadata attachments (user uploads),
+    media_display rows, progress_display previews, inline markdown refs,
+    and generation outputs referenced from tool_result payloads."""
     seen: Dict[int, None] = {}
 
     def add(value):
@@ -54,33 +74,117 @@ def _collect_media_ids(items: List[Any]) -> List[int]:
             mid = int(value)
         except (TypeError, ValueError):
             return
-        if mid not in seen:
+        if mid > 0 and mid not in seen:
             seen[mid] = None
 
-    for item in items:
-        if item.media_id:
-            add(item.media_id)
-        for field in ("media_ids",):
-            raw = getattr(item, field, None)
-            if raw:
-                try:
-                    parsed = json.loads(raw)
-                    if isinstance(parsed, list):
-                        for v in parsed:
-                            add(v)
-                except (json.JSONDecodeError, TypeError):
-                    pass
-        # Attachments recorded in item metadata (user uploads)
-        meta = getattr(item, "item_metadata", None)
-        if meta:
-            try:
-                parsed = json.loads(meta)
-                for att in (parsed or {}).get("attachments", []) or []:
-                    if isinstance(att, dict) and att.get("media_id"):
-                        add(att["media_id"])
-            except (json.JSONDecodeError, TypeError, AttributeError):
-                pass
+    if item.media_id:
+        add(item.media_id)
+    raw = getattr(item, "media_ids", None)
+    if raw:
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                for v in parsed:
+                    add(v)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    meta = getattr(item, "item_metadata", None)
+    if meta:
+        try:
+            parsed = json.loads(meta) if isinstance(meta, str) else meta
+        except (json.JSONDecodeError, TypeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            # Attachments recorded in item metadata (user uploads)
+            for att in parsed.get("attachments") or []:
+                if isinstance(att, dict) and att.get("media_id"):
+                    add(att["media_id"])
+            display = parsed.get("display_data")
+            if isinstance(display, dict):
+                # media_display: show() / generation result tiles
+                rows = display.get("rows")
+                if isinstance(rows, list):
+                    for row in rows:
+                        if isinstance(row, dict):
+                            output = row.get("output")
+                            if isinstance(output, dict) and output.get("media_id"):
+                                add(output["media_id"])
+                # progress_display: preview thumbnails
+                previews = display.get("previews")
+                if isinstance(previews, list):
+                    for mid in previews:
+                        add(mid)
+
+    text = getattr(item, "message_text", None)
+    if text:
+        for match in _INLINE_MEDIA_RE.finditer(text):
+            add(match.group(1))
+
+    raw_result = getattr(item, "tool_result", None)
+    if raw_result and isinstance(raw_result, str):
+        try:
+            payload = json.loads(raw_result)
+        except (json.JSONDecodeError, TypeError):
+            payload = None
+        if isinstance(payload, dict):
+            if payload.get("media_id"):
+                add(payload["media_id"])
+            ids = payload.get("media_ids")
+            if isinstance(ids, list):
+                for v in ids:
+                    add(v)
+        for match in _TOOL_RESULT_MEDIA_RE.finditer(raw_result):
+            add(match.group(1))
+
     return list(seen.keys())
+
+
+def _collect_media_ids(items: List[Any]) -> List[int]:
+    """Media ids referenced by chat items, in item order, de-duplicated."""
+    seen: Dict[int, None] = {}
+    for item in items:
+        for mid in _media_ids_for_item(item):
+            if mid not in seen:
+                seen[mid] = None
+    return list(seen.keys())
+
+
+def _composite_ref_paths(row: Any) -> List[str]:
+    """Absolute file paths referenced by a set/grid composite's items/cells.
+
+    Reads the composite JSON from disk, falling back to the cached
+    raw_metadata when the file is unreadable."""
+    if not row.file_path:
+        return []
+    base_path = Path(row.file_path)
+    content = None
+    try:
+        content = json.loads(base_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        pass
+    if content is None and getattr(row, "raw_metadata", None):
+        try:
+            content = json.loads(row.raw_metadata)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if not isinstance(content, dict):
+        return []
+
+    from structured_media import resolve_path
+
+    refs: List[str] = []
+    for key in ("items", "cells"):
+        entries = content.get(key)
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if isinstance(entry, dict) and entry.get("path"):
+                try:
+                    refs.append(str(resolve_path(base_path, entry["path"])))
+                except (TypeError, ValueError):
+                    continue
+    return refs
 
 
 def _item_to_message(item: Any, media_names: Dict[int, str]) -> Optional[Dict[str, Any]]:
@@ -102,7 +206,7 @@ def _item_to_message(item: Any, media_names: Dict[int, str]) -> Optional[Dict[st
         text = item.message_text or item.tool_error or ""
 
     media: List[str] = []
-    for mid in _collect_media_ids([item]):
+    for mid in _media_ids_for_item(item):
         media.append(media_names.get(mid, f"media_id:{mid} (omitted)"))
 
     if not text and not media:
@@ -136,17 +240,46 @@ async def build_chat_package(
     traces = list(result.scalars().all())
 
     media_ids = _collect_media_ids(items)
-    media_rows: List[Any] = []
+    referenced_ids: List[int] = list(media_ids)
+    media_rows: Dict[int, Any] = {}
+
+    new_rows: List[Any] = []
     if media_ids:
         result = await session.execute(select(MediaItem).where(MediaItem.id.in_(media_ids)))
-        media_rows = list(result.scalars().all())
+        new_rows = list(result.scalars().all())
+
+    # Expand grid/set composites: their cells reference other media items
+    # (by file path, relative to the composite file). Bounded depth guards
+    # against pathological nesting.
+    depth = 0
+    while new_rows and depth < 4:
+        for row in new_rows:
+            media_rows[row.id] = row
+        ref_paths: List[str] = []
+        for row in new_rows:
+            if (row.file_format or "").lower() in _COMPOSITE_FORMATS:
+                ref_paths.extend(_composite_ref_paths(row))
+        new_rows = []
+        if ref_paths:
+            result = await session.execute(
+                select(MediaItem).where(
+                    MediaItem.file_path.in_(ref_paths),
+                    MediaItem.deleted_at.is_(None),
+                )
+            )
+            for row in result.scalars().all():
+                if row.id not in media_rows:
+                    new_rows.append(row)
+                    referenced_ids.append(row.id)
+        depth += 1
 
     return _assemble_package(
         agent_context=agent_context,
         chat_dict=chat.to_dict(),
         items=items,
         traces=[t.to_dict() for t in traces],
-        media_rows=media_rows,
+        media_rows=list(media_rows.values()),
+        referenced_media_ids=referenced_ids,
         max_bytes=max_bytes,
     )
 
@@ -159,6 +292,7 @@ def _assemble_package(
     traces: List[Dict[str, Any]],
     media_rows: List[Any],
     max_bytes: int,
+    referenced_media_ids: Optional[List[int]] = None,
 ) -> bytes:
     # Media newest-first up to the cap; remainder listed as omitted.
     def sort_key(row):
@@ -167,22 +301,35 @@ def _assemble_package(
 
     media_map: Dict[str, Dict[str, Any]] = {}
     media_names: Dict[int, str] = {}
-    included: List[tuple] = []  # (row, archive_name, file_bytes_len, path)
+    included: List[tuple] = []  # (archive_name, file_bytes)
     budget = max_bytes
     counter = 0
+
+    # Referenced ids with no library row (e.g. deleted media): listed as
+    # missing so they are never silently absent from the manifest.
+    known_ids = {row.id for row in media_rows}
+    for mid in referenced_media_ids or []:
+        if mid not in known_ids:
+            media_map[str(mid)] = {"missing": True, "reason": "not_in_library"}
+
     for row in ordered:
         path = Path(row.file_path) if row.file_path else None
         if not path or not path.exists():
-            media_map[str(row.id)] = {"omitted": True, "reason": "file_unavailable"}
+            media_map[str(row.id)] = {"missing": True, "reason": "file_unavailable"}
             continue
-        size = path.stat().st_size
+        try:
+            data = path.read_bytes()
+        except OSError:
+            media_map[str(row.id)] = {"missing": True, "reason": "file_unavailable"}
+            continue
+        size = len(data)
         if size > budget:
             media_map[str(row.id)] = {"omitted": True, "reason": "size_cap"}
             continue
         counter += 1
         ext = path.suffix.lstrip(".") or (row.file_format or "bin").split(".")[0]
         name = f"media/{counter}.{ext}"
-        included.append((row, name, size, path))
+        included.append((name, data))
         media_names[row.id] = name
         media_map[str(row.id)] = {"file": name, "bytes": size}
         budget -= size
@@ -216,11 +363,8 @@ def _assemble_package(
         zf.writestr("conversation.json", json.dumps(conversation, indent=2))
         if traces:
             zf.writestr("llm_traces.json", json.dumps({"traces": traces}, indent=2))
-        for _row, name, _size, path in included:
-            try:
-                zf.write(path, arcname=name, compress_type=zipfile.ZIP_STORED)
-            except OSError:
-                pass
+        for name, data in included:
+            zf.writestr(name, data, compress_type=zipfile.ZIP_STORED)
     return buf.getvalue()
 
 
