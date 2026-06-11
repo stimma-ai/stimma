@@ -176,39 +176,16 @@
           </div>
         </template>
 
-        <!-- Failed job -->
+        <!-- Failed job — same slim bar treatment as the in-flight rows above,
+             tinted red. Click opens the failure details. -->
         <template v-else-if="item.type === 'failed-job'">
-          <div class="grid grid-cols-1 gap-4">
-            <div
-              class="group relative aspect-square rounded-lg overflow-hidden transition-transform cursor-pointer hover:scale-105"
-              @click="handleJobClick(item.job)"
-            >
-              <div class="w-full h-full flex flex-col items-center justify-center p-4 bg-red-500/10 border border-red-500/30">
-                <!-- Top right buttons: Retry and Dismiss -->
-                <div class="absolute top-2 right-2 flex gap-1 z-10">
-                  <button
-                    @click.stop="$emit('retry-job', item.job.id)"
-                    class="w-6 h-6 flex items-center justify-center bg-blue-500/20 hover:bg-blue-500/40 border border-blue-500/50 rounded text-blue-500 hover:text-white transition-colors"
-                    title="Retry"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-                      <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0v2.43l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clip-rule="evenodd" />
-                    </svg>
-                  </button>
-                  <button
-                    @click.stop="$emit('dismiss-job', item.job.id)"
-                    class="w-6 h-6 flex items-center justify-center bg-red-500/20 hover:bg-red-500/40 border border-red-500/50 rounded text-red-500 hover:text-white text-sm transition-colors"
-                    title="Dismiss"
-                  >
-                    ×
-                  </button>
-                </div>
-                <div class="text-red-500 text-2xl mb-2">✕</div>
-                <div class="text-xs text-red-500 font-semibold uppercase">Failed</div>
-                <div class="text-xs text-red-500/70 mt-2 text-center line-clamp-2">Click for details</div>
-              </div>
-            </div>
-          </div>
+          <PipelineProgressBar
+            v-bind="failedJobModel(item.job)"
+            class="cursor-pointer"
+            @click="handleJobClick(item.job)"
+            @retry="$emit('retry-job', item.job.id)"
+            @dismiss="$emit('dismiss-job', item.job.id)"
+          />
         </template>
 
       </template>
@@ -240,6 +217,7 @@ function getThumbUrl(hash: string, size = 256) {
 interface Job {
   id: number
   status: string
+  model_name?: string
   result_media_id?: number
   auto_delete_at?: string
   parameters?: string
@@ -505,6 +483,16 @@ function jobModel(job: Job) {
     status: enhancing ? 'enhancing' : processing ? 'processing' : 'queued',
     label: enhancing ? 'Enhancing prompt…' : processing ? 'Generating…' : 'Queued…',
     segments: [{ status: (processing || enhancing ? 'active' : 'pending') as const }],
+  }
+}
+
+function failedJobModel(job: Job) {
+  return {
+    name: job.model_name || 'Generation',
+    label: job.error ? `Failed — ${job.error}` : 'Failed — click for details',
+    segments: [{ status: 'failed' as const }],
+    failed: true,
+    showRetry: true,
   }
 }
 

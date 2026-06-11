@@ -20,8 +20,14 @@
         </div>
       </template>
       <template v-else>
+        <svg
+          v-if="failed"
+          xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-red-500"
+        >
+          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+        </svg>
         <div
-          v-if="status === 'processing'"
+          v-else-if="status === 'processing'"
           class="w-[18px] h-[18px] border-2 border-edge-strong border-t-blue-500 rounded-full animate-spin"
         ></div>
         <div
