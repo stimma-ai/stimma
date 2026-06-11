@@ -188,9 +188,12 @@ async def submit(req: SubmitFeedbackRequest):
         screenshot_bytes = _decode_screenshot(req.screenshot)
 
     package_bytes = None
+    chat_name = None
     if req.package:
         if req.package.type == "chat" and req.package.chat_id:
+            from sqlalchemy import select
             from core.profile_context import get_current_profile
+            from database import Chat
             from database_registry import get_database_registry
             from feedback_package import build_chat_package
             db = get_database_registry().get_database(get_current_profile())
@@ -203,6 +206,12 @@ async def submit(req: SubmitFeedbackRequest):
                     )
                 except ValueError:
                     raise HTTPException(status_code=404, detail="Chat not found")
+                # The conversation's name at the time of rating, for the
+                # admin inbox listing. Trimmed; omitted when unnamed.
+                result = await session.execute(
+                    select(Chat.name).where(Chat.id == req.package.chat_id)
+                )
+                chat_name = (result.scalar_one_or_none() or "").strip()[:256] or None
         elif req.package.type == "prompt_agent" and req.package.conversation:
             from feedback_package import build_prompt_agent_package
             package_bytes = build_prompt_agent_package(req.package.conversation)
@@ -216,6 +225,7 @@ async def submit(req: SubmitFeedbackRequest):
             message=req.message or "",
             thumb=req.thumb,
             agent_context=req.agent_context,
+            chat_name=chat_name,
             package=package_bytes,
             logs=logs_bytes,
             screenshot=screenshot_bytes,

@@ -39,6 +39,7 @@ async def submit_feedback(
     message: str,
     thumb: Optional[str] = None,
     agent_context: Optional[str] = None,
+    chat_name: Optional[str] = None,
     error_hash: Optional[str] = None,
     package: Optional[bytes] = None,
     logs: Optional[bytes] = None,
@@ -80,6 +81,8 @@ async def submit_feedback(
         body["thumb"] = thumb
     if agent_context:
         body["agentContext"] = agent_context
+    if chat_name:
+        body["chatName"] = chat_name
     if error_hash:
         body["errorHash"] = error_hash
 

@@ -101,6 +101,7 @@
                 <div v-if="modal.packageSource">
                   <div class="text-[11px] font-medium text-content-tertiary mb-1">Conversation package</div>
                   <div v-if="packagePreview" class="text-xs text-content-secondary">
+                    <div v-if="packagePreview.chat_name?.trim()" class="truncate mb-0.5">Name: “{{ packagePreview.chat_name.trim() }}”</div>
                     {{ packagePreview.message_count }} message{{ packagePreview.message_count === 1 ? '' : 's' }}<template v-if="packagePreview.media_ids?.length">,
                     {{ packagePreview.media_ids.length }} media item{{ packagePreview.media_ids.length === 1 ? '' : 's' }}</template>
                     <div v-if="packagePreview.media_ids?.length" class="flex flex-wrap gap-1.5 mt-2">

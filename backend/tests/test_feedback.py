@@ -394,6 +394,7 @@ class TestPackageBuilder:
                                                          tmp_path / "sum")
         async with db_session() as session:
             summary = await chat_package_summary(chat_id, session)
+        assert summary["chat_name"] == "Feedback test chat"
         assert summary["message_count"] == 2
         assert set(summary["media_ids"]) == set(media_ids)
 
@@ -889,6 +890,8 @@ class TestFeedbackRoutes:
         assert post["json"]["kind"] == "feedback"
         assert post["json"]["message"] == "test message"
         assert post["json"]["wants"] == {"logs": True}
+        # No conversation involved -> no chatName field
+        assert "chatName" not in post["json"]
         # Identity rides the UA helper on every request to our infra
         assert post["headers"]["User-Agent"].startswith("Stimma/")
         assert "install/" in post["headers"]["User-Agent"]
@@ -918,9 +921,59 @@ class TestFeedbackRoutes:
         assert post["json"]["thumb"] == "down"
         assert post["json"]["agentContext"] == "main"
         assert post["json"]["wants"] == {"package": True}
+        # The conversation's name at the time of rating rides along
+        assert post["json"]["chatName"] == "Feedback test chat"
         # The package PUT actually carried zip bytes
         assert fake_cloud.puts[0]["url"].endswith("/package")
         assert fake_cloud.puts[0]["bytes"] > 100
+
+    @pytest.mark.asyncio
+    async def test_thumbs_chat_name_omitted_when_unnamed(
+        self, feedback_client_fixture, fake_cloud, db_session, monkeypatch
+    ):
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        from config import get_settings
+        monkeypatch.setattr(get_settings().feedback, "thumbs_consent", "ask")
+        from database import Chat, ChatItem
+        async with db_session() as session:
+            chat = Chat(name="   ")
+            session.add(chat)
+            await session.flush()
+            session.add(ChatItem(chat_id=chat.id, item_type="user_message",
+                                 message_text="hello"))
+            await session.commit()
+            chat_id = chat.id
+
+        resp = await feedback_client_fixture.post("/api/feedback/submit", json={
+            "kind": "thumbs",
+            "thumb": "up",
+            "agent_context": "main",
+            "package": {"type": "chat", "chat_id": chat_id},
+        })
+        assert resp.status_code == 200
+        assert "chatName" not in fake_cloud.posts[0]["json"]
+
+    @pytest.mark.asyncio
+    async def test_thumbs_submit_prompt_agent_has_no_chat_name(
+        self, feedback_client_fixture, fake_cloud, monkeypatch
+    ):
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        from config import get_settings
+        monkeypatch.setattr(get_settings().feedback, "thumbs_consent", "ask")
+
+        resp = await feedback_client_fixture.post("/api/feedback/submit", json={
+            "kind": "thumbs",
+            "thumb": "up",
+            "agent_context": "prompt-agent",
+            "package": {"type": "prompt_agent", "conversation": {
+                "messages": [{"role": "user", "content": "more dramatic"}],
+                "prompt": "a cat in the rain",
+            }},
+        })
+        assert resp.status_code == 200
+        post = fake_cloud.posts[0]
+        assert post["json"]["wants"] == {"package": True}
+        assert "chatName" not in post["json"]
 
     @pytest.mark.asyncio
     async def test_screenshot_decoding(self, feedback_client_fixture, fake_cloud):
