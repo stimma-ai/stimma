@@ -1016,6 +1016,8 @@ async def _search(
     if fields not in valid_fields:
         return f"Error: search_fields must be one of: {', '.join(sorted(valid_fields))}"
 
+    from utils.query_builder import not_due_for_autodelete
+
     conditions = []
     if fields in ("prompt", "all"):
         conditions.append(MediaItem.extracted_prompt.ilike(f"%{query}%"))
@@ -1027,6 +1029,7 @@ async def _search(
     stmt = select(MediaItem).where(
         MediaItem.deleted_at.is_(None),
         MediaItem.superseded_by.is_(None),
+        not_due_for_autodelete(),
         or_(*conditions),
     )
     # Scope to project when in project context

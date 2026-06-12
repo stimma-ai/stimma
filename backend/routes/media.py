@@ -13,7 +13,7 @@ from core.dependencies import get_db_session
 from models.api_models import BoardSummaryResponse, MediaListResponse, MediaItemResponse, MediaIndexResponse, SimilaritySearchRequest, TagResponse, MediaMarkerInfo, StructuredContentUpdateRequest
 from config import get_settings
 from utils.query_builder import (
-    build_filtered_query, VIDEO_FORMATS, IMAGE_FORMATS, AUDIO_FORMATS,
+    build_filtered_query, not_due_for_autodelete, VIDEO_FORMATS, IMAGE_FORMATS, AUDIO_FORMATS,
     TEXT_FORMATS, SET_FORMATS, GRID_FORMATS, LAYOUT_FORMATS, STRUCTURED_FORMATS, RESOLUTION_MAP
 )
 from utils.websocket import ws_manager
@@ -763,6 +763,8 @@ async def get_media_item(
 
     if not include_trashed:
         query = query.where(MediaItem.deleted_at.is_(None))
+        # An item past its auto-delete deadline must read as gone even before the worker runs.
+        query = query.where(not_due_for_autodelete())
 
     query = query.options(
         selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker),
@@ -800,7 +802,8 @@ async def get_media_content(
     result = await session.execute(
         select(MediaItem).where(
             MediaItem.id == media_id,
-            MediaItem.deleted_at.is_(None)
+            MediaItem.deleted_at.is_(None),
+            not_due_for_autodelete(),
         )
     )
     item = result.scalar_one_or_none()

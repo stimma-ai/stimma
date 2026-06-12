@@ -2,7 +2,10 @@
 from datetime import datetime
 from typing import Optional, Union
 from sqlalchemy import select, or_, and_, func
-from database import MediaItem, Keyword, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage
+from database import (
+    MediaItem, Keyword, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage,
+    Board, BoardItem, BoardSection,
+)
 
 
 # =============================================================================
@@ -68,6 +71,56 @@ RESOLUTION_MAP = {
 }
 
 
+def media_pending_autodelete(now: Optional[datetime] = None):
+    """Predicate matching MediaItems the cleanup worker is due to auto-delete.
+
+    Mirrors cleanup_service.cleanup_expired_images exactly: an item is removed once
+    auto_delete_at has passed AND it has no tags, boards, or markers (any of those
+    makes the worker preserve the item and clear its auto_delete_at). This lets read
+    APIs hide expired items the instant their deadline passes, instead of leaving them
+    visible until the background worker happens to run. Because the keep-rules are
+    matched here too, items the worker would preserve are never hidden.
+    """
+    if now is None:
+        now = datetime.utcnow()
+
+    has_tag = (
+        select(1).select_from(MediaTag)
+        .where(MediaTag.media_id == MediaItem.id)
+        .exists()
+    )
+    has_marker = (
+        select(1).select_from(MediaMarker)
+        .where(MediaMarker.media_id == MediaItem.id)
+        .exists()
+    )
+    has_board = (
+        select(1).select_from(BoardItem)
+        .join(BoardSection, BoardSection.id == BoardItem.board_section_id)
+        .join(Board, Board.id == BoardSection.board_id)
+        .where(
+            BoardItem.media_id == MediaItem.id,
+            BoardSection.deleted_at.is_(None),
+            Board.deleted_at.is_(None),
+        )
+        .exists()
+    )
+    return and_(
+        MediaItem.auto_delete_at.isnot(None),
+        MediaItem.auto_delete_at <= now,
+        ~has_tag,
+        ~has_marker,
+        ~has_board,
+    )
+
+
+def not_due_for_autodelete(now: Optional[datetime] = None):
+    """Negation of media_pending_autodelete — add to active read queries so expired
+    generations vanish at their deadline while staying consistent with the worker's
+    keep rules (tagged/boarded/markered items are never hidden)."""
+    return ~media_pending_autodelete(now)
+
+
 def build_filtered_query(
     query,
     caption_query: Optional[str] = None,
@@ -96,6 +149,7 @@ def build_filtered_query(
     min_mp: Optional[float] = None,
     max_mp: Optional[float] = None,
     include_superseded: bool = False,
+    exclude_expired: bool = True,
     exclude_category: Optional[str] = None,
 ):
     """
@@ -109,6 +163,9 @@ def build_filtered_query(
         query: SQLAlchemy query to apply filters to
         exclude_category: Category to exclude from filtering ('media_types', 'resolutions', 'keywords', 'folders', 'tags', 'tools')
         include_superseded: When True, include items owned by sets/grids (used by Trash so users see everything being trashed)
+        exclude_expired: When True (default), hide items the auto-delete worker is due to remove so
+            expired generations disappear at their deadline even before the worker runs. Trash opts
+            out (exclude_expired=False) since it intentionally surfaces already-removed items.
         Other args: Filter parameters matching /api/media endpoint
 
     Returns:
@@ -117,6 +174,11 @@ def build_filtered_query(
     # Filter out items owned by sets/grids unless caller opts in (Trash needs to show them)
     if not include_superseded:
         query = query.where(MediaItem.superseded_by.is_(None))
+
+    # Hide items whose auto-delete deadline has passed, before the background worker
+    # physically removes them — see not_due_for_autodelete. Trash opts out.
+    if exclude_expired:
+        query = query.where(not_due_for_autodelete())
 
     # Text filters
     if caption_query:

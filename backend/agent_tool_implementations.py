@@ -1625,11 +1625,13 @@ async def show_images(
         except (ValueError, TypeError) as e:
             return {"error": f"Invalid media ID values: {e}", "success": False}
 
-        # Validate media IDs exist and aren't trashed
+        # Validate media IDs exist and aren't trashed or past their auto-delete deadline
+        from utils.query_builder import not_due_for_autodelete
         result = await session.execute(
             select(MediaItem).where(
                 MediaItem.id.in_(media_ids),
                 MediaItem.deleted_at.is_(None),
+                not_due_for_autodelete(),
             )
         )
         found_items = result.scalars().all()
@@ -1838,10 +1840,12 @@ async def search_images(
         query_embedding = clip_service.encode_text(query)
 
         # Get all media items with embeddings
+        from utils.query_builder import not_due_for_autodelete
         result = await session.execute(
             select(MediaItem)
             .where(MediaItem.clip_embedding.isnot(None))
             .where(MediaItem.deleted_at.is_(None))
+            .where(not_due_for_autodelete())
             .where(MediaItem.metadata_status == 'completed')
         )
         all_items = result.scalars().all()
@@ -1941,6 +1945,7 @@ async def get_filter_options(
         from database import MediaItem, Keyword, MediaKeyword, Marker, MediaMarker
         from config import get_settings
         from sqlalchemy import func
+        from utils.query_builder import not_due_for_autodelete
 
         result_data = {"success": True}
         filter_type = filter_type.lower().strip()
@@ -1955,7 +1960,8 @@ async def get_filter_options(
             ).join(
                 MediaItem, MediaKeyword.media_id == MediaItem.id
             ).where(
-                MediaItem.deleted_at.is_(None)
+                MediaItem.deleted_at.is_(None),
+                not_due_for_autodelete(),
             ).group_by(
                 Keyword.keyword_text
             ).order_by(
@@ -1978,6 +1984,7 @@ async def get_filter_options(
                     select(func.count(MediaItem.id))
                     .where(MediaItem.file_path.like(f"{folder_path}%"))
                     .where(MediaItem.deleted_at.is_(None))
+                    .where(not_due_for_autodelete())
                 )
                 count = count_result.scalar() or 0
                 folders.append({
@@ -2066,8 +2073,10 @@ async def browse_with_filters(
         log.info(f"browse_with_filters: keywords={keywords}, folders={folders}, markers={markers}")
 
         # Build the query
+        from utils.query_builder import not_due_for_autodelete
         query = select(MediaItem).where(
             MediaItem.deleted_at.is_(None),
+            not_due_for_autodelete(),
             MediaItem.metadata_status == 'completed'
         )
 

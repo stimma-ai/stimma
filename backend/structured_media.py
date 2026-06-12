@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import MediaItem
+from utils.query_builder import not_due_for_autodelete
 from core.logging import get_logger
 
 log = get_logger(__name__)
@@ -265,7 +266,8 @@ async def resolve_set_references(
         # Look up in database
         query = select(MediaItem).where(
             MediaItem.file_path == str(full_path),
-            MediaItem.deleted_at.is_(None)
+            MediaItem.deleted_at.is_(None),
+            not_due_for_autodelete(),
         )
         db_result = await session.execute(query)
         media_item = db_result.scalar_one_or_none()
@@ -333,7 +335,8 @@ async def resolve_grid_references(
         # Look up in database
         query = select(MediaItem).where(
             MediaItem.file_path == str(full_path),
-            MediaItem.deleted_at.is_(None)
+            MediaItem.deleted_at.is_(None),
+            not_due_for_autodelete(),
         )
         db_result = await session.execute(query)
         media_item = db_result.scalar_one_or_none()
@@ -427,7 +430,8 @@ async def resolve_markdown_references(
         # Look up in database
         query = select(MediaItem).where(
             MediaItem.file_path == str(full_path),
-            MediaItem.deleted_at.is_(None)
+            MediaItem.deleted_at.is_(None),
+            not_due_for_autodelete(),
         )
         db_result = await session.execute(query)
         media_item = db_result.scalar_one_or_none()

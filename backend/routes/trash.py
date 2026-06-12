@@ -218,6 +218,7 @@ async def get_trash(
         created_after=created_after,
         created_before=created_before,
         include_superseded=True,
+        exclude_expired=False,
     )
 
     # Handle similarity search separately (requires in-memory processing)
@@ -411,6 +412,7 @@ async def get_trash_filter_counts(
             excluded_tag_ids=excluded_tag_ids,
             exclude_category='media_types',
             include_superseded=True,
+            exclude_expired=False,
         )
         type_query = type_query.where(MediaItem.file_format.in_(formats))
         type_result = await session.execute(type_query)
@@ -435,6 +437,7 @@ async def get_trash_filter_counts(
         excluded_tag_ids=excluded_tag_ids,
         exclude_category='resolutions',
         include_superseded=True,
+        exclude_expired=False,
     )
     small_query = small_query.where(MediaItem.megapixels < 0.8)
     small_result = await session.execute(small_query)
@@ -458,6 +461,7 @@ async def get_trash_filter_counts(
         excluded_tag_ids=excluded_tag_ids,
         exclude_category='resolutions',
         include_superseded=True,
+        exclude_expired=False,
     )
     medium_query = medium_query.where(and_(
         MediaItem.megapixels >= 0.8,
@@ -484,6 +488,7 @@ async def get_trash_filter_counts(
         excluded_tag_ids=excluded_tag_ids,
         exclude_category='resolutions',
         include_superseded=True,
+        exclude_expired=False,
     )
     large_query = large_query.where(MediaItem.megapixels >= 1.5)
     large_result = await session.execute(large_query)
@@ -510,6 +515,7 @@ async def get_trash_filter_counts(
             excluded_tag_ids=excluded_tag_ids,
             exclude_category='folders',
             include_superseded=True,
+            exclude_expired=False,
         )
         # Ensure folder path ends with / to avoid partial matches
         folder_with_slash = folder.rstrip('/') + '/'
@@ -551,6 +557,7 @@ async def get_trash_filter_counts(
         excluded_tag_ids=excluded_tag_ids,
         exclude_category='keywords',
         include_superseded=True,
+        exclude_expired=False,
     )
 
     # Group by keyword and order by count
@@ -599,6 +606,7 @@ async def get_trash_filter_counts(
         excluded_marker_ids=excluded_marker_ids,
         exclude_category='tags',
         include_superseded=True,
+        exclude_expired=False,
     )
 
     # Group by tag and order by count
@@ -653,6 +661,7 @@ async def get_trash_filter_counts(
             excluded_tag_ids=excluded_tag_ids,
             exclude_category='date_ranges',
             include_superseded=True,
+            exclude_expired=False,
         )
         # Add created date filter (file creation date)
         range_query = range_query.where(MediaItem.created_date >= after_date)

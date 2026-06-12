@@ -10,6 +10,8 @@ Tests cover:
 - WebSocket events
 """
 
+from datetime import datetime, timedelta
+
 import pytest
 from httpx import AsyncClient
 from unittest.mock import patch
@@ -117,6 +119,81 @@ class TestSingleMedia:
         """Test fetching a media item that doesn't exist."""
         response = await client.get("/api/media/99999")
         assert response.status_code == 404
+
+
+class TestAutoDeleteGate:
+    """Items past their auto_delete_at deadline must be invisible immediately, before
+    the background cleanup worker physically removes them — mirroring the worker's
+    keep rules (tags/boards/markers exempt an item from deletion)."""
+
+    async def test_expired_item_hidden_from_list(self, client: AsyncClient, db_session):
+        """An item whose auto_delete_at has passed is excluded from GET /api/media."""
+        from tests.helpers.media import create_media_item
+
+        async with db_session() as session:
+            item = await create_media_item(session)
+            item.auto_delete_at = datetime.utcnow() - timedelta(minutes=1)
+            await session.commit()
+            expired_id = item.id
+
+        response = await client.get("/api/media")
+        assert response.status_code == 200
+        ids = {i["id"] for i in response.json()["items"]}
+        assert expired_id not in ids
+
+    async def test_expired_item_returns_404_on_single_fetch(self, client: AsyncClient, db_session):
+        """A direct GET /api/media/{id} for an expired item must 404, not flash the content."""
+        from tests.helpers.media import create_media_item
+
+        async with db_session() as session:
+            item = await create_media_item(session)
+            item.auto_delete_at = datetime.utcnow() - timedelta(minutes=1)
+            await session.commit()
+            expired_id = item.id
+
+        response = await client.get(f"/api/media/{expired_id}")
+        assert response.status_code == 404
+
+    async def test_future_expiry_item_still_visible(self, client: AsyncClient, db_session):
+        """An item with a future auto_delete_at is still shown (deadline not reached)."""
+        from tests.helpers.media import create_media_item
+
+        async with db_session() as session:
+            item = await create_media_item(session)
+            item.auto_delete_at = datetime.utcnow() + timedelta(hours=1)
+            await session.commit()
+            future_id = item.id
+
+        response = await client.get("/api/media")
+        ids = {i["id"] for i in response.json()["items"]}
+        assert future_id in ids
+        assert (await client.get(f"/api/media/{future_id}")).status_code == 200
+
+    async def test_expired_but_tagged_item_preserved(self, client: AsyncClient, db_session):
+        """Tagging exempts an item from auto-deletion, so an expired-but-tagged item stays
+        visible — the read gate must match the worker's keep rules, not hide it."""
+        from tests.helpers.media import create_media_item
+
+        async with db_session() as session:
+            item = await create_media_item(session)
+            tagged_id = item.id
+
+        # Tag it through the API, then push its deadline into the past.
+        await client.post(f"/api/media/{tagged_id}/tags", json={"tags": ["keepme"]})
+
+        async with db_session() as session:
+            from database import MediaItem
+            from sqlalchemy import select
+            item = (await session.execute(
+                select(MediaItem).where(MediaItem.id == tagged_id)
+            )).scalar_one()
+            item.auto_delete_at = datetime.utcnow() - timedelta(minutes=1)
+            await session.commit()
+
+        response = await client.get("/api/media")
+        ids = {i["id"] for i in response.json()["items"]}
+        assert tagged_id in ids
+        assert (await client.get(f"/api/media/{tagged_id}")).status_code == 200
 
 
 class TestMediaDelete:
