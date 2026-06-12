@@ -495,12 +495,16 @@ export function useMediaApi() {
    * Create a set (.stimmaset.json) from selected media items.
    * @param {number[]} mediaIds - Array of media IDs to include in the set
    * @param {string} [title] - Optional title for the set
+   * @param {number} [projectId] - Project context the set is created in; the set is attached to it
    * @returns {Promise<{file_path: string, title: string, item_count: number}>}
    */
-  async function createSetFromMedia(mediaIds, title = null) {
+  async function createSetFromMedia(mediaIds, title = null, projectId = null) {
     const payload = { media_ids: mediaIds }
     if (title) {
       payload.title = title
+    }
+    if (projectId) {
+      payload.project_id = projectId
     }
     const response = await axios.post(`${getAPIBase()}/media/sets`, payload)
     return response.data

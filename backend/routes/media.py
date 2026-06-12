@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query, HTTPException, Form, UploadFile, Body
 from pydantic import BaseModel
-from sqlalchemy import select, or_, and_, func, literal, Integer, update
+from sqlalchemy import select, or_, and_, func, literal, Integer, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -1264,6 +1264,7 @@ class CreateSetRequest(BaseModel):
     """Request body for creating a set from media items."""
     media_ids: List[int]
     title: Optional[str] = None
+    project_id: Optional[int] = None
 
 
 class CreateSetResponse(BaseModel):
@@ -1331,6 +1332,11 @@ async def create_set_from_media(
             status_code=400,
             detail=f"Cannot add items already in a set or grid: {owned_ids}. Explode the existing set/grid first."
         )
+
+    # Validate the project before any file is written
+    if request.project_id is not None:
+        from project_service import get_project_or_404
+        await get_project_or_404(session, request.project_id)
 
     # Get the generation folder for the current profile
     from core.profile_context import get_current_profile
@@ -1454,6 +1460,21 @@ async def create_set_from_media(
         .where(MediaItem.id.in_(source_ids))
         .values(superseded_by=set_media_item.id, is_hidden=None)
     )
+
+    # The set replaces its members, so it must appear in every project view
+    # where they appeared — attach it to the union of the members' projects
+    # plus the project context the request was made from.
+    from project_service import attach_media_to_project
+    project_result = await session.execute(
+        select(ProjectMedia.project_id)
+        .where(ProjectMedia.media_id.in_(source_ids))
+        .distinct()
+    )
+    set_project_ids = {row[0] for row in project_result.all()}
+    if request.project_id is not None:
+        set_project_ids.add(request.project_id)
+    for pid in sorted(set_project_ids):
+        await attach_media_to_project(session, pid, set_media_item.id)
     await session.commit()
 
     # Broadcast superseded_by changes for member items
@@ -1728,6 +1749,20 @@ async def explode_set_or_grid(
             .where(MediaItem.superseded_by == media_id)
             .values(superseded_by=None)
         )
+
+    # Freed members take over the set/grid's project memberships so they
+    # stay visible in the projects where the set lived.
+    from project_service import attach_media_to_project
+    project_result = await session.execute(
+        select(ProjectMedia.project_id).where(ProjectMedia.media_id == media_id)
+    )
+    set_project_ids = [row[0] for row in project_result.all()]
+    for pid in set_project_ids:
+        for mid in member_ids:
+            await attach_media_to_project(session, pid, mid)
+    await session.execute(
+        delete(ProjectMedia).where(ProjectMedia.media_id == media_id)
+    )
 
     # Delete the set/grid file from disk
     try:

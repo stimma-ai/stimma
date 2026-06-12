@@ -98,7 +98,9 @@ async def create_project(
         "projectHash": salted_hash(f"project:{project.id}"),
     }, category="organize")
 
-    return await _serialize_project(project, session)
+    result = await _serialize_project(project, session)
+    await ws_manager.broadcast("project_created", {"project": result.model_dump()})
+    return result
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -176,6 +178,7 @@ async def delete_project(project_id: int, session: AsyncSession = Depends(get_db
         await ws_manager.broadcast("chat_deleted", {"chat_id": chat_id})
     for board_id in deleted_board_ids:
         await ws_manager.broadcast("board_deleted", {"board_id": board_id})
+    await ws_manager.broadcast("project_deleted", {"project_id": project_id})
 
     from object_hash import salted_hash
     from telemetry import get_telemetry_client

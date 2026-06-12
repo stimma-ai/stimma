@@ -130,16 +130,18 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onActivated, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useWebSocket } from '../composables/useWebSocket'
 
 const router = useRouter()
 const entityContextMenu = useEntityContextMenu()
 const { createProject, deleteProject, getProjects, updateProject } = useMediaApi()
+const { on: onWsEvent } = useWebSocket()
 
 const projects = ref([])
 const loading = ref(false)
@@ -177,7 +179,9 @@ Attached assets will be moved to trash. Chats and boards will be deleted with th
 })
 
 async function loadProjects() {
-  loading.value = true
+  // Only show the loading state on the initial fetch — background refreshes
+  // (KeepAlive reactivation, websocket events) swap the list in place.
+  if (projects.value.length === 0) loading.value = true
   try {
     projects.value = await getProjects()
   } finally {
@@ -303,4 +307,19 @@ function openProject(id) {
 }
 
 onMounted(loadProjects)
+
+// This view lives under KeepAlive, so onMounted only fires once — refetch on
+// reactivation and on project websocket events so the list never goes stale.
+let activatedOnce = false
+onActivated(() => {
+  if (activatedOnce) loadProjects()
+  activatedOnce = true
+})
+
+const unsubscribeWs = [
+  onWsEvent('project_created', loadProjects),
+  onWsEvent('project_updated', loadProjects),
+  onWsEvent('project_deleted', loadProjects),
+]
+onUnmounted(() => unsubscribeWs.forEach((unsubscribe) => unsubscribe()))
 </script>

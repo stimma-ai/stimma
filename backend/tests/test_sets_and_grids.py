@@ -17,21 +17,34 @@ from tests.helpers.ws import MockWebSocketManager
 
 # ── helpers ──────────────────────────────────────────────────────────────
 
-async def create_set(client, db_session, *, count=3, title="Test Set"):
+async def create_set(client, db_session, *, count=3, title="Test Set", project_id=None, member_ids=None):
     """Helper: create images, group them into a set, return (set_id, member_ids)."""
-    async with db_session() as session:
-        members = []
-        for _ in range(count):
-            members.append(await create_media_item(session, file_format="png"))
-    member_ids = [m.id for m in members]
+    if member_ids is None:
+        async with db_session() as session:
+            members = []
+            for _ in range(count):
+                members.append(await create_media_item(session, file_format="png"))
+        member_ids = [m.id for m in members]
+
+    payload = {"media_ids": member_ids, "title": title}
+    if project_id is not None:
+        payload["project_id"] = project_id
 
     with patch("routes.media.ws_manager", MockWebSocketManager()):
-        resp = await client.post("/api/media/sets", json={
-            "media_ids": member_ids,
-            "title": title,
-        })
+        resp = await client.post("/api/media/sets", json=payload)
     assert resp.status_code == 200, f"Set creation failed: {resp.text}"
     return resp.json()["media_id"], member_ids
+
+
+async def get_media_project_ids(db_session, media_id):
+    """Helper: return the set of project ids a media item is attached to."""
+    from database import ProjectMedia
+    from sqlalchemy import select
+    async with db_session() as session:
+        result = await session.execute(
+            select(ProjectMedia.project_id).where(ProjectMedia.media_id == media_id)
+        )
+        return {row[0] for row in result.all()}
 
 
 # ── supersede on set creation ────────────────────────────────────────────
@@ -314,3 +327,115 @@ class TestExplodeSetOrGrid:
         assert resp.status_code == 200, (
             "Should be able to re-group freed items into a new set"
         )
+
+
+# ── project context ─────────────────────────────────────────────────────
+
+class TestSetProjectContext:
+    """Sets created in a project land in it; exploding hands membership back."""
+
+    async def _create_project(self, client, name):
+        resp = await client.post("/api/projects", json={"name": name})
+        assert resp.status_code == 200
+        return resp.json()["id"]
+
+    async def test_create_set_in_project_context_attaches_set(
+        self, generation_client, generation_db_session
+    ):
+        """Explicit project_id on set creation attaches the set to that project."""
+        project_id = await self._create_project(generation_client, "Set Context")
+
+        set_id, member_ids = await create_set(
+            generation_client, generation_db_session,
+            title="Project Set", project_id=project_id,
+        )
+
+        assert project_id in await get_media_project_ids(generation_db_session, set_id)
+
+        # The set shows up when browsing the project; superseded members don't
+        resp = await generation_client.get(f"/api/media?project_id={project_id}")
+        returned_ids = {item["id"] for item in resp.json()["items"]}
+        assert set_id in returned_ids
+        for mid in member_ids:
+            assert mid not in returned_ids
+
+    async def test_create_set_inherits_member_projects(
+        self, generation_client, generation_db_session
+    ):
+        """Without explicit context, the set inherits its members' projects."""
+        project_id = await self._create_project(generation_client, "Inherited")
+
+        async with generation_db_session() as session:
+            members = [
+                await create_media_item(session, file_format="png") for _ in range(2)
+            ]
+        member_ids = [m.id for m in members]
+        resp = await generation_client.post(
+            f"/api/projects/{project_id}/assets", json={"media_ids": member_ids}
+        )
+        assert resp.status_code == 200
+
+        set_id, _ = await create_set(
+            generation_client, generation_db_session,
+            title="Inherited Set", member_ids=member_ids,
+        )
+
+        assert project_id in await get_media_project_ids(generation_db_session, set_id)
+
+    async def test_create_set_with_unknown_project_404s(
+        self, generation_client, generation_db_session
+    ):
+        async with generation_db_session() as session:
+            members = [
+                await create_media_item(session, file_format="png") for _ in range(2)
+            ]
+
+        with patch("routes.media.ws_manager", MockWebSocketManager()):
+            resp = await generation_client.post("/api/media/sets", json={
+                "media_ids": [m.id for m in members],
+                "title": "Orphan Set",
+                "project_id": 999999,
+            })
+        assert resp.status_code == 404
+
+    async def test_explode_moves_membership_to_members(
+        self, generation_client, generation_db_session
+    ):
+        """Exploding a set in a project leaves the members in that project."""
+        project_id = await self._create_project(generation_client, "Explode Context")
+
+        set_id, member_ids = await create_set(
+            generation_client, generation_db_session,
+            title="Set To Explode In Project", project_id=project_id,
+        )
+
+        with patch("routes.media.ws_manager", MockWebSocketManager()):
+            resp = await generation_client.post(f"/api/media/{set_id}/explode")
+        assert resp.status_code == 200
+
+        for mid in member_ids:
+            assert project_id in await get_media_project_ids(generation_db_session, mid)
+
+        # No orphaned membership rows for the deleted set
+        assert await get_media_project_ids(generation_db_session, set_id) == set()
+
+        # Members are visible when browsing the project
+        resp = await generation_client.get(f"/api/media?project_id={project_id}")
+        returned_ids = {item["id"] for item in resp.json()["items"]}
+        for mid in member_ids:
+            assert mid in returned_ids
+
+    async def test_explode_outside_project_attaches_nothing(
+        self, generation_client, generation_db_session
+    ):
+        """Exploding a project-less set leaves members in no project."""
+        set_id, member_ids = await create_set(
+            generation_client, generation_db_session, title="Free Set",
+        )
+
+        with patch("routes.media.ws_manager", MockWebSocketManager()):
+            resp = await generation_client.post(f"/api/media/{set_id}/explode")
+        assert resp.status_code == 200
+
+        for mid in member_ids:
+            assert await get_media_project_ids(generation_db_session, mid) == set()

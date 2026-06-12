@@ -1334,7 +1334,7 @@ async function handleCreateSet() {
 
   creatingSet.value = true
   try {
-    const result = await createSetFromMedia(ids)
+    const result = await createSetFromMedia(ids, null, currentProjectId.value || null)
     contextMenu.hide()
     // Emit refresh so the grid reloads with the new set
     emit('refresh')

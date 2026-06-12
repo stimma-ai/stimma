@@ -394,12 +394,13 @@ async def generation_app(generation_temp_appdata_dir: Path):
 
         # Import and include routers (including generation and tools)
         from routes import (
-            boards, media, markers, tags, trash,
+            boards, media, markers, projects, tags, trash,
             saved_views, profiles, keywords, generation, tools,
             postprocessing,
         )
         app.include_router(media.router)
         app.include_router(boards.router)
+        app.include_router(projects.router)
         app.include_router(markers.router)
         app.include_router(tags.router)
         app.include_router(trash.router)
