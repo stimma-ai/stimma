@@ -897,7 +897,7 @@ def _validate_llm_images(images: Any) -> Any:
                         "paths, or ints are not accepted."
                     ),
                 )
-            if not _is_media_node(item):
+            if not _is_media_scalar(item.shape):
                 raise DSLMisuseError(
                     f"llm(images=[...]): list element has non-media shape "
                     f"{describe_shape(item.shape)}",

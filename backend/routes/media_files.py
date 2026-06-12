@@ -2301,6 +2301,7 @@ async def get_thumbnail_path_by_media_id(
     db_guid: str,
     media_id: int,
     size: int = Query(128, ge=64, le=1024),
+    mode: str = Query("crop", pattern="^(crop|fit)$"),
     theme: str = Query("dark"),
     session: AsyncSession = Depends(get_db_session_by_guid)
 ):
@@ -2325,11 +2326,12 @@ async def get_thumbnail_path_by_media_id(
     faces = faces_result.scalars().all()
     faces_data = [face.to_dict() for face in faces] if faces else None
 
-    # Compute cache path
-    cache_dir = get_thumbnail_cache_dir(get_active_modifier())
+    # Compute cache path (must match get_thumbnail_by_db_guid so the caches are shared)
+    settings = get_settings()
+    cache_dir = settings.get_thumbnail_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    THUMBNAIL_VERSION = 26  # v26: apply EXIF orientation when generating thumbnails
+    THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
     face_count = len(faces) if faces else 0
 
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
@@ -2346,7 +2348,7 @@ async def get_thumbnail_path_by_media_id(
 
     # Include theme in cache key only for synthetic thumbnail types
     theme_suffix = f"_theme{theme}" if fmt_lower in THEMED_FORMATS else ""
-    cache_key = hashlib.md5(f"{db_guid}_{item.file_path}_{size}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
+    cache_key = hashlib.md5(f"{db_guid}_{item.file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
 
     cache_path_png = _sharded_cache_path(cache_dir, cache_key, "png")
     cache_path_jpg = _sharded_cache_path(cache_dir, cache_key, "jpg")
@@ -2384,6 +2386,7 @@ async def get_thumbnail_path_by_media_id(
             size,
             faces_data,
             palette,
+            mode,
         )
 
     if not success:

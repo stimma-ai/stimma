@@ -497,7 +497,7 @@ async def suggest_categories(request: SuggestCategoriesRequest):
     if request.debug:
         debug_info = {
             "system_prompt": system_prompt,
-            "user_prompt": user_content,
+            "user_prompt": request.prompt,
             "raw_response": None,
         }
 

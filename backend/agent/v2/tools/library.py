@@ -1729,7 +1729,7 @@ async def _board(
         session.add(BoardSection(board_id=board.id, name=None, is_default=True, display_order=0))
         await session.commit()
         await session.refresh(board)
-        board_payload = await _board_dict_with_asset_count(board, session)
+        board_payload = (await serialize_board(board, session)).model_dump()
         await ws_manager.broadcast("board_created", {"board": board_payload})
 
     if not board:
@@ -1883,7 +1883,7 @@ async def _board(
             next_order += 1
         board.updated_at = datetime.utcnow()
         await session.commit()
-        board_payload = await _board_dict_with_asset_count(board, session)
+        board_payload = (await serialize_board(board, session)).model_dump()
         await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": board_payload})
         await ws_manager.broadcast("board_updated", {"board": board_payload})
         return json.dumps({"status": "ok", "moved": len(ids), "to_section": target_section.name or "(default)", "board": board.name})

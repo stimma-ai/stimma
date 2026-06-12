@@ -39,5 +39,8 @@ jobs:
         working-directory: backend
         run: uv sync --all-extras --locked
 
+      - name: Lint backend
+        run: tools/stimma lint backend
+
       - name: Run backend tests
         run: tools/stimma test backend -vv -rA --maxfail=1

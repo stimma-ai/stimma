@@ -165,6 +165,7 @@ Commands:
                       (default: sibling stimma-skills repo). Shadows installed copies.
   skills dev --off    Clear the dev skills override
   backup          Create timestamped backup of data directory
+  lint backend    Run ruff over the backend (undefined names, syntax errors)
   test backend    Run backend pytest tests
   test frontend   Run frontend e2e tests (starts its own backend+frontend)
   test frontend --ui       Open Playwright UI mode
@@ -1247,6 +1248,15 @@ async function main(): Promise<void> {
       const backupDir = `${dataDir}-backup-${stamp}`;
       await copyDir(dataDir, backupDir);
       console.log(`Backup complete: ${backupDir}`);
+      break;
+    }
+
+    case "lint": {
+      if (sub === "backend" || !sub) {
+        await run("uv", ["run", "ruff", "check", ".", ...rest], { cwd: join(repoRoot, "backend") });
+      } else {
+        printUsage();
+      }
       break;
     }
 

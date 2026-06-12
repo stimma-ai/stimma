@@ -13,6 +13,7 @@ import ast
 import asyncio
 import inspect
 from dataclasses import dataclass
+from typing import Any
 
 # Agent-level tools that have NO SDK equivalent inside run_code.
 # Used to give specific "use this outside run_code" guidance instead of

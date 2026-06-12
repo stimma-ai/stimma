@@ -7,7 +7,7 @@ import json
 import asyncio
 from typing import Optional, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from PIL import Image
 
 from agent_tools import tool
