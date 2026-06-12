@@ -28,7 +28,8 @@ class ConfigVersionManager:
         # Metadata version: static version since it doesn't depend on config
         # Only increment this if the metadata extraction logic changes
         # v2: Improved prompt parsing for ComfyUI, A1111, Fooocus formats
-        self._version_cache['metadata'] = 'v2'
+        # v3: EXIF-orientation-corrected dimensions (upload path stored raw w/h)
+        self._version_cache['metadata'] = 'v3'
 
         # CLIP version: model + pretrained dataset
         self._version_cache['clip'] = self._compute_hash(

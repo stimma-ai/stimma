@@ -48,7 +48,8 @@ def compute_size_from_image(image_path: str, megapixels: float, step: int = 64) 
     Returns:
         Tuple of (width, height) rounded to nearest step
     """
-    with Image.open(image_path) as img:
+    from utils.image_ops import open_oriented
+    with open_oriented(image_path) as img:
         src_width, src_height = img.size
 
     aspect_ratio = src_width / src_height
@@ -1695,7 +1696,8 @@ class GenerationQueue:
         else:
             # Use PIL for image dimensions
             try:
-                with Image.open(output_path) as img:
+                from utils.image_ops import open_oriented
+                with open_oriented(output_path) as img:
                     width, height = img.size
             except Exception:
                 width, height = 0, 0

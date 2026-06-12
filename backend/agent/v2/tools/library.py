@@ -1314,8 +1314,8 @@ async def save_workspace_file(
     width, height = 0, 0
     if not is_layout_bundle:
         try:
-            from PIL import Image
-            with Image.open(dest) as img:
+            from utils.image_ops import open_oriented
+            with open_oriented(dest) as img:
                 width, height = img.size
         except Exception:
             pass

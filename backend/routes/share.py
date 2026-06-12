@@ -277,7 +277,8 @@ def _rasterize_composite_for_moderation(member_paths: list[Path], max_size: int 
 
         for i, path in enumerate(valid_paths):
             try:
-                img = Image.open(path)
+                from utils.image_ops import open_oriented
+                img = open_oriented(path)
                 img.thumbnail((cell_size, cell_size))
                 if img.mode in ("RGBA", "LA", "PA", "P"):
                     img = img.convert("RGB")
@@ -464,8 +465,8 @@ async def pre_check_media(request: PreCheckRequest, session: AsyncSession = Depe
         image_payload = _rasterize_composite_for_moderation(member_paths)
     elif media_type == "image" and file_path.exists():
         try:
-            from PIL import Image
-            img = Image.open(file_path)
+            from utils.image_ops import open_oriented
+            img = open_oriented(file_path)
             img.thumbnail((512, 512))
             image_payload = _image_to_base64_payload(img)
             img.close()
@@ -660,7 +661,8 @@ def _generate_og_thumbnail(file_path: Path, media_type: str) -> Optional[bytes]:
             )
             img = Image.open(io.BytesIO(out))
         else:
-            img = Image.open(file_path)
+            from utils.image_ops import open_oriented
+            img = open_oriented(file_path)
 
         # Convert to RGB (strip alpha)
         if img.mode in ("RGBA", "LA", "PA", "P"):
@@ -744,7 +746,8 @@ async def _build_history_sidecar(session: AsyncSession, media_item: MediaItem) -
         if not p.exists():
             continue
         try:
-            img = Image.open(p)
+            from utils.image_ops import open_oriented
+            img = open_oriented(p)
             img.thumbnail((HISTORY_THUMB_SIZE, HISTORY_THUMB_SIZE), Image.LANCZOS)
             if img.mode in ("RGBA", "LA", "PA", "P"):
                 img = img.convert("RGB")
@@ -793,7 +796,8 @@ def _generate_source_thumbnail(media_item: MediaItem) -> Optional[str]:
             )
             img = Image.open(io.BytesIO(out))
         else:
-            img = Image.open(file_path)
+            from utils.image_ops import open_oriented
+            img = open_oriented(file_path)
 
         img.thumbnail((HISTORY_THUMB_SIZE, HISTORY_THUMB_SIZE), Image.LANCZOS)
         if img.mode in ("RGBA", "LA", "PA", "P"):
@@ -961,10 +965,10 @@ async def _vlm_generate_title(media_item) -> SuggestTitleResponse:
             return SuggestTitleResponse()
 
         import base64
-        from PIL import Image
         import io
+        from utils.image_ops import open_oriented
 
-        img = Image.open(file_path)
+        img = open_oriented(file_path)
         img.thumbnail((512, 512))
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")

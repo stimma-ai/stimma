@@ -43,7 +43,8 @@ class VLMService:
         """Encode image to base64 string. Accepts either Path or PIL Image."""
         # Open image if it's a path, otherwise use the provided Image
         if isinstance(image_input, Path):
-            img = Image.open(image_input)
+            from utils.image_ops import open_oriented
+            img = open_oriented(image_input)
             should_close = True
         else:
             img = image_input

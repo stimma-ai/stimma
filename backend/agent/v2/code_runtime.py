@@ -261,7 +261,8 @@ class ToolResult:
     prompt: str | None = None
 
     def open(self) -> Image.Image:
-        return Image.open(self.path)
+        from utils.image_ops import open_oriented
+        return open_oriented(self.path)
 
     def __getitem__(self, key: str) -> Any:
         """Allow dict-style access (result['media_id']) alongside dot notation."""
@@ -546,7 +547,8 @@ class StimmaSDK:
     def adjust(self, image, **kwargs) -> Image.Image:
         """Apply image adjustments, filters, and effects. Sync — no await needed."""
         if isinstance(image, (str, Path)):
-            image = Image.open(self._resolve_path(image))
+            from utils.image_ops import open_oriented
+            image = open_oriented(self._resolve_path(image))
         elif not isinstance(image, Image.Image):
             raise TypeError(f"Expected PIL Image or path, got {type(image).__name__}")
         from .image_adjust import adjust as _adjust
@@ -840,7 +842,8 @@ class StimmaSDK:
         text_part: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
         for image in images or []:
             image_path = self._resolve_path(image)
-            with Image.open(image_path) as img:
+            from utils.image_ops import open_oriented
+            with open_oriented(image_path) as img:
                 if img.mode != "RGB":
                     img = img.convert("RGB")
                 buf = io.BytesIO()

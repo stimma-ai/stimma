@@ -7,10 +7,25 @@ from typing import Literal
 from functools import lru_cache
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 
 ResizeMode = Literal["nearest", "bilinear", "bicubic"]
+
+
+def open_oriented(path: str | Path) -> Image.Image:
+    """Open an image with its EXIF orientation applied.
+
+    Library files keep their original bytes, so the orientation tag must be
+    applied at decode time to match how browsers and thumbnails display the
+    image. Use this instead of Image.open() whenever pixels or dimensions of
+    a library file feed display, ML, or generation paths.
+    """
+    img = Image.open(path)
+    transposed = ImageOps.exif_transpose(img)
+    if transposed is not img:
+        img.close()
+    return transposed
 
 
 @lru_cache(maxsize=1)
@@ -38,8 +53,8 @@ def _skimage_func(name: str):
 
 
 def imread_bgr(path: str | Path) -> np.ndarray:
-    """Load image as BGR uint8 array."""
-    with Image.open(path) as img:
+    """Load image as BGR uint8 array, honoring EXIF orientation."""
+    with open_oriented(path) as img:
         rgb = np.array(img.convert("RGB"), dtype=np.uint8)
     return rgb[:, :, ::-1].copy()
 

@@ -318,8 +318,8 @@ class LightweightProvider(ToolProvider):
         started = time.perf_counter()
 
         def _apply() -> str:
-            with Image.open(image_path) as img:
-                img.load()
+            from utils.image_ops import open_oriented
+            with open_oriented(image_path) as img:
                 out = apply_builtin_filter(filter_id, img, settings)
                 fd, tmp_path = tempfile.mkstemp(suffix=".png", prefix=f"filter_{filter_id}_")
                 import os

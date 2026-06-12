@@ -109,9 +109,10 @@ class UploadService:
         return sha256.hexdigest()
 
     def _get_image_dimensions(self, file_path: Path) -> Tuple[int, int]:
-        """Get image dimensions."""
+        """Get image dimensions, honoring EXIF orientation."""
         try:
-            with Image.open(file_path) as img:
+            from utils.image_ops import open_oriented
+            with open_oriented(file_path) as img:
                 return img.size
         except Exception as e:
             log.warning(f"Failed to get image dimensions for {file_path}: {e}")

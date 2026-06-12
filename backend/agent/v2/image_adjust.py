@@ -1039,7 +1039,8 @@ def adjust(
     """
     # Load image if path
     if isinstance(image, (str, Path)):
-        image = Image.open(image)
+        from utils.image_ops import open_oriented
+        image = open_oriented(image)
     elif not isinstance(image, Image.Image):
         raise TypeError(f"Expected PIL Image or path, got {type(image).__name__}")
 

@@ -286,8 +286,9 @@ class SAM3Service:
         from osam._models.yoloworld.clip import tokenize
 
         try:
-            # Load image
-            image = Image.open(image_path).convert("RGB")
+            # Load image (EXIF-oriented so masks align with the displayed image)
+            from utils.image_ops import open_oriented
+            image = open_oriented(image_path).convert("RGB")
             original_width, original_height = image.size
             log.info(f"SAM3: Segmenting image {original_width}x{original_height} with prompt '{prompt}'")
 
