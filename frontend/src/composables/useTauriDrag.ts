@@ -199,24 +199,34 @@ export function useTauriDrag() {
       // Prevent browser drag immediately (must be sync)
       event.preventDefault()
 
-      // Resolve a metadata-embedded snapshot so the dragged file carries
-      // A1111 + Stimma chunks. Fast path: client-side cache hit. Cold path:
-      // one HTTP round-trip; backend disk-caches by (file_hash, metadata_hash)
-      // so this is typically <30ms after the first call per item.
+      // Start the native drag synchronously within this gesture. The macOS
+      // drag plugin ends up in -beginDraggingSessionWithItems:event:source:,
+      // which AppKit only permits from inside the originating mouse event. If
+      // we first await a network/IPC round-trip (the snapshot embed), the
+      // mouse gesture is over by the time we call it and AppKit aborts with an
+      // uncaught NSInternalInconsistencyException — a hard native crash (the
+      // macOS "app quit unexpectedly" reporter). So we drag whatever path is
+      // ready *right now* and never await before start_drag.
+      //
+      // To still ship the metadata-embedded snapshot (A1111 + Stimma chunks),
+      // it's resolved ahead of time: prewarmDragSnapshot() populates the cache
+      // when the item is displayed, so by drag time the cached snapshot is
+      // usually already here. Cold misses fall back to the raw file (drag still
+      // works; it just lacks embedded metadata until the warm completes).
       const cachedPreview = thumbnailPathCache.get(mediaId)
       const cachedSnapshot = snapshotPathCache.get(mediaId)
-      const dragPathPromise: Promise<string> = cachedSnapshot
-        ? Promise.resolve(cachedSnapshot)
-        : getExportableSnapshotPath(mediaId).then((p) => p || filePath)
+      const dragPath = cachedSnapshot || filePath
 
-      dragPathPromise
-        .then((path) => startNativeDrag([path], cachedPreview))
-        .catch((e) => {
-          console.error('[useTauriDrag] Native drag failed:', e)
-        })
+      startNativeDrag([dragPath], cachedPreview).catch((e) => {
+        console.error('[useTauriDrag] Native drag failed:', e)
+      })
 
-      // Warm the tidy small-thumbnail preview in the background so the next
-      // drag of this item shows the compact chip instead of the full file.
+      // Warm the embedded snapshot + tidy small-thumbnail preview in the
+      // background so the next drag of this item carries metadata and shows
+      // the compact chip instead of the full file.
+      if (!cachedSnapshot) {
+        getExportableSnapshotPath(mediaId).catch(() => {})
+      }
       if (!cachedPreview) {
         getThumbnailPath(mediaId)
           .then((p) => { if (p) thumbnailPathCache.set(mediaId, p) })
@@ -270,22 +280,26 @@ export function useTauriDrag() {
       // Prevent browser drag immediately (must be sync)
       event.preventDefault()
 
-      try {
-        // Resolve metadata-embedded snapshots in parallel; fall back to the
-        // original file path for any that can't be embedded.
-        const resolvedPaths = await Promise.all(
-          mediaIds.map(async (id, i) => {
-            const cached = snapshotPathCache.get(id)
-            if (cached) return cached
-            const snapshot = await getExportableSnapshotPath(id)
-            return snapshot || filePaths[i]
-          })
-        )
-        const thumbnailPath = await getThumbnailPath(mediaIds[0])
-        await startNativeDrag(resolvedPaths, thumbnailPath || undefined)
-        console.log('[useTauriDrag] Started native drag for', resolvedPaths.length, 'files')
-      } catch (e) {
+      // Same constraint as handleDragStart: the native drag must begin
+      // synchronously within this gesture, so we never await snapshot embedding
+      // or thumbnail fetches before start_drag (doing so ends the mouse gesture
+      // and crashes the macOS drag plugin). Use whatever snapshots are already
+      // cached, falling back to the raw file path per item.
+      const resolvedPaths = mediaIds.map((id, i) => snapshotPathCache.get(id) || filePaths[i])
+      const cachedPreview = thumbnailPathCache.get(mediaIds[0])
+
+      startNativeDrag(resolvedPaths, cachedPreview).catch((e) => {
         console.error('[useTauriDrag] Multi-file native drag failed:', e)
+      })
+
+      // Warm embedded snapshots + preview in the background for next time.
+      mediaIds.forEach((id) => {
+        if (!snapshotPathCache.has(id)) getExportableSnapshotPath(id).catch(() => {})
+      })
+      if (!cachedPreview) {
+        getThumbnailPath(mediaIds[0])
+          .then((p) => { if (p) thumbnailPathCache.set(mediaIds[0], p) })
+          .catch(() => {})
       }
       return
     }
@@ -318,11 +332,33 @@ export function useTauriDrag() {
     filePathCache.set(mediaId, filePath)
   }
 
+  /**
+   * Resolve the metadata-embedded snapshot (and compact drag preview) for an
+   * item ahead of any drag, so the actual dragstart can start the native drag
+   * synchronously from cache without awaiting a round-trip (which crashes the
+   * macOS drag plugin — see handleDragStart). Call this when an item becomes
+   * the likely drag target, e.g. when shown in the slideshow. No-op outside
+   * Tauri and safe to call repeatedly (cached after the first resolve).
+   */
+  async function prewarmDragSnapshot(mediaId: number): Promise<void> {
+    await initTauri()
+    if (!isTauri.value || !tauriInvoke) return
+    if (!snapshotPathCache.has(mediaId)) {
+      getExportableSnapshotPath(mediaId).catch(() => {})
+    }
+    if (!thumbnailPathCache.has(mediaId)) {
+      getThumbnailPath(mediaId)
+        .then((p) => { if (p) thumbnailPathCache.set(mediaId, p) })
+        .catch(() => {})
+    }
+  }
+
   return {
     isTauri,
     handleDragStart,
     handleMultiDragStart,
     cacheFilePath,
-    getFilePath
+    getFilePath,
+    prewarmDragSnapshot
   }
 }

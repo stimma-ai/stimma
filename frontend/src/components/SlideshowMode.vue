@@ -1191,7 +1191,7 @@ const emit = defineEmits(['close', 'filterByKeyword', 'findSimilar', 'update:ind
 const { getThumbnailUrl, getMediaFileUrl, getMediaItem, fetchMedia, deleteMedia, findMediaIndex, restoreFromTrash, permanentlyDeleteMedia, getMediaFaces, downloadMedia: downloadMediaApi, getProjects, addMediaToProject, removeMediaFromProject } = useMediaApi()
 const { on: onWebSocketEvent } = useWebSocket()
 const { cachedTools, fetchProvidersAndTools } = useProvidersApi()
-const { isTauri, handleDragStart: tauriDragStart } = useTauriDrag()
+const { isTauri, handleDragStart: tauriDragStart, prewarmDragSnapshot } = useTauriDrag()
 
 // Tooltip nudge for the (otherwise invisible) ⌥ drag-out modifier. Plain drag
 // is an in-app transfer everywhere; the file-export modifier only applies in
@@ -1738,6 +1738,16 @@ const hasRawMetadata = computed(() => {
 })
 
 // Update displayItem when currentItem changes (but only if it's ready)
+// Resolve the metadata-embedded drag snapshot for the shown item up front, so
+// the control-strip "drag out" handle (and ⌥-drag) can start the native drag
+// synchronously from cache. Embedding inline during dragstart awaits a
+// round-trip that outlives the mouse gesture and crashes the macOS drag plugin.
+watch(currentItem, (newItem) => {
+  if (isTauri.value && newItem?.id != null && newItem.file_path) {
+    prewarmDragSnapshot(newItem.id)
+  }
+}, { immediate: true })
+
 watch(currentItem, (newItem) => {
   console.log('[SlideshowDebug] current_item_watch', {
     newItemId: newItem?.id,
