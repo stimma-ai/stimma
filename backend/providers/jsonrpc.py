@@ -728,6 +728,13 @@ class JsonRpcProvider(ToolProvider):
                     )
                 else:
                     future.set_result(message.get("result"))
+            else:
+                log.warning(
+                    "ignoring message with unknown id",
+                    id=request_id,
+                    method=message.get("method"),
+                    provider=self.provider_id,
+                )
             return
 
         # It's a notification
@@ -753,11 +760,24 @@ class JsonRpcProvider(ToolProvider):
                     stage="executing",
                 )
                 await self._pending_executions[request_id].put(("progress", progress))
+            else:
+                log.debug(
+                    "dropping tools.progress for unknown request",
+                    request_id=request_id,
+                    provider=self.provider_id,
+                )
 
         elif method == "tools.result":
             request_id = params.get("request_id")
             if request_id in self._pending_executions:
                 await self._pending_executions[request_id].put(("result", params))
+            else:
+                log.warning(
+                    "dropping tools.result for unknown request",
+                    request_id=request_id,
+                    success=params.get("success"),
+                    provider=self.provider_id,
+                )
 
         elif method == "tools.changed":
             log.info("provider tools changed, refreshing", provider=self.provider_id)
