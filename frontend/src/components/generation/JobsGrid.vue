@@ -280,6 +280,9 @@ interface Props {
   // Media id of the item currently focused/shown elsewhere (e.g. the Stage hero).
   // Its tile gets a blue ring so the user can see what they're looking at.
   currentMediaId?: number | null
+  // Human-readable name of the tool whose jobs this grid shows. Jobs only carry
+  // the raw model/tool id, so the owning view supplies the display name.
+  toolDisplayName?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -292,7 +295,8 @@ const props = withDefaults(defineProps<Props>(), {
   imageMode: 'cover',
   emptyMessage: 'No jobs yet',
   isVideo: false,
-  currentMediaId: null
+  currentMediaId: null,
+  toolDisplayName: ''
 })
 
 const emit = defineEmits<{
@@ -479,7 +483,7 @@ function jobModel(job: Job) {
   const enhancing = job.status === 'enhancing'
   const processing = job.status === 'processing'
   return {
-    name: job.model_name || 'Generation',
+    name: props.toolDisplayName || job.model_name || 'Generation',
     status: enhancing ? 'enhancing' : processing ? 'processing' : 'queued',
     label: enhancing ? 'Enhancing prompt…' : processing ? 'Generating…' : 'Queued…',
     segments: [{ status: (processing || enhancing ? 'active' : 'pending') as const }],
@@ -488,7 +492,7 @@ function jobModel(job: Job) {
 
 function failedJobModel(job: Job) {
   return {
-    name: job.model_name || 'Generation',
+    name: props.toolDisplayName || job.model_name || 'Generation',
     label: job.error ? `Failed — ${job.error}` : 'Failed — click for details',
     segments: [{ status: 'failed' as const }],
     failed: true,
@@ -499,7 +503,7 @@ function failedJobModel(job: Job) {
 function batchModel(batch: BatchInfo) {
   const done = batch.completed + batch.failed
   return {
-    name: batch.jobs?.[0]?.model_name || 'Batch',
+    name: props.toolDisplayName || batch.jobs?.[0]?.model_name || 'Batch',
     status: batch.inProgress > 0 ? 'processing' : 'queued',
     label: `${done} of ${batch.total} done`,
     progress: batch.total ? done / batch.total : null,

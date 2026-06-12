@@ -3346,7 +3346,8 @@ async def _save_fetched_media(
     height = 0
     try:
         def _measure() -> tuple[int, int]:
-            with Image.open(file_path) as img:
+            from utils.image_ops import open_oriented
+            with open_oriented(file_path) as img:
                 return img.width, img.height
         width, height = await asyncio.to_thread(_measure)
     except Exception:

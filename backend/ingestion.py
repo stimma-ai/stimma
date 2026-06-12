@@ -1146,12 +1146,26 @@ class MediaIngestion:
                 item = result.scalar_one_or_none()
 
                 if item:
+                    # Detect dimension changes (e.g. EXIF orientation fix) —
+                    # visual AI results were computed on differently-shaped
+                    # pixels and must be redone.
+                    dims_changed = (
+                        item.width and item.height and
+                        (item.width, item.height) != (metadata['width'], metadata['height'])
+                    )
+
                     # Update metadata fields
                     item.file_hash = metadata['file_hash']
                     item.width = metadata['width']
                     item.height = metadata['height']
                     item.megapixels = metadata['megapixels']
                     item.duration = metadata.get('duration')
+
+                    if dims_changed:
+                        for phase_attr in ('clip_status', 'face_detection_status', 'vlm_caption_status'):
+                            if getattr(item, phase_attr) in ('completed', 'failed'):
+                                setattr(item, phase_attr, 'pending')
+                        log.info(f"METADATA: Dimensions changed for {file_path_str}, reset visual AI phases")
 
                     # Update audio-specific metadata
                     item.audio_sample_rate = metadata.get('audio_sample_rate')

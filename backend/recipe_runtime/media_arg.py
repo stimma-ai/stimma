@@ -60,11 +60,9 @@ class Media:
     @property
     def pil(self) -> Any:
         if self._pil is None:
-            from PIL import Image
+            from utils.image_ops import open_oriented
 
-            img = Image.open(self._path)
-            img.load()
-            self._pil = img
+            self._pil = open_oriented(self._path)
         return self._pil
 
     def __repr__(self) -> str:

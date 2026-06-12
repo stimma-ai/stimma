@@ -450,7 +450,8 @@ async def preprocess_reference(request: ReferencePreprocessRequest):
         raise HTTPException(status_code=404, detail="Source image not found")
 
     # Build cache key from all inputs
-    cache_parts = [str(source.stat().st_mtime), str(source.stat().st_size)]
+    # v2: EXIF orientation applied to source — invalidates pre-fix entries
+    cache_parts = ["v2", str(source.stat().st_mtime), str(source.stat().st_size)]
     if request.flip:
         cache_parts.append(f"flip:{json.dumps(request.flip, sort_keys=True)}")
     if request.scale:
@@ -492,8 +493,9 @@ async def preprocess_reference(request: ReferencePreprocessRequest):
         return result
 
     try:
-        # Step 1: Load source image
-        img = Image.open(source).convert("RGBA")
+        # Step 1: Load source image (EXIF-oriented to match how the UI displays it)
+        from utils.image_ops import open_oriented
+        img = open_oriented(source).convert("RGBA")
 
         # Step 2: Flip / rotate (applied first so downstream stages see final orientation)
         if request.flip:

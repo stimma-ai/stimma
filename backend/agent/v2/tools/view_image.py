@@ -137,7 +137,8 @@ async def view_image(path: str = None, media_id: int = None, detail: str = "low"
         return json.dumps(result_data)
 
     try:
-        img = Image.open(resolved)
+        from utils.image_ops import open_oriented
+        img = open_oriented(resolved)
         img = _downscale(img, max_side)
         w, h = img.size
     except Exception as e:

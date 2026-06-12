@@ -149,7 +149,8 @@ class FaceDetectionService:
         should_close_image = False
         if isinstance(image, (str, Path)):
             log.debug(f"FACE DETECTION: Loading image from path: {image}")
-            image = Image.open(image).convert("RGB")
+            from utils.image_ops import open_oriented
+            image = open_oriented(image).convert("RGB")
             should_close_image = True
             log.debug(f"FACE DETECTION: Image loaded and converted to RGB")
         elif not isinstance(image, Image.Image):

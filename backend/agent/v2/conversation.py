@@ -232,7 +232,8 @@ def _build_view_image_result(tool_call_id: str, marker: dict) -> dict:
         }
 
     try:
-        img = Image.open(resolved)
+        from utils.image_ops import open_oriented
+        img = open_oriented(resolved)
         w, h = img.size
         if max(w, h) > max_side:
             scale = max_side / max(w, h)

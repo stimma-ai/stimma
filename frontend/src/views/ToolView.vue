@@ -641,6 +641,7 @@
           :is-video="outputsVideo"
           :image-mode="uiState.imageMode"
           :current-media-id="layoutMode === 'stage' ? stageCurrentMediaId : null"
+          :tool-display-name="tool?.name"
           empty-message="No jobs yet"
           @job-click="handleQueueClick"
           @toggle-marker="handleToggleMarker"
