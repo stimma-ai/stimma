@@ -106,6 +106,11 @@ class GenerationQueue:
         self.scheduler = get_scheduler()
         self._workers_running = False
         self._worker_tasks = []
+        self._finalize_tasks = set()  # detached post-processing tails (keep refs)
+        # generator_instance_id -> count of jobs whose GPU work is done but whose
+        # post-processing tail is still running. These are NOT occupying a GPU,
+        # so they must not count against a forever-mode client's concurrency.
+        self._finalizing_per_client: Dict[str, int] = {}
         self._websocket_manager = None
         # Forever mode: track clients that want continuous work
         # backend_name -> generator_instance_id -> max_concurrency (0 = unlimited)
@@ -399,11 +404,16 @@ class GenerationQueue:
             if backend_slots_to_fill <= 0:
                 return
 
-            # Build a map of active jobs per client for capacity checking (snapshot from DB)
+            # Build a map of active jobs per client for capacity checking (snapshot from DB).
+            # Subtract jobs that are still 'processing' in the DB only because their
+            # post-processing tail hasn't finished — their GPU work is done, so they
+            # don't occupy a slot and must not count against the client's concurrency.
             client_active_jobs = {}
             client_ids = list(clients_dict_snapshot.keys())
             for client_id in client_ids:
-                client_active_jobs[client_id] = await self._get_client_active_jobs(client_id)
+                db_active = await self._get_client_active_jobs(client_id)
+                finalizing = self._finalizing_per_client.get(client_id, 0)
+                client_active_jobs[client_id] = max(0, db_active - finalizing)
 
             # Capture pending snapshot at START (requests from PREVIOUS calls not yet fulfilled)
             # This must be captured BEFORE we send any new requests
@@ -1534,6 +1544,14 @@ class GenerationQueue:
                 log.warning("worker tasks did not finish in time during shutdown")
         self._worker_tasks = []
 
+        # Let in-flight post-processing tails finish so we don't drop the DB
+        # record / metadata for a generation that already completed on the GPU.
+        if self._finalize_tasks:
+            try:
+                await asyncio.wait_for(self._await_finalizers(), timeout=10.0)
+            except asyncio.TimeoutError:
+                log.warning("post-processing tails did not finish in time during shutdown")
+
     async def _worker_loop(self, worker_id: int):
         """Worker loop that requests jobs from scheduler and processes them.
 
@@ -2259,439 +2277,27 @@ class GenerationQueue:
             if hasattr(exec_result, 'workflow'):
                 result.comfy_workflow = exec_result.workflow
 
-            # =====================================================================
-            # POST-PROCESSING
-            # =====================================================================
+            # GPU compute is done and the output is written. Stamp completion time
+            # HERE (at GPU-done) rather than at the end of post-processing, so the
+            # job's completed_at / computeMs reflect pure compute, not the detached
+            # post-processing tail that overlaps the next generation.
+            completed_at = datetime.utcnow()
 
-            # Look up chat_item_id by finding the generation_grid that contains this job
-            # This will be None for non-chat generation, which is fine
-            import time as _time
-            _post_gen_start = _time.time()
-            # Jobs with tool_id are from standalone tool pages, not chat - skip the lookup
-            if job.tool_id:
-                chat_item_id = None
-            else:
-                try:
-                    chat_item_id = await self._find_chat_item_for_job(job.id, profile_id=profile_id)
-                except Exception as e:
-                    log.warning(f"Job {job.id}: Error looking up chat_item_id: {e}")
-                    chat_item_id = None
-            log.debug(f"Job {job.id}: TIMING - _find_chat_item_for_job: {(_time.time() - _post_gen_start)*1000:.0f}ms")
+            # Detach post-processing (DB writes, metadata embed, broadcasts) so the
+            # GPU never idles through it. Spawn FIRST so the job is counted as
+            # "finalizing" (GPU-free) before we ask for more work, otherwise the
+            # per-client capacity check would still see it as a running job and
+            # refuse to dispatch the next one.
+            self._spawn_finalize(job, profile_id, result, output_path, params,
+                                 task_type, lineage_data, exec_result, provider,
+                                 completed_at)
 
-            # Build generation_metadata for:
-            # - Image tasks from any provider (for lineage tracking)
-            # - Video tasks (metadata can't be embedded in video files)
-            generation_metadata_json = None
-
-            # Build metadata for all image generation tasks
-            # This ensures generation parameters and lineage are captured consistently for ALL tools
-            # Previously this excluded builtin providers and only covered text-to-image/image-to-image,
-            # but that caused inconsistent parameter capture (e.g., inpaint-image was missing params)
-            _IMAGE_TASK_TYPES = {'text-to-image', 'image-to-image', 'inpaint-image', 'outpaint-image', 'upscale-image', 'remove-background', 'filter'}
-            needs_metadata = task_type in _IMAGE_TASK_TYPES
-
-            # Build metadata with full generation parameters
-            if needs_metadata:
-                original_params = dict(params)
-
-                # Parameters are already clean from the request - just exclude internal fields
-                # Include all variations of input field names and their _media_id counterparts
-                internal_keys = {
-                    'prompt', 'prompt_metadata', 'auto_marker_ids', 'mask_image',
-                    'input_images', 'input_videos',
-                    'input_media_ids', 'input_video_media_ids',
-                }
-                filtered_params = {
-                    k: v for k, v in original_params.items()
-                    if k not in internal_keys and v is not None
-                }
-                # Capture the actual seed used by the provider (may differ from requested seed)
-                filtered_params['seed'] = resolve_recorded_seed(
-                    original_params.get('seed'),
-                    getattr(result, 'actual_seed', None),
-                )
-
-                generation_metadata = {
-                    "version": 3,
-                    "source": "stimma",
-                    "tool_id": job.tool_id,
-                    "task_type": task_type,
-                    "prompt": original_params.get('prompt', ''),
-                    "negative_prompt": original_params.get('negative_prompt', ''),
-                    "parameters": filtered_params,
-                    "generated_at": datetime.utcnow().isoformat() + 'Z',
-                    "source_inputs": lineage_data.get('source_inputs', []),
-                    "lineage_trace": lineage_data.get('lineage_trace', []),
-                    "prompt_metadata": original_params.get('prompt_metadata'),
-                }
-
-                # Add execution results
-                if exec_result.generation_time is not None:
-                    generation_metadata["generation_time"] = round(exec_result.generation_time, 2)
-
-                generation_metadata_json = json.dumps(generation_metadata)
-                log.debug(f"Job {job.id}: Built generation_metadata for {provider.provider_id}")
-
-            elif task_type in ('image-to-video', 'text-to-video') and hasattr(result, 'generation_time'):
-                original_params = dict(params)
-
-                # Build parameters from actual job params, not hardcoded defaults
-                internal_keys = {
-                    'prompt', 'prompt_metadata', 'auto_marker_ids',
-                    'input_images', 'input_videos',
-                    'input_media_ids', 'input_video_media_ids',
-                    'negative_prompt',
-                }
-                filtered_params = {
-                    k: v for k, v in original_params.items()
-                    if k not in internal_keys and v is not None
-                }
-                filtered_params['seed'] = resolve_recorded_seed(
-                    original_params.get('seed'),
-                    getattr(result, 'actual_seed', None),
-                )
-                filtered_params['generation_time'] = round(result.generation_time, 2)
-
-                generation_metadata = {
-                    "version": 3,
-                    "source": "stimma",
-                    "tool_id": job.tool_id,
-                    "generator": job.backend_name or job.generator_name,
-                    "model": job.model_name,
-                    "task_type": task_type,
-                    "prompt": original_params.get('prompt', ''),
-                    "negative_prompt": original_params.get('negative_prompt', ''),
-                    "parameters": filtered_params,
-                    "generated_at": datetime.utcnow().isoformat() + 'Z',
-                    "source_inputs": lineage_data.get('source_inputs', []),
-                    "lineage_trace": lineage_data.get('lineage_trace', []),
-                }
-                generation_metadata_json = json.dumps(generation_metadata)
-            elif task_type == 'upscale-video' and hasattr(result, 'generation_time'):
-                original_params = dict(params)
-                generation_metadata = {
-                    "version": 3,
-                    "source": "stimma",
-                    "generator": job.backend_name or job.generator_name,
-                    "model": job.model_name,
-                    "task_type": task_type,
-                    "parameters": {
-                        "resolution": original_params.get('resolution', 1080),
-                        "color_correction": original_params.get('color_correction', 'lab'),
-                        "seed": resolve_recorded_seed(
-                            original_params.get('seed'),
-                            getattr(result, 'actual_seed', None),
-                        ),
-                        "generation_time": round(result.generation_time, 2),
-                    },
-                    "generated_at": datetime.utcnow().isoformat() + 'Z',
-                    "source_inputs": lineage_data.get('source_inputs', []),
-                    "lineage_trace": lineage_data.get('lineage_trace', []),
-                }
-                # Include tool_id for provenance tracking
-                if job.tool_id:
-                    generation_metadata["tool_id"] = job.tool_id
-                generation_metadata_json = json.dumps(generation_metadata)
-            elif task_type == 'video-stitch' and hasattr(result, 'generation_time'):
-                original_params = dict(params)
-                generation_metadata = {
-                    "version": 3,
-                    "source": "stimma",
-                    "generator": job.backend_name or job.generator_name,
-                    "model": job.model_name,
-                    "task_type": task_type,
-                    "prompt": original_params.get('prompt', ''),
-                    "negative_prompt": original_params.get('negative_prompt', ''),
-                    "parameters": {
-                        "context_frames": original_params.get('context_frames', 16),
-                        "replace_frames": original_params.get('replace_frames', 8),
-                        "add_frames": original_params.get('add_frames', 0),
-                        "megapixels": original_params.get('megapixels', 0.4),
-                        "fps": original_params.get('fps', 16),
-                        "steps": original_params.get('steps', 20),
-                        "cfg": original_params.get('cfg', 4.0),
-                        "seed": resolve_recorded_seed(
-                            original_params.get('seed'),
-                            getattr(result, 'actual_seed', None),
-                        ),
-                        "generation_time": round(result.generation_time, 2),
-                    },
-                    "generated_at": datetime.utcnow().isoformat() + 'Z',
-                    "source_inputs": lineage_data.get('source_inputs', []),
-                    "lineage_trace": lineage_data.get('lineage_trace', []),
-                }
-                if job.tool_id:
-                    generation_metadata["tool_id"] = job.tool_id
-                generation_metadata_json = json.dumps(generation_metadata)
-            elif task_type == 'video-extend' and hasattr(result, 'generation_time'):
-                original_params = dict(params)
-                generation_metadata = {
-                    "version": 3,
-                    "source": "stimma",
-                    "generator": job.backend_name or job.generator_name,
-                    "model": job.model_name,
-                    "task_type": task_type,
-                    "prompt": original_params.get('prompt', ''),
-                    "negative_prompt": original_params.get('negative_prompt', ''),
-                    "parameters": {
-                        "context_frames": original_params.get('context_frames', 16),
-                        "extend_frames": original_params.get('extend_frames', 33),
-                        "megapixels": original_params.get('megapixels', 0.4),
-                        "fps": original_params.get('fps', 16),
-                        "steps": original_params.get('steps', 20),
-                        "cfg": original_params.get('cfg', 4.0),
-                        "seed": resolve_recorded_seed(
-                            original_params.get('seed'),
-                            getattr(result, 'actual_seed', None),
-                        ),
-                        "generation_time": round(result.generation_time, 2),
-                    },
-                    "generated_at": datetime.utcnow().isoformat() + 'Z',
-                    "source_inputs": lineage_data.get('source_inputs', []),
-                    "lineage_trace": lineage_data.get('lineage_trace', []),
-                }
-                if job.tool_id:
-                    generation_metadata["tool_id"] = job.tool_id
-                generation_metadata_json = json.dumps(generation_metadata)
-
-            # Inject inspired_by into generation_metadata if present
-            _inspired_by_id = params.get('inspired_by_media_id')
-            if _inspired_by_id and generation_metadata_json:
-                try:
-                    _meta = json.loads(generation_metadata_json)
-                    _meta['inspired_by'] = {"media_id": int(_inspired_by_id)}
-                    generation_metadata_json = json.dumps(_meta)
-                except (json.JSONDecodeError, ValueError):
-                    pass
-
-            # ALL post-generation database operations in ONE session to avoid lock contention
-            # This is critical for SQLite - multiple sessions competing for write locks cause deadlocks
-            _t0 = _time.time()
-            async with self._get_db(profile_id).async_session_maker() as session:
-                # Insert file directly into the profile's database
-                media_item = await self._insert_generated_file(
-                    output_path,
-                    session=session,
-                    chat_item_id=chat_item_id,
-                    generation_metadata=generation_metadata_json
-                )
-                log.debug(f"Job {job.id}: TIMING - _insert_generated_file: {(_time.time() - _t0)*1000:.0f}ms")
-                log.debug(f"Job {job.id}: Inserted media item {media_item.id} directly (chat_item_id={chat_item_id}, profile_id={profile_id})")
-
-                # Record lineage relationships to media_lineage table
-                _t1 = _time.time()
-                await self._record_lineage(media_item.id, lineage_data.get('source_inputs', []), task_type, session)
-                log.debug(f"Job {job.id}: TIMING - _record_lineage: {(_time.time() - _t1)*1000:.0f}ms")
-
-                # Record inspiration lineage if inspired_by_media_id is present
-                # This adds an additional row (not replacing derived lineage) to track inspiration source
-                inspired_by_media_id = params.get('inspired_by_media_id')
-                if inspired_by_media_id:
-                    session.add(MediaLineage(
-                        media_id=media_item.id,
-                        source_media_id=int(inspired_by_media_id),
-                        source_order=99,  # High order to not conflict with derived lineage entries
-                        task_type=task_type,
-                        relationship_type='inspired',
-                    ))
-                    log.info(f"Job {job.id}: Recorded inspiration lineage from media {inspired_by_media_id}")
-
-                # Propagate tool lineage (denormalized tool chain for filtering)
-                _t1 = _time.time()
-                source_ids = [s.get('media_id') for s in lineage_data.get('source_inputs', []) if s.get('media_id')]
-                await propagate_tool_lineage(session, media_item.id, source_ids, job.tool_id)
-                log.debug(f"Job {job.id}: TIMING - propagate_tool_lineage: {(_time.time() - _t1)*1000:.0f}ms")
-
-                # For image tasks, update generation_metadata with lineage data and tool_id
-                # (Video tasks already have lineage in generation_metadata_json passed to _insert_generated_file)
-                # IMPORTANT: Always update for image tasks so tool_id, version, etc. are recorded
-                _t1 = _time.time()
-                if task_type in _IMAGE_TASK_TYPES:
-                    # media_item is already in this session, we can update it directly
-                    try:
-                        existing_meta = json.loads(media_item.generation_metadata) if media_item.generation_metadata else {}
-                        existing_meta['version'] = 3
-                        existing_meta['task_type'] = task_type
-                        existing_meta['source_inputs'] = lineage_data.get('source_inputs', [])
-                        existing_meta['lineage_trace'] = lineage_data.get('lineage_trace', [])
-                        existing_meta['generated_at'] = datetime.utcnow().isoformat()
-                        # Include tool_id in generation_metadata for history display
-                        if job.tool_id:
-                            existing_meta['tool_id'] = job.tool_id
-                        media_item.generation_metadata = json.dumps(existing_meta)
-                        log.debug(f"Job {job.id}: Updated generation_metadata with lineage data")
-                    except (json.JSONDecodeError, Exception) as e:
-                        log.warning(f"Job {job.id}: Failed to update lineage in generation_metadata: {e}")
-                log.debug(f"Job {job.id}: TIMING - update lineage metadata: {(_time.time() - _t1)*1000:.0f}ms")
-
-                # Calculate auto_delete_at if duration is set
-                _t1 = _time.time()
-                completed_at = datetime.utcnow()
-                auto_delete_at = None
-                log.debug(f"Job {job.id}: auto_delete_duration = {repr(job.auto_delete_duration)}, media_item.id = {media_item.id}")
-                if job.auto_delete_duration:
-                    duration = parse_duration(job.auto_delete_duration)
-                    log.debug(f"Job {job.id}: parsed duration = {repr(duration)}")
-                    if duration:
-                        auto_delete_at = completed_at + duration
-                        log.debug(f"Job {job.id}: Setting auto_delete_at = {auto_delete_at.isoformat()} (completed_at={completed_at.isoformat()}, duration={job.auto_delete_duration})")
-                        # Update media item directly (it's in this session)
-                        media_item.auto_delete_at = auto_delete_at
-                else:
-                    log.debug(f"Job {job.id}: NO auto_delete_duration set, skipping auto_delete_at")
-                log.debug(f"Job {job.id}: TIMING - auto_delete handling: {(_time.time() - _t1)*1000:.0f}ms")
-
-                # Set tool_id and preset_id for provenance tracking
-                if job.tool_id:
-                    media_item.tool_id = job.tool_id
-                if job.preset_id:
-                    media_item.preset_id = job.preset_id
-
-                # Associate generated media with project if job is project-scoped
-                if job.project_id:
-                    from project_service import attach_media_to_project
-                    await attach_media_to_project(session, job.project_id, media_item.id)
-                    log.info(f"Job {job.id}: Attached media {media_item.id} to project {job.project_id}")
-
-                # ONE commit for all database operations
-                await session.commit()
-                log.info(f"Job {job.id}: Committed all post-generation DB operations for media {media_item.id}")
-
-            log.debug(f"Job {job.id}: TIMING - total post-gen DB ops: {(_time.time() - _t0)*1000:.0f}ms")
-
-            # Clear auto-delete flags on source media (separate, non-critical operation)
-            await self._clear_auto_delete_for_sources(lineage_data.get('source_inputs', []), profile_id)
-
-            # Update the generation_grid chat item with the media_id
-            _t0 = _time.time()
-            # This allows the LLM to see generated media IDs in future conversation turns
-            await self._update_grid_with_media_id(job.id, media_item.id, profile_id=profile_id)
-            log.debug(f"Job {job.id}: TIMING - _update_grid_with_media_id: {(_time.time() - _t0)*1000:.0f}ms")
-
-            # Update job as completed (in the job's profile database)
-            _t0 = _time.time()
-            async with self._get_db(profile_id).async_session_maker() as session:
-                await session.execute(
-                    update(GenerationJob)
-                    .where(GenerationJob.id == job.id)
-                    .values(
-                        status='completed',
-                        completed_at=completed_at,
-                        auto_delete_at=auto_delete_at,  # Keep for legacy tracking
-                        result_media_id=media_item.id if media_item else None
-                    )
-                )
-                await session.commit()
-            log.debug(f"Job {job.id}: TIMING - update job completed: {(_time.time() - _t0)*1000:.0f}ms")
-
-            if not media_item:
-                log.error(f"Job {job.id}: No media item created")
-                return
-
-            # Verify media item has file_hash before broadcasting (use profile's database)
-            _t0 = _time.time()
-            media_ready = False
-            async with self._get_db(profile_id).async_session_maker() as session:
-                result = await session.execute(
-                    select(MediaItem).where(MediaItem.id == media_item.id)
-                )
-                verified_media = result.scalar_one_or_none()
-                if verified_media and verified_media.file_hash:
-                    media_ready = True
-                    log.debug(f"Job {job.id}: Verified media item {media_item.id} has file_hash: {verified_media.file_hash}")
-                else:
-                    log.error(f"Job {job.id}: Media item {media_item.id} has no file_hash after metadata wait!")
-            log.debug(f"Job {job.id}: TIMING - verify file_hash: {(_time.time() - _t0)*1000:.0f}ms")
-
-            # Apply auto-markers if specified
-            auto_marker_ids = params.get('auto_marker_ids')
-            if media_ready and auto_marker_ids:
-                await self._apply_auto_markers(media_item.id, auto_marker_ids, profile_id)
-
-            # Only broadcast if media is fully ready with hash
-            _t0 = _time.time()
-            if media_ready:
-                job_dict = await self.get_job(job.id, profile_id=profile_id)
-                if self._websocket_manager:
-                    await self._websocket_manager.broadcast('generation_job_completed', {
-                        'job': job_dict,
-                        'generator_instance_id': job.generator_instance_id,
-    
-                    })
-
-                    # Also broadcast media_added event so browse view refreshes
-                    await self._websocket_manager.broadcast('media_added', {
-                        'media_id': media_item.id,
-                        'file_path': output_path
-                    })
-
-                log.info(f"Job {job.id} completed successfully and broadcast to clients")
-
-                # Track completion telemetry. durationMs = submit->result
-                # (includes queue wait), queueMs = queued-before-execution,
-                # computeMs = pure provider compute.
-                duration_ms = int((completed_at - job.created_at).total_seconds() * 1000) if job.created_at else 0
-                queue_ms = (
-                    int((job.started_at - job.created_at).total_seconds() * 1000)
-                    if job.created_at and job.started_at else 0
-                )
-                compute_ms = (
-                    int((completed_at - job.started_at).total_seconds() * 1000)
-                    if job.started_at else duration_ms
-                )
-                from telemetry import get_telemetry_client
-                from pipeline_telemetry import tool_job_props
-                get_telemetry_client().track("tool_completed", {
-                    **tool_job_props(job),
-                    "durationMs": duration_ms,
-                    "queueMs": max(0, queue_ms),
-                    "computeMs": max(0, compute_ms),
-                }, category="generation")
-
-                # Handle batch processing if this job is part of a batch
-                if job.batch_id and media_item:
-                    await self._handle_batch_job_completion(
-                        job=job,
-                        media_item=media_item,
-                        profile_id=profile_id
-                    )
-
-                # Kick off the post-processing chain when the job carries one.
-                # Chain-step jobs run under CHAIN_INSTANCE_ID so a chain never
-                # re-triggers itself.
-                chain_started = False
-                post_chain = params.get('post_processing_chain')
-                if post_chain:
-                    from postprocessing.executor import CHAIN_INSTANCE_ID, start_chain_for_job
-                    if job.generator_instance_id != CHAIN_INSTANCE_ID:
-                        try:
-                            chain_run_id = await start_chain_for_job(
-                                job=job,
-                                base_media_id=media_item.id,
-                                chain_steps=post_chain,
-                                profile_id=profile_id,
-                                websocket_manager=self._websocket_manager,
-                            )
-                            chain_started = chain_run_id is not None
-                        except Exception as e:
-                            log.error(f"Job {job.id}: Failed to start post-processing chain: {e}", exc_info=True)
-
-                # Chainless pipelines settle at job completion; chained ones
-                # settle when the chain run finishes (postprocessing.executor).
-                if not chain_started:
-                    from pipeline_telemetry import emit_pipeline_settled
-                    emit_pipeline_settled(job, "completed", completed_at=completed_at)
-
-            else:
-                log.error(f"Job {job.id}: Media not ready, did not broadcast to clients")
-            log.debug(f"Job {job.id}: TIMING - broadcast: {(_time.time() - _t0)*1000:.0f}ms")
-            log.debug(f"Job {job.id}: TIMING - TOTAL post-generation: {(_time.time() - _post_gen_start)*1000:.0f}ms")
-
-            # Notify scheduler that job is complete
+            # Free the backend slot and ask forever-mode clients for the next job
+            # NOW so the next generation starts immediately.
             if job.backend_name:
                 await self.scheduler.on_job_completed(job.id, job.backend_name)
-                # Request more work from forever mode clients if capacity available
                 await self._fill_available_slots(job.backend_name)
+            return
 
         except Exception as e:
             error_msg = str(e)
@@ -2797,6 +2403,521 @@ class GenerationQueue:
         finally:
             # Clear thread profile context
             set_thread_profile(None)
+
+    def _spawn_finalize(self, job, profile_id, result, output_path, params,
+                        task_type, lineage_data, exec_result, provider, completed_at):
+        """Run a finished job's post-processing without blocking the worker.
+
+        The GPU slot is freed before this is called, so the worker is free to
+        pick up the next job. We keep a reference to the task so it isn't
+        garbage-collected before it finishes. ``completed_at`` is the GPU-done
+        timestamp, passed in so completion time isn't inflated by this tail.
+        """
+        gid = job.generator_instance_id
+        if gid:
+            self._finalizing_per_client[gid] = self._finalizing_per_client.get(gid, 0) + 1
+
+        task = asyncio.create_task(
+            self._finalize_job_safe(
+                job, profile_id, result, output_path, params,
+                task_type, lineage_data, exec_result, provider, completed_at
+            )
+        )
+        self._finalize_tasks.add(task)
+
+        def _on_finalize_done(t, gid=gid):
+            self._finalize_tasks.discard(t)
+            if gid and self._finalizing_per_client.get(gid):
+                self._finalizing_per_client[gid] -= 1
+                if self._finalizing_per_client[gid] <= 0:
+                    self._finalizing_per_client.pop(gid, None)
+
+        task.add_done_callback(_on_finalize_done)
+
+    async def _await_finalizers(self):
+        """Await all in-flight detached post-processing tails.
+
+        Used by tests (to keep job processing deterministic) and shutdown (to
+        avoid dropping post-processing for a just-finished generation).
+        """
+        while self._finalize_tasks:
+            await asyncio.gather(*list(self._finalize_tasks), return_exceptions=True)
+
+    async def _finalize_job_safe(self, job, profile_id, result, output_path, params,
+                                 task_type, lineage_data, exec_result, provider, completed_at):
+        """Error-isolating wrapper for the detached post-processing tail.
+
+        Post-processing runs after the GPU slot is freed, so a failure here must
+        NOT requeue the job (the generation already succeeded). We just mark the
+        job failed and notify clients.
+        """
+        set_current_profile(profile_id)
+        try:
+            await self._finalize_job(
+                job, profile_id, result, output_path, params,
+                task_type, lineage_data, exec_result, provider, completed_at
+            )
+        except Exception as e:
+            log.exception("post-processing failed", job_id=job.id, error=str(e))
+            try:
+                async with self._get_db(profile_id).async_session_maker() as session:
+                    await session.execute(
+                        update(GenerationJob)
+                        .where(GenerationJob.id == job.id)
+                        .values(
+                            status='failed',
+                            completed_at=completed_at,
+                            error=f"post-processing failed: {e}",
+                        )
+                    )
+                    await session.commit()
+                if self._websocket_manager:
+                    job_dict = await self.get_job(job.id, profile_id=profile_id)
+                    await self._websocket_manager.broadcast('generation_job_failed', {
+                        'job': job_dict,
+                        'generator_instance_id': job.generator_instance_id,
+                    })
+            except Exception:
+                log.exception("failed to mark job failed after post-proc error", job_id=job.id)
+        finally:
+            set_thread_profile(None)
+
+    async def _finalize_job(self, job, profile_id, result, output_path, params,
+                            task_type, lineage_data, exec_result, provider, completed_at):
+        """Post-processing tail for a completed generation: persist the media
+        item, record lineage, embed metadata, mark the job complete, and notify
+        clients. Detached from the worker so the GPU is not idle during it.
+
+        ``completed_at`` is stamped at GPU-done by the caller, so the recorded
+        completion time and computeMs telemetry exclude this tail's duration.
+        """
+        # =====================================================================
+        # POST-PROCESSING
+        # =====================================================================
+
+        # Look up chat_item_id by finding the generation_grid that contains this job
+        # This will be None for non-chat generation, which is fine
+        import time as _time
+        _post_gen_start = _time.time()
+        # Jobs with tool_id are from standalone tool pages, not chat - skip the lookup
+        if job.tool_id:
+            chat_item_id = None
+        else:
+            try:
+                chat_item_id = await self._find_chat_item_for_job(job.id, profile_id=profile_id)
+            except Exception as e:
+                log.warning(f"Job {job.id}: Error looking up chat_item_id: {e}")
+                chat_item_id = None
+        log.debug(f"Job {job.id}: TIMING - _find_chat_item_for_job: {(_time.time() - _post_gen_start)*1000:.0f}ms")
+
+        # Build generation_metadata for:
+        # - Image tasks from any provider (for lineage tracking)
+        # - Video tasks (metadata can't be embedded in video files)
+        generation_metadata_json = None
+
+        # Build metadata for all image generation tasks
+        # This ensures generation parameters and lineage are captured consistently for ALL tools
+        # Previously this excluded builtin providers and only covered text-to-image/image-to-image,
+        # but that caused inconsistent parameter capture (e.g., inpaint-image was missing params)
+        _IMAGE_TASK_TYPES = {'text-to-image', 'image-to-image', 'inpaint-image', 'outpaint-image', 'upscale-image', 'remove-background', 'filter'}
+        needs_metadata = task_type in _IMAGE_TASK_TYPES
+
+        # Build metadata with full generation parameters
+        if needs_metadata:
+            original_params = dict(params)
+
+            # Parameters are already clean from the request - just exclude internal fields
+            # Include all variations of input field names and their _media_id counterparts
+            internal_keys = {
+                'prompt', 'prompt_metadata', 'auto_marker_ids', 'mask_image',
+                'input_images', 'input_videos',
+                'input_media_ids', 'input_video_media_ids',
+            }
+            filtered_params = {
+                k: v for k, v in original_params.items()
+                if k not in internal_keys and v is not None
+            }
+            # Capture the actual seed used by the provider (may differ from requested seed)
+            filtered_params['seed'] = resolve_recorded_seed(
+                original_params.get('seed'),
+                getattr(result, 'actual_seed', None),
+            )
+
+            generation_metadata = {
+                "version": 3,
+                "source": "stimma",
+                "tool_id": job.tool_id,
+                "task_type": task_type,
+                "prompt": original_params.get('prompt', ''),
+                "negative_prompt": original_params.get('negative_prompt', ''),
+                "parameters": filtered_params,
+                "generated_at": datetime.utcnow().isoformat() + 'Z',
+                "source_inputs": lineage_data.get('source_inputs', []),
+                "lineage_trace": lineage_data.get('lineage_trace', []),
+                "prompt_metadata": original_params.get('prompt_metadata'),
+            }
+
+            # Add execution results
+            if exec_result.generation_time is not None:
+                generation_metadata["generation_time"] = round(exec_result.generation_time, 2)
+
+            generation_metadata_json = json.dumps(generation_metadata)
+            log.debug(f"Job {job.id}: Built generation_metadata for {provider.provider_id}")
+
+        elif task_type in ('image-to-video', 'text-to-video') and hasattr(result, 'generation_time'):
+            original_params = dict(params)
+
+            # Build parameters from actual job params, not hardcoded defaults
+            internal_keys = {
+                'prompt', 'prompt_metadata', 'auto_marker_ids',
+                'input_images', 'input_videos',
+                'input_media_ids', 'input_video_media_ids',
+                'negative_prompt',
+            }
+            filtered_params = {
+                k: v for k, v in original_params.items()
+                if k not in internal_keys and v is not None
+            }
+            filtered_params['seed'] = resolve_recorded_seed(
+                original_params.get('seed'),
+                getattr(result, 'actual_seed', None),
+            )
+            filtered_params['generation_time'] = round(result.generation_time, 2)
+
+            generation_metadata = {
+                "version": 3,
+                "source": "stimma",
+                "tool_id": job.tool_id,
+                "generator": job.backend_name or job.generator_name,
+                "model": job.model_name,
+                "task_type": task_type,
+                "prompt": original_params.get('prompt', ''),
+                "negative_prompt": original_params.get('negative_prompt', ''),
+                "parameters": filtered_params,
+                "generated_at": datetime.utcnow().isoformat() + 'Z',
+                "source_inputs": lineage_data.get('source_inputs', []),
+                "lineage_trace": lineage_data.get('lineage_trace', []),
+            }
+            generation_metadata_json = json.dumps(generation_metadata)
+        elif task_type == 'upscale-video' and hasattr(result, 'generation_time'):
+            original_params = dict(params)
+            generation_metadata = {
+                "version": 3,
+                "source": "stimma",
+                "generator": job.backend_name or job.generator_name,
+                "model": job.model_name,
+                "task_type": task_type,
+                "parameters": {
+                    "resolution": original_params.get('resolution', 1080),
+                    "color_correction": original_params.get('color_correction', 'lab'),
+                    "seed": resolve_recorded_seed(
+                        original_params.get('seed'),
+                        getattr(result, 'actual_seed', None),
+                    ),
+                    "generation_time": round(result.generation_time, 2),
+                },
+                "generated_at": datetime.utcnow().isoformat() + 'Z',
+                "source_inputs": lineage_data.get('source_inputs', []),
+                "lineage_trace": lineage_data.get('lineage_trace', []),
+            }
+            # Include tool_id for provenance tracking
+            if job.tool_id:
+                generation_metadata["tool_id"] = job.tool_id
+            generation_metadata_json = json.dumps(generation_metadata)
+        elif task_type == 'video-stitch' and hasattr(result, 'generation_time'):
+            original_params = dict(params)
+            generation_metadata = {
+                "version": 3,
+                "source": "stimma",
+                "generator": job.backend_name or job.generator_name,
+                "model": job.model_name,
+                "task_type": task_type,
+                "prompt": original_params.get('prompt', ''),
+                "negative_prompt": original_params.get('negative_prompt', ''),
+                "parameters": {
+                    "context_frames": original_params.get('context_frames', 16),
+                    "replace_frames": original_params.get('replace_frames', 8),
+                    "add_frames": original_params.get('add_frames', 0),
+                    "megapixels": original_params.get('megapixels', 0.4),
+                    "fps": original_params.get('fps', 16),
+                    "steps": original_params.get('steps', 20),
+                    "cfg": original_params.get('cfg', 4.0),
+                    "seed": resolve_recorded_seed(
+                        original_params.get('seed'),
+                        getattr(result, 'actual_seed', None),
+                    ),
+                    "generation_time": round(result.generation_time, 2),
+                },
+                "generated_at": datetime.utcnow().isoformat() + 'Z',
+                "source_inputs": lineage_data.get('source_inputs', []),
+                "lineage_trace": lineage_data.get('lineage_trace', []),
+            }
+            if job.tool_id:
+                generation_metadata["tool_id"] = job.tool_id
+            generation_metadata_json = json.dumps(generation_metadata)
+        elif task_type == 'video-extend' and hasattr(result, 'generation_time'):
+            original_params = dict(params)
+            generation_metadata = {
+                "version": 3,
+                "source": "stimma",
+                "generator": job.backend_name or job.generator_name,
+                "model": job.model_name,
+                "task_type": task_type,
+                "prompt": original_params.get('prompt', ''),
+                "negative_prompt": original_params.get('negative_prompt', ''),
+                "parameters": {
+                    "context_frames": original_params.get('context_frames', 16),
+                    "extend_frames": original_params.get('extend_frames', 33),
+                    "megapixels": original_params.get('megapixels', 0.4),
+                    "fps": original_params.get('fps', 16),
+                    "steps": original_params.get('steps', 20),
+                    "cfg": original_params.get('cfg', 4.0),
+                    "seed": resolve_recorded_seed(
+                        original_params.get('seed'),
+                        getattr(result, 'actual_seed', None),
+                    ),
+                    "generation_time": round(result.generation_time, 2),
+                },
+                "generated_at": datetime.utcnow().isoformat() + 'Z',
+                "source_inputs": lineage_data.get('source_inputs', []),
+                "lineage_trace": lineage_data.get('lineage_trace', []),
+            }
+            if job.tool_id:
+                generation_metadata["tool_id"] = job.tool_id
+            generation_metadata_json = json.dumps(generation_metadata)
+
+        # Inject inspired_by into generation_metadata if present
+        _inspired_by_id = params.get('inspired_by_media_id')
+        if _inspired_by_id and generation_metadata_json:
+            try:
+                _meta = json.loads(generation_metadata_json)
+                _meta['inspired_by'] = {"media_id": int(_inspired_by_id)}
+                generation_metadata_json = json.dumps(_meta)
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        # ALL post-generation database operations in ONE session to avoid lock contention
+        # This is critical for SQLite - multiple sessions competing for write locks cause deadlocks
+        _t0 = _time.time()
+        async with self._get_db(profile_id).async_session_maker() as session:
+            # Insert file directly into the profile's database
+            media_item = await self._insert_generated_file(
+                output_path,
+                session=session,
+                chat_item_id=chat_item_id,
+                generation_metadata=generation_metadata_json
+            )
+            log.debug(f"Job {job.id}: TIMING - _insert_generated_file: {(_time.time() - _t0)*1000:.0f}ms")
+            log.debug(f"Job {job.id}: Inserted media item {media_item.id} directly (chat_item_id={chat_item_id}, profile_id={profile_id})")
+
+            # Record lineage relationships to media_lineage table
+            _t1 = _time.time()
+            await self._record_lineage(media_item.id, lineage_data.get('source_inputs', []), task_type, session)
+            log.debug(f"Job {job.id}: TIMING - _record_lineage: {(_time.time() - _t1)*1000:.0f}ms")
+
+            # Record inspiration lineage if inspired_by_media_id is present
+            # This adds an additional row (not replacing derived lineage) to track inspiration source
+            inspired_by_media_id = params.get('inspired_by_media_id')
+            if inspired_by_media_id:
+                session.add(MediaLineage(
+                    media_id=media_item.id,
+                    source_media_id=int(inspired_by_media_id),
+                    source_order=99,  # High order to not conflict with derived lineage entries
+                    task_type=task_type,
+                    relationship_type='inspired',
+                ))
+                log.info(f"Job {job.id}: Recorded inspiration lineage from media {inspired_by_media_id}")
+
+            # Propagate tool lineage (denormalized tool chain for filtering)
+            _t1 = _time.time()
+            source_ids = [s.get('media_id') for s in lineage_data.get('source_inputs', []) if s.get('media_id')]
+            await propagate_tool_lineage(session, media_item.id, source_ids, job.tool_id)
+            log.debug(f"Job {job.id}: TIMING - propagate_tool_lineage: {(_time.time() - _t1)*1000:.0f}ms")
+
+            # For image tasks, update generation_metadata with lineage data and tool_id
+            # (Video tasks already have lineage in generation_metadata_json passed to _insert_generated_file)
+            # IMPORTANT: Always update for image tasks so tool_id, version, etc. are recorded
+            _t1 = _time.time()
+            if task_type in _IMAGE_TASK_TYPES:
+                # media_item is already in this session, we can update it directly
+                try:
+                    existing_meta = json.loads(media_item.generation_metadata) if media_item.generation_metadata else {}
+                    existing_meta['version'] = 3
+                    existing_meta['task_type'] = task_type
+                    existing_meta['source_inputs'] = lineage_data.get('source_inputs', [])
+                    existing_meta['lineage_trace'] = lineage_data.get('lineage_trace', [])
+                    existing_meta['generated_at'] = datetime.utcnow().isoformat()
+                    # Include tool_id in generation_metadata for history display
+                    if job.tool_id:
+                        existing_meta['tool_id'] = job.tool_id
+                    media_item.generation_metadata = json.dumps(existing_meta)
+                    log.debug(f"Job {job.id}: Updated generation_metadata with lineage data")
+                except (json.JSONDecodeError, Exception) as e:
+                    log.warning(f"Job {job.id}: Failed to update lineage in generation_metadata: {e}")
+            log.debug(f"Job {job.id}: TIMING - update lineage metadata: {(_time.time() - _t1)*1000:.0f}ms")
+
+            # Calculate auto_delete_at if duration is set. completed_at was stamped
+            # at GPU-done by the caller (not here) so it excludes this tail.
+            _t1 = _time.time()
+            auto_delete_at = None
+            log.debug(f"Job {job.id}: auto_delete_duration = {repr(job.auto_delete_duration)}, media_item.id = {media_item.id}")
+            if job.auto_delete_duration:
+                duration = parse_duration(job.auto_delete_duration)
+                log.debug(f"Job {job.id}: parsed duration = {repr(duration)}")
+                if duration:
+                    auto_delete_at = completed_at + duration
+                    log.debug(f"Job {job.id}: Setting auto_delete_at = {auto_delete_at.isoformat()} (completed_at={completed_at.isoformat()}, duration={job.auto_delete_duration})")
+                    # Update media item directly (it's in this session)
+                    media_item.auto_delete_at = auto_delete_at
+            else:
+                log.debug(f"Job {job.id}: NO auto_delete_duration set, skipping auto_delete_at")
+            log.debug(f"Job {job.id}: TIMING - auto_delete handling: {(_time.time() - _t1)*1000:.0f}ms")
+
+            # Set tool_id and preset_id for provenance tracking
+            if job.tool_id:
+                media_item.tool_id = job.tool_id
+            if job.preset_id:
+                media_item.preset_id = job.preset_id
+
+            # Associate generated media with project if job is project-scoped
+            if job.project_id:
+                from project_service import attach_media_to_project
+                await attach_media_to_project(session, job.project_id, media_item.id)
+                log.info(f"Job {job.id}: Attached media {media_item.id} to project {job.project_id}")
+
+            # ONE commit for all database operations
+            await session.commit()
+            log.info(f"Job {job.id}: Committed all post-generation DB operations for media {media_item.id}")
+
+        log.debug(f"Job {job.id}: TIMING - total post-gen DB ops: {(_time.time() - _t0)*1000:.0f}ms")
+
+        # Clear auto-delete flags on source media (separate, non-critical operation)
+        await self._clear_auto_delete_for_sources(lineage_data.get('source_inputs', []), profile_id)
+
+        # Update the generation_grid chat item with the media_id
+        _t0 = _time.time()
+        # This allows the LLM to see generated media IDs in future conversation turns
+        await self._update_grid_with_media_id(job.id, media_item.id, profile_id=profile_id)
+        log.debug(f"Job {job.id}: TIMING - _update_grid_with_media_id: {(_time.time() - _t0)*1000:.0f}ms")
+
+        # Update job as completed (in the job's profile database)
+        _t0 = _time.time()
+        async with self._get_db(profile_id).async_session_maker() as session:
+            await session.execute(
+                update(GenerationJob)
+                .where(GenerationJob.id == job.id)
+                .values(
+                    status='completed',
+                    completed_at=completed_at,
+                    auto_delete_at=auto_delete_at,  # Keep for legacy tracking
+                    result_media_id=media_item.id if media_item else None
+                )
+            )
+            await session.commit()
+        log.debug(f"Job {job.id}: TIMING - update job completed: {(_time.time() - _t0)*1000:.0f}ms")
+
+        if not media_item:
+            log.error(f"Job {job.id}: No media item created")
+            return
+
+        # Verify media item has file_hash before broadcasting (use profile's database)
+        _t0 = _time.time()
+        media_ready = False
+        async with self._get_db(profile_id).async_session_maker() as session:
+            result = await session.execute(
+                select(MediaItem).where(MediaItem.id == media_item.id)
+            )
+            verified_media = result.scalar_one_or_none()
+            if verified_media and verified_media.file_hash:
+                media_ready = True
+                log.debug(f"Job {job.id}: Verified media item {media_item.id} has file_hash: {verified_media.file_hash}")
+            else:
+                log.error(f"Job {job.id}: Media item {media_item.id} has no file_hash after metadata wait!")
+        log.debug(f"Job {job.id}: TIMING - verify file_hash: {(_time.time() - _t0)*1000:.0f}ms")
+
+        # Apply auto-markers if specified
+        auto_marker_ids = params.get('auto_marker_ids')
+        if media_ready and auto_marker_ids:
+            await self._apply_auto_markers(media_item.id, auto_marker_ids, profile_id)
+
+        # Only broadcast if media is fully ready with hash
+        _t0 = _time.time()
+        if media_ready:
+            job_dict = await self.get_job(job.id, profile_id=profile_id)
+            if self._websocket_manager:
+                await self._websocket_manager.broadcast('generation_job_completed', {
+                    'job': job_dict,
+                    'generator_instance_id': job.generator_instance_id,
+    
+                })
+
+                # Also broadcast media_added event so browse view refreshes
+                await self._websocket_manager.broadcast('media_added', {
+                    'media_id': media_item.id,
+                    'file_path': output_path
+                })
+
+            log.info(f"Job {job.id} completed successfully and broadcast to clients")
+
+            # Track completion telemetry. durationMs = submit->result
+            # (includes queue wait), queueMs = queued-before-execution,
+            # computeMs = pure provider compute.
+            duration_ms = int((completed_at - job.created_at).total_seconds() * 1000) if job.created_at else 0
+            queue_ms = (
+                int((job.started_at - job.created_at).total_seconds() * 1000)
+                if job.created_at and job.started_at else 0
+            )
+            compute_ms = (
+                int((completed_at - job.started_at).total_seconds() * 1000)
+                if job.started_at else duration_ms
+            )
+            from telemetry import get_telemetry_client
+            from pipeline_telemetry import tool_job_props
+            get_telemetry_client().track("tool_completed", {
+                **tool_job_props(job),
+                "durationMs": duration_ms,
+                "queueMs": max(0, queue_ms),
+                "computeMs": max(0, compute_ms),
+            }, category="generation")
+
+            # Handle batch processing if this job is part of a batch
+            if job.batch_id and media_item:
+                await self._handle_batch_job_completion(
+                    job=job,
+                    media_item=media_item,
+                    profile_id=profile_id
+                )
+
+            # Kick off the post-processing chain when the job carries one.
+            # Chain-step jobs run under CHAIN_INSTANCE_ID so a chain never
+            # re-triggers itself.
+            chain_started = False
+            post_chain = params.get('post_processing_chain')
+            if post_chain:
+                from postprocessing.executor import CHAIN_INSTANCE_ID, start_chain_for_job
+                if job.generator_instance_id != CHAIN_INSTANCE_ID:
+                    try:
+                        chain_run_id = await start_chain_for_job(
+                            job=job,
+                            base_media_id=media_item.id,
+                            chain_steps=post_chain,
+                            profile_id=profile_id,
+                            websocket_manager=self._websocket_manager,
+                        )
+                        chain_started = chain_run_id is not None
+                    except Exception as e:
+                        log.error(f"Job {job.id}: Failed to start post-processing chain: {e}", exc_info=True)
+
+            # Chainless pipelines settle at job completion; chained ones
+            # settle when the chain run finishes (postprocessing.executor).
+            if not chain_started:
+                from pipeline_telemetry import emit_pipeline_settled
+                emit_pipeline_settled(job, "completed", completed_at=completed_at)
+
+        else:
+            log.error(f"Job {job.id}: Media not ready, did not broadcast to clients")
+        log.debug(f"Job {job.id}: TIMING - broadcast: {(_time.time() - _t0)*1000:.0f}ms")
+        log.debug(f"Job {job.id}: TIMING - TOTAL post-generation: {(_time.time() - _post_gen_start)*1000:.0f}ms")
 
 
 # Global queue instance

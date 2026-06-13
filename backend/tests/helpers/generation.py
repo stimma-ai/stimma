@@ -298,3 +298,7 @@ async def process_job(generation_queue, job_id: int, profile_id: str = "default"
         job = result.scalar_one()
 
     await generation_queue._process_job(job, profile_id=profile_id)
+    # Post-processing (media insert, lineage, metadata embed, completion) now runs
+    # in a detached task so the GPU worker isn't blocked. Await it here so tests
+    # observe the finished state deterministically.
+    await generation_queue._await_finalizers()

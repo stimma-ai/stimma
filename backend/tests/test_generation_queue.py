@@ -27,6 +27,8 @@ def _reset_queue_state(queue):
     queue._pending_work_requests.clear()
     queue._pending_work_requests_per_client.clear()
     queue._last_served_client.clear()
+    if hasattr(queue, "_finalizing_per_client"):
+        queue._finalizing_per_client.clear()
 
 
 def _make_timestamps(n: int) -> list[float]:
@@ -311,6 +313,52 @@ class TestForeverModeSlotFilling:
         assert client_b in recipients, "Client B should get work"
 
         # Clean up
+        _reset_queue_state(generation_queue)
+
+    async def test_finalizing_jobs_do_not_block_work_requests(
+        self, generation_queue, mock_ws
+    ):
+        """Regression: a job whose GPU work is done but whose post-processing tail
+        is still running stays 'processing' in the DB. It must NOT count against the
+        client's concurrency, otherwise forever mode dispatches one batch and stalls.
+        """
+        _reset_queue_state(generation_queue)
+        mock_ws.clear()
+
+        client = "test-finalizing"
+        generation_queue._forever_mode_clients["test"] = {client: 2}
+
+        # DB still reports 2 active ('processing') jobs for this client ...
+        async def _two_active(client_id):
+            return 2
+
+        generation_queue._get_client_active_jobs = _two_active
+
+        # ... but both have finished on the GPU and are only finalizing (detached
+        # post-processing tail), so they occupy no slot.
+        generation_queue._finalizing_per_client[client] = 2
+
+        # Isolate from any queued jobs left in the shared DB by other tests so the
+        # backend capacity math is deterministic (queued_count = 0).
+        orig_get_all_jobs_dbs = generation_queue._get_all_jobs_dbs
+        generation_queue._get_all_jobs_dbs = lambda: []
+
+        class _BackendRegistryStub:
+            async def list_backends(self):
+                return {"test": {"max_concurrent": 2, "current_jobs": 0}}
+
+        try:
+            with patch("backend_registry.get_backend_registry", return_value=_BackendRegistryStub()):
+                await generation_queue._fill_available_slots("test")
+        finally:
+            generation_queue._get_all_jobs_dbs = orig_get_all_jobs_dbs
+
+        work_requests = mock_ws.get_broadcasts("generation_request_work")
+        client_requests = [d for _, d in work_requests if d["generator_instance_id"] == client]
+        assert len(client_requests) == 2, (
+            "finalizing jobs must free client capacity so forever mode keeps dispatching"
+        )
+
         _reset_queue_state(generation_queue)
 
     async def test_fill_slots_handles_unregister_during_iteration(
