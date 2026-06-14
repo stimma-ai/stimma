@@ -236,6 +236,9 @@ export function useMediaList(options: UseMediaListOptions) {
 
     itemsCache.value = newCache
     totalCount.value = Math.max(0, totalCount.value - 1)
+    // Subsequent indices shifted down, so the page-load tracking no longer maps
+    // to the cache. Invalidate it (see removeItems for the full rationale).
+    loadedPages.value = new Set()
     notifyCacheChanged()
 
     return cacheIndex
@@ -287,6 +290,14 @@ export function useMediaList(options: UseMediaListOptions) {
 
     itemsCache.value = newCache
     totalCount.value = Math.max(0, totalCount.value - adjustedCount)
+    // Surviving items were shifted down to keep indices contiguous, so the
+    // page-load tracking ("pageNum:pageSize" -> loaded) no longer maps to the
+    // cache. Clearing it forces the grid to re-fetch pages on the next scroll
+    // instead of treating now-empty index ranges as "already loaded" — the
+    // cause of the gap-toothed grid and permanently-spinning cells after a
+    // large bulk delete. (prependItems/silentReload clear it for the same
+    // reason.) itemsCache is kept so survivors stay visible during the refetch.
+    loadedPages.value = new Set()
     notifyCacheChanged()
   }
 

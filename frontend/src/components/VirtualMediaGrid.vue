@@ -1416,6 +1416,11 @@ function removeItems(mediaIds) {
     skipNextTotalCountWatch.value = true
     previousTotalCount = props.mediaList.totalCount.value
     buildRows()
+    // The index shift invalidated page tracking, and we just suppressed the
+    // totalCount watcher that would normally re-fetch. Refill the viewport so
+    // rows newly exposed by the deletion load instead of spinning until the
+    // next manual scroll.
+    nextTick(() => loadVisiblePages())
     return
   }
 
@@ -1439,8 +1444,14 @@ function removeItems(mediaIds) {
   }
   localItemsCache.value = newCache
 
-  // Rebuild rows to update display
+  // Indices shifted, so the old page tracking no longer maps to the cache.
+  // Clear it so loadVisiblePages re-fetches instead of skipping "loaded" pages.
+  localLoadedPages.value = new Set()
+
+  // Rebuild rows to update display, then refill the viewport for rows newly
+  // exposed by the deletion (see the shared-mediaList path above).
   buildRows()
+  nextTick(() => loadVisiblePages())
 }
 
 // Handle auto-delete removal from WebSocket
