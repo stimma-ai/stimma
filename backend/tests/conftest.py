@@ -171,7 +171,7 @@ async def test_app(temp_appdata_dir: Path):
         # Import and include routers
         from routes import (
             boards, chats, generation, media, media_files, markers, projects, recipes, tags, trash,
-            saved_views, profiles, keywords, settings as settings_routes,
+            saved_views, profiles, keywords, processing, settings as settings_routes,
         )
         from routes import tasks as recipe_tasks
         from routes.presets import router as presets_router
@@ -190,6 +190,7 @@ async def test_app(temp_appdata_dir: Path):
         app.include_router(saved_views.router)
         app.include_router(profiles.router)
         app.include_router(keywords.router)
+        app.include_router(processing.router)
         app.include_router(presets_router)
         app.include_router(preferences_router)
         app.include_router(settings_routes.router)

@@ -84,14 +84,21 @@ def media_pending_autodelete(now: Optional[datetime] = None):
     if now is None:
         now = datetime.utcnow()
 
+    # correlate(MediaItem) pins each EXISTS to the outer MediaItem row ONLY. Without it,
+    # auto-correlation strips any subquery FROM that also appears in the enclosing query —
+    # so when the outer query joins media_tags/media_markers/board tables (e.g. the
+    # filter-counts facet queries), the subquery loses its own driving table and SQLAlchemy
+    # raises "returned no FROM clauses due to auto-correlation".
     has_tag = (
         select(1).select_from(MediaTag)
         .where(MediaTag.media_id == MediaItem.id)
+        .correlate(MediaItem)
         .exists()
     )
     has_marker = (
         select(1).select_from(MediaMarker)
         .where(MediaMarker.media_id == MediaItem.id)
+        .correlate(MediaItem)
         .exists()
     )
     has_board = (
@@ -103,6 +110,7 @@ def media_pending_autodelete(now: Optional[datetime] = None):
             BoardSection.deleted_at.is_(None),
             Board.deleted_at.is_(None),
         )
+        .correlate(MediaItem)
         .exists()
     )
     return and_(

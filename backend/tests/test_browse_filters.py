@@ -325,6 +325,44 @@ class TestCombinedFilters:
             assert "sunset" in item.get("extracted_prompt", "").lower()
 
 
+class TestFilterCounts:
+    """Tests for the /api/filter-counts facet endpoint."""
+
+    async def test_filter_counts_with_tags(self, client: AsyncClient, seeded_media):
+        """Opening the facet panel must not raise a SQLAlchemy auto-correlation error.
+
+        Regression for the tag-count query joining media_tags into the outer FROM while
+        build_filtered_query's auto-delete EXISTS subquery also selects from media_tags:
+        auto-correlation stripped every FROM clause from the subquery and the endpoint
+        500'd. See media_pending_autodelete() / correlate(MediaItem) in query_builder.py.
+        """
+        # Assign a tag so the Tag -> media_tags -> media_items join produces rows.
+        await client.post("/api/tags", json={"tag_text": "facet-tag"})
+        await client.post(
+            f"/api/media/{seeded_media[0].id}/tags",
+            json={"tags": ["facet-tag"]},
+        )
+
+        response = await client.get("/api/filter-counts")
+        assert response.status_code == 200
+
+        data = response.json()
+        tag_counts = {t["tag"]: t["usage_count"] for t in data.get("tags", [])}
+        assert tag_counts.get("facet-tag", 0) >= 1
+
+    async def test_filter_counts_filtered_by_tag(self, client: AsyncClient, seeded_media):
+        """The auto-delete EXISTS subqueries must also survive an active tag filter."""
+        create = await client.post("/api/tags", json={"tag_text": "active-filter"})
+        tag_id = create.json()["id"]
+        await client.post(
+            f"/api/media/{seeded_media[0].id}/tags",
+            json={"tags": ["active-filter"]},
+        )
+
+        response = await client.get("/api/filter-counts", params={"tag_ids": str(tag_id)})
+        assert response.status_code == 200
+
+
 # Fixtures specific to this test module
 
 @pytest.fixture
