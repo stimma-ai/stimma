@@ -258,12 +258,17 @@ export function useMediaList(options: UseMediaListOptions) {
   }
 
   /**
-   * Remove multiple items and shift subsequent items down.
-   * Processes removals from highest index to lowest to maintain correct shifting.
+   * Drop items from the cache and shift survivors down to keep indices
+   * contiguous. Does NOT change totalCount — callers reconcile the count
+   * separately (e.g. via silentReload) so the count stays authoritative even
+   * when the same removal is applied more than once (optimistic update + the
+   * websocket echo of the same delete). Idempotent: removing IDs that are no
+   * longer cached is a no-op.
    * @param ids The item IDs to remove
+   * @returns How many cached items were actually removed
    */
-  function removeItems(ids: number[]): void {
-    if (!ids || ids.length === 0) return
+  function removeFromCache(ids: number[]): number {
+    if (!ids || ids.length === 0) return 0
 
     const idsToRemove = new Set(ids)
     const oldCache = itemsCache.value
@@ -283,13 +288,7 @@ export function useMediaList(options: UseMediaListOptions) {
       }
     }
 
-    // Use idsToRemove.size (not removedCount) because with sparse/lazy-loaded
-    // caches, not all items may be in the cache yet. The caller knows these IDs
-    // belong to this view (e.g. from "select all"), so we trust the full count.
-    const adjustedCount = Math.max(removedCount, idsToRemove.size)
-
     itemsCache.value = newCache
-    totalCount.value = Math.max(0, totalCount.value - adjustedCount)
     // Surviving items were shifted down to keep indices contiguous, so the
     // page-load tracking ("pageNum:pageSize" -> loaded) no longer maps to the
     // cache. Clearing it forces the grid to re-fetch pages on the next scroll
@@ -298,6 +297,29 @@ export function useMediaList(options: UseMediaListOptions) {
     // large bulk delete. (prependItems/silentReload clear it for the same
     // reason.) itemsCache is kept so survivors stay visible during the refetch.
     loadedPages.value = new Set()
+    notifyCacheChanged()
+    return removedCount
+  }
+
+  /**
+   * Remove multiple items and decrement totalCount to match.
+   *
+   * Prefer removeFromCache + silentReload for delete/restore flows: the
+   * relative decrement here double-counts when the optimistic update and the
+   * websocket echo of the same delete both run (and server-side cascade deletes
+   * make the echo's count larger than requested), which can drive the total to
+   * 0 and blank the grid. This is kept for callers that remove a single item
+   * they know is cached (e.g. an item becoming superseded).
+   * @param ids The item IDs to remove
+   */
+  function removeItems(ids: number[]): void {
+    if (!ids || ids.length === 0) return
+    const removedCount = removeFromCache(ids)
+    // Use ids.size (not removedCount) because with sparse/lazy-loaded caches not
+    // all items may be in the cache yet; the caller knows these IDs belong to
+    // this view (e.g. from "select all"), so we trust the full count.
+    const adjustedCount = Math.max(removedCount, new Set(ids).size)
+    totalCount.value = Math.max(0, totalCount.value - adjustedCount)
     notifyCacheChanged()
   }
 
@@ -469,6 +491,7 @@ export function useMediaList(options: UseMediaListOptions) {
     getOrderedItems,
     removeItem,  // Now shifts indices (was soft-delete before)
     removeItems, // Now shifts indices (was soft-delete before)
+    removeFromCache, // Cache-only removal (no totalCount change); reconcile count via silentReload
     findIndex,
     prependItems,
     updateItem,

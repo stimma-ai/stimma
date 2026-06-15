@@ -910,6 +910,32 @@ async function loadMedia(options = {}) {
   }
 }
 
+// Authoritative, idempotent reconcile after items left the current view
+// server-side (move-to-trash, restore-from-trash, permanent delete). Drops the
+// known-removed items from the cache for an immediate visual update, then syncs
+// the count to the server's authoritative total. Safe to call from both the
+// optimistic action and its websocket echo (and another client's echo): the
+// cache drop is a no-op for already-removed items and the count is set
+// absolutely, so nothing double-counts. The grid's totalCount watcher reloads
+// the visible region (at the clamped scroll position) for large changes.
+//
+// This replaces the old `virtualGridRef.removeItems(ids)` + manual totalCount
+// decrement, which ran twice (optimistically and on the echo) and could drive
+// the total to 0 — blanking the grid / leaving unresolved spinners on large or
+// cascading deletes.
+async function reconcileRemoval(removedIds) {
+  if (!mediaList) return
+  if (removedIds?.length) {
+    mediaList.removeFromCache(removedIds.map(id => parseInt(id)))
+  }
+  // silentReload sets the absolute server total and clears stale page tracking.
+  await mediaList.silentReload()
+  totalCount.value = mediaList.totalCount.value
+  // The virtual scroller doesn't recompute its geometry on a count shrink until
+  // it sees a scroll event, so explicitly rebuild + reload the visible region.
+  await virtualGridRef.value?.refreshAfterRemoval?.()
+}
+
 // Soft reload - updates data without showing loading state or unmounting the grid
 // Used for live updates (websocket events) where we want seamless visual updates
 async function softReloadMedia() {
@@ -1135,10 +1161,7 @@ async function handleMoveToTrash() {
     await bulkDeleteMedia(idsToDelete)
     selectedItemIds.value = []
     multiSelectMode.value = false
-    // Use removeItems for smooth deletion without full reload
-    virtualGridRef.value?.removeItems(idsToDelete)
-    // Sync totalCount with mediaList (removeItems updates mediaList's count)
-    totalCount.value = mediaList.totalCount.value
+    await reconcileRemoval(idsToDelete)
   } catch (error) {
     console.error('Failed to move items to trash:', error)
     alert('Failed to move items to trash')
@@ -1149,8 +1172,7 @@ async function handleMoveToTrash() {
 async function handleDeleteSingle(item) {
   try {
     await bulkDeleteMedia([item.id])
-    // Use removeItems for smooth deletion
-    virtualGridRef.value?.removeItems([item.id])
+    await reconcileRemoval([item.id])
   } catch (error) {
     console.error('Failed to move item to trash:', error)
     alert('Failed to move item to trash')
@@ -1168,8 +1190,7 @@ async function handleDeleteMultiple(targetIds) {
       selectedItemIds.value = []
       multiSelectMode.value = false
     }
-    virtualGridRef.value?.removeItems(targetIds)
-    totalCount.value = mediaList.totalCount.value
+    await reconcileRemoval(targetIds)
   } catch (error) {
     console.error('Failed to move items to trash:', error)
     alert('Failed to move items to trash')
@@ -1182,8 +1203,7 @@ async function handleDeleteMultiple(targetIds) {
 async function restoreItem(mediaId) {
   try {
     await restoreFromTrash(mediaId)
-    // Use removeItems for smooth deletion without full reload
-    virtualGridRef.value?.removeItems([mediaId])
+    await reconcileRemoval([mediaId])
   } catch (error) {
     console.error('Failed to restore item:', error)
     alert('Failed to restore item')
@@ -1201,7 +1221,7 @@ async function handleRestoreMultiple(targetIds) {
       selectedItemIds.value = []
       multiSelectMode.value = false
     }
-    virtualGridRef.value?.removeItems(targetIds)
+    await reconcileRemoval(targetIds)
   } catch (error) {
     console.error('Failed to restore items:', error)
     alert(`Failed to restore items: ${error.response?.data?.detail || error.message}`)
@@ -1217,8 +1237,7 @@ async function handleBulkRestore() {
     await bulkRestoreFromTrash(idsToRestore)
     selectedItemIds.value = []
     multiSelectMode.value = false
-    // Use removeItems for smooth deletion without full reload
-    virtualGridRef.value?.removeItems(idsToRestore)
+    await reconcileRemoval(idsToRestore)
   } catch (error) {
     console.error('Failed to restore items:', error)
     alert(`Failed to restore items: ${error.response?.data?.detail || error.message}`)
@@ -1658,23 +1677,16 @@ onMounted(async () => {
   wsUnsubscribers.push(wsOn('media_deleted', (data) => {
     const { media_id } = data
     if (media_id && mediaList) {
-      // Remove item and shift indices to maintain contiguous cache
-      mediaList.removeItem(media_id)
-      totalCount.value = mediaList.totalCount.value
-      // Clean up selection for removed items
       removeFromSelection([media_id])
+      reconcileRemoval([media_id])
     }
   }))
 
   wsUnsubscribers.push(wsOn('media_bulk_deleted', (data) => {
     const { media_ids } = data
     if (media_ids?.length && mediaList) {
-      // Remove items and shift indices
-      mediaList.removeItems(media_ids)
-      // Sync totalCount with mediaList
-      totalCount.value = mediaList.totalCount.value
-      // Clean up selection for removed items
       removeFromSelection(media_ids)
+      reconcileRemoval(media_ids)
     }
   }))
 
@@ -1684,8 +1696,8 @@ onMounted(async () => {
     if (props.isTrashMode) {
       // Trash view: remove restored item from grid
       if (media_id && mediaList) {
-        mediaList.removeItem(media_id)
         removeFromSelection([media_id])
+        reconcileRemoval([media_id])
       }
     } else {
       // Browse view: restored items should appear
@@ -1698,8 +1710,8 @@ onMounted(async () => {
     if (props.isTrashMode) {
       // Trash view: remove restored items from grid
       if (media_ids?.length && mediaList) {
-        mediaList.removeItems(media_ids)
         removeFromSelection(media_ids)
+        reconcileRemoval(media_ids)
       }
     } else {
       // Browse view: restored items should appear
@@ -1712,8 +1724,8 @@ onMounted(async () => {
     if (!props.isTrashMode) return  // Only relevant for trash view
     const { media_ids } = data
     if (media_ids?.length && mediaList) {
-      mediaList.removeItems(media_ids)
       removeFromSelection(media_ids)
+      reconcileRemoval(media_ids)
     }
   }))
 

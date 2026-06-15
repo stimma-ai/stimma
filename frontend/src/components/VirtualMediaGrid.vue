@@ -1197,11 +1197,43 @@ function scrollToTop() {
   handleScroll()
 }
 
+// Force the grid back into a consistent state after the item count shrank
+// (e.g. a bulk delete). RecycleScroller does not recompute its total height or
+// clamp an out-of-range scrollTop until it sees a scroll event, so after a large
+// removal the scrollbar stays too long and loadVisiblePages reads a stale,
+// out-of-range scrollTop (computing an empty page range -> permanent spinners /
+// gap-toothed rows). Rebuild rows now, nudge the scroller to recompute + clamp,
+// then load whatever is actually visible.
+async function refreshAfterRemoval() {
+  // We own the post-removal rebuild — suppress the totalCount watcher so it
+  // doesn't also kick off a reload and fight us over the scroll position.
+  skipNextTotalCountWatch.value = true
+  previousTotalCount = props.totalCount
+
+  buildRowsImmediate()
+  await nextTick()
+  const el = scroller.value?.$el
+  if (!el) return
+  // RecycleScroller keeps a stale total height and an out-of-range scrollTop
+  // after the item count shrinks, and won't recompute until it sees a scroll
+  // within the new range. Its scrollHeight is still stale here, so compute the
+  // new content height from the row count and clamp scrollTop into range before
+  // dispatching the scroll that triggers the recompute + visible-page load.
+  const contentHeight = allItems.value.length * itemHeight.value
+  const maxScroll = Math.max(0, contentHeight - el.clientHeight)
+  if (el.scrollTop > maxScroll) el.scrollTop = maxScroll
+  el.dispatchEvent(new Event('scroll'))
+  await nextTick()
+  savedScrollPosition.value = el.scrollTop
+  await loadVisiblePages()
+}
+
 defineExpose({
   getAllVisibleIds,
   getItemsByIds,
   prependItems,
   removeItems,
+  refreshAfterRemoval,
   showContextMenuForItem,
   restoreScrollPosition,
   scrollToTop
@@ -1416,11 +1448,6 @@ function removeItems(mediaIds) {
     skipNextTotalCountWatch.value = true
     previousTotalCount = props.mediaList.totalCount.value
     buildRows()
-    // The index shift invalidated page tracking, and we just suppressed the
-    // totalCount watcher that would normally re-fetch. Refill the viewport so
-    // rows newly exposed by the deletion load instead of spinning until the
-    // next manual scroll.
-    nextTick(() => loadVisiblePages())
     return
   }
 
@@ -1444,14 +1471,8 @@ function removeItems(mediaIds) {
   }
   localItemsCache.value = newCache
 
-  // Indices shifted, so the old page tracking no longer maps to the cache.
-  // Clear it so loadVisiblePages re-fetches instead of skipping "loaded" pages.
-  localLoadedPages.value = new Set()
-
-  // Rebuild rows to update display, then refill the viewport for rows newly
-  // exposed by the deletion (see the shared-mediaList path above).
+  // Rebuild rows to update display
   buildRows()
-  nextTick(() => loadVisiblePages())
 }
 
 // Handle auto-delete removal from WebSocket
