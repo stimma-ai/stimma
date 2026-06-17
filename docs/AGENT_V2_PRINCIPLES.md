@@ -1,12 +1,12 @@
 # Agent V2 Principles
 
-This document defines the design philosophy and operating principles for the Stimma agent v2. It is the authoritative reference for anyone working on agent prompts, tools, skills, or bug fixes.
+This document defines the design philosophy and operating principles for the Stimma agent v2. It is the authoritative reference for anyone working on agent prompts, tools, stimpacks, or bug fixes.
 
 **Read this before changing the system prompt or fixing agent behavior bugs.**
 
 ## Core Philosophy
 
-The v1 agent was a pattern-matching machine with a 20k token system prompt. It could only do what was explicitly encoded as examples. V2 is a Claude Code-style agentic loop where the model's intelligence does the work, tools provide capabilities, and skills load on demand.
+The v1 agent was a pattern-matching machine with a 20k token system prompt. It could only do what was explicitly encoded as examples. V2 is a Claude Code-style agentic loop where the model's intelligence does the work, tools provide capabilities, and stimpacks load on demand.
 
 ### The Six Principles
 
@@ -14,11 +14,11 @@ The v1 agent was a pattern-matching machine with a 20k token system prompt. It c
 
 2. **The model explores rather than following rigid patterns.** The agent should understand *why* to do something, not memorize *how*. Teach principles, not procedures.
 
-3. **~10 core tools, not 50 specialized ones.** Compose behavior from general-purpose tools. A new capability should be a skill or a tool parameter, not a new tool.
+3. **~10 core tools, not 50 specialized ones.** Compose behavior from general-purpose tools. A new capability should be a stimpack or a tool parameter, not a new tool.
 
 4. **Code execution for batch/complex workflows instead of a DAG planner.** `run_code` with the `stimma` SDK replaces the v1 plan-and-execute model for anything beyond single tool calls.
 
-5. **Skills for reusable domain knowledge, not hardcoded examples.** Domain-specific workflows belong in skill documents that load on demand, not in the system prompt.
+5. **Stimpacks for reusable domain knowledge, not hardcoded examples.** Domain-specific workflows belong in stimpack documents that load on demand, not in the system prompt.
 
 6. **Start minimal, grow reactively.** Add to the system prompt only when the agent repeatedly gets something wrong *and* there's no better place for the fix.
 
@@ -35,7 +35,7 @@ These are the failure modes that erode the agent over time. Recognizing them is 
 **What to do instead:**
 - Ask *why* the agent made the mistake. Usually it lacks context, not rules.
 - If it's a tool misuse: improve the tool description or schema, or add a guard in the tool implementation itself.
-- If it's a domain knowledge gap: write or update a skill.
+- If it's a domain knowledge gap: write or update a stimpack.
 - If it's a general reasoning failure: write a short *positive* principle that explains the right mental model ("ControlNet strips everything except structure — prompt for the *target* image, not the reference").
 - If it truly must be in the system prompt: state it as a positive principle with a *why*, not a bare prohibition.
 
@@ -47,7 +47,7 @@ These are the failure modes that erode the agent over time. Recognizing them is 
 
 **What to do instead:**
 - State the principle: "Use parallel execution (`asyncio.gather`) when items are independent; use sequential loops when each step depends on the previous."
-- Put code examples in `sdk_help` tool output or in skills, not in the system prompt.
+- Put code examples in `sdk_help` tool output or in stimpacks, not in the system prompt.
 - If an example is truly needed for clarity, use *one* minimal example, not several variations.
 
 ### Prompt-level fixes for code-level problems
@@ -69,16 +69,16 @@ These are the failure modes that erode the agent over time. Recognizing them is 
 
 **What to do instead:**
 - Audit the system prompt regularly. If a section hasn't prevented a bug in weeks, consider removing it.
-- Move domain knowledge to skills (loaded on demand).
+- Move domain knowledge to stimpacks (loaded on demand).
 - Move tool documentation to `sdk_help` and `get_schema` (loaded on demand).
-- Keep the system prompt under ~800 tokens of actual guidance (excluding dynamic sections like tool preferences and skill content).
+- Keep the system prompt under ~800 tokens of actual guidance (excluding dynamic sections like tool preferences and stimpack content).
 
 ## Diagnosis Checklist
 
 When the agent misbehaves, work through this before touching the system prompt:
 
 1. **Is it a tool/schema problem?** Can the tool validate its inputs better? Is the schema misleading?
-2. **Is it a missing skill?** Would a skill document give the agent the domain knowledge it needs?
+2. **Is it a missing stimpack?** Would a stimpack document give the agent the domain knowledge it needs?
 3. **Is it an eval gap?** Add an eval case so the fix is testable and regressions are caught.
 4. **Is it a one-off?** Some failures are stochastic. If the agent gets it right 9/10 times, adding a prompt rule for the 1/10 case may hurt the 9/10.
 5. **Is it truly a prompt problem?** If yes — write a short positive principle with a *why*. No bare "DO NOT" lines.
@@ -108,7 +108,7 @@ Claude Code-style filesystem access. The agent operates on the real filesystem w
 | 8 | **web_search** | Search the web. Returns titles, URLs, and snippets. |
 | 9 | **web_fetch** | Fetch a URL and extract readable content. |
 | 10 | **ask_user** | Ask user for clarification, preferences, approval. |
-| 11 | **skill** | Invoke a skill. Meta-tool that loads instructions into context. |
+| 11 | **stimpack** | Invoke a stimpack. Meta-tool that loads instructions into context. |
 | 12 | **delegate** | Spawn subagent for bulk/isolated work. |
 
 ### Progressive Disclosure for STP Tools
@@ -189,24 +189,24 @@ Tracked automatically at the `stimma` API layer:
 
 The agent and user code don't have to bookkeep lineage — it's automatic.
 
-### Skills System
+### Stimpacks System
 
-Skills are markdown instruction documents that load into context on demand. Skills can optionally bundle a `lib/` directory with Python modules that become importable in `run_code` when the skill is enabled.
+Stimpacks are markdown instruction documents that load into context on demand. Stimpacks can optionally bundle a `lib/` directory with Python modules that become importable in `run_code` when the stimpack is enabled.
 
-**See `docs/SKILL_AUTHORING.md` for the full authoring guide.**
+**See `docs/STIMPACK_AUTHORING.md` for the full authoring guide.**
 
 **Three tiers:**
-- **Bundled** — ship with app, read-only, forkable (`backend/agent/v2/skills/`)
+- **Bundled** — ship with app, read-only, forkable (`backend/agent/v2/stimpacks/`)
 - **User-created** — in app data directory, read-write
 - **Agent-created** — same location, written by the agent to capture learned workflows
 
-**Lifecycle:** Discovery (name + description index) -> Invocation (full content loads) -> Execution (agent uses normal tools) -> Creation (agent writes new skill file)
+**Lifecycle:** Discovery (name + description index) -> Invocation (full content loads) -> Execution (agent uses normal tools) -> Creation (agent writes new stimpack file)
 
 **Key properties:**
 - Instruction templates that make the agent smarter
 - Can include Python code via `lib/` directory (declared with `provides:` in frontmatter)
 - Not required for basic operation
-- Agent can create/fork/modify its own skills
+- Agent can create/fork/modify its own stimpacks
 - Frontmatter is advisory (e.g., "requires comfyui provider"), not enforced structurally
 
 ### System Prompt
@@ -217,9 +217,9 @@ Skills are markdown instruction documents that load into context on demand. Skil
 2. **Tool behavior guidance** (~300 tokens): When to use which tool, progressive disclosure strategy
 3. **Task categories** (~100 tokens): Just names of available task types, entry point for discover tool
 
-**What stays OUT:** Workflow examples, tool parameter details, lora/model lists, prompt engineering advice, edge case handling. All of that is skills territory or progressive disclosure.
+**What stays OUT:** Workflow examples, tool parameter details, lora/model lists, prompt engineering advice, edge case handling. All of that is stimpacks territory or progressive disclosure.
 
 
 ## The Flow Agent
 
-The flow agent should adhere to the above principles with one exception: It's system prompt includes an embedded "skill" for working on flow programs. So the length limit does not apply, and it's OK for it to explain "how" a little bit more. It should still avoid pitfalls like lots of negative instructions, etc. Just keep this in mind when working over there.
+The flow agent should adhere to the above principles with one exception: It's system prompt includes an embedded "stimpack" for working on flow programs. So the length limit does not apply, and it's OK for it to explain "how" a little bit more. It should still avoid pitfalls like lots of negative instructions, etc. Just keep this in mind when working over there.

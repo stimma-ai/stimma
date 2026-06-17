@@ -64,7 +64,7 @@ async def run_file(file_path: str, **kwargs) -> str:
         interrupt_checker=kwargs.get("interrupt_checker"),
         session_media_ids=kwargs.get("session_media_ids"),
         shown_media_ids=kwargs.get("_shown_media_ids"),
-        enabled_skills=kwargs.get("_enabled_skills"),
+        enabled_stimpacks=kwargs.get("_enabled_stimpacks"),
         project_id=kwargs.get("project_id"),
         effective_model_slug=kwargs.get("_effective_model_slug"),
     )

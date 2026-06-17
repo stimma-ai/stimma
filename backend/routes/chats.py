@@ -2183,7 +2183,7 @@ class ToolConfigModel(PydanticBaseModel):
     allowed_tools: List[str] = []
     denied_tools: List[str] = []
     v2_permissions: Optional[dict] = None  # v2 agent tool permissions
-    enabled_skills: Optional[List[str]] = None
+    enabled_stimpacks: Optional[List[str]] = None
 
 
 class AgentSettingsResponse(PydanticBaseModel):
@@ -2260,75 +2260,75 @@ async def update_agent_settings(
     )
 
 
-@router.get("/{chat_id}/invoked-skills")
-async def list_invoked_skills(
+@router.get("/{chat_id}/invoked-stimpacks")
+async def list_invoked_stimpacks(
     chat_id: int,
     session: AsyncSession = Depends(get_db_session),
 ):
-    """List skills that have been invoked in this chat."""
+    """List stimpacks that have been invoked in this chat."""
     result = await session.execute(
         select(ChatItem)
-        .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "skill_injection")
+        .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "stimpack_injection")
     )
     names = []
     for item in result.scalars():
         if item.item_metadata:
             try:
                 meta = json.loads(item.item_metadata) if isinstance(item.item_metadata, str) else item.item_metadata
-                name = meta.get("skill_name")
+                name = meta.get("stimpack_name")
                 if name and name not in names:
                     names.append(name)
             except (json.JSONDecodeError, TypeError):
                 pass
-    return {"skills": names}
+    return {"stimpacks": names}
 
 
-class InvokeSkillRequest(PydanticBaseModel):
+class InvokeStimpackRequest(PydanticBaseModel):
     name: str
 
 
-@router.post("/{chat_id}/invoke-skill")
-async def invoke_skill_in_chat(
+@router.post("/{chat_id}/invoke-stimpack")
+async def invoke_stimpack_in_chat(
     chat_id: int,
-    body: InvokeSkillRequest,
+    body: InvokeStimpackRequest,
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Directly inject a skill into a chat's conversation context.
+    """Directly inject a stimpack into a chat's conversation context.
 
-    Creates a skill_injection ChatItem without requiring an agent turn.
-    Used by the frontend sidebar for manual skill activation.
+    Creates a stimpack_injection ChatItem without requiring an agent turn.
+    Used by the frontend sidebar for manual stimpack activation.
     """
     chat = await session.get(Chat, chat_id)
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    from agent.v2.skills import load_skill
+    from agent.v2.stimpacks import load_stimpack
 
-    loaded = load_skill(body.name)
+    loaded = load_stimpack(body.name)
     if not loaded:
-        raise HTTPException(status_code=404, detail=f"Skill '{body.name}' not found")
+        raise HTTPException(status_code=404, detail=f"Stimpack '{body.name}' not found")
 
     # Check if already invoked
     result = await session.execute(
         select(ChatItem)
-        .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "skill_injection")
+        .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "stimpack_injection")
     )
     for item in result.scalars():
         if item.item_metadata:
             try:
                 meta = json.loads(item.item_metadata) if isinstance(item.item_metadata, str) else item.item_metadata
-                if meta.get("skill_name") == body.name:
-                    return {"status": "already_loaded", "skill_name": body.name}
+                if meta.get("stimpack_name") == body.name:
+                    return {"status": "already_loaded", "stimpack_name": body.name}
             except (json.JSONDecodeError, TypeError):
                 pass
 
     inj_item = ChatItem(
         chat_id=chat_id,
-        item_type="skill_injection",
-        message_text=f"## Skill: {loaded.info.display_name}\n\n{loaded.content}",
+        item_type="stimpack_injection",
+        message_text=f"## Stimpack: {loaded.info.display_name}\n\n{loaded.content}",
         item_metadata=json.dumps({
-            "skill_name": body.name,
-            "skill_display_name": loaded.info.display_name,
+            "stimpack_name": body.name,
+            "stimpack_display_name": loaded.info.display_name,
         }),
     )
     session.add(inj_item)
@@ -2338,4 +2338,4 @@ async def invoke_skill_in_chat(
         "item": inj_item.to_dict(),
     })
 
-    return {"status": "loaded", "skill_name": body.name, "item_id": inj_item.id}
+    return {"status": "loaded", "stimpack_name": body.name, "item_id": inj_item.id}

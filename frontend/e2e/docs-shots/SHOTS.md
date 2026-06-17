@@ -20,7 +20,7 @@ into a page. Inventory refs point at the docs repo's SCREENSHOT_INVENTORY.md.
 | tools/post-processing-progress.png | 03-postprocessing | Run with a 2-step chain; wait for the job tile (provider paced via STIMMA_DEMO_DELAY=0.5), shoot mid-run. | tools/post-processing-progress.png → post-processing page |
 | tools/post-processing-done.png | 03-postprocessing | Same run, after completion (companion). | — (alt take) |
 | settings/tool-providers.png | 04-settings | open-settings event → 'tools'. Provider is WebSocket so no filesystem paths appear. | tools/tool-providers.png → STP page |
-| settings/skills.png | 04-settings | open-settings → 'skills'. Shows the 3 auto-installed marketplace skills. | prompt-engineering/skills-settings.png → PE skill page |
+| settings/stimpacks.png | 04-settings | open-settings → 'stimpacks'. Shows the 3 auto-installed marketplace stimpacks. | prompt-engineering/stimpacks-settings.png → PE stimpack page |
 | settings/llm-services.png | 04-settings | open-settings → 'ai-services'; clicks Test connection and waits for the green capability badges (text/thinking/tools/vision against local Ollama). | local-ai/llm-settings.png (replaced stale asset in llms page) |
 | settings/agent.png | 04-settings | open-settings → 'agent'. | — (spare) |
 | library/all-assets.png | 01-library | /browse with the seeded library. Feedback coachmark burned during setup so no stray menu. | — (home hero candidate; existing approved asset kept) |

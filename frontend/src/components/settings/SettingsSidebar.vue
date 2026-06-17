@@ -235,7 +235,7 @@ const profileSections = [
   { id: 'markers', label: 'Markers', icon: TagIcon },
   { id: 'wildcards', label: 'Prompt Variables', icon: WildcardIcon },
   { id: 'agent', label: 'Agent', icon: SparklesIcon },
-  { id: 'skills', label: 'Skills', icon: BookOpenIcon },
+  { id: 'stimpacks', label: 'Stimpacks', icon: BookOpenIcon },
 ]
 
 // Global settings (applies to all profiles)

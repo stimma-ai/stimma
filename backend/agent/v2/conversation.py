@@ -208,7 +208,7 @@ def _item_to_message(item: ChatItem) -> Dict[str, Any] | None:
             "content": str(content),
         }
 
-    if item.item_type == "skill_injection":
+    if item.item_type == "stimpack_injection":
         return {"role": "user", "content": item.message_text or ""}
 
     # Skip: generated_media, media_grid, error, system, hitl_request, etc.

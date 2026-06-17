@@ -12,23 +12,23 @@ passes them to build_messages().
 
 from typing import List, Optional, Set
 
-from .skills import SkillInfo
+from .stimpacks import StimpackInfo
 
 
-def build_skills_reminder(
-    all_skills: List[SkillInfo],
-    invoked_skills: Set[str],
+def build_stimpacks_reminder(
+    all_stimpacks: List[StimpackInfo],
+    invoked_stimpacks: Set[str],
 ) -> Optional[str]:
-    """Build a system reminder listing available skills.
+    """Build a system reminder listing available stimpacks.
 
-    Only includes skills that haven't already been invoked in this conversation.
-    Returns None if no skills are available or all have been invoked.
+    Only includes stimpacks that haven't already been invoked in this conversation.
+    Returns None if no stimpacks are available or all have been invoked.
     """
-    available = [s for s in all_skills if s.name not in invoked_skills]
+    available = [s for s in all_stimpacks if s.name not in invoked_stimpacks]
     if not available:
         return None
 
-    lines = ["<system-reminder>", "Skills available if useful:", ""]
+    lines = ["<system-reminder>", "Stimpacks available if useful:", ""]
     for s in available:
         desc = s.description
         if s.provides:
@@ -36,8 +36,8 @@ def build_skills_reminder(
         lines.append(f"- {s.name}: {desc}")
     lines.append("")
     lines.append(
-        "Load every skill that clearly applies up front, before starting work — "
-        "loading a skill mid-task injects new instructions that can reset your focus "
+        "Load every stimpack that clearly applies up front, before starting work — "
+        "loading a stimpack mid-task injects new instructions that can reset your focus "
         "and cause you to redo completed steps."
     )
     lines.append("</system-reminder>")

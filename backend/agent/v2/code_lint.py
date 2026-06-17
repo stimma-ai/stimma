@@ -21,7 +21,7 @@ from typing import Any
 AGENT_ONLY_TOOLS = frozenset({
     "create_layout", "bash", "view_image", "ask_user",
     "browse_web",
-    "skill", "notepad",
+    "stimpack", "notepad",
 })
 
 

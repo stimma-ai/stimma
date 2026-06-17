@@ -116,30 +116,30 @@ ALLOWED_MODULES_PROMPT_DESCRIPTION = (
 
 
 def _make_safe_import(
-    skill_modules: dict[str, Path] | None = None,
+    stimpack_modules: dict[str, Path] | None = None,
     extra_modules: dict[str, Any] | None = None,
 ):
-    """Build a safe __import__ that allows whitelisted modules + skill lib modules.
+    """Build a safe __import__ that allows whitelisted modules + stimpack lib modules.
 
     ``extra_modules`` is a per-invocation override for callers that need to
     expose a module the global allow-list doesn't cover — e.g. the flow
     builder needs ``stimma.flow`` visible so ``from stimma.flow import …``
     resolves inside the sandbox.
     """
-    _skill_module_cache: dict[str, Any] = {}
+    _stimpack_module_cache: dict[str, Any] = {}
 
-    def _load_skill_module(name: str) -> Any:
-        """Load a skill module by temporarily inserting its lib dir into sys.path."""
-        if name in _skill_module_cache:
-            return _skill_module_cache[name]
+    def _load_stimpack_module(name: str) -> Any:
+        """Load a stimpack module by temporarily inserting its lib dir into sys.path."""
+        if name in _stimpack_module_cache:
+            return _stimpack_module_cache[name]
         import importlib
         import sys as _sys
         top_level = name.split(".")[0]
-        lib_dir = skill_modules.get(top_level) if skill_modules else None
+        lib_dir = stimpack_modules.get(top_level) if stimpack_modules else None
         if lib_dir is None:
             raise ImportError(f"Import '{name}' is not allowed in run_code")
         lib_dir_str = str(lib_dir)
-        # Clear stale sys.modules entries for this skill module tree
+        # Clear stale sys.modules entries for this stimpack module tree
         stale_keys = [k for k in _sys.modules if k == top_level or k.startswith(top_level + ".")]
         for k in stale_keys:
             del _sys.modules[k]
@@ -150,7 +150,7 @@ def _make_safe_import(
         finally:
             if lib_dir_str in _sys.path:
                 _sys.path.remove(lib_dir_str)
-        _skill_module_cache[name] = mod
+        _stimpack_module_cache[name] = mod
         return mod
 
     def _safe_import(name: str, globals=None, locals=None, fromlist=(), level: int = 0):
@@ -162,11 +162,11 @@ def _make_safe_import(
             return ALLOWED_MODULES[name]
         if name == "os":
             return SimpleNamespace(path=os.path)
-        # Check skill modules
-        if skill_modules:
+        # Check stimpack modules
+        if stimpack_modules:
             top_level = name.split(".")[0]
-            if top_level in skill_modules:
-                return _load_skill_module(name)
+            if top_level in stimpack_modules:
+                return _load_stimpack_module(name)
         raise ImportError(f"Import '{name}' is not allowed in run_code")
 
     return _safe_import
@@ -196,12 +196,12 @@ def _make_safe_open(workspace_dir: Path, project_workspace_dir: Path | None = No
 def build_safe_builtins(
     workspace_dir: Path,
     printer,
-    skill_modules: dict[str, Path] | None = None,
+    stimpack_modules: dict[str, Path] | None = None,
     project_workspace_dir: Path | None = None,
     extra_modules: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
-        "__import__": _make_safe_import(skill_modules, extra_modules),
+        "__import__": _make_safe_import(stimpack_modules, extra_modules),
         "abs": abs,
         "all": all,
         "any": any,
@@ -1104,7 +1104,7 @@ class StimmaSDK:
             items = media_ids
         if items is None:
             raise ValueError("No items to group into a set")
-        # Accepted for compatibility with older skills/examples. Sets currently
+        # Accepted for compatibility with older stimpacks/examples. Sets currently
         # store only media IDs and a title.
         _ = description
 
@@ -1383,7 +1383,7 @@ async def run_code_in_sandbox(
     interrupt_checker,
     session_media_ids: list[int] | None = None,
     shown_media_ids: set[int] | None = None,
-    enabled_skills: list[str] | None = None,
+    enabled_stimpacks: list[str] | None = None,
     project_id: int | None = None,
     effective_model_slug: str | None = None,
 ) -> tuple[str, dict]:
@@ -1418,20 +1418,20 @@ async def run_code_in_sandbox(
     # Module-like object so both `import tqdm` and `from tqdm import tqdm` work
     tqdm_module = SimpleNamespace(tqdm=_BoundTqdm, auto=SimpleNamespace(tqdm=_BoundTqdm))
 
-    # Collect importable modules from enabled skills
-    from .skills import get_skill_lib_modules
-    skill_modules = get_skill_lib_modules(enabled_skills)
-    if skill_modules:
-        # Warn if any skill module collides with built-in allowed modules
-        for mod_name in list(skill_modules):
+    # Collect importable modules from enabled stimpacks
+    from .stimpacks import get_stimpack_lib_modules
+    stimpack_modules = get_stimpack_lib_modules(enabled_stimpacks)
+    if stimpack_modules:
+        # Warn if any stimpack module collides with built-in allowed modules
+        for mod_name in list(stimpack_modules):
             if mod_name in ALLOWED_MODULES:
-                log.warning(f"Skill module '{mod_name}' shadows built-in module — skipping")
-                del skill_modules[mod_name]
+                log.warning(f"Stimpack module '{mod_name}' shadows built-in module — skipping")
+                del stimpack_modules[mod_name]
 
     builtins = build_safe_builtins(
         workspace_dir,
         _printer,
-        skill_modules=skill_modules or None,
+        stimpack_modules=stimpack_modules or None,
         project_workspace_dir=project_workspace_dir,
     )
     # Patch asyncio.gather so standard Python patterns get stimma's

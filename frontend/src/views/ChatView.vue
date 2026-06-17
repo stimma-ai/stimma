@@ -1046,9 +1046,9 @@
           <!-- HITL Response - hidden (completed HITL displayed inline above) -->
           <template v-else-if="item.item_type === 'hitl_response'"></template>
 
-          <!-- Skill injection - subtle indicator -->
-          <div v-else-if="item.item_type === 'skill_injection'" class="flex justify-center py-1">
-            <span class="text-[11px] text-content-muted italic">Activated Skill: {{ item.item_metadata?.skill_display_name || item.item_metadata?.skill_name || 'unknown' }}</span>
+          <!-- Stimpack injection - subtle indicator -->
+          <div v-else-if="item.item_type === 'stimpack_injection'" class="flex justify-center py-1">
+            <span class="text-[11px] text-content-muted italic">Activated Stimpack: {{ item.item_metadata?.stimpack_display_name || item.item_metadata?.stimpack_name || 'unknown' }}</span>
           </div>
 
           <!-- Empty assistant message (skip) -->
@@ -1831,7 +1831,7 @@ const TOOL_DISPLAY_NAMES = {
   ask_user: 'Asking You',
   browse_web: 'Browsing Web',
   library: null,         // Special: varies by action arg
-  skill: null,           // Special: "Skill: <display_name>"
+  stimpack: null,           // Special: "Stimpack: <display_name>"
   delegate: null,        // Special: shows specialist or truncated task
   create_parameter_sweep: 'Creating Parameter Sweep',
   assemble_grid: 'Creating Grid',  // backward compat for old chats
@@ -1898,9 +1898,9 @@ function getToolCallDisplayName(toolCallItem) {
     if (toolId) return formatToolId(String(toolId))
     return 'Tool'
   }
-  if (toolCallItem.tool_name === 'skill') {
+  if (toolCallItem.tool_name === 'stimpack') {
     const displayName = args._display_name || (args.name ? formatToolId(String(args.name)) : null)
-    return displayName ? `Skill: ${displayName}` : 'Skill'
+    return displayName ? `Stimpack: ${displayName}` : 'Stimpack'
   }
   if (toolCallItem.tool_name === 'delegate') {
     if (args.specialist) return formatToolId(String(args.specialist))
@@ -2029,7 +2029,7 @@ function isInvisiblePassthroughItem(item) {
   if (item.item_type === 'grid_generation') return true
   if (item.item_type === 'scored_results') return true
   if (item.item_type === 'notepad_display') return true
-  if (item.item_type === 'skill_injection') return true
+  if (item.item_type === 'stimpack_injection') return true
   return false
 }
 

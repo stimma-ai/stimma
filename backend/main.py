@@ -160,7 +160,7 @@ from routes import (
     tasks as flow_tasks,
     settings,
     share,
-    skill_marketplace,
+    stimpack_marketplace,
     tags,
     telemetry,
     tools,
@@ -210,7 +210,7 @@ app.include_router(tools.router)
 app.include_router(mask_assistant.router)
 app.include_router(presets.router)
 app.include_router(share.router)
-app.include_router(skill_marketplace.router)
+app.include_router(stimpack_marketplace.router)
 app.include_router(telemetry.router)
 app.include_router(feedback.router)
 app.include_router(flags.router)
