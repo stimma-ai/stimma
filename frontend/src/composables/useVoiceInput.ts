@@ -82,7 +82,7 @@ export interface VoiceInputOptions {
   /** Optional: refocus the field after transcription commits. */
   focus?: () => void
   /**
-   * Telemetry surface (closed enum: main_chat | recipe_chat | prompt_agent |
+   * Telemetry surface (closed enum: main_chat | flow_chat | prompt_agent |
    * feedback). No transcript is ever tracked — only surface, duration, and
    * the committed/cancelled outcome.
    */

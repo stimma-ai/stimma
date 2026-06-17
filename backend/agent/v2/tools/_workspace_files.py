@@ -50,21 +50,21 @@ def resolve_workspace_path(workspace_dir: str, file_path: str) -> tuple[Path, st
     return resolved, None
 
 
-async def maybe_sync_recipe_program(session, chat_id: int | None, file_path: str) -> str | None:
-    """Trigger a compiled-graph rebuild if this write targeted a recipe's program.py.
+async def maybe_sync_flow_program(session, chat_id: int | None, file_path: str) -> str | None:
+    """Trigger a compiled-graph rebuild if this write targeted a flow's program.py.
 
-    Recipe chats use the recipe's on-disk directory as their workspace, so
+    Flow chats use the flow's on-disk directory as their workspace, so
     write_file/edit_file can update program.py directly. But the frontend's
     phase tree reads from the compiled state.db, which is only populated at
     graph-build time (Start / resume). Without this hook, the agent writes
     the program and the tree stays empty until the user hits Start, which
-    produced the "I created a recipe — but the page is blank" UX bug.
+    produced the "I created a flow — but the page is blank" UX bug.
 
     Returns a short agent-visible message describing the rebuild outcome
     ("graph built: N equations" or "graph build FAILED: ...") so the agent
     can loop on real DSL errors instead of assuming the write succeeded just
     because the file was saved. Returns None when the hook didn't apply
-    (non-recipe chat or non-program.py path).
+    (non-flow chat or non-program.py path).
 
     Infrastructure errors (DB down, import failures) are logged and swallowed
     — the file already landed on disk, and a broken rebuild shouldn't be
@@ -84,13 +84,13 @@ async def maybe_sync_recipe_program(session, chat_id: int | None, file_path: str
 
         result = await session.execute(select(Chat).where(Chat.id == chat_id))
         chat = result.scalar_one_or_none()
-        if chat is None or chat.recipe_id is None:
+        if chat is None or chat.flow_id is None:
             return None
 
-        import recipe_lifecycle
+        import flow_lifecycle
 
-        load_error = await recipe_lifecycle.apply_program_edit(
-            session, chat.recipe_id, auto_start=True,
+        load_error = await flow_lifecycle.apply_program_edit(
+            session, chat.flow_id, auto_start=True,
         )
         if load_error is None:
             return "Graph built successfully — phase tree refreshed."
@@ -102,7 +102,7 @@ async def maybe_sync_recipe_program(session, chat_id: int | None, file_path: str
             lines.append(f"Hint: {suggestion}")
         return "\n".join(lines)
     except Exception:
-        _log.exception("failed to sync recipe program after workspace edit")
+        _log.exception("failed to sync flow program after workspace edit")
         return None
 
 

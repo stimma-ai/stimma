@@ -1004,12 +1004,12 @@ class TestTrashFilterCounts:
 
 
 class TestRestoreTrashedMediaSilently:
-    """The recipe runtime calls restore_trashed_media_silently from its
+    """The flow runtime calls restore_trashed_media_silently from its
     store-hit path so a cache-hit on a trashed asset re-asserts it as live."""
 
     async def test_clears_deleted_at_on_trashed_only(self, db_session, seeded_media):
         from datetime import datetime
-        from recipe_runtime.production_evaluators import (
+        from flow_runtime.production_evaluators import (
             restore_trashed_media_silently,
         )
 
@@ -1033,7 +1033,7 @@ class TestRestoreTrashedMediaSilently:
         self, db_session, seeded_media,
     ):
         from datetime import datetime
-        from recipe_runtime import production_evaluators
+        from flow_runtime import production_evaluators
 
         live_id = seeded_media[0].id
         trashed_id = seeded_media[1].id
@@ -1060,7 +1060,7 @@ class TestRestoreTrashedMediaSilently:
             assert payload["count"] == 1
 
     async def test_empty_input_is_noop(self):
-        from recipe_runtime.production_evaluators import (
+        from flow_runtime.production_evaluators import (
             restore_trashed_media_silently,
         )
         # Should not raise, should not broadcast.

@@ -19,7 +19,7 @@ This module is the coordinator: it generates request IDs, registers awaitable
 futures, dispatches over the WS, and resolves them when the response arrives.
 
 If no UI client is connected the call blocks (with timeout) until one appears.
-Stimma is a UI-driven app — recipes, agent vision, and thumbnail generation
+Stimma is a UI-driven app — flows, agent vision, and thumbnail generation
 all assume someone has the app open. When that assumption breaks we fail
 loudly rather than silently degrading.
 """

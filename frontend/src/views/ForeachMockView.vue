@@ -45,12 +45,12 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import ForeachGroupNode from '../components/recipe/mock/ForeachGroupNode.vue'
+import ForeachGroupNode from '../components/flow/mock/ForeachGroupNode.vue'
 import {
   buildScenario4,
   buildScenario40,
   buildScenario400,
-} from '../components/recipe/mock/foreachMockData'
+} from '../components/flow/mock/foreachMockData'
 
 const scenarios = [
   { id: 'small-4',  label: '4 iterations' },

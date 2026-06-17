@@ -970,34 +970,34 @@ async def lifespan(app: FastAPI):
         except Exception:
             log.exception("failed to reconcile interrupted chain runs")
 
-        # Reconcile denormalized recipe.pending_task_count from each profile's
-        # per-recipe state.db. Catches drift from any missed WebSocket events
+        # Reconcile denormalized flow.pending_task_count from each profile's
+        # per-flow state.db. Catches drift from any missed WebSocket events
         # across an ungraceful shutdown so the landing view and sidebar
         # badges read correct counts on first load.
         try:
             from core.profile_context import ProfileScope
-            from recipe_lifecycle import (
+            from flow_lifecycle import (
                 reconcile_pending_task_counts,
-                recover_running_recipes,
+                recover_running_flows,
             )
             for profile in settings.profiles:
                 db = registry.get_database(profile.id)
                 async with db.async_session_maker() as session:
                     with ProfileScope(profile.id):
                         reconciled = await reconcile_pending_task_counts(session)
-                        recovered = await recover_running_recipes(session)
+                        recovered = await recover_running_flows(session)
                 if reconciled:
                     log.info(
-                        "recipe task counts reconciled",
-                        profile=profile.id, recipes=len(reconciled),
+                        "flow task counts reconciled",
+                        profile=profile.id, flows=len(reconciled),
                     )
                 if recovered:
                     log.info(
-                        "recipe runtimes recovered",
-                        profile=profile.id, recipes=len(recovered),
+                        "flow runtimes recovered",
+                        profile=profile.id, flows=len(recovered),
                     )
         except Exception:
-            log.exception("recipe task count reconciliation failed (non-fatal)")
+            log.exception("flow task count reconciliation failed (non-fatal)")
 
         # Start provider connections as early as possible, then give them a short
         # grace window before the server starts accepting requests.

@@ -310,7 +310,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { devModeRef } from '../../appConfig'
 import { copyToClipboard } from '../../utils/clipboard'
-import { parseRecipeError } from '../../utils/recipeErrors'
+import { parseFlowError } from '../../utils/flowErrors'
 import MediaImage from '../media/MediaImage.vue'
 
 export interface InputEntry {
@@ -384,7 +384,7 @@ const defaultPlaceholderIconPath = 'M3.375 3.375h17.25v17.25H3.375V3.375Zm3.375 
 
 const rawJsonCopied = ref(false)
 const rawJsonExpanded = ref(false)
-const parsedError = computed(() => parseRecipeError(props.errorDetails))
+const parsedError = computed(() => parseFlowError(props.errorDetails))
 let rawJsonCopiedTimer: ReturnType<typeof setTimeout> | null = null
 
 watch(() => props.show, (visible) => {

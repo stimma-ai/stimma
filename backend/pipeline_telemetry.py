@@ -33,7 +33,7 @@ log = get_logger(__name__)
 # per-tab UUID (or the legacy literal), so anything else maps to toolview.
 _SOURCE_BY_INSTANCE = {
     "agent": "agent",
-    "recipe": "recipe",
+    "flow": "flow",
 }
 
 # job_ids whose pipeline already settled (bounded; telemetry-only state).
@@ -152,7 +152,7 @@ def tool_job_props(job) -> Dict[str, Any]:
 
 
 def job_source(job) -> str:
-    """``toolview | agent | recipe | forever`` from the job's call path."""
+    """``toolview | agent | flow | forever`` from the job's call path."""
     instance_id = job.generator_instance_id or ""
     fixed = _SOURCE_BY_INSTANCE.get(instance_id)
     if fixed:

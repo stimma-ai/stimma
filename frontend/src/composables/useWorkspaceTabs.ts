@@ -4,7 +4,7 @@ import { makeProfileKey } from '../utils/storageKeys'
 import { useProvidersApi } from './useProvidersApi'
 import { isSettingsLoaded } from '../appConfig'
 
-export type WorkspaceTabType = 'tool' | 'chat' | 'board' | 'editor' | 'lineage' | 'project' | 'recipe'
+export type WorkspaceTabType = 'tool' | 'chat' | 'board' | 'editor' | 'lineage' | 'project' | 'flow'
 
 export interface WorkspaceTab {
   id: string              // 'tool:{fullToolId}', 'chat:{id}', 'board:{id}', 'editor:{editorId}'

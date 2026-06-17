@@ -2,7 +2,7 @@
 
 Each filter def becomes one tool on the built-in lightweight provider
 (task type "filter": image + params → image), so filters are ordinary
-catalog tools — usable from the chat agent, recipes, ToolView, and
+catalog tools — usable from the chat agent, flows, ToolView, and
 post-processing chains alike.
 """
 

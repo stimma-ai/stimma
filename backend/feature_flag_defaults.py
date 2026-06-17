@@ -12,5 +12,5 @@ Flag names should be lowercase-snake-case.
 from typing import Any, Dict
 
 FLAG_DEFAULTS: Dict[str, Any] = {
-    # Example: "recipe_v3_ui": False,
+    # Example: "flow_v3_ui": False,
 }

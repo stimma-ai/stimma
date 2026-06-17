@@ -143,7 +143,7 @@ async def test_app(temp_appdata_dir: Path):
 
         # Reset equation store singleton so each test module gets a fresh
         # store rooted at its own temp data dir.
-        from recipe_runtime.equation_store import reset_equation_store_singleton
+        from flow_runtime.equation_store import reset_equation_store_singleton
         reset_equation_store_singleton()
 
         # Now import and initialize
@@ -170,10 +170,10 @@ async def test_app(temp_appdata_dir: Path):
 
         # Import and include routers
         from routes import (
-            boards, chats, generation, media, media_files, markers, projects, recipes, tags, trash,
+            boards, chats, generation, media, media_files, markers, projects, flows, tags, trash,
             saved_views, profiles, keywords, processing, settings as settings_routes,
         )
-        from routes import tasks as recipe_tasks
+        from routes import tasks as flow_tasks
         from routes.presets import router as presets_router
         from routes.preferences import router as preferences_router
         app.include_router(media.router)
@@ -183,8 +183,8 @@ async def test_app(temp_appdata_dir: Path):
         app.include_router(generation.router)
         app.include_router(markers.router)
         app.include_router(projects.router)
-        app.include_router(recipes.router)
-        app.include_router(recipe_tasks.router)
+        app.include_router(flows.router)
+        app.include_router(flow_tasks.router)
         app.include_router(tags.router)
         app.include_router(trash.router)
         app.include_router(saved_views.router)

@@ -155,9 +155,9 @@ from routes import (
     prompt_enhancement,
     profiles,
     realtime,
-    recipes,
+    flows,
     saved_views,
-    tasks as recipe_tasks,
+    tasks as flow_tasks,
     settings,
     share,
     skill_marketplace,
@@ -197,8 +197,8 @@ app.include_router(processing.router)
 app.include_router(media_files.router)
 app.include_router(preferences.router)
 app.include_router(projects.router)
-app.include_router(recipes.router)
-app.include_router(recipe_tasks.router)
+app.include_router(flows.router)
+app.include_router(flow_tasks.router)
 app.include_router(admin.router)
 app.include_router(realtime.router)
 app.include_router(chats.router)

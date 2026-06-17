@@ -584,18 +584,18 @@ class ProjectMedia(Base):
     )
 
 
-class Recipe(Base):
-    """A recipe: a repeatable parameterized process for producing assets.
+class Flow(Base):
+    """A flow: a repeatable parameterized process for producing assets.
 
-    Heavy state (equations, tasks, HITL results) lives in a per-recipe SQLite
-    database at <data_dir>/recipes/<id>/state.db. This table stores metadata only.
+    Heavy state (equations, tasks, HITL results) lives in a per-flow SQLite
+    database at <data_dir>/flows/<id>/state.db. This table stores metadata only.
     """
-    __tablename__ = "recipes"
+    __tablename__ = "flows"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
-    parent_id = Column(Integer, ForeignKey('recipes.id', ondelete='SET NULL'), nullable=True, index=True)
+    parent_id = Column(Integer, ForeignKey('flows.id', ondelete='SET NULL'), nullable=True, index=True)
     project_id = Column(Integer, ForeignKey('projects.id', ondelete='SET NULL'), nullable=True, index=True)
 
     # JSON text
@@ -606,7 +606,7 @@ class Recipe(Base):
     program_hash = Column(String, nullable=True)
     execution_state = Column(String, nullable=False, default='idle', index=True)  # idle | running | paused
 
-    # Denormalized count of pending tasks across the per-recipe state.db.
+    # Denormalized count of pending tasks across the per-flow state.db.
     # Maintained incrementally via WebSocket events and reconciled on startup.
     pending_task_count = Column(Integer, nullable=False, default=0, server_default='0')
 
@@ -850,7 +850,7 @@ class Chat(Base):
     # Forking support
     original_chatitem_id = Column(Integer, nullable=True)  # FK to chat_items.id
     project_id = Column(Integer, ForeignKey('projects.id', ondelete='SET NULL'), nullable=True, index=True)
-    recipe_id = Column(Integer, ForeignKey('recipes.id', ondelete='SET NULL'), nullable=True, index=True)
+    flow_id = Column(Integer, ForeignKey('flows.id', ondelete='SET NULL'), nullable=True, index=True)
 
     # Per-chat settings
     throttle = Column(String, nullable=True, default='off')
@@ -893,7 +893,7 @@ class Chat(Base):
             "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
             "original_chatitem_id": self.original_chatitem_id,
             "project_id": self.project_id,
-            "recipe_id": self.recipe_id,
+            "flow_id": self.flow_id,
             "throttle": self.throttle,
             "generation_settings": json.loads(self.generation_settings) if self.generation_settings else None,
             "additional_instructions": self.additional_instructions,

@@ -44,21 +44,21 @@ def build_skills_reminder(
     return "\n".join(lines)
 
 
-def build_user_program_edit_reminder(recipe_id: int) -> Optional[str]:
+def build_user_program_edit_reminder(flow_id: int) -> Optional[str]:
     """Notify the agent that the user just edited program.py out-of-band.
 
     Consumes a one-shot marker file: returns a reminder the first time it sees
     one, and clears it. Subsequent turns see no reminder until the user edits
     again.
     """
-    from recipe_runtime import consume_user_program_edit_marker
+    from flow_runtime import consume_user_program_edit_marker
 
-    if not consume_user_program_edit_marker(recipe_id):
+    if not consume_user_program_edit_marker(flow_id):
         return None
 
     return (
         "<system-reminder>\n"
-        "The user just saved an edit to program.py from the recipe code view. "
+        "The user just saved an edit to program.py from the flow code view. "
         "Your in-context view of the file is stale. Re-read program.py "
         "before making any further edits to it; otherwise edit_file matches "
         "may fail or you may overwrite the user's changes.\n"

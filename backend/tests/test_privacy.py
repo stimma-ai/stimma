@@ -371,12 +371,12 @@ def test_salted_hash_is_stable_and_irreversible(fresh_env, patch_settings, monke
     import object_hash
     monkeypatch.setattr(object_hash, "_salt", None)
 
-    h1 = object_hash.salted_hash("recipe-123")
-    h2 = object_hash.salted_hash("recipe-123")
+    h1 = object_hash.salted_hash("flow-123")
+    h2 = object_hash.salted_hash("flow-123")
     assert h1 == h2
-    assert "recipe-123" not in h1
+    assert "flow-123" not in h1
     assert re.fullmatch(r"[0-9a-f]{16}", h1)
-    assert object_hash.salted_hash("recipe-124") != h1
+    assert object_hash.salted_hash("flow-124") != h1
 
 
 # ── toolRef / toolSource ────────────────────────────────────────────────

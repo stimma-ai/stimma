@@ -221,7 +221,7 @@ def build_jpeg_exif(
 _INTERNAL_SOURCES = {
     "stimma",
     "stimmer",
-    "recipe",
+    "flow",
     "agent_v2_create_layout",
     "agent_v2_run_code",
 }
@@ -230,7 +230,7 @@ _INTERNAL_SOURCES = {
 def load_generation_metadata(metadata_json: Optional[str]) -> Optional[dict]:
     """Parse generation_metadata JSON and return it iff produced by Stimma.
 
-    Accepts all internal source values (stimma / recipe / agent_v2_*). Rejects
+    Accepts all internal source values (stimma / flow / agent_v2_*). Rejects
     external (third-party) metadata so we don't overwrite an importer's
     original A1111/ComfyUI-style record with our own re-projection of it.
     """

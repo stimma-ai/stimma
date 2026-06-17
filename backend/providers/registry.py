@@ -45,7 +45,7 @@ class ProviderRegistry:
         self._status_subscribers: List[Callable[[str, ProviderStatus], None]] = []
         # Subscribers fired whenever the set of available tools changes —
         # provider registered/unregistered, refresh_tools updated a provider's
-        # tool list, etc. Used by the recipe engine to self-heal equations
+        # tool list, etc. Used by the flow engine to self-heal equations
         # that were parked in WAITING_FOR_TOOL once their tool reappears.
         self._tools_changed_subscribers: List[Callable[[], None]] = []
         self._lock = asyncio.Lock()
@@ -215,7 +215,7 @@ class ProviderRegistry:
         await self._broadcast_provider_status(
             provider.provider_id, "connected", tool_count
         )
-        # Wake up any consumers that are parked on a missing tool (recipe
+        # Wake up any consumers that are parked on a missing tool (flow
         # engine most notably). Fire after the DB cache + WS broadcast so
         # subscribers see a fully consistent registry.
         self._notify_tools_changed()

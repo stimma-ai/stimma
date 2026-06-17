@@ -220,6 +220,6 @@ Skills are markdown instruction documents that load into context on demand. Skil
 **What stays OUT:** Workflow examples, tool parameter details, lora/model lists, prompt engineering advice, edge case handling. All of that is skills territory or progressive disclosure.
 
 
-## The Recipe Agent
+## The Flow Agent
 
-The recipe agent should adhere to the above principles with one exception: It's system prompt includes an embedded "skill" for working on recipe programs. So the length limit does not apply, and it's OK for it to explain "how" a little bit more. It should still avoid pitfalls like lots of negative instructions, etc. Just keep this in mind when working over there.
+The flow agent should adhere to the above principles with one exception: It's system prompt includes an embedded "skill" for working on flow programs. So the length limit does not apply, and it's OK for it to explain "how" a little bit more. It should still avoid pitfalls like lots of negative instructions, etc. Just keep this in mind when working over there.

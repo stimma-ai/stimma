@@ -150,7 +150,7 @@ All live in the backend; only their outputs ever egress.
   sha256(install-local random salt ‖ object id); the salt is generated
   once per install, stored in config, never transmitted. Irreversible,
   stable within an install (enables per-object funnels), meaningless
-  across installs. Used for `projectHash`, `recipeHash`, `boardHash`,
+  across installs. Used for `projectHash`, `flowHash`, `boardHash`,
   `chatHash`, `presetHash`, `chainHash`, and user-provider `toolRef`s.
   Deliberately NOT used for media items (per-asset rows would be a
   per-creation activity trace; counts suffice), saved views (no reuse
@@ -185,7 +185,7 @@ All live in the backend; only their outputs ever egress.
   event when launched from a retry affordance.
 - **Refusal classification** (`backend/refusal_detection.py`) — one
   shared classifier detecting textual model refusals, applied to all
-  agent surfaces (chat main/recipe/delegate + prompt agent). Output is
+  agent surfaces (chat main/flow/delegate + prompt agent). Output is
   the single categorical label `refusal` in the agent `errorType` enums;
   the matched text never egresses. `refusal` (textual decline detected
   client-side) and `content_filtered` (provider-side filter signal) are
@@ -224,7 +224,7 @@ All live in the backend; only their outputs ever egress.
 |---|---|---|
 | `app_launched` | live | `{ previousExitClean: bool }` — dirty-flag file written at startup, cleared on orderly shutdown; `false` on next launch = the prior session died hard. Categorical, content-free |
 | `app_updated` | live | `{ fromVersion }` (new version rides the UA) |
-| `session_started` | live | **The per-launch state snapshot**: `{ providerCount, providers[]{providerType,toolCount,connected,productName?,productVersion?}, toolCountsBySource{builtin,marketplace,cloud,user}, llmConfig{role→{source: auto\|stimma_cloud\|endpoint, endpointClass, modelFamily}}, mediaCountsByType{image,video,audio,document,set,grid,layout}, chatCount, boardCount, recipeCount, projectCount, savedViewCount, profileCount, markerCounts{favorite,library,custom}, skillCounts{marketplace,dev,builtin} }` — counts only, no names/content. `llmConfig` role keys are the app-defined closed role set; `source` is the *configured* value, distinct from per-event *resolved* `llmSource`. `markerCounts` keys are a literal match against the shipped default marker set (anything else, including renamed defaults, counts under `custom`). `providers[]` is the one sanctioned enumeration under the counts-over-enumerations rule (bounded by configured connections; mechanical fields only) |
+| `session_started` | live | **The per-launch state snapshot**: `{ providerCount, providers[]{providerType,toolCount,connected,productName?,productVersion?}, toolCountsBySource{builtin,marketplace,cloud,user}, llmConfig{role→{source: auto\|stimma_cloud\|endpoint, endpointClass, modelFamily}}, mediaCountsByType{image,video,audio,document,set,grid,layout}, chatCount, boardCount, flowCount, projectCount, savedViewCount, profileCount, markerCounts{favorite,library,custom}, skillCounts{marketplace,dev,builtin} }` — counts only, no names/content. `llmConfig` role keys are the app-defined closed role set; `source` is the *configured* value, distinct from per-event *resolved* `llmSource`. `markerCounts` keys are a literal match against the shipped default marker set (anything else, including renamed defaults, counts under `custom`). `providers[]` is the one sanctioned enumeration under the counts-over-enumerations rule (bounded by configured connections; mechanical fields only) |
 | `session_ended` | live | `{ durationMs }` — fired at shutdown **and** on the 30-min-inactivity session rotation. Dead-session recovery: when `previousExitClean: false`, the next launch flushes a buffered `session_ended{durationMs}` for the dead session from its last persisted activity timestamp |
 | `app_error` | live | `{ source: backend\|frontend, errorType, stackHash, module? }` — exception type, stack hash, and top app-frame module only; no messages, paths, or locals (those can contain prompts/paths). Counting only |
 | `onboarding_completed` | live | `{}` — activation-funnel endpoint (`first_run` → `screen_viewed: onboarding` → this); all three buffer pre-consent and flush together on consent-on |
@@ -246,7 +246,7 @@ construction (the updater is official-gated).
 
 | Event | Status | Properties |
 |---|---|---|
-| `screen_viewed` | live | `{ screen }` — values pinned to the live router: `onboarding, home, browse, trash, upload, boards, board-detail, projects, project-overview, project-assets, project-chats, project-boards, project-recipes, project-settings, project-tools, chats, chat, recipes, recipe, saved-view, all-tools, edit-image, edit-image-landing, edit-image-empty, lineage, tool`. The skills/marketplace surface lives inside the settings modal today (no route); if it becomes a route, `skills` joins the list. Dev-only routes (`dev-*`) excluded. No path property, ever |
+| `screen_viewed` | live | `{ screen }` — values pinned to the live router: `onboarding, home, browse, trash, upload, boards, board-detail, projects, project-overview, project-assets, project-chats, project-boards, project-flows, project-settings, project-tools, chats, chat, flows, flow, saved-view, all-tools, edit-image, edit-image-landing, edit-image-empty, lineage, tool`. The skills/marketplace surface lives inside the settings modal today (no route); if it becomes a route, `skills` joins the list. Dev-only routes (`dev-*`) excluded. No path property, ever |
 
 ## Account (`account`)
 
@@ -278,7 +278,7 @@ construction (the updater is official-gated).
 | `tool_preset_deleted` | live | `{ toolRef, presetHash }` |
 | `params_reset` | live | `{ toolRef }` |
 | `tool_hop_used` | live | `{ fromToolRef, toToolRef }` |
-| `generation_pipeline_completed` | live | `{ runId, isRetry: bool, toolRef, toolSource, taskType, modelFamily, mode, source: toolview\|agent\|recipe\|forever, status: completed\|failed\|cancelled, durationMs, queueMs, genDurationMs, postprocessDurationMs, postprocessStepCount, postprocessToolRefs[], presetHash?, failedStepIndex?, errorType? }` — one event per user-initiated generation, emitted when the whole pipeline settles (generation + its post-processing chain). `durationMs` is wall-clock click→final asset; `postprocessToolRefs` is the ordered step list as a JSON array, each entry verbatim-or-hashed per the toolRef rule. `presetHash?` present when launched from a preset |
+| `generation_pipeline_completed` | live | `{ runId, isRetry: bool, toolRef, toolSource, taskType, modelFamily, mode, source: toolview\|agent\|flow\|forever, status: completed\|failed\|cancelled, durationMs, queueMs, genDurationMs, postprocessDurationMs, postprocessStepCount, postprocessToolRefs[], presetHash?, failedStepIndex?, errorType? }` — one event per user-initiated generation, emitted when the whole pipeline settles (generation + its post-processing chain). `durationMs` is wall-clock click→final asset; `postprocessToolRefs` is the ordered step list as a JSON array, each entry verbatim-or-hashed per the toolRef rule. `presetHash?` present when launched from a preset |
 
 `modelFamily` × `taskType` is the headline product question and both
 fields are classification outputs / protocol mechanics — they stay in
@@ -299,7 +299,7 @@ see.
 | `chat_created` | live | `{ chatHash, projectHash? }` |
 | `chat_message_sent` | live | `{ chatHash, hasAttachments, hasSelectedMedia, messageCount }` |
 | `agent_chat_sent` | live | `{ chatHash, llmSource: stimma_cloud\|endpoint\|unknown }` |
-| `agent_turn_completed` | live | `{ chatHash, llmSource, modelFamily, endpointClass?, durationMs, toolCallCount, status: completed\|failed\|cancelled\|quota_exceeded\|paused_for_permission, errorType?, agentContext: main\|recipe\|delegate }` — `errorType?` set when `failed`, domain = the shared closed agent error list (pinned): `quota_exceeded \| content_filtered \| subscription_required \| llm_not_configured \| refusal \| timeout \| other`. A turn whose final visible content the shared classifier flags as a textual refusal reports `status: failed, errorType: refusal` |
+| `agent_turn_completed` | live | `{ chatHash, llmSource, modelFamily, endpointClass?, durationMs, toolCallCount, status: completed\|failed\|cancelled\|quota_exceeded\|paused_for_permission, errorType?, agentContext: main\|flow\|delegate }` — `errorType?` set when `failed`, domain = the shared closed agent error list (pinned): `quota_exceeded \| content_filtered \| subscription_required \| llm_not_configured \| refusal \| timeout \| other`. A turn whose final visible content the shared classifier flags as a textual refusal reports `status: failed, errorType: refusal` |
 | `agent_error` | live | `{ errorType, chatHash?, agentContext }` — `errorType` is the same shared closed list (`quota_exceeded`, `content_filtered`, `subscription_required`, `llm_not_configured`, `refusal`, …); unknown errors map to `other`, never raw exception class names |
 | `chat_deleted` | live | `{ chatHash }` |
 | `skill_invoked` | live | `{ chatHash, skillSource: marketplace\|dev\|builtin, skillName? }` — `skillName` passes **only when `skillSource: marketplace`** (catalog data); dev/user skill names are user content and never pass. `dev` covers both the dev_skills_dir override and user/agent-authored skills |
@@ -307,19 +307,19 @@ see.
 `chatHash` turns conversation depth/retention into a measurable funnel —
 still zero content.
 
-## Recipes (`recipe`)
+## Flows (`flow`)
 
-All recipe events carry `recipeHash` (install-salted, irreversible).
+All flow events carry `flowHash` (install-salted, irreversible).
 
 | Event | Status | Properties |
 |---|---|---|
-| `recipe_created` | live | `{ recipeHash, projectHash?, forked: bool }` |
-| `recipe_deleted` | live | `{ recipeHash }` |
-| `recipe_started` | live | `{ recipeHash, dryRun: bool }` |
-| `recipe_paused` / `recipe_resumed` / `recipe_cleared` | live | `{ recipeHash }` |
-| `recipe_completed` | live | `{ recipeHash, durationMs, taskCount, llmCallCount, toolCallCount }` — the runtime is a reactive scheduler with no single terminal transition, so "completed" = the root status summary settling to all-done for a run started this process |
-| `recipe_failed` | live | `{ recipeHash, errorType, errorHash, stepKind }` — `stepKind` = the node type that killed the run, domain = the runtime's closed `EquationType` enum (pinned): `tool_call, llm_call, llm_batch, llm_slot, code, hitl, control, recipe_input, info, create_set, create_grid, create_document, create_image, create_layout, rasterize_layout, web_search, fetch_media` — distinct from both the HITL `taskKind` list and the tool `taskType` list. Fired once per started run, on the first equation failure |
-| `recipe_task_resolved` | live | `{ recipeHash, taskKind, waitDurationMs }` — HITL responses; `taskKind` = the runtime's closed HITL kind enum (pinned: `select \| approve`); `waitDurationMs` = task-raised→resolved from the durable task row |
+| `flow_created` | live | `{ flowHash, projectHash?, forked: bool }` |
+| `flow_deleted` | live | `{ flowHash }` |
+| `flow_started` | live | `{ flowHash, dryRun: bool }` |
+| `flow_paused` / `flow_resumed` / `flow_cleared` | live | `{ flowHash }` |
+| `flow_completed` | live | `{ flowHash, durationMs, taskCount, llmCallCount, toolCallCount }` — the runtime is a reactive scheduler with no single terminal transition, so "completed" = the root status summary settling to all-done for a run started this process |
+| `flow_failed` | live | `{ flowHash, errorType, errorHash, stepKind }` — `stepKind` = the node type that killed the run, domain = the runtime's closed `EquationType` enum (pinned): `tool_call, llm_call, llm_batch, llm_slot, code, hitl, control, flow_input, info, create_set, create_grid, create_document, create_image, create_layout, rasterize_layout, web_search, fetch_media` — distinct from both the HITL `taskKind` list and the tool `taskType` list. Fired once per started run, on the first equation failure |
+| `flow_task_resolved` | live | `{ flowHash, taskKind, waitDurationMs }` — HITL responses; `taskKind` = the runtime's closed HITL kind enum (pinned: `select \| approve`); `waitDurationMs` = task-raised→resolved from the durable task row |
 
 ## Post-processing chains (`postprocess`)
 
@@ -396,7 +396,7 @@ All board events carry `boardHash` (install-salted, irreversible).
 | Event | Status | Properties |
 |---|---|---|
 | `voice_model_downloaded` | live | `{ model }` (closed list — the shipped whisper models) |
-| `voice_input_used` | live | `{ surface: main_chat\|recipe_chat\|prompt_agent\|feedback, durationMs, outcome: committed\|cancelled }` (no transcript) |
+| `voice_input_used` | live | `{ surface: main_chat\|flow_chat\|prompt_agent\|feedback, durationMs, outcome: committed\|cancelled }` (no transcript) |
 
 ## UI features (`feature`)
 

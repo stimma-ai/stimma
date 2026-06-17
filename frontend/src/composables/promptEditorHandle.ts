@@ -1,6 +1,6 @@
 /**
  * Contract a prompt editor exposes so the standalone PromptAgentChat can drive
- * its text in prompt-only mode (recipe / image-edit), where edits are applied
+ * its text in prompt-only mode (flow / image-edit), where edits are applied
  * directly via the single-shot /enhance path rather than the page-wide agent.
  *
  * In full-agent mode (ToolView) the chat never writes the prompt itself — the

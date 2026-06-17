@@ -11,15 +11,15 @@ import ImageEditorView from '../views/ImageEditorView.vue'
 import LineageView from '../views/LineageView.vue'
 import ChatsLandingView from '../views/ChatsLandingView.vue'
 import HomeView from '../views/HomeView.vue'
-import RecipesLandingView from '../views/RecipesLandingView.vue'
-import RecipeView from '../views/RecipeView.vue'
+import FlowsLandingView from '../views/FlowsLandingView.vue'
+import FlowView from '../views/FlowView.vue'
 import ProjectsLandingView from '../views/ProjectsLandingView.vue'
 import ProjectLayoutView from '../views/ProjectLayoutView.vue'
 import ProjectOverviewView from '../views/ProjectOverviewView.vue'
 import ProjectAssetsView from '../views/ProjectAssetsView.vue'
 import ProjectChatsView from '../views/ProjectChatsView.vue'
 import ProjectBoardsView from '../views/ProjectBoardsView.vue'
-import ProjectRecipesView from '../views/ProjectRecipesView.vue'
+import ProjectFlowsView from '../views/ProjectFlowsView.vue'
 import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectToolsView from '../views/ProjectToolsView.vue'
 import OnboardingView from '../views/OnboardingView.vue'
@@ -91,9 +91,9 @@ const routes = [
         component: ProjectBoardsView
       },
       {
-        path: 'recipes',
-        name: 'project-recipes',
-        component: ProjectRecipesView
+        path: 'flows',
+        name: 'project-flows',
+        component: ProjectFlowsView
       },
       {
         path: 'settings',
@@ -129,14 +129,14 @@ const routes = [
     component: ChatView
   },
   {
-    path: '/recipes',
-    name: 'recipes',
-    component: RecipesLandingView
+    path: '/flows',
+    name: 'flows',
+    component: FlowsLandingView
   },
   {
-    path: '/recipes/:id',
-    name: 'recipe',
-    component: RecipeView,
+    path: '/flows/:id',
+    name: 'flow',
+    component: FlowView,
     props: true
   },
   {

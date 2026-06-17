@@ -15,7 +15,7 @@ replaces them with the telemetry-safe fields before tracking:
     _chatId      -> chatHash
     _boardId     -> boardHash
     _projectId   -> projectHash
-    _recipeId    -> recipeHash
+    _flowId    -> flowHash
 
 Any other ``_``-prefixed key is dropped, so raw values can never egress
 through this funnel.
@@ -40,7 +40,7 @@ _HASH_KEYS = {
     "_chatId": ("chatHash", "chat"),
     "_boardId": ("boardHash", "board"),
     "_projectId": ("projectHash", "project"),
-    "_recipeId": ("recipeHash", "recipe"),
+    "_flowId": ("flowHash", "flow"),
 }
 
 

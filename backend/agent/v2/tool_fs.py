@@ -391,7 +391,7 @@ def render_tool_stub(
     doc.append("Call from run_code / run_file:")
     doc.append(f"    from stimma.tools.{binding.module} import {binding.func_name}")
     doc.append(f"    r = await {binding.func_name}(...)")
-    doc.append("In a recipe program.py:")
+    doc.append("In a flow program.py:")
     doc.append(f'    tool("{binding.tool_id}", task_type="{binding.task_type}", ...)')
 
     documented = [p for p in params if p.doc and not p.is_auto_default]
@@ -470,7 +470,7 @@ A parameter with thousands of valid values (e.g. loras) is not inlined in the
 signature. Its docstring points to `.stimma/enums/<name>.txt`, one value per
 line — grep it.
 
-## In a recipe (program.py)
+## In a flow (program.py)
 Use the same catalog to find the `tool_id` and `task_type`, then write
 `tool("<tool_id>", task_type="<task_type>", ...)`.
 """

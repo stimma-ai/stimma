@@ -142,7 +142,7 @@
             :parent-nodes="selectedParentNodes"
             :child-nodes="selectedChildNodes"
             @navigate="selectedNodeId = $event"
-            @open-recipe="openRecipe"
+            @open-flow="openFlow"
           />
         </div>
       </div>
@@ -304,8 +304,8 @@ const selectedNodeMedia = computed(() => {
   return { ...selectedNode.value.media, id: selectedNode.value.id }
 })
 
-function openRecipe(recipeId) {
-  router.push({ name: 'recipe', params: { id: String(recipeId) } })
+function openFlow(flowId) {
+  router.push({ name: 'flow', params: { id: String(flowId) } })
 }
 
 function parseSourceInputs(media) {

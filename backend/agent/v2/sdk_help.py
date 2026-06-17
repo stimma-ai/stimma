@@ -290,11 +290,11 @@ Example:
     "library.generation_params": SDKMethodHelp(
         name="library.generation_params",
         signature="await stimma.library.generation_params(media_id: int) -> dict",
-        summary="Get a call_tool-ready recipe that reproduces an existing image.",
+        summary="Get a call_tool-ready flow that reproduces an existing image.",
         details="""\
 Return the exact inputs needed to reproduce an existing image, already in
 call_tool shape — no manual remapping. This is the way to remix an image:
-get its recipe, change one field, resubmit.
+get its flow, change one field, resubmit.
 
 Parameters:
   media_id (int): The library media ID to reproduce.
@@ -324,7 +324,7 @@ Gotchas:
         signature="await stimma.library.regenerate(media_id: int, **overrides) -> ToolResult",
         summary="Reproduce an existing image, overriding any fields you pass.",
         details="""\
-One-liner remix: fetches the recipe (see generation_params), applies your
+One-liner remix: fetches the flow (see generation_params), applies your
 overrides, and calls the original tool. Returns a ToolResult.
 
 Parameters:
@@ -336,7 +336,7 @@ Examples:
   # Same image, new LoRA, same seed:
   result = await stimma.library.regenerate(123, loras=[{"path": "new_style"}])
 
-  # Same recipe, ten outfit variations:
+  # Same flow, ten outfit variations:
   outfits = ["red dress", "leather jacket", "business suit"]
   results = await asyncio.gather(*[
       stimma.library.regenerate(123, prompt=base_prompt + ", wearing " + o, seed=None)

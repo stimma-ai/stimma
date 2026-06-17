@@ -23,7 +23,7 @@
 
     <!-- Rounded input container -->
     <div class="bg-surface border border-edge rounded-2xl pt-1 overflow-hidden">
-      <!-- Optional header above attachments — used by RecipeView to render
+      <!-- Optional header above attachments — used by FlowView to render
            the context-reference tray. Always rendered; tray decides its own
            empty-state treatment so the layout doesn't jump when refs are
            added/removed. -->
@@ -107,7 +107,7 @@ const props = defineProps({
   rows: { type: Number, default: 2 },
   disabled: { type: Boolean, default: false },
   attachments: { type: Array, default: () => [] },
-  // Telemetry surface for voice input: main_chat | recipe_chat
+  // Telemetry surface for voice input: main_chat | flow_chat
   voiceSurface: { type: String, default: 'main_chat' }
 })
 

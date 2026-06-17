@@ -5,11 +5,11 @@ Builds the package.zip attached to thumbs feedback:
 
     manifest.json       {packageVersion: 1, appVersion, agentContext, mediaMap}
     conversation.json   {chat?, messages: [{role, text, media}], items?, ...}
-    llm_traces.json     {traces: [...]}            (chat/recipe packages only)
+    llm_traces.json     {traces: [...]}            (chat/flow packages only)
     media/<n>.<ext>     media files, media_id remapped
 
 Two sources:
-- chat / recipe chats: Chat + ChatItems + associated LLMTraces from the
+- chat / flow chats: Chat + ChatItems + associated LLMTraces from the
   profile DB, media files copied from disk.
 - prompt-agent (frontend-transient): the frontend posts its in-memory
   conversation + prompt/parameter state; wrapped in the same manifest shape.
@@ -220,7 +220,7 @@ async def build_chat_package(
     agent_context: str = "main",
     max_bytes: int = DEFAULT_MAX_PACKAGE_BYTES,
 ) -> bytes:
-    """Build the package zip for a chat (or recipe chat). Returns zip bytes."""
+    """Build the package zip for a chat (or flow chat). Returns zip bytes."""
     from sqlalchemy import select
     from database import Chat, ChatItem, LLMTrace, MediaItem
 

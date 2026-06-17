@@ -1,9 +1,9 @@
 """Shared web-search core used by the agent's ``browse_web`` tool and the
-recipe DSL's ``web_search`` primitive.
+flow DSL's ``web_search`` primitive.
 
 Encapsulates the cloud (Serper.dev via Stimma Cloud) → DuckDuckGo fallback
 ladder so both surfaces share one path. The agent tool wraps results into a
-formatted string for the LLM; the recipe primitive consumes the structured
+formatted string for the LLM; the flow primitive consumes the structured
 list directly. Don't add formatting concerns here — return plain dicts and
 let callers shape them.
 """

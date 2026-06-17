@@ -60,8 +60,8 @@
         <span>Close All Unpinned</span>
       </button>
 
-      <!-- Rename (chats, boards, recipes & projects) -->
-      <template v-if="contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'board' || contextMenu.state.value.tabType === 'recipe' || contextMenu.state.value.tabType === 'project'">
+      <!-- Rename (chats, boards, flows & projects) -->
+      <template v-if="contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'board' || contextMenu.state.value.tabType === 'flow' || contextMenu.state.value.tabType === 'project'">
         <div class="border-t border-edge-subtle my-1"></div>
         <button
           @click="handleRename"
@@ -74,8 +74,8 @@
         </button>
       </template>
 
-      <!-- Move to Project (chats, boards & recipes) -->
-      <template v-if="contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'board' || contextMenu.state.value.tabType === 'recipe'">
+      <!-- Move to Project (chats, boards & flows) -->
+      <template v-if="contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'board' || contextMenu.state.value.tabType === 'flow'">
         <div
           class="relative"
           ref="projectTriggerRef"
@@ -121,8 +121,8 @@
         </div>
       </template>
 
-      <!-- Delete (chats, boards, recipes & projects) -->
-      <template v-if="contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'board' || contextMenu.state.value.tabType === 'recipe' || contextMenu.state.value.tabType === 'project'">
+      <!-- Delete (chats, boards, flows & projects) -->
+      <template v-if="contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'board' || contextMenu.state.value.tabType === 'flow' || contextMenu.state.value.tabType === 'project'">
         <div class="border-t border-edge-subtle my-1"></div>
         <button
           @click="handleDelete"
@@ -165,7 +165,7 @@ function getActiveTabId(): string | null {
   if (route.name === 'tool') return `tool:${route.params.fullToolId}`
   if (route.name === 'chat') return `chat:${route.params.id}`
   if (route.name === 'board-detail') return `board:${route.params.id}`
-  if (route.name === 'recipe') return `recipe:${route.params.id}`
+  if (route.name === 'flow') return `flow:${route.params.id}`
   if (String(route.name || '').startsWith('project-')) return `project:${route.params.id}`
   if (route.name === 'edit-image' || route.name === 'edit-image-empty') return `editor:${route.params.editorId}`
   return null
@@ -178,7 +178,7 @@ function goToTab(tab: import('../composables/useWorkspaceTabs').WorkspaceTab) {
   }
   else if (tab.type === 'chat') router.push({ name: 'chat', params: { id: tab.entityId } })
   else if (tab.type === 'board') router.push({ name: 'board-detail', params: { id: tab.entityId } })
-  else if (tab.type === 'recipe') router.push({ name: 'recipe', params: { id: tab.entityId } })
+  else if (tab.type === 'flow') router.push({ name: 'flow', params: { id: tab.entityId } })
   else if (tab.type === 'project') router.push({ name: 'project-overview', params: { id: tab.entityId } })
   else if (tab.type === 'editor') {
     if (tab.editorMediaId) router.push({ name: 'edit-image', params: { editorId: tab.entityId, mediaId: tab.editorMediaId } })
@@ -198,7 +198,7 @@ function navigateAfterClose(excludeIds: Set<string>) {
 const menuRef = ref<HTMLElement | null>(null)
 
 const emit = defineEmits<{
-  (e: 'rename', tabType: 'board' | 'chat' | 'project' | 'recipe', entityId: string, currentName: string): void
+  (e: 'rename', tabType: 'board' | 'chat' | 'project' | 'flow', entityId: string, currentName: string): void
   (e: 'refresh'): void
 }>()
 
@@ -262,7 +262,7 @@ function handleCloseAllUnpinned() {
 function handleRename() {
   const { tabType, entityId, displayName } = contextMenu.state.value
   contextMenu.hide()
-  if (tabType && entityId && (tabType === 'chat' || tabType === 'board' || tabType === 'project' || tabType === 'recipe')) {
+  if (tabType && entityId && (tabType === 'chat' || tabType === 'board' || tabType === 'project' || tabType === 'flow')) {
     emit('rename', tabType, entityId, displayName || '')
   }
 }
@@ -279,9 +279,9 @@ async function handleDelete() {
     } else if (tabType === 'chat') {
       const response = await fetch(`/api/chats/${entityId}`, { method: 'DELETE' })
       if (!response.ok) throw new Error('chat delete failed')
-    } else if (tabType === 'recipe') {
-      const response = await fetch(`/api/recipes/${entityId}`, { method: 'DELETE' })
-      if (!response.ok) throw new Error('recipe delete failed')
+    } else if (tabType === 'flow') {
+      const response = await fetch(`/api/flows/${entityId}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('flow delete failed')
     } else if (tabType === 'project') {
       const response = await fetch(`/api/projects/${entityId}`, { method: 'DELETE' })
       if (!response.ok) throw new Error('project delete failed')
@@ -295,7 +295,7 @@ async function handleDelete() {
     return
   }
 
-  if (tabType === 'board' || tabType === 'chat' || tabType === 'recipe') {
+  if (tabType === 'board' || tabType === 'chat' || tabType === 'flow') {
     const id = parseInt(entityId, 10)
     addToast(`Deleted 1 ${tabType}`, 'info', 5000, {
       label: 'Undo',
@@ -303,8 +303,8 @@ async function handleDelete() {
         try {
           if (tabType === 'board') {
             await restoreBoard(id)
-          } else if (tabType === 'recipe') {
-            const response = await fetch(`/api/recipes/${id}/restore`, { method: 'POST' })
+          } else if (tabType === 'flow') {
+            const response = await fetch(`/api/flows/${id}/restore`, { method: 'POST' })
             if (!response.ok) throw new Error('restore failed')
           } else {
             const response = await fetch(`/api/chats/${id}/restore`, { method: 'POST' })
@@ -335,8 +335,8 @@ async function handleMoveToProject(projectId: number | null) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ project_id: projectId })
       })
-    } else if (tabType === 'recipe') {
-      await fetch(`/api/recipes/${entityId}`, {
+    } else if (tabType === 'flow') {
+      await fetch(`/api/flows/${entityId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ project_id: projectId })

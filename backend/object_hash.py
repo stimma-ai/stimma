@@ -6,7 +6,7 @@ per install, stored in config, and never transmitted — hashes are
 irreversible, stable within an install (enabling per-object funnels), and
 meaningless across installs.
 
-Used for: recipeHash, boardHash, chatHash, presetHash, projectHash,
+Used for: flowHash, boardHash, chatHash, presetHash, projectHash,
 chainHash, and user-provider toolRefs. Deliberately NOT used for media
 items (per-asset rows would be a per-creation activity trace).
 """

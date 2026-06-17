@@ -1,5 +1,5 @@
 // Equation kinds that do meaningful external/compute work and whose
-// per-node duration is worth surfacing in the recipe UI. Everything else
+// per-node duration is worth surfacing in the flow UI. Everything else
 // (assembly, scaffolding, code, HITL human-wait, sub-second rasterize)
 // hides duration to keep the UI free of meaningless numbers.
 const DURATION_DISPLAY_TYPES = new Set([

@@ -110,19 +110,19 @@
             </div>
           </div>
 
-          <!-- Recipes -->
-          <div v-if="recentRecipes.length > 0">
+          <!-- Flows -->
+          <div v-if="recentFlows.length > 0">
             <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Recipes</h2>
-              <router-link to="/recipes" class="text-xs text-content-muted hover:text-content-secondary transition-colors">
+              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Flows</h2>
+              <router-link to="/flows" class="text-xs text-content-muted hover:text-content-secondary transition-colors">
                 View all
               </router-link>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
               <button
-                v-for="recipe in visibleRecipes"
-                :key="recipe.id"
-                @click="openRecipe(recipe)"
+                v-for="flow in visibleFlows"
+                :key="flow.id"
+                @click="openFlow(flow)"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
               >
                 <div class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-gradient-to-br from-violet-500 to-blue-600">
@@ -132,15 +132,15 @@
                 </div>
                 <div class="flex-1 min-w-0">
                   <div
-                    v-if="recipe.name"
+                    v-if="flow.name"
                     class="text-sm text-content font-medium truncate"
-                  >{{ recipe.name }}</div>
+                  >{{ flow.name }}</div>
                   <div
                     v-else
                     class="text-sm text-content-muted italic truncate"
-                  >Name this recipe...</div>
-                  <RecipeStatusPill
-                    :recipe-id="recipe.id"
+                  >Name this flow...</div>
+                  <FlowStatusPill
+                    :flow-id="flow.id"
                     show-pending
                     text-class="truncate text-xs text-content-muted"
                     class="mt-0.5"
@@ -205,16 +205,16 @@ import { useRouter } from 'vue-router'
 import { MediaImage } from '../components/media'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
 import SlideshowMode from '../components/SlideshowMode.vue'
-import RecipeStatusPill from '../components/recipe/RecipeStatusPill.vue'
+import FlowStatusPill from '../components/flow/FlowStatusPill.vue'
 import { useSlideshow } from '../composables/useSlideshow'
 import { useMediaApi } from '../composables/useMediaApi'
-import { useRecipesApi } from '../composables/useRecipesApi'
+import { useFlowsApi } from '../composables/useFlowsApi'
 import { getDroppedMediaIds } from '../composables/useDragPreview'
 import { pendingMedia, consumePendingMedia } from '../composables/usePendingMedia'
 
 const router = useRouter()
 const { getMediaItem, getBoards, getBoard, addMediaToBoard } = useMediaApi()
-const { listRecipes } = useRecipesApi()
+const { listFlows } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 
 const chatInputBoxRef = ref(null)
@@ -225,7 +225,7 @@ const submitting = ref(false)
 const recentChats = ref([])
 const recentMedia = ref([])
 const recentBoards = ref([])
-const recentRecipes = ref([])
+const recentFlows = ref([])
 const boardDetails = ref(new Map())
 const loaded = ref(false)
 const dragOverBoardId = ref(null)
@@ -243,7 +243,7 @@ const mediaColumns = computed(() => {
 const visibleMedia = computed(() => recentMedia.value.slice(0, mediaColumns.value))
 const visibleChats = computed(() => isCompact.value ? recentChats.value.slice(0, 2) : recentChats.value.slice(0, 4))
 const visibleBoards = computed(() => recentBoards.value.slice(0, 2))
-const visibleRecipes = computed(() => isCompact.value ? recentRecipes.value.slice(0, 2) : recentRecipes.value.slice(0, 4))
+const visibleFlows = computed(() => isCompact.value ? recentFlows.value.slice(0, 2) : recentFlows.value.slice(0, 4))
 
 function hasChatMedia(chat) {
   return chat.recent_media && chat.recent_media.length > 0
@@ -283,14 +283,14 @@ async function loadRecentChats() {
   }
 }
 
-async function loadRecentRecipes() {
+async function loadRecentFlows() {
   try {
-    const all = await listRecipes()
-    recentRecipes.value = [...all]
+    const all = await listFlows()
+    recentFlows.value = [...all]
       .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
       .slice(0, 6)
   } catch (err) {
-    console.error('Failed to load recent recipes:', err)
+    console.error('Failed to load recent flows:', err)
   }
 }
 
@@ -405,8 +405,8 @@ function openBoard(boardId) {
   router.push({ name: 'board-detail', params: { id: boardId } })
 }
 
-function openRecipe(recipe) {
-  router.push({ name: 'recipe', params: { id: String(recipe.id) } })
+function openFlow(flow) {
+  router.push({ name: 'flow', params: { id: String(flow.id) } })
 }
 
 async function handleBoardDrop(boardId, event) {
@@ -469,7 +469,7 @@ function checkPendingMedia() {
 watch(pendingMedia, () => checkPendingMedia(), { flush: 'post' })
 
 async function loadAll() {
-  await Promise.all([loadRecentChats(), loadRecentMedia(), loadRecentBoards(), loadRecentRecipes()])
+  await Promise.all([loadRecentChats(), loadRecentMedia(), loadRecentBoards(), loadRecentFlows()])
   loaded.value = true
 }
 

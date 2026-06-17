@@ -29,7 +29,7 @@
             v-if="media"
             :media="media"
             @navigate="navigateTo"
-            @open-recipe="openRecipe"
+            @open-flow="openFlow"
           />
           <div v-else class="w-full h-full flex items-center justify-center">
             <span class="text-content-tertiary text-sm animate-pulse">{{ error || 'Loading…' }}</span>
@@ -76,9 +76,9 @@ function navigateTo(id) {
   loadMedia(id)
 }
 
-function openRecipe(recipeId) {
+function openFlow(flowId) {
   mediaDetails.close()
-  router.push({ name: 'recipe', params: { id: String(recipeId) } })
+  router.push({ name: 'flow', params: { id: String(flowId) } })
 }
 
 watch(

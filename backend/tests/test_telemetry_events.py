@@ -153,7 +153,7 @@ def test_pipeline_retry_rearms_settle_guard(capture):
 def test_pipeline_source_attribution(capture):
     import pipeline_telemetry as pt
     assert pt.job_source(_job(generator_instance_id="agent")) == "agent"
-    assert pt.job_source(_job(generator_instance_id="recipe")) == "recipe"
+    assert pt.job_source(_job(generator_instance_id="flow")) == "flow"
     assert pt.job_source(_job(generator_instance_id="tool-x@@tab")) == "toolview"
     assert pt.job_source(_job(generator_instance_id="legacy-generate-tab")) == "toolview"
 
@@ -204,8 +204,8 @@ def test_error_hash_groups_without_content():
 # ── refusal classification -> agent_turn_completed ──────────────────────
 
 
-def _make_chat(chat_id=77, recipe_id=None):
-    return types.SimpleNamespace(id=chat_id, recipe_id=recipe_id)
+def _make_chat(chat_id=77, flow_id=None):
+    return types.SimpleNamespace(id=chat_id, flow_id=flow_id)
 
 
 class _WS:

@@ -99,7 +99,7 @@ class ExecutionResult:
     # For multiple outputs (e.g., batch generation)
     additional_outputs: List[bytes] = field(default_factory=list)
 
-    # Optional workflow/recipe for reproduction (e.g., ComfyUI workflow JSON)
+    # Optional workflow/flow for reproduction (e.g., ComfyUI workflow JSON)
     workflow: Optional[Dict[str, Any]] = None
 
 

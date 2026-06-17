@@ -125,7 +125,7 @@ def test_stub_is_valid_python_and_typed():
     assert "prompt" in kwonly
     # small enum inlined as Literal
     assert "Literal['euler'" in text
-    # tool_id + task_type discoverable in the docstring for recipe authors
+    # tool_id + task_type discoverable in the docstring for flow authors
     assert '"comfyui:flux-klein-9b"' in text
     assert '"text-to-image"' in text
     assert not spills  # no large enums here
@@ -148,7 +148,7 @@ def test_generative_stub_gets_params_from_kwarg():
 
 
 def test_non_generative_stub_has_no_params_from():
-    """A transform tool with no prompt (e.g. upscale) has no generation recipe to
+    """A transform tool with no prompt (e.g. upscale) has no generation flow to
     reuse, so `params_from` is not synthesized onto it."""
     binding = tool_fs.ToolBinding(
         func_name="upscale",

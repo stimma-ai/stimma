@@ -64,7 +64,7 @@ def _max_turns_for_chat(chat: Chat) -> int:
     # A turn cap exists only as a runaway-cost backstop for occasional bad
     # model behavior — it should be rare to hit, not a routine ceiling that
     # truncates legitimate multi-step work (a layout task can easily spend
-    # 10-15 turns). 100 is a generous ceiling for both chat and recipe work;
+    # 10-15 turns). 100 is a generous ceiling for both chat and flow work;
     # exhausting it is handled gracefully (see the for/else in the loop).
     return 100
 
@@ -432,11 +432,11 @@ async def _execute_tool_call(
     _raise_if_interrupted(chat_id)
     tool_llm_usage = None
     injected_messages: list[dict] = []
-    # Dispatch is scope-aware: a recipe chat must never execute an agent-only
+    # Dispatch is scope-aware: a flow chat must never execute an agent-only
     # tool even if one somehow made it into the model's tool_calls (stale
     # schema from a prior turn, hallucination, etc.). Returns None → falls
     # through to the "unknown tool" error path below.
-    scope = "recipe" if (chat is not None and chat.recipe_id is not None) else "agent"
+    scope = "flow" if (chat is not None and chat.flow_id is not None) else "agent"
     tool = get_tool(fn_name, scope=scope)
     if tool:
         try:
@@ -786,7 +786,7 @@ async def run_agent(
                 "durationMs": int((time.monotonic() - turn_started) * 1000),
                 "toolCallCount": turn_stats.get("tool_call_count", 0),
                 "status": status,
-                "agentContext": "recipe" if chat.recipe_id is not None else "main",
+                "agentContext": "flow" if chat.flow_id is not None else "main",
             }
             if error_type:
                 props["errorType"] = error_type
@@ -811,7 +811,7 @@ async def run_agent(
             get_telemetry_client().track("agent_error", {
                 "errorType": error_type,
                 "chatHash": salted_hash(f"chat:{chat_id}"),
-                "agentContext": "recipe" if chat.recipe_id is not None else "main",
+                "agentContext": "flow" if chat.flow_id is not None else "main",
             }, category="chat")
         except Exception:
             pass
@@ -1007,7 +1007,7 @@ async def _run_agentic_loop(
     requests made anywhere inside (main loop, run_code llm(), specialists)
     carry the mechanical X-Stimma-* correlation headers.
     """
-    agent_context = "recipe" if chat.recipe_id is not None else "main"
+    agent_context = "flow" if chat.flow_id is not None else "main"
     with llm_correlation_context(agent_context, chat_id=chat.id):
         await _run_agentic_loop_inner(
             chat, session, ws_manager, max_turns,
@@ -1071,20 +1071,20 @@ async def _run_agentic_loop_inner(
     from .system_reminders import build_skills_reminder, build_user_program_edit_reminder
     all_skills = list_skills()
     notepad_state = format_notepad_for_prompt(str(workspace_dir))
-    # Recipe chats get a specialized system prompt + the recipe directory as
+    # Flow chats get a specialized system prompt + the flow directory as
     # the workspace for program.py edits. Everything else (tools, LLM,
     # broadcast) is shared with the main agent loop.
-    if chat.recipe_id is not None:
-        from .recipe_prompt import get_recipe_system_prompt
-        from recipe_runtime import get_recipe_dir
-        system_prompt = get_recipe_system_prompt(
+    if chat.flow_id is not None:
+        from .flow_prompt import get_flow_system_prompt
+        from flow_runtime import get_flow_dir
+        system_prompt = get_flow_system_prompt(
             additional_instructions=resolved_config.additional_instructions,
             global_memory=resolved_config.global_memory,
             project_memory=resolved_config.project_memory,
         )
-        recipe_dir = get_recipe_dir(chat.recipe_id)
-        if recipe_dir.exists():
-            workspace_dir = str(recipe_dir)
+        flow_dir = get_flow_dir(chat.flow_id)
+        if flow_dir.exists():
+            workspace_dir = str(flow_dir)
     else:
         system_prompt = get_system_prompt(
             additional_instructions=resolved_config.additional_instructions,
@@ -1094,7 +1094,7 @@ async def _run_agentic_loop_inner(
         )
 
     # Materialize the read-only .stimma/ tool catalog into the workspace so the
-    # agent (and recipe author) can browse tools with ls/grep/cat and call them
+    # agent (and flow author) can browse tools with ls/grep/cat and call them
     # via `from stimma.tools.<task> import <tool>`. Single source of truth shared
     # with the run_code import namespace; idempotent + fingerprinted, so this is
     # a cheap no-op when the provider catalog hasn't changed.
@@ -1120,11 +1120,11 @@ async def _run_agentic_loop_inner(
             except (json.JSONDecodeError, TypeError):
                 pass
 
-    # Scope the tool surface: recipe chats must not see run_code / sdk_help /
+    # Scope the tool surface: flow chats must not see run_code / sdk_help /
     # library, otherwise the model pulls stimma-SDK docs (agent sandbox) into
-    # recipe program.py edits and writes code that can't run in the recipe
+    # flow program.py edits and writes code that can't run in the flow
     # sandbox.
-    tool_scope = "recipe" if chat.recipe_id is not None else "agent"
+    tool_scope = "flow" if chat.flow_id is not None else "agent"
     tools_schema = get_tools_schema(tool_scope)
     tools_enabled = bool(tools_schema)
 
@@ -1145,7 +1145,7 @@ async def _run_agentic_loop_inner(
     # we nudge it once to continue-or-`finish`; if it stalls again immediately
     # without making progress we give up and end the turn, so a model that
     # won't comply can't spin against max_turns. `needs_continuation` is the
-    # stronger per-tool signal (recipe build still broken) and gets a more
+    # stronger per-tool signal (flow build still broken) and gets a more
     # specific nudge. The list persists across iterations so turn N's tool
     # result is still visible at turn N+1's check.
     pending_stall_nudge: str | None = None
@@ -1256,8 +1256,8 @@ async def _run_agentic_loop_inner(
         if pending_stall_nudge:
             system_reminders.append(pending_stall_nudge)
             pending_stall_nudge = None
-        if chat.recipe_id is not None:
-            program_edit_reminder = build_user_program_edit_reminder(chat.recipe_id)
+        if chat.flow_id is not None:
+            program_edit_reminder = build_user_program_edit_reminder(chat.flow_id)
             if program_edit_reminder:
                 system_reminders.append(program_edit_reminder)
 
@@ -1555,11 +1555,11 @@ async def _run_agentic_loop_inner(
         if (work_in_flight or empty_turn) and consecutive_textonly < 2:
             if needs_continuation:
                 # Stronger signal: a tool reported unresolved work (e.g. the
-                # recipe build is still broken). Point the model straight at it.
+                # flow build is still broken). Point the model straight at it.
                 needs_continuation.clear()
                 pending_stall_nudge = (
                     "<system-reminder>\n"
-                    "Your last tool call reported unresolved work (the recipe build is still broken). "
+                    "Your last tool call reported unresolved work (the flow build is still broken). "
                     "Continue with the tool call that fixes it — do not end on a narration-only message. "
                     "Call `finish` only once the work is actually done.\n"
                     "</system-reminder>"

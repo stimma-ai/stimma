@@ -785,7 +785,7 @@ async def resolve_params_from(
     generation into an edit; an input-image parameter is for that. A knob the
     caller omits inherits from the source item instead of snapping back to the
     tool's schema default. Precedence: schema default < params_from item <
-    explicit. Shared by the agent (run_code) and recipe execution paths so both
+    explicit. Shared by the agent (run_code) and flow execution paths so both
     behave identically.
     """
     base = await fetch_generation_params(session, media_id)
@@ -909,7 +909,7 @@ async def _load_lineage_data(session: AsyncSession, media_id: int) -> Dict[str, 
         "Search, retrieve, save, and browse the media library. "
         "Manage tags, markers, and boards on media items. "
         "Use browse_schema and browse_options for progressive disclosure of browse facets. Inspect lineage. "
-        "Use generation_params to get a call_tool-ready recipe for reproducing an existing image (tweak one field, then call_tool)."
+        "Use generation_params to get a call_tool-ready flow for reproducing an existing image (tweak one field, then call_tool)."
     ),
     parameters=[
         ToolParameter("action", "string", "search | get | generation_params | browse | browse_schema | browse_options | save | lineage | tag | marker | board"),

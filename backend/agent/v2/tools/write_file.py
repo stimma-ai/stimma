@@ -6,7 +6,7 @@ from ..tools_registry import tool, ToolParameter
 from ._workspace_files import (
     readonly_workspace_error,
     MAX_FILE_SIZE,
-    maybe_sync_recipe_program,
+    maybe_sync_flow_program,
     resolve_workspace_path,
 )
 from .edit_file import _build_structured_patch
@@ -78,15 +78,15 @@ async def write_file(file_path: str | None = None, content: str | None = None, *
             "originalFile": original_file,
         }
 
-    # If this targets a recipe chat's program.py, rebuild its compiled graph
+    # If this targets a flow chat's program.py, rebuild its compiled graph
     # so the frontend phase tree reflects the edit immediately AND the agent
     # sees build errors in the tool result (otherwise the agent assumes a
     # successful file write means the program is valid).
-    rebuild_note = await maybe_sync_recipe_program(
+    rebuild_note = await maybe_sync_flow_program(
         kwargs.get("session"), kwargs.get("chat_id"), file_path
     )
 
-    # Model-visible result. When the recipe graph build failed, lead with the
+    # Model-visible result. When the flow graph build failed, lead with the
     # failure so the agent doesn't interpret "updated successfully" as meaning
     # the program is valid.
     if rebuild_note and "FAILED" in rebuild_note:
@@ -96,7 +96,7 @@ async def write_file(file_path: str | None = None, content: str | None = None, *
         if isinstance(cont_out, list):
             cont_out.append(True)
         return (
-            f"{file_path} was written to disk but the recipe graph FAILED to build. "
+            f"{file_path} was written to disk but the flow graph FAILED to build. "
             f"Fix the program before doing anything else.\n\n{rebuild_note}"
         )
     if is_update:

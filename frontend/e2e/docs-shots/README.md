@@ -53,7 +53,7 @@ placeholders these satisfy.
 
 ## Known gaps
 
-- Shots needing real LLM content (agent chats, recipes built by the agent)
+- Shots needing real LLM content (agent chats, flows built by the agent)
   are not covered yet — they need either a local endpoint or the planned
   cloud "bake" session.
 - The Settings → Advanced (LLM Services) shot currently shows an

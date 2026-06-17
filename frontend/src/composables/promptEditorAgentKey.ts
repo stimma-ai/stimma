@@ -8,7 +8,7 @@ import type { AgentMessage } from './usePromptMiniAgent'
  * Undo/Redo buttons drive the single shared system in ToolView.
  *
  * AIPromptEditor guards every access with optional chaining so it keeps working
- * standalone (e.g. recipe context) when the inject is absent.
+ * standalone (e.g. flow context) when the inject is absent.
  */
 export interface PromptEditorAgent {
   send: (text: string) => Promise<void>

@@ -7,7 +7,7 @@ async def run_agent(chat, user_message, session, ws_manager, selected_media_ids=
     """Run the agent (v2 agentic loop).
 
     ``max_turns=None`` lets the v2 loop derive the cap from the chat
-    (``_max_turns_for_chat``: 50 for normal chats, 100 for recipe chats).
+    (``_max_turns_for_chat``: 50 for normal chats, 100 for flow chats).
     A hardcoded default here shadows that intent — passing any value makes
     the v2 ``if max_turns is None`` fall-through dead — so leave it None.
     """

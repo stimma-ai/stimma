@@ -1,6 +1,6 @@
 import { ref, readonly } from 'vue'
 
-export type EntityType = 'chat' | 'board' | 'project' | 'recipe'
+export type EntityType = 'chat' | 'board' | 'project' | 'flow'
 
 export interface EntityContextMenuState {
   visible: boolean

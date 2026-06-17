@@ -29,7 +29,7 @@ class ChatCreateRequest(PydanticBaseModel):
     name: Optional[str] = None
     original_chatitem_id: Optional[int] = None
     project_id: Optional[int] = None
-    recipe_id: Optional[int] = None
+    flow_id: Optional[int] = None
     model_slug: Optional[str] = None
 
 
@@ -38,7 +38,7 @@ class ChatUpdateRequest(PydanticBaseModel):
     throttle: Optional[str] = None
     generation_settings: Optional[str] = None  # JSON string
     project_id: Optional[int] = None
-    recipe_id: Optional[int] = None
+    flow_id: Optional[int] = None
     model_slug: Optional[str] = None
 
 
@@ -73,7 +73,7 @@ class ChatResponse(PydanticBaseModel):
     deleted_at: Optional[str]
     original_chatitem_id: Optional[int]
     project_id: Optional[int]
-    recipe_id: Optional[int] = None
+    flow_id: Optional[int] = None
     throttle: Optional[str]
     generation_settings: Optional[dict]
     model_slug: Optional[str] = None
@@ -430,9 +430,9 @@ async def create_chat(
     """Create a new chat."""
     if request.project_id is not None:
         await get_project_or_404(session, request.project_id)
-    if request.recipe_id is not None:
-        from recipe_service import get_recipe_or_404
-        await get_recipe_or_404(session, request.recipe_id)
+    if request.flow_id is not None:
+        from flow_service import get_flow_or_404
+        await get_flow_or_404(session, request.flow_id)
 
     # Use provided name or empty string (will be auto-named after first message)
     name = request.name or ""
@@ -455,7 +455,7 @@ async def create_chat(
         name=name,
         original_chatitem_id=request.original_chatitem_id,
         project_id=request.project_id,
-        recipe_id=request.recipe_id,
+        flow_id=request.flow_id,
         throttle='off',
         generation_settings=json.dumps(default_settings),
         model_slug=request.model_slug,
@@ -485,7 +485,7 @@ async def list_chats(
     page_size: int = Query(50, ge=1, le=100),
     include_deleted: bool = Query(False),
     project_id: Optional[int] = Query(None),
-    recipe_id: Optional[int] = Query(None),
+    flow_id: Optional[int] = Query(None),
     session: AsyncSession = Depends(get_db_session)
 ):
     """List all chats, paginated and reverse chronological."""
@@ -493,12 +493,12 @@ async def list_chats(
     query = select(Chat)
     if not include_deleted:
         query = query.where(Chat.deleted_at.is_(None))
-    if recipe_id is None:
-        query = query.where(Chat.recipe_id.is_(None))
+    if flow_id is None:
+        query = query.where(Chat.flow_id.is_(None))
     if project_id is not None:
         query = query.where(Chat.project_id == project_id)
-    if recipe_id is not None:
-        query = query.where(Chat.recipe_id == recipe_id)
+    if flow_id is not None:
+        query = query.where(Chat.flow_id == flow_id)
 
     query = query.order_by(desc(Chat.updated_at))
 
@@ -506,12 +506,12 @@ async def list_chats(
     count_query = select(func.count()).select_from(Chat)
     if not include_deleted:
         count_query = count_query.where(Chat.deleted_at.is_(None))
-    if recipe_id is None:
-        count_query = count_query.where(Chat.recipe_id.is_(None))
+    if flow_id is None:
+        count_query = count_query.where(Chat.flow_id.is_(None))
     if project_id is not None:
         count_query = count_query.where(Chat.project_id == project_id)
-    if recipe_id is not None:
-        count_query = count_query.where(Chat.recipe_id == recipe_id)
+    if flow_id is not None:
+        count_query = count_query.where(Chat.flow_id == flow_id)
     total_result = await session.execute(count_query)
     total = total_result.scalar()
 
@@ -533,22 +533,22 @@ async def list_chat_previews(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     project_id: Optional[int] = Query(None),
-    recipe_id: Optional[int] = Query(None),
+    flow_id: Optional[int] = Query(None),
     session: AsyncSession = Depends(get_db_session)
 ):
     """List chats with message counts and recent generated media for the landing page."""
     # Get paginated chats
     query = select(Chat).where(Chat.deleted_at.is_(None))
     count_query = select(func.count()).select_from(Chat).where(Chat.deleted_at.is_(None))
-    if recipe_id is None:
-        query = query.where(Chat.recipe_id.is_(None))
-        count_query = count_query.where(Chat.recipe_id.is_(None))
+    if flow_id is None:
+        query = query.where(Chat.flow_id.is_(None))
+        count_query = count_query.where(Chat.flow_id.is_(None))
     if project_id is not None:
         query = query.where(Chat.project_id == project_id)
         count_query = count_query.where(Chat.project_id == project_id)
-    if recipe_id is not None:
-        query = query.where(Chat.recipe_id == recipe_id)
-        count_query = count_query.where(Chat.recipe_id == recipe_id)
+    if flow_id is not None:
+        query = query.where(Chat.flow_id == flow_id)
+        count_query = count_query.where(Chat.flow_id == flow_id)
     query = query.order_by(desc(Chat.updated_at))
 
     total_result = await session.execute(count_query)

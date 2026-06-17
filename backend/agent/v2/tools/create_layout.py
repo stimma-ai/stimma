@@ -9,7 +9,7 @@ from pathlib import Path
 from ..tools_registry import tool, ToolParameter
 
 from core.logging import get_logger
-from recipe_runtime.layout_bundle import (
+from flow_runtime.layout_bundle import (
     assemble_index_html,
     copy_referenced_images,
     extract_all_refs,
@@ -114,7 +114,7 @@ async def create_layout(
     html = copy_referenced_images(html, workspace_path, bundle_path)
 
     # Agent-tool behavior: default to square canvas when height not specified.
-    # (The recipe-level create_layout passes height=None through to support
+    # (The flow-level create_layout passes height=None through to support
     # content-measured rendering — see layout_bundle.assemble_index_html.)
     if height is None:
         height = width

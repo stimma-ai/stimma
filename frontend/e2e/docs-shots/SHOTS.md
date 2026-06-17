@@ -41,6 +41,6 @@ into a page. Inventory refs point at the docs repo's SCREENSHOT_INVENTORY.md.
 ## Not yet automated
 
 - Agent chat shots (`bake` class) — gemma4-over-Ollama now works for suggestions; chat-driven shots are plausible next, or wait for the cloud bake.
-- Recipe shots — recipes are agent-built; same dependency.
+- Flow shots — flows are agent-built; same dependency.
 - ComfyUI's own UI (manual, one shot).
 - Cloud-specific UI (cost badges, tier cards) — needs a signed-in account.

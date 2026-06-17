@@ -218,58 +218,58 @@ body {
   --color-scrollbar-thumb: rgba(156, 163, 175, 0.4);
   --color-scrollbar-thumb-hover: rgba(156, 163, 175, 0.6);
 
-  /* Recipe graph node palette — refined matte status & type colors.
+  /* Flow graph node palette — refined matte status & type colors.
      Status owns the card chrome (tint + left flag); type owns a small chip
      in the title row. Edge colors use the same matte school. */
-  --color-recipe-done-tint:    #1c2520;
-  --color-recipe-done-soft:    #345740;
-  --color-recipe-done-strong:  #79c294;
-  --color-recipe-done-mid:     #4d8d63;
+  --color-flow-done-tint:    #1c2520;
+  --color-flow-done-soft:    #345740;
+  --color-flow-done-strong:  #79c294;
+  --color-flow-done-mid:     #4d8d63;
 
-  --color-recipe-run-tint:     #28221a;
-  --color-recipe-run-soft:     #564524;
-  --color-recipe-run-strong:   #e2bb66;
-  --color-recipe-run-mid:      #9d7f37;
+  --color-flow-run-tint:     #28221a;
+  --color-flow-run-soft:     #564524;
+  --color-flow-run-strong:   #e2bb66;
+  --color-flow-run-mid:      #9d7f37;
 
-  --color-recipe-fail-tint:    #281c1a;
-  --color-recipe-fail-soft:    #5a2c28;
-  --color-recipe-fail-strong:  #e08e85;
+  --color-flow-fail-tint:    #281c1a;
+  --color-flow-fail-soft:    #5a2c28;
+  --color-flow-fail-strong:  #e08e85;
 
-  --color-recipe-await-tint:   #211d2e;
-  --color-recipe-await-soft:   #3e3460;
-  --color-recipe-await-strong: #a59beb;
+  --color-flow-await-tint:   #211d2e;
+  --color-flow-await-soft:   #3e3460;
+  --color-flow-await-strong: #a59beb;
 
-  --color-recipe-stale-tint:   #28241a;
-  --color-recipe-stale-soft:   #574c28;
-  --color-recipe-stale-strong: #d4b76a;
+  --color-flow-stale-tint:   #28241a;
+  --color-flow-stale-soft:   #574c28;
+  --color-flow-stale-strong: #d4b76a;
 
-  --color-recipe-type-tool-tint:    #2a2113;
-  --color-recipe-type-tool-strong:  #dab36a;
-  --color-recipe-type-llm-tint:     #221f3a;
-  --color-recipe-type-llm-strong:   #a09bf0;
-  --color-recipe-type-code-tint:    #14302d;
-  --color-recipe-type-code-strong:  #5fc6bd;
-  --color-recipe-type-hitl-tint:    #281c2a;
-  --color-recipe-type-hitl-strong:  #d29ad8;
-  --color-recipe-type-info-tint:    #14302a;
-  --color-recipe-type-info-strong:  #5fc6bd;
-  --color-recipe-type-input-tint:   #28241f;
-  --color-recipe-type-input-strong: #b5ad9d;
-  --color-recipe-type-output-tint:  #2a1c25;
-  --color-recipe-type-output-strong:#e29ec0;
-  --color-recipe-type-control-tint: #2a2317;
-  --color-recipe-type-control-strong: #d4af65;
-  --color-recipe-type-create-tint:  #2a1c25;
-  --color-recipe-type-create-strong:#e29ec0;
+  --color-flow-type-tool-tint:    #2a2113;
+  --color-flow-type-tool-strong:  #dab36a;
+  --color-flow-type-llm-tint:     #221f3a;
+  --color-flow-type-llm-strong:   #a09bf0;
+  --color-flow-type-code-tint:    #14302d;
+  --color-flow-type-code-strong:  #5fc6bd;
+  --color-flow-type-hitl-tint:    #281c2a;
+  --color-flow-type-hitl-strong:  #d29ad8;
+  --color-flow-type-info-tint:    #14302a;
+  --color-flow-type-info-strong:  #5fc6bd;
+  --color-flow-type-input-tint:   #28241f;
+  --color-flow-type-input-strong: #b5ad9d;
+  --color-flow-type-output-tint:  #2a1c25;
+  --color-flow-type-output-strong:#e29ec0;
+  --color-flow-type-control-tint: #2a2317;
+  --color-flow-type-control-strong: #d4af65;
+  --color-flow-type-create-tint:  #2a1c25;
+  --color-flow-type-create-strong:#e29ec0;
 
-  --color-recipe-edge-media:   #d68a76;
-  --color-recipe-edge-tool:    #8794d8;
-  --color-recipe-edge-llm:     #6fb5a8;
-  --color-recipe-edge-code:    #d4af65;
-  --color-recipe-edge-hitl:    #d29ad8;
-  --color-recipe-edge-info:    #5fc6bd;
-  --color-recipe-edge-input:   #98948a;
-  --color-recipe-edge-control: #d4af65;
+  --color-flow-edge-media:   #d68a76;
+  --color-flow-edge-tool:    #8794d8;
+  --color-flow-edge-llm:     #6fb5a8;
+  --color-flow-edge-code:    #d4af65;
+  --color-flow-edge-hitl:    #d29ad8;
+  --color-flow-edge-info:    #5fc6bd;
+  --color-flow-edge-input:   #98948a;
+  --color-flow-edge-control: #d4af65;
 }
 
 [data-theme="light"] {
@@ -322,56 +322,56 @@ body {
   --color-scrollbar-thumb: rgba(0, 0, 0, 0.25);
   --color-scrollbar-thumb-hover: rgba(0, 0, 0, 0.4);
 
-  /* Recipe graph node palette (light theme). See dark theme for shape. */
-  --color-recipe-done-tint:    #ecf1e8;
-  --color-recipe-done-soft:    #cad8cc;
-  --color-recipe-done-strong:  #2f7649;
-  --color-recipe-done-mid:     #6ba081;
+  /* Flow graph node palette (light theme). See dark theme for shape. */
+  --color-flow-done-tint:    #ecf1e8;
+  --color-flow-done-soft:    #cad8cc;
+  --color-flow-done-strong:  #2f7649;
+  --color-flow-done-mid:     #6ba081;
 
-  --color-recipe-run-tint:     #f1ecdd;
-  --color-recipe-run-soft:     #d9d2b5;
-  --color-recipe-run-strong:   #9c6a18;
-  --color-recipe-run-mid:      #c79f48;
+  --color-flow-run-tint:     #f1ecdd;
+  --color-flow-run-soft:     #d9d2b5;
+  --color-flow-run-strong:   #9c6a18;
+  --color-flow-run-mid:      #c79f48;
 
-  --color-recipe-fail-tint:    #f0e3de;
-  --color-recipe-fail-soft:    #d8bfb9;
-  --color-recipe-fail-strong:  #95413c;
+  --color-flow-fail-tint:    #f0e3de;
+  --color-flow-fail-soft:    #d8bfb9;
+  --color-flow-fail-strong:  #95413c;
 
-  --color-recipe-await-tint:   #ebe8f3;
-  --color-recipe-await-soft:   #cabddf;
-  --color-recipe-await-strong: #5a4a9c;
+  --color-flow-await-tint:   #ebe8f3;
+  --color-flow-await-soft:   #cabddf;
+  --color-flow-await-strong: #5a4a9c;
 
-  --color-recipe-stale-tint:   #efeadc;
-  --color-recipe-stale-soft:   #d0c4a3;
-  --color-recipe-stale-strong: #7a6429;
+  --color-flow-stale-tint:   #efeadc;
+  --color-flow-stale-soft:   #d0c4a3;
+  --color-flow-stale-strong: #7a6429;
 
-  --color-recipe-type-tool-tint:    #efe6d4;
-  --color-recipe-type-tool-strong:  #7c5512;
-  --color-recipe-type-llm-tint:     #e8e7f4;
-  --color-recipe-type-llm-strong:   #4842a8;
-  --color-recipe-type-code-tint:    #d9eceb;
-  --color-recipe-type-code-strong:  #0e6f6a;
-  --color-recipe-type-hitl-tint:    #efe5ed;
-  --color-recipe-type-hitl-strong:  #774081;
-  --color-recipe-type-info-tint:    #dbeae9;
-  --color-recipe-type-info-strong:  #266c64;
-  --color-recipe-type-input-tint:   #ebe9e3;
-  --color-recipe-type-input-strong: #5b554a;
-  --color-recipe-type-output-tint:  #f3e3ea;
-  --color-recipe-type-output-strong:#95386b;
-  --color-recipe-type-control-tint: #f1eadb;
-  --color-recipe-type-control-strong: #856030;
-  --color-recipe-type-create-tint:  #f3e3e8;
-  --color-recipe-type-create-strong:#94376b;
+  --color-flow-type-tool-tint:    #efe6d4;
+  --color-flow-type-tool-strong:  #7c5512;
+  --color-flow-type-llm-tint:     #e8e7f4;
+  --color-flow-type-llm-strong:   #4842a8;
+  --color-flow-type-code-tint:    #d9eceb;
+  --color-flow-type-code-strong:  #0e6f6a;
+  --color-flow-type-hitl-tint:    #efe5ed;
+  --color-flow-type-hitl-strong:  #774081;
+  --color-flow-type-info-tint:    #dbeae9;
+  --color-flow-type-info-strong:  #266c64;
+  --color-flow-type-input-tint:   #ebe9e3;
+  --color-flow-type-input-strong: #5b554a;
+  --color-flow-type-output-tint:  #f3e3ea;
+  --color-flow-type-output-strong:#95386b;
+  --color-flow-type-control-tint: #f1eadb;
+  --color-flow-type-control-strong: #856030;
+  --color-flow-type-create-tint:  #f3e3e8;
+  --color-flow-type-create-strong:#94376b;
 
-  --color-recipe-edge-media:   #b85f48;
-  --color-recipe-edge-tool:    #3f53a8;
-  --color-recipe-edge-llm:     #3d7a72;
-  --color-recipe-edge-code:    #9c7724;
-  --color-recipe-edge-hitl:    #774081;
-  --color-recipe-edge-info:    #266c64;
-  --color-recipe-edge-input:   #6b675c;
-  --color-recipe-edge-control: #856030;
+  --color-flow-edge-media:   #b85f48;
+  --color-flow-edge-tool:    #3f53a8;
+  --color-flow-edge-llm:     #3d7a72;
+  --color-flow-edge-code:    #9c7724;
+  --color-flow-edge-hitl:    #774081;
+  --color-flow-edge-info:    #266c64;
+  --color-flow-edge-input:   #6b675c;
+  --color-flow-edge-control: #856030;
 }
 
 /* Utility class to reserve space for scrollbar */
@@ -474,28 +474,28 @@ select option {
   pointer-events: none;
 }
 
-/* Recipe step expand/collapse — animates height: auto via the
+/* Flow step expand/collapse — animates height: auto via the
    grid-template-rows 0fr → 1fr trick so rows ease open/closed instead of
-   snapping. Used by RecipeView trace rows, info rows, HITL rows, and
+   snapping. Used by FlowView trace rows, info rows, HITL rows, and
    iteration groups. */
-.recipe-expand-enter-active,
-.recipe-expand-leave-active {
+.flow-expand-enter-active,
+.flow-expand-leave-active {
   display: grid;
   grid-template-rows: 1fr;
   transition: grid-template-rows 180ms ease, opacity 180ms ease;
 }
-.recipe-expand-enter-active > *,
-.recipe-expand-leave-active > * {
+.flow-expand-enter-active > *,
+.flow-expand-leave-active > * {
   overflow: hidden;
   min-height: 0;
 }
-.recipe-expand-enter-from,
-.recipe-expand-leave-to {
+.flow-expand-enter-from,
+.flow-expand-leave-to {
   grid-template-rows: 0fr;
   opacity: 0;
 }
-.recipe-expand-enter-to,
-.recipe-expand-leave-from {
+.flow-expand-enter-to,
+.flow-expand-leave-from {
   grid-template-rows: 1fr;
   opacity: 1;
 }

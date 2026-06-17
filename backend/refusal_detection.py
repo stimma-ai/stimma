@@ -1,6 +1,6 @@
 """
 Shared refusal classifier — single source of truth for detecting textual
-model refusals across all agent surfaces (chat agent main/recipe/delegate
+model refusals across all agent surfaces (chat agent main/flow/delegate
 and the ToolView prompt agent).
 
 A "refusal" is the model textually declining a request — distinct from a

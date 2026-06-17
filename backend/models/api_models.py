@@ -494,7 +494,7 @@ class StructuredContentUpdateRequest(BaseModel):
     title: Optional[str] = None  # New title for the set/grid
 
 
-class RecipeResponse(BaseModel):
+class FlowResponse(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
@@ -508,10 +508,10 @@ class RecipeResponse(BaseModel):
     pending_task_count: int = 0
     # Root phase status counts (pending / computing / awaiting_input / failed /
     # completed / skipped). Drives the Running / Done / Your Turn / Error pill
-    # on surfaces that don't open the recipe (sidebar, recipes landing,
-    # project overview) — kept live via the recipe_equation_updated WS event.
+    # on surfaces that don't open the flow (sidebar, flows landing,
+    # project overview) — kept live via the flow_equation_updated WS event.
     root_status_summary: dict[str, int] = {}
-    # True when the recipe's program failed to build (parse / dry-run preflight)
+    # True when the flow's program failed to build (parse / dry-run preflight)
     # and is currently parked behind a load_error. Forces the status pill to
     # `Error` even when individual equations would otherwise read as
     # `Your Turn` / `Running` from a stale graph.
@@ -521,7 +521,7 @@ class RecipeResponse(BaseModel):
     deleted_at: Optional[str] = None
 
 
-class RecipeCreateRequest(BaseModel):
+class FlowCreateRequest(BaseModel):
     name: Optional[str] = ""
     description: Optional[str] = None
     project_id: Optional[int] = None
@@ -530,7 +530,7 @@ class RecipeCreateRequest(BaseModel):
     inputs: Optional[dict] = None
 
 
-class RecipeUpdateRequest(BaseModel):
+class FlowUpdateRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     project_id: Optional[int] = None
@@ -540,7 +540,7 @@ class RecipeUpdateRequest(BaseModel):
     execution_state: Optional[str] = None
 
 
-class RecipeForkRequest(BaseModel):
+class FlowForkRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     project_id: Optional[int] = None
@@ -552,12 +552,12 @@ class RecipeForkRequest(BaseModel):
 from typing import Any  # noqa: E402 — keep import local to the new block
 
 
-class RecipeTaskResponse(BaseModel):
-    """Task row joined with its owning equation. Shared by per-recipe and
-    cross-recipe (global) listing endpoints.
+class FlowTaskResponse(BaseModel):
+    """Task row joined with its owning equation. Shared by per-flow and
+    cross-flow (global) listing endpoints.
 
-    `task_id` is the composite "{recipe_id}:{task_id}" string so the API
-    can identify tasks unambiguously across per-recipe SQLite files (task
+    `task_id` is the composite "{flow_id}:{task_id}" string so the API
+    can identify tasks unambiguously across per-flow SQLite files (task
     ids aren't globally unique).
     """
     task_id: str
@@ -580,8 +580,8 @@ class RecipeTaskResponse(BaseModel):
 
     downstream_count: int = 0
 
-    recipe_id: Optional[int] = None
-    recipe_name: Optional[str] = None
+    flow_id: Optional[int] = None
+    flow_name: Optional[str] = None
 
 
 class TaskResolveRequest(BaseModel):
@@ -590,7 +590,7 @@ class TaskResolveRequest(BaseModel):
     For HITL tasks (select/approve), set `resolution` to the user's
     decision (list of IDs / bool).
 
-    For error tasks, set `action` to one of retry|skip|edit_recipe.
+    For error tasks, set `action` to one of retry|skip|edit_flow.
     """
     resolution: Optional[Any] = None
     action: Optional[str] = None
@@ -600,7 +600,7 @@ class TaskResolveRequest(BaseModel):
 # Phase 5 — Execution control, phase tree, equations, invalidation
 
 
-class RecipeEquationResponse(BaseModel):
+class FlowEquationResponse(BaseModel):
     """Single equation row enriched with in-memory state when available."""
     equation_key: str
     equation_type: str
@@ -628,7 +628,7 @@ class RecipeEquationResponse(BaseModel):
     completed_at: Optional[str] = None
     invalidated_at: Optional[str] = None
     # Internal scaffolding equations (foreach wrappers, iteration containers,
-    # recipe_input declarations) are marked so the UI can hide them from the
+    # flow_input declarations) are marked so the UI can hide them from the
     # user-facing step list.
     is_scaffolding: bool = False
     # For equation_type == "hitl": the subtype (select/approve)
@@ -643,7 +643,7 @@ class RecipeEquationResponse(BaseModel):
     task_type: Optional[str] = None
     # For equation_type == "control": the control_kind pulled from the
     # definition (foreach, foreach_iteration, zip_nodes,
-    # literal_list, recipe_input). The graph viz uses this to hide iteration
+    # literal_list, flow_input). The graph viz uses this to hide iteration
     # wrappers on the happy path — they'd otherwise duplicate their child
     # tool/code node.
     control_kind: Optional[str] = None
@@ -667,7 +667,7 @@ class RecipeEquationResponse(BaseModel):
     # primitives such as switch/filter/partition/take/when/gate so clients can
     # present them as routing steps rather than generic logic.
     routing_kind: Optional[str] = None
-    # True when this equation is surfaced by the recipe's ``return`` — either
+    # True when this equation is surfaced by the flow's ``return`` — either
     # the bare returned NodeRef, or one entry in a returned tuple/dict of
     # NodeRefs. The graph viz uses this to draw a synthetic "Output" node on
     # the right, instead of the "any dangling equation is an output" heuristic
@@ -676,19 +676,19 @@ class RecipeEquationResponse(BaseModel):
     # field is safe to omit for clients / persisted rows that haven't been
     # re-evaluated since the current graph build.
     is_output: bool = False
-    # Declared output name from @recipe(outputs={...}) when this equation is
-    # surfaced by the recipe's return value. This lets the UI render named
+    # Declared output name from @flow(outputs={...}) when this equation is
+    # surfaced by the flow's return value. This lets the UI render named
     # outputs explicitly instead of guessing from the producing step label.
     output_name: Optional[str] = None
-    # Declared output type from @recipe(outputs={...}) for surfaced outputs.
+    # Declared output type from @flow(outputs={...}) for surfaced outputs.
     # Used by clients for type-specific rendering such as media thumbnails
     # and markdown-formatted text.
     output_type: Optional[str] = None
-    # For equation_type == "recipe_input": the schema field key
+    # For equation_type == "flow_input": the schema field key
     # (definition.input_name). The Workflow inspect panel uses this to scope
     # its editable input form to the matching schema field, so selecting an
     # input node in the graph offers the same edit affordance the steps-view
-    # input card already provides. None for non-recipe_input equations.
+    # input card already provides. None for non-flow_input equations.
     input_name: Optional[str] = None
     # For control_kind == "approve": the declared slot count and the
     # approval-instructions string. Surfaced explicitly (not via raw
@@ -698,7 +698,7 @@ class RecipeEquationResponse(BaseModel):
     instructions: Optional[str] = None
 
 
-class RecipePhaseNodeResponse(BaseModel):
+class FlowPhaseNodeResponse(BaseModel):
     """A node in the phase tree. Recursive via `children`.
 
     `status_summary` counts equations by status within this phase and its
@@ -706,7 +706,7 @@ class RecipePhaseNodeResponse(BaseModel):
     """
     name: str
     path: List[str]
-    children: List["RecipePhaseNodeResponse"] = []
+    children: List["FlowPhaseNodeResponse"] = []
     equation_keys: List[str] = []
     # Server-authored user-facing step timeline for this exact phase.
     # Items intentionally mirror the frontend's StepItem payload shape while
@@ -716,13 +716,13 @@ class RecipePhaseNodeResponse(BaseModel):
     pending_task_count: int = 0
 
 
-RecipePhaseNodeResponse.model_rebuild()
+FlowPhaseNodeResponse.model_rebuild()
 
 
-class RecipePhaseTreeResponse(BaseModel):
-    recipe_id: int
+class FlowPhaseTreeResponse(BaseModel):
+    flow_id: int
     execution_state: str
-    root: RecipePhaseNodeResponse
+    root: FlowPhaseNodeResponse
     load_error: Optional[dict] = None
 
 

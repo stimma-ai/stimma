@@ -1343,7 +1343,7 @@ watch(() => props.instructions, () => {
 })
 
 onMounted(() => {
-  // The chat is only mounted while visible (recipe: sparkle-toggled; ToolView:
+  // The chat is only mounted while visible (flow: sparkle-toggled; ToolView:
   // always docked), so loading ideas on mount replaces the old expand watcher.
   if (props.hasPrompt && props.prompt.trim() && suggestions.value.length === 0) {
     fetchIdeas(true)

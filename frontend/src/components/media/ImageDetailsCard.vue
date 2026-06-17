@@ -118,16 +118,16 @@
         <div class="text-content text-xs">{{ formatDate(genStep.generated_at) }}</div>
       </div>
 
-      <!-- Recipe origin -->
-      <div v-if="recipeLineage?.recipe_id" class="bg-overlay-subtle p-2 rounded">
-        <div class="text-content-tertiary text-xs mb-0.5">Recipe</div>
+      <!-- Flow origin -->
+      <div v-if="flowLineage?.flow_id" class="bg-overlay-subtle p-2 rounded">
+        <div class="text-content-tertiary text-xs mb-0.5">Flow</div>
         <button
           class="text-blue-400 hover:underline text-xs truncate"
-          :title="recipeLineage.phase_path?.join(' / ') || ''"
-          @click="$emit('open-recipe', recipeLineage.recipe_id)"
+          :title="flowLineage.phase_path?.join(' / ') || ''"
+          @click="$emit('open-flow', flowLineage.flow_id)"
         >
-          Open recipe #{{ recipeLineage.recipe_id }}
-          <span v-if="recipeLineage.phase_path?.length" class="text-content-muted">— {{ recipeLineage.phase_path.join(' / ') }}</span>
+          Open flow #{{ flowLineage.flow_id }}
+          <span v-if="flowLineage.phase_path?.length" class="text-content-muted">— {{ flowLineage.phase_path.join(' / ') }}</span>
         </button>
       </div>
 
@@ -242,7 +242,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['navigate', 'open-recipe'])
+defineEmits(['navigate', 'open-flow'])
 
 const { availableMarkers, hasMarker, toggleMarker: toggleMarkerFn, init: initMarkers, loadMarkersForMedia } = useMarkers()
 
@@ -281,12 +281,12 @@ const genStep = computed(() => {
   }
 })
 
-// Recipe lineage (pulled from generation_metadata when source=recipe)
-const recipeLineage = computed(() => {
+// Flow lineage (pulled from generation_metadata when source=flow)
+const flowLineage = computed(() => {
   const meta = parseMeta(props.media)
-  if (!meta || meta.source !== 'recipe') return null
+  if (!meta || meta.source !== 'flow') return null
   return {
-    recipe_id: meta.recipe_id ?? null,
+    flow_id: meta.flow_id ?? null,
     equation_key: meta.equation_key ?? null,
     phase_path: Array.isArray(meta.phase_path) ? meta.phase_path : [],
   }

@@ -20,7 +20,7 @@ export interface StpCallPayload {
 }
 
 /**
- * Build the STP call payload from a stored params dict (jobs and recipe
+ * Build the STP call payload from a stored params dict (jobs and flow
  * tool-call definitions). Drops internal bookkeeping keys that the backend
  * would strip before dispatch.
  */

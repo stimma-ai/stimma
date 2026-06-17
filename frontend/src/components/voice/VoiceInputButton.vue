@@ -50,7 +50,7 @@ const props = withDefaults(
     setText: (text: string) => void
     focus?: () => void
     iconClass?: string
-    /** Telemetry surface: main_chat | recipe_chat | prompt_agent | feedback */
+    /** Telemetry surface: main_chat | flow_chat | prompt_agent | feedback */
     surface?: string
   }>(),
   { iconClass: 'w-5 h-5', surface: 'main_chat' }

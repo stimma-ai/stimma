@@ -10,5 +10,5 @@
  * Flag names should be lowercase-snake-case.
  */
 export const FLAG_DEFAULTS = {
-  // Example: recipe_v3_ui: false,
+  // Example: flow_v3_ui: false,
 }

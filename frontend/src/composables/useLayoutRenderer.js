@@ -6,7 +6,7 @@ import { useWebSocket } from './useWebSocket'
  *
  * The backend sends `render_layout_request` over the WS when it needs a
  * `.stimmalayout` HTML bundle rasterized — for thumbnails, the agent's
- * vision pass, or recipe rasterize_layout. The UI's real browser engine
+ * vision pass, or flow rasterize_layout. The UI's real browser engine
  * does the actual rendering and ships PNG bytes back.
  *
  * Strategy:

@@ -188,23 +188,23 @@
             </button>
           </div>
 
-          <!-- Recipes landing link -->
+          <!-- Flows landing link -->
           <div class="group relative">
             <button
-              @click="handleNavClick('recipes')"
+              @click="handleNavClick('flows')"
               class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-              :class="activeTab === 'recipes' ? '!bg-overlay-hover !text-content' : ''"
-              title="Recipes"
+              :class="activeTab === 'flows' ? '!bg-overlay-hover !text-content' : ''"
+              title="Flows"
             >
               <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
               </svg>
-              <span>Recipes</span>
+              <span>Flows</span>
             </button>
             <button
-              @click.stop="createNewRecipe"
+              @click.stop="createNewFlow"
               class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Create new recipe"
+              title="Create new flow"
             >
               <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -307,7 +307,7 @@
                   <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
-                  <div v-else-if="tab.type === 'recipe'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-overlay-faint border border-edge-subtle">
+                  <div v-else-if="tab.type === 'flow'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-overlay-faint border border-edge-subtle">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
                   </div>
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
@@ -368,7 +368,7 @@
                   <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
-                  <div v-else-if="tab.type === 'recipe'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-overlay-faint border border-edge-subtle">
+                  <div v-else-if="tab.type === 'flow'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-overlay-faint border border-edge-subtle">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
                   </div>
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
@@ -452,8 +452,8 @@
                     >{{ getChatProjectName(tab.entityId) }}</span>
                   </div>
 
-                  <!-- Recipe with title/subtitle -->
-                  <div v-else-if="tab.type === 'recipe'" class="flex-1 min-w-0 flex flex-col">
+                  <!-- Flow with title/subtitle -->
+                  <div v-else-if="tab.type === 'flow'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       v-if="tab.displayName"
                       class="truncate text-[13px] text-content"
@@ -465,16 +465,16 @@
                       @click.stop="startInlineRename(tab)"
                       class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
                     >
-                      Name this recipe...
+                      Name this flow...
                     </span>
-                    <RecipeStatusPill
-                      :recipe-id="tab.entityId"
+                    <FlowStatusPill
+                      :flow-id="tab.entityId"
                       show-pending
                       text-class="truncate text-[11px] text-content-muted"
                     />
                   </div>
 
-                  <!-- Non-tool/chat/board/recipe items -->
+                  <!-- Non-tool/chat/board/flow items -->
                   <span
                     v-else-if="tab.displayName"
                     class="truncate text-sm flex-1"
@@ -489,7 +489,7 @@
                     Name this board...
                   </span>
                   <span
-                    v-if="isTabGenerating(tab) && tab.type !== 'recipe'"
+                    v-if="isTabGenerating(tab) && tab.type !== 'flow'"
                     class="w-2.5 h-2.5 border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0 self-center"
                   ></span>
                   <!-- Tool availability indicator -->
@@ -599,7 +599,7 @@
                   <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
-                  <div v-else-if="tab.type === 'recipe'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-overlay-faint border border-edge-subtle">
+                  <div v-else-if="tab.type === 'flow'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-overlay-faint border border-edge-subtle">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
                   </div>
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
@@ -660,7 +660,7 @@
                   <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
-                  <div v-else-if="tab.type === 'recipe'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-overlay-faint border border-edge-subtle">
+                  <div v-else-if="tab.type === 'flow'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-overlay-faint border border-edge-subtle">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
                   </div>
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
@@ -744,8 +744,8 @@
                     >{{ getChatProjectName(tab.entityId) }}</span>
                   </div>
 
-                  <!-- Recipe with title/subtitle -->
-                  <div v-else-if="tab.type === 'recipe'" class="flex-1 min-w-0 flex flex-col">
+                  <!-- Flow with title/subtitle -->
+                  <div v-else-if="tab.type === 'flow'" class="flex-1 min-w-0 flex flex-col">
                     <span
                       v-if="tab.displayName"
                       class="truncate text-[13px] text-content"
@@ -757,16 +757,16 @@
                       @click.stop="startInlineRename(tab)"
                       class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
                     >
-                      Name this recipe...
+                      Name this flow...
                     </span>
-                    <RecipeStatusPill
-                      :recipe-id="tab.entityId"
+                    <FlowStatusPill
+                      :flow-id="tab.entityId"
                       show-pending
                       text-class="truncate text-[11px] text-content-muted"
                     />
                   </div>
 
-                  <!-- Non-tool/chat/board/recipe items -->
+                  <!-- Non-tool/chat/board/flow items -->
                   <span
                     v-else-if="tab.displayName"
                     class="truncate text-sm flex-1"
@@ -781,7 +781,7 @@
                     Name this board...
                   </span>
                   <span
-                    v-if="isTabGenerating(tab) && tab.type !== 'recipe'"
+                    v-if="isTabGenerating(tab) && tab.type !== 'flow'"
                     class="w-2.5 h-2.5 border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0 self-center"
                   ></span>
                   <span
@@ -849,8 +849,8 @@ import { useProvidersApi } from '../composables/useProvidersApi'
 import { useSendToTool } from '../composables/useSendToTool'
 import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
-import { useRecipeCounts } from '../composables/useRecipeCounts'
-import RecipeStatusPill from './recipe/RecipeStatusPill.vue'
+import { useFlowCounts } from '../composables/useFlowCounts'
+import FlowStatusPill from './flow/FlowStatusPill.vue'
 import { useDragStore } from '../stores/dragStore'
 import { getDroppedMediaIds } from '../composables/useDragPreview'
 import { isTauri } from '../apiConfig'
@@ -902,9 +902,9 @@ const {
 // Context menu
 const tabsContextMenu = useWorkspaceTabsContextMenu()
 
-// Per-recipe status/count singleton is mounted here so RecipeStatusPill (used
-// below for recipe tabs) has live data — we don't otherwise read it directly.
-useRecipeCounts()
+// Per-flow status/count singleton is mounted here so FlowStatusPill (used
+// below for flow tabs) has live data — we don't otherwise read it directly.
+useFlowCounts()
 
 // Drag store
 const { draggedMediaInfo, draggedMediaType, isDraggingGrid } = useDragStore()
@@ -1221,7 +1221,7 @@ function getTabIcon(tab: WorkspaceTab) {
       h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z' })
     ])
   }
-  if (tab.type === 'recipe') {
+  if (tab.type === 'flow') {
     return h('svg', { class: 'w-3.5 h-3.5', fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '2', stroke: 'currentColor' }, [
       h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z' })
     ])
@@ -1240,7 +1240,7 @@ function isTabActive(tab: WorkspaceTab): boolean {
   if (tab.type === 'project') return String(route.name || '').startsWith('project-') && String(route.params.id) === tab.entityId
   if (tab.type === 'editor') return (route.name === 'edit-image' || route.name === 'edit-image-empty') && String(route.params.editorId) === tab.entityId
   if (tab.type === 'lineage') return route.name === 'lineage' && String(route.params.mediaId) === tab.entityId
-  if (tab.type === 'recipe') return route.name === 'recipe' && String(route.params.id) === tab.entityId
+  if (tab.type === 'flow') return route.name === 'flow' && String(route.params.id) === tab.entityId
   return false
 }
 
@@ -1266,7 +1266,7 @@ function navigateToTab(tab: WorkspaceTab) {
     }
   }
   else if (tab.type === 'lineage') router.push({ name: 'lineage', params: { mediaId: tab.entityId } })
-  else if (tab.type === 'recipe') router.push({ name: 'recipe', params: { id: tab.entityId } })
+  else if (tab.type === 'flow') router.push({ name: 'flow', params: { id: tab.entityId } })
 
   if (props.isMobile) emit('close')
 }
@@ -1544,19 +1544,19 @@ async function createNewChat() {
   }
 }
 
-async function createNewRecipe() {
+async function createNewFlow() {
   try {
-    const response = await fetch('/api/recipes', {
+    const response = await fetch('/api/flows', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
     })
-    if (!response.ok) throw new Error('Failed to create recipe')
-    const recipe = await response.json()
-    router.push({ name: 'recipe', params: { id: String(recipe.id) } })
+    if (!response.ok) throw new Error('Failed to create flow')
+    const flow = await response.json()
+    router.push({ name: 'flow', params: { id: String(flow.id) } })
     if (props.isMobile) emit('close')
   } catch (err) {
-    console.error('Failed to create recipe:', err)
+    console.error('Failed to create flow:', err)
   }
 }
 
@@ -1617,7 +1617,7 @@ function handleTabReorderDragEnd() {
 
 // ==================== Inline rename ====================
 
-function handleRenameFromContextMenu(tabType: 'board' | 'chat' | 'recipe' | 'project', entityId: string, currentName: string) {
+function handleRenameFromContextMenu(tabType: 'board' | 'chat' | 'flow' | 'project', entityId: string, currentName: string) {
   const tabId = `${tabType}:${entityId}`
   editingItem.value = { tabId, tabType, entityId }
   editingName.value = currentName
@@ -1631,7 +1631,7 @@ function handleRenameFromContextMenu(tabType: 'board' | 'chat' | 'recipe' | 'pro
 }
 
 function startInlineRename(tab: WorkspaceTab) {
-  if (tab.type !== 'chat' && tab.type !== 'board' && tab.type !== 'recipe') return
+  if (tab.type !== 'chat' && tab.type !== 'board' && tab.type !== 'flow') return
   editingItem.value = { tabId: tab.id, tabType: tab.type, entityId: tab.entityId }
   editingName.value = tab.displayName || ''
   nextTick(() => {
@@ -1662,8 +1662,8 @@ async function saveRename() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName })
       })
-    } else if (tabType === 'recipe') {
-      await fetch(`/api/recipes/${entityId}`, {
+    } else if (tabType === 'flow') {
+      await fetch(`/api/flows/${entityId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName })
@@ -1813,23 +1813,23 @@ on('chat_deleted', (data) => {
   removeTabByEntity('chat', String(data.chat_id))
 })
 
-// Recipe events - update tab names, remove tabs on deletion
-on('recipe_updated', (data) => {
-  const recipe = data.recipe
-  if (recipe?.id && recipe.name) {
-    updateTabName(`recipe:${recipe.id}`, recipe.name)
+// Flow events - update tab names, remove tabs on deletion
+on('flow_updated', (data) => {
+  const flow = data.flow
+  if (flow?.id && flow.name) {
+    updateTabName(`flow:${flow.id}`, flow.name)
   }
 })
 
-on('recipe_deleted', (data) => {
-  const tabId = `recipe:${data.recipe_id}`
+on('flow_deleted', (data) => {
+  const tabId = `flow:${data.flow_id}`
   const closingTab = allTabs.value.find(t => t.id === tabId)
   if (closingTab && isTabActive(closingTab)) {
     const next = findNextTab(new Set([tabId]))
     if (next) navigateToTab(next)
-    else router.push({ name: 'recipes' })
+    else router.push({ name: 'flows' })
   }
-  removeTabByEntity('recipe', String(data.recipe_id))
+  removeTabByEntity('flow', String(data.flow_id))
 })
 
 // Board events - open new boards as tabs, update names, remove on deletion
@@ -1905,7 +1905,7 @@ watch(
     const params = current.params
 
     // Track library routes for "close last tab" navigation
-    if (['browse', 'trash', 'saved-view', 'boards', 'chats', 'recipes', 'all-tools', 'projects'].includes(name) || name?.startsWith('project-')) {
+    if (['browse', 'trash', 'saved-view', 'boards', 'chats', 'flows', 'all-tools', 'projects'].includes(name) || name?.startsWith('project-')) {
       setLastLibraryRoute(route.fullPath)
     }
 
@@ -1985,12 +1985,12 @@ watch(
       addEditorTab(String(params.editorId), params.mediaId ? String(params.mediaId) : undefined)
     } else if (name === 'lineage' && params.mediaId) {
       addTab('lineage', String(params.mediaId), 'Lineage')
-    } else if (name === 'recipe' && params.id) {
-      const recipeId = String(params.id)
-      const tab = addTab('recipe', recipeId)
-      if (!tab.displayName || tab.displayName === recipeId) {
-        fetch(`/api/recipes/${recipeId}`).then(r => r.ok ? r.json() : null).then(recipe => {
-          if (recipe) updateTabName(tab.id, recipe.name || '')
+    } else if (name === 'flow' && params.id) {
+      const flowId = String(params.id)
+      const tab = addTab('flow', flowId)
+      if (!tab.displayName || tab.displayName === flowId) {
+        fetch(`/api/flows/${flowId}`).then(r => r.ok ? r.json() : null).then(flow => {
+          if (flow) updateTabName(tab.id, flow.name || '')
         }).catch(() => {})
       }
     }

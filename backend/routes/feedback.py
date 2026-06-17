@@ -110,7 +110,7 @@ class SubmitFeedbackRequest(BaseModel):
     kind: str  # 'feedback' | 'thumbs'
     message: str = ""
     thumb: Optional[str] = None              # 'up' | 'down'
-    agent_context: Optional[str] = None      # 'main' | 'recipe' | 'prompt-agent'
+    agent_context: Optional[str] = None      # 'main' | 'flow' | 'prompt-agent'
     include_logs: bool = False
     screenshot: Optional[str] = None         # data URL (image/png)
     package: Optional[PackageSource] = None
@@ -133,7 +133,7 @@ async def submit(req: SubmitFeedbackRequest):
     if req.thumb is not None and req.thumb not in ("up", "down"):
         raise HTTPException(status_code=400, detail="thumb must be up or down")
     if req.agent_context is not None and req.agent_context not in (
-        "main", "recipe", "prompt-agent"
+        "main", "flow", "prompt-agent"
     ):
         raise HTTPException(status_code=400, detail="Invalid agent_context")
 

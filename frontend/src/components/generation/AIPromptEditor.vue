@@ -6,7 +6,7 @@
 
       <!-- Bottom Action Bar (flows below textarea) -->
       <div class="px-3 py-1.5 flex items-center justify-between bg-surface rounded-b-md border-t border-surface-raised">
-        <!-- Left: Auto-improve toggle (hidden in recipe context — recipes
+        <!-- Left: Auto-improve toggle (hidden in flow context — flows
              execute the literal prompt, so an auto-rewrite would diverge
              from the declared input). -->
         <button
@@ -161,7 +161,7 @@
       </div>
     </div>
 
-    <!-- Inline prompt-only chat (recipe / image-edit). Toggled by the sparkle.
+    <!-- Inline prompt-only chat (flow / image-edit). Toggled by the sparkle.
          ToolView sets external-chat and mounts its own page-level PromptAgentChat
          in the dock instead, so this branch never renders there. -->
     <div
@@ -200,7 +200,7 @@ interface Props {
   placeholder?: string
   expanded?: boolean
   promptOptions?: PromptOptions
-  // Recipe inputs run the literal prompt through the declared graph, so
+  // Flow inputs run the literal prompt through the declared graph, so
   // auto-improve (which silently rewrites the prompt at submit time) would
   // break the execution model. Hide the affordance in those contexts.
   hideAutoImprove?: boolean

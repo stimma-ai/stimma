@@ -495,13 +495,13 @@
                     />
                   </div>
                 </div>
-                <!-- Recipe reference chips (parsed from the message header so
+                <!-- Flow reference chips (parsed from the message header so
                      the raw markdown transport never shows up in the bubble) -->
                 <div
                   v-if="getMessageRefs(item).length > 0"
                   class="flex flex-wrap gap-1 mb-2"
                 >
-                  <RecipeRefChip
+                  <FlowRefChip
                     v-for="r in getMessageRefs(item)"
                     :key="r.refKey"
                     :label="r.label"
@@ -1141,7 +1141,7 @@
               v-if="parseQueuedRefs(queuedMsg.text).length > 0"
               class="flex flex-wrap gap-1 mb-1"
             >
-              <RecipeRefChip
+              <FlowRefChip
                 v-for="r in parseQueuedRefs(queuedMsg.text)"
                 :key="r.refKey"
                 :label="r.label"
@@ -1224,7 +1224,7 @@
         ref="chatInputBoxRef"
         v-model="messageInput"
         :attachments="inputAttachments"
-        :voice-surface="chat?.recipe_id ? 'recipe_chat' : 'main_chat'"
+        :voice-surface="chat?.flow_id ? 'flow_chat' : 'main_chat'"
         :disabled="sending"
         @update:attachments="inputAttachments = $event"
         @submit="handleEnterKey"
@@ -1364,8 +1364,8 @@ import { MediaImage, AppImage, MediaContextMenu } from '../components/media'
 import ChatImageStrip from '../components/chat/ChatImageStrip.vue'
 import ChatInputAttachments from '../components/chat/ChatInputAttachments.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
-import RecipeRefChip from '../components/recipe/RecipeRefChip.vue'
-import { useRecipeReferences, formatReferencesForMessage, parseMessageReferences, type RecipeReference } from '../composables/useRecipeReferences'
+import FlowRefChip from '../components/flow/FlowRefChip.vue'
+import { useFlowReferences, formatReferencesForMessage, parseMessageReferences, type FlowReference } from '../composables/useFlowReferences'
 import { pendingMedia, consumePendingMedia } from '../composables/usePendingMedia'
 import { useMediaDetailsModal } from '../composables/useMediaDetailsModal'
 import ChatModelPicker from '../components/chat/ChatModelPicker.vue'
@@ -1428,7 +1428,7 @@ import { devModeRef } from '../appConfig'
 const props = defineProps<{
   // Optional override for chat identity. When provided, this takes precedence
   // over route.params.id so the view can be embedded as a component (e.g.
-  // inside the recipe sidebar) without owning a route.
+  // inside the flow sidebar) without owning a route.
   chatId?: number | string | null
   // When true, hide the top control strip so the view fits inside a narrow
   // embedded context. Settings panel toggle is also suppressed since its
@@ -1838,9 +1838,9 @@ const TOOL_DISPLAY_NAMES = {
   assemble_set: 'Creating Set',
   create_layout: 'Creating Layout',
   render_html: 'Rendering Layout',  // backward compat for old chats
-  analyze_recipe: 'Analyzing Recipe',
-  recipe_inspect: 'Analyzing Recipe',  // backward compat: renamed from recipe_inspect
-  recipe_update: 'Updating Recipe',
+  analyze_flow: 'Analyzing Flow',
+  flow_inspect: 'Analyzing Flow',  // backward compat: renamed from flow_inspect
+  flow_update: 'Updating Flow',
 }
 
 // Library action → display copy
@@ -2830,7 +2830,7 @@ async function loadItems(beforeId = null) {
     loading.value = false
 
     // Initialize message history from existing user messages (on initial load).
-    // Strip any baked-in recipe-reference headers so arrow-up navigation
+    // Strip any baked-in flow-reference headers so arrow-up navigation
     // surfaces the user's pristine text rather than the transport markdown.
     if (!beforeId) {
       const userMessages = data.items
@@ -3008,11 +3008,11 @@ function queueMessage() {
     filename: a.filename || null
   }))
 
-  // Fold any attached recipe references into the queued message body. The
+  // Fold any attached flow references into the queued message body. The
   // queue runs later via sendMessage(queuedMessage), which reads text as-is
   // — so we need to bake the header in now. Clear refs so they don't leak
   // into the next message the user composes while the queue drains.
-  const refsApi = useRecipeReferences(chatId.value)
+  const refsApi = useFlowReferences(chatId.value)
   const refs = [...refsApi.items.value]
   const header = refs.length > 0 ? formatReferencesForMessage(refs) : ''
   const message = header
@@ -3072,7 +3072,7 @@ async function sendMessage(queuedMessage = null) {
     return
   }
 
-  const refsApi = useRecipeReferences(chatId.value)
+  const refsApi = useFlowReferences(chatId.value)
   let message, attachments
 
   if (queuedMessage) {
@@ -3109,7 +3109,7 @@ async function sendMessage(queuedMessage = null) {
     historyIndex.value = -1
     savedCurrentInput.value = ''
 
-    // Bake any pending recipe references into the outgoing message body.
+    // Bake any pending flow references into the outgoing message body.
     // The agent sees them as a blockquote header above the user's message.
     const refs = [...refsApi.items.value]
     if (refs.length > 0) {
@@ -3462,11 +3462,11 @@ function getMessageAttachments(item) {
   return meta.attachments
 }
 
-// Cached parse of a user_message's recipe-reference header, so the chip row
+// Cached parse of a user_message's flow-reference header, so the chip row
 // and the remaining-text block don't redo the regex scan three times per
 // render. Keyed by item id + message_text so edits invalidate.
-const parsedMessageCache = new Map<string, { refs: RecipeReference[]; text: string }>()
-function parsedUserMessage(item: any): { refs: RecipeReference[]; text: string } {
+const parsedMessageCache = new Map<string, { refs: FlowReference[]; text: string }>()
+function parsedUserMessage(item: any): { refs: FlowReference[]; text: string } {
   const key = `${item?.id ?? ''}:${(item?.message_text ?? '').length}`
   let cached = parsedMessageCache.get(key)
   if (!cached || parsedMessageCache.size > 1000) {
@@ -3476,7 +3476,7 @@ function parsedUserMessage(item: any): { refs: RecipeReference[]; text: string }
   }
   return cached
 }
-function getMessageRefs(item: any): RecipeReference[] {
+function getMessageRefs(item: any): FlowReference[] {
   return parsedUserMessage(item).refs
 }
 function getMessageBodyText(item: any): string {
@@ -3486,7 +3486,7 @@ function getMessageBodyText(item: any): string {
 // Queued messages carry already-baked-in reference headers (queueMessage folds
 // them in at queue time so the post-dequeue send reads them verbatim). Parse
 // the same way so the queued preview shows chips instead of raw markdown.
-function parseQueuedRefs(text: string | null | undefined): RecipeReference[] {
+function parseQueuedRefs(text: string | null | undefined): FlowReference[] {
   return parseMessageReferences(text).refs
 }
 function stripQueuedRefs(text: string | null | undefined): string {
@@ -3887,7 +3887,7 @@ function startEditing(item) {
   }
 
   editingItemId.value = item.id
-  // Strip the recipe-reference header before showing the editor — the user
+  // Strip the flow-reference header before showing the editor — the user
   // edits their own text only. The references were transport metadata, not
   // content; re-attaching would be done via the composer, not the editor.
   editingText.value = parseMessageReferences(item.message_text).text || item.message_text
@@ -4292,12 +4292,12 @@ function toggleRawPlan(itemId) {
 
 // Thumbs feedback on assistant messages (official builds; the wrapper
 // renders the buttons disabled in source builds). The conversation package
-// is built backend-side from this chat; recipe-bound chats report the
-// 'recipe' agent context.
+// is built backend-side from this chat; flow-bound chats report the
+// 'flow' agent context.
 function handleThumbFeedback(thumb: 'up' | 'down') {
   openThumbFeedback({
     thumb,
-    agentContext: chat.value?.recipe_id ? 'recipe' : 'main',
+    agentContext: chat.value?.flow_id ? 'flow' : 'main',
     packageSource: { type: 'chat', chatId: chatId.value },
   })
 }
@@ -5130,7 +5130,7 @@ watch(pendingMedia, () => {
 }, { flush: 'post' })
 
 // When embedded, the chatId comes in via prop instead of the route — react
-// to prop changes (e.g. the parent recipe resolves its scoped chat lazily).
+// to prop changes (e.g. the parent flow resolves its scoped chat lazily).
 watch(() => props.chatId, (newId) => {
   if (newId == null) return
   const n = resolveChatIdSource()

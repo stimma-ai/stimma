@@ -5,13 +5,13 @@ from typing import Any, Callable, List, Dict, Optional
 
 
 # Valid scopes for a registered tool. "agent" tools are only visible to the
-# main agent loop; "recipe" tools are only visible inside the recipe chat
-# (its chat is bound to a recipe_id); "both" tools are shared. The recipe
+# main agent loop; "flow" tools are only visible inside the flow chat
+# (its chat is bound to a flow_id); "both" tools are shared. The flow
 # chat must not see agent-sandbox tools like run_code / sdk_help / library,
 # otherwise the model will pull ``stimma.library`` documentation into
-# recipe program.py edits and generate code that can't run in the recipe
+# flow program.py edits and generate code that can't run in the flow
 # sandbox.
-VALID_SCOPES = frozenset({"agent", "recipe", "both"})
+VALID_SCOPES = frozenset({"agent", "flow", "both"})
 
 
 # Tools retired from the agent surface in favour of the filesystem tool catalog
@@ -56,9 +56,9 @@ class Tool:
     def visible_in(self, scope: str) -> bool:
         """True if this tool should be exposed in the given chat scope.
 
-        ``scope`` is one of "agent" / "recipe". A tool tagged "both" is
+        ``scope`` is one of "agent" / "flow". A tool tagged "both" is
         visible in either; a tool tagged "agent" only shows in agent chats;
-        a "recipe" tool only shows in recipe chats.
+        a "flow" tool only shows in flow chats.
         """
         if self.scope == "both":
             return True
@@ -110,7 +110,7 @@ def tool(
     """Decorator to register a v2 tool.
 
     ``scope`` controls which chat loops see the tool — "agent" (default)
-    hides it from recipe chats; "recipe" hides it from the main agent;
+    hides it from flow chats; "flow" hides it from the main agent;
     "both" exposes it everywhere.
     """
     if scope not in VALID_SCOPES:
@@ -135,7 +135,7 @@ def get_tools_schema(scope: str = "agent") -> List[dict]:
     """Return OpenAI-format tool schemas visible in the given chat scope.
 
     Defaults to the main-agent view so existing callers that don't yet pass
-    a scope keep behaving the same. Recipe chats pass ``scope="recipe"``
+    a scope keep behaving the same. Flow chats pass ``scope="flow"``
     to get a narrowed set that excludes ``run_code`` / ``sdk_help`` /
     ``library`` and other agent-sandbox-only tools.
     """
@@ -154,7 +154,7 @@ def get_tools_schema(scope: str = "agent") -> List[dict]:
 def get_tool(name: str, scope: Optional[str] = None) -> Optional[Tool]:
     """Get a tool by name. If ``scope`` is given, return ``None`` when the
     tool exists but isn't visible in that scope — so a stale schema or
-    hallucinated name can't slip an agent-only tool into recipe chat.
+    hallucinated name can't slip an agent-only tool into flow chat.
     """
     if name in RETIRED_TOOLS:
         return None

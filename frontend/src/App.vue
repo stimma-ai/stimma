@@ -337,8 +337,8 @@ function getComponentKey(route) {
   if (route.name === 'lineage') {
     return `lineage-${route.params.mediaId}`
   }
-  if (route.name === 'recipe') {
-    return `recipe-${route.params.id}`
+  if (route.name === 'flow') {
+    return `flow-${route.params.id}`
   }
   // For other routes, use the route name for consistent caching
   return route.name || route.path
@@ -349,7 +349,7 @@ const projectRouteNameBySurface = {
   assets: 'project-assets',
   chats: 'project-chats',
   boards: 'project-boards',
-  recipes: 'project-recipes',
+  flows: 'project-flows',
   tools: 'project-tools',
   settings: 'project-settings'
 }
@@ -375,11 +375,11 @@ async function resolveProjectChrome() {
       projectId = response.data?.project_id ?? null
       activeRouteName = projectId != null ? projectRouteNameBySurface.chats : ''
       surfaceLabel = projectId != null ? 'Chat' : ''
-    } else if (routeName === 'recipe') {
-      const response = await axios.get(`${getApiBase()}/recipes/${route.params.id}`)
+    } else if (routeName === 'flow') {
+      const response = await axios.get(`${getApiBase()}/flows/${route.params.id}`)
       projectId = response.data?.project_id ?? null
-      activeRouteName = projectId != null ? projectRouteNameBySurface.recipes : ''
-      surfaceLabel = projectId != null ? 'Recipe' : ''
+      activeRouteName = projectId != null ? projectRouteNameBySurface.flows : ''
+      surfaceLabel = projectId != null ? 'Flow' : ''
     } else if (routeName === 'tool' || routeName === 'all-tools' || routeName === 'upload') {
       const rawProjectId = route.query.project_id
       if (typeof rawProjectId === 'string' && rawProjectId.trim()) {
@@ -442,7 +442,7 @@ function getActiveTabId() {
   if (route.name === 'board-detail') return `board:${route.params.id}`
   if (String(route.name || '').startsWith('project-')) return `project:${route.params.id}`
   if (route.name === 'edit-image' || route.name === 'edit-image-empty') return `editor:${route.params.editorId}`
-  if (route.name === 'recipe') return `recipe:${route.params.id}`
+  if (route.name === 'flow') return `flow:${route.params.id}`
   return null
 }
 
@@ -458,7 +458,7 @@ function navigateToTab(tab) {
     if (tab.editorMediaId) router.push({ name: 'edit-image', params: { editorId: tab.entityId, mediaId: tab.editorMediaId } })
     else router.push({ name: 'edit-image-empty', params: { editorId: tab.entityId } })
   }
-  else if (tab.type === 'recipe') router.push({ name: 'recipe', params: { id: tab.entityId } })
+  else if (tab.type === 'flow') router.push({ name: 'flow', params: { id: tab.entityId } })
 }
 
 async function toggleDeveloperMode() {

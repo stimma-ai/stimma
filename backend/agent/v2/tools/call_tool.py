@@ -173,7 +173,7 @@ async def execute_call_tool(
     loras = final_params.get("loras", [])
     if loras:
         # Accept either the input shape ({path, weight}) or the stored/recorded
-        # shape ({lora, weight} / {name, weight}) so a recipe read back from an
+        # shape ({lora, weight} / {name, weight}) so a flow read back from an
         # existing image's metadata resubmits without manual key renaming.
         filtered = []
         for l in loras:

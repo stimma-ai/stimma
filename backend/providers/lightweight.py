@@ -175,7 +175,7 @@ class LightweightProvider(ToolProvider):
         One tool per filter definition — the same Filters/Levels/Effects set
         the image editor exposes, shared via filters.defs. Being ordinary
         catalog tools makes them first-class capabilities: the chat agent,
-        recipes, ToolView, and post-processing chains all invoke them through
+        flows, ToolView, and post-processing chains all invoke them through
         the normal tool path.
         """
         from filters.defs import CHAIN_FILTER_DEFS

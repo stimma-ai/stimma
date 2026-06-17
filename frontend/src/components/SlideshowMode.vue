@@ -556,7 +556,7 @@
       </button>
 
       <!-- Floating approval bar — visible when the parent provides an
-           approvalContext for the current media. Mirrors RecipeView's
+           approvalContext for the current media. Mirrors FlowView's
            approve/replace/unapprove treatment so the slideshow feels
            like the same widget. -->
       <SlideshowApprovalBar
@@ -1108,7 +1108,7 @@ import HorizontalVirtualScroller from './HorizontalVirtualScroller.vue'
 import { captioningEnabledRef } from '../appConfig'
 import MarkerBadges from './MarkerBadges.vue'
 import SlideshowInfoPanel from './SlideshowInfoPanel.vue'
-import SlideshowApprovalBar from './recipe/SlideshowApprovalBar.vue'
+import SlideshowApprovalBar from './flow/SlideshowApprovalBar.vue'
 import { MediaContextMenu, MediaImage } from './media'
 import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType } from '../utils/mediaTypes'
@@ -1175,7 +1175,7 @@ const props = defineProps({
   },
   // Optional approval context for the current item. When non-null, a
   // floating Approve/Replace/Unapprove bar appears at the bottom of the
-  // image area (mirroring RecipeView's approval treatment) and the
+  // image area (mirroring FlowView's approval treatment) and the
   // up/w approves+advances while awaiting and advances while approved.
   // down/s rejects while awaiting and unapproves while approved.
   // Parent handles the actual mutation via the
@@ -1897,7 +1897,7 @@ watch(baseCurrentItem, (newItem) => {
     // Recalculate the correct index instead of accepting the wrong item.
     if (currentMediaId.value && newItem.id !== currentMediaId.value) {
       if (props.mediaList) {
-        // mediaList path (browse / recipe views) - original behavior, unchanged.
+        // mediaList path (browse / flow views) - original behavior, unchanged.
         // Special case: if we're at index 0 (viewing newest), accept the new item
         // This lets users "follow" the newest image as new ones are generated
         if (currentIndex.value === 0) {

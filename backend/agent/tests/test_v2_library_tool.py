@@ -145,7 +145,7 @@ def test_normalize_loras_for_input_accepts_all_stored_shapes():
 
 
 @pytest.mark.asyncio
-async def test_generation_params_returns_call_tool_ready_recipe(session):
+async def test_generation_params_returns_call_tool_ready_flow(session):
     media = await create_media_item(
         session,
         width=1152,

@@ -1,5 +1,5 @@
-import type { RecipeEquation } from './useRecipesApi'
-import { buildIterationsForForeach } from './useRecipeGrouping'
+import type { FlowEquation } from './useFlowsApi'
+import { buildIterationsForForeach } from './useFlowGrouping'
 
 /**
  * Derives one "super-node" per outermost iteration-like primitive (foreach or
@@ -49,14 +49,14 @@ export interface FlatIteration {
   // Human labels per level (e.g. iteration key or index).
   levelLabels: string[]
   // Equations making up this leaf iteration's body.
-  equations: RecipeEquation[]
+  equations: FlowEquation[]
   // Primary (media producer, else last-completed, etc.).
-  primary: RecipeEquation | null
+  primary: FlowEquation | null
 }
 
 export interface ForeachSuperNodeData {
   foreachKey: string
-  foreach: RecipeEquation
+  foreach: FlowEquation
   flatIterations: FlatIteration[]
   iterCount: number
   // Per-level sizes. Length = nesting depth. Product = iterCount (assumes
@@ -69,19 +69,19 @@ export interface ForeachSuperNodeData {
   absorbedKeys: Set<string>
 }
 
-function isForeachPrimitive(eq: RecipeEquation): boolean {
+function isForeachPrimitive(eq: FlowEquation): boolean {
   return eq.equation_type === 'control' && eq.control_kind === 'foreach'
 }
 
-function isApprovePrimitive(eq: RecipeEquation): boolean {
+function isApprovePrimitive(eq: FlowEquation): boolean {
   return eq.equation_type === 'control' && eq.control_kind === 'approve'
 }
 
-function isLlmBatchPrimitive(eq: RecipeEquation): boolean {
+function isLlmBatchPrimitive(eq: FlowEquation): boolean {
   return eq.equation_type === 'llm_batch'
 }
 
-function equationIsRenderable(eq: RecipeEquation): boolean {
+function equationIsRenderable(eq: FlowEquation): boolean {
   // Hide control-flow scaffolding (filter/switch/take/etc — backend marks
   // these via is_scaffolding) until they fail, where the error is the only
   // useful signal. Everything else, including user-written `code()`
@@ -92,7 +92,7 @@ function equationIsRenderable(eq: RecipeEquation): boolean {
   return true
 }
 
-function pickPrimary(equations: RecipeEquation[]): RecipeEquation | null {
+function pickPrimary(equations: FlowEquation[]): FlowEquation | null {
   if (equations.length === 0) return null
   const media = equations.filter(
     (e) => e.status === 'completed' && e.result_media_ids && e.result_media_ids.length > 0,
@@ -125,8 +125,8 @@ function positionIdForChild(wrapperKey: string, childKey: string): string {
 // per leaf unit of work (DFS row-major order). Updates `dimsMax` in place so
 // callers can see per-level sizes.
 function expandLeafIterations(
-  foreach: RecipeEquation,
-  equationsByKey: Map<string, RecipeEquation>,
+  foreach: FlowEquation,
+  equationsByKey: Map<string, FlowEquation>,
   dimsSoFar: number[],
   labelsSoFar: string[],
   dimsMax: number[],
@@ -141,7 +141,7 @@ function expandLeafIterations(
     const label = iter.iterKey || String(idx)
     // Is there a direct-child inner foreach primitive? (depth = 1 after wrapper)
     const wrapperPrefix = iter.wrapperKey + '/'
-    let innerForeach: RecipeEquation | null = null
+    let innerForeach: FlowEquation | null = null
     for (const eq of equationsByKey.values()) {
       if (!eq.equation_key.startsWith(wrapperPrefix)) continue
       const tail = eq.equation_key.slice(wrapperPrefix.length)
@@ -159,7 +159,7 @@ function expandLeafIterations(
       ))
     } else {
       // Leaf iteration. Collect renderable children under this wrapper.
-      const leafEqs: RecipeEquation[] = []
+      const leafEqs: FlowEquation[] = []
       for (const eq of equationsByKey.values()) {
         if (!eq.equation_key.startsWith(wrapperPrefix)) continue
         if (!equationIsRenderable(eq)) continue
@@ -178,7 +178,7 @@ function expandLeafIterations(
 }
 
 function deriveTitle(
-  sample: RecipeEquation,
+  sample: FlowEquation,
   displayNames: (string | null)[],
 ): string {
   const names = new Set(displayNames.filter(Boolean) as string[])
@@ -213,16 +213,16 @@ function deriveTitle(
   }
 }
 
-function deriveSubtitle(sample: RecipeEquation): string | null {
+function deriveSubtitle(sample: FlowEquation): string | null {
   if (sample.equation_type === 'tool_call' && sample.task_type) return sample.task_type
   return null
 }
 
 function buildSuperNodeFromIterations(
-  primitive: RecipeEquation,
+  primitive: FlowEquation,
   flatIterations: FlatIteration[],
   iterDims: number[],
-  equationsByKey: Map<string, RecipeEquation>,
+  equationsByKey: Map<string, FlowEquation>,
 ): ForeachSuperNodeData {
   const iterCount = flatIterations.length
 
@@ -238,7 +238,7 @@ function buildSuperNodeFromIterations(
   type PosAccum = {
     id: string
     order: number
-    samples: RecipeEquation[]
+    samples: FlowEquation[]
     iterStatuses: (string | null)[]
     iterEquationKeys: (string | null)[]
     iterMediaIds: number[][]
@@ -349,8 +349,8 @@ function buildSuperNodeFromIterations(
 }
 
 function buildForeachOne(
-  foreach: RecipeEquation,
-  equationsByKey: Map<string, RecipeEquation>,
+  foreach: FlowEquation,
+  equationsByKey: Map<string, FlowEquation>,
 ): ForeachSuperNodeData {
   const dimsMax: number[] = []
   const flatIterations = expandLeafIterations(
@@ -360,8 +360,8 @@ function buildForeachOne(
 }
 
 function buildApproveOne(
-  approve: RecipeEquation,
-  equationsByKey: Map<string, RecipeEquation>,
+  approve: FlowEquation,
+  equationsByKey: Map<string, FlowEquation>,
 ): ForeachSuperNodeData {
   // hitl.approve iterates over per-slot wrappers (control_kind='slot') exactly
   // like foreach iterates over foreach_iteration wrappers. `buildIterations
@@ -369,7 +369,7 @@ function buildApproveOne(
   const slots = buildIterationsForForeach(approve, equationsByKey)
   const flatIterations: FlatIteration[] = slots.map((slot, idx) => {
     const wrapperPrefix = slot.wrapperKey + '/'
-    const leafEqs: RecipeEquation[] = []
+    const leafEqs: FlowEquation[] = []
     for (const eq of equationsByKey.values()) {
       if (!eq.equation_key.startsWith(wrapperPrefix)) continue
       if (!equationIsRenderable(eq)) continue
@@ -393,14 +393,14 @@ function buildApproveOne(
  * Build super-nodes for every outermost foreach in the equation map.
  */
 export function buildForeachSuperNodes(
-  equationsByKey: Map<string, RecipeEquation>,
+  equationsByKey: Map<string, FlowEquation>,
 ): ForeachSuperNodeData[] {
-  const foreaches: RecipeEquation[] = []
+  const foreaches: FlowEquation[] = []
   for (const eq of equationsByKey.values()) {
     if (isForeachPrimitive(eq)) foreaches.push(eq)
   }
   foreaches.sort((a, b) => a.equation_key.length - b.equation_key.length)
-  const outermost: RecipeEquation[] = []
+  const outermost: FlowEquation[] = []
   const outerKeys: string[] = []
   for (const f of foreaches) {
     let nested = false
@@ -421,7 +421,7 @@ export function buildForeachSuperNodes(
  * primitive without an outermost-only filter.
  */
 export function buildApproveSuperNodes(
-  equationsByKey: Map<string, RecipeEquation>,
+  equationsByKey: Map<string, FlowEquation>,
 ): ForeachSuperNodeData[] {
   const out: ForeachSuperNodeData[] = []
   for (const eq of equationsByKey.values()) {
@@ -431,8 +431,8 @@ export function buildApproveSuperNodes(
 }
 
 // `llm(n>1)` builds an LLM_BATCH primitive plus N LLM_SLOT children at keys
-// `{batch}/slot:0`..`{batch}/slot:N-1` (see backend/recipe_dsl/primitives.py
-// llm() and recipe_runtime/keys.py make_nested_foreach_iteration_key). Unlike
+// `{batch}/slot:0`..`{batch}/slot:N-1` (see backend/flow_dsl/primitives.py
+// llm() and flow_runtime/keys.py make_nested_foreach_iteration_key). Unlike
 // foreach/hitl.approve, slots are leaf equations — there's no per-iteration
 // wrapper layer with body children. Each slot is its own iteration.
 //
@@ -440,11 +440,11 @@ export function buildApproveSuperNodes(
 // "slot" via positionIdForChild's colon-strip), so the super-node renders
 // as one row of N navigator blocks behind a single LLM body tile.
 function buildLlmBatchOne(
-  llmBatch: RecipeEquation,
-  equationsByKey: Map<string, RecipeEquation>,
+  llmBatch: FlowEquation,
+  equationsByKey: Map<string, FlowEquation>,
 ): ForeachSuperNodeData {
   const prefix = llmBatch.equation_key + '/'
-  const slots: RecipeEquation[] = []
+  const slots: FlowEquation[] = []
   for (const eq of equationsByKey.values()) {
     if (eq.equation_type !== 'llm_slot') continue
     if (!eq.equation_key.startsWith(prefix)) continue
@@ -484,7 +484,7 @@ function buildLlmBatchOne(
  * LLM batches don't nest, so emit one super-node per primitive.
  */
 export function buildLlmBatchSuperNodes(
-  equationsByKey: Map<string, RecipeEquation>,
+  equationsByKey: Map<string, FlowEquation>,
 ): ForeachSuperNodeData[] {
   const out: ForeachSuperNodeData[] = []
   for (const eq of equationsByKey.values()) {

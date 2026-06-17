@@ -102,7 +102,7 @@ ALLOWED_MODULES: dict[str, Any] = {
 
 # Human-readable list of the sandbox's allow-list, for embedding in agent
 # prompts. Keep in sync with ``ALLOWED_MODULES`` above — both the main
-# agent's ``run_code`` description and the recipe agent's ``code()`` /
+# agent's ``run_code`` description and the flow agent's ``code()`` /
 # ``create_image()`` docs reference this so the model has a single source
 # of truth for what it can import in sandboxed Python.
 ALLOWED_MODULES_PROMPT_DESCRIPTION = (
@@ -122,8 +122,8 @@ def _make_safe_import(
     """Build a safe __import__ that allows whitelisted modules + skill lib modules.
 
     ``extra_modules`` is a per-invocation override for callers that need to
-    expose a module the global allow-list doesn't cover — e.g. the recipe
-    builder needs ``stimma.recipe`` visible so ``from stimma.recipe import …``
+    expose a module the global allow-list doesn't cover — e.g. the flow
+    builder needs ``stimma.flow`` visible so ``from stimma.flow import …``
     resolves inside the sandbox.
     """
     _skill_module_cache: dict[str, Any] = {}

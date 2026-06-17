@@ -33,7 +33,7 @@
 
         <!-- Move to Project (boards and chats only) -->
         <div
-          v-if="contextMenu.state.value.entityType === 'board' || contextMenu.state.value.entityType === 'chat' || contextMenu.state.value.entityType === 'recipe'"
+          v-if="contextMenu.state.value.entityType === 'board' || contextMenu.state.value.entityType === 'chat' || contextMenu.state.value.entityType === 'flow'"
           class="relative"
           ref="projectTriggerRef"
           @mouseenter="openProjectSubmenu"
@@ -151,7 +151,7 @@ const entityLabel = computed(() => {
   const s = contextMenu.state.value
   if (s.entityType === 'chat') return s.selectedCount === 1 ? 'chat' : 'chats'
   if (s.entityType === 'project') return s.selectedCount === 1 ? 'project' : 'projects'
-  if (s.entityType === 'recipe') return s.selectedCount === 1 ? 'recipe' : 'recipes'
+  if (s.entityType === 'flow') return s.selectedCount === 1 ? 'flow' : 'flows'
   return s.selectedCount === 1 ? 'board' : 'boards'
 })
 
