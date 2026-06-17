@@ -766,13 +766,25 @@ def _create_grid_mosaic(
     return img
 
 
-async def _generate_layout_preview(file_path: str, size: int, palette=None) -> Optional[Image.Image]:
+async def _generate_layout_preview(
+    file_path: str,
+    size: int,
+    palette=None,
+    *,
+    wait_for_client_timeout_s: float = 0.25,
+    queue_timeout_s: float = 0.25,
+    raise_transient: bool = False,
+) -> Optional[Image.Image]:
     """Render a .stimmalayout bundle to a PIL image via the connected UI client.
 
     The UI's real browser engine (WKWebView in Tauri, the user's browser
     elsewhere) does the rasterization over a WebSocket RPC. Returns ``None``
     on failure, including the timeout-with-no-client case — callers treat
     that as "thumbnail not available right now" and may retry later.
+
+    When ``raise_transient`` is set, the "renderer busy / no client yet" cases
+    re-raise instead of collapsing to ``None`` so callers can tell a transient
+    miss (retry later) apart from a genuine render failure.
 
     ``size`` is the longest-side target for the returned image; the canvas is
     rendered at its declared resolution and then downscaled.
@@ -791,9 +803,9 @@ async def _generate_layout_preview(file_path: str, size: int, palette=None) -> O
         )
         png_bytes, _w, _h = await render_layout_bundle(
             bundle_dir,
-            wait_for_client_timeout_s=0.25,
+            wait_for_client_timeout_s=wait_for_client_timeout_s,
             render_timeout_s=15.0,
-            queue_timeout_s=0.25,
+            queue_timeout_s=queue_timeout_s,
         )
         img = Image.open(io.BytesIO(png_bytes))
         img.load()
@@ -801,23 +813,53 @@ async def _generate_layout_preview(file_path: str, size: int, palette=None) -> O
         return img
     except (LayoutRenderBusy, LayoutRenderUnavailable) as e:
         log.debug(f"Skipped layout preview for {file_path}: {e}")
+        if raise_transient:
+            raise
         return None
     except Exception as e:
         log.warning(f"Failed to generate layout preview for {file_path}: {e}")
         return None
 
 
+# Result of an on-demand layout thumbnail render. "transient" means the UI
+# renderer was busy or not yet connected — the same content will render fine
+# moments later, so the caller should tell the client to retry rather than
+# surface a hard error.
+LAYOUT_THUMB_OK = "ok"
+LAYOUT_THUMB_TRANSIENT = "transient"
+LAYOUT_THUMB_FAILED = "failed"
+
+
 async def _generate_layout_thumbnail_to_cache(
     file_path: str, cache_path: Path, size: int, palette=None,
-) -> bool:
-    """Render a layout bundle and save a JPEG thumbnail to ``cache_path``."""
-    img = await _generate_layout_preview(file_path, size, palette=palette)
+) -> str:
+    """Render a layout bundle and save a JPEG thumbnail to ``cache_path``.
+
+    Returns one of ``LAYOUT_THUMB_{OK,TRANSIENT,FAILED}``. ``TRANSIENT`` means
+    the render slot/UI client was momentarily unavailable (e.g. right after the
+    layout is created, while the agent is still rendering) — retrying shortly
+    will succeed. We wait a little longer here than the agent-vision path since
+    a thumbnail GET can afford to block briefly for the slot.
+    """
+    from utils.ui_render import LayoutRenderBusy, LayoutRenderUnavailable
+
+    try:
+        img = await _generate_layout_preview(
+            file_path,
+            size,
+            palette=palette,
+            wait_for_client_timeout_s=2.0,
+            queue_timeout_s=5.0,
+            raise_transient=True,
+        )
+    except (LayoutRenderBusy, LayoutRenderUnavailable):
+        return LAYOUT_THUMB_TRANSIENT
     if img is None:
-        return False
+        return LAYOUT_THUMB_FAILED
     if img.mode not in ('RGB',):
         img = img.convert('RGB')
     _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
-    return True
+    return LAYOUT_THUMB_OK
 
 
 def _atomic_save(img: Image.Image, cache_path: Path, format: str, **kwargs):
@@ -1537,10 +1579,12 @@ async def get_thumbnail(
 
     # Generate thumbnail. Layouts go through the async UI-render path; everything
     # else runs in the thread pool.
+    layout_status = None
     if item.file_format.lower() == 'stimmalayout':
-        success = await _generate_layout_thumbnail_to_cache(
+        layout_status = await _generate_layout_thumbnail_to_cache(
             item.file_path, cache_path, size, palette=palette,
         )
+        success = layout_status == LAYOUT_THUMB_OK
     else:
         loop = asyncio.get_event_loop()
         success = await loop.run_in_executor(
@@ -1561,6 +1605,15 @@ async def get_thumbnail(
             return FileResponse(cache_path_png, media_type="image/png", headers=cors_headers)
         if cache_path_jpg.exists():
             return FileResponse(cache_path_jpg, media_type="image/jpeg", headers=cors_headers)
+        if layout_status == LAYOUT_THUMB_TRANSIENT:
+            # UI renderer was busy/unconnected — the same layout will render
+            # fine shortly. Signal a retry instead of a hard failure so the
+            # client refetches rather than showing a permanent broken image.
+            raise HTTPException(
+                status_code=503,
+                detail="Layout thumbnail not ready yet",
+                headers={"Retry-After": "1", **cors_headers},
+            )
         raise HTTPException(status_code=500, detail="Failed to generate thumbnail")
 
     # Return with correct media type
@@ -2098,10 +2151,12 @@ async def get_thumbnail_by_db_guid(
     # Resolve palette for synthetic thumbnails
     palette = THEME_PALETTES.get(theme, THEME_PALETTES['dark'])
 
+    layout_status = None
     if item.file_format.lower() == 'stimmalayout':
-        success = await _generate_layout_thumbnail_to_cache(
+        layout_status = await _generate_layout_thumbnail_to_cache(
             item.file_path, cache_path, size, palette=palette,
         )
+        success = layout_status == LAYOUT_THUMB_OK
     else:
         loop = asyncio.get_event_loop()
         success = await loop.run_in_executor(
@@ -2124,6 +2179,14 @@ async def get_thumbnail_by_db_guid(
         if cache_path_jpg.exists():
             await _record_thumbnail_cache(session, item.id, cache_path_jpg)
             return FileResponse(cache_path_jpg, media_type="image/jpeg", headers=CACHE_HEADERS)
+        if layout_status == LAYOUT_THUMB_TRANSIENT:
+            # UI renderer momentarily busy/unconnected — retryable, not a hard
+            # failure. Client should refetch rather than show a broken image.
+            raise HTTPException(
+                status_code=503,
+                detail="Layout thumbnail not ready yet",
+                headers={"Retry-After": "1"},
+            )
         raise HTTPException(status_code=500, detail="Failed to generate thumbnail")
 
     media_type = "image/png" if might_have_alpha else "image/jpeg"
@@ -2374,7 +2437,7 @@ async def get_thumbnail_path_by_media_id(
     if item.file_format.lower() == 'stimmalayout':
         success = await _generate_layout_thumbnail_to_cache(
             item.file_path, cache_path, size, palette=palette,
-        )
+        ) == LAYOUT_THUMB_OK
     else:
         loop = asyncio.get_event_loop()
         success = await loop.run_in_executor(

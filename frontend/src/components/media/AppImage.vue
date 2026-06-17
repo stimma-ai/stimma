@@ -105,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onBeforeUnmount } from 'vue'
 
 interface Props {
   src?: string
@@ -122,6 +122,14 @@ interface Props {
   draggable?: boolean | 'true' | 'false'
   /** Keep current image visible until the next src has loaded to avoid flicker on rapid src swaps */
   preservePreviousOnSrcChange?: boolean
+  /**
+   * Auto-retry a failed load with backoff before showing the broken-image icon.
+   * Use for sources that may be generated lazily/asynchronously (e.g. layout
+   * thumbnails the backend rasterizes on demand and may not have ready yet).
+   */
+  retryOnError?: boolean
+  /** Max auto-retry attempts when retryOnError is set. */
+  maxRetries?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -131,7 +139,9 @@ const props = withDefaults(defineProps<Props>(), {
   imgClass: '',
   loading: 'lazy',
   draggable: false,
-  preservePreviousOnSrcChange: false
+  preservePreviousOnSrcChange: false,
+  retryOnError: false,
+  maxRetries: 4
 })
 
 const emit = defineEmits<{
@@ -149,6 +159,29 @@ const naturalHeight = ref(0)
 const displaySrc = ref(props.src || '')
 let preloadRequestId = 0
 
+// Auto-retry state. A failed load (e.g. a layout thumbnail the backend hasn't
+// finished rasterizing) is re-fetched with a cache-busting param after a short
+// backoff so the browser actually re-requests it instead of reusing the cached
+// failure. We keep showing the loading skeleton across retries rather than
+// flashing the broken-image icon.
+let retryCount = 0
+let retryTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearRetryTimer() {
+  if (retryTimer !== null) {
+    clearTimeout(retryTimer)
+    retryTimer = null
+  }
+}
+
+function withRetryParam(src: string, attempt: number): string {
+  if (!attempt) return src
+  const sep = src.includes('?') ? '&' : '?'
+  return `${src}${sep}_imgretry=${attempt}`
+}
+
+onBeforeUnmount(clearRetryTimer)
+
 // Aspect ratio style for contain mode wrapper
 // This ensures the checker div is exactly the size of the visible image content
 const aspectRatioStyle = computed(() => {
@@ -164,6 +197,10 @@ const aspectRatioStyle = computed(() => {
 // Reset state when src changes. Optionally keep old image visible until next src is ready.
 watch(() => props.src, (nextSrc) => {
   const normalizedSrc = nextSrc || ''
+
+  // A genuinely new source starts its retry budget fresh.
+  clearRetryTimer()
+  retryCount = 0
 
   if (!props.preservePreviousOnSrcChange || !displaySrc.value || !normalizedSrc || normalizedSrc === displaySrc.value) {
     displaySrc.value = normalizedSrc
@@ -202,10 +239,27 @@ function handleLoad(event: Event) {
   naturalHeight.value = img.naturalHeight
   loaded.value = true
   error.value = false
+  retryCount = 0
+  clearRetryTimer()
   emit('load', event)
 }
 
 function handleError(event: Event) {
+  const baseSrc = props.src || ''
+  if (props.retryOnError && baseSrc && retryCount < props.maxRetries) {
+    retryCount += 1
+    // Backoff: 0.4s, 0.8s, 1.6s, 3.2s — covers the on-demand render window
+    // without hammering the backend.
+    const delay = 400 * Math.pow(2, retryCount - 1)
+    loaded.value = false
+    error.value = false
+    clearRetryTimer()
+    retryTimer = setTimeout(() => {
+      retryTimer = null
+      displaySrc.value = withRetryParam(baseSrc, retryCount)
+    }, delay)
+    return
+  }
   error.value = true
   loaded.value = false
   emit('error', event)

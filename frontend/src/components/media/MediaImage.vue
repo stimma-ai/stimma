@@ -14,6 +14,7 @@
     :img-class="imgClass"
     :loading="loading"
     :draggable="draggable"
+    :retry-on-error="thumbnail"
     @click="$emit('click', $event)"
     @load="$emit('load', $event)"
     @error="$emit('error', $event)"
