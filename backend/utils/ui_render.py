@@ -211,18 +211,44 @@ _DATA_W_RE = re.compile(r'data-stimma-width="(\d+)"')
 _DATA_H_RE = re.compile(r'data-stimma-height="(\d+|auto)"')
 
 
+def _dpr_for_target(width: int, height: int | None, target_long_side: int | None) -> float:
+    """Pick a device-pixel-ratio so the rendered canvas's long side ≈ target.
+
+    The UI rasterizes into a ``width*dpr × height*dpr`` canvas. A fixed dpr of
+    2.0 on a 900×1350 layout is a 1800×2700 surface — and CSS effects like
+    ``filter: drop-shadow`` are pathologically slow over that many pixels in
+    WKWebView's foreignObject path (renders that should take seconds take
+    minutes). When the caller only needs a thumbnail or a vision-sized image we
+    don't need that resolution, so scale dpr down to the requested size. Clamp
+    to [0.5, 2.0] to keep small layouts from over-rendering and to keep some
+    supersampling headroom for downscaling crispness.
+    """
+    if not target_long_side:
+        return 2.0
+    long_side = max(width, height or width)
+    if long_side <= 0:
+        return 2.0
+    return max(0.5, min(2.0, target_long_side / long_side))
+
+
 async def render_layout_bundle(
     bundle_dir: Path,
     *,
     wait_for_client_timeout_s: float = WAIT_FOR_CLIENT_TIMEOUT_S,
     render_timeout_s: float = RENDER_TIMEOUT_S,
     queue_timeout_s: float | None = None,
+    target_long_side: int | None = None,
 ) -> tuple[bytes, int, int]:
     """Render a ``.stimmalayout`` bundle to PNG bytes via the UI client.
 
     Returns ``(png_bytes, canvas_width, canvas_height)`` where the canvas
     dimensions are what the bundle declares (height is the *measured* height
     when the bundle declared ``auto``, else the declared height).
+
+    ``target_long_side`` caps the render resolution: dpr is chosen so the
+    canvas's long side is roughly that many pixels. Pass it for thumbnails and
+    agent-vision so we don't pay to rasterize a full 2x canvas we'll only
+    downscale anyway.
     """
     bundle_dir = Path(bundle_dir)
     index = bundle_dir / "index.html"
@@ -244,7 +270,7 @@ async def render_layout_bundle(
         html,
         width=width,
         height=height,
-        dpr=2.0,
+        dpr=_dpr_for_target(width, height, target_long_side),
         assets=assets,
         wait_for_client_timeout_s=wait_for_client_timeout_s,
         render_timeout_s=render_timeout_s,

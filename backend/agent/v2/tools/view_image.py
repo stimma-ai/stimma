@@ -26,11 +26,33 @@ def _downscale(img: Image.Image, max_side: int) -> Image.Image:
     return img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
 
 
+class _LayoutRenderBusyError(Exception):
+    """The UI renderer was busy/unconnected — a transient miss, not a bad layout."""
+
+
 async def _rasterize_layout(bundle_path: Path, max_side: int) -> Image.Image | None:
-    """Rasterize a .stimmalayout bundle to a PIL Image via the UI client."""
+    """Rasterize a .stimmalayout bundle to a PIL Image via the UI client.
+
+    Waits a few seconds for the render slot (the agent often calls this right
+    after create_layout, while the thumbnail render is still holding the slot)
+    and re-raises ``_LayoutRenderBusyError`` on a transient miss so the caller
+    can report "renderer busy, retry" rather than "the layout failed" — the
+    latter sends the agent off editing perfectly good HTML.
+    """
     from routes.media_files import _generate_layout_preview
+    from utils.ui_render import LayoutRenderBusy, LayoutRenderUnavailable
     try:
-        return await _generate_layout_preview(str(bundle_path), max_side)
+        return await _generate_layout_preview(
+            str(bundle_path),
+            max_side,
+            wait_for_client_timeout_s=2.0,
+            queue_timeout_s=5.0,
+            render_timeout_s=30.0,
+            raise_transient=True,
+        )
+    except (LayoutRenderBusy, LayoutRenderUnavailable) as e:
+        log.debug(f"Layout render slot busy for {bundle_path}: {e}")
+        raise _LayoutRenderBusyError(str(e)) from e
     except Exception as e:
         log.warning(f"Failed to rasterize layout {bundle_path}: {e}")
         return None
@@ -111,7 +133,14 @@ async def view_image(path: str = None, media_id: int = None, detail: str = "low"
 
     # Handle .stimmalayout bundles — rasterize via UI client + copy to workspace
     if resolved.is_dir() and resolved.name.lower().endswith('.stimmalayout'):
-        img = await _rasterize_layout(resolved, max_side)
+        try:
+            img = await _rasterize_layout(resolved, max_side)
+        except _LayoutRenderBusyError:
+            return (
+                f"The layout renderer was busy and {resolved.name} did not render "
+                f"in time. This is transient — the bundle itself was not reported "
+                f"invalid. Wait a moment and view it again."
+            )
         if img is None:
             return f"Error: Failed to rasterize layout {resolved.name}"
 

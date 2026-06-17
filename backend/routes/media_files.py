@@ -773,6 +773,7 @@ async def _generate_layout_preview(
     *,
     wait_for_client_timeout_s: float = 0.25,
     queue_timeout_s: float = 0.25,
+    render_timeout_s: float = 30.0,
     raise_transient: bool = False,
 ) -> Optional[Image.Image]:
     """Render a .stimmalayout bundle to a PIL image via the connected UI client.
@@ -786,8 +787,10 @@ async def _generate_layout_preview(
     re-raise instead of collapsing to ``None`` so callers can tell a transient
     miss (retry later) apart from a genuine render failure.
 
-    ``size`` is the longest-side target for the returned image; the canvas is
-    rendered at its declared resolution and then downscaled.
+    ``size`` is the longest-side target for the returned image. We render at a
+    dpr scaled to that target rather than a fixed 2x — a full-res canvas of a
+    large layout is dramatically slower to rasterize (WebKit's foreignObject
+    filter path) for no benefit when we're only going to downscale to ``size``.
     """
     from pathlib import Path as PathLib
 
@@ -804,8 +807,9 @@ async def _generate_layout_preview(
         png_bytes, _w, _h = await render_layout_bundle(
             bundle_dir,
             wait_for_client_timeout_s=wait_for_client_timeout_s,
-            render_timeout_s=15.0,
+            render_timeout_s=render_timeout_s,
             queue_timeout_s=queue_timeout_s,
+            target_long_side=size,
         )
         img = Image.open(io.BytesIO(png_bytes))
         img.load()
