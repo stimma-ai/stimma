@@ -263,7 +263,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: stimma-linux-appimage-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
-          retention-days: 10
+          retention-days: 3
           path: ${{ steps.collect.outputs.appimage_file }}
 
       - name: Upload updater artifacts
@@ -272,7 +272,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: stimma-linux-updater-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
-          retention-days: 10
+          retention-days: 3
           path: |
             ${{ steps.collect.outputs.updater_archive }}
             ${{ steps.collect.outputs.updater_sig }}
