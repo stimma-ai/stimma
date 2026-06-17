@@ -95,7 +95,19 @@ function _enqueue(work) {
   return next
 }
 
-async function _renderOne({ html, width, height, dpr, assets }) {
+function _withDeadline(promise, ms, label) {
+  // Reject if `promise` doesn't settle within `ms`. The underlying work can't
+  // be cancelled, but rejecting lets _renderOne's finally tear down the iframe
+  // and, crucially, lets the serial queue advance instead of wedging behind a
+  // stuck render.
+  let timer
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} exceeded ${ms}ms`)), ms)
+  })
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer))
+}
+
+async function _renderOne({ html, width, height, dpr, assets, deadlineMs }) {
   const t0 = performance.now()
 
   // 1. Materialize assets as blob URLs
@@ -129,7 +141,12 @@ async function _renderOne({ html, width, height, dpr, assets }) {
   iframe.srcdoc = rewritten
   document.body.appendChild(iframe)
 
-  try {
+  // Bound the whole prep+capture sequence so a hung iframe load, font wait, or
+  // capture can't stall the renderer forever. Trim a small margin off the
+  // backend's budget so our error response beats its timeout.
+  const budget = Math.max(5000, (deadlineMs || 30000) - 1000)
+
+  const work = (async () => {
     await new Promise((resolve, reject) => {
       iframe.addEventListener('load', resolve, { once: true })
       iframe.addEventListener('error', () => reject(new Error('iframe load error')), { once: true })
@@ -171,7 +188,7 @@ async function _renderOne({ html, width, height, dpr, assets }) {
       height: renderHeight,
       scale: dpr || 2,
       backgroundColor: null,
-      timeout: 30000,
+      timeout: budget,
       style: { margin: '0', padding: '0' },
     })
 
@@ -186,6 +203,10 @@ async function _renderOne({ html, width, height, dpr, assets }) {
     const comma = dataUrl.indexOf(',')
     const b64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl
     return { png_b64: b64 }
+  })()
+
+  try {
+    return await _withDeadline(work, budget, 'layout render')
   } finally {
     iframe.remove()
     Object.values(blobUrls).forEach(url => {
@@ -202,11 +223,11 @@ export function setupLayoutRenderer() {
 
   on('render_layout_request', (data) => {
     if (!data || !data.request_id) return
-    const { request_id, html, width, height, dpr, assets } = data
+    const { request_id, html, width, height, dpr, assets, deadline_ms } = data
 
     _enqueue(async () => {
       try {
-        const result = await _renderOne({ html, width, height, dpr, assets })
+        const result = await _renderOne({ html, width, height, dpr, assets, deadlineMs: deadline_ms })
         send('render_layout_response', { request_id, png_b64: result.png_b64 })
       } catch (err) {
         const msg = err && err.message ? err.message : String(err)

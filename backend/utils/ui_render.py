@@ -145,6 +145,10 @@ async def render_layout_via_ui(
             "height": "auto" if height is None else int(height),
             "dpr": float(dpr),
             "assets": assets or {},
+            # The UI uses this to bound a single render and free its serial
+            # queue: a render that blows past our timeout would otherwise wedge
+            # every subsequent render behind it (the original pile-up loop).
+            "deadline_ms": int(render_timeout_s * 1000),
         }
 
         try:

@@ -2934,7 +2934,17 @@ class RasterizeLayoutEvaluator:
 
         try:
             from routes.media_files import _generate_layout_preview
-            img = await _generate_layout_preview(media.file_path, int(target_width))
+            # A flow deliverable render: wait properly for the render slot (the
+            # default 0.25s waits drop the render the instant the slot is busy,
+            # which is the same too-short-timeout failure that plagued thumbnails
+            # and agent vision) and give the heavier full-res render more time.
+            img = await _generate_layout_preview(
+                media.file_path,
+                int(target_width),
+                wait_for_client_timeout_s=5.0,
+                queue_timeout_s=10.0,
+                render_timeout_s=60.0,
+            )
         except Exception as exc:  # noqa: BLE001
             raise EvaluatorError(
                 f"rasterize_layout: render failed: {exc}",
