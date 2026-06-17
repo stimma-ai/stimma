@@ -223,7 +223,7 @@ import { useMediaApi } from './composables/useMediaApi'
 import { useWorkspaceTabs } from './composables/useWorkspaceTabs'
 import { useToasts } from './composables/useToasts'
 import { useAppUpdater } from './composables/useAppUpdater'
-import { useSkillsApi } from './composables/useSkillsApi'
+import { useStimpacksApi } from './composables/useStimpacksApi'
 import { setupLayoutRenderer } from './composables/useLayoutRenderer'
 import { makeGlobalKey } from './utils/storageKeys'
 
@@ -233,7 +233,7 @@ const { getBoard, getProject } = useMediaApi()
 const { currentProfileId, profiles, loadProfiles, setCurrentProfileId } = useProfile()
 const { isAuthenticated, initAuth } = useAuth()
 const { fetchSettings, updateDeveloperMode } = useSettingsApi()
-const { runAutoInstall, checkUpdates: checkSkillUpdates, updateFromMarketplace } = useSkillsApi()
+const { runAutoInstall, checkUpdates: checkStimpackUpdates, updateFromMarketplace } = useStimpacksApi()
 import { setWildcards, setSegments } from './composables/useWildcards'
 const { restoreRoute, setupPersistence } = useRouteRestore()
 const { slideshowActive } = useTabNavigation()
@@ -689,7 +689,7 @@ async function checkStartupPin() {
     console.warn('[App] Failed to load bundle_id from settings:', e)
   }
 
-  void syncMarketplaceSkills()
+  void syncMarketplaceStimpacks()
 
   // Start persisting route changes
   setupPersistence()
@@ -724,7 +724,7 @@ watch(isLocked, async (locked, wasLocked) => {
 
 watch(currentProfileId, (profileId, previousProfileId) => {
   if (profileId && profileId !== previousProfileId) {
-    void syncMarketplaceSkills(profileId)
+    void syncMarketplaceStimpacks(profileId)
   }
 })
 
@@ -758,55 +758,55 @@ function handleAutoLock(event) {
 
 let updateIntervalId = null
 let updaterLoopStarted = false
-const syncedMarketplaceSkillProfiles = new Set()
-const marketplaceSkillSyncByProfile = new Map()
+const syncedMarketplaceStimpackProfiles = new Set()
+const marketplaceStimpackSyncByProfile = new Map()
 
-async function syncMarketplaceSkills(profileId = currentProfileId.value) {
-  if (!profileId || syncedMarketplaceSkillProfiles.has(profileId)) return
+async function syncMarketplaceStimpacks(profileId = currentProfileId.value) {
+  if (!profileId || syncedMarketplaceStimpackProfiles.has(profileId)) return
 
-  const existingRun = marketplaceSkillSyncByProfile.get(profileId)
+  const existingRun = marketplaceStimpackSyncByProfile.get(profileId)
   if (existingRun) {
     await existingRun
     return
   }
 
   const run = (async () => {
-    let skillsChanged = false
+    let stimpacksChanged = false
 
     try {
       const result = await runAutoInstall()
       if ((result.installed || []).length > 0) {
-        skillsChanged = true
+        stimpacksChanged = true
       }
     } catch (error) {
-      console.warn('[App] Failed to auto-install default skills:', error)
+      console.warn('[App] Failed to auto-install default stimpacks:', error)
     }
 
     try {
-      const updates = await checkSkillUpdates()
+      const updates = await checkStimpackUpdates()
       for (const update of updates) {
         try {
           await updateFromMarketplace(update.name)
-          skillsChanged = true
+          stimpacksChanged = true
         } catch (error) {
-          console.warn(`[App] Failed to update skill ${update.name}:`, error)
+          console.warn(`[App] Failed to update stimpack ${update.name}:`, error)
         }
       }
     } catch (error) {
-      console.warn('[App] Failed to check for skill updates:', error)
+      console.warn('[App] Failed to check for stimpack updates:', error)
     }
 
-    if (skillsChanged) {
-      window.dispatchEvent(new CustomEvent('skills-changed'))
+    if (stimpacksChanged) {
+      window.dispatchEvent(new CustomEvent('stimpacks-changed'))
     }
-    syncedMarketplaceSkillProfiles.add(profileId)
+    syncedMarketplaceStimpackProfiles.add(profileId)
   })()
 
-  marketplaceSkillSyncByProfile.set(profileId, run)
+  marketplaceStimpackSyncByProfile.set(profileId, run)
   try {
     await run
   } finally {
-    marketplaceSkillSyncByProfile.delete(profileId)
+    marketplaceStimpackSyncByProfile.delete(profileId)
   }
 }
 

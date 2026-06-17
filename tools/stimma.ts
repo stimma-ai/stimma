@@ -161,9 +161,9 @@ Commands:
   app run         Run built app
   app install     Install built app
   config edit     Open config.yaml in $EDITOR
-  skills dev [path]   Use a skills dir as the live authority for built-in skills
+  stimpacks dev [path]   Use a stimpacks dir as the live authority for built-in stimpacks
                       (default: sibling stimma-skills repo). Shadows installed copies.
-  skills dev --off    Clear the dev skills override
+  stimpacks dev --off    Clear the dev stimpacks override
   backup          Create timestamped backup of data directory
   lint backend    Run ruff over the backend (undefined names, syntax errors)
   test backend    Run backend pytest tests
@@ -978,15 +978,15 @@ async function testFrontend(args: string[]): Promise<void> {
   }
 }
 
-const DEV_SKILLS_KEY = "dev_skills_dir";
-const DEV_SKILLS_LINE_RE = /^dev_skills_dir:.*$/m;
+const DEV_STIMPACKS_KEY = "dev_stimpacks_dir";
+const DEV_STIMPACKS_LINE_RE = /^dev_stimpacks_dir:.*$/m;
 
-async function commandSkills(args: string[], bundleId: string, sandbox: string): Promise<void> {
+async function commandStimpacks(args: string[], bundleId: string, sandbox: string): Promise<void> {
   const sub = args[0];
   if (sub !== "dev") {
     console.error(
-      "Usage: stimma skills dev [path]   Set dev skills override (default: sibling stimma-skills)\n" +
-      "       stimma skills dev --off    Clear the dev skills override",
+      "Usage: stimma stimpacks dev [path]   Set dev stimpacks override (default: sibling stimma-skills)\n" +
+      "       stimma stimpacks dev --off    Clear the dev stimpacks override",
     );
     Deno.exit(1);
   }
@@ -1007,32 +1007,32 @@ async function commandSkills(args: string[], bundleId: string, sandbox: string):
   await Deno.writeTextFile(`${configPath}.bak`, text);
 
   if (args[1] === "--off") {
-    if (!DEV_SKILLS_LINE_RE.test(text)) {
-      console.log("Dev skills override is not set; nothing to do.");
+    if (!DEV_STIMPACKS_LINE_RE.test(text)) {
+      console.log("Dev stimpacks override is not set; nothing to do.");
       return;
     }
-    await Deno.writeTextFile(configPath, text.replace(/^dev_skills_dir:.*\n?/m, ""));
-    console.log(`Cleared dev skills override in ${configPath} (backup: ${configPath}.bak).`);
-    console.log("Backend reverts to profile-installed skills on next config reload.");
+    await Deno.writeTextFile(configPath, text.replace(/^dev_stimpacks_dir:.*\n?/m, ""));
+    console.log(`Cleared dev stimpacks override in ${configPath} (backup: ${configPath}.bak).`);
+    console.log("Backend reverts to profile-installed stimpacks on next config reload.");
     return;
   }
 
   const raw = args[1] && !args[1].startsWith("--") ? args[1] : join(repoRoot, "..", "stimma-skills");
   const abs = resolve(raw);
   if (!(await pathExists(abs))) {
-    console.error(`Skills directory not found: ${abs}`);
+    console.error(`Stimpacks directory not found: ${abs}`);
     Deno.exit(1);
   }
 
-  const line = `${DEV_SKILLS_KEY}: ${JSON.stringify(abs)}`;
-  const next = DEV_SKILLS_LINE_RE.test(text)
-    ? text.replace(DEV_SKILLS_LINE_RE, line)
+  const line = `${DEV_STIMPACKS_KEY}: ${JSON.stringify(abs)}`;
+  const next = DEV_STIMPACKS_LINE_RE.test(text)
+    ? text.replace(DEV_STIMPACKS_LINE_RE, line)
     : text.replace(/\s*$/, "") + "\n" + line + "\n";
   await Deno.writeTextFile(configPath, next);
 
-  console.log(`Dev skills override set: ${abs}`);
+  console.log(`Dev stimpacks override set: ${abs}`);
   console.log(`Wrote ${configPath} (backup: ${configPath}.bak).`);
-  console.log("These skills now shadow profile-installed built-ins; backend picks it up on config reload.");
+  console.log("These stimpacks now shadow profile-installed built-ins; backend picks it up on config reload.");
 }
 
 // app_branch the backend's User-Agent reports for a bundle id when the
@@ -1410,8 +1410,8 @@ async function main(): Promise<void> {
       break;
     }
 
-    case "skills": {
-      await commandSkills(args.slice(1), bundleId, sandbox);
+    case "stimpacks": {
+      await commandStimpacks(args.slice(1), bundleId, sandbox);
       break;
     }
 

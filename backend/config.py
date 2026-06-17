@@ -559,11 +559,11 @@ class Settings(BaseSettings):
 
     # Global settings (shared across all profiles)
     developer_mode: bool = False  # Show debug tools and developer options in the UI
-    # Dev-only: when set, skills in this directory are the authority for built-in
-    # skills — they shadow same-named skills installed in any profile. Lets us edit
+    # Dev-only: when set, stimpacks in this directory are the authority for built-in
+    # stimpacks — they shadow same-named stimpacks installed in any profile. Lets us edit
     # the stimma-skills repo and pick up changes live, with no publish/install round
-    # trip. Set/cleared via `stimma skills dev <path>` / `stimma skills dev --off`.
-    dev_skills_dir: Optional[str] = None
+    # trip. Set/cleared via `stimma stimpacks dev <path>` / `stimma stimpacks dev --off`.
+    dev_stimpacks_dir: Optional[str] = None
     theme: str = "dark"  # UI theme preference: light, dark, system
     disable_update_check: bool = False  # Suppress the daily backend update check
     generators: List[GeneratorConfig] = []

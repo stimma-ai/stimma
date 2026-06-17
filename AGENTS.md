@@ -6,8 +6,8 @@
 - I am already running the backend and frontend in other terminal windows with nodemon/etc. You don't need to restart it, start it, etc. If you need something from me, just ask.
 - Always implement soft-delete for new database tables.
 - Use trash icons for delete actions, not X icons - this is the project convention.
-- Stimma includes an agent system like claude code with skills. 99% of the time when I talk about the agent or skills, I mean Stimma's system, not Claude Code's. Don't get confused!
-- **Built-in skill SOURCE lives in a sibling repo, not here:** `../stimma-skills` (i.e. `~/stimma/stimma-skills`), one directory per skill. They are *not* loaded from this repo — at runtime the app loads skills from the profile dir (after cloud marketplace install). For dev, point the app at the sibling repo with `stimma skills dev` (writes `dev_skills_dir` to config.yaml); those skills then shadow the profile-installed copies live, so editing `../stimma-skills` needs no publish/install. See backend `agent/v2/skills.py` (`_dev_skills_dir` / `_iter_effective_skill_dirs`).
+- Stimma includes an agent system like claude code with stimpacks. 99% of the time when I talk about the agent or stimpacks, I mean Stimma's system, not Claude Code's. Don't get confused!
+- **Built-in stimpack SOURCE lives in a sibling repo, not here:** `../stimma-skills` (i.e. `~/stimma/stimma-skills`), one directory per stimpack. They are *not* loaded from this repo — at runtime the app loads stimpacks from the profile dir (after cloud marketplace install). For dev, point the app at the sibling repo with `stimma stimpacks dev` (writes `dev_stimpacks_dir` to config.yaml); those stimpacks then shadow the profile-installed copies live, so editing `../stimma-skills` needs no publish/install. See backend `agent/v2/stimpacks.py` (`_dev_stimpacks_dir` / `_iter_effective_stimpack_dirs`).
 
 ## Database Guidelines
 - Database migrations are handled using alembic
@@ -82,7 +82,7 @@ See the docs/ folder. In particular:
 
 - If you are working on tools or the Stimma Tools Protocol (STP), see the spec at https://github.com/stimma-ai/stimma-tools-protocol
 - If you are working on the agent, **read docs/AGENT_V2_PRINCIPLES.md first** — it defines the design philosophy, anti-patterns to avoid, and diagnosis checklist for agent bugs
-- If you are creating or modifying skills, see docs/SKILL_AUTHORING.md — covers both markdown-only skills and skills with bundled Python code
+- If you are creating or modifying stimpacks, see docs/STIMPACK_AUTHORING.md — covers both markdown-only stimpacks and stimpacks with bundled Python code
 
 ### Media Display Components
 
@@ -160,7 +160,7 @@ When adding new API endpoints, ALWAYS add corresponding tests. The test infrastr
 
 ## Agent Evals
 
-The agent has a statistical eval framework in `backend/agent/evals/`. Use `/eval-results` skill when working on eval failures.
+The agent has a statistical eval framework in `backend/agent/evals/`. Use `/eval-results` stimpack when working on eval failures.
 
 **Running evals:**
 ```bash

@@ -49,44 +49,44 @@
             Guide the agent's behavior. Try: style preferences, output formats, tool constraints, or specific parameters like LoRAs and CFG values.
           </p>
 
-          <!-- Skills -->
+          <!-- Stimpacks -->
           <div class="mt-4">
-            <label class="text-xs font-medium text-content-tertiary mb-1.5 block">Skills</label>
+            <label class="text-xs font-medium text-content-tertiary mb-1.5 block">Stimpacks</label>
             <p class="text-[11px] text-content-muted mb-2">
-              Activate a skill to guide the agent's approach. Skills stay active for the rest of the conversation.
+              Activate a stimpack to guide the agent's approach. Stimpacks stay active for the rest of the conversation.
             </p>
-            <div v-if="loadingSkills" class="text-[11px] text-content-muted py-2">Loading...</div>
-            <div v-else-if="skills.length > 0" class="bg-surface rounded-lg border border-edge">
+            <div v-if="loadingStimpacks" class="text-[11px] text-content-muted py-2">Loading...</div>
+            <div v-else-if="stimpacks.length > 0" class="bg-surface rounded-lg border border-edge">
               <div
-                v-for="(skill, idx) in skills"
-                :key="skill.name"
+                v-for="(stimpack, idx) in stimpacks"
+                :key="stimpack.name"
                 class="flex items-center justify-between px-3 py-2 transition-colors"
-                :class="idx < skills.length - 1 ? 'border-b border-edge' : ''"
+                :class="idx < stimpacks.length - 1 ? 'border-b border-edge' : ''"
               >
                 <div class="min-w-0 mr-2">
                   <div class="flex items-center gap-2">
                     <span
                       class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                      :class="isSkillInvoked(skill.name) ? 'bg-blue-500' : 'bg-white/10'"
+                      :class="isStimpackInvoked(stimpack.name) ? 'bg-blue-500' : 'bg-white/10'"
                     />
-                    <span class="text-xs leading-4" :class="isSkillInvoked(skill.name) ? 'text-content font-medium' : 'text-content-secondary'">{{ skill.display_name || skill.name }}</span>
+                    <span class="text-xs leading-4" :class="isStimpackInvoked(stimpack.name) ? 'text-content font-medium' : 'text-content-secondary'">{{ stimpack.display_name || stimpack.name }}</span>
                   </div>
-                  <p v-if="skill.description" class="text-[10px] text-content-muted truncate mt-0.5 pl-3.5">{{ skill.description }}</p>
+                  <p v-if="stimpack.description" class="text-[10px] text-content-muted truncate mt-0.5 pl-3.5">{{ stimpack.description }}</p>
                 </div>
                 <div class="flex items-center flex-shrink-0">
                   <button
-                    v-if="!isSkillInvoked(skill.name)"
-                    @click="invokeSkill(skill.name)"
-                    :disabled="invokingSkill === skill.name"
+                    v-if="!isStimpackInvoked(stimpack.name)"
+                    @click="invokeStimpack(stimpack.name)"
+                    :disabled="invokingStimpack === stimpack.name"
                     class="text-[10px] px-2 py-0.5 rounded text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
                   >
-                    {{ invokingSkill === skill.name ? 'Activating...' : 'Activate' }}
+                    {{ invokingStimpack === stimpack.name ? 'Activating...' : 'Activate' }}
                   </button>
                   <span v-else class="text-[10px] text-content-muted px-2">Active</span>
                 </div>
               </div>
             </div>
-            <p v-else class="text-[11px] text-content-muted">No skills available.</p>
+            <p v-else class="text-[11px] text-content-muted">No stimpacks available.</p>
           </div>
         </div>
       </div>
@@ -174,21 +174,21 @@
       </Transition>
     </Teleport>
 
-    <!-- Skill Editor Modal -->
-    <SkillEditorModal
-      v-if="showSkillEditor"
-      :skill="editingSkill"
-      @close="showSkillEditor = false"
-      @save="handleSkillSave"
+    <!-- Stimpack Editor Modal -->
+    <StimpackEditorModal
+      v-if="showStimpackEditor"
+      :stimpack="editingStimpack"
+      @close="showStimpackEditor = false"
+      @save="handleStimpackSave"
     />
 
-    <!-- Revert Skill Confirmation -->
+    <!-- Revert Stimpack Confirmation -->
     <ConfirmModal
       :show="showRevertConfirm"
-      title="Revert Skill?"
-      :message="`Revert &quot;${revertingSkill?.display_name || revertingSkill?.name}&quot; to the original version? Your changes will be lost.`"
+      title="Revert Stimpack?"
+      :message="`Revert &quot;${revertingStimpack?.display_name || revertingStimpack?.name}&quot; to the original version? Your changes will be lost.`"
       confirm-text="Revert"
-      @confirm="executeRevertSkill"
+      @confirm="executeRevertStimpack"
       @cancel="showRevertConfirm = false"
     />
 
@@ -214,8 +214,8 @@ import TaskTypeToolList from '../TaskTypeToolList.vue'
 import { useAgentPresetsApi, type AgentSettings, type ToolConfig } from '../../composables/useAgentPresetsApi'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
 import { useWebSocket } from '../../composables/useWebSocket'
-import SkillEditorModal from '../settings/SkillEditorModal.vue'
-import { useSkillsApi, type Skill, type SkillDetail } from '../../composables/useSkillsApi'
+import StimpackEditorModal from '../settings/StimpackEditorModal.vue'
+import { useStimpacksApi, type Stimpack, type StimpackDetail } from '../../composables/useStimpacksApi'
 
 const props = defineProps<{
   chatId: number
@@ -228,7 +228,7 @@ const isVisible = computed(() => props.visible ?? true)
 const { getChatAgentSettings, updateChatAgentSettings } = useAgentPresetsApi()
 const { listAllTools } = useProvidersApi()
 const { on: onWsEvent } = useWebSocket()
-const { listSkills: listSkillsApi, getSkill: getSkillApi, updateSkill: updateSkillApi } = useSkillsApi()
+const { listStimpacks: listStimpacksApi, getStimpack: getStimpackApi, updateStimpack: updateStimpackApi } = useStimpacksApi()
 
 // Tabs
 const tabs = [
@@ -247,9 +247,9 @@ const localInstructions = ref('')
 const localToolConfig = ref<ToolConfig | null>(null)
 const showInstructionsModal = ref(false)
 
-// Skills state
-const skills = ref<Skill[]>([])
-const loadingSkills = ref(false)
+// Stimpacks state
+const stimpacks = ref<Stimpack[]>([])
+const loadingStimpacks = ref(false)
 
 // Add tool dropdown state
 const showAddToolDropdown = ref(false)
@@ -396,9 +396,9 @@ function handleClickOutsideAddTool(event: MouseEvent) {
   }
 
 
-  // Close skill menu if clicking outside
-  if (openSkillMenu.value && !(target as Element).closest?.('[data-skill-menu]')) {
-    openSkillMenu.value = null
+  // Close stimpack menu if clicking outside
+  if (openStimpackMenu.value && !(target as Element).closest?.('[data-stimpack-menu]')) {
+    openStimpackMenu.value = null
   }
 }
 
@@ -439,110 +439,110 @@ function formatTaskType(taskType: string): string {
     .replace(/\b\w/g, char => char.toUpperCase())
 }
 
-// Skills methods
-async function loadSkills() {
-  loadingSkills.value = true
+// Stimpacks methods
+async function loadStimpacks() {
+  loadingStimpacks.value = true
   try {
-    skills.value = await listSkillsApi()
+    stimpacks.value = await listStimpacksApi()
   } catch (err) {
-    console.error('Failed to load skills:', err)
+    console.error('Failed to load stimpacks:', err)
   } finally {
-    loadingSkills.value = false
+    loadingStimpacks.value = false
   }
 }
 
-// Track which skills have been invoked in this chat (from skill_injection items)
-const invokedSkills = ref<Set<string>>(new Set())
-const invokingSkill = ref<string | null>(null)
+// Track which stimpacks have been invoked in this chat (from stimpack_injection items)
+const invokedStimpacks = ref<Set<string>>(new Set())
+const invokingStimpack = ref<string | null>(null)
 
-function isSkillInvoked(name: string): boolean {
-  return invokedSkills.value.has(name)
+function isStimpackInvoked(name: string): boolean {
+  return invokedStimpacks.value.has(name)
 }
 
-async function invokeSkill(name: string) {
-  if (invokedSkills.value.has(name)) return
-  invokingSkill.value = name
+async function invokeStimpack(name: string) {
+  if (invokedStimpacks.value.has(name)) return
+  invokingStimpack.value = name
   try {
-    const response = await fetch(`/api/chats/${props.chatId}/invoke-skill`, {
+    const response = await fetch(`/api/chats/${props.chatId}/invoke-stimpack`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
     })
     if (response.ok) {
-      invokedSkills.value = new Set([...invokedSkills.value, name])
+      invokedStimpacks.value = new Set([...invokedStimpacks.value, name])
     }
   } catch (err) {
-    console.error('Failed to invoke skill:', err)
+    console.error('Failed to invoke stimpack:', err)
   } finally {
-    invokingSkill.value = null
+    invokingStimpack.value = null
   }
 }
 
-async function loadInvokedSkills() {
+async function loadInvokedStimpacks() {
   try {
-    const response = await fetch(`/api/chats/${props.chatId}/invoked-skills`)
+    const response = await fetch(`/api/chats/${props.chatId}/invoked-stimpacks`)
     if (response.ok) {
       const data = await response.json()
-      invokedSkills.value = new Set(data.skills || [])
+      invokedStimpacks.value = new Set(data.stimpacks || [])
     }
   } catch {
     // Fallback: will be populated via WebSocket events
   }
 }
 
-// Skill editor modal state
-const editingSkill = ref<SkillDetail | null>(null)
-const showSkillEditor = ref(false)
-const openSkillMenu = ref<string | null>(null)
+// Stimpack editor modal state
+const editingStimpack = ref<StimpackDetail | null>(null)
+const showStimpackEditor = ref(false)
+const openStimpackMenu = ref<string | null>(null)
 
-function toggleSkillMenu(name: string) {
-  openSkillMenu.value = openSkillMenu.value === name ? null : name
+function toggleStimpackMenu(name: string) {
+  openStimpackMenu.value = openStimpackMenu.value === name ? null : name
 }
 
-async function openSkillEditor(name: string) {
+async function openStimpackEditor(name: string) {
   try {
-    editingSkill.value = await getSkillApi(name)
-    showSkillEditor.value = true
+    editingStimpack.value = await getStimpackApi(name)
+    showStimpackEditor.value = true
   } catch (err) {
-    console.error('Failed to load skill:', err)
+    console.error('Failed to load stimpack:', err)
   }
 }
 
-async function handleSkillSave(data: { name: string; display_name: string; description: string; tags: string[]; content: string }) {
+async function handleStimpackSave(data: { name: string; display_name: string; description: string; tags: string[]; content: string }) {
   try {
-    await updateSkillApi(data.name, {
+    await updateStimpackApi(data.name, {
       display_name: data.display_name,
       description: data.description,
       tags: data.tags,
       content: data.content,
     })
-    showSkillEditor.value = false
-    editingSkill.value = null
-    await loadSkills()
+    showStimpackEditor.value = false
+    editingStimpack.value = null
+    await loadStimpacks()
   } catch (err) {
-    console.error('Failed to save skill:', err)
+    console.error('Failed to save stimpack:', err)
   }
 }
 
 const showRevertConfirm = ref(false)
-const revertingSkill = ref<Skill | null>(null)
+const revertingStimpack = ref<Stimpack | null>(null)
 
-function handleRevertSkill(skill: Skill) {
-  revertingSkill.value = skill
+function handleRevertStimpack(stimpack: Stimpack) {
+  revertingStimpack.value = stimpack
   showRevertConfirm.value = true
 }
 
-async function executeRevertSkill() {
-  if (!revertingSkill.value) return
+async function executeRevertStimpack() {
+  if (!revertingStimpack.value) return
   showRevertConfirm.value = false
   try {
-    const { revertSkill } = useSkillsApi()
-    await revertSkill(revertingSkill.value.name)
-    await loadSkills()
+    const { revertStimpack } = useStimpacksApi()
+    await revertStimpack(revertingStimpack.value.name)
+    await loadStimpacks()
   } catch (err) {
-    console.error('Failed to revert skill:', err)
+    console.error('Failed to revert stimpack:', err)
   } finally {
-    revertingSkill.value = null
+    revertingStimpack.value = null
   }
 }
 
@@ -562,14 +562,14 @@ function setupWebSocketSubscriptions() {
     }
   }))
 
-  // Listen for skill invocations (from agent or API)
+  // Listen for stimpack invocations (from agent or API)
   wsUnsubscribes.push(onWsEvent('chat_item_created', (data: any) => {
     if (data.chat_id !== props.chatId) return
     const item = data.item
-    if (item?.item_type === 'skill_injection') {
+    if (item?.item_type === 'stimpack_injection') {
       const meta = typeof item.item_metadata === 'string' ? JSON.parse(item.item_metadata) : item.item_metadata
-      if (meta?.skill_name) {
-        invokedSkills.value = new Set([...invokedSkills.value, meta.skill_name])
+      if (meta?.stimpack_name) {
+        invokedStimpacks.value = new Set([...invokedStimpacks.value, meta.stimpack_name])
       }
     }
   }))
@@ -583,20 +583,20 @@ function cleanupWebSocketSubscriptions() {
 // Watch for chat changes
 watch(() => props.chatId, () => {
   loadSettings()
-  loadInvokedSkills()
+  loadInvokedStimpacks()
 }, { immediate: true })
 
 // Load tools and setup WebSocket on mount
-function handleSkillsChanged() {
-  loadSkills()
+function handleStimpacksChanged() {
+  loadStimpacks()
 }
 
 onMounted(() => {
   loadTools()
-  loadSkills()
-  loadInvokedSkills()
+  loadStimpacks()
+  loadInvokedStimpacks()
   setupWebSocketSubscriptions()
-  window.addEventListener('skills-changed', handleSkillsChanged)
+  window.addEventListener('stimpacks-changed', handleStimpacksChanged)
   // Use mousedown instead of click: when clicking a category inside TaskTypeToolList,
   // the component re-renders and removes the clicked element from the DOM before the
   // click event bubbles. At that point contains() returns false, closing the menu prematurely.
@@ -605,7 +605,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   cleanupWebSocketSubscriptions()
-  window.removeEventListener('skills-changed', handleSkillsChanged)
+  window.removeEventListener('stimpacks-changed', handleStimpacksChanged)
   document.removeEventListener('mousedown', handleClickOutsideAddTool)
 })
 </script>

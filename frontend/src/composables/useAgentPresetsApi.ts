@@ -16,7 +16,7 @@ export interface ToolConfig {
   allowed_tools: string[]
   denied_tools: string[]
   v2_permissions?: Record<string, string> // V2 tool permissions: tool_name -> "allow" | "deny"
-  enabled_skills?: string[]
+  enabled_stimpacks?: string[]
 }
 
 /**

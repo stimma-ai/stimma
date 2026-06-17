@@ -3,7 +3,7 @@ import { openSettings, settle, shoot } from '../helpers'
 
 /**
  * Settings shots (docs: tools/building-providers, tools/stp,
- * prompt-engineering/skill, local-ai/llms, local-ai/index).
+ * prompt-engineering/stimpack, local-ai/llms, local-ai/index).
  * Uses the app's `open-settings` window event to land on a section.
  */
 
@@ -19,10 +19,10 @@ test('settings: tool providers', async ({ page }) => {
   await shoot(page, 'settings/tool-providers')
 })
 
-test('settings: skills', async ({ page }) => {
-  await openSettings(page, 'skills')
+test('settings: stimpacks', async ({ page }) => {
+  await openSettings(page, 'stimpacks')
   await settle(page, 800)
-  await shoot(page, 'settings/skills')
+  await shoot(page, 'settings/stimpacks')
 })
 
 test('settings: llm services (advanced)', async ({ page }) => {

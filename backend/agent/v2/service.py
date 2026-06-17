@@ -69,25 +69,25 @@ def _max_turns_for_chat(chat: Chat) -> int:
     return 100
 
 
-def _track_skill_invoked(chat_id: int, skill_name: str) -> None:
-    """Emit skill_invoked {chatHash, skillSource, skillName?}.
+def _track_stimpack_invoked(chat_id: int, stimpack_name: str) -> None:
+    """Emit stimpack_invoked {chatHash, stimpackSource, stimpackName?}.
 
-    The name passes only for marketplace skills (catalog data, D17) — dev /
-    user-authored skill names are user content and never egress.
+    The name passes only for marketplace stimpacks (catalog data, D17) — dev /
+    user-authored stimpack names are user content and never egress.
     """
     try:
         from object_hash import salted_hash
         from telemetry import get_telemetry_client
-        from .skills import load_skill, telemetry_skill_source
-        loaded = load_skill(skill_name)
-        source = telemetry_skill_source(loaded.info if loaded else None)
+        from .stimpacks import load_stimpack, telemetry_stimpack_source
+        loaded = load_stimpack(stimpack_name)
+        source = telemetry_stimpack_source(loaded.info if loaded else None)
         props = {
             "chatHash": salted_hash(f"chat:{chat_id}"),
-            "skillSource": source,
+            "stimpackSource": source,
         }
         if source == "marketplace":
-            props["skillName"] = skill_name
-        get_telemetry_client().track("skill_invoked", props, category="chat")
+            props["stimpackName"] = stimpack_name
+        get_telemetry_client().track("stimpack_invoked", props, category="chat")
     except Exception:
         pass
 
@@ -272,9 +272,9 @@ def _enrich_tool_args(fn_name: str, fn_arguments: str) -> str:
     except (json.JSONDecodeError, TypeError):
         return fn_arguments
 
-    if fn_name == "skill" and args.get("name"):
-        from .skills import load_skill
-        loaded = load_skill(args["name"])
+    if fn_name == "stimpack" and args.get("name"):
+        from .stimpacks import load_stimpack
+        loaded = load_stimpack(args["name"])
         if loaded and loaded.info.display_name:
             args["_display_name"] = loaded.info.display_name
 
@@ -417,7 +417,7 @@ async def _execute_tool_call(
     chat: Optional[Chat] = None,
     call_item_id: Optional[int] = None,
     shown_media_ids: set[int] | None = None,
-    enabled_skills: list[str] | None = None,
+    enabled_stimpacks: list[str] | None = None,
     parent_turn: int = 0,
     parent_remaining: list | None = None,
     effective_model_slug: str | None = None,
@@ -452,9 +452,9 @@ async def _execute_tool_call(
                 kwargs["_ws_manager"] = ws_manager
                 kwargs["_parent_turn"] = parent_turn
                 kwargs["_parent_remaining"] = parent_remaining or []
-            # Pass enabled skills so run_code can resolve skill lib modules
-            if enabled_skills:
-                kwargs["_enabled_skills"] = enabled_skills
+            # Pass enabled stimpacks so run_code can resolve stimpack lib modules
+            if enabled_stimpacks:
+                kwargs["_enabled_stimpacks"] = enabled_stimpacks
             # Mutable containers for tools to stash data back to us
             usage_out = {}
             kwargs["_llm_usage_out"] = usage_out
@@ -522,16 +522,16 @@ async def _execute_tool_call(
         "item": result_item.to_dict(),
     })
 
-    # Inject skill content as conversation messages (from skill tool invoke)
+    # Inject stimpack content as conversation messages (from stimpack tool invoke)
     if injected_messages:
         for inj in injected_messages:
             inj_item = ChatItem(
                 chat_id=chat_id,
-                item_type="skill_injection",
+                item_type="stimpack_injection",
                 message_text=inj["content"],
                 item_metadata=json.dumps({
-                    "skill_name": inj.get("skill_name", ""),
-                    "skill_display_name": inj.get("skill_display_name", ""),
+                    "stimpack_name": inj.get("stimpack_name", ""),
+                    "stimpack_display_name": inj.get("stimpack_display_name", ""),
                 }),
             )
             session.add(inj_item)
@@ -1065,11 +1065,11 @@ async def _run_agentic_loop_inner(
         chat.model_slug, project_default_slug, _get_settings().default_model
     )
 
-    # Build system prompt once — skills and other volatile context are delivered
+    # Build system prompt once — stimpacks and other volatile context are delivered
     # via system reminders (injected into the last user message per turn)
-    from .skills import list_skills
-    from .system_reminders import build_skills_reminder, build_user_program_edit_reminder
-    all_skills = list_skills()
+    from .stimpacks import list_stimpacks
+    from .system_reminders import build_stimpacks_reminder, build_user_program_edit_reminder
+    all_stimpacks = list_stimpacks()
     notepad_state = format_notepad_for_prompt(str(workspace_dir))
     # Flow chats get a specialized system prompt + the flow directory as
     # the workspace for program.py edits. Everything else (tools, LLM,
@@ -1105,18 +1105,18 @@ async def _run_agentic_loop_inner(
     except Exception as e:
         log.warning(f"Failed to materialize .stimma/ tool catalog: {e}")
 
-    # Track invoked skills for run_code lib modules
-    _invoked_skills: set[str] = set()
+    # Track invoked stimpacks for run_code lib modules
+    _invoked_stimpacks: set[str] = set()
     _invoked_result = await session.execute(
         select(ChatItem.item_metadata)
-        .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "skill_injection")
+        .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "stimpack_injection")
     )
     for (meta_str,) in _invoked_result:
         if meta_str:
             try:
                 meta = json.loads(meta_str) if isinstance(meta_str, str) else meta_str
-                if meta.get("skill_name"):
-                    _invoked_skills.add(meta["skill_name"])
+                if meta.get("stimpack_name"):
+                    _invoked_stimpacks.add(meta["stimpack_name"])
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -1233,16 +1233,16 @@ async def _run_agentic_loop_inner(
                 chat=chat,
                 call_item_id=call_item.id,
                 shown_media_ids=shown_media_ids,
-                enabled_skills=list(_invoked_skills) if _invoked_skills else None,
+                enabled_stimpacks=list(_invoked_stimpacks) if _invoked_stimpacks else None,
                 effective_model_slug=effective_model_slug,
             )
-            # Track newly invoked skills
-            if fn_name == "skill":
+            # Track newly invoked stimpacks
+            if fn_name == "stimpack":
                 try:
-                    skill_args = json.loads(fn_arguments) if fn_arguments else {}
-                    if skill_args.get("action") == "invoke" and skill_args.get("name"):
-                        _invoked_skills.add(skill_args["name"])
-                        _track_skill_invoked(chat_id, skill_args["name"])
+                    stimpack_args = json.loads(fn_arguments) if fn_arguments else {}
+                    if stimpack_args.get("action") == "invoke" and stimpack_args.get("name"):
+                        _invoked_stimpacks.add(stimpack_args["name"])
+                        _track_stimpack_invoked(chat_id, stimpack_args["name"])
                 except (json.JSONDecodeError, TypeError):
                     pass
 
@@ -1250,9 +1250,9 @@ async def _run_agentic_loop_inner(
         _raise_if_interrupted(chat_id)
         # Build messages from chat history with system reminders
         system_reminders = []
-        skills_reminder = build_skills_reminder(all_skills, _invoked_skills)
-        if skills_reminder:
-            system_reminders.append(skills_reminder)
+        stimpacks_reminder = build_stimpacks_reminder(all_stimpacks, _invoked_stimpacks)
+        if stimpacks_reminder:
+            system_reminders.append(stimpacks_reminder)
         if pending_stall_nudge:
             system_reminders.append(pending_stall_nudge)
             pending_stall_nudge = None
@@ -1487,7 +1487,7 @@ async def _run_agentic_loop_inner(
                         chat=chat,
                         call_item_id=call_item.id,
                         shown_media_ids=shown_media_ids,
-                        enabled_skills=list(_invoked_skills) if _invoked_skills else None,
+                        enabled_stimpacks=list(_invoked_stimpacks) if _invoked_stimpacks else None,
                         parent_turn=turn,
                         parent_remaining=remaining,
                         effective_model_slug=effective_model_slug,
@@ -1497,13 +1497,13 @@ async def _run_agentic_loop_inner(
                     # Delegate subagent paused for permission — propagate as _PermissionPause
                     raise _PermissionPause()
 
-                # Track newly invoked skills for run_code lib modules
-                if fn_name == "skill":
+                # Track newly invoked stimpacks for run_code lib modules
+                if fn_name == "stimpack":
                     try:
-                        skill_args = json.loads(fn_arguments) if fn_arguments else {}
-                        if skill_args.get("action") == "invoke" and skill_args.get("name"):
-                            _invoked_skills.add(skill_args["name"])
-                            _track_skill_invoked(chat_id, skill_args["name"])
+                        stimpack_args = json.loads(fn_arguments) if fn_arguments else {}
+                        if stimpack_args.get("action") == "invoke" and stimpack_args.get("name"):
+                            _invoked_stimpacks.add(stimpack_args["name"])
+                            _track_stimpack_invoked(chat_id, stimpack_args["name"])
                     except (json.JSONDecodeError, TypeError):
                         pass
 
@@ -1842,18 +1842,18 @@ async def resume_after_hitl(
             session_media_ids: list[int] = []
             shown_media_ids: set[int] = set()
 
-            # Resolve invoked skills from conversation history for run_code lib modules
+            # Resolve invoked stimpacks from conversation history for run_code lib modules
             _resume_result = await session.execute(
                 select(ChatItem.item_metadata)
-                .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "skill_injection")
+                .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "stimpack_injection")
             )
-            enabled_skills: list[str] = []
+            enabled_stimpacks: list[str] = []
             for (meta_str,) in _resume_result:
                 if meta_str:
                     try:
                         meta = json.loads(meta_str) if isinstance(meta_str, str) else meta_str
-                        if meta.get("skill_name") and meta["skill_name"] not in enabled_skills:
-                            enabled_skills.append(meta["skill_name"])
+                        if meta.get("stimpack_name") and meta["stimpack_name"] not in enabled_stimpacks:
+                            enabled_stimpacks.append(meta["stimpack_name"])
                     except (json.JSONDecodeError, TypeError):
                         pass
 
@@ -1864,7 +1864,7 @@ async def resume_after_hitl(
                 chat=chat,
                 call_item_id=call_item.id,
                 shown_media_ids=shown_media_ids,
-                enabled_skills=enabled_skills or None,
+                enabled_stimpacks=enabled_stimpacks or None,
                 effective_model_slug=_effective_model_slug,
             )
 

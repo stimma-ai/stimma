@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 
-export interface Skill {
+export interface Stimpack {
   name: string
   display_name: string
   description: string
@@ -13,11 +13,11 @@ export interface Skill {
   marketplace_author_avatar_key: string | null
 }
 
-export interface SkillDetail extends Skill {
+export interface StimpackDetail extends Stimpack {
   content: string
 }
 
-export interface SkillCreateRequest {
+export interface StimpackCreateRequest {
   name: string
   display_name?: string
   description?: string
@@ -25,7 +25,7 @@ export interface SkillCreateRequest {
   content: string
 }
 
-export interface SkillUpdateRequest {
+export interface StimpackUpdateRequest {
   display_name?: string | null
   description?: string | null
   tags?: string[] | null
@@ -33,7 +33,7 @@ export interface SkillUpdateRequest {
 }
 
 // Marketplace types
-export interface MarketplaceSkill {
+export interface MarketplaceStimpack {
   id: string
   name: string
   displayName: string
@@ -51,7 +51,7 @@ export interface MarketplaceSkill {
   authorAvatarKey: string | null
 }
 
-export interface MarketplaceSkillDetail extends MarketplaceSkill {
+export interface MarketplaceStimpackDetail extends MarketplaceStimpack {
   versions: Array<{
     id: string
     version: number
@@ -65,44 +65,44 @@ export interface MarketplaceSkillDetail extends MarketplaceSkill {
 }
 
 export interface MarketplaceListResponse {
-  skills: MarketplaceSkill[]
+  stimpacks: MarketplaceStimpack[]
   total: number
   page: number
   limit: number
   pages: number
 }
 
-export function useSkillsApi() {
-  const base = () => `${getApiBase()}/settings/skills`
-  const marketplaceBase = () => `${getApiBase()}/skill-marketplace`
+export function useStimpacksApi() {
+  const base = () => `${getApiBase()}/settings/stimpacks`
+  const marketplaceBase = () => `${getApiBase()}/stimpack-marketplace`
 
-  // --- Local skill management (existing) ---
+  // --- Local stimpack management (existing) ---
 
-  async function listSkills(): Promise<Skill[]> {
+  async function listStimpacks(): Promise<Stimpack[]> {
     const response = await axios.get(base())
     return response.data
   }
 
-  async function getSkill(name: string): Promise<SkillDetail> {
+  async function getStimpack(name: string): Promise<StimpackDetail> {
     const response = await axios.get(`${base()}/${encodeURIComponent(name)}`)
     return response.data
   }
 
-  async function createSkill(data: SkillCreateRequest): Promise<SkillDetail> {
+  async function createStimpack(data: StimpackCreateRequest): Promise<StimpackDetail> {
     const response = await axios.post(base(), data)
     return response.data
   }
 
-  async function updateSkill(name: string, data: SkillUpdateRequest): Promise<SkillDetail> {
+  async function updateStimpack(name: string, data: StimpackUpdateRequest): Promise<StimpackDetail> {
     const response = await axios.put(`${base()}/${encodeURIComponent(name)}`, data)
     return response.data
   }
 
-  async function deleteSkill(name: string): Promise<void> {
+  async function deleteStimpack(name: string): Promise<void> {
     await axios.delete(`${base()}/${encodeURIComponent(name)}`)
   }
 
-  async function uploadSkill(file: File): Promise<Skill> {
+  async function uploadStimpack(file: File): Promise<Stimpack> {
     const formData = new FormData()
     formData.append('file', file)
     const response = await axios.post(`${base()}/upload`, formData, {
@@ -132,12 +132,12 @@ export function useSkillsApi() {
     return response.data
   }
 
-  async function getMarketplaceSkill(name: string): Promise<MarketplaceSkillDetail> {
+  async function getMarketplaceStimpack(name: string): Promise<MarketplaceStimpackDetail> {
     const response = await axios.get(`${marketplaceBase()}/detail/${encodeURIComponent(name)}`)
     return response.data
   }
 
-  async function installFromMarketplace(name: string): Promise<Skill> {
+  async function installFromMarketplace(name: string): Promise<Stimpack> {
     const response = await axios.post(`${marketplaceBase()}/install/${encodeURIComponent(name)}`)
     return response.data
   }
@@ -152,31 +152,31 @@ export function useSkillsApi() {
     return response.data.updates || []
   }
 
-  async function updateFromMarketplace(name: string): Promise<Skill> {
+  async function updateFromMarketplace(name: string): Promise<Stimpack> {
     const response = await axios.post(`${marketplaceBase()}/update/${encodeURIComponent(name)}`)
     return response.data
   }
 
-  async function listMyMarketplaceSkills(): Promise<{ skills: Array<MarketplaceSkill & { latestVersion: { version: number; status: string } | null }> }> {
+  async function listMyMarketplaceStimpacks(): Promise<{ stimpacks: Array<MarketplaceStimpack & { latestVersion: { version: number; status: string } | null }> }> {
     const response = await axios.get(`${marketplaceBase()}/mine`)
     return response.data
   }
 
   return {
     // Local
-    listSkills,
-    getSkill,
-    createSkill,
-    updateSkill,
-    deleteSkill,
-    uploadSkill,
+    listStimpacks,
+    getStimpack,
+    createStimpack,
+    updateStimpack,
+    deleteStimpack,
+    uploadStimpack,
     // Marketplace
     browseMarketplace,
-    getMarketplaceSkill,
+    getMarketplaceStimpack,
     installFromMarketplace,
     runAutoInstall,
     checkUpdates,
     updateFromMarketplace,
-    listMyMarketplaceSkills,
+    listMyMarketplaceStimpacks,
   }
 }

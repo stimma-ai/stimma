@@ -799,8 +799,8 @@ with phase("Compose"):
 ```
 
 For high-quality layout design (type pairings, spacing, negative space,
-intentional aesthetics), the ``layout-design`` skill documents the craft;
-read it via the ``skill`` tool before tackling polished output.
+intentional aesthetics), the ``layout-design`` stimpack documents the craft;
+read it via the ``stimpack`` tool before tackling polished output.
 
 **rasterize_layout(layout, *, width=None)** — render a layout bundle to a
 PNG media id. Reach for this only when a downstream tool needs pixels
@@ -1098,7 +1098,7 @@ agent sandbox. You have:
     — for editing ``program.py`` AND for browsing the read-only ``.stimma/tools/``
     catalog to discover ``tool_id`` / ``task_type`` / parameters for the
     ``tool(...)`` DSL primitive (see "discover real tool ids" above).
-  - ``ask_user``, ``finish``, ``save_memory``, ``skill``, ``show``,
+  - ``ask_user``, ``finish``, ``save_memory``, ``stimpack``, ``show``,
     ``view_image`` — shared utilities.
 
 You do **not** have ``run_code``, ``library``, ``call_tool``,

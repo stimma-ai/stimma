@@ -224,7 +224,7 @@ All live in the backend; only their outputs ever egress.
 |---|---|---|
 | `app_launched` | live | `{ previousExitClean: bool }` — dirty-flag file written at startup, cleared on orderly shutdown; `false` on next launch = the prior session died hard. Categorical, content-free |
 | `app_updated` | live | `{ fromVersion }` (new version rides the UA) |
-| `session_started` | live | **The per-launch state snapshot**: `{ providerCount, providers[]{providerType,toolCount,connected,productName?,productVersion?}, toolCountsBySource{builtin,marketplace,cloud,user}, llmConfig{role→{source: auto\|stimma_cloud\|endpoint, endpointClass, modelFamily}}, mediaCountsByType{image,video,audio,document,set,grid,layout}, chatCount, boardCount, flowCount, projectCount, savedViewCount, profileCount, markerCounts{favorite,library,custom}, skillCounts{marketplace,dev,builtin} }` — counts only, no names/content. `llmConfig` role keys are the app-defined closed role set; `source` is the *configured* value, distinct from per-event *resolved* `llmSource`. `markerCounts` keys are a literal match against the shipped default marker set (anything else, including renamed defaults, counts under `custom`). `providers[]` is the one sanctioned enumeration under the counts-over-enumerations rule (bounded by configured connections; mechanical fields only) |
+| `session_started` | live | **The per-launch state snapshot**: `{ providerCount, providers[]{providerType,toolCount,connected,productName?,productVersion?}, toolCountsBySource{builtin,marketplace,cloud,user}, llmConfig{role→{source: auto\|stimma_cloud\|endpoint, endpointClass, modelFamily}}, mediaCountsByType{image,video,audio,document,set,grid,layout}, chatCount, boardCount, flowCount, projectCount, savedViewCount, profileCount, markerCounts{favorite,library,custom}, stimpackCounts{marketplace,dev,builtin} }` — counts only, no names/content. `llmConfig` role keys are the app-defined closed role set; `source` is the *configured* value, distinct from per-event *resolved* `llmSource`. `markerCounts` keys are a literal match against the shipped default marker set (anything else, including renamed defaults, counts under `custom`). `providers[]` is the one sanctioned enumeration under the counts-over-enumerations rule (bounded by configured connections; mechanical fields only) |
 | `session_ended` | live | `{ durationMs }` — fired at shutdown **and** on the 30-min-inactivity session rotation. Dead-session recovery: when `previousExitClean: false`, the next launch flushes a buffered `session_ended{durationMs}` for the dead session from its last persisted activity timestamp |
 | `app_error` | live | `{ source: backend\|frontend, errorType, stackHash, module? }` — exception type, stack hash, and top app-frame module only; no messages, paths, or locals (those can contain prompts/paths). Counting only |
 | `onboarding_completed` | live | `{}` — activation-funnel endpoint (`first_run` → `screen_viewed: onboarding` → this); all three buffer pre-consent and flush together on consent-on |
@@ -246,7 +246,7 @@ construction (the updater is official-gated).
 
 | Event | Status | Properties |
 |---|---|---|
-| `screen_viewed` | live | `{ screen }` — values pinned to the live router: `onboarding, home, browse, trash, upload, boards, board-detail, projects, project-overview, project-assets, project-chats, project-boards, project-flows, project-settings, project-tools, chats, chat, flows, flow, saved-view, all-tools, edit-image, edit-image-landing, edit-image-empty, lineage, tool`. The skills/marketplace surface lives inside the settings modal today (no route); if it becomes a route, `skills` joins the list. Dev-only routes (`dev-*`) excluded. No path property, ever |
+| `screen_viewed` | live | `{ screen }` — values pinned to the live router: `onboarding, home, browse, trash, upload, boards, board-detail, projects, project-overview, project-assets, project-chats, project-boards, project-flows, project-settings, project-tools, chats, chat, flows, flow, saved-view, all-tools, edit-image, edit-image-landing, edit-image-empty, lineage, tool`. The stimpacks/marketplace surface lives inside the settings modal today (no route); if it becomes a route, `stimpacks` joins the list. Dev-only routes (`dev-*`) excluded. No path property, ever |
 
 ## Account (`account`)
 
@@ -254,7 +254,7 @@ construction (the updater is official-gated).
 |---|---|---|
 | `cloud_signed_in` | live | `{ tier }` |
 | `cloud_signed_out` | live | `{}` |
-| `gate_encountered` | live | `{ gate: signin_required\|tier_required\|quota_exhausted, surface: tool\|agent\|skill\|share }` — fired when the user hits a cloud gate. Outcome is derived by sequence (next `cloud_signed_in` / mode switch / abandon within session), not a semantic outcome property. Live surfaces today: `agent` (quota/tier/sign-in errors from the agent path) and `share` (share status checked signed-out); `tool`/`skill` gate UIs don't exist yet and emit nothing until they do |
+| `gate_encountered` | live | `{ gate: signin_required\|tier_required\|quota_exhausted, surface: tool\|agent\|stimpack\|share }` — fired when the user hits a cloud gate. Outcome is derived by sequence (next `cloud_signed_in` / mode switch / abandon within session), not a semantic outcome property. Live surfaces today: `agent` (quota/tier/sign-in errors from the agent path) and `share` (share status checked signed-out); `tool`/`stimpack` gate UIs don't exist yet and emit nothing until they do |
 
 ## Generation & tools (`generation`)
 
@@ -302,7 +302,7 @@ see.
 | `agent_turn_completed` | live | `{ chatHash, llmSource, modelFamily, endpointClass?, durationMs, toolCallCount, status: completed\|failed\|cancelled\|quota_exceeded\|paused_for_permission, errorType?, agentContext: main\|flow\|delegate }` — `errorType?` set when `failed`, domain = the shared closed agent error list (pinned): `quota_exceeded \| content_filtered \| subscription_required \| llm_not_configured \| refusal \| timeout \| other`. A turn whose final visible content the shared classifier flags as a textual refusal reports `status: failed, errorType: refusal` |
 | `agent_error` | live | `{ errorType, chatHash?, agentContext }` — `errorType` is the same shared closed list (`quota_exceeded`, `content_filtered`, `subscription_required`, `llm_not_configured`, `refusal`, …); unknown errors map to `other`, never raw exception class names |
 | `chat_deleted` | live | `{ chatHash }` |
-| `skill_invoked` | live | `{ chatHash, skillSource: marketplace\|dev\|builtin, skillName? }` — `skillName` passes **only when `skillSource: marketplace`** (catalog data); dev/user skill names are user content and never pass. `dev` covers both the dev_skills_dir override and user/agent-authored skills |
+| `stimpack_invoked` | live | `{ chatHash, stimpackSource: marketplace\|dev\|builtin, stimpackName? }` — `stimpackName` passes **only when `stimpackSource: marketplace`** (catalog data); dev/user stimpack names are user content and never pass. `dev` covers both the dev_stimpacks_dir override and user/agent-authored stimpacks |
 
 `chatHash` turns conversation depth/retention into a measurable funnel —
 still zero content.
@@ -375,15 +375,15 @@ All board events carry `boardHash` (install-salted, irreversible).
 | `theme_changed` | live | `{ theme }` |
 | `telemetry_enabled` | live | `{ enabled }` — fired on toggle change; the final `false` event is the last thing sent (the documented CI carve-out) |
 
-## Skills (`skills`)
+## Stimpacks (`stimpacks`)
 
 | Event | Status | Properties |
 |---|---|---|
-| `skill_marketplace_installed` | live | `{ skillName }` (marketplace names are catalog data, not user content) |
-| `skills_auto_installed` | live | `{ count, skills[] }` — auto-installed skills are stock/marketplace, so names are catalog data |
-| `skill_updated` | live | `{ skillSource, skillName? }` — the editor fires this for user-authored skills too, so the name passes only when `skillSource: marketplace` |
-| `skill_uninstalled` | live | `{ skillSource, skillName? }` — same marketplace-only name rule |
-| `dev_skills_enabled` | live | `{ skillCount }` — fired on the configuration transition, not per-launch; count only |
+| `stimpack_marketplace_installed` | live | `{ stimpackName }` (marketplace names are catalog data, not user content) |
+| `stimpacks_auto_installed` | live | `{ count, stimpacks[] }` — auto-installed stimpacks are stock/marketplace, so names are catalog data |
+| `stimpack_updated` | live | `{ stimpackSource, stimpackName? }` — the editor fires this for user-authored stimpacks too, so the name passes only when `stimpackSource: marketplace` |
+| `stimpack_uninstalled` | live | `{ stimpackSource, stimpackName? }` — same marketplace-only name rule |
+| `dev_stimpacks_enabled` | live | `{ stimpackCount }` — fired on the configuration transition, not per-launch; count only |
 
 ## Shares (`share`)
 

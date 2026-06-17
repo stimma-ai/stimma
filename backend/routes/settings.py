@@ -2127,21 +2127,21 @@ async def update_agent_settings(request: AgentSettingsUpdate):
 
 
 # =============================================================================
-# Skills Endpoints
+# Stimpacks Endpoints
 # =============================================================================
 
 from fastapi import UploadFile, File as FastAPIFile
 from fastapi.responses import Response
 
 
-def _skills_api():
-    # Import lazily: importing agent.v2.skills runs agent.v2.__init__, which
+def _stimpacks_api():
+    # Import lazily: importing agent.v2.stimpacks runs agent.v2.__init__, which
     # registers all agent tools and can pull heavy image/ML modules into startup.
-    from agent.v2 import skills
-    return skills
+    from agent.v2 import stimpacks
+    return stimpacks
 
 
-class SkillResponse(BaseModel):
+class StimpackResponse(BaseModel):
     name: str
     display_name: str
     description: str
@@ -2153,11 +2153,11 @@ class SkillResponse(BaseModel):
     marketplace_author_avatar_key: str | None = None
 
 
-class SkillDetailResponse(SkillResponse):
+class StimpackDetailResponse(StimpackResponse):
     content: str
 
 
-class SkillCreateRequest(BaseModel):
+class StimpackCreateRequest(BaseModel):
     name: str
     display_name: str = ""
     description: str = ""
@@ -2165,15 +2165,15 @@ class SkillCreateRequest(BaseModel):
     content: str
 
 
-class SkillUpdateRequest(BaseModel):
+class StimpackUpdateRequest(BaseModel):
     display_name: str | None = None
     description: str | None = None
     tags: list[str] | None = None
     content: str | None = None
 
 
-def _skill_info_to_response(s) -> SkillResponse:
-    return SkillResponse(
+def _stimpack_info_to_response(s) -> StimpackResponse:
+    return StimpackResponse(
         name=s.name,
         display_name=s.display_name,
         description=s.description,
@@ -2186,8 +2186,8 @@ def _skill_info_to_response(s) -> SkillResponse:
     )
 
 
-def _skill_detail_response(info, content: str) -> SkillDetailResponse:
-    return SkillDetailResponse(
+def _stimpack_detail_response(info, content: str) -> StimpackDetailResponse:
+    return StimpackDetailResponse(
         name=info.name,
         display_name=info.display_name,
         description=info.description,
@@ -2201,21 +2201,21 @@ def _skill_detail_response(info, content: str) -> SkillDetailResponse:
     )
 
 
-@router.get("/skills", response_model=list[SkillResponse])
-async def list_skills_endpoint():
-    """List installed skills for the current profile."""
+@router.get("/stimpacks", response_model=list[StimpackResponse])
+async def list_stimpacks_endpoint():
+    """List installed stimpacks for the current profile."""
     profile_id = get_current_profile()
-    skills = _skills_api().list_installed_skills(profile_id=profile_id)
-    return [_skill_info_to_response(s) for s in skills]
+    stimpacks = _stimpacks_api().list_installed_stimpacks(profile_id=profile_id)
+    return [_stimpack_info_to_response(s) for s in stimpacks]
 
 
-@router.get("/skills/{name}/download")
-async def download_skill_zip(name: str):
-    """Download a skill packaged as a zip file."""
+@router.get("/stimpacks/{name}/download")
+async def download_stimpack_zip(name: str):
+    """Download a stimpack packaged as a zip file."""
     profile_id = get_current_profile()
-    zip_bytes = _skills_api().package_skill_as_zip(name, profile_id=profile_id)
+    zip_bytes = _stimpacks_api().package_stimpack_as_zip(name, profile_id=profile_id)
     if not zip_bytes:
-        raise HTTPException(status_code=404, detail=f"Skill '{name}' not found")
+        raise HTTPException(status_code=404, detail=f"Stimpack '{name}' not found")
     return Response(
         content=zip_bytes,
         media_type="application/zip",
@@ -2223,23 +2223,23 @@ async def download_skill_zip(name: str):
     )
 
 
-@router.get("/skills/{name}", response_model=SkillDetailResponse)
-async def get_skill_endpoint(name: str):
+@router.get("/stimpacks/{name}", response_model=StimpackDetailResponse)
+async def get_stimpack_endpoint(name: str):
     profile_id = get_current_profile()
-    loaded = _skills_api().load_skill(name, profile_id=profile_id)
+    loaded = _stimpacks_api().load_stimpack(name, profile_id=profile_id)
     if not loaded:
-        raise HTTPException(status_code=404, detail=f"Skill '{name}' not found")
-    return _skill_detail_response(loaded.info, loaded.content)
+        raise HTTPException(status_code=404, detail=f"Stimpack '{name}' not found")
+    return _stimpack_detail_response(loaded.info, loaded.content)
 
 
-@router.post("/skills", response_model=SkillDetailResponse, status_code=201)
-async def create_skill_endpoint(data: SkillCreateRequest):
+@router.post("/stimpacks", response_model=StimpackDetailResponse, status_code=201)
+async def create_stimpack_endpoint(data: StimpackCreateRequest):
     profile_id = get_current_profile()
-    skills_api = _skills_api()
-    existing = skills_api.load_skill(data.name, profile_id=profile_id)
+    stimpacks_api = _stimpacks_api()
+    existing = stimpacks_api.load_stimpack(data.name, profile_id=profile_id)
     if existing:
-        raise HTTPException(status_code=409, detail=f"Skill '{data.name}' already exists")
-    skills_api.save_skill(
+        raise HTTPException(status_code=409, detail=f"Stimpack '{data.name}' already exists")
+    stimpacks_api.save_stimpack(
         data.name,
         data.content,
         description=data.description,
@@ -2247,13 +2247,13 @@ async def create_skill_endpoint(data: SkillCreateRequest):
         tags=data.tags,
         profile_id=profile_id,
     )
-    loaded = skills_api.load_skill(data.name, profile_id=profile_id)
-    return _skill_detail_response(loaded.info, loaded.content)
+    loaded = stimpacks_api.load_stimpack(data.name, profile_id=profile_id)
+    return _stimpack_detail_response(loaded.info, loaded.content)
 
 
-@router.post("/skills/upload", response_model=SkillResponse)
-async def upload_skill_endpoint(file: UploadFile = FastAPIFile(...)):
-    """Upload and install a skill from a .md or .zip file."""
+@router.post("/stimpacks/upload", response_model=StimpackResponse)
+async def upload_stimpack_endpoint(file: UploadFile = FastAPIFile(...)):
+    """Upload and install a stimpack from a .md or .zip file."""
     profile_id = get_current_profile()
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
@@ -2270,28 +2270,28 @@ async def upload_skill_endpoint(file: UploadFile = FastAPIFile(...)):
         tmp_path = Path(tmp.name)
 
     try:
-        info = _skills_api().install_skill_from_file(tmp_path, profile_id=profile_id)
+        info = _stimpacks_api().install_stimpack_from_file(tmp_path, profile_id=profile_id)
         if not info:
-            raise HTTPException(status_code=400, detail="Failed to parse skill file")
-        return _skill_info_to_response(info)
+            raise HTTPException(status_code=400, detail="Failed to parse stimpack file")
+        return _stimpack_info_to_response(info)
     finally:
         tmp_path.unlink(missing_ok=True)
 
 
-@router.put("/skills/{name}", response_model=SkillDetailResponse)
-async def update_skill_endpoint(name: str, data: SkillUpdateRequest):
+@router.put("/stimpacks/{name}", response_model=StimpackDetailResponse)
+async def update_stimpack_endpoint(name: str, data: StimpackUpdateRequest):
     profile_id = get_current_profile()
-    skills_api = _skills_api()
-    existing = skills_api.load_skill(name, profile_id=profile_id)
+    stimpacks_api = _stimpacks_api()
+    existing = stimpacks_api.load_stimpack(name, profile_id=profile_id)
     if not existing:
-        raise HTTPException(status_code=404, detail=f"Skill '{name}' not found")
+        raise HTTPException(status_code=404, detail=f"Stimpack '{name}' not found")
 
     # Merge: use existing values for any None fields
     new_display_name = data.display_name if data.display_name is not None else existing.info.display_name
     new_description = data.description if data.description is not None else existing.info.description
     new_tags = data.tags if data.tags is not None else existing.info.tags
     new_content = data.content if data.content is not None else existing.content
-    skills_api.save_skill(
+    stimpacks_api.save_stimpack(
         name,
         new_content,
         description=new_description,
@@ -2299,32 +2299,32 @@ async def update_skill_endpoint(name: str, data: SkillUpdateRequest):
         tags=new_tags,
         profile_id=profile_id,
     )
-    loaded = skills_api.load_skill(name, profile_id=profile_id)
-    # D17: this editor route fires for user-authored skills too — the name
-    # passes only when the skill is a marketplace install (catalog data).
+    loaded = stimpacks_api.load_stimpack(name, profile_id=profile_id)
+    # D17: this editor route fires for user-authored stimpacks too — the name
+    # passes only when the stimpack is a marketplace install (catalog data).
     from telemetry import get_telemetry_client
-    _source = skills_api.telemetry_skill_source(loaded.info if loaded else None)
-    _props = {"skillSource": _source}
+    _source = stimpacks_api.telemetry_stimpack_source(loaded.info if loaded else None)
+    _props = {"stimpackSource": _source}
     if _source == "marketplace":
-        _props["skillName"] = name
-    get_telemetry_client().track("skill_updated", _props, category="skills")
-    return _skill_detail_response(loaded.info, loaded.content)
+        _props["stimpackName"] = name
+    get_telemetry_client().track("stimpack_updated", _props, category="stimpacks")
+    return _stimpack_detail_response(loaded.info, loaded.content)
 
 
-@router.delete("/skills/{name}", status_code=204)
-async def delete_skill_endpoint(name: str):
-    """Uninstall a skill from the current profile."""
+@router.delete("/stimpacks/{name}", status_code=204)
+async def delete_stimpack_endpoint(name: str):
+    """Uninstall a stimpack from the current profile."""
     profile_id = get_current_profile()
-    skills_api = _skills_api()
+    stimpacks_api = _stimpacks_api()
     # Classify before deletion (the sidecar is gone afterwards).
-    existing = skills_api.load_skill(name, profile_id=profile_id)
-    deleted = skills_api.delete_skill(name, profile_id=profile_id)
+    existing = stimpacks_api.load_stimpack(name, profile_id=profile_id)
+    deleted = stimpacks_api.delete_stimpack(name, profile_id=profile_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail=f"Skill '{name}' not found")
+        raise HTTPException(status_code=404, detail=f"Stimpack '{name}' not found")
 
     from telemetry import get_telemetry_client
-    _source = skills_api.telemetry_skill_source(existing.info if existing else None)
-    _props = {"skillSource": _source}
+    _source = stimpacks_api.telemetry_stimpack_source(existing.info if existing else None)
+    _props = {"stimpackSource": _source}
     if _source == "marketplace":
-        _props["skillName"] = name
-    get_telemetry_client().track("skill_uninstalled", _props, category="skills")
+        _props["stimpackName"] = name
+    get_telemetry_client().track("stimpack_uninstalled", _props, category="stimpacks")
