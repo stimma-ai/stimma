@@ -980,10 +980,15 @@ async def lifespan(app: FastAPI):
                 reconcile_pending_task_counts,
                 recover_running_flows,
             )
+            from flow_runtime.paths import migrate_legacy_flow_dirs
             for profile in settings.profiles:
                 db = registry.get_database(profile.id)
                 async with db.async_session_maker() as session:
                     with ProfileScope(profile.id):
+                        # Legacy recipes/ -> flows/ on-disk migration (the
+                        # recipe→flow rename moved the DB table but not the
+                        # flow data dir). Must run before flow recovery.
+                        migrate_legacy_flow_dirs()
                         reconciled = await reconcile_pending_task_counts(session)
                         recovered = await recover_running_flows(session)
                 if reconciled:
