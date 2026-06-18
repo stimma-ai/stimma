@@ -155,6 +155,49 @@ async def cleanup_expired_images(ws_manager):
             await asyncio.sleep(60)  # Wait 60 seconds on error before retrying
 
 
+async def cleanup_ephemeral_media():
+    """Crash sweeper for orphaned one-shot flow-as-tool ephemeral media.
+
+    Ephemeral media are hard-deleted by the one-shot runner at run end; this sweeps
+    anything a crashed run left behind (rows + files), per profile, at startup and
+    periodically. The grace period in cleanup_ephemeral_media protects in-flight runs.
+    """
+    from cleanup_service import CleanupService
+
+    cleanup_service = CleanupService()
+
+    # Small initial delay so it doesn't compete with startup migrations/init.
+    await asyncio.sleep(15)
+
+    log.info("EPHEMERAL CLEANUP: sweeper started")
+
+    while True:
+        try:
+            settings = get_settings()
+            registry = get_database_registry()
+
+            total = 0
+            for profile in settings.profiles:
+                if not registry.has_profile(profile.id):
+                    continue
+                db = registry.get_database(profile.id)
+                async with db.async_session_maker() as session:
+                    total += await cleanup_service.cleanup_ephemeral_media(session)
+
+            if total:
+                log.info(f"EPHEMERAL CLEANUP: swept {total} orphaned ephemeral media")
+
+            # Run every 10 minutes — orphans are rare and the grace period is 30m.
+            await asyncio.sleep(600)
+
+        except asyncio.CancelledError:
+            log.info("EPHEMERAL CLEANUP: Shutting down")
+            break
+        except Exception as e:
+            log.error(f"EPHEMERAL CLEANUP: Error during sweep: {e}", exc_info=True)
+            await asyncio.sleep(600)
+
+
 async def monitor_processing_stats(ws_manager):
     """
     Background task to monitor processing stats and broadcast via WebSocket.

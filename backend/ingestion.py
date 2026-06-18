@@ -1064,6 +1064,7 @@ class MediaIngestion:
                     .where(and_(
                         MediaItem.metadata_status == 'pending',
                         MediaItem.deleted_at.is_(None),  # Skip trashed items
+                        MediaItem.ephemeral_run_id.is_(None),  # Skip ephemeral one-shot-run media
                         MediaItem.file_unavailable != True,  # Skip missing files
                     ))
                     .limit(available_slots)
@@ -1266,6 +1267,7 @@ class MediaIngestion:
                             # DEPENDENCY: Only process items with completed metadata
                             MediaItem.metadata_status == 'completed',
                             MediaItem.deleted_at.is_(None),  # Skip trashed items
+                            MediaItem.ephemeral_run_id.is_(None),  # Skip ephemeral one-shot-run media
                             MediaItem.file_unavailable != True,  # Skip missing files
                             or_(
                                 # Process pending items regardless of version
@@ -1430,6 +1432,7 @@ class MediaIngestion:
                             # DEPENDENCY: Only process items with completed metadata
                             MediaItem.metadata_status == 'completed',
                             MediaItem.deleted_at.is_(None),  # Skip trashed items
+                            MediaItem.ephemeral_run_id.is_(None),  # Skip ephemeral one-shot-run media
                             MediaItem.file_unavailable != True,  # Skip missing files
                             or_(
                                 # Process pending items regardless of version
@@ -1616,6 +1619,7 @@ class MediaIngestion:
                             MediaItem.metadata_status == 'completed',  # Dependency: need metadata first
                             MediaItem.clip_status == 'completed',  # Dependency
                             MediaItem.deleted_at.is_(None),  # Skip trashed items
+                            MediaItem.ephemeral_run_id.is_(None),  # Skip ephemeral one-shot-run media
                             MediaItem.file_unavailable != True,  # Skip missing files
                             or_(
                                 # Process pending items regardless of version

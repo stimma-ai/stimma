@@ -1250,9 +1250,18 @@ async def _run_agentic_loop_inner(
         _raise_if_interrupted(chat_id)
         # Build messages from chat history with system reminders
         system_reminders = []
-        stimpacks_reminder = build_stimpacks_reminder(all_stimpacks, _invoked_stimpacks)
-        if stimpacks_reminder:
-            system_reminders.append(stimpacks_reminder)
+        # Flow chats get no stimpacks for now. Stimpacks are authored for the
+        # main chat agent (creative prompt/variation craft); loading chat-targeted
+        # skills into the flow author is wrong and made it invoke irrelevant packs
+        # (e.g. Prompt Engineering, Variations) just to build a trivial flow. The
+        # `stimpack` tool is scoped out of flow chats (see tools/stimpack.py), so
+        # we suppress the catalog reminder here too — advertising packs the flow
+        # author can't load would only confuse it. Revisit when stimpacks gain
+        # per-agent (flow/tool/chat) targeting.
+        if chat.flow_id is None:
+            stimpacks_reminder = build_stimpacks_reminder(all_stimpacks, _invoked_stimpacks)
+            if stimpacks_reminder:
+                system_reminders.append(stimpacks_reminder)
         if pending_stall_nudge:
             system_reminders.append(pending_stall_nudge)
             pending_stall_nudge = None

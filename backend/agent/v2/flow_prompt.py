@@ -212,8 +212,47 @@ input("list[json]", display_name="Subjects",
 
 Supported controls are ``prompt`` (prefer ``type="prompt"``), ``textarea``,
 ``slider``, ``list``/``chips`` for scalar lists, ``table`` for ``list[json]``
-with ``item.fields``, and the built-in media drop controls for ``media`` /
-``list[media]``.
+with ``item.fields``, ``seed`` (prefer ``type="seed"``) for random seeds, and
+the built-in media drop controls for ``media`` / ``list[media]``.
+
+SEEDS / RANDOMNESS. A flow that calls a generator with a fixed (or omitted)
+seed produces the **same** result on every run — fine for a reproducible flow,
+but wrong for a tool a user runs to get fresh variations. So for any flow whose
+purpose is to **generate** (text-to-image, image-to-image, etc.), expose a seed
+input and wire it through:
+
+```python
+@flow(inputs={
+    "prompt": input(type="prompt", display_name="Prompt"),
+    "seed": input(type="seed", display_name="Seed"),
+})
+def my_flow(prompt, seed):
+    return tool("flux", prompt=prompt, seed=seed)   # <- actually pass the seed
+```
+
+``type="seed"`` renders as the standard seed control (randomizable in tools, a
+value + dice-reroll on the flow screen). It is only meaningful if the generator
+node actually receives it — exposing a seed you never pass through does nothing.
+Add it by default when authoring a generative flow unless the user explicitly
+wants a fixed/reproducible result. (Use ``locked_seed`` only inside a variation
+fan-out where holding the seed constant across the slots is the intent.)
+
+RESOLUTION / SIZE CONTROLS. Several inputs get rich dedicated pickers — the same
+ones tools use — *if you name them canonically*. Use these exact names so the
+flow screen and the frozen tool both render the proper picker (name it
+``img_width`` and you just get a plain number box):
+
+- ``width`` + ``height`` (both, as ``int``) → the resolution picker.
+- ``megapixels`` (``float``) → the megapixels picker.
+- ``aspect_ratio`` (``enum``, e.g. ``["1:1","16:9","9:16"]``) → the aspect picker;
+  pair with an optional ``image_size`` enum (``["1K","2K"]``).
+- A fixed list of sizes → put ``ui={"allowed_dimensions": [[1024,1024],
+  [1024,1536], ...]}`` on the ``width`` input → the constrained-size picker.
+- Upscalers → name an input ``scale_factor`` and/or ``resolution`` with
+  ``ui={"control": "upscale_resolution"}`` → the upscale picker.
+
+Always pass these through to the generator node (``tool(..., width=width,
+height=height)``), same as seed — the picker is cosmetic if the value is ignored.
 
 Inputs are required by default — the runtime blocks the whole graph until
 the user provides a value. Mark truly-optional inputs with
@@ -798,10 +837,6 @@ with phase("Compose"):
     )
 ```
 
-For high-quality layout design (type pairings, spacing, negative space,
-intentional aesthetics), the ``layout-design`` stimpack documents the craft;
-read it via the ``stimpack`` tool before tackling polished output.
-
 **rasterize_layout(layout, *, width=None)** — render a layout bundle to a
 PNG media id. Reach for this only when a downstream tool needs pixels
 (e.g. feeding a rasterized card into an image-to-image model). Layouts are
@@ -1098,7 +1133,7 @@ agent sandbox. You have:
     — for editing ``program.py`` AND for browsing the read-only ``.stimma/tools/``
     catalog to discover ``tool_id`` / ``task_type`` / parameters for the
     ``tool(...)`` DSL primitive (see "discover real tool ids" above).
-  - ``ask_user``, ``finish``, ``save_memory``, ``stimpack``, ``show``,
+  - ``ask_user``, ``finish``, ``save_memory``, ``show``,
     ``view_image`` — shared utilities.
 
 You do **not** have ``run_code``, ``library``, ``call_tool``,

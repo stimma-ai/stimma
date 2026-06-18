@@ -74,7 +74,12 @@ async def _is_stimpack_already_invoked(name: str, session: AsyncSession, chat_id
             items={"type": "string"},
         ),
     ],
-    scope="both",
+    # Agent-only for now. Stimpacks are authored for the main chat agent, and
+    # we don't yet have per-agent (flow/tool/chat) skill targeting — loading
+    # chat-targeted skills into the flow author is wrong, so the flow chat does
+    # not get the stimpack tool. Flip back to "both" (and restore the
+    # flow_prompt references) once stimpacks support agent-level scoping.
+    scope="agent",
 )
 async def stimpack_tool(
     action: str,

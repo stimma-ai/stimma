@@ -6,7 +6,7 @@ but the file stays in place until trash is emptied.
 
 import os
 from core.logging import get_logger
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any
 from sqlalchemy import and_, select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +18,59 @@ log = get_logger(__name__)
 
 class CleanupService:
     """Handles automatic marking of expired generated images as deleted."""
+
+    async def cleanup_ephemeral_media(
+        self, session: AsyncSession, older_than_minutes: int = 30
+    ) -> int:
+        """Crash sweeper: hard-delete orphaned ephemeral one-shot-run media.
+
+        Ephemeral media (``ephemeral_run_id`` set) are normally hard-deleted by the
+        one-shot runner in a ``finally`` block at run end. If a run crashes hard (or the
+        process dies mid-run) its rows + files can be left behind. This sweeper reclaims
+        them: every ``ephemeral_run_id`` whose oldest row is older than the grace period
+        is purged (files + DB rows) via ``purge_ephemeral_run``.
+
+        The cutoff is by ``indexed_date`` (creation time) so an in-flight run — whose
+        media are all recent — is never swept out from under it.
+
+        Returns the number of media rows hard-deleted.
+        """
+        from flow_runtime.ephemeral import purge_ephemeral_run
+
+        cutoff = datetime.utcnow() - timedelta(minutes=older_than_minutes)
+
+        # Distinct run ids whose ENTIRE set of rows predates the cutoff. Using max()
+        # of indexed_date per run guarantees we never touch a run with any recent
+        # (possibly in-flight) media.
+        result = await session.execute(
+            select(MediaItem.ephemeral_run_id)
+            .where(MediaItem.ephemeral_run_id.isnot(None))
+            .group_by(MediaItem.ephemeral_run_id)
+            .having(func.max(MediaItem.indexed_date) < cutoff)
+        )
+        run_ids = [rid for (rid,) in result.all() if rid]
+
+        if not run_ids:
+            return 0
+
+        total = 0
+        for run_id in run_ids:
+            try:
+                total += await purge_ephemeral_run(session, run_id)
+            except Exception as e:
+                log.error(
+                    f"EPHEMERAL CLEANUP: failed to purge run {run_id}: {e}",
+                    exc_info=True,
+                )
+                await session.rollback()
+                continue
+
+        if total:
+            log.info(
+                f"EPHEMERAL CLEANUP: swept {total} orphaned ephemeral media "
+                f"across {len(run_ids)} run(s) older than {older_than_minutes}m"
+            )
+        return total
 
     async def cleanup_expired_images(self, db: AsyncSession, folder_configs: Dict[str, Any]) -> tuple[list[int], datetime | None]:
         """

@@ -34,6 +34,10 @@ from .lightweight import (
     LightweightProvider,
     get_lightweight_provider,
 )
+from .user_tools import (
+    UserToolsProvider,
+    get_user_tools_provider,
+)
 
 __all__ = [
     "ProviderStatus",
@@ -52,4 +56,6 @@ __all__ = [
     "get_health_monitor",
     "LightweightProvider",
     "get_lightweight_provider",
+    "UserToolsProvider",
+    "get_user_tools_provider",
 ]

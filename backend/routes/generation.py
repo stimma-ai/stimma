@@ -1048,12 +1048,16 @@ async def get_job_statuses(
     if not job_ids:
         return []
 
-    # Query jobs with optional join to MediaItem to check if media is trashed
+    # Query jobs with optional join to MediaItem to check if media is trashed.
+    # Internal one-shot flow-as-tool jobs (stamped with _ephemeral_run_id in their
+    # params) are never surfaced to the user, even when polled by explicit id.
     from sqlalchemy.orm import selectinload
+    from sqlalchemy import func
     result = await session.execute(
         select(GenerationJob, MediaItem)
         .outerjoin(MediaItem, GenerationJob.result_media_id == MediaItem.id)
         .where(GenerationJob.id.in_(job_ids))
+        .where(func.json_extract(GenerationJob.parameters, '$._ephemeral_run_id').is_(None))
     )
     rows = result.all()
 

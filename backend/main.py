@@ -167,6 +167,7 @@ from routes import (
     trash,
     mask_assistant,
     presets,
+    user_tools,
 )
 
 log.info(f"TIMING: routes imported at {time.time() - _startup_time:.2f}s")
@@ -199,6 +200,7 @@ app.include_router(preferences.router)
 app.include_router(projects.router)
 app.include_router(flows.router)
 app.include_router(flow_tasks.router)
+app.include_router(user_tools.router)
 app.include_router(admin.router)
 app.include_router(realtime.router)
 app.include_router(chats.router)

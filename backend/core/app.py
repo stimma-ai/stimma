@@ -19,7 +19,7 @@ from core.session_middleware import SessionIdMiddleware
 from core.slowtrace import SlowtraceMiddleware
 from core.logging import get_logger
 from utils.websocket import ws_manager
-from utils.background_tasks import monitor_media_changes, cleanup_expired_images, monitor_processing_stats, monitor_system_warnings
+from utils.background_tasks import monitor_media_changes, cleanup_expired_images, cleanup_ephemeral_media, monitor_processing_stats, monitor_system_warnings
 from utils.migrations import run_all_migrations, run_migrations_for_profile
 from sqlalchemy import select
 
@@ -796,6 +796,17 @@ async def lifespan(app: FastAPI):
             )
             log.info("builtin provider registered", tool_count=len(await builtin_provider.list_tools()))
 
+            # Initialize user-tools provider (flows frozen into first-class tools)
+            from providers import get_user_tools_provider
+            user_tools_provider = get_user_tools_provider()
+            await user_tools_provider.connect()
+            await provider_registry.register(user_tools_provider)
+            await backend_registry.register_backend(
+                user_tools_provider.provider_id,
+                user_tools_provider.max_concurrent
+            )
+            log.info("user-tools provider registered", tool_count=len(await user_tools_provider.list_tools()))
+
             # Register test provider if enabled (for e2e testing)
             if os.environ.get("STIMMA_TEST_PROVIDER"):
                 from providers.test_provider import get_test_provider
@@ -1201,6 +1212,10 @@ async def lifespan(app: FastAPI):
 
         cleanup_task = asyncio.create_task(cleanup_expired_images(ws_manager))
         background_tasks.append(cleanup_task)
+
+        # Crash sweeper for orphaned one-shot flow-as-tool ephemeral media
+        ephemeral_cleanup_task = asyncio.create_task(cleanup_ephemeral_media())
+        background_tasks.append(ephemeral_cleanup_task)
 
         system_warnings_task = asyncio.create_task(monitor_system_warnings(ws_manager))
         background_tasks.append(system_warnings_task)

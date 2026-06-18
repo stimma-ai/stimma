@@ -539,6 +539,8 @@ async def get_media_ids(
 
     # Exclude soft-deleted items by default
     query = query.where(MediaItem.deleted_at.is_(None))
+    # Never surface ephemeral one-shot-run intermediates
+    query = query.where(MediaItem.ephemeral_run_id.is_(None))
 
     # Only show items with completed metadata (have file_hash for thumbnails)
     query = query.where(MediaItem.metadata_status == 'completed')
@@ -765,6 +767,8 @@ async def get_media_item(
         query = query.where(MediaItem.deleted_at.is_(None))
         # An item past its auto-delete deadline must read as gone even before the worker runs.
         query = query.where(not_due_for_autodelete())
+    # Ephemeral one-shot-run intermediates never resolve, even with include_trashed.
+    query = query.where(MediaItem.ephemeral_run_id.is_(None))
 
     query = query.options(
         selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker),
@@ -803,6 +807,7 @@ async def get_media_content(
         select(MediaItem).where(
             MediaItem.id == media_id,
             MediaItem.deleted_at.is_(None),
+            MediaItem.ephemeral_run_id.is_(None),
             not_due_for_autodelete(),
         )
     )
@@ -854,7 +859,8 @@ async def update_media_content(
     result = await session.execute(
         select(MediaItem).where(
             MediaItem.id == media_id,
-            MediaItem.deleted_at.is_(None)
+            MediaItem.deleted_at.is_(None),
+            MediaItem.ephemeral_run_id.is_(None),
         )
     )
     item = result.scalar_one_or_none()
@@ -937,9 +943,12 @@ async def get_media_boards(
     session: AsyncSession = Depends(get_db_session)
 ):
     """Get all boards that contain this media item."""
-    # First verify the media item exists
+    # First verify the media item exists (ephemeral one-shot intermediates read as gone)
     media_result = await session.execute(
-        select(MediaItem).where(MediaItem.id == media_id)
+        select(MediaItem).where(
+            MediaItem.id == media_id,
+            MediaItem.ephemeral_run_id.is_(None),
+        )
     )
     media_item = media_result.scalar_one_or_none()
 
@@ -967,7 +976,10 @@ async def get_media_projects(
 ):
     """Get all projects that contain this media item."""
     media_result = await session.execute(
-        select(MediaItem).where(MediaItem.id == media_id)
+        select(MediaItem).where(
+            MediaItem.id == media_id,
+            MediaItem.ephemeral_run_id.is_(None),
+        )
     )
     media_item = media_result.scalar_one_or_none()
 
@@ -1080,6 +1092,7 @@ async def find_media_index(
 
     # Endpoint-specific pre-filters (mirror get_media)
     query = query.where(MediaItem.deleted_at.is_(None))
+    query = query.where(MediaItem.ephemeral_run_id.is_(None))
     query = query.where(MediaItem.metadata_status == 'completed')
     query = query.where(
         (MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None))
@@ -1304,7 +1317,8 @@ async def create_set_from_media(
     result = await session.execute(
         select(MediaItem).where(
             MediaItem.id.in_(request.media_ids),
-            MediaItem.deleted_at.is_(None)
+            MediaItem.deleted_at.is_(None),
+            MediaItem.ephemeral_run_id.is_(None),
         )
     )
     items = result.scalars().all()
@@ -1674,7 +1688,8 @@ async def get_editor_project(
     result = await session.execute(
         select(MediaItem).where(
             MediaItem.id == media_id,
-            MediaItem.deleted_at.is_(None)
+            MediaItem.deleted_at.is_(None),
+            MediaItem.ephemeral_run_id.is_(None),
         )
     )
     item = result.scalar_one_or_none()
@@ -1727,7 +1742,8 @@ async def explode_set_or_grid(
     result = await session.execute(
         select(MediaItem).where(
             MediaItem.id == media_id,
-            MediaItem.deleted_at.is_(None)
+            MediaItem.deleted_at.is_(None),
+            MediaItem.ephemeral_run_id.is_(None),
         )
     )
     media = result.scalar_one_or_none()

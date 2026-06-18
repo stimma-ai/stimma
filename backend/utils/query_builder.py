@@ -158,6 +158,7 @@ def build_filtered_query(
     max_mp: Optional[float] = None,
     include_superseded: bool = False,
     exclude_expired: bool = True,
+    include_ephemeral: bool = False,
     exclude_category: Optional[str] = None,
 ):
     """
@@ -174,11 +175,19 @@ def build_filtered_query(
         exclude_expired: When True (default), hide items the auto-delete worker is due to remove so
             expired generations disappear at their deadline even before the worker runs. Trash opts
             out (exclude_expired=False) since it intentionally surfaces already-removed items.
+        include_ephemeral: When False (default), hide ephemeral media (rows produced by one-shot
+            flow-as-tool runs, tagged with ephemeral_run_id). These never belong in any user-facing
+            view; this single filter covers /api/media, trash, find-index, and similar-search.
         Other args: Filter parameters matching /api/media endpoint
 
     Returns:
         Filtered query
     """
+    # Ephemeral media (one-shot flow-as-tool run intermediates) are never surfaced to the user.
+    # This sits beside the deleted_at filter the callers apply so no browse/search/trash view leaks them.
+    if not include_ephemeral:
+        query = query.where(MediaItem.ephemeral_run_id.is_(None))
+
     # Filter out items owned by sets/grids unless caller opts in (Trash needs to show them)
     if not include_superseded:
         query = query.where(MediaItem.superseded_by.is_(None))

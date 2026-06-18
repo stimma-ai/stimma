@@ -132,6 +132,7 @@ _SCALAR_TYPE_MAP = {
     "markdown": "str",
     "int": "int",
     "integer": "int",
+    "seed": "int",
     "float": "float",
     "number": "float",
     "bool": "bool",

@@ -1084,7 +1084,7 @@ async def get_media_file(
     # and should be viewable until permanently deleted
     result = await session.execute(
         select(MediaItem)
-        .where(MediaItem.file_hash == file_hash)
+        .where(MediaItem.file_hash == file_hash, MediaItem.ephemeral_run_id.is_(None))
         .order_by(
             # Prefer non-deleted files first
             MediaItem.deleted_at.asc().nulls_first(),
@@ -1158,7 +1158,7 @@ async def get_thumbnail_by_media_id(
     theme = theme if theme in ('dark', 'light') else 'dark'
 
     result = await session.execute(
-        select(MediaItem).where(MediaItem.id == media_id)
+        select(MediaItem).where(MediaItem.id == media_id, MediaItem.ephemeral_run_id.is_(None))
     )
     item = result.scalar_one_or_none()
 
@@ -1178,7 +1178,7 @@ async def get_file_by_media_id(
 ):
     """Get full media file by media ID."""
     result = await session.execute(
-        select(MediaItem).where(MediaItem.id == media_id)
+        select(MediaItem).where(MediaItem.id == media_id, MediaItem.ephemeral_run_id.is_(None))
     )
     item = result.scalar_one_or_none()
 
@@ -1234,7 +1234,7 @@ async def get_layout_html(
     import re as re_mod
 
     result = await session.execute(
-        select(MediaItem).where(MediaItem.id == media_id)
+        select(MediaItem).where(MediaItem.id == media_id, MediaItem.ephemeral_run_id.is_(None))
     )
     item = result.scalar_one_or_none()
 
@@ -1317,7 +1317,7 @@ async def export_layout(
     from pathlib import Path as PathLib
 
     result = await session.execute(
-        select(MediaItem).where(MediaItem.id == media_id)
+        select(MediaItem).where(MediaItem.id == media_id, MediaItem.ephemeral_run_id.is_(None))
     )
     item = result.scalar_one_or_none()
     if not item:
@@ -1511,7 +1511,7 @@ async def get_thumbnail(
     # and should be viewable until permanently deleted
     result = await session.execute(
         select(MediaItem)
-        .where(MediaItem.file_hash == file_hash)
+        .where(MediaItem.file_hash == file_hash, MediaItem.ephemeral_run_id.is_(None))
         .order_by(
             # Prefer non-deleted files first
             MediaItem.deleted_at.asc().nulls_first(),
@@ -2092,7 +2092,7 @@ async def get_thumbnail_by_db_guid(
     # Query is same as get_thumbnail but session is from db_guid lookup
     result = await session.execute(
         select(MediaItem)
-        .where(MediaItem.file_hash == file_hash)
+        .where(MediaItem.file_hash == file_hash, MediaItem.ephemeral_run_id.is_(None))
         .order_by(
             MediaItem.deleted_at.asc().nulls_first(),
             MediaItem.file_unavailable.asc().nulls_first()
@@ -2210,7 +2210,7 @@ async def get_media_file_by_db_guid(
     """
     result = await session.execute(
         select(MediaItem)
-        .where(MediaItem.file_hash == file_hash)
+        .where(MediaItem.file_hash == file_hash, MediaItem.ephemeral_run_id.is_(None))
         .order_by(
             MediaItem.deleted_at.asc().nulls_first(),
             MediaItem.file_unavailable.asc().nulls_first()
@@ -2282,7 +2282,7 @@ async def get_file_by_media_id_and_db_guid(
     This is the preferred endpoint as the URL is globally unique.
     """
     result = await session.execute(
-        select(MediaItem).where(MediaItem.id == media_id)
+        select(MediaItem).where(MediaItem.id == media_id, MediaItem.ephemeral_run_id.is_(None))
     )
     item = result.scalar_one_or_none()
 
@@ -2351,7 +2351,7 @@ async def get_thumbnail_by_media_id_and_db_guid(
     theme = theme if theme in ('dark', 'light') else 'dark'
 
     result = await session.execute(
-        select(MediaItem).where(MediaItem.id == media_id)
+        select(MediaItem).where(MediaItem.id == media_id, MediaItem.ephemeral_run_id.is_(None))
     )
     item = result.scalar_one_or_none()
 
@@ -2379,7 +2379,7 @@ async def get_thumbnail_path_by_media_id(
     theme = theme if theme in ('dark', 'light') else 'dark'
 
     result = await session.execute(
-        select(MediaItem).where(MediaItem.id == media_id)
+        select(MediaItem).where(MediaItem.id == media_id, MediaItem.ephemeral_run_id.is_(None))
     )
     item = result.scalar_one_or_none()
 

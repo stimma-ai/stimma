@@ -55,6 +55,13 @@ class MediaItem(Base):
     # Effective visibility: is_hidden ?? (superseded_by IS NOT NULL)
     is_hidden = Column(Boolean, nullable=True, default=None, index=True)
 
+    # Ephemeral one-shot-run media: created while running a flow behind the tool
+    # abstraction (flow-as-tool). These are NEVER part of the user's library — they
+    # are tagged with the run id, excluded from every user-facing query / ingestion /
+    # lineage / websocket path, and hard-deleted when the run ends (or swept if the
+    # run crashes). NULL = normal, permanent media. See plans/CUSTOM_TOOLS_BUILD.md.
+    ephemeral_run_id = Column(String, nullable=True, index=True)
+
     # Tool/preset provenance - which tool and preset created this media
     tool_id = Column(String, nullable=True, index=True)  # Full tool ID (provider:tool_id) that created this media
     preset_id = Column(Integer, ForeignKey('presets.id', ondelete='SET NULL'), nullable=True, index=True)  # Preset active during generation
@@ -630,6 +637,67 @@ class Flow(Base):
             "program_hash": self.program_hash,
             "execution_state": self.execution_state,
             "pending_task_count": self.pending_task_count or 0,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
+        }
+
+
+class UserTool(Base):
+    """A flow frozen into a first-class tool (atom).
+
+    A frozen flow *is* a tool: ``program_text`` is the self-contained runnable
+    body (a snapshot of the flow's program, so the tool runs even if the source
+    flow is later deleted), and ``flow_id`` is the editing handle back to that
+    source. The interface is canonical STP (``parameter_schema`` /
+    ``output_schema`` / ``task_types``); the freeze settings (``hitl_policies``,
+    ``output_map``) record how the flow was made unattended-runnable.
+
+    Registered into the tool namespace by ``UserToolsProvider`` and executed via
+    ``flow_runtime.oneshot.run_flow_once``. See plans/FLOW_TO_TOOL.md §2/§7.
+    """
+    __tablename__ = "user_tools"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, index=True)
+    # Stable URL slug, frozen at creation. The tool id (slug-id) is used for
+    # routing / pins / presets, so it must NOT change when the tool is renamed.
+    slug = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+
+    # Editing handle: the source flow (may be deleted — the tool still runs).
+    flow_id = Column(Integer, ForeignKey('flows.id', ondelete='SET NULL'), nullable=True, index=True)
+    # Runnable body: a snapshot of the flow's program at freeze time.
+    program_text = Column(Text, nullable=False)
+
+    # Canonical STP interface (JSON text).
+    task_types = Column(Text, nullable=True)         # JSON: ["image-to-image", ...]
+    parameter_schema = Column(Text, nullable=True)   # JSON: STP parameter_schema
+    output_schema = Column(Text, nullable=True)      # JSON: STP output_schema (assets/detections)
+
+    # Freeze settings (JSON text).
+    hitl_policies = Column(Text, nullable=True)       # JSON: {equation_key: {"policy": "first"|...}}
+    output_map = Column(Text, nullable=True)          # JSON: {task_output: flow_output_name}
+
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = {'sqlite_autoincrement': True}
+
+    def to_dict(self):
+        import json
+        return {
+            "id": self.id,
+            "name": self.name,
+            "slug": self.slug,
+            "description": self.description,
+            "flow_id": self.flow_id,
+            "task_types": json.loads(self.task_types) if self.task_types else [],
+            "parameter_schema": json.loads(self.parameter_schema) if self.parameter_schema else {},
+            "output_schema": json.loads(self.output_schema) if self.output_schema else {},
+            "hitl_policies": json.loads(self.hitl_policies) if self.hitl_policies else {},
+            "output_map": json.loads(self.output_map) if self.output_map else {},
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,

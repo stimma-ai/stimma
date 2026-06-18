@@ -415,40 +415,128 @@ def _collect_legacy_return_output_bindings(result: Any) -> dict[str, str]:
     return bindings
 
 
-def _serialize_input_specs(specs: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """Turn the @flow(inputs={...}) declaration into a UI-facing schema dict.
+_MEDIA_INPUT_TYPES = {"media", "image", "video", "audio", "document"}
 
-    Matches the shape FlowInputForm.vue reads: ``{name: {type, description?,
-    default?, options?, lines?}}``. flow_lifecycle mirrors this into
-    Flow.input_schema so declaring an input in program.py is all the agent
-    needs to do — the form updates automatically.
+
+def _stp_scalar_type(t: str) -> dict[str, Any]:
+    t = (t or "").strip().lower()
+    if t in ("str", "string", "text", "markdown", "enum", "prompt"):
+        return {"type": "string"}
+    if t in ("int", "integer", "seed"):
+        return {"type": "integer"}
+    if t in ("float", "number"):
+        return {"type": "number"}
+    if t in ("bool", "boolean"):
+        return {"type": "boolean"}
+    if t in ("json", "dict", "object"):
+        return {"type": "object"}
+    if t in _MEDIA_INPUT_TYPES:
+        return {"type": "string", "format": "file-path", "x-control": "image_picker"}
+    return {"type": "string"}
+
+
+def _input_spec_to_stp_property(spec: InputSpec) -> dict[str, Any]:
+    """Map one DSL ``InputSpec`` to one canonical STP parameter_schema property.
+
+    This is the SINGLE point where a flow input becomes STP. Flows carry no
+    separate input vocabulary downstream — the input form and the freezer both
+    read this STP shape, so there is no freeze-time translation (see
+    plans/FLOW_TO_TOOL.md §2.1). ``optional`` is the one map-level marker (a
+    ``{name: prop}`` map can't hold STP's object-level ``required`` array); the
+    freezer hoists it into ``required`` when assembling the tool's schema.
+    """
+    t = (spec.type or "str").strip()
+    is_list = t.startswith("list[") and t.endswith("]")
+    if is_list:
+        elem = t[5:-1].strip()
+        if elem in _MEDIA_INPUT_TYPES:
+            prop: dict[str, Any] = {
+                "type": "array",
+                "items": {"type": "string", "format": "file-path"},
+                "x-control": "image_picker",
+            }
+        else:
+            prop = {"type": "array", "items": _stp_scalar_type(elem)}
+    else:
+        prop = _stp_scalar_type(t)
+
+    val = spec.validation or {}
+    if "min_items" in val:
+        prop["minItems"] = val["min_items"]
+    if "max_items" in val:
+        prop["maxItems"] = val["max_items"]
+    if "min" in val:
+        prop["minimum"] = val["min"]
+    if "max" in val:
+        prop["maximum"] = val["max"]
+    if "step" in val:
+        prop["x-step"] = val["step"]
+
+    if spec.options is not None:
+        prop["enum"] = list(spec.options)
+    if spec.default is not None:
+        prop["default"] = spec.default
+    if spec.description:
+        prop["description"] = spec.description
+    if spec.display_name:
+        prop["x-label"] = spec.display_name
+
+    control = (spec.ui or {}).get("control")
+    if control in ("prompt", "table", "upscale_resolution"):
+        prop["x-control"] = control
+
+    # Constrained resolution: a fixed set of allowed (w, h) pairs on the `width`
+    # input drives the ConstrainedResolutionPicker (in the flow form and the
+    # frozen tool alike). Authored as ui={"allowed_dimensions": [[w, h], ...]}.
+    allowed_dims = (spec.ui or {}).get("allowed_dimensions")
+    if allowed_dims:
+        prop["x-allowed-dimensions"] = allowed_dims
+    # `type="prompt"` is shorthand for the prompt control — mirror the seed
+    # handling below, which honors both type= and ui control=. Without this,
+    # _stp_scalar_type collapses "prompt" to a plain string and the textarea
+    # fallback below claims any multi-line prompt input.
+    if (spec.type or "").strip().lower() == "prompt":
+        prop["x-control"] = "prompt"
+    if spec.lines and int(spec.lines) > 1 and prop.get("type") == "string" and "x-control" not in prop:
+        prop["x-control"] = "textarea"
+
+    # Seed: a first-class control (type="seed" or ui control="seed"). It renders
+    # as the standard randomizable seed control in tools and as a value + dice
+    # (reroll) on the flow screen — see plans/FLOW_TO_TOOL.md §seed. Give it a
+    # sane integer range so the reroll/randomize lands on a valid value.
+    if (spec.type or "").strip().lower() == "seed" or control == "seed":
+        prop["type"] = "integer"
+        prop["x-control"] = "seed"
+        prop.setdefault("minimum", 0)
+        prop.setdefault("maximum", 2**31 - 1)
+
+    # table column defs (list[json] with declared fields) -> items.properties
+    if spec.fields:
+        items = prop.setdefault("items", {"type": "object"})
+        items["properties"] = {
+            fn: _stp_scalar_type(str((fd or {}).get("type", "str")))
+            for fn, fd in (spec.fields or {}).items()
+        }
+
+    if spec.optional:
+        prop["optional"] = True
+    return prop
+
+
+def _serialize_input_specs(specs: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Turn @flow(inputs={...}) into the flow's canonical STP input schema.
+
+    Output is ``{name: <STP property>}`` (lockstep with STP — minimum/maximum/
+    x-step, x-control, x-enum-labels via enum, x-label, media as file-path +
+    image_picker, ...). ``FlowInputForm.vue`` renders this directly and the
+    freezer assembles it into the tool's parameter_schema with no translation.
+    flow_lifecycle mirrors it into Flow.input_schema.
     """
     out: dict[str, dict[str, Any]] = {}
     for name, spec in specs.items():
         if not isinstance(spec, InputSpec):
             continue
-        entry: dict[str, Any] = {"type": spec.type}
-        if spec.description:
-            entry["description"] = spec.description
-        if spec.default is not None:
-            entry["default"] = spec.default
-        if spec.options is not None:
-            entry["options"] = list(spec.options)
-        if spec.lines and int(spec.lines) > 1:
-            entry["lines"] = int(spec.lines)
-        if spec.optional:
-            entry["optional"] = True
-        if spec.display_name:
-            entry["display_name"] = spec.display_name
-        if spec.ui:
-            entry["ui"] = dict(spec.ui)
-        if spec.validation:
-            entry["validation"] = dict(spec.validation)
-        if spec.item:
-            entry["item"] = dict(spec.item)
-        if spec.fields:
-            entry["fields"] = dict(spec.fields)
-        out[name] = entry
+        out[name] = _input_spec_to_stp_property(spec)
     return out
 
 

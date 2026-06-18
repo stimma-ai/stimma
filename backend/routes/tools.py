@@ -123,6 +123,24 @@ class TestConnectionResponse(BaseModel):
 # Provider Routes
 # =============================================================================
 
+@router.get("/task-types")
+async def list_task_types():
+    """Canonical task-type contracts (required/optional inputs + required output),
+    sourced from ``tasks/schemas.py`` so the UI never hardcodes them. Used by the
+    freeze dialog to populate the task-type list and validate flow ↔ task fit."""
+    from tasks.schemas import TASK_SCHEMA_REQUIREMENTS
+
+    return [
+        {
+            "task_type": task_type,
+            "required_input": req.get("required_input", []),
+            "optional_input": req.get("optional_input", []),
+            "required_output": req.get("required_output", []),
+        }
+        for task_type, req in TASK_SCHEMA_REQUIREMENTS.items()
+    ]
+
+
 @router.get("/providers", response_model=List[ProviderStatusResponse])
 async def list_providers():
     """List all registered tool providers and their status."""

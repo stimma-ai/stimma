@@ -1007,6 +1007,14 @@ class GenerationQueue:
             from pipeline_telemetry import new_run_id
             parameters.setdefault("_run_id", new_run_id())
 
+            # One-shot flow-as-tool: tag this generation so the worker keeps its media
+            # out of the library (ephemeral; hard-deleted when the run ends). The
+            # contextvar is set by run_flow_once and inherited by the tool evaluator.
+            from flow_runtime.ephemeral import current_ephemeral_run_id
+            _eph_run = current_ephemeral_run_id()
+            if _eph_run is not None:
+                parameters["_ephemeral_run_id"] = _eph_run
+
             log.info(f"Creating job: backend_name={backend_name}, tool_id={tool_id}" +
                      (f", batch_id={batch_id}" if batch_id else ""))
             job = GenerationJob(
@@ -1179,7 +1187,7 @@ class GenerationQueue:
 
         Returns job dicts with inline media data (file_hash, markers, generation_time) to avoid N+1 queries.
         """
-        from sqlalchemy import or_, and_
+        from sqlalchemy import or_, and_, func
         from sqlalchemy.orm import selectinload
 
         # Filter by current profile and use that profile's database
@@ -1212,6 +1220,11 @@ class GenerationQueue:
                             MediaItem.deleted_at.is_(None)
                         )
                     )
+                )
+                # Internal one-shot flow-as-tool jobs are stamped with _ephemeral_run_id in
+                # their params; they must never appear in the user's generation history/queue.
+                .where(
+                    func.json_extract(GenerationJob.parameters, '$._ephemeral_run_id').is_(None)
                 )
             )
 
@@ -1633,7 +1646,7 @@ class GenerationQueue:
 
         log.info(f"Generation worker {worker_id} stopped")
 
-    async def _insert_generated_file(self, output_path: str, session: AsyncSession, chat_item_id: int = None, generation_metadata: str = None) -> MediaItem:
+    async def _insert_generated_file(self, output_path: str, session: AsyncSession, chat_item_id: int = None, generation_metadata: str = None, ephemeral_run_id: str = None) -> MediaItem:
         """
         Insert a generated file directly into the database with metadata already computed.
 
@@ -1753,6 +1766,12 @@ class GenerationQueue:
                 media_item.chat_item_id = chat_item_id
             if generation_metadata:
                 media_item.generation_metadata = generation_metadata
+            if ephemeral_run_id:
+                media_item.ephemeral_run_id = ephemeral_run_id
+                media_item.is_hidden = True
+                media_item.clip_status = 'skipped'
+                media_item.vlm_caption_status = 'skipped'
+                media_item.face_detection_status = 'skipped'
             # Flush to ensure changes are written
             await session.flush()
         else:
@@ -1776,12 +1795,22 @@ class GenerationQueue:
                 chat_item_id=chat_item_id,
                 # For videos, we pass the generation metadata directly since it can't be embedded
                 generation_metadata=generation_metadata,
+                # One-shot flow-as-tool: born ephemeral — hidden, un-ingested, hard-deleted at run end.
+                ephemeral_run_id=ephemeral_run_id,
+                is_hidden=True if ephemeral_run_id else None,
+                clip_status='skipped' if ephemeral_run_id else 'pending',
+                vlm_caption_status='skipped' if ephemeral_run_id else 'pending',
+                face_detection_status='skipped' if ephemeral_run_id else 'pending',
             )
 
             session.add(media_item)
             # Flush to get the ID without committing - caller will commit
             await session.flush()
             log.info(f"Inserted generated media item {media_item.id} with metadata (no ingestion worker)")
+
+        # Ephemeral media are never ingested or indexed — skip the worker signal entirely.
+        if ephemeral_run_id:
+            return media_item
 
         # Signal ingestion worker to process background tasks (CLIP, face detection, etc.)
         # This doesn't trigger a filesystem scan, just wakes the worker to process pending items
@@ -2696,6 +2725,10 @@ class GenerationQueue:
             except (json.JSONDecodeError, ValueError):
                 pass
 
+        # One-shot flow-as-tool: this generation's media is ephemeral — keep it out of
+        # lineage / markers / project / websocket; it is hard-deleted when the run ends.
+        ephemeral_run_id = params.get('_ephemeral_run_id')
+
         # ALL post-generation database operations in ONE session to avoid lock contention
         # This is critical for SQLite - multiple sessions competing for write locks cause deadlocks
         _t0 = _time.time()
@@ -2705,20 +2738,22 @@ class GenerationQueue:
                 output_path,
                 session=session,
                 chat_item_id=chat_item_id,
-                generation_metadata=generation_metadata_json
+                generation_metadata=generation_metadata_json,
+                ephemeral_run_id=ephemeral_run_id
             )
             log.debug(f"Job {job.id}: TIMING - _insert_generated_file: {(_time.time() - _t0)*1000:.0f}ms")
             log.debug(f"Job {job.id}: Inserted media item {media_item.id} directly (chat_item_id={chat_item_id}, profile_id={profile_id})")
 
             # Record lineage relationships to media_lineage table
             _t1 = _time.time()
-            await self._record_lineage(media_item.id, lineage_data.get('source_inputs', []), task_type, session)
+            if not ephemeral_run_id:
+                await self._record_lineage(media_item.id, lineage_data.get('source_inputs', []), task_type, session)
             log.debug(f"Job {job.id}: TIMING - _record_lineage: {(_time.time() - _t1)*1000:.0f}ms")
 
             # Record inspiration lineage if inspired_by_media_id is present
             # This adds an additional row (not replacing derived lineage) to track inspiration source
             inspired_by_media_id = params.get('inspired_by_media_id')
-            if inspired_by_media_id:
+            if inspired_by_media_id and not ephemeral_run_id:
                 session.add(MediaLineage(
                     media_id=media_item.id,
                     source_media_id=int(inspired_by_media_id),
@@ -2731,7 +2766,8 @@ class GenerationQueue:
             # Propagate tool lineage (denormalized tool chain for filtering)
             _t1 = _time.time()
             source_ids = [s.get('media_id') for s in lineage_data.get('source_inputs', []) if s.get('media_id')]
-            await propagate_tool_lineage(session, media_item.id, source_ids, job.tool_id)
+            if not ephemeral_run_id:
+                await propagate_tool_lineage(session, media_item.id, source_ids, job.tool_id)
             log.debug(f"Job {job.id}: TIMING - propagate_tool_lineage: {(_time.time() - _t1)*1000:.0f}ms")
 
             # For image tasks, update generation_metadata with lineage data and tool_id
@@ -2780,7 +2816,7 @@ class GenerationQueue:
                 media_item.preset_id = job.preset_id
 
             # Associate generated media with project if job is project-scoped
-            if job.project_id:
+            if job.project_id and not ephemeral_run_id:
                 from project_service import attach_media_to_project
                 await attach_media_to_project(session, job.project_id, media_item.id)
                 log.info(f"Job {job.id}: Attached media {media_item.id} to project {job.project_id}")
@@ -2837,12 +2873,12 @@ class GenerationQueue:
 
         # Apply auto-markers if specified
         auto_marker_ids = params.get('auto_marker_ids')
-        if media_ready and auto_marker_ids:
+        if media_ready and auto_marker_ids and not ephemeral_run_id:
             await self._apply_auto_markers(media_item.id, auto_marker_ids, profile_id)
 
         # Only broadcast if media is fully ready with hash
         _t0 = _time.time()
-        if media_ready:
+        if media_ready and not ephemeral_run_id:
             job_dict = await self.get_job(job.id, profile_id=profile_id)
             if self._websocket_manager:
                 await self._websocket_manager.broadcast('generation_job_completed', {

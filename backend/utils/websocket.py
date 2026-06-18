@@ -165,7 +165,7 @@ class WebSocketManager:
 ws_manager = WebSocketManager()
 
 
-async def broadcast_media_updated(media_items, fields: list[str], session=None):
+async def broadcast_media_updated(media_items, fields: list[str], session=None, include_ephemeral: bool = False):
     """
     Broadcast media_updated event for one or more media items.
 
@@ -173,6 +173,9 @@ async def broadcast_media_updated(media_items, fields: list[str], session=None):
         media_items: Single MediaItem or list of MediaItems (must have to_dict method)
         fields: List of field names that changed (e.g., ["markers"], ["tags"], ["caption", "prompt"])
         session: Optional database session for refreshing items
+        include_ephemeral: When False (default), media tagged with ephemeral_run_id (one-shot
+            flow-as-tool run intermediates) are silently skipped so no media_updated event ever
+            surfaces them. One guard here covers every caller.
     """
     from sqlalchemy.orm import selectinload
     from sqlalchemy import select
@@ -183,6 +186,16 @@ async def broadcast_media_updated(media_items, fields: list[str], session=None):
 
     if not media_items:
         return
+
+    # Drop ephemeral one-shot-run intermediates before they can reach any client.
+    # getattr guard: callers may pass lightweight objects, but real MediaItems carry the field.
+    if not include_ephemeral:
+        media_items = [
+            item for item in media_items
+            if getattr(item, "ephemeral_run_id", None) is None
+        ]
+        if not media_items:
+            return
 
     # If session provided, refresh items to get latest data with relationships
     if session:
