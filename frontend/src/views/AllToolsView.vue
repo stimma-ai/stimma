@@ -136,13 +136,26 @@
             <div
               v-for="tool in group.tools"
               :key="tool.full_tool_id"
-              class="rounded-lg p-[18px] h-[136px] flex flex-col justify-between transition-all cursor-pointer"
+              class="relative group rounded-lg p-[18px] h-[136px] flex flex-col justify-between transition-all cursor-pointer"
               :class="[
                 tool.availability !== 'available' ? 'opacity-40 pointer-events-none' : '',
                 isStimmaCloudTool(tool) ? 'bg-overlay-faint stimma-cloud-border hover:bg-overlay-subtle' : 'bg-overlay-faint border border-edge-subtle hover:bg-overlay-subtle hover:border-edge'
               ]"
               @click="openTool(tool)"
+              @contextmenu.prevent="isUserTool(tool) ? openToolMenu($event, tool) : null"
             >
+              <!-- Per-tool menu (user tools only) -->
+              <button
+                v-if="isUserTool(tool)"
+                class="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-md text-content-muted hover:text-content hover:bg-overlay-light opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Tool options"
+                @click.stop="openToolMenu($event, tool)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+                </svg>
+              </button>
+
               <!-- Top: Icon + Name/Description + Price -->
               <div class="flex gap-4">
                 <!-- Task type icon -->
@@ -167,6 +180,10 @@
 
               <!-- Bottom: Badge row (provider + feature badges) -->
               <div class="flex items-center gap-2 overflow-hidden">
+                <!-- "Custom Tool" badge for user-provided tools -->
+                <span v-if="isUserTool(tool)" class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-500/15 border border-blue-500/50 text-blue-400 flex-shrink-0">
+                  Custom Tool
+                </span>
                 <!-- Provider as a badge -->
                 <span v-if="isStimmaCloudTool(tool)" class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-teal-600/10 border border-teal-600/25 flex-shrink-0">
                   <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" :stroke="'url(#stimma-gradient-alltools)'">
@@ -174,7 +191,7 @@
                   </svg>
                   <span class="stimma-cloud-text">Stimma Cloud</span>
                 </span>
-                <span v-else class="px-2 py-0.5 text-[10px] font-medium rounded-full border border-edge text-content-secondary flex-shrink-0">
+                <span v-else-if="!isUserTool(tool)" class="px-2 py-0.5 text-[10px] font-medium rounded-full border border-edge text-content-secondary flex-shrink-0">
                   {{ tool.provider_name || tool.provider_id }}
                 </span>
 
@@ -193,6 +210,59 @@
         </div>
       </div>
     </div>
+
+    <!-- Per-tool context menu (user tools only) -->
+    <Teleport to="body">
+      <div
+        v-if="toolMenu.visible"
+        ref="toolMenuRef"
+        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[9999] py-1 min-w-[160px]"
+        :style="{ left: toolMenu.x + 'px', top: toolMenu.y + 'px' }"
+      >
+        <button
+          @click="editToolFromMenu"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+        >
+          <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+          </svg>
+          <span>Edit</span>
+        </button>
+        <div class="border-t border-edge-subtle my-1"></div>
+        <button
+          @click="deleteToolFromMenu"
+          class="w-full px-3 py-2 text-left text-xs text-red-500 hover:bg-overlay-light flex items-center gap-2"
+        >
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+          </svg>
+          <span>Delete</span>
+        </button>
+      </div>
+    </Teleport>
+
+    <!-- Edit tool (re-freeze) dialog -->
+    <FreezeToolDialog
+      :show="editDialogOpen"
+      :tool="editingTool"
+      :flow-name="editingFlowName"
+      :flow-output-names="editingFlowOutputNames"
+      @cancel="editDialogOpen = false"
+      @saved="onToolEdited"
+      @deleted="onToolDeleted"
+      @open-flow="onOpenBackingFlow"
+    />
+
+    <!-- Delete confirmation -->
+    <ConfirmModal
+      :show="confirmDeleteOpen"
+      title="Delete tool"
+      :message="`Delete '${pendingDeleteTool?.name || 'this tool'}'? The flow it was made from is not affected.`"
+      confirm-text="Delete"
+      cancel-text="Cancel"
+      @confirm="confirmDeleteTool"
+      @cancel="confirmDeleteOpen = false"
+    />
   </div>
 </template>
 
@@ -204,6 +274,12 @@ import { makeProfileKey } from '../utils/storageKeys'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { formatTaskTypeLabel, TASK_TYPE_LABELS, getTaskTypeIconPath, getTaskTypeGradientClass } from '../utils/taskTypeIcons'
 import ConnectionError from '../components/ConnectionError.vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import FreezeToolDialog from '../components/flow/FreezeToolDialog.vue'
+import { getApiBase } from '../apiConfig'
+import { useFlowsApi } from '../composables/useFlowsApi'
+import { useToasts } from '../composables/useToasts'
+import axios from 'axios'
 
 const props = defineProps({
   projectId: {
@@ -218,7 +294,7 @@ defineOptions({
 
 const router = useRouter()
 const route = useRoute()
-const { fetchProvidersAndTools, subscribeToProviderChanges } = useProvidersApi()
+const { fetchProvidersAndTools, subscribeToProviderChanges, clearCache } = useProvidersApi()
 
 // WebSocket subscription for reactive updates
 let unsubscribeFromProviderChanges = null
@@ -595,7 +671,153 @@ function getBadgeClass(badge) {
 }
 
 
+// ==========================================================================
+// User Tools — "Yours" badge + per-tool Edit/Delete
+// ==========================================================================
+
+const USER_TOOLS_PROVIDER_ID = 'user-tools'
+
+function isUserTool(tool) {
+  return tool?.provider_id === USER_TOOLS_PROVIDER_ID
+}
+
+const { getFlow } = useFlowsApi()
+const { addToast } = useToasts()
+
+// Lightweight context menu (matches EntityContextMenu visual style; user tools
+// carry string ids + Edit/Delete-only actions, so we keep this self-contained
+// rather than overloading the chat/board singleton menu).
+const toolMenu = ref({ visible: false, x: 0, y: 0, tool: null })
+const toolMenuRef = ref(null)
+
+function openToolMenu(event, tool) {
+  if (!isUserTool(tool)) return
+  toolMenu.value = { visible: true, x: event.clientX, y: event.clientY, tool }
+}
+
+function closeToolMenu() {
+  toolMenu.value = { ...toolMenu.value, visible: false, tool: null }
+}
+
+// Edit dialog state
+const editDialogOpen = ref(false)
+const editingTool = ref(null)            // full UserTool dict
+const editingFlowOutputNames = ref([])   // source flow's declared output names
+const editingFlowName = ref(null)        // source flow's name (for the dialog banner)
+
+// Delete confirmation state
+const confirmDeleteOpen = ref(false)
+const pendingDeleteTool = ref(null)      // the ProviderTool from the grid
+
+// Resolve a grid ProviderTool to its canonical UserTool row (with output_map,
+// hitl_policies, flow_id, etc.) via GET /api/user-tools.
+async function fetchUserToolRow(providerTool) {
+  const userToolId = providerTool?.metadata?.user_tool_id
+  const base = getApiBase()
+  const resp = await axios.get(`${base}/user-tools`)
+  const rows = resp.data || []
+  if (userToolId != null) {
+    const match = rows.find((r) => String(r.id) === String(userToolId))
+    if (match) return match
+  }
+  // Fallback: match by name when metadata is missing.
+  return rows.find((r) => r.name === providerTool.name) || null
+}
+
+async function editToolFromMenu() {
+  const providerTool = toolMenu.value.tool
+  closeToolMenu()
+  if (!providerTool) return
+  try {
+    const row = await fetchUserToolRow(providerTool)
+    if (!row) {
+      addToast('Could not load tool for editing', 'error', 5000)
+      return
+    }
+    // Derive the source flow's name + output names for the dialog.
+    let outputNames = []
+    editingFlowName.value = null
+    if (row.flow_id != null) {
+      try {
+        const flow = await getFlow(row.flow_id)
+        editingFlowName.value = flow?.name || null
+        const schema = flow?.output_schema
+        if (schema && typeof schema === 'object') {
+          const props = schema.properties && typeof schema.properties === 'object' ? schema.properties : schema
+          outputNames = Object.keys(props).filter((k) => !['type', 'properties', 'required'].includes(k))
+        }
+      } catch (e) {
+        console.warn('[AllToolsView] failed to load backing flow outputs', e)
+      }
+    }
+    // Always include any flow outputs already referenced by the saved map.
+    for (const v of Object.values(row.output_map || {})) {
+      if (v && !outputNames.includes(v)) outputNames.push(v)
+    }
+    editingFlowOutputNames.value = outputNames
+    editingTool.value = row
+    editDialogOpen.value = true
+  } catch (err) {
+    console.error('[AllToolsView] edit tool failed', err)
+    addToast('Could not load tool for editing', 'error', 5000)
+  }
+}
+
+function deleteToolFromMenu() {
+  pendingDeleteTool.value = toolMenu.value.tool
+  closeToolMenu()
+  confirmDeleteOpen.value = true
+}
+
+async function confirmDeleteTool() {
+  const providerTool = pendingDeleteTool.value
+  confirmDeleteOpen.value = false
+  pendingDeleteTool.value = null
+  if (!providerTool) return
+  const userToolId = providerTool?.metadata?.user_tool_id
+  if (userToolId == null) {
+    addToast('Could not resolve tool id', 'error', 5000)
+    return
+  }
+  try {
+    const base = getApiBase()
+    await axios.delete(`${base}/user-tools/${userToolId}`)
+    addToast(`Tool "${providerTool.name}" deleted`, 'success', 4000)
+    clearCacheAndReload()
+  } catch (err) {
+    const detail = err?.response?.data?.detail || err?.message || 'Failed to delete tool'
+    addToast(typeof detail === 'string' ? detail : 'Failed to delete tool', 'error', 6000)
+  }
+}
+
+function clearCacheAndReload() {
+  try { clearCache() } catch (_) {}
+  loadProviders()
+}
+
+// FreezeToolDialog (edit mode) callbacks
+function onToolEdited() {
+  editDialogOpen.value = false
+  editingTool.value = null
+  clearCacheAndReload()
+}
+
+function onToolDeleted() {
+  editDialogOpen.value = false
+  editingTool.value = null
+  clearCacheAndReload()
+}
+
+function onOpenBackingFlow(flowId) {
+  editDialogOpen.value = false
+  router.push({ name: 'flow', params: { id: String(flowId) } })
+}
+
 function handleKeydown(e) {
+  if (e.key === 'Escape' && toolMenu.value.visible) {
+    closeToolMenu()
+    return
+  }
   // Focus search on '/' key, unless already in an input
   if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
     e.preventDefault()
@@ -606,6 +828,10 @@ function handleKeydown(e) {
 function handleClickOutside(e) {
   if (providerDropdownRef.value && !providerDropdownRef.value.contains(e.target)) {
     providerDropdownOpen.value = false
+  }
+  // Close the per-tool menu when clicking outside it.
+  if (toolMenu.value.visible && toolMenuRef.value && !toolMenuRef.value.contains(e.target)) {
+    closeToolMenu()
   }
 }
 

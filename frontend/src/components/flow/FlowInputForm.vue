@@ -1,16 +1,68 @@
 <template>
-  <div class="flow-input-form space-y-3" @keydown.capture="onCommitShortcut">
+  <div class="flow-input-form" @keydown.capture="onCommitShortcut">
     <div v-if="fields.length === 0" class="text-[12px] text-content-muted italic">
       This flow has no inputs yet. Ask the assistant to add the inputs you want to vary.
     </div>
 
+    <div v-else class="rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]">
+      <!-- Resolution-family pickers — same controls ToolView uses, so the flow
+           and the tool it freezes into look identical. -->
+      <div v-if="res.allowedDimensions" class="px-4 py-3">
+        <label class="block text-sm font-medium text-content mb-2">Resolution</label>
+        <ConstrainedResolutionPicker
+          :allowed-dimensions="res.allowedDimensions"
+          :width="numVal('width', res.allowedDimensions[0][0])"
+          :height="numVal('height', res.allowedDimensions[0][1])"
+          @update="setDims"
+        />
+      </div>
+      <div v-else-if="res.hasWidthHeight && !res.hasMegapixels" class="px-4 py-3">
+        <label class="block text-sm font-medium text-content mb-2">Resolution</label>
+        <ResolutionPicker
+          :width="numVal('width', 1024)"
+          :height="numVal('height', 1024)"
+          :has-reference-images="hasReferenceImages"
+          @update="setDims"
+        />
+      </div>
+
+      <div v-if="res.hasAspectRatio" class="px-4 py-3">
+        <label class="block text-sm font-medium text-content mb-2">Aspect ratio</label>
+        <GeminiResolutionPicker
+          :aspect-ratio="String(values.aspect_ratio ?? '1:1')"
+          :image-size="String(values.image_size ?? '1K')"
+          :image-size-choices="imageSizeChoices"
+          @update:aspect-ratio="values.aspect_ratio = $event"
+          @update:image-size="setImageSize($event)"
+        />
+      </div>
+
+      <div v-if="res.hasMegapixels" class="px-4 py-3">
+        <label class="block text-sm font-medium text-content mb-2">Megapixels</label>
+        <MegapixelsPicker
+          :model-value="numVal('megapixels', 1)"
+          :min-megapixels="megapixelsMin"
+          :max-megapixels="megapixelsMax"
+          @update:model-value="values.megapixels = $event"
+        />
+      </div>
+
+      <div v-if="res.showUpscalePicker" class="px-4 py-3">
+        <label class="block text-sm font-medium text-content mb-2">Upscale</label>
+        <UpscaleResolutionPicker
+          v-model="upscaleModel"
+          :support-scale-factor="res.hasScaleFactor"
+          :support-resolution="res.hasUpscaleResolution"
+        />
+      </div>
+
     <div
-      v-for="field in fields"
+      v-for="field in visibleFields"
       :key="field.name"
-      class="rounded-lg border border-edge-subtle bg-overlay-faint px-4 py-3"
-      :class="field.kind === 'prompt' ? 'space-y-3' : 'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6'"
+      class="px-4 py-3"
     >
-      <div :class="field.kind === 'prompt' ? '' : 'sm:w-[42%] sm:flex-shrink-0'">
+      <div :class="isStacked(field) ? '' : 'flex items-center justify-between gap-4'">
+      <div :class="isStacked(field) ? 'mb-2' : 'min-w-0 flex-1'">
         <label class="block text-sm font-medium text-content" :title="field.label">
           {{ field.label }}<span v-if="field.required" class="text-red-400 ml-0.5">*</span>
         </label>
@@ -18,11 +70,11 @@
           {{ field.description }}
         </div>
       </div>
-      <div :class="field.kind === 'prompt' ? 'w-full' : 'flex-1 min-w-0 sm:max-w-xl'">
+      <div :class="isStacked(field) ? 'w-full' : 'flex-shrink-0'">
         <select
           v-if="field.kind === 'enum'"
           v-model="values[field.name]"
-          class="w-full bg-base border rounded px-2 py-1.5 text-sm text-content focus:outline-none"
+          class="w-56 max-w-full bg-base border rounded px-2 py-1.5 text-sm text-content focus:outline-none"
           :class="fieldInputClass(field)"
         >
           <option v-for="opt in field.options" :key="String(opt)" :value="opt">{{ formatOption(field, opt) }}</option>
@@ -123,6 +175,34 @@
           </div>
         </div>
 
+        <!-- Seed: committed value + dice (reroll). No auto-randomize on flows. -->
+        <div v-else-if="field.kind === 'seed'" class="flex items-center gap-2">
+          <input
+            v-model.number="values[field.name]"
+            type="number"
+            class="w-32 bg-base border rounded px-2 py-1.5 text-sm text-content focus:outline-none"
+            :class="fieldInputClass(field)"
+            :min="field.min"
+            :max="field.max"
+            :step="field.step ?? 1"
+          />
+          <button
+            type="button"
+            class="flex items-center justify-center w-8 h-8 rounded-md border border-edge bg-overlay-subtle text-content-secondary hover:text-content hover:bg-overlay-hover transition-colors"
+            title="Roll a new seed"
+            @click="rerollSeed(field)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-4 h-4">
+              <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
+              <circle cx="8.5" cy="8.5" r="1.15" fill="currentColor" stroke="none" />
+              <circle cx="15.5" cy="8.5" r="1.15" fill="currentColor" stroke="none" />
+              <circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none" />
+              <circle cx="8.5" cy="15.5" r="1.15" fill="currentColor" stroke="none" />
+              <circle cx="15.5" cy="15.5" r="1.15" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
+        </div>
+
         <div v-else-if="field.kind === 'number'" class="flex items-center gap-2">
           <input
             v-if="field.control === 'slider'"
@@ -148,7 +228,7 @@
           v-else-if="field.kind === 'boolean'"
           v-model="values[field.name]"
           type="checkbox"
-          class="mt-1.5"
+          class="w-4 h-4 rounded"
         />
 
         <div
@@ -226,20 +306,27 @@
           :class="fieldInputClass(field)"
           :placeholder="field.description || ''"
         />
-
-        <div v-if="errors[field.name]" class="text-[11px] text-red-400 mt-0.5">
-          {{ errors[field.name] }}
-        </div>
       </div>
+      </div>
+      <div v-if="errors[field.name]" class="text-[11px] text-red-400 mt-1.5">
+        {{ errors[field.name] }}
+      </div>
+    </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import axios from 'axios'
 import { MediaImage } from '../media'
 import AIPromptEditor from '../generation/AIPromptEditor.vue'
+import ResolutionPicker from '../ResolutionPicker.vue'
+import MegapixelsPicker from '../generation/MegapixelsPicker.vue'
+import GeminiResolutionPicker from '../generation/GeminiResolutionPicker.vue'
+import ConstrainedResolutionPicker from '../generation/ConstrainedResolutionPicker.vue'
+import UpscaleResolutionPicker from '../generation/UpscaleResolutionPicker.vue'
+import { detectResolutionControls, paramsConsumedByResolutionPickers } from '../../utils/resolutionControls'
 import { getDroppedMediaIds } from '../../composables/useDragPreview'
 
 interface Props {
@@ -264,7 +351,7 @@ const emit = defineEmits<{
   (e: 'update:valid', value: boolean): void
 }>()
 
-type FieldKind = 'text' | 'prompt' | 'number' | 'enum' | 'list' | 'table' | 'boolean' | 'media' | 'media_list'
+type FieldKind = 'text' | 'prompt' | 'number' | 'seed' | 'enum' | 'list' | 'table' | 'boolean' | 'media' | 'media_list'
 type ColumnKind = 'text' | 'number' | 'boolean'
 
 interface TableColumn {
@@ -329,7 +416,7 @@ function typeToColumnKind(type: string): ColumnKind {
 }
 
 function parseColumns(raw: any): TableColumn[] {
-  const source = raw?.item?.fields || raw?.fields || {}
+  const source = raw?.items?.properties || raw?.item?.fields || raw?.fields || {}
   return Object.entries(source).map(([name, def]) => {
     const d = normalizeSpec(def)
     const type = String(d.type || d.kind || 'str')
@@ -352,59 +439,140 @@ const fields = computed<Field[]>(() => {
   const schema = props.schema || {}
   for (const [name, rawDef] of Object.entries(schema)) {
     const d: any = normalizeSpec(rawDef)
-    const type = String(d.type || d.kind || 'str')
+    // Canonical STP property (with tolerant fallbacks to any legacy shape).
+    const type = String(d.type || d.kind || 'string')
     const ui = d.ui || {}
     const validation = d.validation || {}
-    const control = String(ui.control || d.control || '')
+    const format = String(d.format || '')
+    const control = String(d['x-control'] || ui.control || d.control || '')
+    const enumVals = Array.isArray(d.enum) ? d.enum : (Array.isArray(d.options) ? d.options : null)
+    const itemFormat = String(d.items?.format || '')
     const columns = parseColumns(d)
+    const isArray = type === 'array' || type.startsWith('list')
     let kind: FieldKind = 'text'
-    if (type === 'enum' || Array.isArray(d.options)) kind = 'enum'
-    else if (type === 'prompt' || control === 'prompt') kind = 'prompt'
-    else if (type === 'list[media]' || type === 'media_list' || type === 'list[image]') kind = 'media_list'
-    else if (type === 'media' || type === 'image' || type === 'video') kind = 'media'
-    else if ((type === 'list[json]' || type === 'list[dict]') && (control === 'table' || columns.length > 0)) kind = 'table'
-    else if (type.startsWith('list') || Array.isArray(d.default)) kind = 'list'
-    else if (type === 'int' || type === 'integer' || type === 'number' || type === 'float') kind = 'number'
-    else if (type === 'bool' || type === 'boolean') kind = 'boolean'
-    const rawLines = d.lines ?? ui.rows
+    if (enumVals) kind = 'enum'
+    else if (control === 'prompt' || type === 'prompt') kind = 'prompt'
+    else if (isArray && (itemFormat === 'file-path' || control === 'image_picker' || type === 'list[media]' || type === 'media_list' || type === 'list[image]')) kind = 'media_list'
+    else if (format === 'file-path' || control === 'image_picker' || type === 'media' || type === 'image' || type === 'video') kind = 'media'
+    else if (isArray && (control === 'table' || columns.length > 0)) kind = 'table'
+    else if (isArray || Array.isArray(d.default)) kind = 'list'
+    // Seed: a committed integer value with a dice (reroll) button — no
+    // auto-randomize on the flow screen (that behavior is tool-screen only).
+    else if (control === 'seed') kind = 'seed'
+    else if (type === 'integer' || type === 'number' || type === 'int' || type === 'float') kind = 'number'
+    else if (type === 'boolean' || type === 'bool') kind = 'boolean'
     const promptDefault = props.defaultPromptLines
-    const linesRaw = Number(rawLines ?? (kind === 'prompt' ? promptDefault : 1))
+    const rawLines = d.lines ?? ui.rows
+    const wantsTextarea = control === 'textarea' || Number(rawLines) > 1
+    const linesRaw = Number(rawLines ?? (kind === 'prompt' ? promptDefault : (wantsTextarea ? 4 : 1)))
     const lines = Number.isFinite(linesRaw) && linesRaw > 0
       ? Math.floor(linesRaw)
-      : (kind === 'prompt' ? promptDefault : 1)
+      : (kind === 'prompt' ? promptDefault : (wantsTextarea ? 4 : 1))
     const required = d.required ?? (d.optional ? false : true)
     out.push({
       name,
-      label: d.display_name || d.label || humanizeName(name),
+      label: d['x-label'] || d.display_name || d.label || humanizeName(name),
       description: d.description || '',
       type,
       kind,
-      control,
-      options: d.options,
-      optionLabels: d.option_labels || d.enumLabels,
+      control: wantsTextarea && !control ? 'textarea' : control,
+      options: enumVals || undefined,
+      optionLabels: d['x-enum-labels'] || d.option_labels || d.enumLabels,
       required,
       default: d.default,
       lines,
       itemLabel: ui.item_label || d.item_label || 'Item',
-      itemType: String(d.item?.type || listElementType(type)),
+      itemType: String(d.items?.type || d.item?.type || listElementType(type)),
       columns,
-      min: validation.min ?? d.minimum ?? d.min,
-      max: validation.max ?? d.maximum ?? d.max,
-      step: validation.step ?? d.step,
-      minItems: validation.min_items ?? d.min_items,
-      maxItems: validation.max_items ?? d.max_items,
+      min: d.minimum ?? validation.min ?? d.min,
+      max: d.maximum ?? validation.max ?? d.max,
+      step: d['x-step'] ?? validation.step ?? d.step,
+      minItems: d.minItems ?? validation.min_items ?? d.min_items,
+      maxItems: d.maxItems ?? validation.max_items ?? d.max_items,
       unique: Boolean(validation.unique ?? d.unique ?? false),
     })
   }
   return out
 })
 
+// ----- Resolution-family special controls (shared with ToolView) -----
+// Same detection ToolView uses, so a flow's width/height/megapixels/aspect_ratio/
+// upscale inputs render with the dedicated pickers here AND after freezing.
+const normalizedProps = computed<Record<string, any>>(() => {
+  const schema = props.schema || {}
+  const out: Record<string, any> = {}
+  for (const [name, def] of Object.entries(schema)) out[name] = normalizeSpec(def)
+  return out
+})
+const res = computed(() => detectResolutionControls(normalizedProps.value))
+const pickerConsumed = computed(() => paramsConsumedByResolutionPickers(normalizedProps.value))
+
+// Rendered fields = all fields minus those a picker owns. `fields` stays the full
+// list so values are still seeded + submitted for the picker-driven params.
+const visibleFields = computed(() => fields.value.filter((f) => !pickerConsumed.value.has(f.name)))
+
+// The resolution picker's "when reference images change" options only make
+// sense if the flow actually takes reference images.
+const hasReferenceImages = computed(() => 'input_images' in normalizedProps.value)
+const imageSizeChoices = computed<string[]>(() => normalizedProps.value.image_size?.enum || [])
+const megapixelsMin = computed<number | undefined>(() => normalizedProps.value.megapixels?.minimum)
+const megapixelsMax = computed<number | undefined>(() => normalizedProps.value.megapixels?.maximum)
+
+function numVal(name: string, fallback: number): number {
+  const v = values[name]
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  const d = normalizedProps.value[name]?.default
+  return typeof d === 'number' ? d : fallback
+}
+function setDims(width: number, height: number) {
+  values.width = width
+  values.height = height
+}
+// Only persist image_size if the flow actually declares it — otherwise an
+// undeclared key would leak into the submitted values.
+function setImageSize(value: string) {
+  if ('image_size' in normalizedProps.value) values.image_size = value
+}
+
+// Upscale picker: a composite UI state ({mode, scaleFactor, targetResolution})
+// over the flow's scale_factor / resolution inputs. Mode is UI-only (kept out of
+// `values` so it isn't submitted to the flow).
+const upscaleMode = ref<'relative' | 'pixels'>(
+  // pixels if only a resolution value is present at start; else relative.
+  props.initialValues?.resolution != null && props.initialValues?.scale_factor == null
+    ? 'pixels'
+    : 'relative',
+)
+const upscaleModel = computed({
+  get: () => ({
+    resolutionMode: upscaleMode.value,
+    scaleFactor: numVal('scale_factor', 2),
+    targetResolution: numVal('resolution', 1080),
+  }),
+  set: (v: { resolutionMode: 'relative' | 'pixels'; scaleFactor: number; targetResolution: number }) => {
+    upscaleMode.value = v.resolutionMode
+    if (res.value.hasScaleFactor) values.scale_factor = v.scaleFactor
+    if (res.value.hasUpscaleResolution) values.resolution = v.targetResolution
+  },
+})
+
 const isDirty = computed(() => JSON.stringify(values) !== savedSnapshot)
+
+// A fresh random seed within the field's declared range. A seed should arrive
+// pre-filled with a usable value (not empty), and a random default means repeat
+// first-runs aren't identical.
+function randomSeedFor(f: Field): number {
+  const min = Number.isFinite(f.min as number) ? (f.min as number) : 0
+  const max = Number.isFinite(f.max as number) ? (f.max as number) : 2147483647
+  const span = Math.max(0, max - min)
+  return min + Math.floor(Math.random() * (span + 1))
+}
 
 function defaultValueFor(f: Field): any {
   if (f.default !== undefined) return clone(f.default)
   if (f.kind === 'list' || f.kind === 'media_list' || f.kind === 'table') return []
   if (f.kind === 'boolean') return false
+  if (f.kind === 'seed') return randomSeedFor(f)
   if (f.kind === 'number') return f.min ?? 0
   if (f.kind === 'media') return null
   return ''
@@ -441,6 +609,12 @@ watch(() => [props.schema, props.initialValues], () => {
 
 function listValue(name: string): any[] {
   return Array.isArray(values[name]) ? values[name] : []
+}
+
+// Roll a fresh seed into the field. This just sets a new committed value — the
+// user still applies params as usual (no auto-randomize on the flow screen).
+function rerollSeed(field: Field): void {
+  values[field.name] = randomSeedFor(field)
 }
 
 function coerceListItem(field: Field, value: any): any {
@@ -648,6 +822,14 @@ const isValid = computed(() => Object.keys(errors.value).length === 0)
 
 watch(isDirty, (v) => emit('update:dirty', v), { immediate: true })
 watch(isValid, (v) => emit('update:valid', v), { immediate: true })
+
+// Larger controls render label-on-top with the control full-width below
+// (matching ToolView's textarea rows); compact controls sit label-left /
+// control-right on a single line.
+function isStacked(f: Field): boolean {
+  return f.kind === 'prompt' || f.kind === 'text' || f.kind === 'list'
+    || f.kind === 'table' || f.kind === 'media_list'
+}
 
 function fieldInputClass(f: Field): string {
   return errors.value[f.name]

@@ -923,6 +923,18 @@ const savedViews = ref([])
 const allToolsMap = ref<Map<string, any>>(new Map())
 const pinnedTools = ref([])
 const toolAvailabilityMap = ref<Map<string, string>>(new Map())
+
+// Backfill open tool-tab names from the resolved tool list. Tabs created by
+// navigation (including a freshly-frozen custom tool) fall back to the tool id
+// until the providers cache loads; keep their displayName in sync with the
+// real tool name once it's available.
+watch(allToolsMap, (map) => {
+  for (const tab of allTabs.value) {
+    if (tab.type !== 'tool') continue
+    const t = map.get(tab.entityId)
+    if (t?.name && t.name !== tab.displayName) updateTabName(tab.id, t.name)
+  }
+}, { deep: false })
 type BoardPreviewItem = {
   id: number
   file_hash?: string | null

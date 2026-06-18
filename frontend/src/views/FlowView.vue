@@ -161,6 +161,65 @@
 
       <!-- Right: chat toggle + more menu -->
       <div class="flex items-center gap-1.5 flex-shrink-0 justify-end">
+        <!-- Save Custom Tool. With no backing tool it freezes a new one. Once this
+             flow backs a tool, a caret opens a terse menu (Update <tool> / Save as
+             New). A dot — on the button and on each drifted row — marks unsaved
+             changes vs the saved tool. -->
+        <div class="relative" ref="linkMenuRef">
+          <button
+            class="relative flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs font-medium border bg-overlay-subtle text-content border-edge hover:bg-overlay-hover transition-colors"
+            :title="backingTools.length === 0 ? 'Freeze this flow into a custom tool' : 'Save / update custom tool'"
+            @click.stop="backingTools.length === 0 ? openFreezeDialog() : toggleLinkMenu()"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437" />
+            </svg>
+            Save Custom Tool
+            <svg v-if="backingTools.length > 0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3 h-3 opacity-70 -mr-0.5">
+              <path fill-rule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clip-rule="evenodd" />
+            </svg>
+            <!-- Top-level unsaved-changes dot. -->
+            <span
+              v-if="anyStale"
+              class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-blue-400 ring-2 ring-surface"
+              title="This flow has unsaved changes vs its custom tool"
+            ></span>
+          </button>
+
+          <!-- Terse menu (only when this flow already backs a tool) -->
+          <div
+            v-if="linkMenuOpen && backingTools.length > 0"
+            class="absolute right-0 top-full mt-1 z-[10000] min-w-[220px] bg-surface border border-edge-subtle rounded-lg shadow-xl py-1"
+          >
+            <button
+              v-for="t in backingTools"
+              :key="t.id"
+              class="w-full px-3 py-2 text-left text-xs flex items-center gap-2 disabled:cursor-default"
+              :class="t.has_changes ? 'text-content hover:bg-overlay-light' : 'text-content-muted'"
+              :disabled="!t.has_changes || resyncingToolId != null"
+              :title="t.has_changes ? 'Re-snapshot this flow into the tool' : 'No changes to save'"
+              @click="updateBackingTool(t)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4 flex-shrink-0" :class="[t.has_changes ? 'text-blue-400' : 'text-content-tertiary', resyncingToolId === t.id ? 'animate-spin' : '']">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+              <span class="truncate flex-1">Update {{ t.name }}</span>
+              <!-- Per-row unsaved-changes dot. -->
+              <span v-if="t.has_changes" class="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span>
+            </button>
+            <div class="border-t border-edge-subtle my-1"></div>
+            <button
+              class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+              @click="openFreezeDialog"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4 text-content-tertiary flex-shrink-0">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Save as New
+            </button>
+          </div>
+        </div>
+
         <!-- Chat menu: new session, switch session, show/hide panel -->
         <div class="relative" ref="chatMenuContainerRef">
           <button
@@ -505,10 +564,6 @@
                     <section>
                       <div class="flex items-center gap-2 py-2.5">
                         <span class="text-[15px] font-semibold text-content tracking-wide">Steps</span>
-                        <span
-                          v-if="stepsSummary"
-                          class="text-[11px] text-content-muted"
-                        >{{ stepsSummary }}</span>
                       </div>
                       <div class="py-3">
                         <ConnectionError v-if="state.loadError.value" @retry="state.loadAll" />
@@ -699,6 +754,22 @@
         </div>
       </div>
     </div>
+
+    <!-- Save as Tool (freeze) dialog — create when freezeEditTool is null,
+         edit-settings when it holds a backing tool row. -->
+    <FreezeToolDialog
+      :show="showFreezeDialog"
+      :flow-id="flowId"
+      :flow-name="flow?.name"
+      :flow-output-names="flowOutputNames"
+      :available-input-names="flowInputNames"
+      :hitl-equations="flowHitlEquations"
+      :tool="freezeEditTool"
+      @cancel="showFreezeDialog = false; freezeEditTool = null"
+      @saved="handleFreezeSaved"
+      @deleted="handleFreezeDeleted"
+      @open-flow="showFreezeDialog = false; freezeEditTool = null"
+    />
   </div>
 </template>
 
@@ -716,6 +787,8 @@ import FlowCodeView from '../components/flow/FlowCodeView.vue'
 import FlowCodeErrorsPanel from '../components/flow/FlowCodeErrorsPanel.vue'
 import FlowInputForm from '../components/flow/FlowInputForm.vue'
 import FlowStatusPill from '../components/flow/FlowStatusPill.vue'
+import FreezeToolDialog from '../components/flow/FreezeToolDialog.vue'
+import { useProvidersApi } from '../composables/useProvidersApi'
 import ChatView from './ChatView.vue'
 import FlowContextTray from '../components/flow/FlowContextTray.vue'
 import { FLOW_CHAT_ID_KEY } from '../composables/useFlowReferences'
@@ -729,7 +802,6 @@ import { useMediaApi } from '../composables/useMediaApi'
 import { useToasts } from '../composables/useToasts'
 import { devModeRef } from '../appConfig'
 import { flowMediaSlideshowKey } from '../components/flow/flowMediaSlideshow'
-import { equationDurationMs, formatEquationDurationMs } from '../utils/equationDuration'
 import { makeStorageKey } from '../utils/storageKeys'
 import { parseFlowError } from '../utils/flowErrors'
 import { BoltIcon } from '@heroicons/vue/24/solid'
@@ -737,6 +809,7 @@ import { BoltIcon } from '@heroicons/vue/24/solid'
 const props = defineProps<{ id?: string | number }>()
 const route = useRoute()
 const router = useRouter()
+const { fetchProvidersAndTools } = useProvidersApi()
 const api = useFlowsApi()
 const { getMediaItem } = useMediaApi()
 const { addToast } = useToasts()
@@ -750,6 +823,171 @@ const flowId = computed(() => {
 
 const state = useFlowState(flowId)
 const flow = state.flow
+
+// ----- Save as Tool (freeze) -----
+const showFreezeDialog = ref(false)
+// null → create mode; a UserTool row → edit mode (same dialog).
+const freezeEditTool = ref<any | null>(null)
+
+// Custom tools frozen from this flow. The "Save as Custom Tool" control stays
+// the primary; once this flow backs a tool a caret menu offers "Update <tool>"
+// (resync) + "Save as New", and a dot marks the flow as drifted from a tool.
+// Each item carries has_changes (server-computed snapshot drift).
+const backingTools = ref<any[]>([])
+const linkMenuOpen = ref(false)
+const resyncingToolId = ref<number | string | null>(null)
+const linkMenuRef = ref<HTMLElement | null>(null)
+
+// Any backing tool whose snapshot is stale vs the current flow → show the dot.
+const anyStale = computed(() => backingTools.value.some((t) => t?.has_changes))
+
+async function loadBackingTools() {
+  const id = flowId.value
+  if (id == null) {
+    backingTools.value = []
+    return
+  }
+  try {
+    const base = getApiBase()
+    const resp = await axios.get(`${base}/flows/${id}/tools`)
+    backingTools.value = Array.isArray(resp.data) ? resp.data : []
+  } catch (e) {
+    // Non-fatal: the link affordance just won't show.
+    backingTools.value = []
+  }
+}
+
+watch(flowId, () => loadBackingTools(), { immediate: true })
+// Recompute drift whenever the flow's program changes, so the dot is live.
+watch(() => flow.value?.program_hash, () => loadBackingTools())
+
+// Flow's declared output names. Prefer the STP output_schema property keys;
+// fall back to equations flagged is_output (their output_name).
+const flowOutputNames = computed<string[]>(() => {
+  const names = new Set<string>()
+  const schema = flow.value?.output_schema
+  if (schema && typeof schema === 'object') {
+    // STP output_schema is { properties: { <name>: {...} } } or a flat map.
+    const props = (schema as any).properties
+    const src = props && typeof props === 'object' ? props : schema
+    for (const key of Object.keys(src)) {
+      // Skip schema meta keys when we fell through to the flat-map case.
+      if (['type', 'properties', 'required'].includes(key)) continue
+      names.add(key)
+    }
+  }
+  for (const eq of state.equationsByKey.value.values()) {
+    if (eq.is_output && eq.output_name) names.add(eq.output_name)
+  }
+  return Array.from(names)
+})
+
+// Flow's declared input names (STP parameter_schema property keys), so the
+// freeze dialog can validate a chosen task type's required inputs are exposed.
+const flowInputNames = computed<string[]>(() => {
+  const schema = flow.value?.input_schema
+  if (!schema || typeof schema !== 'object') return []
+  const props = (schema as any).properties
+  const src = props && typeof props === 'object' ? props : schema
+  return Object.keys(src).filter((k) => !['type', 'properties', 'required'].includes(k))
+})
+
+// Raw HITL equations for the dialog to derive resolve-pause rows.
+const flowHitlEquations = computed(() =>
+  Array.from(state.equationsByKey.value.values())
+    .filter((eq) => eq.equation_type === 'hitl' || !!eq.hitl_kind)
+    .map((eq) => ({
+      equation_key: eq.equation_key,
+      equation_type: eq.equation_type,
+      hitl_kind: eq.hitl_kind,
+      hitl_count: eq.hitl_count ?? eq.slot_count ?? null,
+      display_name: eq.display_name,
+      description: eq.description,
+    })),
+)
+
+// Open the dialog in CREATE mode (freeze a brand-new tool from this flow).
+// (Editing an existing tool's settings lives on the tool's own page.)
+function openFreezeDialog() {
+  linkMenuOpen.value = false
+  freezeEditTool.value = null
+  showFreezeDialog.value = true
+}
+
+// Toggle the link menu; refetch drift on open so "Update" / the dot reflect the
+// flow's *current* program (the program_hash watch can miss out-of-band saves).
+function toggleLinkMenu() {
+  const opening = !linkMenuOpen.value
+  linkMenuOpen.value = opening
+  if (opening) loadBackingTools()
+}
+
+// One-click "update tool from this flow": re-snapshot the flow's program +
+// inputs into the existing tool, keeping its id/pins/settings.
+async function updateBackingTool(tool: any) {
+  linkMenuOpen.value = false
+  if (resyncingToolId.value != null) return
+  resyncingToolId.value = tool.id
+  try {
+    const base = getApiBase()
+    const resp = await axios.post(`${base}/user-tools/${tool.id}/resync`)
+    try { await fetchProvidersAndTools(true) } catch (_) { /* best-effort */ }
+    await loadBackingTools()
+    addToast(`Updated "${resp.data?.name || tool.name}" from this flow`, 'success', 3500)
+  } catch (err: any) {
+    const detail = err?.response?.data?.detail || err?.message || 'Failed to update tool'
+    addToast(typeof detail === 'string' ? detail : 'Failed to update tool', 'error', 6000)
+  } finally {
+    resyncingToolId.value = null
+  }
+}
+
+async function handleFreezeSaved(tool: any) {
+  const wasEdit = !!freezeEditTool.value
+  showFreezeDialog.value = false
+  freezeEditTool.value = null
+  if (tool?.id == null) {
+    addToast('Tool saved.', 'success', 3000)
+    return
+  }
+  // Keep the link affordance in sync with what was just saved.
+  await loadBackingTools()
+  // Refresh the tool namespace so the freshly-registered tool is available.
+  let tools: any[] = []
+  try {
+    ({ tools } = await fetchProvidersAndTools(true))
+  } catch (e) {
+    /* refresh is best-effort; the backend already registered the tool */
+  }
+  // On EDIT, stay put — the user is mid-flow. On CREATE, open the new tool so
+  // they immediately see what they made (its full id is a slug we resolve from
+  // the refreshed cache by matching the user_tool_id we just saved).
+  if (wasEdit) {
+    addToast(`Tool "${tool.name}" updated`, 'success', 3000)
+    return
+  }
+  addToast(`Tool "${tool.name}" created`, 'success', 3000)
+  const match = (tools || []).find((t: any) => t?.metadata?.user_tool_id === tool.id)
+  if (match?.full_tool_id) {
+    router.push({ name: 'tool', params: { fullToolId: match.full_tool_id } })
+  }
+}
+
+function handleFreezeDeleted() {
+  showFreezeDialog.value = false
+  freezeEditTool.value = null
+  loadBackingTools()
+  fetchProvidersAndTools(true).catch(() => {})
+}
+
+// Close the link menu on outside click.
+function onLinkMenuOutside(e: MouseEvent) {
+  if (linkMenuOpen.value && linkMenuRef.value && !linkMenuRef.value.contains(e.target as Node)) {
+    linkMenuOpen.value = false
+  }
+}
+onMounted(() => document.addEventListener('click', onLinkMenuOutside))
+onUnmounted(() => document.removeEventListener('click', onLinkMenuOutside))
 
 function isVisibleFlowEquation(eq: FlowEquation): boolean {
   if (eq.is_scaffolding && eq.status !== 'failed') return false
@@ -1021,31 +1259,6 @@ async function saveName() {
 const showStartButton  = computed(() => !flow.value?.execution_state || flow.value.execution_state === 'idle')
 const showResumeButton = computed(() => flow.value?.execution_state === 'paused')
 const showPauseButton  = computed(() => flow.value?.execution_state === 'running')
-
-// Summary shown next to the "Steps" header: "N phases · Xs total". Only
-// renders when the phase tree has top-level named phases — for a flat flow
-// with no named phases it'd read awkwardly. Uses the same duration visibility
-// rules as graph/details and the phase rows.
-const stepsSummary = computed<string | null>(() => {
-  const root = state.phaseTree.value?.root
-  if (!root) return null
-  const phases = (root.children || []).length
-  if (phases === 0) return null
-  let totalMs = 0
-  let any = false
-  for (const eq of state.equationsByKey.value.values()) {
-    const ms = equationDurationMs(eq)
-    if (ms == null) continue
-    totalMs += ms
-    any = true
-  }
-  const parts = [phases === 1 ? '1 phase' : `${phases} phases`]
-  if (any) {
-    const dur = formatEquationDurationMs(totalMs)
-    if (dur) parts.push(dur)
-  }
-  return parts.join(' · ')
-})
 
 // "All branches blocked" — the flow is running, has failures, and nothing
 // is actively making forward progress (no pending, no computing, no HITL

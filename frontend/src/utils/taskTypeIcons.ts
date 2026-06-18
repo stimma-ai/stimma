@@ -61,6 +61,8 @@ export const TASK_TYPE_LABELS: Record<string, string> = {
   'upscale-image': 'Upscale Image',
   'upscale-video': 'Upscale Video',
   'remove-background': 'Background Removal',
+  'detect-objects': 'Detect Objects',
+  'filter': 'Filter',
   'utility': 'Utility',
 }
 

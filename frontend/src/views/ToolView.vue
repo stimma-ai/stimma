@@ -103,6 +103,19 @@
             @hop="handleHopToTool"
           />
           <div class="flex items-center gap-2">
+            <!-- Edit (frozen-flow tools only): the tool's own page is the obvious
+                 place to find "edit this tool". Matches the Presets trigger. -->
+            <button
+              v-if="isUserTool"
+              class="flex items-center gap-2 px-3 py-1.5 bg-overlay-subtle hover:bg-overlay-light border border-edge-subtle rounded text-sm text-content-secondary transition-colors"
+              title="Edit this tool"
+              @click="openEditUserTool"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+              </svg>
+              Edit
+            </button>
             <span
               v-if="tool.metadata?.display_price"
               class="px-2.5 py-1 text-xs rounded-full"
@@ -215,6 +228,7 @@
               v-else-if="hasWidthHeight && !hasMegapixels"
               :width="modelParams.width"
               :height="modelParams.height"
+              :has-reference-images="!isFromScratch"
               v-model:mode="resolutionMode"
               v-model:lock-size="resolutionLockSize"
               v-model:lock-area="resolutionLockArea"
@@ -694,7 +708,17 @@
       @update:image="handleInpaintImageUpdate"
     />
 
-    <!-- Delete Tool Confirmation Modal -->
+    <!-- Edit tool (frozen-flow tools) — settings + delete -->
+    <FreezeToolDialog
+      :show="editToolDialogOpen"
+      :tool="editingToolRow"
+      :flow-name="editingFlowName"
+      :flow-output-names="editingFlowOutputNames"
+      @cancel="editToolDialogOpen = false"
+      @saved="onUserToolEdited"
+      @deleted="onUserToolDeleted"
+      @open-flow="onEditOpenBackingFlow"
+    />
 
     <!-- Context Menu for queue images/videos -->
     <MediaContextMenu />
@@ -788,6 +812,8 @@ import {
   VideoImagePicker
 } from '../components/generation'
 import HopToToolMenu from '../components/HopToToolMenu.vue'
+import FreezeToolDialog from '../components/flow/FreezeToolDialog.vue'
+import { useFlowsApi } from '../composables/useFlowsApi'
 import PostProcessingPanel from '../components/generation/postprocessing/PostProcessingPanel.vue'
 import SchemaParamGroup from '../components/generation/SchemaParamGroup.vue'
 import { CHAIN_TOOL_TASK_TYPES, defaultInsertIndex, emptyChain, mergeRecordedChain, newStepId, normalizeChain, stepInputMedia, toRecordedSteps, type ChainStep, type PostProcessingChain } from '../utils/postProcessingChain'
@@ -980,6 +1006,76 @@ const toolAvailability = computed(() => tool.value?.availability || 'available')
 const providerDisplayName = computed(() => tool.value?.provider_name || tool.value?.provider_id || 'Provider')
 const toolDisplayName = computed(() => tool.value?.name || 'this tool')
 const isStimmaCloudTool = computed(() => isStimmaCloud(tool.value))
+
+// ----- User (frozen-flow) tool editing -----
+// A tool the user made by freezing a flow. These are editable in place here so
+// the tool's own page is the obvious place to find "edit this tool".
+const isUserTool = computed(
+  () =>
+    tool.value?.provider_id === 'user-tools' ||
+    (tool.value?.metadata as any)?.provenance === 'user-flow',
+)
+const userToolId = computed<number | null>(() => {
+  const id = (tool.value?.metadata as any)?.user_tool_id
+  return id != null ? Number(id) : null
+})
+
+const { getFlow } = useFlowsApi()
+const editToolDialogOpen = ref(false)
+const editingToolRow = ref<any | null>(null)
+const editingFlowOutputNames = ref<string[]>([])
+const editingFlowName = ref<string | null>(null)
+
+async function openEditUserTool() {
+  const id = userToolId.value
+  if (id == null) return
+  try {
+    const base = getApiBase()
+    const resp = await axios.get(`${base}/user-tools/${id}`)
+    const row = resp.data
+    // Derive the backing flow's declared output names for the binding select.
+    let outputNames: string[] = []
+    editingFlowName.value = null
+    if (row?.flow_id != null) {
+      try {
+        const flow: any = await getFlow(row.flow_id)
+        editingFlowName.value = flow?.name || null
+        const schema = flow?.output_schema
+        if (schema && typeof schema === 'object') {
+          const props = schema.properties && typeof schema.properties === 'object' ? schema.properties : schema
+          outputNames = Object.keys(props).filter((k) => !['type', 'properties', 'required'].includes(k))
+        }
+      } catch (_) { /* non-fatal */ }
+    }
+    for (const v of Object.values(row?.output_map || {})) {
+      if (v && !outputNames.includes(v as string)) outputNames.push(v as string)
+    }
+    editingFlowOutputNames.value = outputNames
+    editingToolRow.value = row
+    editToolDialogOpen.value = true
+  } catch (err) {
+    addToast('Could not load tool for editing', 'error', 5000)
+  }
+}
+
+async function onUserToolEdited() {
+  editToolDialogOpen.value = false
+  editingToolRow.value = null
+  try { await fetchProvidersAndTools(true) } catch (_) { /* best-effort */ }
+}
+
+function onUserToolDeleted() {
+  editToolDialogOpen.value = false
+  editingToolRow.value = null
+  fetchProvidersAndTools(true).catch(() => {})
+  // The tool no longer exists — leave its page.
+  router.push({ name: 'all-tools' }).catch(() => {})
+}
+
+function onEditOpenBackingFlow(flowId: number | string) {
+  editToolDialogOpen.value = false
+  router.push({ name: 'flow', params: { id: String(flowId) } }).catch(() => {})
+}
 
 // Format task types for display (e.g., "text-to-image" -> "Text to Image")
 const taskTypesDisplay = computed(() => {

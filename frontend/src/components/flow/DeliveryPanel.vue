@@ -2,7 +2,6 @@
   <div v-if="groups.length > 0">
     <div class="flex items-center gap-2 py-2.5">
       <span class="text-[15px] font-semibold text-content tracking-wide">Outputs</span>
-      <span class="text-[11px] text-content-muted tabular-nums">{{ populatedCount }} {{ populatedCount === 1 ? 'item' : 'items' }}</span>
     </div>
 
     <div class="py-3 space-y-3">
@@ -13,7 +12,6 @@
       >
         <div class="flex items-center gap-2 px-3 py-2 bg-overlay-subtle border-b border-edge-subtle">
           <span class="text-[13px] font-semibold text-content truncate">{{ group.label }}</span>
-          <span class="text-[11px] text-content-muted tabular-nums">{{ groupCountLabel(group) }}</span>
         </div>
 
         <!-- Text-shaped outputs (llm() strings, code() returning a value) get
@@ -223,36 +221,6 @@ const groups = computed<OutputGroup[]>(() => {
 
   return order.map((k) => byKey.get(k)!)
 })
-
-// "Populated" = "this output slot has actually delivered a value". For
-// media groups that's hasMedia; for text groups (llm() / code() returning
-// a string or scalar) hasMedia is always false, so completion of the
-// primary is the right signal.
-function isIterationPopulated(it: GroupedIteration, kind: 'media' | 'text'): boolean {
-  if (kind === 'text') return it.status === 'completed'
-  return it.hasMedia
-}
-
-const populatedCount = computed(() => {
-  let n = 0
-  for (const g of groups.value)
-    for (const it of g.iterations)
-      if (isIterationPopulated(it, g.contentKind)) n++
-  return n
-})
-
-function groupPopulated(g: OutputGroup): number {
-  return g.iterations.reduce(
-    (n, it) => n + (isIterationPopulated(it, g.contentKind) ? 1 : 0),
-    0,
-  )
-}
-function groupCountLabel(g: OutputGroup): string {
-  const total = g.iterations.length
-  const pop = groupPopulated(g)
-  if (pop === total) return `${total} ${total === 1 ? 'item' : 'items'}`
-  return `${pop} of ${total}`
-}
 
 function titleCaseOutputLabel(label: string): string {
   const words = label

@@ -125,8 +125,8 @@
         </div>
       </template>
 
-      <!-- Auto-change behavior -->
-      <div class="border-t border-edge-subtle pt-3 space-y-2">
+      <!-- Auto-change behavior — only when reference images exist -->
+      <div v-if="hasReferenceImages" class="border-t border-edge-subtle pt-3 space-y-2">
         <div class="text-[10px] font-medium uppercase tracking-wide text-content-muted">When reference images change</div>
         <div class="grid gap-1">
           <button
@@ -158,11 +158,15 @@ interface Props {
   lockArea?: boolean
   disabled?: boolean
   compact?: boolean
+  // The "when reference images change" behavior is only meaningful when this
+  // tool/flow actually takes reference images; hide it otherwise.
+  hasReferenceImages?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   disabled: false,
-  compact: false
+  compact: false,
+  hasReferenceImages: true,
 })
 
 const emit = defineEmits<{

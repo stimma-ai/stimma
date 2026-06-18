@@ -1,4 +1,5 @@
 import { computed, type Ref, type ComputedRef } from 'vue'
+import { detectResolutionControls } from '../utils/resolutionControls'
 
 // Special param names that have dedicated UI components
 const SPECIAL_PARAM_NAMES = new Set([
@@ -115,27 +116,15 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
     return tool.value?.parameter_schema || null
   })
 
-  // Schema-driven picker visibility
-  // Detects paired resolution fields via x-paired-with hint or well-known width/height names
-  const hasWidthHeight = computed(() => {
-    const props = tool.value?.parameter_schema?.properties || {}
-    // Explicit pairing via x-paired-with
-    if (props.width?.['x-paired-with'] === 'height' || props.height?.['x-paired-with'] === 'width') {
-      return true
-    }
-    // Well-known convention: both width and height with x-control: resolution
-    return 'width' in props && 'height' in props
-  })
+  // Resolution-family picker detection — shared with the flow input form so the
+  // two surfaces stay identical (utils/resolutionControls.ts).
+  const resControls = computed(() =>
+    detectResolutionControls(tool.value?.parameter_schema?.properties)
+  )
 
-  const hasAspectRatio = computed(() => {
-    const props = parameterSchema.value?.properties || {}
-    return 'aspect_ratio' in props
-  })
-
-  const hasMegapixels = computed(() => {
-    const props = tool.value?.parameter_schema?.properties || {}
-    return 'megapixels' in props
-  })
+  const hasWidthHeight = computed(() => resControls.value.hasWidthHeight)
+  const hasAspectRatio = computed(() => resControls.value.hasAspectRatio)
+  const hasMegapixels = computed(() => resControls.value.hasMegapixels)
 
   const hasPrompt = computed(() => {
     const props = tool.value?.parameter_schema?.properties || {}
@@ -163,24 +152,10 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
     return 'loras' in props
   })
 
-  // Check if tool has scale_factor param with upscale_resolution control
-  const hasScaleFactor = computed(() => {
-    const props = tool.value?.parameter_schema?.properties || {}
-    const schema = props.scale_factor
-    return schema?.['x-control'] === 'upscale_resolution'
-  })
-
-  // Check if tool has resolution param with upscale_resolution control
-  const hasUpscaleResolution = computed(() => {
-    const props = tool.value?.parameter_schema?.properties || {}
-    const schema = props.resolution
-    return schema?.['x-control'] === 'upscale_resolution'
-  })
-
-  // Show upscale picker if either param uses the control
-  const showUpscalePicker = computed(() => {
-    return hasScaleFactor.value || hasUpscaleResolution.value
-  })
+  // Upscale picker detection (shared — see resControls above).
+  const hasScaleFactor = computed(() => resControls.value.hasScaleFactor)
+  const hasUpscaleResolution = computed(() => resControls.value.hasUpscaleResolution)
+  const showUpscalePicker = computed(() => resControls.value.showUpscalePicker)
 
   // Check if tool has a 'resolution' param (for config transfer purposes - any resolution param)
   const hasResolution = computed(() => {
@@ -291,16 +266,8 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
     return promptSchema?.description || 'Enter your prompt...'
   })
 
-  // Allowed dimension pairs from x-allowed-dimensions on width property
-  const allowedDimensions = computed((): [number, number][] | null => {
-    const props = tool.value?.parameter_schema?.properties || {}
-    const widthSchema = props.width
-    const dims = widthSchema?.['x-allowed-dimensions']
-    if (Array.isArray(dims) && dims.length > 0) {
-      return dims as [number, number][]
-    }
-    return null
-  })
+  // Allowed dimension pairs (shared — see resControls above).
+  const allowedDimensions = computed(() => resControls.value.allowedDimensions)
 
   // ControlNet preprocessor options from x-controlnet hint on input_image/input_images
   // If "lineart" is listed, expand to all lineart variants automatically
