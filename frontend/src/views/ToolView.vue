@@ -2466,7 +2466,7 @@ function loadPendingInput() {
     return
   }
 
-  const storageKey = makeToolDbKey(tool.value.full_tool_id, 'pending_input')
+  const storageKey = makeToolDbKey(scopedToolId(tool.value.full_tool_id), 'pending_input')
   const pendingInput = sessionStorage.getItem(storageKey)
   if (!pendingInput) {
     return
@@ -2541,8 +2541,12 @@ function loadPendingInput() {
       }
     }
 
-    // Clear the query param
-    router.replace({ query: {} })
+    // Clear only the loadInput trigger; preserve project_id (and any other
+    // params) so the KeepAlive component key stays on the project-scoped
+    // instance instead of bouncing to the global tool.
+    const restQuery = { ...route.query }
+    delete restQuery.loadInput
+    router.replace({ query: restQuery })
   } catch (err) {
     console.error('Failed to load pending input:', err)
     sessionStorage.removeItem(storageKey)
@@ -2735,7 +2739,11 @@ async function loadPendingGeneration() {
       remixSource.value = data._remixSource
     }
 
-    router.replace({ query: {} })
+    // Clear only the loadGeneration trigger; keep project_id so we stay on the
+    // project-scoped KeepAlive instance.
+    const restQuery = { ...route.query }
+    delete restQuery.loadGeneration
+    router.replace({ query: restQuery })
   } catch (err) {
     console.error('Failed to load pending generation config:', err)
     sessionStorage.removeItem(storageKey)
@@ -2845,7 +2853,13 @@ async function loadRemix(mediaId: string) {
       seed: data.seed ?? null,
     }
 
-    router.replace({ query: {} })
+    // Clear only the remix trigger params; keep project_id so we stay on the
+    // project-scoped KeepAlive instance.
+    const restQuery = { ...route.query }
+    delete restQuery.remixFrom
+    delete restQuery.inspireFrom
+    delete restQuery.loadFromMedia
+    router.replace({ query: restQuery })
   } catch (err) {
     console.error('Failed to load remix from media:', err)
   } finally {

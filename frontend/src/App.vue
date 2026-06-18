@@ -221,6 +221,7 @@ import { useTabNavigation } from './composables/useTabNavigation'
 import { useTheme } from './composables/useTheme'
 import { useMediaApi } from './composables/useMediaApi'
 import { useWorkspaceTabs } from './composables/useWorkspaceTabs'
+import { useProjectRoute } from './composables/useProjectRoute'
 import { useToasts } from './composables/useToasts'
 import { useAppUpdater } from './composables/useAppUpdater'
 import { useStimpacksApi } from './composables/useStimpacksApi'
@@ -242,6 +243,7 @@ const {
   allTabs, findNextTab, removeTab,
   reopenLastClosed, getNextTab, getPrevTab
 } = useWorkspaceTabs()
+const { getLastProjectRoute } = useProjectRoute()
 const { addToast } = useToasts()
 const {
   updatesEnabled,
@@ -339,6 +341,16 @@ function getComponentKey(route) {
   }
   if (route.name === 'flow') {
     return `flow-${route.params.id}`
+  }
+  // Project layout: one cached instance per project, stable across its
+  // sub-screens (Assets/Boards/Overview/...). Keying by id (not the bare
+  // sub-route name) means leaving to a tool and returning REACTIVATES the same
+  // instance instead of remounting — so scroll/state are preserved (like the
+  // main browser) and the project isn't reloaded on every sub-screen switch.
+  // It also stops different projects from colliding on a shared key
+  // (previously both keyed to e.g. "project-assets").
+  if (typeof route.name === 'string' && route.name.startsWith('project-')) {
+    return `project-${route.params.id}`
   }
   // For other routes, use the route name for consistent caching
   return route.name || route.path
@@ -453,7 +465,7 @@ function navigateToTab(tab) {
   }
   else if (tab.type === 'chat') router.push({ name: 'chat', params: { id: tab.entityId } })
   else if (tab.type === 'board') router.push({ name: 'board-detail', params: { id: tab.entityId } })
-  else if (tab.type === 'project') router.push({ name: 'project-overview', params: { id: tab.entityId } })
+  else if (tab.type === 'project') router.push({ name: getLastProjectRoute(tab.entityId), params: { id: tab.entityId } })
   else if (tab.type === 'editor') {
     if (tab.editorMediaId) router.push({ name: 'edit-image', params: { editorId: tab.entityId, mediaId: tab.editorMediaId } })
     else router.push({ name: 'edit-image-empty', params: { editorId: tab.entityId } })

@@ -586,6 +586,9 @@ const filterBarRef = ref(null)
 const gridStorageKey = computed(() => {
   if (props.isTrashMode) return 'trash'
   if (props.savedViewId) return `saved-view-${props.savedViewId}`
+  // Project assets get their own scroll memory, separate from global browse and
+  // from each other, so returning to a project's Assets restores its scroll.
+  if (props.projectId != null) return `project-${props.projectId}`
   return 'browse'
 })
 

@@ -848,6 +848,7 @@ import { useMediaApi } from '../composables/useMediaApi'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { useSendToTool } from '../composables/useSendToTool'
 import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspaceTabs'
+import { useProjectRoute } from '../composables/useProjectRoute'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
 import { useFlowCounts } from '../composables/useFlowCounts'
 import FlowStatusPill from './flow/FlowStatusPill.vue'
@@ -898,6 +899,9 @@ const {
   findNextTab, removeTab, updateTabName, removeTabByEntity,
   reconcileToolPins, moveTab, setLastLibraryRoute, getLastLibraryRoute
 } = useWorkspaceTabs()
+
+// Per-project last-visited sub-route memory
+const { getLastProjectRoute } = useProjectRoute()
 
 // Context menu
 const tabsContextMenu = useWorkspaceTabsContextMenu()
@@ -1257,7 +1261,7 @@ function navigateToTab(tab: WorkspaceTab) {
   }
   else if (tab.type === 'chat') router.push({ name: 'chat', params: { id: tab.entityId } })
   else if (tab.type === 'board') router.push({ name: 'board-detail', params: { id: tab.entityId } })
-  else if (tab.type === 'project') router.push({ name: 'project-overview', params: { id: tab.entityId } })
+  else if (tab.type === 'project') router.push({ name: getLastProjectRoute(tab.entityId), params: { id: tab.entityId } })
   else if (tab.type === 'editor') {
     if (tab.editorMediaId) {
       router.push({ name: 'edit-image', params: { editorId: tab.entityId, mediaId: tab.editorMediaId } })
@@ -1378,7 +1382,7 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
       const toolTaskTypes = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
       const eligibleTaskTypes = getEligibleTaskTypesForMediaType(draggedMediaType.value)
       const targetTaskType = toolTaskTypes.find((tt: string) => eligibleTaskTypes.includes(tt)) || tool.task_type
-      await sendToTool(mediaId, { full_tool_id: tool.full_tool_id, task_type: tool.task_type, parameter_schema: tool.parameter_schema }, targetTaskType)
+      await sendToTool(mediaId, { full_tool_id: tool.full_tool_id, task_type: tool.task_type, parameter_schema: tool.parameter_schema }, targetTaskType, tab.projectId ?? null)
       if (props.isMobile) emit('close')
     } catch (error) {
       console.error('Failed to send media to tool:', error)

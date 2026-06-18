@@ -125,8 +125,22 @@ export function useSendToTool() {
       }
     }
 
-    // Use profile-scoped storage key for pending input
-    const storageKey = makeToolDbKey(tool.full_tool_id, 'pending_input')
+    // Infer project context from current route if not explicitly provided
+    const route = router.currentRoute.value
+    const effectiveProjectId = projectId ?? (
+      route.params.id && String(route.name || '').startsWith('project-')
+        ? Number(route.params.id)
+        : null
+    )
+
+    // Project-scoped pending-input key. ToolView keeps a separate KeepAlive'd
+    // instance per (tool, project) and reads a matching scoped key, so the
+    // project-entangled tool and the global tool never race to consume the same
+    // handoff. Must mirror ToolView's scopedToolId(): `${id}__project_${pid}`.
+    const scopedToolId = effectiveProjectId
+      ? `${tool.full_tool_id}__project_${effectiveProjectId}`
+      : tool.full_tool_id
+    const storageKey = makeToolDbKey(scopedToolId, 'pending_input')
 
     // Check if tool supports multi-input via schema
     const multiInputInfo = tool.parameter_schema
@@ -158,14 +172,6 @@ export function useSendToTool() {
         sessionStorage.setItem(storageKey, JSON.stringify({ inputVideos: mediaEntries }))
       }
     }
-
-    // Infer project context from current route if not explicitly provided
-    const route = router.currentRoute.value
-    const effectiveProjectId = projectId ?? (
-      route.params.id && String(route.name || '').startsWith('project-')
-        ? Number(route.params.id)
-        : null
-    )
 
     // Add timestamp to force route change detection (important for KeepAlive'd components)
     const query: Record<string, string> = { loadInput: Date.now().toString() }
