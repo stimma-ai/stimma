@@ -10,7 +10,7 @@
         <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[480px] max-w-[92vw] max-h-[88vh] flex flex-col overflow-hidden">
           <!-- Header -->
           <div class="flex items-center gap-2 px-4 py-3 border-b border-edge-subtle">
-            <span class="font-semibold text-sm text-content">{{ isEdit ? 'Edit tool' : 'Save as Tool' }}</span>
+            <span class="font-semibold text-sm text-content">{{ isEdit ? 'Edit custom tool' : 'Save as Custom Tool' }}</span>
             <div class="flex-1"></div>
             <button
               @click="cancel"
@@ -157,7 +157,7 @@
               :disabled="!canSave || saving || deleting"
               class="text-[12px] text-white bg-blue-500 hover:bg-blue-400 rounded-md px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {{ saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Save as Tool') }}
+              {{ saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Save as Custom Tool') }}
             </button>
           </div>
         </div>

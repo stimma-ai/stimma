@@ -788,7 +788,10 @@ defineExpose({ resetToDefaults, discardChanges, applyChanges })
 
 const errors = computed<Record<string, string>>(() => {
   const out: Record<string, string> = {}
-  for (const f of fields.value) {
+  // Only validate visible fields. Picker-consumed fields (width/height/etc.) are
+  // hidden and managed by their pickers, so a required-but-hidden field must not
+  // produce an invisible blocker with no on-screen error to fix.
+  for (const f of visibleFields.value) {
     const v = values[f.name]
     if (f.required) {
       if (v === null || v === undefined) { out[f.name] = 'Required.'; continue }
