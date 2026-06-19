@@ -171,40 +171,41 @@ body {
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* Surfaces */
-  --color-base: #0f0f0f;
-  --color-surface: #1a1a1a;
-  --color-surface-raised: #2a2a2a;
-  --color-surface-overlay: #0a0a0a;
-  --color-surface-hover: #3a3a3a;
-  --color-surface-active: #4a4a4a;
+  /* Surfaces — "Slate": neutrals carry a faint cool-blue cast so the
+     greys read designed rather than mechanical, and colourful media pops. */
+  --color-base: #0b0e14;
+  --color-surface: #131720;
+  --color-surface-raised: #1c2230;
+  --color-surface-overlay: #080a0f;
+  --color-surface-hover: #232a3a;
+  --color-surface-active: #313a4f;
 
-  /* Text */
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #b4b4bb;
-  --color-text-tertiary: #a1a1aa;
-  --color-text-muted: #71717a;
+  /* Text — softened off-white instead of pure #fff to kill the glare. */
+  --color-text-primary: #e8eaf0;
+  --color-text-secondary: #9aa3b4;
+  --color-text-tertiary: #7c8597;
+  --color-text-muted: #565e6e;
 
   /* Borders */
-  --color-border: #333333;
-  --color-border-subtle: rgba(255,255,255,0.1);
-  --color-border-strong: #444444;
+  --color-border: #232a36;
+  --color-border-subtle: rgba(148,163,184,0.12);
+  --color-border-strong: #333d4d;
 
-  /* Overlays */
-  --color-overlay-faint: rgba(255,255,255,0.02);
-  --color-overlay-subtle: rgba(255,255,255,0.05);
-  --color-overlay-hover: rgba(255,255,255,0.06);
-  --color-overlay-light: rgba(255,255,255,0.1);
-  --color-overlay-medium: rgba(255,255,255,0.15);
-  --color-overlay-strong: rgba(255,255,255,0.2);
-  --color-backdrop: rgba(0,0,0,0.6);
+  /* Overlays — slate-tinted so hover/active states stay in the family. */
+  --color-overlay-faint: rgba(148,163,184,0.03);
+  --color-overlay-subtle: rgba(148,163,184,0.06);
+  --color-overlay-hover: rgba(148,163,184,0.09);
+  --color-overlay-light: rgba(148,163,184,0.13);
+  --color-overlay-medium: rgba(148,163,184,0.18);
+  --color-overlay-strong: rgba(148,163,184,0.24);
+  --color-backdrop: rgba(7,9,15,0.65);
 
-  /* Slideshow */
+  /* Slideshow — matt stays pure black for distraction-free viewing. */
   --color-slideshow-matt: #000000;
-  --color-surface-elevated: rgba(20,20,20,0.95);
+  --color-surface-elevated: rgba(19,23,32,0.95);
 
   /* Lineage */
-  --color-lineage-edge: #3a3a3a;
+  --color-lineage-edge: #2e3645;
   --color-lineage-edge-inspired: #6d3a9e;
   --color-lineage-minimap-bg: rgba(0,0,0,0.6);
   --color-lineage-minimap-edge: rgba(255,255,255,0.25);

@@ -87,7 +87,7 @@ export function createDragPreview(
       height: ${PREVIEW_SIZE}px;
       border-radius: 8px;
       overflow: hidden;
-      background-color: #1a1a1a;
+      background-color: var(--color-surface-raised, #1c2230);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
       pointer-events: none;
       z-index: -1;

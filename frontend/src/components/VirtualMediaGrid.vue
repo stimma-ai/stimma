@@ -1778,7 +1778,7 @@ onActivated(async () => {
 }
 
 .loading-grid .loading-skeleton {
-  background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
+  background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-raised) 50%, var(--color-surface) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }

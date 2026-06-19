@@ -24,7 +24,7 @@ function showLoadingScreen() {
       align-items: center;
       justify-content: center;
       height: 100vh;
-      background: var(--color-base, #0f0f0f);
+      background: var(--color-base, #0b0e14);
     ">
       <div data-tauri-drag-region style="
         position: absolute;
@@ -66,7 +66,7 @@ function showError(message) {
       align-items: center;
       justify-content: center;
       height: 100vh;
-      background: var(--color-base, #0a0a0a);
+      background: var(--color-base, #0b0e14);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     ">
       <div style="
