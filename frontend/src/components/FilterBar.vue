@@ -151,6 +151,35 @@
           </button>
         </div>
 
+        <!-- Project Badges (membership chip + specific projects) - hidden in trash and inside a project -->
+        <template v-if="!isTrashMode && !inProjectScope">
+          <!-- Membership existence chip: blue = in any project, red = not in any project -->
+          <div v-if="projectMembership"
+               :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', projectMembership === 'none' ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+               @click="toggleProjectMembershipSign">
+            <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
+            <span class="leading-none">{{ projectMembership === 'none' ? 'Not in Any Project' : 'Any Project' }}</span>
+            <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearProjectMembership">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <!-- Specific project chips -->
+          <div v-for="project in allProjects"
+               :key="'proj-' + project.id"
+               :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isProjectExcluded(project.id) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+               @click="toggleExcludeProject(project.id)">
+            <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
+            <span class="leading-none">{{ project.name }}</span>
+            <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeProject(project.id)">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </template>
+
         <!-- Tool Badges -->
         <div v-for="tool in allTools"
              :key="tool.full_tool_id"
@@ -464,6 +493,46 @@
             </div>
           </div>
 
+          <!-- Projects Column (hidden in trash and when already scoped to a single project) -->
+          <div v-if="!isTrashMode && !inProjectScope" class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">PROJECTS</h4>
+            <div class="flex flex-col gap-2">
+              <!-- Membership existence chip: none → In a project (blue) → Not in a project (red) -->
+              <div
+                @click="cycleProjectMembership"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all',
+                         projectMembership === 'any' ? 'bg-blue-500/15 border border-blue-500/50 px-3'
+                         : projectMembership === 'none' ? 'bg-red-500/15 border border-red-500/50 px-3'
+                         : 'hover:bg-overlay-subtle']"
+                :title="'Cycle: no constraint → in any project → not in any project'"
+              >
+                <span :class="['text-sm', projectMembership === 'any' ? 'text-blue-400 font-semibold' : projectMembership === 'none' ? 'text-red-400 font-semibold' : 'text-content-secondary']">
+                  {{ projectMembership === 'none' ? 'Not in Any Project' : 'Any Project' }}
+                </span>
+                <span :class="['text-xs', projectMembership ? 'text-content-tertiary' : 'text-content-muted']">({{ projectMembership === 'none' ? (filterCounts.project_membership?.none || 0) : (filterCounts.project_membership?.any || 0) }})</span>
+              </div>
+              <!-- Specific projects (greyed out while "not in any project" is active) -->
+              <div v-if="!isLoading && projects.length === 0" class="text-sm text-content-muted italic py-2 text-center">
+                None
+              </div>
+              <div
+                v-for="project in projectsLimited"
+                :key="project.id"
+                @click="toggleProject(project.id)"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md transition-all',
+                         projectsDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
+                         { 'bg-overlay-light border border-edge-strong px-3': isProjectSelected(project.id) },
+                         (isProjectSelected(project.id) || projectsDisabled) ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm truncate', isProjectSelected(project.id) ? 'text-content font-semibold' : 'text-content-secondary']" :title="project.name">{{ project.name || 'Untitled' }}</span>
+                <span :class="['text-xs flex-shrink-0', isProjectSelected(project.id) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.projects?.[project.id] || 0 }})</span>
+              </div>
+              <a v-if="projects.length > 5" @click="showAllProjects = !showAllProjects" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
+                {{ showAllProjects ? 'Show less' : 'View more (' + projects.length + ')' }}
+              </a>
+            </div>
+          </div>
+
           <!-- Tools Column -->
           <div v-if="(filterCounts.tools && filterCounts.tools.length > 0) || (selectedTools.length > 0 || excludedTools.length > 0)" class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">TOOLS</h4>
@@ -648,6 +717,7 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { MagnifyingGlassCircleIcon } from '@heroicons/vue/24/solid'
+import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
 import { useMediaApi } from '../composables/useMediaApi'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../utils/stimmaCloud'
@@ -674,6 +744,9 @@ const props = defineProps({
   excludedFolders: Array,
   selectedTags: Array,           // New: user-defined tags
   excludedTags: Array,           // New: excluded tags
+  selectedProjects: Array,       // Project membership filter (project IDs to include)
+  excludedProjects: Array,       // Project membership filter (project IDs to exclude)
+  projectMembership: { type: String, default: null },  // null | 'any' | 'none' (in any / no project)
   selectedTools: Array,          // Tool lineage filter (full_tool_id strings)
   excludedTools: Array,          // Excluded tool lineage filter
   selectedMarkers: Array,         // New: selected markers (by ID)
@@ -692,7 +765,8 @@ const props = defineProps({
   defaultCollapsed: { type: Boolean, default: true }, // Start collapsed
   savedViewId: { type: Number, default: null },  // If viewing a saved view
   savedViewName: { type: String, default: null },  // Name of the saved view
-  isTrashMode: { type: Boolean, default: false }  // Trash view mode
+  isTrashMode: { type: Boolean, default: false },  // Trash view mode
+  inProjectScope: { type: Boolean, default: false }  // Viewing a single project's assets — project filter is redundant here
 })
 
 const emit = defineEmits([
@@ -709,6 +783,9 @@ const emit = defineEmits([
   'update:excludedFolders',
   'update:selectedTags',       // New: tags filter
   'update:excludedTags',       // New: excluded tags
+  'update:selectedProjects',   // Project membership filter (include)
+  'update:excludedProjects',   // Project membership filter (exclude)
+  'update:projectMembership',  // Project membership existence predicate
   'update:selectedTools',      // Tool lineage filter
   'update:excludedTools',      // Excluded tool lineage filter
   'update:selectedMarkers',    // New: markers filter
@@ -729,7 +806,7 @@ const emit = defineEmits([
   'move-down'
 ])
 
-const { getTopKeywords, getTags, getConfig, getFilterCounts, getTrashFilterCounts, fetchMedia, getTrash } = useMediaApi()
+const { getTopKeywords, getTags, getProjects, getConfig, getFilterCounts, getTrashFilterCounts, fetchMedia, getTrash } = useMediaApi()
 
 const localCaptionQuery = ref(props.captionQuery || '')
 const localPromptQuery = ref(props.promptQuery || '')
@@ -745,6 +822,11 @@ const selectedFolders = ref(props.selectedFolders || [])
 const excludedFolders = ref(props.excludedFolders || [])
 const selectedTags = ref(props.selectedTags || [])        // New: tags
 const excludedTags = ref(props.excludedTags || [])        // New: excluded tags
+const selectedProjects = ref(props.selectedProjects || [])   // Project membership (include)
+const excludedProjects = ref(props.excludedProjects || [])   // Project membership (exclude)
+const projectMembership = ref(props.projectMembership || null)  // null | 'any' | 'none'
+const projects = ref([])                                  // All available projects [{id, name}]
+const showAllProjects = ref(false)                        // Expand the project list beyond top 5
 const selectedTools = ref(props.selectedTools || [])      // Tool lineage filter
 const excludedTools = ref(props.excludedTools || [])      // Excluded tool lineage filter
 const selectedMarkers = ref(props.selectedMarkers || [])  // New: markers
@@ -775,6 +857,8 @@ const filterCounts = ref({
   folders: {},
   keywords: {},
   tools: [],
+  projects: {},
+  project_membership: { any: 0, none: 0 },
   date_ranges: {},
   expiring: 0
 })
@@ -821,6 +905,9 @@ const hasActiveFilters = computed(() => {
     (excludedFolders.value && excludedFolders.value.length > 0) ||
     (selectedTags.value && selectedTags.value.length > 0) ||
     (excludedTags.value && excludedTags.value.length > 0) ||
+    (selectedProjects.value && selectedProjects.value.length > 0) ||
+    (excludedProjects.value && excludedProjects.value.length > 0) ||
+    !!projectMembership.value ||
     (selectedTools.value && selectedTools.value.length > 0) ||
     (excludedTools.value && excludedTools.value.length > 0) ||
     (selectedMarkers.value && selectedMarkers.value.length > 0) ||
@@ -947,6 +1034,36 @@ const tagsLimited = computed(() => {
   return result
 })
 
+// Project membership existence chip ("In a project" / "Not in a project") is mutually exclusive
+// with picking specific projects: 'none' makes specific projects contradictory, so we grey them out.
+const projectsDisabled = computed(() => projectMembership.value === 'none')
+
+// Resolve a project ID to its display name (fallback when the project list hasn't loaded yet)
+function getProjectName(projectId) {
+  const found = projects.value.find(p => p.id === projectId)
+  return found ? (found.name || 'Untitled project') : `Project #${projectId}`
+}
+
+// All projects referenced by include/exclude state, for rendering cart chips
+const allProjects = computed(() => {
+  const selectedIds = selectedProjects.value || []
+  const excludedIds = excludedProjects.value || []
+  const allIds = [...new Set([...selectedIds, ...excludedIds])]
+  return allIds.map(id => ({ id, name: getProjectName(id) }))
+})
+
+// Top projects for inline display in the criteria panel (selected first, then fill to 5)
+const projectsLimited = computed(() => {
+  if (showAllProjects.value) return projects.value
+  const allSelectedIds = [...(selectedProjects.value || []), ...(excludedProjects.value || [])]
+  const result = projects.value.filter(p => allSelectedIds.includes(p.id))
+  const remainingSlots = 5 - result.length
+  if (remainingSlots > 0) {
+    result.push(...projects.value.filter(p => !allSelectedIds.includes(p.id)).slice(0, remainingSlots))
+  }
+  return result
+})
+
 // All tools (both selected and excluded) for showing badges
 const allTools = computed(() => {
   const selectedIds = selectedTools.value || []
@@ -1051,6 +1168,9 @@ function emitUpdate() {
   emit('update:excludedFolders', excludedFolders.value)
   emit('update:selectedTags', selectedTags.value)              // New: tags
   emit('update:excludedTags', excludedTags.value)              // New: excluded tags
+  emit('update:selectedProjects', selectedProjects.value)      // Project membership (include)
+  emit('update:excludedProjects', excludedProjects.value)      // Project membership (exclude)
+  emit('update:projectMembership', projectMembership.value)    // Project membership existence
   emit('update:selectedTools', selectedTools.value)            // Tool lineage filter
   emit('update:excludedTools', excludedTools.value)            // Excluded tool lineage filter
   emit('update:selectedMarkers', selectedMarkers.value)        // New: markers
@@ -1349,6 +1469,93 @@ function removeTag(tagId) {
   if (excludedIndex !== -1) {
     excludedTags.value.splice(excludedIndex, 1)
   }
+  emitUpdate()
+}
+
+// Project functions. Two interacting controls share the "PROJECTS" column:
+//  - the membership chip (projectMembership): null -> 'any' (in any project) -> 'none' (in no project)
+//  - the specific-project list (selectedProjects/excludedProjects), which behaves like tags.
+// Full-power combination rules:
+//  - 'none' (not in any project) contradicts any specific project, so entering it clears the lists
+//    and the rows are greyed out (projectsDisabled).
+//  - 'any' (in any project) coexists with excludes ("in a project, just not these") but is superseded
+//    by a specific include, so entering 'any' clears includes and adding an include clears 'any'.
+function cycleProjectMembership() {
+  if (!projectMembership.value) {
+    // none-set -> 'any'; specific includes are redundant under "in any project"
+    projectMembership.value = 'any'
+    selectedProjects.value = []
+  } else if (projectMembership.value === 'any') {
+    // 'any' -> 'none'; "not in any project" wipes all specific project filters
+    projectMembership.value = 'none'
+    selectedProjects.value = []
+    excludedProjects.value = []
+  } else {
+    projectMembership.value = null
+  }
+  emitUpdate()
+}
+
+function clearProjectMembership() {
+  projectMembership.value = null
+  emitUpdate()
+}
+
+// Cart chip body click: flip the membership chip between "in any project" (blue) and "not in any project" (red)
+function toggleProjectMembershipSign() {
+  if (projectMembership.value === 'any') {
+    projectMembership.value = 'none'
+    selectedProjects.value = []
+    excludedProjects.value = []
+  } else if (projectMembership.value === 'none') {
+    projectMembership.value = 'any'
+  }
+  emitUpdate()
+}
+
+function isProjectSelected(projectId) {
+  return selectedProjects.value.includes(projectId) || excludedProjects.value.includes(projectId)
+}
+
+function isProjectExcluded(projectId) {
+  return excludedProjects.value.includes(projectId)
+}
+
+function toggleProject(projectId) {
+  if (projectsDisabled.value) return  // specific projects disabled while "not in any project"
+  const index = selectedProjects.value.indexOf(projectId)
+  if (index === -1) {
+    selectedProjects.value.push(projectId)
+    const excludedIndex = excludedProjects.value.indexOf(projectId)
+    if (excludedIndex !== -1) excludedProjects.value.splice(excludedIndex, 1)
+    // a specific include supersedes the broad "in any project" predicate
+    if (projectMembership.value === 'any') projectMembership.value = null
+  } else {
+    selectedProjects.value.splice(index, 1)
+    const excludedIndex = excludedProjects.value.indexOf(projectId)
+    if (excludedIndex !== -1) excludedProjects.value.splice(excludedIndex, 1)
+  }
+  emitUpdate()
+}
+
+function toggleExcludeProject(projectId) {
+  const index = excludedProjects.value.indexOf(projectId)
+  if (index === -1) {
+    excludedProjects.value.push(projectId)
+    const selectedIndex = selectedProjects.value.indexOf(projectId)
+    if (selectedIndex !== -1) selectedProjects.value.splice(selectedIndex, 1)
+  } else {
+    excludedProjects.value.splice(index, 1)
+    if (!selectedProjects.value.includes(projectId)) selectedProjects.value.push(projectId)
+  }
+  emitUpdate()
+}
+
+function removeProject(projectId) {
+  const index = selectedProjects.value.indexOf(projectId)
+  if (index !== -1) selectedProjects.value.splice(index, 1)
+  const excludedIndex = excludedProjects.value.indexOf(projectId)
+  if (excludedIndex !== -1) excludedProjects.value.splice(excludedIndex, 1)
   emitUpdate()
 }
 
@@ -1796,6 +2003,19 @@ async function loadFolders() {
   }
 }
 
+// Load projects from API (names for the PROJECTS filter column; counts come from filter-counts)
+async function loadProjects() {
+  if (props.isTrashMode || props.inProjectScope) return  // project filtering isn't offered here
+  try {
+    const response = await getProjects()
+    projects.value = (response || [])
+      .filter(p => !p.deleted_at)
+      .map(p => ({ id: p.id, name: p.name }))
+  } catch (error) {
+    console.error('Failed to load projects:', error)
+  }
+}
+
 // Load unfiltered total count
 async function loadUnfilteredCount() {
   try {
@@ -1857,6 +2077,14 @@ async function loadFilterCounts() {
     if (props.excludedTags && props.excludedTags.length > 0) {
       params.excluded_tag_ids = props.excludedTags.join(',')
     }
+    if (props.selectedProjects && props.selectedProjects.length > 0) {
+      params.project_ids = props.selectedProjects.join(',')
+    }
+    if (props.excludedProjects && props.excludedProjects.length > 0) {
+      params.excluded_project_ids = props.excludedProjects.join(',')
+    }
+    if (props.projectMembership === 'any') params.has_project = true
+    else if (props.projectMembership === 'none') params.has_project = false
     if (props.selectedTools && props.selectedTools.length > 0) {
       params.tool_ids = props.selectedTools.join(',')
     }
@@ -1928,6 +2156,9 @@ watch(() => props.createdBefore, (val) => {
 })
 watch(() => props.selectedTags, (val) => syncArray(selectedTags, val))
 watch(() => props.excludedTags, (val) => syncArray(excludedTags, val))
+watch(() => props.selectedProjects, (val) => syncArray(selectedProjects, val))
+watch(() => props.excludedProjects, (val) => syncArray(excludedProjects, val))
+watch(() => props.projectMembership, (val) => projectMembership.value = val || null)
 watch(() => props.selectedTools, (val) => syncArray(selectedTools, val))
 watch(() => props.excludedTools, (val) => syncArray(excludedTools, val))
 watch(() => props.selectedMarkers, (val) => syncArray(selectedMarkers, val))
@@ -1968,6 +2199,9 @@ watch(
     props.excludedFolders,
     props.selectedTags,
     props.excludedTags,
+    props.selectedProjects,
+    props.excludedProjects,
+    props.projectMembership,
     props.selectedTools,
     props.excludedTools,
     props.selectedMarkers,
@@ -1998,11 +2232,14 @@ async function handleProfileChanged() {
   topKeywords.value = []
   tags.value = []
   folders.value = []
+  projects.value = []
   filterCounts.value = {
     media_type: { images: 0, videos: 0, audio: 0, text: 0, sets: 0, grids: 0, layouts: 0 },
     resolution: { small: 0, medium: 0, large: 0 },
     folders: {},
     keywords: {},
+    projects: {},
+    project_membership: { any: 0, none: 0 },
     date_ranges: {},
     expiring: 0
   }
@@ -2013,7 +2250,8 @@ async function handleProfileChanged() {
   loadUnfilteredCount()
   await Promise.all([
     loadTags(),
-    loadFolders()
+    loadFolders(),
+    loadProjects()
   ])
 
   // If panel is open, also reload keywords and counts
@@ -2042,7 +2280,8 @@ onMounted(async () => {
   // even when the panel is closed (e.g., when filtering by tag/folder from slideshow)
   await Promise.all([
     loadTags(),
-    loadFolders()
+    loadFolders(),
+    loadProjects()
   ])
 
   // If panel is already open, load keywords and counts immediately

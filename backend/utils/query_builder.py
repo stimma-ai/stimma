@@ -4,7 +4,7 @@ from typing import Optional, Union
 from sqlalchemy import select, or_, and_, func
 from database import (
     MediaItem, Keyword, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage,
-    Board, BoardItem, BoardSection,
+    Board, BoardItem, BoardSection, Project, ProjectMedia,
 )
 
 
@@ -146,6 +146,9 @@ def build_filtered_query(
     excluded_marker_ids: Optional[str] = None,
     tag_ids: Optional[str] = None,
     excluded_tag_ids: Optional[str] = None,
+    project_ids: Optional[str] = None,
+    excluded_project_ids: Optional[str] = None,
+    has_project: Optional[bool] = None,
     tool_ids: Optional[str] = None,
     excluded_tool_ids: Optional[str] = None,
     tool_id: Optional[str] = None,
@@ -170,7 +173,13 @@ def build_filtered_query(
 
     Args:
         query: SQLAlchemy query to apply filters to
-        exclude_category: Category to exclude from filtering ('media_types', 'resolutions', 'keywords', 'folders', 'tags', 'tools')
+        exclude_category: Category to exclude from filtering ('media_types', 'resolutions', 'keywords', 'folders', 'tags', 'projects', 'tools')
+        project_ids: Comma-separated project IDs; item must belong to at least one (OR logic).
+        excluded_project_ids: Comma-separated project IDs; item must NOT belong to any of them.
+        has_project: Tri-state membership predicate — True = in at least one (non-deleted) project,
+            False = in no project (the "library only" case), None = no constraint. Memberships that
+            point at a soft-deleted project don't count, so deleting a project releases its media
+            back into "not in any project".
         include_superseded: When True, include items owned by sets/grids (used by Trash so users see everything being trashed)
         exclude_expired: When True (default), hide items the auto-delete worker is due to remove so
             expired generations disappear at their deadline even before the worker runs. Trash opts
@@ -393,6 +402,51 @@ def build_filtered_query(
                     MediaTag.tag_id.in_(excluded_tag_id_list)
                 ).distinct()
                 query = query.where(MediaItem.id.notin_(excluded_tag_subquery))
+
+    # Project membership filter. Specific project include/exclude work like tags; has_project is a
+    # tri-state existence predicate (in any project / in no project). Soft-deleted projects never
+    # count toward membership, so a deleted project releases its media back to "not in any project".
+    if exclude_category != 'projects':
+        if project_ids:
+            project_id_list = [int(pid.strip()) for pid in project_ids.split(',') if pid.strip()]
+            if project_id_list:
+                project_subquery = select(ProjectMedia.media_id).join(
+                    Project, Project.id == ProjectMedia.project_id
+                ).where(
+                    and_(
+                        ProjectMedia.project_id.in_(project_id_list),
+                        Project.deleted_at.is_(None),
+                    )
+                ).distinct()
+                query = query.where(MediaItem.id.in_(project_subquery))
+
+        if excluded_project_ids:
+            excluded_project_id_list = [int(pid.strip()) for pid in excluded_project_ids.split(',') if pid.strip()]
+            if excluded_project_id_list:
+                excluded_project_subquery = select(ProjectMedia.media_id).join(
+                    Project, Project.id == ProjectMedia.project_id
+                ).where(
+                    and_(
+                        ProjectMedia.project_id.in_(excluded_project_id_list),
+                        Project.deleted_at.is_(None),
+                    )
+                ).distinct()
+                query = query.where(MediaItem.id.notin_(excluded_project_subquery))
+
+        if has_project is not None:
+            # correlate(MediaItem) keeps this EXISTS pinned to the outer row even when the enclosing
+            # query joins project_media itself (e.g. the filter-counts facet queries).
+            membership_exists = (
+                select(1).select_from(ProjectMedia)
+                .join(Project, Project.id == ProjectMedia.project_id)
+                .where(
+                    ProjectMedia.media_id == MediaItem.id,
+                    Project.deleted_at.is_(None),
+                )
+                .correlate(MediaItem)
+                .exists()
+            )
+            query = query.where(membership_exists if has_project else ~membership_exists)
 
     # Tool lineage filter (OR logic - item must have at least one of the specified tools in its lineage)
     if exclude_category != 'tools':

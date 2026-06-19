@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, and_, or_, literal, Integer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import MediaItem, Keyword, MediaKeyword, Tag, MediaTag, MediaToolLineage, CachedProviderTool
+from database import MediaItem, Keyword, MediaKeyword, Tag, MediaTag, MediaToolLineage, CachedProviderTool, Project, ProjectMedia
 from core.dependencies import get_db_session
 from core.profile_context import get_current_profile
 from database_registry import get_database_registry
@@ -715,6 +715,9 @@ async def get_filter_counts(
     similarity_threshold: Optional[float] = Query(None, description="Similarity threshold (0.0-1.0)"),
     keyword_limit: int = Query(5, ge=1, le=200, description="Number of top keywords to include with counts"),
     tag_limit: int = Query(50, ge=1, le=200, description="Number of top tags to include with counts"),
+    project_ids: Optional[str] = Query(None, description="Comma-separated project IDs currently selected (OR logic)"),
+    excluded_project_ids: Optional[str] = Query(None, description="Comma-separated project IDs to exclude"),
+    has_project: Optional[bool] = Query(None, description="True = in any project, False = in no project"),
     tool_ids: Optional[str] = Query(None, description="Comma-separated full_tool_ids currently selected"),
     excluded_tool_ids: Optional[str] = Query(None, description="Comma-separated full_tool_ids to exclude"),
     tool_limit: int = Query(50, ge=1, le=200, description="Number of top tools to include with counts"),
@@ -1361,6 +1364,65 @@ async def get_filter_counts(
             "count": count
         })
 
+    # Project membership preview counts. Mirrors the tags facet: shows, for items matching the
+    # current non-project filters, how many are in each project, plus the "in a project" /
+    # "not in a project" membership totals. exclude_category='projects' drops the project
+    # predicates from the helper so these counts ignore the user's current project selection.
+    project_facet_filters = dict(
+        caption_query=caption_query,
+        prompt_query=prompt_query,
+        media_types=media_types,
+        excluded_media_types=excluded_media_types,
+        resolutions=resolutions,
+        excluded_resolutions=excluded_resolutions,
+        keywords=keywords,
+        excluded_keywords=excluded_keywords,
+        folders=folders,
+        excluded_folders=excluded_folders,
+        is_generated=is_generated,
+        marker_ids=marker_ids,
+        excluded_marker_ids=excluded_marker_ids,
+        tag_ids=tag_ids,
+        excluded_tag_ids=excluded_tag_ids,
+        tool_ids=tool_ids,
+        excluded_tool_ids=excluded_tool_ids,
+        exclude_category='projects',
+    )
+
+    project_counts = {}
+    project_query = select(
+        ProjectMedia.project_id,
+        func.count(func.distinct(MediaItem.id)).label('count')
+    ).select_from(ProjectMedia).join(
+        Project, Project.id == ProjectMedia.project_id
+    ).join(
+        MediaItem, ProjectMedia.media_id == MediaItem.id
+    ).where(
+        Project.deleted_at.is_(None),
+        MediaItem.deleted_at.is_(None),
+        MediaItem.metadata_status == 'completed',
+        (MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None)),
+    )
+    if base_item_ids is not None:
+        project_query = project_query.where(MediaItem.id.in_(base_item_ids))
+    project_query = build_filtered_query(project_query, **project_facet_filters)
+    project_query = project_query.group_by(ProjectMedia.project_id)
+    for pid, count in (await session.execute(project_query)).all():
+        project_counts[str(pid)] = count
+
+    # "In a project" / "Not in a project" membership totals (soft-deleted projects don't count)
+    membership_exists = (
+        select(1).select_from(ProjectMedia)
+        .join(Project, Project.id == ProjectMedia.project_id)
+        .where(ProjectMedia.media_id == MediaItem.id, Project.deleted_at.is_(None))
+        .correlate(MediaItem)
+        .exists()
+    )
+    in_any_query = build_filtered_query(get_base_query(), **project_facet_filters).where(membership_exists)
+    in_any_count = (await session.execute(in_any_query)).scalar()
+    not_in_any_query = build_filtered_query(get_base_query(), **project_facet_filters).where(~membership_exists)
+    not_in_any_count = (await session.execute(not_in_any_query)).scalar()
+
     return {
         "media_type": {
             "images": images_count,
@@ -1380,6 +1442,8 @@ async def get_filter_counts(
         "keywords": keyword_counts_dict,
         "tags": tag_counts_list,
         "tools": tool_counts_list,
+        "projects": project_counts,
+        "project_membership": {"any": in_any_count, "none": not_in_any_count},
         "date_ranges": date_range_counts,
         "expiring": expiring_count
     }

@@ -12,6 +12,9 @@ export const DEFAULT_BROWSE_FILTERS = {
   excludedFolders: [],
   selectedTags: [],
   excludedTags: [],
+  selectedProjects: [],
+  excludedProjects: [],
+  projectMembership: null,   // null = no constraint, 'any' = in any project, 'none' = in no project
   selectedTools: [],
   excludedTools: [],
   selectedMarkers: [],

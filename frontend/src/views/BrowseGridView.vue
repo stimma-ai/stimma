@@ -68,6 +68,9 @@
       v-model:excludedFolders="filters.excludedFolders"
       v-model:selectedTags="filters.selectedTags"
       v-model:excludedTags="filters.excludedTags"
+      v-model:selectedProjects="filters.selectedProjects"
+      v-model:excludedProjects="filters.excludedProjects"
+      v-model:projectMembership="filters.projectMembership"
       v-model:selectedTools="filters.selectedTools"
       v-model:excludedTools="filters.excludedTools"
       v-model:selectedMarkers="filters.selectedMarkers"
@@ -85,6 +88,7 @@
       :savedViewId="savedViewId"
       :savedViewName="savedViewName"
       :isTrashMode="isTrashMode"
+      :inProjectScope="projectId != null"
       @update="loadMedia"
       @clear-similar="clearSimilarSearch"
       @shuffle="handleShuffle"
@@ -702,6 +706,22 @@ function buildFilterParams() {
   }
   if (filters.excludedTags && filters.excludedTags.length > 0) {
     params.excluded_tag_ids = filters.excludedTags.join(',')
+  }
+  // Project-membership filter only applies to library-wide views. Inside a single project the
+  // route's project_id is the scoping authority, and the column is hidden — don't let leftover
+  // values from the shared global browse state leak in and contradict it.
+  if (props.projectId == null) {
+    if (filters.selectedProjects && filters.selectedProjects.length > 0) {
+      params.project_ids = filters.selectedProjects.join(',')
+    }
+    if (filters.excludedProjects && filters.excludedProjects.length > 0) {
+      params.excluded_project_ids = filters.excludedProjects.join(',')
+    }
+    if (filters.projectMembership === 'any') {
+      params.has_project = true
+    } else if (filters.projectMembership === 'none') {
+      params.has_project = false
+    }
   }
   if (filters.selectedTools && filters.selectedTools.length > 0) {
     params.tool_ids = filters.selectedTools.join(',')
