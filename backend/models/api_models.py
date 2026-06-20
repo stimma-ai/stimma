@@ -1,6 +1,6 @@
 """Pydantic models for API requests and responses."""
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class MediaMarkerInfo(BaseModel):
@@ -182,6 +182,54 @@ class BatchJobResponse(BaseModel):
     batch_id: str
     total_jobs: int
     job_ids: List[int]
+
+
+class MediaBatchInput(BaseModel):
+    """The batched media slot for a media-batch submission.
+
+    ``field`` is the tool's media parameter name (e.g. ``input_images`` or
+    ``input_videos``). ``media_ids`` is the flat list of library media items;
+    the tool runs once per item.
+    """
+    field: str
+    media_ids: List[int]
+
+
+class MediaBatchJobRequest(BaseModel):
+    """Request to submit a media-batch: run a tool once per item in one media slot.
+
+    Unlike ``BatchJobRequest`` (which expands a ``.stimmaset.json``), this sources
+    the batch directly from media IDs. Each run reuses ``parameters`` plus any
+    ``constant_inputs`` (constant media slots), and applies uniform batch-safe
+    ``prep`` to the batched item. Outputs stay as individual library assets and are
+    grouped for presentation only (no output set is created).
+    """
+    tool_id: str  # Required - full tool ID (provider:tool_id)
+    folder_path: str
+    task_type: str
+
+    # The batched media slot (one slot, N items → N runs).
+    batch_input: MediaBatchInput
+
+    # Constant media slots that are the same for every run, keyed by field name.
+    # Values are media IDs (resolved to paths server-side).
+    constant_inputs: dict = Field(default_factory=dict)
+
+    # Non-media parameters shared by every run (prompt, steps, cfg, seed, loras, ...).
+    parameters: dict = Field(default_factory=dict)
+
+    # Uniform batch-safe prep applied to each batched item before submission.
+    # Recognized keys: scale, flip, preprocessor, preprocessor_params,
+    # extend_padding, extend_bg_color. (No paint/mask — those are per-item.)
+    prep: Optional[dict] = None
+
+    # Job metadata
+    auto_delete_duration: Optional[str] = "24h"
+    generator_instance_id: Optional[str] = None
+    preset_id: Optional[int] = None
+    prompt_metadata: Optional[PromptMetadata] = None
+    auto_marker_ids: Optional[List[int]] = None
+    project_id: Optional[int] = None
 
 
 class GenerationJobResponse(BaseModel):

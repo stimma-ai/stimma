@@ -49,7 +49,7 @@
             class="relative rounded-lg overflow-hidden border border-edge hover:border-blue-500 transition-colors bg-checker p-0 cursor-pointer"
             :class="source.inTree === false ? 'opacity-50 pointer-events-none' : ''"
             :style="{ width: '80px', height: '80px' }"
-            :title="source.role ? formatSourceRole(source.role) : 'Input'"
+            :title="sourceTitle(source)"
             @click="source.media_id && $emit('navigate', source.media_id)"
           >
             <MediaImage
@@ -59,6 +59,10 @@
               container-class="w-full h-full"
               img-class="w-full h-full object-cover"
             />
+            <!-- Preprocessor badge (e.g. ControlNet canny applied to this input) -->
+            <div v-if="source.preprocessor" class="absolute top-0 inset-x-0 bg-blue-500/80 text-white text-[9px] text-center py-0.5 truncate px-1">
+              {{ source.preprocessor }}
+            </div>
             <div v-if="source.role" class="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] text-center py-0.5 truncate px-1">
               {{ formatSourceRole(source.role) }}
             </div>
@@ -367,6 +371,11 @@ function formatSourceRole(role) {
   if (!role) return 'Input'
   const labels = { image: 'Image', style: 'Style', reference: 'Reference', mask: 'Mask', depth: 'Depth', pose: 'Pose' }
   return labels[role] || role.charAt(0).toUpperCase() + role.slice(1)
+}
+
+function sourceTitle(source) {
+  const role = source.role ? formatSourceRole(source.role) : 'Input'
+  return source.preprocessor ? `${role} · ${source.preprocessor}` : role
 }
 
 function humanizeToolName(name) {

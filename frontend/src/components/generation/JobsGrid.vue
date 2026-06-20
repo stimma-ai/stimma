@@ -30,6 +30,37 @@
             @dismiss="$emit('dismiss-chain', item.run.id)"
             @cancel="$emit('dismiss-chain', item.run.id)"
           />
+          <!-- Active media-batch: standard progress strip, plus finished
+               results appearing below as they complete. -->
+          <div v-else-if="item.type === 'media-batch-active'" class="flex flex-col gap-2">
+            <PipelineProgressBar
+              v-bind="mediaBatchModel(item.batch)"
+              @cancel="$emit('cancel-and-dismiss-batch', item.batch.batch_id)"
+            />
+            <BatchGroup
+              v-if="batchResultCells(item.batch).length > 0"
+              :cells="batchResultCells(item.batch)"
+              :total="item.batch.total"
+              :completed-count="batchCompletedCount(item.batch)"
+              :failed-count="batchFailedCount(item.batch)"
+              :complete="false"
+              :is-video="isVideo"
+              :image-mode="imageMode"
+              :markers="markers"
+              :media-markers="mediaMarkers"
+              :media-hashes="mediaHashes"
+              :media-generation-times="mediaGenerationTimes"
+              :current-media-id="currentMediaId"
+              :compact-overlays="compactOverlays"
+              @job-click="$emit('job-click', $event)"
+              @toggle-marker="$emit('toggle-marker', $event)"
+              @show-job-info="$emit('show-job-info', $event)"
+              @media-load-error="$emit('media-load-error', $event)"
+              @retry-job="$emit('retry-job', $event)"
+              @dismiss-job="$emit('dismiss-job', $event)"
+              @menu="onBatchMenu($event, item.batch)"
+            />
+          </div>
         </template>
       </div>
 
@@ -58,13 +89,13 @@
                 <span class="text-xs font-semibold text-content leading-none">{{ item.batch.output_set_member_count || item.batch.completed }}</span>
               </div>
               <!-- Marker toggle buttons (bottom left) -->
-              <div v-if="item.batch.output_set_id && markers.length > 0" class="absolute bottom-2 left-2 z-[10] flex gap-1">
+              <div v-if="!compactOverlays && item.batch.output_set_id && markers.length > 0" class="absolute bottom-2 left-2 z-[10] flex gap-0.5">
                 <button
                   v-for="marker in markers"
                   :key="marker.id"
                   @click.stop="$emit('toggle-marker', { mediaId: item.batch.output_set_id, marker })"
                   :class="[
-                    'w-8 h-8 rounded-lg flex items-center justify-center transition-all border-2',
+                    'w-7 h-7 rounded-md flex items-center justify-center transition-all border-2',
                     hasMarker(item.batch.output_set_id, marker.id)
                       ? 'bg-black/80'
                       : 'bg-black/40 border-transparent hover:bg-black/60 text-white/50 hover:text-white'
@@ -72,7 +103,7 @@
                   :style="hasMarker(item.batch.output_set_id, marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
                   :title="hasMarker(item.batch.output_set_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
                 >
-                  <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="marker.icon_svg" />
+                  <span class="w-4 h-4 flex items-center justify-center icon-container" v-html="marker.icon_svg" />
                 </button>
               </div>
               <!-- Set title overlay (bottom center, matching browser) -->
@@ -88,91 +119,50 @@
           </div>
         </template>
 
+        <!-- Completed media-batch (presentation-only) - same grid, all filled -->
+        <template v-else-if="item.type === 'media-batch-done'">
+          <BatchGroup
+            :cells="batchCells(item.batch)"
+            :total="item.batch.total"
+            :completed-count="batchCompletedCount(item.batch)"
+            :failed-count="batchFailedCount(item.batch)"
+            :complete="true"
+            :is-video="isVideo"
+            :image-mode="imageMode"
+            :markers="markers"
+            :media-markers="mediaMarkers"
+            :media-hashes="mediaHashes"
+            :media-generation-times="mediaGenerationTimes"
+            :current-media-id="currentMediaId"
+            :compact-overlays="compactOverlays"
+            @job-click="$emit('job-click', $event)"
+            @toggle-marker="$emit('toggle-marker', $event)"
+            @show-job-info="$emit('show-job-info', $event)"
+            @media-load-error="$emit('media-load-error', $event)"
+            @retry-job="$emit('retry-job', $event)"
+            @dismiss-job="$emit('dismiss-job', $event)"
+            @menu="onBatchMenu($event, item.batch)"
+          />
+        </template>
+
         <!-- Completed individual job - image tile -->
         <template v-else-if="item.type === 'completed-job'">
           <div class="grid grid-cols-1 gap-4">
-            <div
-              :class="[
-                'group relative aspect-square rounded-lg overflow-hidden transition-transform cursor-pointer hover:scale-105',
-                imageMode === 'fit' ? 'bg-surface-raised' : '',
-                currentMediaId != null && item.job.result_media_id === currentMediaId
-                  ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-overlay'
-                  : ''
-              ]"
-              @click="handleJobClick(item.job)"
-            >
-              <!-- Video display -->
-              <video
-                v-if="isVideo && getMediaHash(item.job.result_media_id)"
-                :src="getMediaUrl(getMediaHash(item.job.result_media_id))"
-                :class="['w-full h-full', imageMode === 'fit' ? 'object-contain' : 'object-cover']"
-                loop
-                muted
-                playsinline
-                draggable="true"
-                @dragstart="onDragStart($event, item.job.result_media_id)"
-                @dragend="handleDragEnd"
-                @mouseenter="($event.target as HTMLVideoElement).play()"
-                @mouseleave="($event.target as HTMLVideoElement).pause(); ($event.target as HTMLVideoElement).currentTime = 0"
-                @error="$emit('media-load-error', item.job.result_media_id)"
-                @contextmenu.prevent="handleVideoContextMenu($event, item.job.result_media_id)"
-              />
-              <!-- Image display -->
-              <MediaImage
-                v-else-if="!isVideo && item.job.result_media_id"
-                :media-id="item.job.result_media_id"
-                :thumbnail="imageMode !== 'fit'"
-                :thumbnail-size="256"
-                :alt="`Generated image ${item.job.id}`"
-                :contain="imageMode === 'fit'"
-                container-class="w-full h-full"
-                @error="$emit('media-load-error', item.job.result_media_id)"
-              />
-              <div v-else-if="item.job.result_media_id" class="w-full h-full flex items-center justify-center bg-surface">
-                <div class="w-8 h-8 border-2 border-edge border-t-blue-500 rounded-full animate-spin"></div>
-              </div>
-              <!-- Auto-delete time remaining badge (upper left) -->
-              <div v-if="item.job.auto_delete_at && formatRemainingTime(item.job.auto_delete_at) && formatRemainingTime(item.job.auto_delete_at) !== '0m'" class="absolute top-2 left-2 z-[5] bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3 text-[#FFC107]">
-                  <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-xs font-semibold text-[#FFC107] leading-none whitespace-nowrap">{{ formatRemainingTime(item.job.auto_delete_at) }}</span>
-              </div>
-              <!-- Combined gen-time + info (upper right): shows the time, click opens
-                   generation details. Falls back to an info icon when no time is
-                   recorded. -->
-              <button
-                @click.stop="$emit('show-job-info', item.job)"
-                class="absolute top-2 right-2 z-[10] h-7 flex items-center justify-center gap-1 px-2 bg-black/80 backdrop-blur-md hover:bg-blue-500/80 rounded text-xs font-bold text-white transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
-                title="Generation details"
-              >
-                <span v-if="getGenerationTime(item.job)">{{ getGenerationTime(item.job) }}s</span>
-                <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
-                </svg>
-              </button>
-              <!-- Marker toggle buttons (bottom left) -->
-              <div v-if="item.job.result_media_id && markers.length > 0" class="absolute bottom-2 left-2 z-[10] flex gap-1">
-                <button
-                  v-for="marker in markers"
-                  :key="marker.id"
-                  @click.stop="$emit('toggle-marker', { mediaId: item.job.result_media_id, marker })"
-                  :class="[
-                    'w-8 h-8 rounded-lg flex items-center justify-center transition-all border-2',
-                    hasMarker(item.job.result_media_id, marker.id)
-                      ? 'bg-black/80'
-                      : 'bg-black/40 border-transparent hover:bg-black/60 text-white/50 hover:text-white'
-                  ]"
-                  :style="hasMarker(item.job.result_media_id, marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
-                  :title="hasMarker(item.job.result_media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
-                >
-                  <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="marker.icon_svg" />
-                </button>
-              </div>
-              <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-                <div class="text-xs text-white line-clamp-2">{{ getJobPrompt(item.job) }}</div>
-              </div>
-            </div>
+            <JobTile
+              :job="item.job"
+              :is-video="isVideo"
+              :image-mode="imageMode"
+              :markers="markers"
+              :media-markers="mediaMarkers"
+              :media-hashes="mediaHashes"
+              :media-generation-times="mediaGenerationTimes"
+              :current-media-id="currentMediaId"
+              :compact-overlays="compactOverlays"
+              @job-click="$emit('job-click', $event)"
+              @toggle-marker="$emit('toggle-marker', $event)"
+              @show-job-info="$emit('show-job-info', $event)"
+              @media-load-error="$emit('media-load-error', $event)"
+            />
           </div>
         </template>
 
@@ -198,6 +188,8 @@ import { computed } from 'vue'
 import { formatRemainingTime } from '../../utils/timeFormat'
 import { MediaImage, AppImage } from '../media'
 import PipelineProgressBar from './postprocessing/PipelineProgressBar.vue'
+import JobTile from './JobTile.vue'
+import BatchGroup from './BatchGroup.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
@@ -283,6 +275,7 @@ interface Props {
   // Human-readable name of the tool whose jobs this grid shows. Jobs only carry
   // the raw model/tool id, so the owning view supplies the display name.
   toolDisplayName?: string
+  compactOverlays?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -296,7 +289,8 @@ const props = withDefaults(defineProps<Props>(), {
   emptyMessage: 'No jobs yet',
   isVideo: false,
   currentMediaId: null,
-  toolDisplayName: ''
+  toolDisplayName: '',
+  compactOverlays: false,
 })
 
 const emit = defineEmits<{
@@ -353,18 +347,100 @@ const sortedActiveJobs = computed(() => [
   ...queuedJobs.value
 ])
 
-// Active batches (still in progress)
+// ── Media-batch (presentation-only) grouping ───────────────────────────────
+// A media-batch runs a tool once per item; results stay individual library
+// assets and we present them as ONE mini-grid that fills in as items complete.
+// Post-processing is part of an item: a member whose chain is still running is
+// "in progress" — the batch is not done until every member (incl. its chain) is.
+
+function jobParams(job: Job): any {
+  if (!job.parameters) return null
+  try { return JSON.parse(job.parameters) } catch { return null }
+}
+
+function isPresentationBatch(batch: BatchInfo): boolean {
+  for (const j of batch.jobs || []) {
+    const p = jobParams(j)
+    if (p && p._batch_presentation_only) return true
+  }
+  return false
+}
+
+// job_id -> active (running/paused) post-processing chain run
+const activeChainByJobId = computed(() => {
+  const m = new Map<number, ChainRun>()
+  for (const r of props.activeChainRuns || []) {
+    if (r.job_id != null) m.set(r.job_id, r)
+  }
+  return m
+})
+
+const mediaBatches = computed(() => Object.values(props.batchJobs).filter(isPresentationBatch))
+const mediaBatchIds = computed(() => new Set(mediaBatches.value.map(b => b.batch_id)))
+// Job ids belonging to media batches (so their chain bars aren't shown standalone).
+const mediaBatchJobIds = computed(() => {
+  const ids = new Set<number>()
+  for (const b of mediaBatches.value) for (const j of b.jobs || []) ids.add(j.id)
+  return ids
+})
+
+type BatchCellState = 'pending' | 'postprocessing' | 'done' | 'failed'
+interface BatchCell { key: string; state: BatchCellState; job: Job; mediaId?: number }
+
+// Cells for a media-batch mini-grid, ordered by submission (≈ batch index).
+function batchCells(batch: BatchInfo): BatchCell[] {
+  const jobs = [...(batch.jobs || [])].sort((a, b) => a.id - b.id)
+  return jobs.map(job => {
+    if (job.status === 'failed' || job.status === 'cancelled') {
+      return { key: `j${job.id}`, state: 'failed', job }
+    }
+    if (job.status === 'completed') {
+      const chain = activeChainByJobId.value.get(job.id)
+      if (chain) {
+        // Post-processing still running — part of this item, not done yet.
+        return { key: `j${job.id}`, state: 'postprocessing', job, mediaId: chain.last_good_media_id || job.result_media_id }
+      }
+      return { key: `j${job.id}`, state: 'done', job, mediaId: job.result_media_id }
+    }
+    return { key: `j${job.id}`, state: 'pending', job }
+  })
+}
+
+function batchCompletedCount(batch: BatchInfo): number {
+  return batchCells(batch).filter(c => c.state === 'done').length
+}
+function batchFailedCount(batch: BatchInfo): number {
+  return batchCells(batch).filter(c => c.state === 'failed').length
+}
+function batchTerminalCount(batch: BatchInfo): number {
+  return batchCompletedCount(batch) + batchFailedCount(batch)
+}
+function batchResultCells(batch: BatchInfo): BatchCell[] {
+  return batchCells(batch).filter(c => c.state === 'done' || c.state === 'failed')
+}
+function batchIsComplete(batch: BatchInfo): boolean {
+  const cells = batchCells(batch)
+  // Guard against not-all-jobs-loaded-yet: require the full expected count.
+  if (cells.length < (batch.total || cells.length)) return false
+  return cells.length > 0 && cells.every(c => c.state === 'done' || c.state === 'failed')
+}
+function batchMemberMediaIds(batch: BatchInfo): number[] {
+  return batchCells(batch).filter(c => c.state === 'done' && c.mediaId).map(c => c.mediaId as number)
+}
+
+// Active batches (still in progress) — set-based batches only; media batches
+// have their own mini-grid rendering.
 const activeBatches = computed(() => {
   return Object.values(props.batchJobs).filter(batch => {
-    // Only show batches that are still in progress (not yet complete)
+    if (mediaBatchIds.value.has(batch.batch_id)) return false
     return batch.inProgress > 0 || (batch.completed + batch.failed) < batch.total
   })
 })
 
-// Completed batches (show output set tile)
+// Completed batches (show output set tile) — set-based batches only.
 const completedBatches = computed(() => {
   return Object.values(props.batchJobs).filter(batch => {
-    // Show batches that are fully complete and have an output set with loaded hash
+    if (mediaBatchIds.value.has(batch.batch_id)) return false
     return (batch.completed + batch.failed) >= batch.total &&
            batch.output_set_id &&
            batch.output_set_hash
@@ -383,7 +459,7 @@ const displayedJobs = computed(() =>
 const unifiedDisplayItems = computed(() => {
   const items: Array<{
     key: string
-    type: 'active-job' | 'active-batch' | 'chain-run' | 'completed-batch' | 'completed-job' | 'failed-job'
+    type: 'active-job' | 'active-batch' | 'chain-run' | 'completed-batch' | 'media-batch-active' | 'media-batch-done' | 'completed-job' | 'failed-job'
     timestamp: Date
     job?: Job
     batch?: BatchInfo
@@ -415,13 +491,34 @@ const unifiedDisplayItems = computed(() => {
   }
 
   // Add running/paused post-processing chains — sorted into the active flow
-  // by start time so the stack reads newest-at-top like the job bars.
+  // by start time so the stack reads newest-at-top like the job bars. Chains that
+  // belong to a media-batch member are represented INSIDE the batch grid (the
+  // item shows a post-processing state), so they're not shown standalone here.
   for (const run of props.activeChainRuns) {
+    if (run.job_id != null && mediaBatchJobIds.value.has(run.job_id)) continue
     items.push({
       key: `chain-${run.id}`,
       type: 'chain-run',
       timestamp: new Date((run as any).created_at || Date.now()),
       run
+    })
+  }
+
+  // Add media-batches (presentation-only) — one mini-grid that fills in. Active
+  // until every member (incl. post-processing) is terminal.
+  for (const batch of mediaBatches.value) {
+    const done = batchIsComplete(batch)
+    const earliestJob = [...(batch.jobs || [])].sort((a, b) =>
+      new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+    )[0]
+    const latestJob = [...(batch.jobs || [])].filter(j => j.completed_at).sort((a, b) =>
+      new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime()
+    )[0]
+    items.push({
+      key: `media-batch-${batch.batch_id}`,
+      type: done ? 'media-batch-done' : 'media-batch-active',
+      timestamp: new Date((done ? latestJob?.completed_at : earliestJob?.created_at) || Date.now()),
+      batch
     })
   }
 
@@ -450,7 +547,7 @@ const unifiedDisplayItems = computed(() => {
   }
 
   // Sort: active items first (by created_at desc), then completed/failed (by completed_at desc)
-  const isActiveType = (t: string) => t === 'active-job' || t === 'active-batch' || t === 'chain-run'
+  const isActiveType = (t: string) => t === 'active-job' || t === 'active-batch' || t === 'chain-run' || t === 'media-batch-active'
   return items.sort((a, b) => {
     const aIsActive = isActiveType(a.type)
     const bIsActive = isActiveType(b.type)
@@ -465,7 +562,7 @@ const unifiedDisplayItems = computed(() => {
 })
 
 // Split display items into active and completed for separate rendering
-const ACTIVE_ITEM_TYPES = new Set(['active-job', 'active-batch', 'chain-run'])
+const ACTIVE_ITEM_TYPES = new Set(['active-job', 'active-batch', 'chain-run', 'media-batch-active'])
 
 const activeDisplayItems = computed(() =>
   unifiedDisplayItems.value.filter(item => ACTIVE_ITEM_TYPES.has(item.type))
@@ -502,6 +599,16 @@ function failedJobModel(job: Job) {
 
 function batchModel(batch: BatchInfo) {
   const done = batch.completed + batch.failed
+  return {
+    name: props.toolDisplayName || batch.jobs?.[0]?.model_name || 'Batch',
+    status: batch.inProgress > 0 ? 'processing' : 'queued',
+    label: `${done} of ${batch.total} done`,
+    progress: batch.total ? done / batch.total : null,
+  }
+}
+
+function mediaBatchModel(batch: BatchInfo) {
+  const done = batchTerminalCount(batch)
   return {
     name: props.toolDisplayName || batch.jobs?.[0]?.model_name || 'Batch',
     status: batch.inProgress > 0 ? 'processing' : 'queued',
@@ -620,5 +727,12 @@ function handleVideoContextMenu(event: MouseEvent, mediaId: number | undefined) 
       fileHash: props.mediaHashes[mediaId]
     })
   }
+}
+
+// Group actions over the batch members (add to board, create set, tag, export…).
+function onBatchMenu(event: MouseEvent, batch: BatchInfo) {
+  const mediaIds = batchMemberMediaIds(batch)
+  if (mediaIds.length === 0) return
+  contextMenu.show({ event, mediaId: mediaIds[0], mediaIds })
 }
 </script>

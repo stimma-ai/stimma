@@ -76,6 +76,12 @@ export interface GlobalPrefs {
   // Per-tool extended-thinking toggle — a normal tool setting (persisted,
   // scoped, rides presets). Defaults off.
   agentThinking: boolean
+  // Media-batch: when true the media slot is a batch source (run once per item
+  // in inputImages/inputVideos). batchField names the slot. The uniform batch
+  // prep lives on the representative item (items[0]._scale/_flip/...), so there
+  // is no separate prep object to persist.
+  batchMode?: boolean
+  batchField?: 'input_images' | 'input_videos'
 }
 
 export interface UIState {
@@ -114,7 +120,9 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     promptOptions: { ...DEFAULT_PROMPT_OPTIONS },
     autoMarkerIds: [],
     agentInstructions: '',
-    agentThinking: false
+    agentThinking: false,
+    batchMode: false,
+    batchField: 'input_images',
   })
 
   // UI state
@@ -155,7 +163,9 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
           },
           autoMarkerIds: data.autoMarkerIds ?? [],
           agentInstructions: data.agentInstructions ?? '',
-          agentThinking: data.agentThinking ?? false
+          agentThinking: data.agentThinking ?? false,
+          batchMode: data.batchMode ?? false,
+          batchField: data.batchField ?? 'input_images',
         }
       }
     } catch (err) {
@@ -359,7 +369,9 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
       promptOptions: { ...DEFAULT_PROMPT_OPTIONS },
       autoMarkerIds: [],
       agentInstructions: '',
-      agentThinking: false
+      agentThinking: false,
+      batchMode: false,
+      batchField: 'input_images',
     }
     uiState.value = {
       selectedGenerator: '',

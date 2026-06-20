@@ -145,6 +145,11 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     state.agentInstructions = globalPrefs.value.agentInstructions || ''
     state.agentThinking = globalPrefs.value.agentThinking ?? false
 
+    // Media-batch slot state rides the tool's working state so it survives reload
+    // (and presets) — otherwise the items restore but the slot reverts to N refs.
+    state.batchMode = globalPrefs.value.batchMode ?? false
+    state.batchField = globalPrefs.value.batchField ?? 'input_images'
+
     // Include ALL loras with their enabled state
     state.loras = toolLoras.value.map(l => ({
       lora: l.lora,
@@ -176,6 +181,8 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     globalPrefs.value.autoMarkerIds = state.autoMarkerIds ?? []
     globalPrefs.value.agentInstructions = state.agentInstructions ?? ''
     globalPrefs.value.agentThinking = state.agentThinking ?? false
+    globalPrefs.value.batchMode = state.batchMode ?? false
+    globalPrefs.value.batchField = state.batchField ?? 'input_images'
 
     // Apply ALL model params from state (except ephemeral)
     for (const [key, value] of Object.entries(state)) {
@@ -260,6 +267,17 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       // read as modified the instant it loads.
       if (key === 'agentInstructions' || key === 'agentMemory') {
         if ((currentState[key] || '') !== (base[key] || '')) return true
+        continue
+      }
+
+      // Batch slot state: absent in pre-feature states; treat absent as the
+      // default so loading an older state/preset doesn't read as modified.
+      if (key === 'batchMode') {
+        if ((currentState[key] ?? false) !== (base[key] ?? false)) return true
+        continue
+      }
+      if (key === 'batchField') {
+        if ((currentState[key] ?? 'input_images') !== (base[key] ?? 'input_images')) return true
         continue
       }
       // agentThinking defaults to false; absent (older state) == false.

@@ -12,10 +12,14 @@
         class="px-4 py-2 text-white text-sm font-semibold transition-colors hover:bg-blue-600 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         :class="disabled ? 'cursor-not-allowed' : 'cursor-pointer'"
       >
-        <span>Run</span>
+        <span>{{ mediaBatchCount ? 'Run Batch' : 'Run' }}</span>
         <!-- Batch count badge when >1, else the keyboard hint -->
         <span
-          v-if="batchSize > 1"
+          v-if="mediaBatchCount"
+          class="text-xs font-bold bg-white/20 rounded px-1.5 py-px leading-none"
+        >{{ mediaBatchCount }}{{ batchSize > 1 ? ` ×${batchSize}` : '' }}</span>
+        <span
+          v-else-if="batchSize > 1"
           class="text-xs font-bold bg-white/20 rounded px-1.5 py-px leading-none"
         >×{{ batchSize }}</span>
         <span v-else class="text-xs opacity-70 font-normal">{{ isMac ? '⌘↵' : 'Ctrl+↵' }}</span>
@@ -43,12 +47,14 @@
       class="absolute left-0 mt-2 w-60 bg-surface border border-edge rounded-xl shadow-lg z-50 p-3.5"
       @click.stop
     >
-      <div class="text-sm font-semibold text-content">Batch size</div>
-      <p class="text-xs text-content-muted mb-3.5">Queue this many generations per run.</p>
+      <div class="text-sm font-semibold text-content">{{ mediaBatchCount ? 'Repeat batch' : 'Batch size' }}</div>
+      <p class="text-xs text-content-muted mb-3.5">
+        {{ mediaBatchCount ? `Run the ${mediaBatchCount}-item batch this many times.` : 'Queue this many generations per run.' }}
+      </p>
 
       <!-- Stepper -->
       <div class="flex items-center justify-between gap-3">
-        <span class="text-sm text-content-secondary">Images per run</span>
+        <span class="text-sm text-content-secondary">{{ mediaBatchCount ? 'Batch repeats' : 'Images per run' }}</span>
         <div class="flex items-center bg-base border border-edge rounded-lg overflow-hidden">
           <button
             @click="setSize(batchSize - 1)"
@@ -85,7 +91,12 @@
       </div>
 
       <p class="text-[11px] text-content-muted mt-3.5 leading-snug">
-        Each image is queued separately with a fresh seed — the same as pressing Run {{ batchSize > 1 ? batchSize : 'N' }} times. No grouping.
+        <template v-if="mediaBatchCount">
+          Each repeat runs all {{ mediaBatchCount }} batch items with the current settings.
+        </template>
+        <template v-else>
+          Each image is queued separately with a fresh seed — the same as pressing Run {{ batchSize > 1 ? batchSize : 'N' }} times. No grouping.
+        </template>
       </p>
     </div>
   </div>
@@ -102,8 +113,11 @@ interface Props {
   batchSize: number
   disabled?: boolean
   isMac?: boolean
+  mediaBatchCount?: number
 }
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  mediaBatchCount: 0,
+})
 
 const emit = defineEmits<{
   (e: 'run'): void

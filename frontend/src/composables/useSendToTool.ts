@@ -1,6 +1,11 @@
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import { analyzeToolMultiInputCapability } from '../utils/toolSchemaUtils'
+import {
+  analyzeToolMultiInputCapability,
+  getBatchableMediaField,
+  getSingleInputMediaType,
+  toolRequiresMask,
+} from '../utils/toolSchemaUtils'
 import { makeToolDbKey } from '../utils/storageKeys'
 
 interface MediaEntry {
@@ -51,23 +56,93 @@ export function useSendToTool() {
    * @returns Promise that resolves when navigation completes
    */
   async function sendToTool(
-    mediaIdOrItems: number | MediaItem | MediaItem[],
+    mediaIdOrItems: number | MediaItem | Array<number | MediaItem>,
     tool: Pick<Tool, 'full_tool_id' | 'task_type'> & { parameter_schema?: Record<string, any> },
     targetTaskType?: string,
     projectId?: number | null
   ) {
     // Use the target task type if provided, otherwise fall back to tool's primary task type
     const effectiveTaskType = targetTaskType || tool.task_type
-    // Normalize to array
+    // Normalize to an array of full MediaItem records (fetching any bare IDs).
+    const fetchItem = async (v: number | MediaItem): Promise<MediaItem> =>
+      typeof v === 'number' ? (await axios.get(`/api/media/${v}`)).data : v
     let mediaItems: MediaItem[]
-    if (typeof mediaIdOrItems === 'number') {
-      const mediaResponse = await axios.get(`/api/media/${mediaIdOrItems}`)
-      mediaItems = [mediaResponse.data]
-    } else if (Array.isArray(mediaIdOrItems)) {
-      mediaItems = mediaIdOrItems
+    if (Array.isArray(mediaIdOrItems)) {
+      mediaItems = await Promise.all(mediaIdOrItems.map(fetchItem))
     } else {
-      mediaItems = [mediaIdOrItems]
+      mediaItems = [await fetchItem(mediaIdOrItems)]
     }
+
+    // Some callers (e.g. the sidebar tab map) pass a lightweight tool object
+    // without parameter_schema. Batch detection needs the schema to see the
+    // media slot, so fetch the full tool when it's missing.
+    if (!tool.parameter_schema?.properties) {
+      try {
+        const { data } = await axios.get(`/api/tools/provider-tool/${encodeURIComponent(tool.full_tool_id)}`)
+        if (data?.parameter_schema) {
+          ;(tool as any).parameter_schema = data.parameter_schema
+        }
+      } catch (e) {
+        console.warn('Failed to fetch tool schema for send-to-tool:', e)
+      }
+    }
+
+    // Batch detection: per the plan, N items in ONE media slot = a batch (run the
+    // tool once per item). This holds whether the slot is single-valued or an
+    // array (e.g. Flux's input_images): an array slot with multiple items is a
+    // batch, not a single multi-reference run. Use "explode batch" to turn a
+    // batch back into ordinary multi-reference inputs.
+    //
+    // Exception that stays single: the image-to-video start/end frame picker.
+    const multiInputInfo = tool.parameter_schema
+      ? analyzeToolMultiInputCapability(tool as any)
+      : null
+    const props = tool.parameter_schema?.properties || {}
+    const batchField = getBatchableMediaField(tool as any)
+    const hasStartImageSlot = !!props.start_image
+    const hasVideoFramePicker = props.input_images?.['x-control'] === 'video_frame_picker'
+    const isI2VStart = effectiveTaskType === 'image-to-video' && (hasStartImageSlot || hasVideoFramePicker)
+    // A slot that *requires* multiple inputs (minItems > 1, e.g. a 2-image blend)
+    // fills one run instead of batching.
+    const slotMin = multiInputInfo?.minItems ?? 1
+    const canMediaBatch = !!batchField && !isI2VStart && !toolRequiresMask(tool as any) && slotMin <= 1
+
+    // Expand selected sets/grids before deciding whether this is a batch. A
+    // single structured asset with N members is a batch input convenience, not
+    // the set-based output-set batch path.
+    if (canMediaBatch && mediaItems.some(item => item.file_format === 'stimmaset.json' || item.file_format === 'stimmagrid.json')) {
+      const expanded: MediaItem[] = []
+      for (const item of mediaItems) {
+        const fmt = item.file_format
+        if (fmt === 'stimmaset.json' || fmt === 'stimmagrid.json') {
+          try {
+            const { data } = await axios.get(`/api/media/${item.id}/content`)
+            const members = fmt === 'stimmaset.json' ? (data.items || []) : (data.cells || [])
+            for (const member of members) {
+              const resolved = member.resolved
+              if (resolved?.media_id || resolved?.id) {
+                expanded.push({
+                  id: resolved.media_id ?? resolved.id,
+                  file_path: resolved.file_path ?? member.path,
+                  file_hash: resolved.file_hash,
+                  file_format: resolved.file_format,
+                  is_video: resolved.is_video,
+                  width: resolved.width,
+                  height: resolved.height,
+                })
+              }
+            }
+          } catch (e) {
+            console.warn('Failed to expand structured media for batch:', e)
+          }
+        } else {
+          expanded.push(item)
+        }
+      }
+      if (expanded.length > 0) mediaItems = expanded
+    }
+
+    const wantBatch = canMediaBatch && mediaItems.length > 1
 
     // Process all items - copy to reference directory (unless it's a set)
     const mediaEntries: MediaEntry[] = []
@@ -142,15 +217,23 @@ export function useSendToTool() {
       : tool.full_tool_id
     const storageKey = makeToolDbKey(scopedToolId, 'pending_input')
 
-    // Check if tool supports multi-input via schema
-    const multiInputInfo = tool.parameter_schema
-      ? analyzeToolMultiInputCapability(tool as any)
-      : null
+    // Media-batch: run the single-input tool once per item in one slot. Mark the
+    // slot as a batch; ToolView enters batch mode and Run submits one job per item.
+    if (wantBatch) {
+      sessionStorage.setItem(storageKey, JSON.stringify({
+        mode: 'batch',
+        field: batchField,
+        items: mediaEntries,
+      }))
+      const query: Record<string, string> = { loadInput: Date.now().toString() }
+      if (effectiveProjectId) query.project_id = String(effectiveProjectId)
+      router.push({ name: 'tool', params: { fullToolId: tool.full_tool_id }, query })
+      return
+    }
 
     // image-to-video: use startImage if tool has videoFramePicker or start_image in schema
-    const hasStartImage = tool.parameter_schema?.properties?.start_image
-    const hasVideoFramePicker = tool.parameter_schema?.properties?.input_images?.['x-control'] === 'video_frame_picker'
-    if (effectiveTaskType === 'image-to-video' && (hasStartImage || hasVideoFramePicker)) {
+    // (hasStartImageSlot / hasVideoFramePicker computed above with batch detection)
+    if (effectiveTaskType === 'image-to-video' && (hasStartImageSlot || hasVideoFramePicker)) {
       sessionStorage.setItem(storageKey, JSON.stringify({ startImage: mediaEntries[0] }))
     } else if (multiInputInfo?.supportsMultiInput) {
       // Schema-driven: tool explicitly accepts arrays

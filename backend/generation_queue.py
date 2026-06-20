@@ -1959,9 +1959,48 @@ class GenerationQueue:
                 params = json.loads(first_job.parameters)
                 output_title = params.get('_batch_output_title')
                 input_set_ids = params.get('_batch_input_set_ids')
+                presentation_only = bool(params.get('_batch_presentation_only'))
             except (json.JSONDecodeError, TypeError):
                 output_title = None
                 input_set_ids = None
+                presentation_only = False
+
+            # Presentation-only (media-batch) grouping: the individual generated
+            # assets stay in the library and grouping is a ToolView affordance.
+            # Skip output-set creation / supersede entirely; only broadcast
+            # grouped progress so the queue rail can show one batch card.
+            if presentation_only:
+                if self._websocket_manager:
+                    await self._websocket_manager.broadcast('batch_job_completed', {
+                        'batch_id': batch_id,
+                        'job_id': job.id,
+                        'result_media_id': media_item.id,
+                        'output_set_id': None,
+                        'completed': completed_count,
+                        'failed': failed_count,
+                        'total': batch_total,
+                    })
+                if completed_count + failed_count >= batch_total:
+                    if failed_count == 0:
+                        batch_status = 'completed'
+                    elif completed_count == 0:
+                        batch_status = 'failed'
+                    else:
+                        batch_status = 'partial'
+                    log.info(
+                        f"Media-batch {batch_id}: all jobs done "
+                        f"(completed={completed_count}, failed={failed_count}, total={batch_total})"
+                    )
+                    if self._websocket_manager:
+                        await self._websocket_manager.broadcast('batch_completed', {
+                            'batch_id': batch_id,
+                            'output_set_id': None,
+                            'completed': completed_count,
+                            'failed': failed_count,
+                            'total': batch_total,
+                            'status': batch_status,
+                        })
+                return
 
             async with self._get_db(profile_id).async_session_maker() as media_session:
                 if output_set_id is None:

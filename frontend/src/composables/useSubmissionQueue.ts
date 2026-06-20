@@ -242,3 +242,81 @@ export async function submitBatchJobAsync(params: {
     onError?.(error)
   }
 }
+
+
+/**
+ * Submit a media-batch: run a tool once per item in one media slot.
+ *
+ * Used when a media slot is marked as a batch (multi-select Send to Tool). The
+ * backend sources the batch from media IDs, applies uniform batch-safe prep per
+ * item, and creates one job per item under a shared batch_id. Outputs stay as
+ * individual library assets (presentation-only grouping).
+ */
+export async function submitMediaBatchJobAsync(params: {
+  prompt: string
+  promptOptions?: {
+    autoImprove?: { enabled: boolean; instructions?: string | null }
+  }
+  cachedImprovedPrompt?: string | null
+  wildcards?: NamedWildcard[]
+  segments?: PromptSegment[]
+  buildPayload: (processedPrompt: string, promptMetadata: PromptMetadata) => Record<string, any>
+  onSubmitted?: (batchInfo: BatchJobResponse) => void
+  onError?: (error: any) => void
+}): Promise<void> {
+  const { prompt, promptOptions, cachedImprovedPrompt, wildcards, segments, buildPayload, onSubmitted, onError } = params
+
+  try {
+    let processedPrompt = prompt
+
+    if (promptOptions?.autoImprove?.enabled) {
+      if (cachedImprovedPrompt) {
+        processedPrompt = cachedImprovedPrompt
+      } else {
+        try {
+          const { processed: promptWithPlaceholders, segments: verbatimSegments } = extractVerbatim(prompt)
+          let improvedPrompt: string | null = null
+          const MAX_RETRIES = 3
+
+          for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            const improveResponse = await axios.post(`${getAPIBase()}/prompt/improve`, {
+              prompt: promptWithPlaceholders,
+              instructions: promptOptions.autoImprove.instructions || null
+            })
+            const candidatePrompt = improveResponse.data.improved_prompt
+            if (verbatimSegments.length === 0) {
+              improvedPrompt = candidatePrompt
+              break
+            }
+            if (verifyVerbatimPreserved(candidatePrompt, verbatimSegments)) {
+              improvedPrompt = restoreVerbatim(candidatePrompt, verbatimSegments)
+              break
+            }
+          }
+          if (improvedPrompt !== null) {
+            processedPrompt = improvedPrompt
+          }
+        } catch (err) {
+          console.error('[SubmissionQueue] Failed to auto-improve prompt:', err)
+          throw new Error(`Auto-improve is enabled, but prompt improvement failed: ${getApiErrorMessage(err)}`)
+        }
+      }
+    }
+
+    processedPrompt = processFinalPrompt(processedPrompt, wildcards ?? getWildcards(), segments ?? getSegments())
+
+    const promptMetadata: PromptMetadata = {
+      original_prompt: prompt,
+      auto_improve_enabled: promptOptions?.autoImprove?.enabled || false,
+      auto_improve_instructions: promptOptions?.autoImprove?.instructions || undefined,
+    }
+
+    const payload = buildPayload(processedPrompt, promptMetadata)
+    const response = await axios.post<BatchJobResponse>(`${getAPIBase()}/generate/submit-media-batch`, payload)
+
+    onSubmitted?.(response.data)
+  } catch (error) {
+    console.error('Failed to submit media-batch job:', error)
+    onError?.(error)
+  }
+}

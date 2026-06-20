@@ -1394,7 +1394,8 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
       const toolTaskTypes = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
       const eligibleTaskTypes = getEligibleTaskTypesForMediaType(draggedMediaType.value)
       const targetTaskType = toolTaskTypes.find((tt: string) => eligibleTaskTypes.includes(tt)) || tool.task_type
-      await sendToTool(mediaId, { full_tool_id: tool.full_tool_id, task_type: tool.task_type, parameter_schema: tool.parameter_schema }, targetTaskType, tab.projectId ?? null)
+      // Pass all dropped ids (multi-select drag) so they batch instead of only the first.
+      await sendToTool(mediaIds.length > 1 ? mediaIds : mediaId, { full_tool_id: tool.full_tool_id, task_type: tool.task_type, parameter_schema: tool.parameter_schema }, targetTaskType, tab.projectId ?? null)
       if (props.isMobile) emit('close')
     } catch (error) {
       console.error('Failed to send media to tool:', error)

@@ -60,7 +60,51 @@ export function analyzeToolMultiInputCapability(tool: ProviderTool): MultiInputI
 }
 
 /**
+ * Whether the tool requires a mask input (inpaint-style). Mask tools are
+ * excluded from simple batch mode until there is a per-item mask design.
+ */
+export function toolRequiresMask(tool: ProviderTool): boolean {
+  const props = tool.parameter_schema?.properties || {}
+  return 'mask' in props
+}
+
+/**
+ * Field names the current media-batch MVP can execute as the batched slot.
+ * Keep this narrow so send-to eligibility matches ToolView and backend support.
+ */
+export function getBatchableMediaField(tool: ProviderTool): 'input_images' | 'input_videos' | null {
+  const props = tool.parameter_schema?.properties || {}
+  if ('input_videos' in props) return 'input_videos'
+  if ('input_images' in props && props.input_images?.['x-control'] !== 'video_frame_picker') return 'input_images'
+  return null
+}
+
+export function getBatchableMediaType(tool: ProviderTool): 'image' | 'video' | null {
+  const field = getBatchableMediaField(tool)
+  if (field === 'input_videos') return 'video'
+  if (field === 'input_images') return 'image'
+  return null
+}
+
+/**
+ * The media type a single-input tool accepts, inferred from its schema.
+ * Returns null when undetermined.
+ */
+export function getSingleInputMediaType(tool: ProviderTool): 'image' | 'video' | null {
+  const props = tool.parameter_schema?.properties || {}
+  if ('input_videos' in props || 'input_video' in props) return 'video'
+  if ('input_images' in props || 'input_image' in props || 'start_image' in props || 'source_image' in props || 'image' in props) {
+    return 'image'
+  }
+  return null
+}
+
+/**
  * Check if a selection count is valid for a tool's multi-input constraints.
+ *
+ * Single-input tools are eligible for BATCH when more than one item is selected:
+ * Stimma runs the tool once per item. The exception is mask-required tools, which
+ * are excluded from simple batch mode.
  *
  * @param tool - The tool to check
  * @param selectedCount - Number of items selected
@@ -74,12 +118,26 @@ export function isSelectionValidForTool(
 ): { valid: boolean; reason?: string } {
   const info = analyzeToolMultiInputCapability(tool)
 
-  // For single-input tools, only allow exactly 1 item
+  // Single-input tools: 1 item = normal reference input; >1 = batch (run per item).
   if (!info.supportsMultiInput) {
     if (selectedCount === 1) {
       return { valid: true }
     }
-    return { valid: false, reason: 'Tool only accepts single input' }
+    // Batch mode (selectedCount > 1)
+    const accepted = getBatchableMediaType(tool)
+    if (!accepted) {
+      return { valid: false, reason: 'Tool does not support media batch input' }
+    }
+    if (accepted === 'video' && mediaType === 'image') {
+      return { valid: false, reason: 'Tool requires videos, not images' }
+    }
+    if (accepted === 'image' && mediaType === 'video') {
+      return { valid: false, reason: 'Tool requires images, not videos' }
+    }
+    if (toolRequiresMask(tool)) {
+      return { valid: false, reason: 'Mask tools are not supported in batch mode' }
+    }
+    return { valid: true }
   }
 
   // Check media type compatibility
@@ -88,6 +146,20 @@ export function isSelectionValidForTool(
   }
   if (info.inputType === 'videos' && mediaType === 'image') {
     return { valid: false, reason: 'Tool requires videos, not images' }
+  }
+
+  // An array slot that can run with a single item batches when more than one is
+  // selected (run once per item) — slot maxItems does not cap the batch. Only a
+  // slot that *requires* multiple inputs (minItems > 1, e.g. a 2-image blend)
+  // enforces the count constraints for a single multi-reference run.
+  if (selectedCount > 1 && info.minItems <= 1) {
+    if (toolRequiresMask(tool)) {
+      return { valid: false, reason: 'Mask tools are not supported in batch mode' }
+    }
+    if (!getBatchableMediaField(tool)) {
+      return { valid: false, reason: 'Tool does not support media batch input' }
+    }
+    return { valid: true }
   }
 
   // Check count constraints

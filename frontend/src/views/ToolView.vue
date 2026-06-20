@@ -260,6 +260,7 @@
               :batch-size="uiState.batchSize"
               :disabled="!canSubmit"
               :is-mac="isMac"
+              :media-batch-count="globalPrefs.batchMode ? mediaInputItems.length : 0"
               @run="submitJob"
               @update:batch-size="uiState.batchSize = $event"
             />
@@ -355,7 +356,9 @@
           />
         </Teleport>
 
-        <!-- Media Input (images or videos, unified picker) -->
+        <!-- Media Input (images or videos, unified picker). In batch mode the slot
+             collapses to a representative stack with a count; the same prep
+             controls apply uniformly to every item. -->
         <MediaPicker
           v-if="mediaInputConfig && !hasMask"
           ref="mediaPickerRef"
@@ -369,9 +372,12 @@
           :description="mediaInputConfig.description"
           :controlnet-options="controlnetOptions"
           :allow-prep="mediaInputConfig.allowPrep"
+          :batch-mode="globalPrefs.batchMode"
           @view-media="openSingleImageSlideshow"
+          @view-media-batch="openMediaBatchSlideshow"
           @suggest-resolution="onSuggestResolution"
           @suggest-aspect="onSuggestAspect"
+          @explode="explodeBatch"
         />
 
         <!-- Inpaint: Combined source image + Mask editor -->
@@ -613,8 +619,21 @@
           Jump to newest
         </button>
 
-        <!-- Per-image marker toggles for the hero image. (Generation time/details
-             live on the always-visible queue tile, so no pill here.) -->
+        <!-- Generation time/details for the hero image. Stage strips hide this
+             to keep thumbnails uncluttered. -->
+        <button
+          v-if="stageCurrentJob"
+          @click.stop="showJobInfo(stageCurrentJob)"
+          class="absolute top-4 right-4 z-10 h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/70 backdrop-blur-md hover:bg-blue-500/80 rounded text-xs font-bold text-white transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.45)]"
+          title="Generation details"
+        >
+          <span v-if="stageGenerationTime">{{ stageGenerationTime }}s</span>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+          </svg>
+        </button>
+
+        <!-- Per-image marker toggles for the hero image. -->
         <template v-if="stageCurrentJob">
           <div v-if="stageMarkers.length" class="absolute bottom-4 left-4 z-10 flex gap-1">
             <button
@@ -656,6 +675,7 @@
           :image-mode="uiState.imageMode"
           :current-media-id="layoutMode === 'stage' ? stageCurrentMediaId : null"
           :tool-display-name="tool?.name"
+          :compact-overlays="layoutMode === 'stage'"
           empty-message="No jobs yet"
           @job-click="handleQueueClick"
           @toggle-marker="handleToggleMarker"
@@ -723,6 +743,17 @@
     <!-- Context Menu for queue images/videos -->
     <MediaContextMenu />
 
+    <!-- Generic confirm modal (batch explode, etc.) -->
+    <ConfirmModal
+      :show="confirmModalState.show"
+      :title="confirmModalState.title"
+      :message="confirmModalState.message"
+      :confirm-text="confirmModalState.confirmText"
+      cancel-text="Cancel"
+      @confirm="resolveConfirm(true)"
+      @cancel="resolveConfirm(false)"
+    />
+
     <!-- Debug: Copy tool JSON button (lower right) - dev mode only -->
     <button
       v-if="tool && devModeRef"
@@ -767,7 +798,7 @@ import {
   type PayloadBuilderState,
   type PayloadBuilderConfig,
 } from '../composables/useJobPayloadBuilder'
-import { submitJobAsync, submitBatchJobAsync, BatchJobResponse } from '../composables/useSubmissionQueue'
+import { submitJobAsync, submitBatchJobAsync, submitMediaBatchJobAsync, BatchJobResponse } from '../composables/useSubmissionQueue'
 import { useToolAutoDeleteDuration } from '../composables/useToolAutoDeleteDuration'
 import { usePromptPreloader } from '../composables/usePromptPreloader'
 import { useTabNavigation } from '../composables/useTabNavigation'
@@ -811,6 +842,7 @@ import {
   UpscaleResolutionPicker,
   VideoImagePicker
 } from '../components/generation'
+import ConfirmModal from '../components/ConfirmModal.vue'
 import HopToToolMenu from '../components/HopToToolMenu.vue'
 import FreezeToolDialog from '../components/flow/FreezeToolDialog.vue'
 import { useFlowsApi } from '../composables/useFlowsApi'
@@ -872,7 +904,88 @@ function startStageResize(e: PointerEvent) {
   window.addEventListener('pointerup', endStageResize)
   e.preventDefault()
 }
-const stageCompletedJobs = computed<any[]>(() => jobsManager?.sortedCompletedJobs.value || []) // newest-first
+function generationJobParams(job: any): any {
+  if (!job?.parameters) return null
+  try { return JSON.parse(job.parameters) } catch { return null }
+}
+
+function isMediaBatchJob(job: any): boolean {
+  return !!generationJobParams(job)?._batch_presentation_only
+}
+
+function generationBatchIndex(job: any): number {
+  const value = generationJobParams(job)?._batch_index
+  return Number.isFinite(value) ? Number(value) : Number.MAX_SAFE_INTEGER
+}
+
+function isVisibleStageJob(job: any): boolean {
+  if (!job || job.status !== 'completed' || !job.result_media_id) return false
+  return !!jobsManager?.mediaHashes.value?.[job.result_media_id]
+}
+
+function isMediaBatchComplete(batch: any): boolean {
+  const jobs = batch?.jobs || []
+  const total = batch?.total || jobs.length
+  if (jobs.length < total) return false
+  return jobs.length > 0 && jobs.every((job: any) =>
+    job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled'
+  )
+}
+
+// Stage navigation follows the visible rail reading order. Media-batch members
+// are ordered by the backend's _batch_index, matching the source reference order,
+// instead of completion time.
+const stageCompletedJobs = computed<any[]>(() => {
+  if (!jobsManager) return []
+
+  const batchGroups = Object.values(jobsManager.batchJobs.value || {})
+    .filter((batch: any) => (batch.jobs || []).some(isMediaBatchJob))
+  const mediaBatchIds = new Set(batchGroups.map((batch: any) => batch.batch_id))
+  const jobsInMediaBatch = new Set<number>()
+  for (const batch of batchGroups as any[]) {
+    for (const job of batch.jobs || []) jobsInMediaBatch.add(job.id)
+  }
+
+  const sortJobsInBatch = (jobs: any[]) => [...jobs]
+    .filter(isVisibleStageJob)
+    .sort((a, b) => {
+      const byIndex = generationBatchIndex(a) - generationBatchIndex(b)
+      if (byIndex !== 0) return byIndex
+      return a.id - b.id
+    })
+
+  const activeBatchItems = batchGroups
+    .filter((batch: any) => !isMediaBatchComplete(batch))
+    .map((batch: any) => ({
+      timestamp: new Date((batch.jobs || [])[0]?.created_at || Date.now()).getTime(),
+      jobs: sortJobsInBatch(batch.jobs || []),
+    }))
+    .filter(item => item.jobs.length > 0)
+    .sort((a, b) => b.timestamp - a.timestamp)
+
+  const completedItems: Array<{ timestamp: number, jobs: any[] }> = []
+  for (const batch of batchGroups as any[]) {
+    if (!isMediaBatchComplete(batch)) continue
+    const jobs = sortJobsInBatch(batch.jobs || [])
+    if (jobs.length === 0) continue
+    const latestCompleted = jobs.reduce((latest: number, job: any) =>
+      Math.max(latest, new Date(job.completed_at || job.created_at || 0).getTime()), 0)
+    completedItems.push({ timestamp: latestCompleted, jobs })
+  }
+
+  for (const job of jobsManager.sortedCompletedJobs.value || []) {
+    if (jobsInMediaBatch.has(job.id)) continue
+    if (job.batch_id && mediaBatchIds.has(job.batch_id)) continue
+    if (!isVisibleStageJob(job)) continue
+    completedItems.push({
+      timestamp: new Date(job.completed_at || job.created_at || 0).getTime(),
+      jobs: [job],
+    })
+  }
+
+  completedItems.sort((a, b) => b.timestamp - a.timestamp)
+  return [...activeBatchItems, ...completedItems].flatMap(item => item.jobs)
+})
 const stageHasPending = computed(() =>
   (allJobs.value || []).some((j: any) => ['enhancing', 'queued', 'assigned', 'processing'].includes(j.status))
 )
@@ -889,6 +1002,11 @@ const stageCurrentMediaId = computed<number | null>(() => stageCurrentJob.value?
 const stageCurrentHash = computed<string | null>(() =>
   stageCurrentMediaId.value != null ? (jobsManager?.mediaHashes.value?.[stageCurrentMediaId.value] ?? null) : null
 )
+const stageGenerationTime = computed<number | null>(() => {
+  if (stageCurrentMediaId.value == null) return null
+  const time = jobsManager?.mediaGenerationTimes.value?.[stageCurrentMediaId.value]
+  return time ? Math.round(time * 10) / 10 : null
+})
 const stageOnNewest = computed(() => {
   const list = stageCompletedJobs.value
   return !!stageCurrentJob.value && list.length > 0 && stageCurrentJob.value.id === list[0].id
@@ -1170,6 +1288,66 @@ function updateMediaInputItems(items: any[]) {
   } else {
     globalPrefs.value.inputVideos = items
   }
+  // Leaving an empty batch slot drops back to ordinary single-input mode.
+  if (globalPrefs.value.batchMode && items.length === 0) {
+    globalPrefs.value.batchMode = false
+  }
+}
+
+// Explode a batch into ordinary reference items: keep what the slot can hold,
+// and apply the batch's image adjustments to each kept item. Items are only
+// dropped if the batch is larger than the input can hold; that's the only case
+// worth a warning.
+async function explodeBatch() {
+  const max = mediaInputConfig.value?.max ?? 1
+  const items = mediaInputItems.value
+  const n = items.length
+  const dropped = Math.max(0, n - max)
+
+  const message = dropped > 0
+    ? `This batch has ${n} images but this input only holds ${max}. Exploding keeps the first ${max} as separate reference images and drops the other ${dropped}.`
+    : `Turn this batch into ${n} separate reference image${n === 1 ? '' : 's'} with the same image adjustments.`
+  const ok = await confirmModal({
+    title: 'Explode batch',
+    message,
+    confirmText: 'Explode',
+  })
+  if (!ok) return
+
+  // Carry the batch's uniform prep (set on the representative) onto every kept
+  // item. The representative is already processed; the others get the prep
+  // metadata and MediaPicker's watcher applies it to each.
+  const rep: any = items[0] || {}
+  const prepFields = {
+    _scale: rep._scale ?? null,
+    _flip: rep._flip ?? null,
+    _preprocessor: rep._preprocessor ?? null,
+    _preprocessorParams: rep._preprocessorParams ?? null,
+    _extendPadding: rep._extendPadding ?? null,
+    _extendBgColor: rep._extendBgColor ?? null,
+  }
+  const kept = items.slice(0, max).map((it: any, idx: number) =>
+    idx === 0 ? it : { ...it, ...prepFields }
+  )
+  globalPrefs.value.batchMode = false
+  updateMediaInputItems(kept)
+}
+
+// Lightweight promise-based confirm modal (no browser alert/confirm sheets).
+const confirmModalState = ref<{ show: boolean; title: string; message: string; confirmText: string }>({
+  show: false, title: '', message: '', confirmText: 'Confirm',
+})
+let confirmResolver: ((ok: boolean) => void) | null = null
+function confirmModal(opts: { title: string; message: string; confirmText?: string }): Promise<boolean> {
+  confirmModalState.value = {
+    show: true, title: opts.title, message: opts.message, confirmText: opts.confirmText || 'Confirm',
+  }
+  return new Promise<boolean>((resolve) => { confirmResolver = resolve })
+}
+function resolveConfirm(ok: boolean) {
+  confirmModalState.value = { ...confirmModalState.value, show: false }
+  confirmResolver?.(ok)
+  confirmResolver = null
 }
 
 // Video frame images for image-to-video (initialized after toolId is available)
@@ -2572,6 +2750,33 @@ function loadPendingInput() {
     const config = JSON.parse(pendingInput)
     sessionStorage.removeItem(storageKey)
 
+    // Media-batch: multi-select Send to Tool marked this slot as a batch. Enter
+    // batch mode — items live in inputImages/inputVideos, Run submits one job
+    // per item, prep is uniform across the batch.
+    if (config.mode === 'batch' && Array.isArray(config.items) && config.items.length > 0) {
+      const items = config.items.map((m: any) => ({
+        path: m.path,
+        filename: m.filename || m.hash,
+        hash: m.hash,
+        mediaId: m.mediaId,
+        width: m.width,
+        height: m.height,
+      }))
+      globalPrefs.value.batchMode = true
+      globalPrefs.value.batchField = config.field === 'input_videos' ? 'input_videos' : 'input_images'
+      if (config.field === 'input_videos') {
+        globalPrefs.value.inputVideos = items
+        globalPrefs.value.inputImages = []
+      } else {
+        globalPrefs.value.inputImages = items
+        globalPrefs.value.inputVideos = []
+      }
+      const restQuery = { ...route.query }
+      delete restQuery.loadInput
+      router.replace({ query: restQuery })
+      return
+    }
+
     // Apply input based on what the tool's parameter_schema expects
     if (mediaInputConfig.value?.accept === 'image' && config.inputImages?.length > 0) {
       const newImages = config.inputImages.map((img: any) => ({
@@ -3147,6 +3352,70 @@ async function submitOneJob() {
 
   if (cachedPrompt) onCacheUsed()
 
+  // Media-batch: run the tool once per item in the batched slot.
+  if (globalPrefs.value.batchMode) {
+    const batchField = globalPrefs.value.batchField || 'input_images'
+    const mediaIds = mediaInputItems.value.map((i: any) => i.mediaId).filter(Boolean)
+    if (mediaIds.length === 0) {
+      submissionError.value = 'Batch slot has no library items to run'
+      if (pendingId) jobsManager?.removePendingJob(pendingId)
+      return
+    }
+
+    // Backend injects the batched media (and its prep) per item, so strip those
+    // fields from the shared parameters.
+    const batchParameters: Record<string, any> = { ...capturedState.parameters }
+    const mediaIdField = batchField === 'input_videos' ? 'input_video_media_ids' : 'input_media_ids'
+    for (const k of [batchField, mediaIdField, '_original_input_paths', '_original_input_hashes',
+      '_input_preprocessors', '_input_preprocessor_params', '_input_paint_layers',
+      '_input_extend_padding', '_input_extend_bg_colors', '_input_scales', '_input_flips']) {
+      delete batchParameters[k]
+    }
+
+    // Uniform batch-safe prep, read from the representative item (the prep the
+    // user set on the collapsed stack tile). Backend applies it to every item.
+    const rep: any = mediaInputItems.value[0] || {}
+    const prep: Record<string, any> = {}
+    if (rep._scale) prep.scale = rep._scale
+    if (rep._flip) prep.flip = rep._flip
+    if (rep._preprocessor) {
+      prep.preprocessor = rep._preprocessor
+      prep.preprocessor_params = rep._preprocessorParams || null
+    }
+    if (rep._extendPadding) {
+      prep.extend_padding = rep._extendPadding
+      prep.extend_bg_color = rep._extendBgColor || null
+    }
+
+    const constantInputs = extractMediaBatchConstantInputs(batchParameters, batchField)
+
+    submitMediaBatchJobAsync({
+      prompt,
+      promptOptions,
+      cachedImprovedPrompt: cachedPrompt,
+      buildPayload: (processedPrompt, promptMetadata) => ({
+        ...basePayload,
+        batch_input: { field: batchField, media_ids: mediaIds },
+        constant_inputs: constantInputs,
+        parameters: { ...batchParameters, prompt: processedPrompt },
+        prep: Object.keys(prep).length ? prep : undefined,
+        prompt_metadata: promptMetadata,
+      }),
+      onSubmitted: (batchInfo: BatchJobResponse) => {
+        if (pendingId) jobsManager?.removePendingJob(pendingId)
+        console.log(`Media-batch submitted: ${batchInfo.total_jobs} jobs, batch_id: ${batchInfo.batch_id}`)
+        if (uiState.value.generateForeverMode) {
+          foreverModeActiveBatchId.value = batchInfo.batch_id
+        }
+      },
+      onError: (err: any) => {
+        if (pendingId) jobsManager?.removePendingJob(pendingId)
+        submissionError.value = err.response?.data?.detail || 'Failed to submit batch job'
+      },
+    })
+    return
+  }
+
   // Check if this is a batch submission (any input has a set)
   const inputImages = globalPrefs.value.inputImages || []
   const hasSetInput = inputImages.some((img: any) => img.isSet)
@@ -3222,6 +3491,55 @@ async function submitOneJob() {
   }
 }
 
+function mediaIdCompanionField(field: string): string {
+  if (field === 'input_images') return 'input_media_ids'
+  if (field === 'input_videos') return 'input_video_media_ids'
+  return `${field}_media_id`
+}
+
+function isSchemaMediaField(name: string, schema: any): boolean {
+  if (!schema) return false
+  if (name === 'input_images' || name === 'input_videos') return true
+  const type = String(schema.type || '').toLowerCase()
+  const format = String(schema.format || schema['x-format'] || '').toLowerCase()
+  const control = String(schema['x-control'] || '').toLowerCase()
+  return (
+    type === 'media' ||
+    format.includes('image') ||
+    format.includes('video') ||
+    control.includes('image') ||
+    control.includes('video') ||
+    /(^|_)(image|video)s?$/.test(name)
+  )
+}
+
+function firstMediaId(value: any): number | null {
+  const candidate = Array.isArray(value) ? value[0] : value
+  const n = Number(candidate)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function extractMediaBatchConstantInputs(parameters: Record<string, any>, batchField: string): Record<string, number> {
+  const props = tool.value?.parameter_schema?.properties || {}
+  const constants: Record<string, number> = {}
+
+  for (const [field, schema] of Object.entries(props)) {
+    if (field === batchField) continue
+    if (!isSchemaMediaField(field, schema)) continue
+
+    const companion = mediaIdCompanionField(field)
+    const mediaId = firstMediaId(parameters[companion] ?? parameters[`${field}_media_id`])
+    if (!mediaId) continue
+
+    constants[field] = mediaId
+    delete parameters[field]
+    delete parameters[companion]
+    delete parameters[`${field}_media_id`]
+  }
+
+  return constants
+}
+
 // Forever mode
 async function startForeverMode(concurrency: number) {
   if (!tool.value) return
@@ -3246,6 +3564,7 @@ async function stopForeverMode() {
   if (!tool.value) return
   uiState.value.generateForeverMode = false
   foreverModeActiveBatchId.value = null  // Clear active batch tracking
+  foreverModePendingBatchCompletion.value = null
   try {
     await axios.post(`${API_BASE}/generate/forever/unregister`, null, {
       params: {
@@ -4219,6 +4538,7 @@ watch(wsConnected, async (isConnected, wasConnected) => {
     // On disconnect, clear forever mode batch tracking to prevent stalls
     // (if backend crashes mid-batch, the batch_completed event never fires)
     foreverModeActiveBatchId.value = null
+    foreverModePendingBatchCompletion.value = null
   }
 
   if (isConnected && tool.value) {
@@ -4278,6 +4598,7 @@ const processingWorkQueue = ref(false)
 
 // Track active batch in forever mode (batches run sequentially, not in parallel)
 const foreverModeActiveBatchId = ref<string | null>(null)
+const foreverModePendingBatchCompletion = ref<any | null>(null)
 
 // Track consecutive failures to auto-disable forever mode
 const consecutiveFailures = ref(0)
@@ -4285,6 +4606,7 @@ const MAX_CONSECUTIVE_FAILURES = 3
 
 // Check if current inputs are in batch mode (have a set)
 function isInBatchMode(): boolean {
+  if (globalPrefs.value.batchMode) return true
   const inputImages = globalPrefs.value.inputImages || []
   return inputImages.some((img: any) => img.isSet)
 }
@@ -4388,6 +4710,29 @@ async function handleForeverModeJobFailed(data: any) {
 async function handleForeverModeBatchCompleted(data: any) {
   // Check if this is our active batch
   if (data.batch_id !== foreverModeActiveBatchId.value) return
+  foreverModePendingBatchCompletion.value = data
+  await nextTick()
+  await maybeResumeForeverModeBatch()
+}
+
+function batchHasActivePostprocessing(batchId: string): boolean {
+  const batch = jobsManager?.batchJobs.value?.[batchId]
+  if (!batch) return false
+  const jobIds = new Set((batch.jobs || []).map((job: any) => job.id))
+  if (jobIds.size === 0) return false
+  return (jobsManager?.activeChainRuns.value || []).some((run: any) =>
+    run.job_id != null && jobIds.has(run.job_id)
+  )
+}
+
+async function maybeResumeForeverModeBatch() {
+  const data = foreverModePendingBatchCompletion.value
+  if (!data || data.batch_id !== foreverModeActiveBatchId.value) return
+  if (batchHasActivePostprocessing(data.batch_id)) {
+    console.log(`[Forever Mode] Batch ${data.batch_id} waiting for post-processing`)
+    return
+  }
+  foreverModePendingBatchCompletion.value = null
 
   console.log(`[Forever Mode] Batch ${data.batch_id} completed, resuming queue`)
 
@@ -4414,6 +4759,11 @@ async function handleForeverModeBatchCompleted(data: any) {
     }
   }
 }
+
+watch(
+  () => jobsManager?.activeChainRuns.value.map((run: any) => `${run.id}:${run.status}:${run.job_id}`).join('|') || '',
+  () => { void maybeResumeForeverModeBatch() }
+)
 
 // Job event handlers
 function handleJobClick(job: any) {
@@ -4459,6 +4809,31 @@ async function openSingleImageSlideshow(mediaId: number) {
     totalCount: 1,
     startIndex: 0,
     pageProvider: singleImageProvider,
+    randomized: false,
+    randomSeed: null
+  })
+}
+
+async function openMediaBatchSlideshow(mediaIds: number[]) {
+  const ids = [...mediaIds]
+  if (ids.length === 0) return
+
+  const batchProvider = async (pageNumber: number, pageSize: number) => {
+    const start = pageNumber * pageSize
+    const pageIds = ids.slice(start, start + pageSize)
+    return Promise.all(pageIds.map(async (mediaId) => {
+      try {
+        return await getMediaItem(mediaId, { includeTrashed: true })
+      } catch (error) {
+        return { id: mediaId, file_hash: null, _placeholder: true }
+      }
+    }))
+  }
+
+  enterSlideshow({
+    totalCount: ids.length,
+    startIndex: 0,
+    pageProvider: batchProvider,
     randomized: false,
     randomSeed: null
   })

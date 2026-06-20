@@ -416,10 +416,14 @@ export function useGenerationJobs(options = {}) {
   function handleJobCancelled(data) {
     if (!matchesFilters(data)) return
 
-    // Remove the cancelled job from local state
+    // Keep cancelled jobs in local state so media-batch groups can account for
+    // them as terminal failed cells. Standalone cancelled jobs are still omitted
+    // from allJobs by its status filters.
     const index = jobs.value.findIndex(j => j.id === data.job.id)
     if (index !== -1) {
-      jobs.value.splice(index, 1)
+      jobs.value.splice(index, 1, data.job)
+    } else if (data.job) {
+      jobs.value.unshift(data.job)
     }
   }
 
@@ -638,9 +642,11 @@ export function useGenerationJobs(options = {}) {
 
   async function retryJob(jobId) {
     try {
+      // The retry endpoint re-queues the SAME job (same id, batch_id) and
+      // broadcasts generation_job_queued, which updates the tile in place. Do
+      // NOT dismiss/hard-delete it afterwards — that would undo the retry.
       await axios.post(`${getAPIBase()}/generate/jobs/${jobId}/retry`)
       console.log('Job retry submitted')
-      await dismissJob(jobId)
     } catch (err) {
       console.error('Failed to retry job:', err)
     }

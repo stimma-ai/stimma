@@ -12,11 +12,11 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import MediaItem, MediaLineage, GenerationJob, Tool
+from database import MediaItem, MediaLineage, GenerationJob, Tool, CachedProviderTool
 from core.dependencies import get_db_session
 from core.profile_context import get_current_profile
 from core.logging import get_logger
-from models.api_models import GenerationJobRequest, GenerationJobResponse, BatchJobRequest, BatchJobResponse
+from models.api_models import GenerationJobRequest, GenerationJobResponse, BatchJobRequest, BatchJobResponse, MediaBatchJobRequest
 from config import get_settings
 from prompts import get_prompt
 from utils.websocket import ws_manager
@@ -424,10 +424,9 @@ class ReferencePreprocessRequest(BaseModel):
     paint_layer_path: str | None = None
 
 
-@router.post("/preprocess-reference")
-async def preprocess_reference(request: ReferencePreprocessRequest):
+async def preprocess_reference_pipeline(request: ReferencePreprocessRequest) -> dict:
     """
-    Full reference image preprocessing pipeline.
+    Full reference image preprocessing pipeline (cached).
 
     Applies in order:
     1. Flip / rotate (if flip provided)
@@ -437,6 +436,9 @@ async def preprocess_reference(request: ReferencePreprocessRequest):
     5. Paint layer compositing (if paint_layer_path provided)
 
     Also returns base_path (result after steps 1-3, before paint) for the paint editor.
+
+    Shared by the POST /preprocess-reference endpoint and the media-batch
+    submission path (which applies uniform batch-safe prep per item server-side).
 
     Returns:
         { path, width, height, base_path?, base_width?, base_height? }
@@ -604,6 +606,12 @@ async def preprocess_reference(request: ReferencePreprocessRequest):
     except Exception as e:
         log.error(f"Reference preprocessing failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Reference preprocessing failed: {e}")
+
+
+@router.post("/preprocess-reference")
+async def preprocess_reference(request: ReferencePreprocessRequest):
+    """Full reference image preprocessing pipeline. See preprocess_reference_pipeline."""
+    return await preprocess_reference_pipeline(request)
 
 
 @router.post("/upload-bulk")
@@ -1012,6 +1020,275 @@ async def submit_batch_jobs(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         log.error(f"Error submitting batch generation jobs: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Media fields whose lineage media-id companion uses a non-default name.
+_BATCH_MEDIA_ID_FIELDS = {
+    "input_images": "input_media_ids",
+    "input_videos": "input_video_media_ids",
+}
+
+MEDIA_BATCH_MAX_JOBS = 100
+_MEDIA_BATCH_FIELDS = {"input_images", "input_videos"}
+_IMAGE_FORMATS = {"jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "heic", "heif"}
+_VIDEO_FORMATS = {"mp4", "mov", "avi", "mkv", "webm", "m4v", "mpg", "mpeg"}
+
+
+async def _get_tool_parameter_schema(tool_id: str, session: AsyncSession) -> dict:
+    from providers import ProviderRegistry
+
+    registry = ProviderRegistry.get_instance()
+    live = registry.get_tool(tool_id)
+    if live:
+        return live[1].parameter_schema or {}
+
+    result = await session.execute(
+        select(CachedProviderTool).where(
+            CachedProviderTool.full_tool_id == tool_id,
+            CachedProviderTool.deleted_at.is_(None),
+        )
+    )
+    cached = result.scalar_one_or_none()
+    if cached and cached.parameter_schema:
+        try:
+            return json.loads(cached.parameter_schema)
+        except json.JSONDecodeError:
+            log.warning(f"Cached parameter_schema for {tool_id} is invalid JSON")
+    return {}
+
+
+def _schema_media_type_for_field(field: str, schema: dict | None) -> str | None:
+    if field == "input_images":
+        return "image"
+    if field == "input_videos":
+        return "video"
+    if not schema:
+        return None
+    text = " ".join(
+        str(schema.get(k, ""))
+        for k in ("format", "x-format", "x-control", "contentMediaType", "description")
+    ).lower()
+    if "video" in text or field.endswith("video") or field.endswith("videos"):
+        return "video"
+    if "image" in text or field.endswith("image") or field.endswith("images"):
+        return "image"
+    return None
+
+
+def _media_item_type(item: MediaItem) -> str | None:
+    fmt = (item.file_format or "").lower().lstrip(".")
+    if fmt in _VIDEO_FORMATS:
+        return "video"
+    if fmt in _IMAGE_FORMATS:
+        return "image"
+    return None
+
+
+@router.post("/submit-media-batch")
+async def submit_media_batch_jobs(
+    request: MediaBatchJobRequest,
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Submit a media-batch: run a tool once per item in one media slot.
+
+    Sources the batch from media IDs (not a set). For each item the backend
+    resolves the path, applies uniform batch-safe prep, injects that single item
+    into the batched media field along with the constant inputs, and submits a
+    normal generation job under a shared ``batch_id``.
+
+    Outputs stay as individual library assets — grouping is presentation-only,
+    so no output set is created (``_batch_presentation_only`` marker).
+    """
+    from generation_queue import get_generation_queue
+
+    generation_queue = get_generation_queue()
+
+    field = request.batch_input.field
+    media_ids = request.batch_input.media_ids
+
+    log.info(
+        f"Received media-batch request: tool_id={request.tool_id}, "
+        f"task_type={request.task_type}, field={field}, items={len(media_ids)}"
+    )
+
+    if not media_ids:
+        raise HTTPException(status_code=400, detail="batch_input.media_ids is empty")
+    if len(media_ids) > MEDIA_BATCH_MAX_JOBS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch too large: {len(media_ids)} jobs. Maximum is {MEDIA_BATCH_MAX_JOBS}."
+        )
+
+    try:
+        parameter_schema = await _get_tool_parameter_schema(request.tool_id, session)
+        props = parameter_schema.get("properties") or {}
+        if not props:
+            raise HTTPException(status_code=400, detail=f"Tool schema not found for {request.tool_id}")
+        if "mask" in props:
+            raise HTTPException(status_code=400, detail="Mask tools are not supported in media-batch mode")
+        if field not in _MEDIA_BATCH_FIELDS or field not in props:
+            raise HTTPException(status_code=400, detail=f"Unsupported media-batch field: {field}")
+        if props.get(field, {}).get("x-control") == "video_frame_picker":
+            raise HTTPException(status_code=400, detail="Video frame picker inputs are not supported in media-batch mode")
+        expected_batch_type = _schema_media_type_for_field(field, props.get(field))
+
+        # Resolve every batched media item up front.
+        id_to_path: dict[int, str] = {}
+        for media_id in media_ids:
+            result = await session.execute(
+                select(MediaItem).where(
+                    MediaItem.id == media_id,
+                    MediaItem.deleted_at.is_(None),
+                )
+            )
+            item = result.scalar_one_or_none()
+            if not item:
+                raise HTTPException(status_code=404, detail=f"Media item {media_id} not found")
+            actual_type = _media_item_type(item)
+            if expected_batch_type and actual_type and actual_type != expected_batch_type:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Media item {media_id} is a {actual_type}, but {field} expects {expected_batch_type}s",
+                )
+            id_to_path[media_id] = item.file_path
+
+        # Resolve constant media inputs (same for every run).
+        resolved_constants: dict[str, object] = {}
+        for const_field, const_media_id in (request.constant_inputs or {}).items():
+            if const_field == field:
+                raise HTTPException(status_code=400, detail=f"Constant input cannot reuse batch field: {const_field}")
+            if const_field not in props:
+                raise HTTPException(status_code=400, detail=f"Unknown constant media field: {const_field}")
+            expected_const_type = _schema_media_type_for_field(const_field, props.get(const_field))
+            if expected_const_type is None:
+                raise HTTPException(status_code=400, detail=f"Field is not a media input: {const_field}")
+            if isinstance(const_media_id, bool) or not isinstance(const_media_id, int):
+                raise HTTPException(status_code=400, detail=f"Constant media id for {const_field} must be an integer")
+            result = await session.execute(
+                select(MediaItem).where(
+                    MediaItem.id == const_media_id,
+                    MediaItem.deleted_at.is_(None),
+                )
+            )
+            item = result.scalar_one_or_none()
+            if not item:
+                raise HTTPException(status_code=404, detail=f"Constant media item {const_media_id} not found")
+            actual_type = _media_item_type(item)
+            if actual_type and actual_type != expected_const_type:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Constant media item {const_media_id} is a {actual_type}, but {const_field} expects {expected_const_type}s",
+                )
+            const_media_id_field = _BATCH_MEDIA_ID_FIELDS.get(const_field, f"{const_field}_media_id")
+            if const_field in _BATCH_MEDIA_ID_FIELDS:
+                resolved_constants[const_field] = [item.file_path]
+                resolved_constants[const_media_id_field] = [const_media_id]
+            else:
+                resolved_constants[const_field] = item.file_path
+                resolved_constants[const_media_id_field] = const_media_id
+
+        prep = request.prep or {}
+        has_prep = any(
+            prep.get(k) for k in (
+                "scale", "flip", "preprocessor", "extend_padding",
+            )
+        )
+
+        batch_id = str(uuid.uuid4())
+        provider_id = request.tool_id.split(":")[0] if ":" in request.tool_id else request.tool_id
+        model_name = request.tool_id.split(":")[-1] if ":" in request.tool_id else request.tool_id
+        media_id_field = _BATCH_MEDIA_ID_FIELDS.get(field, "input_media_ids")
+        total_jobs = len(media_ids)
+
+        job_ids = []
+        for idx, media_id in enumerate(media_ids):
+            source_path = id_to_path[media_id]
+
+            # Apply uniform batch-safe prep to this item (cached per source+settings).
+            processed_path = source_path
+            if has_prep:
+                prep_req = ReferencePreprocessRequest(
+                    source_path=source_path,
+                    flip=prep.get("flip"),
+                    scale=prep.get("scale"),
+                    preprocessor=prep.get("preprocessor"),
+                    preprocessor_params=prep.get("preprocessor_params"),
+                    extend_padding=prep.get("extend_padding"),
+                    extend_bg_color=prep.get("extend_bg_color"),
+                    # No paint layer in batch mode — painting is per-item.
+                )
+                prep_result = await preprocess_reference_pipeline(prep_req)
+                processed_path = prep_result["path"]
+
+            # Build the flat parameters dict for this single run.
+            parameters = dict(request.parameters)
+            parameters.update(resolved_constants)
+            parameters[field] = [processed_path]
+            parameters[media_id_field] = [media_id]
+
+            # Preserve original media + prep metadata for lineage (one-element arrays,
+            # matching the single-job shape produced by the frontend payload builder).
+            if has_prep:
+                parameters["_original_input_paths"] = [source_path]
+                parameters["_input_preprocessors"] = [prep.get("preprocessor")]
+                parameters["_input_preprocessor_params"] = [prep.get("preprocessor_params")]
+                parameters["_input_scales"] = [prep.get("scale")]
+                parameters["_input_flips"] = [prep.get("flip")]
+                parameters["_input_extend_padding"] = [prep.get("extend_padding")]
+                parameters["_input_extend_bg_colors"] = [prep.get("extend_bg_color")]
+                parameters["_input_paint_layers"] = [None]
+
+            parameters["_batch_index"] = idx
+            # Presentation-only grouping: keep individuals in the library, no set.
+            parameters["_batch_presentation_only"] = True
+
+            if request.prompt_metadata:
+                parameters["prompt_metadata"] = request.prompt_metadata.model_dump()
+            if request.auto_marker_ids:
+                parameters["auto_marker_ids"] = request.auto_marker_ids
+
+            job_id = await generation_queue.submit_batch_job(
+                generator_name=provider_id,
+                model_name=model_name,
+                folder_path=request.folder_path,
+                parameters=parameters,
+                auto_delete_duration=request.auto_delete_duration,
+                generator_instance_id=request.generator_instance_id,
+                backend_name=provider_id,
+                task_type=request.task_type,
+                tool_id=request.tool_id,
+                preset_id=request.preset_id,
+                project_id=request.project_id,
+                batch_id=batch_id,
+                batch_total=total_jobs if idx == 0 else None,  # Only first job stores total
+                batch_output_title=None,
+                batch_input_set_ids=None,
+            )
+            job_ids.append(job_id)
+
+        log.info(f"Created media-batch {batch_id} with {len(job_ids)} jobs")
+
+        from telemetry import get_telemetry_client
+        from pipeline_telemetry import tool_identity_props
+        get_telemetry_client().track("batch_submitted", {
+            "toolRef": tool_identity_props(request.tool_id).get("toolRef"),
+            "jobCount": len(job_ids),
+            "expandedFromSets": False,
+        }, category="generation")
+
+        return BatchJobResponse(
+            batch_id=batch_id,
+            total_jobs=total_jobs,
+            job_ids=job_ids,
+        )
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        log.error(f"Error submitting media-batch jobs: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

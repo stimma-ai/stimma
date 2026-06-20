@@ -11,7 +11,7 @@
         <label class="text-xs font-medium text-content-muted uppercase tracking-wide">{{ displayLabel }}</label>
         <span v-if="props.description" class="text-xs text-content-muted">{{ props.description }}</span>
       </div>
-      <span class="text-xs text-content-muted">{{ items.length }}/{{ maxItems }}</span>
+      <span v-if="!batchMode" class="text-xs text-content-muted">{{ items.length }}/{{ maxItems }}</span>
     </div>
 
     <!-- Item Grid/Sequence -->
@@ -40,8 +40,8 @@
                 dragIndex === item.originalIndex ? 'opacity-30' : '',
                 dropIndex === index && dropIndex !== dragIndex ? 'ring-2 ring-blue-500' : ''
               ]"
-              :draggable="reorderable"
-              @dragstart="reorderable && onReorderDragStart(item.originalIndex)"
+              :draggable="reorderable && !batchMode"
+              @dragstart="reorderable && !batchMode && onReorderDragStart(item.originalIndex)"
               @dragend="reorderable && onReorderDragEnd()"
               @dragover.prevent.stop="onTileDragOver($event, index)"
               @dragleave.stop="onDragLeave"
@@ -107,8 +107,30 @@
                 </svg>
               </div>
 
+              <!-- Batch count badge (stack indicator) -->
+              <div v-if="batchMode" class="absolute top-2 left-2 z-[5]">
+                <div class="bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1">
+                  <svg class="w-4 h-4 flex-shrink-0 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
+                  <span class="text-xs font-semibold text-content leading-none">{{ items.length }}</span>
+                </div>
+              </div>
+
+              <!-- Clear collapsed batch slot -->
+              <button
+                v-if="batchMode"
+                @click.stop="clearItems"
+                class="absolute top-1 right-1 z-[6] w-6 h-6 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Clear"
+                aria-label="Clear"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-white">
+                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                </svg>
+              </button>
+
               <!-- Remove button -->
               <button
+                v-if="!batchMode"
                 @click.stop="removeItem(item.originalIndex)"
                 class="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
@@ -118,7 +140,7 @@
               </button>
 
               <!-- Order badge -->
-              <div :class="[
+              <div v-if="!batchMode" :class="[
                 'absolute flex items-center justify-center pointer-events-none',
                 reorderable ? 'top-1 left-1 w-6 h-6 bg-black/70 rounded-full' : 'top-1 left-1 w-5 h-5 bg-black/70 rounded-full'
               ]">
@@ -147,7 +169,7 @@
                   <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'flip' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                 </div>
                 <!-- Flip / Rotate expanded panel -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'flip'" class="px-2.5 py-2 border-t border-edge-subtle/50 bg-white/[0.01]">
+                <div v-if="openPrepPanel[item.originalIndex] === 'flip'" class="px-2.5 py-2 bg-white/[0.01]">
                   <div class="pl-5 flex items-center gap-1.5">
                     <button
                       @click="toggleFlip(item.originalIndex, 'horizontal')"
@@ -210,7 +232,7 @@
                   <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'scale' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                 </div>
                 <!-- Scale expanded panel -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'scale'" class="px-2.5 py-2 border-t border-edge-subtle/50 bg-white/[0.01] space-y-2">
+                <div v-if="openPrepPanel[item.originalIndex] === 'scale'" class="px-2.5 py-2 bg-white/[0.01] space-y-2">
                   <!-- Pill mode switcher -->
                   <div class="flex bg-base rounded p-0.5 gap-0.5 ml-5">
                     <button
@@ -278,7 +300,7 @@
                   <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'extend' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                 </div>
                 <!-- Extend expanded panel -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'extend'" class="px-2.5 py-2 border-t border-edge-subtle/50 bg-white/[0.01]">
+                <div v-if="openPrepPanel[item.originalIndex] === 'extend'" class="px-2.5 py-2 bg-white/[0.01]">
                   <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 pl-5">
                     <div>
                       <div class="flex justify-between mb-0.5">
@@ -366,7 +388,7 @@
                   <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'preprocess' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                 </div>
                 <!-- Preprocess expanded panel -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'preprocess'" class="px-2.5 py-2 border-t border-edge-subtle/50 bg-white/[0.01]">
+                <div v-if="openPrepPanel[item.originalIndex] === 'preprocess'" class="px-2.5 py-2 bg-white/[0.01]">
                   <div class="flex items-center gap-1.5 pl-5">
                     <select
                       :value="item._preprocessor || ''"
@@ -450,8 +472,8 @@
                 </div>
               </div>
 
-              <!-- Paint row -->
-              <div class="w-full">
+              <!-- Paint row (hidden in batch mode — per-item painting can't apply uniformly) -->
+              <div v-if="!batchMode" class="w-full">
                 <div class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle">
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42"/></svg>
                   <span class="text-[11px] text-content-secondary flex-1">Paint</span>
@@ -479,7 +501,7 @@
               </div>
 
               <!-- Output size footer — shows final pipeline dimensions, Use sets canvas -->
-              <div class="w-full border-t-2 border-edge-subtle">
+              <div class="w-full border-t border-edge-subtle">
                 <div class="flex items-center gap-2 px-2.5 py-1.5">
                   <span class="text-[10px] text-content-muted flex-1 min-w-0 whitespace-nowrap tabular-nums">{{ getExtendedDimensions(item).width }} × {{ getExtendedDimensions(item).height }}</span>
                   <button
@@ -501,6 +523,17 @@
                 </div>
               </div>
             </template>
+
+            <div v-if="batchMode && index === 0 && accept === 'image' && !item.isSet" class="w-full border-t border-edge-subtle">
+              <button
+                type="button"
+                class="w-full flex items-center justify-center gap-2 px-2.5 py-1.5 text-[11px] text-red-400 hover:bg-red-500/[0.06] transition-colors"
+                @click.stop="emit('explode')"
+              >
+                <Square3Stack3DIcon class="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                <span>Explode batch</span>
+              </button>
+            </div>
           </div>
 
           <!-- Connection arrow between items (video sequence only) -->
@@ -515,9 +548,9 @@
         </div>
       </template>
 
-      <!-- Add button (if under max) -->
+      <!-- Add button -->
       <div
-        v-if="items.length < maxItems"
+        v-if="!batchMode && items.length < maxItems"
         @click="openFilePicker"
         @dragover.prevent.stop="onDragOver"
         @dragleave.stop="onDragLeave"
@@ -599,7 +632,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import axios from 'axios'
-import { ArrowDownOnSquareIcon } from '@heroicons/vue/24/outline'
+import { ArrowDownOnSquareIcon, Square3Stack3DIcon } from '@heroicons/vue/24/outline'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { getCurrentProfileId } from '../../composables/useProfile'
 import { getCachedPin } from '../../composables/usePinLock'
@@ -670,6 +703,11 @@ interface Props {
   allowSets?: boolean  // Allow sets to be dropped (for batch processing)
   controlnetOptions?: string[]  // e.g. ["canny", "depth", "lineart", "pose"]
   allowPrep?: boolean  // Show Scale / Extend Canvas / Paint controls (driven by schema x-allow-prep)
+  // Batch state: the slot holds N items and runs the tool once per item. The slot
+  // collapses to one representative "stack" tile (with a count); its prep is the
+  // uniform prep applied to every item. Non-applicable controls (paint, reorder,
+  // add) are hidden.
+  batchMode?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -680,14 +718,17 @@ const props = withDefaults(defineProps<Props>(), {
   description: '',
   allowSets: true,
   controlnetOptions: () => [],
-  allowPrep: false
+  allowPrep: false,
+  batchMode: false
 })
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: MediaItem[]): void
   (e: 'view-media', mediaId: number): void
+  (e: 'view-media-batch', mediaIds: number[]): void
   (e: 'suggest-resolution', dims: { width: number; height: number } | null, options?: { manual?: boolean }): void
   (e: 'suggest-aspect', dims: { width: number; height: number } | null, options?: { manual?: boolean }): void
+  (e: 'explode'): void
 }>()
 
 const API_BASE = '/api'
@@ -816,6 +857,12 @@ const setItemCount = computed(() => {
 const displayItems = computed(() => {
   const itemsWithIndex = items.value.map((v, i) => ({ ...v, originalIndex: i }))
 
+  // Batch mode: collapse to a single representative tile (a stack with a count).
+  // Prep set on the representative is the uniform prep applied to every item.
+  if (props.batchMode) {
+    return itemsWithIndex.slice(0, 1)
+  }
+
   if (props.reorderable && dragIndex.value !== null && dropIndex.value !== null && dragIndex.value !== dropIndex.value) {
     const result = [...itemsWithIndex]
     const [dragged] = result.splice(dragIndex.value, 1)
@@ -867,6 +914,13 @@ watch(previewModalUrl, (url) => {
 
 function onItemClick(item: MediaItem) {
   if (props.accept !== 'image') return
+  if (props.batchMode) {
+    const mediaIds = items.value.map(item => item.mediaId).filter((id): id is number => typeof id === 'number')
+    if (mediaIds.length > 0) {
+      emit('view-media-batch', mediaIds)
+      return
+    }
+  }
   // If any processing has been applied, show the processed result in a full-screen modal
   if (item._originalPath) {
     const url = getMediaUrl(item)
@@ -1840,6 +1894,11 @@ function removeItem(index: number) {
   newItems.splice(index, 1)
   items.value = newItems
   emit('update:modelValue', newItems)
+}
+
+function clearItems() {
+  items.value = []
+  emit('update:modelValue', [])
 }
 
 // ──────────────────────────────────────────────────────────────────────────
