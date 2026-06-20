@@ -619,6 +619,22 @@
           Jump to newest
         </button>
 
+        <!-- Auto-delete time remaining for the hero image. Stage strips hide this
+             to keep thumbnails uncluttered. -->
+        <div
+          v-if="stageAutoDeleteTime"
+          :class="[
+            'absolute left-4 z-10 h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/70 backdrop-blur-md rounded text-xs font-bold text-[#FFC107] shadow-[0_2px_8px_rgba(0,0,0,0.45)]',
+            stageCurrentJob && !stageOnNewest ? 'top-14' : 'top-4'
+          ]"
+          title="Auto-trash time remaining"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5">
+            <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
+          </svg>
+          <span class="leading-none whitespace-nowrap">{{ stageAutoDeleteTime }}</span>
+        </div>
+
         <!-- Generation time/details for the hero image. Stage strips hide this
              to keep thumbnails uncluttered. -->
         <button
@@ -813,6 +829,7 @@ import { makeGlobalKey, makeToolDbKey } from '../utils/storageKeys'
 import { getBlob, putBlob, deleteBlob } from '../utils/blobStorage'
 import { getToolDefaults } from '../utils/generationDefaults'
 import { parseGenerationConfig, type GenerationConfigUpdate } from '../utils/parseGenerationConfig'
+import { formatRemainingTime } from '../utils/timeFormat'
 import { isStimmaCloudTool as isStimmaCloud } from '../utils/stimmaCloud'
 import { copyToClipboard } from '../utils/clipboard'
 import { addToast } from '../composables/useToasts'
@@ -1006,6 +1023,12 @@ const stageGenerationTime = computed<number | null>(() => {
   if (stageCurrentMediaId.value == null) return null
   const time = jobsManager?.mediaGenerationTimes.value?.[stageCurrentMediaId.value]
   return time ? Math.round(time * 10) / 10 : null
+})
+const stageAutoDeleteTime = computed<string | null>(() => {
+  const autoDeleteAt = stageCurrentJob.value?.auto_delete_at
+  if (!autoDeleteAt) return null
+  const remaining = formatRemainingTime(autoDeleteAt)
+  return remaining && remaining !== '0m' ? remaining : null
 })
 const stageOnNewest = computed(() => {
   const list = stageCompletedJobs.value
