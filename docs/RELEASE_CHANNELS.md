@@ -21,17 +21,29 @@ release branches. Releases are driven entirely by **`v*` git tags**.
 
 ## How a release is triggered
 
-There are exactly two ways to start a desktop build, and they share the same
-three reusable workflows:
+There are exactly two ways to start a desktop build. Both are gated by the
+quality gate before any platform build starts.
 
 1. **Tag push (the real release path).** Pushing a tag matching `v*` triggers
-   each reusable workflow directly via its `on: push: tags: ["v*"]` trigger.
-   This builds, signs, and publishes to the updater channels + Cloudflare R2.
+   `.github/workflows/release.yml`. The release workflow first runs backend
+   tests and acceptance tests, then fans out to the platform build workflows.
+   This builds, signs, creates GitHub release assets, and publishes to the
+   updater channels + Cloudflare R2.
 
 2. **`build-desktop` dispatch (on-demand test build).** The
-   `build-desktop.yml` `workflow_dispatch` workflow calls the same three
-   reusables via `workflow_call`. It is meant for sandbox/test builds and does
-   **not** publish unless `publish_updates` is explicitly set to `true`.
+   `build-desktop.yml` `workflow_dispatch` workflow runs the same quality gate,
+   then calls the same three platform workflows via `workflow_call`. It is meant
+   for sandbox/test builds and does **not** publish unless `publish_updates` is
+   explicitly set to `true`.
+
+### Quality gate
+
+The quality gate is `.github/workflows/quality-gate.yml` and currently requires:
+
+- backend lint + `tools/stimma test backend -vv -rA --maxfail=1`
+- browser acceptance tests via `tools/stimma test acceptance`
+
+The normal PR/main workflow (`.github/workflows/ci.yml`) also calls this gate.
 
 ### Reusable build workflows
 
@@ -41,39 +53,28 @@ three reusable workflows:
 | `.github/workflows/release-windows.yml` | Windows x64 | `windows-x86_64` |
 | `.github/workflows/linux-appimage.yml` | Linux AppImage x64 | `linux-x86_64` |
 
-Each declares both triggers:
+Each platform workflow is reusable only; release tags are handled by
+`.github/workflows/release.yml` so tests can gate publication:
 
 ```yaml
 on:
-  push:
-    tags:
-      - "v*"
   workflow_call:
     inputs:
       ref: { required: true, type: string }
       channel: { required: true, type: string }
       version: { required: false, type: string }
       publish_updates: { required: true, type: boolean }
+      publish_github_release: { required: false, type: boolean }
 ```
 
 ## Channel & version derivation
 
-Channel and version are derived differently depending on the trigger.
+### On a release tag
 
-### On a tag push
-
-- **Channel** comes from the tag suffix:
+- **Channel** is resolved by `.github/workflows/release.yml` from the tag suffix:
   - `…-alpha.N` → `alpha`
   - `…-beta.N` → `beta`
   - otherwise → `production`
-
-  ```yaml
-  STIMMA_RELEASE_CHANNEL: ${{ github.event_name == 'push'
-    && (contains(github.ref_name, '-alpha.') && 'alpha'
-        || contains(github.ref_name, '-beta.') && 'beta'
-        || 'production')
-    || inputs.channel }}
-  ```
 
 - **Version** is the tag name with the leading `v` removed. Tags must match
   `v1.2.3`, `v1.2.3-alpha.N`, or `v1.2.3-beta.N`; anything else fails the build.
@@ -180,7 +181,8 @@ git push origin v0.1.0-alpha.162
 ### Sandbox / test build (no publish)
 
 Use the `build-desktop` workflow dispatch — this runs the full build on the
-self-hosted runners without publishing to real updater channels:
+self-hosted runners after the quality gate, without publishing to real updater
+channels:
 
 ```bash
 gh workflow run build-desktop.yml \
@@ -194,7 +196,10 @@ a hand-rolled build to R2.
 
 | File | Purpose |
 |------|---------|
-| `.github/workflows/build-desktop.yml` | On-demand dispatcher (`workflow_call` fan-out to the three reusables) |
+| `.github/workflows/ci.yml` | PR/main CI entrypoint |
+| `.github/workflows/quality-gate.yml` | Reusable backend + acceptance test gate |
+| `.github/workflows/release.yml` | Tag-triggered release orchestrator; runs the quality gate before fan-out |
+| `.github/workflows/build-desktop.yml` | On-demand dispatcher; runs the quality gate before fan-out |
 | `.github/workflows/release-macos.yml` | macOS build/sign/publish reusable |
 | `.github/workflows/release-windows.yml` | Windows build/sign/publish reusable |
 | `.github/workflows/linux-appimage.yml` | Linux AppImage build/sign/publish reusable |

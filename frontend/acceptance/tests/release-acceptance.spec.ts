@@ -20,7 +20,7 @@ test.describe('release acceptance', () => {
     await openTool(page);
     await submitGeneration(page, 'acceptance test image');
 
-    const media = await waitForGeneratedMedia(page);
+    const media = await waitForGeneratedMedia(page, { prompt: 'acceptance test image' });
     expect(media.length).toBeGreaterThan(0);
 
     await page.goto('/browse');
@@ -37,7 +37,10 @@ test.describe('release acceptance', () => {
     await openTool(page, project.id);
     await submitGeneration(page, 'acceptance project scoped image');
 
-    const projectMedia = await waitForGeneratedMedia(page, project.id);
+    const projectMedia = await waitForGeneratedMedia(page, {
+      prompt: 'acceptance project scoped image',
+      projectId: project.id,
+    });
     expect(projectMedia.length).toBeGreaterThan(0);
 
     await page.goto(`/projects/${project.id}/assets`);

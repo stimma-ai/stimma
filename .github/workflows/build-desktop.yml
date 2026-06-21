@@ -42,32 +42,44 @@ permissions:
   contents: write
 
 jobs:
+  quality-gate:
+    name: Quality gate
+    uses: ./.github/workflows/quality-gate.yml
+    with:
+      ref: ${{ inputs.ref }}
+
   macos:
     name: macOS
+    needs: quality-gate
     uses: ./.github/workflows/release-macos.yml
     with:
       ref: ${{ inputs.ref }}
       channel: ${{ inputs.channel }}
       version: ${{ inputs.version }}
       publish_updates: ${{ inputs.publish_updates }}
+      publish_github_release: false
     secrets: inherit
 
   windows:
     name: Windows
+    needs: quality-gate
     uses: ./.github/workflows/release-windows.yml
     with:
       ref: ${{ inputs.ref }}
       channel: ${{ inputs.channel }}
       version: ${{ inputs.version }}
       publish_updates: ${{ inputs.publish_updates }}
+      publish_github_release: false
     secrets: inherit
 
   linux:
     name: Linux AppImage
+    needs: quality-gate
     uses: ./.github/workflows/linux-appimage.yml
     with:
       ref: ${{ inputs.ref }}
       channel: ${{ inputs.channel }}
       version: ${{ inputs.version }}
       publish_updates: ${{ inputs.publish_updates }}
+      publish_github_release: false
     secrets: inherit

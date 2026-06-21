@@ -4,6 +4,7 @@ LLM configuration resolver.
 Resolves the effective LLM configuration for a role, handling
 the two source types: stimma_cloud and endpoint.
 """
+import os
 from typing import Optional
 
 from config import get_settings, LLMEndpointConfig
@@ -13,6 +14,20 @@ log = get_logger(__name__)
 
 # Type alias for configs that can be passed to llm_http
 LLMEffectiveConfig = LLMEndpointConfig
+
+
+def _acceptance_llm_config(role: str) -> Optional[LLMEndpointConfig]:
+    """Deterministic in-process LLM used by the acceptance lane."""
+    if not os.environ.get("STIMMA_TEST_PROVIDER"):
+        return None
+    return LLMEndpointConfig(
+        url="stimma://acceptance-llm",
+        model=f"acceptance-{role}",
+        api_key="dummy",
+        max_context_tokens=32_000,
+        content_policy_enabled=False,
+        reasoning_method="none",
+    )
 
 
 class LLMUnavailableError(Exception):
@@ -57,6 +72,10 @@ async def get_effective_llm_config(role: str) -> LLMEffectiveConfig:
     Raises:
         ValueError: If no valid config is available for the role
     """
+    acceptance_config = _acceptance_llm_config(role)
+    if acceptance_config:
+        return acceptance_config
+
     settings = get_settings()
     role_config = settings.get_llm_role_config(role)
 
@@ -242,6 +261,10 @@ async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') ->
     Raises:
         ValueError: If no valid config is available
     """
+    acceptance_config = _acceptance_llm_config(role)
+    if acceptance_config:
+        return acceptance_config
+
     if model_slug is None:
         model_slug = 'auto'
 

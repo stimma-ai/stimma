@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import time
 from dataclasses import dataclass, field
@@ -38,6 +39,7 @@ from llm_http import (
 )
 
 log = get_logger(__name__)
+_ACCEPTANCE_LLM_URL = "stimma://acceptance-llm"
 
 # Re-export for callers that need these
 __all__ = [
@@ -148,6 +150,50 @@ def _extract_thinking_from_content(text: str) -> Optional[str]:
         if m and m.group(1).strip():
             return m.group(1).strip()
     return None
+
+
+def _stringify_message_content(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for part in content:
+            if isinstance(part, dict):
+                text = part.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+            elif isinstance(part, str):
+                parts.append(part)
+        return "\n".join(parts)
+    return ""
+
+
+def _acceptance_response(config: LLMConfig, messages: List[Dict[str, Any]]) -> LLMResponse:
+    last_user = ""
+    for message in reversed(messages):
+        if message.get("role") == "user":
+            last_user = _stringify_message_content(message.get("content")).strip()
+            break
+    acceptance_matches = re.findall(r"acceptance[^\n]{0,180}", last_user, flags=re.IGNORECASE)
+    if acceptance_matches:
+        last_user = acceptance_matches[-1].strip()
+    if len(last_user) > 180:
+        last_user = last_user[:177].rstrip() + "..."
+    content = f"Acceptance dummy reply: {last_user or 'ready'}"
+    prompt_tokens = max(1, sum(len(_stringify_message_content(m.get("content"))) for m in messages) // 4)
+    completion_tokens = max(1, len(content) // 4)
+    return LLMResponse(
+        content=content,
+        finish_reason=FinishReason.STOP,
+        usage=Usage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
+        ),
+        model=config.get_model() or "acceptance-llm",
+        elapsed_seconds=0.001,
+        tokens_per_second=float(completion_tokens) * 1000,
+    )
 
 
 def _extract_reasoning_field(message) -> Optional[str]:
@@ -415,6 +461,9 @@ async def llm_completion(
     model = config.get_model()
     api_key = config.get_api_key()
     api_base = config.get_api_base()
+
+    if os.environ.get("STIMMA_TEST_PROVIDER") and api_base == _ACCEPTANCE_LLM_URL:
+        return _acceptance_response(config, messages)
 
     # Self-hosted endpoints: apply content policy, extra system prompt, fixed
     # extra_body, and reasoning-method translation. Cloud handles its own.

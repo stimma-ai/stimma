@@ -1,0 +1,19 @@
+name: CI
+run-name: CI - ${{ github.ref_name || 'manual' }}
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate:
+    name: Quality gate
+    uses: ./.github/workflows/quality-gate.yml
+    with:
+      ref: ${{ github.ref }}

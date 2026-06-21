@@ -1,0 +1,107 @@
+name: Release
+run-name: Release - ${{ github.ref_name || inputs.ref || 'manual' }}
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Release tag ref, branch, or SHA
+        required: true
+        default: main
+
+permissions:
+  contents: write
+
+jobs:
+  release-meta:
+    name: Resolve release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.meta.outputs.ref }}
+      version: ${{ steps.meta.outputs.version }}
+      channel: ${{ steps.meta.outputs.channel }}
+
+    steps:
+      - name: Resolve metadata
+        id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          ref="$REF"
+          ref_name="$REF_NAME"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            ref="$INPUT_REF"
+            ref_name="${ref#refs/tags/}"
+            ref_name="${ref_name#refs/heads/}"
+          fi
+
+          if [[ "$ref_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+$ ]]; then
+            channel="alpha"
+          elif [[ "$ref_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
+            channel="beta"
+          elif [[ "$ref_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            channel="production"
+          else
+            echo "Release refs must be tags like v1.2.3, v1.2.3-alpha.1, or v1.2.3-beta.1."
+            exit 1
+          fi
+
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "version=${ref_name#v}" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
+  quality-gate:
+    name: Quality gate
+    needs: release-meta
+    uses: ./.github/workflows/quality-gate.yml
+    with:
+      ref: ${{ needs.release-meta.outputs.ref }}
+
+  macos:
+    name: macOS
+    needs:
+      - release-meta
+      - quality-gate
+    uses: ./.github/workflows/release-macos.yml
+    with:
+      ref: ${{ needs.release-meta.outputs.ref }}
+      channel: ${{ needs.release-meta.outputs.channel }}
+      version: ${{ needs.release-meta.outputs.version }}
+      publish_updates: true
+      publish_github_release: true
+    secrets: inherit
+
+  windows:
+    name: Windows
+    needs:
+      - release-meta
+      - quality-gate
+    uses: ./.github/workflows/release-windows.yml
+    with:
+      ref: ${{ needs.release-meta.outputs.ref }}
+      channel: ${{ needs.release-meta.outputs.channel }}
+      version: ${{ needs.release-meta.outputs.version }}
+      publish_updates: true
+      publish_github_release: true
+    secrets: inherit
+
+  linux:
+    name: Linux AppImage
+    needs:
+      - release-meta
+      - quality-gate
+    uses: ./.github/workflows/linux-appimage.yml
+    with:
+      ref: ${{ needs.release-meta.outputs.ref }}
+      channel: ${{ needs.release-meta.outputs.channel }}
+      version: ${{ needs.release-meta.outputs.version }}
+      publish_updates: true
+      publish_github_release: true
+    secrets: inherit

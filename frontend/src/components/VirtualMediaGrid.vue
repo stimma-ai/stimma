@@ -43,6 +43,7 @@
             <div
               v-for="rowItem in item.items"
               :key="rowItem.id"
+              :data-testid="`media-grid-item-${rowItem.id}`"
               :class="[
                 'group grid-cell relative aspect-square bg-surface-raised rounded-lg cursor-pointer border border-edge',
                 { 'multi-select-mode': multiSelectMode, 'selected ring-[3px] ring-blue-500 ring-inset': isSelected(rowItem.id) },

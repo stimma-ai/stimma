@@ -1,6 +1,6 @@
 # Stimma
 
-![Backend Tests](https://github.com/stimma-ai/stimma/actions/workflows/ci-backend.yml/badge.svg)
+![CI](https://github.com/stimma-ai/stimma/actions/workflows/ci.yml/badge.svg)
 
 **AI-powered visual media copilot**
 

@@ -1,0 +1,105 @@
+name: Quality Gate
+run-name: Quality Gate - ${{ inputs.ref || github.ref_name || 'manual' }}
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to test
+        required: false
+        default: ""
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to test
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install backend deps
+        working-directory: backend
+        run: uv sync --all-extras --locked
+
+      - name: Lint backend
+        run: tools/stimma lint backend
+
+      - name: Run backend tests
+        run: tools/stimma test backend -vv -rA --maxfail=1
+
+  acceptance-tests:
+    name: Acceptance tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install backend deps
+        working-directory: backend
+        run: uv sync --all-extras --locked
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run acceptance tests
+        run: tools/stimma test acceptance
+
+      - name: Upload acceptance artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-artifacts
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            frontend/test-results/
+            frontend/acceptance/playwright-report/
+            frontend/acceptance/acceptance/
