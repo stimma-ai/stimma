@@ -233,17 +233,17 @@ const placeholderBgClass = computed(() => {
   const status = props.iteration.status
   if (status === 'failed') return 'bg-red-500/10'
   if (status === 'awaiting_input') return 'bg-purple-500/10'
-  if (status === 'completed') return 'bg-overlay-subtle/50'
+  if (status === 'completed') return 'bg-overlay-faint'
   if (status === 'pending') {
     switch (props.iteration.blockReason) {
       case 'human': return 'bg-purple-500/[0.06]'
       case 'error': return 'bg-red-500/[0.06]'
       case 'tool':  return 'bg-amber-500/[0.06]'
       case 'cap':   return 'bg-blue-500/[0.06]'
-      default:      return 'bg-overlay-subtle/30'
+      default:      return 'bg-overlay-faint'
     }
   }
-  return 'bg-overlay-subtle/30'
+  return 'bg-overlay-faint'
 })
 
 // Border / ring color. Actionable (this node awaiting human) wins because

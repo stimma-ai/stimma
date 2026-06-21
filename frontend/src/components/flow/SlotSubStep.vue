@@ -82,7 +82,7 @@
         <div
           v-for="it in subStep.iterations"
           :key="it.wrapperKey"
-          class="rounded-md border border-edge-subtle bg-overlay-subtle/40 px-2 py-1.5 text-[11px] text-content-muted text-center"
+          class="rounded-md border border-edge-subtle bg-overlay-faint px-2 py-1.5 text-[11px] text-content-muted text-center"
         >{{ statusBadge(it.status) }}</div>
       </template>
     </div>

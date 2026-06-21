@@ -27,7 +27,7 @@
     @fix-with-agent="onFixWithAgent"
   >
     <template #preview>
-      <div class="overflow-hidden rounded-xl border border-edge-subtle bg-overlay-subtle/40">
+      <div class="overflow-hidden rounded-xl border border-edge-subtle bg-overlay-faint">
         <div
           v-if="previewMediaIds.length"
           class="grid gap-2 p-3"
@@ -216,7 +216,7 @@ function placeholderClass(status?: string | null): string {
   switch (status) {
     case 'failed': return 'bg-red-500/5 text-red-400'
     case 'computing': return 'bg-blue-500/5 text-blue-400'
-    default: return 'bg-overlay-subtle/30 text-content-muted'
+    default: return 'bg-overlay-faint text-content-muted'
   }
 }
 

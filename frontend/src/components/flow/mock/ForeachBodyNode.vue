@@ -38,7 +38,7 @@
       <div class="flex-1 min-h-0 px-2 pb-1 flex items-center">
         <!-- Aggregate: indexed status ribbon -->
         <div v-if="focusedIdx === null" class="w-full">
-          <div class="flex items-center gap-[1px] h-5 rounded-sm overflow-hidden bg-overlay-subtle/50">
+          <div class="flex items-center gap-[1px] h-5 rounded-sm overflow-hidden bg-overlay-faint">
             <div
               v-for="seg in ribbonSegments"
               :key="seg.key"
@@ -278,10 +278,10 @@ const focusedTileClass = computed(() => {
     case 'computing':      return 'border-blue-500/40 bg-blue-500/5'
     case 'failed':         return 'border-red-500/40 bg-red-500/10'
     case 'awaiting_input': return 'border-purple-500/40 bg-purple-500/10'
-    case 'pending':        return 'border-edge-subtle bg-overlay-subtle/30'
-    case 'skipped':        return 'border-edge-subtle bg-overlay-subtle/20 opacity-60'
+    case 'pending':        return 'border-edge-subtle bg-overlay-faint'
+    case 'skipped':        return 'border-edge-subtle bg-overlay-faint opacity-60'
     case null:             return 'border-dashed border-edge-subtle bg-transparent opacity-50'
-    default:               return 'border-edge-subtle bg-overlay-subtle/30'
+    default:               return 'border-edge-subtle bg-overlay-faint'
   }
 })
 
@@ -316,12 +316,12 @@ const cardClass = computed(() => {
   const c = counts.value
   if (props.focusedIdx !== null) {
     switch (focusedStatus.value) {
-      case 'completed':      return 'border-green-500/70 bg-overlay-subtle/30'
+      case 'completed':      return 'border-green-500/70 bg-overlay-faint'
       case 'computing':      return 'border-blue-500/80 bg-blue-500/5'
       case 'failed':         return 'border-red-500 bg-red-500/5'
       case 'awaiting_input': return 'border-purple-500 bg-purple-500/5'
       case 'pending':        return 'border-zinc-600/60 bg-base'
-      case 'skipped':        return 'border-zinc-600/60 bg-overlay-subtle/40 opacity-70'
+      case 'skipped':        return 'border-zinc-600/60 bg-overlay-faint opacity-70'
       case null:             return 'border-dashed border-zinc-600/50 bg-base opacity-70'
     }
   }
@@ -329,7 +329,7 @@ const cardClass = computed(() => {
   if (c.awaiting_input > 0) return 'border-purple-500/70 bg-purple-500/5'
   if (c.computing > 0)      return 'border-blue-500/70 bg-blue-500/5'
   if (c.pending > 0)        return 'border-zinc-500/60 bg-base'
-  return 'border-green-500/70 bg-overlay-subtle/30'
+  return 'border-green-500/70 bg-overlay-faint'
 })
 
 // --- Icon vocabulary (subset of EquationGraph for the mock) ---

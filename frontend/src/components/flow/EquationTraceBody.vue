@@ -53,7 +53,7 @@
         <div v-if="codeBodyLine" class="text-[12px] text-content">{{ codeBodyLine }}</div>
         <div
           v-if="codeResultValue !== undefined && codeResultValue !== null"
-          class="rounded-md border border-edge-subtle bg-overlay-subtle/40 px-3 py-2"
+          class="rounded-md border border-edge-subtle bg-overlay-faint px-3 py-2"
         >
           <div class="text-[10px] uppercase tracking-wide text-content-muted mb-1">Result</div>
           <FlowResultPreview

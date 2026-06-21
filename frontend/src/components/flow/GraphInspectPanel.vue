@@ -120,7 +120,7 @@
               />
             </div>
           </div>
-          <div v-else-if="slotCandidateValue !== undefined && slotCandidateValue !== null" class="rounded-md border border-edge-subtle bg-overlay-subtle/40 px-3 py-2">
+          <div v-else-if="slotCandidateValue !== undefined && slotCandidateValue !== null" class="rounded-md border border-edge-subtle bg-overlay-faint px-3 py-2">
             <FlowResultPreview :value="slotCandidateValue" :max-lines="10" overflow-mode="none" />
           </div>
           <div v-else class="text-[12px] text-content-muted italic">
@@ -140,7 +140,7 @@
               container-class="w-full h-full"
             />
           </div>
-          <div v-else-if="standaloneHitlApprove.value !== undefined" class="rounded-md border border-edge-subtle bg-overlay-subtle/40 px-3 py-2">
+          <div v-else-if="standaloneHitlApprove.value !== undefined" class="rounded-md border border-edge-subtle bg-overlay-faint px-3 py-2">
             <FlowResultPreview :value="standaloneHitlApprove.value" :max-lines="10" overflow-mode="none" />
           </div>
         </template>
@@ -201,7 +201,7 @@
               />
             </div>
           </div>
-          <div v-else-if="inputValue !== undefined && inputValue !== null" class="rounded-md border border-edge-subtle bg-overlay-subtle/40 px-3 py-2">
+          <div v-else-if="inputValue !== undefined && inputValue !== null" class="rounded-md border border-edge-subtle bg-overlay-faint px-3 py-2">
             <FlowResultPreview :value="inputValue" :max-lines="14" overflow-mode="none" />
           </div>
           <div v-else class="text-[12px] text-content-muted italic">
@@ -211,7 +211,7 @@
 
         <!-- ============= Info: rendered markdown + upstream media ============= -->
         <template v-else-if="focusEquation?.equation_type === 'info'">
-          <div v-if="infoMarkdown" class="rounded-md border border-edge-subtle bg-overlay-subtle/30 px-3 py-2">
+          <div v-if="infoMarkdown" class="rounded-md border border-edge-subtle bg-overlay-faint px-3 py-2">
             <div
               class="info-prose text-[12.5px] leading-relaxed text-content break-words"
               v-html="infoMarkdown"
@@ -1255,7 +1255,7 @@ function placeholderClass(status?: string | null): string {
   switch (status) {
     case 'failed': return 'bg-red-500/5 text-red-400'
     case 'computing': return 'bg-blue-500/5 text-blue-400'
-    default: return 'bg-overlay-subtle/30 text-content-muted'
+    default: return 'bg-overlay-faint text-content-muted'
   }
 }
 

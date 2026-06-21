@@ -48,7 +48,7 @@
     <!-- Right-pinned action footer. Mirrors HitlActionCard's button
          vocabulary so a flow with mixed media-grid + text-row
          approvals reads as the same widget shape. -->
-    <div class="flex-shrink-0 flex flex-col items-stretch justify-center gap-1 p-2 border-l border-edge-subtle bg-overlay-subtle/30 w-[120px]">
+    <div class="flex-shrink-0 flex flex-col items-stretch justify-center gap-1 p-2 border-l border-edge-subtle bg-overlay-faint w-[120px]">
       <template v-if="cellState === 'awaiting'">
         <button
           type="button"
@@ -173,7 +173,7 @@ const frameClass = computed(() => {
   switch (cellState.value) {
     case 'failed':   return 'border-red-500/50 bg-red-500/5'
     case 'awaiting': return 'border-purple-500/50 ring-1 ring-purple-500/30 bg-purple-500/5'
-    case 'approved': return 'border-blue-500/30 bg-overlay-subtle/30'
+    case 'approved': return 'border-blue-500/30 bg-overlay-faint'
     default:         return 'border-edge-subtle'
   }
 })

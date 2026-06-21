@@ -12,7 +12,7 @@
         :class="
           keptTiles[i - 1]
             ? 'border border-blue-500/50 ring-1 ring-blue-500/30'
-            : 'border border-dashed border-edge-subtle bg-overlay-subtle/30'
+            : 'border border-dashed border-edge-subtle bg-overlay-faint'
         "
       >
         <FlowMediaTile

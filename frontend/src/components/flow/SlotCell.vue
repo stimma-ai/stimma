@@ -7,7 +7,7 @@
     class="rounded-md border overflow-hidden flex flex-col"
     :class="frameClass"
   >
-    <div class="relative aspect-square w-full bg-overlay-subtle/40">
+    <div class="relative aspect-square w-full bg-overlay-faint">
       <FlowMediaTile
         v-if="primaryMediaId"
         :media-id="primaryMediaId"
@@ -61,7 +61,7 @@
          Approve / Replace language here because hitl.approve is a curation
          surface: rejecting a slot means "make me a different one". -->
     <div
-      class="border-t border-edge-subtle bg-overlay-subtle/30 flex items-center px-2 py-1.5 min-h-[34px] gap-2"
+      class="border-t border-edge-subtle bg-overlay-faint flex items-center px-2 py-1.5 min-h-[34px] gap-2"
     >
       <!-- Approved collapses to one full-width toggle. Clicking it clears
            approval and returns to the two-action Approve / Replace state. -->

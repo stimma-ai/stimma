@@ -79,7 +79,7 @@
          mirrors how phases render their step sequence at the top level
          (hitl.approve is a "virtual phase" whose steps run in parallel
          across slots). -->
-    <div class="border-t border-edge-subtle bg-overlay-subtle/20">
+    <div class="border-t border-edge-subtle bg-overlay-faint">
       <!-- Instructions: rendered once at the top of the body. The
            string lives on the hitl.approve primitive (not on each task),
            so there's nothing to dedupe — single source of truth. -->

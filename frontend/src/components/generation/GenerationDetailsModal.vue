@@ -92,7 +92,7 @@
             <div class="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
               <section class="space-y-3">
                 <slot name="preview">
-                  <div class="overflow-hidden rounded-xl border border-edge-subtle bg-overlay-subtle/40">
+                  <div class="overflow-hidden rounded-xl border border-edge-subtle bg-overlay-faint">
                     <div
                       v-if="previewMediaIds && previewMediaIds.length"
                       class="grid gap-2 p-3"
@@ -115,7 +115,7 @@
                     <div
                       v-else
                       class="flex aspect-square items-center justify-center px-6 text-center"
-                      :class="previewPlaceholder?.class || 'bg-overlay-subtle/30 text-content-muted'"
+                      :class="previewPlaceholder?.class || 'bg-overlay-faint text-content-muted'"
                     >
                       <div>
                         <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-black/5">

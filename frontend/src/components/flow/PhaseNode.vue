@@ -894,7 +894,7 @@ function toggleInfoExpanded(eq: FlowEquation) {
 function infoRowBorderClass(eq: FlowEquation): string {
   if (eq.status === 'failed') return 'border-red-500/40 bg-red-500/5'
   if (eq.status === 'computing') return 'border-teal-500/30 bg-teal-500/5'
-  if (eq.status === 'completed') return 'border-edge-subtle bg-overlay-subtle/30'
+  if (eq.status === 'completed') return 'border-edge-subtle bg-overlay-faint'
   return 'border-edge-subtle'
 }
 // Bg-only variant for rows inside a top-level phase card (the card owns the
@@ -1006,7 +1006,7 @@ function hitlSubtitle(eq: FlowEquation): string | null {
 }
 
 function hitlRowBorderClass(eq: FlowEquation): string {
-  if (eq.status === 'completed') return 'border-edge-subtle bg-overlay-subtle/30'
+  if (eq.status === 'completed') return 'border-edge-subtle bg-overlay-faint'
   if (isEquationActionable(eq) && getTasksForEquation(eq.equation_key).length > 0) {
     return 'border-purple-500/40 bg-purple-500/5'
   }

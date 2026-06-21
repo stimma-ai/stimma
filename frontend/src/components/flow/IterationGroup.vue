@@ -64,7 +64,7 @@
           <span class="truncate text-[13px] leading-tight text-content">{{ titleText }}</span>
           <span
             v-if="runtimePill"
-            class="flex-shrink-0 truncate text-[10px] leading-none rounded px-1.5 py-0.5 bg-overlay-subtle/50 text-content-muted"
+            class="flex-shrink-0 truncate text-[10px] leading-none rounded px-1.5 py-0.5 bg-overlay-faint text-content-muted"
           >
             <span v-if="runtimeModelLabel">{{ runtimeModelLabel }}</span>
             <span v-if="runtimeModelLabel && runtimeProviderLabel"> · </span>
@@ -148,7 +148,7 @@
          without a clear right default). -->
     <Transition name="flow-expand">
     <div v-if="expanded">
-    <div class="border-t border-edge-subtle bg-overlay-subtle/20">
+    <div class="border-t border-edge-subtle bg-overlay-faint">
       <!-- Optional instructions strip — meaningful only for hitl-approve
            groups (auto-injected by hitl.approve). Lives inside the body so
            expand/collapse follows the row's lock-open state. -->

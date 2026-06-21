@@ -37,7 +37,7 @@
           class="px-2.5 py-1 text-[13px] rounded-md whitespace-nowrap transition-colors"
           :class="activeName === item.name
             ? 'text-blue-400 font-medium bg-blue-500/[0.12]'
-            : 'text-content-tertiary hover:text-content-secondary hover:bg-overlay-subtle/50'"
+            : 'text-content-tertiary hover:text-content-secondary hover:bg-overlay-faint'"
           @click="router.push({ name: item.name, params: { id: project.id } })"
         >
           <svg v-if="item.icon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

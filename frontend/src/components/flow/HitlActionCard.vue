@@ -17,7 +17,7 @@
       :class="frameOverlayClass"
     />
     <div
-      class="relative aspect-square w-full bg-overlay-subtle/40"
+      class="relative aspect-square w-full bg-overlay-faint"
       v-memo="[mediaId, mediaUrl, label]"
     >
       <FlowMediaTile
@@ -61,7 +61,7 @@
     </div>
 
     <div
-      class="border-t border-edge-subtle bg-overlay-subtle/30 flex items-center px-1.5 py-1 min-h-[30px] gap-1.5"
+      class="border-t border-edge-subtle bg-overlay-faint flex items-center px-1.5 py-1 min-h-[30px] gap-1.5"
     >
       <!-- Approve mode footer. Awaiting state pulls the eye: the
            Approve action gets the bright solid-blue treatment so the
