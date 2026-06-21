@@ -12,7 +12,7 @@
     </svg>
 
     <!-- Filter Selection Strip (Shopping Cart) -->
-    <div class="flex justify-between items-center px-6 py-3 gap-4 flex-wrap">
+    <div class="flex justify-between items-center px-2 py-2 gap-2 flex-wrap">
       <!-- Left Side: Filter Toggle Button -->
       <button class="text-content-secondary px-4 h-9 rounded-lg text-sm cursor-pointer flex items-center gap-2 transition-colors flex-shrink-0 hover:bg-overlay-subtle" @click="toggleCriteriaPanel">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -370,7 +370,7 @@
         <div v-if="isLoading" class="absolute top-0 left-0 right-0 bottom-0 bg-[rgba(26,26,26,0.8)] flex items-center justify-center z-10 backdrop-blur-[2px]">
           <div class="w-8 h-8 border-[3px] border-edge border-t-indigo-500 rounded-full spinner"></div>
         </div>
-        <div ref="criteriaScrollContainer" class="flex gap-6 px-6 py-6 overflow-x-auto overflow-y-hidden transition-opacity" :class="{ 'opacity-50 pointer-events-none': isLoading }" @wheel="handleHorizontalScroll">
+        <div ref="criteriaScrollContainer" class="flex gap-2 px-2 py-2 overflow-x-auto overflow-y-hidden transition-opacity" :class="{ 'opacity-50 pointer-events-none': isLoading }" @wheel="handleHorizontalScroll">
           <!-- Created Column -->
           <div class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">CREATED</h4>

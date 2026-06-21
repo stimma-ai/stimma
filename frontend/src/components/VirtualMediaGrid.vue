@@ -1,8 +1,8 @@
 <template>
-  <div class="flex-1 flex flex-col overflow-hidden">
+  <div class="flex-1 flex flex-col overflow-hidden w-full min-w-0">
     <!-- Loading state -->
-    <div v-if="initialLoading" class="flex-1 p-4 overflow-hidden">
-      <div class="grid grid-cols-6 gap-4 loading-grid">
+    <div v-if="initialLoading" class="flex-1 p-2 overflow-hidden">
+      <div class="grid grid-cols-6 gap-2 loading-grid">
         <div v-for="i in 18" :key="i" class="loading-skeleton aspect-square rounded-lg w-full h-auto"></div>
       </div>
     </div>
@@ -22,15 +22,15 @@
       :items="allItems"
       :item-size="itemHeight"
       :buffer="bufferSize"
-      class="flex-1 overflow-y-scroll media-grid-container custom-scrollbar pt-4"
+      class="flex-1 min-w-0 overflow-y-scroll overflow-x-hidden media-grid-container custom-scrollbar pt-2"
       @scroll="handleScroll"
       @contextmenu.prevent="handleContainerContextMenu"
       key-field="id"
     >
       <template v-slot="{ item, index }">
         <!-- Placeholder for loading items -->
-        <div v-if="item.isPlaceholder" class="px-6 py-2 overflow-visible">
-          <div class="grid gap-4" :style="{ gridTemplateColumns: `repeat(${itemsPerRow}, 1fr)` }">
+        <div v-if="item.isPlaceholder" class="overflow-visible box-border w-full min-w-0" :style="rowStyle">
+          <div class="grid min-w-0" :style="gridStyle">
             <div v-for="i in itemsPerRow" :key="`placeholder-${item.startIndex}-${i}`" class="grid-cell-placeholder relative aspect-square bg-surface-raised rounded-lg overflow-hidden cursor-pointer flex items-center justify-center">
               <div class="loading-skeleton w-6 h-6 border-2 border-edge border-t-zinc-600 rounded-full"></div>
             </div>
@@ -38,8 +38,8 @@
         </div>
 
         <!-- Actual media item -->
-        <div v-else class="px-6 py-2 overflow-visible">
-          <div class="grid gap-4" :style="{ gridTemplateColumns: `repeat(${itemsPerRow}, 1fr)` }">
+        <div v-else class="overflow-visible box-border w-full min-w-0" :style="rowStyle">
+          <div class="grid min-w-0" :style="gridStyle">
             <div
               v-for="rowItem in item.items"
               :key="rowItem.id"
@@ -421,12 +421,26 @@ const emptySpaceMenuActions = computed(() => {
 })
 
 // Grid configuration
-const GRID_SIDE_PADDING_PX = 48 // px-6 -> 24px left + 24px right
-const ROW_VERTICAL_GUTTER_PX = 16 // py-2 -> 8px top + 8px bottom
-const GRID_GAP_PX = 16 // gap-4
+const GRID_SIDE_PADDING_PX = 16 // px-2 -> 8px left + 8px right
+// CSS grid rounds fractional square tile widths to physical pixels. The virtual
+// row stride needs a small compensation so the measured row gap matches the
+// 8px column gap on 2x displays.
+const ROW_VERTICAL_GUTTER_PX = 10.5
+const GRID_GAP_PX = 8 // gap-2
 const itemsPerRow = ref(6) // Will be calculated based on window width
 const itemHeight = ref(220) // Height of each virtual row (item width + vertical gutter)
 const bufferSize = ref(800) // Render buffer
+
+const rowStyle = {
+  paddingLeft: `${GRID_SIDE_PADDING_PX / 2}px`,
+  paddingRight: `${GRID_SIDE_PADDING_PX / 2}px`,
+  paddingBottom: `${ROW_VERTICAL_GUTTER_PX}px`
+}
+
+const gridStyle = computed(() => ({
+  gridTemplateColumns: `repeat(${itemsPerRow.value}, minmax(0, 1fr))`,
+  gap: `${GRID_GAP_PX}px`
+}))
 
 // Data management - use shared mediaList if provided, otherwise local state
 const localLoadedPages = ref(new Set())
@@ -454,7 +468,7 @@ function calculateItemsPerRow() {
   // Get actual container width from the scroller element
   const scrollerEl = scroller.value?.$el
 
-  // clientWidth excludes scrollbar, then we remove row horizontal padding (px-6)
+  // clientWidth excludes scrollbar, then we remove row horizontal padding (px-2)
   const scrollerWidth = scrollerEl ? scrollerEl.clientWidth : window.innerWidth
   const gridWidth = scrollerWidth - GRID_SIDE_PADDING_PX
 
@@ -1610,9 +1624,9 @@ onMounted(async () => {
       if (gridContainer && firstItem) {
         console.log('Verification:', {
           'Grid width (actual)': gridContainer.offsetWidth,
-          'Grid width (calculated)': scrollerEl.clientWidth - 32,
+          'Grid width (calculated)': scrollerEl.clientWidth - GRID_SIDE_PADDING_PX,
           'Item dimensions (actual)': `${firstItem.offsetWidth}x${firstItem.offsetHeight}`,
-          'Item width (calculated)': Math.round((scrollerEl.clientWidth - 32 - 16 * (itemsPerRow.value - 1)) / itemsPerRow.value),
+          'Item width (calculated)': Math.round((scrollerEl.clientWidth - GRID_SIDE_PADDING_PX - GRID_GAP_PX * (itemsPerRow.value - 1)) / itemsPerRow.value),
           'Row height (actual)': firstRow.offsetHeight,
           'Row height (calculated)': itemHeight.value
         })

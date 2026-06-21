@@ -32,7 +32,7 @@
     <div v-show="!slideshowState.active && !compareState.active" class="w-full h-full flex flex-col">
 
     <!-- Trash Header (only in trash mode) -->
-    <div v-if="isTrashMode" class="flex justify-between items-center px-6 py-4 border-b border-edge-subtle">
+    <div v-if="isTrashMode" class="flex justify-between items-center px-2 py-2 border-b border-edge-subtle">
       <div>
         <h1 class="text-2xl font-semibold text-content">Trash</h1>
         <p class="text-sm text-content-secondary">
