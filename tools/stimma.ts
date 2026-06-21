@@ -166,6 +166,8 @@ Commands:
   stimpacks dev --off    Clear the dev stimpacks override
   backup          Create timestamped backup of data directory
   lint backend    Run ruff over the backend (undefined names, syntax errors)
+  lint frontend-dead-code
+                  Run Knip's conservative unused frontend file check
   test backend    Run backend pytest tests
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
@@ -1375,6 +1377,8 @@ async function main(): Promise<void> {
     case "lint": {
       if (sub === "backend" || !sub) {
         await run("uv", ["run", "ruff", "check", ".", ...rest], { cwd: join(repoRoot, "backend") });
+      } else if (sub === "frontend-dead-code") {
+        await run("npm", ["run", "lint:dead-code", "--", ...rest], { cwd: join(repoRoot, "frontend") });
       } else {
         printUsage();
       }

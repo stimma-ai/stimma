@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 const backendPort = process.env.STIMMA_BACKEND_PORT || '9191'
 const frontendPort = parseInt(process.env.STIMMA_FRONTEND_PORT || '9192', 10)

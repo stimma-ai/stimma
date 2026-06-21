@@ -8,6 +8,7 @@
     "preview": "vite preview",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
     "test:e2e:ui": "playwright test --config e2e/playwright.config.ts --ui",
+    "lint:dead-code": "knip --include files --no-progress",
     "lint:storage-keys": "bash scripts/check-storage-keys.sh"
   },
   "dependencies": {
@@ -46,6 +47,7 @@
     "@tauri-apps/cli": "^2.9.6",
     "@vitejs/plugin-vue": "^4.5.0",
     "autoprefixer": "^10.4.16",
+    "knip": "^6.17.1",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",
     "vite": "^5.0.4"
