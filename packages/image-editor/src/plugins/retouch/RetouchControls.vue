@@ -687,7 +687,7 @@ function handleColorChange(color: { r: number; g: number; b: number; a?: number 
   background: transparent;
   color: rgba(var(--stimma-color-foreground), 0.6);
   cursor: pointer;
-  border-radius: calc(var(--stimma-border-radius) - 2px);
+  border-radius: var(--stimma-border-radius-sm);
   transition: all var(--stimma-transition-duration);
 }
 

@@ -163,6 +163,12 @@ body {
   --stimma-cloud-mid: #06b6d4;
   --stimma-cloud-end: #6366f1;
 
+  /* Global radius scale: small controls, compact panels, full panels. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+
   /* Slider thumb colors (used in pseudo-elements that can't use Tailwind classes) */
   --slider-thumb: rgb(99 102 241); /* indigo-500 */
   --slider-thumb-hover: rgb(129 140 248); /* indigo-400 */

@@ -785,7 +785,7 @@
     <div
       ref="controlBar"
       :class="[
-        'absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-[1.5rem] border border-white/10 z-[10000] shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
+        'absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-[10000] shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
         { 'cursor-grabbing !transition-none': isDragging },
         { '!bg-black/60': isHovered },
         { 'cursor-grab': !isDragging },

@@ -274,7 +274,7 @@
                         <div
                           v-for="(item, index) in column"
                           :key="`${tab.id}-rename-board-item-${columnIndex}-${item.id}-${index}`"
-                          class="overflow-hidden rounded-[4px] bg-overlay-subtle"
+                          class="overflow-hidden rounded bg-overlay-subtle"
                           :style="getBoardPreviewTileStyle(item)"
                         >
                           <MediaImage
@@ -293,7 +293,7 @@
                         </div>
                       </div>
                     </div>
-                    <div v-else class="flex h-full items-center justify-center rounded-[6px]" :class="getBoardGradientClass()">
+                    <div v-else class="flex h-full items-center justify-center rounded-md" :class="getBoardGradientClass()">
                       <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                     </div>
                   </div>
@@ -335,7 +335,7 @@
                         <div
                           v-for="(item, index) in column"
                           :key="`${tab.id}-board-item-${columnIndex}-${item.id}-${index}`"
-                          class="overflow-hidden rounded-[4px] bg-overlay-subtle"
+                          class="overflow-hidden rounded bg-overlay-subtle"
                           :style="getBoardPreviewTileStyle(item)"
                         >
                           <MediaImage
@@ -354,7 +354,7 @@
                         </div>
                       </div>
                     </div>
-                    <div v-else class="flex h-full items-center justify-center rounded-[6px]" :class="getBoardGradientClass()">
+                    <div v-else class="flex h-full items-center justify-center rounded-md" :class="getBoardGradientClass()">
                       <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                     </div>
                   </div>
@@ -566,7 +566,7 @@
                         <div
                           v-for="(item, index) in column"
                           :key="`${tab.id}-rename-open-board-item-${columnIndex}-${item.id}-${index}`"
-                          class="overflow-hidden rounded-[4px] bg-overlay-subtle"
+                          class="overflow-hidden rounded bg-overlay-subtle"
                           :style="getBoardPreviewTileStyle(item)"
                         >
                           <MediaImage
@@ -585,7 +585,7 @@
                         </div>
                       </div>
                     </div>
-                    <div v-else class="flex h-full items-center justify-center rounded-[6px]" :class="getBoardGradientClass()">
+                    <div v-else class="flex h-full items-center justify-center rounded-md" :class="getBoardGradientClass()">
                       <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                     </div>
                   </div>
@@ -627,7 +627,7 @@
                         <div
                           v-for="(item, index) in column"
                           :key="`${tab.id}-open-board-item-${columnIndex}-${item.id}-${index}`"
-                          class="overflow-hidden rounded-[4px] bg-overlay-subtle"
+                          class="overflow-hidden rounded bg-overlay-subtle"
                           :style="getBoardPreviewTileStyle(item)"
                         >
                           <MediaImage
@@ -646,7 +646,7 @@
                         </div>
                       </div>
                     </div>
-                    <div v-else class="flex h-full items-center justify-center rounded-[6px]" :class="getBoardGradientClass()">
+                    <div v-else class="flex h-full items-center justify-center rounded-md" :class="getBoardGradientClass()">
                       <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                     </div>
                   </div>

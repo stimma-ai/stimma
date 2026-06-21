@@ -6,6 +6,17 @@ export default {
     "./src/**/*.{vue,js,ts,jsx,tsx}",
   ],
   theme: {
+    borderRadius: {
+      none: '0',
+      sm: 'var(--radius-sm)',
+      DEFAULT: 'var(--radius-sm)',
+      md: 'var(--radius-md)',
+      lg: 'var(--radius-lg)',
+      xl: 'var(--radius-lg)',
+      '2xl': 'var(--radius-lg)',
+      '3xl': 'var(--radius-lg)',
+      full: 'var(--radius-full)',
+    },
     extend: {
       colors: {
         // Solid tokens are stored as RGB channels in style.css so the

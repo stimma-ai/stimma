@@ -7,7 +7,7 @@
          channel for status; the tinted card body amplifies it at zoom-out
          without screaming up close. Running state shimmers. -->
     <div
-      class="absolute left-0 top-0 bottom-0 w-[5px] rounded-l-[7px] pointer-events-none"
+      class="absolute left-0 top-0 bottom-0 w-[5px] rounded-l-lg pointer-events-none"
       :class="flagClass"
     />
 

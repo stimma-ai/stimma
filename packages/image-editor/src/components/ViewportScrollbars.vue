@@ -233,7 +233,7 @@ onUnmounted(() => {
 .stimma-scrollbar__thumb {
   position: absolute;
   background: rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
+  border-radius: var(--stimma-border-radius-sm);
   transition: background-color 0.15s;
   cursor: pointer;
 }

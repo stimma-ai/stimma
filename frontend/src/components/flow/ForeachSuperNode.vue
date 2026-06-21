@@ -108,7 +108,7 @@
               v-for="block in blocks"
               :key="block.key"
               :data-block-idx="block.idx"
-              class="rounded-[2px] border transition-all cursor-pointer"
+              class="rounded-sm border transition-all cursor-pointer"
               :class="[
                 block.class,
                 block.isFocused ? 'ring-2 ring-blue-500' : '',

@@ -1026,7 +1026,7 @@ onUnmounted(() => {
   gap: 2px;
   padding: 4px;
   background-color: rgba(30, 30, 30, 0.9);
-  border-radius: 8px;
+  border-radius: var(--stimma-border-radius-lg);
   transform: translateX(-50%);
   pointer-events: auto;
   z-index: 100;
@@ -1040,7 +1040,7 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--stimma-border-radius);
   background: transparent;
   color: #fff;
   cursor: pointer;

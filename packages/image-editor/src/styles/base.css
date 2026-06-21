@@ -81,7 +81,7 @@
 [data-stimma-theme="dark"] .stimma-editor ::-webkit-scrollbar-thumb,
 .stimma-editor--dark ::-webkit-scrollbar-thumb {
   background-color: rgba(156, 163, 175, 0.4);
-  border-radius: 4px;
+  border-radius: var(--stimma-border-radius-sm);
 }
 
 [data-stimma-theme="dark"] .stimma-editor ::-webkit-scrollbar-thumb:hover,

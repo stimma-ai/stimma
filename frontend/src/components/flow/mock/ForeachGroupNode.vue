@@ -92,7 +92,7 @@
             v-for="block in blocks"
             :key="block.key"
             type="button"
-            class="rounded-[2px] border transition-all"
+            class="rounded-sm border transition-all"
             :class="[
               block.class,
               block.isFocused ? 'ring-2 ring-blue-400 ring-offset-[1px] ring-offset-surface' : '',

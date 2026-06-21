@@ -41,7 +41,7 @@
         <button
           v-for="(project, index) in filteredProjects"
           :key="project.id"
-          class="group rounded-[24px] border border-edge-subtle bg-overlay-faint p-5 text-left transition-all hover:border-edge hover:bg-overlay-subtle"
+          class="group rounded-lg border border-edge-subtle bg-overlay-faint p-5 text-left transition-all hover:border-edge hover:bg-overlay-subtle"
           @click="handleCardClick($event, project)"
           @contextmenu="handleProjectContextMenu($event, project)"
         >

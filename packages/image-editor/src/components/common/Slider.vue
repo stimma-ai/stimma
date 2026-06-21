@@ -70,7 +70,7 @@ function handleInput(event: Event) {
   flex: 1;
   height: 6px;
   background: rgba(var(--stimma-color-foreground), 0.15);
-  border-radius: 3px;
+  border-radius: var(--stimma-border-radius-round);
   position: relative;
 }
 
@@ -80,7 +80,7 @@ function handleInput(event: Event) {
   top: 0;
   height: 100%;
   background: rgb(var(--stimma-color-primary));
-  border-radius: 3px;
+  border-radius: var(--stimma-border-radius-round);
   pointer-events: none;
 }
 

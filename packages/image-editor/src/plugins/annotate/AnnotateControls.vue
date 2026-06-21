@@ -2558,7 +2558,7 @@ initialize();
 
 .stimma-annotate-controls__gradient-preview {
   height: 24px;
-  border-radius: 6px;
+  border-radius: var(--stimma-border-radius);
   margin-bottom: 8px;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
 }
@@ -2572,7 +2572,7 @@ initialize();
 .stimma-annotate-controls__gradient-stop {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--stimma-border-radius-lg);
   border: 2px solid transparent;
   cursor: pointer;
   transition: all var(--stimma-transition-duration);
@@ -2608,7 +2608,7 @@ initialize();
   margin-bottom: 12px;
   padding: 8px;
   background: rgba(var(--stimma-color-foreground), 0.05);
-  border-radius: 8px;
+  border-radius: var(--stimma-border-radius-lg);
 }
 
 .stimma-annotate-controls__gradient-stop-header {
@@ -2624,7 +2624,7 @@ initialize();
 .stimma-annotate-controls__gradient-stop-remove {
   width: 20px;
   height: 20px;
-  border-radius: 4px;
+  border-radius: var(--stimma-border-radius-sm);
   border: none;
   background: rgba(var(--stimma-color-foreground), 0.1);
   color: rgba(var(--stimma-color-foreground), 0.6);

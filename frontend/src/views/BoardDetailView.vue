@@ -70,7 +70,7 @@
           :key="section.id"
           :ref="(el) => setSectionRef(section.id, el)"
           data-board-section="true"
-          class="overflow-hidden rounded-[28px] border border-edge-subtle shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors"
+          class="overflow-hidden rounded-lg border border-edge-subtle shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors"
           :class="[
             sectionDragCollapsed && dragState.sectionDragId === section.id ? 'opacity-40' : ''
           ]"

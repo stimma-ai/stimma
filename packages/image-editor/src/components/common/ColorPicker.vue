@@ -654,7 +654,7 @@ defineExpose({
   /* 4 swatches wide + 3 gaps */
   width: calc(4 * 26px + 3 * 4px);
   height: 36px;
-  border-radius: 6px;
+  border-radius: var(--stimma-border-radius);
   border: none;
   cursor: pointer;
   transition: transform 0.1s, box-shadow 0.1s;
@@ -686,7 +686,7 @@ defineExpose({
 .stimma-color-picker__swatch {
   width: 26px;
   height: 26px;
-  border-radius: 6px;
+  border-radius: var(--stimma-border-radius);
   border: none;
   cursor: pointer;
   transition: transform 0.1s, box-shadow 0.1s;
@@ -734,7 +734,7 @@ defineExpose({
   width: 300px;
   background: rgb(var(--stimma-color-background));
   color: rgb(var(--stimma-color-foreground));
-  border-radius: 16px;
+  border-radius: var(--stimma-border-radius-lg);
   padding: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
@@ -757,7 +757,7 @@ defineExpose({
   background: transparent;
   color: rgba(var(--stimma-color-foreground), 0.7);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--stimma-border-radius);
 }
 
 .stimma-color-modal__eyedropper:hover,
@@ -774,7 +774,7 @@ defineExpose({
 .stimma-color-modal__tabs {
   display: flex;
   background: rgba(var(--stimma-color-foreground), 0.08);
-  border-radius: 8px;
+  border-radius: var(--stimma-border-radius-lg);
   padding: 3px;
   margin-bottom: 12px;
 }
@@ -784,7 +784,7 @@ defineExpose({
   padding: 6px 12px;
   border: none;
   background: transparent;
-  border-radius: 6px;
+  border-radius: var(--stimma-border-radius);
   font-size: 13px;
   font-weight: 500;
   color: rgba(var(--stimma-color-foreground), 0.6);
@@ -832,7 +832,7 @@ defineExpose({
 .stimma-color-modal__spectrum {
   width: 100%;
   height: 100%;
-  border-radius: 8px;
+  border-radius: var(--stimma-border-radius-lg);
   cursor: crosshair;
   position: relative;
   background:
@@ -889,7 +889,7 @@ defineExpose({
 .stimma-color-modal__slider-track {
   flex: 1;
   height: 28px;
-  border-radius: 14px;
+  border-radius: var(--stimma-border-radius-round);
   position: relative;
   cursor: pointer;
 }
@@ -904,7 +904,7 @@ defineExpose({
 .stimma-color-modal__opacity-gradient {
   position: absolute;
   inset: 0;
-  border-radius: 14px;
+  border-radius: var(--stimma-border-radius-round);
 }
 
 .stimma-color-modal__slider-handle {
@@ -924,7 +924,7 @@ defineExpose({
   min-width: 48px;
   padding: 6px 10px;
   background: rgba(var(--stimma-color-foreground), 0.1);
-  border-radius: 6px;
+  border-radius: var(--stimma-border-radius);
   font-size: 13px;
   font-weight: 500;
   text-align: center;
@@ -949,7 +949,7 @@ defineExpose({
   padding: 6px 10px;
   background: rgba(var(--stimma-color-foreground), 0.1);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--stimma-border-radius);
   font-size: 13px;
   font-weight: 500;
   font-family: monospace;
@@ -982,14 +982,14 @@ defineExpose({
 .stimma-color-modal__preview {
   width: 48px;
   height: 48px;
-  border-radius: 8px;
+  border-radius: var(--stimma-border-radius-lg);
   border: 2px solid rgba(var(--stimma-color-foreground), 0.15);
 }
 
 .stimma-color-modal__preset {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--stimma-border-radius-lg);
   border: none;
   cursor: pointer;
   transition: transform 0.1s;

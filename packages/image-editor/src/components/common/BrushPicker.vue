@@ -528,7 +528,7 @@ defineExpose({ isEraser });
 .stimma-brush-picker__preview-canvas {
   width: 80px;
   height: 80px;
-  border-radius: 8px;
+  border-radius: var(--stimma-border-radius-lg);
 }
 
 /* Preset grid */
@@ -537,7 +537,7 @@ defineExpose({ isEraser });
   flex-direction: column;
   gap: 4px;
   background: rgba(var(--stimma-color-foreground), 0.05);
-  border-radius: 6px;
+  border-radius: var(--stimma-border-radius);
   padding: 4px;
 }
 
@@ -552,7 +552,7 @@ defineExpose({ isEraser });
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: var(--stimma-border-radius-sm);
   border: 2px solid transparent;
   background: transparent;
   cursor: pointer;
@@ -564,7 +564,7 @@ defineExpose({ isEraser });
 .stimma-brush-picker__preset canvas {
   width: 100%;
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--stimma-border-radius-sm);
 }
 
 .stimma-brush-picker__preset:hover {
@@ -613,7 +613,7 @@ defineExpose({ isEraser });
 .stimma-brush-picker__slider-track {
   height: 6px;
   background: rgba(var(--stimma-color-foreground), 0.15);
-  border-radius: 3px;
+  border-radius: var(--stimma-border-radius-round);
   position: relative;
   cursor: pointer;
 }
@@ -624,7 +624,7 @@ defineExpose({ isEraser });
   top: 0;
   height: 100%;
   background: rgb(var(--stimma-color-primary));
-  border-radius: 3px;
+  border-radius: var(--stimma-border-radius-round);
 }
 
 .stimma-brush-picker__slider-handle {

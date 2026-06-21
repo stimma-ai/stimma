@@ -82,7 +82,7 @@
         <button
           v-for="board in filteredBoards"
           :key="board.id"
-          class="group overflow-hidden rounded-[28px] border border-edge-subtle bg-transparent text-left transition-all hover:border-edge-strong hover:bg-overlay-subtle"
+          class="group overflow-hidden rounded-lg border border-edge-subtle bg-transparent text-left transition-all hover:border-edge-strong hover:bg-overlay-subtle"
           @click="openBoard(board.id)"
           @contextmenu="handleBoardContextMenu($event, board)"
         >
