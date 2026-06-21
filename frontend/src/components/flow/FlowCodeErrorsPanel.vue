@@ -16,7 +16,7 @@
       <li
         v-for="err in errors"
         :key="err.id"
-        class="flex items-center gap-2 px-3 py-1 leading-tight cursor-pointer transition-colors border-b border-edge-subtle/40 last:border-b-0"
+        class="flex items-center gap-2 px-3 py-1 leading-tight cursor-pointer transition-colors border-b border-edge-subtle last:border-b-0"
         :class="rowClass(err)"
         :title="err.message"
         @click="emit('select', err.id)"

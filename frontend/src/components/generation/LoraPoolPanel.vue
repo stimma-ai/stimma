@@ -26,7 +26,7 @@
             v-model="filterQuery"
             type="text"
             placeholder="Filter"
-            class="w-20 pl-5 pr-5 py-0.5 text-[11px] bg-transparent border border-edge-subtle/50 rounded text-content-secondary focus:outline-none focus:border-blue-500 focus:w-32 transition-all select-text"
+            class="w-20 pl-5 pr-5 py-0.5 text-[11px] bg-transparent border border-edge-subtle rounded text-content-secondary focus:outline-none focus:border-blue-500 focus:w-32 transition-all select-text"
           />
           <button
             v-if="filterQuery"

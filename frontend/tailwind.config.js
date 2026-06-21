@@ -8,28 +8,33 @@ export default {
   theme: {
     extend: {
       colors: {
-        base: 'var(--color-base)',
+        // Solid tokens are stored as RGB channels in style.css so the
+        // `<alpha-value>` placeholder lets opacity modifiers work, e.g.
+        // `bg-surface/50`, `border-edge/30`. rgba-based tokens (edge.subtle,
+        // surface.elevated, the overlay scale) can't take a further opacity
+        // modifier — use the dedicated faintness tokens instead of `/NN`.
+        base: 'rgb(var(--color-base-rgb) / <alpha-value>)',
         surface: {
-          DEFAULT: 'var(--color-surface)',
-          raised: 'var(--color-surface-raised)',
-          overlay: 'var(--color-surface-overlay)',
-          hover: 'var(--color-surface-hover)',
-          active: 'var(--color-surface-active)',
+          DEFAULT: 'rgb(var(--color-surface-rgb) / <alpha-value>)',
+          raised: 'rgb(var(--color-surface-raised-rgb) / <alpha-value>)',
+          overlay: 'rgb(var(--color-surface-overlay-rgb) / <alpha-value>)',
+          hover: 'rgb(var(--color-surface-hover-rgb) / <alpha-value>)',
+          active: 'rgb(var(--color-surface-active-rgb) / <alpha-value>)',
           elevated: 'var(--color-surface-elevated)',
         },
         slideshow: {
           matt: 'var(--color-slideshow-matt)',
         },
         content: {
-          DEFAULT: 'var(--color-text-primary)',
-          secondary: 'var(--color-text-secondary)',
-          tertiary: 'var(--color-text-tertiary)',
-          muted: 'var(--color-text-muted)',
+          DEFAULT: 'rgb(var(--color-text-primary-rgb) / <alpha-value>)',
+          secondary: 'rgb(var(--color-text-secondary-rgb) / <alpha-value>)',
+          tertiary: 'rgb(var(--color-text-tertiary-rgb) / <alpha-value>)',
+          muted: 'rgb(var(--color-text-muted-rgb) / <alpha-value>)',
         },
         edge: {
-          DEFAULT: 'var(--color-border)',
+          DEFAULT: 'rgb(var(--color-border-rgb) / <alpha-value>)',
           subtle: 'var(--color-border-subtle)',
-          strong: 'var(--color-border-strong)',
+          strong: 'rgb(var(--color-border-strong-rgb) / <alpha-value>)',
         },
         overlay: {
           faint: 'var(--color-overlay-faint)',

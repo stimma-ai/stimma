@@ -172,24 +172,42 @@ body {
   color-scheme: dark;
 
   /* Surfaces — "Slate": neutrals carry a faint cool-blue cast so the
-     greys read designed rather than mechanical, and colourful media pops. */
-  --color-base: #0b0e14;
-  --color-surface: #131720;
-  --color-surface-raised: #1c2230;
-  --color-surface-overlay: #080a0f;
-  --color-surface-hover: #232a3a;
-  --color-surface-active: #313a4f;
+     greys read designed rather than mechanical, and colourful media pops.
+
+     Solid tokens are stored as space-separated RGB *channels* (e.g. `19 23 32`)
+     so Tailwind's `<alpha-value>` placeholder can inject opacity — this is what
+     makes `bg-surface/50`, `border-edge/30`, etc. resolve. The matching
+     `--color-*` var derives the full colour via `rgb(var(--*-rgb))` so the ~80
+     places that read `var(--color-surface)` directly keep working unchanged. */
+  --color-base-rgb: 11 14 20;
+  --color-base: rgb(var(--color-base-rgb));
+  --color-surface-rgb: 19 23 32;
+  --color-surface: rgb(var(--color-surface-rgb));
+  --color-surface-raised-rgb: 28 34 48;
+  --color-surface-raised: rgb(var(--color-surface-raised-rgb));
+  --color-surface-overlay-rgb: 8 10 15;
+  --color-surface-overlay: rgb(var(--color-surface-overlay-rgb));
+  --color-surface-hover-rgb: 35 42 58;
+  --color-surface-hover: rgb(var(--color-surface-hover-rgb));
+  --color-surface-active-rgb: 49 58 79;
+  --color-surface-active: rgb(var(--color-surface-active-rgb));
 
   /* Text — softened off-white instead of pure #fff to kill the glare. */
-  --color-text-primary: #e8eaf0;
-  --color-text-secondary: #9aa3b4;
-  --color-text-tertiary: #7c8597;
-  --color-text-muted: #565e6e;
+  --color-text-primary-rgb: 232 234 240;
+  --color-text-primary: rgb(var(--color-text-primary-rgb));
+  --color-text-secondary-rgb: 154 163 180;
+  --color-text-secondary: rgb(var(--color-text-secondary-rgb));
+  --color-text-tertiary-rgb: 124 133 151;
+  --color-text-tertiary: rgb(var(--color-text-tertiary-rgb));
+  --color-text-muted-rgb: 86 94 110;
+  --color-text-muted: rgb(var(--color-text-muted-rgb));
 
   /* Borders */
-  --color-border: #232a36;
+  --color-border-rgb: 35 42 54;
+  --color-border: rgb(var(--color-border-rgb));
   --color-border-subtle: rgba(148,163,184,0.12);
-  --color-border-strong: #333d4d;
+  --color-border-strong-rgb: 51 61 77;
+  --color-border-strong: rgb(var(--color-border-strong-rgb));
 
   /* Overlays — slate-tinted so hover/active states stay in the family. */
   --color-overlay-faint: rgba(148,163,184,0.03);
@@ -276,24 +294,36 @@ body {
 [data-theme="light"] {
   color-scheme: light;
 
-  /* Surfaces */
-  --color-base: #ffffff;
-  --color-surface: #f4f4f5;
-  --color-surface-raised: #e4e4e7;
-  --color-surface-overlay: #ffffff;
-  --color-surface-hover: #d4d4d8;
-  --color-surface-active: #a1a1aa;
+  /* Surfaces — channels for `<alpha-value>` support; see the dark block. */
+  --color-base-rgb: 255 255 255;
+  --color-base: rgb(var(--color-base-rgb));
+  --color-surface-rgb: 244 244 245;
+  --color-surface: rgb(var(--color-surface-rgb));
+  --color-surface-raised-rgb: 228 228 231;
+  --color-surface-raised: rgb(var(--color-surface-raised-rgb));
+  --color-surface-overlay-rgb: 255 255 255;
+  --color-surface-overlay: rgb(var(--color-surface-overlay-rgb));
+  --color-surface-hover-rgb: 212 212 216;
+  --color-surface-hover: rgb(var(--color-surface-hover-rgb));
+  --color-surface-active-rgb: 161 161 170;
+  --color-surface-active: rgb(var(--color-surface-active-rgb));
 
   /* Text */
-  --color-text-primary: #18181b;
-  --color-text-secondary: #52525b;
-  --color-text-tertiary: #71717a;
-  --color-text-muted: #a1a1aa;
+  --color-text-primary-rgb: 24 24 27;
+  --color-text-primary: rgb(var(--color-text-primary-rgb));
+  --color-text-secondary-rgb: 82 82 91;
+  --color-text-secondary: rgb(var(--color-text-secondary-rgb));
+  --color-text-tertiary-rgb: 113 113 122;
+  --color-text-tertiary: rgb(var(--color-text-tertiary-rgb));
+  --color-text-muted-rgb: 161 161 170;
+  --color-text-muted: rgb(var(--color-text-muted-rgb));
 
   /* Borders */
-  --color-border: #d4d4d8;
+  --color-border-rgb: 212 212 216;
+  --color-border: rgb(var(--color-border-rgb));
   --color-border-subtle: rgba(0,0,0,0.08);
-  --color-border-strong: #a1a1aa;
+  --color-border-strong-rgb: 161 161 170;
+  --color-border-strong: rgb(var(--color-border-strong-rgb));
 
   /* Overlays */
   --color-overlay-faint: rgba(0,0,0,0.015);
