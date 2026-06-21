@@ -70,16 +70,16 @@
           :key="section.id"
           :ref="(el) => setSectionRef(section.id, el)"
           data-board-section="true"
-          class="overflow-hidden rounded-lg border border-edge-subtle shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors"
+          class="relative overflow-hidden rounded-lg border border-edge-subtle shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors"
           :class="[
             sectionDragCollapsed && dragState.sectionDragId === section.id ? 'opacity-40' : ''
           ]"
-          :style="pitStyle"
+          :style="getPitStyle(section.id)"
           @dragover.prevent="handleSectionContainerDragOver(section, $event)"
           @drop.prevent="handleSectionContainerDrop(section, $event)"
         >
           <div
-            class="flex select-none items-center gap-2 px-4 py-3"
+            class="relative flex select-none items-center gap-2 px-4 py-3"
             :class="!dragState.item ? 'cursor-grab active:cursor-grabbing' : ''"
             draggable="true"
             @dragstart.stop="onSectionDragStart(section, $event)"
@@ -93,7 +93,7 @@
                 v-model="sectionNames[section.id]"
                 :ref="(el) => setSectionInputRef(section.id, el)"
                 :style="{ width: getSectionLabelWidth(section) }"
-                class="rounded-full border border-black/5 bg-white/95 px-3 py-1 text-left text-xs font-medium text-zinc-500 shadow-sm outline-none dark:border-white/5 dark:bg-white/90 dark:text-zinc-500"
+                class="rounded-full border border-black/5 bg-white/95 px-3 py-1 text-left text-xs font-medium text-zinc-500 shadow-sm outline-none dark:border-white/10 dark:bg-zinc-900/95 dark:text-content-secondary dark:shadow-none"
                 @blur="saveSection(section)"
                 @keydown.enter.prevent="saveSection(section)"
                 @keydown.esc.prevent="cancelSectionEdit(section)"
@@ -101,7 +101,7 @@
               <button
                 v-else
                 :style="{ width: getSectionLabelWidth(section) }"
-                class="rounded-full border border-black/5 bg-white/95 px-3 py-1 text-left text-xs font-medium text-zinc-500 shadow-sm transition-colors hover:border-black/10 hover:bg-white dark:border-white/5 dark:bg-white/90 dark:text-zinc-500 dark:hover:border-white/10 dark:hover:bg-white"
+                class="rounded-full border border-black/5 bg-white/95 px-3 py-1 text-left text-xs font-medium text-zinc-500 shadow-sm transition-colors hover:border-black/10 hover:bg-white dark:border-white/10 dark:bg-zinc-900/95 dark:text-content-secondary dark:shadow-none dark:hover:border-white/20 dark:hover:bg-zinc-800"
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
@@ -112,7 +112,7 @@
 
           <div
             v-if="!(sectionDragCollapsed && dragState.sectionDragId === section.id)"
-            class="select-none"
+            class="relative select-none"
             :class="[sectionDragCollapsed ? 'pb-2' : 'min-h-[180px] pb-4', 'px-4']"
             @dragover.stop.prevent="handleSectionBodyDragOver(section, $event)"
             @drop.stop.prevent="commitSectionBodyDrop(section, $event)"
@@ -391,6 +391,9 @@ const sectionNames = reactive({})
 const sectionInputRefs = new Map()
 const sectionRefs = new Map()
 const tileRefs = new Map()
+const sectionMetrics = reactive({})
+const sectionElementIds = new WeakMap()
+let sectionResizeObserver = null
 let pendingItemDragCleanup = null
 let pendingSectionFallbackCommit = null
 const sectionDragCollapsed = ref(false) // delayed flag so collapse doesn't abort the drag
@@ -405,6 +408,8 @@ let lastSectionPointerY = null     // tracks every dragover for direction detect
 let scrollToSectionAfterDrop = null // section ID to scroll into view after drop
 const HYSTERESIS_DISTANCE = 16 // px of actual pointer travel required after a reflow
 const ITEM_THRESHOLD = 0.25    // 25% penetration into item before nudging
+const DOT_GRID_PITCH = 16
+const DOT_GRID_CENTER = DOT_GRID_PITCH / 2
 const containerWidth = ref(1200)
 const dragState = reactive({
   item: null,
@@ -584,11 +589,6 @@ const boardSummaryText = computed(() => {
   const sectionCount = visibleSections.value.length
   return sectionCount > 1 ? `${itemText} · ${formatCount(sectionCount, 'section')}` : itemText
 })
-const pitStyle = computed(() => ({
-  backgroundColor: resolvedTheme.value === 'light' ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.06)',
-  backgroundImage: `radial-gradient(circle at 1px 1px, ${resolvedTheme.value === 'light' ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.14)'} 1px, transparent 0)`,
-  backgroundSize: '16px 16px'
-}))
 const slideshowItems = computed(() => (
   displaySections.value.flatMap((section) => (section.items || []).map((item) => ({
     ...item,
@@ -614,6 +614,48 @@ async function loadBoard() {
 
 function measureWidth() {
   containerWidth.value = scrollerRef.value?.clientWidth || 1200
+}
+
+function updateSectionMetrics(sectionId, el) {
+  const rect = el?.getBoundingClientRect?.()
+  if (!rect) return
+  const width = Math.round(rect.width)
+  const height = Math.round(rect.height)
+  const previous = sectionMetrics[sectionId]
+  if (previous?.width === width && previous?.height === height) return
+  sectionMetrics[sectionId] = { width, height }
+}
+
+function getSectionResizeObserver() {
+  if (sectionResizeObserver || typeof ResizeObserver === 'undefined') return sectionResizeObserver
+  sectionResizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const sectionId = sectionElementIds.get(entry.target)
+      if (sectionId == null) continue
+      updateSectionMetrics(sectionId, entry.target)
+    }
+  })
+  return sectionResizeObserver
+}
+
+function getCenteredDotGridOffset(size) {
+  const sectionSize = Math.max(Math.round(size || DOT_GRID_PITCH * 2), DOT_GRID_PITCH * 2)
+  const intervalCount = Math.max(0, Math.floor((sectionSize - DOT_GRID_PITCH) / DOT_GRID_PITCH))
+  const edgeMargin = (sectionSize - intervalCount * DOT_GRID_PITCH) / 2
+  return edgeMargin - DOT_GRID_CENTER
+}
+
+function getPitStyle(sectionId) {
+  const metrics = sectionMetrics[sectionId] || {}
+  const offsetX = getCenteredDotGridOffset(metrics.width || containerWidth.value)
+  const offsetY = getCenteredDotGridOffset(metrics.height || 240)
+
+  return {
+    backgroundImage: `radial-gradient(circle, ${resolvedTheme.value === 'light' ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.14)'} 1px, transparent 1px)`,
+    backgroundColor: resolvedTheme.value === 'light' ? 'rgba(255,255,255,0.98)' : 'rgba(255,255,255,0.06)',
+    backgroundPosition: `${offsetX}px ${offsetY}px`,
+    backgroundSize: `${DOT_GRID_PITCH}px ${DOT_GRID_PITCH}px`
+  }
 }
 
 function stopAutoScroll() {
@@ -1088,10 +1130,19 @@ function setSectionInputRef(sectionId, el) {
 }
 
 function setSectionRef(sectionId, el) {
+  const previous = sectionRefs.get(sectionId)
+  if (previous && previous !== el) {
+    getSectionResizeObserver()?.unobserve(previous)
+  }
+
   if (el) {
     sectionRefs.set(sectionId, el)
+    sectionElementIds.set(el, sectionId)
+    updateSectionMetrics(sectionId, el)
+    getSectionResizeObserver()?.observe(el)
   } else {
     sectionRefs.delete(sectionId)
+    delete sectionMetrics[sectionId]
   }
 }
 
@@ -1812,6 +1863,7 @@ onUnmounted(() => {
     clearTimeout(pendingItemDragCleanup)
     pendingItemDragCleanup = null
   }
+  sectionResizeObserver?.disconnect()
   document.removeEventListener('mousedown', handleDocumentClick)
   window.removeEventListener('keydown', handleWindowKeydown)
   window.removeEventListener('resize', measureWidth)
