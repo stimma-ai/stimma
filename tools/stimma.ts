@@ -167,6 +167,8 @@ Commands:
   backup          Create timestamped backup of data directory
   lint backend    Run ruff over the backend (undefined names, syntax errors)
   test backend    Run backend pytest tests
+  test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
+  test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
   test frontend   Run frontend e2e tests (starts its own backend+frontend)
   test frontend --ui       Open Playwright UI mode
   test frontend --verbose  Show backend/frontend server logs
@@ -978,6 +980,125 @@ async function testFrontend(args: string[]): Promise<void> {
   }
 }
 
+async function resetAcceptanceSandbox(bundleId: string, sandbox: string): Promise<void> {
+  const dataDir = getDataDir(bundleId, sandbox);
+  const cacheDir = getCacheDir(bundleId, sandbox);
+  for (const dir of [dataDir, cacheDir]) {
+    try {
+      await Deno.remove(dir, { recursive: true });
+    } catch (err) {
+      if (!(err instanceof Deno.errors.NotFound)) throw err;
+    }
+  }
+}
+
+async function testAcceptance(args: string[]): Promise<void> {
+  const backendPort = "19291";
+  const frontendPort = "19292";
+  const bundleId = "ai.stimma.stimma.acceptance-test";
+  const sandbox = "default";
+
+  const noServer = args.includes("--no-server");
+  const noReset = args.includes("--no-reset");
+  const verbose = args.includes("--verbose");
+  let slowMo: string | null = null;
+  const filteredArgs: string[] = [];
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (["--verbose", "--no-server", "--no-reset"].includes(arg)) continue;
+    if (arg === "--slow-mo") {
+      slowMo = args[i + 1] || null;
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--slow-mo=")) {
+      slowMo = arg.slice("--slow-mo=".length);
+      continue;
+    }
+    filteredArgs.push(arg);
+  }
+  const stdio = verbose ? "inherit" as const : "null" as const;
+
+  const env = {
+    STIMMA_TEST_PROVIDER: "1",
+    STIMMA_BACKEND_PORT: backendPort,
+    STIMMA_FRONTEND_PORT: frontendPort,
+    STIMMA_ACCEPTANCE_BACKEND_URL: `http://localhost:${backendPort}`,
+    ...(slowMo ? { STIMMA_ACCEPTANCE_SLOW_MO: slowMo } : {}),
+  };
+
+  let backend: Deno.ChildProcess | null = null;
+  let frontend: Deno.ChildProcess | null = null;
+
+  if (!noServer) {
+    await killPort(backendPort);
+    await killPort(frontendPort);
+
+    if (!noReset) {
+      console.log(`Resetting acceptance sandbox (bundle=${bundleId}, sandbox=${sandbox})...`);
+      await resetAcceptanceSandbox(bundleId, sandbox);
+    }
+
+    console.log(`Starting acceptance backend on :${backendPort} (bundle=${bundleId})...`);
+    const backendCmd = new Deno.Command("uv", {
+      args: ["run", "python", "main.py", `--bundle-id=${bundleId}`, `--sandbox=${sandbox}`, `--port=${backendPort}`],
+      cwd: join(repoRoot, "backend"),
+      env: { ...Deno.env.toObject(), ...env },
+      stdin: "null",
+      stdout: stdio,
+      stderr: stdio,
+    });
+    backend = backendCmd.spawn();
+
+    console.log(`Starting acceptance frontend on :${frontendPort}...`);
+    const frontendCmd = new Deno.Command("npx", {
+      args: ["vite"],
+      cwd: join(repoRoot, "frontend"),
+      env: { ...Deno.env.toObject(), ...env },
+      stdin: "null",
+      stdout: stdio,
+      stderr: stdio,
+    });
+    frontend = frontendCmd.spawn();
+  }
+
+  let testCode = 1;
+  try {
+    console.log("Waiting for acceptance backend...");
+    await waitForHttp(`http://localhost:${backendPort}/api/profiles`);
+    console.log("Waiting for acceptance frontend...");
+    await waitForHttp(`http://localhost:${frontendPort}/`);
+    console.log("Servers ready. Running acceptance tests...\n");
+
+    const pw = ["playwright", "test", "--config", "acceptance/playwright.config.ts", ...filteredArgs];
+    const testCmd = new Deno.Command("npx", {
+      args: pw,
+      cwd: join(repoRoot, "frontend"),
+      env: { ...Deno.env.toObject(), ...env },
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const testChild = testCmd.spawn();
+    const testResult = await testChild.status;
+    testCode = testResult.code;
+  } finally {
+    if (!noServer) {
+      console.log("\nShutting down acceptance servers...");
+      try { frontend?.kill("SIGTERM"); } catch { /* already dead */ }
+      try { backend?.kill("SIGTERM"); } catch { /* already dead */ }
+      const waits: Promise<unknown>[] = [];
+      if (frontend) waits.push(frontend.status);
+      if (backend) waits.push(backend.status);
+      await Promise.allSettled(waits);
+    }
+  }
+
+  if (testCode !== 0) {
+    Deno.exit(testCode);
+  }
+}
+
 const DEV_STIMPACKS_KEY = "dev_stimpacks_dir";
 const DEV_STIMPACKS_LINE_RE = /^dev_stimpacks_dir:.*$/m;
 
@@ -1263,6 +1384,8 @@ async function main(): Promise<void> {
     case "test": {
       if (sub === "backend") {
         await run("uv", ["run", "pytest", ...rest], { cwd: join(repoRoot, "backend") });
+      } else if (sub === "acceptance") {
+        await testAcceptance(rest);
       } else if (sub === "frontend") {
         await testFrontend(rest);
       } else if (sub === "cv2-parity") {
