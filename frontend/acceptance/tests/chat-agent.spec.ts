@@ -22,19 +22,20 @@ test.describe('chat agent acceptance', () => {
     await page.goto(`/chat/${chat.id}`);
     await sendChatMessage(page, message);
 
+    const assistantText = `Acceptance dummy reply: ${message}`;
     await expect(page.getByText(message, { exact: true })).toBeVisible({ timeout: 30000 });
     const assistant = await waitForChatItem(
       page,
       chat.id,
       (item) => item.item_type === 'assistant_message' &&
-        Boolean(item.message_text?.includes(`Acceptance dummy reply: ${message}`)),
+        Boolean(item.message_text?.includes(assistantText)),
     );
     expect(assistant.message_text).toContain(message);
-    await expect(page.getByText(`Acceptance dummy reply: ${message}`)).toBeVisible({ timeout: 30000 });
+    await expect(page.locator(`[data-item-id="${assistant.id}"]`).getByText(assistantText)).toBeVisible({ timeout: 30000 });
 
     await page.reload();
     await expect(page.getByText(message, { exact: true })).toBeVisible({ timeout: 30000 });
-    await expect(page.getByText(`Acceptance dummy reply: ${message}`)).toBeVisible({ timeout: 30000 });
+    await expect(page.locator(`[data-item-id="${assistant.id}"]`).getByText(assistantText)).toBeVisible({ timeout: 30000 });
   });
 
   test('project-scoped chat sends through the dummy LLM and stays scoped', async ({ page }) => {
