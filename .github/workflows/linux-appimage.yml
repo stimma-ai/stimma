@@ -27,7 +27,7 @@ permissions:
 jobs:
   linux-appimage:
     name: Build Linux AppImage
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-22.04
 
     env:
       RUST_BACKTRACE: 1
@@ -46,6 +46,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'push' && github.ref || inputs.ref }}
+
+      - name: Install Linux build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            libfuse2 \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            pkg-config \
+            xdg-utils
 
       - name: Setup Node
         uses: actions/setup-node@v4
