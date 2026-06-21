@@ -120,9 +120,14 @@
                 :key="mediaId"
                 class="w-12 h-12 bg-surface-raised rounded border border-edge overflow-hidden flex items-center justify-center"
               >
-                <img
-                  :src="getThumbnailUrl(mediaId)"
-                  class="max-w-full max-h-full object-contain bg-checker"
+                <MediaImage
+                  :media-id="mediaId"
+                  thumbnail
+                  :thumbnail-size="128"
+                  :draggable="false"
+                  :enable-context-menu="false"
+                  container-class="w-full h-full"
+                  img-class="max-w-full max-h-full object-contain bg-checker"
                   :alt="`Reference image ${mediaId}`"
                 />
               </div>
@@ -241,9 +246,14 @@
                     :key="mediaId"
                     class="w-12 h-12 bg-surface-raised rounded border border-edge overflow-hidden flex items-center justify-center"
                   >
-                    <img
-                      :src="getThumbnailUrl(mediaId)"
-                      class="max-w-full max-h-full object-contain bg-checker"
+                    <MediaImage
+                      :media-id="mediaId"
+                      thumbnail
+                      :thumbnail-size="128"
+                      :draggable="false"
+                      :enable-context-menu="false"
+                      container-class="w-full h-full"
+                      img-class="max-w-full max-h-full object-contain bg-checker"
                       :alt="`Reference image ${mediaId}`"
                     />
                   </div>
@@ -381,9 +391,14 @@
                         :key="mediaId"
                         class="w-10 h-10 bg-surface-raised rounded border border-edge overflow-hidden flex items-center justify-center"
                       >
-                        <img
-                          :src="getThumbnailUrl(mediaId)"
-                          class="max-w-full max-h-full object-contain bg-checker"
+                        <MediaImage
+                          :media-id="mediaId"
+                          thumbnail
+                          :thumbnail-size="128"
+                          :draggable="false"
+                          :enable-context-menu="false"
+                          container-class="w-full h-full"
+                          img-class="max-w-full max-h-full object-contain bg-checker"
                           :alt="`Reference image ${mediaId}`"
                         />
                       </div>
@@ -462,10 +477,9 @@ import {
   CubeTransparentIcon,
   ViewfinderCircleIcon
 } from '@heroicons/vue/24/outline'
-import { useMediaApi } from '../composables/useMediaApi'
+import { MediaImage } from './media'
 import { useTheme } from '../composables/useTheme'
 
-const { getThumbnailUrl } = useMediaApi()
 const { resolvedTheme } = useTheme()
 const isLight = computed(() => resolvedTheme.value === 'light')
 

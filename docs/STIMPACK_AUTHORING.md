@@ -45,7 +45,7 @@ A **bare `SKILL.md` with no `stimpack.json`** still loads: a default single-`ski
 
 ### Markdown-only stimpacks (most common)
 
-Pure guidance — the agent reads the instructions and uses its existing tools (`run_code`, `call_tool`, etc.) to carry them out. Good for workflows, checklists, prompt engineering patterns.
+Pure guidance — the agent reads the instructions and uses its existing tools (`run_code`, `.stimma.tools` generated imports, etc.) to carry them out. Good for workflows, checklists, prompt engineering patterns.
 
 ### Stimpacks with code
 
@@ -68,8 +68,8 @@ stimpacks/
 ```
 
 Stimpacks are stored in two locations:
-- **Bundled**: `backend/agent/v2/stimpacks/` — ships with app, read-only, auto-synced
-- **User/Agent**: `~/.Stimma/profiles/{profile_id}/stimpacks/` — read-write, created by users or the agent
+- **Dev/built-in source**: sibling repo `../stimma-skills` — enabled locally with `stimma stimpacks dev`, read-only in the app, shadows installed copies
+- **Profile-installed/User/Agent**: app data directory stimpacks folder — read-write for user and agent-created packs
 
 ## SKILL.md format
 
@@ -105,7 +105,7 @@ Markdown body goes here. This is what the agent sees when the stimpack is invoke
 - Lead with a one-line summary of what the stimpack does
 - Describe the workflow as principles and mental models, not rigid step lists
 - If the stimpack has code (`provides`), include a Usage section with import examples
-- Reference SDK methods by name: `stimma.call_tool()`, `asyncio.gather()`, etc.
+- Reference the current runtime surface by name: `.stimma.tools` imports, `asyncio.gather()`, etc.
 - Code examples should be complete enough to copy-paste-adapt, with comments explaining each section
 - Keep it focused — one primary workflow per stimpack
 
@@ -173,13 +173,13 @@ my-stimpack.zip
 
 ### Bundled with the app
 
-Place the stimpack directory in `backend/agent/v2/stimpacks/`. Set `author: system` in frontmatter. The agent discovers and invokes stimpacks dynamically via system reminders.
+Place the stimpack directory in the sibling `../stimma-skills` repo. For local development, run `tools/stimma stimpacks dev` so the app uses that checkout as the built-in source. Set `author: system` in frontmatter. The agent discovers and invokes stimpacks dynamically via system reminders.
 
 ## Stimpack lifecycle
 
 1. **Discovery**: Agent sees the stimpacks inventory table (name, description, enabled status, provided imports)
 2. **Invocation**: Agent calls `stimpack(action="invoke", name="...")` to load full content into context
-3. **Execution**: Agent uses normal tools (`run_code`, `call_tool`, etc.) guided by the stimpack's instructions
+3. **Execution**: Agent uses normal tools (`run_code`, `.stimma.tools` imports, etc.) guided by the stimpack's instructions
 4. **Creation**: Agent can create new stimpacks via `stimpack(action="create", ...)`
 5. **Forking**: Users can edit bundled stimpacks — the edit creates a user-tier copy
 

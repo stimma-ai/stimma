@@ -23,14 +23,26 @@
       <div v-else class="flex flex-wrap gap-3 justify-center">
         <div
           v-for="(item, index) in items"
-          :key="item.resolved?.id || index"
+          :key="mediaIdOf(item.resolved) || index"
           class="group w-48 h-48 bg-base rounded overflow-hidden cursor-pointer transition-all relative hover:ring-2 hover:ring-cyan-400"
+          :draggable="!!item.resolved"
           @click="selectItem(index, item)"
+          @dragstart="handleItemDragStart($event, item.resolved)"
+          @dragend="handleItemDragEnd"
         >
-          <img
+          <MediaImage
             v-if="item.resolved"
-            :src="getThumbnailUrl(item.resolved.file_hash, 256)"
-            class="w-full h-full object-cover"
+            :media-id="mediaIdOf(item.resolved)"
+            :file-hash="item.resolved.file_hash"
+            :file-path="item.resolved.file_path"
+            :file-format="item.resolved.file_format"
+            :alt="item.resolved.vlm_caption || 'Set item'"
+            thumbnail
+            :thumbnail-size="256"
+            :draggable="false"
+            :enable-context-menu="false"
+            container-class="w-full h-full pointer-events-none"
+            img-class="w-full h-full object-cover"
           />
           <div v-else class="w-full h-full flex items-center justify-center text-content-muted">
             <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
@@ -46,6 +58,8 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import { useMediaApi } from '../../composables/useMediaApi'
+import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
+import { MediaImage } from '../media'
 import axios from 'axios'
 
 const props = defineProps({
@@ -100,6 +114,26 @@ function selectItem(index, item) {
       items: items.value
     }
   })
+}
+
+function mediaIdOf(media) {
+  return media?.id ?? media?.media_id ?? undefined
+}
+
+function isVideoFormat(fileFormat) {
+  return ['mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'].includes((fileFormat || '').toLowerCase())
+}
+
+function handleItemDragStart(event, media) {
+  const mediaId = mediaIdOf(media)
+  if (!mediaId || !media?.file_hash) return
+
+  const thumbnailUrl = getThumbnailUrl(media.file_hash, 128)
+  createDragPreview(event, thumbnailUrl, mediaId, media.file_format || '', isVideoFormat(media.file_format))
+}
+
+function handleItemDragEnd() {
+  handleDragEnd()
 }
 
 onMounted(() => {

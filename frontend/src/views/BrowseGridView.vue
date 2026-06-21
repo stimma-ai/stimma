@@ -1163,7 +1163,7 @@ async function handleToggleMarker({ markerId, add }) {
     await bulkMarkerOperation(selectedItemIds.value, markerId, add)
   } catch (error) {
     console.error('Failed to toggle marker:', error)
-    alert(add ? 'Failed to add marker' : 'Failed to remove marker')
+    addToast(add ? 'Failed to add marker' : 'Failed to remove marker', 'error')
   }
 }
 
@@ -1187,7 +1187,7 @@ async function handleMoveToTrash() {
     await reconcileRemoval(idsToDelete)
   } catch (error) {
     console.error('Failed to move items to trash:', error)
-    alert('Failed to move items to trash')
+    addToast('Failed to move items to trash', 'error')
   }
 }
 
@@ -1198,7 +1198,7 @@ async function handleDeleteSingle(item) {
     await reconcileRemoval([item.id])
   } catch (error) {
     console.error('Failed to move item to trash:', error)
-    alert('Failed to move item to trash')
+    addToast('Failed to move item to trash', 'error')
   }
 }
 
@@ -1216,7 +1216,7 @@ async function handleDeleteMultiple(targetIds) {
     await reconcileRemoval(targetIds)
   } catch (error) {
     console.error('Failed to move items to trash:', error)
-    alert('Failed to move items to trash')
+    addToast('Failed to move items to trash', 'error')
   }
 }
 
@@ -1229,7 +1229,7 @@ async function restoreItem(mediaId) {
     await reconcileRemoval([mediaId])
   } catch (error) {
     console.error('Failed to restore item:', error)
-    alert('Failed to restore item')
+    addToast('Failed to restore item', 'error')
   }
 }
 
@@ -1247,7 +1247,7 @@ async function handleRestoreMultiple(targetIds) {
     await reconcileRemoval(targetIds)
   } catch (error) {
     console.error('Failed to restore items:', error)
-    alert(`Failed to restore items: ${error.response?.data?.detail || error.message}`)
+    addToast(`Failed to restore items: ${error.response?.data?.detail || error.message}`, 'error')
   }
 }
 
@@ -1263,7 +1263,7 @@ async function handleBulkRestore() {
     await reconcileRemoval(idsToRestore)
   } catch (error) {
     console.error('Failed to restore items:', error)
-    alert(`Failed to restore items: ${error.response?.data?.detail || error.message}`)
+    addToast(`Failed to restore items: ${error.response?.data?.detail || error.message}`, 'error')
   }
 }
 

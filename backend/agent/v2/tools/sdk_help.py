@@ -15,7 +15,7 @@ from ..tools_registry import tool, ToolParameter
         ToolParameter(
             name="topic",
             type="string",
-            description="A group name (e.g. 'core', 'library', 'image') or method name (e.g. 'call_tool', 'adjust'). Omit to see available groups.",
+            description="A group name (e.g. 'core', 'library', 'image') or method name (e.g. 'generated_tools', 'adjust'). Omit to see available groups.",
             required=False,
         ),
     ],

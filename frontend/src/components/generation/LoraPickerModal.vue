@@ -172,6 +172,7 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import type { LoraPoolItem, LoraOption } from '../../composables/useLoraPool'
 import { computeDisplayNames, getRawDisplayName, getRawFileName, getDirectoryPath } from '../../composables/useLoraDisplayNames'
+import { addToast } from '../../composables/useToasts'
 
 interface Props {
   availableLoras: LoraOption[]
@@ -341,7 +342,7 @@ function emitValidUploadFiles(files: File[]) {
   }
 
   if (errors.length > 0) {
-    alert(`Skipped ${errors.length} file(s):\n${errors.join('\n')}`)
+    addToast(`Skipped ${errors.length} file(s): ${errors.join('; ')}`, 'warning', 8000)
   }
 
   if (validFiles.length > 0) {

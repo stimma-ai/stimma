@@ -87,10 +87,18 @@
                     ]"
                     @click="selectCell(rowIdx - 1, colIdx - 1)"
                   >
-                    <img
+                    <MediaImage
                       v-if="getCellContent(rowIdx - 1, colIdx - 1)?.resolved"
-                      :src="getThumbnailUrl(getCellContent(rowIdx - 1, colIdx - 1).resolved.file_hash, 256)"
-                      class="w-full h-full object-cover"
+                      :media-id="mediaIdOf(getCellContent(rowIdx - 1, colIdx - 1).resolved)"
+                      :file-hash="getCellContent(rowIdx - 1, colIdx - 1).resolved.file_hash"
+                      :file-path="getCellContent(rowIdx - 1, colIdx - 1).resolved.file_path"
+                      :file-format="getCellContent(rowIdx - 1, colIdx - 1).resolved.file_format"
+                      thumbnail
+                      :thumbnail-size="256"
+                      :draggable="false"
+                      :enable-context-menu="false"
+                      container-class="w-full h-full"
+                      img-class="w-full h-full object-cover"
                     />
                     <div v-else class="w-full h-full flex items-center justify-center text-content-muted">
                       <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
@@ -125,7 +133,7 @@
 
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { useMediaApi } from '../../composables/useMediaApi'
+import { MediaImage } from '../media'
 import axios from 'axios'
 
 const props = defineProps({
@@ -150,8 +158,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['back', 'select-cell', 'selection-change', 'loaded'])
-
-const { getThumbnailUrl } = useMediaApi()
 
 const gridContainerRef = ref(null)
 const scrollContainerRef = ref(null)
@@ -297,6 +303,10 @@ function getCellContent(row, col) {
   return cellMap.value.get(key) || null
 }
 
+function mediaIdOf(media) {
+  return media?.id ?? media?.media_id ?? undefined
+}
+
 function isSelectedCell(row, col) {
   return props.selectedRow === row && props.selectedCol === col
 }
@@ -332,7 +342,7 @@ function emitSelectionChange() {
       selectedList.push({
         row,
         col,
-        mediaId: cell.resolved.id,
+        mediaId: mediaIdOf(cell.resolved),
         fileHash: cell.resolved.file_hash
       })
     }

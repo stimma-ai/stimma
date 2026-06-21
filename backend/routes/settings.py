@@ -2148,6 +2148,8 @@ class StimpackResponse(BaseModel):
     author: str
     tags: list[str]
     tier: str  # "local" | "marketplace"
+    source: str  # "profile" | "dev"
+    is_dev: bool = False
     marketplace_version: int | None = None  # version number if from marketplace
     marketplace_author: str | None = None  # marketplace author username
     marketplace_author_avatar_key: str | None = None
@@ -2180,6 +2182,8 @@ def _stimpack_info_to_response(s) -> StimpackResponse:
         author=s.author,
         tags=s.tags,
         tier=s.tier,
+        source="dev" if getattr(s, "is_dev", False) else "profile",
+        is_dev=bool(getattr(s, "is_dev", False)),
         marketplace_version=s.marketplace.version if s.marketplace else None,
         marketplace_author=s.marketplace.author if s.marketplace else None,
         marketplace_author_avatar_key=s.marketplace.author_avatar_key if s.marketplace and s.marketplace.author_avatar_key else None,
@@ -2194,6 +2198,8 @@ def _stimpack_detail_response(info, content: str) -> StimpackDetailResponse:
         author=info.author,
         tags=info.tags,
         tier=info.tier,
+        source="dev" if getattr(info, "is_dev", False) else "profile",
+        is_dev=bool(getattr(info, "is_dev", False)),
         marketplace_version=info.marketplace.version if info.marketplace else None,
         marketplace_author=info.marketplace.author if info.marketplace else None,
         marketplace_author_avatar_key=info.marketplace.author_avatar_key if info.marketplace and info.marketplace.author_avatar_key else None,
@@ -2285,6 +2291,11 @@ async def update_stimpack_endpoint(name: str, data: StimpackUpdateRequest):
     existing = stimpacks_api.load_stimpack(name, profile_id=profile_id)
     if not existing:
         raise HTTPException(status_code=404, detail=f"Stimpack '{name}' not found")
+    if existing.info.is_dev:
+        raise HTTPException(
+            status_code=400,
+            detail="Dev stimpacks are read-only here. Edit the sibling stimma-skills repository instead.",
+        )
 
     # Merge: use existing values for any None fields
     new_display_name = data.display_name if data.display_name is not None else existing.info.display_name
@@ -2318,6 +2329,11 @@ async def delete_stimpack_endpoint(name: str):
     stimpacks_api = _stimpacks_api()
     # Classify before deletion (the sidecar is gone afterwards).
     existing = stimpacks_api.load_stimpack(name, profile_id=profile_id)
+    if existing and existing.info.is_dev:
+        raise HTTPException(
+            status_code=400,
+            detail="Dev stimpacks are read-only here. Remove or edit them in the sibling stimma-skills repository.",
+        )
     deleted = stimpacks_api.delete_stimpack(name, profile_id=profile_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Stimpack '{name}' not found")

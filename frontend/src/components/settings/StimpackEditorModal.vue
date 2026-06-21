@@ -14,14 +14,6 @@
       </div>
 
       <div class="flex-1 p-6 overflow-y-auto flex flex-col gap-4">
-        <!-- Bundled override banner -->
-        <div
-          v-if="stimpack && stimpack.has_bundled_version && stimpack.is_override"
-          class="px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm"
-        >
-          Editing creates a profile copy. Delete to restore the original.
-        </div>
-
         <!-- Display Name field -->
         <div class="space-y-1">
           <label class="block text-sm font-medium text-content-secondary">Display Name</label>

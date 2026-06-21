@@ -42,6 +42,7 @@ backend/agent/evals/results/
 # Eval real LLM config (points at private-network hosts) + endpoint probe cache.
 # Copy configs/dev.yaml.example -> configs/dev.yaml and edit; it stays local.
 backend/agent/evals/configs/dev.yaml
+backend/agent/evals/configs/local.yaml
 backend/agent/evals/.endpoint_cache.json
 
 # Database
@@ -112,6 +113,8 @@ frontend/node_modules/
 .env
 .env.local
 .env.*.local
+!.env.example
+!**/.env.example
 
 # Logs
 *.log
@@ -158,6 +161,9 @@ backend/output
 .dev.vars
 .dev.vars.*
 .claude/settings.local.json
+.claude/*.lock
 .mcp.json
 .wrangler
 .env.*
+!.env.example
+!**/.env.example

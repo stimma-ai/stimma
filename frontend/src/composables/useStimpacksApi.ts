@@ -8,6 +8,8 @@ export interface Stimpack {
   author: string
   tags: string[]
   tier: 'local' | 'marketplace'
+  source: 'profile' | 'dev'
+  is_dev: boolean
   marketplace_version: number | null
   marketplace_author: string | null
   marketplace_author_avatar_key: string | null

@@ -1341,7 +1341,7 @@ async function handleCreateSet() {
   } catch (err: any) {
     console.error('Failed to create set:', err)
     const message = err?.response?.data?.detail || err?.message || 'Unknown error'
-    alert(`Failed to create set: ${message}`)
+    addToast(`Failed to create set: ${message}`, 'error', 6000)
   } finally {
     creatingSet.value = false
   }

@@ -2218,7 +2218,7 @@ async function uploadLora(files: File[]) {
     }
 
     if (errors.length > 0) {
-      alert(`${errors.length} upload(s) failed:\n${errors.join('\n')}`)
+      addToast(`${errors.length} upload(s) failed: ${errors.join('; ')}`, 'error', 8000)
     }
   } finally {
     isUploadingLora.value = false

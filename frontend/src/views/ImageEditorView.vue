@@ -151,6 +151,7 @@ import { useTheme } from '../composables/useTheme'
 import AutoMarkPicker from '../components/generation/AutoMarkPicker.vue'
 import axios from 'axios'
 import { useTelemetry } from '../composables/useTelemetry'
+import { addToast } from '../composables/useToasts'
 
 const { track: trackTelemetry } = useTelemetry()
 
@@ -820,7 +821,7 @@ async function handleSave() {
   } catch (e) {
     console.error('Failed to save edited image:', e)
     const message = e.response?.data?.detail || e.message || 'Failed to save'
-    alert(`Failed to save: ${message}`)
+    addToast(`Failed to save: ${message}`, 'error', 8000)
   } finally {
     saving.value = false
   }

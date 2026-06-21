@@ -3,11 +3,12 @@
 import json
 
 import pytest
+from sqlalchemy import select
 
 from agent.v2.agent_config import resolve_agent_config
 from agent.v2.permissions import check_permission, check_stp_permission
 from agent.v2.workspace import get_project_workspace, get_workspace_dir
-from database import Chat, Project
+from database import BoardSection, Chat, Project
 from project_service import initialize_project_root
 from tests.helpers.media import create_test_media
 
@@ -109,7 +110,7 @@ class TestProjectsApi:
         project_detail = (await client.get(f"/api/projects/{project['id']}")).json()
         assert project_detail["asset_count"] == 1
 
-    async def test_delete_project_cascades_to_chats_and_boards_but_not_assets(self, client, seeded_media):
+    async def test_delete_project_cascades_to_chats_and_boards_but_not_assets(self, client, seeded_media, db_session):
         project = (await client.post("/api/projects", json={"name": "Cascade Project"})).json()
 
         chat = (await client.post("/api/chats", json={"project_id": project["id"]})).json()
@@ -134,6 +135,15 @@ class TestProjectsApi:
 
         boards = (await client.get("/api/boards")).json()
         assert all(item["id"] != board["id"] for item in boards)
+
+        async with db_session() as session:
+            sections = (
+                await session.execute(
+                    select(BoardSection).where(BoardSection.board_id == board["id"])
+                )
+            ).scalars().all()
+            assert sections
+            assert all(section.deleted_at is not None for section in sections)
 
         # Assets should remain in the library — projects don't own assets
         media = (await client.get("/api/media?page=1&page_size=20")).json()

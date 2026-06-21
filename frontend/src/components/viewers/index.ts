@@ -1,6 +1,5 @@
 export { default as AudioPlayer } from './AudioPlayer.vue'
 export { default as MarkdownViewer } from './MarkdownViewer.vue'
-export { default as SetViewer } from './SetViewer.vue'
 export { default as SetOverview } from './SetOverview.vue'
 export { default as GridViewer } from './GridViewer.vue'
 export { default as LayoutViewer } from './LayoutViewer.vue'

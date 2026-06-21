@@ -6,7 +6,9 @@ import asyncio
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy import select
 
+from database import BoardItem, BoardSection
 from tests.helpers.media import create_test_media
 from tests.helpers.ws import MockWebSocketManager
 
@@ -258,7 +260,7 @@ class TestBoardDeleteCascade:
         media_ids = [item["id"] for item in media_response.json()["items"]]
         assert seeded_media[0].id in media_ids
 
-    async def test_delete_section_removes_items(self, client, seeded_media):
+    async def test_delete_section_removes_items(self, client, seeded_media, db_session):
         """Deleting a non-default section should remove its items from the board."""
         board = (await client.post("/api/boards", json={"name": "Section Del"})).json()
         board_id = board["id"]
@@ -280,6 +282,17 @@ class TestBoardDeleteCascade:
         board_data = (await client.get(f"/api/boards/{board_id}")).json()
         section_ids = [s["id"] for s in board_data["sections"]]
         assert section["id"] not in section_ids
+
+        async with db_session() as session:
+            stored_section = await session.scalar(
+                select(BoardSection).where(BoardSection.id == section["id"])
+            )
+            assert stored_section is not None
+            assert stored_section.deleted_at is not None
+            item_count = await session.scalar(
+                select(BoardItem).where(BoardItem.board_section_id == section["id"])
+            )
+            assert item_count is None
 
         # Media should still exist
         media_response = await client.get("/api/media")

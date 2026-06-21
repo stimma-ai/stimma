@@ -10,7 +10,7 @@ The v1 agent was a pattern-matching machine with a 20k token system prompt. It c
 
 ### The Six Principles
 
-1. **Progressive disclosure over massive system prompts.** Don't front-load information. Let the agent discover what it needs through tools (`discover`, `get_schema`, `search_options`, `sdk_help`).
+1. **Progressive disclosure over massive system prompts.** Don't front-load information. Let the agent discover what it needs through the `.stimma/tools` generated catalog, focused runtime APIs, and stimpacks.
 
 2. **The model explores rather than following rigid patterns.** The agent should understand *why* to do something, not memorize *how*. Teach principles, not procedures.
 
@@ -47,7 +47,7 @@ These are the failure modes that erode the agent over time. Recognizing them is 
 
 **What to do instead:**
 - State the principle: "Use parallel execution (`asyncio.gather`) when items are independent; use sequential loops when each step depends on the previous."
-- Put code examples in `sdk_help` tool output or in stimpacks, not in the system prompt.
+- Put code examples in `.stimma/tools` generated stubs or in stimpacks, not in the system prompt.
 - If an example is truly needed for clarity, use *one* minimal example, not several variations.
 
 ### Prompt-level fixes for code-level problems
@@ -70,7 +70,7 @@ These are the failure modes that erode the agent over time. Recognizing them is 
 **What to do instead:**
 - Audit the system prompt regularly. If a section hasn't prevented a bug in weeks, consider removing it.
 - Move domain knowledge to stimpacks (loaded on demand).
-- Move tool documentation to `sdk_help` and `get_schema` (loaded on demand).
+- Move tool documentation to `.stimma/tools` generated stubs and focused helper surfaces (loaded on demand).
 - Keep the system prompt under ~800 tokens of actual guidance (excluding dynamic sections like tool preferences and stimpack content).
 
 ## Diagnosis Checklist
@@ -94,33 +94,31 @@ Claude Code-style filesystem access. The agent operates on the real filesystem w
 - **Library save is explicit** — nothing auto-saves to the user's media library
 - **Bash access** — permission-gated shell for ImageMagick, ffmpeg, etc.
 
-### Core Tools (12)
+### Core Tool Surface
 
 | # | Tool | Purpose |
 |---|------|---------|
-| 1 | **call_tool** | Execute an STP tool. Single operations. |
-| 2 | **run_code** | Execute Python in sandbox. Batch ops, PIL, loops, grids. |
-| 3 | **view_image** | Send image pixels to LLM (multimodal). Agent sees with its own eyes. |
-| 4 | **show** | Display one or more media items to user in chat. Creates ChatItems. |
-| 5 | **library** | Search, get, save, browse, lineage. One tool, multiple actions. |
-| 6 | **discover** | STP tool progressive disclosure. List tasks, tools, schemas, search options. |
-| 7 | **bash** | Shell commands. Permission-gated. |
-| 8 | **web_search** | Search the web. Returns titles, URLs, and snippets. |
-| 9 | **web_fetch** | Fetch a URL and extract readable content. |
-| 10 | **ask_user** | Ask user for clarification, preferences, approval. |
-| 11 | **stimpack** | Invoke a stimpack. Meta-tool that loads instructions into context. |
-| 12 | **delegate** | Spawn subagent for bulk/isolated work. |
+| 1 | **run_code** | Execute Python in sandbox. Batch ops, PIL, loops, grids, and `.stimma/tools` STP calls. |
+| 2 | **view_image** | Send image pixels to LLM (multimodal). Agent sees with its own eyes. |
+| 3 | **show** | Display one or more media items to user in chat. Creates ChatItems. |
+| 4 | **library** | Search, get, save, browse, lineage. One tool, multiple actions. |
+| 5 | **bash** | Shell commands. Permission-gated. |
+| 6 | **web_search** | Search the web. Returns titles, URLs, and snippets. |
+| 7 | **web_fetch** | Fetch a URL and extract readable content. |
+| 8 | **ask_user** | Ask user for clarification, preferences, approval. |
+| 9 | **stimpack** | Invoke a stimpack. Meta-tool that loads instructions into context. |
+| 10 | **delegate** | Spawn subagent for bulk/isolated work. |
 
 ### Progressive Disclosure for STP Tools
 
-Four levels of depth, agent drills down as needed:
+The agent drills down as needed:
 
 1. **Task categories** in system prompt (~100 tokens): "text-to-image, image-to-image, ..."
-2. **`discover(action="list_tools", task_type="text-to-image")`** → tool names + one-line descriptions
-3. **`discover(action="get_schema", tool_name="comfyui:turbo-gen")`** → full parameter schema
-4. **`discover(action="search_options", tool_name="...", param="lora", query="anime")`** → search large enum values
+2. **Browse `.stimma/tools/<task_type>/`** -> generated modules with tool names and one-line descriptions
+3. **Open a generated tool module** -> typed async function, parameter docs, and enum discovery hints
+4. **Use the helper named by the generated stub** -> search large enum values such as loras, checkpoints, and samplers
 
-Large enum parameters (loras, checkpoints, samplers) are NOT inlined in schemas. The schema says "use search_options to find values."
+Large enum parameters are NOT inlined in generated stubs. The stub points to the focused helper for finding values.
 
 ### Code Execution (run_code)
 
@@ -129,7 +127,9 @@ The agent writes Python, we `exec()` it with a `stimma` API object injected.
 **The `stimma` API:**
 ```python
 # STP tool calls
-result = await stimma.call_tool("comfyui:turbo-gen", prompt="a cat")
+from stimma.tools.text_to_image import turbo_gen
+
+result = await turbo_gen(prompt="a cat")
 # result is a ToolResult with path, dimensions, seed, parameters, etc.
 result.open()  # -> PIL.Image.Image
 
@@ -182,7 +182,7 @@ Use `view_image` tool to see image pixels directly in the agent's context. Downs
 ### Lineage / Provenance
 
 Tracked automatically at the `stimma` API layer:
-- `call_tool()` records "output X was produced from input Y using tool Z with params W"
+- Generated `.stimma.tools` calls record "output X was produced from input Y using tool Z with params W"
 - `library.save()` carries provenance chain from ToolResult
 - `library.save()` accepts optional `inspired_by` for looser remix links
 - `library(action="lineage", media_id=42)` returns the full derivation tree
@@ -196,7 +196,7 @@ Stimpacks are markdown instruction documents that load into context on demand. S
 **See `docs/STIMPACK_AUTHORING.md` for the full authoring guide.**
 
 **Three tiers:**
-- **Bundled** — ship with app, read-only, forkable (`backend/agent/v2/stimpacks/`)
+- **Dev** — sibling checkout for built-in stimpacks during development (`../stimma-skills`, enabled with `stimma stimpacks dev`), read-only in the app
 - **User-created** — in app data directory, read-write
 - **Agent-created** — same location, written by the agent to capture learned workflows
 
@@ -211,11 +211,11 @@ Stimpacks are markdown instruction documents that load into context on demand. S
 
 ### System Prompt
 
-~600 tokens total. Three layers:
+Keep it compact. Three layers:
 
 1. **Identity + boundaries** (~200 tokens): Who you are, what you can do, workspace model
 2. **Tool behavior guidance** (~300 tokens): When to use which tool, progressive disclosure strategy
-3. **Task categories** (~100 tokens): Just names of available task types, entry point for discover tool
+3. **Task categories** (~100 tokens): Just names of available task types and the `.stimma/tools` entry point
 
 **What stays OUT:** Workflow examples, tool parameter details, lora/model lists, prompt engineering advice, edge case handling. All of that is stimpacks territory or progressive disclosure.
 

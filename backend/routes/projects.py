@@ -162,7 +162,9 @@ async def delete_project(project_id: int, session: AsyncSession = Depends(get_db
             .values(deleted_at=deleted_at, updated_at=deleted_at)
         )
         await session.execute(
-            delete(BoardSection).where(BoardSection.board_id.in_(deleted_board_ids))
+            update(BoardSection)
+            .where(BoardSection.board_id.in_(deleted_board_ids), BoardSection.deleted_at.is_(None))
+            .values(deleted_at=deleted_at, updated_at=deleted_at, is_default=False)
         )
 
     # Remove project_media edges (assets stay in library)

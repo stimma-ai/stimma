@@ -35,7 +35,7 @@ Sandboxes exist to support **git worktrees** and parallel testing. Each sandbox 
 
 ```bash
 stimma fork create my-feature     # copies default/ → my-feature/
-stimma --sandbox=my-feature dev server
+stimma --sandbox=my-feature dev backend
 stimma --sandbox=my-feature dev frontend
 stimma fork destroy my-feature    # deletes my-feature/ data + cache
 ```
@@ -46,7 +46,7 @@ The fork is a full copy of the default sandbox — database, settings, auth toke
 
 | Instance | Server | Frontend |
 |----------|--------|----------|
-| Default | 9292 | 9293 |
+| Default | 9191 | 9192 |
 | First fork | 9300 | 9301 |
 | Second fork | 9302 | 9303 |
 | ... | up to 9398 | up to 9399 |
@@ -178,7 +178,8 @@ stimma --sandbox=test dev backend         # ai.stimma.stimma.debug/test/
 
 # Fork workflow (for git worktrees)
 stimma fork create my-feature             # copy default → my-feature, assign ports
-stimma --sandbox=my-feature dev server    # run against the fork
+stimma --sandbox=my-feature dev backend   # run backend against the fork
+stimma --sandbox=my-feature dev frontend  # run frontend against the fork
 stimma fork destroy my-feature            # clean up
 
 # Inspect

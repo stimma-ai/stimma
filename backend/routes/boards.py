@@ -127,7 +127,8 @@ async def _delete_section_if_empty(section: BoardSection, session: AsyncSession)
     if item_count:
         return
 
-    await session.delete(section)
+    section.deleted_at = datetime.utcnow()
+    section.updated_at = datetime.utcnow()
     await session.flush()
     await _compact_section_orders(section.board_id, session)
 
@@ -302,7 +303,9 @@ async def delete_board_section(section_id: int, session: AsyncSession = Depends(
     board = await _get_board_or_404(section.board_id, session)
     was_default = section.is_default
     await session.execute(delete(BoardItem).where(BoardItem.board_section_id == section.id))
-    await session.delete(section)
+    section.deleted_at = datetime.utcnow()
+    section.updated_at = datetime.utcnow()
+    section.is_default = False
     await session.flush()
     if was_default:
         # Promote the next remaining section (lowest display_order) to default so the

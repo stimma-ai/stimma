@@ -19,7 +19,7 @@ on:
 jobs:
   backend-tests:
     name: Run backend tests
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout

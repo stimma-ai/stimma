@@ -43,7 +43,7 @@
               imgClass
             ]"
             :loading="loading"
-            draggable="false"
+            :draggable="draggable"
             @load="handleLoad"
             @error="handleError"
             @click="$emit('click', $event)"
@@ -63,7 +63,7 @@
         imgClass
       ]"
       :loading="loading"
-      draggable="false"
+      :draggable="draggable"
       @load="handleLoad"
       @error="handleError"
       @click="$emit('click', $event)"

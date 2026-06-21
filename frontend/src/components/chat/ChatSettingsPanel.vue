@@ -182,16 +182,6 @@
       @save="handleStimpackSave"
     />
 
-    <!-- Revert Stimpack Confirmation -->
-    <ConfirmModal
-      :show="showRevertConfirm"
-      title="Revert Stimpack?"
-      :message="`Revert &quot;${revertingStimpack?.display_name || revertingStimpack?.name}&quot; to the original version? Your changes will be lost.`"
-      confirm-text="Revert"
-      @confirm="executeRevertStimpack"
-      @cancel="showRevertConfirm = false"
-    />
-
     <!-- Instructions Editor Modal -->
     <TextEditorModal
       v-if="showInstructionsModal"
@@ -209,7 +199,6 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import ToolConfigRow from './ToolConfigRow.vue'
 import TextEditorModal from './TextEditorModal.vue'
-import ConfirmModal from '../ConfirmModal.vue'
 import TaskTypeToolList from '../TaskTypeToolList.vue'
 import { useAgentPresetsApi, type AgentSettings, type ToolConfig } from '../../composables/useAgentPresetsApi'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
@@ -521,28 +510,6 @@ async function handleStimpackSave(data: { name: string; display_name: string; de
     await loadStimpacks()
   } catch (err) {
     console.error('Failed to save stimpack:', err)
-  }
-}
-
-const showRevertConfirm = ref(false)
-const revertingStimpack = ref<Stimpack | null>(null)
-
-function handleRevertStimpack(stimpack: Stimpack) {
-  revertingStimpack.value = stimpack
-  showRevertConfirm.value = true
-}
-
-async function executeRevertStimpack() {
-  if (!revertingStimpack.value) return
-  showRevertConfirm.value = false
-  try {
-    const { revertStimpack } = useStimpacksApi()
-    await revertStimpack(revertingStimpack.value.name)
-    await loadStimpacks()
-  } catch (err) {
-    console.error('Failed to revert stimpack:', err)
-  } finally {
-    revertingStimpack.value = null
   }
 }
 

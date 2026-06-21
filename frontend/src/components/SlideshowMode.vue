@@ -588,10 +588,18 @@
           @contextmenu="handleContextMenu($event, currentItem.id, currentItem.file_hash)"
         >
           <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] bg-black rounded overflow-hidden border border-edge ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-elevated">
-            <img
-              :src="getThumbnailUrl(currentItem.file_hash, 256)"
+            <MediaImage
+              :media-id="currentItem.id"
+              :file-hash="currentItem.file_hash"
+              :file-path="currentItem.file_path"
+              :file-format="currentItem.file_format"
               :alt="currentItem.vlm_caption"
-              class="w-full h-full object-cover"
+              thumbnail
+              :thumbnail-size="256"
+              :draggable="false"
+              :enable-context-menu="false"
+              container-class="w-full h-full"
+              img-class="w-full h-full object-cover"
               @load="$event.target.classList.add('bg-checker')"
             />
           </div>
@@ -619,10 +627,20 @@
             class="w-[96px] h-[96px] bg-black rounded overflow-hidden border border-edge transition-all"
             :class="index === setViewIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-blue-400 hover:brightness-110'"
           >
-            <img
-              :src="getThumbnailUrl(item.file_hash, 256)"
+            <MediaImage
+              :media-id="item.id"
+              :file-hash="item.file_hash"
+              :file-path="item.file_path"
+              :file-format="item.file_format"
               :alt="item.vlm_caption"
-              class="w-full h-full object-cover bg-checker"
+              draggable="true"
+              @dragstart="handleStripDragStart($event, item)"
+              @dragend="handleDragEnd"
+              thumbnail
+              :thumbnail-size="256"
+              :enable-context-menu="false"
+              container-class="w-full h-full"
+              img-class="w-full h-full object-cover bg-checker"
             />
           </div>
           <!-- Marker badges -->
@@ -670,13 +688,20 @@
               class="w-[96px] h-[96px] bg-black rounded overflow-hidden border border-edge transition-all"
               :class="index === currentIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-blue-400 hover:brightness-110'"
             >
-              <img
-                :src="getThumbnailUrl(item.file_hash, 256)"
+              <MediaImage
+                :media-id="item.id"
+                :file-hash="item.file_hash"
+                :file-path="item.file_path"
+                :file-format="item.file_format"
                 :alt="item.vlm_caption"
                 draggable="true"
                 @dragstart="handleStripDragStart($event, item)"
                 @dragend="handleDragEnd"
-                class="w-full h-full object-cover"
+                thumbnail
+                :thumbnail-size="256"
+                :enable-context-menu="false"
+                container-class="w-full h-full"
+                img-class="w-full h-full object-cover"
                 @load="$event.target.classList.add('bg-checker')"
                 @error="handleThumbnailError($event, item, index)"
               />
@@ -3635,7 +3660,7 @@ async function handleDeleteCurrentItem() {
 
   } catch (error) {
     console.error('Failed to delete media:', error)
-    alert('Failed to move item to trash')
+    addToast('Failed to move item to trash', 'error')
   } finally {
     // Clean up after a delay to ensure websocket has processed
     setTimeout(() => {
@@ -3708,7 +3733,7 @@ async function handleRestoreCurrentItem() {
 
   } catch (error) {
     console.error('Failed to restore media:', error)
-    alert('Failed to restore item')
+    addToast('Failed to restore item', 'error')
   } finally {
     setTimeout(() => {
       deletingItemIds.value.delete(restoredId)
@@ -4012,7 +4037,9 @@ function handleStripDragStart(event, item) {
 
   // Create a smaller drag preview image
   const thumbnailUrl = getThumbnailUrl(item.file_hash, 128)
-  createDragPreview(event, thumbnailUrl, item.id)
+  const fileFormat = item.file_format || ''
+  const itemIsVideo = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'].includes(fileFormat.toLowerCase())
+  createDragPreview(event, thumbnailUrl, item.id, fileFormat, itemIsVideo)
 }
 
 // Drag and drop handler.

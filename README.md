@@ -1,6 +1,6 @@
 # Stimma
 
-![Backend Tests](https://github.com/stimma-ai/stimma/actions/workflows/backend-tests.yml/badge.svg)
+![Backend Tests](https://github.com/stimma-ai/stimma/actions/workflows/ci-backend.yml/badge.svg)
 
 **AI-powered visual media copilot**
 
@@ -159,13 +159,13 @@ See the [Stimma Tools Protocol spec](https://github.com/stimma-ai/stimma-tools-p
 
 # Run in development mode
 # Terminal 1: Backend
-cd backend && uv run python main.py
+tools/stimma dev backend
 
 # Terminal 2: Frontend
-cd frontend && npm run dev
+tools/stimma dev frontend
 
 # Terminal 3: Tauri shell (optional, for native features)
-cd src-tauri && cargo tauri dev
+tools/stimma dev app
 ```
 
 Set `STIMMA_DEV=1` to use the external backend on port 9191 instead of the bundled one.
@@ -173,4 +173,3 @@ Set `STIMMA_DEV=1` to use the external backend on port 9191 instead of the bundl
 ## License
 
 Proprietary. All rights reserved.
-

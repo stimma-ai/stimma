@@ -755,6 +755,7 @@ import { useProvidersApi } from '../composables/useProvidersApi'
 import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { copyToClipboard } from '../utils/clipboard'
+import { addToast } from '../composables/useToasts'
 import { getFilterDisplayLabel } from '@stimma/image-editor'
 import { isImage as isImageType, hasVisualContent, getMediaType } from '../utils/mediaTypes'
 
@@ -1127,7 +1128,7 @@ async function removeAutoDelete() {
     props.currentItem.auto_delete_at = null
   } catch (error) {
     console.error('Failed to remove auto-delete:', error)
-    alert('Failed to remove auto-delete. Please try again.')
+    addToast('Failed to remove auto-delete. Please try again.', 'error')
   }
 }
 

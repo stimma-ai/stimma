@@ -262,8 +262,8 @@
               >
                 <!-- Inline rename -->
                 <template v-if="editingItem?.tabId === tab.id">
-                  <img v-if="tab.type === 'editor' && tab.editorMediaId" :src="getThumbnailUrl(Number(tab.editorMediaId), 64)" class="w-8 h-8 rounded object-cover flex-shrink-0" />
-                  <img v-else-if="tab.type === 'lineage'" :src="getThumbnailUrl(Number(tab.editorMediaId || tab.entityId), 64)" class="w-8 h-8 rounded object-cover flex-shrink-0" />
+                  <MediaImage v-if="tab.type === 'editor' && tab.editorMediaId" :media-id="Number(tab.editorMediaId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
                   <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
                     <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
                       <div
@@ -303,7 +303,7 @@
                   <div v-else-if="tab.type === 'tool'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="getToolGradientClass(tab.entityId)">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
-                  <img v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :src="getThumbnailUrl(getChatMetadata(tab.entityId).thumbnail_media_id, 64)" class="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
                   <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
@@ -323,8 +323,8 @@
                 </template>
                 <!-- Normal display -->
                 <template v-else>
-                  <img v-if="tab.type === 'editor' && tab.editorMediaId" :src="getThumbnailUrl(Number(tab.editorMediaId), 64)" class="w-8 h-8 rounded object-cover flex-shrink-0" />
-                  <img v-else-if="tab.type === 'lineage'" :src="getThumbnailUrl(Number(tab.editorMediaId || tab.entityId), 64)" class="w-8 h-8 rounded object-cover flex-shrink-0" />
+                  <MediaImage v-if="tab.type === 'editor' && tab.editorMediaId" :media-id="Number(tab.editorMediaId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
                   <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
                     <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
                       <div
@@ -364,7 +364,7 @@
                   <div v-else-if="tab.type === 'tool'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="getToolGradientClass(tab.entityId)">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
-                  <img v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :src="getThumbnailUrl(getChatMetadata(tab.entityId).thumbnail_media_id, 64)" class="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
                   <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
@@ -554,8 +554,8 @@
               >
                 <!-- Inline rename -->
                 <template v-if="editingItem?.tabId === tab.id">
-                  <img v-if="tab.type === 'editor' && tab.editorMediaId" :src="getThumbnailUrl(Number(tab.editorMediaId), 64)" class="w-8 h-8 rounded object-cover flex-shrink-0" />
-                  <img v-else-if="tab.type === 'lineage'" :src="getThumbnailUrl(Number(tab.editorMediaId || tab.entityId), 64)" class="w-8 h-8 rounded object-cover flex-shrink-0" />
+                  <MediaImage v-if="tab.type === 'editor' && tab.editorMediaId" :media-id="Number(tab.editorMediaId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
                   <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
                     <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
                       <div
@@ -595,7 +595,7 @@
                   <div v-else-if="tab.type === 'tool'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="getToolGradientClass(tab.entityId)">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
-                  <img v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :src="getThumbnailUrl(getChatMetadata(tab.entityId).thumbnail_media_id, 64)" class="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
                   <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
@@ -615,8 +615,8 @@
                 </template>
                 <!-- Normal display -->
                 <template v-else>
-                  <img v-if="tab.type === 'editor' && tab.editorMediaId" :src="getThumbnailUrl(Number(tab.editorMediaId), 64)" class="w-8 h-8 rounded object-cover flex-shrink-0" />
-                  <img v-else-if="tab.type === 'lineage'" :src="getThumbnailUrl(Number(tab.editorMediaId || tab.entityId), 64)" class="w-8 h-8 rounded object-cover flex-shrink-0" />
+                  <MediaImage v-if="tab.type === 'editor' && tab.editorMediaId" :media-id="Number(tab.editorMediaId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
                   <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
                     <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
                       <div
@@ -656,7 +656,7 @@
                   <div v-else-if="tab.type === 'tool'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="getToolGradientClass(tab.entityId)">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
-                  <img v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :src="getThumbnailUrl(getChatMetadata(tab.entityId).thumbnail_media_id, 64)" class="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
                   <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
@@ -914,7 +914,7 @@ useFlowCounts()
 const { draggedMediaInfo, draggedMediaType, isDraggingGrid } = useDragStore()
 
 // APIs
-const { getSavedViews, getBoard, getProject, createBoard: apiCreateBoard, createProject: apiCreateProject, updateBoard, getThumbnailUrl } = useMediaApi()
+const { getSavedViews, getBoard, getProject, createBoard: apiCreateBoard, createProject: apiCreateProject, updateBoard } = useMediaApi()
 const { listPinnedTools, fetchProvidersAndTools, subscribeToProviderChanges } = useProvidersApi()
 
 // ==================== State ====================

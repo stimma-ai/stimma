@@ -86,11 +86,18 @@
                   class="absolute right-0 top-full mt-1 bg-surface border border-edge rounded-lg shadow-xl z-[10030] w-44 py-1 overflow-hidden"
                 >
                   <button
+                    v-if="!stimpack.is_dev"
                     @click="handleEditStimpack(stimpack)"
                     class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light transition-colors"
                   >
                     Edit
                   </button>
+                  <div
+                    v-else
+                    class="px-3 py-1.5 text-xs text-content-muted"
+                  >
+                    Edit in dev repo
+                  </div>
                   <button
                     @click="handleDownloadStimpackZip(stimpack); openContextMenu = null"
                     class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light transition-colors"
@@ -98,6 +105,7 @@
                     Download as Zip
                   </button>
                   <button
+                    v-if="!stimpack.is_dev"
                     @click="handleRemoveStimpack(stimpack)"
                     class="w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-overlay-light transition-colors"
                   >
@@ -121,8 +129,14 @@
                   {{ stimpack.marketplace_author }}
                 </template>
                 <template v-else>
-                  {{ stimpack.author === 'user' ? 'Custom' : stimpack.author }}
+                  {{ stimpack.is_dev ? 'Dev repo' : (stimpack.author === 'user' ? 'Custom' : stimpack.author) }}
                 </template>
+              </span>
+              <span
+                v-if="stimpack.is_dev"
+                class="ml-2 rounded-full border border-blue-500/40 bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-400"
+              >
+                Dev
               </span>
             </div>
 
@@ -278,6 +292,7 @@ import { useStimpacksApi, type Stimpack, type StimpackDetail, type MarketplaceSt
 import { getApiBase } from '../../../apiConfig'
 import { getCurrentProfileId } from '../../../composables/useProfile'
 import { useCloudAccount } from '../../../composables/useCloudAccount'
+import { addToast } from '../../../composables/useToasts'
 import StimpackEditorModal from '../StimpackEditorModal.vue'
 import ConfirmModal from '../../ConfirmModal.vue'
 
@@ -465,7 +480,7 @@ async function handleDrop(event: DragEvent) {
   if (!file) return
   const ext = file.name.split('.').pop()?.toLowerCase()
   if (ext !== 'md' && ext !== 'zip') {
-    alert('Only .md and .zip files are supported.')
+    addToast('Only .md and .zip files are supported.', 'error')
     return
   }
   await doUpload(file)
@@ -478,7 +493,7 @@ async function doUpload(file: File) {
     notifyStimpacksChanged()
   } catch (err) {
     console.error('Failed to upload stimpack:', err)
-    alert('Failed to upload stimpack. Check the file format.')
+    addToast('Failed to upload stimpack. Check the file format.', 'error')
   }
 }
 
