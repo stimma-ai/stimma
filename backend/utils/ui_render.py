@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import io
 import re
 import uuid
 from pathlib import Path
@@ -64,9 +65,57 @@ class LayoutRenderFailed(RuntimeError):
 # Asset gathering ────────────────────────────────────────────────────────────
 
 _IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'}
+_RASTER_IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'}
 
 
-def _gather_bundle_assets(bundle_dir: Path) -> dict[str, str]:
+def _maybe_downscale_asset(data: bytes, suffix: str, max_side: int | None) -> bytes:
+    """Downscale large raster bundle assets before sending them to the UI.
+
+    Thumbnail renders only need thumbnail-ish source pixels. Shipping a
+    multi-megapixel photo into WKWebView's foreignObject capture path can turn
+    an otherwise simple layout into a 30s render. This keeps full-fidelity
+    renders unchanged while making thumbnail/vision renders cheap.
+    """
+    if not max_side or suffix not in _RASTER_IMAGE_EXTS:
+        return data
+
+    try:
+        from PIL import Image
+
+        with Image.open(io.BytesIO(data)) as img:
+            if max(img.size) <= max_side:
+                return data
+
+            img.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
+            out = io.BytesIO()
+            fmt = (img.format or "").upper()
+
+            if suffix in {'.jpg', '.jpeg'}:
+                if img.mode not in ('RGB', 'L'):
+                    img = img.convert('RGB')
+                img.save(out, format='JPEG', quality=88, optimize=True)
+            elif suffix == '.png':
+                img.save(out, format='PNG', optimize=True)
+            elif suffix == '.webp':
+                img.save(out, format='WEBP', quality=88, method=4)
+            elif suffix == '.gif':
+                # Static thumbnail renders do not need animation; capture the
+                # first frame at a sane size.
+                img.save(out, format='GIF', optimize=True)
+            elif suffix == '.bmp':
+                img.save(out, format='BMP')
+            elif fmt:
+                img.save(out, format=fmt)
+            else:
+                return data
+
+            return out.getvalue()
+    except Exception as exc:  # noqa: BLE001
+        log.debug(f"could not downscale layout asset ({suffix}): {exc}")
+        return data
+
+
+def _gather_bundle_assets(bundle_dir: Path, *, max_asset_side: int | None = None) -> dict[str, str]:
     """Collect every image file in ``bundle_dir`` keyed by filename, b64 encoded.
 
     The frontend will wrap each entry in a Blob + ObjectURL and rewrite the
@@ -85,6 +134,7 @@ def _gather_bundle_assets(bundle_dir: Path) -> dict[str, str]:
             data = entry.read_bytes()
         except OSError:
             continue
+        data = _maybe_downscale_asset(data, entry.suffix.lower(), max_asset_side)
         assets[entry.name] = base64.b64encode(data).decode('ascii')
     return assets
 
@@ -100,6 +150,7 @@ async def render_layout_via_ui(
     wait_for_client_timeout_s: float = WAIT_FOR_CLIENT_TIMEOUT_S,
     render_timeout_s: float = RENDER_TIMEOUT_S,
     queue_timeout_s: float | None = None,
+    reduced_effects: bool = False,
 ) -> bytes:
     """Ask any connected UI client to rasterize ``html`` and return PNG bytes.
 
@@ -145,6 +196,7 @@ async def render_layout_via_ui(
             "height": "auto" if height is None else int(height),
             "dpr": float(dpr),
             "assets": assets or {},
+            "reduced_effects": bool(reduced_effects),
             # The UI uses this to bound a single render and free its serial
             # queue: a render that blows past our timeout would otherwise wedge
             # every subsequent render behind it (the original pile-up loop).
@@ -269,7 +321,12 @@ async def render_layout_bundle(
         v = m.group(1)
         height = None if v == "auto" else int(v)
 
-    assets = _gather_bundle_assets(bundle_dir)
+    max_asset_side = None
+    if target_long_side:
+        max_asset_side = max(512, int(target_long_side) * 2)
+
+    reduced_effects = bool(target_long_side and target_long_side <= 512)
+    assets = _gather_bundle_assets(bundle_dir, max_asset_side=max_asset_side)
     png_bytes = await render_layout_via_ui(
         html,
         width=width,
@@ -279,6 +336,7 @@ async def render_layout_bundle(
         wait_for_client_timeout_s=wait_for_client_timeout_s,
         render_timeout_s=render_timeout_s,
         queue_timeout_s=queue_timeout_s,
+        reduced_effects=reduced_effects,
     )
 
     # The canvas dimensions returned to callers reflect the requested width and
