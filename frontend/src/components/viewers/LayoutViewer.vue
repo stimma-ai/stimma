@@ -15,7 +15,6 @@
       <iframe
         ref="iframeRef"
         :srcdoc="htmlContent"
-        sandbox="allow-same-origin"
         :style="iframeStyle"
         class="border-0 origin-top-left"
         scrolling="no"
@@ -29,7 +28,6 @@
 import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../apiConfig'
-import { sanitizeLayoutHtmlForSandbox } from '../../utils/layoutHtml'
 
 const props = defineProps({
   mediaId: {
@@ -112,7 +110,7 @@ async function loadLayout() {
 
   try {
     const response = await axios.get(`${getApiBase()}/media/${props.mediaId}/layout-html`)
-    htmlContent.value = sanitizeLayoutHtmlForSandbox(response.data)
+    htmlContent.value = response.data
 
     const widthMatch = response.data.match(/data-stimma-width="(\d+)"/)
     const heightMatch = response.data.match(/data-stimma-height="(\d+|auto)"/)

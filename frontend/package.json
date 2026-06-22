@@ -33,7 +33,6 @@
     "@tauri-apps/plugin-updater": "2.10.0",
     "axios": "^1.6.2",
     "dompurify": "^3.4.11",
-    "html2canvas": "^1.4.1",
     "marked": "^17.0.1",
     "modern-screenshot": "^4.7.0",
     "vue": "^3.3.8",

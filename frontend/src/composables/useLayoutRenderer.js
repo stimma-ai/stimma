@@ -1,7 +1,5 @@
 import { domToPng } from 'modern-screenshot'
-import html2canvas from 'html2canvas'
 import { useWebSocket } from './useWebSocket'
-import { sanitizeLayoutHtmlForSandbox } from '../utils/layoutHtml'
 
 /**
  * Layout rendering RPC handler.
@@ -29,7 +27,6 @@ import { sanitizeLayoutHtmlForSandbox } from '../utils/layoutHtml'
 
 let installed = false
 let queue = Promise.resolve()
-let unsubscribeRenderLayout = null
 
 const _MIME_BY_EXT = {
   png: 'image/png',
@@ -40,18 +37,6 @@ const _MIME_BY_EXT = {
   bmp: 'image/bmp',
   svg: 'image/svg+xml',
 }
-
-const _REDUCED_EFFECTS_CSS = `
-  *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
-    filter: none !important;
-    backdrop-filter: none !important;
-    box-shadow: none !important;
-    text-shadow: none !important;
-    scroll-behavior: auto !important;
-  }
-`
 
 function _mimeFromName(name) {
   const dot = name.lastIndexOf('.')
@@ -93,15 +78,6 @@ function _rewriteRefs(html, blobUrls) {
   return out
 }
 
-function _appendCaptureCss(html, css) {
-  if (!css) return html
-  const style = `<style data-stimma-capture-overrides>${css}</style>`
-  if (/<\/head>/i.test(html)) {
-    return html.replace(/<\/head>/i, `${style}</head>`)
-  }
-  return `${style}${html}`
-}
-
 function _waitForImages(doc) {
   const imgs = doc.querySelectorAll('img')
   return Promise.all([...imgs].map(img => {
@@ -131,71 +107,26 @@ function _withDeadline(promise, ms, label) {
   return Promise.race([promise, deadline]).finally(() => clearTimeout(timer))
 }
 
-async function _captureWithHtml2Canvas(node, { width, height, scale, budget }) {
-  const canvas = await html2canvas(node, {
-    width,
-    height,
-    scale: scale || 1,
-    backgroundColor: null,
-    logging: false,
-    imageTimeout: Math.min(5000, budget),
-    removeContainer: true,
-    foreignObjectRendering: false,
-    windowWidth: width,
-    windowHeight: height,
-  })
-  return canvas.toDataURL('image/png')
-}
-
-async function _captureWithModernScreenshot(node, { width, height, scale, budget }) {
-  return domToPng(node, {
-    width,
-    height,
-    scale: scale || 2,
-    backgroundColor: null,
-    timeout: budget,
-    style: { margin: '0', padding: '0' },
-  })
-}
-
-async function _renderOne({ html, width, height, dpr, assets, deadlineMs, reducedEffects }) {
+async function _renderOne({ html, width, height, dpr, assets, deadlineMs }) {
   const t0 = performance.now()
 
-  // 1. Materialize assets as short-lived refs. For reduced thumbnail renders,
-  // use data URLs: WKWebView can load blob: images in the iframe, but
-  // modern-screenshot later re-fetches those blob: URLs while embedding
-  // resources and can hang until its timeout. Backend downscaling keeps these
-  // thumbnail data URLs small enough to avoid the old large-data-URI failure.
-  const assetUrls = {}
-  const revocableUrls = []
+  // 1. Materialize assets as blob URLs
+  const blobUrls = {}
   for (const [name, b64] of Object.entries(assets || {})) {
     try {
-      const mime = _mimeFromName(name)
-      if (reducedEffects) {
-        assetUrls[name] = `data:${mime};base64,${b64}`
-      } else {
-        const url = URL.createObjectURL(_b64ToBlob(b64, mime))
-        assetUrls[name] = url
-        revocableUrls.push(url)
-      }
+      blobUrls[name] = URL.createObjectURL(_b64ToBlob(b64, _mimeFromName(name)))
     } catch (e) {
       console.warn(`[LayoutRenderer] failed to wrap asset ${name}:`, e)
     }
   }
 
   // 2. Rewrite refs
-  const rewritten = _appendCaptureCss(
-    sanitizeLayoutHtmlForSandbox(_rewriteRefs(html, assetUrls)),
-    reducedEffects ? _REDUCED_EFFECTS_CSS : '',
-  )
+  const rewritten = _rewriteRefs(html, blobUrls)
 
   // 3. Build iframe
   const iframe = document.createElement('iframe')
   iframe.setAttribute('aria-hidden', 'true')
   iframe.setAttribute('tabindex', '-1')
-  // Keep srcdoc layouts measurable via contentDocument while preventing bundle
-  // scripts from running during thumbnail/rasterization renders.
-  iframe.setAttribute('sandbox', 'allow-same-origin')
   iframe.style.cssText = [
     'position:fixed',
     'left:-99999px',
@@ -252,40 +183,19 @@ async function _renderOne({ html, width, height, dpr, assets, deadlineMs, reduce
     const imgCount = innerDoc.querySelectorAll('img').length
     const tBeforeCapture = performance.now()
 
-    let captureMethod = 'modern-screenshot'
-    let dataUrl
-    if (reducedEffects) {
-      try {
-        captureMethod = 'html2canvas'
-        dataUrl = await _captureWithHtml2Canvas(node, {
-          width,
-          height: renderHeight,
-          scale: dpr || 1,
-          budget,
-        })
-      } catch (err) {
-        console.warn('[LayoutRenderer] html2canvas capture failed, falling back:', err)
-        captureMethod = 'modern-screenshot'
-        dataUrl = await _captureWithModernScreenshot(node, {
-          width,
-          height: renderHeight,
-          scale: dpr || 2,
-          budget,
-        })
-      }
-    } else {
-      dataUrl = await _captureWithModernScreenshot(node, {
-        width,
-        height: renderHeight,
-        scale: dpr || 2,
-        budget,
-      })
-    }
+    const dataUrl = await domToPng(node, {
+      width,
+      height: renderHeight,
+      scale: dpr || 2,
+      backgroundColor: null,
+      timeout: budget,
+      style: { margin: '0', padding: '0' },
+    })
 
     const tEnd = performance.now()
     console.log(
-      `[LayoutRenderer] ${captureMethod} ${width}x${renderHeight} dpr=${dpr} imgs=${imgCount} ` +
-      `assets=${Object.keys(assetUrls).length} reduced=${Boolean(reducedEffects)} ` +
+      `[LayoutRenderer] ${width}x${renderHeight} dpr=${dpr} imgs=${imgCount} ` +
+      `assets=${Object.keys(blobUrls).length} ` +
       `prep=${(tBeforeCapture - t0).toFixed(0)}ms ` +
       `capture=${(tEnd - tBeforeCapture).toFixed(0)}ms`,
     )
@@ -299,7 +209,7 @@ async function _renderOne({ html, width, height, dpr, assets, deadlineMs, reduce
     return await _withDeadline(work, budget, 'layout render')
   } finally {
     iframe.remove()
-    revocableUrls.forEach(url => {
+    Object.values(blobUrls).forEach(url => {
       try { URL.revokeObjectURL(url) } catch { /* ignore */ }
     })
   }
@@ -311,21 +221,13 @@ export function setupLayoutRenderer() {
 
   const { on, send } = useWebSocket()
 
-  unsubscribeRenderLayout = on('render_layout_request', (data) => {
+  on('render_layout_request', (data) => {
     if (!data || !data.request_id) return
-    const { request_id, html, width, height, dpr, assets, deadline_ms, reduced_effects } = data
+    const { request_id, html, width, height, dpr, assets, deadline_ms } = data
 
     _enqueue(async () => {
       try {
-        const result = await _renderOne({
-          html,
-          width,
-          height,
-          dpr,
-          assets,
-          deadlineMs: deadline_ms,
-          reducedEffects: Boolean(reduced_effects),
-        })
+        const result = await _renderOne({ html, width, height, dpr, assets, deadlineMs: deadline_ms })
         send('render_layout_response', { request_id, png_b64: result.png_b64 })
       } catch (err) {
         const msg = err && err.message ? err.message : String(err)
@@ -335,15 +237,11 @@ export function setupLayoutRenderer() {
     })
   })
 
-  console.log('[LayoutRenderer] installed (html2canvas thumbnails, modern-screenshot full)')
+  console.log('[LayoutRenderer] installed (modern-screenshot)')
 }
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    if (unsubscribeRenderLayout) {
-      unsubscribeRenderLayout()
-      unsubscribeRenderLayout = null
-    }
     installed = false
   })
 }
