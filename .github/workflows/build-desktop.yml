@@ -73,7 +73,7 @@ jobs:
     secrets: inherit
 
   linux:
-    name: Linux AppImage
+    name: Linux AppImage x64
     needs: quality-gate
     uses: ./.github/workflows/linux-appimage.yml
     with:
@@ -82,4 +82,18 @@ jobs:
       version: ${{ inputs.version }}
       publish_updates: ${{ inputs.publish_updates }}
       publish_github_release: false
+    secrets: inherit
+
+  linux-arm64:
+    name: Linux AppImage arm64
+    needs: quality-gate
+    uses: ./.github/workflows/linux-appimage.yml
+    with:
+      ref: ${{ inputs.ref }}
+      channel: ${{ inputs.channel }}
+      version: ${{ inputs.version }}
+      publish_updates: ${{ inputs.publish_updates }}
+      publish_github_release: false
+      arch: aarch64
+      runs_on: '["self-hosted","linux","arm64","spark"]'
     secrets: inherit
