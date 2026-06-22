@@ -3,7 +3,7 @@
 The frontend reads the backend's flag bag here (and gets live updates via
 the ``flags_updated`` WebSocket event); the onboarding flow reads the
 consent regime from the region endpoint (official builds — dev builds and
-DNT installs get the local optin fallback without any network).
+Privacy Lockdown installs get the local optin fallback without any network).
 """
 from fastapi import APIRouter
 

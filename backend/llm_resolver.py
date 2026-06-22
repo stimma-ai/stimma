@@ -125,6 +125,12 @@ async def _get_stimma_cloud_config(
     Returns:
         LLMEndpointConfig for Stimma Cloud, or None if not authenticated
     """
+    from privacy_lockdown import is_privacy_lockdown_enabled
+
+    if is_privacy_lockdown_enabled():
+        log.debug("stimma cloud config skipped in Privacy Lockdown", role=role)
+        return None
+
     from firebase_auth import get_valid_id_token
 
     settings = get_settings()

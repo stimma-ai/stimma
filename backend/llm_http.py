@@ -244,7 +244,11 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
         headers["X-Stimma-Session"] = str(session_id)
 
     # Detect if this is a Stimma Cloud endpoint (for 401 retry logic)
-    is_stimma_cloud = api_base and "stimma" in api_base
+    from privacy_lockdown import is_stimma_service_url
+    is_stimma_cloud = is_stimma_service_url(api_base)
+    if is_stimma_cloud:
+        from privacy_lockdown import raise_if_enabled
+        raise_if_enabled("Stimma Cloud")
 
     # Mechanical correlation IDs (chat/run/agent-context) for Stimma Cloud's
     # server-side request grouping, plus the Stimma User-Agent (the single

@@ -1647,6 +1647,16 @@ async def test_provider_connection(
                     error="URL is required for websocket provider",
                     error_type="invalid_config",
                 )
+            try:
+                from privacy_lockdown import is_privacy_lockdown_enabled, is_stimma_service_url
+                if is_privacy_lockdown_enabled() and is_stimma_service_url(url):
+                    return TestConnectionResult(
+                        success=False,
+                        error="Stimma services unavailable while Privacy Lockdown is enabled.",
+                        error_type="privacy_lockdown",
+                    )
+            except Exception:
+                pass
 
             config = WebSocketProviderConfig(
                 id="test-connection",

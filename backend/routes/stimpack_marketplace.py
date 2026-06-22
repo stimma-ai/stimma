@@ -11,6 +11,7 @@ from config import get_settings
 from core.logging import get_logger
 from core.profile_context import get_current_profile
 from firebase_auth import get_valid_id_token as get_id_token
+from privacy_lockdown import disabled_message, is_privacy_lockdown_enabled
 
 router = APIRouter(prefix="/api/stimpack-marketplace", tags=["stimpack-marketplace"])
 log = get_logger(__name__)
@@ -30,6 +31,8 @@ def _cloud_base() -> str:
 
 async def _cloud_get(path: str, params: dict | None = None, auth: bool = True) -> dict:
     """Make authenticated GET request to cloud stimpacks API."""
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
     headers = {}
     if auth:
         token = await get_id_token()
@@ -49,6 +52,8 @@ async def _cloud_get(path: str, params: dict | None = None, auth: bool = True) -
 
 async def _cloud_post(path: str, data: dict | None = None, auth: bool = True) -> dict:
     """Make authenticated POST request to cloud stimpacks API."""
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
     headers = {}
     if auth:
         token = await get_id_token()
@@ -79,6 +84,8 @@ async def browse_marketplace(
     limit: int = 20,
 ):
     """Browse marketplace stimpacks (proxied to cloud)."""
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
     params = {"sort": sort, "page": str(page), "limit": str(limit)}
     if q:
         params["q"] = q
@@ -94,6 +101,8 @@ async def browse_marketplace(
 @router.get("/detail/{name}")
 async def get_marketplace_detail(name: str):
     """Get stimpack detail from marketplace (proxied to cloud)."""
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
     return await _cloud_get(f"/{name}", auth=False)
 
 
@@ -102,6 +111,8 @@ async def get_marketplace_detail(name: str):
 @router.post("/install/{name}")
 async def install_from_marketplace(name: str):
     """Download and install a stimpack from the marketplace."""
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
     profile_id = get_current_profile()
     stimpacks_api = _stimpacks_api()
 
@@ -170,6 +181,8 @@ async def install_from_marketplace(name: str):
 @router.get("/check-updates")
 async def check_updates():
     """Check if any marketplace-installed stimpacks have newer versions."""
+    if is_privacy_lockdown_enabled():
+        return {"updates": []}
     profile_id = get_current_profile()
     stimpacks_api = _stimpacks_api()
 
@@ -196,6 +209,8 @@ async def check_updates():
 @router.post("/update/{name}")
 async def update_from_marketplace(name: str):
     """Download and update a marketplace-installed stimpack to the latest version."""
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
     profile_id = get_current_profile()
     stimpacks_api = _stimpacks_api()
 
@@ -251,6 +266,8 @@ async def update_from_marketplace(name: str):
 @router.get("/mine")
 async def list_my_marketplace_stimpacks():
     """List user's own published stimpacks on the marketplace."""
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
     try:
         return await _cloud_get("/mine")
     except httpx.HTTPStatusError as e:
@@ -264,6 +281,8 @@ async def list_my_marketplace_stimpacks():
 @router.post("/auto-install")
 async def run_auto_install():
     """Run auto-install for new profiles. Downloads and installs auto-install stimpacks from cloud."""
+    if is_privacy_lockdown_enabled():
+        return {"installed": [], "message": disabled_message("Marketplace stimpacks")}
     profile_id = get_current_profile()
     stimpacks_api = _stimpacks_api()
     requested_names: list[str] = []

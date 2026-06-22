@@ -9,8 +9,8 @@ client system is fully functional with an empty bag.
 
 This fetch runs in ALL distributions (dev and official) — it is an
 operational config fetch and the install/MAU signal for source builds.
-It carries no usage data and is not gated by telemetry consent. It IS
-suppressed by ``DO_NOT_TRACK=1`` today, so the app uses local defaults.
+It carries no usage data and is not gated by telemetry consent. Privacy
+Lockdown suppresses the fetch, so the app uses local defaults.
 
 Reads (``get_bool`` / ``get`` / ``has``) are synchronous dict lookups —
 cheap from any code path. The on-disk cache (``flags.json`` in the app
@@ -130,7 +130,7 @@ class FeatureFlagClient:
         self._flags = _load_cache()
         if is_dnt():
             log.info(
-                "feature_flags: DO_NOT_TRACK=1 — no fetch, local defaults only",
+                "feature_flags: Privacy Lockdown active, no fetch, local defaults only",
                 cached_count=len(self._flags),
             )
             return

@@ -6,6 +6,7 @@
  */
 import { ref, readonly } from 'vue'
 import { isTauri, getApiBase } from '../apiConfig'
+import { isPrivacyLockdownActive, setPrivacyLockdownActive } from './usePrivacyLockdown'
 
 // Global reactive state (shared across all components)
 const user = ref(null)
@@ -45,6 +46,7 @@ export async function initAuth() {
     if (response.ok) {
       const data = await response.json()
       console.log('[useAuth] backend auth status:', data)
+      setPrivacyLockdownActive(data.privacy_lockdown === true)
 
       if (data.authenticated && data.user) {
         setUser(data.user)
@@ -70,6 +72,12 @@ export async function initAuth() {
  */
 export async function signInWithBrowser() {
   authError.value = null
+
+  if (isPrivacyLockdownActive()) {
+    const message = 'Stimma Cloud sign-in is unavailable in Privacy Lockdown.'
+    authError.value = message
+    throw new Error(message)
+  }
 
   try {
     // 1. Start auth flow - backend creates callback server

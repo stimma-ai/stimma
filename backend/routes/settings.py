@@ -274,12 +274,13 @@ class SettingsResponse(BaseModel):
     cloud_base_url: str  # Base URL for stimma.ai cloud services
     developer_mode: bool  # Show debug tools and developer options in the UI
     theme: str  # UI theme preference: light, dark, system
-    # Anonymous usage telemetry consent: True/False, or None while
+    # Usage telemetry consent: True/False, or None while
     # undetermined (onboarding not completed). Official builds only —
     # dev builds have no telemetry regardless of this value.
     telemetry_enabled: Optional[bool] = None
     distribution: str = "dev"  # Build distribution: 'dev' | 'official'
-    dnt_active: bool = False  # DO_NOT_TRACK=1 environment override in effect
+    privacy_lockdown_active: bool = False
+    dnt_active: bool = False  # Legacy response field; mirrors privacy_lockdown_active.
     default_model: str = 'agent-max'  # Global default model slug
 
 
@@ -675,6 +676,7 @@ async def get_settings_all():
         theme=settings.theme,
         telemetry_enabled=settings.telemetry.enabled,
         distribution=get_distribution(),
+        privacy_lockdown_active=is_dnt(),
         dnt_active=is_dnt(),
         default_model=settings.default_model,
     )
@@ -735,9 +737,8 @@ async def update_telemetry(request: UpdateTelemetryRequest):
     """Update the telemetry consent setting (global).
 
     The telemetry client handles the transition: a consent-on flushes the
-    pre-consent buffer; a consent-off sends the single
-    ``telemetry_enabled {enabled: false}`` transition event last (or
-    discards the buffer when consent was never on).
+    pre-consent buffer; a consent-off clears anything buffered locally and
+    sends nothing.
     """
     settings = get_settings()
     section = settings.telemetry.model_dump()
@@ -1632,6 +1633,11 @@ async def list_endpoint_models(request: LLMEndpointModelsRequest):
     url = (request.url or "").strip().rstrip("/")
     if not url:
         return LLMEndpointModelsResponse(models=[], error="No endpoint URL")
+    try:
+        from privacy_lockdown import raise_for_stimma_url_if_enabled
+        raise_for_stimma_url_if_enabled(url, "Stimma endpoint checks")
+    except Exception as e:
+        return LLMEndpointModelsResponse(models=[], error=str(e)[:200])
 
     # Resolve the API key: prefer the plaintext value from the form; if it's
     # absent or the masked placeholder, fall back to the saved agent key.

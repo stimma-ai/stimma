@@ -7,19 +7,18 @@ Talks to the stimma-cloud feedback API:
     PUT  <presigned R2 URL per requested asset>
     POST {cloud.base_url}/api/feedback/:id/complete
 
-Identity: every request carries the Stimma User-Agent (user_agent.py — the
-single sanctioned install-id egress). Signed-in submissions also carry the
-Firebase bearer token; anonymous is fine (the server keys on the UA).
+Identity: every request carries the Stimma User-Agent (user_agent.py). Signed-in
+submissions also carry the Firebase bearer token when available.
 
-This is an explicit user-initiated act in official builds and works under
-DO_NOT_TRACK. Source/dev builds refuse feedback submission before this client
-is called.
+Source/dev builds and Privacy Lockdown refuse feedback submission before this
+client is called.
 """
 from typing import Dict, Optional
 
 import httpx
 
 from core.logging import get_logger
+from privacy_lockdown import PrivacyLockdownError, disabled_message, is_privacy_lockdown_enabled
 
 log = get_logger(__name__)
 
@@ -47,6 +46,9 @@ async def submit_feedback(
     crash: Optional[bytes] = None,
 ) -> str:
     """Submit one feedback row + its assets. Returns the feedback id."""
+    if is_privacy_lockdown_enabled():
+        raise PrivacyLockdownError(disabled_message("Feedback sharing"))
+
     from config import get_settings
     from user_agent import ua_headers
 
@@ -63,7 +65,8 @@ async def submit_feedback(
     base_url = get_settings().cloud.base_url.rstrip("/")
     headers = dict(ua_headers())
 
-    # Firebase bearer when signed in (optional — anonymous is fine).
+    # Include Firebase bearer when signed in; feedback can also be submitted
+    # without an account.
     try:
         from firebase_auth import get_valid_id_token
         token = await get_valid_id_token()

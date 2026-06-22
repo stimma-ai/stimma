@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from core.logging import get_logger
 from distribution import get_distribution, is_official
+from privacy_lockdown import disabled_message, is_privacy_lockdown_enabled
 
 log = get_logger(__name__)
 
@@ -39,10 +40,15 @@ async def feedback_state():
     settings = get_settings()
     return {
         "distribution": get_distribution(),
+        "privacy_lockdown": is_privacy_lockdown_enabled(),
         "thumbs_consent": settings.feedback.thumbs_consent,
         "crash_consent": settings.feedback.crash_reports,
         "coachmark_shown": settings.feedback.coachmark_shown,
-        "pending_crashes": len(crash_reports.list_pending()) if is_official() else 0,
+        "pending_crashes": (
+            len(crash_reports.list_pending())
+            if is_official() and not is_privacy_lockdown_enabled()
+            else 0
+        ),
     }
 
 
@@ -54,6 +60,8 @@ class UpdateConsentRequest(BaseModel):
 @router.patch("/consent")
 async def update_consent(req: UpdateConsentRequest):
     """Settings → Privacy three-state for thumbs and crash reports."""
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(status_code=403, detail=disabled_message("Feedback sharing"))
     if not is_official():
         raise HTTPException(status_code=403, detail="Not available in source builds")
     if req.subject not in ("thumbs", "crash") or req.value not in CONSENT_VALUES:
@@ -129,6 +137,8 @@ async def submit(req: SubmitFeedbackRequest):
     """Build attachments and submit to the cloud feedback API."""
     if req.kind not in ("feedback", "thumbs"):
         raise HTTPException(status_code=400, detail="kind must be feedback or thumbs")
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(status_code=403, detail=disabled_message("Feedback sharing"))
     if not is_official():
         raise HTTPException(
             status_code=403,
@@ -231,7 +241,7 @@ async def submit(req: SubmitFeedbackRequest):
 @router.get("/crashes/pending")
 async def pending_crashes():
     """Pending crash report summaries (always [] in source builds)."""
-    if not is_official():
+    if not is_official() or is_privacy_lockdown_enabled():
         return {"reports": [], "consent": "ask"}
     import crash_reports
     from config import get_settings
@@ -248,6 +258,8 @@ class CrashDecisionRequest(BaseModel):
 @router.post("/crashes/decision")
 async def crash_decision(req: CrashDecisionRequest):
     """One decision covers the whole pending batch."""
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(status_code=403, detail=disabled_message("Crash reports"))
     if not is_official():
         raise HTTPException(
             status_code=403, detail="Crash reports are disabled in source builds"

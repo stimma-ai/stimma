@@ -192,6 +192,11 @@ async def _cloud_search(
         from auth_storage import load_auth_state
         from config import get_settings
         from firebase_auth import get_valid_id_token
+        from privacy_lockdown import is_privacy_lockdown_enabled
+
+        if is_privacy_lockdown_enabled():
+            log.info("cloud search skipped: Privacy Lockdown")
+            return None
 
         auth_state = load_auth_state()
         if not auth_state:

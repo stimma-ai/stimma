@@ -41,11 +41,14 @@ def is_official() -> bool:
 
 
 def is_dnt() -> bool:
-    """True when ``DO_NOT_TRACK=1`` is set.
+    """Compatibility alias for the hard Privacy Lockdown mode."""
+    from privacy_lockdown import is_privacy_lockdown_enabled
 
-    DNT is the environment-level telemetry off-switch: no telemetry
-    buffering or sending regardless of consent state. Some nonessential
-    operational fetches also consult it, but it is not a general offline mode;
-    explicit user-initiated acts (cloud sign-in/API) still work.
-    """
-    return os.environ.get("DO_NOT_TRACK", "0") == "1"
+    return is_privacy_lockdown_enabled()
+
+
+def is_privacy_lockdown() -> bool:
+    """True when ``STIMMA_PRIVACY_LOCKDOWN=1`` or a legacy alias is set."""
+    from privacy_lockdown import is_privacy_lockdown_enabled
+
+    return is_privacy_lockdown_enabled()

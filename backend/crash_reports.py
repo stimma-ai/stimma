@@ -18,7 +18,7 @@ Consent (``feedback.crash_reports`` in config):
 - ``always``: future reports send under the saved consent choice.
 - ``never``: nothing is written; new reports are discarded.
 
-Dev/source builds: never writes, never prompts (PRIVACY_PLAN §2.5).
+Dev/source builds and Privacy Lockdown: never writes, never prompts.
 
 Rate limiting (client-side, ahead of the server's per-install daily cap):
 - Write-time dedupe: pending reports are keyed by stack hash. A crash
@@ -102,7 +102,10 @@ def record_crash(exc: BaseException) -> Optional[Path]:
     file — cheap under a crash loop, and never re-prompts the user.
     """
     from distribution import is_official
+    from privacy_lockdown import is_privacy_lockdown_enabled
     if not is_official():
+        return None
+    if is_privacy_lockdown_enabled():
         return None
     if _crash_consent() == "never":
         return None
@@ -324,7 +327,8 @@ async def send_pending(track: bool = True, auto: bool = False) -> int:
     number sent.
     """
     from distribution import is_official
-    if not is_official():
+    from privacy_lockdown import is_privacy_lockdown_enabled
+    if not is_official() or is_privacy_lockdown_enabled():
         return 0
 
     budget = _send_budget(auto)
@@ -410,7 +414,8 @@ def install_crash_hooks() -> None:
     we skip the hook entirely to keep source builds untouched).
     """
     from distribution import is_official
-    if not is_official():
+    from privacy_lockdown import is_privacy_lockdown_enabled
+    if not is_official() or is_privacy_lockdown_enabled():
         return
 
     import sys
@@ -449,7 +454,8 @@ async def startup_check() -> None:
     dialog. 'never': discard leftovers.
     """
     from distribution import is_official
-    if not is_official():
+    from privacy_lockdown import is_privacy_lockdown_enabled
+    if not is_official() or is_privacy_lockdown_enabled():
         return
     consent = _crash_consent()
     if consent == "never":

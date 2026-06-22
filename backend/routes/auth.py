@@ -17,6 +17,7 @@ from typing import Optional
 
 from config import get_settings
 from core.logging import get_logger
+from privacy_lockdown import disabled_message, is_privacy_lockdown_enabled
 
 log = get_logger(__name__)
 
@@ -116,6 +117,12 @@ async def start_auth() -> StartAuthResponse:
     Creates a localhost callback server and returns the login URL
     for the system browser.
     """
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail=_auth_error("privacy_lockdown", disabled_message("Stimma Cloud sign-in")),
+        )
+
     session_id = secrets.token_urlsafe(16)
     state = secrets.token_urlsafe(32)
 
@@ -156,6 +163,14 @@ async def start_auth() -> StartAuthResponse:
             )
 
         if code:
+            if is_privacy_lockdown_enabled():
+                session['result'] = {'error': disabled_message("Stimma Cloud sign-in")}
+                session['completed'] = True
+                return web.Response(
+                    text=_html_page("Sign In Disabled", disabled_message("Stimma Cloud sign-in"), is_error=True),
+                    content_type='text/html'
+                )
+
             # Exchange code for custom token with stimma.cloud
             try:
                 exchange_url = f"{_get_cloud_base_url()}/api/auth/desktop/exchange"
@@ -358,6 +373,12 @@ async def get_auth_status():
     """
     from auth_storage import load_auth_state
 
+    if is_privacy_lockdown_enabled():
+        return {
+            "authenticated": False,
+            "privacy_lockdown": True,
+        }
+
     auth_state = load_auth_state()
     if not auth_state or not auth_state.get('refresh_token'):
         return {"authenticated": False}
@@ -386,6 +407,12 @@ async def get_account_info():
         get_valid_id_token,
     )
     from cloud_api import fetch_user_account
+
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail=_auth_error("privacy_lockdown", disabled_message("Stimma Cloud")),
+        )
 
     auth_state = load_auth_state()
     if not auth_state or not auth_state.get('refresh_token'):
@@ -526,7 +553,7 @@ async def logout():
 
     id_token = None
     auth_state = load_auth_state()
-    if auth_state and auth_state.get('refresh_token'):
+    if auth_state and auth_state.get('refresh_token') and not is_privacy_lockdown_enabled():
         try:
             id_token = await get_valid_id_token(raise_on_failure=True)
         except AuthSessionExpiredError:
@@ -552,8 +579,9 @@ async def logout():
     get_telemetry_client().track("cloud_signed_out", category="account")
 
     # Re-fetch feature flags without the signed-in identity
-    from feature_flags import get_feature_flags
-    get_feature_flags().refresh()
+    if not is_privacy_lockdown_enabled():
+        from feature_flags import get_feature_flags
+        get_feature_flags().refresh()
 
     log.info("user logged out")
 

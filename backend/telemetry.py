@@ -16,11 +16,8 @@ Mechanics (official builds):
 - Pre-consent buffering (D14): while consent is undetermined (onboarding
   in progress) events buffer locally with ZERO network; the buffer flushes
   if consent lands on, and is discarded if it lands off.
-- ``DO_NOT_TRACK=1`` is absolute for telemetry: no buffering, no sending,
+- Privacy Lockdown is absolute for telemetry: no buffering, no sending,
   regardless of consent state.
-- Carve-out: the single ``telemetry_enabled {enabled: false}`` transition
-  event fired by the toggle-off itself is the last thing sent (only when
-  transitioning from consented-on).
 
 Sessions are owned by the frontend (a plain UUID, rotated on app start and
 30 min inactivity), propagated via ``X-Stimma-Session-Id`` on every sidecar
@@ -115,7 +112,7 @@ class TelemetryClient:
         if not self._enabled_build:
             return False  # dev distribution: permanent no-op, no buffer
         if is_dnt():
-            return False  # DNT: absolute, regardless of consent
+            return False  # Privacy Lockdown: absolute, regardless of consent
         return self._consent_state() is not False
 
     def _may_send(self) -> bool:
@@ -134,7 +131,7 @@ class TelemetryClient:
     ):
         """Record a telemetry event. Non-blocking, safe from any thread.
 
-        Dev builds: permanent no-op. DNT: no-op. Consent off: dropped.
+        Dev builds: permanent no-op. Privacy Lockdown: no-op. Consent off: dropped.
         Consent undetermined: buffered locally, zero network (D14).
         """
         if not self._may_buffer():
@@ -183,14 +180,10 @@ class TelemetryClient:
         """Handle a consent transition (onboarding or Settings toggle).
 
         - -> on: the local buffer (incl. pre-consent events) flushes.
-        - on -> off: the single ``telemetry_enabled {enabled: false}``
-          transition event is the last thing sent (CI carve-out), followed
-          by the queued events tracked while consent was on.
-        - undetermined -> off: the buffer is discarded; nothing egresses.
+        - -> off: the local buffer is discarded; nothing egresses.
         """
         if not self._enabled_build:
             return
-        previous = self._consent_state()
         self._consent_override = enabled
 
         if is_dnt():
@@ -203,24 +196,9 @@ class TelemetryClient:
             self._schedule_flush()
             return
 
-        # Consent landed off.
-        if previous is True:
-            # Carve-out: flush what was tracked while consented, ending with
-            # the toggle-off transition event.
-            with self._lock:
-                final_batch = list(self._queue)
-                self._queue.clear()
-            final_batch.append({
-                "event": "telemetry_enabled",
-                "category": "settings",
-                "properties": {"enabled": False},
-                "timestamp": int(time.time() * 1000),
-            })
-            self._spawn(self._send_events(final_batch))
-        else:
-            # Pre-consent buffer is discarded (D14); nothing egresses.
-            with self._lock:
-                self._queue.clear()
+        # Consent landed off: discard anything buffered locally and stop.
+        with self._lock:
+            self._queue.clear()
 
     # ── Flushing / sending ──────────────────────────────────────────────
 
@@ -608,7 +586,7 @@ class TelemetryClient:
             log.info("telemetry disabled (dev distribution) — permanent no-op")
             return
         if is_dnt():
-            log.info("telemetry disabled (DO_NOT_TRACK=1)")
+            log.info("telemetry disabled (Privacy Lockdown)")
             return
         self._install_exception_hooks()
         self._handle_launch_lifecycle()

@@ -1,5 +1,5 @@
 <template>
-  <div class="py-1 relative">
+  <div v-if="!privacyLockdownActive" class="py-1 relative">
     <button
       @click="openFeedback"
       class="w-full px-3 py-2 text-left text-sm flex items-center gap-2.5 transition-colors"
@@ -21,21 +21,24 @@
     </div>
   </div>
 
-  <div class="border-t border-edge-subtle"></div>
+  <div v-if="!privacyLockdownActive" class="border-t border-edge-subtle"></div>
 </template>
 
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useFeedback } from '../../composables/useFeedback'
+import { usePrivacyLockdown } from '../../composables/usePrivacyLockdown'
 import { makeGlobalKey } from '../../utils/storageKeys'
 
 const emit = defineEmits(['close-menu', 'ensure-menu-open'])
 const route = useRoute()
 const { state: feedbackState, openMenuFeedback, markCoachmarkShown } = useFeedback()
+const { privacyLockdownActive } = usePrivacyLockdown()
 const coachmarkVisible = ref(false)
 
 function maybeShowCoachmark() {
+  if (privacyLockdownActive.value) return
   if (coachmarkVisible.value || feedbackState.coachmarkShown) return
   if (!localStorage.getItem(makeGlobalKey('onboarding_completed'))) return
   if (route.name === 'onboarding') return
@@ -51,6 +54,7 @@ function handleSettingsLoadedForCoachmark() {
 }
 
 function openFeedback() {
+  if (privacyLockdownActive.value) return
   const fromCoachmark = coachmarkVisible.value
   coachmarkVisible.value = false
   emit('close-menu')

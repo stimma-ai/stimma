@@ -7,10 +7,8 @@ Asserts the load-bearing privacy gates:
 - official distribution -> nothing sent when consent is off; pre-consent
   events buffer locally with zero network, flush on consent-on, and are
   discarded on consent-off (D14).
-- The single ``telemetry_enabled {enabled: false}`` toggle-off transition
-  event is the documented carve-out (sent last).
-- ``DO_NOT_TRACK=1`` kills telemetry regardless of consent and currently
-  also suppresses the feature-flags fetch, update check, and region call.
+- ``STIMMA_PRIVACY_LOCKDOWN=1`` kills telemetry regardless of consent and
+  suppresses Stimma service contact.
 - The User-Agent helper emits exactly version/os/arch/branch/install-id,
   and the telemetry body carries no install id.
 """
@@ -57,8 +55,10 @@ def patch_settings(monkeypatch):
 
 @pytest.fixture
 def fresh_env(monkeypatch):
-    """Reset distribution/DNT env and the user_agent module caches."""
+    """Reset distribution/privacy env and the user_agent module caches."""
     monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)
+    monkeypatch.delenv("STIMMA_PRIVACY_LOCKDOWN", raising=False)
+    monkeypatch.delenv("PRIVACY_LOCKDOWN", raising=False)
     monkeypatch.delenv("DO_NOT_TRACK", raising=False)
     import user_agent
     monkeypatch.setattr(user_agent, "_install_id", None)
@@ -168,11 +168,11 @@ async def test_preconsent_buffer_discarded_on_consent_off(fresh_env, patch_setti
     await asyncio.sleep(0.01)
 
     assert client._queue == []
-    assert sent == []  # nothing egresses; no carve-out from undetermined
+    assert sent == []  # nothing egresses from undetermined consent
 
 
 @pytest.mark.asyncio
-async def test_toggle_off_carveout_event_is_last_thing_sent(fresh_env, patch_settings, monkeypatch):
+async def test_toggle_off_discards_buffer_and_sends_nothing(fresh_env, patch_settings, monkeypatch):
     fresh_env.setenv("STIMMA_DISTRIBUTION", "official")
     patch_settings(telemetry_enabled=True)
     client, sent = _make_client(monkeypatch)
@@ -181,16 +181,13 @@ async def test_toggle_off_carveout_event_is_last_thing_sent(fresh_env, patch_set
     client.on_consent_changed(False)
     await asyncio.sleep(0.01)
 
-    assert len(sent) == 1
-    _, body, _ = sent[0]
-    events = body["events"]
-    assert events[-1]["event"] == "telemetry_enabled"
-    assert events[-1]["properties"] == {"enabled": False}
+    assert client._queue == []
+    assert sent == []
 
     # And after the transition, nothing more goes out.
     client.track("tool_used")
     await client.flush()
-    assert len(sent) == 1
+    assert sent == []
 
 
 @pytest.mark.asyncio
@@ -214,18 +211,18 @@ async def test_telemetry_body_shape_has_no_install_id(fresh_env, patch_settings,
     assert isinstance(event["timestamp"], int)
 
 
-# ── DO_NOT_TRACK=1 is absolute for telemetry ────────────────────────────
+# ── Privacy Lockdown is absolute for Stimma services ─────────────────────
 
 
 @pytest.mark.asyncio
-async def test_dnt_kills_telemetry_regardless_of_consent(fresh_env, patch_settings, monkeypatch):
+async def test_privacy_lockdown_kills_telemetry_regardless_of_consent(fresh_env, patch_settings, monkeypatch):
     fresh_env.setenv("STIMMA_DISTRIBUTION", "official")
-    fresh_env.setenv("DO_NOT_TRACK", "1")
-    patch_settings(telemetry_enabled=True)  # consent ON — DNT still wins
+    fresh_env.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
+    patch_settings(telemetry_enabled=True)  # consent ON — lockdown still wins
     client, sent = _make_client(monkeypatch)
 
     client.track("event_a")
-    assert client._queue == []  # no buffering under DNT
+    assert client._queue == []  # no buffering under lockdown
     await client.flush()
     client.on_consent_changed(True)
     await asyncio.sleep(0)
@@ -233,8 +230,8 @@ async def test_dnt_kills_telemetry_regardless_of_consent(fresh_env, patch_settin
 
 
 @pytest.mark.asyncio
-async def test_dnt_suppresses_flags_fetch(fresh_env, patch_settings, monkeypatch):
-    fresh_env.setenv("DO_NOT_TRACK", "1")
+async def test_privacy_lockdown_suppresses_flags_fetch(fresh_env, patch_settings, monkeypatch):
+    fresh_env.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
     patch_settings()
     import feature_flags as ff
     monkeypatch.setattr(ff, "_load_cache", lambda: {})
@@ -255,9 +252,9 @@ async def test_dnt_suppresses_flags_fetch(fresh_env, patch_settings, monkeypatch
     await client.stop()
 
 
-def test_dnt_suppresses_update_check(fresh_env, patch_settings, monkeypatch):
+def test_privacy_lockdown_suppresses_update_check(fresh_env, patch_settings, monkeypatch):
     fresh_env.setenv("STIMMA_DISTRIBUTION", "official")
-    fresh_env.setenv("DO_NOT_TRACK", "1")
+    fresh_env.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
     patch_settings()
     import update_check
     monkeypatch.setattr("user_agent.get_app_branch", lambda: "production")
@@ -265,35 +262,36 @@ def test_dnt_suppresses_update_check(fresh_env, patch_settings, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_settings_api_surfaces_dnt_active(client, monkeypatch):
-    """GET /api/settings exposes ``dnt_active`` so the frontend can gate
-    the Tauri updater's automatic checks on it. DNT is the telemetry
-    off-switch and also gates several nonessential automatic fetches.
-    The frontend starts its updater loop only when ``dnt_active`` is
-    false; manual user-initiated checks remain available."""
+async def test_settings_api_surfaces_privacy_lockdown_active(client, monkeypatch):
+    """GET /api/settings exposes Privacy Lockdown state to the frontend."""
+    monkeypatch.delenv("STIMMA_PRIVACY_LOCKDOWN", raising=False)
+    monkeypatch.delenv("PRIVACY_LOCKDOWN", raising=False)
     monkeypatch.delenv("DO_NOT_TRACK", raising=False)
     response = await client.get("/api/settings")
     assert response.status_code == 200
     data = response.json()
+    assert data["privacy_lockdown_active"] is False
     assert data["dnt_active"] is False
     assert data["sandbox"] == "default"
 
-    monkeypatch.setenv("DO_NOT_TRACK", "1")
+    monkeypatch.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
     response = await client.get("/api/settings")
     assert response.status_code == 200
-    assert response.json()["dnt_active"] is True
+    data = response.json()
+    assert data["privacy_lockdown_active"] is True
+    assert data["dnt_active"] is True
 
 
 @pytest.mark.asyncio
-async def test_dnt_suppresses_region_call(fresh_env, patch_settings, monkeypatch):
+async def test_privacy_lockdown_suppresses_region_call(fresh_env, patch_settings, monkeypatch):
     fresh_env.setenv("STIMMA_DISTRIBUTION", "official")
-    fresh_env.setenv("DO_NOT_TRACK", "1")
+    fresh_env.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
     patch_settings()
     import compliance_region
 
     class _NoNetwork:
         def __init__(self, *a, **k):
-            raise AssertionError("region call attempted under DNT")
+            raise AssertionError("region call attempted under Privacy Lockdown")
 
     monkeypatch.setattr(compliance_region.httpx, "AsyncClient", _NoNetwork)
     region = await compliance_region.get_region()
@@ -363,6 +361,42 @@ def test_user_agent_emits_exactly_version_os_arch_branch_install_id(fresh_env, p
     assert match.group("install") == install_id
     # Nothing else rides along
     assert ua.count("install/") == 1
+
+
+def test_privacy_lockdown_user_agent_has_no_install_id(fresh_env, patch_settings, monkeypatch):
+    patch_settings(install_id=str(uuid.uuid4()))
+    fresh_env.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
+    import user_agent
+
+    monkeypatch.setattr(user_agent, "get_app_version", lambda: "1.2.3")
+    monkeypatch.setattr(user_agent, "get_app_branch", lambda: "production")
+
+    assert user_agent.ensure_install_id() == "privacy-lockdown"
+    assert user_agent.user_agent() == "Stimma/PrivacyLockdown"
+    assert "install/" not in user_agent.ua_headers()["User-Agent"]
+
+
+def test_do_not_track_remains_legacy_lockdown_alias(fresh_env):
+    import distribution
+
+    fresh_env.setenv("DO_NOT_TRACK", "1")
+    assert distribution.is_privacy_lockdown() is True
+    assert distribution.is_dnt() is True
+
+
+def test_privacy_lockdown_blocks_stimma_model_downloads(fresh_env, tmp_path, monkeypatch):
+    fresh_env.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
+    import model_cache
+
+    monkeypatch.setattr(model_cache.app_dirs, "get_cache_dir", lambda: tmp_path)
+
+    with pytest.raises(RuntimeError, match="Privacy Lockdown"):
+        model_cache.ensure_model("face/model.onnx")
+
+    cached = tmp_path / "models" / "face" / "model.onnx"
+    cached.parent.mkdir(parents=True)
+    cached.write_bytes(b"cached")
+    assert model_cache.ensure_model("face/model.onnx") == cached
 
 
 # ── Salted object hashes ────────────────────────────────────────────────

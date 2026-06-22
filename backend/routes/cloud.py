@@ -10,6 +10,7 @@ from typing import Optional
 
 from config import get_settings
 from core.logging import get_logger
+from privacy_lockdown import disabled_message, is_privacy_lockdown_enabled
 from utils.websocket import ws_manager
 
 router = APIRouter(prefix="/api/cloud", tags=["cloud"])
@@ -53,6 +54,10 @@ async def _refresh_cloud_token(config: dict) -> None:
     """
     from firebase_auth import get_valid_id_token
 
+    if is_privacy_lockdown_enabled():
+        log.info("skipping cloud token refresh in Privacy Lockdown")
+        return
+
     try:
         fresh_token = await get_valid_id_token()
         if fresh_token:
@@ -82,6 +87,10 @@ async def connect_cloud_internal(id_token: str) -> bool:
         True if connection succeeded, False otherwise
     """
     from providers.jsonrpc_manager import get_jsonrpc_manager
+
+    if is_privacy_lockdown_enabled():
+        log.info("stimma cloud connect blocked by Privacy Lockdown")
+        return False
 
     settings = get_settings()
     base_url = settings.cloud.base_url
@@ -155,6 +164,13 @@ async def connect_cloud_tools(request: ConnectRequest):
     Creates a WebSocket-based JsonRpcProvider for the cloud and registers it.
     The token is a Firebase ID token that authenticates the user.
     """
+    if is_privacy_lockdown_enabled():
+        return ConnectResponse(
+            success=False,
+            provider_id=STIMMA_CLOUD_PROVIDER_ID,
+            error=disabled_message("Stimma Cloud tools"),
+        )
+
     success = await connect_cloud_internal(request.token)
 
     if success:
@@ -193,6 +209,14 @@ async def get_cloud_tools_status():
     """
     from providers import ProviderRegistry
     from providers.jsonrpc_manager import get_jsonrpc_manager
+
+    if is_privacy_lockdown_enabled():
+        return {
+            "connected": False,
+            "status": "privacy_lockdown",
+            "error_message": disabled_message("Stimma Cloud tools"),
+            "tool_count": 0,
+        }
 
     provider_registry = ProviderRegistry.get_instance()
     jsonrpc_manager = get_jsonrpc_manager()
@@ -247,6 +271,9 @@ async def get_cloud_llm_status():
     from firebase_auth import get_valid_id_token
     from cloud_api import fetch_user_account
     import httpx
+
+    if is_privacy_lockdown_enabled():
+        return LLMStatusResponse(available=False)
 
     try:
         id_token = await get_valid_id_token()

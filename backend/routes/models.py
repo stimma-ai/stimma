@@ -12,6 +12,7 @@ from fastapi import APIRouter, Query
 from config import get_settings
 from core.logging import get_logger
 from llm_resolver import set_catalog_cache, get_max_context_tokens
+from privacy_lockdown import is_privacy_lockdown_enabled
 
 router = APIRouter(prefix="/api/models", tags=["models"])
 log = get_logger(__name__)
@@ -31,14 +32,19 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     """
     models = []
     settings = get_settings()
-    cloud_status = "not_logged_in"
-    cloud_message = "Sign in to Stimma Cloud to use hosted models."
+    lockdown = is_privacy_lockdown_enabled()
+    cloud_status = "privacy_lockdown" if lockdown else "not_logged_in"
+    cloud_message = (
+        "Stimma Cloud is unavailable in Privacy Lockdown."
+        if lockdown
+        else "Sign in to Stimma Cloud to use hosted models."
+    )
     cloud_entries = []
 
     # 1. Fetch cloud catalog if authenticated
     try:
         from firebase_auth import get_valid_id_token
-        id_token = await get_valid_id_token()
+        id_token = None if lockdown else await get_valid_id_token()
         if id_token:
             cloud_status = "cloud_unreachable"
             cloud_message = "Stimma Cloud cannot be reached."

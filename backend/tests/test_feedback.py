@@ -890,6 +890,26 @@ class TestFeedbackRoutes:
         assert fake_cloud.completes == []
 
     @pytest.mark.asyncio
+    async def test_feedback_submit_rejected_in_privacy_lockdown(
+        self, feedback_client_fixture, fake_cloud, monkeypatch
+    ):
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        monkeypatch.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
+        resp = await feedback_client_fixture.post("/api/feedback/submit", json={
+            "kind": "feedback",
+            "message": "test message",
+            "include_logs": True,
+        })
+        assert resp.status_code == 403
+        assert fake_cloud.posts == []
+        assert fake_cloud.puts == []
+        assert fake_cloud.completes == []
+
+        resp = await feedback_client_fixture.get("/api/feedback/crashes/pending")
+        assert resp.status_code == 200
+        assert resp.json()["reports"] == []
+
+    @pytest.mark.asyncio
     async def test_thumbs_submit_with_chat_package(
         self, feedback_client_fixture, fake_cloud, db_session, tmp_path, monkeypatch
     ):

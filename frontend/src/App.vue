@@ -204,6 +204,7 @@ import { useAppUpdater } from './composables/useAppUpdater'
 import { useStimpacksApi } from './composables/useStimpacksApi'
 import { setupLayoutRenderer } from './composables/useLayoutRenderer'
 import { makeGlobalKey } from './utils/storageKeys'
+import { setPrivacyLockdownActive, isPrivacyLockdownActive } from './composables/usePrivacyLockdown'
 
 const route = useRoute()
 const router = useRouter()
@@ -631,10 +632,11 @@ async function loadAppSettings() {
   setDevMode(settings.developer_mode)
   setCaptioningEnabled(settings.background_work?.captioning?.enabled)
   setTelemetryEnabled(settings.telemetry_enabled)
+  const privacyLockdown = settings.privacy_lockdown_active === true || settings.dnt_active === true
+  setPrivacyLockdownActive(privacyLockdown)
   initFeatureFlags(useWebSocket().on)
-  // Auto update checks start only once the DNT state is known, and never
-  // when DO_NOT_TRACK is active (backend computes dnt_active from the env).
-  void startUpdaterLoop(settings.dnt_active === true)
+  // Auto update checks start only once Privacy Lockdown state is known.
+  void startUpdaterLoop(privacyLockdown)
   // Sync theme from backend config (backend is source of truth,
   // localStorage is used for instant flash prevention on load)
   if (settings.theme) {
@@ -739,6 +741,7 @@ const syncedMarketplaceStimpackProfiles = new Set()
 const marketplaceStimpackSyncByProfile = new Map()
 
 async function syncMarketplaceStimpacks(profileId = currentProfileId.value) {
+  if (isPrivacyLockdownActive()) return
   if (!profileId || syncedMarketplaceStimpackProfiles.has(profileId)) return
 
   const existingRun = marketplaceStimpackSyncByProfile.get(profileId)
@@ -787,12 +790,10 @@ async function syncMarketplaceStimpacks(profileId = currentProfileId.value) {
   }
 }
 
-// Started from loadAppSettings() once the DO_NOT_TRACK state is known.
-// We suppress automatic update endpoint fetches under DNT; user-initiated
-// checks (Settings → Updates) remain available.
-async function startUpdaterLoop(dntActive) {
+// Started from loadAppSettings() once Privacy Lockdown state is known.
+async function startUpdaterLoop(privacyLockdownActive) {
   if (!updatesEnabled.value) return
-  if (dntActive) return
+  if (privacyLockdownActive) return
   if (updaterLoopStarted) return
   updaterLoopStarted = true
 
@@ -825,7 +826,7 @@ onMounted(async () => {
   startIdleTracking()
 
   // Check if we need PIN entry on startup. This loads settings and starts
-  // the updater loop (DNT-gated) once the settings fetch succeeds.
+  // the updater loop once the settings fetch succeeds.
   checkStartupPin()
 
 })

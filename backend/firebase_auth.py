@@ -12,6 +12,7 @@ from typing import Optional, TypedDict
 import httpx
 
 from core.logging import get_logger
+from privacy_lockdown import is_privacy_lockdown_enabled
 
 log = get_logger(__name__)
 
@@ -133,6 +134,9 @@ async def exchange_custom_token(custom_token: str) -> TokenResult:
         httpx.HTTPStatusError: If the Firebase API returns an error
         Exception: For network or other errors
     """
+    if is_privacy_lockdown_enabled():
+        raise AuthNetworkError("Privacy Lockdown is enabled")
+
     url = f"{IDENTITY_TOOLKIT_URL}/accounts:signInWithCustomToken"
     params = {"key": FIREBASE_API_KEY}
 
@@ -180,6 +184,9 @@ async def refresh_id_token(refresh_token: str) -> TokenResult:
         httpx.HTTPStatusError: If the Firebase API returns an error
         Exception: For network or other errors
     """
+    if is_privacy_lockdown_enabled():
+        raise AuthNetworkError("Privacy Lockdown is enabled")
+
     url = f"{SECURE_TOKEN_URL}/token"
     params = {"key": FIREBASE_API_KEY}
 
@@ -225,6 +232,12 @@ async def get_valid_id_token(*, raise_on_failure: bool = False) -> Optional[str]
         AuthNetworkError: If raise_on_failure=True and Firebase is unreachable.
         AuthRefreshError: If raise_on_failure=True and refresh fails otherwise.
     """
+    if is_privacy_lockdown_enabled():
+        log.info("skipping Firebase ID token access in Privacy Lockdown")
+        if raise_on_failure:
+            raise AuthNetworkError("Privacy Lockdown is enabled")
+        return None
+
     from auth_storage import load_auth_state, save_auth_state, is_token_expired
 
     auth_state = load_auth_state()
@@ -287,6 +300,12 @@ async def force_refresh_id_token(*, raise_on_failure: bool = False) -> Optional[
     Returns:
         Fresh ID token string, or None if not logged in or refresh fails.
     """
+    if is_privacy_lockdown_enabled():
+        log.info("skipping Firebase ID token refresh in Privacy Lockdown")
+        if raise_on_failure:
+            raise AuthNetworkError("Privacy Lockdown is enabled")
+        return None
+
     from auth_storage import load_auth_state, save_auth_state
 
     auth_state = load_auth_state()

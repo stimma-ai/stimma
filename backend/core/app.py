@@ -1077,7 +1077,7 @@ async def lifespan(app: FastAPI):
                 await _flags.start()
 
                 # Daily update check (official builds on an update branch
-                # only; off under DO_NOT_TRACK / disable_update_check).
+                # only; off under Privacy Lockdown / disable_update_check).
                 import update_check
                 update_check.start()
 
@@ -1145,6 +1145,7 @@ async def lifespan(app: FastAPI):
                 # the connection to be added to the manager even if network is down.
                 # The health monitor will retry the connection automatically.
                 try:
+                    from privacy_lockdown import is_privacy_lockdown_enabled
                     from auth_storage import load_auth_state, save_auth_state
                     from firebase_auth import get_valid_id_token
                     from cloud_api import fetch_user_account
@@ -1155,7 +1156,9 @@ async def lifespan(app: FastAPI):
                         (p for p in settings.tool_providers if p.id == STIMMA_CLOUD_PROVIDER_ID),
                         None
                     )
-                    if stimma_cloud_config and not stimma_cloud_config.enabled:
+                    if is_privacy_lockdown_enabled():
+                        log.info("Privacy Lockdown enabled, skipping stimma cloud auto-connect")
+                    elif stimma_cloud_config and not stimma_cloud_config.enabled:
                         log.info("stimma-cloud tools disabled in config, skipping auto-connect")
                     else:
                         auth_state = load_auth_state()

@@ -9,6 +9,7 @@ import httpx
 
 from config import get_settings
 from core.logging import get_logger
+from privacy_lockdown import PrivacyLockdownError, disabled_message, is_privacy_lockdown_enabled
 
 log = get_logger(__name__)
 
@@ -32,6 +33,9 @@ async def fetch_user_account(id_token: str) -> CloudAccount:
     Raises:
         httpx.HTTPStatusError: On API errors (401, 403, etc.)
     """
+    if is_privacy_lockdown_enabled():
+        raise PrivacyLockdownError(disabled_message("Stimma Cloud"))
+
     base_url = get_settings().cloud.base_url
     url = f"{base_url}/api/auth/me"
 
@@ -61,6 +65,9 @@ async def revoke_remote_session_if_supported(id_token: str) -> bool:
     local logout.
     """
     if not id_token:
+        return False
+    if is_privacy_lockdown_enabled():
+        log.info("skipping remote logout revoke in Privacy Lockdown")
         return False
 
     base_url = get_settings().cloud.base_url

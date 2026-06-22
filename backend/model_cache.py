@@ -24,6 +24,7 @@ from typing import Iterable, Optional, Sequence
 
 import app_dirs
 from core.logging import get_logger
+from privacy_lockdown import raise_for_stimma_url_if_enabled
 
 log = get_logger(__name__)
 
@@ -92,6 +93,8 @@ def ensure_model(key: str, *, legacy_paths: Optional[Iterable[Path]] = None) -> 
         return dest
 
     url = f"{MODELS_BASE_URL}/{key}"
+    raise_for_stimma_url_if_enabled(url, "Stimma model downloads")
+
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_name(dest.name + ".part")
     log.info(f"Downloading model {key} from {url}")

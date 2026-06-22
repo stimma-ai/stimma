@@ -8,6 +8,7 @@
  */
 import { ref, readonly } from 'vue'
 import { useSettingsApi } from './useSettingsApi'
+import { isPrivacyLockdownActive } from './usePrivacyLockdown'
 
 // Default fallback URL
 const DEFAULT_CLOUD_BASE_URL = 'https://stimma.ai'
@@ -92,6 +93,15 @@ export function setCloudBaseUrl(url) {
  * Fetch user info via backend proxy which calls stimma.cloud.
  */
 export async function fetchCloudAccount() {
+  if (isPrivacyLockdownActive()) {
+    cloudUser.value = null
+    cloudError.value = {
+      code: 'privacy_lockdown',
+      message: 'Stimma Cloud is unavailable in Privacy Lockdown.',
+    }
+    return null
+  }
+
   isCloudLoading.value = true
   cloudError.value = null
 

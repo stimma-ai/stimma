@@ -17,6 +17,7 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { isOfficialBuild } from '../distribution'
 import { useToasts } from './useToasts'
+import { isPrivacyLockdownActive, setPrivacyLockdownActive } from './usePrivacyLockdown'
 
 const state = reactive({
   loaded: false,
@@ -41,6 +42,7 @@ const crashDialog = reactive({
 })
 
 function trackFeedbackEvent(event, properties) {
+  if (isPrivacyLockdownActive()) return
   axios
     .post(`${getApiBase()}/telemetry/track`, { event, properties, category: 'feedback' })
     .catch(() => {})
@@ -49,6 +51,7 @@ function trackFeedbackEvent(event, properties) {
 async function loadState() {
   try {
     const { data } = await axios.get(`${getApiBase()}/feedback/state`)
+    setPrivacyLockdownActive(data.privacy_lockdown === true)
     state.thumbsConsent = data.thumbs_consent || 'ask'
     state.crashConsent = data.crash_consent || 'ask'
     state.coachmarkShown = data.coachmark_shown !== false
@@ -79,7 +82,7 @@ async function markCoachmarkShown() {
 // ── Entry points ─────────────────────────────────────────────────────────
 
 function openMenuFeedback(source = 'menu') {
-  if (!isOfficialBuild()) return
+  if (!isOfficialBuild() || isPrivacyLockdownActive()) return
   modal.open = true
   trackFeedbackEvent('feedback_opened', { source })
 }
@@ -89,7 +92,7 @@ function openMenuFeedback(source = 'menu') {
  * submit straight away; 'never' → inert.
  */
 function openThumbFeedback({ thumb, agentContext, packageSource }) {
-  if (!isOfficialBuild() || state.thumbsConsent === 'never') return
+  if (!isOfficialBuild() || isPrivacyLockdownActive() || state.thumbsConsent === 'never') return
   trackFeedbackEvent('feedback_opened', { source: 'thumb' })
   const payload = { thumb, agentContext, packageSource }
   if (state.thumbsConsent === 'ask') {
@@ -153,7 +156,7 @@ function closeModal() {
 // ── Crash reports ────────────────────────────────────────────────────────
 
 async function checkPendingCrashes() {
-  if (!isOfficialBuild()) return
+  if (!isOfficialBuild() || isPrivacyLockdownActive()) return
   try {
     const { data } = await axios.get(`${getApiBase()}/feedback/crashes/pending`)
     state.pendingCrashes = (data.reports || []).length
@@ -185,7 +188,7 @@ async function crashDecision(action) {
 
 /** Wire the live-crash WS notification. Call once with useWebSocket().on */
 function initCrashNotifications(wsOn) {
-  if (!isOfficialBuild()) return
+  if (!isOfficialBuild() || isPrivacyLockdownActive()) return
   wsOn('crash_reports_pending', () => {
     checkPendingCrashes()
   })
@@ -199,9 +202,10 @@ export function useFeedback() {
     modal,
     consentDialog,
     crashDialog,
-    thumbsEnabled: computed(() => isOfficialBuild() && state.thumbsConsent !== 'never'),
+    thumbsEnabled: computed(() => isOfficialBuild() && !isPrivacyLockdownActive() && state.thumbsConsent !== 'never'),
     thumbsDisabledReason: computed(() => {
       if (!isOfficialBuild()) return null
+      if (isPrivacyLockdownActive()) return 'Feedback is unavailable in Privacy Lockdown'
       if (state.thumbsConsent === 'never') {
         return 'Thumbs feedback is turned off in Settings → Privacy'
       }

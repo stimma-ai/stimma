@@ -11,7 +11,7 @@ consent-toggle default (optin -> off, optout -> on).
 - Unreachable/offline -> ``optin`` (default-off, safe), re-checked on the
   next launch until a cache lands.
 - Dev builds never call it (they have no consent screen).
-- ``DO_NOT_TRACK=1`` suppresses the call (regime falls back to optin).
+- Privacy Lockdown suppresses the call (regime falls back to optin).
 """
 import asyncio
 from datetime import datetime, timezone
@@ -67,7 +67,7 @@ async def get_region() -> RegionInfo:
     """Return the consent regime for this install.
 
     Cached value when available; otherwise fetched (official builds, no
-    DNT) and cached on success. Falls back to ``optin`` uncached.
+    Privacy Lockdown) and cached on success. Falls back to ``optin`` uncached.
     """
     cached = _cached_region()
     if cached:

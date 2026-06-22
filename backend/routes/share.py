@@ -14,6 +14,7 @@ from config import get_settings
 from core.logging import get_logger
 from core.dependencies import get_db_session
 from database import MediaItem
+from privacy_lockdown import disabled_message, is_privacy_lockdown_enabled
 
 router = APIRouter(prefix="/api/share", tags=["share"])
 log = get_logger(__name__)
@@ -128,6 +129,9 @@ async def share_media(request: ShareRequest, session: AsyncSession = Depends(get
     """Share a media item to Stimma Cloud."""
     from firebase_auth import get_valid_id_token
     from utils.keyword_blocklist import check_blocklist, gather_texts_for_blocklist
+
+    if is_privacy_lockdown_enabled():
+        return ShareResponse(success=False, error=disabled_message("Stimma Cloud sharing"))
 
     # Load media item
     media_item = await session.get(MediaItem, request.media_id)
@@ -395,6 +399,9 @@ async def pre_check_media(request: PreCheckRequest, session: AsyncSession = Depe
     moderation API for image + text analysis. For composites (sets/grids/layouts),
     rasterizes all member images into a single grid and aggregates all member text.
     """
+    if is_privacy_lockdown_enabled():
+        return PreCheckResponse(blocked=False)
+
     from firebase_auth import get_valid_id_token
     from utils.keyword_blocklist import check_blocklist, gather_texts_for_blocklist
 
@@ -1060,6 +1067,9 @@ async def get_share_status():
     from firebase_auth import get_valid_id_token
     from cloud_api import fetch_user_account
 
+    if is_privacy_lockdown_enabled():
+        return ShareStatusResponse(can_share=False, reason=disabled_message("Stimma Cloud sharing"))
+
     try:
         token = await get_valid_id_token()
     except Exception:
@@ -1107,6 +1117,13 @@ async def check_username(username: str):
     """Check if a username is available on Stimma Cloud."""
     from firebase_auth import get_valid_id_token
 
+    if is_privacy_lockdown_enabled():
+        return CheckUsernameResponse(
+            available=False,
+            username=username,
+            error=disabled_message("Stimma Cloud identity"),
+        )
+
     try:
         token = await get_valid_id_token()
     except Exception:
@@ -1151,6 +1168,12 @@ class SetupIdentityResponse(BaseModel):
 async def setup_identity(request: SetupIdentityRequest):
     """Set up user identity (username) on Stimma Cloud."""
     from firebase_auth import get_valid_id_token
+
+    if is_privacy_lockdown_enabled():
+        return SetupIdentityResponse(
+            success=False,
+            error=disabled_message("Stimma Cloud identity"),
+        )
 
     try:
         token = await get_valid_id_token()

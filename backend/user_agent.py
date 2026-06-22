@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Optional
 
 from core.logging import get_logger
+from privacy_lockdown import is_privacy_lockdown_enabled
 
 log = get_logger(__name__)
 
@@ -127,6 +128,9 @@ def get_app_branch() -> str:
 
 def ensure_install_id() -> str:
     """Return the per-install UUID, generating and persisting it if needed."""
+    if is_privacy_lockdown_enabled():
+        return "privacy-lockdown"
+
     global _install_id
     if _install_id:
         return _install_id
@@ -159,6 +163,9 @@ def ensure_install_id() -> str:
 
 def user_agent() -> str:
     """The Stimma User-Agent: exactly version/os/arch/branch/install-id."""
+    if is_privacy_lockdown_enabled():
+        return "Stimma/PrivacyLockdown"
+
     return (
         f"Stimma/{get_app_version()} "
         f"({get_os()}; {get_arch()}; {get_app_branch()}) "

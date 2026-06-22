@@ -425,6 +425,16 @@ class TestAuthStatus:
 
         assert response.json()["tier"] == "free"
 
+    async def test_status_hidden_in_privacy_lockdown(self, auth_client: AsyncClient, monkeypatch):
+        """Privacy Lockdown makes cloud auth unavailable without reading auth state."""
+        monkeypatch.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
+        with patch("auth_storage.load_auth_state") as mock_load:
+            response = await auth_client.get("/api/auth/status")
+
+        assert response.status_code == 200
+        assert response.json() == {"authenticated": False, "privacy_lockdown": True}
+        mock_load.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # Tests: GET /api/auth/poll/{session_id}
@@ -713,6 +723,14 @@ class TestLogout:
 
 class TestStartAuth:
     """Tests for POST /api/auth/start endpoint."""
+
+    async def test_start_auth_rejected_in_privacy_lockdown(self, auth_client: AsyncClient, monkeypatch):
+        monkeypatch.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
+
+        response = await auth_client.post("/api/auth/start")
+
+        assert response.status_code == 403
+        assert response.json()["detail"]["code"] == "privacy_lockdown"
 
     async def test_start_auth_returns_session(self, auth_client: AsyncClient):
         """Test that starting auth creates a session with login URL."""

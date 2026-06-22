@@ -19,20 +19,20 @@
             <p class="text-xs text-content-tertiary mt-0.5 leading-relaxed">
               Help improve Stimma with first-party usage telemetry. Events do not include prompts, files, images, generation parameters, file names, or content you create. If you are signed in, telemetry can be associated with your Stimma Cloud account.
             </p>
-            <p v-if="dntActive" class="text-xs text-content-tertiary mt-1">
-              Environment override active: DO_NOT_TRACK=1 is set - usage telemetry is disabled regardless of this setting.
+            <p v-if="privacyLockdownActive" class="text-xs text-content-tertiary mt-1">
+              Privacy Lockdown is active. Usage telemetry and Stimma services are disabled.
             </p>
           </div>
           <button
             @click="toggleTelemetry"
-            :disabled="telemetrySaving"
-            :aria-pressed="localTelemetryEnabled"
+            :disabled="telemetrySaving || privacyLockdownActive"
+            :aria-pressed="localTelemetryEnabled && !privacyLockdownActive"
             class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-60"
-            :class="localTelemetryEnabled ? 'bg-blue-600' : 'bg-surface-hover'"
+            :class="localTelemetryEnabled && !privacyLockdownActive ? 'bg-blue-600' : 'bg-surface-hover'"
           >
             <span
               class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-              :class="localTelemetryEnabled ? 'translate-x-5' : 'translate-x-0'"
+              :class="localTelemetryEnabled && !privacyLockdownActive ? 'translate-x-5' : 'translate-x-0'"
             />
           </button>
         </div>
@@ -74,7 +74,7 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  dntActive: {
+  privacyLockdownActive: {
     type: Boolean,
     default: false,
   },

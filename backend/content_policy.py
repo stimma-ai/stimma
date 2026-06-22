@@ -44,6 +44,14 @@ async def get_content_policy() -> Optional[str]:
     if _cached_text is not None and (time.monotonic() - _cached_at) < _CACHE_TTL_SECONDS:
         return _cached_text
 
+    try:
+        from privacy_lockdown import is_privacy_lockdown_enabled
+        if is_privacy_lockdown_enabled():
+            log.info("content-policy fetch skipped in Privacy Lockdown")
+            return _cached_text
+    except Exception:
+        pass
+
     url = f"{_cloud_base_url()}/api/content-policy"
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=3.0)) as client:

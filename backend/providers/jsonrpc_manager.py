@@ -595,6 +595,15 @@ class JsonRpcProviderManager:
             log.warning("Cannot add provider without id")
             return False
 
+        if config.get("type") == "websocket":
+            try:
+                from privacy_lockdown import is_privacy_lockdown_enabled, is_stimma_service_url
+                if is_privacy_lockdown_enabled() and is_stimma_service_url(config.get("url")):
+                    log.info("skipping Stimma websocket provider in Privacy Lockdown", provider_id=provider_id)
+                    return False
+            except Exception:
+                pass
+
         if provider_id in self._providers:
             log.warning("Provider already exists", provider_id=provider_id)
             return False
