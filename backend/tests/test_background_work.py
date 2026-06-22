@@ -127,6 +127,39 @@ class TestEnabledFlagChecks:
         # Returns 0 because no profiles, but the enabled check passed
         assert result == 0
 
+    async def test_init_caption_service_skips_llm_resolution_when_disabled(self):
+        """Caption service init should not resolve LLM config when captioning is disabled."""
+        import ingestion
+
+        mock_ingestion = MagicMock(spec=ingestion.MediaIngestion)
+        mock_ingestion.settings = MagicMock()
+        mock_ingestion.settings.captioning.enabled = False
+        mock_ingestion.caption_service = None
+
+        with patch('llm_resolver.get_effective_llm_config', new_callable=AsyncMock) as mock_resolver:
+            await ingestion.MediaIngestion._init_caption_service(mock_ingestion)
+
+        mock_resolver.assert_not_called()
+        assert mock_ingestion.caption_service is None
+
+    async def test_init_caption_service_tolerates_unavailable_llm(self):
+        """Caption service init should not fail ingestion when no LLM is configured."""
+        import ingestion
+        from llm_resolver import LLMNotConfiguredError
+
+        mock_ingestion = MagicMock(spec=ingestion.MediaIngestion)
+        mock_ingestion.settings = MagicMock()
+        mock_ingestion.settings.captioning.enabled = True
+        mock_ingestion.caption_service = None
+
+        with patch(
+            'llm_resolver.get_effective_llm_config',
+            new=AsyncMock(side_effect=LLMNotConfiguredError("Sign in to Stimma Cloud or choose a local endpoint."))
+        ):
+            await ingestion.MediaIngestion._init_caption_service(mock_ingestion)
+
+        assert mock_ingestion.caption_service is None
+
 
 class TestBackgroundWorkSettingsAPI:
     """Tests for the background work settings API endpoint.

@@ -327,7 +327,25 @@ class MediaIngestion:
 
         This must be called before using the caption_service.
         """
-        from llm_resolver import get_effective_llm_config
+        await self._init_caption_service()
+
+        # Fix any inconsistent non-visual items from before defensive guards were added
+        await self._fix_non_visual_statuses()
+
+    async def _init_caption_service(self):
+        """Initialize or disable the caption service based on current settings."""
+        if not self.settings.captioning.enabled:
+            log.info("INGESTION INIT: Captioning disabled; skipping visual analysis service init")
+            if self.caption_service is not None:
+                await self.caption_service.close()
+            self.caption_service = None
+            return
+
+        from llm_resolver import LLMUnavailableError, get_effective_llm_config
+
+        if self.caption_service is not None:
+            await self.caption_service.close()
+            self.caption_service = None
 
         log.info("INGESTION INIT: Resolving LLM config for captioning...")
         try:
@@ -340,14 +358,11 @@ class MediaIngestion:
                 max_parallelism=self._vlm_parallelism
             )
             log.info("INGESTION INIT: Visual analysis service initialized ✓")
-        except ValueError:
+        except (ValueError, LLMUnavailableError) as e:
             # No LLM config available (e.g. not logged in to Stimma Cloud and no local endpoint)
             # Captioning will be unavailable until config is reloaded after login
-            log.warning("INGESTION INIT: No LLM config available - captioning disabled until cloud connection or endpoint configured")
+            log.warning(f"INGESTION INIT: No LLM config available - captioning disabled until cloud connection or endpoint configured ({e})")
             self.caption_service = None
-
-        # Fix any inconsistent non-visual items from before defensive guards were added
-        await self._fix_non_visual_statuses()
 
     async def _fix_non_visual_statuses(self):
         """Fix items where some AI phases are 'skipped' but others are still 'pending'.
@@ -663,6 +678,7 @@ class MediaIngestion:
 
         # Update settings reference
         self.settings = new_settings
+        await self._init_caption_service()
 
         # If profiles were added, trigger work check and file scan
         if added_ids:
