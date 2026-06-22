@@ -139,6 +139,7 @@ test-results/
 
 # Tauri
 src-tauri/target/
+target-tauri/
 src-tauri/binaries/stimma-backend-*
 src-tauri/binaries/stimma-watchdog-*
 src-tauri/gen/

@@ -23,6 +23,31 @@ type DevProcess = {
   status: Promise<Deno.CommandStatus>;
 };
 
+type ProcessEntry = {
+  pid: number;
+  ppid: number;
+  pgid: number;
+};
+
+type TerminationSignal = "SIGTERM" | "SIGKILL";
+
+const DEV_HOST = "127.0.0.1";
+const LOCALHOSTS = [DEV_HOST, "::1"];
+const VITE_DEV_ARGS = ["run", "dev", "--", "--host", DEV_HOST, "--strictPort"];
+const DEFAULT_BACKEND_PORT = 9191;
+const DEFAULT_FRONTEND_PORT = 9192;
+// Hiro uses 9292/9293 for defaults and 9300-9399 for sandboxes.
+// Keep Stimma's non-default sandboxes in their own lane so both apps can be
+// developed side-by-side without port collisions.
+const FORK_PORT_BASE = 9400;
+const FORK_PORT_LIMIT = 9500;
+const LEGACY_HIRO_COLLIDING_PORT_BASE = 9300;
+const LEGACY_HIRO_COLLIDING_PORT_LIMIT = 9400;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function run(cmd: string, args: string[] = [], opts: RunOptions = {}): Promise<number> {
   const command = new Deno.Command(cmd, {
     args,
@@ -83,26 +108,166 @@ function spawnDevProcess(label: string, cmd: string, args: string[], opts: RunOp
   return { label, child, status: child.status };
 }
 
-function terminateDevProcesses(processes: DevProcess[]): void {
-  for (const proc of processes) {
+async function unixProcessTable(): Promise<ProcessEntry[]> {
+  const out = await runCapture("ps", ["-axo", "pid=,ppid=,pgid="]);
+  if (out.code !== 0) return [];
+  return out.stdout.split(/\r?\n/)
+    .map((line) => line.trim().split(/\s+/).map((part) => Number(part)))
+    .filter((parts) => parts.length >= 3 && parts.every(Number.isFinite))
+    .map(([pid, ppid, pgid]) => ({ pid, ppid, pgid }));
+}
+
+function unixDescendantPids(rootPid: number, table: ProcessEntry[]): number[] {
+  const childrenByParent = new Map<number, number[]>();
+  for (const { pid, ppid } of table) {
+    if (!childrenByParent.has(ppid)) childrenByParent.set(ppid, []);
+    childrenByParent.get(ppid)!.push(pid);
+  }
+
+  const descendants: number[] = [];
+  const queue = [...(childrenByParent.get(rootPid) || [])];
+  while (queue.length > 0) {
+    const pid = queue.shift()!;
+    descendants.push(pid);
+    queue.push(...(childrenByParent.get(pid) || []));
+  }
+  return descendants;
+}
+
+async function signalProcessTree(proc: DevProcess, signal: TerminationSignal): Promise<void> {
+  const rootPid = proc.child.pid;
+
+  if (Deno.build.os === "windows") {
+    const args = signal === "SIGKILL"
+      ? ["/PID", String(rootPid), "/T", "/F"]
+      : ["/PID", String(rootPid), "/T"];
+    await runCapture("taskkill", args);
+    return;
+  }
+
+  const table = await unixProcessTable();
+  const descendants = unixDescendantPids(rootPid, table);
+  const pids = [rootPid, ...descendants].filter((pid) => pid !== Deno.pid);
+  const pidSet = new Set(pids);
+  const ownPgid = table.find((entry) => entry.pid === Deno.pid)?.pgid;
+  const childOwnedPgids = new Set(
+    table
+      .filter((entry) => pidSet.has(entry.pid) && entry.pgid > 0 && entry.pgid !== ownPgid)
+      .map((entry) => entry.pgid),
+  );
+
+  for (const pgid of childOwnedPgids) {
     try {
-      proc.child.kill("SIGTERM");
+      Deno.kill(-pgid, signal);
     } catch {
-      // Process already exited.
+      // Process group already exited or is otherwise unavailable.
+    }
+  }
+
+  for (const pid of pids) {
+    try {
+      Deno.kill(pid, signal);
+    } catch {
+      // Process already exited or is otherwise unavailable.
     }
   }
 }
 
-async function waitForTcpPort(port: number, label: string, timeoutMs = 60000): Promise<void> {
+async function waitForDevProcessesToExit(processes: DevProcess[], timeoutMs: number): Promise<boolean> {
+  const done = Promise.allSettled(processes.map((proc) => proc.status)).then(() => true);
+  const timedOut = sleep(timeoutMs).then(() => false);
+  return await Promise.race([done, timedOut]);
+}
+
+async function terminateDevProcesses(processes: DevProcess[]): Promise<void> {
+  if (processes.length === 0) return;
+
+  await Promise.all(processes.map((proc) => signalProcessTree(proc, "SIGTERM")));
+  if (await waitForDevProcessesToExit(processes, 8000)) return;
+
+  console.warn("[dev all] Some processes did not exit after SIGTERM; sending SIGKILL.");
+  await Promise.all(processes.map((proc) => signalProcessTree(proc, "SIGKILL")));
+  await waitForDevProcessesToExit(processes, 3000);
+}
+
+async function isTcpPortOpen(hostname: string, port: number, timeoutMs = 500): Promise<boolean> {
+  let timer = 0;
+  try {
+    const connect = Deno.connect({ hostname, port });
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), timeoutMs);
+    });
+    const conn = await Promise.race([connect, timeout]);
+    if (!conn) return false;
+    conn.close();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function assertTcpPortAvailable(port: number, label: string): Promise<void> {
+  for (const hostname of LOCALHOSTS) {
+    if (await isTcpPortOpen(hostname, port, 150)) {
+      throw new Error(
+        `${label} port ${port} is already in use on ${hostname}. ` +
+          "Stop the existing dev process or choose another sandbox before running 'stimma dev all'.",
+      );
+    }
+  }
+
+  for (const hostname of LOCALHOSTS) {
+    let listener: Deno.Listener | null = null;
+    try {
+      listener = Deno.listen({ hostname, port });
+    } catch (err) {
+      if (hostname === "::1" && !(await isTcpPortOpen(hostname, port, 150))) {
+        continue;
+      }
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(`${label} port ${port} is not available on ${hostname}: ${detail}`);
+    } finally {
+      listener?.close();
+    }
+  }
+}
+
+async function warnIfTcpPortStillOpen(port: number, label: string, timeoutMs = 5000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    try {
-      const conn = await Deno.connect({ hostname: "127.0.0.1", port });
-      conn.close();
-      return;
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 250));
+    const open = await Promise.all(LOCALHOSTS.map((hostname) => isTcpPortOpen(hostname, port, 150)));
+    if (!open.some(Boolean)) return;
+    await sleep(250);
+  }
+
+  console.warn(`[dev all] ${label} port ${port} is still listening after shutdown.`);
+}
+
+async function waitForReadyOrExit(processes: DevProcess[], ready: Promise<void>): Promise<void> {
+  const firstExit = Promise.race(processes.map(async (proc) => ({
+    type: "exit" as const,
+    proc,
+    status: await proc.status,
+  })));
+  const readyResult = ready.then(() => ({ type: "ready" as const }));
+  const result = await Promise.race([firstExit, readyResult]);
+  if (result.type === "ready") return;
+
+  throw new Error(
+    `${result.proc.label} exited before the dev stack was ready ` +
+      `(code ${result.status.code}); stopping remaining processes.`,
+  );
+}
+
+async function waitForTcpPort(port: number, label: string, timeoutMs = 60000, hostnames = LOCALHOSTS): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const hostname of hostnames) {
+      if (await isTcpPortOpen(hostname, port, 250)) return;
     }
+    await sleep(250);
   }
   throw new Error(`Timed out waiting for ${label} on port ${port}`);
 }
@@ -191,17 +356,111 @@ function getBundleCacheRoot(bundleId: string): string {
   return join(xdgCache, bundleId);
 }
 
-async function getSandboxPorts(bundleId: string, sandbox: string): Promise<{ server: number; frontend: number }> {
-  // Check for .fork.json (written by `stimma fork create`) for port overrides
-  const forkJson = join(getDataDir(bundleId, sandbox), ".fork.json");
+type SandboxPorts = {
+  server: number;
+  frontend: number;
+};
+
+function forkJsonPath(bundleId: string, sandbox: string): string {
+  return join(getDataDir(bundleId, sandbox), ".fork.json");
+}
+
+async function readSandboxPorts(bundleId: string, sandbox: string): Promise<SandboxPorts | null> {
   try {
-    const data = JSON.parse(await Deno.readTextFile(forkJson));
-    return { server: data.server_port, frontend: data.frontend_port };
+    const data = JSON.parse(await Deno.readTextFile(forkJsonPath(bundleId, sandbox)));
+    const server = Number(data.server_port);
+    const frontend = Number(data.frontend_port);
+    if (Number.isInteger(server) && Number.isInteger(frontend) && server > 0 && frontend > 0) {
+      return { server, frontend };
+    }
   } catch {
-    // No .fork.json — use default ports. This is fine for single-sandbox usage.
-    // Only matters if running multiple sandboxes simultaneously.
-    return { server: 9191, frontend: 9192 };
+    // Missing or unreadable .fork.json means no assigned ports yet.
   }
+  return null;
+}
+
+async function writeSandboxPorts(bundleId: string, sandbox: string, ports: SandboxPorts): Promise<void> {
+  const dataDir = getDataDir(bundleId, sandbox);
+  await Deno.mkdir(dataDir, { recursive: true });
+  const payload = {
+    server_port: ports.server,
+    frontend_port: ports.frontend,
+  };
+  await Deno.writeTextFile(forkJsonPath(bundleId, sandbox), JSON.stringify(payload, null, 2) + "\n");
+}
+
+async function nextSandboxPorts(bundleId: string): Promise<SandboxPorts> {
+  const root = getBundleDataRoot(bundleId);
+  const usedPorts = new Set<number>([DEFAULT_BACKEND_PORT, DEFAULT_FRONTEND_PORT]);
+
+  try {
+    for await (const entry of Deno.readDir(root)) {
+      if (!entry.isDirectory) continue;
+      const ports = await readSandboxPorts(bundleId, entry.name);
+      if (!ports) continue;
+      usedPorts.add(ports.server);
+      usedPorts.add(ports.frontend);
+    }
+  } catch {
+    // Bundle directory may not exist yet.
+  }
+
+  for (let port = FORK_PORT_BASE; port < FORK_PORT_LIMIT; port += 2) {
+    const alreadyAssigned = usedPorts.has(port) || usedPorts.has(port + 1);
+    const currentlyOpen = (await Promise.all(
+      LOCALHOSTS.flatMap((hostname) => [
+        isTcpPortOpen(hostname, port, 150),
+        isTcpPortOpen(hostname, port + 1, 150),
+      ]),
+    )).some(Boolean);
+    if (!alreadyAssigned && !currentlyOpen) {
+      return { server: port, frontend: port + 1 };
+    }
+  }
+
+  throw new Error(`No available sandbox ports in range ${FORK_PORT_BASE}-${FORK_PORT_LIMIT - 1}`);
+}
+
+async function getSandboxPorts(bundleId: string, sandbox: string): Promise<{ server: number; frontend: number }> {
+  const existing = await readSandboxPorts(bundleId, sandbox);
+  if (existing) {
+    const inLegacyHiroRange =
+      sandbox !== "default" &&
+      existing.server >= LEGACY_HIRO_COLLIDING_PORT_BASE &&
+      existing.server < LEGACY_HIRO_COLLIDING_PORT_LIMIT;
+    if (!inLegacyHiroRange) return existing;
+
+    const ports = await nextSandboxPorts(bundleId);
+    await writeSandboxPorts(bundleId, sandbox, ports);
+    console.log(
+      `Sandbox '${sandbox}': moved ports out of Hiro's range ` +
+        `backend=:${existing.server} frontend=:${existing.frontend} -> ` +
+        `backend=:${ports.server} frontend=:${ports.frontend}`,
+    );
+    return ports;
+  }
+
+  if (sandbox === "default") {
+    return { server: DEFAULT_BACKEND_PORT, frontend: DEFAULT_FRONTEND_PORT };
+  }
+
+  const ports = await nextSandboxPorts(bundleId);
+  await writeSandboxPorts(bundleId, sandbox, ports);
+  console.log(`Sandbox '${sandbox}': assigned ports backend=:${ports.server} frontend=:${ports.frontend}`);
+  return ports;
+}
+
+function sandboxIdentifier(baseBundleId: string, sandbox: string): string {
+  if (sandbox === "default") return baseBundleId;
+  return `${baseBundleId}.${sandboxSafeSegment(sandbox)}`;
+}
+
+function sandboxSafeSegment(sandbox: string): string {
+  return sandbox
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "sandbox";
 }
 
 function printUsage(): never {
@@ -219,9 +478,9 @@ Flags:
                       cloud; app_branch stays 'dev' on the debug channel)
 
 Commands:
-  dev frontend    Run Vite dev server with HMR (port 9192)
-  dev backend     Run Python backend with nodemon (port 9191)
-  dev backend2    Run Rust backend (port 9191)
+  dev frontend    Run Vite dev server with HMR (default port 9192)
+  dev backend     Run Python backend with nodemon (default port 9191)
+  dev backend2    Run Rust backend (default port 9191)
   dev app         Run Tauri in dev mode
   dev all         Run backend + frontend + Tauri together with merged logs
   run backend     Run backend without file watching
@@ -255,7 +514,7 @@ Commands:
   fork              List all sandboxes with sizes and ports
   fork create NAME  Copy default sandbox to a new named sandbox
   fork create NAME --empty  Create a FRESH first-run sandbox (empty except
-                      .fork.json with auto-assigned ports) — backend boots it
+                      .fork.json with assigned ports) — backend boots it
                       as a new install: config auto-init, consent undetermined
   fork destroy NAME [--yes]  Delete a named sandbox (data + cache); --yes skips
                       the confirmation prompt (required for non-interactive use)
@@ -1240,20 +1499,29 @@ function officialBanner(bundleId: string): void {
   );
 }
 
+function tauriTargetDir(sandbox: string): string | undefined {
+  if (sandbox === "default") return undefined;
+  return join(repoRoot, "target-tauri", sandboxSafeSegment(sandbox));
+}
+
 function tauriDevEnv(ports: { server: number; frontend: number }, sandbox: string, officialEnv: Record<string, string>): Record<string, string> {
-  return {
+  const targetDir = tauriTargetDir(sandbox);
+  const env: Record<string, string> = {
     STIMMA_DEV: "1",
     STIMMA_BACKEND_PORT: String(ports.server),
     STIMMA_FRONTEND_PORT: String(ports.frontend),
     STIMMA_SANDBOX: sandbox,
     ...officialEnv,
   };
+  if (targetDir) env.CARGO_TARGET_DIR = targetDir;
+  return env;
 }
 
-function tauriDevConfig(ports: { frontend: number }): string {
+function tauriDevConfig(bundleId: string, sandbox: string, ports: { frontend: number }): string {
   return JSON.stringify({
+    identifier: sandboxIdentifier(bundleId, sandbox),
     build: {
-      devUrl: `http://localhost:${ports.frontend}`,
+      devUrl: `http://${DEV_HOST}:${ports.frontend}`,
     },
   });
 }
@@ -1270,48 +1538,81 @@ async function commandDevAll(bundleId: string, sandbox: string, officialEnv: Rec
     STIMMA_BACKEND_PORT: String(ports.server),
     STIMMA_FRONTEND_PORT: String(ports.frontend),
   };
-  const tauriConfig = tauriDevConfig(ports);
+  const tauriConfig = tauriDevConfig(bundleId, sandbox, ports);
   const processes: DevProcess[] = [];
   let shuttingDown = false;
+  let shutdownPromise: Promise<void> | null = null;
 
-  const shutdown = () => {
-    if (shuttingDown) return;
+  const shutdown = (exitCode?: number) => {
+    if (shutdownPromise) return shutdownPromise;
     shuttingDown = true;
-    terminateDevProcesses(processes);
+    shutdownPromise = (async () => {
+      const hadStartedProcesses = processes.length > 0;
+      await terminateDevProcesses(processes);
+      if (hadStartedProcesses) {
+        await Promise.all([
+          warnIfTcpPortStillOpen(ports.server, "backend"),
+          warnIfTcpPortStillOpen(ports.frontend, "frontend"),
+        ]);
+      }
+      if (exitCode !== undefined) Deno.exit(exitCode);
+    })();
+    return shutdownPromise;
   };
 
-  Deno.addSignalListener("SIGINT", shutdown);
-  Deno.addSignalListener("SIGTERM", shutdown);
+  const handleSigint = () => {
+    console.log("\n[dev all] Received Ctrl-C; stopping dev stack...");
+    void shutdown(130);
+  };
+  const handleSigterm = () => {
+    console.log("\n[dev all] Received SIGTERM; stopping dev stack...");
+    void shutdown(143);
+  };
+
+  Deno.addSignalListener("SIGINT", handleSigint);
+  Deno.addSignalListener("SIGTERM", handleSigterm);
 
   console.log(`Starting Stimma dev stack (bundle=${bundleId}, sandbox=${sandbox}, backend=:${ports.server}, frontend=:${ports.frontend})`);
   if (officialEnv.STIMMA_DISTRIBUTION === "official") {
     console.log("Official distribution mode is active for backend, frontend, and app.");
   }
 
-  processes.push(spawnDevProcess("backend", "npx", backendArgs, { cwd: backendDir, env: officialEnv }));
-  processes.push(spawnDevProcess("frontend", "npm", ["run", "dev"], { cwd: frontendDir, env: { ...portEnv, ...officialEnv } }));
-
   try {
-    await waitForTcpPort(ports.frontend, "frontend");
+    await Promise.all([
+      assertTcpPortAvailable(ports.server, "backend"),
+      assertTcpPortAvailable(ports.frontend, "frontend"),
+    ]);
+
+    processes.push(spawnDevProcess("backend", "npx", backendArgs, { cwd: backendDir, env: officialEnv }));
+    processes.push(spawnDevProcess("frontend", "npm", VITE_DEV_ARGS, { cwd: frontendDir, env: { ...portEnv, ...officialEnv } }));
+
+    await waitForReadyOrExit(processes, Promise.all([
+      waitForTcpPort(ports.server, "backend", 60000, [DEV_HOST]),
+      waitForTcpPort(ports.frontend, "frontend", 60000, [DEV_HOST]),
+    ]).then(() => undefined));
+
+    console.log("[dev all] Backend and frontend are ready; launching Tauri app.");
     processes.push(spawnDevProcess("app", "cargo", ["tauri", "dev", "--config", tauriConfig], {
       cwd: repoRoot,
       env: tauriDevEnv(ports, sandbox, officialEnv),
     }));
+    console.log("[dev all] App process started. Press Ctrl-C to stop the full stack.");
 
     const firstExit = await Promise.race(processes.map(async (proc) => ({ proc, status: await proc.status })));
     if (!shuttingDown) {
       console.log(`[dev all] ${firstExit.proc.label} exited with code ${firstExit.status.code}; stopping remaining processes.`);
-      shutdown();
+      await shutdown();
+      Deno.exit(firstExit.status.code);
     }
-    Deno.exit(firstExit.status.code);
+    await shutdownPromise;
   } catch (err) {
     console.error(`[dev all] ${err}`);
-    shutdown();
+    await shutdown();
     Deno.exit(1);
   } finally {
     try {
-      Deno.removeSignalListener("SIGINT", shutdown);
-      Deno.removeSignalListener("SIGTERM", shutdown);
+      Deno.removeSignalListener("SIGINT", handleSigint);
+      Deno.removeSignalListener("SIGTERM", handleSigterm);
     } catch {
       // Ignore cleanup failures while exiting.
     }
@@ -1389,7 +1690,7 @@ async function main(): Promise<void> {
           STIMMA_BACKEND_PORT: String(ports.server),
           STIMMA_FRONTEND_PORT: String(ports.frontend),
         };
-        await run("npm", ["run", "dev"], { cwd: join(repoRoot, "frontend"), env: { ...portEnv, ...officialEnv } });
+        await run("npm", VITE_DEV_ARGS, { cwd: join(repoRoot, "frontend"), env: { ...portEnv, ...officialEnv } });
       } else if (sub === "backend") {
         const backendDir = join(repoRoot, "backend");
         const ports = await getSandboxPorts(bundleId, sandbox);
@@ -1409,7 +1710,7 @@ async function main(): Promise<void> {
         if (official) {
           console.log(`Note: 'dev app' uses the externally running backend on :${ports.server} — start it with 'stimma dev backend --official' for backend surfaces.`);
         }
-        await run("cargo", ["tauri", "dev", "--config", tauriDevConfig(ports)], {
+        await run("cargo", ["tauri", "dev", "--config", tauriDevConfig(bundleId, sandbox, ports)], {
           cwd: repoRoot,
           env: tauriDevEnv(ports, sandbox, officialEnv),
         });
@@ -1565,14 +1866,11 @@ async function main(): Promise<void> {
           if (!entry.isDirectory) continue;
           const sandboxDir = join(root, entry.name);
           let ports = "";
-          const forkJsonPath = join(sandboxDir, ".fork.json");
-          if (await pathExists(forkJsonPath)) {
-            try {
-              const data = JSON.parse(await Deno.readTextFile(forkJsonPath));
-              ports = `  server=:${data.server_port} frontend=:${data.frontend_port}`;
-            } catch { /* ignore */ }
+          const assignedPorts = await readSandboxPorts(bundleId, entry.name);
+          if (assignedPorts) {
+            ports = `  server=:${assignedPorts.server} frontend=:${assignedPorts.frontend}`;
           } else if (entry.name === "default") {
-            ports = "  server=:9191 frontend=:9192";
+            ports = `  server=:${DEFAULT_BACKEND_PORT} frontend=:${DEFAULT_FRONTEND_PORT}`;
           }
           // Get directory size (rough)
           let sizeStr = "";
@@ -1617,31 +1915,11 @@ async function main(): Promise<void> {
           await copyDir(srcData, dstData);
         }
         await Deno.mkdir(dstCache, { recursive: true });
-        // Allocate ports: scan existing .fork.json files to find next available pair
-        const root = getBundleDataRoot(bundleId);
-        const usedPorts = new Set<number>();
-        for await (const entry of Deno.readDir(root)) {
-          if (!entry.isDirectory || entry.name === "default") continue;
-          const fp = join(root, entry.name, ".fork.json");
-          try {
-            const data = JSON.parse(await Deno.readTextFile(fp));
-            usedPorts.add(data.server_port);
-            usedPorts.add(data.frontend_port);
-          } catch { /* ignore */ }
-        }
-        let serverPort = 9300;
-        while (usedPorts.has(serverPort) || usedPorts.has(serverPort + 1)) {
-          serverPort += 2;
-        }
-        if (serverPort > 9398) {
-          console.error("No available fork ports (9300-9399 exhausted).");
-          Deno.exit(1);
-        }
-        const forkConfig = { server_port: serverPort, frontend_port: serverPort + 1 };
-        await Deno.writeTextFile(join(dstData, ".fork.json"), JSON.stringify(forkConfig, null, 2) + "\n");
+        const ports = await nextSandboxPorts(bundleId);
+        await writeSandboxPorts(bundleId, name, ports);
         console.log(`Sandbox '${name}' created${empty ? " (empty, first-run)" : ""}.`);
-        console.log(`  Server port:   ${serverPort}`);
-        console.log(`  Frontend port: ${serverPort + 1}`);
+        console.log(`  Server port:   ${ports.server}`);
+        console.log(`  Frontend port: ${ports.frontend}`);
       } else if (sub === "destroy") {
         const yes = rest.includes("--yes") || rest.includes("-y");
         const name = rest.find((a) => !a.startsWith("-"));
