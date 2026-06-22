@@ -1424,6 +1424,7 @@ import { useFeedback } from '../composables/useFeedback'
 import { marked } from 'marked'
 import axios from 'axios'
 import { devModeRef } from '../appConfig'
+import { escapeHtmlAttribute, sanitizeHtml } from '../utils/sanitizeHtml'
 
 const props = defineProps<{
   // Optional override for chat identity. When provided, this takes precedence
@@ -3643,9 +3644,9 @@ function renderMarkdown(text) {
     if (mediaId) {
       return `${MEDIA_PLACEHOLDER_PREFIX}${mediaId}${MEDIA_PLACEHOLDER_SUFFIX}`
     }
-    return `<img src="${href}" alt="${alt}" />`
+    return `<img src="${escapeHtmlAttribute(href)}" alt="${escapeHtmlAttribute(alt)}" />`
   }
-  return marked.parse(text, { breaks: true, renderer })
+  return sanitizeHtml(marked.parse(text, { breaks: true, async: false, renderer }))
 }
 
 // Split rendered markdown into segments of html and media references

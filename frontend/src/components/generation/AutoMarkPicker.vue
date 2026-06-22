@@ -13,12 +13,14 @@
       :style="isSelected(marker.id) ? { backgroundColor: marker.color + '33', borderColor: marker.color, color: marker.color } : {}"
       :title="marker.name"
     >
-      <span v-html="marker.icon_svg" class="w-4 h-4 flex-shrink-0 icon-container"></span>
+      <span v-html="sanitizeSvg(marker.icon_svg)" class="w-4 h-4 flex-shrink-0 icon-container"></span>
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { sanitizeSvg } from '../../utils/sanitizeHtml'
+
 interface Marker {
   id: number
   name: string

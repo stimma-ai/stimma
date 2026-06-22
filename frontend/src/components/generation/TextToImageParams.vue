@@ -47,10 +47,11 @@
 
     <!-- Advanced Parameters -->
     <AdvancedParams
-      v-model="localParams"
+      :model-value="localParams"
       :parameter-schema="parameterSchema"
       :folders="folders"
       :selected-folder="selectedFolder"
+      @update:model-value="updateLocalParams"
       @update:selected-folder="$emit('update:selected-folder', $event)"
     />
   </div>
@@ -147,5 +148,9 @@ function addLora() {
 
 function removeLora(index: number) {
   localParams.selectedLoras.splice(index, 1)
+}
+
+function updateLocalParams(value: Partial<TextToImageParameters>) {
+  Object.assign(localParams, value)
 }
 </script>

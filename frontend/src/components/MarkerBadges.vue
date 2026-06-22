@@ -9,7 +9,7 @@
       <span
         class="w-4 h-4 flex items-center justify-center icon-container"
         :style="{ color: getMarkerDef(marker.id)?.color || marker.color }"
-        v-html="getMarkerDef(marker.id)?.icon_svg || marker.icon_svg"
+        v-html="markerIconSvg(marker)"
       />
     </div>
   </div>
@@ -17,6 +17,7 @@
 
 <script setup>
 import { useMarkers } from '../composables/useMarkers'
+import { sanitizeSvg } from '../utils/sanitizeHtml'
 
 defineProps({
   markers: {
@@ -30,6 +31,10 @@ const { availableMarkers } = useMarkers()
 // Look up current marker definition by ID to get live icon/color
 function getMarkerDef(id) {
   return availableMarkers.value.find(m => m.id === id)
+}
+
+function markerIconSvg(marker) {
+  return sanitizeSvg(getMarkerDef(marker.id)?.icon_svg || marker.icon_svg)
 }
 </script>
 

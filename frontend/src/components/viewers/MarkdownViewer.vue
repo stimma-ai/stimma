@@ -26,9 +26,9 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import axios from 'axios'
-import { marked } from 'marked'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useTheme } from '../../composables/useTheme'
+import { renderSafeMarkdown } from '../../utils/sanitizeHtml'
 
 const props = defineProps({
   mediaId: {
@@ -101,8 +101,8 @@ const renderedContent = computed(() => {
     processedContent = processedContent.replace(regex, `![$1](${resolvedUrl})`)
   }
 
-  // Render markdown to HTML
-  return marked.parse(processedContent)
+  // Render markdown to sanitized HTML
+  return renderSafeMarkdown(processedContent)
 })
 
 watch(() => props.mediaId, loadContent, { immediate: true })

@@ -32,6 +32,7 @@
     "@tauri-apps/plugin-shell": "^2.3.4",
     "@tauri-apps/plugin-updater": "2.10.0",
     "axios": "^1.6.2",
+    "dompurify": "^3.4.11",
     "marked": "^17.0.1",
     "modern-screenshot": "^4.7.0",
     "vue": "^3.3.8",
@@ -42,11 +43,11 @@
   "devDependencies": {
     "@playwright/test": "^1.50.0",
     "@tauri-apps/cli": "^2.9.6",
-    "@vitejs/plugin-vue": "^4.5.0",
+    "@vitejs/plugin-vue": "^6.0.7",
     "autoprefixer": "^10.4.16",
     "knip": "^6.17.1",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",
-    "vite": "^5.0.4"
+    "vite": "^8.0.16"
   }
 }

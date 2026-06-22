@@ -40,7 +40,7 @@
           :title="marker.name"
           @click="toggleMarker(marker.id)"
         >
-          <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="marker.icon_svg" />
+          <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
         </button>
 
         <!-- Similar Search Badge -->
@@ -727,6 +727,7 @@ import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
 import { useMediaApi } from '../composables/useMediaApi'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../utils/stimmaCloud'
+import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { captioningEnabledRef } from '../appConfig'
 import { useTelemetry } from '../composables/useTelemetry'
 import { MediaImage } from './media'

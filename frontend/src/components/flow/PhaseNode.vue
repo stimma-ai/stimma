@@ -476,7 +476,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { marked } from 'marked'
 import TaskCard from './TaskCard.vue'
 import EquationTraceRow from './EquationTraceRow.vue'
 import CompletedSelectPanel from './CompletedSelectPanel.vue'
@@ -488,6 +487,7 @@ import type { PhaseNode as PhaseNodeType, FlowEquation, FlowTask } from '../../c
 import type { StepItem } from '../../composables/useFlowGrouping'
 import { useFlowExpandState } from '../../composables/useFlowExpandState'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'
+import { renderSafeMarkdown } from '../../utils/sanitizeHtml'
 import { equationDurationMs, formatEquationDurationMs } from '../../utils/equationDuration'
 
 interface Props {
@@ -844,7 +844,7 @@ function infoMarkdown(eq: FlowEquation): string {
   const r = eq.result
   if (typeof r !== 'string' || !r) return ''
   try {
-    return marked.parse(r, { breaks: true, async: false }) as string
+    return renderSafeMarkdown(r)
   } catch {
     return r
   }

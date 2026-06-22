@@ -29,7 +29,7 @@
             :style="hasMarker(mediaId, marker.id) ? { backgroundColor: marker.color + '33', borderColor: marker.color, color: marker.color } : {}"
             :title="marker.name"
           >
-            <span v-html="marker.icon_svg" class="w-4 h-4 flex-shrink-0 icon-container"></span>
+            <span v-html="sanitizeSvg(marker.icon_svg)" class="w-4 h-4 flex-shrink-0 icon-container"></span>
           </button>
         </div>
       </div>
@@ -222,6 +222,7 @@ import { computed, watch, onMounted } from 'vue'
 import { MediaImage } from './index'
 import { useMarkers } from '../../composables/useMarkers'
 import { getFilterDisplayLabel } from '@stimma/image-editor'
+import { sanitizeSvg } from '../../utils/sanitizeHtml'
 
 const props = defineProps({
   // Full media item (must include `id` and generation_metadata)

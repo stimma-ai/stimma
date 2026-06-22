@@ -80,7 +80,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUpdated, nextTick } from 'vue'
-import { marked } from 'marked'
+import { renderSafeMarkdown } from '../../utils/sanitizeHtml'
 
 interface Props {
   value: unknown
@@ -207,7 +207,7 @@ const renderMarkdown = computed(() =>
 )
 const renderedMarkdown = computed(() => {
   const text = primary.value.kind === 'empty' ? '' : primary.value.text
-  return marked.parse(text, { breaks: true, async: false }) as string
+  return renderSafeMarkdown(text)
 })
 
 function measure() {

@@ -16,7 +16,7 @@
       >
         <div v-if="action.divider || action.id === 'divider'" class="menu-divider" />
         <template v-else>
-          <span v-if="action.icon" class="menu-icon" v-html="action.icon" />
+          <span v-if="action.icon" class="menu-icon" v-html="sanitizeSvg(action.icon)" />
           <span class="menu-label">{{ action.label }}</span>
           <span v-if="action.shortcut" class="menu-shortcut">{{ action.shortcut }}</span>
         </template>
@@ -27,6 +27,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { sanitizeSvg } from '../utils/sanitizeHtml'
 
 const props = defineProps({
   visible: {

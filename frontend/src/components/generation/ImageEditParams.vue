@@ -135,10 +135,11 @@
 
     <!-- Advanced Parameters -->
     <AdvancedParams
-      v-model="localParams"
+      :model-value="localParams"
       :parameter-schema="parameterSchema"
       :folders="folders"
       :selected-folder="selectedFolder"
+      @update:model-value="updateLocalParams"
       @update:selected-folder="$emit('update:selected-folder', $event)"
     />
   </div>
@@ -301,6 +302,10 @@ function removeLoraRow(index: number) {
   if ((localParams as any).selected_loras) {
     (localParams as any).selected_loras.splice(index, 1)
   }
+}
+
+function updateLocalParams(value: Partial<ImageEditParameters>) {
+  Object.assign(localParams, value)
 }
 
 function onLoraSearch(index: number) {

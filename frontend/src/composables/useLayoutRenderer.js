@@ -127,6 +127,9 @@ async function _renderOne({ html, width, height, dpr, assets, deadlineMs }) {
   const iframe = document.createElement('iframe')
   iframe.setAttribute('aria-hidden', 'true')
   iframe.setAttribute('tabindex', '-1')
+  // Keep srcdoc layouts measurable via contentDocument while preventing bundle
+  // scripts from running during thumbnail/rasterization renders.
+  iframe.setAttribute('sandbox', 'allow-same-origin')
   iframe.style.cssText = [
     'position:fixed',
     'left:-99999px',

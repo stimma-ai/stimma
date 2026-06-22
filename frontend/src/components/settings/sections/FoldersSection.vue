@@ -47,7 +47,7 @@
                       v-if="getMarkerByName(markerName)"
                       class="w-3.5 h-3.5 flex items-center justify-center text-content-muted icon-container"
                       :title="'Auto-mark: ' + markerName"
-                      v-html="getMarkerByName(markerName).icon_svg"
+                      v-html="markerIconSvg(markerName)"
                     ></span>
                   </template>
                 </div>
@@ -210,6 +210,7 @@ import ConfirmModal from '../../ConfirmModal.vue'
 import AddFolderModal from '../AddFolderModal.vue'
 import DatabaseCleanupModal from '../DatabaseCleanupModal.vue'
 import FolderSettingsModal from '../FolderSettingsModal.vue'
+import { sanitizeSvg } from '../../../utils/sanitizeHtml'
 
 // Access available markers for display
 const { availableMarkers, init: initMarkers } = useMarkers()
@@ -220,6 +221,10 @@ function getMarkerByName(name) {
   if (!name) return null
   const normalized = name.trim().toLowerCase()
   return availableMarkers.value.find(m => m.name?.toLowerCase() === normalized)
+}
+
+function markerIconSvg(name) {
+  return sanitizeSvg(getMarkerByName(name)?.icon_svg)
 }
 
 const props = defineProps({

@@ -89,7 +89,7 @@
             <span
               class="w-4 h-4 icon-container"
               :style="{ color: hasMarker(marker.id) ? marker.color : '#6b7280' }"
-              v-html="marker.icon_svg"
+              v-html="sanitizeSvg(marker.icon_svg)"
             />
           </button>
         </div>
@@ -708,6 +708,7 @@ import TaskTypeToolList from '../TaskTypeToolList.vue'
 import { isSelectionValidForTool } from '../../utils/toolSchemaUtils'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { makeStorageKey } from '../../utils/storageKeys'
+import { sanitizeSvg } from '../../utils/sanitizeHtml'
 import { getEligibleTaskTypesForMediaType } from '../../utils/taskTypeIcons'
 import { isImage as isImageType, getMediaType, MediaType } from '../../utils/mediaTypes'
 import axios from 'axios'

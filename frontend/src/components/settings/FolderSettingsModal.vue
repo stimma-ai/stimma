@@ -82,7 +82,7 @@
                   :style="isMarkerSelected(marker.name) ? { backgroundColor: marker.color + '33', borderColor: marker.color, color: marker.color } : {}"
                   :title="marker.name"
                 >
-                  <span v-html="marker.icon_svg" class="w-4 h-4 flex-shrink-0 icon-container"></span>
+                  <span v-html="sanitizeSvg(marker.icon_svg)" class="w-4 h-4 flex-shrink-0 icon-container"></span>
                 </button>
               </div>
               <p class="mt-1.5 text-xs text-content-muted">Automatically apply these markers to assets in this folder.</p>
@@ -115,6 +115,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { isTauri } from '../../apiConfig'
 import { useMarkers } from '../../composables/useMarkers'
+import { sanitizeSvg } from '../../utils/sanitizeHtml'
 
 const props = defineProps({
   show: {

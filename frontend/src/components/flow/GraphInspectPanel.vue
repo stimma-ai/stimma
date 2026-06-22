@@ -430,10 +430,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import axios from 'axios'
-import { marked } from 'marked'
 import { getApiBase } from '../../apiConfig'
 import type { FlowEquation, FlowTask } from '../../composables/useFlowsApi'
 import { useProvidersApi } from '../../composables/useProvidersApi'
+import { renderSafeMarkdown } from '../../utils/sanitizeHtml'
 import {
   getTaskTypeGradientClass,
   getTaskTypeIconPath,
@@ -1269,7 +1269,7 @@ const infoMarkdown = computed<string>(() => {
   const eq = focusEquation.value
   if (!eq || eq.equation_type !== 'info' || typeof eq.result !== 'string' || !eq.result) return ''
   try {
-    return marked.parse(eq.result, { breaks: true, async: false }) as string
+    return renderSafeMarkdown(eq.result)
   } catch {
     return eq.result
   }

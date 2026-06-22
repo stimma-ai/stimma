@@ -259,10 +259,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as dagre from '@dagrejs/dagre'
-import { marked } from 'marked'
 import FlowMediaTile from './FlowMediaTile.vue'
 import type { FlowEquation, FlowTask } from '../../composables/useFlowsApi'
 import { useProvidersApi } from '../../composables/useProvidersApi'
+import { renderSafeMarkdown } from '../../utils/sanitizeHtml'
 import {
   buildForeachSuperNodes,
   buildApproveSuperNodes,
@@ -1143,7 +1143,7 @@ function infoText(n: LayoutNode): string {
 
 function renderInfoMarkdown(src: string): string {
   try {
-    return marked.parse(src, { breaks: true, async: false }) as string
+    return renderSafeMarkdown(src)
   } catch {
     return src
   }

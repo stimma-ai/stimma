@@ -103,7 +103,7 @@
                   :style="hasMarker(item.batch.output_set_id, marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
                   :title="hasMarker(item.batch.output_set_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
                 >
-                  <span class="w-4 h-4 flex items-center justify-center icon-container" v-html="marker.icon_svg" />
+                  <span class="w-4 h-4 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
                 </button>
               </div>
               <!-- Set title overlay (bottom center, matching browser) -->
@@ -196,6 +196,7 @@ import BatchGroup from './BatchGroup.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
+import { sanitizeSvg } from '../../utils/sanitizeHtml'
 
 const { getMediaFileUrl, getThumbnailUrl } = useMediaApi()
 const contextMenu = useMediaContextMenu()

@@ -73,7 +73,7 @@
         :style="hasMarker(job.result_media_id, marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
         :title="hasMarker(job.result_media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
       >
-        <span class="w-4 h-4 flex items-center justify-center icon-container" v-html="marker.icon_svg" />
+        <span class="w-4 h-4 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
       </button>
     </div>
     <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
@@ -88,6 +88,7 @@ import { MediaImage } from '../media'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
+import { sanitizeSvg } from '../../utils/sanitizeHtml'
 
 interface Job {
   id: number

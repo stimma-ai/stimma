@@ -25,8 +25,8 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { marked } from 'marked'
 import { ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
+import { renderSafeMarkdown } from '../../utils/sanitizeHtml'
 
 const props = defineProps({
   prompt: {
@@ -60,6 +60,6 @@ const displayPrompt = computed(() => {
 
 const renderedPrompt = computed(() => {
   if (!displayPrompt.value) return ''
-  return marked.parse(displayPrompt.value, { breaks: true })
+  return renderSafeMarkdown(displayPrompt.value)
 })
 </script>

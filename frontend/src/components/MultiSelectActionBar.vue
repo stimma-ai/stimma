@@ -101,7 +101,7 @@
                 :title="isMarkerActive(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
                 @click="$emit('toggle-marker', { markerId: marker.id, add: !isMarkerActive(marker.id) })"
               >
-                <span class="marker-icon icon-container" :style="isMarkerActive(marker.id) ? { color: marker.color } : { color: '#9ca3af' }" v-html="marker.icon_svg" />
+                <span class="marker-icon icon-container" :style="isMarkerActive(marker.id) ? { color: marker.color } : { color: '#9ca3af' }" v-html="sanitizeSvg(marker.icon_svg)" />
               </button>
             </div>
 
@@ -199,6 +199,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
+import { sanitizeSvg } from '../utils/sanitizeHtml'
 
 const contextMenu = useMediaContextMenu()
 

@@ -660,7 +660,7 @@
               :style="stageHasMarker(marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
               :title="stageHasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
             >
-              <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="marker.icon_svg" />
+              <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
             </button>
           </div>
         </template>
@@ -832,6 +832,7 @@ import { parseGenerationConfig, type GenerationConfigUpdate } from '../utils/par
 import { formatRemainingTime } from '../utils/timeFormat'
 import { isStimmaCloudTool as isStimmaCloud } from '../utils/stimmaCloud'
 import { copyToClipboard } from '../utils/clipboard'
+import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { addToast } from '../composables/useToasts'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import CompareMode from '../components/CompareMode.vue'

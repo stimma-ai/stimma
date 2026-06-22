@@ -123,7 +123,7 @@
             <span
               class="w-4 h-4 flex items-center justify-center icon-container"
               :style="{ color: marker.color }"
-              v-html="marker.icon_svg"
+              v-html="sanitizeSvg(marker.icon_svg)"
             />
           </div>
         </template>
@@ -181,6 +181,7 @@ import { useMarkers } from '../../composables/useMarkers'
 import { useMediaState } from '../../composables/useMediaState'
 import { formatRemainingTime } from '../../utils/timeFormat'
 import { getMediaType } from '../../utils/mediaTypes'
+import { sanitizeSvg } from '../../utils/sanitizeHtml'
 
 const props = defineProps({
   row: {

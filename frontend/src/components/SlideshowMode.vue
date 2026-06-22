@@ -1018,7 +1018,7 @@
             :style="isMarkerActive(marker.id) ? { color: marker.color } : {}"
             :title="isMarkerActive(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
           >
-            <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="marker.icon_svg" />
+            <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
           </button>
         </template>
       </div>
@@ -1133,6 +1133,7 @@ import HorizontalVirtualScroller from './HorizontalVirtualScroller.vue'
 import { captioningEnabledRef } from '../appConfig'
 import MarkerBadges from './MarkerBadges.vue'
 import SlideshowInfoPanel from './SlideshowInfoPanel.vue'
+import { sanitizeSvg } from '../utils/sanitizeHtml'
 import SlideshowApprovalBar from './flow/SlideshowApprovalBar.vue'
 import { MediaContextMenu, MediaImage } from './media'
 import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'

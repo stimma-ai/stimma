@@ -77,7 +77,7 @@
                   class="w-4 h-4 bg-black/60 backdrop-blur-md rounded flex items-center justify-center"
                   :title="marker.name"
                 >
-                  <span class="w-3 h-3 flex items-center justify-center icon-container" :style="{ color: marker.color }" v-html="marker.icon_svg" />
+                  <span class="w-3 h-3 flex items-center justify-center icon-container" :style="{ color: marker.color }" v-html="sanitizeSvg(marker.icon_svg)" />
                 </div>
               </div>
             </div>
@@ -238,6 +238,7 @@ import * as dagre from '@dagrejs/dagre'
 import { MediaImage } from './media'
 import ImageDetailsCard from './media/ImageDetailsCard.vue'
 import { useMarkers } from '../composables/useMarkers'
+import { sanitizeSvg } from '../utils/sanitizeHtml'
 
 const router = useRouter()
 const props = defineProps({
