@@ -184,7 +184,7 @@ class TestAuthStorage:
 
         auth_storage.save_auth_state({
             "user": {"uid": "u1", "email": "test@example.com"},
-            "tier": "pro",
+            "tier": "maker",
             "refresh_token": "refresh-file",
             "id_token": "id-secret",
             "id_token_expiry": 9999999999,
@@ -251,7 +251,7 @@ class TestAuthStorage:
 
         save_auth_state({
             "user": {"uid": "u1", "email": "test@example.com"},
-            "tier": "pro",
+            "tier": "maker",
             "credits": 100,
             "refresh_token": "refresh-secret",
             "id_token": "id-secret",
@@ -260,7 +260,7 @@ class TestAuthStorage:
 
         raw = json.loads((data_dir / "cloud_auth.json").read_text())
         assert raw["user"]["uid"] == "u1"
-        assert raw["tier"] == "pro"
+        assert raw["tier"] == "maker"
         assert "refresh_token" not in raw
         assert "id_token" not in raw
         assert store.token == "refresh-secret"
@@ -277,7 +277,7 @@ class TestAuthStorage:
         path = data_dir / "cloud_auth.json"
         path.write_text(json.dumps({
             "user": {"uid": "u1"},
-            "tier": "pro",
+            "tier": "maker",
             "refresh_token": "legacy-refresh",
             "id_token": "legacy-id",
             "id_token_expiry": 9999999999,
@@ -292,7 +292,7 @@ class TestAuthStorage:
         raw = json.loads(path.read_text())
         assert "refresh_token" not in raw
         assert "id_token" not in raw
-        assert raw["tier"] == "pro"
+        assert raw["tier"] == "maker"
 
     def test_clear_auth_state_clears_json_and_secure_token(self, auth_storage_env):
         """Logout clears both display JSON and secure token storage."""
@@ -403,7 +403,7 @@ class TestAuthStatus:
         """Test auth status when logged in."""
         mock_state = {
             "user": {"uid": "u1", "email": "test@example.com", "displayName": "Test"},
-            "tier": "pro",
+            "tier": "maker",
             "credits": 100,
             "refresh_token": "refresh",
         }
@@ -414,7 +414,7 @@ class TestAuthStatus:
         data = response.json()
         assert data["authenticated"] is True
         assert data["user"]["email"] == "test@example.com"
-        assert data["tier"] == "pro"
+        assert data["tier"] == "maker"
         assert data["credits"] == 100
 
     async def test_status_defaults_tier_to_free(self, auth_client: AsyncClient):
@@ -459,7 +459,7 @@ class TestPollAuth:
         sessions["done-session"] = {
             "state": "abc",
             "port": 12345,
-            "result": {"user": {"uid": "u1"}, "tier": "pro", "completed": True},
+            "result": {"user": {"uid": "u1"}, "tier": "maker", "completed": True},
             "completed": True,
             "runner": None,
         }
@@ -469,7 +469,7 @@ class TestPollAuth:
         data = response.json()
         assert data["completed"] is True
         assert data["user"]["uid"] == "u1"
-        assert data["tier"] == "pro"
+        assert data["tier"] == "maker"
 
     async def test_poll_completed_with_error(self, auth_client: AsyncClient):
         """Test polling a completed session that has an error."""
@@ -512,8 +512,8 @@ class TestAccountInfo:
     async def test_account_success(self, auth_client: AsyncClient):
         """Test account info returns fresh data from cloud."""
         cloud_account = {
-            "tier": "pro",
-            "tierDisplayName": "Pro",
+            "tier": "maker",
+            "tierDisplayName": "Maker",
             "credits": 500,
             "createdAt": "2024-01-01",
             "usageWindows": {},
@@ -529,7 +529,7 @@ class TestAccountInfo:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["tier"] == "pro"
+        assert data["tier"] == "maker"
         assert data["credits"] == 500
         assert data["subscription"]["status"] == "active"
 

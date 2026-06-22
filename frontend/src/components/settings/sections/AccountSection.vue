@@ -318,7 +318,8 @@ function formatDate(dateStr) {
 function getPlanBadgeClass(tier) {
   const tierLower = (tier || '').toLowerCase()
   if (tierLower === 'power') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400'
-  if (tierLower === 'pro') return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-400'
+  if (tierLower === 'creator') return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-400'
+  if (tierLower === 'maker') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400'
   return 'bg-surface-raised/50 text-content-tertiary'
 }
 

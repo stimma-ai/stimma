@@ -15,7 +15,7 @@ log = get_logger(__name__)
 
 class CloudAccount(TypedDict):
     """User account info from stimma.cloud."""
-    tier: str           # 'free', 'starter', 'pro', etc.
+    tier: str           # 'free', 'maker', 'creator', 'power', etc.
     credits: int        # Account credits
     # May include other fields - preserve them
 

@@ -42,7 +42,7 @@ class AuthState(TypedDict, total=False):
     but save_auth_state() strips them before writing cloud_auth.json.
     """
     user: dict           # {uid, email, displayName, photoURL}
-    tier: str            # 'free', 'starter', 'pro', etc.
+    tier: str            # 'free', 'maker', 'creator', 'power', etc.
     refresh_token: str   # Firebase refresh token (secure storage or memory)
     id_token: str        # Firebase ID token (memory cache only)
     id_token_expiry: float  # Unix timestamp when id_token expires
