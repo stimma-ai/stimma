@@ -22,13 +22,16 @@ log = get_logger(__name__)
 
 # Auth state file name (stored in app data directory)
 AUTH_STATE_FILENAME = "cloud_auth.json"
+AUTH_TOKEN_FALLBACK_FILENAME = "cloud_auth_tokens.json"
 KEYCHAIN_SERVICE = "Stimma Cloud Auth"
+CREDENTIAL_LABEL = "Stimma Cloud refresh token"
 
 _SECRET_KEYS = {"refresh_token", "id_token"}
 _cached_id_token: Optional[str] = None
 _cached_id_token_expiry: Optional[float] = None
 _memory_refresh_token: Optional[str] = None
 _warned_memory_fallback = False
+_warned_file_fallback = False
 _token_store_override: Optional["RefreshTokenStore"] = None
 
 
@@ -135,9 +138,294 @@ class MacOSKeychainRefreshTokenStore:
         raise SecureTokenStorageUnavailable(message or "keychain delete failed")
 
 
+class WindowsCredentialManagerRefreshTokenStore:
+    """Store refresh tokens in Windows Credential Manager."""
+
+    backend_name = "windows-credential-manager"
+
+    CRED_TYPE_GENERIC = 1
+    CRED_PERSIST_LOCAL_MACHINE = 2
+    ERROR_NOT_FOUND = 1168
+
+    def __init__(self) -> None:
+        try:
+            import ctypes
+            from ctypes import wintypes
+        except Exception as e:
+            raise SecureTokenStorageUnavailable(str(e)) from e
+
+        if not hasattr(ctypes, "WinDLL"):
+            raise SecureTokenStorageUnavailable("ctypes.WinDLL unavailable")
+
+        self._ctypes = ctypes
+        self._wintypes = wintypes
+        self._advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+
+        class FILETIME(ctypes.Structure):
+            _fields_ = [
+                ("dwLowDateTime", wintypes.DWORD),
+                ("dwHighDateTime", wintypes.DWORD),
+            ]
+
+        class CREDENTIAL_ATTRIBUTE(ctypes.Structure):
+            _fields_ = [
+                ("Keyword", wintypes.LPWSTR),
+                ("Flags", wintypes.DWORD),
+                ("ValueSize", wintypes.DWORD),
+                ("Value", ctypes.POINTER(ctypes.c_ubyte)),
+            ]
+
+        class CREDENTIAL(ctypes.Structure):
+            _fields_ = [
+                ("Flags", wintypes.DWORD),
+                ("Type", wintypes.DWORD),
+                ("TargetName", wintypes.LPWSTR),
+                ("Comment", wintypes.LPWSTR),
+                ("LastWritten", FILETIME),
+                ("CredentialBlobSize", wintypes.DWORD),
+                ("CredentialBlob", ctypes.POINTER(ctypes.c_ubyte)),
+                ("Persist", wintypes.DWORD),
+                ("AttributeCount", wintypes.DWORD),
+                ("Attributes", ctypes.POINTER(CREDENTIAL_ATTRIBUTE)),
+                ("TargetAlias", wintypes.LPWSTR),
+                ("UserName", wintypes.LPWSTR),
+            ]
+
+        self._CREDENTIAL = CREDENTIAL
+        self._PCREDENTIAL = ctypes.POINTER(CREDENTIAL)
+
+        self._advapi32.CredReadW.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            ctypes.POINTER(self._PCREDENTIAL),
+        ]
+        self._advapi32.CredReadW.restype = wintypes.BOOL
+        self._advapi32.CredWriteW.argtypes = [
+            ctypes.POINTER(CREDENTIAL),
+            wintypes.DWORD,
+        ]
+        self._advapi32.CredWriteW.restype = wintypes.BOOL
+        self._advapi32.CredDeleteW.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+        ]
+        self._advapi32.CredDeleteW.restype = wintypes.BOOL
+        self._advapi32.CredFree.argtypes = [ctypes.c_void_p]
+        self._advapi32.CredFree.restype = None
+
+    @property
+    def _target_name(self) -> str:
+        return f"Stimma Cloud:{get_bundle_id()}:{get_sandbox()}:refresh-token"
+
+    def _raise_last_error(self, operation: str) -> None:
+        error_code = self._ctypes.get_last_error()
+        raise SecureTokenStorageUnavailable(f"{operation} failed with Windows error {error_code}")
+
+    def get_refresh_token(self) -> Optional[str]:
+        credential_ptr = self._PCREDENTIAL()
+        ok = self._advapi32.CredReadW(
+            self._target_name,
+            self.CRED_TYPE_GENERIC,
+            0,
+            self._ctypes.byref(credential_ptr),
+        )
+        if not ok:
+            error_code = self._ctypes.get_last_error()
+            if error_code == self.ERROR_NOT_FOUND:
+                return None
+            raise SecureTokenStorageUnavailable(
+                f"Credential Manager lookup failed with Windows error {error_code}"
+            )
+
+        try:
+            credential = credential_ptr.contents
+            if not credential.CredentialBlob or credential.CredentialBlobSize == 0:
+                return None
+            raw = self._ctypes.string_at(
+                credential.CredentialBlob,
+                credential.CredentialBlobSize,
+            )
+            return raw.decode("utf-16-le") or None
+        finally:
+            self._advapi32.CredFree(credential_ptr)
+
+    def set_refresh_token(self, token: str) -> None:
+        token_bytes = token.encode("utf-16-le")
+        token_buffer = self._ctypes.create_string_buffer(token_bytes)
+
+        credential = self._CREDENTIAL()
+        credential.Flags = 0
+        credential.Type = self.CRED_TYPE_GENERIC
+        target_name = self._ctypes.c_wchar_p(self._target_name)
+        comment = self._ctypes.c_wchar_p(CREDENTIAL_LABEL)
+        username = self._ctypes.c_wchar_p("Stimma Cloud")
+
+        credential.TargetName = target_name
+        credential.Comment = comment
+        credential.CredentialBlobSize = len(token_bytes)
+        credential.CredentialBlob = self._ctypes.cast(
+            token_buffer,
+            self._ctypes.POINTER(self._ctypes.c_ubyte),
+        )
+        credential.Persist = self.CRED_PERSIST_LOCAL_MACHINE
+        credential.AttributeCount = 0
+        credential.Attributes = None
+        credential.TargetAlias = None
+        credential.UserName = username
+
+        ok = self._advapi32.CredWriteW(self._ctypes.byref(credential), 0)
+        if not ok:
+            self._raise_last_error("Credential Manager write")
+
+    def clear_refresh_token(self) -> None:
+        ok = self._advapi32.CredDeleteW(
+            self._target_name,
+            self.CRED_TYPE_GENERIC,
+            0,
+        )
+        if ok:
+            return
+        error_code = self._ctypes.get_last_error()
+        if error_code == self.ERROR_NOT_FOUND:
+            return
+        raise SecureTokenStorageUnavailable(
+            f"Credential Manager delete failed with Windows error {error_code}"
+        )
+
+
+class LinuxSecretServiceRefreshTokenStore:
+    """Store refresh tokens via the Freedesktop Secret Service DBus API."""
+
+    backend_name = "linux-secret-service"
+
+    @property
+    def _attributes(self) -> dict[str, str]:
+        return {
+            "application": "Stimma",
+            "kind": "stimma-cloud-refresh-token",
+            "bundle_id": get_bundle_id(),
+            "sandbox": get_sandbox(),
+        }
+
+    @property
+    def _label(self) -> str:
+        return f"{CREDENTIAL_LABEL} ({get_bundle_id()}/{get_sandbox()})"
+
+    def _get_collection(self):
+        try:
+            import secretstorage
+            from secretstorage.exceptions import SecretStorageException
+        except Exception as e:
+            raise SecureTokenStorageUnavailable(str(e)) from e
+
+        try:
+            connection = secretstorage.dbus_init()
+            collection = secretstorage.get_default_collection(connection)
+            if collection.is_locked() and not collection.unlock(timeout=5.0):
+                raise SecureTokenStorageUnavailable("Secret Service collection is locked")
+            return collection
+        except SecretStorageException as e:
+            raise SecureTokenStorageUnavailable(str(e)) from e
+        except Exception as e:
+            raise SecureTokenStorageUnavailable(str(e)) from e
+
+    def _iter_items(self):
+        collection = self._get_collection()
+        return list(collection.search_items(self._attributes))
+
+    def get_refresh_token(self) -> Optional[str]:
+        try:
+            for item in self._iter_items():
+                if item.is_locked() and not item.unlock(timeout=5.0):
+                    continue
+                secret = item.get_secret()
+                if secret:
+                    return secret.decode("utf-8")
+            return None
+        except Exception as e:
+            raise SecureTokenStorageUnavailable(str(e)) from e
+
+    def set_refresh_token(self, token: str) -> None:
+        try:
+            collection = self._get_collection()
+            collection.create_item(
+                self._label,
+                self._attributes,
+                token.encode("utf-8"),
+                replace=True,
+            )
+        except Exception as e:
+            raise SecureTokenStorageUnavailable(str(e)) from e
+
+    def clear_refresh_token(self) -> None:
+        try:
+            for item in self._iter_items():
+                item.delete()
+        except Exception as e:
+            raise SecureTokenStorageUnavailable(str(e)) from e
+
+
+class FileRefreshTokenStore:
+    """Fallback persistent refresh-token store for Linux without Secret Service."""
+
+    backend_name = "linux-file-fallback"
+
+    def __init__(self) -> None:
+        if platform.system() != "Linux":
+            raise SecureTokenStorageUnavailable("file fallback is only enabled for Linux")
+
+    @property
+    def _path(self) -> Path:
+        return app_dirs.get_data_dir() / AUTH_TOKEN_FALLBACK_FILENAME
+
+    def get_refresh_token(self) -> Optional[str]:
+        path = self._path
+        if not path.exists():
+            return None
+        try:
+            if hasattr(os, "chmod"):
+                os.chmod(path, 0o600)
+            with open(path, "r") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                return None
+            token = data.get("refresh_token")
+            return token if isinstance(token, str) and token else None
+        except json.JSONDecodeError as e:
+            raise SecureTokenStorageUnavailable(f"fallback token file is malformed: {e}") from e
+        except Exception as e:
+            raise SecureTokenStorageUnavailable(str(e)) from e
+
+    def set_refresh_token(self, token: str) -> None:
+        path = self._path
+        try:
+            _write_auth_state_json(path, {"refresh_token": token})
+        except Exception as e:
+            raise SecureTokenStorageUnavailable(str(e)) from e
+
+    def clear_refresh_token(self) -> None:
+        try:
+            self._path.unlink(missing_ok=True)
+        except Exception as e:
+            raise SecureTokenStorageUnavailable(str(e)) from e
+
+
 def _get_auth_state_path() -> Path:
     """Get the path to the auth state file."""
     return app_dirs.get_data_dir() / AUTH_STATE_FILENAME
+
+
+def _get_file_fallback_store() -> Optional[RefreshTokenStore]:
+    """Return a persistent Linux fallback store if it is allowed."""
+    if platform.system() != "Linux":
+        return None
+    try:
+        return FileRefreshTokenStore()
+    except SecureTokenStorageUnavailable as e:
+        _log_memory_fallback(str(e))
+        return None
 
 
 def _get_token_store() -> Optional[RefreshTokenStore]:
@@ -145,14 +433,29 @@ def _get_token_store() -> Optional[RefreshTokenStore]:
     if _token_store_override is not None:
         return _token_store_override
 
-    if platform.system() == "Darwin":
+    system = platform.system()
+    if system == "Darwin":
         try:
             return MacOSKeychainRefreshTokenStore()
         except SecureTokenStorageUnavailable as e:
             _log_memory_fallback(str(e))
             return None
 
-    _log_memory_fallback(f"no OS credential storage backend for {platform.system()}")
+    if system == "Windows":
+        try:
+            return WindowsCredentialManagerRefreshTokenStore()
+        except SecureTokenStorageUnavailable as e:
+            _log_memory_fallback(str(e))
+            return None
+
+    if system == "Linux":
+        try:
+            return LinuxSecretServiceRefreshTokenStore()
+        except SecureTokenStorageUnavailable as e:
+            _log_file_fallback(str(e))
+            return _get_file_fallback_store()
+
+    _log_memory_fallback(f"no OS credential storage backend for {system}")
     return None
 
 
@@ -168,12 +471,41 @@ def _log_memory_fallback(reason: str) -> None:
     )
 
 
+def _log_file_fallback(reason: str) -> None:
+    """Log the Linux persistent file fallback once per process."""
+    global _warned_file_fallback
+    if _warned_file_fallback:
+        return
+    _warned_file_fallback = True
+    log.warning(
+        "Linux Secret Service unavailable; refresh token will be stored in a 0600 fallback file",
+        reason=reason,
+    )
+
+
+def _log_store_failure_for_fallback(store: RefreshTokenStore, reason: str) -> None:
+    """Log where token storage will fall back after a platform-store failure."""
+    if platform.system() == "Linux" and store.backend_name != FileRefreshTokenStore.backend_name:
+        _log_file_fallback(reason)
+    else:
+        _log_memory_fallback(reason)
+
+
 def _get_refresh_token() -> Optional[str]:
-    """Load refresh token from secure storage, falling back to process memory."""
+    """Load refresh token from secure storage, fallback file, or memory."""
     store = _get_token_store()
     if store is not None:
         try:
             token = store.get_refresh_token()
+            if token:
+                return token
+        except SecureTokenStorageUnavailable as e:
+            _log_store_failure_for_fallback(store, str(e))
+
+    fallback = _get_file_fallback_store()
+    if fallback is not None:
+        try:
+            token = fallback.get_refresh_token()
             if token:
                 return token
         except SecureTokenStorageUnavailable as e:
@@ -182,14 +514,27 @@ def _get_refresh_token() -> Optional[str]:
 
 
 def _set_refresh_token(token: str) -> None:
-    """Persist refresh token through secure storage when possible."""
+    """Persist refresh token through platform storage or fallback storage."""
     global _memory_refresh_token
     store = _get_token_store()
     if store is not None:
         try:
             store.set_refresh_token(token)
+            fallback = _get_file_fallback_store()
+            if fallback is not None and fallback.backend_name != store.backend_name:
+                fallback.clear_refresh_token()
             _memory_refresh_token = None
             log.debug("saved cloud refresh token", backend=store.backend_name)
+            return
+        except SecureTokenStorageUnavailable as e:
+            _log_store_failure_for_fallback(store, str(e))
+
+    fallback = _get_file_fallback_store()
+    if fallback is not None:
+        try:
+            fallback.set_refresh_token(token)
+            _memory_refresh_token = None
+            log.warning("saved cloud refresh token using fallback file", backend=fallback.backend_name)
             return
         except SecureTokenStorageUnavailable as e:
             _log_memory_fallback(str(e))
@@ -199,13 +544,19 @@ def _set_refresh_token(token: str) -> None:
 
 
 def _clear_refresh_token() -> None:
-    """Clear refresh token from secure storage and memory."""
+    """Clear refresh token from secure storage, fallback storage, and memory."""
     global _memory_refresh_token
     store = _get_token_store()
     if store is not None:
         try:
             store.clear_refresh_token()
             log.debug("cleared cloud refresh token", backend=store.backend_name)
+        except SecureTokenStorageUnavailable as e:
+            _log_memory_fallback(str(e))
+    fallback = _get_file_fallback_store()
+    if fallback is not None:
+        try:
+            fallback.clear_refresh_token()
         except SecureTokenStorageUnavailable as e:
             _log_memory_fallback(str(e))
     _memory_refresh_token = None

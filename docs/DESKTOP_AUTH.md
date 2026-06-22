@@ -1,8 +1,16 @@
 # Desktop Auth Notes
 
-The desktop backend owns Stimma Cloud auth. It exchanges the desktop login code for Firebase tokens, stores the refresh token in OS credential storage when available, and keeps short-lived ID tokens in memory only.
+The desktop backend owns Stimma Cloud auth. It exchanges the desktop login code for Firebase tokens, stores the refresh token outside `cloud_auth.json`, and keeps short-lived ID tokens in memory only.
 
-If OS credential storage is unavailable, the backend logs the fallback and keeps the refresh token in process memory only. It does not create a plaintext token fallback file.
+Refresh-token storage by platform:
+
+- macOS: user Keychain.
+- Windows: Credential Manager generic credential.
+- Linux: Freedesktop Secret Service over DBus when available.
+
+On Linux, if Secret Service is unavailable in the AppImage/runtime environment, the backend logs the downgrade and stores the refresh token in a managed fallback file named `cloud_auth_tokens.json` with `0600` permissions in the app data directory. This preserves login persistence while keeping token material out of the display/cache state file.
+
+On unsupported platforms, or if both the platform store and the Linux fallback fail, the backend logs the fallback and keeps the refresh token in process memory only.
 
 Remote logout/session revocation is optional until Stimma Cloud exposes it. The desktop app currently makes a best-effort call to:
 

@@ -52,6 +52,7 @@ dependencies = [
     # HTML to PNG rendering (agent v2)
     "weasyprint>=62.0",
     "pypdfium2>=4.0",
+    "secretstorage>=3.3 ; sys_platform == 'linux'",
 ]
 
 [project.optional-dependencies]

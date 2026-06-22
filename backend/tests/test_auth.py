@@ -12,6 +12,7 @@ Tests cover:
 
 import pytest
 import json
+import os
 import httpx
 from httpx import AsyncClient
 from unittest.mock import patch, AsyncMock, MagicMock
@@ -87,13 +88,15 @@ def auth_storage_env(monkeypatch, temp_appdata_dir):
     monkeypatch.setattr(auth_storage, "_token_store_override", store)
     monkeypatch.setattr(auth_storage, "_memory_refresh_token", None)
     monkeypatch.setattr(auth_storage, "_warned_memory_fallback", False)
+    monkeypatch.setattr(auth_storage, "_warned_file_fallback", False)
     auth_storage._cache_id_token(None, None)
 
     yield store, temp_appdata_dir
 
-    auth_path = temp_appdata_dir / "cloud_auth.json"
-    if auth_path.exists():
-        auth_path.unlink()
+    for filename in ("cloud_auth.json", "cloud_auth_tokens.json"):
+        path = temp_appdata_dir / filename
+        if path.exists():
+            path.unlink()
     store.clear_refresh_token()
     auth_storage._cache_id_token(None, None)
 
@@ -125,6 +128,120 @@ class TestHtmlPage:
 
 class TestAuthStorage:
     """Tests for local auth persistence and token migration."""
+
+    def test_token_store_uses_windows_credential_manager(self, monkeypatch):
+        """Windows uses Credential Manager for refresh-token persistence."""
+        import auth_storage
+
+        class FakeWindowsStore:
+            backend_name = "windows-credential-manager"
+
+        monkeypatch.setattr(auth_storage.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(auth_storage, "_token_store_override", None)
+        monkeypatch.setattr(auth_storage, "WindowsCredentialManagerRefreshTokenStore", FakeWindowsStore)
+
+        store = auth_storage._get_token_store()
+
+        assert store is not None
+        assert store.backend_name == "windows-credential-manager"
+
+    def test_token_store_uses_linux_secret_service(self, monkeypatch):
+        """Linux uses Secret Service when it is available."""
+        import auth_storage
+
+        class FakeLinuxStore:
+            backend_name = "linux-secret-service"
+
+        monkeypatch.setattr(auth_storage.platform, "system", lambda: "Linux")
+        monkeypatch.setattr(auth_storage, "_token_store_override", None)
+        monkeypatch.setattr(auth_storage, "LinuxSecretServiceRefreshTokenStore", FakeLinuxStore)
+
+        store = auth_storage._get_token_store()
+
+        assert store is not None
+        assert store.backend_name == "linux-secret-service"
+
+    def test_linux_secret_service_unavailable_uses_file_fallback(
+        self,
+        monkeypatch,
+        temp_appdata_dir,
+    ):
+        """Linux persists refresh tokens in a managed file when Secret Service is unavailable."""
+        import auth_storage
+
+        class UnavailableLinuxStore:
+            def __init__(self):
+                raise auth_storage.SecureTokenStorageUnavailable("no secret service")
+
+        monkeypatch.setattr(auth_storage.app_dirs, "get_data_dir", lambda: temp_appdata_dir)
+        monkeypatch.setattr(auth_storage.platform, "system", lambda: "Linux")
+        monkeypatch.setattr(auth_storage, "_token_store_override", None)
+        monkeypatch.setattr(auth_storage, "_memory_refresh_token", None)
+        monkeypatch.setattr(auth_storage, "_warned_memory_fallback", False)
+        monkeypatch.setattr(auth_storage, "_warned_file_fallback", False)
+        monkeypatch.setattr(auth_storage, "LinuxSecretServiceRefreshTokenStore", UnavailableLinuxStore)
+        auth_storage._cache_id_token(None, None)
+
+        auth_storage.save_auth_state({
+            "user": {"uid": "u1", "email": "test@example.com"},
+            "tier": "pro",
+            "refresh_token": "refresh-file",
+            "id_token": "id-secret",
+            "id_token_expiry": 9999999999,
+        })
+
+        auth_path = temp_appdata_dir / "cloud_auth.json"
+        fallback_path = temp_appdata_dir / "cloud_auth_tokens.json"
+        raw_auth = json.loads(auth_path.read_text())
+        raw_fallback = json.loads(fallback_path.read_text())
+
+        assert "refresh_token" not in raw_auth
+        assert "id_token" not in raw_auth
+        assert raw_fallback["refresh_token"] == "refresh-file"
+        if os.name == "posix":
+            assert fallback_path.stat().st_mode & 0o777 == 0o600
+
+        auth_storage._memory_refresh_token = None
+        auth_storage._cache_id_token(None, None)
+
+        loaded = auth_storage.load_auth_state()
+
+        assert loaded is not None
+        assert loaded["refresh_token"] == "refresh-file"
+        assert "id_token" not in loaded
+
+    def test_clear_auth_state_removes_linux_file_fallback(
+        self,
+        monkeypatch,
+        temp_appdata_dir,
+    ):
+        """Logout clears the Linux fallback token file."""
+        import auth_storage
+
+        class UnavailableLinuxStore:
+            def __init__(self):
+                raise auth_storage.SecureTokenStorageUnavailable("no secret service")
+
+        monkeypatch.setattr(auth_storage.app_dirs, "get_data_dir", lambda: temp_appdata_dir)
+        monkeypatch.setattr(auth_storage.platform, "system", lambda: "Linux")
+        monkeypatch.setattr(auth_storage, "_token_store_override", None)
+        monkeypatch.setattr(auth_storage, "_memory_refresh_token", None)
+        monkeypatch.setattr(auth_storage, "_warned_memory_fallback", False)
+        monkeypatch.setattr(auth_storage, "_warned_file_fallback", False)
+        monkeypatch.setattr(auth_storage, "LinuxSecretServiceRefreshTokenStore", UnavailableLinuxStore)
+
+        auth_storage.save_auth_state({
+            "user": {"uid": "u1"},
+            "refresh_token": "refresh-file",
+        })
+
+        fallback_path = temp_appdata_dir / "cloud_auth_tokens.json"
+        assert fallback_path.exists()
+
+        auth_storage.clear_auth_state()
+
+        assert not (temp_appdata_dir / "cloud_auth.json").exists()
+        assert not fallback_path.exists()
 
     def test_save_auth_state_strips_tokens_from_json(self, auth_storage_env):
         """Refresh and ID tokens are not persisted in cloud_auth.json."""
