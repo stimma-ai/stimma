@@ -66,6 +66,23 @@ def _media_input_keys(parameter_schema: Optional[Dict[str, Any]]) -> tuple[set, 
     return single, array
 
 
+def _strip_undeclared_parameters(
+    parameters: Dict[str, Any],
+    parameter_schema: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Return only parameters declared by the tool's STP parameter schema.
+
+    Stimma jobs carry local metadata such as prompt_metadata, media IDs, and
+    preprocessing hints for UI restore and lineage. Those values are not part of
+    the remote tool contract and strict STP providers reject them.
+    """
+    props = (parameter_schema or {}).get("properties")
+    if not isinstance(props, dict):
+        return dict(parameters)
+    declared = set(props.keys())
+    return {k: v for k, v in parameters.items() if k in declared}
+
+
 # --- Configuration ---
 
 
@@ -1263,7 +1280,15 @@ class JsonRpcProvider(ToolProvider):
             # Upload any input files as assets to the provider
             tool = next((t for t in self._tools if t.id == tool_id), None)
             schema = tool.parameter_schema if tool else None
-            processed_params = await self._upload_input_assets(parameters, schema)
+            outbound_parameters = _strip_undeclared_parameters(parameters, schema)
+            dropped_keys = sorted(set(parameters) - set(outbound_parameters))
+            if dropped_keys:
+                log.debug(
+                    "stripped undeclared STP parameters before execute",
+                    tool_id=tool_id,
+                    keys=dropped_keys,
+                )
+            processed_params = await self._upload_input_assets(outbound_parameters, schema)
 
             # Send execute request
             execute_params = {

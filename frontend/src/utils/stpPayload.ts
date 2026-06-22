@@ -7,10 +7,19 @@ const INTERNAL_KEYS = new Set([
   'generation_time',
   'supersede_source',
   'inspired_by_media_id',
+  'prompt_metadata',
+  'auto_marker_ids',
+  'input_media_ids',
+  'input_video_media_ids',
   '_original_input_paths',
   '_input_preprocessors',
   '_input_preprocessor_params',
   '_original_input_hashes',
+  '_input_paint_layers',
+  '_input_extend_padding',
+  '_input_extend_bg_colors',
+  '_input_scales',
+  '_input_flips',
 ])
 
 export interface StpCallPayload {
