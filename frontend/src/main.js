@@ -19,40 +19,27 @@ initConsoleBridge()
 // Show loading screen for Tauri mode
 function showLoadingScreen() {
   const appDiv = document.getElementById('app')
-  appDiv.innerHTML = `
-    <div style="
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background: var(--color-base, #0b0e14);
-    ">
-      <div data-tauri-drag-region style="
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 56px;
-      "></div>
-      <img
-        src="/logo.png"
-        alt="Stimma"
-        style="
-          width: 80px;
-          height: 80px;
-          animation: pendulum 2.4s ease-in-out infinite;
-        "
-      />
-    </div>
-    <style>
-      @keyframes pendulum {
-        0%, 100% { transform: rotate(-175deg); }
-        50% { transform: rotate(175deg); }
-      }
-    </style>
-  `
+  appDiv.replaceChildren()
+
+  const screen = document.createElement('div')
+  screen.className = 'startup-screen'
+
+  const dragRegion = document.createElement('div')
+  dragRegion.className = 'startup-drag-region'
+  dragRegion.setAttribute('data-tauri-drag-region', '')
+
+  const logo = document.createElement('img')
+  logo.className = 'startup-logo'
+  logo.src = '/logo.png'
+  logo.alt = 'Stimma'
+
+  const status = document.createElement('div')
+  status.id = 'startup-status'
+  status.className = 'startup-status'
+  status.setAttribute('aria-live', 'polite')
+
+  screen.append(dragRegion, logo, status)
+  appDiv.appendChild(screen)
 }
 
 function updateStatus(status) {
