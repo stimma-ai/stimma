@@ -44,21 +44,27 @@
         </button>
 
         <!-- Similar Search Badge -->
-        <div v-if="similarSearchActive && similarSearchSourceItems && similarSearchSourceItems.length > 0" class="inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
+        <div v-if="hasSimilarSearchBadge" class="inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
           <MagnifyingGlassCircleIcon class="w-5 h-5 flex-shrink-0" />
-          <span class="leading-none">Similar to</span>
+          <span class="leading-none">{{ similarSearchBadgeLabel }}</span>
           <div
             v-for="item in similarSearchSourceItems"
             :key="item.id"
             class="w-8 h-8 bg-surface-raised rounded border border-edge-subtle overflow-hidden"
           >
-            <img
-              :src="getThumbnailUrl(item.file_hash)"
-              class="w-full h-full object-cover bg-checker"
+            <MediaImage
+              :media-id="item.id"
+              :file-hash="item.file_hash"
               :alt="item.file_path"
               :title="item.file_path"
+              container-class="w-full h-full"
+              :enable-context-menu="false"
+              :draggable="false"
             />
           </div>
+          <span v-if="!similarSearchSourceItems || similarSearchSourceItems.length === 0" class="leading-none">
+            {{ similarSearchFallbackLabel }}
+          </span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="emit('clear-similar')">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -723,10 +729,10 @@ import { getCurrentProfileId } from '../composables/useProfile'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../utils/stimmaCloud'
 import { captioningEnabledRef } from '../appConfig'
 import { useTelemetry } from '../composables/useTelemetry'
+import { MediaImage } from './media'
 
 const { track: trackTelemetry } = useTelemetry()
 
-const { getThumbnailUrl } = useMediaApi()
 import KeywordModal from './KeywordModal.vue'
 import ToolModal from './ToolModal.vue'
 
@@ -760,6 +766,8 @@ const props = defineProps({
   similarSearchActive: Boolean,
   similarSearchSourceItem: Object,  // Kept for backwards compat
   similarSearchSourceItems: Array,   // Array of reference items for multi-select
+  similarTo: { type: Array, default: () => [] },
+  similarFaceTo: { type: Array, default: () => [] },
   similarToText: String,             // Text-based similarity search
   similarityThreshold: { type: Number, default: 0.75 },
   defaultCollapsed: { type: Boolean, default: true }, // Start collapsed
@@ -877,6 +885,30 @@ const hasLoadedCounts = ref(false)  // Track if counts have been loaded
 const canToggle = true // Allow toggling inclusion/exclusion
 const isLoading = ref(true)
 const unfilteredTotalCount = ref(null)  // Total count with no filters applied
+
+const similarSearchReferenceIds = computed(() => {
+  const faceIds = props.similarFaceTo || []
+  const imageIds = props.similarTo || []
+  return faceIds.length > 0 ? faceIds : imageIds
+})
+
+const hasSimilarSearchBadge = computed(() => (
+  props.similarSearchActive &&
+  (
+    (props.similarSearchSourceItems && props.similarSearchSourceItems.length > 0) ||
+    similarSearchReferenceIds.value.length > 0
+  )
+))
+
+const similarSearchBadgeLabel = computed(() => (
+  (props.similarFaceTo || []).length > 0 ? 'Similar faces to' : 'Similar to'
+))
+
+const similarSearchFallbackLabel = computed(() => {
+  const count = similarSearchReferenceIds.value.length
+  if (count <= 1) return 'asset'
+  return `${count} assets`
+})
 
 // Date range presets
 const dateRanges = [
@@ -1137,10 +1169,13 @@ const modalFilterParams = computed(() => {
   if (props.selectedMarkers && props.selectedMarkers.length > 0) {
     params.marker_ids = props.selectedMarkers.join(',')
   }
-  if (props.similarSearchActive && props.similarSearchSourceItems && props.similarSearchSourceItems.length > 0) {
-    params.similar_to = props.similarSearchSourceItems.map(item => item.id).join(',')
-    if (props.similarityThreshold) {
-      params.similarity_threshold = props.similarityThreshold
+  if (props.similarSearchActive) {
+    if (props.similarFaceTo && props.similarFaceTo.length > 0) {
+      params.similar_face_to = props.similarFaceTo.join(',')
+    } else if (props.similarTo && props.similarTo.length > 0) {
+      params.similar_to = props.similarTo.join(',')
+    } else if (props.similarSearchSourceItems && props.similarSearchSourceItems.length > 0) {
+      params.similar_to = props.similarSearchSourceItems.map(item => item.id).join(',')
     }
   }
   return params
@@ -2099,10 +2134,13 @@ async function loadFilterCounts() {
     }
 
     // Include similarity filter if active (not applicable in trash mode)
-    if (!props.isTrashMode && props.similarSearchActive && props.similarSearchSourceItems && props.similarSearchSourceItems.length > 0) {
-      params.similar_to = props.similarSearchSourceItems.map(item => item.id).join(',')
-      if (props.similarityThreshold) {
-        params.similarity_threshold = props.similarityThreshold
+    if (!props.isTrashMode && props.similarSearchActive) {
+      if (props.similarFaceTo && props.similarFaceTo.length > 0) {
+        params.similar_face_to = props.similarFaceTo.join(',')
+      } else if (props.similarTo && props.similarTo.length > 0) {
+        params.similar_to = props.similarTo.join(',')
+      } else if (props.similarSearchSourceItems && props.similarSearchSourceItems.length > 0) {
+        params.similar_to = props.similarSearchSourceItems.map(item => item.id).join(',')
       }
     }
 
@@ -2206,6 +2244,8 @@ watch(
     props.excludedTools,
     props.selectedMarkers,
     props.excludedMarkers,
+    props.similarTo,
+    props.similarFaceTo,
     props.similarSearchSourceItems,
     props.similarityThreshold
   ],

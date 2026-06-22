@@ -39,6 +39,18 @@
         <div v-if="hasClipEmbedding && targetCount <= 3" class="border-t border-edge-subtle my-1"></div>
 
         <button
+          v-if="hasFaceEmbeddings"
+          @click="handleFindSimilarFaces"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
+            <path d="M10 2a6 6 0 00-6 6v1.5A4.5 4.5 0 008.5 14h3A4.5 4.5 0 0016 9.5V8a6 6 0 00-6-6Zm-2 7a1 1 0 110-2 1 1 0 010 2Zm4 0a1 1 0 110-2 1 1 0 010 2Zm-3.8 2.4a.75.75 0 011.06-.1c.42.35 1.06.35 1.48 0a.75.75 0 11.96 1.16 2.65 2.65 0 01-3.4 0 .75.75 0 01-.1-1.06Z" />
+            <path d="M15.25 14.25l2.5 2.5a.75.75 0 11-1.06 1.06l-2.5-2.5a.75.75 0 111.06-1.06Z" />
+          </svg>
+          <span>Find Similar Faces</span>
+        </button>
+
+        <button
           @click="handleRestore"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
         >
@@ -264,6 +276,18 @@
             <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
           </svg>
           <span>Find Similar</span>
+        </button>
+
+        <button
+          v-if="hasFaceEmbeddings"
+          @click="handleFindSimilarFaces"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
+            <path d="M10 2a6 6 0 00-6 6v1.5A4.5 4.5 0 008.5 14h3A4.5 4.5 0 0016 9.5V8a6 6 0 00-6-6Zm-2 7a1 1 0 110-2 1 1 0 010 2Zm4 0a1 1 0 110-2 1 1 0 010 2Zm-3.8 2.4a.75.75 0 011.06-.1c.42.35 1.06.35 1.48 0a.75.75 0 11.96 1.16 2.65 2.65 0 01-3.4 0 .75.75 0 01-.1-1.06Z" />
+            <path d="M15.25 14.25l2.5 2.5a.75.75 0 11-1.06 1.06l-2.5-2.5a.75.75 0 111.06-1.06Z" />
+          </svg>
+          <span>Find Similar Faces</span>
         </button>
 
         <!-- Compare (exactly 2 images) -->
@@ -721,7 +745,7 @@ const router = useRouter()
 const { nextEditorId } = useWorkspaceTabs()
 const contextMenu = useMediaContextMenu()
 const { printAssetDetail, printContactSheet } = usePrint()
-const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject } = useMediaApi()
+const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject } = useMediaApi()
 const { listAllTools } = useProvidersApi()
 const { sendToTool: sendToToolComposable } = useSendToTool()
 
@@ -792,6 +816,7 @@ function addRecentGenerateToolId(toolId: string) {
 // Media item data - fetched when menu opens
 const loadingItem = ref(false)
 const mediaItem = ref<any>(null)
+const mediaFaces = ref<any[]>([])
 
 // Tools data
 const loadingTools = ref(false)
@@ -841,6 +866,11 @@ const isVideo = computed(() => mediaItem.value?.is_video || false)
 const isImage = computed(() => mediaItem.value ? isImageType(mediaItem.value) : false)
 const isTrashed = computed(() => !!mediaItem.value?.deleted_at)
 const hasClipEmbedding = computed(() => mediaItem.value?.has_clip_embedding || false)
+const hasFaceEmbeddings = computed(() => (
+  isImage.value &&
+  !isMultiple.value &&
+  mediaFaces.value.some((face: any) => face.has_embedding)
+))
 
 // Visibility state computed properties
 const isSet = computed(() => mediaItem.value?.file_format === 'stimmaset.json')
@@ -1085,6 +1115,19 @@ async function fetchMediaItem() {
   }
 }
 
+async function fetchMediaFaces() {
+  const mediaId = contextMenu.state.value.mediaId
+  mediaFaces.value = []
+  if (!mediaId || isMultiple.value) return
+
+  try {
+    const response = await getMediaFaces(mediaId)
+    mediaFaces.value = response.faces || []
+  } catch (err) {
+    console.error('Failed to load media faces:', err)
+  }
+}
+
 // Load tools when submenu opens
 async function loadTools() {
   if (tools.value.length > 0 || loadingTools.value) return
@@ -1278,12 +1321,14 @@ watch(activeSubmenu, async (menu) => {
 watch(() => contextMenu.state.value.visible, (visible) => {
   if (visible) {
     fetchMediaItem()
+    fetchMediaFaces()
     loadMarkers()
   } else {
     activeSubmenu.value = null
     submenuTriggerRect.value = null
     generateSearchQuery.value = ''
     boardSearchQuery.value = ''
+    mediaFaces.value = []
   }
 })
 
@@ -1295,6 +1340,15 @@ function handleFindSimilar() {
     trackTelemetry('find_similar_used')
     // Navigate to browse with similar filter (comma-separated for multiple)
     router.push(`/browse?sim=${ids.join(',')}`)
+  }
+}
+
+function handleFindSimilarFaces() {
+  const mediaId = contextMenu.state.value.mediaId
+  contextMenu.hide()
+  if (mediaId) {
+    trackTelemetry('find_similar_faces_used')
+    router.push(`/browse?fsim=${mediaId}`)
   }
 }
 

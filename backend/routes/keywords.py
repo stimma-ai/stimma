@@ -1,6 +1,6 @@
 """Keyword routes."""
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, and_, literal, Integer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +8,7 @@ from database import MediaItem, Keyword, MediaKeyword
 from core.dependencies import get_db_session
 from config import get_settings
 from utils.query_builder import build_filtered_query
+from utils.similarity import filter_media_query_by_face_similarity, parse_similarity_ids
 
 router = APIRouter(prefix="/api/keywords", tags=["keywords"])
 
@@ -28,6 +29,7 @@ async def get_top_keywords(
     marker_ids: Optional[str] = Query(None, description="Comma-separated marker IDs to filter by (OR logic)"),
     tag_ids: Optional[str] = Query(None, description="Comma-separated tag IDs to filter by (OR logic)"),
     similar_to: Optional[str] = Query(None, description="Comma-separated media IDs for similarity search"),
+    similar_face_to: Optional[str] = Query(None, description="Comma-separated media IDs for face similarity search"),
     similarity_threshold: Optional[float] = Query(None, description="Similarity threshold (0.0-1.0)"),
     use_preview_counts: bool = Query(False, description="If true, returns preview counts based on current filters"),
     session: AsyncSession = Depends(get_db_session)
@@ -94,7 +96,25 @@ async def get_top_keywords(
 
         # Handle similarity search
         base_item_ids = None
-        if similar_to is not None:
+        if similar_to is not None and similar_face_to is not None:
+            raise HTTPException(status_code=400, detail="Cannot combine similar_to and similar_face_to")
+
+        if similar_face_to is not None:
+            similar_face_to_ids = parse_similarity_ids(similar_face_to, "similar_face_to")
+            query = select(MediaItem).where(MediaItem.deleted_at.is_(None))
+            query = query.where(MediaItem.metadata_status == 'completed')
+            query = query.where(
+                (MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None))
+            )
+            similar_items, _ = await filter_media_query_by_face_similarity(
+                session,
+                query,
+                similar_face_to_ids,
+                similarity_threshold,
+            )
+            similar_ids = {item.id for item in similar_items}
+            base_item_ids = list(similar_ids) if similar_ids else [0]
+        elif similar_to is not None:
             similar_to_ids = [int(id_str.strip()) for id_str in similar_to.split(',') if id_str.strip()]
 
             if similar_to_ids:
@@ -208,4 +228,3 @@ async def get_top_keywords(
             "offset": offset,
             "limit": limit
         }
-

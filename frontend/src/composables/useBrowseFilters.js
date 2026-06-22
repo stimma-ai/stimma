@@ -48,6 +48,17 @@ export function useBrowseFilters(scope = 'browse') {
   function setSimilarSearch(mediaIds) {
     const ids = Array.isArray(mediaIds) ? mediaIds : [mediaIds]
     filters.similarTo = ids
+    filters.similarFaceTo = []
+    filters.similarToText = ''
+    filters.sortBy = 'similarity'
+    similarSearchActive.value = true
+  }
+
+  function setSimilarFaceSearch(mediaIds) {
+    const ids = Array.isArray(mediaIds) ? mediaIds : [mediaIds]
+    filters.similarFaceTo = ids
+    filters.similarTo = []
+    filters.similarToText = ''
     filters.sortBy = 'similarity'
     similarSearchActive.value = true
   }
@@ -58,6 +69,7 @@ export function useBrowseFilters(scope = 'browse') {
     similarSearchSourceItem.value = null
     similarSearchSourceItems.value = []
     filters.similarTo = []
+    filters.similarFaceTo = []
     filters.similarToText = ''
     if (filters.sortBy === 'similarity') {
       filters.sortBy = 'created_desc'
@@ -115,6 +127,37 @@ export function useBrowseFilters(scope = 'browse') {
     console.log('[useBrowseFilters] similarSearchSourceItems:', similarSearchSourceItems.value)
   }
 
+  // Set face-similar filter (clears other filters)
+  async function setSimilarFaceFilter(mediaId, mediaItem = null) {
+    console.log('[useBrowseFilters] setSimilarFaceFilter:', mediaId, mediaItem)
+    clearFilters()
+    setSimilarFaceSearch(mediaId)
+
+    // Fetch the source item if not provided
+    if (!mediaItem) {
+      const { getMediaItem } = useMediaApi()
+      try {
+        mediaItem = await getMediaItem(mediaId)
+      } catch (error) {
+        console.error('Failed to fetch media item for face similarity search:', error)
+      }
+    }
+
+    // Set the source item for display
+    if (mediaItem) {
+      similarSearchSourceItem.value = mediaItem
+      similarSearchSourceItems.value = [mediaItem]
+    }
+
+    // Trigger reload in BrowseGridView
+    filterChangeCounter.value++
+
+    console.log('[useBrowseFilters] filters after face set:', JSON.stringify(filters))
+    console.log('[useBrowseFilters] similarSearchActive:', similarSearchActive.value)
+    console.log('[useBrowseFilters] similarSearchSourceItem:', similarSearchSourceItem.value)
+    console.log('[useBrowseFilters] similarSearchSourceItems:', similarSearchSourceItems.value)
+  }
+
   return {
     filters,
     similarSearchActive,
@@ -126,8 +169,10 @@ export function useBrowseFilters(scope = 'browse') {
     clearFilters,
     setSimilarSearch,
     clearSimilarSearch,
+    setSimilarFaceSearch,
     setKeywordFilter,
     setTagFilter,
-    setSimilarFilter
+    setSimilarFilter,
+    setSimilarFaceFilter
   }
 }

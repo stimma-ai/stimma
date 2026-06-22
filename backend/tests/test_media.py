@@ -12,6 +12,7 @@ Tests cover:
 
 from datetime import datetime, timedelta
 
+import numpy as np
 import pytest
 from httpx import AsyncClient
 from unittest.mock import patch
@@ -94,6 +95,98 @@ class TestMediaSearch:
 
         data = response.json()
         assert data["items"] == []
+
+
+class TestFaceSimilaritySearch:
+    """Tests for face-embedding similarity browsing."""
+
+    @staticmethod
+    def _unit(values):
+        embedding = np.array(values, dtype=np.float32)
+        return embedding / np.linalg.norm(embedding)
+
+    @staticmethod
+    def _add_face(session, media_id, embedding, x=0.1):
+        from database import Face
+
+        face = Face(
+            media_id=media_id,
+            bbox_x=x,
+            bbox_y=0.1,
+            bbox_width=0.25,
+            bbox_height=0.25,
+            confidence=0.99,
+        )
+        face.set_embedding(embedding)
+        session.add(face)
+
+    async def test_face_similarity_uses_best_face_match(self, client: AsyncClient, db_session):
+        """An image with multiple faces should match candidates by the best face pair."""
+        from tests.helpers.media import create_media_item
+
+        async with db_session() as session:
+            reference = await create_media_item(session, face_detection_status="completed")
+            matching = await create_media_item(session, face_detection_status="completed")
+            nonmatching = await create_media_item(session, face_detection_status="completed")
+            no_faces = await create_media_item(session, face_detection_status="completed")
+
+            face_a = self._unit([1, 0, 0])
+            face_b = self._unit([0, 1, 0])
+            face_b_near = self._unit([0.02, 1, 0])
+            face_c = self._unit([0, 0, 1])
+
+            self._add_face(session, reference.id, face_a, x=0.1)
+            self._add_face(session, reference.id, face_b, x=0.5)
+            self._add_face(session, matching.id, face_b_near, x=0.2)
+            self._add_face(session, nonmatching.id, face_c, x=0.2)
+            await session.commit()
+
+            reference_id = reference.id
+            matching_id = matching.id
+            nonmatching_id = nonmatching.id
+            no_faces_id = no_faces.id
+
+        params = {
+            "similar_face_to": str(reference_id),
+            "sort_by": "similarity",
+            "similarity_threshold": 0.8,
+            "page_size": 20,
+        }
+        response = await client.get("/api/media", params=params)
+        assert response.status_code == 200
+
+        data = response.json()
+        ids = [item["id"] for item in data["items"]]
+        assert ids[0] == reference_id
+        assert matching_id in ids
+        assert nonmatching_id not in ids
+        assert no_faces_id not in ids
+
+        scores = {item["id"]: item["similarity_score"] for item in data["items"]}
+        assert scores[reference_id] == pytest.approx(1.0)
+        assert scores[matching_id] > 0.99
+
+        ids_response = await client.get("/api/media/ids", params=params)
+        assert ids_response.status_code == 200
+        ordered_ids = ids_response.json()["ids"]
+        assert ordered_ids[0] == reference_id
+        assert matching_id in ordered_ids
+        assert nonmatching_id not in ordered_ids
+
+    async def test_face_similarity_requires_reference_face_embeddings(self, client: AsyncClient, db_session):
+        """The API should explain when the reference image has no face embeddings."""
+        from tests.helpers.media import create_media_item
+
+        async with db_session() as session:
+            reference = await create_media_item(session, face_detection_status="completed")
+            reference_id = reference.id
+
+        response = await client.get(
+            "/api/media",
+            params={"similar_face_to": str(reference_id), "sort_by": "similarity"},
+        )
+        assert response.status_code == 400
+        assert "no face embeddings" in response.json()["detail"]
 
 
 class TestSingleMedia:

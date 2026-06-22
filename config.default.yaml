@@ -66,6 +66,7 @@ face_detection:
   min_confidence: 0.5
   max_faces: 10
   parallelism: 2
+  similarity_threshold: 0.65
 
 # ============ TELEMETRY ============
 # Anonymous usage telemetry (official builds only). `enabled` is tri-state:

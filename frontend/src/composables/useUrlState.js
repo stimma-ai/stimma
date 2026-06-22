@@ -31,6 +31,7 @@ export function useUrlState() {
    * - f: folders (comma-separated)
    * - xf: excluded folders
    * - sim: similar to (media ID)
+   * - fsim: similar faces to (media ID)
    * - st: similarity threshold (0.0-1.0)
    * - i: current image index (for slideshow)
    * - ss: slideshow active (1=true)
@@ -97,6 +98,9 @@ export function useUrlState() {
     if (filters.similarTo && filters.similarTo.length > 0) {
       params.set('sim', Array.isArray(filters.similarTo) ? filters.similarTo.join(',') : filters.similarTo)
     }
+    if (filters.similarFaceTo && filters.similarFaceTo.length > 0) {
+      params.set('fsim', Array.isArray(filters.similarFaceTo) ? filters.similarFaceTo.join(',') : filters.similarFaceTo)
+    }
 
     // Similarity threshold (only encode if not default 0.75)
     if (filters.similarityThreshold !== undefined && filters.similarityThreshold !== 0.75) {
@@ -144,6 +148,7 @@ export function useUrlState() {
       selectedFolders: [],
       excludedFolders: [],
       similarTo: [],
+      similarFaceTo: [],
       similarityThreshold: 0.75
     }
 
@@ -213,6 +218,17 @@ export function useUrlState() {
       filters.similarTo = ids.length > 0 ? ids : []
     } else {
       filters.similarTo = []
+    }
+
+    // Face similarity search (supports multiple comma-separated IDs)
+    if (queryParams.fsim) {
+      const ids = queryParams.fsim.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+      filters.similarFaceTo = ids.length > 0 ? ids : []
+      if (filters.similarFaceTo.length > 0) {
+        filters.similarTo = []
+      }
+    } else {
+      filters.similarFaceTo = []
     }
 
     // Similarity threshold

@@ -23,6 +23,7 @@ export const DEFAULT_BROWSE_FILTERS = {
   excludeExpiring: false,
   includeHidden: false,
   similarTo: [],
+  similarFaceTo: [],
   similarToText: '',
   similarityThreshold: 0.75,
   createdAfter: null,

@@ -16,6 +16,11 @@ from utils.query_builder import (
     build_filtered_query, not_due_for_autodelete, VIDEO_FORMATS, IMAGE_FORMATS, AUDIO_FORMATS,
     TEXT_FORMATS, SET_FORMATS, GRID_FORMATS, LAYOUT_FORMATS, STRUCTURED_FORMATS, RESOLUTION_MAP
 )
+from utils.similarity import (
+    filter_items_by_face_similarity,
+    parse_similarity_ids,
+    sort_similarity_items,
+)
 from utils.websocket import ws_manager
 
 router = APIRouter(tags=["media"])
@@ -70,6 +75,7 @@ async def get_media(
     created_after: Optional[str] = None,
     created_before: Optional[str] = None,
     similar_to: Optional[str] = Query(None, description="Comma-separated media IDs to find similar items to (supports 1-3 IDs for embedding interpolation)"),
+    similar_face_to: Optional[str] = Query(None, description="Comma-separated media IDs to find images with similar faces (supports 1-3 IDs)"),
     similar_to_text: Optional[str] = Query(None, description="Text query to find visually similar images using CLIP text encoding"),
     similarity_threshold: Optional[float] = Query(None, description="Similarity threshold for filtering results (0.0-1.0, default from settings)"),
     is_generated: Optional[bool] = Query(None, description="Filter for generated images (true) or non-generated (false)"),
@@ -202,13 +208,19 @@ async def get_media(
     similarity_scores = {}
     reference_ids = []
 
-    if similar_to is not None or similar_to_text is not None:
+    if similar_to is not None or similar_to_text is not None or similar_face_to is not None:
         from telemetry import get_telemetry_client
         get_telemetry_client().track("similarity_search_used")
 
-    # Check that both similar_to and similar_to_text are not used together
-    if similar_to is not None and similar_to_text is not None:
-        raise HTTPException(status_code=400, detail="Cannot use both similar_to and similar_to_text simultaneously")
+    similarity_mode_count = sum(
+        value is not None
+        for value in (similar_to, similar_to_text, similar_face_to)
+    )
+    if similarity_mode_count > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot combine similar_to, similar_to_text, and similar_face_to",
+        )
 
     if similar_to_text is not None:
         # Text-based similarity search using CLIP text encoding
@@ -285,15 +297,39 @@ async def get_media(
             items_with_markers = {item.id: item for item in result.scalars().all()}
             # Preserve ordering from similarity search
             items = [items_with_markers[item_id] for item_id in item_ids if item_id in items_with_markers]
+    elif similar_face_to is not None:
+        similar_face_to_ids = parse_similarity_ids(similar_face_to, "similar_face_to")
+        reference_ids = similar_face_to_ids
+
+        result = await session.execute(query)
+        all_items = result.scalars().all()
+
+        filtered_items, similarity_scores = await filter_items_by_face_similarity(
+            session,
+            all_items,
+            similar_face_to_ids,
+            similarity_threshold,
+        )
+
+        sort_similarity_items(filtered_items, similarity_scores, sort_by, random_seed)
+
+        total = len(filtered_items)
+        offset = (page - 1) * page_size
+        items = filtered_items[offset:offset + page_size]
+
+        # Reload paginated items with marker associations for display.
+        if items:
+            item_ids = [item.id for item in items]
+            items_query = select(MediaItem).where(MediaItem.id.in_(item_ids)).options(
+                selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker),
+                selectinload(MediaItem.tags)
+            )
+            result = await session.execute(items_query)
+            items_with_markers = {item.id: item for item in result.scalars().all()}
+            items = [items_with_markers[item_id] for item_id in item_ids if item_id in items_with_markers]
     elif similar_to is not None:
         # Parse comma-separated IDs
-        similar_to_ids = [int(id_str.strip()) for id_str in similar_to.split(',') if id_str.strip()]
-
-        if not similar_to_ids:
-            raise HTTPException(status_code=400, detail="No valid asset IDs provided for similar_to")
-
-        if len(similar_to_ids) > 3:
-            raise HTTPException(status_code=400, detail="Maximum 3 reference IDs allowed for similarity search")
+        similar_to_ids = parse_similarity_ids(similar_to, "similar_to")
 
         # Get all reference items
         result = await session.execute(
@@ -520,6 +556,7 @@ async def get_media_ids(
     created_after: Optional[str] = None,
     created_before: Optional[str] = None,
     similar_to: Optional[str] = Query(None, description="Comma-separated media IDs to find similar items to (supports 1-3 IDs for embedding interpolation)"),
+    similar_face_to: Optional[str] = Query(None, description="Comma-separated media IDs to find images with similar faces (supports 1-3 IDs)"),
     similarity_threshold: Optional[float] = Query(None, description="Similarity threshold for filtering results (0.0-1.0, default from settings)"),
     marker_ids: Optional[str] = Query(None, description="Comma-separated marker IDs to filter by (OR logic - item must have at least one)"),
     excluded_marker_ids: Optional[str] = Query(None, description="Comma-separated marker IDs to exclude (NOT logic - item must NOT have any)"),
@@ -630,10 +667,35 @@ async def get_media_ids(
         exclude_expiring=exclude_expiring,
     )
 
+    if similar_to is not None and similar_face_to is not None:
+        raise HTTPException(status_code=400, detail="Cannot combine similar_to and similar_face_to")
+
     # For similarity search, we need to handle it differently
+    if similar_face_to is not None:
+        similar_face_to_ids = parse_similarity_ids(similar_face_to, "similar_face_to")
+
+        result = await session.execute(query)
+        all_ids = [row[0] for row in result.all()]
+
+        items_result = await session.execute(
+            select(MediaItem).where(MediaItem.id.in_(all_ids))
+        )
+        all_items = items_result.scalars().all()
+
+        filtered_items, similarity_scores = await filter_items_by_face_similarity(
+            session,
+            all_items,
+            similar_face_to_ids,
+            similarity_threshold,
+        )
+
+        sort_similarity_items(filtered_items, similarity_scores, sort_by, random_seed)
+
+        return {"ids": [item.id for item in filtered_items]}
+
     if similar_to is not None:
         # Parse comma-separated IDs
-        similar_to_ids = [int(id_str.strip()) for id_str in similar_to.split(',') if id_str.strip()]
+        similar_to_ids = parse_similarity_ids(similar_to, "similar_to")
 
         if similar_to_ids:
             # Get reference items and compute similarities
@@ -646,11 +708,27 @@ async def get_media_ids(
                 raise HTTPException(status_code=404, detail="One or more reference assets not found")
 
             # Collect embeddings
+            from clip_service import CLIP_EMBEDDING_DIM
             reference_embeddings = []
+            stale_reference_ids = []
             for item in reference_items:
                 if item.clip_embedding is None:
                     raise HTTPException(status_code=400, detail=f"Reference asset {item.id} has no CLIP embedding")
-                reference_embeddings.append(item.get_embedding())
+                embedding = item.get_embedding()
+                if embedding.shape[0] != CLIP_EMBEDDING_DIM:
+                    stale_reference_ids.append(item.id)
+                    continue
+                reference_embeddings.append(embedding)
+
+            if stale_reference_ids:
+                await _reset_stale_clip_embeddings(session, stale_reference_ids)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Reference assets {stale_reference_ids} have outdated CLIP embeddings. They have been scheduled for re-indexing. Please try again after CLIP indexing completes."
+                )
+
+            if not reference_embeddings:
+                raise HTTPException(status_code=400, detail="No valid reference embeddings found")
 
             # Average and normalize if multiple references
             if len(reference_embeddings) == 1:
@@ -672,7 +750,7 @@ async def get_media_ids(
             all_items = items_result.scalars().all()
 
             # Compute similarities
-            from clip_service import get_clip_service, CLIP_EMBEDDING_DIM
+            from clip_service import get_clip_service
             clip_service = get_clip_service()
             threshold = similarity_threshold if similarity_threshold is not None else get_settings().clip_similarity_threshold
             filtered_items = []
@@ -1054,6 +1132,7 @@ async def find_media_index(
     min_mp: Optional[float] = None,
     max_mp: Optional[float] = None,
     similar_to: Optional[str] = Query(None, description="Comma-separated media IDs for similarity search (rejected — see below)"),
+    similar_face_to: Optional[str] = Query(None, description="Comma-separated media IDs for face similarity search (rejected — see below)"),
     similar_to_text: Optional[str] = Query(None, description="Text query for CLIP-based similarity (rejected — see below)"),
     similarity_threshold: Optional[float] = Query(None, description="Similarity threshold (0.0-1.0)"),
     is_generated: Optional[bool] = Query(None, description="Filter for generated images (true) or non-generated (false)"),
@@ -1082,12 +1161,12 @@ async def find_media_index(
     Used by the grid → slideshow handoff so the slideshow opens at the right item even
     after background DB changes.
 
-    Similarity search (similar_to, similar_to_text) is rejected with HTTP 400: indices are
+    Similarity search (similar_to, similar_to_text, similar_face_to) is rejected with HTTP 400: indices are
     unstable in similarity mode, and the slideshow handoff for similarity uses the shared
     in-memory mediaList cache instead.
     """
     # Reject similarity modes — caller must use cache-based lookup instead.
-    if similar_to is not None or similar_to_text is not None:
+    if similar_to is not None or similar_to_text is not None or similar_face_to is not None:
         raise HTTPException(
             status_code=400,
             detail="find-index does not support similarity search (indices are unstable in similarity mode)"

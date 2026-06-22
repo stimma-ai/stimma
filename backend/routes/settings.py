@@ -98,6 +98,7 @@ class FaceDetectionResponse(BaseModel):
     min_confidence: float
     max_faces: int
     parallelism: int
+    similarity_threshold: float = 0.65
 
 
 class ClipResponse(BaseModel):
@@ -531,6 +532,7 @@ async def get_settings_all():
             min_confidence=settings.face_detection.min_confidence,
             max_faces=settings.face_detection.max_faces,
             parallelism=settings.face_detection.parallelism,
+            similarity_threshold=settings.face_detection.similarity_threshold,
         ),
         clip=ClipResponse(
             enabled=settings.clip.enabled,

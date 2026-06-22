@@ -85,6 +85,8 @@
       :similarSearchActive="similarSearchActive"
       :similarSearchSourceItem="similarSearchSourceItem"
       :similarSearchSourceItems="similarSearchSourceItems"
+      :similarTo="filters.similarTo"
+      :similarFaceTo="filters.similarFaceTo"
       :savedViewId="savedViewId"
       :savedViewName="savedViewName"
       :isTrashMode="isTrashMode"
@@ -383,6 +385,8 @@ const filterChangeCounter = computed(() => globalFilterState.filterChangeCounter
 function setSimilarSearch(ids) {
   if (useExternalFilters) {
     filters.similarTo = Array.isArray(ids) ? ids : [ids]
+    filters.similarFaceTo = []
+    filters.similarToText = ''
     filters.sortBy = 'similarity'
     if (similarSearchActive) {
       similarSearchActive.value = true
@@ -392,11 +396,27 @@ function setSimilarSearch(ids) {
   }
 }
 
+function setSimilarFaceSearch(ids) {
+  if (useExternalFilters) {
+    filters.similarFaceTo = Array.isArray(ids) ? ids : [ids]
+    filters.similarTo = []
+    filters.similarToText = ''
+    filters.sortBy = 'similarity'
+    if (similarSearchActive) {
+      similarSearchActive.value = true
+    }
+  } else {
+    globalFilterState.setSimilarFaceSearch(ids)
+  }
+}
+
 async function setSimilarFilter(mediaId) {
   if (useExternalFilters) {
     // For external filters, just set the filter directly
     const item = await getMediaItem(mediaId)
     filters.similarTo = [mediaId]
+    filters.similarFaceTo = []
+    filters.similarToText = ''
     filters.sortBy = 'similarity'
     if (similarSearchActive) {
       similarSearchActive.value = true
@@ -408,6 +428,23 @@ async function setSimilarFilter(mediaId) {
   }
 }
 
+async function setSimilarFaceFilter(mediaId) {
+  if (useExternalFilters) {
+    const item = await getMediaItem(mediaId)
+    filters.similarFaceTo = [mediaId]
+    filters.similarTo = []
+    filters.similarToText = ''
+    filters.sortBy = 'similarity'
+    if (similarSearchActive) {
+      similarSearchActive.value = true
+      similarSearchSourceItem.value = item
+      similarSearchSourceItems.value = [item]
+    }
+  } else {
+    await globalFilterState.setSimilarFaceFilter(mediaId)
+  }
+}
+
 function clearSimilarSearch() {
   if (useExternalFilters) {
     if (similarSearchActive) {
@@ -416,14 +453,17 @@ function clearSimilarSearch() {
       similarSearchSourceItems.value = []
     }
     filters.similarTo = []
+    filters.similarFaceTo = []
     filters.similarToText = ''
     if (filters.sortBy === 'similarity') {
       filters.sortBy = 'created_desc'
     }
+    clearSimilarityRouteQuery()
     emit('similar-search-cleared')
     loadMedia()
   } else {
     globalFilterState.clearSimilarSearch()
+    clearSimilarityRouteQuery()
   }
 }
 
@@ -529,11 +569,15 @@ if (!useExternalFilters && isFiltersAtDefaults()) {
   if (savedFilters) {
     Object.assign(filters, savedFilters)
 
-    // If filters have similarTo but similarSearchActive is false, it's a stuck filter
+    // If filters have similarity IDs but similarSearchActive is false, it's a stuck filter
     // Clear it to avoid being stuck with invisible similar search
-    if (filters.similarTo && filters.similarTo.length > 0 && !similarSearchActive.value) {
+    const hasSavedSimilarityIds =
+      (filters.similarTo && filters.similarTo.length > 0) ||
+      (filters.similarFaceTo && filters.similarFaceTo.length > 0)
+    if (hasSavedSimilarityIds && !similarSearchActive.value) {
       console.warn('[BrowseGridView] Detected stuck similar filter, clearing it')
       filters.similarTo = []
+      filters.similarFaceTo = []
       if (filters.sortBy === 'similarity') {
         filters.sortBy = 'created_desc'
       }
@@ -732,6 +776,10 @@ function buildFilterParams() {
   if (filters.similarTo && filters.similarTo.length > 0) {
     params.similar_to = filters.similarTo.join(',')
     // Use backend default threshold (0.75) from config
+  }
+  if (filters.similarFaceTo && filters.similarFaceTo.length > 0) {
+    params.similar_face_to = filters.similarFaceTo.join(',')
+    // Use backend default face threshold; face scores are on a different scale than CLIP
   }
   if (filters.similarToText && filters.similarToText.trim()) {
     params.similar_to_text = filters.similarToText.trim()
@@ -997,6 +1045,33 @@ async function searchSimilar(mediaIds) {
     virtualGridRef.value?.scrollToTop?.()
   } catch (error) {
     console.error('Failed to search similar:', error)
+  }
+}
+
+async function searchSimilarFaces(mediaIds) {
+  try {
+    const ids = Array.isArray(mediaIds) ? mediaIds : [mediaIds]
+    if (ids.length === 0 || ids.length > 3) {
+      console.error('Invalid number of reference IDs (must be 1-3):', ids.length)
+      return
+    }
+
+    if (ids.length === 1) {
+      await setSimilarFaceFilter(ids[0])
+    } else {
+      const items = await Promise.all(ids.map(id => getMediaItem(id)))
+      similarSearchSourceItems.value = items
+      similarSearchSourceItem.value = items[0]
+      setSimilarFaceSearch(ids)
+    }
+
+    await loadMedia()
+
+    await nextTick()
+    virtualGridRef.value?.scrollToTop?.()
+  } catch (error) {
+    console.error('Failed to search similar faces:', error)
+    addToast(error.response?.data?.detail || 'Failed to search similar faces', 'error')
   }
 }
 
@@ -1428,6 +1503,7 @@ async function openSlideshow(clickData) {
     const isSimilarityMode = similarSearchActive.value ||
         filters.sortBy === 'similarity' ||
         (filters.similarTo && filters.similarTo.length > 0) ||
+        (filters.similarFaceTo && filters.similarFaceTo.length > 0) ||
         (filters.similarToText && filters.similarToText.trim())
 
     if (isSimilarityMode) {
@@ -1518,6 +1594,117 @@ async function handleShuffle() {
   await loadMedia()
 }
 
+const browseFilterQueryKeys = new Set([
+  'cq', 'pq', 'stt',
+  'mt', 'xmt',
+  'r', 'xr',
+  's', 'k', 'xk',
+  'f', 'xf',
+  'tl', 'xtl',
+  'sim', 'fsim',
+  'st', 'rs'
+])
+let lastAppliedRouteQuerySignature = ''
+
+function hasBrowseFilterQuery(query) {
+  return Object.keys(query || {}).some(key => browseFilterQueryKeys.has(key))
+}
+
+function getRouteQuerySignature(query) {
+  return Object.keys(query || {})
+    .sort()
+    .map((key) => {
+      const value = query[key]
+      return `${key}=${Array.isArray(value) ? value.join(',') : value ?? ''}`
+    })
+    .join('&')
+}
+
+async function hydrateSimilarSearchSourceItems(ids) {
+  const items = await Promise.all(
+    ids.map(async (id) => {
+      try {
+        return await getMediaItem(id)
+      } catch (error) {
+        console.error('Failed to fetch similarity source item:', id, error)
+        return null
+      }
+    })
+  )
+  const resolvedItems = items.filter(Boolean)
+  similarSearchSourceItems.value = resolvedItems
+  similarSearchSourceItem.value = resolvedItems[0] || null
+}
+
+async function applyUrlFiltersFromQuery(query, { reload = false } = {}) {
+  if (useExternalFilters) return
+
+  if (!hasBrowseFilterQuery(query)) {
+    lastAppliedRouteQuerySignature = getRouteQuerySignature(query)
+    return
+  }
+
+  const signature = getRouteQuerySignature(query)
+  if (signature === lastAppliedRouteQuerySignature) return
+  lastAppliedRouteQuerySignature = signature
+
+  const urlFilters = normalizeBrowseFilters(decodeFiltersFromUrl(query))
+  Object.assign(filters, urlFilters)
+
+  const similarIds = filters.similarTo || []
+  const similarFaceIds = filters.similarFaceTo || []
+  const hasSimilarIds = similarIds.length > 0 || similarFaceIds.length > 0
+  const hasSimilarText = !!(filters.similarToText && filters.similarToText.trim())
+
+  if (hasSimilarIds || hasSimilarText) {
+    filters.sortBy = 'similarity'
+    similarSearchActive.value = true
+
+    if (hasSimilarIds) {
+      await hydrateSimilarSearchSourceItems(similarFaceIds.length > 0 ? similarFaceIds : similarIds)
+    } else {
+      similarSearchSourceItem.value = null
+      similarSearchSourceItems.value = []
+    }
+  } else {
+    similarSearchActive.value = false
+    similarSearchSourceItem.value = null
+    similarSearchSourceItems.value = []
+  }
+
+  if (reload && !initializing.value) {
+    await loadMedia()
+    await nextTick()
+    virtualGridRef.value?.scrollToTop?.()
+  }
+}
+
+function clearSimilarityRouteQuery() {
+  if (route.name !== 'browse') return
+
+  const nextQuery = { ...route.query }
+  let changed = false
+
+  for (const key of ['sim', 'fsim', 'stt', 'st']) {
+    if (nextQuery[key] !== undefined) {
+      delete nextQuery[key]
+      changed = true
+    }
+  }
+
+  if (nextQuery.s === 'sim') {
+    delete nextQuery.s
+    changed = true
+  }
+
+  if (!changed) return
+
+  lastAppliedRouteQuerySignature = ''
+  router.replace({ query: nextQuery }).catch((error) => {
+    console.error('Failed to clear similarity query params:', error)
+  })
+}
+
 function goToUpload() {
   const query = {}
   if (props.projectId != null) {
@@ -1532,6 +1719,11 @@ watch(() => filters.sortBy, (newSort, oldSort) => {
     generateNewRandomSeed()
   }
 })
+
+watch(() => route.query, async (query) => {
+  if (initializing.value || route.name !== 'browse' || useExternalFilters) return
+  await applyUrlFiltersFromQuery(query, { reload: true })
+}, { deep: true })
 
 // Watch for filter changes triggered by navigation (e.g., from slideshow)
 watch(filterChangeCounter, async () => {
@@ -1574,19 +1766,10 @@ onMounted(async () => {
   window.addEventListener('media-set-created', handleSetCreated)
 
   // Check for URL query parameters and apply them to browse filters only
-  if (!useExternalFilters && route.name === 'browse' && Object.keys(route.query).length > 0) {
+  if (!useExternalFilters && route.name === 'browse' && hasBrowseFilterQuery(route.query)) {
     console.log('[BrowseGridView] Found URL query params:', route.query)
-    const urlFilters = decodeFiltersFromUrl(route.query)
-    console.log('[BrowseGridView] Decoded filters from URL:', urlFilters)
-
-    // Apply URL filters to global filter state
-    Object.assign(filters, urlFilters)
-
-    // If similarToText is set, activate similarity search mode
-    if (urlFilters.similarToText) {
-      filters.sortBy = 'similarity'
-      similarSearchActive.value = true
-    }
+    await applyUrlFiltersFromQuery(route.query)
+    console.log('[BrowseGridView] Decoded filters from URL:', JSON.stringify(filters))
   }
 
   // Handle slideshowMedia query param (e.g., after image editor save)
@@ -1654,6 +1837,7 @@ onMounted(async () => {
         (filters.selectedMarkers?.length > 0) ||
         (filters.excludedMarkers?.length > 0) ||
         (filters.similarTo?.length > 0) ||
+        (filters.similarFaceTo?.length > 0) ||
         !!filters.createdAfter ||
         !!filters.createdBefore ||
         !!filters.showExpiring ||
