@@ -679,7 +679,7 @@ async function buildWindowsPortableBackend(target: string): Promise<void> {
 
   const size = await dirSize(outputDir);
   console.log("");
-  console.log("portable backend build complete.");
+  console.log("Portable backend build complete.");
   console.log(`Output: ${outputDir}`);
   console.log(`Backend payload: ${size.files} files, ${(size.bytes / 1024 / 1024).toFixed(1)}MB`);
 }
