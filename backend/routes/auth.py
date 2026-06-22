@@ -480,6 +480,15 @@ async def get_account_info():
             ),
         )
     except httpx.HTTPStatusError as e:
+        if e.response.status_code == 503:
+            log.warning("cloud account auth verification temporarily unavailable")
+            raise HTTPException(
+                status_code=503,
+                detail=_auth_error(
+                    "auth_temporarily_unavailable",
+                    "Couldn't verify your Stimma Cloud session. Try again shortly.",
+                ),
+            )
         if e.response.status_code in (401, 403):
             clear_auth_state()
             raise HTTPException(

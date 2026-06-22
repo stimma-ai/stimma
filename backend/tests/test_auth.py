@@ -533,6 +533,59 @@ class TestAccountInfo:
         assert data["credits"] == 500
         assert data["subscription"]["status"] == "active"
 
+    async def test_account_cloud_auth_temporarily_unavailable_preserves_auth(self, auth_client: AsyncClient):
+        """Cloud auth verification outages return 503 without clearing local auth."""
+        request = httpx.Request("GET", "https://stimma.ai/api/auth/me")
+        response = httpx.Response(
+            503,
+            json={"error": "Authentication temporarily unavailable"},
+            request=request,
+        )
+        error = httpx.HTTPStatusError("auth unavailable", request=request, response=response)
+
+        with patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
+             patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value="tok"), \
+             patch("cloud_api.fetch_user_account", new_callable=AsyncMock, side_effect=error), \
+             patch("auth_storage.clear_auth_state") as mock_clear:
+            response = await auth_client.get("/api/auth/account")
+
+        assert response.status_code == 503
+        assert response.json()["detail"] == {
+            "code": "auth_temporarily_unavailable",
+            "message": "Couldn't verify your Stimma Cloud session. Try again shortly.",
+        }
+        mock_clear.assert_not_called()
+
+    async def test_account_cloud_rejects_refreshed_token_clears_auth(self, auth_client: AsyncClient):
+        """Cloud 401/403 after force-refresh clears local auth and asks for sign-in."""
+        request = httpx.Request("GET", "https://stimma.ai/api/auth/me")
+        first_response = httpx.Response(
+            401,
+            json={"error": "Invalid token"},
+            request=request,
+        )
+        second_response = httpx.Response(
+            401,
+            json={"error": "Invalid token"},
+            request=request,
+        )
+        first_error = httpx.HTTPStatusError("invalid token", request=request, response=first_response)
+        second_error = httpx.HTTPStatusError("invalid token", request=request, response=second_response)
+
+        with patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
+             patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value="tok"), \
+             patch("firebase_auth.force_refresh_id_token", new_callable=AsyncMock, return_value="fresh-tok"), \
+             patch("cloud_api.fetch_user_account", new_callable=AsyncMock, side_effect=[first_error, second_error]), \
+             patch("auth_storage.clear_auth_state") as mock_clear:
+            response = await auth_client.get("/api/auth/account")
+
+        assert response.status_code == 401
+        assert response.json()["detail"] == {
+            "code": "session_expired",
+            "message": "Please sign in again.",
+        }
+        mock_clear.assert_called_once()
+
     async def test_account_cloud_failure(self, auth_client: AsyncClient):
         """Test account info when cloud API fails returns 502."""
         with patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
@@ -548,6 +601,65 @@ class TestAccountInfo:
 
 class TestLogout:
     """Tests for POST /api/auth/logout endpoint."""
+
+    async def test_remote_logout_accepts_204_success(self, monkeypatch):
+        """Cloud desktop logout helper treats 204 as accepted revocation."""
+        import cloud_api
+
+        calls = []
+
+        class FakeSettings:
+            class cloud:
+                base_url = "https://stimma.test"
+
+        class FakeAsyncClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def post(self, url, headers, timeout):
+                calls.append((url, headers, timeout))
+                return httpx.Response(204, request=httpx.Request("POST", url))
+
+        monkeypatch.setattr(cloud_api, "get_settings", lambda: FakeSettings())
+        monkeypatch.setattr(cloud_api.httpx, "AsyncClient", FakeAsyncClient)
+
+        accepted = await cloud_api.revoke_remote_session_if_supported("id-token")
+
+        assert accepted is True
+        assert calls[0][0] == "https://stimma.test/api/auth/desktop/logout"
+        assert calls[0][1]["Authorization"] == "Bearer id-token"
+
+    async def test_remote_logout_503_is_non_blocking(self, monkeypatch):
+        """Cloud desktop logout helper treats 503 as a best-effort failure."""
+        import cloud_api
+
+        class FakeSettings:
+            class cloud:
+                base_url = "https://stimma.test"
+
+        class FakeAsyncClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def post(self, url, headers, timeout):
+                return httpx.Response(
+                    503,
+                    request=httpx.Request("POST", url),
+                    json={"error": "Authentication temporarily unavailable"},
+                )
+
+        monkeypatch.setattr(cloud_api, "get_settings", lambda: FakeSettings())
+        monkeypatch.setattr(cloud_api.httpx, "AsyncClient", FakeAsyncClient)
+
+        accepted = await cloud_api.revoke_remote_session_if_supported("id-token")
+
+        assert accepted is False
 
     async def test_logout_success(self, auth_client: AsyncClient):
         """Test logout clears auth state, disconnects cloud, and revokes remotely."""
