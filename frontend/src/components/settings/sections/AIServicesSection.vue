@@ -332,82 +332,6 @@
       </div>
     </div>
 
-    <!-- Telemetry: consent toggle in official builds; in source builds the
-         same visual register states that the build contains no telemetry. -->
-    <div class="mt-8 pt-6 border-t border-edge">
-      <div v-if="isOfficial" class="p-4 bg-surface-raised/50 rounded-lg">
-        <div class="flex items-center justify-between">
-          <div class="flex-1 min-w-0">
-            <h4 class="text-sm font-medium text-content">Usage Analytics</h4>
-            <p class="text-xs text-content-tertiary mt-0.5">
-              Help improve Stimma by sending anonymous usage data. No prompts, files, or personal information are collected.
-            </p>
-            <p v-if="dntActive" class="text-xs text-content-tertiary mt-1">
-              Environment override active: DO_NOT_TRACK=1 is set — nothing is sent regardless of this setting.
-            </p>
-          </div>
-          <button
-            @click="toggleTelemetry"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-surface',
-              localTelemetryEnabled ? 'bg-blue-600' : 'bg-surface-hover'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                localTelemetryEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-      <div v-else class="p-4 bg-surface-raised/50 rounded-lg">
-        <h4 class="text-sm font-medium text-content">Usage Analytics</h4>
-        <p class="text-xs text-content-tertiary mt-0.5">
-          You're running a source build — there's no telemetry in it. Everything stays on your machine unless you sign in to Stimma Cloud.
-        </p>
-      </div>
-
-      <!-- Feedback sharing: thumbs + crash-report consent (official builds);
-           source builds show the disabled-for-privacy treatment. -->
-      <div v-if="isOfficial" class="mt-4 p-4 bg-surface-raised/50 rounded-lg space-y-4">
-        <div>
-          <h4 class="text-sm font-medium text-content">Feedback Sharing</h4>
-          <p class="text-xs text-content-tertiary mt-0.5">
-            Thumbs ratings include the conversation; crash reports include the error and recent log lines. "Ask" shows you exactly what would be sent each time.
-          </p>
-        </div>
-        <div
-          v-for="row in feedbackConsentRows"
-          :key="row.subject"
-          class="flex items-center justify-between gap-3"
-        >
-          <div class="min-w-0">
-            <div class="text-xs font-medium text-content">{{ row.label }}</div>
-            <div class="text-[11px] text-content-muted mt-0.5">{{ row.description }}</div>
-          </div>
-          <div class="flex items-center gap-1 p-1 bg-surface rounded-lg border border-edge flex-shrink-0">
-            <button
-              v-for="option in ['ask', 'always', 'never']"
-              :key="option"
-              @click="setFeedbackConsent(row.subject, option)"
-              class="px-2.5 h-7 rounded-md text-xs capitalize transition-all border"
-              :class="row.value === option
-                ? 'bg-blue-500/15 border-blue-500/50 text-blue-500'
-                : 'bg-transparent border-transparent text-content-tertiary hover:text-content'"
-            >{{ option }}</button>
-          </div>
-        </div>
-      </div>
-      <div v-else class="mt-4 p-4 bg-surface-raised/50 rounded-lg">
-        <h4 class="text-sm font-medium text-content">Feedback Sharing</h4>
-        <p class="text-xs text-content-tertiary mt-0.5">
-          Feedback sharing is disabled in source builds — your data stays local. The Feedback item in the logo menu still works if you want to write to us.
-        </p>
-      </div>
-    </div>
-
     <div v-if="saving" class="mt-4 text-xs text-content-muted">Saving...</div>
   </div>
 </template>
@@ -416,8 +340,6 @@
 import { ref, watch, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
-import { isOfficialBuild } from '../../../distribution'
-import { useFeedback } from '../../../composables/useFeedback'
 import { useAvailableModels } from '../../../composables/useAvailableModels'
 import { voiceModel, isModelReady, supported as voiceSupported } from '../../../composables/useVoiceInput'
 
@@ -426,52 +348,9 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
-  cloudBaseUrl: {
-    type: String,
-    default: 'https://stimma.ai'
-  },
-  telemetryEnabled: {
-    type: Boolean,
-    default: false
-  },
-  dntActive: {
-    type: Boolean,
-    default: false
-  }
 })
-
-const isOfficial = isOfficialBuild()
 
 const emit = defineEmits(['update'])
-
-// --- Feedback sharing consent (thumbs + crash reports, official builds) ---
-const { state: feedbackConsentState, setConsent, loadState: loadFeedbackState } = useFeedback()
-onMounted(() => {
-  if (isOfficial && !feedbackConsentState.loaded) loadFeedbackState()
-})
-
-const feedbackConsentRows = computed(() => [
-  {
-    subject: 'thumbs',
-    label: 'Thumbs ratings',
-    description: 'Rating a response shares that conversation with the team.',
-    value: feedbackConsentState.thumbsConsent,
-  },
-  {
-    subject: 'crash',
-    label: 'Crash reports',
-    description: '"Always" sends future reports silently, without asking.',
-    value: feedbackConsentState.crashConsent,
-  },
-])
-
-async function setFeedbackConsent(subject, value) {
-  try {
-    await setConsent(subject, value)
-  } catch (err) {
-    console.error('Failed to update feedback consent:', err)
-  }
-}
 
 // --- Voice input model (on-device Whisper) ---
 const voiceModelReady = ref(false)
@@ -598,7 +477,6 @@ const utilityModelStatus = computed(() => {
 
 // --- Misc ---
 const saving = ref(false)
-const localTelemetryEnabled = ref(true)
 const testStatus = ref({ testing: false, done: false, success: null, error: null, scenarios: null })
 
 let saveTimer = null
@@ -882,20 +760,4 @@ async function runTest(seq) {
   }
 }
 
-// --- Telemetry ---
-watch(() => props.telemetryEnabled, (val) => { localTelemetryEnabled.value = val === true }, { immediate: true })
-
-async function toggleTelemetry() {
-  const newValue = !localTelemetryEnabled.value
-  localTelemetryEnabled.value = newValue
-  try {
-    await fetch(`${getApiBase()}/settings/telemetry`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: newValue }),
-    })
-  } catch (err) {
-    console.error('Failed to update telemetry setting:', err)
-  }
-}
 </script>

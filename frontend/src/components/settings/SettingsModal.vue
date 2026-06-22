@@ -124,6 +124,16 @@
                 <AccountSection @close="close" />
               </template>
 
+              <!-- Privacy Section -->
+              <template v-else-if="activeSection === 'privacy'">
+                <PrivacySection
+                  v-if="settings"
+                  :telemetry-enabled="settings.telemetry_enabled === true"
+                  :dnt-active="settings.dnt_active === true"
+                  @telemetry-updated="handleTelemetryUpdated"
+                />
+              </template>
+
               <!-- Agent Section -->
               <template v-else-if="activeSection === 'agent'">
                 <AgentSection />
@@ -139,9 +149,6 @@
                 <AIServicesSection
                   v-if="settings"
                   :llm-settings="settings.llm_settings"
-                  :cloud-base-url="settings.cloud_base_url"
-                  :telemetry-enabled="settings.telemetry_enabled === true"
-                  :dnt-active="settings.dnt_active === true"
                   @update="handleLlmSettingsUpdate"
                 />
               </template>
@@ -187,6 +194,7 @@ import ToolProvidersSection from './sections/ToolProvidersSection.vue'
 import BackgroundWorkSection from './sections/BackgroundWorkSection.vue'
 import UpdatesSection from './sections/UpdatesSection.vue'
 import AccountSection from './sections/AccountSection.vue'
+import PrivacySection from './sections/PrivacySection.vue'
 import AIServicesSection from './sections/AIServicesSection.vue'
 import DeveloperSection from './sections/DeveloperSection.vue'
 import AgentSection from './sections/AgentSection.vue'
@@ -324,6 +332,12 @@ async function handleMarkersUpdate(markers) {
     await updateMarkers(markers)
   } catch (err) {
     console.error('Failed to persist markers:', err)
+  }
+}
+
+function handleTelemetryUpdated(enabled) {
+  if (settings.value) {
+    settings.value = { ...settings.value, telemetry_enabled: enabled === true }
   }
 }
 

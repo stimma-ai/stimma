@@ -4,7 +4,7 @@
  * by release CI).
  *
  * Gates the consent UI (onboarding strip, Settings privacy toggle).
- * Source builds show the "no telemetry in this build" treatment instead.
+ * Source builds show the permanently-disabled telemetry treatment instead.
  */
 
 /* global __STIMMA_DISTRIBUTION__ */

@@ -528,6 +528,20 @@ class TestCrashReports:
         assert sent_calls == [True]
 
     @pytest.mark.asyncio
+    async def test_startup_check_ask_leaves_pending_local(self, crash_env, monkeypatch):
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        crash_env["consent"] = "ask"
+        crash_reports.record_crash(_boom())
+
+        async def fail_send():
+            raise AssertionError("ask-mode startup must not send crash reports")
+
+        monkeypatch.setattr(crash_reports, "send_pending_silently", fail_send)
+        await crash_reports.startup_check()
+        assert len(crash_reports.list_pending()) == 1
+
+    @pytest.mark.asyncio
     async def test_startup_check_never_discards_leftovers(self, crash_env, monkeypatch):
         import crash_reports
         monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")

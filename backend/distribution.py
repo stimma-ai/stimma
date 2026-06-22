@@ -43,9 +43,9 @@ def is_official() -> bool:
 def is_dnt() -> bool:
     """True when ``DO_NOT_TRACK=1`` is set.
 
-    DNT means "don't phone home", full stop: no telemetry buffering or
-    sending (regardless of consent state), no feature-flags fetch (local
-    defaults only), no update check, no compliance/region call. Explicit
-    user-initiated acts (cloud sign-in/API) still work.
+    DNT is the environment-level telemetry off-switch: no telemetry
+    buffering or sending regardless of consent state. Some nonessential
+    operational fetches also consult it, but it is not a general offline mode;
+    explicit user-initiated acts (cloud sign-in/API) still work.
     """
     return os.environ.get("DO_NOT_TRACK", "0") == "1"

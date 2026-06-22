@@ -576,7 +576,8 @@
               :item-id="item.id"
               align="left"
               :show-thumbs="true"
-              @thumb="handleThumbFeedback($event)"
+              :thumb-agent-context="chat?.flow_id ? 'flow' : 'main'"
+              :thumb-package-source="{ type: 'chat', chatId }"
               @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
@@ -1463,7 +1464,6 @@ import { useSlideshow } from '../composables/useSlideshow'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { makeProfileKey } from '../utils/storageKeys'
 import { useWebSocket } from '../composables/useWebSocket'
-import { useFeedback } from '../composables/useFeedback'
 import { marked } from 'marked'
 import axios from 'axios'
 import { devModeRef } from '../appConfig'
@@ -1488,7 +1488,6 @@ const { isAuthenticated } = useAuth()
 const { models: availableModels, globalDefault, loading: modelsLoading, invalidateCache: invalidateModelCache, fetchModels: fetchAvailableModels, getResolvedModel } = useAvailableModels()
 const { slideshowState, enterSlideshow, exitSlideshow } = useSlideshow()
 const mediaDetailsModal = useMediaDetailsModal()
-const { openThumbFeedback } = useFeedback()
 const { compareState, enterCompare, exitCompare, swapImages: swapCompareImages } = useCompare()
 
 const chatId = ref(null)
@@ -4340,18 +4339,6 @@ function toggleRawPlan(itemId) {
   } else {
     rawPlanItemIds.add(itemId)
   }
-}
-
-// Thumbs feedback on assistant messages (official builds; the wrapper
-// renders the buttons disabled in source builds). The conversation package
-// is built backend-side from this chat; flow-bound chats report the
-// 'flow' agent context.
-function handleThumbFeedback(thumb: 'up' | 'down') {
-  openThumbFeedback({
-    thumb,
-    agentContext: chat.value?.flow_id ? 'flow' : 'main',
-    packageSource: { type: 'chat', chatId: chatId.value },
-  })
 }
 
 function showDebugForItem(itemId) {

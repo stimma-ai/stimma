@@ -11,6 +11,46 @@ const frontendPort = parseInt(process.env.STIMMA_FRONTEND_PORT || '9192', 10)
 // Build distribution: 'dev' (default) | 'official' (set ONLY by release CI).
 // Compile-time constant — gates the consent UI in the frontend.
 const distribution = process.env.STIMMA_DISTRIBUTION === 'official' ? 'official' : 'dev'
+const feedbackVariant = (officialPath, sourcePath) =>
+  resolve(__dirname, distribution === 'official' ? officialPath : sourcePath)
+
+const distributionAliases = [
+  {
+    find: '@stimma/feedback-root',
+    replacement: feedbackVariant(
+      'src/components/feedback/OfficialFeedbackRoot.vue',
+      'src/components/feedback/SourceFeedbackRoot.vue'
+    )
+  },
+  {
+    find: '@stimma/logo-feedback-menu',
+    replacement: feedbackVariant(
+      'src/components/feedback/OfficialLogoFeedbackMenu.vue',
+      'src/components/feedback/SourceLogoFeedbackMenu.vue'
+    )
+  },
+  {
+    find: '@stimma/chat-thumb-buttons',
+    replacement: feedbackVariant(
+      'src/components/feedback/OfficialChatThumbButtons.vue',
+      'src/components/feedback/SourceChatThumbButtons.vue'
+    )
+  },
+  {
+    find: '@stimma/prompt-agent-thumb-buttons',
+    replacement: feedbackVariant(
+      'src/components/feedback/OfficialPromptAgentThumbButtons.vue',
+      'src/components/feedback/SourcePromptAgentThumbButtons.vue'
+    )
+  },
+  {
+    find: '@stimma/privacy-feedback-controls',
+    replacement: feedbackVariant(
+      'src/components/feedback/OfficialPrivacyFeedbackControls.vue',
+      'src/components/feedback/SourcePrivacyFeedbackControls.vue'
+    )
+  }
+]
 
 export default defineConfig(({ command }) => ({
   plugins: [vue()],
@@ -20,6 +60,7 @@ export default defineConfig(({ command }) => ({
   resolve: {
     alias: command === 'serve'
       ? [
+          ...distributionAliases,
           {
             find: '@',
             replacement: resolve(__dirname, '../packages/image-editor/src')
@@ -33,7 +74,7 @@ export default defineConfig(({ command }) => ({
             replacement: resolve(__dirname, '../packages/image-editor/src/index.ts')
           }
         ]
-      : []
+      : distributionAliases
   },
   server: {
     port: frontendPort,

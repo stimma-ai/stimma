@@ -118,11 +118,11 @@
     <div class="fixed bottom-0 left-0 right-0 px-7 pb-[22px] flex flex-col items-center" style="gap: 10px; background: var(--color-base); border-top: 1px solid var(--color-border-subtle); padding-top: 14px;">
 
       <!-- Telemetry — inline, no card. Official builds: consent toggle
-           (default per compliance regime). Source builds: nothing here —
-           there is no telemetry in the build, so we don't mention it. -->
+           (default per compliance regime). Source builds: telemetry is
+           permanently disabled, so there is no consent control. -->
       <div v-if="isOfficial" class="flex items-center" style="gap: 10px;">
         <span class="text-content-secondary" style="font-size: 11px;">
-          Share anonymous crash &amp; usage data to help improve Stimma.
+          Share usage telemetry to help improve Stimma.
           <a @click.prevent="openUrl(learnMoreUrl)" href="#" class="text-content-secondary underline underline-offset-2 hover:text-content transition-colors">Learn&nbsp;more.</a>
         </span>
         <label class="relative cursor-pointer flex-shrink-0" style="width: 32px; height: 18px;">
@@ -215,7 +215,7 @@ function markComplete() {
   track('onboarding_completed', {}, 'app')
   // Record the consent decision (official builds only). Until this lands,
   // consent is undetermined and the backend buffers events locally with
-  // zero network (D14); dev builds have no telemetry to consent to.
+  // zero network (D14); dev builds have telemetry permanently disabled.
   if (isOfficial) {
     saveAnalyticsPref(shareAnalytics.value)
   }

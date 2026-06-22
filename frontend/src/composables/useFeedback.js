@@ -2,7 +2,7 @@
  * Feedback / thumbs / crash-report client state (WS-F).
  *
  * One global store driving:
- * - the FeedbackModal (menu feedback, ALL builds — D13),
+ * - the FeedbackModal (menu feedback, official builds only),
  * - the thumbs consent popup (the whole thumbs flow in official builds:
  *   [Don't send] sends nothing, not even the rating; [Send this once] /
  *   [Always send] submit the rating directly — no comment step),
@@ -17,9 +17,6 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { isOfficialBuild } from '../distribution'
 import { useToasts } from './useToasts'
-
-export const DEV_THUMBS_TOOLTIP =
-  'Feedback sharing is disabled in source builds — your data stays local'
 
 const state = reactive({
   loaded: false,
@@ -82,14 +79,14 @@ async function markCoachmarkShown() {
 // ── Entry points ─────────────────────────────────────────────────────────
 
 function openMenuFeedback(source = 'menu') {
+  if (!isOfficialBuild()) return
   modal.open = true
   trackFeedbackEvent('feedback_opened', { source })
 }
 
 /**
- * Thumb click. Official builds only (the UI renders thumbs disabled in
- * dev builds). 'ask' → consent popup; 'always' → submit straight away;
- * 'never' → inert (UI shows the disabled treatment).
+ * Thumb click. Official builds only. 'ask' → consent popup; 'always' →
+ * submit straight away; 'never' → inert.
  */
 function openThumbFeedback({ thumb, agentContext, packageSource }) {
   if (!isOfficialBuild() || state.thumbsConsent === 'never') return
@@ -204,7 +201,7 @@ export function useFeedback() {
     crashDialog,
     thumbsEnabled: computed(() => isOfficialBuild() && state.thumbsConsent !== 'never'),
     thumbsDisabledReason: computed(() => {
-      if (!isOfficialBuild()) return DEV_THUMBS_TOOLTIP
+      if (!isOfficialBuild()) return null
       if (state.thumbsConsent === 'never') {
         return 'Thumbs feedback is turned off in Settings → Privacy'
       }

@@ -356,33 +356,10 @@
             <!-- Divider -->
             <div class="border-t border-edge-subtle"></div>
 
-            <!-- Feedback (all builds — D13) -->
-            <div class="py-1 relative">
-              <button
-                @click="openFeedback"
-                class="w-full px-3 py-2 text-left text-sm flex items-center gap-2.5 transition-colors"
-                :class="coachmarkVisible
-                  ? 'bg-blue-500/15 text-blue-500'
-                  : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
-              >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 0 1 1.037-.443 48.282 48.282 0 0 0 5.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
-                </svg>
-                <span>Feedback…</span>
-              </button>
-              <!-- One-time post-onboarding coachmark -->
-              <div
-                v-if="coachmarkVisible"
-                class="absolute right-[calc(100%+0.75rem)] top-1/2 -translate-y-1/2 w-[230px] bg-surface border border-blue-500/50 rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] px-3.5 py-3 z-[10001]"
-              >
-                <p class="text-xs text-content leading-relaxed">Tell us what you think — it goes straight to the team.</p>
-                <!-- arrow -->
-                <div class="absolute left-full top-1/2 -translate-y-1/2 border-8 border-transparent border-l-blue-500/50"></div>
-              </div>
-            </div>
-
-            <!-- Divider -->
-            <div class="border-t border-edge-subtle"></div>
+            <LogoFeedbackMenu
+              @close-menu="closeLogoMenu"
+              @ensure-menu-open="ensureLogoMenuOpen"
+            />
 
             <!-- Settings -->
             <div class="py-1">
@@ -527,9 +504,8 @@ import { clearCachedPin, hasCachedPin } from '../composables/usePinLock'
 import { useTheme } from '../composables/useTheme'
 import { useSettingsApi } from '../composables/useSettingsApi'
 import { useAppUpdater } from '../composables/useAppUpdater'
-import { useFeedback } from '../composables/useFeedback'
-import { makeGlobalKey } from '../utils/storageKeys'
 import { captioningEnabledRef } from '../appConfig'
+import LogoFeedbackMenu from '@stimma/logo-feedback-menu'
 
 const router = useRouter()
 const route = useRoute()
@@ -593,44 +569,16 @@ const { updateTheme } = useSettingsApi()
 // Updates
 const { hasUpdate, isDownloading, downloadAndInstallUpdate } = useAppUpdater()
 
-// Feedback (menu item works in all builds — D13)
-const {
-  state: feedbackState,
-  openMenuFeedback,
-  markCoachmarkShown,
-} = useFeedback()
-
 // Logo menu
 const logoMenuOpen = ref(false)
 
-// One-time post-onboarding discovery: auto-open the logo menu with a
-// coachmark on the Feedback item. Persisted flag lives in backend config
-// (feedback.coachmark_shown); evaluated once settings + feedback state load.
-const coachmarkVisible = ref(false)
-
-function maybeShowCoachmark() {
-  if (coachmarkVisible.value || feedbackState.coachmarkShown) return
-  if (!localStorage.getItem(makeGlobalKey('onboarding_completed'))) return
-  if (route.name === 'onboarding') return
-  coachmarkVisible.value = true
-  if (!logoMenuOpen.value) toggleLogoMenu()
-  // One-time: persist immediately so it never re-fires.
-  markCoachmarkShown()
-}
-
-function handleSettingsLoadedForCoachmark() {
-  // feedbackState is loaded by App.vue around the same time; give it a beat.
-  setTimeout(() => {
-    if (feedbackState.loaded) maybeShowCoachmark()
-  }, 600)
-}
-
-function openFeedback() {
-  const fromCoachmark = coachmarkVisible.value
-  coachmarkVisible.value = false
+function closeLogoMenu() {
   logoMenuOpen.value = false
   document.removeEventListener('click', handleLogoClickOutside)
-  openMenuFeedback(fromCoachmark ? 'coachmark' : 'menu')
+}
+
+function ensureLogoMenuOpen() {
+  if (!logoMenuOpen.value) toggleLogoMenu()
 }
 
 function toggleLogoMenu() {
@@ -647,9 +595,7 @@ function toggleLogoMenu() {
 function handleLogoClickOutside(event) {
   const menu = event.target.closest('.logo-menu')
   if (!menu && logoMenuOpen.value) {
-    logoMenuOpen.value = false
-    coachmarkVisible.value = false
-    document.removeEventListener('click', handleLogoClickOutside)
+    closeLogoMenu()
   }
 }
 
@@ -1036,12 +982,6 @@ onMounted(() => {
     navIndex.value = 0
   }
 
-  // Post-onboarding Feedback coachmark — evaluated once app settings land
-  // (also covers the immediately-after-onboarding case, since onboarding
-  // completion routes back into the chrome and settings are loaded).
-  window.addEventListener('settings-loaded', handleSettingsLoadedForCoachmark)
-  handleSettingsLoadedForCoachmark()
-
   fetchStats()
   fetchPauseStatus()
   loadProfiles()
@@ -1089,7 +1029,6 @@ watch(wsConnected, (connected, wasConnected) => {
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
   document.removeEventListener('click', handleLogoClickOutside)
-  window.removeEventListener('settings-loaded', handleSettingsLoadedForCoachmark)
 })
 
 onUnmounted(() => {

@@ -14,18 +14,19 @@ lands.
 
 - **Official builds only.** The telemetry client is a permanent no-op
   unless `STIMMA_DISTRIBUTION == official` (set only by release CI).
-  Source/self-built installs emit none of these events — not opted out,
-  *not present*. See `backend/distribution.py` and `backend/telemetry.py`.
+  Source/self-built installs emit none of these events; the code is present
+  for auditability, but non-official builds do not buffer or transmit.
+  See `backend/distribution.py` and `backend/telemetry.py`.
 - **Consent-gated.** Events are sent only after the user consents
-  (onboarding toggle / Settings → Usage Analytics). While consent is
+  (onboarding toggle / Settings → Privacy → Usage Analytics). While consent is
   undetermined (onboarding in progress) events buffer locally with zero
   network; the buffer flushes if consent lands on and is discarded if it
   lands off. Nothing egresses before an affirmative state.
-- **`DO_NOT_TRACK=1` means "don't phone home", full stop.** It kills all
-  telemetry buffering/sending regardless of consent, and also suppresses
-  the feature-flags fetch (local defaults only), the update check, and
-  the compliance/region call. Explicit user-initiated acts (cloud
-  sign-in/API, submitting feedback) still work.
+- **`DO_NOT_TRACK=1` is the environment-level telemetry off-switch.** It
+  kills all telemetry buffering/sending regardless of consent. Some
+  nonessential operational calls also consult it today, but DNT is not a
+  general offline mode. Explicit user-initiated acts (cloud sign-in/API,
+  submitting feedback) still work.
 - **Carve-out:** the single `telemetry_enabled {enabled: false}`
   transition event fired by the toggle-off itself is the last thing sent.
 
@@ -428,8 +429,8 @@ renames/duplicates/undo-restores, purge-vs-trash distinctions.
 `backend/tests/test_privacy.py` asserts the load-bearing gates on every
 PR: dev distribution → permanent no-op; official → nothing sent without
 consent; pre-consent buffering semantics; the `telemetry_enabled
-{enabled:false}` carve-out; `DO_NOT_TRACK=1` kills telemetry, the flags
-fetch, the update check, and the region call; the User-Agent emits
-exactly version/os/arch/branch/install-id; the body carries no install
+{enabled:false}` carve-out; `DO_NOT_TRACK=1` kills telemetry and currently
+suppresses the flags fetch, update check, and region call; the User-Agent
+emits exactly version/os/arch/branch/install-id; the body carries no install
 id. `backend/tests/test_model_family.py` pins the munger fixtures and the
 raw-string-never-egresses property.

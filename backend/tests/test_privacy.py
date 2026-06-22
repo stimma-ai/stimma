@@ -9,8 +9,8 @@ Asserts the load-bearing privacy gates:
   discarded on consent-off (D14).
 - The single ``telemetry_enabled {enabled: false}`` toggle-off transition
   event is the documented carve-out (sent last).
-- ``DO_NOT_TRACK=1`` kills telemetry AND the feature-flags fetch AND the
-  update check AND the compliance/region call, regardless of consent (D11).
+- ``DO_NOT_TRACK=1`` kills telemetry regardless of consent and currently
+  also suppresses the feature-flags fetch, update check, and region call.
 - The User-Agent helper emits exactly version/os/arch/branch/install-id,
   and the telemetry body carries no install id.
 """
@@ -214,7 +214,7 @@ async def test_telemetry_body_shape_has_no_install_id(fresh_env, patch_settings,
     assert isinstance(event["timestamp"], int)
 
 
-# ── DO_NOT_TRACK=1 is absolute (D11) ────────────────────────────────────
+# ── DO_NOT_TRACK=1 is absolute for telemetry ────────────────────────────
 
 
 @pytest.mark.asyncio
@@ -267,8 +267,8 @@ def test_dnt_suppresses_update_check(fresh_env, patch_settings, monkeypatch):
 @pytest.mark.asyncio
 async def test_settings_api_surfaces_dnt_active(client, monkeypatch):
     """GET /api/settings exposes ``dnt_active`` so the frontend can gate
-    the Tauri updater's automatic checks on it (D11: DNT means no
-    automatic requests of any kind, including the update-endpoint fetch).
+    the Tauri updater's automatic checks on it. DNT is the telemetry
+    off-switch and also gates several nonessential automatic fetches.
     The frontend starts its updater loop only when ``dnt_active`` is
     false; manual user-initiated checks remain available."""
     monkeypatch.delenv("DO_NOT_TRACK", raising=False)

@@ -6,7 +6,7 @@ reads the manifest and touches install/MAU counters; the response tells
 us whether a newer version exists on this install's branch.
 
 Runs only in official builds on an update branch (alpha/beta/production);
-dev/source builds never call it. Suppressed by ``DO_NOT_TRACK=1`` (D11)
+dev/source builds never call it. Suppressed by ``DO_NOT_TRACK=1`` today
 and by the ``disable_update_check`` config setting. Result is logged —
 installation itself stays with the existing in-app updater UI.
 """

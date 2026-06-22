@@ -1,5 +1,5 @@
 """
-First-party anonymous usage telemetry client.
+First-party usage telemetry client.
 
 Official builds only: the client constructs as a permanent no-op unless
 ``STIMMA_DISTRIBUTION == official`` — source/self-built installs emit
@@ -16,7 +16,7 @@ Mechanics (official builds):
 - Pre-consent buffering (D14): while consent is undetermined (onboarding
   in progress) events buffer locally with ZERO network; the buffer flushes
   if consent lands on, and is discarded if it lands off.
-- ``DO_NOT_TRACK=1`` is absolute (D11): no buffering, no sending,
+- ``DO_NOT_TRACK=1`` is absolute for telemetry: no buffering, no sending,
   regardless of consent state.
 - Carve-out: the single ``telemetry_enabled {enabled: false}`` transition
   event fired by the toggle-off itself is the last thing sent (only when

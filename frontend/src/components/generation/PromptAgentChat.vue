@@ -177,31 +177,10 @@
         >
           <SparklesIcon v-if="f.kind === 'reply'" class="h-3 w-3 flex-shrink-0 text-purple-500 dark:text-purple-400" />
           <span class="whitespace-pre-wrap leading-snug">{{ f.text }}</span>
-          <!-- Thumbs feedback (official builds only; disabled in source builds) -->
-          <template v-if="f.kind === 'reply'">
-            <button
-              @click.stop="sendThumb('up')"
-              :disabled="!thumbsEnabled"
-              class="ml-0.5 p-0.5 rounded transition-colors"
-              :class="thumbsEnabled
-                ? 'text-content-muted hover:text-blue-500 hover:bg-blue-500/10'
-                : 'text-content-muted/40 cursor-default'"
-              :title="thumbsDisabledReason || 'Good response — send feedback'"
-            >
-              <HandThumbUpIcon class="h-3 w-3" />
-            </button>
-            <button
-              @click.stop="sendThumb('down')"
-              :disabled="!thumbsEnabled"
-              class="p-0.5 rounded transition-colors"
-              :class="thumbsEnabled
-                ? 'text-content-muted hover:text-red-500 hover:bg-red-500/10'
-                : 'text-content-muted/40 cursor-default'"
-              :title="thumbsDisabledReason || 'Bad response — send feedback'"
-            >
-              <HandThumbDownIcon class="h-3 w-3" />
-            </button>
-          </template>
+          <PromptAgentThumbButtons
+            v-if="f.kind === 'reply'"
+            :package-source="collectPromptAgentConversation"
+          />
         </div>
       </TransitionGroup>
     </template>
@@ -459,14 +438,14 @@ import type { PromptEditorAgent } from '../../composables/promptEditorAgentKey'
 import { PROMPT_EDITOR_AGENT_KEY } from '../../composables/promptEditorAgentKey'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
 import { SparklesIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon, BugAntIcon, ArrowPathIcon, ChevronDownIcon, LightBulbIcon } from '@heroicons/vue/24/solid'
-import { WrenchIcon, ChevronUpIcon, HandThumbUpIcon, HandThumbDownIcon } from '@heroicons/vue/24/outline'
+import { WrenchIcon, ChevronUpIcon } from '@heroicons/vue/24/outline'
 import axios from 'axios'
-import { useFeedback } from '../../composables/useFeedback'
 import { useTelemetry } from '../../composables/useTelemetry'
 import { extractVerbatim, restoreVerbatim, verifyVerbatimPreserved } from '../../utils/promptProcessor'
 import SuggestionSubmenu from './SuggestionSubmenu.vue'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
 import { devModeRef } from '../../appConfig'
+import PromptAgentThumbButtons from '@stimma/prompt-agent-thumb-buttons'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -527,12 +506,6 @@ const showSettings = ref(false)
 // screen via tool calls); absent → prompt-only mode (single-shot /enhance).
 const agent = inject<PromptEditorAgent | null>(PROMPT_EDITOR_AGENT_KEY, null)
 
-// ── Thumbs feedback (prompt-agent responses) ────────────────────────────
-// The prompt agent's conversation is frontend-transient, so the package
-// payload (in-memory messages + prompt/parameter state) is posted to the
-// backend, which wraps it in the standard manifest shape.
-const { openThumbFeedback, thumbsEnabled, thumbsDisabledReason } = useFeedback()
-
 // Telemetry: prompt_agent_action — UI clicks only, closed enum pinned to the
 // actual controls: send | select_suggestion | select_option | surprise |
 // wildcard | refresh_category | refresh_suggestions | undo | redo | reset.
@@ -559,14 +532,6 @@ function collectPromptAgentConversation() {
     prompt: props.prompt || '',
     instructions: props.instructions || '',
   }
-}
-
-function sendThumb(thumb: 'up' | 'down') {
-  openThumbFeedback({
-    thumb,
-    agentContext: 'prompt-agent',
-    packageSource: { type: 'prompt_agent', conversation: collectPromptAgentConversation() },
-  })
 }
 
 // Extras sent on every suggestion request so ideas + dropdown options honor the

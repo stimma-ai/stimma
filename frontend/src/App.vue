@@ -8,28 +8,7 @@
   <!-- Image/generation details popup (global, opened via useMediaDetailsModal) -->
   <MediaDetailsModal />
 
-  <!-- Feedback modal (global, opened via useFeedback) -->
-  <FeedbackModal />
-
-  <!-- Thumbs consent popup (official builds; [Don't send] sends nothing,
-       send buttons submit the rating directly) -->
-  <FeedbackConsentDialog
-    :show="feedbackConsentDialog.open"
-    subject="thumbs"
-    @dont-send="consentDontSend"
-    @send-once="consentSendOnce"
-    @always-send="consentAlwaysSend"
-  />
-
-  <!-- Batched crash-report consent dialog (official builds, consent 'ask') -->
-  <FeedbackConsentDialog
-    :show="crashDialog.open"
-    subject="crash"
-    :crash-count="crashDialog.reports.length"
-    @dont-send="crashDecision('dismiss')"
-    @send-once="crashDecision('send')"
-    @always-send="crashDecision('send_always')"
-  />
+  <FeedbackRoot />
 
   <!-- Full-screen lock screen when PIN is required -->
   <div v-if="isLocked" class="fixed inset-0 z-[10050] bg-surface-overlay">
@@ -192,9 +171,7 @@ import ToastContainer from './components/ToastContainer.vue'
 import FFmpegWarningModal from './components/FFmpegWarningModal.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
-import FeedbackModal from './components/feedback/FeedbackModal.vue'
-import FeedbackConsentDialog from './components/feedback/FeedbackConsentDialog.vue'
-import { useFeedback } from './composables/useFeedback'
+import FeedbackRoot from '@stimma/feedback-root'
 import { useProfile } from './composables/useProfile'
 import { useAuth } from './composables/useAuth'
 import {
@@ -250,18 +227,6 @@ const {
   loadPreferences: loadUpdatePreferences,
   checkForUpdates,
 } = useAppUpdater()
-const {
-  consentDialog: feedbackConsentDialog,
-  crashDialog,
-  consentDontSend,
-  consentSendOnce,
-  consentAlwaysSend,
-  crashDecision,
-  loadState: loadFeedbackState,
-  checkPendingCrashes,
-  initCrashNotifications,
-} = useFeedback()
-
 const sidebarOpen = ref(false)
 const settingsOpen = ref(false)
 const settingsSection = ref('folders')
@@ -822,10 +787,9 @@ async function syncMarketplaceStimpacks(profileId = currentProfileId.value) {
   }
 }
 
-// Started from loadAppSettings() once the DO_NOT_TRACK state is known —
-// DNT means no automatic requests of any kind, including the Tauri
-// updater's endpoint fetch. User-initiated checks (Settings → Updates)
-// remain available; only the launch check and the 6 h interval are gated.
+// Started from loadAppSettings() once the DO_NOT_TRACK state is known.
+// We suppress automatic update endpoint fetches under DNT; user-initiated
+// checks (Settings → Updates) remain available.
 async function startUpdaterLoop(dntActive) {
   if (!updatesEnabled.value) return
   if (dntActive) return
@@ -864,13 +828,6 @@ onMounted(async () => {
   // the updater loop (DNT-gated) once the settings fetch succeeds.
   checkStartupPin()
 
-  // Feedback client: load consent state, then handle crash reports left by
-  // a previous run (official builds, consent 'ask' → batched dialog) and
-  // subscribe to live-crash WS notifications.
-  loadFeedbackState().then(() => {
-    checkPendingCrashes()
-  })
-  initCrashNotifications(useWebSocket().on)
 })
 
 onUnmounted(() => {

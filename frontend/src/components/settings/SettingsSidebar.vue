@@ -186,6 +186,11 @@ const CogIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-wid
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z' })
 ])
 
+const ShieldCheckIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9 12.75 11.25 15 15 9.75' }),
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M12 21.75c5.176-1.333 9-6.03 9-11.623 0-1.31-.21-2.57-.598-3.75A11.959 11.959 0 0 1 12 3.09a11.959 11.959 0 0 1-8.402 3.286A11.99 11.99 0 0 0 3 10.127c0 5.592 3.824 10.29 9 11.623Z' })
+])
+
 const ArrowDownTrayIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3' })
 ])
@@ -242,6 +247,7 @@ const profileSections = [
 const globalSections = [
   { id: 'account', label: 'Stimma Cloud', icon: CloudIcon, branded: true },
   { id: 'profiles', label: 'Profiles', icon: UserIcon },
+  { id: 'privacy', label: 'Privacy', icon: ShieldCheckIcon },
   { id: 'tools', label: 'Tools', icon: WrenchIcon },
   { id: 'updates', label: 'Updates', icon: ArrowDownTrayIcon },
   { id: 'background', label: 'Background Work', icon: CpuIcon },
