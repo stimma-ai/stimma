@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 import app_dirs
-from app_context import get_bundle_id
+from app_context import get_bundle_id, get_sandbox
 from config import get_settings, generate_profile_id, FolderConfig, LLMRoleConfig, LLMEndpointConfig, WildcardEntry, PromptSegmentEntry
 from database_registry import get_database_registry
 from database import MediaItem
@@ -269,6 +269,7 @@ class SettingsResponse(BaseModel):
     tool_providers: List[ToolProviderResponse]
     llm_settings: List[LLMRoleResponse]  # LLM configurations by role
     bundle_id: str  # e.g., "ai.stimma.stimma" for prod, "ai.stimma.stimma.debug" for dev
+    sandbox: str  # e.g., "default" or a named dev/test sandbox
     cloud_base_url: str  # Base URL for stimma.ai cloud services
     developer_mode: bool  # Show debug tools and developer options in the UI
     theme: str  # UI theme preference: light, dark, system
@@ -666,6 +667,7 @@ async def get_settings_all():
         tool_providers=tool_providers,
         llm_settings=llm_settings,
         bundle_id=get_bundle_id(),
+        sandbox=get_sandbox(),
         cloud_base_url=settings.cloud.base_url,
         developer_mode=settings.developer_mode,
         theme=settings.theme,

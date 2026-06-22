@@ -274,7 +274,9 @@ async def test_settings_api_surfaces_dnt_active(client, monkeypatch):
     monkeypatch.delenv("DO_NOT_TRACK", raising=False)
     response = await client.get("/api/settings")
     assert response.status_code == 200
-    assert response.json()["dnt_active"] is False
+    data = response.json()
+    assert data["dnt_active"] is False
+    assert data["sandbox"] == "default"
 
     monkeypatch.setenv("DO_NOT_TRACK", "1")
     response = await client.get("/api/settings")

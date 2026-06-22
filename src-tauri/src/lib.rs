@@ -43,6 +43,17 @@ async fn print_webview(webview: tauri::Webview) -> Result<(), String> {
     webview.print().map_err(|e| e.to_string())
 }
 
+// Tauri command to receive console logs from the webview.
+#[tauri::command]
+fn log_from_webview(level: String, message: String) {
+    match level.as_str() {
+        "error" => log::error!(target: "web", "{}", message),
+        "warn" => log::warn!(target: "web", "{}", message),
+        "debug" => log::debug!(target: "web", "{}", message),
+        _ => log::info!(target: "web", "{}", message),
+    }
+}
+
 // Tauri command to get the backend port
 #[tauri::command]
 async fn get_backend_port(state: tauri::State<'_, Arc<BackendState>>) -> Result<u16, String> {
@@ -74,9 +85,13 @@ fn parse_backend_port(line: &str) -> Option<u16> {
 /// Derive the data and cache directories from the bundle identifier.
 ///
 /// The bundle ID (e.g., "ai.stimma.stimma.debug") is used directly as the
-/// folder name. The sandbox is always "default" for the Tauri app.
+/// folder name. Packaged apps default to the "default" sandbox; dev launches
+/// can override it with STIMMA_SANDBOX.
 pub(crate) fn get_app_dirs(bundle_id: &str) -> (PathBuf, PathBuf) {
-    let sandbox = "default";
+    let sandbox = std::env::var("STIMMA_SANDBOX")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| "default".to_string());
 
     #[cfg(target_os = "macos")]
     {
@@ -85,12 +100,12 @@ pub(crate) fn get_app_dirs(bundle_id: &str) -> (PathBuf, PathBuf) {
             .join("Library")
             .join("Application Support")
             .join(bundle_id)
-            .join(sandbox);
+            .join(&sandbox);
         let cache_dir = PathBuf::from(&home)
             .join("Library")
             .join("Caches")
             .join(bundle_id)
-            .join(sandbox);
+            .join(&sandbox);
         (data_dir, cache_dir)
     }
 
@@ -101,7 +116,7 @@ pub(crate) fn get_app_dirs(bundle_id: &str) -> (PathBuf, PathBuf) {
                 let home = std::env::var("USERPROFILE").unwrap_or_default();
                 format!("{}\\AppData\\Local", home)
             });
-        let data_dir = PathBuf::from(&local_app_data).join(bundle_id).join(sandbox);
+        let data_dir = PathBuf::from(&local_app_data).join(bundle_id).join(&sandbox);
         let cache_dir = data_dir.clone();
         (data_dir, cache_dir)
     }
@@ -113,8 +128,8 @@ pub(crate) fn get_app_dirs(bundle_id: &str) -> (PathBuf, PathBuf) {
             .unwrap_or_else(|_| format!("{}/.local/share", home));
         let xdg_cache = std::env::var("XDG_CACHE_HOME")
             .unwrap_or_else(|_| format!("{}/.cache", home));
-        let data_dir = PathBuf::from(&xdg_data).join(bundle_id).join(sandbox);
-        let cache_dir = PathBuf::from(&xdg_cache).join(bundle_id).join(sandbox);
+        let data_dir = PathBuf::from(&xdg_data).join(bundle_id).join(&sandbox);
+        let cache_dir = PathBuf::from(&xdg_cache).join(bundle_id).join(&sandbox);
         (data_dir, cache_dir)
     }
 }
@@ -123,8 +138,13 @@ pub(crate) fn get_app_dirs(bundle_id: &str) -> (PathBuf, PathBuf) {
 pub fn run() {
     let dev_mode = std::env::var("STIMMA_DEV").is_ok();
 
+    let dev_backend_port = std::env::var("STIMMA_BACKEND_PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(9191);
+
     let backend_state = Arc::new(BackendState {
-        port: RwLock::new(if dev_mode { Some(9191) } else { None }),
+        port: RwLock::new(if dev_mode { Some(dev_backend_port) } else { None }),
         watchdog_pid: AtomicU32::new(0),
     });
 
@@ -151,6 +171,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_backend_port,
             print_webview,
+            log_from_webview,
             embed::embed_metadata,
             voice::voice_model_status,
             voice::voice_download_model,
@@ -209,7 +230,7 @@ pub fn run() {
             }
 
             if dev_mode {
-                log::info!("[stimma] Dev mode: using external backend on port 9191");
+                log::info!("[stimma] Dev mode: using external backend on port {}", dev_backend_port);
             } else {
                 // Production: spawn the watchdog which supervises the backend
                 // Watchdog uses getppid() polling to detect when we die

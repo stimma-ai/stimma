@@ -166,11 +166,13 @@
           </div>
         </template>
 
-        <!-- Failed job — same slim bar treatment as the in-flight rows above,
-             tinted red. Click opens the failure details. -->
+        <!-- Failed job — terminal error row (no progress track). Click opens the
+             failure details; stacks vertically in the narrow stage strip. -->
         <template v-else-if="item.type === 'failed-job'">
-          <PipelineProgressBar
-            v-bind="failedJobModel(item.job)"
+          <FailedJobRow
+            :name="toolDisplayName || item.job.model_name || 'Generation'"
+            :error="item.job.error"
+            :compact="compactOverlays"
             class="cursor-pointer"
             @click="handleJobClick(item.job)"
             @retry="$emit('retry-job', item.job.id)"
@@ -188,6 +190,7 @@ import { computed } from 'vue'
 import { formatRemainingTime } from '../../utils/timeFormat'
 import { MediaImage, AppImage } from '../media'
 import PipelineProgressBar from './postprocessing/PipelineProgressBar.vue'
+import FailedJobRow from './FailedJobRow.vue'
 import JobTile from './JobTile.vue'
 import BatchGroup from './BatchGroup.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
@@ -584,16 +587,6 @@ function jobModel(job: Job) {
     status: enhancing ? 'enhancing' : processing ? 'processing' : 'queued',
     label: enhancing ? 'Enhancing prompt…' : processing ? 'Generating…' : 'Queued…',
     segments: [{ status: (processing || enhancing ? 'active' : 'pending') as const }],
-  }
-}
-
-function failedJobModel(job: Job) {
-  return {
-    name: props.toolDisplayName || job.model_name || 'Generation',
-    label: job.error ? `Failed — ${job.error}` : 'Failed — click for details',
-    segments: [{ status: 'failed' as const }],
-    failed: true,
-    showRetry: true,
   }
 }
 

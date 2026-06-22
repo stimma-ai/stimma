@@ -252,7 +252,8 @@ export async function seedPendingToolInput(
 
   await page.evaluate(({ toolId, projectId, entries, mode, field }) => {
     const bundleId = localStorage.getItem('stimma_bundle_id') || '';
-    const prefix = bundleId ? `stimma_${bundleId}` : 'stimma';
+    const sandbox = localStorage.getItem('stimma_sandbox') || 'default';
+    const prefix = bundleId ? `stimma_${bundleId}_${sandbox}` : 'stimma';
     const profileId = localStorage.getItem('profileId');
     const profiles = (window as any).__stimmaAcceptanceProfiles || [];
     const dbGuid = profiles.find((profile: any) => profile.id === profileId)?.db_guid || profileId;

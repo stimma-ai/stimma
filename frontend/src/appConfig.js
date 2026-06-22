@@ -8,6 +8,7 @@
 import { ref } from 'vue'
 
 let bundleId = localStorage.getItem('stimma_bundle_id') || ''
+let sandbox = localStorage.getItem('stimma_sandbox') || ''
 let settingsLoaded = false
 
 // Reactive ref for developer mode - allows Vue components to react to changes
@@ -25,9 +26,11 @@ const telemetryEnabledRef = ref(null)
  * Set the bundle ID from backend settings.
  * Called once at app startup after fetching settings.
  */
-export function setBundleId(id) {
+export function setBundleId(id, sandboxName = '') {
   bundleId = id || ''
+  sandbox = sandboxName || 'default'
   localStorage.setItem('stimma_bundle_id', bundleId)
+  localStorage.setItem('stimma_sandbox', sandbox)
   settingsLoaded = true
 }
 
@@ -51,6 +54,14 @@ export function getBundleId() {
 
 // Keep old name as alias for backward compatibility during migration
 export const getAppModifier = getBundleId
+
+/**
+ * Get the current sandbox name.
+ * e.g., "default" for normal dev, or a named isolated sandbox.
+ */
+export function getSandbox() {
+  return sandbox || 'default'
+}
 
 /**
  * Set developer mode from backend settings.

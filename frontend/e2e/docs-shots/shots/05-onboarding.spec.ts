@@ -12,6 +12,8 @@ test.use({ storageState: { cookies: [], origins: [] } })
 test('onboarding screen', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('stimma_bundle_id', 'ai.stimma.stimma.debug')
+    localStorage.setItem('stimma_sandbox', 'default')
+    localStorage.setItem('stimma_ai.stimma.stimma.debug_default_global_theme', 'light')
     localStorage.setItem('stimma_ai.stimma.stimma.debug_global_theme', 'light')
     localStorage.setItem('stimma_global_theme', 'light')
   })

@@ -17,6 +17,12 @@ type CaptureOptions = {
   env?: Record<string, string>;
 };
 
+type DevProcess = {
+  label: string;
+  child: Deno.ChildProcess;
+  status: Promise<Deno.CommandStatus>;
+};
+
 async function run(cmd: string, args: string[] = [], opts: RunOptions = {}): Promise<number> {
   const command = new Deno.Command(cmd, {
     args,
@@ -33,6 +39,72 @@ async function run(cmd: string, args: string[] = [], opts: RunOptions = {}): Pro
     Deno.exit(code);
   }
   return code;
+}
+
+function prefixOutput(label: string, stream: ReadableStream<Uint8Array> | null): Promise<void> {
+  if (!stream) return Promise.resolve();
+  const decoder = new TextDecoder();
+  const prefix = `[${label}] `;
+  let buffered = "";
+
+  return (async () => {
+    const reader = stream.getReader();
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffered += decoder.decode(value, { stream: true });
+        const lines = buffered.split(/\r?\n/);
+        buffered = lines.pop() || "";
+        for (const line of lines) {
+          console.log(`${prefix}${line}`);
+        }
+      }
+      buffered += decoder.decode();
+      if (buffered) console.log(`${prefix}${buffered}`);
+    } catch (err) {
+      console.error(`${prefix}output read failed: ${err}`);
+    }
+  })();
+}
+
+function spawnDevProcess(label: string, cmd: string, args: string[], opts: RunOptions = {}): DevProcess {
+  const command = new Deno.Command(cmd, {
+    args,
+    cwd: opts.cwd,
+    env: { ...Deno.env.toObject(), ...(opts.env || {}) },
+    stdin: "null",
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const child = command.spawn();
+  void prefixOutput(label, child.stdout);
+  void prefixOutput(label, child.stderr);
+  return { label, child, status: child.status };
+}
+
+function terminateDevProcesses(processes: DevProcess[]): void {
+  for (const proc of processes) {
+    try {
+      proc.child.kill("SIGTERM");
+    } catch {
+      // Process already exited.
+    }
+  }
+}
+
+async function waitForTcpPort(port: number, label: string, timeoutMs = 60000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const conn = await Deno.connect({ hostname: "127.0.0.1", port });
+      conn.close();
+      return;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  throw new Error(`Timed out waiting for ${label} on port ${port}`);
 }
 
 async function runCapture(cmd: string, args: string[] = [], opts: CaptureOptions = {}): Promise<{
@@ -151,6 +223,7 @@ Commands:
   dev backend     Run Python backend with nodemon (port 9191)
   dev backend2    Run Rust backend (port 9191)
   dev app         Run Tauri in dev mode
+  dev all         Run backend + frontend + Tauri together with merged logs
   run backend     Run backend without file watching
   run frontend    Build and serve frontend (no HMR)
   run app         Run Tauri app (release, no watching)
@@ -1167,6 +1240,84 @@ function officialBanner(bundleId: string): void {
   );
 }
 
+function tauriDevEnv(ports: { server: number; frontend: number }, sandbox: string, officialEnv: Record<string, string>): Record<string, string> {
+  return {
+    STIMMA_DEV: "1",
+    STIMMA_BACKEND_PORT: String(ports.server),
+    STIMMA_FRONTEND_PORT: String(ports.frontend),
+    STIMMA_SANDBOX: sandbox,
+    ...officialEnv,
+  };
+}
+
+function tauriDevConfig(ports: { frontend: number }): string {
+  return JSON.stringify({
+    build: {
+      devUrl: `http://localhost:${ports.frontend}`,
+    },
+  });
+}
+
+async function commandDevAll(bundleId: string, sandbox: string, officialEnv: Record<string, string>): Promise<void> {
+  const ports = await getSandboxPorts(bundleId, sandbox);
+  const backendDir = join(repoRoot, "backend");
+  const frontendDir = join(repoRoot, "frontend");
+  const backendExec = `uv run python main.py --bundle-id=${bundleId} --sandbox=${sandbox} --port=${ports.server}`;
+  const backendArgs = Deno.build.os === "windows"
+    ? ["nodemon", "--signal", "SIGKILL", "--exec", backendExec]
+    : ["nodemon", "--signal", "SIGKILL", "--exec", backendExec];
+  const portEnv = {
+    STIMMA_BACKEND_PORT: String(ports.server),
+    STIMMA_FRONTEND_PORT: String(ports.frontend),
+  };
+  const tauriConfig = tauriDevConfig(ports);
+  const processes: DevProcess[] = [];
+  let shuttingDown = false;
+
+  const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    terminateDevProcesses(processes);
+  };
+
+  Deno.addSignalListener("SIGINT", shutdown);
+  Deno.addSignalListener("SIGTERM", shutdown);
+
+  console.log(`Starting Stimma dev stack (bundle=${bundleId}, sandbox=${sandbox}, backend=:${ports.server}, frontend=:${ports.frontend})`);
+  if (officialEnv.STIMMA_DISTRIBUTION === "official") {
+    console.log("Official distribution mode is active for backend, frontend, and app.");
+  }
+
+  processes.push(spawnDevProcess("backend", "npx", backendArgs, { cwd: backendDir, env: officialEnv }));
+  processes.push(spawnDevProcess("frontend", "npm", ["run", "dev"], { cwd: frontendDir, env: { ...portEnv, ...officialEnv } }));
+
+  try {
+    await waitForTcpPort(ports.frontend, "frontend");
+    processes.push(spawnDevProcess("app", "cargo", ["tauri", "dev", "--config", tauriConfig], {
+      cwd: repoRoot,
+      env: tauriDevEnv(ports, sandbox, officialEnv),
+    }));
+
+    const firstExit = await Promise.race(processes.map(async (proc) => ({ proc, status: await proc.status })));
+    if (!shuttingDown) {
+      console.log(`[dev all] ${firstExit.proc.label} exited with code ${firstExit.status.code}; stopping remaining processes.`);
+      shutdown();
+    }
+    Deno.exit(firstExit.status.code);
+  } catch (err) {
+    console.error(`[dev all] ${err}`);
+    shutdown();
+    Deno.exit(1);
+  } finally {
+    try {
+      Deno.removeSignalListener("SIGINT", shutdown);
+      Deno.removeSignalListener("SIGTERM", shutdown);
+    } catch {
+      // Ignore cleanup failures while exiting.
+    }
+  }
+}
+
 async function main(): Promise<void> {
   let args = [...Deno.args];
   let channel = "debug";
@@ -1254,10 +1405,16 @@ async function main(): Promise<void> {
         const args2 = ["run", "--", "--bundle-id", bundleId, "--sandbox", sandbox, "--port", String(ports.server), "--console"];
         await run("cargo", args2, { cwd: join(repoRoot, "backend2"), env: officialEnv });
       } else if (sub === "app") {
+        const ports = await getSandboxPorts(bundleId, sandbox);
         if (official) {
-          console.log("Note: 'dev app' uses the externally running backend on :9191 — start it with 'stimma dev backend --official' for backend surfaces.");
+          console.log(`Note: 'dev app' uses the externally running backend on :${ports.server} — start it with 'stimma dev backend --official' for backend surfaces.`);
         }
-        await run("cargo", ["tauri", "dev"], { cwd: repoRoot, env: { STIMMA_DEV: "1", ...officialEnv } });
+        await run("cargo", ["tauri", "dev", "--config", tauriDevConfig(ports)], {
+          cwd: repoRoot,
+          env: tauriDevEnv(ports, sandbox, officialEnv),
+        });
+      } else if (sub === "all") {
+        await commandDevAll(bundleId, sandbox, officialEnv);
       } else {
         printUsage();
       }

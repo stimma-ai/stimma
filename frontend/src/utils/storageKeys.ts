@@ -5,20 +5,22 @@
  * profile changes, and database resets. This prevents stale data from being
  * loaded when IDs (like tool_id) are reused in a new database.
  *
- * Also uses app modifier (e.g., "dev") to separate dev/prod localStorage.
+ * Also uses bundle ID and sandbox to separate dev/prod and sandboxed
+ * localStorage.
  *
- * Key format: stimma_{modifier?}_{dbGuid}_{...parts}
+ * Key format: stimma_{bundleId}_{sandbox}_{dbGuid}_{...parts}
  */
 import { getCurrentDbGuid, getCurrentProfileId } from '../composables/useProfile'
-import { getAppModifier } from '../appConfig'
+import { getAppModifier, getSandbox } from '../appConfig'
 
 /**
  * Get the base prefix for all storage keys.
- * Returns "stimma" for prod, "stimma_dev" for dev environment, etc.
+ * Returns "stimma" before settings load, then a bundle/sandbox-scoped prefix.
  */
 function getBasePrefix(): string {
   const modifier = getAppModifier()
-  return modifier ? `stimma_${modifier}` : 'stimma'
+  if (!modifier) return 'stimma'
+  return `stimma_${modifier}_${getSandbox()}`
 }
 
 /**

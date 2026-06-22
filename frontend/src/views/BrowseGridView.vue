@@ -1765,7 +1765,7 @@ onMounted(async () => {
   // Listen for profile changes
   window.addEventListener('profile-changed', handleProfileChanged)
 
-  // Listen for settings loaded (bundle_id now available for correct localStorage keys)
+  // Listen for settings loaded (bundle_id/sandbox now available for correct localStorage keys)
   window.addEventListener('settings-loaded', handleSettingsLoaded)
 
   // If settings already loaded before we mounted, reload filters now

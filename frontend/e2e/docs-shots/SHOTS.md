@@ -31,7 +31,7 @@ into a page. Inventory refs point at the docs repo's SCREENSHOT_INVENTORY.md.
 ## Gotchas encoded in the harness (don't relearn these)
 
 - Theme comes from the **backend** config (`theme: light`), not localStorage.
-- localStorage keys are prefixed with the **bundle id** (`stimma_ai.stimma.stimma.debug_global_*`).
+- localStorage keys are prefixed with the **bundle id and sandbox** (`stimma_ai.stimma.stimma.debug_default_global_*`).
 - A one-time **feedback coachmark** auto-opens the logo menu post-onboarding; setup.ts lets it fire and persist before any shots.
 - Generations default to **24h auto-delete**; seed passes `auto_delete_duration: null`.
 - Tool working state **persists server-side**; specs reset it via `PUT /api/tools/state/<tool>` for idempotence.

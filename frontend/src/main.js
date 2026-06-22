@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import { initApiConfig, isTauri, setStartupStatusCallback } from './apiConfig'
+import { initConsoleBridge, installVueConsoleHandlers } from './consoleBridge'
 // Import useProfile early to set up the global fetch interceptor before any API calls
 import './composables/useProfile'
 import { initializeCurrentProfile } from './composables/useProfile'
@@ -12,6 +13,8 @@ import {
   getRecentEditorDebugEvents,
   summarizeEditorDebugError,
 } from '../../packages/image-editor/src/utils/editorDebug'
+
+initConsoleBridge()
 
 // Show loading screen for Tauri mode
 function showLoadingScreen() {
@@ -152,6 +155,8 @@ initApiConfig().then(() => {
       })
     }
   }
+
+  installVueConsoleHandlers(app)
 
   // Directive to disable WebKit autocorrect/autocapitalize/spellcheck on inputs
   app.directive('no-autocorrect', {

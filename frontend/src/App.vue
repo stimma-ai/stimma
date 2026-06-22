@@ -658,7 +658,7 @@ async function switchToProfileFromLockScreen(profile) {
 // settings-derived state (wildcards, segments, theme, etc.) stays empty.
 async function loadAppSettings() {
   const settings = await fetchSettings()
-  setAppModifier(settings.bundle_id)
+  setAppModifier(settings.bundle_id, settings.sandbox)
   // App modifier is now set, so localStorage key prefix is stable — purge
   // legacy masks/paint (now in IndexedDB) and the old tool-descriptor cache.
   runStartupCleanup()
@@ -682,7 +682,7 @@ async function loadAppSettings() {
   if (settings.prompt_segments) {
     setSegments(settings.prompt_segments)
   }
-  // Notify components that settings (especially bundle_id) are now available
+  // Notify components that settings (especially bundle_id/sandbox) are now available
   window.dispatchEvent(new CustomEvent('settings-loaded'))
 }
 
@@ -692,13 +692,13 @@ async function checkStartupPin() {
 
   await loadProfiles()
 
-  // Load settings to get bundle_id for localStorage key namespacing.
+  // Load settings to get bundle_id/sandbox for localStorage key namespacing.
   // If the current profile is PIN-locked this is rejected ("PIN required");
   // loadAppSettings() is retried after unlock in submitLockScreenPin().
   try {
     await loadAppSettings()
   } catch (e) {
-    console.warn('[App] Failed to load bundle_id from settings:', e)
+    console.warn('[App] Failed to load app identity from settings:', e)
   }
 
   void syncMarketplaceStimpacks()

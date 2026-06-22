@@ -16,7 +16,8 @@ export default async function globalSetup(config: FullConfig) {
   });
   await page.evaluate(() => {
     const bundleId = localStorage.getItem('stimma_bundle_id') || '';
-    localStorage.setItem(`stimma_${bundleId}_global_onboarding_completed`, '1');
+    const sandbox = localStorage.getItem('stimma_sandbox') || 'default';
+    localStorage.setItem(`stimma_${bundleId}_${sandbox}_global_onboarding_completed`, '1');
   });
   await page.goto(`${baseURL}/browse`);
 
