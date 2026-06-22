@@ -18,22 +18,25 @@
           <p class="text-xs text-content-tertiary mt-0.5">Used for new chats unless overridden per-chat or per-project</p>
         </div>
         <select
-          :value="defaultModelSlug"
+          :value="defaultModelSelectValue"
           @change="updateDefaultModel($event.target.value)"
-          class="w-44 bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500"
+          class="w-56 bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500"
         >
           <option
-            v-for="model in availableModelsList"
+            v-for="model in selectableDefaultModels"
             :key="model.slug"
             :value="model.slug"
             :disabled="model.available === false"
           >
-            {{ model.name }}{{ model.available === false ? ' · unavailable' : '' }}
+            {{ model.name }}{{ model.available === false && model.source !== 'auto' ? ' · unavailable' : '' }}
           </option>
         </select>
       </div>
-      <p v-if="selectedDefaultModel?.available === false" class="mt-3 text-xs text-amber-500">
-        {{ selectedDefaultModel.description || 'The saved default model is not available right now.' }}
+      <p v-if="defaultModelStatus" class="mt-3 text-xs flex items-start gap-1.5" :class="defaultModelStatus.available ? 'text-content-tertiary' : 'text-amber-500/80'">
+        <svg v-if="!defaultModelStatus.available" class="w-3.5 h-3.5 flex-shrink-0 mt-px" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+        </svg>
+        <span>{{ defaultModelStatus.message }}</span>
       </p>
     </div>
 
@@ -46,15 +49,18 @@
         <select
           :value="utilityModelSource"
           @change="updateUtilityModel($event.target.value)"
-          class="w-44 bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500"
+          class="w-56 bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500"
         >
-          <option value="auto">Auto</option>
+          <option value="auto" :disabled="!hasAnyUtilityModel">{{ utilityAutoLabel }}</option>
           <option value="stimma_cloud" :disabled="!hasCloudAvailable">Stimma Agent{{ !hasCloudAvailable ? ' · unavailable' : '' }}</option>
           <option value="endpoint" :disabled="!hasLocalEndpoint">Local Endpoint{{ !hasLocalEndpoint ? ' · configure first' : '' }}</option>
         </select>
       </div>
-      <p v-if="utilityModelStatus" class="mt-3 text-xs" :class="utilityModelStatus.available ? 'text-content-tertiary' : 'text-amber-500'">
-        {{ utilityModelStatus.message }}
+      <p v-if="utilityModelStatus" class="mt-3 text-xs flex items-start gap-1.5" :class="utilityModelStatus.available ? 'text-content-tertiary' : 'text-amber-500/80'">
+        <svg v-if="!utilityModelStatus.available" class="w-3.5 h-3.5 flex-shrink-0 mt-px" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+        </svg>
+        <span>{{ utilityModelStatus.message }}</span>
       </p>
     </div>
 
@@ -84,7 +90,7 @@
           </select>
         </div>
       </div>
-      <p v-if="!voiceModelReady" class="mt-3 text-xs text-amber-500">
+      <p v-if="!voiceModelReady" class="mt-3 text-xs text-content-tertiary">
         Downloads automatically the first time you use voice input.
       </p>
     </div>
@@ -480,9 +486,42 @@ const { models: availableModelsRaw, globalDefault, fetchModels, invalidateCache,
 const defaultModelSlug = ref('auto')
 const availableModelsList = computed(() => {
   if (availableModelsRaw.value.length > 0) return availableModelsRaw.value
-  return [{ slug: 'auto', name: 'Auto', source: 'auto', available: true }]
+  return [{
+    slug: 'auto',
+    name: 'Set up AI models',
+    source: 'auto',
+    available: false,
+    description: 'Sign in to Stimma Cloud or configure a local endpoint in Settings > Advanced.',
+  }]
 })
-const selectedDefaultModel = computed(() => availableModelsList.value.find(m => m.slug === defaultModelSlug.value))
+const autoDefaultModel = computed(() => availableModelsList.value.find(m => m.slug === 'auto'))
+const selectableDefaultModels = computed(() => {
+  const explicitModels = availableModelsList.value.filter(m => m.source !== 'auto')
+  if (defaultModelSlug.value === 'auto' && autoDefaultModel.value && !autoDefaultModel.value.resolved_slug) {
+    return [autoDefaultModel.value, ...explicitModels]
+  }
+  return explicitModels.length > 0 ? explicitModels : availableModelsList.value
+})
+const defaultModelSelectValue = computed(() => {
+  if (defaultModelSlug.value === 'auto' && autoDefaultModel.value?.resolved_slug) {
+    return autoDefaultModel.value.resolved_slug
+  }
+  return defaultModelSlug.value
+})
+const selectedDefaultModel = computed(() => {
+  return selectableDefaultModels.value.find(m => m.slug === defaultModelSelectValue.value)
+    || availableModelsList.value.find(m => m.slug === defaultModelSlug.value)
+})
+const defaultModelStatus = computed(() => {
+  if (!selectedDefaultModel.value) return null
+  if (selectedDefaultModel.value.available === false) {
+    return {
+      available: false,
+      message: selectedDefaultModel.value.description || 'The saved default model is not available right now.',
+    }
+  }
+  return null
+})
 
 // --- Shared local endpoint state ---
 const sharedEndpoint = ref({
@@ -527,6 +566,12 @@ const lastTestedAgo = computed(() => timeAgo(sharedEndpoint.value.last_tested_at
 
 const hasLocalEndpoint = computed(() => !!sharedEndpoint.value.url)
 const hasCloudAvailable = computed(() => availableModelsRaw.value.some(m => m.source === 'stimma_cloud' && m.available !== false))
+const hasAnyUtilityModel = computed(() => hasCloudAvailable.value || hasLocalEndpoint.value)
+const utilityAutoLabel = computed(() => {
+  if (hasCloudAvailable.value) return 'Auto: Stimma Cloud'
+  if (hasLocalEndpoint.value) return 'Auto: Local Endpoint'
+  return 'Auto · unavailable'
+})
 
 const sharedApiKeyDisplay = computed(() => {
   if (editedSharedKey.value !== undefined) return editedSharedKey.value

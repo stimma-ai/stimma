@@ -25,7 +25,7 @@ from .conversation import build_messages, response_reserve
 from .agent_config import resolve_agent_config
 from .llm_options import agent_llm_options
 from ..hitl import HumanActionRequired
-from .permissions import check_permission, check_stp_permission, apply_permission, apply_stp_permission
+from .permissions import check_permission_for_call, check_stp_permission, apply_permission, apply_stp_permission
 from .prompts import get_system_prompt
 from .tools.bash import get_shell_runtime_name
 from .tools_registry import get_tools_schema, get_tool, get_all_tools
@@ -592,7 +592,7 @@ async def _needs_permission(
 ) -> bool:
     """Check if a tool call needs permission — handles both V2 gating and STP tool gating."""
     # V2 tool-level gating (bash, browse_web, run_code)
-    if not await check_permission(fn_name, chat, session):
+    if not await check_permission_for_call(fn_name, fn_arguments, chat, session):
         return True
 
     # For call_tool, also check per-STP-tool-id permission

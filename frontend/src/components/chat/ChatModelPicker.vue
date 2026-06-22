@@ -2,12 +2,17 @@
   <div class="relative" ref="container">
     <button
       type="button"
+      :disabled="disabled"
       @click="toggle"
-      class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors"
-      :class="isCloudModel
+      class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors min-w-0"
+      :class="disabled
+        ? 'text-content-muted opacity-60 cursor-not-allowed'
+        : currentUnavailable
+        ? 'text-amber-500 hover:text-amber-400 hover:bg-amber-500/10'
+        : isCloudModel
         ? 'text-teal-500 hover:text-teal-400 hover:bg-teal-500/10'
         : 'text-content-muted hover:text-content-secondary hover:bg-white/[0.05]'"
-      :title="currentDisplayName"
+      :title="currentTitle"
     >
       <!-- Cloud icon for cloud models, server icon for local -->
       <svg v-if="isCloudModel" class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -16,8 +21,14 @@
       <svg v-else class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z" />
       </svg>
-      <span class="truncate max-w-[120px]">{{ currentDisplayName }}</span>
+      <span
+        class="truncate max-w-[150px]"
+        :class="isCloudModel && !currentUnavailable ? 'stimma-cloud-text' : ''"
+      >
+        {{ currentDisplayName }}
+      </span>
       <svg
+        v-if="!disabled"
         class="w-2.5 h-2.5 text-content-muted transition-transform flex-shrink-0"
         :class="{ 'rotate-180': isOpen }"
         viewBox="0 0 12 12"
@@ -38,7 +49,7 @@
       <div
         v-if="isOpen"
         ref="dropdown"
-        class="fixed z-50 py-1 bg-surface border border-edge rounded-lg shadow-xl min-w-[200px] max-w-[280px]"
+        class="fixed z-50 py-1 bg-surface border border-edge rounded-lg shadow-xl w-80 max-w-[calc(100vw-2rem)]"
         :style="dropdownStyle"
         tabindex="-1"
         @keydown="handleKeydown"
@@ -49,26 +60,24 @@
         </div>
 
         <template v-else>
-          <template v-if="autoModels.length > 0">
+          <template v-if="visibleAutoModels.length > 0">
             <button
-              v-for="model in autoModels"
+              v-for="model in visibleAutoModels"
               :key="model.slug"
               :disabled="model.available === false"
               @click="selectModel(model)"
               class="w-full px-3 py-1.5 text-left flex items-center gap-2 transition-colors"
-              :class="model.slug === effectiveSlug
-                ? 'bg-blue-500/10'
-                : model.available === false ? 'opacity-60 cursor-not-allowed' : 'hover:bg-surface-raised'"
+              :class="modelButtonClass(model, 'bg-blue-500/10')"
             >
               <div class="flex-1 min-w-0">
-                <div class="text-sm text-content truncate">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
-                <div v-if="model.description" class="text-[11px] text-content-muted truncate">{{ model.description }}</div>
+                <div class="text-sm text-content">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
+                <div v-if="model.description" class="text-[11px] leading-snug text-content-muted whitespace-normal break-words">{{ model.description }}</div>
               </div>
-              <svg v-if="model.slug === effectiveSlug" class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <svg v-if="isSelectedModel(model)" class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
               </svg>
             </button>
-            <div class="border-t border-edge my-1" />
+            <div v-if="cloudModels.length > 0 || localModels.length > 0" class="border-t border-edge my-1" />
           </template>
 
           <!-- Cloud models section -->
@@ -81,16 +90,14 @@
               :key="model.slug"
               :disabled="model.available === false"
               @click="selectModel(model)"
-              class="w-full px-3 py-1.5 text-left flex items-center gap-2 transition-colors"
-              :class="model.slug === effectiveSlug
-                ? 'bg-cyan-500/10'
-                : model.available === false ? 'opacity-60 cursor-not-allowed' : 'hover:bg-surface-raised'"
+              class="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
+              :class="modelButtonClass(model, 'bg-cyan-500/10')"
             >
               <div class="flex-1 min-w-0">
-                <div class="text-sm text-content truncate">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
-                <div v-if="model.description" class="text-[11px] text-content-muted truncate">{{ model.description }}</div>
+                <div class="text-sm text-content">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
+                <div v-if="model.description" class="text-[11px] leading-snug text-content-muted whitespace-normal break-words">{{ model.description }}</div>
               </div>
-              <svg v-if="model.slug === effectiveSlug" class="w-4 h-4 text-cyan-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <svg v-if="isSelectedModel(model)" class="w-4 h-4 text-cyan-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
               </svg>
             </button>
@@ -98,7 +105,7 @@
 
           <!-- Local endpoint section -->
           <template v-if="localModels.length > 0">
-            <div v-if="cloudModels.length > 0" class="border-t border-edge my-1" />
+            <div v-if="cloudModels.length > 0 || visibleAutoModels.length > 0" class="border-t border-edge my-1" />
             <div class="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-content-muted">
               Local
             </div>
@@ -107,23 +114,21 @@
               :key="model.slug"
               :disabled="model.available === false"
               @click="selectModel(model)"
-              class="w-full px-3 py-1.5 text-left flex items-center gap-2 transition-colors"
-              :class="model.slug === effectiveSlug
-                ? 'bg-blue-500/10'
-                : model.available === false ? 'opacity-60 cursor-not-allowed' : 'hover:bg-surface-raised'"
+              class="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
+              :class="modelButtonClass(model, 'bg-blue-500/10')"
             >
               <div class="flex-1 min-w-0">
-                <div class="text-sm text-content truncate">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
-                <div v-if="model.description" class="text-[11px] text-content-muted truncate">{{ model.description }}</div>
+                <div class="text-sm text-content">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
+                <div v-if="model.description" class="text-[11px] leading-snug text-content-muted whitespace-normal break-words">{{ model.description }}</div>
               </div>
-              <svg v-if="model.slug === effectiveSlug" class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <svg v-if="isSelectedModel(model)" class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
               </svg>
             </button>
           </template>
 
           <!-- Empty state -->
-          <div v-if="cloudModels.length === 0 && localModels.length === 0" class="px-3 py-2 text-xs text-content-muted">
+          <div v-if="visibleAutoModels.length === 0 && cloudModels.length === 0 && localModels.length === 0" class="px-3 py-2 text-xs text-content-muted">
             No models available
           </div>
         </template>
@@ -142,11 +147,13 @@ const props = defineProps({
   modelSlug: { type: String, default: null },
   chatId: { type: Number, required: true },
   projectId: { type: Number, default: null },
+  disabled: { type: Boolean, default: false },
+  disabledLabel: { type: String, default: 'Model unavailable' },
 })
 
 const emit = defineEmits(['update:modelSlug'])
 
-const { models, globalDefault, loading, fetchModels, getModelDisplayName } = useAvailableModels()
+const { models, globalDefault, loading, fetchModels, getModelDisplayName, getResolvedModel } = useAvailableModels()
 
 const container = ref(null)
 const dropdown = ref(null)
@@ -156,14 +163,33 @@ const dropdownStyle = ref({})
 // The effective slug (what's actually being used)
 const effectiveSlug = computed(() => props.modelSlug || globalDefault.value)
 
-const currentDisplayName = computed(() => getModelDisplayName(effectiveSlug.value))
+const currentDisplayName = computed(() => props.disabled ? props.disabledLabel : getModelDisplayName(effectiveSlug.value))
+
+const selectedModel = computed(() => models.value.find(m => m.slug === effectiveSlug.value))
+const resolvedModel = computed(() => getResolvedModel(effectiveSlug.value))
+const resolvedEffectiveSlug = computed(() => selectedModel.value?.resolved_slug || effectiveSlug.value)
+
+const currentUnavailable = computed(() => {
+  if (loading.value) return false
+  if (models.value.length > 0 && effectiveSlug.value && !selectedModel.value) return true
+  return selectedModel.value?.available === false
+})
+
+const currentTitle = computed(() => {
+  const model = selectedModel.value
+  const display = currentDisplayName.value
+  if (!model) return display
+  const description = model.description
+  return description ? `${display}: ${description}` : display
+})
 
 const isCloudModel = computed(() => {
-  const model = models.value.find(m => m.slug === effectiveSlug.value)
+  const model = resolvedModel.value || selectedModel.value
   return model ? model.source === 'stimma_cloud' : !['local', 'auto'].includes(effectiveSlug.value)
 })
 
 const autoModels = computed(() => models.value.filter(m => m.source === 'auto'))
+const visibleAutoModels = computed(() => autoModels.value.filter(m => !m.resolved_slug))
 const cloudModels = computed(() => models.value.filter(m => m.source === 'stimma_cloud'))
 const localModels = computed(() => models.value.filter(m => m.source === 'endpoint'))
 
@@ -180,6 +206,7 @@ function toggle() {
 }
 
 function open() {
+  if (props.disabled) return
   fetchModels(props.projectId, true)
   isOpen.value = true
   nextTick(() => {
@@ -210,6 +237,17 @@ async function selectModel(model) {
   }
 }
 
+function isSelectedModel(model) {
+  return model.slug === effectiveSlug.value || (
+    effectiveSlug.value === 'auto' && model.slug === resolvedEffectiveSlug.value
+  )
+}
+
+function modelButtonClass(model, selectedClass) {
+  if (isSelectedModel(model)) return selectedClass
+  return model.available === false ? 'opacity-60 cursor-not-allowed' : 'hover:bg-surface-raised'
+}
+
 function handleKeydown(e) {
   if (e.key === 'Escape') {
     e.preventDefault()
@@ -220,11 +258,13 @@ function handleKeydown(e) {
 function positionDropdown() {
   if (!container.value) return
   const rect = container.value.getBoundingClientRect()
+  const dropdownWidth = Math.min(320, window.innerWidth - 32)
+  const left = Math.max(16, Math.min(rect.left, window.innerWidth - dropdownWidth - 16))
 
   // Position above the button (since picker is at bottom of screen)
   dropdownStyle.value = {
     bottom: `${window.innerHeight - rect.top + 4}px`,
-    left: `${rect.left}px`,
+    left: `${left}px`,
   }
 }
 </script>

@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed inset-0 bg-black/80 flex items-center justify-center z-[10020] p-8" @click.self="close" @keydown.esc.stop="onEscape">
+  <div class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-[10020] p-8" @click.self="close" @keydown.esc.stop="onEscape">
     <div class="bg-surface border border-edge rounded-xl w-full max-w-[900px] max-h-[85vh] flex flex-col shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]">
       <div class="flex justify-between items-center px-6 py-4 border-b border-edge">
         <h2 class="m-0 text-lg font-semibold text-content">{{ stimpack ? `Edit: ${stimpack.display_name || stimpack.name}` : 'New Stimpack' }}</h2>

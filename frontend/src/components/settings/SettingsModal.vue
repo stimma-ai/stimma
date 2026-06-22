@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div
         v-if="show"
-        class="fixed inset-0 z-[10010] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-[10010] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="close"
       >
         <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[920px] max-w-[90vw] h-[900px] max-h-[90vh] flex flex-col overflow-hidden">

@@ -88,7 +88,7 @@
                   <button
                     v-if="!stimpack.is_dev"
                     @click="handleEditStimpack(stimpack)"
-                    class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light transition-colors"
+                    class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-surface-hover transition-colors"
                   >
                     Edit
                   </button>
@@ -100,14 +100,14 @@
                   </div>
                   <button
                     @click="handleDownloadStimpackZip(stimpack); openContextMenu = null"
-                    class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light transition-colors"
+                    class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-surface-hover transition-colors"
                   >
                     Download as Zip
                   </button>
                   <button
                     v-if="!stimpack.is_dev"
                     @click="handleRemoveStimpack(stimpack)"
-                    class="w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-overlay-light transition-colors"
+                    class="w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-surface-hover transition-colors"
                   >
                     Remove
                   </button>
@@ -163,7 +163,7 @@
       <Transition name="modal">
         <div
           v-if="showCatalog"
-          class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
           @click.self="showCatalog = false"
         >
           <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[640px] max-w-[90vw] max-h-[80vh] flex flex-col overflow-hidden">

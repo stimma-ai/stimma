@@ -246,6 +246,11 @@ def _resolve_catalog_alias(slug: str, role: str) -> str:
     return slug
 
 
+def _auto_chat_catalog_slug() -> str:
+    """Catalog slug used by legacy chat auto when Stimma Cloud is available."""
+    return 'agent-max'
+
+
 async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') -> LLMEffectiveConfig:
     """Get LLM config for a chat message, respecting per-chat model selection.
 
@@ -269,9 +274,10 @@ async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') ->
         model_slug = 'auto'
 
     if model_slug == 'auto':
+        auto_slug = _auto_chat_catalog_slug()
         cloud_config = await _get_stimma_cloud_config(
-            _resolve_catalog_alias('default', role),
-            max_context_tokens=get_max_context_tokens('default'),
+            _resolve_catalog_alias(auto_slug, role),
+            max_context_tokens=get_max_context_tokens(auto_slug),
         )
         if cloud_config:
             return cloud_config

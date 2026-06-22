@@ -33,11 +33,51 @@
         Loading chat...
       </div>
 
-      <div v-else-if="items.length === 0" class="text-content-tertiary text-center mt-8">
-        Start a conversation...
-      </div>
+      <template v-else>
+        <div v-if="showNoModelSetupHero" class="max-w-xl mx-auto mt-8 rounded-xl overflow-hidden p-[1px] bg-gradient-to-r from-teal-600/50 via-cyan-500/50 to-indigo-500/50">
+          <div class="bg-surface-elevated rounded-[11px] p-5">
+            <div class="flex items-start gap-3 mb-4">
+              <div class="p-2 rounded-lg bg-teal-600/15 flex-shrink-0">
+                <SparklesIcon class="w-5 h-5 text-teal-400" />
+              </div>
+              <div class="min-w-0 text-left">
+                <h3 class="text-base font-semibold text-content">Choose a model for this chat</h3>
+                <p class="text-sm text-content-tertiary mt-1 leading-relaxed">
+                  Sign in to Stimma Cloud for hosted agent models, or connect a local OpenAI-compatible endpoint.
+                </p>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <button
+                type="button"
+                @click="handleCloudSignIn"
+                :disabled="cloudSigningIn"
+                class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 text-sm font-medium text-white hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 disabled:opacity-60 disabled:cursor-wait transition-colors"
+              >
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+                </svg>
+                {{ cloudSigningIn ? 'Opening sign in...' : 'Sign in to Stimma Cloud' }}
+              </button>
+              <button
+                type="button"
+                @click="openAISettings"
+                class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-edge text-sm text-content-secondary hover:text-content hover:bg-surface-raised transition-colors"
+              >
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3" />
+                </svg>
+                Configure local endpoint
+              </button>
+            </div>
+          </div>
+        </div>
 
-      <div v-else>
+        <div v-if="items.length === 0 && !showNoModelSetupHero" class="text-content-tertiary text-center mt-8">
+          Start a conversation...
+        </div>
+
+      <div v-if="items.length > 0">
         <!-- Load more trigger (scroll-based) -->
         <div v-if="hasMore" ref="loadMoreSentinel" class="text-center mb-4 py-2">
           <span class="text-content-tertiary text-sm">Loading older messages...</span>
@@ -1090,6 +1130,7 @@
           </div>
         </div>
       </div>
+      </template>
     </div>
 
     <!-- Queued Messages (when agent is busy) -->
@@ -1215,7 +1256,7 @@
         </button>
       </div>
       <div
-        v-if="modelUnavailableMessage"
+        v-if="modelUnavailableMessage && !showNoModelSetupHero"
         class="mb-2 text-xs text-amber-500"
       >
         {{ modelUnavailableMessage }}
@@ -1239,6 +1280,8 @@
             :model-slug="chat.model_slug"
             :chat-id="chatId"
             :project-id="chat.project_id"
+            :disabled="noUsableChatModels"
+            disabled-label="Model unavailable"
             @update:model-slug="updateChatModel"
           />
         </template>
@@ -1442,7 +1485,7 @@ const router = useRouter()
 const { getMediaItem, getThumbnailUrl } = useMediaApi()
 const { cloudBaseUrl } = useCloudAccount()
 const { isAuthenticated } = useAuth()
-const { models: availableModels, globalDefault, loading: modelsLoading, invalidateCache: invalidateModelCache, fetchModels: fetchAvailableModels } = useAvailableModels()
+const { models: availableModels, globalDefault, loading: modelsLoading, invalidateCache: invalidateModelCache, fetchModels: fetchAvailableModels, getResolvedModel } = useAvailableModels()
 const { slideshowState, enterSlideshow, exitSlideshow } = useSlideshow()
 const mediaDetailsModal = useMediaDetailsModal()
 const { openThumbFeedback } = useFeedback()
@@ -3047,13 +3090,21 @@ const showModelPicker = computed(() => {
   return !!(chat.value && chatId.value)
 })
 
+const noUsableChatModels = computed(() => {
+  if (modelsLoading.value) return false
+  return availableModels.value.length > 0 && !availableModels.value.some(model => model.available !== false)
+})
+
+const showNoModelSetupHero = computed(() => noUsableChatModels.value && !loadError.value && !loading.value)
+
 const selectedChatModel = computed(() => {
   const slug = chat.value?.model_slug || globalDefault.value
-  return availableModels.value.find(model => model.slug === slug)
+  return getResolvedModel(slug) || availableModels.value.find(model => model.slug === slug)
 })
 
 const isChatModelUnavailable = computed(() => {
   if (modelsLoading.value) return false
+  if (noUsableChatModels.value) return true
   const slug = chat.value?.model_slug || globalDefault.value
   if (availableModels.value.length > 0 && slug && !selectedChatModel.value) return true
   return selectedChatModel.value?.available === false
@@ -3063,7 +3114,7 @@ const modelUnavailableMessage = computed(() => {
   if (!isChatModelUnavailable.value) return ''
   const model = selectedChatModel.value
   const slug = chat.value?.model_slug || globalDefault.value
-  return model?.description || `The selected model (${slug}) is no longer available. Choose Auto, Stimma Cloud, or Local.`
+  return model?.description || `The selected model (${slug}) is no longer available. Sign in to Stimma Cloud or configure a local endpoint in Settings > Advanced.`
 })
 
 // Send a message (from input or from queue)

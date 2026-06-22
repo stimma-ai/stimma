@@ -118,8 +118,8 @@
     <div class="fixed bottom-0 left-0 right-0 px-7 pb-[22px] flex flex-col items-center" style="gap: 10px; background: var(--color-base); border-top: 1px solid var(--color-border-subtle); padding-top: 14px;">
 
       <!-- Telemetry — inline, no card. Official builds: consent toggle
-           (default per compliance regime). Source builds: no toggle — there
-           is no telemetry in the build. -->
+           (default per compliance regime). Source builds: nothing here —
+           there is no telemetry in the build, so we don't mention it. -->
       <div v-if="isOfficial" class="flex items-center" style="gap: 10px;">
         <span class="text-content-secondary" style="font-size: 11px;">
           Share anonymous crash &amp; usage data to help improve Stimma.
@@ -137,12 +137,6 @@
             :style="shareAnalytics ? 'transform: translateX(14px)' : 'transform: translateX(2px)'"
           ></div>
         </label>
-      </div>
-      <div v-else class="flex items-center" style="gap: 10px;">
-        <span class="text-content-secondary" style="font-size: 11px;">
-          You're running a source build — there's no telemetry in it. Everything stays on your machine unless you sign in to Stimma&nbsp;Cloud.
-          <a @click.prevent="openUrl(learnMoreUrl)" href="#" class="text-content-secondary underline underline-offset-2 hover:text-content transition-colors">Learn&nbsp;more.</a>
-        </span>
       </div>
 
       <!-- Legal -->

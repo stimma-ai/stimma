@@ -64,7 +64,7 @@
     <Teleport to="body">
       <div
         v-if="showCreateModal"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closeCreateModal"
         @keydown.escape.stop="closeCreateModal"
         tabindex="-1"
@@ -111,7 +111,7 @@
     <Teleport to="body">
       <div
         v-if="renameProfile"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closeRenameModal"
         @keydown.escape.stop="closeRenameModal"
         tabindex="-1"
@@ -158,7 +158,7 @@
     <Teleport to="body">
       <div
         v-if="deleteConfirm"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="deleteConfirm = null"
         @keydown.escape.stop="deleteConfirm = null"
         tabindex="-1"
@@ -217,7 +217,7 @@
     <Teleport to="body">
       <div
         v-if="pinSettingsProfile"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closePinSettings"
         @keydown.escape.stop="closePinSettings"
         tabindex="-1"
@@ -433,7 +433,7 @@
           @click.stop="moveProfile(openMenuId, -1)"
           :disabled="getProfileIndex(openMenuId) === 0"
           class="w-full px-3 py-1.5 text-left text-sm flex items-center gap-2 transition-colors"
-          :class="getProfileIndex(openMenuId) === 0 ? 'text-content-muted cursor-not-allowed' : 'text-content hover:bg-surface-raised'"
+          :class="getProfileIndex(openMenuId) === 0 ? 'text-content-muted cursor-not-allowed' : 'text-content hover:bg-surface-hover'"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
@@ -445,7 +445,7 @@
           @click.stop="moveProfile(openMenuId, 1)"
           :disabled="getProfileIndex(openMenuId) === profiles.length - 1"
           class="w-full px-3 py-1.5 text-left text-sm flex items-center gap-2 transition-colors"
-          :class="getProfileIndex(openMenuId) === profiles.length - 1 ? 'text-content-muted cursor-not-allowed' : 'text-content hover:bg-surface-raised'"
+          :class="getProfileIndex(openMenuId) === profiles.length - 1 ? 'text-content-muted cursor-not-allowed' : 'text-content hover:bg-surface-hover'"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
@@ -456,7 +456,7 @@
         <!-- Set/Change PIN -->
         <button
           @click.stop="openPinSettingsFromMenu()"
-          class="w-full px-3 py-1.5 text-left text-sm text-content hover:bg-surface-raised flex items-center gap-2"
+          class="w-full px-3 py-1.5 text-left text-sm text-content hover:bg-surface-hover flex items-center gap-2"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
@@ -466,7 +466,7 @@
         <!-- Rename -->
         <button
           @click.stop="openRenameModalFromMenu()"
-          class="w-full px-3 py-1.5 text-left text-sm text-content hover:bg-surface-raised flex items-center gap-2"
+          class="w-full px-3 py-1.5 text-left text-sm text-content hover:bg-surface-hover flex items-center gap-2"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
@@ -478,7 +478,7 @@
           <!-- Delete -->
           <button
             @click.stop="confirmDeleteFromMenu()"
-            class="w-full px-3 py-1.5 text-left text-sm text-red-500 hover:bg-surface-raised flex items-center gap-2"
+            class="w-full px-3 py-1.5 text-left text-sm text-red-400 hover:bg-surface-hover flex items-center gap-2"
           >
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd" />

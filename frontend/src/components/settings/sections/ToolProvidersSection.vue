@@ -329,7 +329,7 @@
     <Teleport to="body">
       <div
         v-if="showModal"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closeModal"
         @keydown.escape.stop="closeModal"
         tabindex="-1"
@@ -492,7 +492,7 @@
     <Teleport to="body">
       <div
         v-if="deleteConfirm"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="deleteConfirm = null"
         @keydown.escape.stop="deleteConfirm = null"
         tabindex="-1"
@@ -526,7 +526,7 @@
     <Teleport to="body">
       <div
         v-if="logsModal.provider"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closeLogsModal"
         @keydown.escape.stop="closeLogsModal"
         tabindex="-1"
@@ -590,7 +590,7 @@
     <Teleport to="body">
       <div
         v-if="toolsModal.provider"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closeToolsModal"
         @keydown.escape.stop="closeToolsModal"
         tabindex="-1"
@@ -604,7 +604,7 @@
                 <h3 class="text-lg font-medium text-content">Available Tools</h3>
                 <p class="text-xs text-content-tertiary">{{ toolsModal.provider?.name }}</p>
                 <!-- Dev mode: Provider registration info -->
-                <div v-if="devModeRef && toolsModal.provider" class="mt-1 text-xs font-mono text-content-muted bg-surface-overlay rounded px-2 py-1">
+                <div v-if="devModeRef && toolsModal.provider" class="mt-1 text-xs font-mono text-content-muted bg-overlay-subtle rounded px-2 py-1">
                   <span class="text-blue-500">max_concurrent:</span> {{ toolsModal.provider.max_concurrent ?? 'N/A' }}
                   <span v-if="toolsModal.provider.queue_status" class="ml-2">
                     <span class="text-content-muted">|</span>
@@ -726,7 +726,7 @@
       >
         <button
           @click="toggleCloudEnabled(); closeCloudMenu()"
-          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-content hover:bg-surface-raised transition-colors text-left"
+          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-content hover:bg-surface-hover transition-colors text-left"
         >
           <svg v-if="cloudProvider?.enabled !== false" class="w-4 h-4 text-content-tertiary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -739,7 +739,7 @@
         <button
           v-if="cloudProvider?.tool_count > 0"
           @click="openCloudToolsModal(); closeCloudMenu()"
-          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-content hover:bg-surface-raised transition-colors text-left"
+          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-content hover:bg-surface-hover transition-colors text-left"
         >
           <svg class="w-4 h-4 text-content-tertiary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
@@ -748,7 +748,7 @@
         </button>
         <button
           @click="openCloudLogsModal(); closeCloudMenu()"
-          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-content hover:bg-surface-raised transition-colors text-left"
+          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-content hover:bg-surface-hover transition-colors text-left"
         >
           <svg class="w-4 h-4 text-content-tertiary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
@@ -768,7 +768,7 @@
       >
         <button
           @click="toggleEnabledFromMenu(openMenuProvider)"
-          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-content hover:bg-surface-raised transition-colors text-left"
+          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-content hover:bg-surface-hover transition-colors text-left"
         >
           <svg v-if="getProviderById(openMenuProvider)?.enabled" class="w-4 h-4 text-content-tertiary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -781,7 +781,7 @@
         <button
           v-if="getProviderById(openMenuProvider)?.tool_count > 0"
           @click="openToolsModal(getProviderById(openMenuProvider)); closeProviderMenu()"
-          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-content hover:bg-surface-raised transition-colors text-left"
+          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-content hover:bg-surface-hover transition-colors text-left"
         >
           <svg class="w-4 h-4 text-content-tertiary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
@@ -791,7 +791,7 @@
         <button
           v-if="getProviderById(openMenuProvider)?.type === 'stdio' || getProviderById(openMenuProvider)?.type === 'websocket'"
           @click="openLogsModal(getProviderById(openMenuProvider)); closeProviderMenu()"
-          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-content hover:bg-surface-raised transition-colors text-left"
+          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-content hover:bg-surface-hover transition-colors text-left"
         >
           <svg class="w-4 h-4 text-content-tertiary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
@@ -801,7 +801,7 @@
         <button
           v-if="getProviderById(openMenuProvider)?.type !== 'builtin'"
           @click="confirmDelete(getProviderById(openMenuProvider)); closeProviderMenu()"
-          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-surface-raised transition-colors text-left"
+          class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-surface-hover transition-colors text-left"
         >
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
             <path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd" />

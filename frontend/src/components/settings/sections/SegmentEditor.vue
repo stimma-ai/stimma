@@ -57,7 +57,7 @@
       @click="showHelp = false"
     >
       <div
-        class="absolute p-4 bg-surface border border-surface-raised rounded-lg shadow-xl w-80"
+        class="absolute p-4 bg-surface border border-edge rounded-lg shadow-xl w-80"
         :style="helpPopoverStyle"
         @click.stop
       >

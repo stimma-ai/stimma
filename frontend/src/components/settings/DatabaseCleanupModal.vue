@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div
         v-if="show"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="close"
       >
         <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[500px] max-w-[90vw] overflow-hidden">
@@ -81,7 +81,7 @@
                 </div>
               </div>
 
-              <div class="bg-surface-overlay rounded-lg p-3 border border-edge">
+              <div class="bg-surface-raised rounded-lg p-3 border border-edge">
                 <p class="text-content-secondary text-sm">
                     {{ preview.total_count.toLocaleString() }} {{ preview.total_count === 1 ? 'file' : 'files' }} will be permanently forgotten
                 </p>

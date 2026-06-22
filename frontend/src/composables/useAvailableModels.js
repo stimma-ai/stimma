@@ -52,8 +52,25 @@ async function fetchModels(projectId = null, force = false) {
 function getModelDisplayName(slug) {
   if (!slug) return getModelDisplayName(globalDefault.value)
   const model = models.value.find(m => m.slug === slug)
+  if (model?.slug === 'auto' && model.resolved_slug) {
+    const resolved = models.value.find(m => m.slug === model.resolved_slug)
+    if (resolved?.available !== false) return resolved.name
+  }
   if (!model) return models.value.length > 0 ? `${slug} · unavailable` : slug
+  if (model.slug === 'auto' && model.available === false) return model.name
   return model.available === false ? `${model.name} · unavailable` : model.name
+}
+
+/**
+ * Get the concrete model a slug resolves to. Legacy "auto" may resolve to
+ * Stimma Agent Max, Local Endpoint, or no usable model depending on availability.
+ */
+function getResolvedModel(slug) {
+  const model = models.value.find(m => m.slug === slug)
+  if (model?.slug === 'auto' && model.resolved_slug) {
+    return models.value.find(m => m.slug === model.resolved_slug) || model
+  }
+  return model
 }
 
 /**
@@ -73,6 +90,7 @@ export function useAvailableModels() {
     loading: readonly(loading),
     fetchModels,
     getModelDisplayName,
+    getResolvedModel,
     invalidateCache,
   }
 }

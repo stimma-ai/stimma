@@ -47,7 +47,7 @@
         <!-- Agent Tools -->
         <div class="mb-6">
           <h4 class="text-sm font-medium text-content-secondary mb-3">Agent Tools</h4>
-          <div class="bg-surface-overlay border border-edge rounded-lg overflow-hidden">
+          <div class="bg-surface-raised border border-edge rounded-lg overflow-hidden">
             <div
               v-for="(tool, idx) in V2_TOOLS"
               :key="tool.name"
@@ -83,7 +83,7 @@
               Add Tool
             </button>
           </div>
-          <div v-if="configuredTools.length > 0" class="bg-surface-overlay border border-edge rounded-lg overflow-hidden">
+          <div v-if="configuredTools.length > 0" class="bg-surface-raised border border-edge rounded-lg overflow-hidden">
             <ToolConfigRow
               v-for="(tool, idx) in configuredTools"
               :key="tool.full_tool_id"

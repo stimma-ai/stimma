@@ -59,7 +59,7 @@
     </template>
 
     <!-- Request Metrics Modal -->
-    <div v-if="showRequestMetricsModal" class="fixed inset-0 z-[10030] bg-black/70 backdrop-blur-sm p-4 flex flex-col" @click.self="closeRequestMetricsModal">
+    <div v-if="showRequestMetricsModal" class="fixed inset-0 z-[10030] bg-overlay-backdrop backdrop-blur-sm p-4 flex flex-col" @click.self="closeRequestMetricsModal">
       <div class="w-full h-full bg-surface border border-edge rounded-xl shadow-2xl flex flex-col overflow-hidden">
         <div class="px-5 py-4 border-b border-edge flex items-center justify-between">
           <div>

@@ -42,52 +42,89 @@
 
     <!-- Signed in state - separate cards -->
     <div v-else class="space-y-4">
-      <!-- Header Card -->
-      <div class="relative rounded-xl p-[1px] bg-gradient-to-r from-teal-600/40 via-cyan-500/40 to-indigo-500/40">
-        <div class="rounded-xl bg-surface-overlay p-5">
-          <div class="flex items-start justify-between">
-            <div>
-              <h2 class="text-xl font-semibold text-content mb-1">{{ greeting }}, {{ userName }}!</h2>
-              <p class="text-sm text-content-tertiary">Here's an overview of your Stimma account.</p>
-            </div>
-            <!-- 3-dot menu -->
-            <div class="relative">
+      <!-- Hero card: greeting + balance. The single Stimma Cloud brand moment -->
+      <div class="relative overflow-hidden rounded-xl border border-edge-strong bg-surface-raised p-5 bg-[radial-gradient(120%_140%_at_0%_0%,rgba(6,182,212,0.10),transparent_55%)]">
+        <!-- Gradient accent rail -->
+        <div class="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-teal-600 via-cyan-500 to-indigo-500"></div>
+
+        <!-- Greeting + 3-dot menu -->
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="text-xl font-semibold text-content mb-1">{{ greeting }}, {{ userName }}!</h2>
+            <p class="text-sm text-content-tertiary">Here's an overview of your Stimma account.</p>
+          </div>
+          <div class="relative">
+            <button
+              @click="showMenu = !showMenu"
+              class="p-1.5 rounded-lg text-content-tertiary hover:text-content hover:bg-surface-hover/60 transition-colors"
+            >
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+              </svg>
+            </button>
+            <div v-if="showMenu" class="fixed inset-0 z-10" @click="showMenu = false"></div>
+            <div
+              v-if="showMenu"
+              class="absolute right-0 mt-1 w-48 rounded-lg bg-surface border border-edge shadow-xl py-1 z-20"
+            >
               <button
-                @click="showMenu = !showMenu"
-                class="p-1.5 rounded-lg text-content-tertiary hover:text-content hover:bg-surface-raised/50 transition-colors"
+                @click="openDashboard(); showMenu = false"
+                class="w-full px-4 py-2 text-left text-sm text-content hover:bg-surface-hover flex items-center gap-2"
               >
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                 </svg>
+                Go to Dashboard
               </button>
-              <!-- Backdrop to close menu -->
-              <div v-if="showMenu" class="fixed inset-0 z-10" @click="showMenu = false"></div>
-              <div
-                v-if="showMenu"
-                class="absolute right-0 mt-1 w-48 rounded-lg bg-surface border border-edge shadow-xl py-1 z-20"
+              <button
+                @click="handleSignOut"
+                class="w-full px-4 py-2 text-left text-sm text-content hover:bg-surface-hover flex items-center gap-2"
               >
-                <button
-                  @click="openDashboard(); showMenu = false"
-                  class="w-full px-4 py-2 text-left text-sm text-content hover:bg-surface-raised/50 flex items-center gap-2"
-                >
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                  </svg>
-                  Go to Dashboard
-                </button>
-                <button
-                  @click="handleSignOut"
-                  class="w-full px-4 py-2 text-left text-sm text-content hover:bg-surface-raised/50 flex items-center gap-2"
-                >
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-                  </svg>
-                  Sign Out
-                </button>
-              </div>
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+                </svg>
+                Sign Out
+              </button>
             </div>
           </div>
         </div>
+
+        <!-- Balance -->
+        <div class="mt-5 flex items-end justify-between">
+          <button
+            @click="refreshAccount"
+            class="text-left hover:opacity-80 transition-opacity"
+            :class="{ 'cursor-wait': isCloudLoading }"
+            title="Click to refresh"
+          >
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-content-muted mb-2">Balance</div>
+            <div v-if="isFirstLoad" class="h-8 w-28 rounded-md bg-white/10 animate-pulse"></div>
+            <span v-else-if="cloudError && !cloudUser" class="text-3xl font-bold text-content-muted">—</span>
+            <span v-else class="text-3xl font-bold bg-gradient-to-r from-teal-600 to-indigo-600 dark:from-cyan-400 dark:to-indigo-400 bg-clip-text text-transparent">
+              {{ formatBalance(cloudUser?.credits) }}
+            </span>
+          </button>
+
+          <!-- Action: skeleton while first loading, then Add Balance (paid) / Get Started (free) -->
+          <div v-if="isFirstLoad" class="h-9 w-28 rounded-lg bg-white/10 animate-pulse"></div>
+          <button
+            v-else-if="hasPaidSubscription"
+            @click="addBalance"
+            class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            Add Balance
+          </button>
+          <button
+            v-else-if="!cloudError || cloudUser"
+            @click="openGetStarted"
+            class="px-4 py-2 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded-lg text-sm font-medium transition-all"
+          >
+            Get Started
+          </button>
+        </div>
+        <p v-if="!isFirstLoad && !hasPaidSubscription && (!cloudError || cloudUser)" class="text-sm text-content-tertiary mt-3">
+          Subscribe to Stimma Cloud for hosted image and video generation, or configure your own providers.
+        </p>
       </div>
 
       <!-- Error banner when cloud is unreachable -->
@@ -106,132 +143,89 @@
         </button>
       </div>
 
-      <!-- Credits Card -->
-      <div class="relative rounded-xl p-[1px] bg-gradient-to-r from-teal-600/40 via-cyan-500/40 to-indigo-500/40">
-        <div class="rounded-xl bg-surface-overlay p-5">
-          <div class="text-sm font-semibold text-content mb-3">Balance</div>
-          <div class="flex items-end justify-between">
-            <button
-              @click="refreshAccount"
-              class="text-left hover:opacity-80 transition-opacity"
-              :class="{ 'cursor-wait': isCloudLoading }"
-              title="Click to refresh"
-            >
-              <div v-if="isCloudLoading" class="flex items-baseline gap-2">
-                <span class="text-3xl font-bold text-content-muted animate-pulse">---</span>
-              </div>
-              <div v-else-if="cloudError && !cloudUser" class="flex items-baseline gap-2">
-                <span class="text-3xl font-bold text-content-muted">—</span>
-              </div>
-              <div v-else class="flex items-baseline gap-2">
-                <span class="text-3xl font-bold bg-gradient-to-r from-teal-600 to-indigo-600 dark:from-cyan-400 dark:to-indigo-400 bg-clip-text text-transparent">
-                  {{ formatBalance(cloudUser?.credits) }}
-                </span>
-              </div>
-            </button>
-            <!-- Show add credits for paid tiers, CTA for free tier -->
-            <button
-              v-if="hasPaidSubscription"
-              @click="addBalance"
-              class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Add Balance
-            </button>
-            <button
-              v-else-if="!cloudError || cloudUser"
-              @click="openGetStarted"
-              class="px-4 py-2 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded-lg text-sm font-medium transition-all"
-            >
-              Get Started
-            </button>
+      <!-- Usage Card - show for paid tiers (and optimistically during first load to hold layout) -->
+      <div v-if="hasPaidSubscription || isFirstLoad" class="rounded-xl border border-edge bg-surface-raised p-5">
+        <div class="text-sm font-semibold text-content mb-4">Usage</div>
+
+        <div class="grid grid-cols-2 gap-5">
+          <!-- Session window -->
+          <div class="flex flex-col gap-2">
+            <div class="flex items-baseline justify-between">
+              <span class="text-[11px] font-semibold text-content-muted uppercase tracking-wider">Session</span>
+              <div v-if="isFirstLoad" class="h-4 w-9 rounded bg-white/10 animate-pulse"></div>
+              <span v-else-if="cloudUser?.usageWindows?.session" class="text-lg font-semibold text-content">{{ cloudUser.usageWindows.session.percentUsed }}%</span>
+              <span v-else class="text-sm text-content-muted">Idle</span>
+            </div>
+            <div class="h-1.5 bg-white/[0.07] rounded-full overflow-hidden">
+              <div
+                v-if="!isFirstLoad && cloudUser?.usageWindows?.session"
+                class="h-full rounded-full transition-all duration-300"
+                :class="cloudUser.usageWindows.session.percentUsed > 95 ? 'bg-red-500' : cloudUser.usageWindows.session.percentUsed > 80 ? 'bg-amber-500' : 'bg-gradient-to-r from-teal-500 to-emerald-500'"
+                :style="{ width: cloudUser.usageWindows.session.percentUsed + '%' }"
+              ></div>
+            </div>
+            <div v-if="isFirstLoad" class="h-3 w-32 rounded bg-white/10 animate-pulse"></div>
+            <span v-else-if="cloudUser?.usageWindows?.session" class="text-[11px] text-content-muted">Resets {{ formatDate(cloudUser.usageWindows.session.resetsAt) }}</span>
+            <span v-else class="text-[11px] text-content-muted">Starts on next request</span>
           </div>
-          <p v-if="!hasPaidSubscription && (!cloudError || cloudUser)" class="text-sm text-content-muted mt-3">
-            Subscribe to Stimma Cloud for hosted image and video generation, or configure your own providers.
-          </p>
-        </div>
-      </div>
 
-      <!-- Usage Card - show for paid tiers -->
-      <div v-if="hasPaidSubscription" class="relative rounded-xl p-[1px] bg-gradient-to-r from-teal-600/40 via-cyan-500/40 to-indigo-500/40">
-        <div class="rounded-xl bg-surface-overlay p-5">
-          <div class="text-sm font-semibold text-content mb-4">Usage</div>
-
-          <div class="grid grid-cols-2 gap-5">
-            <!-- Session window -->
-            <div class="flex flex-col gap-2">
-              <div class="flex items-baseline justify-between">
-                <span class="text-[11px] font-semibold text-black/40 dark:text-white/50 uppercase tracking-wider">Session</span>
-                <span v-if="cloudUser?.usageWindows?.session" class="text-lg font-semibold text-content">{{ cloudUser.usageWindows.session.percentUsed }}%</span>
-                <span v-else class="text-sm text-black/30 dark:text-white/30">Idle</span>
-              </div>
-              <div class="h-1 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
-                <div
-                  v-if="cloudUser?.usageWindows?.session"
-                  class="h-full rounded-full transition-all duration-300"
-                  :class="cloudUser.usageWindows.session.percentUsed > 95 ? 'bg-red-500' : cloudUser.usageWindows.session.percentUsed > 80 ? 'bg-amber-500' : 'bg-gradient-to-r from-teal-500 to-emerald-500'"
-                  :style="{ width: cloudUser.usageWindows.session.percentUsed + '%' }"
-                ></div>
-              </div>
-              <span v-if="cloudUser?.usageWindows?.session" class="text-[11px] text-black/40 dark:text-white/40">Resets {{ formatDate(cloudUser.usageWindows.session.resetsAt) }}</span>
-              <span v-else class="text-[11px] text-black/30 dark:text-white/30">Starts on next request</span>
+          <!-- Weekly window -->
+          <div class="flex flex-col gap-2">
+            <div class="flex items-baseline justify-between">
+              <span class="text-[11px] font-semibold text-content-muted uppercase tracking-wider">Week</span>
+              <div v-if="isFirstLoad" class="h-4 w-9 rounded bg-white/10 animate-pulse"></div>
+              <span v-else-if="cloudUser?.usageWindows?.weekly" class="text-lg font-semibold text-content">{{ cloudUser.usageWindows.weekly.percentUsed }}%</span>
+              <span v-else class="text-sm text-content-muted">Idle</span>
             </div>
-
-            <!-- Weekly window -->
-            <div class="flex flex-col gap-2">
-              <div class="flex items-baseline justify-between">
-                <span class="text-[11px] font-semibold text-black/40 dark:text-white/50 uppercase tracking-wider">Week</span>
-                <span v-if="cloudUser?.usageWindows?.weekly" class="text-lg font-semibold text-content">{{ cloudUser.usageWindows.weekly.percentUsed }}%</span>
-                <span v-else class="text-sm text-black/30 dark:text-white/30">Idle</span>
-              </div>
-              <div class="h-1 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
-                <div
-                  v-if="cloudUser?.usageWindows?.weekly"
-                  class="h-full rounded-full transition-all duration-300"
-                  :class="cloudUser.usageWindows.weekly.percentUsed > 95 ? 'bg-red-500' : cloudUser.usageWindows.weekly.percentUsed > 80 ? 'bg-amber-500' : 'bg-gradient-to-r from-teal-500 to-emerald-500'"
-                  :style="{ width: cloudUser.usageWindows.weekly.percentUsed + '%' }"
-                ></div>
-              </div>
-              <span v-if="cloudUser?.usageWindows?.weekly" class="text-[11px] text-black/40 dark:text-white/40">Resets {{ formatDate(cloudUser.usageWindows.weekly.resetsAt) }}</span>
-              <span v-else class="text-[11px] text-black/30 dark:text-white/30">Starts on next request</span>
+            <div class="h-1.5 bg-white/[0.07] rounded-full overflow-hidden">
+              <div
+                v-if="!isFirstLoad && cloudUser?.usageWindows?.weekly"
+                class="h-full rounded-full transition-all duration-300"
+                :class="cloudUser.usageWindows.weekly.percentUsed > 95 ? 'bg-red-500' : cloudUser.usageWindows.weekly.percentUsed > 80 ? 'bg-amber-500' : 'bg-gradient-to-r from-teal-500 to-emerald-500'"
+                :style="{ width: cloudUser.usageWindows.weekly.percentUsed + '%' }"
+              ></div>
             </div>
+            <div v-if="isFirstLoad" class="h-3 w-32 rounded bg-white/10 animate-pulse"></div>
+            <span v-else-if="cloudUser?.usageWindows?.weekly" class="text-[11px] text-content-muted">Resets {{ formatDate(cloudUser.usageWindows.weekly.resetsAt) }}</span>
+            <span v-else class="text-[11px] text-content-muted">Starts on next request</span>
           </div>
         </div>
       </div>
 
       <!-- Account Details Card -->
-      <div class="relative rounded-xl p-[1px] bg-gradient-to-r from-teal-600/40 via-cyan-500/40 to-indigo-500/40">
-        <div class="rounded-xl bg-surface-overlay p-5">
-          <div class="text-sm font-semibold text-content mb-4">Account</div>
-          <div class="grid grid-cols-3 gap-6">
-            <div>
-              <div class="text-xs text-content-muted mb-1">Email</div>
-              <button @click="openDashboard" class="text-sm text-content truncate hover:text-content-secondary transition-colors text-left">{{ user.email }}</button>
+      <div class="rounded-xl border border-edge bg-surface-raised p-5">
+        <div class="text-sm font-semibold text-content mb-4">Account</div>
+        <div class="grid grid-cols-3 gap-6">
+          <div>
+            <div class="text-xs text-content-muted mb-1.5">Email</div>
+            <button @click="openDashboard" class="text-sm text-content truncate hover:text-content-secondary transition-colors text-left">{{ user.email }}</button>
+          </div>
+          <div>
+            <div class="text-xs text-content-muted mb-1.5">Plan</div>
+            <div v-if="isFirstLoad" class="h-5 w-14 rounded bg-white/10 animate-pulse"></div>
+            <div v-else class="flex items-center gap-2">
+              <span
+                v-if="cloudUser"
+                class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium"
+                :class="getPlanBadgeClass(cloudUser.tier)"
+              >
+                {{ getPlanDisplayName(cloudUser) }}
+              </span>
+              <button
+                v-if="cloudUser && !hasPaidSubscription"
+                @click="openGetStarted"
+                class="text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+              >
+                Upgrade
+              </button>
+              <span v-if="!cloudUser" class="text-sm text-content-muted">—</span>
             </div>
-            <div>
-              <div class="text-xs text-content-muted mb-1">Plan</div>
-              <div class="flex items-center gap-2">
-                <span
-                  v-if="cloudUser"
-                  class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium"
-                  :class="getPlanBadgeClass(cloudUser.tier)"
-                >
-                  {{ getPlanDisplayName(cloudUser) }}
-                </span>
-                <button
-                  v-if="cloudUser && !hasPaidSubscription"
-                  @click="openGetStarted"
-                  class="text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
-                >
-                  Upgrade
-                </button>
-                <span v-if="!cloudUser" class="text-sm text-content-muted">—</span>
-              </div>
-            </div>
-            <div>
-              <div class="text-xs text-content-muted mb-1">Member Since</div>
-              <div v-if="cloudUser?.createdAt" class="text-sm text-content">{{ formatDate(cloudUser.createdAt) }}</div>
-              <div v-else class="text-sm text-content-muted">—</div>
-            </div>
+          </div>
+          <div>
+            <div class="text-xs text-content-muted mb-1.5">Member Since</div>
+            <div v-if="isFirstLoad" class="h-4 w-28 rounded bg-white/10 animate-pulse"></div>
+            <div v-else-if="cloudUser?.createdAt" class="text-sm text-content">{{ formatDate(cloudUser.createdAt) }}</div>
+            <div v-else class="text-sm text-content-muted">—</div>
           </div>
         </div>
       </div>
@@ -253,6 +247,11 @@ const { cloudBaseUrl, cloudUser, isCloudLoading, cloudError, fetchCloudAccount, 
 const showMenu = ref(false)
 const isConnecting = ref(false)
 const connectError = ref('')
+
+// First load = fetching with no data yet. Drives skeletons so the layout
+// is fully reserved and nothing reflows when data lands. Once cloudUser is
+// cached (module-scoped), reopening settings skips skeletons entirely.
+const isFirstLoad = computed(() => isCloudLoading.value && !cloudUser.value)
 
 // Check if user has a paid subscription (not free tier)
 const hasPaidSubscription = computed(() => {

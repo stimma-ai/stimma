@@ -1,6 +1,10 @@
 """V2 agent permission checking and persistence."""
 
 import json
+import re
+import shlex
+from collections.abc import Mapping
+from typing import Any, Literal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +20,39 @@ GATED_TOOLS = {"bash", "browse_web", "run_code"}
 
 # Legacy aliases — old permission keys that map to current tool names
 PERMISSION_ALIASES = {}
+
+PermissionDecision = Literal["allow", "deny", "ask"]
+
+_AUTO_APPROVED_BASH_COMMANDS = {
+    "cat",
+    "egrep",
+    "fgrep",
+    "file",
+    "find",
+    "grep",
+    "head",
+    "ls",
+    "pwd",
+    "rg",
+    "sed",
+    "stat",
+    "tail",
+    "wc",
+}
+
+_BLOCKED_SHELL_CHARS = re.compile(r"[;&|<>`$()\{\}\n\r]")
+_WINDOWS_ABSOLUTE_PATH = re.compile(r"^[A-Za-z]:[\\/]")
+_MUTATING_FIND_ACTIONS = {
+    "-delete",
+    "-exec",
+    "-execdir",
+    "-fls",
+    "-fprint",
+    "-fprint0",
+    "-fprintf",
+    "-ok",
+    "-okdir",
+}
 
 
 def _canonical_tool_name(tool_name: str) -> str:
@@ -44,14 +81,18 @@ async def _get_project_config(session: AsyncSession | None, chat: Chat) -> dict:
     return _load_json_config(result.scalar_one_or_none())
 
 
-async def check_permission(tool_name: str, chat: Chat, session: AsyncSession | None = None) -> bool:
-    """Check if a v2 tool is permitted.
+async def get_permission_decision(
+    tool_name: str,
+    chat: Chat,
+    session: AsyncSession | None = None,
+) -> PermissionDecision:
+    """Resolve configured permission for a v2 tool.
 
-    Returns True if allowed, False if needs a permission prompt.
-    Non-gated tools (e.g. ask_user) are always allowed.
+    Non-gated tools are always allowed. Gated tools return the configured
+    decision if one exists, otherwise "ask".
     """
     if tool_name not in GATED_TOOLS:
-        return True
+        return "allow"
 
     # Collect all keys to check (canonical + any legacy aliases that map here)
     check_keys = [tool_name]
@@ -64,18 +105,18 @@ async def check_permission(tool_name: str, chat: Chat, session: AsyncSession | N
     chat_v2 = chat_config.get("v2_permissions", {})
     for key in check_keys:
         if chat_v2.get(key) == "allow":
-            return True
+            return "allow"
         if chat_v2.get(key) == "deny":
-            return False
+            return "deny"
 
     # Then check project-level permissions
     project_config = await _get_project_config(session, chat)
     project_v2 = project_config.get("v2_permissions", {})
     for key in check_keys:
         if project_v2.get(key) == "allow":
-            return True
+            return "allow"
         if project_v2.get(key) == "deny":
-            return False
+            return "deny"
 
     # Check global profile-level permissions
     from config import get_settings
@@ -87,12 +128,106 @@ async def check_permission(tool_name: str, chat: Chat, session: AsyncSession | N
     global_v2 = agent_config.tool_config.v2_permissions
     for key in check_keys:
         if global_v2.get(key) == "allow":
-            return True
+            return "allow"
         if global_v2.get(key) == "deny":
-            return False
+            return "deny"
 
     # Not found — needs prompt
-    return False
+    return "ask"
+
+
+async def check_permission(tool_name: str, chat: Chat, session: AsyncSession | None = None) -> bool:
+    """Check if a v2 tool is permitted.
+
+    Returns True if allowed, False if needs a permission prompt.
+    Non-gated tools (e.g. ask_user) are always allowed.
+    """
+    return await get_permission_decision(tool_name, chat, session) == "allow"
+
+
+async def check_permission_for_call(
+    tool_name: str,
+    tool_args: str | Mapping[str, Any] | None,
+    chat: Chat,
+    session: AsyncSession | None = None,
+) -> bool:
+    """Check if a concrete v2 tool call is permitted.
+
+    A small class of read-only shell discovery commands is allowed without a
+    prompt because it mirrors the already-ungated workspace file tools.
+    """
+    decision = await get_permission_decision(tool_name, chat, session)
+    if decision == "allow":
+        return True
+    if decision == "deny":
+        return False
+    return is_auto_approved_tool_call(tool_name, tool_args)
+
+
+def is_auto_approved_tool_call(
+    tool_name: str,
+    tool_args: str | Mapping[str, Any] | None,
+) -> bool:
+    """Return True for harmless discovery calls that should not prompt."""
+    if tool_name != "bash":
+        return False
+
+    args = _coerce_tool_args(tool_args)
+    command = str(args.get("command", "")).strip()
+    return _is_read_only_workspace_discovery_command(command)
+
+
+def _coerce_tool_args(tool_args: str | Mapping[str, Any] | None) -> dict[str, Any]:
+    if isinstance(tool_args, Mapping):
+        return dict(tool_args)
+    if isinstance(tool_args, str):
+        try:
+            parsed = json.loads(tool_args) if tool_args else {}
+            return parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def _is_read_only_workspace_discovery_command(command: str) -> bool:
+    if not command or _BLOCKED_SHELL_CHARS.search(command):
+        return False
+
+    try:
+        tokens = shlex.split(command, posix=True)
+    except ValueError:
+        return False
+
+    if not tokens:
+        return False
+
+    executable = tokens[0].split("/")[-1]
+    if executable not in _AUTO_APPROVED_BASH_COMMANDS:
+        return False
+
+    if executable == "find" and any(token in _MUTATING_FIND_ACTIONS for token in tokens[1:]):
+        return False
+
+    return all(_is_workspace_relative_token(token) for token in tokens[1:])
+
+
+def _is_workspace_relative_token(token: str) -> bool:
+    """Reject path escapes while allowing ordinary flags, patterns, and terms."""
+    if not token:
+        return True
+    if token.startswith(("/", "~")) or _WINDOWS_ABSOLUTE_PATH.match(token):
+        return False
+
+    normalized = token.replace("\\", "/")
+    if (
+        normalized == ".."
+        or normalized.startswith("../")
+        or normalized.endswith("/..")
+        or "/../" in normalized
+    ):
+        return False
+
+    return True
 
 
 async def check_stp_permission(

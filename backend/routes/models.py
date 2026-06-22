@@ -11,10 +11,15 @@ from fastapi import APIRouter, Query
 
 from config import get_settings
 from core.logging import get_logger
-from llm_resolver import get_known_catalog_slugs, set_catalog_cache, get_max_context_tokens
+from llm_resolver import set_catalog_cache, get_max_context_tokens
 
 router = APIRouter(prefix="/api/models", tags=["models"])
 log = get_logger(__name__)
+
+PUBLIC_CLOUD_FALLBACK_MODELS = {
+    "agent-max": "Stimma Agent Max",
+    "default": "Stimma Agent",
+}
 
 
 @router.get("/available")
@@ -24,15 +29,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     Merges Stimma Cloud catalog with locally configured endpoints.
     Optionally includes project-level default when project_id is provided.
     """
-    models = [{
-        "slug": "auto",
-        "source": "auto",
-        "name": "Auto",
-        "description": "Use Stimma Cloud when available, otherwise Local.",
-        "available": True,
-        "status": "available",
-        "max_context_tokens": get_max_context_tokens('default'),
-    }]
+    models = []
     settings = get_settings()
     cloud_status = "not_logged_in"
     cloud_message = "Sign in to Stimma Cloud to use hosted models."
@@ -77,18 +74,11 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         log.warning("failed to fetch cloud model catalog", error=str(e))
 
     if not cloud_entries:
-        fallback_names = {
-            "default": "Stimma Agent",
-            "agent-max": "Stimma Agent Max",
-            "gpt54": "GPT-5.4",
-            "opus": "Claude Opus",
-            "sonnet": "Claude Sonnet",
-        }
-        for slug in sorted(get_known_catalog_slugs()):
+        for slug in PUBLIC_CLOUD_FALLBACK_MODELS:
             models.append({
                 "slug": slug,
                 "source": "stimma_cloud",
-                "name": fallback_names.get(slug, slug),
+                "name": PUBLIC_CLOUD_FALLBACK_MODELS[slug],
                 "description": cloud_message,
                 "available": False,
                 "status": cloud_status,
@@ -108,6 +98,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     if agent_has_endpoint and agent_fast_has_endpoint:
         # Both endpoints configured — offer as a selectable pair
         agent_model = agent_config.endpoint.model or "custom"
+        local_max_context_tokens = agent_config.endpoint.max_context_tokens
         models.append({
             "slug": "local",
             "source": "endpoint",
@@ -115,9 +106,10 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
             "description": f"{agent_config.endpoint.url} ({agent_model})",
             "available": True,
             "status": "available",
-            "max_context_tokens": agent_config.endpoint.max_context_tokens,
+            "max_context_tokens": local_max_context_tokens,
         })
     else:
+        local_max_context_tokens = 128_000
         models.append({
             "slug": "local",
             "source": "endpoint",
@@ -125,14 +117,39 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
             "description": "Configure a local endpoint in Settings > Advanced.",
             "available": False,
             "status": "local_missing",
-            "max_context_tokens": 128_000,
+            "max_context_tokens": local_max_context_tokens,
         })
 
-    auto_available = cloud_status == "available" or bool(agent_has_endpoint and agent_fast_has_endpoint)
-    models[0]["available"] = auto_available
-    models[0]["status"] = "available" if auto_available else "llm_not_configured"
-    if not auto_available:
-        models[0]["description"] = "Sign in to Stimma Cloud or configure a local endpoint."
+    auto_model = {
+        "slug": "auto",
+        "source": "auto",
+        "name": "Set up AI models",
+        "description": "Sign in to Stimma Cloud or configure a local endpoint in Settings > Advanced.",
+        "available": False,
+        "status": "llm_not_configured",
+        "resolved_slug": None,
+        "max_context_tokens": get_max_context_tokens('agent-max'),
+    }
+    if cloud_status == "available":
+        auto_model.update({
+            "name": "Auto: Stimma Agent Max",
+            "description": "Uses Stimma Agent Max from Stimma Cloud.",
+            "available": True,
+            "status": "available",
+            "resolved_slug": "agent-max",
+            "max_context_tokens": get_max_context_tokens('agent-max'),
+        })
+    elif agent_has_endpoint and agent_fast_has_endpoint:
+        auto_model.update({
+            "name": "Auto: Local Endpoint",
+            "description": "Uses your configured local endpoint.",
+            "available": True,
+            "status": "available",
+            "resolved_slug": "local",
+            "max_context_tokens": local_max_context_tokens,
+        })
+
+    models.insert(0, auto_model)
 
     # 3. Resolve project default if requested
     project_default = None

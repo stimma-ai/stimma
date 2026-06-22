@@ -22,7 +22,7 @@
             v-for="profile in profiles"
             :key="profile.id"
             @click="switchProfile(profile.id)"
-            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-surface-raised transition-colors"
+            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-surface-hover transition-colors"
             :class="profile.id === currentProfileId ? 'text-blue-500' : 'text-content-secondary'"
           >
             <svg v-if="profile.id === currentProfileId" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">

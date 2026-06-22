@@ -23,7 +23,7 @@ from ..llm_options import agent_llm_options
 from core.logging import get_logger
 from database import Chat, ChatItem, LLMTrace
 from utils.websocket import WebSocketManager
-from ..permissions import check_permission, check_stp_permission
+from ..permissions import check_permission_for_call, check_stp_permission
 from ...hitl import HumanActionRequest, HumanActionRequired
 
 log = get_logger(__name__)
@@ -241,7 +241,7 @@ async def _delegate_needs_permission(
     session: AsyncSession,
 ) -> bool:
     """Check if a tool call needs permission — mirrors _needs_permission from service.py."""
-    if not await check_permission(fn_name, chat, session):
+    if not await check_permission_for_call(fn_name, fn_arguments, chat, session):
         return True
     if fn_name == "call_tool":
         try:
