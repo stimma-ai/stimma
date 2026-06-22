@@ -91,6 +91,11 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 _pending_sessions: dict = {}
 
 
+def _auth_error(code: str, message: str) -> dict:
+    """User-safe auth error detail for frontend account handling."""
+    return {"code": code, "message": message}
+
+
 class StartAuthResponse(BaseModel):
     session_id: str
     port: int
@@ -354,7 +359,7 @@ async def get_auth_status():
     from auth_storage import load_auth_state
 
     auth_state = load_auth_state()
-    if not auth_state:
+    if not auth_state or not auth_state.get('refresh_token'):
         return {"authenticated": False}
 
     return {
@@ -372,22 +377,64 @@ async def get_account_info():
     Fetches the latest tier and balance info. Use this when displaying
     account details that need to be up-to-date.
     """
-    from auth_storage import load_auth_state, save_auth_state
-    from firebase_auth import get_valid_id_token
+    from auth_storage import load_auth_state, save_auth_state, clear_auth_state
+    from firebase_auth import (
+        AuthNetworkError,
+        AuthRefreshError,
+        AuthSessionExpiredError,
+        force_refresh_id_token,
+        get_valid_id_token,
+    )
     from cloud_api import fetch_user_account
 
     auth_state = load_auth_state()
-    if not auth_state:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not auth_state or not auth_state.get('refresh_token'):
+        raise HTTPException(
+            status_code=401,
+            detail=_auth_error("sign_in_required", "Please sign in to Stimma Cloud."),
+        )
 
     # Get fresh token
-    id_token = await get_valid_id_token()
+    try:
+        id_token = await get_valid_id_token(raise_on_failure=True)
+    except AuthSessionExpiredError:
+        raise HTTPException(
+            status_code=401,
+            detail=_auth_error("session_expired", "Please sign in again."),
+        )
+    except AuthNetworkError:
+        raise HTTPException(
+            status_code=503,
+            detail=_auth_error(
+                "cloud_unreachable",
+                "Couldn't reach Stimma Cloud. Check your connection and try again.",
+            ),
+        )
+    except AuthRefreshError:
+        raise HTTPException(
+            status_code=502,
+            detail=_auth_error("auth_refresh_failed", "Couldn't verify your Stimma Cloud session."),
+        )
+
     if not id_token:
-        raise HTTPException(status_code=401, detail="Failed to get valid token")
+        raise HTTPException(
+            status_code=401,
+            detail=_auth_error("sign_in_required", "Please sign in to Stimma Cloud."),
+        )
 
     try:
         # Fetch fresh account info from stimma.cloud
-        account = await fetch_user_account(id_token)
+        try:
+            account = await fetch_user_account(id_token)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code not in (401, 403):
+                raise
+
+            log.info("cloud account request rejected token, force-refreshing")
+            fresh_token = await force_refresh_id_token(raise_on_failure=True)
+            if not fresh_token:
+                raise AuthSessionExpiredError("No valid token after force refresh") from e
+            account = await fetch_user_account(fresh_token)
 
         # Update cached values
         auth_state['tier'] = account.get('tier', 'free')
@@ -405,9 +452,51 @@ async def get_account_info():
             "usage": account.get('usage'),
             "subscription": account.get('subscription'),
         }
+    except AuthSessionExpiredError:
+        raise HTTPException(
+            status_code=401,
+            detail=_auth_error("session_expired", "Please sign in again."),
+        )
+    except AuthNetworkError:
+        raise HTTPException(
+            status_code=503,
+            detail=_auth_error(
+                "cloud_unreachable",
+                "Couldn't reach Stimma Cloud. Check your connection and try again.",
+            ),
+        )
+    except AuthRefreshError:
+        raise HTTPException(
+            status_code=502,
+            detail=_auth_error("auth_refresh_failed", "Couldn't verify your Stimma Cloud session."),
+        )
+    except httpx.RequestError as e:
+        log.warning("failed to reach cloud account endpoint", error=str(e))
+        raise HTTPException(
+            status_code=503,
+            detail=_auth_error(
+                "cloud_unreachable",
+                "Couldn't reach Stimma Cloud. Check your connection and try again.",
+            ),
+        )
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code in (401, 403):
+            clear_auth_state()
+            raise HTTPException(
+                status_code=401,
+                detail=_auth_error("session_expired", "Please sign in again."),
+            )
+        log.error("failed to fetch account info", status=e.response.status_code, error=str(e))
+        raise HTTPException(
+            status_code=502,
+            detail=_auth_error("cloud_error", "Couldn't load Stimma Cloud account info."),
+        )
     except Exception as e:
         log.error("failed to fetch account info", error=str(e))
-        raise HTTPException(status_code=502, detail="Failed to fetch account info")
+        raise HTTPException(
+            status_code=502,
+            detail=_auth_error("cloud_error", "Couldn't load Stimma Cloud account info."),
+        )
 
 
 @router.post("/logout")
@@ -416,8 +505,33 @@ async def logout():
 
     Removes persisted auth state and disconnects from Stimma Cloud if connected.
     """
-    from auth_storage import clear_auth_state
+    from auth_storage import clear_auth_state, load_auth_state
+    from cloud_api import revoke_remote_session_if_supported
+    from firebase_auth import (
+        AuthNetworkError,
+        AuthRefreshError,
+        AuthSessionExpiredError,
+        get_valid_id_token,
+    )
     from routes.cloud import disconnect_cloud_internal
+
+    id_token = None
+    auth_state = load_auth_state()
+    if auth_state and auth_state.get('refresh_token'):
+        try:
+            id_token = await get_valid_id_token(raise_on_failure=True)
+        except AuthSessionExpiredError:
+            log.info("skipping remote logout revoke because local session is already expired")
+        except AuthNetworkError as e:
+            log.warning("skipping remote logout revoke because auth service is unreachable", error=str(e))
+        except AuthRefreshError as e:
+            log.warning("skipping remote logout revoke because token refresh failed", error=str(e))
+
+    if id_token:
+        try:
+            await revoke_remote_session_if_supported(id_token)
+        except Exception as e:
+            log.warning("remote logout revoke failed; continuing local logout", error=str(e))
 
     # Disconnect from cloud first (if connected)
     await disconnect_cloud_internal()

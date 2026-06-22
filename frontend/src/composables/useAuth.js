@@ -1,14 +1,10 @@
 /**
- * Authentication composable for Firebase Auth.
+ * Authentication composable for Stimma Cloud desktop auth.
  *
- * Provides reactive auth state and methods for sign-in/sign-out.
- * Uses system browser flow for OAuth in desktop app.
- *
- * Note: Cloud tools connection is now handled by the backend.
- * The backend auto-connects on login and startup based on user tier.
+ * The backend is the source of truth for auth state, token storage, token
+ * refresh, and cloud tool connection.
  */
 import { ref, readonly } from 'vue'
-import { auth, firebaseSignOut } from './firebase'
 import { isTauri, getApiBase } from '../apiConfig'
 
 // Global reactive state (shared across all components)
@@ -27,12 +23,17 @@ function setUser(newUser) {
   isAuthenticated.value = !!newUser
 }
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('stimma-auth-required', (event) => {
+    const detail = event.detail || {}
+    authError.value = detail.message || 'Please sign in again.'
+    setUser(null)
+  })
+}
+
 /**
  * Initialize auth state from backend.
  * Call this once at app startup.
- *
- * The backend is now the source of truth for auth state.
- * It persists auth credentials and auto-connects to cloud tools.
  */
 export async function initAuth() {
   if (initialized) return
@@ -47,6 +48,7 @@ export async function initAuth() {
 
       if (data.authenticated && data.user) {
         setUser(data.user)
+        authError.value = null
       } else {
         setUser(null)
       }
@@ -65,11 +67,6 @@ export async function initAuth() {
 /**
  * Sign in via system browser.
  * Opens browser to stimma.cloud login page, polls for result.
- *
- * Note: The backend now handles the full auth flow including:
- * - Exchanging custom_token for Firebase tokens
- * - Fetching user tier
- * - Connecting to cloud tools if non-free tier
  */
 export async function signInWithBrowser() {
   authError.value = null
@@ -103,20 +100,7 @@ export async function signInWithBrowser() {
       throw new Error(result.error)
     }
 
-    // 4. Backend already handled token exchange and cloud connection.
-    // We still sign into Firebase for UI purposes (user name/avatar display).
-    // Note: Backend returns user info but NOT custom_token anymore.
-    // We need to get the custom_token from the backend's OAuth flow.
-
-    // Actually, looking at the backend changes - the poll result now contains:
-    // { user, tier, completed } but NOT custom_token
-    // However, we still need Firebase client-side for the UI.
-    // Let's check if we can get the token from the backend...
-
-    // For now, let's just update the local state from the result
-    // The Firebase onAuthStateChanged will fire when we sign in
     if (result.user) {
-      // Backend already connected cloud tools, just update local state
       setUser(result.user)
     }
 
@@ -162,22 +146,11 @@ export async function signOut() {
     })
   } catch (error) {
     console.error('Error calling backend logout:', error)
-    // Continue with Firebase sign out even if backend call fails
   }
 
-  // Sign out of Firebase client
-  await firebaseSignOut(auth)
-
   // Update local state
+  authError.value = null
   setUser(null)
-}
-
-/**
- * Get the current user's ID token for API authentication.
- */
-export async function getIdToken() {
-  if (!auth.currentUser) return null
-  return auth.currentUser.getIdToken()
 }
 
 /**
@@ -195,6 +168,5 @@ export function useAuth() {
     initAuth,
     signInWithBrowser,
     signOut,
-    getIdToken,
   }
 }

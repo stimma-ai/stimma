@@ -37,7 +37,7 @@
         {{ isConnecting ? 'Connecting...' : 'Unlock Stimma Cloud' }}
       </button>
       <p class="text-xs text-content-muted mt-2.5">No setup required</p>
-      <p v-if="connectError" class="text-sm text-red-500 text-center mt-4">{{ connectError }}</p>
+      <p v-if="connectMessage" class="text-sm text-red-500 text-center mt-4">{{ connectMessage }}</p>
     </div>
 
     <!-- Signed in state - separate cards -->
@@ -96,7 +96,7 @@
           <svg class="w-4 h-4 text-red-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
           </svg>
-          <span class="text-sm text-red-400 truncate">Couldn't reach Stimma Cloud. Account info may be unavailable.</span>
+          <span class="text-sm text-red-400 truncate">{{ cloudErrorMessage }}</span>
         </div>
         <button
           @click="refreshAccount"
@@ -247,10 +247,12 @@ import { isTauri } from '../../../apiConfig'
 
 const emit = defineEmits(['close'])
 
-const { user, signOut, signInWithBrowser } = useAuth()
+const { user, authError, signOut, signInWithBrowser } = useAuth()
 const { cloudBaseUrl, cloudUser, isCloudLoading, cloudError, fetchCloudAccount, ensureCloudBaseUrl, formatBalance, getPlanDisplayName } = useCloudAccount()
 
 const showMenu = ref(false)
+const isConnecting = ref(false)
+const connectError = ref('')
 
 // Check if user has a paid subscription (not free tier)
 const hasPaidSubscription = computed(() => {
@@ -275,6 +277,11 @@ const userName = computed(() => {
   return 'there'
 })
 
+const connectMessage = computed(() => connectError.value || authError.value || '')
+
+const cloudErrorMessage = computed(() => {
+  return cloudError.value?.message || "Couldn't load Stimma Cloud account info."
+})
 
 onMounted(async () => {
   await ensureCloudBaseUrl()
@@ -314,9 +321,6 @@ function getPlanBadgeClass(tier) {
   if (tierLower === 'pro') return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-400'
   return 'bg-surface-raised/50 text-content-tertiary'
 }
-
-const isConnecting = ref(false)
-const connectError = ref('')
 
 async function handleConnect() {
   isConnecting.value = true
@@ -363,6 +367,5 @@ async function addBalance() {
 
 async function handleSignOut() {
   await signOut()
-  window.location.reload()
 }
 </script>

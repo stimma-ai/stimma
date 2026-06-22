@@ -18,6 +18,44 @@ const cloudUser = ref(null)
 const isCloudLoading = ref(false)
 const cloudError = ref(null)
 
+function normalizeAccountError(response, body) {
+  const detail = body?.detail
+  if (detail && typeof detail === 'object') {
+    return {
+      code: detail.code || `http_${response.status}`,
+      message: detail.message || `Failed to fetch account: ${response.status}`,
+      status: response.status,
+    }
+  }
+  if (typeof detail === 'string') {
+    return {
+      code: `http_${response.status}`,
+      message: detail,
+      status: response.status,
+    }
+  }
+  return {
+    code: `http_${response.status}`,
+    message: `Failed to fetch account: ${response.status}`,
+    status: response.status,
+  }
+}
+
+async function readAccountError(response) {
+  try {
+    const body = await response.json()
+    return normalizeAccountError(response, body)
+  } catch (e) {
+    return normalizeAccountError(response, null)
+  }
+}
+
+function notifyAuthRequired(error) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('stimma-auth-required', { detail: error }))
+  }
+}
+
 /**
  * Get the cloud base URL from settings (fetches if not already set).
  */
@@ -61,11 +99,14 @@ export async function fetchCloudAccount() {
     const response = await fetch('/api/auth/account')
 
     if (!response.ok) {
+      const error = await readAccountError(response)
+      cloudError.value = error
       if (response.status === 401) {
         cloudUser.value = null
+        notifyAuthRequired(error)
         return null
       }
-      throw new Error(`Failed to fetch account: ${response.status}`)
+      return null
     }
 
     const data = await response.json()
@@ -78,7 +119,10 @@ export async function fetchCloudAccount() {
     return cloudUser.value
   } catch (error) {
     console.error('Failed to fetch cloud account:', error)
-    cloudError.value = error.message
+    cloudError.value = {
+      code: 'cloud_unreachable',
+      message: "Couldn't reach Stimma Cloud. Check your connection and try again.",
+    }
     return null
   } finally {
     isCloudLoading.value = false

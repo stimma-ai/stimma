@@ -11,6 +11,8 @@ Tests cover:
 """
 
 import pytest
+import json
+import httpx
 from httpx import AsyncClient
 from unittest.mock import patch, AsyncMock, MagicMock
 
@@ -55,6 +57,47 @@ def _clear_sessions():
     sessions.clear()
 
 
+@pytest.fixture
+def auth_storage_env(monkeypatch, temp_appdata_dir):
+    """Patch auth storage to use temp app data and an in-memory token store."""
+    import auth_storage
+
+    class MemoryRefreshTokenStore:
+        backend_name = "test-memory"
+
+        def __init__(self):
+            self.token = None
+            self.set_calls = []
+            self.clear_calls = 0
+
+        def get_refresh_token(self):
+            return self.token
+
+        def set_refresh_token(self, token):
+            self.token = token
+            self.set_calls.append(token)
+
+        def clear_refresh_token(self):
+            self.token = None
+            self.clear_calls += 1
+
+    store = MemoryRefreshTokenStore()
+
+    monkeypatch.setattr(auth_storage.app_dirs, "get_data_dir", lambda: temp_appdata_dir)
+    monkeypatch.setattr(auth_storage, "_token_store_override", store)
+    monkeypatch.setattr(auth_storage, "_memory_refresh_token", None)
+    monkeypatch.setattr(auth_storage, "_warned_memory_fallback", False)
+    auth_storage._cache_id_token(None, None)
+
+    yield store, temp_appdata_dir
+
+    auth_path = temp_appdata_dir / "cloud_auth.json"
+    if auth_path.exists():
+        auth_path.unlink()
+    store.clear_refresh_token()
+    auth_storage._cache_id_token(None, None)
+
+
 # ---------------------------------------------------------------------------
 # Tests: _html_page helper
 # ---------------------------------------------------------------------------
@@ -74,6 +117,154 @@ class TestHtmlPage:
         assert "Error" in html
         assert "Something went wrong." in html
         assert "#f87171" in html  # error icon color
+
+
+# ---------------------------------------------------------------------------
+# Tests: auth storage
+# ---------------------------------------------------------------------------
+
+class TestAuthStorage:
+    """Tests for local auth persistence and token migration."""
+
+    def test_save_auth_state_strips_tokens_from_json(self, auth_storage_env):
+        """Refresh and ID tokens are not persisted in cloud_auth.json."""
+        from auth_storage import load_auth_state, save_auth_state
+
+        store, data_dir = auth_storage_env
+
+        save_auth_state({
+            "user": {"uid": "u1", "email": "test@example.com"},
+            "tier": "pro",
+            "credits": 100,
+            "refresh_token": "refresh-secret",
+            "id_token": "id-secret",
+            "id_token_expiry": 9999999999,
+        })
+
+        raw = json.loads((data_dir / "cloud_auth.json").read_text())
+        assert raw["user"]["uid"] == "u1"
+        assert raw["tier"] == "pro"
+        assert "refresh_token" not in raw
+        assert "id_token" not in raw
+        assert store.token == "refresh-secret"
+
+        loaded = load_auth_state()
+        assert loaded["refresh_token"] == "refresh-secret"
+        assert loaded["id_token"] == "id-secret"
+
+    def test_load_auth_state_migrates_legacy_tokens(self, auth_storage_env):
+        """Existing plaintext token JSON is migrated into secure storage."""
+        from auth_storage import load_auth_state
+
+        store, data_dir = auth_storage_env
+        path = data_dir / "cloud_auth.json"
+        path.write_text(json.dumps({
+            "user": {"uid": "u1"},
+            "tier": "pro",
+            "refresh_token": "legacy-refresh",
+            "id_token": "legacy-id",
+            "id_token_expiry": 9999999999,
+        }))
+
+        loaded = load_auth_state()
+
+        assert loaded["refresh_token"] == "legacy-refresh"
+        assert loaded["id_token"] == "legacy-id"
+        assert store.token == "legacy-refresh"
+
+        raw = json.loads(path.read_text())
+        assert "refresh_token" not in raw
+        assert "id_token" not in raw
+        assert raw["tier"] == "pro"
+
+    def test_clear_auth_state_clears_json_and_secure_token(self, auth_storage_env):
+        """Logout clears both display JSON and secure token storage."""
+        from auth_storage import clear_auth_state, load_auth_state, save_auth_state
+
+        store, data_dir = auth_storage_env
+
+        save_auth_state({
+            "user": {"uid": "u1"},
+            "refresh_token": "refresh-secret",
+            "id_token": "id-secret",
+            "id_token_expiry": 9999999999,
+        })
+
+        clear_auth_state()
+
+        assert not (data_dir / "cloud_auth.json").exists()
+        assert store.token is None
+        assert store.clear_calls == 1
+        assert load_auth_state() is None
+
+    def test_malformed_json_still_returns_none(self, auth_storage_env):
+        """Malformed auth JSON is ignored instead of crashing."""
+        from auth_storage import load_auth_state
+
+        store, data_dir = auth_storage_env
+        (data_dir / "cloud_auth.json").write_text("{not json")
+
+        assert load_auth_state() is None
+        assert store.token is None
+
+
+# ---------------------------------------------------------------------------
+# Tests: Firebase refresh classification
+# ---------------------------------------------------------------------------
+
+class TestFirebaseRefreshHandling:
+    """Tests for expired/revoked vs transient token refresh failures."""
+
+    async def test_invalid_refresh_token_clears_auth_state(self, auth_storage_env):
+        """Firebase invalid-refresh semantics clear local auth and ask for sign-in."""
+        from auth_storage import load_auth_state, save_auth_state
+        from firebase_auth import AuthSessionExpiredError, get_valid_id_token
+
+        store, data_dir = auth_storage_env
+        save_auth_state({
+            "user": {"uid": "u1"},
+            "refresh_token": "bad-refresh",
+            "id_token_expiry": 0,
+        })
+
+        request = httpx.Request("POST", "https://securetoken.googleapis.com/v1/token")
+        response = httpx.Response(
+            400,
+            json={"error": {"message": "INVALID_REFRESH_TOKEN"}},
+            request=request,
+        )
+        error = httpx.HTTPStatusError("invalid refresh", request=request, response=response)
+
+        with patch("firebase_auth.refresh_id_token", new_callable=AsyncMock, side_effect=error):
+            with pytest.raises(AuthSessionExpiredError):
+                await get_valid_id_token(raise_on_failure=True)
+
+        assert load_auth_state() is None
+        assert not (data_dir / "cloud_auth.json").exists()
+        assert store.token is None
+
+    async def test_network_refresh_error_does_not_clear_auth_state(self, auth_storage_env):
+        """Transient Firebase network errors preserve local auth state."""
+        from auth_storage import load_auth_state, save_auth_state
+        from firebase_auth import AuthNetworkError, get_valid_id_token
+
+        store, data_dir = auth_storage_env
+        save_auth_state({
+            "user": {"uid": "u1"},
+            "refresh_token": "refresh-secret",
+            "id_token_expiry": 0,
+        })
+
+        request = httpx.Request("POST", "https://securetoken.googleapis.com/v1/token")
+        error = httpx.ConnectTimeout("timeout", request=request)
+
+        with patch("firebase_auth.refresh_id_token", new_callable=AsyncMock, side_effect=error):
+            with pytest.raises(AuthNetworkError):
+                await get_valid_id_token(raise_on_failure=True)
+
+        assert (data_dir / "cloud_auth.json").exists()
+        assert store.token == "refresh-secret"
+        assert load_auth_state()["refresh_token"] == "refresh-secret"
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +288,7 @@ class TestAuthStatus:
             "user": {"uid": "u1", "email": "test@example.com", "displayName": "Test"},
             "tier": "pro",
             "credits": 100,
+            "refresh_token": "refresh",
         }
         with patch("auth_storage.load_auth_state", return_value=mock_state):
             response = await auth_client.get("/api/auth/status")
@@ -110,7 +302,7 @@ class TestAuthStatus:
 
     async def test_status_defaults_tier_to_free(self, auth_client: AsyncClient):
         """Test auth status defaults tier to 'free' if missing."""
-        mock_state = {"user": {"uid": "u1"}}
+        mock_state = {"user": {"uid": "u1"}, "refresh_token": "refresh"}
         with patch("auth_storage.load_auth_state", return_value=mock_state):
             response = await auth_client.get("/api/auth/status")
 
@@ -195,7 +387,7 @@ class TestAccountInfo:
 
     async def test_account_invalid_token(self, auth_client: AsyncClient):
         """Test account info when token refresh fails returns 401."""
-        with patch("auth_storage.load_auth_state", return_value={"user": {}}), \
+        with patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
              patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value=None):
             response = await auth_client.get("/api/auth/account")
         assert response.status_code == 401
@@ -212,7 +404,7 @@ class TestAccountInfo:
             "subscription": {"status": "active"},
         }
 
-        with patch("auth_storage.load_auth_state", return_value={"user": {}, "tier": "free"}), \
+        with patch("auth_storage.load_auth_state", return_value={"user": {}, "tier": "free", "refresh_token": "refresh"}), \
              patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value="tok"), \
              patch("cloud_api.fetch_user_account", new_callable=AsyncMock, return_value=cloud_account), \
              patch("auth_storage.save_auth_state"):
@@ -226,7 +418,7 @@ class TestAccountInfo:
 
     async def test_account_cloud_failure(self, auth_client: AsyncClient):
         """Test account info when cloud API fails returns 502."""
-        with patch("auth_storage.load_auth_state", return_value={"user": {}}), \
+        with patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
              patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value="tok"), \
              patch("cloud_api.fetch_user_account", new_callable=AsyncMock, side_effect=Exception("boom")):
             response = await auth_client.get("/api/auth/account")
@@ -241,13 +433,47 @@ class TestLogout:
     """Tests for POST /api/auth/logout endpoint."""
 
     async def test_logout_success(self, auth_client: AsyncClient):
-        """Test logout clears auth state and disconnects cloud."""
+        """Test logout clears auth state, disconnects cloud, and revokes remotely."""
         with patch("auth_storage.clear_auth_state") as mock_clear, \
+             patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
+             patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value="id-token") as mock_token, \
+             patch("cloud_api.revoke_remote_session_if_supported", new_callable=AsyncMock, return_value=True) as mock_revoke, \
              patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as mock_disconnect:
             response = await auth_client.post("/api/auth/logout")
 
         assert response.status_code == 200
         assert response.json()["success"] is True
+        mock_clear.assert_called_once()
+        mock_disconnect.assert_called_once()
+        mock_token.assert_called_once()
+        mock_revoke.assert_called_once_with("id-token")
+
+    async def test_logout_clears_local_state_when_remote_revoke_fails(self, auth_client: AsyncClient):
+        """Test remote revoke failure does not block local logout."""
+        with patch("auth_storage.clear_auth_state") as mock_clear, \
+             patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
+             patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value="id-token"), \
+             patch("cloud_api.revoke_remote_session_if_supported", new_callable=AsyncMock, side_effect=Exception("offline")) as mock_revoke, \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as mock_disconnect:
+            response = await auth_client.post("/api/auth/logout")
+
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+        mock_revoke.assert_called_once_with("id-token")
+        mock_clear.assert_called_once()
+        mock_disconnect.assert_called_once()
+
+    async def test_logout_without_token_still_succeeds_locally(self, auth_client: AsyncClient):
+        """Test logout succeeds even when no auth token is available."""
+        with patch("auth_storage.clear_auth_state") as mock_clear, \
+             patch("auth_storage.load_auth_state", return_value=None), \
+             patch("cloud_api.revoke_remote_session_if_supported", new_callable=AsyncMock) as mock_revoke, \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as mock_disconnect:
+            response = await auth_client.post("/api/auth/logout")
+
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+        mock_revoke.assert_not_called()
         mock_clear.assert_called_once()
         mock_disconnect.assert_called_once()
 

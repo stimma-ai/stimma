@@ -6,9 +6,8 @@
  */
 import { ref, readonly, computed } from 'vue'
 import axios from 'axios'
-import { getApiBase, isInitialized as isApiInitialized, rewriteUrl } from '../apiConfig'
+import { getApiBase, rewriteUrl } from '../apiConfig'
 import { getCachedPin } from './usePinLock'
-import { auth } from './firebase'
 
 // Global reactive state (shared across all components)
 const currentProfileId = ref(localStorage.getItem('profileId') || null)
@@ -145,8 +144,8 @@ export function useProfile() {
   }
 }
 
-// Install a global fetch interceptor
-// This automatically adds the X-Profile-ID header, X-Profile-PIN header, Firebase auth, and rewrites URLs for Tauri mode
+// Install a global fetch interceptor.
+// This automatically adds profile/PIN headers and rewrites URLs for Tauri mode.
 const originalFetch = window.fetch
 window.fetch = async function(url, options = {}) {
   // Only intercept API calls - check both relative and absolute URLs
@@ -162,23 +161,12 @@ window.fetch = async function(url, options = {}) {
     if (cachedPin) {
       headers['X-Profile-PIN'] = cachedPin
     }
-    // Add Firebase auth token if user is logged in
-    if (auth.currentUser) {
-      try {
-        const idToken = await auth.currentUser.getIdToken()
-        if (idToken) {
-          headers['Authorization'] = `Bearer ${idToken}`
-        }
-      } catch (e) {
-        console.warn('[Profile] Failed to get Firebase ID token:', e)
-      }
-    }
     return originalFetch(rewrittenUrl, { ...options, headers })
   }
   return originalFetch(url, options)
 }
 
-// Install axios interceptor for profile header and Firebase auth
+// Install axios interceptor for profile/PIN headers.
 axios.interceptors.request.use(async (config) => {
   // Add profile header to all API requests
   // In Tauri mode, URLs are absolute like http://127.0.0.1:PORT/api/...
@@ -192,17 +180,6 @@ axios.interceptors.request.use(async (config) => {
   const cachedPin = getCachedPin(currentProfileId.value)
   if (cachedPin) {
     config.headers['X-Profile-PIN'] = cachedPin
-  }
-  // Add Firebase auth token if user is logged in
-  if (auth.currentUser) {
-    try {
-      const idToken = await auth.currentUser.getIdToken()
-      if (idToken) {
-        config.headers['Authorization'] = `Bearer ${idToken}`
-      }
-    } catch (e) {
-      console.warn('[Profile] Failed to get Firebase ID token for axios:', e)
-    }
   }
   return config
 })
