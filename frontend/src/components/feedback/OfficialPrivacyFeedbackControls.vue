@@ -42,7 +42,7 @@ const feedbackConsentRows = computed(() => [
   {
     subject: 'crash',
     label: 'Crash reports',
-    description: 'Ask keeps reports local until you decide; Always sends future reports silently.',
+    description: 'Ask keeps reports local until you decide; Always sends future reports without another prompt.',
     value: feedbackConsentState.crashConsent,
   },
 ])

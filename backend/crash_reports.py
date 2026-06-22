@@ -5,9 +5,9 @@ Unhandled backend exceptions write a pending report to
 ``<data_dir>/crashes/pending/<ts>.json``: exception type + message, stack,
 app version/branch/os, session id, the last 200 log lines captured at
 crash time (scrubbed), and a stack hash for admin grouping. Exception
-messages MAY contain content — which is exactly why this path is
-consent-gated with a preview, unlike the content-free ``app_error``
-telemetry event (telemetry.py), which stays untouched.
+messages MAY contain content, so this path is consent-gated, unlike the
+content-free ``app_error`` telemetry event (telemetry.py), which stays
+untouched.
 
 Consent (``feedback.crash_reports`` in config):
 - ``ask``: if the app is alive the frontend is notified over the existing
@@ -15,7 +15,7 @@ Consent (``feedback.crash_reports`` in config):
   crash killed the session, the dialog shows on next launch (the frontend
   queries pending reports at startup). Multiple pending reports get ONE
   batched dialog; one decision covers the batch.
-- ``always``: future reports auto-send fully silently (no toast — D12).
+- ``always``: future reports send under the saved consent choice.
 - ``never``: nothing is written; new reports are discarded.
 
 Dev/source builds: never writes, never prompts (PRIVACY_PLAN §2.5).

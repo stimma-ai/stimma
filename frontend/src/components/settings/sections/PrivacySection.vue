@@ -40,7 +40,7 @@
       <div v-else class="p-4 bg-surface-raised/50 rounded-lg">
         <h4 class="text-sm font-medium text-content">Usage Analytics</h4>
         <p class="text-xs text-content-tertiary mt-0.5 leading-relaxed">
-          Telemetry is disabled in source builds.
+          Telemetry is disabled in source builds and cannot send events.
         </p>
       </div>
 

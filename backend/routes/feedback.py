@@ -6,10 +6,9 @@ gating, consent state, package building, and the cloud submission
 (feedback_client.py — UA helper + optional Firebase bearer).
 
 Gating recap (PRIVACY_PLAN §2.5):
-- Menu feedback (kind='feedback') works in ALL builds (D13).
-- Thumbs and crash reports exist only in official builds; in dev builds
-  those kinds are refused here so nothing can egress even if the UI gate
-  is bypassed.
+- Feedback submissions, thumbs, and crash-report sharing exist only in
+  official builds; in source/dev builds those paths are refused here so
+  nothing can egress even if the UI gate is bypassed.
 """
 import base64
 import json
@@ -130,6 +129,11 @@ async def submit(req: SubmitFeedbackRequest):
     """Build attachments and submit to the cloud feedback API."""
     if req.kind not in ("feedback", "thumbs"):
         raise HTTPException(status_code=400, detail="kind must be feedback or thumbs")
+    if not is_official():
+        raise HTTPException(
+            status_code=403,
+            detail="Feedback sharing is disabled in source builds",
+        )
     if req.thumb is not None and req.thumb not in ("up", "down"):
         raise HTTPException(status_code=400, detail="thumb must be up or down")
     if req.agent_context is not None and req.agent_context not in (
@@ -137,14 +141,9 @@ async def submit(req: SubmitFeedbackRequest):
     ):
         raise HTTPException(status_code=400, detail="Invalid agent_context")
 
-    # Thumbs exist only in official builds, and never egress under a
-    # recorded 'never' consent (the UI also gates; this is the backstop).
+    # Thumbs never egress under a recorded 'never' consent (the UI also
+    # gates; this is the backstop).
     if req.kind == "thumbs":
-        if not is_official():
-            raise HTTPException(
-                status_code=403,
-                detail="Thumbs feedback is disabled in source builds",
-            )
         from config import get_settings
         if get_settings().feedback.thumbs_consent == "never":
             raise HTTPException(

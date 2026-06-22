@@ -876,30 +876,18 @@ class TestFeedbackRoutes:
         assert resp.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_menu_feedback_works_in_dev_build(
+    async def test_feedback_submit_rejected_in_dev_build(
         self, feedback_client_fixture, fake_cloud
     ):
-        """D13: the menu Feedback item works in ALL builds."""
         resp = await feedback_client_fixture.post("/api/feedback/submit", json={
             "kind": "feedback",
             "message": "test message",
             "include_logs": True,
         })
-        assert resp.status_code == 200
-        assert resp.json()["id"] == "fb-1"
-
-        # Full flow against the mocked cloud: POST -> PUT logs -> complete
-        assert len(fake_cloud.posts) == 1
-        post = fake_cloud.posts[0]
-        assert post["json"]["kind"] == "feedback"
-        assert post["json"]["message"] == "test message"
-        assert post["json"]["wants"] == {"logs": True}
-        # Identity rides the UA helper on every request to our infra
-        assert post["headers"]["User-Agent"].startswith("Stimma/")
-        assert "install/" in post["headers"]["User-Agent"]
-        assert len(fake_cloud.puts) == 1
-        assert len(fake_cloud.completes) == 1
-        assert fake_cloud.completes[0]["headers"]["User-Agent"].startswith("Stimma/")
+        assert resp.status_code == 403
+        assert fake_cloud.posts == []
+        assert fake_cloud.puts == []
+        assert fake_cloud.completes == []
 
     @pytest.mark.asyncio
     async def test_thumbs_submit_with_chat_package(
@@ -928,7 +916,8 @@ class TestFeedbackRoutes:
         assert fake_cloud.puts[0]["bytes"] > 100
 
     @pytest.mark.asyncio
-    async def test_screenshot_decoding(self, feedback_client_fixture, fake_cloud):
+    async def test_screenshot_decoding(self, feedback_client_fixture, fake_cloud, monkeypatch):
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
         import base64
         png = b"\x89PNG\r\n\x1a\nfakepngbytes"
         data_url = "data:image/png;base64," + base64.b64encode(png).decode()
@@ -974,6 +963,7 @@ class TestFeedbackRoutes:
 
     @pytest.mark.asyncio
     async def test_rate_limit_propagates(self, feedback_client_fixture, monkeypatch):
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
         from feedback_client import FeedbackSubmitError
 
         async def limited(**kwargs):

@@ -11,9 +11,9 @@ Identity: every request carries the Stimma User-Agent (user_agent.py — the
 single sanctioned install-id egress). Signed-in submissions also carry the
 Firebase bearer token; anonymous is fine (the server keys on the UA).
 
-This is an explicit user-initiated act: it works under DO_NOT_TRACK and in
-dev builds (menu feedback, D13 — the server stamps branch 'dev' from the UA
-so source-build reports are never mistaken for the official fleet).
+This is an explicit user-initiated act in official builds and works under
+DO_NOT_TRACK. Source/dev builds refuse feedback submission before this client
+is called.
 """
 from typing import Dict, Optional
 

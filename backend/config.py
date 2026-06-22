@@ -293,8 +293,7 @@ class FeedbackConfig(BaseModel):
 
     ``thumbs_consent`` / ``crash_reports``: ``ask`` (prompt each time),
     ``always`` (send without prompting), ``never`` (suppress + discard).
-    Thumbs and crash reports exist only in official builds; the menu
-    Feedback item works in all builds (D13).
+    Feedback submission, thumbs, and crash reports exist only in official builds.
     """
     thumbs_consent: str = "ask"   # ask | always | never
     crash_reports: str = "ask"    # ask | always | never
