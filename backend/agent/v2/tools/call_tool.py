@@ -329,20 +329,28 @@ async def execute_call_tool(
             continue
         job_params[key] = value
 
-    # Generation parameters (steps, cfg, loras, etc.)
-    job_params.update({
-        "steps": final_params.get("steps"),
-        "cfg": final_params.get("cfg"),
-        "guidance": final_params.get("guidance"),
-        "sampler": final_params.get("sampler"),
-        "scheduler": final_params.get("scheduler"),
-        "loras": [
+    # Generation parameters (steps, cfg, loras, etc.). Only emit knobs the
+    # tool actually exposes, and never send nulls as explicit "defaults".
+    for gen_key in ("steps", "cfg", "guidance", "sampler", "scheduler"):
+        if gen_key not in param_props:
+            continue
+        value = final_params.get(gen_key)
+        if value is not None:
+            job_params[gen_key] = value
+
+    if "loras" in param_props:
+        loras_payload = [
             {"lora": l["path"], "weight": l.get("weight", 1.0)}
             for l in final_params.get("loras", [])
             if l and l.get("path")
-        ],
-        "negative_prompt": final_params.get("negative_prompt", ""),
-    })
+        ]
+        if loras_payload:
+            job_params["loras"] = loras_payload
+
+    if "negative_prompt" in param_props:
+        value = final_params.get("negative_prompt")
+        if value is not None:
+            job_params["negative_prompt"] = value
 
     # Forward controlnet metadata so lineage resolution picks it up
     for meta_key in _CONTROLNET_META_KEYS:
