@@ -25,8 +25,7 @@ lands.
 - **`STIMMA_PRIVACY_LOCKDOWN=1` disables Stimma service contact.** It kills
   all telemetry buffering/sending regardless of consent and disables account,
   cloud, feedback, crash-report, marketplace, feature-flag, compliance-region,
-  and update-check requests to Stimma services. `DO_NOT_TRACK=1` remains a
-  compatibility alias.
+  and update-check requests to Stimma services.
 
 ## Testing official-build behavior (dev)
 

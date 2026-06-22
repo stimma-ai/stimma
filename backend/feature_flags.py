@@ -28,7 +28,7 @@ import httpx
 
 import app_dirs
 from core.logging import get_logger
-from distribution import is_dnt
+from distribution import is_privacy_lockdown
 from feature_flag_defaults import FLAG_DEFAULTS
 
 log = get_logger(__name__)
@@ -128,7 +128,7 @@ class FeatureFlagClient:
             return
         self._started = True
         self._flags = _load_cache()
-        if is_dnt():
+        if is_privacy_lockdown():
             log.info(
                 "feature_flags: Privacy Lockdown active, no fetch, local defaults only",
                 cached_count=len(self._flags),
@@ -184,7 +184,7 @@ class FeatureFlagClient:
             return None
 
     async def _fetch_once(self) -> None:
-        if is_dnt():
+        if is_privacy_lockdown():
             return
         from config import get_settings
         from user_agent import ua_headers

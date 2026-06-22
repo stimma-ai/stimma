@@ -37,7 +37,7 @@ import httpx
 
 from core.logging import get_logger
 from core.session_context import get_session_id, on_session_change
-from distribution import is_dnt, is_official
+from distribution import is_official, is_privacy_lockdown
 
 log = get_logger(__name__)
 
@@ -111,13 +111,13 @@ class TelemetryClient:
         """Whether events may even be buffered locally."""
         if not self._enabled_build:
             return False  # dev distribution: permanent no-op, no buffer
-        if is_dnt():
+        if is_privacy_lockdown():
             return False  # Privacy Lockdown: absolute, regardless of consent
         return self._consent_state() is not False
 
     def _may_send(self) -> bool:
         """Whether buffered events may go on the network."""
-        if not self._enabled_build or is_dnt():
+        if not self._enabled_build or is_privacy_lockdown():
             return False
         return self._consent_state() is True
 
@@ -186,7 +186,7 @@ class TelemetryClient:
             return
         self._consent_override = enabled
 
-        if is_dnt():
+        if is_privacy_lockdown():
             with self._lock:
                 self._queue.clear()
             return
@@ -585,7 +585,7 @@ class TelemetryClient:
         if not self._enabled_build:
             log.info("telemetry disabled (dev distribution) — permanent no-op")
             return
-        if is_dnt():
+        if is_privacy_lockdown():
             log.info("telemetry disabled (Privacy Lockdown)")
             return
         self._install_exception_hooks()
@@ -605,7 +605,7 @@ class TelemetryClient:
             self._flush_task = None
         # Orderly shutdown: close the session and clear the dirty flag so the
         # next launch reads previousExitClean: true.
-        if self._enabled_build and not is_dnt():
+        if self._enabled_build and not is_privacy_lockdown():
             try:
                 duration_ms = int((time.monotonic() - self._session_started_monotonic) * 1000)
                 self.track("session_ended", {"durationMs": duration_ms}, category="app")

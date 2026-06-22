@@ -17,7 +17,7 @@ from typing import Optional
 import httpx
 
 from core.logging import get_logger
-from distribution import is_dnt, is_official
+from distribution import is_official, is_privacy_lockdown
 
 log = get_logger(__name__)
 
@@ -43,7 +43,7 @@ def should_check() -> bool:
     """Whether this build/install performs the daily update check."""
     if not is_official():
         return False
-    if is_dnt():
+    if is_privacy_lockdown():
         return False
     try:
         from config import get_settings

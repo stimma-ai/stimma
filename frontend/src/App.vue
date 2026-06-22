@@ -632,7 +632,7 @@ async function loadAppSettings() {
   setDevMode(settings.developer_mode)
   setCaptioningEnabled(settings.background_work?.captioning?.enabled)
   setTelemetryEnabled(settings.telemetry_enabled)
-  const privacyLockdown = settings.privacy_lockdown_active === true || settings.dnt_active === true
+  const privacyLockdown = settings.privacy_lockdown_active === true
   setPrivacyLockdownActive(privacyLockdown)
   initFeatureFlags(useWebSocket().on)
   // Auto update checks start only once Privacy Lockdown state is known.

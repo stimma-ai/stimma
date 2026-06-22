@@ -20,7 +20,7 @@ from typing import Optional, TypedDict
 import httpx
 
 from core.logging import get_logger
-from distribution import is_dnt, is_official
+from distribution import is_official, is_privacy_lockdown
 
 log = get_logger(__name__)
 
@@ -75,7 +75,7 @@ async def get_region() -> RegionInfo:
 
     fallback: RegionInfo = {"country": None, "regime": REGIME_OPTIN, "cached": False}
 
-    if not is_official() or is_dnt():
+    if not is_official() or is_privacy_lockdown():
         return fallback
 
     try:

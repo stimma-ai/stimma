@@ -40,15 +40,8 @@ def is_official() -> bool:
     return get_distribution() == DISTRIBUTION_OFFICIAL
 
 
-def is_dnt() -> bool:
-    """Compatibility alias for the hard Privacy Lockdown mode."""
-    from privacy_lockdown import is_privacy_lockdown_enabled
-
-    return is_privacy_lockdown_enabled()
-
-
 def is_privacy_lockdown() -> bool:
-    """True when ``STIMMA_PRIVACY_LOCKDOWN=1`` or a legacy alias is set."""
+    """True when ``STIMMA_PRIVACY_LOCKDOWN=1`` is set."""
     from privacy_lockdown import is_privacy_lockdown_enabled
 
     return is_privacy_lockdown_enabled()

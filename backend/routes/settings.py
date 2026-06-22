@@ -280,7 +280,6 @@ class SettingsResponse(BaseModel):
     telemetry_enabled: Optional[bool] = None
     distribution: str = "dev"  # Build distribution: 'dev' | 'official'
     privacy_lockdown_active: bool = False
-    dnt_active: bool = False  # Legacy response field; mirrors privacy_lockdown_active.
     default_model: str = 'agent-max'  # Global default model slug
 
 
@@ -430,7 +429,7 @@ async def get_settings_all():
     Returns profile-scoped settings for the current profile and global settings.
     """
     from providers import ProviderRegistry
-    from distribution import get_distribution, is_dnt
+    from distribution import get_distribution, is_privacy_lockdown
 
     settings = get_settings()
     current_profile_id = get_current_profile()
@@ -676,8 +675,7 @@ async def get_settings_all():
         theme=settings.theme,
         telemetry_enabled=settings.telemetry.enabled,
         distribution=get_distribution(),
-        privacy_lockdown_active=is_dnt(),
-        dnt_active=is_dnt(),
+        privacy_lockdown_active=is_privacy_lockdown(),
         default_model=settings.default_model,
     )
 

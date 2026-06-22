@@ -129,7 +129,7 @@
                 <PrivacySection
                   v-if="settings"
                   :telemetry-enabled="settings.telemetry_enabled === true"
-                  :privacy-lockdown-active="settings.privacy_lockdown_active === true || settings.dnt_active === true"
+                  :privacy-lockdown-active="settings.privacy_lockdown_active === true"
                   @telemetry-updated="handleTelemetryUpdated"
                 />
               </template>

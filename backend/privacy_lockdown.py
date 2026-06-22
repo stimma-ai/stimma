@@ -11,8 +11,6 @@ import os
 from urllib.parse import urlparse
 
 PRIMARY_ENV = "STIMMA_PRIVACY_LOCKDOWN"
-LEGACY_DNT_ENV = "DO_NOT_TRACK"
-LEGACY_SHORT_ENV = "PRIVACY_LOCKDOWN"
 
 _TRUTHY = {"1", "true", "yes", "on"}
 
@@ -27,18 +25,13 @@ def _env_truthy(name: str) -> bool:
 
 def is_privacy_lockdown_enabled() -> bool:
     """True when the local-only privacy mode is active."""
-    return (
-        _env_truthy(PRIMARY_ENV)
-        or _env_truthy(LEGACY_SHORT_ENV)
-        or _env_truthy(LEGACY_DNT_ENV)
-    )
+    return _env_truthy(PRIMARY_ENV)
 
 
 def active_env_name() -> str | None:
     """Return the env var currently enabling lockdown, if any."""
-    for name in (PRIMARY_ENV, LEGACY_SHORT_ENV, LEGACY_DNT_ENV):
-        if _env_truthy(name):
-            return name
+    if _env_truthy(PRIMARY_ENV):
+        return PRIMARY_ENV
     return None
 
 

@@ -58,8 +58,6 @@ def fresh_env(monkeypatch):
     """Reset distribution/privacy env and the user_agent module caches."""
     monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)
     monkeypatch.delenv("STIMMA_PRIVACY_LOCKDOWN", raising=False)
-    monkeypatch.delenv("PRIVACY_LOCKDOWN", raising=False)
-    monkeypatch.delenv("DO_NOT_TRACK", raising=False)
     import user_agent
     monkeypatch.setattr(user_agent, "_install_id", None)
     monkeypatch.setattr(user_agent, "_app_version", None)
@@ -265,13 +263,10 @@ def test_privacy_lockdown_suppresses_update_check(fresh_env, patch_settings, mon
 async def test_settings_api_surfaces_privacy_lockdown_active(client, monkeypatch):
     """GET /api/settings exposes Privacy Lockdown state to the frontend."""
     monkeypatch.delenv("STIMMA_PRIVACY_LOCKDOWN", raising=False)
-    monkeypatch.delenv("PRIVACY_LOCKDOWN", raising=False)
-    monkeypatch.delenv("DO_NOT_TRACK", raising=False)
     response = await client.get("/api/settings")
     assert response.status_code == 200
     data = response.json()
     assert data["privacy_lockdown_active"] is False
-    assert data["dnt_active"] is False
     assert data["sandbox"] == "default"
 
     monkeypatch.setenv("STIMMA_PRIVACY_LOCKDOWN", "1")
@@ -279,7 +274,6 @@ async def test_settings_api_surfaces_privacy_lockdown_active(client, monkeypatch
     assert response.status_code == 200
     data = response.json()
     assert data["privacy_lockdown_active"] is True
-    assert data["dnt_active"] is True
 
 
 @pytest.mark.asyncio
@@ -374,14 +368,6 @@ def test_privacy_lockdown_user_agent_has_no_install_id(fresh_env, patch_settings
     assert user_agent.ensure_install_id() == "privacy-lockdown"
     assert user_agent.user_agent() == "Stimma/PrivacyLockdown"
     assert "install/" not in user_agent.ua_headers()["User-Agent"]
-
-
-def test_do_not_track_remains_legacy_lockdown_alias(fresh_env):
-    import distribution
-
-    fresh_env.setenv("DO_NOT_TRACK", "1")
-    assert distribution.is_privacy_lockdown() is True
-    assert distribution.is_dnt() is True
 
 
 def test_privacy_lockdown_blocks_stimma_model_downloads(fresh_env, tmp_path, monkeypatch):
