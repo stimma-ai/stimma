@@ -75,12 +75,23 @@ find "$SITE_PACKAGES" -type f \( \
     -name 'libbluray*.so*' -o \
     -name 'libtheora*.so*' \
   \) -delete
-if [ "$TARGET" = "x86_64-unknown-linux-gnu" ]; then
+if [[ "$TARGET" == *-unknown-linux-gnu ]]; then
     echo "Pruning optional Tkinter runtime from Linux portable Python..."
     rm -rf "$OUTPUT_DIR/python/lib/python3.11/tkinter"
     rm -rf "$OUTPUT_DIR/python/lib/python3.11/idlelib"
     rm -f "$OUTPUT_DIR/python/lib/python3.11/turtle.py"
     rm -f "$OUTPUT_DIR/python/lib/python3.11/lib-dynload/_tkinter"*.so
+
+    echo "Normalizing Linux vendored wheel library rpaths..."
+    if ! command -v patchelf >/dev/null; then
+        echo "ERROR: patchelf is required for Linux portable backend packaging."
+        exit 1
+    fi
+    while IFS= read -r -d '' vendored_lib; do
+        if file "$vendored_lib" | grep -q "ELF"; then
+            patchelf --set-rpath '$ORIGIN' "$vendored_lib"
+        fi
+    done < <(find "$SITE_PACKAGES" -path "$SITE_PACKAGES/*.libs/*" -type f -name '*.so*' -print0)
 fi
 find "$SITE_PACKAGES" -type d \( -name '__pycache__' -o -name 'tests' -o -name 'test' \) -prune -exec rm -rf {} +
 rm -rf "$SITE_PACKAGES/pip" "$SITE_PACKAGES"/pip-*.dist-info
