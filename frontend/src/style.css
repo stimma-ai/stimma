@@ -90,13 +90,6 @@ body {
   transform-origin: center;
 }
 
-.startup-status {
-  min-height: 18px;
-  color: var(--color-text-tertiary, #8b93a4);
-  font-size: 12px;
-  line-height: 18px;
-}
-
 @keyframes startup-pendulum {
   0%, 100% { transform: rotate(-175deg); }
   50% { transform: rotate(175deg); }
