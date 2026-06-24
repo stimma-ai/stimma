@@ -175,4 +175,10 @@ def user_agent() -> str:
 
 def ua_headers() -> dict:
     """Headers dict carrying the Stimma User-Agent."""
-    return {"User-Agent": user_agent()}
+    headers = {"User-Agent": user_agent()}
+    try:
+        from cloud_runtime import cloud_access_headers
+        headers.update(cloud_access_headers())
+    except Exception:
+        pass
+    return headers

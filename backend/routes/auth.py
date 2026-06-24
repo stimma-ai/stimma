@@ -17,6 +17,7 @@ from typing import Optional
 
 from config import get_settings
 from core.logging import get_logger
+from cloud_runtime import with_cloud_access_headers
 from privacy_lockdown import disabled_message, is_privacy_lockdown_enabled
 
 log = get_logger(__name__)
@@ -179,6 +180,7 @@ async def start_auth() -> StartAuthResponse:
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
                         exchange_url,
+                        headers=with_cloud_access_headers(),
                         json={"code": code},
                         timeout=30.0
                     )

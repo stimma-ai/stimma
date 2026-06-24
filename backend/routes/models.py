@@ -11,6 +11,7 @@ from fastapi import APIRouter, Query
 
 from config import get_settings
 from core.logging import get_logger
+from cloud_runtime import with_cloud_access_headers
 from llm_resolver import set_catalog_cache, get_max_context_tokens
 from privacy_lockdown import is_privacy_lockdown_enabled
 
@@ -53,7 +54,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     url,
-                    headers={"Authorization": f"Bearer {id_token}"},
+                    headers=with_cloud_access_headers({"Authorization": f"Bearer {id_token}"}),
                     timeout=10.0,
                 )
                 if response.status_code == 200:

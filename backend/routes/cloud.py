@@ -10,6 +10,7 @@ from typing import Optional
 
 from config import get_settings
 from core.logging import get_logger
+from cloud_runtime import cloud_access_headers, with_cloud_access_headers
 from privacy_lockdown import disabled_message, is_privacy_lockdown_enabled
 from utils.websocket import ws_manager
 
@@ -110,6 +111,7 @@ async def connect_cloud_internal(id_token: str) -> bool:
         "type": "websocket",
         "url": ws_url,
         "auth_token": id_token,
+        "headers": cloud_access_headers(),
         "enabled": True,
     }
 
@@ -299,7 +301,7 @@ async def get_cloud_llm_status():
                 async with httpx.AsyncClient() as client:
                     response = await client.get(
                         usage_url,
-                        headers={"Authorization": f"Bearer {id_token}"},
+                        headers=with_cloud_access_headers({"Authorization": f"Bearer {id_token}"}),
                         timeout=10.0
                     )
                     if response.status_code == 200:

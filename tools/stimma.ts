@@ -43,6 +43,8 @@ const FORK_PORT_BASE = 9400;
 const FORK_PORT_LIMIT = 9500;
 const LEGACY_HIRO_COLLIDING_PORT_BASE = 9300;
 const LEGACY_HIRO_COLLIDING_PORT_LIMIT = 9400;
+const LOCAL_ENV_FILENAME = ".env.local";
+const SENSITIVE_ENV_NAME_RE = /(TOKEN|SECRET|KEY|PASSWORD|AUTH|CLIENT_ID)/i;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -64,6 +66,47 @@ async function run(cmd: string, args: string[] = [], opts: RunOptions = {}): Pro
     Deno.exit(code);
   }
   return code;
+}
+
+function cleanEnvValue(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function parseEnvFile(content: string): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const normalized = line.startsWith("export ") ? line.slice("export ".length).trim() : line;
+    const match = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(normalized);
+    if (!match) continue;
+    env[match[1]] = cleanEnvValue(match[2]);
+  }
+  return env;
+}
+
+async function loadLocalEnvOverrides(): Promise<Record<string, string>> {
+  const path = join(repoRoot, LOCAL_ENV_FILENAME);
+  try {
+    return parseEnvFile(await Deno.readTextFile(path));
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) return {};
+    throw err;
+  }
+}
+
+function summarizeEnvOverrides(env: Record<string, string>): string {
+  return Object.keys(env)
+    .sort()
+    .map((key) => SENSITIVE_ENV_NAME_RE.test(key) ? `${key}=<redacted>` : `${key}=${env[key]}`)
+    .join(", ");
 }
 
 function prefixOutput(label: string, stream: ReadableStream<Uint8Array> | null): Promise<void> {
@@ -1504,14 +1547,14 @@ function tauriTargetDir(sandbox: string): string | undefined {
   return join(repoRoot, "target-tauri", sandboxSafeSegment(sandbox));
 }
 
-function tauriDevEnv(ports: { server: number; frontend: number }, sandbox: string, officialEnv: Record<string, string>): Record<string, string> {
+function tauriDevEnv(ports: { server: number; frontend: number }, sandbox: string, runtimeEnv: Record<string, string>): Record<string, string> {
   const targetDir = tauriTargetDir(sandbox);
   const env: Record<string, string> = {
+    ...runtimeEnv,
     STIMMA_DEV: "1",
     STIMMA_BACKEND_PORT: String(ports.server),
     STIMMA_FRONTEND_PORT: String(ports.frontend),
     STIMMA_SANDBOX: sandbox,
-    ...officialEnv,
   };
   if (targetDir) env.CARGO_TARGET_DIR = targetDir;
   return env;
@@ -1526,7 +1569,7 @@ function tauriDevConfig(bundleId: string, sandbox: string, ports: { frontend: nu
   });
 }
 
-async function commandDevAll(bundleId: string, sandbox: string, officialEnv: Record<string, string>): Promise<void> {
+async function commandDevAll(bundleId: string, sandbox: string, runtimeEnv: Record<string, string>): Promise<void> {
   const ports = await getSandboxPorts(bundleId, sandbox);
   const backendDir = join(repoRoot, "backend");
   const frontendDir = join(repoRoot, "frontend");
@@ -1573,7 +1616,7 @@ async function commandDevAll(bundleId: string, sandbox: string, officialEnv: Rec
   Deno.addSignalListener("SIGTERM", handleSigterm);
 
   console.log(`Starting Stimma dev stack (bundle=${bundleId}, sandbox=${sandbox}, backend=:${ports.server}, frontend=:${ports.frontend})`);
-  if (officialEnv.STIMMA_DISTRIBUTION === "official") {
+  if (runtimeEnv.STIMMA_DISTRIBUTION === "official") {
     console.log("Official distribution mode is active for backend, frontend, and app.");
   }
 
@@ -1583,8 +1626,8 @@ async function commandDevAll(bundleId: string, sandbox: string, officialEnv: Rec
       assertTcpPortAvailable(ports.frontend, "frontend"),
     ]);
 
-    processes.push(spawnDevProcess("backend", "npx", backendArgs, { cwd: backendDir, env: officialEnv }));
-    processes.push(spawnDevProcess("frontend", "npm", VITE_DEV_ARGS, { cwd: frontendDir, env: { ...portEnv, ...officialEnv } }));
+    processes.push(spawnDevProcess("backend", "npx", backendArgs, { cwd: backendDir, env: runtimeEnv }));
+    processes.push(spawnDevProcess("frontend", "npm", VITE_DEV_ARGS, { cwd: frontendDir, env: { ...runtimeEnv, ...portEnv } }));
 
     await waitForReadyOrExit(processes, Promise.all([
       waitForTcpPort(ports.server, "backend", 60000, [DEV_HOST]),
@@ -1594,7 +1637,7 @@ async function commandDevAll(bundleId: string, sandbox: string, officialEnv: Rec
     console.log("[dev all] Backend and frontend are ready; launching Tauri app.");
     processes.push(spawnDevProcess("app", "cargo", ["tauri", "dev", "--config", tauriConfig], {
       cwd: repoRoot,
-      env: tauriDevEnv(ports, sandbox, officialEnv),
+      env: tauriDevEnv(ports, sandbox, runtimeEnv),
     }));
     console.log("[dev all] App process started. Press Ctrl-C to stop the full stack.");
 
@@ -1676,6 +1719,12 @@ async function main(): Promise<void> {
   const command = args[0];
   if (!command) printUsage();
 
+  const localEnv = command === "dev" || command === "run" ? await loadLocalEnvOverrides() : {};
+  if (Object.keys(localEnv).length > 0) {
+    console.log(`Loaded ${LOCAL_ENV_FILENAME}: ${summarizeEnvOverrides(localEnv)}`);
+  }
+  const runtimeEnv: Record<string, string> = { ...localEnv, ...officialEnv };
+
   const sub = args[1];
   const rest = args.slice(2);
 
@@ -1690,21 +1739,21 @@ async function main(): Promise<void> {
           STIMMA_BACKEND_PORT: String(ports.server),
           STIMMA_FRONTEND_PORT: String(ports.frontend),
         };
-        await run("npm", VITE_DEV_ARGS, { cwd: join(repoRoot, "frontend"), env: { ...portEnv, ...officialEnv } });
+        await run("npm", VITE_DEV_ARGS, { cwd: join(repoRoot, "frontend"), env: { ...runtimeEnv, ...portEnv } });
       } else if (sub === "backend") {
         const backendDir = join(repoRoot, "backend");
         const ports = await getSandboxPorts(bundleId, sandbox);
         const execStr = `uv run python main.py --bundle-id=${bundleId} --sandbox=${sandbox} --port=${ports.server}`;
         if (Deno.build.os === "windows") {
           const cmdArgs = ["nodemon", "--signal", "SIGKILL", "--exec", execStr];
-          await run("npx", cmdArgs, { cwd: backendDir, env: officialEnv });
+          await run("npx", cmdArgs, { cwd: backendDir, env: runtimeEnv });
         } else {
-          await run("npx", ["nodemon", "--signal", "SIGKILL", "--exec", execStr], { cwd: backendDir, env: officialEnv });
+          await run("npx", ["nodemon", "--signal", "SIGKILL", "--exec", execStr], { cwd: backendDir, env: runtimeEnv });
         }
       } else if (sub === "backend2") {
         const ports = await getSandboxPorts(bundleId, sandbox);
         const args2 = ["run", "--", "--bundle-id", bundleId, "--sandbox", sandbox, "--port", String(ports.server), "--console"];
-        await run("cargo", args2, { cwd: join(repoRoot, "backend2"), env: officialEnv });
+        await run("cargo", args2, { cwd: join(repoRoot, "backend2"), env: runtimeEnv });
       } else if (sub === "app") {
         const ports = await getSandboxPorts(bundleId, sandbox);
         if (official) {
@@ -1712,10 +1761,10 @@ async function main(): Promise<void> {
         }
         await run("cargo", ["tauri", "dev", "--config", tauriDevConfig(bundleId, sandbox, ports)], {
           cwd: repoRoot,
-          env: tauriDevEnv(ports, sandbox, officialEnv),
+          env: tauriDevEnv(ports, sandbox, runtimeEnv),
         });
       } else if (sub === "all") {
-        await commandDevAll(bundleId, sandbox, officialEnv);
+        await commandDevAll(bundleId, sandbox, runtimeEnv);
       } else {
         printUsage();
       }
@@ -1783,16 +1832,16 @@ async function main(): Promise<void> {
       if (sub === "backend") {
         const ports = await getSandboxPorts(bundleId, sandbox);
         const args2 = ["run", "python", "main.py", `--bundle-id=${bundleId}`, `--sandbox=${sandbox}`, `--port=${ports.server}`];
-        await run("uv", args2, { cwd: join(repoRoot, "backend"), env: officialEnv });
+        await run("uv", args2, { cwd: join(repoRoot, "backend"), env: runtimeEnv });
       } else if (sub === "frontend") {
         const frontendDir = join(repoRoot, "frontend");
-        await run("npm", ["run", "build"], { cwd: frontendDir, env: officialEnv });
-        await run("npm", ["run", "preview"], { cwd: frontendDir, env: officialEnv });
+        await run("npm", ["run", "build"], { cwd: frontendDir, env: runtimeEnv });
+        await run("npm", ["run", "preview"], { cwd: frontendDir, env: runtimeEnv });
       } else if (sub === "app") {
         if (official) {
           console.log("Note: 'run app' uses the externally running backend on :9191 — start it with 'stimma run backend --official' for backend surfaces.");
         }
-        await run("cargo", ["run", "--release"], { cwd: repoRoot, env: { STIMMA_DEV: "1", ...officialEnv } });
+        await run("cargo", ["run", "--release"], { cwd: repoRoot, env: { ...runtimeEnv, STIMMA_DEV: "1" } });
       } else {
         printUsage();
       }

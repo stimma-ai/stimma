@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import get_settings
 from core.logging import get_logger
+from cloud_runtime import with_cloud_access_headers
 from core.dependencies import get_db_session
 from database import MediaItem
 from privacy_lockdown import disabled_message, is_privacy_lockdown_enabled
@@ -203,7 +204,7 @@ async def share_media(request: ShareRequest, session: AsyncSession = Depends(get
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{cloud_base_url}/api/shares",
-                headers={"Authorization": f"Bearer {token}"},
+                headers=with_cloud_access_headers({"Authorization": f"Bearer {token}"}),
                 files=files,
                 data=data,
                 timeout=120.0,
@@ -484,10 +485,10 @@ async def pre_check_media(request: PreCheckRequest, session: AsyncSession = Depe
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{cloud_base_url}/api/shares/pre-check",
-                headers={
+                headers=with_cloud_access_headers({
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
-                },
+                }),
                 json={
                     "text": mod_text,
                     "imageBase64": image_payload,
@@ -1140,7 +1141,7 @@ async def check_username(username: str):
             response = await client.get(
                 f"{cloud_base_url}/api/accounts/identity/check-username",
                 params={"username": username},
-                headers={"Authorization": f"Bearer {token}"},
+                headers=with_cloud_access_headers({"Authorization": f"Bearer {token}"}),
                 timeout=15.0,
             )
         data = response.json()
@@ -1190,10 +1191,10 @@ async def setup_identity(request: SetupIdentityRequest):
         async with httpx.AsyncClient() as client:
             response = await client.put(
                 f"{cloud_base_url}/api/accounts/identity",
-                headers={
+                headers=with_cloud_access_headers({
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
-                },
+                }),
                 json={"username": request.username},
                 timeout=15.0,
             )

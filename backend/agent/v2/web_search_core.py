@@ -212,6 +212,7 @@ async def _cloud_search(
             log.info("cloud search skipped: no valid id token")
             return None
 
+        from cloud_runtime import with_cloud_access_headers
         base_url = get_settings().cloud.base_url
         url = f"{base_url}/api/search/web"
 
@@ -220,7 +221,7 @@ async def _cloud_search(
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 url,
-                headers={"Authorization": f"Bearer {id_token}"},
+                headers=with_cloud_access_headers({"Authorization": f"Bearer {id_token}"}),
                 json={"query": query, "search_type": kind, "num_results": n},
                 timeout=15.0,
             )

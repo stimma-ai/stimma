@@ -57,10 +57,8 @@ def _dump_dir_for(model: str, session_id: Optional[str]) -> Optional[Path]:
 def _dump_request(d: Path, url: str, body: dict, headers: dict,
                    cacheable: bool, session_id: Optional[str]):
     try:
-        safe_headers = {
-            k: ("<redacted>" if k.lower() == "authorization" else v)
-            for k, v in headers.items()
-        }
+        from cloud_runtime import redact_sensitive_headers
+        safe_headers = redact_sensitive_headers(headers)
         payload = {
             "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "url": url,
@@ -256,6 +254,11 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
     # endpoints.
     if is_stimma_cloud:
         headers.update(correlation_headers())
+        try:
+            from cloud_runtime import with_cloud_access_headers
+            headers = with_cloud_access_headers(headers)
+        except Exception:
+            pass
         try:
             from user_agent import user_agent
             headers["User-Agent"] = user_agent()

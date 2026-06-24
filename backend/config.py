@@ -5,10 +5,11 @@ import string
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
 import app_dirs
+from cloud_runtime import env_cloud_base_url
 
 def generate_profile_id() -> str:
     """Generate a profile ID like 'profile-k3Rm9x'."""
@@ -546,6 +547,7 @@ class ToolProviderConfig(BaseModel):
     # WebSocket-specific options
     url: Optional[str] = None
     auth_token: Optional[str] = None  # Bearer token, supports ${ENV_VAR} syntax
+    headers: Dict[str, str] = Field(default_factory=dict)
     reconnect_delay: float = 5.0  # Base delay in seconds for reconnection
 
 
@@ -832,6 +834,12 @@ class Settings(BaseSettings):
         # Parse cloud config (optional, defaults to CloudConfig())
         if 'cloud' in config_data:
             config_data['cloud'] = CloudConfig(**config_data['cloud'])
+        cloud_base_override = env_cloud_base_url()
+        if cloud_base_override:
+            if isinstance(config_data.get('cloud'), CloudConfig):
+                config_data['cloud'].base_url = cloud_base_override
+            else:
+                config_data['cloud'] = CloudConfig(base_url=cloud_base_override)
 
         # Handle folders (new format) or media_paths (old format)
         if 'folders' in config_data:

@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 import httpx
 
 from config import get_settings
+from cloud_runtime import with_cloud_access_headers
 from core.logging import get_logger
 from core.profile_context import get_current_profile
 from firebase_auth import get_valid_id_token as get_id_token
@@ -33,7 +34,7 @@ async def _cloud_get(path: str, params: dict | None = None, auth: bool = True) -
     """Make authenticated GET request to cloud stimpacks API."""
     if is_privacy_lockdown_enabled():
         raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
-    headers = {}
+    headers = with_cloud_access_headers()
     if auth:
         token = await get_id_token()
         if token:
@@ -54,7 +55,7 @@ async def _cloud_post(path: str, data: dict | None = None, auth: bool = True) ->
     """Make authenticated POST request to cloud stimpacks API."""
     if is_privacy_lockdown_enabled():
         raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
-    headers = {}
+    headers = with_cloud_access_headers()
     if auth:
         token = await get_id_token()
         if token:
@@ -131,6 +132,7 @@ async def install_from_marketplace(name: str):
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"{_cloud_base()}/{name}/download",
+            headers=with_cloud_access_headers(),
             timeout=60.0,
         )
         response.raise_for_status()
@@ -229,6 +231,7 @@ async def update_from_marketplace(name: str):
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"{_cloud_base()}/{name}/download",
+            headers=with_cloud_access_headers(),
             timeout=60.0,
         )
         response.raise_for_status()
@@ -321,6 +324,7 @@ async def run_auto_install():
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     f"{_cloud_base()}/{name}/download",
+                    headers=with_cloud_access_headers(),
                     timeout=60.0,
                 )
                 response.raise_for_status()

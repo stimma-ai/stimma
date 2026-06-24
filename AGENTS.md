@@ -81,6 +81,7 @@ Use these Tailwind color classes consistently across the UI:
 See the docs/ folder. In particular:
 
 - If you are working on tools or the Stimma Tools Protocol (STP), see the spec at https://github.com/stimma-ai/stimma-tools-protocol
+- If you are working on local Stimma Cloud target overrides, see docs/CLOUD_TARGETS.md. Keep private staging hostnames and Access tokens out of this OSS repo; use ignored `.env.local` values instead.
 - If you are working on the agent, **read docs/AGENT_V2_PRINCIPLES.md first** — it defines the design philosophy, anti-patterns to avoid, and diagnosis checklist for agent bugs
 - If you are creating or modifying stimpacks, see docs/STIMPACK_AUTHORING.md — covers both markdown-only stimpacks and stimpacks with bundled Python code
 
@@ -216,4 +217,3 @@ Most of the config file surface area is mirrored in the settings UI. The correct
 - **Browser Screens**: This includes the 'all assets (aka all media)' screen, the saved views, the collection screen, and the trash screen. All of these screens share substantial infrastructure, treatment, functionality, and behavior, and should be kept in sync
 - **Selection Bar**: The controls that appear at the bottom of the browser screen when the user selects an asset
 - <If you encounter new terms, add them here.>
-

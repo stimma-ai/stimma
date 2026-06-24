@@ -54,8 +54,9 @@ async def get_content_policy() -> Optional[str]:
 
     url = f"{_cloud_base_url()}/api/content-policy"
     try:
+        from cloud_runtime import with_cloud_access_headers
         async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=3.0)) as client:
-            resp = await client.get(url)
+            resp = await client.get(url, headers=with_cloud_access_headers())
         resp.raise_for_status()
         text = (resp.json() or {}).get("text")
         if text and isinstance(text, str):

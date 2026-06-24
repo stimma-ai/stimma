@@ -105,6 +105,7 @@ class WebSocketProviderConfig:
     id: str
     url: str
     auth_token: Optional[str] = None
+    headers: Dict[str, str] = field(default_factory=dict)
     reconnect_delay: float = 5.0  # Base delay in seconds
     name: Optional[str] = None  # Human-readable display name (defaults to id)
 
@@ -153,7 +154,7 @@ class WebSocketTransport(Transport):
 
     async def connect(self) -> None:
         """Connect to the WebSocket endpoint."""
-        headers = {}
+        headers = dict(self.config.headers)
         if self.config.auth_token:
             headers["Authorization"] = f"Bearer {self.config.auth_token}"
 
@@ -246,7 +247,7 @@ class WebSocketTransport(Transport):
 
         url = f"{self._origin}{path}"
         size_mb = len(data) / (1024 * 1024)
-        headers = {"Content-Type": content_type}
+        headers = {"Content-Type": content_type, **self.config.headers}
         if self.config.auth_token:
             headers["Authorization"] = f"Bearer {self.config.auth_token}"
 
@@ -305,7 +306,7 @@ class WebSocketTransport(Transport):
             raise RuntimeError("Session not connected")
 
         url = f"{self._origin}{path}"
-        headers = {}
+        headers = dict(self.config.headers)
         if self.config.auth_token:
             headers["Authorization"] = f"Bearer {self.config.auth_token}"
 
@@ -320,7 +321,7 @@ class WebSocketTransport(Transport):
             raise RuntimeError("Session not connected")
 
         url = f"{self._origin}{path}"
-        headers = {}
+        headers = dict(self.config.headers)
         if self.config.auth_token:
             headers["Authorization"] = f"Bearer {self.config.auth_token}"
 
@@ -1538,6 +1539,7 @@ def create_provider_from_config(config: dict) -> JsonRpcProvider:
             id=config["id"],
             url=config["url"],
             auth_token=config.get("auth_token"),
+            headers=config.get("headers", {}),
             reconnect_delay=config.get("reconnect_delay", 5.0),
             name=config.get("name"),
         )
