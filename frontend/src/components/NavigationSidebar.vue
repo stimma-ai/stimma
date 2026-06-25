@@ -300,9 +300,10 @@
                   <div v-else-if="tab.type === 'project'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-slate-500 to-slate-700">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
-                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="getToolGradientClass(tab.entityId)">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
+                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
+                    <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
+
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
                   <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
@@ -361,9 +362,10 @@
                   <div v-else-if="tab.type === 'project'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-slate-500 to-slate-700">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
-                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="getToolGradientClass(tab.entityId)">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
+                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
+                    <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
+
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
                   <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
@@ -592,9 +594,10 @@
                   <div v-else-if="tab.type === 'project'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-slate-500 to-slate-700">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
-                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="getToolGradientClass(tab.entityId)">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
+                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
+                    <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
+
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
                   <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
@@ -653,9 +656,10 @@
                   <div v-else-if="tab.type === 'project'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-slate-500 to-slate-700">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
                   </div>
-                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="getToolGradientClass(tab.entityId)">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
+                  <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
+                    <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
+
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
                   <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
                     <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
@@ -842,7 +846,7 @@ import { useWebSocket } from '../composables/useWebSocket'
 import { setPendingMedia } from '../composables/usePendingMedia'
 import { makeProfileKey } from '../utils/storageKeys'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
-import { createTaskTypeIconComponent, isToolCompatibleWithMediaType, getEligibleTaskTypesForMediaType, getTaskTypeGradientClass } from '../utils/taskTypeIcons'
+import { createTaskTypeIconComponent, isToolCompatibleWithMediaType, getEligibleTaskTypesForMediaType } from '../utils/taskTypeIcons'
 import { useGenerationStatus } from '../composables/useGenerationStatus'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useProvidersApi } from '../composables/useProvidersApi'
@@ -856,6 +860,7 @@ import { useDragStore } from '../stores/dragStore'
 import { getDroppedMediaIds } from '../composables/useDragPreview'
 import { isTauri } from '../apiConfig'
 import { MediaImage } from './media'
+import ToolIcon from './tools/ToolIcon.vue'
 import WorkspaceTabsContextMenu from './WorkspaceTabsContextMenu.vue'
 
 const props = defineProps({
@@ -1041,10 +1046,13 @@ function isToolStimmaCloud(fullToolId: string): boolean {
   return tool ? isStimmaCloudTool(tool) : false
 }
 
-function getToolGradientClass(fullToolId: string): string {
+// Build a ToolIcon-compatible object for a tab's tool. resolveVendor keys off
+// id/full_tool_id, so always pass the tool id even when the cached tool row is
+// missing (e.g. provider not yet loaded).
+function getToolForIcon(fullToolId: string) {
   const tool = allToolsMap.value.get(fullToolId)
-  const taskType = tool?.task_types?.[0] || tool?.task_type || 'utility'
-  return getTaskTypeGradientClass(taskType)
+  if (tool) return tool
+  return { id: fullToolId, full_tool_id: fullToolId, task_types: [] as string[] }
 }
 
 function getBoardGradientClass(): string {

@@ -9,7 +9,7 @@
       <!-- Card popover -->
       <div
         ref="cardRef"
-        class="absolute z-[9999] suggestion-submenu-card rounded-lg border border-border p-3 max-w-[340px]"
+        class="absolute z-[9999] suggestion-submenu-card rounded-lg border border-edge p-3 max-w-[340px]"
         :style="menuStyle"
         @click.stop
       >
@@ -33,7 +33,7 @@
         </div>
 
         <!-- Action buttons -->
-        <div class="border-t border-border mt-2 pt-2 flex justify-center gap-1">
+        <div class="border-t border-edge mt-2 pt-2 flex justify-center gap-1">
           <button
             :disabled="loading"
             class="flex items-center gap-1 px-2 py-1 text-xs rounded-full whitespace-nowrap transition-all duration-150
@@ -187,18 +187,18 @@ onBeforeUnmount(() => {
 /* Pills - simple, no individual shadows */
 [data-theme="dark"] .suggestion-submenu-pill {
   background-color: var(--color-surface);
-  color: var(--color-content-secondary);
+  color: var(--color-text-secondary);
 }
 [data-theme="dark"] .suggestion-submenu-pill:hover {
   background-color: var(--color-surface-overlay);
-  color: var(--color-content);
+  color: var(--color-text-primary);
 }
 [data-theme="light"] .suggestion-submenu-pill {
   background-color: var(--color-surface);
-  color: var(--color-content-secondary);
+  color: var(--color-text-secondary);
 }
 [data-theme="light"] .suggestion-submenu-pill:hover {
   background-color: var(--color-surface-raised);
-  color: var(--color-content);
+  color: var(--color-text-primary);
 }
 </style>

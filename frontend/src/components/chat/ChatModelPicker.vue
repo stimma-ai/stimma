@@ -54,8 +54,9 @@
         tabindex="-1"
         @keydown="handleKeydown"
       >
-        <!-- Loading state -->
-        <div v-if="loading" class="px-3 py-2 text-xs text-content-muted">
+        <!-- Loading state (only when nothing is cached yet; otherwise show the
+             cached list and let any refresh happen silently in the background) -->
+        <div v-if="loading && models.length === 0" class="px-3 py-2 text-xs text-content-muted">
           Loading models...
         </div>
 
@@ -194,7 +195,9 @@ const cloudModels = computed(() => models.value.filter(m => m.source === 'stimma
 const localModels = computed(() => models.value.filter(m => m.source === 'endpoint'))
 
 onMounted(() => {
-  fetchModels(props.projectId, true)
+  // Use the in-memory cache if it's fresh; only the first open of a run hits
+  // the server. A stale cache refreshes silently without flipping the loading UI.
+  fetchModels(props.projectId)
 })
 
 function toggle() {
@@ -207,7 +210,7 @@ function toggle() {
 
 function open() {
   if (props.disabled) return
-  fetchModels(props.projectId, true)
+  fetchModels(props.projectId)
   isOpen.value = true
   nextTick(() => {
     positionDropdown()

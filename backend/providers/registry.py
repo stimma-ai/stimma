@@ -112,6 +112,8 @@ class ProviderRegistry:
                         cached.name = tool.name
                         cached.task_type = tool.task_type
                         cached.task_types = task_types_json
+                        cached.model_vendor = tool.model_vendor
+                        cached.model = tool.model
                         cached.parameter_schema = json.dumps(tool.parameter_schema) if tool.parameter_schema else None
                         cached.output_schema = json.dumps(tool.output_schema) if tool.output_schema else None
                         cached.tool_metadata = json.dumps(tool.metadata) if tool.metadata else None
@@ -127,6 +129,8 @@ class ProviderRegistry:
                             name=tool.name,
                             task_type=tool.task_type,
                             task_types=task_types_json,
+                            model_vendor=tool.model_vendor,
+                            model=tool.model,
                             parameter_schema=json.dumps(tool.parameter_schema) if tool.parameter_schema else None,
                             output_schema=json.dumps(tool.output_schema) if tool.output_schema else None,
                             tool_metadata=json.dumps(tool.metadata) if tool.metadata else None,

@@ -10,13 +10,13 @@
       @update:current-media-id="updateCurrentMediaId"
     />
 
-    <div v-show="!slideshowState.active && board" class="flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4">
-      <div class="min-w-0 flex-1">
+    <div v-show="!slideshowState.active && board" class="flex items-center gap-3 border-b border-white/10 px-6 py-3">
+      <div class="flex min-w-0 flex-1 items-baseline gap-3">
         <input
           v-if="isEditingBoardName || editedName"
           ref="boardNameInputRef"
           v-model="editedName"
-          class="w-full max-w-xl bg-transparent text-2xl font-semibold text-content outline-none"
+          class="min-w-0 max-w-md flex-shrink bg-transparent text-lg font-semibold text-content outline-none"
           placeholder="Name this board..."
           @blur="handleBoardNameBlur"
           @keydown.enter.prevent="saveBoardName"
@@ -24,17 +24,16 @@
         />
         <button
           v-else
-          class="max-w-xl bg-transparent text-left text-2xl font-semibold italic text-content-muted outline-none transition-colors hover:text-content-secondary"
+          class="bg-transparent text-left text-lg font-semibold italic text-content-muted outline-none transition-colors hover:text-content-secondary"
           @click="startBoardNameEdit"
         >
           Name this board...
         </button>
-        <p class="mt-1 text-sm text-content-muted">{{ boardSummaryText }}</p>
       </div>
       <div class="relative">
         <button
           ref="boardMenuButtonRef"
-          class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-content-muted transition-colors hover:bg-white/[0.05] hover:text-content"
+          class="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-content-muted transition-colors hover:bg-white/[0.05] hover:text-content"
           title="Board actions"
           @click="toggleBoardMenu"
         >

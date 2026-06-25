@@ -30,14 +30,12 @@
       </span>
 
       <!-- Type icon: standard task-type treatment for tools, neutral for filters -->
-      <div
+      <ToolIcon
         v-if="step.kind === 'tool'"
-        :class="['w-[30px] h-[30px] rounded-md flex items-center justify-center flex-shrink-0', getTaskTypeGradientClass(step.task_type || '')]"
-      >
-        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" :d="getTaskTypeIconPath(step.task_type || '')" />
-        </svg>
-      </div>
+        :tool="{ id: step.tool_id, full_tool_id: step.tool_id, task_type: step.task_type }"
+        size="md"
+        :ring="false"
+      />
       <div
         v-else
         class="w-[30px] h-[30px] rounded-md flex items-center justify-center flex-shrink-0 bg-white/[0.06] text-content-tertiary"
@@ -136,7 +134,7 @@
 import { computed, reactive } from 'vue'
 import ActionMenu from '../../ActionMenu.vue'
 import MediaImage from '../../media/MediaImage.vue'
-import { getTaskTypeGradientClass, getTaskTypeIconPath } from '../../../utils/taskTypeIcons'
+import ToolIcon from '../../tools/ToolIcon.vue'
 import type { ChainStep } from '../../../utils/postProcessingChain'
 
 const props = defineProps<{

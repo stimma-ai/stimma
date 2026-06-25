@@ -1323,6 +1323,11 @@ class CachedProviderTool(Base):
     task_type = Column(String, nullable=True, index=True)  # Primary task type (backward compat)
     task_types = Column(String, nullable=True)  # JSON array of all task types: '["text-to-image", "image-to-image"]'
 
+    # Optional model identity (STP: model_vendor / model). Used by the UI to
+    # render vendor brand marks even when the provider is disconnected.
+    model_vendor = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+
     # Full schemas (JSON) for offline display
     parameter_schema = Column(String, nullable=True)  # JSON (single schema for all params)
     output_schema = Column(String, nullable=True)     # JSON
@@ -1350,6 +1355,8 @@ class CachedProviderTool(Base):
             "name": self.name,
             "task_type": self.task_type,
             "task_types": task_types_list,
+            "model_vendor": self.model_vendor,
+            "model": self.model,
             "parameter_schema": json.loads(self.parameter_schema) if self.parameter_schema else {},
             "output_schema": json.loads(self.output_schema) if self.output_schema else {},
             "metadata": json.loads(self.tool_metadata) if self.tool_metadata else {},

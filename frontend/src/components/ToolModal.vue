@@ -47,6 +47,7 @@
           ]"
         >
           <span class="flex items-center gap-2">
+            <ToolIcon :tool="tool" size="sm" :ring="false" />
             <span :class="[
               'text-[15px] font-medium',
               isSelected(tool.full_tool_id) ? 'text-indigo-300 font-semibold' : 'text-content'
@@ -78,6 +79,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import ToolIcon from './tools/ToolIcon.vue'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../utils/stimmaCloud'
 
 const props = defineProps({

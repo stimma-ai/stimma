@@ -51,7 +51,10 @@
             </span>
 
             <!-- Tool icon -->
-            <component :is="getToolIcon(node)" class="w-4 h-4 shrink-0" :class="getNodeIconColor(node)" />
+            <div v-if="node.type === 'tool'" class="w-4 h-4 shrink-0" :class="getNodeIconColor(node)">
+              <ToolIcon :tool="getNodeToolIconTool(node)" size="xs" :bare="true" :ring="false" />
+            </div>
+            <component v-else :is="getToolIcon(node)" class="w-4 h-4 shrink-0" :class="getNodeIconColor(node)" />
 
             <!-- Tool name + optional subtitle -->
             <div class="flex flex-col min-w-0">
@@ -224,7 +227,10 @@
                 </span>
 
                 <!-- Tool icon -->
-                <component :is="getToolIcon(child)" class="w-4 h-4 shrink-0" :class="getNodeIconColor(child)" />
+                <div v-if="child.type === 'tool'" class="w-4 h-4 shrink-0" :class="getNodeIconColor(child)">
+                  <ToolIcon :tool="getNodeToolIconTool(child)" size="xs" :bare="true" :ring="false" />
+                </div>
+                <component v-else :is="getToolIcon(child)" class="w-4 h-4 shrink-0" :class="getNodeIconColor(child)" />
 
                 <!-- Tool name + optional subtitle -->
                 <div class="flex flex-col min-w-0">
@@ -369,7 +375,10 @@
                     </span>
 
                     <!-- Tool icon -->
-                    <component :is="getToolIcon(grandchild)" class="w-4 h-4 shrink-0" :class="getNodeIconColor(grandchild)" />
+                    <div v-if="grandchild.type === 'tool'" class="w-4 h-4 shrink-0" :class="getNodeIconColor(grandchild)">
+                      <ToolIcon :tool="getNodeToolIconTool(grandchild)" size="xs" :bare="true" :ring="false" />
+                    </div>
+                    <component v-else :is="getToolIcon(grandchild)" class="w-4 h-4 shrink-0" :class="getNodeIconColor(grandchild)" />
 
                     <!-- Tool name + optional subtitle -->
                     <div class="flex flex-col min-w-0">
@@ -478,6 +487,7 @@ import {
   ViewfinderCircleIcon
 } from '@heroicons/vue/24/outline'
 import { MediaImage } from './media'
+import ToolIcon from './tools/ToolIcon.vue'
 import { useTheme } from '../composables/useTheme'
 
 const { resolvedTheme } = useTheme()
@@ -791,6 +801,28 @@ function getToolIcon(node) {
     case 'map': return Squares2X2Icon
     case 'filter': return FunnelIcon
     default: return SparklesIcon
+  }
+}
+
+// Abstract plan tool_name -> STP task type, so ToolIcon's task-generic glyph is
+// meaningful when no vendor mark resolves from the tool id.
+const TOOL_NAME_TASK_TYPE = {
+  'generate': 'text-to-image',
+  'edit_image': 'image-to-image',
+  'image_to_video': 'image-to-video',
+  'upscale_image': 'upscale-image',
+  'upscale_video': 'upscale-video',
+  'remove_background': 'remove-background',
+}
+
+// Build a ToolIcon-compatible object for a tool node. resolveVendor keys off the
+// tool id, so pass tool_id/tool_name as id; fall back to a task type for the
+// generic glyph.
+function getNodeToolIconTool(node) {
+  return {
+    id: node.tool_id || node.tool_name,
+    full_tool_id: node.tool_id || node.tool_name,
+    task_type: TOOL_NAME_TASK_TYPE[node.tool_name] || '',
   }
 }
 

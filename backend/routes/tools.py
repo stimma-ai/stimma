@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import List, Optional, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,6 +40,10 @@ class ProviderStatusResponse(BaseModel):
 
 class ProviderToolResponse(BaseModel):
     """Response for a tool from a provider."""
+    # `model` / `model_vendor` collide with pydantic's protected `model_` namespace;
+    # these are STP wire fields, not pydantic internals, so opt out of the guard.
+    model_config = ConfigDict(protected_namespaces=())
+
     full_tool_id: str  # provider_id:tool_id
     tool_id: str
     name: str
@@ -52,6 +56,8 @@ class ProviderToolResponse(BaseModel):
     layout: Optional[List] = None
     metadata: Dict = {}
     subtitle: Optional[str] = None
+    model_vendor: Optional[str] = None  # STP model_vendor (brand mark hint)
+    model: Optional[str] = None  # STP model identifier
     availability: str = "available"  # "available", "disconnected", "unconfigured"
 
 
@@ -276,6 +282,8 @@ async def list_provider_tools(
                 layout=tool.layout or (tool.metadata or {}).get("layout"),
                 metadata=tool.metadata or {},
                 subtitle=tool.subtitle,
+                model_vendor=tool.model_vendor,
+                model=tool.model,
                 availability="available",
             ))
 
@@ -331,6 +339,8 @@ async def list_provider_tools(
                 layout=cached_metadata.get("layout"),
                 metadata=cached_metadata,
                 subtitle=None,
+                model_vendor=cached.model_vendor,
+                model=cached.model,
                 availability="disconnected",
             ))
 
@@ -471,6 +481,8 @@ async def get_provider_tool(
                     layout=tool.layout or (tool.metadata or {}).get("layout"),
                     metadata=tool.metadata or {},
                     subtitle=tool.subtitle,
+                    model_vendor=tool.model_vendor,
+                    model=tool.model,
                     availability="available",
                 )
 
@@ -508,6 +520,8 @@ async def get_provider_tool(
             layout=cached_metadata.get("layout"),
             metadata=cached_metadata,
             subtitle=None,
+            model_vendor=cached.model_vendor,
+            model=cached.model,
             availability=availability,
         )
 

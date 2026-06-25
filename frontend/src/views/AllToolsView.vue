@@ -132,7 +132,7 @@
           </div>
 
           <!-- Tools grid for this task type -->
-          <div class="grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-4">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(432px,1fr))] gap-4">
             <div
               v-for="tool in group.tools"
               :key="tool.full_tool_id"
@@ -158,14 +158,9 @@
 
               <!-- Top: Icon + Name/Description + Price -->
               <div class="flex gap-4">
-                <!-- Task type icon -->
-                <div
-                  class="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0"
-                  :class="getTaskTypeGradientClass(getPrimaryTaskType(tool))"
-                >
-                  <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" :d="getTaskTypeIconPath(getPrimaryTaskType(tool))" />
-                  </svg>
+                <!-- Tool icon (vendor mark / task-generic, cloud vs neutral tile) -->
+                <div class="flex items-center justify-center flex-shrink-0">
+                  <ToolIcon :tool="tool" size="xl" :ring="false" />
                 </div>
 
                 <!-- Name + Description -->
@@ -272,7 +267,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { makeProfileKey } from '../utils/storageKeys'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
-import { formatTaskTypeLabel, TASK_TYPE_LABELS, getTaskTypeIconPath, getTaskTypeGradientClass } from '../utils/taskTypeIcons'
+import { formatTaskTypeLabel, TASK_TYPE_LABELS } from '../utils/taskTypeIcons'
+import ToolIcon from '../components/tools/ToolIcon.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import FreezeToolDialog from '../components/flow/FreezeToolDialog.vue'

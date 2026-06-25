@@ -34,8 +34,8 @@
       </div>
 
       <template v-else>
-        <div v-if="showNoModelSetupHero" class="max-w-xl mx-auto mt-8 rounded-xl overflow-hidden p-[1px] bg-gradient-to-r from-teal-600/50 via-cyan-500/50 to-indigo-500/50">
-          <div class="bg-surface-elevated rounded-[11px] p-5">
+        <div v-if="showNoModelSetupHero" class="max-w-xl mx-auto mt-8 rounded-xl border border-edge bg-surface-elevated">
+          <div class="p-5">
             <div class="flex items-start gap-3 mb-4">
               <div class="p-2 rounded-lg bg-teal-600/15 flex-shrink-0">
                 <SparklesIcon class="w-5 h-5 text-teal-400" />
@@ -4275,6 +4275,13 @@ async function handleCloudSignIn() {
   cloudSigningIn.value = true
   try {
     await signInWithBrowser()
+    // Refresh models directly rather than relying on the isAuthenticated
+    // watcher: the hero can be visible while already authenticated (e.g. a
+    // transient cloud-catalog fetch left every model unavailable), in which
+    // case auth state doesn't change and the watcher never fires.
+    clearLLMNotConfiguredErrors()
+    invalidateModelCache()
+    await fetchAvailableModels(chat.value?.project_id, true)
   } catch (error) {
     addToast({ type: 'error', message: error.message || 'Sign in failed' })
   } finally {

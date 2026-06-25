@@ -24,6 +24,7 @@ import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectToolsView from '../views/ProjectToolsView.vue'
 import OnboardingView from '../views/OnboardingView.vue'
 import ForeachMockView from '../views/ForeachMockView.vue'
+import ToolIconPreviewView from '../views/ToolIconPreviewView.vue'
 import { useTelemetry } from '../composables/useTelemetry'
 
 const routes = [
@@ -186,6 +187,13 @@ const routes = [
     name: 'dev-foreach-mock',
     component: ForeachMockView,
     meta: { skipRouteRestore: true }
+  },
+  {
+    // Standalone dev preview for the shared ToolIcon component.
+    path: '/dev/tool-icons',
+    name: 'dev-tool-icons',
+    component: ToolIconPreviewView,
+    meta: { noChrome: true, skipRouteRestore: true }
   }
 ]
 

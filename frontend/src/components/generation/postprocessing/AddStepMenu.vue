@@ -55,11 +55,8 @@
           class="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-overlay-faint transition-colors"
           @click="$emit('add-tool', tool)"
         >
-          <div :class="['w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0', getTaskTypeGradientClass(chainTaskType(tool))]">
-            <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" :d="getTaskTypeIconPath(chainTaskType(tool))" />
-            </svg>
-          </div>
+          <ToolIcon :tool="tool" size="xs" :ring="false" />
+
           <div class="flex-1 min-w-0">
             <div class="text-sm text-content truncate">{{ tool.name }}</div>
             <div class="text-xs text-content-muted truncate">{{ tool.subtitle || tool.provider_name || tool.provider_id }}</div>
@@ -78,7 +75,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { ProviderTool } from '../../../composables/useProvidersApi'
 import type { ChainFilterDef } from '@stimma/image-editor'
-import { getTaskTypeGradientClass, getTaskTypeIconPath } from '../../../utils/taskTypeIcons'
+import ToolIcon from '../../tools/ToolIcon.vue'
 import { CHAIN_TOOL_TASK_TYPES } from '../../../utils/postProcessingChain'
 
 const props = defineProps<{

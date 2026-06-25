@@ -54,6 +54,8 @@ export interface ProviderTool {
   parameter_schema: Record<string, any>
   output_schema: Record<string, any>
   metadata: Record<string, any>
+  model_vendor?: string  // STP model_vendor (brand mark hint)
+  model?: string  // STP model identifier
   availability: ToolAvailability  // "available", "disconnected", "unconfigured"
 }
 

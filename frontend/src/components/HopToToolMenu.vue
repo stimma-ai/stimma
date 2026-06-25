@@ -59,9 +59,9 @@
               @click="hopToTool(tool)"
               class="w-full px-3 py-2 text-left text-sm text-content hover:bg-overlay-light flex items-center gap-2"
             >
-              <svg class="w-4 h-4 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'" fill="none" viewBox="0 0 24 24" stroke-width="2" :stroke="isStimmaCloudTool(tool) ? 'url(#stimma-gradient-hop)' : 'currentColor'" overflow="visible">
-                <path stroke-linecap="round" stroke-linejoin="round" :d="getTaskTypeIconPath(taskType as string)" />
-              </svg>
+              <div class="w-4 h-4 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
+                <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
+              </div>
               <span class="truncate flex-1">{{ tool.name }}</span>
             </button>
           </template>
@@ -75,8 +75,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useProvidersApi, type ProviderTool } from '../composables/useProvidersApi'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
+import ToolIcon from './tools/ToolIcon.vue'
 import {
-  getTaskTypeIconPath,
   formatTaskTypeLabel,
   TASK_TYPE_ORDER
 } from '../utils/taskTypeIcons'

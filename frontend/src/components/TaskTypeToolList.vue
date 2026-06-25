@@ -46,9 +46,9 @@
         @click="handleToolClick(tool, getToolPrimaryTaskType(tool))"
         class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
       >
-        <svg class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'" fill="none" viewBox="0 0 24 24" stroke-width="2" :stroke="isStimmaCloudTool(tool) ? `url(#${gradientId})` : 'currentColor'" overflow="visible">
-          <path stroke-linecap="round" stroke-linejoin="round" :d="getTaskTypeIconPath(getToolPrimaryTaskType(tool))" />
-        </svg>
+        <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
+          <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
+        </div>
         <div class="flex-1 min-w-0">
           <div class="truncate">{{ tool.name }}</div>
           <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(tool) ? 'stimma-gradient-text' : 'text-content-muted'">{{ tool.provider_name }}</div>
@@ -102,9 +102,9 @@
           @click="handleToolClick(tool, selectedTaskType)"
           class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
         >
-          <svg class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'" fill="none" viewBox="0 0 24 24" stroke-width="2" :stroke="isStimmaCloudTool(tool) ? `url(#${gradientId})` : 'currentColor'" overflow="visible">
-            <path stroke-linecap="round" stroke-linejoin="round" :d="getTaskTypeIconPath(selectedTaskType)" />
-          </svg>
+          <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
+            <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
+          </div>
           <div class="flex-1 min-w-0">
             <div class="truncate">{{ tool.name }}</div>
             <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(tool) ? 'stimma-gradient-text' : 'text-content-muted'">{{ tool.provider_name }}</div>
@@ -126,9 +126,9 @@
         @click="handleToolClick(tool, selectedTaskType)"
         class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
       >
-        <svg class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'" fill="none" viewBox="0 0 24 24" stroke-width="2" :stroke="isStimmaCloudTool(tool) ? `url(#${gradientId})` : 'currentColor'" overflow="visible">
-          <path stroke-linecap="round" stroke-linejoin="round" :d="getTaskTypeIconPath(selectedTaskType)" />
-        </svg>
+        <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
+          <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
+        </div>
         <div class="flex-1 min-w-0">
           <div class="truncate">{{ tool.name }}</div>
           <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(tool) ? 'stimma-gradient-text' : 'text-content-muted'">{{ tool.provider_name }}</div>
@@ -141,6 +141,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import type { ProviderTool } from '../composables/useProvidersApi'
+import ToolIcon from './tools/ToolIcon.vue'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { makeStorageKey } from '../utils/storageKeys'
 import {

@@ -54,6 +54,11 @@ class ToolDescriptor:
     subtitle: Optional[str] = None
     description: Optional[str] = None
 
+    # Optional model identity (STP: model_vendor / model). Used by the UI to
+    # render vendor brand marks. None when the provider doesn't declare them.
+    model_vendor: Optional[str] = None
+    model: Optional[str] = None
+
     # Raw registration JSON from provider (preserved for debugging/inspection)
     raw_registration: Optional[Dict[str, Any]] = None
 

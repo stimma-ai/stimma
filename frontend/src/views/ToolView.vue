@@ -96,12 +96,15 @@
         <!-- Header (teleported full-width to #tool-header-slot) -->
         <Teleport defer to="#tool-header-slot">
         <div class="flex items-center justify-between">
-          <HopToToolMenu
-            :source-tool-id="tool.full_tool_id"
-            :tool-name="tool.name"
-            :source-task-types="tool.task_types || []"
-            @hop="handleHopToTool"
-          />
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
+            <HopToToolMenu
+              :source-tool-id="tool.full_tool_id"
+              :tool-name="tool.name"
+              :source-task-types="tool.task_types || []"
+              @hop="handleHopToTool"
+            />
+          </div>
           <div class="flex items-center gap-2">
             <!-- Edit (frozen-flow tools only): the tool's own page is the obvious
                  place to find "edit this tool". Matches the Presets trigger. -->
@@ -862,6 +865,7 @@ import {
 } from '../components/generation'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import HopToToolMenu from '../components/HopToToolMenu.vue'
+import ToolIcon from '../components/tools/ToolIcon.vue'
 import FreezeToolDialog from '../components/flow/FreezeToolDialog.vue'
 import { useFlowsApi } from '../composables/useFlowsApi'
 import PostProcessingPanel from '../components/generation/postprocessing/PostProcessingPanel.vue'

@@ -1081,6 +1081,8 @@ class JsonRpcProvider(ToolProvider):
                     output_schema=output_schema,
                     layout=layout,
                     metadata=metadata,
+                    model_vendor=tool_data.get("model_vendor"),
+                    model=tool_data.get("model"),
                     raw_registration=tool_data,  # Preserve raw JSON for debugging
                 )
             )
