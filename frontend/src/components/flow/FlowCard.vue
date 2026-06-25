@@ -19,14 +19,7 @@
         img-class="w-full h-full object-cover"
       />
     </div>
-    <div
-      v-else
-      class="flex-shrink-0 w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center bg-gradient-to-br from-violet-500 to-blue-600"
-    >
-      <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-      </svg>
-    </div>
+    <EntityIcon v-else type="flow" size="md" />
 
     <!-- Name + parent -->
     <div class="flex-1 min-w-0">
@@ -120,6 +113,7 @@ import { computeFlowOutputs } from '../../composables/useFlowOutputs'
 import { useWebSocket } from '../../composables/useWebSocket'
 import FlowStatusPill from './FlowStatusPill.vue'
 import { MediaImage } from '../media'
+import EntityIcon from '../EntityIcon.vue'
 
 interface Props {
   flow: Flow

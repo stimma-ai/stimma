@@ -120,11 +120,7 @@
                 @click="openFlow(flow)"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
               >
-                <div class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-gradient-to-br from-violet-500 to-blue-600">
-                  <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                  </svg>
-                </div>
+                <EntityIcon type="flow" size="md" />
                 <div class="flex-1 min-w-0">
                   <div
                     v-if="flow.name"
@@ -160,9 +156,8 @@
                 @click="openChat(chat)"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
               >
-                <div class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden">
+                <div v-if="hasChatMedia(chat)" class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden">
                   <MediaImage
-                    v-if="hasChatMedia(chat)"
                     :media-id="chat.recent_media[0].media_id"
                     :file-hash="chat.recent_media[0].file_hash"
                     :thumbnail="true"
@@ -172,12 +167,8 @@
                     container-class="w-full h-full"
                     class="w-full h-full object-cover"
                   />
-                  <div v-else class="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-teal-600">
-                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
-                    </svg>
-                  </div>
                 </div>
+                <EntityIcon v-else type="chat" size="md" shape="rounded" />
                 <div class="flex-1 min-w-0">
                   <div class="text-sm text-content font-medium truncate">{{ chat.name || 'New chat' }}</div>
                   <div class="text-xs text-content-muted truncate mt-0.5">
@@ -198,6 +189,7 @@
 import { ref, computed, onMounted, onActivated, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { MediaImage } from '../components/media'
+import EntityIcon from '../components/EntityIcon.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import FlowStatusPill from '../components/flow/FlowStatusPill.vue'

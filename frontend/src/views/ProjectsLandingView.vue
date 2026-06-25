@@ -39,22 +39,14 @@
 
       <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <button
-          v-for="(project, index) in filteredProjects"
+          v-for="project in filteredProjects"
           :key="project.id"
           class="group rounded-lg border border-edge-subtle bg-overlay-faint p-5 text-left transition-all hover:border-edge hover:bg-overlay-subtle"
           @click="handleCardClick($event, project)"
           @contextmenu="handleProjectContextMenu($event, project)"
         >
           <div class="flex items-start gap-4">
-            <!-- Gradient icon -->
-            <div
-              class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br"
-              :class="projectGradient(index)"
-            >
-              <svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-              </svg>
-            </div>
+            <EntityIcon type="project" size="lg" />
 
             <!-- Title + timestamp -->
             <div class="min-w-0 flex-1">
@@ -134,6 +126,7 @@ import { computed, nextTick, onActivated, onMounted, onUnmounted, ref } from 'vu
 import { useRouter } from 'vue-router'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
+import EntityIcon from '../components/EntityIcon.vue'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useWebSocket } from '../composables/useWebSocket'
@@ -258,21 +251,6 @@ function formatRelativeTime(value) {
     month: 'short',
     day: 'numeric'
   })
-}
-
-const gradients = [
-  'from-violet-500/80 to-violet-700/80',
-  'from-blue-500/80 to-blue-700/80',
-  'from-emerald-500/80 to-emerald-700/80',
-  'from-amber-500/80 to-amber-700/80',
-  'from-rose-500/80 to-rose-700/80',
-  'from-cyan-500/80 to-cyan-700/80',
-  'from-indigo-500/80 to-indigo-700/80',
-  'from-teal-500/80 to-teal-700/80',
-]
-
-function projectGradient(index) {
-  return gradients[index % gradients.length]
 }
 
 function handleCardClick(event, project) {

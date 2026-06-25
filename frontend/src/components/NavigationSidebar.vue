@@ -293,24 +293,18 @@
                         </div>
                       </div>
                     </div>
-                    <div v-else class="flex h-full items-center justify-center rounded-md" :class="getBoardGradientClass()">
-                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
+                    <div v-else class="flex h-full items-center justify-center">
+                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
                     </div>
                   </div>
-                  <div v-else-if="tab.type === 'project'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-slate-500 to-slate-700">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
-                  </div>
+                  <EntityIcon v-else-if="tab.type === 'project'" type="project" />
                   <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
                     <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
-                  </div>
-                  <div v-else-if="tab.type === 'flow'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-overlay-faint border border-edge-subtle">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
-                  </div>
+                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
+                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
                   <input v-no-autocorrect
                     v-model="editingName"
@@ -355,24 +349,18 @@
                         </div>
                       </div>
                     </div>
-                    <div v-else class="flex h-full items-center justify-center rounded-md" :class="getBoardGradientClass()">
-                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
+                    <div v-else class="flex h-full items-center justify-center">
+                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
                     </div>
                   </div>
-                  <div v-else-if="tab.type === 'project'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-slate-500 to-slate-700">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
-                  </div>
+                  <EntityIcon v-else-if="tab.type === 'project'" type="project" />
                   <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
                     <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
-                  </div>
-                  <div v-else-if="tab.type === 'flow'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-overlay-faint border border-edge-subtle">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
-                  </div>
+                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
+                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
 
                   <!-- Tool with title/subtitle -->
@@ -587,24 +575,18 @@
                         </div>
                       </div>
                     </div>
-                    <div v-else class="flex h-full items-center justify-center rounded-md" :class="getBoardGradientClass()">
-                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
+                    <div v-else class="flex h-full items-center justify-center">
+                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
                     </div>
                   </div>
-                  <div v-else-if="tab.type === 'project'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-slate-500 to-slate-700">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
-                  </div>
+                  <EntityIcon v-else-if="tab.type === 'project'" type="project" />
                   <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
                     <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
-                  </div>
-                  <div v-else-if="tab.type === 'flow'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-overlay-faint border border-edge-subtle">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
-                  </div>
+                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
+                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
                   <input v-no-autocorrect
                     v-model="editingName"
@@ -649,24 +631,18 @@
                         </div>
                       </div>
                     </div>
-                    <div v-else class="flex h-full items-center justify-center rounded-md" :class="getBoardGradientClass()">
-                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
+                    <div v-else class="flex h-full items-center justify-center">
+                      <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
                     </div>
                   </div>
-                  <div v-else-if="tab.type === 'project'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-slate-500 to-slate-700">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
-                  </div>
+                  <EntityIcon v-else-if="tab.type === 'project'" type="project" />
                   <div v-else-if="tab.type === 'tool'" class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary">
                     <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
                   <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'chat'" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-emerald-500 to-teal-600">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-white" />
-                  </div>
-                  <div v-else-if="tab.type === 'flow'" class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-overlay-faint border border-edge-subtle">
-                    <component :is="getTabIcon(tab)" class="w-4 h-4 text-content-secondary" />
-                  </div>
+                  <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
+                  <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
 
                   <!-- Tool with title/subtitle -->
@@ -861,6 +837,7 @@ import { getDroppedMediaIds } from '../composables/useDragPreview'
 import { isTauri } from '../apiConfig'
 import { MediaImage } from './media'
 import ToolIcon from './tools/ToolIcon.vue'
+import EntityIcon from './EntityIcon.vue'
 import WorkspaceTabsContextMenu from './WorkspaceTabsContextMenu.vue'
 
 const props = defineProps({
@@ -1053,10 +1030,6 @@ function getToolForIcon(fullToolId: string) {
   const tool = allToolsMap.value.get(fullToolId)
   if (tool) return tool
   return { id: fullToolId, full_tool_id: fullToolId, task_types: [] as string[] }
-}
-
-function getBoardGradientClass(): string {
-  return 'bg-gradient-to-br from-amber-500 to-orange-600'
 }
 
 function extractBoardMetadata(board: any) {
