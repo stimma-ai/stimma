@@ -583,11 +583,6 @@ const draggedSectionIsDefault = computed(() => {
 })
 
 const totalAssetCount = computed(() => (board.value?.sections || []).reduce((sum, section) => sum + (section.item_count || section.items.length || 0), 0))
-const boardSummaryText = computed(() => {
-  const itemText = formatCount(totalAssetCount.value, 'item')
-  const sectionCount = visibleSections.value.length
-  return sectionCount > 1 ? `${itemText} · ${formatCount(sectionCount, 'section')}` : itemText
-})
 const slideshowItems = computed(() => (
   displaySections.value.flatMap((section) => (section.items || []).map((item) => ({
     ...item,
@@ -765,10 +760,6 @@ function handleItemContextMenu(section, item, event) {
     inBoard: true,
     boardSectionId: section.id
   })
-}
-
-function formatCount(count, singular) {
-  return `${count} ${count === 1 ? singular : `${singular}s`}`
 }
 
 function getSectionLabelWidth(section) {
