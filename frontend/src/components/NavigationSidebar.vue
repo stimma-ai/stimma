@@ -54,7 +54,7 @@
             title="Stimma (drag media here to attach)"
           >
             <img src="/logo.png" class="w-3.5 h-3.5 flex-shrink-0" alt="" />
-            <span>Stimma</span>
+            <span class="font-['General_Sans'] lowercase tracking-[0.12em]">stimma</span>
           </button>
 
           <div class="h-1"></div>
