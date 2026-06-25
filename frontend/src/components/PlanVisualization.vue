@@ -815,9 +815,9 @@ const TOOL_NAME_TASK_TYPE = {
   'remove_background': 'remove-background',
 }
 
-// Build a ToolIcon-compatible object for a tool node. resolveVendor keys off the
-// tool id, so pass tool_id/tool_name as id; fall back to a task type for the
-// generic glyph.
+// Build a ToolIcon-compatible object for a tool node. Plan nodes carry abstract
+// tool names (no model_vendor), so these resolve to the task-generic glyph via
+// the mapped task type.
 function getNodeToolIconTool(node) {
   return {
     id: node.tool_id || node.tool_name,

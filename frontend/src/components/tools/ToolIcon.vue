@@ -37,8 +37,7 @@
 /**
  * ToolIcon — the one shared tool icon. Two orthogonal axes:
  *   - Mark (inner glyph) = model identity: a vendor brand mark resolved from
- *     `model_vendor` (or, transitionally, inferred from the tool id via
- *     vendorFallback), falling back to a task-generic glyph when there is no
+ *     `model_vendor`, falling back to a task-generic glyph when there is no
  *     known mark.
  *   - Tile (background) = source: a Stimma Cloud gradient hairline ring vs a
  *     neutral tile. The ring can be suppressed via `ring=false` when the
@@ -50,7 +49,6 @@
 import { computed } from 'vue'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { getModelMarkSvg } from './modelMarks'
-import { resolveVendor } from './vendorFallback'
 import { getTaskTypeIconSvg } from '../../utils/taskTypeIcons'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
 
@@ -91,7 +89,7 @@ const primaryTaskType = computed(() => {
 
 // Mark = identity. Vendor mark first; task-generic glyph as the fallback floor.
 const glyphSvg = computed(() => {
-  const markSvg = getModelMarkSvg(resolveVendor(props.tool))
+  const markSvg = getModelMarkSvg(props.tool.model_vendor)
   if (markSvg) return sanitizeSvg(markSvg)
 
   const inner = getTaskTypeIconSvg(primaryTaskType.value)

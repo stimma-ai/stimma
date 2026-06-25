@@ -1046,9 +1046,9 @@ function isToolStimmaCloud(fullToolId: string): boolean {
   return tool ? isStimmaCloudTool(tool) : false
 }
 
-// Build a ToolIcon-compatible object for a tab's tool. resolveVendor keys off
-// id/full_tool_id, so always pass the tool id even when the cached tool row is
-// missing (e.g. provider not yet loaded).
+// Build a ToolIcon-compatible object for a tab's tool. Prefer the cached tool
+// row (carries model_vendor); when it's missing (e.g. provider not yet loaded)
+// pass at least the id so the task-generic glyph still renders.
 function getToolForIcon(fullToolId: string) {
   const tool = allToolsMap.value.get(fullToolId)
   if (tool) return tool
