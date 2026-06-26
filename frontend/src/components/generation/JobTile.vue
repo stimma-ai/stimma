@@ -9,28 +9,52 @@
     ]"
     @click="handleJobClick"
   >
-    <!-- Video display -->
-    <video
+    <!-- Video display: a static poster (the video's first-frame thumbnail) is
+         shown by default; the real <video> is mounted only while the tile is
+         hovered and torn down again on leave. Mounting a live <video> for every
+         completed tile exhausts WebKit's media-element/decoder pool — the symptom
+         is blank/flickering tiles that only paint on hover. Posters are cheap
+         images, so offscreen previews hold no decoder. Mirrors VirtualMediaGrid. -->
+    <div
       v-if="isVideo && getMediaHash(job.result_media_id)"
-      :src="getMediaUrl(getMediaHash(job.result_media_id))"
-      :class="['w-full h-full', imageMode === 'fit' ? 'object-contain' : 'object-cover']"
-      loop
-      muted
-      playsinline
+      class="absolute inset-0"
       draggable="true"
+      @mouseenter="activateVideo"
+      @mouseleave="releaseVideo"
       @dragstart="onDragStart($event, job.result_media_id)"
       @dragend="handleDragEnd"
-      @mouseenter="($event.target as HTMLVideoElement).play()"
-      @mouseleave="($event.target as HTMLVideoElement).pause(); ($event.target as HTMLVideoElement).currentTime = 0"
-      @error="$emit('media-load-error', job.result_media_id)"
       @contextmenu.prevent="handleVideoContextMenu($event, job.result_media_id)"
-    />
-    <!-- Image display -->
+    >
+      <AppImage
+        :src="getThumbnailUrl(getMediaHash(job.result_media_id), 256, imageMode === 'fit' ? { mode: 'fit' } : {})"
+        :alt="`Generated video ${job.id}`"
+        :contain="imageMode === 'fit'"
+        container-class="w-full h-full"
+        retry-on-error
+      />
+      <video
+        v-if="videoActive"
+        ref="videoEl"
+        :class="['absolute inset-0 w-full h-full', imageMode === 'fit' ? 'object-contain' : 'object-cover']"
+        loop
+        muted
+        playsinline
+        preload="none"
+        @error="$emit('media-load-error', job.result_media_id)"
+      />
+    </div>
+    <!-- Image display. Always a bounded thumbnail — never the full-resolution
+         file — so a long strip never piles up large decoded surfaces. WebKit
+         evicts decoded image backing stores under memory pressure (the tile then
+         renders blank until a hover transform forces a re-raster); small
+         thumbnails keep total decode memory low. Fit just switches the thumbnail
+         to fit-mode (whole frame, letterboxed) instead of cropping. -->
     <MediaImage
       v-else-if="!isVideo && job.result_media_id"
       :media-id="job.result_media_id"
-      :thumbnail="imageMode !== 'fit'"
+      :thumbnail="true"
       :thumbnail-size="256"
+      :thumbnail-mode="imageMode === 'fit' ? 'fit' : 'crop'"
       :alt="`Generated image ${job.id}`"
       :contain="imageMode === 'fit'"
       container-class="w-full h-full"
@@ -83,8 +107,9 @@
 </template>
 
 <script setup lang="ts">
+import { ref, nextTick, onBeforeUnmount } from 'vue'
 import { formatRemainingTime } from '../../utils/timeFormat'
-import { MediaImage } from '../media'
+import { MediaImage, AppImage } from '../media'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
@@ -132,6 +157,46 @@ const contextMenu = useMediaContextMenu()
 
 function getMediaUrl(hash: string) { return getMediaFileUrl(hash) }
 function getMediaHash(mediaId?: number): string { return (mediaId && props.mediaHashes[mediaId]) || '' }
+
+// Hover-gated video playback. A live <video> per completed tile would pile up
+// against WebKit's media-element/decoder budget, so the real element is mounted
+// only while hovered and fully released on leave/unmount — at most one tile ever
+// holds a decoding video. The poster (first-frame thumbnail) carries the resting
+// state. Debounced so flicking the cursor across the strip allocates nothing.
+const videoEl = ref<HTMLVideoElement | null>(null)
+const videoActive = ref(false)
+let hoverTimer: ReturnType<typeof setTimeout> | null = null
+
+async function activateVideo() {
+  if (hoverTimer) clearTimeout(hoverTimer)
+  hoverTimer = setTimeout(async () => {
+    hoverTimer = null
+    const hash = getMediaHash(props.job.result_media_id)
+    if (!hash) return
+    videoActive.value = true            // mount the <video>
+    await nextTick()
+    const v = videoEl.value
+    if (!v || !videoActive.value) return // left during mount
+    if (!v.src) v.src = getMediaUrl(hash)
+    v.currentTime = 0
+    v.play().catch(() => {})
+  }, 200)
+}
+
+function releaseVideo() {
+  if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null }
+  const v = videoEl.value
+  if (v) {
+    // Drop the decoder/network resource before unmounting so the surface is
+    // reclaimed immediately rather than lingering until GC.
+    v.pause()
+    v.removeAttribute('src')
+    v.load()
+  }
+  videoActive.value = false             // unmount the <video>
+}
+
+onBeforeUnmount(releaseVideo)
 function hasMarker(mediaId: number, markerId: number): boolean {
   return (props.mediaMarkers[mediaId] || []).some(m => m.id === markerId)
 }
