@@ -31,8 +31,8 @@
           class="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-overlay-faint transition-colors"
           @click="$emit('add-filter', filter)"
         >
-          <div class="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 bg-white/[0.06] text-content-tertiary">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+          <div class="w-4 h-4 flex items-center justify-center flex-shrink-0 text-content-tertiary">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
               <path d="M10 3.75a2 2 0 10-4 0 2 2 0 004 0zM17.25 4.5a.75.75 0 000-1.5h-5.5a.75.75 0 000 1.5h5.5zM5 3.75a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5a.75.75 0 01.75.75zM4.25 17a.75.75 0 000-1.5h-1.5a.75.75 0 000 1.5h1.5zM17.25 17a.75.75 0 000-1.5h-5.5a.75.75 0 000 1.5h5.5zM9 10a.75.75 0 01-.75.75h-5.5a.75.75 0 010-1.5h5.5A.75.75 0 019 10zM17.25 10.75a.75.75 0 000-1.5h-1.5a.75.75 0 000 1.5h1.5zM14 16.25a2 2 0 10-4 0 2 2 0 004 0zM10 8a2 2 0 114 0 2 2 0 01-4 0z" />
             </svg>
           </div>
@@ -55,11 +55,13 @@
           class="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-overlay-faint transition-colors"
           @click="$emit('add-tool', tool)"
         >
-          <ToolIcon :tool="tool" size="xs" :ring="false" />
+          <div class="w-4 h-4 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
+            <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
+          </div>
 
           <div class="flex-1 min-w-0">
             <div class="text-sm text-content truncate">{{ tool.name }}</div>
-            <div class="text-xs text-content-muted truncate">{{ tool.subtitle || tool.provider_name || tool.provider_id }}</div>
+            <div class="text-xs truncate" :class="isStimmaCloudTool(tool) ? 'stimma-gradient-text' : 'text-content-muted'">{{ tool.provider_name || tool.provider_id }}</div>
           </div>
         </button>
       </template>
@@ -76,6 +78,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { ProviderTool } from '../../../composables/useProvidersApi'
 import type { ChainFilterDef } from '@stimma/image-editor'
 import ToolIcon from '../../tools/ToolIcon.vue'
+import { isStimmaCloudTool } from '../../../utils/stimmaCloud'
 import { CHAIN_TOOL_TASK_TYPES } from '../../../utils/postProcessingChain'
 
 const props = defineProps<{
@@ -159,3 +162,13 @@ onMounted(() => {
 
 onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside))
 </script>
+
+<style scoped>
+.stimma-gradient-text {
+  background: linear-gradient(135deg, #0d9488, #06b6d4, #6366f1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 500;
+}
+</style>
