@@ -2970,6 +2970,21 @@ function hideCursor() {
   document.body.classList.add('slideshow-cursor-hidden')
 }
 
+// Track the latest cursor position so the hide timeout can check what's
+// actually under the pointer (the slideshow vs. a modal/popup on top).
+let lastMouseX = 0
+let lastMouseY = 0
+
+// Only hide the cursor when the topmost element under the pointer belongs to
+// the slideshow overlay. Modals/popups (settings, crash dialog, etc.) are
+// teleported to <body> as siblings of the overlay, so when one is open the
+// element under the cursor is the modal — and we keep the cursor visible.
+function cursorOverSlideshow() {
+  if (!overlay.value) return true
+  const el = document.elementFromPoint(lastMouseX, lastMouseY)
+  return !el || overlay.value.contains(el)
+}
+
 function resetCursorTimeout() {
   // Clear existing timeout
   if (cursorTimeout) {
@@ -2982,12 +2997,19 @@ function resetCursorTimeout() {
   // Set new timeout to hide cursor
   if (focusMode.value) {
     cursorTimeout = setTimeout(() => {
-      hideCursor()
+      // Don't hide if the pointer is over a modal/popup floating on top.
+      if (cursorOverSlideshow()) {
+        hideCursor()
+      }
     }, CURSOR_HIDE_DELAY)
   }
 }
 
-function handleMouseMove() {
+function handleMouseMove(event) {
+  if (event) {
+    lastMouseX = event.clientX
+    lastMouseY = event.clientY
+  }
   if (focusMode.value) {
     resetCursorTimeout()
   }
@@ -4452,13 +4474,13 @@ onMounted(async () => {
     document.body.classList.add('slideshow-focus-mode')
   }
 
-  // Set up mouse move listener for cursor hiding in focus mode
-  if (overlay.value) {
-    overlay.value.addEventListener('mousemove', handleMouseMove)
-    // Start cursor timeout if in focus mode
-    if (focusMode.value) {
-      resetCursorTimeout()
-    }
+  // Set up mouse move listener for cursor hiding in focus mode. Listen on
+  // window (not just the overlay) so moving the mouse over a modal/popup that
+  // floats above the slideshow also reveals the cursor.
+  window.addEventListener('mousemove', handleMouseMove)
+  // Start cursor timeout if in focus mode
+  if (overlay.value && focusMode.value) {
+    resetCursorTimeout()
   }
 
   // Initialize shuffled indices if randomized from URL
@@ -4533,9 +4555,7 @@ onUnmounted(() => {
   // Clean up focus mode body class
   document.body.classList.remove('slideshow-focus-mode')
   // Clean up cursor hiding
-  if (overlay.value) {
-    overlay.value.removeEventListener('mousemove', handleMouseMove)
-  }
+  window.removeEventListener('mousemove', handleMouseMove)
   cleanupCursorTimeout()
   // Clean up ResizeObserver
   if (containerResizeObserver) {
