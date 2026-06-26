@@ -13,7 +13,7 @@ from config import get_settings
 from database import Face, MediaItem
 
 
-DEFAULT_FACE_SIMILARITY_THRESHOLD = 0.65
+DEFAULT_FACE_SIMILARITY_THRESHOLD = 0.55
 
 
 def parse_similarity_ids(raw_ids: str, field_name: str, max_ids: int = 3) -> list[int]:

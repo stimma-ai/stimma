@@ -78,7 +78,7 @@ def _get_builtin_default_config() -> dict:
             'min_confidence': 0.5,
             'max_faces': 10,
             'parallelism': 2,
-            'similarity_threshold': 0.65
+            'similarity_threshold': 0.55
         },
         'server': {
             'host': '127.0.0.1',
@@ -266,7 +266,7 @@ class FaceDetectionConfig(BaseModel):
     min_confidence: float = 0.5
     max_faces: int = 10
     parallelism: int = 2
-    similarity_threshold: float = 0.65
+    similarity_threshold: float = 0.55
 
 
 class ServerConfig(BaseModel):

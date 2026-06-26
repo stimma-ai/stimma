@@ -98,7 +98,7 @@ class FaceDetectionResponse(BaseModel):
     min_confidence: float
     max_faces: int
     parallelism: int
-    similarity_threshold: float = 0.65
+    similarity_threshold: float = 0.55
 
 
 class ClipResponse(BaseModel):
