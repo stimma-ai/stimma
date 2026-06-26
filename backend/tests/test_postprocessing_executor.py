@@ -64,6 +64,22 @@ async def _wait_for_run(session_factory, run_id: int, statuses=("completed", "pa
     raise TimeoutError(f"Chain run {run_id} did not reach {statuses} in {timeout}s (status={run.status if run else 'missing'})")
 
 
+async def _wait_for_job_result_media(session_factory, job_id: int, expected_media_id: int, timeout=15.0):
+    # The base job is repointed at the chain's final media AFTER the run flips to
+    # "completed" (see executor._finalize_base_job), in a separate commit. Poll for
+    # that follow-up write instead of racing it.
+    deadline = asyncio.get_event_loop().time() + timeout
+    refreshed = None
+    while asyncio.get_event_loop().time() < deadline:
+        async with session_factory() as session:
+            result = await session.execute(select(GenerationJob).where(GenerationJob.id == job_id))
+            refreshed = result.scalar_one()
+        if refreshed.result_media_id == expected_media_id:
+            return refreshed
+        await asyncio.sleep(0.05)
+    return refreshed
+
+
 class TestChainExecutorFilters:
     async def test_filter_chain_runs_to_completion(self, generation_app, generation_db_session, mock_ws, tmp_path):
         base = await _make_base_media(generation_db_session, tmp_path, "chain_base.png")
@@ -162,9 +178,7 @@ class TestChainExecutorFilters:
         assert run.status == "completed"
         assert run.final_media_id != base.id
 
-        async with generation_db_session() as session:
-            result = await session.execute(select(GenerationJob).where(GenerationJob.id == job_id))
-            refreshed = result.scalar_one()
+        refreshed = await _wait_for_job_result_media(generation_db_session, job_id, run.final_media_id)
         assert refreshed.result_media_id == run.final_media_id
 
     async def test_incompatible_step_is_skipped_not_failed(self, generation_app, generation_db_session, mock_ws, tmp_path):
