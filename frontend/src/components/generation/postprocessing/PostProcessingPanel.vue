@@ -162,9 +162,10 @@ const candidateTools = computed(() => {
   })
 })
 
-// In-app filters operate on images — offered while the chain has an image stage.
+// In-app filters are media-agnostic (per-frame on video, direct on images), so
+// they're offered for any chain stage — image or video.
 const candidateFilters = computed<ChainFilterDef[]>(() =>
-  stageTypes.value.has('image') ? CHAIN_FILTER_DEFS : []
+  stageTypes.value.size ? CHAIN_FILTER_DEFS : []
 )
 
 // --- Chain mutations --------------------------------------------------------

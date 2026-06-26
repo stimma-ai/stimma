@@ -18,7 +18,7 @@ def build_filter_parameter_schema(filter_def: Dict[str, Any]) -> Dict[str, Any]:
             "minItems": 1,
             "maxItems": 1,
             "x-control": "image_picker",
-            "description": "Image to process",
+            "description": "Image or video to process (filters apply per-frame to video)",
         },
     }
 
@@ -52,7 +52,7 @@ FILTER_OUTPUT_SCHEMA: Dict[str, Any] = {
     "properties": {
         "assets": {
             "type": "array",
-            "description": "The filtered image",
+            "description": "The filtered image or video",
         },
     },
 }

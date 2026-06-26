@@ -300,8 +300,10 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
             step = steps[idx]
 
             # Media-type transition validation: an incompatible step is
-            # skipped and flagged, not a hard failure (§3.4).
-            if _step_input_type(step) != current_type:
+            # skipped and flagged, not a hard failure (§3.4). Built-in filters
+            # are media-agnostic (per-frame on video, direct on images), so they
+            # accept whatever type is flowing and never trip this check.
+            if step.get("kind") != "filter" and _step_input_type(step) != current_type:
                 log.warning(
                     f"[postproc] Run {run_id} step {idx} ({_step_label(step)}) needs "
                     f"{_step_input_type(step)} input but chain output is {current_type}; skipping"
@@ -370,7 +372,8 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
                 "duration_ms": duration_ms,
             }
             current_media_id = out_media_id
-            current_type = _step_output_type(step)
+            # Filters preserve the media type (image->image, video->video).
+            current_type = current_type if step.get("kind") == "filter" else _step_output_type(step)
             await _save_progress(db, run_id, idx, step_results, "running", current_media_id)
             await _broadcast(websocket_manager, db, run_id, profile_id, job_instance_id)
             log.info(

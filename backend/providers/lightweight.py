@@ -304,10 +304,12 @@ class LightweightProvider(ToolProvider):
 
         from filters.ops import apply_builtin_filter
 
+        from utils.query_builder import VIDEO_FORMATS
+
         input_images = parameters.get("input_images", [])
         image_path = input_images[0] if input_images else None
         if not image_path or not Path(str(image_path)).exists():
-            return ExecutionResult(success=False, error="No input image provided")
+            return ExecutionResult(success=False, error="No input media provided")
 
         settings = {
             k: v for k, v in parameters.items()
@@ -316,8 +318,9 @@ class LightweightProvider(ToolProvider):
         }
 
         started = time.perf_counter()
+        is_video = Path(str(image_path)).suffix.lstrip(".").lower() in VIDEO_FORMATS
 
-        def _apply() -> str:
+        def _apply_image() -> str:
             from utils.image_ops import open_oriented
             with open_oriented(image_path) as img:
                 out = apply_builtin_filter(filter_id, img, settings)
@@ -327,7 +330,18 @@ class LightweightProvider(ToolProvider):
                 out.save(tmp_path, format="PNG")
                 return tmp_path
 
-        tmp_path = await asyncio.to_thread(_apply)
+        def _apply_video() -> str:
+            import os
+
+            from filters.video_ops import apply_builtin_filter_video
+            fd, tmp_path = tempfile.mkstemp(suffix=".mp4", prefix=f"filter_{filter_id}_")
+            os.close(fd)
+            # Per-frame application reuses apply_builtin_filter, which overlays
+            # the filter def defaults — so pass the raw settings through.
+            apply_builtin_filter_video(filter_id, str(image_path), tmp_path, settings)
+            return tmp_path
+
+        tmp_path = await asyncio.to_thread(_apply_video if is_video else _apply_image)
 
         return ExecutionResult(
             success=True,

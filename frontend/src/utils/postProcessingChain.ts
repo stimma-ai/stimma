@@ -162,6 +162,10 @@ export const CHAIN_TOOL_TASK_TYPES = [
 /** Steps that take an image and emit an image. */
 const IMAGE_IN_IMAGE_OUT = new Set(['filter', 'image-to-image', 'upscale-image', 'remove-background'])
 
+// NOTE: built-in filters (kind === 'filter') are media-agnostic — they apply
+// per-frame to video and directly to images, passing the running media type
+// through unchanged. chainMediaFlow special-cases them; the 'image' returned
+// here is only a fallback default for callers that don't (e.g. insertion).
 export function stepInputMedia(taskType: string | undefined, kind: ChainStepKind): 'image' | 'video' {
   if (kind === 'filter') return 'image'
   return taskType === 'upscale-video' ? 'video' : 'image'
@@ -198,6 +202,9 @@ export function chainMediaFlow(chain: PostProcessingChain, initial: 'image' | 'v
     positionTypes.push(running)
     inputTypeByStepId[step.id] = running
     if (!step.enabled) continue
+    // Built-in filters are media-agnostic: compatible with whatever is flowing
+    // (image or video) and they leave the running type unchanged.
+    if (step.kind === 'filter') continue
     if (stepInputMedia(step.task_type, step.kind) !== running) {
       incompatibleStepIds.add(step.id)
       continue // an incompatible step is skipped; running type unchanged

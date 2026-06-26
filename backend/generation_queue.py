@@ -2270,6 +2270,16 @@ class GenerationQueue:
             async with self._get_db(profile_id).async_session_maker() as resolve_session:
                 exec_params = await self._resolve_media_ids_in_params(resolve_session, exec_params)
 
+            # Built-in filters are media-agnostic: a filter applied to a video
+            # must emit a video, not a .png. The output extension is normally
+            # keyed off task_type, but "filter" is shared by image and video —
+            # so re-derive it here from the now-resolved input path.
+            if task_type == 'filter':
+                from utils.query_builder import VIDEO_FORMATS
+                first_input = (exec_params.get('input_images') or [None])[0]
+                if isinstance(first_input, str) and Path(first_input).suffix.lstrip('.').lower() in VIDEO_FORMATS:
+                    output_path = os.path.join(job.folder_path, f"gen_{timestamp}_{job.id}.mp4")
+
             # Execute via provider
             # Note: JSON-RPC providers don't accept output_path - they return output_data instead
             log.info(f"Job {job.id}: Executing via provider {provider.provider_id}, tool {tool_id_in_provider}")
