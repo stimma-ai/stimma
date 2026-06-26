@@ -109,6 +109,10 @@ export interface UIState {
   batchSize: number  // Images queued per Run click (1-8). 1 = single generation.
   imageMode: string
   layoutMode: 'studio' | 'stage'  // 'studio' = controls primary, 'stage' = image primary
+  // Resolution-picker locks: keep output size, or keep output area (MP) when an
+  // input image suggests a new resolution. Mutually exclusive; both off = follow source.
+  resolutionLockSize: boolean
+  resolutionLockArea: boolean
 }
 
 export interface UseGenerationPreferencesOptions {
@@ -150,7 +154,9 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     generateForeverIdleLimit: 50,  // Default: auto-stop after 50 images with no user changes
     batchSize: 1,
     imageMode: 'fit',
-    layoutMode: 'studio'
+    layoutMode: 'studio',
+    resolutionLockSize: false,
+    resolutionLockArea: false
   })
 
   // Tool params - generic bag, schema is source of truth
@@ -227,7 +233,9 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
           generateForeverIdleLimit: data.generateForeverIdleLimit ?? 50,
           batchSize: Math.min(8, Math.max(1, data.batchSize ?? 1)),
           imageMode: data.imageMode ?? 'fit',
-          layoutMode: data.layoutMode === 'stage' ? 'stage' : 'studio'
+          layoutMode: data.layoutMode === 'stage' ? 'stage' : 'studio',
+          resolutionLockSize: data.resolutionLockSize ?? false,
+          resolutionLockArea: data.resolutionLockArea ?? false
         }
       }
     } catch (err) {
@@ -400,7 +408,9 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
       generateForeverIdleLimit: 50,
       batchSize: 1,
       imageMode: 'fit',
-      layoutMode: 'studio'
+      layoutMode: 'studio',
+      resolutionLockSize: false,
+      resolutionLockArea: false
     }
     modelParams.value = { ...UI_DEFAULTS }
 
