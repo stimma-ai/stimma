@@ -1,17 +1,109 @@
 """Prompt enhancement routes for AI-assisted prompt editing."""
 from core.logging import get_logger
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 import asyncio
 import re
 
+from core.dependencies import get_db_session
+
 from prompts import get_prompt
 from llm import llm_complete_text
 from llm_correlation import llm_correlation_context
+from model_family import model_family
 
 router = APIRouter(prefix="/api/prompt", tags=["prompt"])
 log = get_logger(__name__)
+
+
+# Map a modelFamily (from model_family.py) to a prompt-enhancement style. The
+# style picks which system prompt /improve uses. Families not listed fall back
+# to prose enhancement — that covers Flux/Klein, SD3.x (natural-language T5
+# encoder), and anything unknown.
+_KEYWORD_FAMILIES = frozenset({
+    "sdxl", "sdxl-turbo", "sdxl-lightning", "sd-1.5", "sd-2",
+})
+_VIDEO_FAMILIES = frozenset({
+    "stable-video-diffusion", "wan-2.2", "wan-2.1", "wan-other",
+    "hunyuan-video", "ltx-video", "mochi", "cogvideo",
+    "veo-3", "veo-2", "kling", "runway-gen", "sora", "seedance",
+})
+
+
+def enhancement_mode(family: str, is_video: bool = False) -> str:
+    """Map (task, modelFamily) to an enhancement style.
+
+    The TASK is authoritative for video: any video tool gets cinematography,
+    regardless of whether the model string is recognized (``is_video`` comes
+    from the tool's output type). ``_VIDEO_FAMILIES`` is only a fallback for
+    callers that don't pass the task. The remaining styles are model-specific:
+    ``ideogram`` (structured JSON), ``keyword`` (booru tags for SD1.5/SDXL), or
+    ``prose`` (the default).
+    """
+    if is_video or family in _VIDEO_FAMILIES:
+        return "cinematography"
+    if family == "ideogram":
+        return "ideogram"
+    if family in _KEYWORD_FAMILIES:
+        return "keyword"
+    return "prose"
+
+
+# Enhancement style -> the prompts.yaml key for its system prompt. ``ideogram``
+# is intentionally absent: that family routes to /to-ideogram-json instead, and
+# if it ever reaches /improve it falls back to the prose prompt.
+_IMPROVE_PROMPT_BY_MODE = {
+    "keyword": "improve_keyword_system_prompt",
+    "cinematography": "improve_cinematography_system_prompt",
+    "prose": "improve_system_prompt",
+}
+
+# Raster formats we can hand to a VLM. Source frames in other formats (or video)
+# are simply not shown — enhancement falls back to the text-only path.
+_VLM_IMAGE_FORMATS = frozenset({"jpg", "jpeg", "png", "webp", "bmp", "gif", "tiff"})
+
+
+async def _load_source_image_b64(
+    session: AsyncSession, media_id: int, max_size: int = 1024
+) -> Optional[str]:
+    """Load a library image by id and return EXIF-corrected base64 JPEG, or None.
+
+    Used to show an i2v source frame to the enhancement model. Best-effort: any
+    failure (missing item, unreadable file, non-raster format) returns None so
+    the caller falls back to text-only enhancement.
+    """
+    try:
+        import io
+        import base64
+        from pathlib import Path
+        from database import MediaItem
+        from utils.image_ops import open_oriented
+
+        item = await session.get(MediaItem, media_id)
+        if not item or not item.file_path:
+            return None
+        if (item.file_format or "").lower() not in _VLM_IMAGE_FORMATS:
+            return None
+        path = Path(item.file_path)
+        if not path.exists():
+            return None
+
+        img = open_oriented(path)
+        try:
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+            if max(img.size) > max_size:
+                img.thumbnail((max_size, max_size))
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG", quality=90)
+            return base64.b64encode(buffer.getvalue()).decode("utf-8")
+        finally:
+            img.close()
+    except Exception as e:
+        log.warning(f"improve: could not load source image {media_id}: {e}")
+        return None
 
 
 class Message(BaseModel):
@@ -34,10 +126,44 @@ class EnhancePromptResponse(BaseModel):
 class ImprovePromptRequest(BaseModel):
     prompt: str
     instructions: Optional[str] = None
+    # The tool's model string (api id / checkpoint name). Classified server-side
+    # via model_family() to pick the enhancement style; the raw string never
+    # egresses. Absent -> prose enhancement.
+    model: Optional[str] = None
+    # Whether the tool outputs video. Authoritative for cinematography routing —
+    # the task is known, so we don't depend on the model string being recognized.
+    is_video: bool = False
+    # For image-to-video: the library id of the source/first frame. When present
+    # on the cinematography path, the frame is shown to the model so the prompt
+    # animates the real image. Ignored for other styles.
+    media_id: Optional[int] = None
 
 
 class ImprovePromptResponse(BaseModel):
     improved_prompt: str
+
+
+class TranslatePromptRequest(BaseModel):
+    prompt: str
+    # The target language as a human-readable English name, e.g. "Simplified
+    # Chinese" — the frontend maps its language code to this before sending.
+    target_language: str
+
+
+class TranslatePromptResponse(BaseModel):
+    translated_prompt: str
+
+
+class IdeogramJsonRequest(BaseModel):
+    prompt: str
+    # Target canvas, so the model can compose layout / bounding boxes for the
+    # real aspect ratio rather than guessing. Optional — falls back to 1:1.
+    width: Optional[int] = None
+    height: Optional[int] = None
+
+
+class IdeogramJsonResponse(BaseModel):
+    json_prompt: str
 
 
 # --- 2-Phase Auto-Improve Models ---
@@ -309,7 +435,7 @@ Guidelines:
 - Output ONLY the improved prompt, no explanations or additional text"""
 
 @router.post("/improve", response_model=ImprovePromptResponse)
-async def improve_prompt(request: ImprovePromptRequest):
+async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = Depends(get_db_session)):
     """
     Auto-improve an image generation prompt using AI.
 
@@ -326,20 +452,57 @@ async def improve_prompt(request: ImprovePromptRequest):
             detail={"code": e.code, "message": str(e)},
         )
 
-    # Use config prompt or fall back to default
-    prompt_from_file = get_prompt("prompt_enhancement", "improve_system_prompt")
+    # Pick the enhancement style. Task drives video (cinematography); model
+    # family drives the rest (keyword / ideogram / prose). Falls back to prose
+    # for unknown families and missing model strings.
+    mode = enhancement_mode(model_family(request.model), is_video=request.is_video)
+
+    # i2v: on the cinematography path, show the source frame to the model so the
+    # prompt animates the real image. Best-effort — if the frame can't be loaded
+    # we fall back to the text-only cinematography prompt.
+    source_image_b64: Optional[str] = None
+    if mode == "cinematography" and request.media_id is not None:
+        source_image_b64 = await _load_source_image_b64(session, request.media_id)
+
+    prompt_key = _IMPROVE_PROMPT_BY_MODE.get(mode, "improve_system_prompt")
+    if source_image_b64:
+        prompt_key = "improve_cinematography_image_system_prompt"
+    prompt_from_file = get_prompt("prompt_enhancement", prompt_key)
+    if not prompt_from_file and prompt_key != "improve_system_prompt":
+        # A family-specific prompt isn't configured — fall back to prose.
+        prompt_from_file = get_prompt("prompt_enhancement", "improve_system_prompt")
     system_prompt = prompt_from_file if prompt_from_file else DEFAULT_IMPROVE_SYSTEM_PROMPT
+    log.info(f"Prompt improve mode={mode} image={'yes' if source_image_b64 else 'no'}")
 
     # Build the user message
-    if request.instructions and request.instructions.strip():
+    if source_image_b64:
+        # i2v: the attached frame is reference; the user's text is direction for
+        # the clip, to be turned into motion/camera — not a prompt to "improve".
+        instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
+                 if request.instructions and request.instructions.strip() else "")
+        user_content = (
+            "The image is the first frame. Here is the user's direction for the clip — "
+            f"turn it into shot direction (motion and camera):\n\n{request.prompt}{instr}"
+        )
+    elif request.instructions and request.instructions.strip():
         user_content = f"Please improve this prompt according to these instructions:\n\nInstructions: {request.instructions}\n\nPrompt:\n{request.prompt}"
     else:
         user_content = f"Please improve this prompt with a light touch:\n\n{request.prompt}"
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_content}
-    ]
+    if source_image_b64:
+        # Multimodal: the source frame rides alongside the prompt text.
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": [
+                {"type": "text", "text": user_content},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{source_image_b64}"}},
+            ]},
+        ]
+    else:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content}
+        ]
 
     with llm_correlation_context("prompt-agent"):
         try:
@@ -362,6 +525,201 @@ async def improve_prompt(request: ImprovePromptRequest):
             raise HTTPException(status_code=504, detail="Request timed out")
         except Exception as e:
             log.error(f"Prompt improve error: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/translate", response_model=TranslatePromptResponse)
+async def translate_prompt(request: TranslatePromptRequest):
+    """
+    Translate an image generation prompt into a target language using AI.
+
+    Preserves verbatim [brackets], placeholder tokens, wildcard syntax, and
+    comments — only the natural-language description is translated. This runs as
+    a non-destructive generate-time step (after auto-improve), so the editor text
+    is untouched.
+    """
+    from llm_resolver import LLMUnavailableError, get_effective_llm_config
+
+    if not request.target_language.strip():
+        raise HTTPException(status_code=400, detail="target_language is required")
+
+    try:
+        llm_config = await get_effective_llm_config('agent-fast')
+    except LLMUnavailableError as e:
+        raise HTTPException(
+            status_code=e.status_code,
+            detail={"code": e.code, "message": str(e)},
+        )
+
+    system_prompt_template = get_prompt("prompt_enhancement", "translate_system_prompt")
+    if not system_prompt_template:
+        raise HTTPException(status_code=500, detail="translate_system_prompt not configured")
+    system_prompt = system_prompt_template.replace("{target_language}", request.target_language.strip())
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": request.prompt},
+    ]
+
+    with llm_correlation_context("prompt-agent"):
+        try:
+            log.info(f"Translating prompt -> {request.target_language}")
+
+            translated_prompt = await llm_complete_text(
+                config=llm_config,
+                messages=messages,
+                max_tokens=8192,
+                temperature=0.3,
+            )
+
+            log.info(f"Prompt translate successful ({len(translated_prompt)} chars)")
+
+            return TranslatePromptResponse(translated_prompt=translated_prompt.strip())
+
+        except asyncio.TimeoutError:
+            log.error("Prompt translate request timed out")
+            raise HTTPException(status_code=504, detail="Request timed out")
+        except Exception as e:
+            log.error(f"Prompt translate error: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+def _extract_json_object(text: str) -> str:
+    """Pull a single JSON object out of an LLM response and re-serialize it.
+
+    Tolerates ```json fences and leading/trailing prose, then validates by
+    round-tripping through json.loads so callers get well-formed JSON or a clear
+    error. Returns pretty-printed JSON (ensure_ascii=False so CJK stays legible).
+    """
+    import json
+
+    candidate = text.strip()
+    if "```json" in candidate:
+        candidate = candidate.split("```json", 1)[1].split("```", 1)[0]
+    elif "```" in candidate:
+        candidate = candidate.split("```", 1)[1].split("```", 1)[0]
+    candidate = candidate.strip()
+
+    # Fall back to the outermost {...} span if there's still surrounding prose.
+    if not candidate.startswith("{"):
+        start = candidate.find("{")
+        end = candidate.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            candidate = candidate[start:end + 1]
+
+    parsed = json.loads(candidate)  # raises json.JSONDecodeError if invalid
+    return json.dumps(parsed, ensure_ascii=False, indent=2)
+
+
+def _looks_like_ideogram_json(text: str) -> bool:
+    """True when the prompt is already a JSON object (an Ideogram structured caption).
+
+    Used to decide between refine-in-place and convert-from-prose. Deliberately
+    strict: only a bare ``{...}`` that parses as a dict counts, so ordinary prose
+    that merely mentions braces isn't misread as JSON.
+    """
+    import json
+
+    s = (text or "").strip()
+    if not s.startswith("{") or not s.endswith("}"):
+        return False
+    try:
+        return isinstance(json.loads(s), dict)
+    except (json.JSONDecodeError, ValueError):
+        return False
+
+
+def _canvas_description(width: Optional[int], height: Optional[int]) -> str:
+    """Human-readable canvas description for the Ideogram JSON prompt.
+
+    Gives the model the orientation + reduced aspect ratio so it can place
+    bounding boxes for the real shape. Falls back to 1:1 when size is unknown.
+    """
+    from math import gcd
+
+    if not width or not height or width <= 0 or height <= 0:
+        return "1:1 square canvas (exact size unknown — assume square unless the prompt implies otherwise)"
+
+    g = gcd(width, height) or 1
+    rw, rh = width // g, height // g
+    if width == height:
+        orient = "square"
+    elif width > height:
+        orient = "landscape"
+    else:
+        orient = "portrait"
+    return f"{width}×{height}px {orient} canvas (aspect ratio {rw}:{rh})"
+
+
+@router.post("/to-ideogram-json", response_model=IdeogramJsonResponse)
+async def prompt_to_ideogram_json(request: IdeogramJsonRequest):
+    """
+    Convert a plain-text prompt into Ideogram 4.0 structured JSON format.
+
+    Ideogram 4 is trained on structured JSON captions, so this produces better
+    text rendering, layout, and style fidelity. Offered only for the Ideogram 4
+    tool; runs as the final non-destructive generate-time step.
+    """
+    import json
+    from llm_resolver import LLMUnavailableError, get_effective_llm_config
+
+    try:
+        llm_config = await get_effective_llm_config('agent-fast')
+    except LLMUnavailableError as e:
+        raise HTTPException(
+            status_code=e.status_code,
+            detail={"code": e.code, "message": str(e)},
+        )
+
+    # If the prompt is ALREADY an Ideogram JSON object, take a lighter touch:
+    # enhance the wording but keep the user's structure, layout, and bboxes.
+    # Otherwise convert prose/keywords into a fresh JSON caption.
+    already_json = _looks_like_ideogram_json(request.prompt)
+    prompt_key = "ideogram_json_refine_system_prompt" if already_json else "ideogram_json_system_prompt"
+    system_prompt_template = get_prompt("prompt_enhancement", prompt_key)
+    if not system_prompt_template:
+        raise HTTPException(status_code=500, detail=f"{prompt_key} not configured")
+    system_prompt = system_prompt_template.replace(
+        "{canvas}", _canvas_description(request.width, request.height)
+    )
+    log.info(f"Ideogram JSON mode={'refine' if already_json else 'convert'}")
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": request.prompt},
+    ]
+
+    with llm_correlation_context("prompt-agent"):
+        try:
+            log.info("Converting prompt to Ideogram 4 JSON")
+
+            raw = await llm_complete_text(
+                config=llm_config,
+                messages=messages,
+                max_tokens=8192,
+                temperature=0.4,
+            )
+
+            try:
+                json_prompt = _extract_json_object(raw)
+            except json.JSONDecodeError as e:
+                log.error(f"Ideogram JSON parse failed: {e}; raw: {raw[:500]}")
+                raise HTTPException(
+                    status_code=502,
+                    detail="The model returned invalid JSON for Ideogram. Try again.",
+                )
+
+            log.info(f"Ideogram JSON conversion successful ({len(json_prompt)} chars)")
+
+            return IdeogramJsonResponse(json_prompt=json_prompt)
+
+        except HTTPException:
+            raise
+        except asyncio.TimeoutError:
+            log.error("Ideogram JSON request timed out")
+            raise HTTPException(status_code=504, detail="Request timed out")
+        except Exception as e:
+            log.error(f"Ideogram JSON error: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
 

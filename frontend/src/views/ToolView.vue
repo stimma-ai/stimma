@@ -1153,6 +1153,33 @@ const providerDisplayName = computed(() => tool.value?.provider_name || tool.val
 const toolDisplayName = computed(() => tool.value?.name || 'this tool')
 const isStimmaCloudTool = computed(() => isStimmaCloud(tool.value))
 
+// True when the selected tool is Ideogram 4 — gates the prompt editor's JSON
+// mode (Ideogram 4 is trained on structured JSON captions). The Ideogram 4 tool
+// registers model_vendor 'ideogram' with model 'ideogram:4@0' / name 'Ideogram 4.0'.
+const isIdeogram4 = computed(() => {
+  const t = tool.value
+  if (!t) return false
+  const vendor = (t.model_vendor || (t.metadata as any)?.model_vendor || '').toLowerCase()
+  if (vendor !== 'ideogram') return false
+  const model = (t.model || (t.metadata as any)?.model_name || t.name || '').toLowerCase()
+  return /ideogram[\s:_-]*v?4(\b|@|\.0|$)/.test(model) || model.includes('ideogram:4')
+})
+
+// The tool's model string — sent to the enhance endpoint, which classifies it
+// server-side (model_family) to pick the enhancement style. Raw string stays local.
+const toolModelString = computed<string>(() => {
+  const t = tool.value
+  if (!t) return ''
+  return (t.model || (t.metadata as any)?.model_name || t.name || '') as string
+})
+
+// Enhance Prompt routing: Ideogram converts to structured JSON (post-resolve, so
+// wildcards are expanded and the real canvas is known); every other model gets a
+// text rewrite (pre-resolve) whose concrete style the backend picks by family.
+const enhanceMode = computed<'text' | 'ideogram-json'>(() =>
+  isIdeogram4.value ? 'ideogram-json' : 'text'
+)
+
 // ----- User (frozen-flow) tool editing -----
 // A tool the user made by freezing a flow. These are editable in place here so
 // the tool's own page is the obvious place to find "edit this tool".
@@ -1936,11 +1963,31 @@ watch(toolLoras, resetForeverModeIdleCount, { deep: true })
 // Shared auto-delete duration
 const { autoDeleteDuration, setAutoDeleteDuration } = useToolAutoDeleteDuration()
 
+// Video output → cinematography enhancement. This is the AUTHORITATIVE signal
+// (we know the task); the backend doesn't rely on recognizing the model string.
+const enhanceIsVideo = computed(() => !!outputsVideo.value)
+
+// image-to-video: the start frame, fed to the enhancer so the cinematography
+// prompt animates the actual image. Only when it's a library item (has a mediaId).
+const enhanceSourceMediaId = computed<number | null>(() =>
+  videoImages.startImage?.mediaId ?? null
+)
+const enhanceUsesImage = computed(() => enhanceSourceMediaId.value != null)
+
 // Prompt preloader
 const { getCachedImprovedPrompt, onCacheUsed, updateConcurrentJobs } = usePromptPreloader({
   prompt: computed(() => globalPrefs.value.prompt),
-  autoImproveEnabled: computed(() => globalPrefs.value.promptOptions?.autoImprove?.enabled ?? false),
-  autoImproveInstructions: computed(() => globalPrefs.value.promptOptions?.autoImprove?.instructions ?? null)
+  // Only the text-rewrite path with no source image is pre-cached. Ideogram
+  // converts post-resolve, and i2v depends on the frame, so neither can be
+  // precomputed from prompt text alone.
+  autoImproveEnabled: computed(() =>
+    (globalPrefs.value.promptOptions?.autoImprove?.enabled ?? false) &&
+    enhanceMode.value === 'text' &&
+    !enhanceUsesImage.value
+  ),
+  autoImproveInstructions: computed(() => globalPrefs.value.promptOptions?.autoImprove?.instructions ?? null),
+  model: computed(() => toolModelString.value || null),
+  isVideo: enhanceIsVideo,
 })
 
 // Slideshow state
@@ -3367,13 +3414,44 @@ async function submitOneJob() {
   // Check for prompt enhancement
   const toolHasPrompt = hasPromptFeature(builderConfig)
   const prompt = capturedState.parameters.prompt || ''
-  const promptOptions = capturedState.promptOptions
+  // Enhance Prompt is family-aware: thread the tool's model + enhancement mode
+  // into the generate-time pipeline. The backend picks the style from the model;
+  // Ideogram (mode 'ideogram-json') runs as the post-resolve JSON step.
+  const rawPromptOptions = capturedState.promptOptions
+  const promptOptions = rawPromptOptions
+    ? {
+        ...rawPromptOptions,
+        autoImprove: {
+          ...rawPromptOptions.autoImprove,
+          model: toolModelString.value || null,
+          // Task-authoritative: video tools always get cinematography.
+          isVideo: enhanceIsVideo.value,
+          mode: enhanceMode.value,
+          // i2v: source frame for the enhancer (used on the cinematography path).
+          mediaId: enhanceSourceMediaId.value,
+        },
+      }
+    : rawPromptOptions
+  const enhanceOn = !!promptOptions?.autoImprove?.enabled
 
-  const cachedPrompt = toolHasPrompt && promptOptions?.autoImprove?.enabled
-    ? getCachedImprovedPrompt(prompt, promptOptions.autoImprove.instructions || null)
+  // Ideogram JSON needs the real canvas so the model composes layout/bboxes for
+  // the right aspect ratio (Ideogram 4 uses fixed width×height presets).
+  const imageSize = enhanceOn && enhanceMode.value === 'ideogram-json'
+    ? { width: Number(capturedState.parameters?.width) || null, height: Number(capturedState.parameters?.height) || null }
+    : undefined
+
+  // Pre-cached improved prompts only exist for the text-rewrite path with no
+  // source image (i2v depends on the frame, so it's never pre-cached).
+  const cachedPrompt = toolHasPrompt && enhanceOn && enhanceMode.value === 'text' && !enhanceUsesImage.value
+    ? getCachedImprovedPrompt(prompt, promptOptions!.autoImprove.instructions || null)
     : null
 
-  const needsEnhancing = toolHasPrompt && promptOptions?.autoImprove?.enabled && !cachedPrompt
+  // Show a pending placeholder whenever the slow generate-time pipeline will run
+  // (enhance-without-cache, which includes Ideogram JSON, or translate).
+  const needsEnhancing = toolHasPrompt && (
+    (enhanceOn && !cachedPrompt) ||
+    promptOptions?.translate?.enabled
+  )
   const pendingId = needsEnhancing
     ? jobsManager.addPendingJob(prompt, { model_name: tool.value!.model, generator_name: tool.value!.generator })
     : null
@@ -3420,6 +3498,7 @@ async function submitOneJob() {
     submitMediaBatchJobAsync({
       prompt,
       promptOptions,
+      imageSize,
       cachedImprovedPrompt: cachedPrompt,
       buildPayload: (processedPrompt, promptMetadata) => ({
         ...basePayload,
@@ -3473,6 +3552,7 @@ async function submitOneJob() {
     submitBatchJobAsync({
       prompt,
       promptOptions,
+      imageSize,
       cachedImprovedPrompt: cachedPrompt,
       buildPayload: (processedPrompt, promptMetadata) => ({
         ...basePayload,
@@ -3501,6 +3581,7 @@ async function submitOneJob() {
     submitJobAsync({
       prompt,
       promptOptions,
+      imageSize,
       cachedImprovedPrompt: cachedPrompt,
       buildPayload: (processedPrompt, promptMetadata) => ({
         ...basePayload,

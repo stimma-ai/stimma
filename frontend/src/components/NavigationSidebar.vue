@@ -1586,24 +1586,13 @@ function handleTabReorderDragOver(index: number, group: 'pinned' | 'open', e: Dr
 }
 
 function handleTabReorderDrop(index: number, group: 'pinned' | 'open', e: DragEvent) {
-  console.log('[handleTabReorderDrop] called with:', { index, group })
   e.preventDefault()
-  if (!tabReorderDragSource.value) {
-    console.log('[handleTabReorderDrop] no drag source, returning')
-    return
-  }
-  if (tabReorderDragSource.value.group !== group) {
-    console.log('[handleTabReorderDrop] group mismatch, returning')
-    return
-  }
+  if (!tabReorderDragSource.value) return
+  if (tabReorderDragSource.value.group !== group) return
 
   const fromIndex = tabReorderDragSource.value.index
-  console.log('[handleTabReorderDrop] fromIndex:', fromIndex, 'toIndex:', index)
   if (fromIndex !== index) {
-    console.log('[handleTabReorderDrop] calling moveTab')
     moveTab(fromIndex, index, group)
-  } else {
-    console.log('[handleTabReorderDrop] fromIndex === index, not moving')
   }
   handleTabReorderDragEnd()
 }

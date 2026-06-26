@@ -10,7 +10,7 @@
  * and is persisted across sessions.
  */
 
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { isTauri as checkIsTauri, initApiConfig } from '../apiConfig'
 import { useTelemetry } from './useTelemetry'
 
@@ -154,6 +154,29 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     }
   }
 
+  // ---- Liveness lease ------------------------------------------------------
+  // While recording, ping the Rust side on a timer so it knows this webview is
+  // still alive and showing the indicator. If we go away (HMR swap, page
+  // refresh, crash, lost focus) the pings stop and the capture loop abandons
+  // itself within a few seconds — see LEASE_TIMEOUT in voice.rs. This is the
+  // real backstop; the explicit teardown hooks below just make it instant.
+  const KEEPALIVE_INTERVAL_MS = 1000
+  let keepaliveTimer: ReturnType<typeof setInterval> | null = null
+
+  function startKeepalive() {
+    stopKeepalive()
+    keepaliveTimer = setInterval(() => {
+      void invokeFn?.('voice_keepalive').catch(() => { /* session gone; ignore */ })
+    }, KEEPALIVE_INTERVAL_MS)
+  }
+
+  function stopKeepalive() {
+    if (keepaliveTimer != null) {
+      clearInterval(keepaliveTimer)
+      keepaliveTimer = null
+    }
+  }
+
   /**
    * Begin push-to-talk. If the model isn't downloaded yet, this kicks off the
    * download instead of recording — the caller presses again once it's ready.
@@ -198,6 +221,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     recordingStartedAt = Date.now()
     try {
       await invokeFn('voice_start', { modelId: model, onEvent: chan })
+      startKeepalive()
       return true
     } catch (e) {
       error.value = String(e)
@@ -209,6 +233,7 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   /** End push-to-talk and commit the final transcript. */
   async function stop(): Promise<void> {
     if (state.value !== 'recording') return
+    stopKeepalive()
     trackUse('committed')
     state.value = 'finalizing'
     try {
@@ -278,6 +303,10 @@ export function useVoiceInput(opts: VoiceInputOptions) {
 
   /** Abort without committing (best effort). */
   async function cancel(): Promise<void> {
+    stopKeepalive()
+    clearSpaceTimer()
+    spacePending = false
+    spaceDictating = false
     if (state.value === 'recording') {
       trackUse('cancelled')
       try { await invokeFn('voice_cancel') } catch { /* ignore */ }
@@ -285,6 +314,36 @@ export function useVoiceInput(opts: VoiceInputOptions) {
     interim = ''
     if (state.value !== 'error') state.value = 'idle'
   }
+
+  // ---- Teardown safety nets ------------------------------------------------
+  // A held-Space dictation only stops on keyup. If we never see that keyup —
+  // the window loses focus, the tab/app is hidden, or the page is unloading —
+  // abandon the session here so the Rust loop doesn't keep capturing. (If even
+  // these don't fire, the Rust lease still catches it; this just makes it
+  // immediate.)
+  function onWindowBlur() {
+    if (state.value === 'recording') void cancel()
+  }
+  function onVisibilityChange() {
+    if (document.hidden && state.value === 'recording') void cancel()
+  }
+  function onPageHide() {
+    if (state.value === 'recording') void cancel()
+  }
+
+  onMounted(() => {
+    window.addEventListener('blur', onWindowBlur)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('pagehide', onPageHide)
+  })
+  onUnmounted(() => {
+    window.removeEventListener('blur', onWindowBlur)
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.removeEventListener('pagehide', onPageHide)
+    // The component owning this dictation is gone (route change, HMR); don't
+    // leave the mic capturing.
+    void cancel()
+  })
 
   return {
     supported,

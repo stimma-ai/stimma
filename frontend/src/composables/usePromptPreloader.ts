@@ -12,6 +12,7 @@ interface PreloadedPrompt {
   processedPrompt: string  // After wildcards, before LLM
   improvedPrompt: string   // After LLM improvement
   instructions: string | null
+  model: string | null     // The tool model used (enhancement style depends on it)
   timestamp: number
 }
 
@@ -19,6 +20,12 @@ interface PromptPreloaderOptions {
   prompt: Ref<string>
   autoImproveEnabled: Ref<boolean>
   autoImproveInstructions: Ref<string | null>
+  // The tool's model string — forwarded to /improve so the cached prompt uses
+  // the right family-specific style.
+  model?: Ref<string | null>
+  // Whether the tool outputs video — forwarded so a cached t2v prompt is built
+  // with the cinematography style (not prose).
+  isVideo?: Ref<boolean>
   minCacheSize?: number
   debounceMs?: number
 }
@@ -33,9 +40,14 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
     prompt,
     autoImproveEnabled,
     autoImproveInstructions,
+    model,
+    isVideo,
     minCacheSize = 2,
     debounceMs = 1500  // Wait a bit longer than typing debounce
   } = options
+
+  const currentModel = () => model?.value ?? null
+  const currentIsVideo = () => isVideo?.value ?? false
 
   // Cache of pre-computed improved prompts
   const cache = ref<PreloadedPrompt[]>([])
@@ -66,7 +78,8 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
     // Look for a match in cache
     const index = cache.value.findIndex(
       c => c.processedPrompt === processedPrompt &&
-           c.instructions === (instructions || null)
+           c.instructions === (instructions || null) &&
+           c.model === currentModel()
     )
 
     if (index !== -1) {
@@ -104,7 +117,9 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         const response = await axios.post(`${getAPIBase()}/prompt/improve`, {
           prompt: promptWithPlaceholders,
-          instructions: instructions || null
+          instructions: instructions || null,
+          model: currentModel(),
+          is_video: currentIsVideo()
         })
 
         const candidatePrompt = response.data.improved_prompt
@@ -141,6 +156,7 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
         processedPrompt,
         improvedPrompt,
         instructions: instructions || null,
+        model: currentModel(),
         timestamp: Date.now()
       })
 
@@ -247,6 +263,15 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
       clearCache()
     }
   })
+
+  // The enhancement style depends on the model — switching tools/models
+  // invalidates any prompts cached for the old model.
+  if (model) {
+    watch(model, () => {
+      clearCache()
+      lastPreloadedPrompt = ''
+    })
+  }
 
   /**
    * Called after using a cached prompt to trigger preloading the next one.

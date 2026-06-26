@@ -6,23 +6,91 @@
 
       <!-- Bottom Action Bar (flows below textarea) -->
       <div class="px-3 py-1.5 flex items-center justify-between bg-surface rounded-b-md border-t border-surface-raised">
-        <!-- Left: Auto-improve toggle (hidden in flow context — flows
-             execute the literal prompt, so an auto-rewrite would diverge
-             from the declared input). -->
-        <button
-          v-if="!hideAutoImprove"
-          @click="updatePromptOption('autoImprove', { ...promptOptions.autoImprove, enabled: !promptOptions.autoImprove.enabled })"
-          :class="[
-            'flex items-center gap-1.5 text-[11px] transition-colors',
-            promptOptions.autoImprove.enabled
-              ? 'text-purple-500'
-              : 'text-content-muted hover:text-content-muted'
-          ]"
-          title="Automatically improve prompts when generating"
-        >
-          <BoltIcon class="w-3 h-3" />
-          <span>Auto-Improve</span>
-        </button>
+        <!-- Left: generate-time prompt pipeline (hidden in flow context — flows
+             execute the literal prompt, so rewriting it would diverge from the
+             declared input). Reads left→right: Enhance Prompt → Translate Prompt.
+             Enhance is family-aware (prose / keywords / cinematography / Ideogram
+             JSON) — the style is chosen automatically from the tool's model. -->
+        <div v-if="!hideAutoImprove" class="flex items-center gap-3">
+          <!-- Enhance Prompt toggle -->
+          <button
+            @click="updatePromptOption('autoImprove', { ...promptOptions.autoImprove, enabled: !promptOptions.autoImprove.enabled })"
+            :class="[
+              'flex items-center gap-1.5 text-[11px] transition-colors',
+              promptOptions.autoImprove.enabled
+                ? 'text-purple-500'
+                : 'text-content-muted hover:text-content-secondary'
+            ]"
+            title="Enhance the prompt with AI when generating"
+          >
+            <WandSparklesIcon class="w-3 h-3" />
+            <span>Enhance Prompt</span>
+          </button>
+
+          <!-- Translate Prompt chip: the whole chip opens the menu (one big hit target).
+               On/off lives in the menu as the "Off" choice — same place you pick
+               a language — so there's one obvious control surface. -->
+          <div class="relative flex items-center" ref="translateMenuContainer">
+            <button
+              ref="translateButton"
+              @click="toggleTranslateMenu"
+              :class="[
+                'flex items-center gap-1.5 text-[11px] transition-colors',
+                translateActive
+                  ? 'text-blue-500'
+                  : 'text-content-muted hover:text-content-secondary'
+              ]"
+              :title="translateActive
+                ? `Translating the prompt to ${activeLanguageLabel} before generating`
+                : 'Translate the prompt into another language before generating'"
+            >
+              <LanguageIcon class="w-3 h-3" />
+              <span>{{ translateActive ? activeLanguageLabel : 'Translate Prompt' }}</span>
+              <ChevronDownIcon class="w-2.5 h-2.5 opacity-70" />
+            </button>
+
+            <!-- Menu teleported to <body> with fixed positioning so it escapes
+                 the editor's scroll/overflow clipping (which was cutting off the
+                 top "Off" row). Opens upward, anchored above the chip. -->
+            <Teleport to="body">
+              <div
+                v-if="showTranslateMenu"
+                ref="translateMenuEl"
+                class="fixed py-1 bg-surface border border-surface-raised rounded-lg shadow-xl z-[200] w-48 max-h-80 overflow-y-auto"
+                :style="{ left: translateMenuPos.left + 'px', bottom: translateMenuPos.bottom + 'px' }"
+              >
+                <div class="px-3 pt-1 pb-1.5 text-[10px] font-medium uppercase tracking-wide text-content-tertiary">
+                  Translate prompt to
+                </div>
+                <button
+                  @click="setTranslate(null)"
+                  class="w-full text-left px-3 py-1.5 text-[12px] flex items-center justify-between gap-2 hover:bg-surface-raised transition-colors"
+                  :class="!translateActive ? 'text-blue-500' : 'text-content-secondary'"
+                >
+                  <span>Off</span>
+                  <CheckIcon v-if="!translateActive" class="w-3.5 h-3.5 shrink-0" />
+                </button>
+                <div class="border-t border-surface-raised my-1"></div>
+                <button
+                  v-for="lang in PROMPT_LANGUAGES"
+                  :key="lang.code"
+                  @click="setTranslate(lang.code)"
+                  class="w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-surface-raised transition-colors"
+                  :class="translateActive && activeLanguageCode === lang.code ? 'text-blue-500' : 'text-content-secondary'"
+                >
+                  <span class="flex flex-col leading-tight">
+                    <span class="text-[12px]">{{ lang.label }}</span>
+                    <span
+                      class="text-[10px]"
+                      :class="translateActive && activeLanguageCode === lang.code ? 'text-blue-500/70' : 'text-content-tertiary'"
+                    >{{ lang.english }}</span>
+                  </span>
+                  <CheckIcon v-if="translateActive && activeLanguageCode === lang.code" class="w-3.5 h-3.5 shrink-0" />
+                </button>
+              </div>
+            </Teleport>
+          </div>
+        </div>
         <span v-else></span>
 
         <!-- Right: Inline toggles + Help + AI Sparkle -->
@@ -128,11 +196,11 @@
               <!-- Divider -->
               <div v-if="!hideAutoImprove" class="border-t border-surface-raised my-3"></div>
 
-              <!-- Auto-Improve -->
+              <!-- Enhance Prompt -->
               <div v-if="!hideAutoImprove">
                 <div class="flex items-center gap-1.5 mb-1">
-                  <BoltIcon class="w-3 h-3 text-purple-500" />
-                  <span class="text-xs font-medium text-content-secondary">Auto-Improve</span>
+                  <WandSparklesIcon class="w-3 h-3 text-purple-500" />
+                  <span class="text-xs font-medium text-content-secondary">Enhance Prompt</span>
                 </div>
                 <p class="text-xs text-content-tertiary leading-relaxed">
                   When enabled, your prompt is automatically enhanced by AI each time you generate. The original prompt is preserved in the editor &mdash; only the version sent to the generation tool is improved.
@@ -178,20 +246,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
-import { SparklesIcon, BoltIcon } from '@heroicons/vue/24/solid'
+import { SparklesIcon, LanguageIcon, ChevronDownIcon, CheckIcon } from '@heroicons/vue/24/solid'
+import WandSparklesIcon from '../icons/WandSparklesIcon.vue'
 import PromptAgentChat from './PromptAgentChat.vue'
 import { useCodeMirrorPrompt } from '../../composables/useCodeMirrorPrompt'
+import { PROMPT_LANGUAGES, promptLanguageByCode, DEFAULT_TRANSLATE_LANGUAGE } from './promptLanguages'
 
 interface PromptOptionSetting {
   enabled: boolean
   instructions: string
 }
 
+interface TranslateSetting {
+  enabled: boolean
+  language: string
+}
+
 interface PromptOptions {
   autoImprove: PromptOptionSetting
   varyPrompt: PromptOptionSetting
+  translate?: TranslateSetting
 }
 
 interface Props {
@@ -200,9 +276,9 @@ interface Props {
   placeholder?: string
   expanded?: boolean
   promptOptions?: PromptOptions
-  // Flow inputs run the literal prompt through the declared graph, so
-  // auto-improve (which silently rewrites the prompt at submit time) would
-  // break the execution model. Hide the affordance in those contexts.
+  // Flow inputs run the literal prompt through the declared graph, so the
+  // generate-time pipeline (which silently rewrites the prompt at submit time)
+  // would break the execution model. Hide the affordances in those contexts.
   hideAutoImprove?: boolean
   // When set, this editor renders no chat affordance of its own (no sparkle, no
   // inline panel). The embedder (ToolView) owns a page-level PromptAgentChat and
@@ -216,7 +292,8 @@ const props = withDefaults(defineProps<Props>(), {
   expanded: false,
   promptOptions: () => ({
     autoImprove: { enabled: false, instructions: '' },
-    varyPrompt: { enabled: false, instructions: '' }
+    varyPrompt: { enabled: false, instructions: '' },
+    translate: { enabled: false, language: DEFAULT_TRANSLATE_LANGUAGE },
   }),
   hideAutoImprove: false,
   externalChat: false,
@@ -232,6 +309,42 @@ const emit = defineEmits<{
 const editorMount = ref<HTMLElement | null>(null)
 const helpPopoverContainer = ref<HTMLElement | null>(null)
 const showHelp = ref(false)
+const translateMenuContainer = ref<HTMLElement | null>(null)
+const translateButton = ref<HTMLElement | null>(null)
+const translateMenuEl = ref<HTMLElement | null>(null)
+const showTranslateMenu = ref(false)
+// Fixed coords for the teleported menu, anchored above the chip (opens upward).
+const translateMenuPos = ref({ left: 0, bottom: 0 })
+
+function toggleTranslateMenu() {
+  if (!showTranslateMenu.value) {
+    const rect = translateButton.value?.getBoundingClientRect()
+    if (rect) {
+      translateMenuPos.value = {
+        left: Math.round(rect.left),
+        bottom: Math.round(window.innerHeight - rect.top + 6),
+      }
+    }
+  }
+  showTranslateMenu.value = !showTranslateMenu.value
+}
+
+// --- Translate state (generate-time pipeline) ---
+const translateActive = computed(() => !!props.promptOptions.translate?.enabled)
+const activeLanguageCode = computed(() => props.promptOptions.translate?.language ?? DEFAULT_TRANSLATE_LANGUAGE)
+const activeLanguageLabel = computed(
+  () => promptLanguageByCode(activeLanguageCode.value)?.label ?? 'Translate'
+)
+
+// Pick a target language from the menu (also turns translation on); passing
+// null is the "Off" choice. This is the single control surface for translation.
+function setTranslate(code: string | null) {
+  updatePromptOption('translate', {
+    enabled: !!code,
+    language: code ?? activeLanguageCode.value,
+  })
+  showTranslateMenu.value = false
+}
 
 // CodeMirror composable
 const { vimEnabled, monospaceEnabled, toggleVim, toggleMonospace, setContent, applyDiffDecorations, clearDiffDecorations } =
@@ -362,10 +475,19 @@ const selfHandle: PromptEditorHandle = {
   animateDiff,
 }
 
-// Click-outside handler for help popover
+// Click-outside handler for the popover menus
 function handleClickOutside(event: MouseEvent) {
   if (showHelp.value && helpPopoverContainer.value && !helpPopoverContainer.value.contains(event.target as Node)) {
     showHelp.value = false
+  }
+  // The menu is teleported to <body>, so check the button and the menu element
+  // separately (it's no longer a DOM descendant of the chip container).
+  if (
+    showTranslateMenu.value &&
+    !translateButton.value?.contains(event.target as Node) &&
+    !translateMenuEl.value?.contains(event.target as Node)
+  ) {
+    showTranslateMenu.value = false
   }
 }
 

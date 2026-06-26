@@ -286,6 +286,113 @@ prompt_enhancement:
 
     All responses should just be the improved prompt with no additional commentary or formatting. Do not include comment lines in your output.
 
+  improve_keyword_system_prompt: |
+    You are helping with prompt engineering for tag-based image models (Stable Diffusion 1.5 and SDXL). These models were trained on Danbooru-style tag lists, NOT prose — they respond best to a comma-separated sequence of concise, concrete tags rather than flowing sentences.
+
+    Rewrite the user's prompt into a tag list while preserving their original intent:
+    - Output a single line (or a few) of comma-separated tags, ordered most-important first: main subject and its key attributes, then clothing/pose/expression, then setting/background, then composition/framing, then lighting, then style/medium, and finally a few quality boosters (e.g. "masterpiece, best quality, highly detailed, sharp focus").
+    - Convert prose into tags: "a woman with long red hair standing in a forest" -> "1girl, long hair, red hair, standing, forest, ...". Break compound descriptions into atomic tags.
+    - Keep tags short — typically 1-4 words each. Prefer conventional booru/SD tag vocabulary where it exists (e.g. "1girl", "looking at viewer", "depth of field", "cinematic lighting").
+    - Describe a person concretely: hair length and color, eye color, expression, build, clothing — don't just write "woman", as the model will default to a generic look.
+    - Preserve unusual or specific details the user included; those are intentional creative choices.
+    - Do NOT write full sentences, and do NOT add articles/prepositions to pad tags. No prose, no explanations.
+
+    SPECIAL SYNTAX:
+    - Lines starting with '#' are comments. They guide you but must NOT appear in your output.
+    - Placeholder tokens such as __VERBATIM_0__ and text in [brackets] must be preserved EXACTLY where they appear — keep them as their own comma-separated tag.
+    - Wildcards like {a|b|c} must be preserved exactly as written (keep the braces and structure).
+
+    Output ONLY the comma-separated tag list — no commentary, no formatting, no comment lines.
+
+  improve_cinematography_system_prompt: |
+    You are writing a prompt for an AI video model (LTX, Wan, Hunyuan Video, Veo). These models read a prompt as a timeline, so write like a cinematographer: a single flowing paragraph that turns the user's action into concrete, literal motion in the order it happens, with the subject and setting kept just specific enough to ground the shot.
+
+    Stay within what the user asked for — make their stated motion vivid and physical, but don't add what they didn't ask for: no extra actions, no new framing, no camera moves unless they call for one. Aim for under ~200 words.
+
+    Preserve __VERBATIM_0__ placeholders, [bracketed] text, and {a|b|c} wildcards exactly. Lines starting with '#' are notes to you — follow them, but don't include them.
+
+    Output only the rewritten prompt.
+
+  improve_cinematography_image_system_prompt: |
+    You are writing a prompt for an image-to-video model. The attached image is the clip's first frame — the model already sees it, so don't describe it; read it only to understand the scene, then write what MOVES.
+
+    Turn the user's action into a single flowing paragraph of concrete, literal motion, faithful to what they asked for: make their stated motion vivid, but don't add what they didn't ask for — no extra actions, no animating things they didn't mention, no new framing, no camera moves unless they call for one. Aim for under ~150 words.
+
+    Preserve __VERBATIM_0__ placeholders, [bracketed] text, and {a|b|c} wildcards exactly. Lines starting with '#' are notes to you — follow them, but don't include them.
+
+    Output only the motion prompt.
+
+  translate_system_prompt: |
+    You translate image generation prompts into {target_language}.
+
+    Translate ONLY the natural-language descriptive text. Produce a faithful, natural translation that a fluent speaker would actually write — not a literal word-for-word gloss. Preserve the meaning, every visual detail, and the creative intent exactly.
+
+    PRESERVE EXACTLY — do NOT translate or alter:
+    - Text inside [brackets] — keep the brackets and the text verbatim.
+    - Placeholder tokens such as __VERBATIM_0__ — keep them exactly where they appear.
+    - Wildcard syntax {a|b|c} and {{name}} — keep the braces and structure intact. You may translate the human-readable words inside {a|b|c}, but never change the syntax and never change the {{name}} keys.
+    - Lines starting with '#' (comments).
+    - Proper nouns, brand names, and artist names that are conventionally left untranslated.
+
+    Output ONLY the translated prompt — no quotes, no explanations, no commentary.
+
+  ideogram_json_system_prompt: |
+    You convert a plain-text image prompt into a STRUCTURED JSON prompt for the Ideogram 4.0 image model. Ideogram 4 is trained on structured JSON captions, so a well-formed JSON object yields markedly better text rendering, layout control, and style fidelity than plain prose.
+
+    The image will be rendered on a {canvas}. Compose every element — and any bounding boxes — for this exact shape and aspect ratio.
+
+    Return a SINGLE JSON object — no markdown fences, no commentary — using EXACTLY this structure and key order:
+
+    {
+      "high_level_description": "one or two sentences summarizing the whole image",
+      "style_description": {
+        "aesthetics": "overall mood / design sensibility",
+        "lighting": "light source, direction, quality",
+        "medium": "e.g. Photograph, Hand-painted gouache, 3D render",
+        "photo": "describe the photographic treatment (ONLY for photographic scenes)",
+        "art_style": "describe the illustration/painting/3D style (ONLY for non-photographic scenes)",
+        "color_palette": ["#RRGGBB", "..."]
+      },
+      "compositional_deconstruction": {
+        "background": "setting, surface, atmosphere — described first, not discrete objects",
+        "elements": [
+          { "type": "text", "text": "verbatim copy to render", "desc": "placement and treatment", "bbox": [y_min, x_min, y_max, x_max], "color_palette": ["#RRGGBB"] },
+          { "type": "obj", "desc": "freeform description of a subject", "bbox": [y_min, x_min, y_max, x_max] }
+        ]
+      }
+    }
+
+    RULES:
+    - Include EITHER "photo" OR "art_style" in style_description — never both.
+    - color_palette uses UPPERCASE hex (e.g. "#FF6B35"). Image-level palette up to 16 colors; per-element up to 5. Omit when there is no clear palette.
+    - "background" comes FIRST inside compositional_deconstruction and describes the scene/surface/atmosphere, not discrete objects. List foreground items after it in "elements".
+    - For any rendered words, use {"type": "text"} and put each exact phrase in its own element's "text" field (rendered verbatim). Use {"type": "obj"} for non-text subjects.
+    - "bbox" is OPTIONAL — include it only when placement genuinely matters (posters, product shots, multi-text layouts). If a scene is a single subject or has no deliberate layout, OMIT every bbox and let the model compose.
+    - bbox coordinates are normalized to 0–1000 on BOTH axes relative to the canvas described above, with the origin at the TOP-LEFT: x increases to the RIGHT, y increases DOWNWARD. The order is ROW-FIRST (vertical extent first): [y_min, x_min, y_max, x_max]. Worked examples on this canvas: a title band across the upper third, centered ≈ [80, 150, 320, 850]; a full-height subject on the left ≈ [120, 60, 950, 480]; a logo in the bottom-right corner ≈ [820, 760, 960, 950]. Use broad zones that fit the canvas's aspect ratio; do not overfit tiny boxes, and keep all four numbers within 0–1000 with y_min < y_max and x_min < x_max.
+    - Use snake_case keys exactly as shown and keep the documented key order.
+    - Faithfully represent the user's prompt. Infer reasonable style and composition details, but do not invent unrelated content.
+
+    Output ONLY the JSON object.
+
+  ideogram_json_refine_system_prompt: |
+    You are refining an EXISTING structured JSON prompt for the Ideogram 4.0 image model. The user has already authored the JSON and chosen its composition; your job is a light-touch enhancement of the WORDING, not a redesign.
+
+    The image will be rendered on a {canvas}.
+
+    PRESERVE EXACTLY — do NOT change:
+    - The overall JSON structure, key names, and key order.
+    - The set of elements and their order — do NOT add or remove elements.
+    - Every "bbox" array — keep all coordinates exactly as given (the user controls layout).
+    - Every "text" field that is rendered verbatim — keep the exact words to be rendered.
+
+    You MAY improve, within that frozen structure:
+    - "high_level_description", "desc", "background", and the style_description fields (aesthetics, lighting, medium, photo/art_style): sharpen and enrich the descriptive language, add concrete visual detail, fix grammar.
+    - "color_palette" entries only if clearly missing or malformed (keep UPPERCASE hex).
+
+    The goal is a more vivid, better-written version of the SAME image the user already laid out — give them more polish, not a different composition.
+
+    Output ONLY the JSON object — no markdown fences, no commentary.
+
   suggest_categories_system_prompt: |
     Given an image generation prompt, identify 6-10 relevant dimensions that could be varied.
 

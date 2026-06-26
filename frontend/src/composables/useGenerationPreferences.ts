@@ -52,14 +52,27 @@ export interface PromptOptionSetting {
   instructions: string
 }
 
+/** Translate the outgoing prompt into `language` at generate time (after improve). */
+export interface TranslateSetting {
+  enabled: boolean
+  language: string  // a code from promptLanguages.ts, e.g. 'zh-Hans'
+}
+
 export interface PromptOptions {
   autoImprove: PromptOptionSetting
   varyPrompt: PromptOptionSetting
+  // Optional so existing persisted prefs / partial literals stay valid; the
+  // generate-time pipeline and UI read them defensively.
+  translate?: TranslateSetting
 }
 
 export const DEFAULT_PROMPT_OPTIONS: PromptOptions = {
-  autoImprove: { enabled: false, instructions: '' },
-  varyPrompt: { enabled: false, instructions: '' }
+  // Enhance Prompt defaults ON for new state — it's family-aware (the style is
+  // chosen from the tool's model) and showcases the app. Existing persisted
+  // prefs keep whatever value they already have.
+  autoImprove: { enabled: true, instructions: '' },
+  varyPrompt: { enabled: false, instructions: '' },
+  translate: { enabled: false, language: 'zh-Hans' },
 }
 
 export interface GlobalPrefs {
@@ -158,8 +171,11 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
           inputImages: data.inputImages ?? [],
           inputVideos: data.inputVideos ?? [],
           promptOptions: {
-            autoImprove: data.promptOptions?.autoImprove ?? { enabled: false, instructions: '' },
-            varyPrompt: data.promptOptions?.varyPrompt ?? { enabled: false, instructions: '' }
+            // Default ON only when this profile has never stored the setting
+            // (new state); an explicit stored value is preserved as-is.
+            autoImprove: data.promptOptions?.autoImprove ?? { enabled: true, instructions: '' },
+            varyPrompt: data.promptOptions?.varyPrompt ?? { enabled: false, instructions: '' },
+            translate: data.promptOptions?.translate ?? { enabled: false, language: 'zh-Hans' },
           },
           autoMarkerIds: data.autoMarkerIds ?? [],
           agentInstructions: data.agentInstructions ?? '',

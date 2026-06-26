@@ -9,7 +9,7 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use futures_util::StreamExt;
@@ -22,6 +22,14 @@ const SAMPLE_RATE: u32 = 16_000;
 const MIN_SAMPLES: usize = SAMPLE_RATE as usize / 2; // 0.5s
 /// How long to wait between interim transcription passes.
 const INTERIM_INTERVAL_MS: u64 = 600;
+/// How long the capture loop will run without a frontend keepalive before it
+/// gives up and stops itself. The frontend pings `voice_keepalive` every ~1s
+/// while the recording indicator is on screen, so if the webview that owns the
+/// session goes away (HMR swap, page refresh, crash, lost focus) the loop
+/// self-terminates within this window instead of spinning forever. This is a
+/// liveness lease, NOT a cap on utterance length — an active dictation refreshes
+/// it continuously and can run as long as the user holds the key.
+const LEASE_TIMEOUT: Duration = Duration::from_secs(4);
 /// Peak amplitude below which a buffer is treated as silence (no speech).
 const SILENCE_PEAK: f32 = 0.01;
 
@@ -68,6 +76,8 @@ struct Session {
     stop: Arc<AtomicBool>,
     finished: Arc<AtomicBool>,
     result: Arc<Mutex<String>>,
+    /// Last time the frontend confirmed it's still alive (see `LEASE_TIMEOUT`).
+    last_seen: Arc<Mutex<Instant>>,
 }
 
 pub struct VoiceState {
@@ -227,6 +237,7 @@ pub async fn voice_start(
     let stop = Arc::new(AtomicBool::new(false));
     let finished = Arc::new(AtomicBool::new(false));
     let result = Arc::new(Mutex::new(String::new()));
+    let last_seen = Arc::new(Mutex::new(Instant::now()));
 
     {
         let mut s = state.session.lock().unwrap();
@@ -234,13 +245,14 @@ pub async fn voice_start(
             stop: stop.clone(),
             finished: finished.clone(),
             result: result.clone(),
+            last_seen: last_seen.clone(),
         });
     }
 
     // The cpal stream is `!Send`, so it must be built and dropped on the same
     // thread. We own the whole capture+decode loop here.
     std::thread::spawn(move || {
-        capture_and_transcribe(ctx, stop, finished, result, on_event);
+        capture_and_transcribe(ctx, stop, finished, result, last_seen, on_event);
     });
 
     Ok(())
@@ -276,6 +288,18 @@ pub async fn voice_cancel(state: tauri::State<'_, Arc<VoiceState>>) -> Result<()
     Ok(())
 }
 
+/// Renew the liveness lease on the active session. The frontend calls this on a
+/// timer while the recording indicator is visible; if it stops (because the
+/// owning webview reloaded, crashed, or lost focus), the capture loop notices
+/// the stale lease and stops itself. See `LEASE_TIMEOUT`.
+#[tauri::command]
+pub async fn voice_keepalive(state: tauri::State<'_, Arc<VoiceState>>) -> Result<(), String> {
+    if let Some(session) = state.session.lock().unwrap().as_ref() {
+        *session.last_seen.lock().unwrap() = Instant::now();
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Capture + transcription worker (runs on its own thread)
 // ---------------------------------------------------------------------------
@@ -285,6 +309,7 @@ fn capture_and_transcribe(
     stop: Arc<AtomicBool>,
     finished: Arc<AtomicBool>,
     result: Arc<Mutex<String>>,
+    last_seen: Arc<Mutex<Instant>>,
     on_event: Channel<TranscriptEvent>,
 ) {
     // Ensure `finished` is always set, even on early return, so voice_stop
@@ -379,6 +404,18 @@ fn capture_and_transcribe(
             waited += 50;
         }
         let stopping = stop.load(Ordering::SeqCst);
+
+        // Liveness lease: if the frontend that owns this session has stopped
+        // renewing it, the recording indicator is no longer on screen, so this
+        // capture is orphaned (webview reloaded/crashed, key release lost, etc).
+        // Abandon it without committing rather than transcribe into the void.
+        if !stopping && last_seen.lock().unwrap().elapsed() > LEASE_TIMEOUT {
+            log::warn!(
+                "[voice] frontend lease expired (>{}s without keepalive) — stopping orphaned capture",
+                LEASE_TIMEOUT.as_secs()
+            );
+            break;
+        }
 
         let samples = {
             let buf = raw.lock().unwrap();

@@ -405,26 +405,15 @@ export function useWorkspaceTabs() {
    * Reorder tabs within a group (pinned or unpinned).
    */
   function moveTab(fromIndex: number, toIndex: number, group: 'pinned' | 'open') {
-    console.log('[moveTab] called with:', { fromIndex, toIndex, group })
     const groupTabs = group === 'pinned' ? pinnedTabs.value : openTabs.value
-    console.log('[moveTab] groupTabs length:', groupTabs.length)
-    console.log('[moveTab] groupTabs:', groupTabs.map(t => ({ id: t.id, displayOrder: t.displayOrder })))
 
     // Allow toIndex to be equal to groupTabs.length (drop after last item)
-    if (fromIndex < 0 || fromIndex >= groupTabs.length) {
-      console.log('[moveTab] invalid fromIndex, returning')
-      return
-    }
-    if (toIndex < 0 || toIndex > groupTabs.length) {
-      console.log('[moveTab] invalid toIndex, returning')
-      return
-    }
-    if (fromIndex === toIndex) {
-      console.log('[moveTab] fromIndex === toIndex, returning')
-      return
-    }
+    if (fromIndex < 0 || fromIndex >= groupTabs.length) return
+    if (toIndex < 0 || toIndex > groupTabs.length) return
+    if (fromIndex === toIndex) return
 
-    // Reorder within the group
+    // Reorder within the group. `reordered` is in DISPLAY order (the same order
+    // the user sees the tabs), regardless of how displayOrder is sorted.
     const reordered = [...groupTabs]
     const [moved] = reordered.splice(fromIndex, 1)
 
@@ -433,50 +422,31 @@ export function useWorkspaceTabs() {
     if (fromIndex < toIndex) {
       adjustedToIndex = toIndex - 1
     }
-    console.log('[moveTab] adjustedToIndex:', adjustedToIndex)
 
     reordered.splice(adjustedToIndex, 0, moved)
-    console.log('[moveTab] reordered:', reordered.map(t => ({ id: t.id, displayOrder: t.displayOrder })))
 
-    // Get the other group's tabs
-    const otherGroupTabs = group === 'pinned' ? openTabs.value : pinnedTabs.value
+    // Reassign displayOrder to all tabs. Pinned tabs come first (lower values),
+    // then open tabs. CRITICAL: pinnedTabs sorts displayOrder ASCENDING while
+    // openTabs sorts DESCENDING, so the writeback direction must match the
+    // group's sort or the displayed order gets inverted on every drag.
+    const orderedPinned = group === 'pinned' ? reordered : pinnedTabs.value
+    const orderedOpen = group === 'open' ? reordered : openTabs.value
 
-    // Reassign displayOrder globally:
-    // - Pinned tabs get lower displayOrder values (0, 1, 2...)
-    // - Open tabs get higher displayOrder values (starting after pinned tabs)
     let order = 0
-    if (group === 'pinned') {
-      // Reassign pinned tabs (the reordered group)
-      reordered.forEach((tab) => {
-        const t = tabs.value.find(tt => tt.id === tab.id)
-        if (t) t.displayOrder = order++
-      })
-      // Then reassign open tabs to start after pinned
-      otherGroupTabs.forEach((tab) => {
-        const t = tabs.value.find(tt => tt.id === tab.id)
-        if (t) t.displayOrder = order++
-      })
-    } else {
-      // Reassign pinned tabs first (keep their order)
-      otherGroupTabs.forEach((tab) => {
-        const t = tabs.value.find(tt => tt.id === tab.id)
-        if (t) t.displayOrder = order++
-      })
-      // Then reassign the reordered open tabs
-      reordered.forEach((tab) => {
-        const t = tabs.value.find(tt => tt.id === tab.id)
-        if (t) t.displayOrder = order++
-      })
+    const assign = (tab: WorkspaceTab) => {
+      const t = tabs.value.find(tt => tt.id === tab.id)
+      if (t) t.displayOrder = order++
     }
 
-    console.log('[moveTab] after displayOrder reassignment, all tabs:', tabs.value.map(t => ({ id: t.id, displayOrder: t.displayOrder, pinned: t.pinned })))
+    // Pinned: ascending sort, so assign top-to-bottom (top = lowest displayOrder).
+    orderedPinned.forEach(assign)
+    // Open: descending sort, so assign bottom-to-top (top = highest displayOrder).
+    for (let i = orderedOpen.length - 1; i >= 0; i--) {
+      assign(orderedOpen[i])
+    }
 
     // Force reactivity by creating a completely new array reference
     tabs.value = tabs.value.slice()
-
-    console.log('[moveTab] after reactivity trigger')
-    console.log('[moveTab] pinnedTabs computed:', pinnedTabs.value.map(t => ({ id: t.id, displayOrder: t.displayOrder })))
-    console.log('[moveTab] openTabs computed:', openTabs.value.map(t => ({ id: t.id, displayOrder: t.displayOrder })))
 
     // If reordering pinned tools, also update backend
     if (group === 'pinned') {

@@ -37,11 +37,14 @@ futures-util = "0.3"
 crc32fast = "1.4"
 
 # Whisper is built with Metal acceleration on macOS and CPU elsewhere.
+# `whisper-cpp-log` routes whisper.cpp/ggml's internal logging (per-token decoder
+# dumps, seek traces, etc.) through the `log` crate instead of letting it spew
+# raw to stderr — see install_whisper_log_trampoline() in lib.rs.
 [target.'cfg(target_os = "macos")'.dependencies]
-whisper-rs = { version = "0.12", features = ["metal"] }
+whisper-rs = { version = "0.12", features = ["metal", "whisper-cpp-log"] }
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
-whisper-rs = { version = "0.12" }
+whisper-rs = { version = "0.12", features = ["whisper-cpp-log"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

@@ -94,7 +94,7 @@ SEED_RULES: List[Tuple[str, str]] = [
     (r"hunyuan[ ._-]?video", "hunyuan-video"),
     (r"hunyuan[ ._-]?image", "hunyuan-image"),
     (r"hunyuan", "hunyuan-other"),
-    (r"ltx[ ._-]?v(ideo)?", "ltx-video"),
+    (r"\bltx\b|ltx[ ._-]?v(ideo)?|ltx[ ._-]?\d", "ltx-video"),
     (r"mochi", "mochi"),
     (r"cogvideo", "cogvideo"),
     (r"veo[ ._-]?3", "veo-3"),
