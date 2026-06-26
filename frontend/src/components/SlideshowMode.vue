@@ -355,7 +355,7 @@
       <GridViewer
         v-else-if="isGrid && !isViewingGrid"
         ref="gridViewerRef"
-        :key="`grid-${currentIndex}-${refreshKey}`"
+        :key="`grid-${displayItem?.id}-${refreshKey}`"
         :media-id="displayItem.id"
         :multi-select-mode="gridMultiSelectMode"
         @back="close"
@@ -383,7 +383,7 @@
         <!-- Audio player -->
         <AudioPlayer
           v-if="isAudio"
-          :key="`audio-${currentIndex}-${refreshKey}`"
+          :key="`audio-${displayItem?.id}-${refreshKey}`"
           :src="getMediaFileUrl(displayItem.file_hash)"
           :media-id="displayItem.id"
           :title="displayItem.vlm_caption"
@@ -394,14 +394,14 @@
         <!-- Markdown viewer -->
         <MarkdownViewer
           v-else-if="isText"
-          :key="`markdown-${currentIndex}-${refreshKey}`"
+          :key="`markdown-${displayItem?.id}-${refreshKey}`"
           :media-id="displayItem.id"
         />
 
         <!-- Set overview: show all items in a wrap panel (only when not already viewing a set) -->
         <SetOverview
           v-else-if="isSet && !isViewingSet"
-          :key="`set-overview-${currentIndex}-${refreshKey}`"
+          :key="`set-overview-${displayItem?.id}-${refreshKey}`"
           :media-id="displayItem.id"
           @select-item="handleSetItemSelect"
           @loaded="handleSetOverviewLoaded"
@@ -411,20 +411,23 @@
         <!-- Layout viewer -->
         <LayoutViewer
           v-else-if="isLayout"
-          :key="`layout-${currentIndex}-${refreshKey}`"
+          :key="`layout-${displayItem?.id}-${refreshKey}`"
           :media-id="displayItem.id"
           class="absolute inset-0 z-[1]"
         />
 
         <!-- Video -->
+        <!-- :loop is released (false) only when an auto-advance is armed, so the
+             current playthrough finishes and fires @ended → onVideoEnded performs
+             the queued advance. Otherwise it loops natively (seamless). -->
         <video
           v-else-if="isVideo"
-          :key="`video-${currentIndex}-${refreshKey}`"
+          :key="`video-${displayItem?.id}-${refreshKey}`"
           :src="getMediaFileUrl(displayItem.file_hash)"
           :muted="isMuted"
           @contextmenu="handleContextMenu($event, displayItem.id, displayItem.file_hash)"
           autoplay
-          loop
+          :loop="!videoAdvanceArmed"
           :class="[
             'w-full h-full object-contain select-none',
             zoomScale > 1 ? 'cursor-grabbing' : 'cursor-zoom-in'
@@ -438,6 +441,7 @@
           @dragstart="handleDragStart"
           @dragend="handleDragEnd"
           @loadedmetadata="handleMediaLoad"
+          @ended="onVideoEnded"
         >
         </video>
 
@@ -452,7 +456,7 @@
           @contextmenu="handleContextMenu($event, displayItem.id, displayItem.file_hash)"
         >
           <img
-            :key="`img-${currentIndex}-${refreshKey}`"
+            :key="`img-${displayItem?.id}-${refreshKey}`"
             :src="getMediaFileUrl(displayItem.file_hash)"
             :alt="displayItem.vlm_caption"
             :class="['w-full h-full select-none', hasExactDimensions ? '' : 'object-contain']"
@@ -1249,10 +1253,28 @@ const metadataCache = ref(new Map()) // mediaId -> { faces, boards, job, chat }
 // Flag to prevent watchers from firing during atomic transitions (infinity mode)
 const isAtomicTransition = ref(false)
 
-// Concurrency guard for auto-advance handler - prevents overlapping async operations
-// that can corrupt isAtomicTransition, displayItem, and itemsCache state
-let autoAdvanceInFlight = false
-let autoAdvanceQueued = false
+// --- Auto-advance engine (generate-forever) ---------------------------------
+// In follow mode, NEW arrivals never swap the on-screen item: each arrival only
+// "pins" the current image (currentIndex++ + cache shift). A separate dwell-gated
+// stepper walks currentIndex back down toward 0 (the newest), one step per dwell
+// window. So while following, currentIndex == the lag (0 = caught up to newest).
+// This makes "step through every image" fall out for free and is self-correcting
+// against list shifts/deletions because lag is derived from currentIndex.
+//
+// Minimum on-screen time before an auto-advance step (issue: don't blow past
+// images during fast bursts). Videos additionally wait for a natural end.
+const FOLLOW_MIN_DWELL_MS = 1500
+// performance.now() timestamp when the currently-displayed item was shown. Drives
+// the dwell floor for both follow-catch-up and the manual Play timer.
+let currentShownAt = 0
+// Pending dwell/floor timer (setTimeout handle) and serialization guard for the
+// async preload+swap step. There is only ever one of each in flight.
+let dwellTimer = null
+let stepInFlight = false
+// When true, the <video> stops looping (:loop="!videoAdvanceArmed") so its next
+// natural end fires `ended`, which performs the queued advance. False = seamless
+// native loop (idle, or before the dwell floor has elapsed).
+const videoAdvanceArmed = ref(false)
 
 // WebSocket unsubscribe functions (cleaned up in onUnmounted)
 const wsUnsubscribers = []
@@ -1287,10 +1309,13 @@ const savedSettings = loadSettings()
 const currentIndex = ref(props.items ? props.index : props.startIndex)
 const currentMediaId = ref(null) // Track by ID to survive list mutations (prepend/remove)
 const isUserNavigating = ref(false) // Flag to distinguish user navigation from index drift
-// True when the user is viewing the newest item and should "follow" new arrivals.
-// This is the single source of truth for the auto-advance decision - set from user
-// intent (navigation), never re-derived from the racy currentIndex mid-event.
-const followLatest = ref((props.items ? props.index : props.startIndex) === 0)
+// True when the user is "riding the live stream" and should auto-advance through
+// new arrivals. May be true while currentIndex > 0 (the stepper is catching up to
+// the newest). The single source of truth for the auto-advance decision: set
+// synchronously from user intent in the navigation functions (so it can never go
+// stale while a page loads or during an in-flight step), with the baseCurrentItem
+// watcher as a backstop. Browse mode (false) = no auto-advance; arrivals only pin.
+const followStream = ref((props.items ? props.index : props.startIndex) === 0)
 const localTotalCount = ref(props.items ? props.items.length : props.totalCount)
 const refreshKey = ref(0) // Used to force image reload without index change
 const isPlaying = ref(false)
@@ -1792,7 +1817,7 @@ watch(currentItem, (newItem) => {
   // user navigation (isUserNavigating) or the atomic follow-latest path may change it.
   if (
     props.autoAdvanceOnNew &&
-    !followLatest.value &&
+    !followStream.value &&
     !isUserNavigating.value &&
     currentMediaId.value != null &&
     newItem?.id !== currentMediaId.value
@@ -1825,6 +1850,18 @@ watch(currentItem, (newItem) => {
     }
   }
 }, { immediate: true })
+
+// Single re-arm point: whenever the actually-displayed item changes identity
+// (user navigation, a follow-step, a play-step, or initial load), stamp when it
+// was shown, reset zoom for the new image, and (re)arm the advance scheduler for
+// the new item. Pins (arrival-driven currentIndex++) do NOT change displayItem's
+// id, so they never reset zoom or restart the dwell clock here.
+watch(() => displayItem.value?.id, (newId, oldId) => {
+  if (newId == null || newId === oldId) return
+  currentShownAt = performance.now()
+  resetZoom()
+  scheduleAdvance()
+})
 
 // No auto-enter for sets - they behave like all other media types.
 // Users see the set cover and can interact with it (markers, tags, etc).
@@ -1885,11 +1922,18 @@ const controlBarStyle = computed(() => {
   return defaultStyle
 })
 
-// Watch currentIndex and emit updates for URL state
+// Watch currentIndex and emit updates for URL state.
+// NOTE: arrival-driven pins (currentIndex++) also fire this watcher, so the
+// view-disrupting side-effects below are gated to genuine USER navigation —
+// otherwise every new image would exit an open set / clear overviews / etc.
+// Zoom reset now lives on the displayItem identity watch above (only on a real
+// image change, not on a pin). isUserNavigating is still true here because this
+// watcher is registered before the baseCurrentItem watcher that clears it.
 watch(currentIndex, (newIndex) => {
   emit('update:index', newIndex)
-  // Reset zoom when changing images
-  resetZoom()
+
+  if (!isUserNavigating.value) return
+
   // Exit set view mode when navigating to a different item in the main slideshow
   if (isViewingSet.value) {
     exitSetView()
@@ -1911,9 +1955,10 @@ watch(baseCurrentItem, (newItem) => {
     // If user is navigating, always accept the new item
     if (isUserNavigating.value) {
       isUserNavigating.value = false
-      // Follow new arrivals only when the user has navigated to the newest item
-      followLatest.value = currentIndex.value === 0
-      console.log(`[SlideshowMode] User navigation: setting currentMediaId = ${newItem.id} followLatest=${followLatest.value}`)
+      // Backstop for the synchronous followStream set in the nav functions:
+      // follow the stream only when the user is on the newest item.
+      followStream.value = currentIndex.value === 0
+      console.log(`[SlideshowMode] User navigation: setting currentMediaId = ${newItem.id} followStream=${followStream.value}`)
       currentMediaId.value = newItem.id
       emit('update:currentMediaId', newItem.id)
       return
@@ -1945,8 +1990,13 @@ watch(baseCurrentItem, (newItem) => {
         // the wrong item. This protects against the list shifting under us as new images
         // stream in. Other pageProvider views (no autoAdvanceOnNew) keep original behavior
         // (no drift handling) by falling through.
-        if (followLatest.value) {
-          console.log(`[SlideshowMode] Following latest, accepting new newest item ${newItem.id} (was tracking ${currentMediaId.value})`)
+        // Only "snap to newest" when actually caught up (lag 0). While following
+        // with lag (currentIndex > 0) we are pinned to a specific older item just
+        // like browse mode, so fall through to the scan-and-correct path to keep
+        // tracking it — otherwise drift would yank us to the newest. The stepper
+        // updates currentMediaId itself, so its decrements never reach here.
+        if (followStream.value && currentIndex.value === 0) {
+          console.log(`[SlideshowMode] Caught up at index 0, accepting new newest item ${newItem.id} (was tracking ${currentMediaId.value})`)
           // Fall through to accept the new item
         } else {
           let correctIndex = -1
@@ -2238,10 +2288,12 @@ function next() {
   if (currentIndex.value < localTotalCount.value - 1) {
     isUserNavigating.value = true
     currentIndex.value++
+    followStream.value = currentIndex.value === 0
     resetSlideshowTimer()
   } else if (loopEnabled.value) {
     isUserNavigating.value = true
     currentIndex.value = 0
+    followStream.value = true
     resetSlideshowTimer()
   } else {
     stopSlideshow()
@@ -2260,6 +2312,7 @@ function previous() {
   if (currentIndex.value > 0) {
     isUserNavigating.value = true
     currentIndex.value--
+    followStream.value = currentIndex.value === 0
     resetSlideshowTimer()
   }
 }
@@ -2267,12 +2320,14 @@ function previous() {
 function goToFirst() {
   isUserNavigating.value = true
   currentIndex.value = 0
+  followStream.value = true
   resetSlideshowTimer()
 }
 
 function goToLast() {
   isUserNavigating.value = true
   currentIndex.value = localTotalCount.value - 1
+  followStream.value = currentIndex.value === 0
   resetSlideshowTimer()
 }
 
@@ -2280,6 +2335,7 @@ function goToIndex(index) {
   if (index >= 0 && index < localTotalCount.value) {
     isUserNavigating.value = true
     currentIndex.value = index
+    followStream.value = currentIndex.value === 0
     resetSlideshowTimer()
   }
 }
@@ -2350,6 +2406,8 @@ function exitSetView() {
   if (setViewStack.value.length > 0) {
     setViewStack.value.pop()
     setViewIndex.value = 0 // Reset index
+    // Re-arm the advance engine now that the sub-view is closed.
+    scheduleAdvance()
   }
 }
 
@@ -2584,6 +2642,8 @@ function exitGridView() {
     gridViewCol.value = 0
     gridHeadersExpanded.value = false
     resetZoom()
+    // Re-arm the advance engine now that the sub-view is closed.
+    scheduleAdvance()
   }
 }
 
@@ -2779,11 +2839,7 @@ function toggleSlideshow() {
   if (preventClick.value) return
   isPlaying.value = !isPlaying.value
   trackControl(isPlaying.value ? 'play' : 'pause')
-  if (isPlaying.value) {
-    startSlideshowTimer()
-  } else {
-    stopSlideshowTimer()
-  }
+  scheduleAdvance()
 }
 
 function userNext() {
@@ -2796,14 +2852,17 @@ function userPrevious() {
   previous()
 }
 
-function startSlideshowTimer() {
-  stopSlideshowTimer()
-  slideshowTimer.value = setInterval(() => {
-    next()
-  }, currentDuration.value * 1000)
-}
-
+// Retained names — both Play and follow-catch-up now flow through the single
+// advance engine (scheduleAdvance), which paces per item (image dwell floor vs
+// video natural-end) instead of a fixed interval. stopSlideshowTimer clears all
+// arming; resetSlideshowTimer re-arms for the current item.
 function stopSlideshowTimer() {
+  if (dwellTimer) {
+    clearTimeout(dwellTimer)
+    dwellTimer = null
+  }
+  videoAdvanceArmed.value = false
+  // Legacy interval handle (no longer used, cleared defensively).
   if (slideshowTimer.value) {
     clearInterval(slideshowTimer.value)
     slideshowTimer.value = null
@@ -2811,14 +2870,14 @@ function stopSlideshowTimer() {
 }
 
 function resetSlideshowTimer() {
-  if (isPlaying.value) {
-    startSlideshowTimer()
-  }
+  scheduleAdvance()
 }
 
 function stopSlideshow() {
+  // Turn off the manual Play timer, then re-evaluate: follow-catch-up may still
+  // be active and should keep running (it is independent of Play).
   isPlaying.value = false
-  stopSlideshowTimer()
+  scheduleAdvance()
 }
 
 function increaseDuration() {
@@ -4051,6 +4110,8 @@ async function navigateToSourceMedia(mediaId) {
 function goBackFromSource() {
   if (sourceViewStack.value.length > 0) {
     sourceViewStack.value.pop()
+    // Re-arm the advance engine now that the sub-view is closed.
+    scheduleAdvance()
   }
 }
 
@@ -4096,229 +4157,259 @@ async function handleExportDragStart(event) {
   await tauriDragStart(event, currentItem.value.id, currentItem.value.file_path)
 }
 
-// Auto-advance handler for generate forever mode
-// This is the entry point called by the WebSocket event. It handles the synchronous
-// index adjustment immediately (for !wasViewingMostRecent) and delegates the expensive
-// async work (fetch, preload, display update) to _doAutoAdvanceAsync which is serialized
-// so only one async operation runs at a time.
-async function handleNewImageGenerated(data) {
+// === Auto-advance engine (generate-forever) ================================
+// See the design note at the FOLLOW_MIN_DWELL_MS declaration. In short: arrivals
+// only PIN the current image; a dwell-gated stepper walks currentIndex back toward
+// 0 (newest), one image per >=1.5s window (videos wait for their natural end).
+
+// A new item prepends at index 0, shifting everything +1. Keep the currently
+// displayed item steady by shifting the cache and bumping currentIndex. In follow
+// mode this is lag++ (the stepper will catch up); in browse mode it keeps the
+// user's chosen image under them.
+function pinForArrival() {
+  const oldCache = itemsCache.value
+  const newCache = new Map()
+  for (const [oldIndex, item] of oldCache) {
+    newCache.set(oldIndex + 1, item)
+  }
+  itemsCache.value = newCache
+  currentIndex.value++
+}
+
+// WebSocket entry point: a generation for this tool completed.
+function handleNewImageGenerated(data) {
   if (!props.autoAdvanceOnNew) return
 
-  // Prefer generator instance filtering for ToolView. Multi-task tools can emit
-  // multiple task types, so task_type alone is not a reliable discriminator.
-  if (props.generatorInstanceId && data.generator_instance_id !== props.generatorInstanceId) {
-    console.log(`[SlideshowDebug] drop_event_instance_mismatch eventInstance=${data.generator_instance_id} slideshowInstance=${props.generatorInstanceId} jobId=${data.job?.id}`)
+  // Filter to this generator instance. Accept events that omit the id (resiliency,
+  // matching useGenerationJobs) so our pin stays 1:1 with the jobs the manager adds
+  // — otherwise the displayed item would drift relative to the list.
+  if (props.generatorInstanceId && data.generator_instance_id && data.generator_instance_id !== props.generatorInstanceId) {
+    console.log(`[SlideshowDebug] drop_event_instance_mismatch eventInstance=${data.generator_instance_id} jobId=${data.job?.id}`)
     return
   }
-
-  // Filter by task type if specified - only react to jobs matching our task type
   if (props.taskType && data.job?.task_type !== props.taskType) {
-    console.log(`[SlideshowDebug] drop_event_task_mismatch eventTask=${data.job?.task_type} slideshowTask=${props.taskType} jobId=${data.job?.id}`)
+    console.log(`[SlideshowDebug] drop_event_task_mismatch eventTask=${data.job?.task_type} jobId=${data.job?.id}`)
     return
   }
 
-  // New images are inserted at the front (index 0), so the list shifts
-  // If viewing index 0 (most recent): stay at 0 to see the new image (auto-advance)
-  // If viewing any other index: increment by 1 to stay on the same image
+  console.log(`[SlideshowDebug] ws_event_received jobId=${data.job?.id} followStream=${followStream.value} currentIndex=${currentIndex.value} total=${props.totalCount}`)
 
-  const wasViewingMostRecent = followLatest.value
-
-  console.log(`[SlideshowDebug] ws_event_received jobId=${data.job?.id} mediaId=${data.job?.result_media_id} wasViewingMostRecent=${wasViewingMostRecent} followLatest=${followLatest.value} currentIndex=${currentIndex.value} total=${props.totalCount}`)
-
-  // IMPORTANT: If NOT viewing the most recent, increment index IMMEDIATELY
-  // This must happen for every event regardless of concurrency to keep position correct
-  if (!wasViewingMostRecent) {
-    console.log(`[SlideshowDebug] nonzero_index_shift from=${currentIndex.value} to=${currentIndex.value + 1}`)
-
-    // Shift the itemsCache: all items moved right by 1 due to insertion at index 0
-    // Rebuild cache with shifted indices
-    const oldCache = itemsCache.value
-    const newCache = new Map()
-    for (const [oldIndex, item] of oldCache) {
-      newCache.set(oldIndex + 1, item)
-    }
-    itemsCache.value = newCache
-
-    currentIndex.value++
-  }
-
-  await queueAutoAdvance(wasViewingMostRecent, 'ws-event')
+  // Every arrival pins (never swaps the screen). The stepper catches up if we follow.
+  pinForArrival()
+  scheduleAdvance()
 }
 
-// Serialize expensive auto-advance work so concurrent triggers (websocket + count
-// delta fallback) cannot overlap and corrupt slideshow state.
-async function queueAutoAdvance(wasViewingMostRecent, source) {
-  console.log(`[SlideshowDebug] queue_auto_advance source=${source} wasViewingMostRecent=${wasViewingMostRecent} inFlight=${autoAdvanceInFlight} queued=${autoAdvanceQueued}`)
-  if (autoAdvanceInFlight) {
-    autoAdvanceQueued = true
-    console.log(`[SlideshowDebug] queue_marked source=${source}`)
+// --- scheduling -------------------------------------------------------------
+
+// Is the follow-catch-up stepper the active advance source right now? Disabled in
+// sub-views and under shuffle (where "newest" is meaningless). Takes precedence
+// over the manual Play timer while there is lag to catch up.
+function followActiveNow() {
+  return props.autoAdvanceOnNew && followStream.value && !isRandomized.value && currentIndex.value > 0
+}
+
+// Is the manual Play timer the active advance source right now?
+function playActiveNow() {
+  return isPlaying.value && (currentIndex.value < localTotalCount.value - 1 || loopEnabled.value)
+}
+
+// Re-validate at fire time — conditions may have changed during a dwell wait, an
+// async preload, or a video playthrough (user navigated, entered a sub-view, etc).
+function shouldStillAdvance(action) {
+  if (isViewingSet.value || isViewingGrid.value || isViewingSource.value) return false
+  if (action === performFollowStep) return followActiveNow()
+  if (action === performPlayNext) return playActiveNow()
+  return false
+}
+
+// Central scheduler. Idempotent: always clears prior arming, then arms the correct
+// trigger for the current item (a dwell timer for images, the video's natural end
+// for videos). Called after every shown item, every arrival, and on play/follow
+// state changes.
+function scheduleAdvance() {
+  if (dwellTimer) { clearTimeout(dwellTimer); dwellTimer = null }
+  videoAdvanceArmed.value = false
+
+  // No auto-advance while a sub-view is open — arrivals still pin underneath, but
+  // the view must never change out from under the user.
+  if (isViewingSet.value || isViewingGrid.value || isViewingSource.value) return
+
+  let action = null
+  let floorMs = 0
+  if (followActiveNow()) {
+    action = performFollowStep
+    floorMs = FOLLOW_MIN_DWELL_MS
+  } else if (playActiveNow()) {
+    action = performPlayNext
+    floorMs = currentDuration.value * 1000
+  } else {
     return
   }
 
-  autoAdvanceInFlight = true
-  try {
-    console.log(`[SlideshowDebug] auto_advance_start source=${source} wasViewingMostRecent=${wasViewingMostRecent} index=${currentIndex.value} total=${props.totalCount}`)
-    await _doAutoAdvanceAsync(wasViewingMostRecent)
-    console.log(`[SlideshowDebug] auto_advance_end source=${source} index=${currentIndex.value} total=${props.totalCount}`)
-  } finally {
-    autoAdvanceInFlight = false
+  const elapsed = performance.now() - currentShownAt
+  const remaining = Math.max(0, floorMs - elapsed)
 
-    if (autoAdvanceQueued) {
-      autoAdvanceQueued = false
-      const nowViewingMostRecent = followLatest.value
-      console.log(`[SlideshowDebug] queue_drain source=${source} nowViewingMostRecent=${nowViewingMostRecent}`)
-      setTimeout(() => {
-        void queueAutoAdvance(nowViewingMostRecent, `${source}-queued`)
-      }, 50)
-    }
-  }
-}
-
-// Internal async worker for auto-advance. Only one instance runs at a time,
-// guarded by autoAdvanceInFlight in handleNewImageGenerated.
-async function _doAutoAdvanceAsync(wasViewingMostRecent) {
-  // For atomic transitions, enable the flag to prevent watchers from firing
-  if (wasViewingMostRecent) {
-    isAtomicTransition.value = true
-  }
-
-  try {
-    // Wait for backend ingestion and parent to update
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    await nextTick()
-
-    // For non-atomic transitions, refresh strip now
-    // For atomic transitions (wasViewingMostRecent), we'll refresh after all updates
-    if (!wasViewingMostRecent) {
-      if (stripScrollerRef.value?.refresh) {
-        await stripScrollerRef.value.refresh()
-        console.log('[SlideshowDebug] strip_refresh_nonzero_done')
-      }
-    }
-
-    console.log(`[SlideshowDebug] post_wait_counts propsTotal=${props.totalCount} localTotal=${localTotalCount.value}`)
-
-    // Update shuffled indices if in random mode
-    if (isRandomized.value && shuffledIndices.value.length > 0) {
-      const seed = props.randomSeed || Date.now()
-      shuffledIndices.value = createShuffledIndices(props.totalCount, seed)
-    }
-
-    if (wasViewingMostRecent) {
-      // Stay at index 0 - the new image is now at this position
-      // Use atomic transition to prevent flickering - all updates happen together
-      console.log('[SlideshowDebug] atomic_transition_begin index=0')
-
-      const actualIndex = getActualIndex(0)
-
-      // Fetch new item directly via pageProvider WITHOUT touching itemsCache
-      // This keeps the old item visible while we load the new one
-      const pageSize = 50
-      const pageNumber = Math.floor(actualIndex / pageSize)
-      const startIndex = pageNumber * pageSize
-
-      let items = await props.pageProvider(pageNumber, pageSize)
-      let item = items[actualIndex - startIndex]
-      console.log(`[SlideshowDebug] page_provider_result page=${pageNumber} pageSize=${pageSize} startIndex=${startIndex} items=${items.length} firstId=${items[0]?.id} firstHasHash=${!!items[0]?.file_hash} targetId=${item?.id} targetHasHash=${!!item?.file_hash}`)
-
-      // Check if item has valid hash, retry if needed
-      let retries = 0
-      while (item && !item.file_hash && retries < 3) {
-        console.log(`[SlideshowDebug] target_not_ready_retry attempt=${retries + 1} targetId=${item?.id}`)
-        await new Promise(resolve => setTimeout(resolve, 500))
-        items = await props.pageProvider(pageNumber, pageSize)
-        item = items[actualIndex - startIndex]
-        retries++
-      }
-
-      if (!item?.file_hash) {
-        console.warn(`[SlideshowDebug] target_not_ready_give_up targetId=${item?.id} retries=${retries} firstId=${items[0]?.id} firstHasHash=${!!items[0]?.file_hash}`)
-        return
-      }
-
-      // Preload BOTH image file AND metadata in parallel
-      console.log(`[SlideshowDebug] preload_begin itemId=${item.id} hash=${item.file_hash?.slice(0, 8)}`)
-
-      const imagePreloadPromise = new Promise((resolve) => {
-        const imageUrl = getMediaFileUrl(item.file_hash)
-        const img = new Image()
-        img.onload = () => {
-          console.log(`[SlideshowDebug] image_preload_ok itemId=${item.id}`)
-          resolve()
-        }
-        img.onerror = () => {
-          console.warn(`[SlideshowDebug] image_preload_error itemId=${item.id}`)
-          resolve()
-        }
-        img.src = imageUrl
-        setTimeout(() => {
-          console.warn(`[SlideshowDebug] image_preload_timeout itemId=${item.id}`)
-          resolve()
-        }, 5000)
-      })
-
-      const metadataPreloadPromise = fetchAndCacheMetadata(item).catch(err => {
-        console.warn('Metadata preload failed:', err)
-        return null
-      })
-
-      await Promise.all([imagePreloadPromise, metadataPreloadPromise])
-      console.log(`[SlideshowDebug] preload_done itemId=${item.id}`)
-
-      // NOW update everything atomically - all in one synchronous tick
-      // Update items cache with ALL items from the page
-      items.forEach((pageItem, i) => {
-        itemsCache.value.set(startIndex + i, pageItem)
-      })
-
-      // Update display item
-      mediaLoaded.value = false
-      displayItem.value = item
-      console.log(`[SlideshowDebug] display_item_set_atomic itemId=${item.id}`)
-
-      // Update metadata refs from cache
-      const metadata = metadataCache.value.get(item.id)
-      if (metadata) {
-        faces.value = metadata.faces
-        mediaProjects.value = metadata.projects || []
-        mediaBoards.value = metadata.boards
-        generationJob.value = metadata.job
-        chatInfo.value = metadata.chat
-        descendants.value = metadata.descendants || []
-        inspiredDescendants.value = metadata.inspiredDescendants || []
-      }
-
-      // Clear face overlays for new item
-      visibleFaceOverlays.value.clear()
-
-      // Preload drag preview
-      if (item.file_hash) {
-        preloadDragPreview(getThumbnailUrl(item.file_hash, 128))
-      }
-
-      refreshKey.value++
-
-      // Now refresh strip with everything ready
-      if (stripScrollerRef.value?.refresh) {
-        await stripScrollerRef.value.refresh()
-        console.log('[SlideshowDebug] strip_refresh_atomic_done')
-      }
-
-      console.log(`[SlideshowDebug] atomic_transition_end itemId=${item.id}`)
+  if (isVideo.value) {
+    // Video: advance at the NEXT natural end, but never before the floor. Below the
+    // floor we keep native looping (videoAdvanceArmed false => :loop=true, seamless);
+    // once the floor passes we arm so the current cycle's `ended` fires the action.
+    if (remaining <= 0) {
+      videoAdvanceArmed.value = true
+      ensureVideoPlaying()
     } else {
-      // Viewing an older image - index was already incremented in handleNewImageGenerated
-      // Just preload the item at the new index
-      const actualIndex = getActualIndex(currentIndex.value)
-      await ensureItemLoaded(actualIndex)
-      console.log(`[SlideshowDebug] ensure_item_loaded_nonzero actualIndex=${actualIndex}`)
+      dwellTimer = setTimeout(() => {
+        dwellTimer = null
+        if (shouldStillAdvance(action)) { videoAdvanceArmed.value = true; ensureVideoPlaying() }
+      }, remaining)
     }
-  } finally {
-    // Re-enable watchers
-    if (wasViewingMostRecent) {
-      isAtomicTransition.value = false
-      console.log('[SlideshowDebug] atomic_transition_flag_cleared')
-    }
+  } else {
+    // Image / audio / other: advance once the floor elapses.
+    dwellTimer = setTimeout(() => {
+      dwellTimer = null
+      if (shouldStillAdvance(action)) action()
+    }, remaining)
   }
+}
+
+// When a video is armed to advance at its natural end, it must actually be playing
+// to ever fire `ended`. If a prior cycle already ended (paused on the last frame,
+// e.g. an aborted advance or a single-clip Play loop), restart it so another end —
+// and thus the advance — can occur. No-op for a video that is already playing.
+function ensureVideoPlaying() {
+  const el = videoElement.value
+  if (!el) return
+  try {
+    if (el.ended) el.currentTime = 0
+    if (el.paused) void el.play()
+  } catch (e) { /* ignore */ }
+}
+
+// Fired by the <video> element's natural end. Only reaches here when armed (loop is
+// disabled), so perform the queued advance if it is still valid; otherwise resume
+// looping and re-arm.
+function onVideoEnded() {
+  videoAdvanceArmed.value = false
+  if (shouldStillAdvance(performFollowStep)) {
+    performFollowStep()
+  } else if (shouldStillAdvance(performPlayNext)) {
+    performPlayNext()
+  } else {
+    const el = videoElement.value
+    if (el) { try { el.currentTime = 0; void el.play() } catch (e) { /* ignore */ } }
+    scheduleAdvance()
+  }
+}
+
+// --- advance actions --------------------------------------------------------
+
+// Resolve an image URL into a load promise (best-effort, never rejects).
+function preloadImage(url) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => resolve()
+    img.onerror = () => resolve()
+    img.src = url
+    setTimeout(resolve, 5000)
+  })
+}
+
+// Push cached metadata for `item` into the info-panel refs (extracted from the old
+// atomic transition).
+function applyMetadataFromCache(item) {
+  const metadata = metadataCache.value.get(item?.id)
+  if (!metadata) return
+  faces.value = metadata.faces
+  mediaProjects.value = metadata.projects || []
+  mediaBoards.value = metadata.boards
+  generationJob.value = metadata.job
+  chatInfo.value = metadata.chat
+  descendants.value = metadata.descendants || []
+  inspiredDescendants.value = metadata.inspiredDescendants || []
+}
+
+// Follow-catch-up step: advance one image toward the newest (currentIndex - 1),
+// preloading first to avoid flicker, then swapping atomically. Serialized so only
+// one runs at a time. Arrivals during the awaits pin (currentIndex++), shifting the
+// target identically — so currentIndex-1 recomputed in the swap section still points
+// at the same media (the pin is the reconciliation). Aborts without swapping if the
+// user navigated away mid-preload (issue 1b).
+async function performFollowStep() {
+  if (stepInFlight) return
+  if (!shouldStillAdvance(performFollowStep)) return
+  stepInFlight = true
+  isAtomicTransition.value = true
+  let swapped = false
+  try {
+    let targetDisplayIndex = currentIndex.value - 1
+    let actualIndex = getActualIndex(targetDisplayIndex)
+    await ensureItemLoaded(actualIndex)
+    let target = itemsCache.value.get(actualIndex)
+
+    // Brief retry if the file isn't ingested yet (rare; it usually arrived >=1.5s ago).
+    let retries = 0
+    while ((!target || (!target.file_hash && !target._placeholder)) && retries < 3) {
+      await new Promise(r => setTimeout(r, 300))
+      targetDisplayIndex = currentIndex.value - 1
+      actualIndex = getActualIndex(targetDisplayIndex)
+      const pageSize = 50
+      loadingPages.value.delete(Math.floor(actualIndex / pageSize))
+      itemsCache.value.delete(actualIndex)
+      await ensureItemLoaded(actualIndex)
+      target = itemsCache.value.get(actualIndex)
+      retries++
+    }
+
+    if (!target || (!target.file_hash && !target._placeholder)) {
+      console.warn(`[SlideshowDebug] follow_step_target_not_ready actualIndex=${actualIndex} id=${target?.id}`)
+      return // re-armed in finally
+    }
+
+    // Preload image file (for images) + metadata. Videos stream via the element.
+    const preloads = [fetchAndCacheMetadata(target).catch(() => null)]
+    if (target.file_hash && !isVideoType(target)) {
+      preloads.push(preloadImage(getMediaFileUrl(target.file_hash)))
+    }
+    await Promise.all(preloads)
+
+    // Re-validate AFTER the awaits: never yank a user who navigated away (issue 1b).
+    if (!shouldStillAdvance(performFollowStep)) {
+      console.log('[SlideshowDebug] follow_step_aborted no_longer_following')
+      return
+    }
+
+    // ---- synchronous swap section (no awaits) ----
+    targetDisplayIndex = currentIndex.value - 1
+    actualIndex = getActualIndex(targetDisplayIndex)
+    const swapItem = itemsCache.value.get(actualIndex) || target
+    mediaLoaded.value = false
+    currentIndex.value = targetDisplayIndex
+    displayItem.value = swapItem
+    // Keep the drift tracker in sync so the baseCurrentItem watcher doesn't fight us.
+    currentMediaId.value = swapItem.id
+    emit('update:currentMediaId', swapItem.id)
+    applyMetadataFromCache(swapItem)
+    visibleFaceOverlays.value.clear()
+    if (swapItem.file_hash) preloadDragPreview(getThumbnailUrl(swapItem.file_hash, 128))
+    swapped = true
+    console.log(`[SlideshowDebug] follow_step_swap index=${targetDisplayIndex} id=${swapItem.id} lagRemaining=${targetDisplayIndex}`)
+    if (stripScrollerRef.value?.refresh) void stripScrollerRef.value.refresh()
+  } finally {
+    isAtomicTransition.value = false
+    stepInFlight = false
+    // On a swap, the displayItem identity watch stamps currentShownAt and re-arms.
+    // On an abort/give-up (no swap), re-arm here so we retry on the next tick.
+    if (!swapped) scheduleAdvance()
+  }
+}
+
+// Manual Play timer step: walk toward older items (wraps with loopEnabled).
+function performPlayNext() {
+  if (!playActiveNow()) return
+  next()
+  // Re-arm with a fresh dwell. For an item change the displayItem watch also re-arms
+  // (idempotent); for a no-op (e.g. single-item loop) this avoids a busy loop.
+  currentShownAt = performance.now()
+  scheduleAdvance()
 }
 
 // Lifecycle
@@ -4527,6 +4618,11 @@ onMounted(async () => {
     preloadNearbyItems(currentIndex.value)
   }
 
+  // Initialize the advance engine: stamp the initial dwell and arm the scheduler
+  // (the displayItem identity watch will re-stamp/re-arm once the first item loads).
+  currentShownAt = performance.now()
+  scheduleAdvance()
+
   // Fetch available markers
   await fetchMarkers()
 
@@ -4712,16 +4808,13 @@ watch(() => props.totalCount, (newValue, oldValue) => {
     return
   }
 
-  // Resiliency fallback: if total count increased while viewing newest image,
-  // trigger the same auto-advance path even if websocket completion was missed.
-  if (
-    props.autoAdvanceOnNew &&
-    oldValue !== undefined &&
-    newValue > oldValue &&
-    followLatest.value
-  ) {
-    console.log(`[SlideshowMode auto-advance] Count delta trigger (${oldValue} -> ${newValue}) followLatest`)
-    void queueAutoAdvance(true, 'count-delta')
+  // Resiliency: pinning happens on the WS event (1:1 with completions), so do NOT
+  // pin here — that would double-count. We only re-arm the advance scheduler so the
+  // stepper keeps moving even if a single WS completion was missed (the displayItem
+  // lock + baseCurrentItem drift-correction keep the on-screen item correct).
+  if (props.autoAdvanceOnNew && oldValue !== undefined && newValue > oldValue) {
+    console.log(`[SlideshowMode auto-advance] count_delta ${oldValue} -> ${newValue} followStream=${followStream.value}`)
+    scheduleAdvance()
   }
 
   // Rebuild shuffled indices when count changes to keep them in sync
