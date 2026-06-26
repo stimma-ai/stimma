@@ -22,7 +22,7 @@ permissions:
 jobs:
   backend-tests:
     name: Backend tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64]
 
     steps:
       - name: Checkout
@@ -52,7 +52,7 @@ jobs:
 
   acceptance-tests:
     name: Acceptance tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, X64]
 
     steps:
       - name: Checkout
