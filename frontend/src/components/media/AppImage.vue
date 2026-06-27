@@ -9,6 +9,7 @@
     - Cover mode: checker behind entire image (no letterbox)
   -->
   <div
+    ref="containerRef"
     :class="[
       'relative overflow-hidden',
       contain ? 'bg-surface-raised' : 'bg-base',
@@ -29,7 +30,7 @@
       <div class="absolute inset-0 flex items-center justify-center">
         <div
           class="bg-checker max-w-full max-h-full"
-          :style="aspectRatioStyle"
+          :style="contentStyle"
           :draggable="draggable"
           @dragstart="$emit('dragstart', $event)"
         >
@@ -105,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onBeforeUnmount } from 'vue'
+import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 
 interface Props {
   src?: string
@@ -154,10 +155,14 @@ const emit = defineEmits<{
 const loaded = ref(false)
 const error = ref(false)
 const imgRef = ref<HTMLImageElement | null>(null)
+const containerRef = ref<HTMLElement | null>(null)
 const naturalWidth = ref(0)
 const naturalHeight = ref(0)
+const containerWidth = ref(0)
+const containerHeight = ref(0)
 const displaySrc = ref(props.src || '')
 let preloadRequestId = 0
+let resizeObserver: ResizeObserver | null = null
 
 // Auto-retry state. A failed load (e.g. a layout thumbnail the backend hasn't
 // finished rasterizing) is re-fetched with a cache-busting param after a short
@@ -180,18 +185,51 @@ function withRetryParam(src: string, attempt: number): string {
   return `${src}${sep}_imgretry=${attempt}`
 }
 
-onBeforeUnmount(clearRetryTimer)
-
-// Aspect ratio style for contain mode wrapper
-// This ensures the checker div is exactly the size of the visible image content
-const aspectRatioStyle = computed(() => {
-  if (naturalWidth.value && naturalHeight.value) {
+// Contain-mode sizing. The checker wrapper must be exactly the size of the
+// visible (letterboxed) image content. We can't lean on CSS auto-sizing for
+// this: the wrapper is a flex item, so width:auto resolves to the image's
+// intrinsic pixel size — fine when the source is the full-res file, but
+// thumbnails (e.g. 256px) then render smaller than the tile with a uniform
+// border instead of filling it. Instead we measure the container and compute
+// the contained box ourselves from the image's natural aspect, which fills
+// (and upscales small thumbnails) while preserving aspect and keeping the
+// checker exactly behind the content. Measured only in contain mode.
+const contentStyle = computed(() => {
+  const nw = naturalWidth.value
+  const nh = naturalHeight.value
+  const cw = containerWidth.value
+  const ch = containerHeight.value
+  if (nw && nh && cw && ch) {
+    const scale = Math.min(cw / nw, ch / nh)
     return {
-      aspectRatio: `${naturalWidth.value} / ${naturalHeight.value}`
+      width: `${Math.round(nw * scale)}px`,
+      height: `${Math.round(nh * scale)}px`
     }
   }
-  // Before image loads, use a square placeholder
+  // Before the image or container is measured, fall back to an aspect-ratio
+  // box (capped by max-w/h-full on the element) so there's no overflow.
+  if (nw && nh) return { aspectRatio: `${nw} / ${nh}` }
   return { aspectRatio: '1 / 1' }
+})
+
+onMounted(() => {
+  // Only contain mode needs container measurements; cover mode fills via
+  // object-cover, so we avoid attaching observers to the (many) grid images.
+  if (!props.contain || !containerRef.value || typeof ResizeObserver === 'undefined') return
+  resizeObserver = new ResizeObserver((entries) => {
+    const rect = entries[0]?.contentRect
+    if (rect) {
+      containerWidth.value = rect.width
+      containerHeight.value = rect.height
+    }
+  })
+  resizeObserver.observe(containerRef.value)
+})
+
+onBeforeUnmount(() => {
+  clearRetryTimer()
+  resizeObserver?.disconnect()
+  resizeObserver = null
 })
 
 // Reset state when src changes. Optionally keep old image visible until next src is ready.

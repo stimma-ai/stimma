@@ -43,18 +43,16 @@
         @error="$emit('media-load-error', job.result_media_id)"
       />
     </div>
-    <!-- Image display. Always a bounded thumbnail — never the full-resolution
-         file — so a long strip never piles up large decoded surfaces. WebKit
-         evicts decoded image backing stores under memory pressure (the tile then
-         renders blank until a hover transform forces a re-raster); small
-         thumbnails keep total decode memory low. Fit just switches the thumbnail
-         to fit-mode (whole frame, letterboxed) instead of cropping. -->
+    <!-- Image display. Fit mode shows the original full-resolution file — this is
+         the user's review surface and must be sharp. Crop mode uses a bounded
+         256px thumbnail (it's cover-cropped down to a small tile, so the original
+         would just waste decode memory). Unlike videos, images can render the
+         original directly, so they do. -->
     <MediaImage
       v-else-if="!isVideo && job.result_media_id"
       :media-id="job.result_media_id"
-      :thumbnail="true"
+      :thumbnail="imageMode !== 'fit'"
       :thumbnail-size="256"
-      :thumbnail-mode="imageMode === 'fit' ? 'fit' : 'crop'"
       :alt="`Generated image ${job.id}`"
       :contain="imageMode === 'fit'"
       container-class="w-full h-full"
