@@ -14,6 +14,11 @@ let settingsLoaded = false
 // Reactive ref for developer mode - allows Vue components to react to changes
 const devModeRef = ref(false)
 
+// Reactive ref for hiding all price/cost display in the UI. A developer-only
+// toggle. Persisted to localStorage (frontend-only, no backend).
+const HIDE_PRICES_KEY = 'stimma_hide_prices'
+const hidePricesRef = ref(localStorage.getItem(HIDE_PRICES_KEY) === 'true')
+
 // Reactive ref for captioning (visual analysis) feature - allows hiding all caption/keyword UI when disabled
 const captioningEnabledRef = ref(false)
 
@@ -84,7 +89,16 @@ export function setTelemetryEnabled(enabled) {
 }
 
 /**
+ * Toggle hiding of all price/cost display in the UI (developer-only).
+ * Persisted to localStorage; not synced to the backend.
+ */
+export function setHidePrices(enabled) {
+  hidePricesRef.value = enabled === true
+  localStorage.setItem(HIDE_PRICES_KEY, enabled === true ? 'true' : 'false')
+}
+
+/**
  * Reactive ref for developer mode.
  * Use this in Vue components for reactive updates.
  */
-export { devModeRef, captioningEnabledRef, telemetryEnabledRef }
+export { devModeRef, captioningEnabledRef, telemetryEnabledRef, hidePricesRef }

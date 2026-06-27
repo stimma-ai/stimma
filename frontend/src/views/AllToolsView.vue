@@ -273,6 +273,7 @@ import ConnectionError from '../components/ConnectionError.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import FreezeToolDialog from '../components/flow/FreezeToolDialog.vue'
 import { getApiBase } from '../apiConfig'
+import { hidePricesRef } from '../appConfig'
 import { useFlowsApi } from '../composables/useFlowsApi'
 import { useToasts } from '../composables/useToasts'
 import axios from 'axios'
@@ -638,6 +639,7 @@ function getToolDescription(tool) {
 }
 
 function getToolPrice(tool) {
+  if (hidePricesRef.value) return ''
   return tool.metadata?.display_price || ''
 }
 

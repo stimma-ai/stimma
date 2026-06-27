@@ -29,6 +29,30 @@
 
     <!-- Dev-only tools -->
     <template v-if="localDevMode">
+      <!-- Hide Prices Toggle (for marketing screenshots) -->
+      <div class="mt-3 p-4 bg-surface-raised/50 rounded-lg">
+        <div class="flex items-center justify-between">
+          <div class="flex-1 min-w-0">
+            <h4 class="text-sm font-medium text-content">Hide Prices</h4>
+            <p class="text-xs text-content-tertiary mt-0.5">Hide all price/cost display throughout the UI</p>
+          </div>
+          <button
+            @click="toggleHidePrices"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-surface',
+              hidePricesRef ? 'bg-blue-600' : 'bg-surface-hover'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                hidePricesRef ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+      </div>
+
       <div class="mt-3 p-4 bg-surface-raised/50 rounded-lg">
         <div class="flex items-center justify-between gap-3">
           <div class="flex-1 min-w-0">
@@ -190,6 +214,7 @@ import { ref, watch, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSettingsApi } from '../../../composables/useSettingsApi'
 import { makeGlobalKey } from '../../../utils/storageKeys'
+import { hidePricesRef, setHidePrices } from '../../../appConfig'
 
 const props = defineProps({
   developerMode: {
@@ -223,6 +248,10 @@ function toggleDeveloperMode() {
   const newValue = !localDevMode.value
   localDevMode.value = newValue
   emit('update-developer-mode', newValue)
+}
+
+function toggleHidePrices() {
+  setHidePrices(!hidePricesRef.value)
 }
 
 const router = useRouter()

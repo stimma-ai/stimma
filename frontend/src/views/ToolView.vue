@@ -120,7 +120,7 @@
               Edit
             </button>
             <span
-              v-if="tool.metadata?.display_price"
+              v-if="tool.metadata?.display_price && !hidePricesRef"
               class="px-2.5 py-1 text-xs rounded-full"
               :class="isStimmaCloudTool
                 ? 'stimma-cloud-border-solid stimma-cloud-text font-medium bg-overlay-subtle'
@@ -789,7 +789,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick, provide } from 'vue'
-import { devModeRef } from '../appConfig'
+import { devModeRef, hidePricesRef } from '../appConfig'
 import { usePromptMiniAgent } from '../composables/usePromptMiniAgent'
 import { usePromptEditorUndo } from '../composables/usePromptEditorUndo'
 import { PROMPT_EDITOR_AGENT_KEY } from '../composables/promptEditorAgentKey'
