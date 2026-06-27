@@ -52,7 +52,7 @@ jobs:
 
   acceptance-tests:
     name: Acceptance tests
-    runs-on: [self-hosted, linux, X64]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
