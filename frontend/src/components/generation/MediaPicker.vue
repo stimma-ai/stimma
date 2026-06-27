@@ -23,7 +23,7 @@
               'flex flex-col flex-shrink-0',
               reorderable ? 'w-[13.5rem]' : 'w-[26.5rem]',
               hasControlnet && accept === 'image'
-                ? 'gap-0 rounded-lg border border-edge-subtle bg-overlay-subtle overflow-hidden'
+                ? 'gap-0 rounded-lg border border-edge-subtle bg-surface-raised overflow-hidden'
                 : (reorderable ? 'gap-1.5' : 'gap-2')
             ]"
           >
