@@ -568,8 +568,22 @@ export async function waitForChatItem(
 export async function sendChatMessage(page: Page, message: string) {
   const input = page.getByRole('textbox', { name: 'Type a message...' });
   await expect(input).toBeVisible({ timeout: 30000 });
-  await input.fill(message);
-  await input.press('Enter');
+  await expect(input).toBeEnabled({ timeout: 30000 });
+
+  // A blind fill+Enter is racy: the composer's send handler silently no-ops while
+  // the chat-model list is still resolving (sendMessage() returns early on
+  // isChatModelUnavailable), leaving the text in the box and nothing sent — which
+  // shows up downstream as the user message never appearing. Retry the submit
+  // until it's actually accepted. The composer clears messageInput synchronously
+  // once a send goes through, so an emptied box is the signal that it landed.
+  await expect(async () => {
+    if ((await input.inputValue()) !== message) {
+      await input.fill(message);
+      await expect(input).toHaveValue(message);
+    }
+    await input.press('Enter');
+    await expect(input).toHaveValue('', { timeout: 2000 });
+  }).toPass({ timeout: 30000 });
 }
 
 export async function waitFor<T>(check: () => Promise<T | null>, timeoutMs: number): Promise<T> {
