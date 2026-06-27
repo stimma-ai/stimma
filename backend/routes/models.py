@@ -4,6 +4,7 @@ Model catalog routes.
 Provides the list of available LLM models for the chat model picker,
 merging Stimma Cloud catalog entries with locally configured endpoints.
 """
+import os
 from typing import Optional
 
 import httpx
@@ -154,6 +155,24 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
             "status": "available",
             "resolved_slug": "local",
             "max_context_tokens": local_max_context_tokens,
+        })
+
+    # Acceptance lane: the resolver (_acceptance_llm_config) serves a
+    # deterministic in-process LLM for every role regardless of cloud auth or
+    # local endpoint config, so the picker must advertise `auto` as available.
+    # Otherwise the model list loads as "unavailable" and the composer silently
+    # no-ops sends — a race the acceptance chat tests only win by sending before
+    # /models/available resolves.
+    if os.environ.get("STIMMA_TEST_PROVIDER"):
+        cloud_status = "available"
+        cloud_message = ""
+        auto_model.update({
+            "name": "Auto: Acceptance LLM",
+            "description": "Deterministic in-process model used by the acceptance lane.",
+            "available": True,
+            "status": "available",
+            "resolved_slug": "auto",
+            "max_context_tokens": get_max_context_tokens('agent-max'),
         })
 
     models.insert(0, auto_model)

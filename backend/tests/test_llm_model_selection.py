@@ -98,3 +98,36 @@ async def test_available_models_setup_state_is_not_a_hidden_model_list(monkeypat
     assert auto_model["name"] == "Set up AI models"
     assert auto_model["description"] == "Sign in to Stimma Cloud or configure a local endpoint in Settings > Advanced."
     assert {"agent-max", "default", "local", "auto"} == slugs
+
+
+@pytest.mark.asyncio
+async def test_available_models_acceptance_provider_advertises_auto(monkeypatch):
+    """The acceptance lane serves a deterministic in-process LLM for every
+    role, so the picker must report `auto` as available. Otherwise the chat
+    composer treats the model as unavailable and silently no-ops sends."""
+    from routes import models as models_route
+    import firebase_auth
+
+    settings = SimpleNamespace(
+        cloud=SimpleNamespace(base_url="https://cloud.example"),
+        default_model="auto",
+        llms={
+            "agent": LLMRoleConfig(source="auto"),
+            "agent-fast": LLMRoleConfig(source="auto"),
+        },
+    )
+
+    async def no_cloud_token():
+        return None
+
+    monkeypatch.setattr(models_route, "get_settings", lambda: settings)
+    monkeypatch.setattr(firebase_auth, "get_valid_id_token", no_cloud_token)
+    monkeypatch.setenv("STIMMA_TEST_PROVIDER", "1")
+
+    payload = await models_route.get_available_models()
+    auto_model = payload["models"][0]
+
+    assert auto_model["slug"] == "auto"
+    assert auto_model["available"] is True
+    assert auto_model["resolved_slug"] == "auto"
+    assert payload["cloud_status"] == "available"
