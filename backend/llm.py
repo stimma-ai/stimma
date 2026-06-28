@@ -137,6 +137,10 @@ def strip_thinking_tags(text: str) -> str:
         last_close = lower.rfind(f'</{tag}>')
         if first_open != -1 and last_close > first_open:
             text = text[:first_open] + text[last_close + len(f'</{tag}>'):]
+        # Drop orphan tags — a reasoning model can stream the opener to the
+        # thinking channel and leak a bare closer (or vice-versa) into content,
+        # which the paired/nested handling above never catches.
+        text = re.sub(rf'</?{tag}>', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
     return text.strip()
 

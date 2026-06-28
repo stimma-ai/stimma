@@ -1525,7 +1525,9 @@ function scheduleLoadRetry() {
   if (loadRetryTimeout) return
   loadRetryTimeout = setTimeout(async () => {
     loadRetryTimeout = null
-    await loadTool(true)
+    // Silent: keep the error state on screen while we reconnect in the
+    // background instead of flickering the full-screen spinner each cycle.
+    await loadTool(true, true)
   }, LOAD_RETRY_DELAY_MS)
 }
 
@@ -1963,33 +1965,6 @@ watch(toolLoras, resetForeverModeIdleCount, { deep: true })
 // Shared auto-delete duration
 const { autoDeleteDuration, setAutoDeleteDuration } = useToolAutoDeleteDuration()
 
-// Video output → cinematography enhancement. This is the AUTHORITATIVE signal
-// (we know the task); the backend doesn't rely on recognizing the model string.
-const enhanceIsVideo = computed(() => !!outputsVideo.value)
-
-// image-to-video: the start frame, fed to the enhancer so the cinematography
-// prompt animates the actual image. Only when it's a library item (has a mediaId).
-const enhanceSourceMediaId = computed<number | null>(() =>
-  videoImages.startImage?.mediaId ?? null
-)
-const enhanceUsesImage = computed(() => enhanceSourceMediaId.value != null)
-
-// Prompt preloader
-const { getCachedImprovedPrompt, onCacheUsed, updateConcurrentJobs } = usePromptPreloader({
-  prompt: computed(() => globalPrefs.value.prompt),
-  // Only the text-rewrite path with no source image is pre-cached. Ideogram
-  // converts post-resolve, and i2v depends on the frame, so neither can be
-  // precomputed from prompt text alone.
-  autoImproveEnabled: computed(() =>
-    (globalPrefs.value.promptOptions?.autoImprove?.enabled ?? false) &&
-    enhanceMode.value === 'text' &&
-    !enhanceUsesImage.value
-  ),
-  autoImproveInstructions: computed(() => globalPrefs.value.promptOptions?.autoImprove?.instructions ?? null),
-  model: computed(() => toolModelString.value || null),
-  isVideo: enhanceIsVideo,
-})
-
 // Slideshow state
 const slideshowState = reactive({
   active: false,
@@ -2311,6 +2286,47 @@ const {
 } = useToolSchemaFeatures({
   tool,
   availableLoras,
+})
+
+// Video output → cinematography enhancement. This is the AUTHORITATIVE signal
+// (we know the task); the backend doesn't rely on recognizing the model string.
+const enhanceIsVideo = computed(() => !!outputsVideo.value)
+
+// Image edit → edit-style enhancement. Input images on a non-video tool mean the
+// prompt is an instruction over those images, not a fresh scene to describe. The
+// count drives backend routing (>0 → edit style) and "first/second image" phrasing.
+// In batch mode inputImages is the batch list (one item PER job), so the per-job
+// edit count is 1 — not the list length.
+const enhanceInputImageCount = computed(() => {
+  if (outputsVideo.value) return 0
+  if (globalPrefs.value.batchMode) {
+    return globalPrefs.value.batchField === 'input_images' ? 1 : 0
+  }
+  return globalPrefs.value.inputImages?.length ?? 0
+})
+
+// image-to-video: the start frame, fed to the enhancer so the cinematography
+// prompt animates the actual image. Only when it's a library item (has a mediaId).
+const enhanceSourceMediaId = computed<number | null>(() =>
+  videoImages.startImage?.mediaId ?? null
+)
+const enhanceUsesImage = computed(() => enhanceSourceMediaId.value != null)
+
+// Prompt preloader
+const { getCachedImprovedPrompt, onCacheUsed, updateConcurrentJobs } = usePromptPreloader({
+  prompt: computed(() => globalPrefs.value.prompt),
+  // Only the text-rewrite path with no source image is pre-cached. Ideogram
+  // converts post-resolve, and i2v depends on the frame, so neither can be
+  // precomputed from prompt text alone.
+  autoImproveEnabled: computed(() =>
+    (globalPrefs.value.promptOptions?.autoImprove?.enabled ?? false) &&
+    enhanceMode.value === 'text' &&
+    !enhanceUsesImage.value
+  ),
+  autoImproveInstructions: computed(() => globalPrefs.value.promptOptions?.autoImprove?.instructions ?? null),
+  model: computed(() => toolModelString.value || null),
+  isVideo: enhanceIsVideo,
+  inputImageCount: enhanceInputImageCount,
 })
 
 // Tool state composable - provides state persistence, presets, and modified detection
@@ -2671,7 +2687,7 @@ async function loadOutputFolder() {
   }
 }
 
-async function loadTool(forceReload = false) {
+async function loadTool(forceReload = false, silent = false) {
   const fullToolId = props.fullToolId
   if (!fullToolId) {
     error.value = { message: 'No tool ID provided' }
@@ -2684,14 +2700,20 @@ async function loadTool(forceReload = false) {
     return
   }
 
-  isInitialLoading.value = true
-  error.value = null
+  // The full-screen spinner is a first-load affordance. Background reconnect
+  // retries run silently so the existing error state stays put rather than
+  // flickering to the spinner every cycle.
+  if (!silent) {
+    isInitialLoading.value = true
+    error.value = null
+  }
 
   try {
     // Load provider tool descriptor; tolerate state fetch failures
     const providerTool = await getProviderTool(fullToolId)
     const toolState = await getToolState(fullToolId).catch(() => ({ state: {} as Record<string, any> }))
     tool.value = buildToolWithState(providerTool, toolState.state || {})
+    error.value = null
   } catch (err: any) {
     console.error('Failed to load tool:', err)
     const statusCode = err?.response?.status
@@ -3426,6 +3448,8 @@ async function submitOneJob() {
           model: toolModelString.value || null,
           // Task-authoritative: video tools always get cinematography.
           isVideo: enhanceIsVideo.value,
+          // Input images on a non-video tool → edit-style enhancement.
+          inputImageCount: enhanceInputImageCount.value,
           mode: enhanceMode.value,
           // i2v: source frame for the enhancer (used on the cinematography path).
           mediaId: enhanceSourceMediaId.value,

@@ -192,9 +192,16 @@
           <div class="group relative">
             <button
               @click="handleNavClick('flows')"
+              @dragover="handleDragOver"
+              @dragenter="handleNewFlowDragEnter"
+              @dragleave="handleNewFlowDragLeave"
+              @drop="handleNewFlowDrop"
               class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
-              :class="activeTab === 'flows' ? '!bg-overlay-hover !text-content' : ''"
-              title="Flows"
+              :class="[
+                activeTab === 'flows' ? '!bg-overlay-hover !text-content' : '',
+                dragHoverNewFlow ? '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50' : ''
+              ]"
+              title="Flows (drag media here to create new)"
             >
               <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
@@ -371,9 +378,9 @@
                       </span>
                       <span
                         class="truncate text-[11px]"
-                        :class="isToolStimmaCloud(tab.entityId) ? 'stimma-cloud-text font-medium' : 'text-content-muted'"
+                        :class="getToolSubtitleClass(tab.entityId)"
                       >
-                        {{ getToolProvider(tab.entityId) }}
+                        {{ getToolSubtitle(tab.entityId) }}
                       </span>
                     </div>
                     <span
@@ -653,9 +660,9 @@
                       </span>
                       <span
                         class="truncate text-[11px]"
-                        :class="isToolStimmaCloud(tab.entityId) ? 'stimma-cloud-text font-medium' : 'text-content-muted'"
+                        :class="getToolSubtitleClass(tab.entityId)"
                       >
-                        {{ getToolProvider(tab.entityId) }}
+                        {{ getToolSubtitle(tab.entityId) }}
                       </span>
                     </div>
                     <span
@@ -905,6 +912,9 @@ const savedViews = ref([])
 const allToolsMap = ref<Map<string, any>>(new Map())
 const pinnedTools = ref([])
 const toolAvailabilityMap = ref<Map<string, string>>(new Map())
+// True once the live provider/tool list has loaded at least once, so we know a
+// pin missing from that list is genuinely orphaned (not just not-yet-loaded).
+const liveToolsLoaded = ref(false)
 
 // Backfill open tool-tab names from the resolved tool list. Tabs created by
 // navigation (including a freshly-frozen custom tool) fall back to the tool id
@@ -942,10 +952,12 @@ const projectNames = ref<Map<string, string>>(new Map())
 const dragHoverTabId = ref<string | null>(null)
 const dragHoverNewBoard = ref(false)
 const dragHoverNewChat = ref(false)
+const dragHoverNewFlow = ref(false)
 const dragHoverStimmaHome = ref(false)
 const tabDragCounters = ref<Map<string, number>>(new Map())
 const newBoardDragCounter = ref(0)
 const newChatDragCounter = ref(0)
+const newFlowDragCounter = ref(0)
 const stimmaHomeDragCounter = ref(0)
 
 // Tab reorder state
@@ -1015,7 +1027,29 @@ function getToolAvailability(fullToolId: string): string {
 
 function getToolProvider(fullToolId: string): string {
   const tool = allToolsMap.value.get(fullToolId)
-  return tool?.provider_name || tool?.provider_id || 'Provider'
+  // Prefer the friendly name; fall back to the provider id, then to the
+  // provider-id prefix of the full_tool_id ("{provider_id}:{tool_id}"). The
+  // last form always works even for orphaned tools whose provider has been
+  // removed from config and dropped from the tool cache.
+  return tool?.provider_name || tool?.provider_id || fullToolId.split(':')[0] || 'Provider'
+}
+
+// Subtitle under a tool tab. When the tool is reachable we show its provider
+// (e.g. "ComfyUI"); when it isn't we keep the provider identity AND explain
+// *why* it's greyed out, e.g. "ComfyUI · disconnected".
+function getToolSubtitle(fullToolId: string): string {
+  const availability = getToolAvailability(fullToolId)
+  const provider = getToolProvider(fullToolId)
+  if (availability === 'disconnected') return `${provider} · disconnected`
+  if (availability !== 'available') return `${provider} · not configured`
+  return provider
+}
+
+function getToolSubtitleClass(fullToolId: string): string {
+  const availability = getToolAvailability(fullToolId)
+  if (availability === 'disconnected') return 'text-yellow-400/80'
+  if (availability !== 'available') return 'text-red-400/80'
+  return isToolStimmaCloud(fullToolId) ? 'stimma-cloud-text font-medium' : 'text-content-muted'
 }
 
 function isToolStimmaCloud(fullToolId: string): boolean {
@@ -1386,6 +1420,14 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
     setPendingMedia('chat', [mediaId], parseInt(tab.entityId, 10))
     router.push({ name: 'chat', params: { id: tab.entityId } })
     if (props.isMobile) emit('close')
+  } else if (tab.type === 'flow') {
+    // A flow shows an embedded chat (ChatView) scoped to that flow. Hand the
+    // media to that chat so it lands in the flow's composer once the flow
+    // page loads, then switch to it — mirroring the plain-chat case above.
+    const flowChatId = await resolveFlowChatId(parseInt(tab.entityId, 10))
+    if (flowChatId != null) setPendingMedia('chat', mediaIds, flowChatId)
+    router.push({ name: 'flow', params: { id: tab.entityId } })
+    if (props.isMobile) emit('close')
   } else if (tab.type === 'board') {
     try {
       await fetch(`/api/boards/${tab.entityId}/items`, {
@@ -1480,6 +1522,74 @@ async function handleNewChatDrop(e: DragEvent) {
       if (props.isMobile) emit('close')
     } catch (error) {
       console.error('Failed to create chat with media:', error)
+    }
+  }
+}
+
+// Resolve (creating if needed) the chat scoped to a flow, mirroring
+// FlowView.ensureFlowChat so dropped media is attached to the same chat the
+// flow page will display.
+async function resolveFlowChatId(flowId: number): Promise<number | null> {
+  try {
+    const listResp = await fetch(`/api/chats?flow_id=${flowId}&page=1&page_size=1`)
+    if (listResp.ok) {
+      const list = await listResp.json()
+      const existing = list?.items?.[0]?.id
+      if (existing != null) return Number(existing)
+    }
+    const createResp = await fetch('/api/chats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ flow_id: flowId })
+    })
+    if (!createResp.ok) throw new Error('Failed to create flow chat')
+    const created = await createResp.json()
+    return created?.id != null ? Number(created.id) : null
+  } catch (error) {
+    console.error('Failed to resolve flow chat:', error)
+    return null
+  }
+}
+
+// New Flow drag-drop (on the Flows link) — create a flow and attach the media
+// to its chat, matching the Chats link behavior.
+function handleNewFlowDragEnter(e: DragEvent) {
+  if (e.dataTransfer?.types.includes('application/x-media-id')) {
+    e.preventDefault()
+    newFlowDragCounter.value++
+    dragHoverNewFlow.value = true
+  }
+}
+
+function handleNewFlowDragLeave(e: DragEvent) {
+  newFlowDragCounter.value--
+  if (newFlowDragCounter.value <= 0) {
+    dragHoverNewFlow.value = false
+    newFlowDragCounter.value = 0
+  }
+}
+
+async function handleNewFlowDrop(e: DragEvent) {
+  e.preventDefault()
+  dragHoverNewFlow.value = false
+  newFlowDragCounter.value = 0
+
+  const mediaIds = getDroppedMediaIds(e.dataTransfer)
+  if (mediaIds.length > 0) {
+    try {
+      const response = await fetch('/api/flows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+      if (!response.ok) throw new Error('Failed to create flow')
+      const flow = await response.json()
+      const flowChatId = await resolveFlowChatId(Number(flow.id))
+      if (flowChatId != null) setPendingMedia('chat', mediaIds, flowChatId)
+      router.push({ name: 'flow', params: { id: String(flow.id) } })
+      if (props.isMobile) emit('close')
+    } catch (error) {
+      console.error('Failed to create flow with media:', error)
     }
   }
 }
@@ -1717,11 +1827,40 @@ async function loadSavedViews() {
   }
 }
 
+// Seed orphaned pins (provider removed from config, dropped from the live tool
+// list) into the lookup maps using the persisted pin metadata, so they still
+// show their provider identity and read as "not configured". Never overrides a
+// live entry.
+function mergePinFallbacks(toolsMap: Map<string, any>, availabilityMap: Map<string, string>) {
+  for (const pin of pinnedTools.value as any[]) {
+    if (!toolsMap.has(pin.full_tool_id)) {
+      toolsMap.set(pin.full_tool_id, {
+        full_tool_id: pin.full_tool_id,
+        provider_id: pin.provider_id,
+        provider_name: pin.provider_name,
+        task_types: pin.task_types || [],
+        availability: 'unconfigured',
+      })
+    }
+    if (!availabilityMap.has(pin.full_tool_id)) {
+      availabilityMap.set(pin.full_tool_id, 'unconfigured')
+    }
+  }
+}
+
 async function loadPinnedTools() {
   loadingState.value.tools.loading = true
   try {
     pinnedTools.value = await listPinnedTools()
     reconcileToolPins(pinnedTools.value)
+    // If the live list already loaded, fold any newly-known orphaned pins in.
+    if (liveToolsLoaded.value) {
+      const toolsMap = new Map(allToolsMap.value)
+      const availabilityMap = new Map(toolAvailabilityMap.value)
+      mergePinFallbacks(toolsMap, availabilityMap)
+      allToolsMap.value = toolsMap
+      toolAvailabilityMap.value = availabilityMap
+    }
     loadingState.value.tools.error = false
   } catch (error) {
     console.error('Failed to load pinned tools:', error)
@@ -1740,8 +1879,10 @@ async function loadToolAvailability() {
       availabilityMap.set(tool.full_tool_id, tool.availability || 'available')
       toolsMap.set(tool.full_tool_id, tool)
     }
+    mergePinFallbacks(toolsMap, availabilityMap)
     toolAvailabilityMap.value = availabilityMap
     allToolsMap.value = toolsMap
+    liveToolsLoaded.value = true
   } catch (error) {
     console.error('Failed to load tool availability:', error)
   }

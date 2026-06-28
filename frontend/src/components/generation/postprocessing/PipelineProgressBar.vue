@@ -1,13 +1,21 @@
 <template>
   <div
+    :title="compact ? tooltip : undefined"
     :class="[
-      'group relative flex items-center gap-2.5 min-h-[58px] px-2.5 py-2 rounded-lg border overflow-hidden',
+      'group relative flex items-center rounded-lg border overflow-hidden',
+      compact ? 'gap-2 min-h-[40px] px-2 py-2' : 'gap-2.5 min-h-[58px] px-2.5 py-2',
       failed ? 'bg-red-500/10 border-red-500/40' : 'bg-surface-raised border-edge',
     ]"
   >
     <!-- Leading icon: thumbnail when we have one (chains carry their last good
-         output), otherwise a status spinner / queued clock. -->
-    <div class="relative w-9 h-9 rounded-md bg-surface flex items-center justify-center flex-shrink-0 overflow-hidden">
+         output), otherwise a status spinner / queued clock. In compact (narrow
+         Stage rail) it shrinks so the track gets the room. -->
+    <div
+      :class="[
+        'relative rounded-md bg-surface flex items-center justify-center flex-shrink-0 overflow-hidden',
+        compact ? 'w-6 h-6' : 'w-9 h-9',
+      ]"
+    >
       <template v-if="thumbMediaId">
         <MediaImage
           :media-id="thumbMediaId"
@@ -40,13 +48,16 @@
       </template>
     </div>
 
-    <!-- Tool name · pipeline track · current-stage line -->
+    <!-- Tool name · pipeline track · current-stage line. In compact mode the
+         name + status line are dropped (they only truncated to "LT…" / "Ge…" at
+         160px) — the track gets the full width and the details move to the row
+         tooltip. -->
     <div class="flex-1 min-w-0">
-      <div class="text-xs font-medium text-content truncate whitespace-nowrap">{{ name }}</div>
+      <div v-if="!compact" class="text-xs font-medium text-content truncate whitespace-nowrap">{{ name }}</div>
 
       <!-- Segmented pipeline: one segment per stage (generation + each
            post-processing step). Determinate fill is used for batches. -->
-      <div class="mt-1.5">
+      <div :class="compact ? '' : 'mt-1.5'">
         <div v-if="segments && segments.length" class="flex items-center gap-1 h-1.5">
           <div
             v-for="(seg, i) in segments"
@@ -80,7 +91,7 @@
         </div>
       </div>
 
-      <div :class="['mt-1.5 text-[11px] truncate whitespace-nowrap', failed ? 'text-red-500' : 'text-content-muted']">
+      <div v-if="!compact" :class="['mt-1.5 text-[11px] truncate whitespace-nowrap', failed ? 'text-red-500' : 'text-content-muted']">
         {{ label }}
       </div>
     </div>
@@ -90,13 +101,16 @@
       <button
         v-if="showRetry"
         @click.stop="$emit('retry')"
-        class="flex items-center gap-1 px-2 py-1 rounded bg-blue-500/15 border border-blue-500/50 text-blue-500 hover:bg-blue-500/30 text-[11px] font-medium transition-colors"
+        :class="[
+          'flex items-center gap-1 rounded bg-blue-500/15 border border-blue-500/50 text-blue-500 hover:bg-blue-500/30 text-[11px] font-medium transition-colors',
+          compact ? 'w-6 h-6 justify-center' : 'px-2 py-1',
+        ]"
         title="Retry the failed step"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
           <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0v2.43l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clip-rule="evenodd" />
         </svg>
-        Retry
+        <span v-if="!compact">Retry</span>
       </button>
       <button
         @click.stop="$emit('dismiss')"
@@ -111,7 +125,10 @@
     <button
       v-else-if="showCancel"
       @click.stop="$emit('cancel')"
-      class="w-6 h-6 flex items-center justify-center rounded text-content-muted/50 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+      :class="[
+        'w-6 h-6 flex items-center justify-center rounded text-content-muted/50 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100',
+        compact ? 'absolute top-1 right-1 z-10 bg-surface-raised/80 backdrop-blur-sm' : '',
+      ]"
       title="Cancel"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
@@ -122,6 +139,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { MediaImage } from '../../media'
 
 export type SegmentStatus = 'done' | 'active' | 'pending' | 'failed' | 'skipped'

@@ -83,7 +83,7 @@
             </div>
 
             <!-- Info below thumbnail -->
-            <div class="flex flex-col items-center gap-0 mt-1 w-full">
+            <div class="flex flex-col items-center gap-0 mt-1" :style="{ width: `${labelWidth}px` }">
               <span
                 v-if="nodeSubtitle(node)"
                 class="text-[10px] truncate leading-tight max-w-full text-center"
@@ -238,6 +238,7 @@ import * as dagre from '@dagrejs/dagre'
 import { MediaImage } from './media'
 import ImageDetailsCard from './media/ImageDetailsCard.vue'
 import { useMarkers } from '../composables/useMarkers'
+import { useProvidersApi } from '../composables/useProvidersApi'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 
 const router = useRouter()
@@ -251,6 +252,15 @@ const props = defineProps({
 const emit = defineEmits(['close', 'focus-changed'])
 
 const { init: initMarkers, loadMarkersForMedia } = useMarkers()
+const { cachedTools, fetchProvidersAndTools } = useProvidersApi()
+
+// Resolve a tool_id (full "provider:tool" or bare) to its human display name.
+function toolDisplayName(toolId) {
+  if (!toolId) return ''
+  const tool = cachedTools.value.find(t => t.full_tool_id === toolId || t.tool_id === toolId)
+  if (tool?.name) return tool.name
+  return formatToolId(toolId)
+}
 
 // Layout constants
 const thumbSize = 56
@@ -260,6 +270,9 @@ const thumbInset = (nodeWidth - thumbSize) / 2
 const layerSpacing = 180
 const nodeSpacing = 20
 const padding = 60
+// Labels can be wider than the thumbnail; they stay centered over the node and
+// only truncate when the tool name is genuinely long.
+const labelWidth = 132
 
 // State
 const loading = ref(true)
@@ -549,7 +562,7 @@ const layoutEdges = computed(() => {
 function nodeTitle(node) {
   if (node.id === props.mediaId && !node.taskType) return 'Current'
   if (node.taskType) return formatNodeLabel(node.taskType)
-  if (node.media.tool_id) return formatToolId(node.media.tool_id)
+  if (node.media.tool_id) return toolDisplayName(node.media.tool_id)
   return 'Imported'
 }
 
@@ -571,14 +584,12 @@ function nodeSubtitle(node) {
     try {
       const parsed = typeof meta === 'string' ? JSON.parse(meta) : meta
       if (parsed?.tool_id) {
-        const ci = parsed.tool_id.indexOf(':')
-        return ci !== -1 ? parsed.tool_id.substring(ci + 1) : parsed.tool_id
+        return toolDisplayName(parsed.tool_id)
       }
     } catch {}
   }
   if (node.media.tool_id) {
-    const ci = node.media.tool_id.indexOf(':')
-    return ci !== -1 ? node.media.tool_id.substring(ci + 1) : node.media.tool_id
+    return toolDisplayName(node.media.tool_id)
   }
   if (!node.taskType) return 'Imported'
   return null
@@ -590,6 +601,8 @@ async function fetchTree() {
   error.value = null
   try {
     await initMarkers()
+    // Populate the tools cache so we can show tool display names (not slugs).
+    fetchProvidersAndTools().catch(() => {})
     const { data } = await axios.get(`/api/media/${props.mediaId}/lineage/tree`)
     nodes.value = data.nodes
     edges.value = data.edges
