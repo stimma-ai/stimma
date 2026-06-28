@@ -1,3 +1,4 @@
+import random
 from datetime import datetime
 from typing import Optional, List
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, LargeBinary, Boolean, Index, text, ForeignKey, Text, event
@@ -66,8 +67,12 @@ class MediaItem(Base):
     tool_id = Column(String, nullable=True, index=True)  # Full tool ID (provider:tool_id) that created this media
     preset_id = Column(Integer, ForeignKey('presets.id', ondelete='SET NULL'), nullable=True, index=True)  # Preset active during generation
 
-    # Random sort value (stable, set once on creation)
-    random_sort_value = Column(Float, nullable=True, index=True)
+    # Random sort value (stable, set once on creation). The default fires on every
+    # ORM insert path (generation, upload, sets/grids, layouts, agent tools, ingestion)
+    # so random-sort + re-shuffle works for all media, not just disk-scanned items.
+    # NULL here would collapse every such item to an equal sort key, pinning them to
+    # id order and making re-randomize a no-op.
+    random_sort_value = Column(Float, nullable=True, index=True, default=lambda: random.random())
 
     # AI/ML processed data
     clip_embedding = Column(LargeBinary, nullable=True)
