@@ -79,6 +79,19 @@
             Show Onboarding
           </button>
         </div>
+
+        <div v-if="isTauri()" class="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-edge">
+          <div class="flex-1 min-w-0">
+            <h4 class="text-sm font-medium text-content">Set Window Size to 1440×900</h4>
+            <p class="text-xs text-content-tertiary mt-0.5">Resize the window to a logical 1440×900</p>
+          </div>
+          <button
+            @click="setWindowSize1440x900"
+            class="px-3 py-1.5 text-xs font-medium rounded border bg-surface-raised border-edge text-content-secondary hover:border-edge hover:bg-surface transition-all"
+          >
+            Set 1440×900
+          </button>
+        </div>
       </div>
     </template>
 
@@ -215,6 +228,7 @@ import { useRouter } from 'vue-router'
 import { useSettingsApi } from '../../../composables/useSettingsApi'
 import { makeGlobalKey } from '../../../utils/storageKeys'
 import { hidePricesRef, setHidePrices } from '../../../appConfig'
+import { isTauri } from '../../../apiConfig'
 
 const props = defineProps({
   developerMode: {
@@ -252,6 +266,11 @@ function toggleDeveloperMode() {
 
 function toggleHidePrices() {
   setHidePrices(!hidePricesRef.value)
+}
+
+async function setWindowSize1440x900() {
+  const { getCurrentWindow, LogicalSize } = await import('@tauri-apps/api/window')
+  await getCurrentWindow().setSize(new LogicalSize(1440, 900))
 }
 
 const router = useRouter()

@@ -9,6 +9,7 @@
     "core:default",
     "core:window:allow-start-dragging",
     "core:window:allow-close",
+    "core:window:allow-set-size",
     "drag:default",
     "dialog:default",
     "updater:default",
