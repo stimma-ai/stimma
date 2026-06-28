@@ -167,6 +167,15 @@ const stimmaTheme = EditorView.theme({
   '&.cm-focused': {
     outline: 'none',
   },
+  // Vim command-line / status bar lives in a bottom panel. Override CM6's
+  // base-theme defaults (which paint a near-white top border) with our tokens.
+  '.cm-panels': {
+    backgroundColor: 'var(--color-surface)',
+    color: 'var(--color-text-secondary)',
+  },
+  '.cm-panels.cm-panels-bottom': {
+    borderTop: '1px solid var(--color-border-subtle)',
+  },
   '.cm-scroller': {
     overflow: 'auto',
     fontFamily: 'inherit',
