@@ -122,7 +122,32 @@ async def flow_update(
     )
 
     started = False
+    refreshed = False
     start_error: str | None = None
+    if "inputs" in changed:
+        # Push the new inputs into a live runtime so the running graph
+        # recomputes against the real values. The common sequence is: the
+        # agent writes program.py first (which auto-starts the runtime with
+        # placeholder Nones), THEN sets inputs here — at which point the flow
+        # is already "running", so the idle auto-start below won't fire.
+        # Without this, the runtime keeps its build-time inputs and never
+        # recomputes, so the flow sits in "running" doing nothing until the
+        # user perturbs the inputs form (PATCH /flows/{id}, which does push
+        # them in). Mirror that path and get_or_create_runtime here.
+        runtime = flow_registry.get_runtime(flow.id)
+        if runtime is not None:
+            new_inputs = json.loads(flow.inputs) if flow.inputs else {}
+            if runtime.inputs != new_inputs:
+                runtime.inputs = dict(new_inputs)
+                try:
+                    _, reload_err = runtime.try_reload_program()
+                    if reload_err is None:
+                        refreshed = True
+                    else:
+                        start_error = str(reload_err)
+                except Exception as exc:  # noqa: BLE001 — best-effort
+                    start_error = str(exc)
+
     if "inputs" in changed and flow.execution_state == "idle":
         # Auto-start when inputs are set on an idle flow so the runtime can
         # validate the graph and surface progress without a manual /start.
@@ -148,8 +173,16 @@ async def flow_update(
                 " Flow started — progress and HITL tasks will surface in the "
                 "flow UI."
             )
+        elif refreshed:
+            suffix = (
+                " Inputs applied to the running flow — affected steps will "
+                "recompute in the flow UI."
+            )
         elif start_error:
-            suffix = f" Inputs stored but auto-start failed: {start_error}"
+            suffix = (
+                f" Inputs stored but could not be applied to the live "
+                f"runtime: {start_error}"
+            )
         else:
             suffix = " Inputs stored."
 

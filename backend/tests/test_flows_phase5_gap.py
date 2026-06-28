@@ -751,6 +751,87 @@ async def test_invalidate_phase_matches_by_prefix(client, db_session, tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Agent flow_update pushes inputs into an already-running runtime
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_flow_update_inputs_refreshes_running_runtime(
+    client, db_session, tmp_path,
+):
+    """Setting inputs via the agent's flow_update tool on a flow that is
+    already running must push the new values into the live runtime and
+    diff-rebuild — not just persist them to the DB.
+
+    Repro of the "flow stuck in running, only starts after the user perturbs
+    an input" bug: the agent writes program.py first (auto-starting the
+    runtime with placeholder inputs), THEN calls flow_update with the real
+    inputs. Because execution_state is already "running", the idle auto-start
+    branch is skipped, so the new inputs have to reach the runtime here.
+    """
+    import json
+
+    from sqlalchemy import select
+
+    from agent.v2.tools.flow_update import flow_update
+    from database import Chat, Flow
+
+    rr = (await client.post("/api/flows", json={"name": "p5-fu-refresh"})).json()
+    flow_id = rr["id"]
+    state_db = get_flow_state_db_path(flow_id)
+
+    @flow(inputs={"n": dsl_input("str")})
+    def prog(n):
+        with phase("Echo"):
+            return code("return n", inputs={"n": n})
+
+    store = EquationStore(tmp_path / "store-fu-refresh")
+    store.initialize()
+    runtime = FlowRuntime(
+        flow_id, state_db,
+        flow_callable=prog,
+        inputs={"n": "alice"},  # build-time placeholder, like the agent's first pass
+        evaluators=_mock_evaluators(),
+        store=store,
+    )
+    runtime.build_initial_graph()
+    await runtime.start()
+    flow_registry.register(flow_id, runtime)
+    try:
+        await runtime.wait_quiescent(timeout=3.0)
+
+        async with db_session() as session:
+            # Mark the flow running with the build-time inputs, and attach a
+            # chat so flow_update resolves the flow.
+            flow_row = (
+                await session.execute(select(Flow).where(Flow.id == flow_id))
+            ).scalar_one()
+            flow_row.execution_state = "running"
+            flow_row.inputs = json.dumps({"n": "alice"})
+            chat = Chat(name="flow chat", flow_id=flow_id)
+            session.add(chat)
+            await session.commit()
+            chat_id = chat.id
+
+            # Agent hands the flow real inputs while it's already running.
+            msg = await flow_update(
+                inputs={"n": "bob"}, session=session, chat_id=chat_id
+            )
+
+        # New inputs reached the live runtime, not just the DB.
+        assert runtime.inputs == {"n": "bob"}
+        assert "running flow" in msg
+
+        # The flow_input equation recomputes to the new value.
+        await runtime.wait_quiescent(timeout=3.0)
+        input_key = next(k for k in runtime.graph.keys() if "flow_input" in k)
+        assert runtime.graph.get(input_key).result == "bob"
+    finally:
+        flow_registry.unregister(flow_id)
+        await runtime.stop()
+
+
+# ---------------------------------------------------------------------------
 # Flow deletion stops the scheduler
 # ---------------------------------------------------------------------------
 
