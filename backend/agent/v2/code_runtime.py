@@ -1373,6 +1373,71 @@ def _format_run_code_receipt(
     return f"<system-reminder>\n{body}\n</system-reminder>"
 
 
+# Smart/Unicode punctuation that LLMs habitually emit but CPython rejects as an
+# "invalid character" when it lands in a token position (operators, separators).
+# The same characters inside string literals and comments parse fine, so we only
+# ever touch the ones that actually trigger a SyntaxError — never string content.
+#
+# Scoped deliberately to the dash + space family, which are unambiguous: they can
+# only ever be operators/separators, never string delimiters. Curly QUOTES are
+# excluded on purpose — used as delimiters they're paired, and repairing one side
+# leaves the other orphaned (a worse error); used as legitimate string content
+# they never raise and must be preserved verbatim.
+_LLM_PUNCT_FIXUPS = {
+    "—": "-",   # — em dash
+    "–": "-",   # – en dash
+    "‒": "-",   # ‒ figure dash
+    "―": "-",   # ― horizontal bar
+    "−": "-",   # − minus sign
+    " ": " ",   #   non-breaking space
+}
+
+
+def _wrap_run_code(code: str) -> str:
+    """Indent agent code into the `async def __stimma_run__()` wrapper."""
+    wrapper = "async def __stimma_run__():\n"
+    if code.strip():
+        for line in code.splitlines():
+            wrapper += f"    {line}\n"
+    else:
+        wrapper += "    return None\n"
+    return wrapper
+
+
+def _repair_llm_punct(code: str) -> str:
+    """Surgically replace smart punctuation that breaks Python parsing.
+
+    Compiles the wrapped code; on a SyntaxError whose offending character is a
+    known smart-punctuation lookalike, replaces just that one character and
+    retries. Characters inside string literals/comments never raise, so they are
+    never touched. If the failing character isn't a known fixup, we return the
+    code unchanged and let the normal compile() surface the real error.
+    """
+    if not any(ch in code for ch in _LLM_PUNCT_FIXUPS):
+        return code
+    import ast
+
+    for _ in range(200):  # bounded: each pass repairs at most one character
+        try:
+            compile(_wrap_run_code(code), "<stimma_run_code>", "exec",
+                    flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+            return code
+        except SyntaxError as e:
+            if e.lineno is None or e.offset is None:
+                return code
+            lines = code.splitlines(keepends=True)
+            idx = e.lineno - 2          # wrapper header occupies line 1
+            col = e.offset - 1 - 4      # 4-space indent inside the wrapper
+            if not (0 <= idx < len(lines)) or col < 0 or col >= len(lines[idx]):
+                return code
+            repl = _LLM_PUNCT_FIXUPS.get(lines[idx][col])
+            if repl is None:
+                return code             # a genuine syntax error — leave it alone
+            lines[idx] = lines[idx][:col] + repl + lines[idx][col + 1:]
+            code = "".join(lines)
+    return code
+
+
 async def run_code_in_sandbox(
     *,
     code: str,
@@ -1488,6 +1553,11 @@ async def run_code_in_sandbox(
         "numpy": numpy,
     }
 
+    # Repair smart punctuation (em/en dashes, curly quotes) that LLMs love to
+    # emit. Python rejects these outside strings; this fixes only the offending
+    # token-position characters, never string/comment contents.
+    code = _repair_llm_punct(code)
+
     # Pre-execution lint — catch SDK misuse before running
     lint_warnings = lint_code(code)
     if lint_warnings:
@@ -1501,12 +1571,7 @@ async def run_code_in_sandbox(
         from .sdk_help import get_sdk_quick_ref
         return format_lint_errors(preflight_warnings) + "\n\n" + get_sdk_quick_ref(), {}
 
-    wrapper = "async def __stimma_run__():\n"
-    if code.strip():
-        for line in code.splitlines():
-            wrapper += f"    {line}\n"
-    else:
-        wrapper += "    return None\n"
+    wrapper = _wrap_run_code(code)
 
     def _exec_wrapper():
         exec(compile(wrapper, "<stimma_run_code>", "exec"), globals_dict, globals_dict)
