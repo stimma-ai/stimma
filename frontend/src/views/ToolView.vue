@@ -418,7 +418,7 @@
           <div class="rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]">
             <!-- Duration -->
             <div class="flex items-center justify-between gap-4 px-4 py-3">
-              <div class="w-[55%] flex-shrink-0">
+              <div class="min-w-0 flex-1">
                 <div class="text-sm font-medium text-content">Duration</div>
                 <div class="text-xs text-content-muted mt-0.5">Video length in seconds</div>
               </div>
@@ -430,16 +430,16 @@
                 :options="allowedDurations.map((d: number) => ({ value: String(d), label: `${d}s` }))"
               />
               <!-- Slider for continuous range -->
-              <div v-else class="flex items-center gap-1.5 flex-shrink-0">
+              <div v-else class="flex min-w-0 w-[45%] max-w-[360px] flex-shrink-0 items-center justify-end gap-1.5">
                 <input v-no-autocorrect
                   type="range"
                   v-model.number="modelParams.duration"
                   :min="durationConfig.min"
                   :max="durationConfig.max"
                   :step="durationConfig.step"
-                  class="w-44 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+                  class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
                 >
-                <div class="text-sm text-content w-10 text-right">{{ (modelParams.duration || durationConfig.default).toFixed(1) }}s</div>
+                <div class="text-sm text-content w-10 flex-shrink-0 text-right">{{ (modelParams.duration || durationConfig.default).toFixed(1) }}s</div>
               </div>
             </div>
             <!-- FPS (shown for comfyui tools that still expose fps) -->
@@ -462,19 +462,19 @@
           <div class="rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]">
             <!-- Frame Count -->
             <div class="flex items-center justify-between gap-4 px-4 py-3">
-              <div class="w-[55%] flex-shrink-0">
+              <div class="min-w-0 flex-1">
                 <div class="text-sm font-medium text-content">Frame Count</div>
                 <div class="text-xs text-content-muted mt-0.5">Number of frames to generate</div>
               </div>
-              <div class="flex items-center gap-1.5 flex-shrink-0">
+              <div class="flex min-w-0 w-[45%] max-w-[360px] flex-shrink-0 items-center justify-end gap-1.5">
                 <input v-no-autocorrect
                   type="range"
                   v-model.number="modelParams.frameCount"
                   :min="frameCountConfig.min"
                   :max="frameCountConfig.max"
-                  class="w-44 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+                  class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
                 >
-                <div class="text-center">
+                <div class="text-center flex-shrink-0">
                   <div class="text-sm text-content">{{ modelParams.frameCount }}</div>
                   <div class="text-xs text-content-muted">~{{ estimatedDuration }}s</div>
                 </div>
