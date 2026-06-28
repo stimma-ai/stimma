@@ -234,8 +234,15 @@ def my_flow(prompt, seed):
 value + dice-reroll on the flow screen). It is only meaningful if the generator
 node actually receives it — exposing a seed you never pass through does nothing.
 Add it by default when authoring a generative flow unless the user explicitly
-wants a fixed/reproducible result. (Use ``locked_seed`` only inside a variation
-fan-out where holding the seed constant across the slots is the intent.)
+wants a fixed/reproducible result.
+
+Inside a **regenerable HITL slot** (a ``hitl.approve*`` callback), do the
+opposite: leave the generator's ``seed`` unset. The runtime derives a fresh seed
+per attempt, so omitting the seed is exactly what makes Reject/Replace produce a
+*different* result. Pinning a constant seed there means every Reject re-runs with
+the same seed and the same prompt, so it redraws the identical image and Replace
+looks broken. Only pin a seed in an approve slot when the user explicitly wants
+that slot locked to a fixed seed.
 
 RESOLUTION / SIZE CONTROLS. Several inputs get rich dedicated pickers — the same
 ones tools use — *if you name them canonically*. Use these exact names so the
@@ -602,13 +609,12 @@ with phase("Reference Photos"):
     )
     approved_refs = hitl.approve_each(
         reference_specs,
-        lambda spec, seed: tool(
+        # No seed: the runtime varies it per attempt, so Reject redraws.
+        lambda spec: tool(
             "stimma-cloud:flux2-klein-9b",
             task_type="text-to-image",
             prompt=spec["prompt"],
-            seed=seed,
         ),
-        seed=locked_seed,
         instructions="Approve each reference photo. Reject to regenerate only that photo.",
     )
 
@@ -616,27 +622,25 @@ with phase("Reference Photos"):
 with phase("Choose Dogs"):
     favorites = hitl.approve(
         4,
-        lambda i, seed: tool(
+        lambda i: tool(
             "stimma-cloud:flux2-klein-9b",
             task_type="text-to-image",
             prompt=f"a cute dog variation {i}, high quality photography",
-            seed=seed,
         ),
-        seed=locked_seed,
         instructions="Keep this dog? Reject to regenerate this slot.",
     )
 ```
 
 Raw ``hitl.approve(count, ...)`` generator callbacks receive the slot index
 ``i`` as their first positional argument. Use raw ``approve`` when slots should
-differ by fixed index (per-slot pose, prompt, seed). Use ``approve_each`` when
+differ by fixed index (per-slot pose, prompt). Use ``approve_each`` when
 you already have item records. Use ``approve_one`` instead of
 ``hitl.approve(1, lambda _: ...)``.
 
 Use approval kwargs for context that should be explicit dependencies but not
-part of the replacement scope: ``lambda spec, persona, seed: tool(...),
-persona=persona, seed=locked_seed``. Create new ``llm()``, ``code()``, and
-``tool()`` nodes inside the callback for work that should re-run on Replace.
+part of the replacement scope: ``lambda spec, persona: tool(...),
+persona=persona``. Create new ``llm()``, ``code()``, and ``tool()`` nodes inside
+the callback for work that should re-run on Replace.
 
 You **must** create a fresh node inside the lambda — passing through a
 pre-existing NodeRef (``lambda _: existing_node``) is rejected at build
