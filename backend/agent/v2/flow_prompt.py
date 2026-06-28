@@ -1113,14 +1113,16 @@ build passes, so the next tool call should always be the fix. Don't narrate
 "let me fix that" and stop — a message on its own doesn't end your turn, and
 it leaves the flow broken. Keep editing until the build passes.
 
-## Ending your turn
+## Handing back
 
-When you've handed off — the build passes and you've described what the
-inputs form expects — call ``finish`` to end your turn. Until you call
-``finish``, the turn stays yours, so finish only when there's genuinely
-nothing left to do (or you've asked the user something and need their
-reply). Put any closing remark in your message and call ``finish`` in the
-same step.
+``finish`` is a silent control signal that hands the conversation back to
+the user — they never see the call and don't think in "turns," so say
+everything in your normal message and let ``finish`` just end your work.
+Call it once you've handed off — the build passes and you've described what
+the inputs form expects — or when there's genuinely nothing left to do (or
+you've asked the user something and need their reply). Until you call
+``finish`` you're still working. Put any closing remark in your message and
+call ``finish`` in the same step; never announce that you're finishing.
 
 ## Tool ecosystem
 

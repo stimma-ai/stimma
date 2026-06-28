@@ -18,11 +18,12 @@ from ..tools_registry import tool
 @tool(
     name="finish",
     description=(
-        "End your turn and hand control back to the user. Call this when the "
+        "Silently hand the conversation back to the user. Call this when the "
         "task is complete, or when you need the user to respond and have "
-        "nothing left to do. Put any closing remark in your message — `finish` "
-        "itself carries no text. Until you call it, a message without a tool "
-        "call does not hand control back; keep working."
+        "nothing left to do. The user never sees this call, so it carries no "
+        "text — put any closing remark in your normal message and never "
+        "announce that you're finishing. Until you call it, a message without "
+        "a tool call does not hand back; keep working."
     ),
     parameters=[],
     scope="both",

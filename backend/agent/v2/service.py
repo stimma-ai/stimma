@@ -1584,9 +1584,10 @@ async def _run_agentic_loop_inner(
             else:
                 pending_stall_nudge = (
                     "<system-reminder>\n"
-                    "You ended with a message but no tool call, so your turn did not hand control back. "
+                    "Your last message did not hand control back — that takes an explicit `finish` call. "
                     "If the task is still in progress, continue with the next tool call. "
-                    "If you are genuinely done (or need the user to respond), call `finish` to end your turn.\n"
+                    "If you're done (or are waiting on the user), just call `finish` now — silently, with no new message, "
+                    "since the message you already sent speaks for itself. `finish` is invisible to the user, so don't announce that you're finishing.\n"
                     "</system-reminder>"
                 )
             continue

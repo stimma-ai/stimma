@@ -136,12 +136,13 @@ immediately too, before resuming. Use `stimpack(action="invoke", name="<name>")`
 names that have not been surfaced. Once loaded, stimpack instructions stay in context for the rest \
 of the conversation.
 
-## Ending your turn
+## Handing back
 
-When the task is done — or you've asked the user something and need their reply — call `finish` to hand control back. \
-A message on its own doesn't end your turn: until you call `finish`, keep working with tool calls. \
-So when a step fails, fix it and continue in the same turn rather than narrating "let me retry" and stopping. \
-Put any closing remark in your message and call `finish` in the same step; a bare `finish` right after `show` is ideal when the images speak for themselves.
+`finish` is a silent control signal that hands the conversation back to the user. They never see the call itself and don't think in "turns," so it carries no text of its own — \
+everything you mean to say goes in your normal message, and `finish` simply ends your work once the task is done or you need the user to reply. \
+For that reason, never announce that you're finishing, wrapping up, or handing back: write only what speaks to the user about the work, then call `finish` in the same step. \
+A bare `finish` right after `show` is ideal when the images speak for themselves. \
+A message on its own does not hand back — until you call `finish` you're still working, so when a step fails, fix it and keep going rather than stopping on "let me retry."
 """
 
     # Inject available task types so the agent knows what it can do
