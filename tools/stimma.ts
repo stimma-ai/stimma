@@ -547,9 +547,6 @@ Commands:
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
-  eval run        Run agent evals
-  eval list       List available eval tasks
-  eval results    Show recent eval runs
   tag alpha [X.Y.Z]   Create and push next alpha tag (or for explicit base version)
   tag beta [X.Y.Z]    Create and push next beta tag (or for explicit base version)
   tag production [X.Y.Z] Create and push production tag
@@ -1018,7 +1015,6 @@ async function buildWindowsPortableBackend(target: string): Promise<void> {
     "output",
     "tests",
     "tests_transition",
-    "agent/evals",
   ]);
   await copyDirFiltered(backendSrc, join(stagingDir, "backend"), (relativePath, entry) => {
     const normalized = relativePath.replaceAll("\\", "/");
@@ -1192,42 +1188,6 @@ async function appBuild(args: string[]): Promise<void> {
       }
     }
   }
-}
-
-async function commandEval(args: string[]): Promise<void> {
-  const backendDir = join(repoRoot, "backend");
-  const sub = args[0];
-  if (sub === "list") {
-    await run("uv", ["run", "python", "-m", "agent.evals", "--list"], { cwd: backendDir });
-    return;
-  }
-  if (sub === "results") {
-    const resultsDir = join(backendDir, "agent", "evals", "results");
-    if (!(await pathExists(resultsDir))) {
-      console.log("No results yet. Run 'stimma eval run' first.");
-      return;
-    }
-    console.log("Recent eval runs:");
-    const entries: string[] = [];
-    for await (const entry of Deno.readDir(resultsDir)) {
-      if (entry.isDirectory) entries.push(entry.name);
-    }
-    entries.sort().reverse();
-    for (const name of entries.slice(0, 10)) {
-      console.log(`  ${name}`);
-    }
-    console.log(`Results dir: ${resultsDir}`);
-    return;
-  }
-
-  if (sub === "run") {
-    const passThrough = args.slice(1);
-    await run("uv", ["run", "python", "-m", "agent.evals", ...passThrough], { cwd: backendDir });
-    return;
-  }
-
-  console.error("Usage: stimma eval {run|list|results}");
-  Deno.exit(1);
 }
 
 async function killPort(port: string): Promise<void> {
@@ -2004,11 +1964,6 @@ async function main(): Promise<void> {
 
     case "bd": {
       await run("bd", args.slice(1));
-      break;
-    }
-
-    case "eval": {
-      await commandEval(args.slice(1));
       break;
     }
 

@@ -130,9 +130,6 @@ Commands:
   fork create NAME  Copy default sandbox to a new named sandbox
   fork destroy NAME Delete a named sandbox (data + cache)
   test backend    Run backend pytest tests
-  eval run        Run agent evals
-  eval list       List available eval tasks
-  eval results    Show recent eval runs
 
 ## Backend Tests
 
@@ -158,33 +155,6 @@ uv run pytest -k "test_filter"         # Run tests matching pattern
 - `ws.py` - `MockWebSocketManager` for verifying WebSocket broadcasts
 
 When adding new API endpoints, ALWAYS add corresponding tests. The test infrastructure uses module-scoped fixtures for database isolation. Do not over-mock tests, use real database operations where possible.
-
-## Agent Evals
-
-The agent has a statistical eval framework in `backend/agent/evals/`. Use `/eval-results` stimpack when working on eval failures.
-
-**Running evals:**
-```bash
-cd backend
-uv run python -m agent.evals --llm-config agent/evals/configs/dev.yaml --tasks greeting --no-open
-uv run python -m agent.evals --list  # List all tasks
-```
-
-**Results structure:**
-```
-backend/agent/evals/results/
-  run_<timestamp>/
-    report.json           # Overall summary
-    <task_id>/
-      summary.json        # Task stats + source code location
-      trial_0001_PASS.json
-      trial_0002_FAIL.json
-```
-
-**Key files:**
-- `tasks/*.py` - Task definitions (what to test, how to grade)
-- `graders.py` - Built-in graders (ResponseContainsGrader, NoErrorGrader, etc.)
-- `hitl.py` - Scripts for automated HITL responses in tests
 
 ## Config Files
 

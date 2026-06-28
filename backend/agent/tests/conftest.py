@@ -3,10 +3,8 @@ Pytest fixtures for agent testing.
 
 Provides:
 - Test database sessions (fresh per test)
-- LLM configuration
 """
 
-import os
 import pytest
 import pytest_asyncio
 import asyncio
@@ -129,53 +127,9 @@ def mock_llm_response():
     return _mock
 
 
-@pytest.fixture
-def llm_configs():
-    """
-    Available LLM configurations for eval tests.
-
-    Set environment variables to enable different models:
-    - ANTHROPIC_API_KEY for Claude
-    - OPENAI_API_KEY for GPT-4
-    - LOCAL_LLM_URL for local models
-    """
-    configs = {}
-
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        configs["claude-sonnet"] = {
-            "provider": "anthropic",
-            "model": "claude-3-5-sonnet-20241022",
-        }
-
-    if os.environ.get("OPENAI_API_KEY"):
-        configs["gpt-4-turbo"] = {
-            "provider": "openai",
-            "model": "gpt-4-turbo",
-        }
-
-    if os.environ.get("LOCAL_LLM_URL"):
-        configs["local"] = {
-            "provider": "openai",
-            "model": "local-model",
-            "endpoint": {"url": os.environ["LOCAL_LLM_URL"]},
-        }
-
-    return configs
-
-
 # =============================================================================
 # Pytest Configuration
 # =============================================================================
-
-def pytest_addoption(parser):
-    """Add custom command line options."""
-    parser.addoption(
-        "--llm",
-        action="store",
-        default="mock",
-        help="LLM to use: mock, claude-sonnet, gpt-4-turbo, local, all",
-    )
-
 
 # Mark all async tests automatically
 pytest_plugins = ('pytest_asyncio',)

@@ -79,7 +79,7 @@ When the agent misbehaves, work through this before touching the system prompt:
 
 1. **Is it a tool/schema problem?** Can the tool validate its inputs better? Is the schema misleading?
 2. **Is it a missing stimpack?** Would a stimpack document give the agent the domain knowledge it needs?
-3. **Is it an eval gap?** Add an eval case so the fix is testable and regressions are caught.
+3. **Is it a coverage gap?** Add a regression test so the fix is verifiable and stays fixed.
 4. **Is it a one-off?** Some failures are stochastic. If the agent gets it right 9/10 times, adding a prompt rule for the 1/10 case may hurt the 9/10.
 5. **Is it truly a prompt problem?** If yes — write a short positive principle with a *why*. No bare "DO NOT" lines.
 

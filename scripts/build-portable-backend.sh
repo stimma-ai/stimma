@@ -116,7 +116,6 @@ rsync -a \
     --exclude='output' \
     --exclude='tests' \
     --exclude='tests_transition' \
-    --exclude='agent/evals' \
     "$BACKEND_SRC/" "$STAGING_DIR/backend/"
 
 rsync -a "$STAGING_DIR/backend/" "$OUTPUT_DIR/backend/"

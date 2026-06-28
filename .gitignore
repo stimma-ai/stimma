@@ -36,17 +36,8 @@ htmlcov/
 .tox/
 .nox/
 
-# Eval results (generated output)
-backend/agent/evals/results/
-
 # Local planning notes (dev-machine state; canonical location is ~/stimma/plans)
 plans/
-
-# Eval real LLM config (points at private-network hosts) + endpoint probe cache.
-# Copy configs/dev.yaml.example -> configs/dev.yaml and edit; it stays local.
-backend/agent/evals/configs/dev.yaml
-backend/agent/evals/configs/local.yaml
-backend/agent/evals/.endpoint_cache.json
 
 # Database
 *.db
