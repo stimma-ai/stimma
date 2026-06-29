@@ -146,3 +146,72 @@ async def test_omitted_generation_knobs_are_not_sent_when_schema_hides_them():
     assert "seed" in p
     for key in ("steps", "cfg", "guidance", "sampler", "scheduler", "loras", "negative_prompt"):
         assert key not in p
+
+
+@dataclass
+class _I2IDesc:
+    name: str = "Mock Edit"
+    task_types: list = field(default_factory=lambda: ["image-to-image"])
+    task_type: str = "image-to-image"
+    subtitle: str = ""
+    parameter_schema: dict = field(default_factory=lambda: {
+        "type": "object",
+        "properties": {
+            "prompt": {"type": "string", "default": ""},
+            "input_images": {"type": "array"},
+        },
+        "required": ["prompt"],
+    })
+
+
+class _I2IReg:
+    @staticmethod
+    def get_instance():
+        return _I2IReg()
+
+    def get_tool(self, tool_id):
+        return (_Prov(), _I2IDesc())
+
+
+@pytest.mark.asyncio
+async def test_media_prefix_input_image_resolves_to_id_without_db():
+    """A `media:<id>` reference resolves to the numeric id directly — no DB
+    filename lookup, no silent drop that surfaces as "No input media provided"."""
+    captured = {}
+
+    class _Queue:
+        async def submit_job(self, **kw):
+            captured["params"] = kw["parameters"]
+            raise RuntimeError("__stop__")
+
+        async def cancel_job(self, *a, **k):
+            pass
+
+    with patch.object(ct, "ProviderRegistry", _I2IReg), \
+         patch.object(ct, "get_generation_queue", lambda: _Queue()), \
+         patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"):
+        with pytest.raises(RuntimeError, match="__stop__"):
+            await ct.execute_call_tool(
+                tool_id="builtin:filter",
+                parameters={"prompt": "warm", "input_images": ["media:384"]},
+                task_type_override="image-to-image",
+                session=object(),
+            )
+
+    assert captured["params"]["input_media_ids"] == [384]
+
+
+@pytest.mark.asyncio
+async def test_unresolvable_input_image_raises_naming_the_value():
+    """An unresolved string must fail loudly (naming the value) instead of being
+    dropped into an empty list that the provider reports as "No input media"."""
+    with patch.object(ct, "ProviderRegistry", _I2IReg), \
+         patch.object(ct, "get_generation_queue", lambda: object()), \
+         patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"):
+        with pytest.raises(ValueError, match="media:not-a-real-id"):
+            await ct.execute_call_tool(
+                tool_id="builtin:filter",
+                parameters={"prompt": "warm", "input_images": ["media:not-a-real-id"]},
+                task_type_override="image-to-image",
+                session=object(),
+            )

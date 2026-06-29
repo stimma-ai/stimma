@@ -5147,13 +5147,19 @@ window.addEventListener('markers-changed', loadMarkers)
 watch(() => route.params.id, (newId) => {
   if (props.chatId != null) return
   if (newId) {
+    const parsed = parseInt(newId)
+    // Re-navigating to the chat we're already on (e.g. dropping a second image
+    // onto the active chat in the sidebar) must NOT clear attachments: the
+    // global pendingMedia watch may have already attached the new media before
+    // this watch runs, and an unconditional clear would wipe it.
+    const chatChanged = chatId.value !== parsed
     // Update chatId - subscriptions filter by this value automatically
-    chatId.value = parseInt(newId)
+    chatId.value = parsed
     loading.value = true
     items.value = []
     // Drop attachments from the previous chat synchronously, before any pending
     // media for the new chat gets attached, so the clear can't wipe it.
-    inputAttachments.value = []
+    if (chatChanged) inputAttachments.value = []
     // Reset agent state for new chat
     agentRunning.value = false
     agentPaused.value = false

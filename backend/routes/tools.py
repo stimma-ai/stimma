@@ -70,6 +70,7 @@ class PinnedToolResponse(BaseModel):
     task_type: Optional[str] = None  # Primary task type
     task_types: List[str] = []  # All task types
     provider_id: Optional[str] = None
+    provider_name: Optional[str] = None
 
 
 class ToolStateResponse(BaseModel):
@@ -851,6 +852,7 @@ async def list_pinned_tools(
             "task_type": pin.task_type,
             "task_types": cached_task_types,
             "provider_id": pin.provider_id,
+            "provider_name": pin.provider_name,
         }
 
         # Try to refresh from provider if available (updates cache if changed)
@@ -861,17 +863,20 @@ async def list_pinned_tools(
                     tool = await provider.get_tool(tool_id)
                     if tool:
                         tool_task_types = tool.task_types if tool.task_types else ([tool.task_type] if tool.task_type else [])
+                        provider_name = getattr(provider, "provider_name", None) or pid
                         new_info = {
                             "name": tool.name,
                             "task_type": tool.task_type,
                             "task_types": tool_task_types,
                             "provider_id": pid,
+                            "provider_name": provider_name,
                         }
                         tool_info = new_info
                         # Update cache if metadata changed
                         if (pin.name != tool.name or
                             pin.task_type != tool.task_type or
                             pin.provider_id != pid or
+                            pin.provider_name != provider_name or
                             cached_task_types != tool_task_types):
                             updates_needed.append((pin, new_info))
                 except Exception:
@@ -891,6 +896,7 @@ async def list_pinned_tools(
         pin.task_type = info["task_type"]
         pin.task_types = json.dumps(info["task_types"]) if info["task_types"] else None
         pin.provider_id = info["provider_id"]
+        pin.provider_name = info["provider_name"]
     if updates_needed:
         await session.commit()
 
@@ -912,7 +918,7 @@ async def pin_tool(
 
     # Verify tool exists and get metadata
     tool_exists = False
-    tool_info = {"name": None, "task_type": None, "task_types": [], "provider_id": None}
+    tool_info = {"name": None, "task_type": None, "task_types": [], "provider_id": None, "provider_name": None}
     for pid, provider in registry._providers.items():
         if request.full_tool_id.startswith(f"{pid}:"):
             tool_id = request.full_tool_id[len(pid) + 1:]
@@ -925,6 +931,7 @@ async def pin_tool(
                     "task_type": tool.task_type,
                     "task_types": tool_task_types,
                     "provider_id": pid,
+                    "provider_name": getattr(provider, "provider_name", None) or pid,
                 }
             break
 
@@ -951,6 +958,7 @@ async def pin_tool(
         task_type=tool_info["task_type"],
         task_types=json.dumps(tool_info["task_types"]) if tool_info["task_types"] else None,
         provider_id=tool_info["provider_id"],
+        provider_name=tool_info["provider_name"],
     )
     session.add(pin)
     await session.commit()

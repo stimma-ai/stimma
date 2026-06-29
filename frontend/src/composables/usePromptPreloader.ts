@@ -26,6 +26,9 @@ interface PromptPreloaderOptions {
   // Whether the tool outputs video — forwarded so a cached t2v prompt is built
   // with the cinematography style (not prose).
   isVideo?: Ref<boolean>
+  // Number of input images the tool will edit — forwarded so a cached prompt for
+  // an edit tool is built with the edit style. Changes invalidate the cache.
+  inputImageCount?: Ref<number>
   minCacheSize?: number
   debounceMs?: number
 }
@@ -42,12 +45,14 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
     autoImproveInstructions,
     model,
     isVideo,
+    inputImageCount,
     minCacheSize = 2,
     debounceMs = 1500  // Wait a bit longer than typing debounce
   } = options
 
   const currentModel = () => model?.value ?? null
   const currentIsVideo = () => isVideo?.value ?? false
+  const currentInputImageCount = () => inputImageCount?.value ?? 0
 
   // Cache of pre-computed improved prompts
   const cache = ref<PreloadedPrompt[]>([])
@@ -119,7 +124,8 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
           prompt: promptWithPlaceholders,
           instructions: instructions || null,
           model: currentModel(),
-          is_video: currentIsVideo()
+          is_video: currentIsVideo(),
+          input_image_count: currentInputImageCount()
         })
 
         const candidatePrompt = response.data.improved_prompt
@@ -268,6 +274,15 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
   // invalidates any prompts cached for the old model.
   if (model) {
     watch(model, () => {
+      clearCache()
+      lastPreloadedPrompt = ''
+    })
+  }
+
+  // Adding/removing input images flips an edit tool between prose and edit style
+  // (and changes the "first/second image" phrasing) — invalidate stale prompts.
+  if (inputImageCount) {
+    watch(inputImageCount, () => {
       clearCache()
       lastPreloadedPrompt = ''
     })

@@ -77,6 +77,28 @@ def module_for_task(task_type: str) -> str:
     return name
 
 
+_PROVIDER_LABELS = {
+    "comfyui": "ComfyUI (local)",
+    "stimma-cloud": "Stimma Cloud",
+    "builtin": "built-in",
+}
+
+
+def _provider_label(tool_id: str) -> str:
+    """Human label for a tool's provider, derived from its id prefix.
+
+    The provider prefix is dropped from the readable function name, so the
+    local-vs-cloud distinction would otherwise survive only in the buried
+    ``tool_id:`` docstring line. Surfacing it in the title lets a grep over the
+    catalog tell e.g. ``comfyui:flux-klein-9b`` (local, free) apart from
+    ``stimma-cloud:flux2-klein-9b`` (cloud) at a glance.
+    """
+    prefix = tool_id.split(":", 1)[0] if ":" in tool_id else ""
+    if not prefix:
+        return ""
+    return _PROVIDER_LABELS.get(prefix.lower(), prefix)
+
+
 def _base_pyname(tool_id: str) -> str:
     """Derive a readable function name from a tool_id.
 
@@ -380,7 +402,11 @@ def render_tool_stub(
 
     # Docstring
     doc: list[str] = []
-    title = f"{name} — {binding.task_type}."
+    provider_label = _provider_label(binding.tool_id)
+    if provider_label:
+        title = f"{name} — {binding.task_type} · {provider_label}."
+    else:
+        title = f"{name} — {binding.task_type}."
     doc.append(title)
     if description:
         doc.append("")

@@ -369,6 +369,7 @@ export function useProvidersApi() {
     task_type: string | null  // Primary task type
     task_types: string[]  // All task types
     provider_id: string | null
+    provider_name: string | null
   }
 
   /**

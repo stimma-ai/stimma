@@ -32,15 +32,18 @@ _VIDEO_FAMILIES = frozenset({
 })
 
 
-def enhancement_mode(family: str, is_video: bool = False) -> str:
+def enhancement_mode(family: str, is_video: bool = False, is_image_edit: bool = False) -> str:
     """Map (task, modelFamily) to an enhancement style.
 
-    The TASK is authoritative for video: any video tool gets cinematography,
-    regardless of whether the model string is recognized (``is_video`` comes
-    from the tool's output type). ``_VIDEO_FAMILIES`` is only a fallback for
-    callers that don't pass the task. The remaining styles are model-specific:
-    ``ideogram`` (structured JSON), ``keyword`` (booru tags for SD1.5/SDXL), or
-    ``prose`` (the default).
+    The TASK is authoritative for video and edits: any video tool gets
+    cinematography, and a natural-language image model fed input image(s) gets
+    ``edit`` — both regardless of whether the model string is recognized
+    (``is_video`` / ``is_image_edit`` come from the tool's I/O, not the model
+    name). ``_VIDEO_FAMILIES`` is only a fallback for callers that don't pass the
+    task. The remaining styles are model-specific: ``ideogram`` (structured JSON)
+    and ``keyword`` (booru tags for SD1.5/SDXL) keep their style even when editing
+    (they describe the target, not an instruction over the input); everything else
+    is ``edit`` when input images are present, else ``prose``.
     """
     if is_video or family in _VIDEO_FAMILIES:
         return "cinematography"
@@ -48,6 +51,8 @@ def enhancement_mode(family: str, is_video: bool = False) -> str:
         return "ideogram"
     if family in _KEYWORD_FAMILIES:
         return "keyword"
+    if is_image_edit:
+        return "edit"
     return "prose"
 
 
@@ -57,12 +62,82 @@ def enhancement_mode(family: str, is_video: bool = False) -> str:
 _IMPROVE_PROMPT_BY_MODE = {
     "keyword": "improve_keyword_system_prompt",
     "cinematography": "improve_cinematography_system_prompt",
+    "edit": "improve_image_edit_system_prompt",
     "prose": "improve_system_prompt",
 }
+
+
+def _input_images_phrase(n: int) -> str:
+    """Human-readable count of input images for the edit system prompt."""
+    return "an input image" if n <= 1 else f"{n} input images"
 
 # Raster formats we can hand to a VLM. Source frames in other formats (or video)
 # are simply not shown — enhancement falls back to the text-only path.
 _VLM_IMAGE_FORMATS = frozenset({"jpg", "jpeg", "png", "webp", "bmp", "gif", "tiff"})
+
+# The frontend swaps real [bracketed] spans for __VERBATIM_A__ placeholders before
+# enhancement and restores them after, so a legitimate token always echoes one in
+# the input prompt.
+_VERBATIM_TOKEN_RE = re.compile(r"__VERBATIM_[A-Z]__")
+
+
+def _protected_text_guidance(prompt: str, *, keyword_mode: bool = False) -> str:
+    """Build the 'PRESERVING PROTECTED TEXT' block for the spans actually present.
+
+    The improve_* system prompts carry a ``{protected_text_guidance}`` slot that
+    this fills per request. We only tell the model about the kinds of protected
+    span this prompt actually contains — guidance about placeholders/brackets/
+    wildcards the user never used is pure distraction, and a fast model can latch
+    onto it (e.g. inventing a bare ``__VERBATIM_A__`` token that then reaches the
+    image model). Returns "" for a plain prose prompt so it gets no such chatter.
+    ``keyword_mode`` adds the comma-separated-tag nuance the SD1.5/SDXL prompt needs.
+    """
+    bullets: List[str] = []
+    if _VERBATIM_TOKEN_RE.search(prompt):
+        bullets.append(
+            "- Placeholder tokens of the form __VERBATIM_A__, __VERBATIM_B__ … "
+            "(always __VERBATIM_ + one capital letter + __). Copy each through exactly, "
+            "as an opaque object — never translate it, renumber it, rephrase around it, "
+            'or turn it into the word "verbatim".'
+        )
+    if re.search(r"\[[^\[\]]+\]", prompt):
+        bullets.append("- [Bracketed text]: keep the brackets and their contents exactly as written.")
+    if re.search(r"\{[^{}]+\}", prompt):
+        bullets.append("- {a|b|c} and {{name}} wildcards: keep the braces and structure intact.")
+    if any(line.lstrip().startswith("#") for line in prompt.splitlines()):
+        bullets.append(
+            "- Lines starting with '#' are notes to you — follow them, but never include them in your output."
+        )
+
+    if not bullets:
+        return ""
+
+    lead = "Carry each one into your output unchanged"
+    lead += ", each as its own comma-separated tag:" if keyword_mode else ":"
+    return "PRESERVING PROTECTED TEXT\nThe prompt contains protected spans. " + lead + "\n" + "\n".join(bullets)
+
+
+def _strip_hallucinated_placeholders(output: str, source: str) -> str:
+    """Drop __VERBATIM_X__ tokens the model invented (absent from the input).
+
+    A token present only in the output is a hallucination — left in, it reaches the
+    image model as literal garbage (and can fail the job with 'Invalid params').
+    Remove each one and tidy the whitespace it leaves behind. Tokens that echo the
+    input are real placeholders and pass through untouched.
+    """
+    allowed = set(_VERBATIM_TOKEN_RE.findall(source))
+    hallucinated = sorted({t for t in _VERBATIM_TOKEN_RE.findall(output) if t not in allowed})
+    if not hallucinated:
+        return output
+
+    log.warning(f"improve: stripped hallucinated placeholder(s) {hallucinated} from model output")
+    cleaned = output
+    for tok in hallucinated:
+        # [ \t]* (not \s*) so we don't merge across newlines into comment/other lines.
+        cleaned = re.sub(r"[ \t]*" + re.escape(tok) + r"[ \t]*", " ", cleaned)
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"[ \t]+([,.;:!?])", r"\1", cleaned)
+    return cleaned.strip()
 
 
 async def _load_source_image_b64(
@@ -133,6 +208,11 @@ class ImprovePromptRequest(BaseModel):
     # Whether the tool outputs video. Authoritative for cinematography routing —
     # the task is known, so we don't depend on the model string being recognized.
     is_video: bool = False
+    # Number of input images the tool will edit (image-to-image / inpaint / edit).
+    # >0 on a natural-language image model routes to the edit style, which frames
+    # the prompt as an instruction over the input image(s) rather than a fresh
+    # scene to describe. 0 for text-to-image. Ignored for video/keyword/ideogram.
+    input_image_count: int = 0
     # For image-to-video: the library id of the source/first frame. When present
     # on the cinematography path, the frame is shown to the model so the prompt
     # animates the real image. Ignored for other styles.
@@ -452,10 +532,15 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             detail={"code": e.code, "message": str(e)},
         )
 
-    # Pick the enhancement style. Task drives video (cinematography); model
-    # family drives the rest (keyword / ideogram / prose). Falls back to prose
-    # for unknown families and missing model strings.
-    mode = enhancement_mode(model_family(request.model), is_video=request.is_video)
+    # Pick the enhancement style. Task drives video (cinematography) and edits
+    # (input images on a natural-language model); model family drives the rest
+    # (keyword / ideogram / prose). Falls back to prose for unknown families and
+    # missing model strings.
+    mode = enhancement_mode(
+        model_family(request.model),
+        is_video=request.is_video,
+        is_image_edit=request.input_image_count > 0,
+    )
 
     # i2v: on the cinematography path, show the source frame to the model so the
     # prompt animates the real image. Best-effort — if the frame can't be loaded
@@ -472,6 +557,17 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         # A family-specific prompt isn't configured — fall back to prose.
         prompt_from_file = get_prompt("prompt_enhancement", "improve_system_prompt")
     system_prompt = prompt_from_file if prompt_from_file else DEFAULT_IMPROVE_SYSTEM_PROMPT
+    # Fill the input-image count (edit prompt only — no-op elsewhere), then the
+    # protected-text slot with guidance ONLY for spans this prompt actually
+    # contains; collapse the blank lines the slot leaves behind when it's empty.
+    system_prompt = system_prompt.replace(
+        "{input_images_desc}", _input_images_phrase(request.input_image_count)
+    )
+    system_prompt = system_prompt.replace(
+        "{protected_text_guidance}",
+        _protected_text_guidance(request.prompt, keyword_mode=(mode == "keyword")),
+    )
+    system_prompt = re.sub(r"\n{3,}", "\n\n", system_prompt)
     log.info(f"Prompt improve mode={mode} image={'yes' if source_image_b64 else 'no'}")
 
     # Build the user message
@@ -484,6 +580,12 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
             "The image is the first frame. Here is the user's direction for the clip — "
             f"turn it into shot direction (motion and camera):\n\n{request.prompt}{instr}"
         )
+    elif mode == "edit":
+        # The user's text is an instruction applied to the input image(s) the model
+        # already sees — refine it as an edit instruction, not a scene description.
+        instr = (f"\n\nAdditional instructions: {request.instructions.strip()}"
+                 if request.instructions and request.instructions.strip() else "")
+        user_content = f"Refine this image-edit instruction:\n\n{request.prompt}{instr}"
     elif request.instructions and request.instructions.strip():
         user_content = f"Please improve this prompt according to these instructions:\n\nInstructions: {request.instructions}\n\nPrompt:\n{request.prompt}"
     else:
@@ -515,6 +617,10 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
                 temperature=0.7,
 
             )
+
+            # Safety net: a fast model can still emit a placeholder token that was
+            # never in the input. Strip it before it reaches the image model.
+            improved_prompt = _strip_hallucinated_placeholders(improved_prompt, request.prompt)
 
             log.info(f"Prompt improve successful ({len(improved_prompt)} chars)")
 

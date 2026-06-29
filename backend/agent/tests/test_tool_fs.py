@@ -128,6 +128,9 @@ def test_stub_is_valid_python_and_typed():
     # tool_id + task_type discoverable in the docstring for flow authors
     assert '"comfyui:flux-klein-9b"' in text
     assert '"text-to-image"' in text
+    # provider locality is surfaced in the title line so a grep over the
+    # catalog can tell a local ComfyUI tool from its cloud namesake at a glance
+    assert "ComfyUI (local)" in text
     assert not spills  # no large enums here
 
 

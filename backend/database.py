@@ -1266,6 +1266,7 @@ class PinnedTool(Base):
     task_type = Column(String, nullable=True)  # Primary task type (backward compat)
     task_types = Column(String, nullable=True)  # JSON array of all task types
     provider_id = Column(String, nullable=True)
+    provider_name = Column(String, nullable=True)  # Friendly provider name, survives provider removal
 
     def to_dict(self):
         import json
@@ -1278,6 +1279,7 @@ class PinnedTool(Base):
             "task_type": self.task_type,
             "task_types": task_types_list,
             "provider_id": self.provider_id,
+            "provider_name": self.provider_name,
         }
 
 

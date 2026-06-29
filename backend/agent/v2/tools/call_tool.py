@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import random
+import re
 import shutil
 import time
 from typing import Any, Dict, List, Optional
@@ -208,6 +209,21 @@ async def execute_call_tool(
             elif isinstance(img, str) and img.isdigit():
                 derived_ids.append(int(img))
             elif isinstance(img, str):
+                # Tolerate a `media:<id>` / `media_<id>` reference — the agent
+                # reasonably reaches for it, and silently dropping it surfaces
+                # downstream as the opaque "No input media provided".
+                prefix_match = re.match(r'^media[:_](.*)$', img.strip(), flags=re.IGNORECASE)
+                if prefix_match is not None:
+                    ref = prefix_match.group(1)
+                    if ref.isdigit():
+                        derived_ids.append(int(ref))
+                        continue
+                    # A media-prefixed ref with a non-numeric id is malformed —
+                    # fail fast and name it rather than treating it as a path.
+                    raise ValueError(
+                        f"Invalid media reference {img!r}: expected 'media:<id>' "
+                        "with a numeric library media id."
+                    )
                 # Workspace path — resolve to media_id by matching filename
                 basename = os.path.basename(img)
                 from database_registry import get_database_registry
@@ -223,7 +239,14 @@ async def execute_call_tool(
                         derived_ids.append(row[0])
                         log.info(f"[call_tool_v2] Resolved workspace path '{basename}' to media_id {row[0]}")
                     else:
-                        log.warning(f"[call_tool_v2] Could not resolve input path to media_id: {img}")
+                        # Don't drop it silently — an unresolved entry becomes an
+                        # empty input list and the provider reports the misleading
+                        # "No input media provided". Fail loudly, naming the value.
+                        raise ValueError(
+                            f"Could not resolve input image {img!r} to a library media. "
+                            "Pass a library media id (int), a digit string, or an existing "
+                            "workspace filename — not a 'media:<id>'-style ref with a non-numeric id."
+                        )
         if derived_ids:
             final_params["input_media_ids"] = derived_ids
 
