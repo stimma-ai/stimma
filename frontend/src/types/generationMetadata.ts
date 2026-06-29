@@ -36,6 +36,8 @@ export interface PromptMetadata {
   original_prompt?: string
   auto_improve_enabled?: boolean
   auto_improve_instructions?: string
+  translate_enabled?: boolean
+  translate_language?: string
 }
 
 /** One ancestor in the embedded generation history (newest-first). */

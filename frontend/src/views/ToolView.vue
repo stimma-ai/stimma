@@ -174,8 +174,8 @@
           :seed="remixSource.seed"
           @dismiss="remixSource = null"
           @view-source="openRemixSourceInSlideshow"
-          @copy-prompt="globalPrefs.prompt = remixSource!.promptSnippet; suppressRemixDeactivation()"
-          @copy-exact-prompt="globalPrefs.prompt = remixSource!.renderedPrompt!; suppressRemixDeactivation()"
+          @copy-prompt="handleRemixUsePrompt"
+          @copy-exact-prompt="handleRemixUseExactPrompt"
           @use-image="handleRemixUseImage"
           @use-seed="handleRemixUseSeed"
         />
@@ -844,6 +844,7 @@ import { makeGlobalKey, makeToolDbKey } from '../utils/storageKeys'
 import { getBlob, putBlob, deleteBlob } from '../utils/blobStorage'
 import { getToolDefaults } from '../utils/generationDefaults'
 import { parseGenerationConfig, type GenerationConfigUpdate } from '../utils/parseGenerationConfig'
+import type { PromptMetadata } from '../types/generationMetadata'
 import { formatRemainingTime } from '../utils/timeFormat'
 import { isStimmaCloudTool as isStimmaCloud } from '../utils/stimmaCloud'
 import { copyToClipboard } from '../utils/clipboard'
@@ -1135,6 +1136,9 @@ const remixSource = ref<{
   promptSnippet: string
   renderedPrompt?: string  // expanded prompt (wildcards resolved)
   seed?: number | null      // seed from original generation for reproducibility
+  // Enhance/translate settings the source image was generated with, so "Use
+  // Prompt" can restore them (translate is only present for newer generations).
+  promptMetadata?: PromptMetadata
 } | null>(null)
 
 // Debug: Copy tool JSON
@@ -1672,7 +1676,7 @@ watch(remixSource, (newVal) => {
 // (e.g. clearing it, pasting something entirely new, or replacing 80%+ at once).
 const remixPromptBaseline = ref<string | null>(null)
 const REMIX_DEACTIVATE_THRESHOLD = 0.75  // 75% word-set difference triggers deactivation
-const dismissedRemix = ref<{ mediaId: number; promptSnippet: string; renderedPrompt?: string; seed?: number | null } | null>(null)
+const dismissedRemix = ref<{ mediaId: number; promptSnippet: string; renderedPrompt?: string; seed?: number | null; promptMetadata?: PromptMetadata } | null>(null)
 let remixDeactivateSuppressedUntil = 0  // timestamp — detection suppressed until this time
 
 // When remix is set, snapshot the current prompt as the baseline.
@@ -2061,6 +2065,42 @@ function handleRemixUseSeed() {
   if (remixSource.value?.seed == null) return
   modelParams.value.seed = remixSource.value.seed
   modelParams.value.randomizeSeed = false
+}
+
+// Use the remix source's original prompt. The intent is to reproduce the source,
+// so restore the enhance + translate settings it was generated with (when known).
+function handleRemixUsePrompt() {
+  if (!remixSource.value) return
+  globalPrefs.value.prompt = remixSource.value.promptSnippet
+  const meta = remixSource.value.promptMetadata
+  if (meta) {
+    globalPrefs.value.promptOptions = {
+      ...globalPrefs.value.promptOptions,
+      autoImprove: {
+        ...globalPrefs.value.promptOptions.autoImprove,
+        enabled: !!meta.auto_improve_enabled,
+        instructions: meta.auto_improve_instructions || '',
+      },
+      translate: {
+        enabled: !!meta.translate_enabled,
+        language: meta.translate_language || globalPrefs.value.promptOptions.translate?.language || 'zh-Hans',
+      },
+    }
+  }
+  suppressRemixDeactivation()
+}
+
+// Use the remix source's exact rendered prompt. Since the intent is to use the
+// prompt verbatim, also turn off enhance + translate so it isn't rewritten.
+function handleRemixUseExactPrompt() {
+  if (remixSource.value?.renderedPrompt == null) return
+  globalPrefs.value.prompt = remixSource.value.renderedPrompt
+  globalPrefs.value.promptOptions = {
+    ...globalPrefs.value.promptOptions,
+    autoImprove: { ...globalPrefs.value.promptOptions.autoImprove, enabled: false },
+    translate: { language: 'zh-Hans', ...globalPrefs.value.promptOptions.translate, enabled: false },
+  }
+  suppressRemixDeactivation()
 }
 
 // Restore a dismissed remix
@@ -3333,6 +3373,7 @@ async function loadRemix(mediaId: string) {
       promptSnippet: data.source_prompt_snippet || '',
       renderedPrompt: data.prompt_variants?.rendered || undefined,
       seed: data.seed ?? null,
+      promptMetadata: data.prompt_metadata || undefined,
     }
 
     // Clear only the remix trigger params; keep project_id so we stay on the

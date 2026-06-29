@@ -120,6 +120,8 @@ class PromptMetadata(BaseModel):
     suffix: Optional[str] = None
     auto_improve_enabled: Optional[bool] = False
     auto_improve_instructions: Optional[str] = None
+    translate_enabled: Optional[bool] = False
+    translate_language: Optional[str] = None
 
 
 class GenerationJobRequest(BaseModel):
