@@ -262,7 +262,8 @@
                 :class="[
                   isTabActive(tab) ? '!bg-overlay-hover !text-content' : '',
                   dragHoverTabId === tab.id ? '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50' : '',
-                  tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : ''
+                  tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
+                  isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
                 ]"
                 :style="{ minHeight: '44px' }"
                 :title="tab.type === 'tool' ? (getToolIncompatibilityReason(tab.entityId) || tab.displayName) : tab.displayName"
@@ -489,15 +490,18 @@
                     v-if="isTabGenerating(tab) && tab.type !== 'flow'"
                     class="w-2.5 h-2.5 border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0 self-center"
                   ></span>
-                  <!-- Tool availability indicator -->
-                  <span
-                    v-if="tab.type === 'tool' && getToolAvailability(tab.entityId) !== 'available'"
-                    class="w-1.5 h-1.5 rounded-full flex-shrink-0 self-center"
-                    :class="getToolAvailability(tab.entityId) === 'disconnected' ? 'bg-yellow-400' : 'bg-red-400'"
-                    :title="getToolAvailability(tab.entityId) === 'disconnected' ? 'Provider disconnected' : 'Provider not configured'"
-                  ></span>
                 </template>
               </button>
+              <!-- Unavailable indicator (warning triangle), same slot a close X would use -->
+              <span
+                v-if="isTabToolUnavailable(tab)"
+                class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-content-muted pointer-events-none"
+                :title="getToolSubtitle(tab.entityId)"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </span>
             </div>
 
             <!-- Drop zone after last pinned tab -->
@@ -544,6 +548,7 @@
                   isTabActive(tab) ? '!bg-overlay-hover !text-content' : '',
                   dragHoverTabId === tab.id ? '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50' : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
+                  isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : '',
                   tab.type === 'tool' ? 'py-1.5' : 'py-2'
                 ]"
                 :style="{ minHeight: '44px' }"
@@ -771,13 +776,19 @@
                     v-if="isTabGenerating(tab) && tab.type !== 'flow'"
                     class="w-2.5 h-2.5 border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0 self-center"
                   ></span>
-                  <span
-                    v-if="tab.type === 'tool' && getToolAvailability(tab.entityId) !== 'available'"
-                    class="w-1.5 h-1.5 rounded-full flex-shrink-0 self-center"
-                    :class="getToolAvailability(tab.entityId) === 'disconnected' ? 'bg-yellow-400' : 'bg-red-400'"
-                  ></span>
                 </template>
               </button>
+              <!-- Unavailable indicator (warning triangle); hidden on hover so the close X
+                   takes the same slot — no content shift, no slide. -->
+              <span
+                v-if="isTabToolUnavailable(tab)"
+                class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-content-muted opacity-100 group-hover:opacity-0 transition-opacity pointer-events-none"
+                :title="getToolSubtitle(tab.entityId)"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </span>
               <!-- Close button (appears on hover) -->
               <button
                 @click.stop="closeTab(tab.id)"
@@ -1047,9 +1058,15 @@ function getToolSubtitle(fullToolId: string): string {
 
 function getToolSubtitleClass(fullToolId: string): string {
   const availability = getToolAvailability(fullToolId)
-  if (availability === 'disconnected') return 'text-yellow-400/80'
-  if (availability !== 'available') return 'text-red-400/80'
+  // Unavailable tools read as a calm, de-emphasized state (muted + italic),
+  // not an alarming colored one. The warning triangle in the action slot
+  // carries the "needs attention" signal.
+  if (availability !== 'available') return 'text-content-muted italic'
   return isToolStimmaCloud(fullToolId) ? 'stimma-cloud-text font-medium' : 'text-content-muted'
+}
+
+function isTabToolUnavailable(tab: any): boolean {
+  return tab.type === 'tool' && getToolAvailability(tab.entityId) !== 'available'
 }
 
 function isToolStimmaCloud(fullToolId: string): boolean {
