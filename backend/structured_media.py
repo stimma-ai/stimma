@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import MediaItem
+from generation_metadata import dump_generation_metadata
 from utils.query_builder import not_due_for_autodelete
 from core.logging import get_logger
 
@@ -613,12 +614,11 @@ async def create_batch_output_set(
         megapixels=0,
         raw_metadata=json.dumps(set_data),
         # Note: vlm_caption is intentionally NOT set for sets - it's for AI captions of visual media
-        generation_metadata=json.dumps({
-            'version': 3,
-            'task_type': 'batch-output',
-            'batch_id': batch_id,
-            'generated_at': dt.utcnow().isoformat(),
-        }),
+        generation_metadata=dump_generation_metadata(
+            task_type='batch-output',
+            source='batch',
+            extra={'batch_id': batch_id},
+        ),
     )
 
     session.add(set_media_item)

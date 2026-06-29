@@ -18,6 +18,7 @@ from config_version import get_config_version_manager
 from core.logging import get_logger
 from core.profile_context import get_current_profile
 from database import MediaItem
+from generation_metadata import dump_generation_metadata
 from utils.lineage import record_lineage, propagate_tool_lineage
 from utils.websocket import ws_manager
 
@@ -200,12 +201,12 @@ async def create_parameter_sweep(
         height=0,
         megapixels=0,
         raw_metadata=json.dumps(grid_content),
-        generation_metadata=json.dumps({
-            'version': 3,
-            'task_type': 'grid-creation',
-            'cell_count': len(media_ids),
-            'generated_at': datetime.utcnow().isoformat(),
-        }),
+        generation_metadata=dump_generation_metadata(
+            task_type='grid-creation',
+            source='agent_v2_assemble_grid',
+            source_inputs=[{'media_id': mid, 'role': 'cell'} for mid in media_ids],
+            extra={'cell_count': len(media_ids)},
+        ),
     )
 
     session.add(grid_media_item)

@@ -24,6 +24,7 @@ from database import (
     Board, BoardItem, BoardSection, Marker, MediaMarker,
     Keyword, MediaKeyword, MediaToolLineage, Face,
 )
+from generation_metadata import build_parameters, dump_generation_metadata
 
 log = get_logger(__name__)
 
@@ -1339,26 +1340,31 @@ async def save_workspace_file(
                            'stimmaset.json', 'stimmagrid.json', 'stimmalayout'}
     is_non_visual = ext in _NON_VISUAL_FORMATS or is_layout_bundle
 
-    generation_metadata = None
+    # Always stamp the canonical envelope (even for plain code-saved files, which
+    # used to land with NULL metadata) so every library item has a uniform shape.
     if provenance:
         provenance_params = dict(provenance.get("parameters") or {})
-        if provenance_params.get("seed") is None and provenance.get("seed") is not None:
-            provenance_params["seed"] = provenance["seed"]
-        gen_meta = {
-            "version": 3,
-            "source": "agent_v2_run_code",
-            "tool_id": provenance.get("tool_id"),
-            "task_type": provenance.get("task_type"),
-            "parameters": provenance_params,
-            "seed": provenance.get("seed"),
-            "source_inputs": provenance.get("source_inputs") or [
+        seed = provenance_params.pop("seed", None)
+        if seed is None:
+            seed = provenance.get("seed")
+        generation_metadata = dump_generation_metadata(
+            task_type=provenance.get("task_type") or "code",
+            source="agent_v2_run_code",
+            tool_id=provenance.get("tool_id"),
+            parameters=build_parameters(
+                provenance_params,
+                **({"seed": seed} if seed is not None else {}),
+            ),
+            source_inputs=provenance.get("source_inputs") or [
                 {"media_id": mid, "role": "source_image"} for mid in (provenance.get("source_media_ids") or [])
             ],
-            "generated_at": datetime.utcnow().isoformat(),
-        }
-        if provenance.get("lineage_trace"):
-            gen_meta["lineage_trace"] = provenance["lineage_trace"]
-        generation_metadata = json.dumps(gen_meta)
+            lineage_trace=provenance.get("lineage_trace") or [],
+        )
+    else:
+        generation_metadata = dump_generation_metadata(
+            task_type="code",
+            source="agent_v2_run_code",
+        )
     from config_version import get_config_version_manager
     media_item = MediaItem(
         file_path=dest,

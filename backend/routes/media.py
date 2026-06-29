@@ -1715,21 +1715,21 @@ async def save_edited_image(
         await propagate_tool_lineage(session, db_media_item.id, [source_media_id], own_tool_id="builtin:stimma:image-editor")
 
         # Set generation_metadata for lineage display in frontend
-        import json
-        generation_metadata = {
-            "task_type": "image-to-image",
-            "generated_at": datetime.utcnow().isoformat(),
-            "source_inputs": [{
+        from generation_metadata import dump_generation_metadata
+        db_media_item.generation_metadata = dump_generation_metadata(
+            task_type="image-to-image",
+            source="stimma",
+            tool_id="builtin:stimma:image-editor",
+            source_inputs=[{
                 "media_id": source_media_id,
-                "role": "source_image"
+                "role": "source_image",
             }],
-            "lineage_trace": [{
+            lineage_trace=[{
                 "media_id": db_media_item.id,
                 "task_type": "image-to-image",
-                "source_media_ids": [source_media_id]
-            }]
-        }
-        db_media_item.generation_metadata = json.dumps(generation_metadata)
+                "source_media_ids": [source_media_id],
+            }],
+        )
 
         # Store editor project state as sidecar file (for non-destructive editing)
         if editor_project:

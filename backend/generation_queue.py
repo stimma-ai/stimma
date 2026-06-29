@@ -16,6 +16,7 @@ from database import GenerationJob, MediaItem, ChatItem, ControlFlag, MediaLinea
 from database_registry import get_database_registry
 from utils.background_tasks import clear_auto_delete_for_media
 from utils.lineage import record_lineage_from_inputs, propagate_tool_lineage
+from generation_metadata import build_generation_metadata, build_parameters
 from core.profile_context import get_current_profile, set_current_profile, set_thread_profile, ProfileScope
 from core.logging import get_logger
 from providers import ProviderRegistry
@@ -2588,191 +2589,43 @@ class GenerationQueue:
                 chat_item_id = None
         log.debug(f"Job {job.id}: TIMING - _find_chat_item_for_job: {(_time.time() - _post_gen_start)*1000:.0f}ms")
 
-        # Build generation_metadata for:
-        # - Image tasks from any provider (for lineage tracking)
-        # - Video tasks (metadata can't be embedded in video files)
-        generation_metadata_json = None
+        # Build generation_metadata through the ONE canonical builder
+        # (generation_metadata.build_generation_metadata) so every task type —
+        # image, video, upscale, stitch, extend, and anything added later — stores
+        # the identical shape. No per-task branches: parameters is just the raw
+        # job params minus internal keys, plus the resolved seed and wall time.
+        # See generation_metadata.py for why this is centralized.
+        original_params = dict(params)
 
-        # Build metadata for all image generation tasks
-        # This ensures generation parameters and lineage are captured consistently for ALL tools
-        # Previously this excluded builtin providers and only covered text-to-image/image-to-image,
-        # but that caused inconsistent parameter capture (e.g., inpaint-image was missing params)
-        _IMAGE_TASK_TYPES = {'text-to-image', 'image-to-image', 'inpaint-image', 'outpaint-image', 'upscale-image', 'remove-background', 'filter'}
-        needs_metadata = task_type in _IMAGE_TASK_TYPES
-
-        # Build metadata with full generation parameters
-        if needs_metadata:
-            original_params = dict(params)
-
-            # Parameters are already clean from the request - just exclude internal fields
-            # Include all variations of input field names and their _media_id counterparts
-            internal_keys = {
-                'prompt', 'prompt_metadata', 'auto_marker_ids', 'mask_image',
-                'input_images', 'input_videos',
-                'input_media_ids', 'input_video_media_ids',
-            }
-            filtered_params = {
-                k: v for k, v in original_params.items()
-                if k not in internal_keys and v is not None
-            }
-            # Capture the actual seed used by the provider (may differ from requested seed)
-            filtered_params['seed'] = resolve_recorded_seed(
-                original_params.get('seed'),
-                getattr(result, 'actual_seed', None),
-            )
-
-            generation_metadata = {
-                "version": 3,
-                "source": "stimma",
-                "tool_id": job.tool_id,
-                "task_type": task_type,
-                "prompt": original_params.get('prompt', ''),
-                "negative_prompt": original_params.get('negative_prompt', ''),
-                "parameters": filtered_params,
-                "generated_at": datetime.utcnow().isoformat() + 'Z',
-                "source_inputs": lineage_data.get('source_inputs', []),
-                "lineage_trace": lineage_data.get('lineage_trace', []),
-                "prompt_metadata": original_params.get('prompt_metadata'),
-            }
-
-            # Add execution results
-            if exec_result.generation_time is not None:
-                generation_metadata["generation_time"] = round(exec_result.generation_time, 2)
-
-            generation_metadata_json = json.dumps(generation_metadata)
-            log.debug(f"Job {job.id}: Built generation_metadata for {provider.provider_id}")
-
-        elif task_type in ('image-to-video', 'text-to-video') and hasattr(result, 'generation_time'):
-            original_params = dict(params)
-
-            # Build parameters from actual job params, not hardcoded defaults
-            internal_keys = {
-                'prompt', 'prompt_metadata', 'auto_marker_ids',
-                'input_images', 'input_videos',
-                'input_media_ids', 'input_video_media_ids',
-                'negative_prompt',
-            }
-            filtered_params = {
-                k: v for k, v in original_params.items()
-                if k not in internal_keys and v is not None
-            }
-            filtered_params['seed'] = resolve_recorded_seed(
-                original_params.get('seed'),
-                getattr(result, 'actual_seed', None),
-            )
-            filtered_params['generation_time'] = round(result.generation_time, 2)
-
-            generation_metadata = {
-                "version": 3,
-                "source": "stimma",
-                "tool_id": job.tool_id,
-                "generator": job.backend_name or job.generator_name,
-                "model": job.model_name,
-                "task_type": task_type,
-                "prompt": original_params.get('prompt', ''),
-                "negative_prompt": original_params.get('negative_prompt', ''),
-                "parameters": filtered_params,
-                "generated_at": datetime.utcnow().isoformat() + 'Z',
-                "source_inputs": lineage_data.get('source_inputs', []),
-                "lineage_trace": lineage_data.get('lineage_trace', []),
-            }
-            generation_metadata_json = json.dumps(generation_metadata)
-        elif task_type == 'upscale-video' and hasattr(result, 'generation_time'):
-            original_params = dict(params)
-            generation_metadata = {
-                "version": 3,
-                "source": "stimma",
-                "generator": job.backend_name or job.generator_name,
-                "model": job.model_name,
-                "task_type": task_type,
-                "parameters": {
-                    "resolution": original_params.get('resolution', 1080),
-                    "color_correction": original_params.get('color_correction', 'lab'),
-                    "seed": resolve_recorded_seed(
-                        original_params.get('seed'),
-                        getattr(result, 'actual_seed', None),
-                    ),
-                    "generation_time": round(result.generation_time, 2),
-                },
-                "generated_at": datetime.utcnow().isoformat() + 'Z',
-                "source_inputs": lineage_data.get('source_inputs', []),
-                "lineage_trace": lineage_data.get('lineage_trace', []),
-            }
-            # Include tool_id for provenance tracking
-            if job.tool_id:
-                generation_metadata["tool_id"] = job.tool_id
-            generation_metadata_json = json.dumps(generation_metadata)
-        elif task_type == 'video-stitch' and hasattr(result, 'generation_time'):
-            original_params = dict(params)
-            generation_metadata = {
-                "version": 3,
-                "source": "stimma",
-                "generator": job.backend_name or job.generator_name,
-                "model": job.model_name,
-                "task_type": task_type,
-                "prompt": original_params.get('prompt', ''),
-                "negative_prompt": original_params.get('negative_prompt', ''),
-                "parameters": {
-                    "context_frames": original_params.get('context_frames', 16),
-                    "replace_frames": original_params.get('replace_frames', 8),
-                    "add_frames": original_params.get('add_frames', 0),
-                    "megapixels": original_params.get('megapixels', 0.4),
-                    "fps": original_params.get('fps', 16),
-                    "steps": original_params.get('steps', 20),
-                    "cfg": original_params.get('cfg', 4.0),
-                    "seed": resolve_recorded_seed(
-                        original_params.get('seed'),
-                        getattr(result, 'actual_seed', None),
-                    ),
-                    "generation_time": round(result.generation_time, 2),
-                },
-                "generated_at": datetime.utcnow().isoformat() + 'Z',
-                "source_inputs": lineage_data.get('source_inputs', []),
-                "lineage_trace": lineage_data.get('lineage_trace', []),
-            }
-            if job.tool_id:
-                generation_metadata["tool_id"] = job.tool_id
-            generation_metadata_json = json.dumps(generation_metadata)
-        elif task_type == 'video-extend' and hasattr(result, 'generation_time'):
-            original_params = dict(params)
-            generation_metadata = {
-                "version": 3,
-                "source": "stimma",
-                "generator": job.backend_name or job.generator_name,
-                "model": job.model_name,
-                "task_type": task_type,
-                "prompt": original_params.get('prompt', ''),
-                "negative_prompt": original_params.get('negative_prompt', ''),
-                "parameters": {
-                    "context_frames": original_params.get('context_frames', 16),
-                    "extend_frames": original_params.get('extend_frames', 33),
-                    "megapixels": original_params.get('megapixels', 0.4),
-                    "fps": original_params.get('fps', 16),
-                    "steps": original_params.get('steps', 20),
-                    "cfg": original_params.get('cfg', 4.0),
-                    "seed": resolve_recorded_seed(
-                        original_params.get('seed'),
-                        getattr(result, 'actual_seed', None),
-                    ),
-                    "generation_time": round(result.generation_time, 2),
-                },
-                "generated_at": datetime.utcnow().isoformat() + 'Z',
-                "source_inputs": lineage_data.get('source_inputs', []),
-                "lineage_trace": lineage_data.get('lineage_trace', []),
-            }
-            if job.tool_id:
-                generation_metadata["tool_id"] = job.tool_id
-            generation_metadata_json = json.dumps(generation_metadata)
-
-        # Inject inspired_by into generation_metadata if present
+        inspired_by = None
         _inspired_by_id = params.get('inspired_by_media_id')
-        if _inspired_by_id and generation_metadata_json:
+        if _inspired_by_id:
             try:
-                _meta = json.loads(generation_metadata_json)
-                _meta['inspired_by'] = {"media_id": int(_inspired_by_id)}
-                generation_metadata_json = json.dumps(_meta)
-            except (json.JSONDecodeError, ValueError):
-                pass
+                inspired_by = {"media_id": int(_inspired_by_id)}
+            except (TypeError, ValueError):
+                inspired_by = None
+
+        generation_metadata_json = json.dumps(build_generation_metadata(
+            task_type=task_type,
+            tool_id=job.tool_id,
+            generator=job.backend_name or job.generator_name,
+            model=job.model_name,
+            prompt=original_params.get('prompt', ''),
+            negative_prompt=original_params.get('negative_prompt', ''),
+            parameters=build_parameters(
+                original_params,
+                seed=resolve_recorded_seed(
+                    original_params.get('seed'),
+                    getattr(result, 'actual_seed', None),
+                ),
+                generation_time=getattr(result, 'generation_time', None),
+            ),
+            prompt_metadata=original_params.get('prompt_metadata'),
+            source_inputs=lineage_data.get('source_inputs', []),
+            lineage_trace=lineage_data.get('lineage_trace', []),
+            inspired_by=inspired_by,
+        ))
+        log.debug(f"Job {job.id}: Built generation_metadata for {provider.provider_id}")
 
         # One-shot flow-as-tool: this generation's media is ephemeral — keep it out of
         # lineage / markers / project / websocket; it is hard-deleted when the run ends.
@@ -2819,27 +2672,11 @@ class GenerationQueue:
                 await propagate_tool_lineage(session, media_item.id, source_ids, job.tool_id)
             log.debug(f"Job {job.id}: TIMING - propagate_tool_lineage: {(_time.time() - _t1)*1000:.0f}ms")
 
-            # For image tasks, update generation_metadata with lineage data and tool_id
-            # (Video tasks already have lineage in generation_metadata_json passed to _insert_generated_file)
-            # IMPORTANT: Always update for image tasks so tool_id, version, etc. are recorded
-            _t1 = _time.time()
-            if task_type in _IMAGE_TASK_TYPES:
-                # media_item is already in this session, we can update it directly
-                try:
-                    existing_meta = json.loads(media_item.generation_metadata) if media_item.generation_metadata else {}
-                    existing_meta['version'] = 3
-                    existing_meta['task_type'] = task_type
-                    existing_meta['source_inputs'] = lineage_data.get('source_inputs', [])
-                    existing_meta['lineage_trace'] = lineage_data.get('lineage_trace', [])
-                    existing_meta['generated_at'] = datetime.utcnow().isoformat()
-                    # Include tool_id in generation_metadata for history display
-                    if job.tool_id:
-                        existing_meta['tool_id'] = job.tool_id
-                    media_item.generation_metadata = json.dumps(existing_meta)
-                    log.debug(f"Job {job.id}: Updated generation_metadata with lineage data")
-                except (json.JSONDecodeError, Exception) as e:
-                    log.warning(f"Job {job.id}: Failed to update lineage in generation_metadata: {e}")
-            log.debug(f"Job {job.id}: TIMING - update lineage metadata: {(_time.time() - _t1)*1000:.0f}ms")
+            # NOTE: generation_metadata is now built in full (lineage + tool_id +
+            # generator/model) via build_generation_metadata BEFORE insertion for
+            # every task type, so the old image-only post-insertion overlay that
+            # re-stamped lineage here has been removed — it was redundant and was
+            # itself a source of image/video drift.
 
             # Calculate auto_delete_at if duration is set. completed_at was stamped
             # at GPU-done by the caller (not here) so it excludes this tail.

@@ -1713,6 +1713,10 @@ async def generate_config_from_media(
                     "source_thumbnail_url": f"/api/media/file/{media_id}?size=thumbnail",
                     "source_prompt_snippet": (effective_prompt or ""),
                     "source_tool_id": source_tool_id,
+                    # Surface the recorded seed so the remix banner can offer "Use Seed".
+                    # preserve_seed stays False (videos default to a fresh seed); the
+                    # button lets the user opt into reproducing the exact frame.
+                    "seed": params.get("seed"),
                     "preserve_seed": False,
                 }
                 # Include video-specific params

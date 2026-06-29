@@ -38,6 +38,8 @@ from typing import Any, Awaitable, Callable, Optional
 
 from sqlalchemy import func, select, update
 
+from generation_metadata import dump_generation_metadata
+
 from .evaluators import (
     CODE_ERROR,
     LLM_ERROR,
@@ -2002,12 +2004,11 @@ async def _save_document_media(
             height=0,
             megapixels=0,
             raw_metadata=json.dumps({"title": title, "format": fmt}),
-            generation_metadata=json.dumps({
-                "version": 3,
-                "task_type": "document-creation",
-                "format": fmt,
-                "generated_at": datetime.utcnow().isoformat(),
-            }),
+            generation_metadata=dump_generation_metadata(
+                task_type="document-creation",
+                source="flow",
+                extra={"format": fmt},
+            ),
         )
         session.add(media)
         await session.flush()
@@ -2318,16 +2319,15 @@ async def _save_pil_image_media(
             height=height,
             megapixels=round((width * height) / 1_000_000, 3),
             raw_metadata=json.dumps({"title": title, "format": fmt}),
-            generation_metadata=json.dumps({
-                "version": 3,
-                "task_type": "image-composition",
-                "format": fmt,
-                "generated_at": datetime.utcnow().isoformat(),
-                "source_inputs": [
+            generation_metadata=dump_generation_metadata(
+                task_type="image-composition",
+                source="flow",
+                source_inputs=[
                     {"media_id": mid, "role": "input_image"}
                     for mid in (source_media_ids or [])
                 ],
-            }),
+                extra={"format": fmt},
+            ),
         )
         session.add(media)
         await session.flush()
@@ -2653,16 +2653,14 @@ async def _save_layout_media(
             height=0,
             megapixels=0,
             raw_metadata=json.dumps({"title": title, "description": description}),
-            generation_metadata=json.dumps({
-                "version": 3,
-                "task_type": "layout-creation",
-                "source": "flow_create_layout",
-                "generated_at": datetime.utcnow().isoformat(),
-                "source_inputs": [
+            generation_metadata=dump_generation_metadata(
+                task_type="layout-creation",
+                source="flow_create_layout",
+                source_inputs=[
                     {"media_id": mid, "role": "source_image"}
                     for mid in (source_media_ids or [])
                 ],
-            }),
+            ),
         )
         session.add(media)
         await session.flush()
@@ -3382,13 +3380,11 @@ async def _save_fetched_media(
             height=height,
             megapixels=round((width * height) / 1_000_000, 3) if width and height else 0.0,
             raw_metadata=json.dumps({"source_url": source_url, "format": fmt}),
-            generation_metadata=json.dumps({
-                "version": 3,
-                "task_type": "fetch-media",
-                "format": fmt,
-                "source_url": source_url,
-                "generated_at": datetime.utcnow().isoformat(),
-            }),
+            generation_metadata=dump_generation_metadata(
+                task_type="fetch-media",
+                source="flow",
+                extra={"format": fmt, "source_url": source_url},
+            ),
         )
         session.add(media)
         await session.flush()

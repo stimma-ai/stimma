@@ -10,6 +10,7 @@ from ..tools_registry import tool, ToolParameter
 
 from config_version import get_config_version_manager
 from core.logging import get_logger
+from generation_metadata import build_generation_metadata
 from flow_runtime.layout_bundle import (
     assemble_index_html,
     copy_referenced_images,
@@ -200,16 +201,13 @@ async def _save_to_library(
         if row and row not in source_id_set:
             source_ids.append(row)
             source_id_set.add(row)
-    gen_meta = {
-        "version": 3,
-        "source": "agent_v2_create_layout",
-        "task_type": "layout",
-        "parameters": {},
-        "source_inputs": [
+    gen_meta = build_generation_metadata(
+        task_type="layout",
+        source="agent_v2_create_layout",
+        source_inputs=[
             {"media_id": mid, "role": "source_image"} for mid in source_ids
         ],
-        "generated_at": datetime.utcnow().isoformat(),
-    }
+    )
 
     media_item = MediaItem(
         file_path=dest,

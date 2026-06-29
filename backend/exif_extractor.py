@@ -680,16 +680,41 @@ def parse_a1111_parameters(raw_metadata: str) -> Optional[dict]:
 
 def parse_external_metadata(raw_metadata: str) -> Optional[dict]:
     """
-    Detect external metadata format and parse into structured dict.
+    Detect external metadata format and parse into the CANONICAL generation_metadata
+    shape (source="external") so imported media match natively-generated media.
 
     Currently supports A1111/Forge format. ComfyUI/Fooocus can be added later.
     """
     if not raw_metadata:
         return None
 
+    parsed = None
     # A1111/Forge: plain text with "Steps:" marker
     if "Steps:" in raw_metadata and not raw_metadata.strip().startswith('{'):
-        return parse_a1111_parameters(raw_metadata)
-
+        parsed = parse_a1111_parameters(raw_metadata)
     # Future: ComfyUI, Fooocus, etc.
-    return None
+
+    if not parsed:
+        return None
+
+    # Normalize the foreign dict into the canonical envelope. Format-specific bits
+    # (format, loras) ride along in `extra`.
+    from generation_metadata import build_generation_metadata
+    extra = {}
+    if parsed.get("format"):
+        extra["format"] = parsed["format"]
+    if parsed.get("loras"):
+        extra["loras"] = parsed["loras"]
+    return build_generation_metadata(
+        task_type=parsed.get("task_type") or "imported",
+        source=parsed.get("source") or "external",
+        tool_id=parsed.get("tool_id"),
+        generator=parsed.get("generator"),
+        model=parsed.get("model"),
+        prompt=parsed.get("prompt") or "",
+        negative_prompt=parsed.get("negative_prompt") or "",
+        parameters=parsed.get("parameters") or {},
+        source_inputs=parsed.get("source_inputs") or [],
+        generated_at=parsed.get("generated_at") or None,
+        extra=extra or None,
+    )
