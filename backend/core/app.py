@@ -608,7 +608,7 @@ def _log_queue_listener(log_queue, stop_event):
             pass
 
 
-def run_ingestion_worker(rescan_event=None, process_pending_event=None, pause_event=None, reload_config_event=None, bundle_id: str = "", log_queue=None):
+def run_ingestion_worker(rescan_event=None, process_pending_event=None, pause_event=None, reload_config_event=None, bundle_id: str = "", log_queue=None, sandbox: str = "default"):
     """Run continuous ingestion in a separate process.
 
     IMPORTANT: This runs in a separate process spawned via multiprocessing.
@@ -623,6 +623,8 @@ def run_ingestion_worker(rescan_event=None, process_pending_event=None, pause_ev
         reload_config_event: Event to reload config (profiles changed)
         bundle_id: Bundle ID for environment separation (e.g., "ai.stimma.stimma.debug")
         log_queue: multiprocessing.Queue to send log records to parent process
+        sandbox: Sandbox name within the bundle (e.g., "default", "oobe5"). MUST match
+            the web server's sandbox or the worker processes the wrong profile DBs.
     """
     import os
     import sys
@@ -655,8 +657,12 @@ def run_ingestion_worker(rescan_event=None, process_pending_event=None, pause_ev
     # Lazy import to avoid loading torch at module level
     from ingestion import run_continuous_ingestion
 
-    # Set app context in subprocess before any config loading
-    set_app_context(bundle_id)
+    # Set app context in subprocess before any config loading.
+    # Both bundle_id AND sandbox must be restored here: this runs in a fresh
+    # interpreter (multiprocessing 'spawn'), so the parent's app context globals
+    # are not inherited. Omitting sandbox makes the worker operate on the wrong
+    # sandbox's profile databases (it defaults to "default").
+    set_app_context(bundle_id, sandbox)
 
     # Read log level from config (can't use get_settings() before logging is set up)
     log_level = "INFO"
@@ -1102,10 +1108,15 @@ async def lifespan(app: FastAPI):
                     log.info("Restored paused state from database")
 
                 # Start ingestion subprocess with log queue for piping logs back
-                from app_context import get_bundle_id
+                from app_context import get_bundle_id, get_sandbox
                 import threading
                 bundle_id = get_bundle_id()
-                log.info("starting ingestion process")
+                # The worker is spawned in a fresh interpreter (mp 'spawn'), so it does
+                # NOT inherit the app context globals. We must pass BOTH bundle_id and
+                # sandbox explicitly, or the worker silently falls back to the "default"
+                # sandbox and processes the wrong profile databases.
+                sandbox = get_sandbox()
+                log.info(f"starting ingestion process (bundle={bundle_id}, sandbox={sandbox})")
 
                 # Create log queue and listener thread to receive logs from subprocess
                 log_queue = _mp_context.Queue()
@@ -1120,7 +1131,7 @@ async def lifespan(app: FastAPI):
 
                 ingestion_process = _mp_context.Process(
                     target=run_ingestion_worker,
-                    args=(_rescan_event, _process_pending_event, _pause_event, _reload_config_event, bundle_id, log_queue),
+                    args=(_rescan_event, _process_pending_event, _pause_event, _reload_config_event, bundle_id, log_queue, sandbox),
                     daemon=True
                 )
                 ingestion_process.start()
