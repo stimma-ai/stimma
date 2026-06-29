@@ -13,12 +13,14 @@
           <PipelineProgressBar
             v-if="item.type === 'active-job'"
             v-bind="jobModel(item.job)"
+            :compact="compactOverlays"
             @cancel="$emit('cancel-job', item.job.id)"
           />
           <!-- Active batch (in progress) — determinate fraction -->
           <PipelineProgressBar
             v-else-if="item.type === 'active-batch'"
             v-bind="batchModel(item.batch)"
+            :compact="compactOverlays"
             @cancel="$emit('cancel-and-dismiss-batch', item.batch.batch_id)"
           />
           <!-- Running/paused post-processing chain: same segmented pipeline,
@@ -26,6 +28,7 @@
           <PipelineProgressBar
             v-else-if="item.type === 'chain-run'"
             v-bind="chainModel(item.run)"
+            :compact="compactOverlays"
             @retry="$emit('retry-chain', item.run.id)"
             @dismiss="$emit('dismiss-chain', item.run.id)"
             @cancel="$emit('dismiss-chain', item.run.id)"
@@ -35,6 +38,7 @@
           <div v-else-if="item.type === 'media-batch-active'" class="flex flex-col gap-2">
             <PipelineProgressBar
               v-bind="mediaBatchModel(item.batch)"
+              :compact="compactOverlays"
               @cancel="$emit('cancel-and-dismiss-batch', item.batch.batch_id)"
             />
             <BatchGroup

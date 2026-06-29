@@ -2,18 +2,26 @@
   <div
     :title="compact ? tooltip : undefined"
     :class="[
-      'group relative flex items-center rounded-lg border overflow-hidden',
-      compact ? 'gap-2 min-h-[40px] px-2 py-2' : 'gap-2.5 min-h-[58px] px-2.5 py-2',
-      failed ? 'bg-red-500/10 border-red-500/40' : 'bg-surface-raised border-edge',
+      'group relative flex items-center overflow-hidden',
+      // Compact (narrow Stage rail): drop the card chrome — a framed surface is
+      // mostly empty here and reads as a hollow card. Active items become a tight
+      // stack of borderless slim loading bars. Failed keeps a subtle red frame so
+      // it's still noticeable.
+      compact
+        ? (failed ? 'gap-2 px-2 py-1.5 rounded-md border bg-red-500/10 border-red-500/40' : 'gap-2.5 px-1 py-1.5')
+        : ['min-h-[58px] gap-2.5 px-2.5 py-2 rounded-lg border', failed ? 'bg-red-500/10 border-red-500/40' : 'bg-surface-raised border-edge'],
     ]"
   >
     <!-- Leading icon: thumbnail when we have one (chains carry their last good
-         output), otherwise a status spinner / queued clock. In compact (narrow
-         Stage rail) it shrinks so the track gets the room. -->
+         output), otherwise a status spinner / queued clock. In compact, the
+         boxed background is dropped for the bare spinner so the row stays light;
+         thumbnails keep a small framed tile. -->
     <div
       :class="[
-        'relative rounded-md bg-surface flex items-center justify-center flex-shrink-0 overflow-hidden',
-        compact ? 'w-6 h-6' : 'w-9 h-9',
+        'relative flex items-center justify-center flex-shrink-0 overflow-hidden',
+        thumbMediaId
+          ? (compact ? 'w-6 h-6 rounded bg-surface' : 'w-9 h-9 rounded-md bg-surface')
+          : (compact ? 'w-3.5 h-3.5' : 'w-9 h-9 rounded-md bg-surface'),
       ]"
     >
       <template v-if="thumbMediaId">
@@ -24,25 +32,25 @@
           container-class="w-full h-full"
         />
         <div v-if="!failed" class="absolute inset-0 flex items-center justify-center bg-black/30">
-          <div class="w-[18px] h-[18px] border-2 border-white/30 border-t-blue-400 rounded-full animate-spin"></div>
+          <div :class="[spinnerSize, 'border-2 border-white/30 border-t-blue-400 rounded-full animate-spin']"></div>
         </div>
       </template>
       <template v-else>
         <svg
           v-if="failed"
-          xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-red-500"
+          xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" :class="[compact ? 'w-3.5 h-3.5' : 'w-4 h-4', 'text-red-500']"
         >
           <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
         </svg>
         <div
           v-else-if="status === 'processing'"
-          class="w-[18px] h-[18px] border-2 border-edge-strong border-t-blue-500 rounded-full animate-spin"
+          :class="[spinnerSize, 'border-2 border-edge-strong border-t-blue-500 rounded-full animate-spin']"
         ></div>
         <div
           v-else-if="status === 'enhancing'"
-          class="w-[18px] h-[18px] border-2 border-edge-strong border-t-purple-500 rounded-full animate-spin"
+          :class="[spinnerSize, 'border-2 border-edge-strong border-t-purple-500 rounded-full animate-spin']"
         ></div>
-        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-content-muted">
+        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" :class="[compact ? 'w-3.5 h-3.5' : 'w-4 h-4', 'text-content-muted']">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
         </svg>
       </template>
@@ -53,47 +61,63 @@
          160px) — the track gets the full width and the details move to the row
          tooltip. -->
     <div class="flex-1 min-w-0">
-      <div v-if="!compact" class="text-xs font-medium text-content truncate whitespace-nowrap">{{ name }}</div>
+      <!-- Compact (narrow Stage rail): no progress bar — the leading spinner is
+           the only "working" cue, and the bar in its place just read as a lonely
+           line. Show a single truncated line of text instead (tool name, or the
+           "N of M" count for batches); the full status lives in the row tooltip. -->
+      <!-- Fade the name out at the right edge instead of a hard ellipsis — the
+           tool name almost always overflows this 160px rail, and "…" on every row
+           is noisy. The mask is set via inline style (not an arbitrary Tailwind
+           class) so JIT purging can't drop it; `-webkit-` is required in the
+           Tauri WebKit webview. Short names don't reach the fade zone, so crisp. -->
+      <div
+        v-if="compact"
+        :class="['text-xs font-medium whitespace-nowrap overflow-hidden', failed ? 'text-red-500' : 'text-content']"
+        :style="fadeMaskStyle"
+      >{{ compactText }}</div>
 
-      <!-- Segmented pipeline: one segment per stage (generation + each
-           post-processing step). Determinate fill is used for batches. -->
-      <div :class="compact ? '' : 'mt-1.5'">
-        <div v-if="segments && segments.length" class="flex items-center gap-1 h-1.5">
-          <div
-            v-for="(seg, i) in segments"
-            :key="i"
-            :title="seg.title"
-            :class="[
-              'relative flex-1 h-full rounded-full overflow-hidden',
-              seg.status === 'done' ? 'bg-blue-500' :
-              seg.status === 'failed' ? 'bg-red-500' :
-              seg.status === 'skipped' ? 'bg-amber-500/50' :
-              seg.status === 'active' ? 'bg-blue-500/35' :
-              'bg-surface',
-            ]"
-          >
-            <!-- Calm solid-blue active segment identifies the stage; a dim,
-                 narrow band drifts slowly across it. Larger bg length keeps the
-                 highlight a small fraction of the bar even when it's wide. -->
-            <span
-              v-if="seg.status === 'active'"
-              class="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-blue-300/40 to-transparent bg-[length:300%_100%]"
-            ></span>
+      <template v-else>
+        <div class="text-xs font-medium text-content truncate whitespace-nowrap">{{ name }}</div>
+
+        <!-- Segmented pipeline: one segment per stage (generation + each
+             post-processing step). Determinate fill is used for batches. -->
+        <div class="mt-1.5">
+          <div v-if="segments && segments.length" class="flex items-center gap-1 h-1.5">
+            <div
+              v-for="(seg, i) in segments"
+              :key="i"
+              :title="seg.title"
+              :class="[
+                'relative flex-1 h-full rounded-full overflow-hidden',
+                seg.status === 'done' ? 'bg-blue-500' :
+                seg.status === 'failed' ? 'bg-red-500' :
+                seg.status === 'skipped' ? 'bg-amber-500/50' :
+                seg.status === 'active' ? 'bg-blue-500/35' :
+                'bg-surface',
+              ]"
+            >
+              <!-- Calm solid-blue active segment identifies the stage; a dim,
+                   narrow band drifts slowly across it. -->
+              <span
+                v-if="seg.status === 'active'"
+                class="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-blue-300/40 to-transparent bg-[length:300%_100%]"
+              ></span>
+            </div>
+          </div>
+          <!-- Determinate (batches): real fraction -->
+          <div v-else class="h-1.5 rounded-full bg-surface overflow-hidden">
+            <div
+              v-if="progress != null"
+              class="h-full bg-blue-500 transition-all duration-300"
+              :style="{ width: `${Math.round(progress * 100)}%` }"
+            ></div>
           </div>
         </div>
-        <!-- Determinate (batches): real fraction -->
-        <div v-else class="h-1.5 rounded-full bg-surface overflow-hidden">
-          <div
-            v-if="progress != null"
-            class="h-full bg-blue-500 transition-all duration-300"
-            :style="{ width: `${Math.round(progress * 100)}%` }"
-          ></div>
-        </div>
-      </div>
 
-      <div v-if="!compact" :class="['mt-1.5 text-[11px] truncate whitespace-nowrap', failed ? 'text-red-500' : 'text-content-muted']">
-        {{ label }}
-      </div>
+        <div :class="['mt-1.5 text-[11px] truncate whitespace-nowrap', failed ? 'text-red-500' : 'text-content-muted']">
+          {{ label }}
+        </div>
+      </template>
     </div>
 
     <!-- Failed → Retry + Dismiss; otherwise the hover Cancel. -->
@@ -126,8 +150,8 @@
       v-else-if="showCancel"
       @click.stop="$emit('cancel')"
       :class="[
-        'w-6 h-6 flex items-center justify-center rounded text-content-muted/50 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100',
-        compact ? 'absolute top-1 right-1 z-10 bg-surface-raised/80 backdrop-blur-sm' : '',
+        'flex items-center justify-center rounded text-content-muted/50 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100',
+        compact ? 'absolute right-0 top-1/2 -translate-y-1/2 z-10 w-5 h-5 bg-surface/90 backdrop-blur-sm' : 'w-6 h-6',
       ]"
       title="Cancel"
     >
@@ -149,7 +173,7 @@ export interface PipelineSegment {
   title?: string
 }
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   /** Tool/model name (e.g. "SeedVR2 Image Upscale 3B"). */
   name: string
   /** Current-stage line under the track (e.g. "Upscaling — step 3 of 5"). */
@@ -165,6 +189,8 @@ withDefaults(defineProps<{
   failed?: boolean
   showCancel?: boolean
   showRetry?: boolean
+  /** Narrow Stage rail: drop name/label text, fill the track, details on hover. */
+  compact?: boolean
 }>(), {
   segments: null,
   progress: null,
@@ -173,7 +199,28 @@ withDefaults(defineProps<{
   failed: false,
   showCancel: true,
   showRetry: true,
+  compact: false,
 })
+
+// Compact rows hide the text, so the name + current-stage line move to the row
+// tooltip (e.g. "LTX Video — Generating…").
+const tooltip = computed(() =>
+  [props.name, props.label].filter(Boolean).join(' — ')
+)
+
+// Smaller spinner in the narrow Stage rail.
+const spinnerSize = computed(() => (props.compact ? 'w-3.5 h-3.5' : 'w-[18px] h-[18px]'))
+
+// The single line shown in compact rows: the tool/step name, except for
+// determinate batches where the "N of M" count is the useful bit.
+const compactText = computed(() =>
+  props.progress != null ? props.label : props.name
+)
+
+// Right-edge fade for the compact name (see template). Both standard and
+// -webkit- (Tauri runs WebKit) so it can't silently no-op.
+const fadeMask = 'linear-gradient(to right, #000 82%, transparent)'
+const fadeMaskStyle = { maskImage: fadeMask, WebkitMaskImage: fadeMask }
 
 defineEmits<{
   (e: 'cancel'): void
