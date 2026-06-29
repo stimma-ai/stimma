@@ -139,8 +139,13 @@
                 </svg>
               </button>
 
+              <!-- Slot-label badge (named-slot mode, e.g. Start / End) -->
+              <div v-if="!batchMode && useSlotLabels" class="absolute top-1 left-1 px-1.5 h-5 flex items-center justify-center bg-black/70 rounded pointer-events-none">
+                <span class="text-[10px] uppercase tracking-wide text-white font-semibold leading-none">{{ slotBadge(index) }}</span>
+              </div>
+
               <!-- Order badge -->
-              <div v-if="!batchMode" :class="[
+              <div v-else-if="!batchMode" :class="[
                 'absolute flex items-center justify-center pointer-events-none',
                 reorderable ? 'top-1 left-1 w-6 h-6 bg-black/70 rounded-full' : 'top-1 left-1 w-5 h-5 bg-black/70 rounded-full'
               ]">
@@ -564,7 +569,18 @@
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-content-muted">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
-        <span class="text-xs text-content-muted">{{ isDragging ? 'Drop here' : 'Add' }}</span>
+        <span class="text-xs text-content-muted">
+          {{ isDragging ? 'Drop here' : (useSlotLabels ? slotName(items.length) : 'Add') }}
+        </span>
+        <!-- Loop shortcut: reuse the first slot's image to fill this one -->
+        <button
+          v-if="useSlotLabels && items.length >= 1 && !isDragging"
+          @click.stop="duplicateFirstToFill"
+          class="mt-1 text-[10px] px-2 py-0.5 rounded border border-white/10 text-content-muted bg-white/[0.05] hover:bg-blue-500/10 hover:text-blue-400 hover:border-blue-500/30 transition-colors"
+          :title="`Use the same image as ${slotName(0)} (for loops)`"
+        >
+          Same as {{ slotBadge(0) }}
+        </button>
       </div>
     </div>
 
@@ -703,6 +719,11 @@ interface Props {
   allowSets?: boolean  // Allow sets to be dropped (for batch processing)
   controlnetOptions?: string[]  // e.g. ["canny", "depth", "lineart", "pose"]
   allowPrep?: boolean  // Show Scale / Extend Canvas / Paint controls (driven by schema x-allow-prep)
+  // Named slots: when provided, each tile is a role (e.g. ['Start Frame', 'End
+  // Frame']) rather than an anonymous ordered item. Drives the per-tile badge,
+  // the empty add-tile label, and the "use same for both" loop shortcut. Items
+  // remain a plain ordered array — slot N is items[N].
+  slotLabels?: string[]
   // Batch state: the slot holds N items and runs the tool once per item. The slot
   // collapses to one representative "stack" tile (with a count); its prep is the
   // uniform prep applied to every item. Non-applicable controls (paint, reorder,
@@ -719,6 +740,7 @@ const props = withDefaults(defineProps<Props>(), {
   allowSets: true,
   controlnetOptions: () => [],
   allowPrep: false,
+  slotLabels: () => [],
   batchMode: false
 })
 
@@ -804,6 +826,31 @@ const controlnetLabels: Record<string, string> = {
 }
 
 const hasControlnet = computed(() => props.controlnetOptions.length > 0)
+
+// Named-slot mode (e.g. Start Frame / End Frame). Only meaningful when there's
+// more than one role to distinguish — a lone slot needs no badge.
+const useSlotLabels = computed(() => props.slotLabels.length > 1)
+function slotName(index: number): string {
+  return props.slotLabels[index] || `Slot ${index + 1}`
+}
+// Short badge text for a slot, e.g. "Start Frame" → "Start".
+function slotBadge(index: number): string {
+  const name = props.slotLabels[index]
+  if (!name) return String(index + 1)
+  return name.replace(/\s*frame\s*$/i, '').trim() || name
+}
+
+// Loop shortcut: copy slot 0 into the next empty slot so both frames share one
+// image (seamless loops want identical start/end). The copy carries the same
+// path + prep metadata; editing one slot's prep afterwards re-derives from the
+// shared original, so the slots stay independent once duplicated.
+function duplicateFirstToFill() {
+  if (items.value.length < 1 || items.value.length >= props.maxItems) return
+  const copy: MediaItem = { ...items.value[0] }
+  const newItems = [...items.value, copy]
+  items.value = newItems
+  emit('update:modelValue', newItems)
+}
 
 // Drag state for reordering
 const dragIndex = ref<number | null>(null)

@@ -263,10 +263,23 @@
                         class="relative w-32 h-32 rounded-lg overflow-hidden border border-edge hover:border-blue-500 transition-colors bg-checker p-0 cursor-pointer"
                         :title="formatSourceRole(source.role)"
                       >
-                        <img
-                          :src="source.preprocessor && getPreprocessedUrl(source) ? getPreprocessedUrl(source) : getThumbnailUrl(source.media_id, 256)"
+                        <!-- Preprocessed inputs show a derived preview URL, not the stored library asset. -->
+                        <AppImage
+                          v-if="source.preprocessor && getPreprocessedUrl(source)"
+                          :src="getPreprocessedUrl(source)"
                           :alt="formatSourceRole(source.role)"
-                          class="w-full h-full object-contain"
+                          :contain="true"
+                          container-class="w-full h-full"
+                        />
+                        <!-- Library asset: MediaImage so right-click menu + drag-drop work like everywhere else. -->
+                        <MediaImage
+                          v-else
+                          :media-id="source.media_id"
+                          :file-path="source.file_path"
+                          :alt="formatSourceRole(source.role)"
+                          :thumbnail-size="256"
+                          :contain="true"
+                          container-class="w-full h-full"
                         />
                         <div v-if="source.preprocessor || source.paint_layer || source.extend_padding || source.flip" class="absolute top-1 right-1 flex flex-col gap-0.5 items-end">
                           <span v-if="source.preprocessor" class="px-2 py-1 bg-black/70 text-white text-[10px] rounded-full leading-none">
@@ -745,8 +758,7 @@ import InlineTagEditor from './InlineTagEditor.vue'
 import SendToToolMenu from './SendToToolMenu.vue'
 import SendToChatMenu from './SendToChatMenu.vue'
 import InspireMenu from './InspireMenu.vue'
-import { MediaImage } from './media'
-import { useMediaApi } from '../composables/useMediaApi'
+import { AppImage, MediaImage } from './media'
 import { captioningEnabledRef } from '../appConfig'
 import { getApiBase } from '../apiConfig'
 import { getCurrentProfileId } from '../composables/useProfile'
@@ -858,7 +870,6 @@ const emit = defineEmits([
   'tags-updated'
 ])
 
-const { getThumbnailUrl } = useMediaApi()
 const { cachedTools } = useProvidersApi()
 const contextMenu = useMediaContextMenu()
 

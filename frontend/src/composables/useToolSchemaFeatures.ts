@@ -204,12 +204,13 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
   const mediaInputConfig = computed((): MediaInputConfig | null => {
     const props = tool.value?.parameter_schema?.properties || {}
 
-    // Images (input_images) — skip if using videoFramePicker (handled by VideoImagePicker)
+    // Images (input_images) — skip if using videoFramePicker. Frame tools render
+    // their own MediaPicker instance (named Start/End slots) wired to videoImages
+    // state, so the generic mediaInputItems picker must not also mount.
     if ('input_images' in props) {
       const schema = props.input_images
       const control = schema?.['x-control']
       if (control === 'video_frame_picker') {
-        // Handled by VideoImagePicker, not MediaPicker
         return null
       }
       const max = schema?.['x-max-items'] || schema?.maxItems || 3
