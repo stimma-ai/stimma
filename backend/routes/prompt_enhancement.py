@@ -80,8 +80,14 @@ _VLM_IMAGE_FORMATS = frozenset({"jpg", "jpeg", "png", "webp", "bmp", "gif", "tif
 # the input prompt.
 _VERBATIM_TOKEN_RE = re.compile(r"__VERBATIM_[A-Z]__")
 
+# A double-quoted span (straight or curly) signals dialogue the user wants spoken.
+# Single quotes are excluded — contractions ("don't", "she's") would false-positive.
+_DIALOGUE_QUOTE_RE = re.compile(r'["“][^"“”]+["”]')
 
-def _protected_text_guidance(prompt: str, *, keyword_mode: bool = False) -> str:
+
+def _protected_text_guidance(
+    prompt: str, *, keyword_mode: bool = False, cinematography: bool = False
+) -> str:
     """Build the 'PRESERVING PROTECTED TEXT' block for the spans actually present.
 
     The improve_* system prompts carry a ``{protected_text_guidance}`` slot that
@@ -91,8 +97,17 @@ def _protected_text_guidance(prompt: str, *, keyword_mode: bool = False) -> str:
     onto it (e.g. inventing a bare ``__VERBATIM_A__`` token that then reaches the
     image model). Returns "" for a plain prose prompt so it gets no such chatter.
     ``keyword_mode`` adds the comma-separated-tag nuance the SD1.5/SDXL prompt needs.
+    ``cinematography`` adds a dialogue bullet when the prompt quotes spoken lines —
+    the video prompt's motion-only framing otherwise drops the words and keeps only
+    the lip movement.
     """
     bullets: List[str] = []
+    if cinematography and _DIALOGUE_QUOTE_RE.search(prompt):
+        bullets.append(
+            '- Quoted dialogue (e.g. she says, "..."): keep the spoken words exactly as '
+            "written and present them as a spoken line — they are content the video model "
+            'voices, never motion to mime (don\'t reduce them to "her lips move").'
+        )
     if _VERBATIM_TOKEN_RE.search(prompt):
         bullets.append(
             "- Placeholder tokens of the form __VERBATIM_A__, __VERBATIM_B__ … "
@@ -565,7 +580,11 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
     )
     system_prompt = system_prompt.replace(
         "{protected_text_guidance}",
-        _protected_text_guidance(request.prompt, keyword_mode=(mode == "keyword")),
+        _protected_text_guidance(
+            request.prompt,
+            keyword_mode=(mode == "keyword"),
+            cinematography=(mode == "cinematography"),
+        ),
     )
     system_prompt = re.sub(r"\n{3,}", "\n\n", system_prompt)
     log.info(f"Prompt improve mode={mode} image={'yes' if source_image_b64 else 'no'}")
