@@ -1945,7 +1945,12 @@ watch(() => globalPrefs.value.inputImages, (newImages, oldImages) => {
 watch(() => videoImages.startImage, (newStart, oldStart) => {
   if (!newStart?.width || !newStart?.height) return
   if (isInitialLoading.value) return
-  const changed = !oldStart || newStart.path !== oldStart.path || newStart.mediaId !== oldStart.mediaId
+  const changed = !oldStart
+    || newStart.path !== oldStart.path
+    || newStart.mediaId !== oldStart.mediaId
+    // Dimensions just resolved (e.g. legacy frame backfilled by the picker) —
+    // treat as a change so the canvas can match a frame that previously read 1×1.
+    || (!oldStart.width && !!newStart.width)
   if (!changed) return
   if (hasAspectRatio.value && !resolutionLockSize.value) {
     modelParams.value.aspect_ratio = findNearestAspectRatio(newStart.width, newStart.height)

@@ -646,7 +646,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onBeforeUnmount, onMounted } from 'vue'
 import axios from 'axios'
 import { ArrowDownOnSquareIcon, Square3Stack3DIcon } from '@heroicons/vue/24/outline'
 import { useMediaApi } from '../../composables/useMediaApi'
@@ -882,7 +882,50 @@ watch(() => props.modelValue, (newValue) => {
       applyFullPreprocessing(i)
     }
   })
+
+  backfillDimensions()
 }, { deep: true })
+
+// Backfill width/height for items that have a mediaId but no dimensions. Frames
+// restored from the legacy picker (and some config-hop / send-to-tool paths)
+// arrive without dims, which leaves the output-size footer at 1×1 and starves
+// the resolution auto-match. Fetch the real dims from the library and patch them
+// in. The re-entrancy guard + "missing dims" filter keep the follow-up emit from
+// looping.
+let backfillingDimensions = false
+async function backfillDimensions() {
+  if (backfillingDimensions) return
+  const targets = items.value
+    .map((it, i) => ({ it, i }))
+    .filter(({ it }) => !it.isSet && it.mediaId && (!it.width || !it.height))
+  if (targets.length === 0) return
+  backfillingDimensions = true
+  try {
+    const newItems = [...items.value]
+    let changed = false
+    for (const { it, i } of targets) {
+      try {
+        const media = await getMediaItem(it.mediaId!)
+        if (media?.width && media?.height) {
+          newItems[i] = { ...newItems[i], width: media.width, height: media.height }
+          changed = true
+        }
+      } catch (e) {
+        console.warn('[MediaPicker] dimension backfill failed:', e)
+      }
+    }
+    if (changed) {
+      items.value = newItems
+      emit('update:modelValue', newItems)
+    }
+  } finally {
+    backfillingDimensions = false
+  }
+}
+
+// Items already present at first render (e.g. a restored frame) won't trip the
+// modelValue watch, so kick a backfill on mount too.
+onMounted(() => { backfillDimensions() })
 
 // Computed
 const fileAcceptString = computed(() => FILE_ACCEPT[props.accept])
