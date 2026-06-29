@@ -7,6 +7,9 @@ export interface SourceInput {
   path: string
   mediaId?: number
   filename?: string
+  hash?: string
+  width?: number
+  height?: number
   role?: string
   _preprocessor?: string | null
   _flip?: { horizontal?: boolean; vertical?: boolean; rotation?: number } | null

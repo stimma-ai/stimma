@@ -2965,7 +2965,11 @@ function loadPendingInput() {
         path: config.startImage.path,
         filename: config.startImage.filename || config.startImage.hash,
         hash: config.startImage.hash,
-        mediaId: config.startImage.mediaId
+        mediaId: config.startImage.mediaId,
+        // Carry dimensions so the output-size footer and resolution auto-match
+        // work — the send-to-tool / drag payload includes them.
+        width: config.startImage.width,
+        height: config.startImage.height,
       }
       // Drop into the first empty slot; if both filled, replace start
       if (videoImages.startImage && !videoImages.endImage) {
