@@ -26,7 +26,6 @@ export { default as PresetPicker } from './PresetPicker.vue'
 export { default as QueuePanel } from './QueuePanel.vue'
 export { default as TextToImageParams } from './TextToImageParams.vue'
 export { default as UpscaleResolutionPicker } from './UpscaleResolutionPicker.vue'
-export { default as VideoImagePicker } from './VideoImagePicker.vue'
 
 // Re-export types
 export type { LoraOption, LoraRow } from './LoraPicker.vue'

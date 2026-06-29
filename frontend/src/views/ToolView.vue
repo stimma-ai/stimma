@@ -402,15 +402,27 @@
         />
 
 
-        <!-- Video Frame Images (for image-to-video) -->
-        <VideoImagePicker
+        <!-- Video Frame Images (for image-to-video). Same rich picker as ordinary
+             reference images — prep, auto-resolution, drag-to-swap — but with named
+             Start / End slots and a "same for both" loop shortcut. Slots are an
+             ordered array: index 0 = start, index 1 = end (bridged to videoImages). -->
+        <MediaPicker
           v-if="hasVideoFrames"
-          :start-image="videoImages.startImage"
-          :end-image="videoImages.endImage"
-          :show-end-frame="hasEndFrame"
-          @update:start-image="videoImages.startImage = $event"
-          @update:end-image="videoImages.endImage = $event"
-          @view-image="openSingleImageSlideshow"
+          ref="mediaPickerRef"
+          :model-value="frameItems"
+          @update:model-value="updateFrameItems"
+          accept="image"
+          :min-items="1"
+          :max-items="hasEndFrame ? 2 : 1"
+          :reorderable="hasEndFrame"
+          label="Reference Frames"
+          :slot-labels="hasEndFrame ? ['Start Frame', 'End Frame'] : ['Start Frame']"
+          :allow-prep="true"
+          :allow-sets="false"
+          :controlnet-options="controlnetOptions"
+          @view-media="openSingleImageSlideshow"
+          @suggest-resolution="onSuggestResolution"
+          @suggest-aspect="onSuggestAspect"
         />
 
         <!-- Video Parameters: Duration (for tools using duration param) -->
@@ -860,9 +872,9 @@ import {
   AutoMarkPicker,
   PresetPicker,
   MegapixelsPicker,
-  UpscaleResolutionPicker,
-  VideoImagePicker
+  UpscaleResolutionPicker
 } from '../components/generation'
+import type { MediaItem } from '../components/generation/MediaPicker.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import HopToToolMenu from '../components/HopToToolMenu.vue'
 import ToolIcon from '../components/tools/ToolIcon.vue'
@@ -1405,11 +1417,29 @@ function resolveConfirm(ok: boolean) {
   confirmResolver = null
 }
 
-// Video frame images for image-to-video (initialized after toolId is available)
+// Video frame images for image-to-video (initialized after toolId is available).
+// Typed as MediaItem so the slots can carry dimensions + prep metadata (scale,
+// flip, extend, paint, preprocess) just like ordinary reference images.
 const videoImages = reactive({
-  startImage: null as { path: string; filename: string; hash?: string; mediaId?: number } | null,
-  endImage: null as { path: string; filename: string; hash?: string; mediaId?: number } | null
+  startImage: null as MediaItem | null,
+  endImage: null as MediaItem | null
 })
+
+// Bridge between the named-slot picker (an ordered MediaItem[] — index 0 = start,
+// index 1 = end) and videoImages, which stays the source of truth for the i2v
+// generation / remix / enhancer paths. frameItems compacts to non-empty slots so
+// a lone image always reads as the start frame.
+const frameItems = computed<MediaItem[]>(() => {
+  const out: MediaItem[] = []
+  if (videoImages.startImage) out.push(videoImages.startImage)
+  if (videoImages.endImage) out.push(videoImages.endImage)
+  return out
+})
+
+function updateFrameItems(items: MediaItem[]) {
+  videoImages.startImage = items[0] ? { ...items[0] } : null
+  videoImages.endImage = items[1] ? { ...items[1] } : null
+}
 
 // Inpaint mask data URL
 const maskDataUrl = ref<string | null>(null)
@@ -1586,8 +1616,10 @@ function loadVideoImages() {
   if (savedVideoImages) {
     try {
       const parsed = JSON.parse(savedVideoImages)
-      videoImages.startImage = parsed.startImage || null
-      videoImages.endImage = parsed.endImage || null
+      // Slots are ordered (start first). An end frame with no start — possible
+      // under the old independent-slots picker — collapses up to the start slot.
+      videoImages.startImage = parsed.startImage || parsed.endImage || null
+      videoImages.endImage = parsed.startImage ? (parsed.endImage || null) : null
     } catch (e) {
       console.error('Failed to parse saved video images:', e)
     }
@@ -1906,6 +1938,22 @@ watch(() => globalPrefs.value.inputImages, (newImages, oldImages) => {
     }
   }
 }, { deep: true })
+
+// Same auto-resolution snap for image-to-video tools, driven by the start frame.
+// Frame tools store inputs in videoImages, not globalPrefs.inputImages, so they
+// need their own watcher to keep the canvas matched to the dropped start frame.
+watch(() => videoImages.startImage, (newStart, oldStart) => {
+  if (!newStart?.width || !newStart?.height) return
+  if (isInitialLoading.value) return
+  const changed = !oldStart || newStart.path !== oldStart.path || newStart.mediaId !== oldStart.mediaId
+  if (!changed) return
+  if (hasAspectRatio.value && !resolutionLockSize.value) {
+    modelParams.value.aspect_ratio = findNearestAspectRatio(newStart.width, newStart.height)
+  }
+  if (hasWidthHeight.value) {
+    suggestResolutionFromImage(newStart.width, newStart.height)
+  }
+})
 
 // LoRA state — ref that syncs bidirectionally with the composable pool
 import { useLoraPool } from '../composables/useLoraPool'
@@ -3149,15 +3197,27 @@ async function loadPendingGeneration() {
 }
 
 // Load generation config from a media item (remix flow)
+//
+// loadRemix can fire more than once for a single remix — both the loadTool init
+// path and the route-query watcher trigger it — so it MUST be re-entrancy safe.
+// We stamp each call with a sequence number and bail after every await if a newer
+// call has started, so a stale invocation can't clobber the winner's state. We
+// also resolve the source frames into reference images BEFORE mutating UI state,
+// then apply config + assign the frames synchronously — otherwise applyAdaptedConfig
+// clears the frame picker and it stays empty across the awaited copy-to-reference
+// (the bug where an i2v remix lands with no start frame populated).
+let loadRemixSeq = 0
 async function loadRemix(mediaId: string) {
   if (!tool.value) return
 
+  const mySeq = ++loadRemixSeq
   loadingGenerationConfig.value = true
 
   try {
     const response = await axios.post(
       `/api/generate/config-from-media/${mediaId}?target_tool_id=${tool.value.full_tool_id}`
     )
+    if (loadRemixSeq !== mySeq) return  // superseded by a newer remix
     const data = response.data
 
     // Parse config into structured updates
@@ -3169,17 +3229,18 @@ async function loadRemix(mediaId: string) {
     })
     if (!update) return
 
-    applyAdaptedConfig(update)
-
-    // Restore source inputs for the target tool:
+    // Resolve source inputs for the target tool BEFORE touching UI state:
     // - I2V tools: use the ORIGINAL source inputs (start/end frames from the generation)
     //   NOT the output video — you want to re-generate from the same start frame
     // - Image-edit tools: use the remix source image itself as the input
     //   (the user wants to re-edit that result, not its ancestors)
     const sourceInputs: any[] = data.source_inputs || []
-    const remixInput = data.remix_source_input
+    const restoreVideoFrames = hasVideoFrames.value
+    let resolvedStart: any = null
+    let resolvedEnd: any = null
+    let resolvedInputs: typeof globalPrefs.value.inputImages | null = null
 
-    if (hasVideoFrames.value && sourceInputs.length > 0) {
+    if (restoreVideoFrames && sourceInputs.length > 0) {
       // I2V: restore original start/end frames
       for (const source of sourceInputs) {
         if (!source.file_path) continue
@@ -3187,6 +3248,7 @@ async function loadRemix(mediaId: string) {
           const copyResp = await axios.post(
             `/api/generate/copy-to-reference?source_path=${encodeURIComponent(source.file_path)}`
           )
+          if (loadRemixSeq !== mySeq) return  // superseded mid-copy
           const refImage = {
             path: copyResp.data.path,
             filename: copyResp.data.filename,
@@ -3196,9 +3258,9 @@ async function loadRemix(mediaId: string) {
             height: copyResp.data.height,
           }
           if (source.role === 'end_image') {
-            videoImages.endImage = refImage
+            resolvedEnd = refImage
           } else {
-            videoImages.startImage = refImage
+            resolvedStart = refImage
           }
         } catch (err) {
           console.warn(`Failed to copy source input (${source.role}) to reference:`, err)
@@ -3217,6 +3279,7 @@ async function loadRemix(mediaId: string) {
             const copyResp = await axios.post(
               `/api/generate/copy-to-reference?source_path=${encodeURIComponent(source.file_path)}`
             )
+            if (loadRemixSeq !== mySeq) return  // superseded mid-copy
             restoredImages.push({
               path: copyResp.data.path,
               filename: copyResp.data.filename,
@@ -3237,10 +3300,22 @@ async function loadRemix(mediaId: string) {
           }
         }
         if (restoredImages.length > 0) {
-          globalPrefs.value.inputImages = restoredImages
+          resolvedInputs = restoredImages
         }
       }
       // If no edit source inputs (t2i source), don't set inputImages — tool stays in t2i mode
+    }
+
+    // Everything below is synchronous: apply config (which clears frames/inputs)
+    // then immediately reinstate the resolved source images, so the picker goes
+    // straight from old → restored with no empty intermediate frame.
+    if (loadRemixSeq !== mySeq) return
+    applyAdaptedConfig(update)
+    if (restoreVideoFrames) {
+      videoImages.startImage = resolvedStart
+      videoImages.endImage = resolvedEnd
+    } else if (resolvedInputs) {
+      globalPrefs.value.inputImages = resolvedInputs
     }
 
     // Set remix source
@@ -3261,7 +3336,7 @@ async function loadRemix(mediaId: string) {
   } catch (err) {
     console.error('Failed to load remix from media:', err)
   } finally {
-    loadingGenerationConfig.value = false
+    if (loadRemixSeq === mySeq) loadingGenerationConfig.value = false
   }
 }
 
