@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..tools_registry import tool, ToolParameter
 
+from config_version import get_config_version_manager
 from core.logging import get_logger
 from flow_runtime.layout_bundle import (
     assemble_index_html,
@@ -219,6 +220,7 @@ async def _save_to_library(
         height=0,
         megapixels=0.0,
         metadata_status="completed",
+        metadata_config_version=get_config_version_manager().get_version('metadata'),
         metadata_processed_at=datetime.utcnow(),
         clip_status="skipped",
         face_detection_status="skipped",
