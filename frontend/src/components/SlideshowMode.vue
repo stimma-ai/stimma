@@ -1171,6 +1171,11 @@ const props = defineProps({
    * Page provider function (fallback). Used when mediaList is not provided.
    */
   pageProvider: Function,
+  /**
+   * Optional resolver for live inserts in pageProvider-backed streams.
+   * Returns the item's current index in the provider order, or -1 if hidden.
+   */
+  newItemIndexResolver: Function,
   randomSeed: Number,
   randomized: Boolean,
   autoAdvanceOnNew: Boolean,
@@ -1413,10 +1418,17 @@ const gridTitleContainerWidth = ref(null)
 const itemsCache = ref(new Map())
 const markerUpdateTrigger = ref(0) // Force re-render when markers change
 const loadingPages = ref(new Map()) // Maps page number to loading promise
+let pageProviderCacheRevision = 0
 const displayItem = ref(null) // Item to display (stays visible while loading next)
 const mediaLoaded = ref(false) // Track whether current media has finished loading
 const stripRefreshKey = ref(0) // Force strip remount independently
 const stripScrollerRef = ref(null) // Reference to HorizontalVirtualScroller for manual refresh
+
+function invalidatePageProviderLoads() {
+  if (props.mediaList) return
+  pageProviderCacheRevision++
+  loadingPages.value = new Map()
+}
 
 // Slideshow durations (in seconds)
 const DURATIONS = [1, 2, 5, 10, 15, 20, 30, 60]
@@ -2217,53 +2229,67 @@ async function ensureItemLoaded(index) {
   const pageSize = 50
   const pageNumber = Math.floor(index / pageSize)
 
-  // If item is already cached, return immediately
-  if (itemsCache.value.has(index)) {
-    return
-  }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    // If item is already cached, return immediately
+    if (itemsCache.value.has(index)) {
+      return
+    }
 
-  // If page is already being loaded, wait for it
-  if (loadingPages.value.has(pageNumber)) {
-    await loadingPages.value.get(pageNumber)
-    return
-  }
+    // If page is already being loaded, wait for it. It may have been invalidated
+    // by a live list shift, so fall through and retry when it resolves without the item.
+    const existingLoad = loadingPages.value.get(pageNumber)
+    if (existingLoad) {
+      await existingLoad
+      if (itemsCache.value.has(index)) return
+      continue
+    }
 
-  // Start loading the page
-  const loadPromise = (async () => {
-    try {
-      const items = await props.pageProvider(pageNumber, pageSize)
+    const requestRevision = pageProviderCacheRevision
 
-      const startIndex = pageNumber * pageSize
-      items.forEach((item, i) => {
-        itemsCache.value.set(startIndex + i, item)
-      })
+    // Start loading the page
+    const loadPromise = Promise.resolve().then(async () => {
+      try {
+        const items = await props.pageProvider(pageNumber, pageSize)
 
-      // Detect stale totalCount - if we got fewer items than expected on a page,
-      // the actual total is smaller than localTotalCount
-      const expectedItemsOnPage = Math.min(pageSize, localTotalCount.value - startIndex)
-      if (items.length < expectedItemsOnPage && items.length < pageSize) {
-        const actualTotal = startIndex + items.length
-        if (actualTotal < localTotalCount.value) {
-          console.warn(`Slideshow: Adjusting totalCount from ${localTotalCount.value} to ${actualTotal} (page ${pageNumber} had ${items.length} items, expected ${expectedItemsOnPage})`)
-          localTotalCount.value = actualTotal
+        if (requestRevision !== pageProviderCacheRevision) {
+          console.debug(`Slideshow: Ignoring stale page ${pageNumber} load after live list shift`)
+          return
+        }
 
-          // If currentIndex is now out of bounds, clamp it
-          if (currentIndex.value >= actualTotal && actualTotal > 0) {
-            console.warn(`Slideshow: Clamping currentIndex from ${currentIndex.value} to ${actualTotal - 1}`)
-            currentIndex.value = actualTotal - 1
+        const startIndex = pageNumber * pageSize
+        items.forEach((item, i) => {
+          itemsCache.value.set(startIndex + i, item)
+        })
+
+        // Detect stale totalCount - if we got fewer items than expected on a page,
+        // the actual total is smaller than localTotalCount
+        const expectedItemsOnPage = Math.min(pageSize, localTotalCount.value - startIndex)
+        if (items.length < expectedItemsOnPage && items.length < pageSize) {
+          const actualTotal = startIndex + items.length
+          if (actualTotal < localTotalCount.value) {
+            console.warn(`Slideshow: Adjusting totalCount from ${localTotalCount.value} to ${actualTotal} (page ${pageNumber} had ${items.length} items, expected ${expectedItemsOnPage})`)
+            localTotalCount.value = actualTotal
+
+            // If currentIndex is now out of bounds, clamp it
+            if (currentIndex.value >= actualTotal && actualTotal > 0) {
+              console.warn(`Slideshow: Clamping currentIndex from ${currentIndex.value} to ${actualTotal - 1}`)
+              currentIndex.value = actualTotal - 1
+            }
           }
         }
+      } catch (error) {
+        console.error(`Failed to load page ${pageNumber}:`, error)
+        throw error
+      } finally {
+        if (loadingPages.value.get(pageNumber) === loadPromise) {
+          loadingPages.value.delete(pageNumber)
+        }
       }
-    } catch (error) {
-      console.error(`Failed to load page ${pageNumber}:`, error)
-      throw error
-    } finally {
-      loadingPages.value.delete(pageNumber)
-    }
-  })()
+    })
 
-  loadingPages.value.set(pageNumber, loadPromise)
-  await loadPromise
+    loadingPages.value.set(pageNumber, loadPromise)
+    await loadPromise
+  }
 }
 
 // Preload nearby items for smooth navigation
@@ -4162,18 +4188,22 @@ async function handleExportDragStart(event) {
 // only PIN the current image; a dwell-gated stepper walks currentIndex back toward
 // 0 (newest), one image per >=1.5s window (videos wait for their natural end).
 
-// A new item prepends at index 0, shifting everything +1. Keep the currently
-// displayed item steady by shifting the cache and bumping currentIndex. In follow
-// mode this is lag++ (the stepper will catch up); in browse mode it keeps the
-// user's chosen image under them.
-function pinForArrival() {
+// A new item lands somewhere in provider order, shifting items at/after that
+// index +1. Keep the currently displayed item steady when the insert is before it.
+// In follow mode, an insert before/on the current item becomes lag++ (the stepper
+// will catch up); inserts behind the current item do not pull the viewer backward.
+function pinForArrival(insertIndex = 0) {
+  if (!Number.isFinite(insertIndex) || insertIndex < 0) return
+  invalidatePageProviderLoads()
   const oldCache = itemsCache.value
   const newCache = new Map()
   for (const [oldIndex, item] of oldCache) {
-    newCache.set(oldIndex + 1, item)
+    newCache.set(oldIndex >= insertIndex ? oldIndex + 1 : oldIndex, item)
   }
   itemsCache.value = newCache
-  currentIndex.value++
+  if (currentIndex.value >= insertIndex) {
+    currentIndex.value++
+  }
 }
 
 // WebSocket entry point: a generation for this tool completed.
@@ -4194,8 +4224,20 @@ function handleNewImageGenerated(data) {
 
   console.log(`[SlideshowDebug] ws_event_received jobId=${data.job?.id} followStream=${followStream.value} currentIndex=${currentIndex.value} total=${props.totalCount}`)
 
-  // Every arrival pins (never swaps the screen). The stepper catches up if we follow.
-  pinForArrival()
+  let insertIndex = 0
+  if (props.newItemIndexResolver) {
+    const resolvedIndex = props.newItemIndexResolver(data)
+    if (!Number.isFinite(resolvedIndex) || resolvedIndex < 0) {
+      console.log(`[SlideshowDebug] drop_event_not_in_provider jobId=${data.job?.id} mediaId=${data.job?.result_media_id}`)
+      scheduleAdvance()
+      return
+    }
+    insertIndex = resolvedIndex
+  }
+
+  // Every visible arrival pins when it lands before/on the current item (never swaps
+  // the screen). The stepper catches up if we follow.
+  pinForArrival(insertIndex)
   scheduleAdvance()
 }
 

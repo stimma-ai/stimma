@@ -6,6 +6,7 @@
       :total-count="jobsManager?.totalCompletedCount.value || 0"
       :start-index="slideshowState.startIndex"
       :page-provider="slideshowState.pageProvider"
+      :new-item-index-resolver="resolveSlideshowNewItemIndex"
       :randomized="slideshowState.randomized"
       :random-seed="slideshowState.randomSeed"
       :auto-advance-on-new="true"
@@ -5189,6 +5190,23 @@ function handleJobClick(job: any) {
   } else if (job.status === 'failed') {
     showJobError(job)
   }
+}
+
+function resolveSlideshowNewItemIndex(data: any): number {
+  if (!jobsManager) return -1
+  const jobs = jobsManager.sortedCompletedJobs.value || []
+  const jobId = data?.job?.id
+  if (jobId != null) {
+    const byJob = jobs.findIndex((job: any) => job.id === jobId)
+    if (byJob >= 0) return byJob
+  }
+
+  const mediaId = data?.job?.result_media_id
+  if (mediaId != null) {
+    return jobs.findIndex((job: any) => job.result_media_id === mediaId)
+  }
+
+  return -1
 }
 
 async function openSlideshow(job: any) {
