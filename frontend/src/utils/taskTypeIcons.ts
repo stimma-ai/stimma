@@ -159,7 +159,10 @@ export function getEligibleTaskTypesForMediaType(mediaType: MediaType | null): s
     case 'image':
       return IMAGE_INPUT_TASK_TYPES
     case 'video':
-      return VIDEO_INPUT_TASK_TYPES
+      // A video can be used anywhere an image can (we grab a frame), in addition to
+      // video-only tools (upscale/extend/stitch). Keeps drag/send affordances from
+      // graying out image tools when dragging a video.
+      return Array.from(new Set([...VIDEO_INPUT_TASK_TYPES, ...IMAGE_INPUT_TASK_TYPES]))
     case 'set':
       // Sets default to image tools; caller should pass actual content type when known
       return IMAGE_INPUT_TASK_TYPES

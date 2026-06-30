@@ -412,6 +412,185 @@ async def upload_paint_layer(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Failed to upload paint layer")
 
 
+def _validate_media_source_path(path: str) -> Path:
+    """Resolve a source path and ensure it lives in an allowed media location.
+
+    Mirrors the allow-list used by /reference-file: a configured profile folder,
+    the controlnet / reference-prep caches, or the upload directory. Raises 403
+    for anything outside those, 404 if it doesn't exist.
+    """
+    import app_dirs
+
+    settings = get_settings()
+    profile_id = get_current_profile()
+    file_path = Path(path).resolve()
+
+    allowed = False
+    for folder in settings.get_folders_for_profile(profile_id):
+        try:
+            file_path.relative_to(Path(folder.path).resolve())
+            allowed = True
+            break
+        except ValueError:
+            continue
+    if not allowed:
+        for cache_name in ("controlnet-cache", "reference-prep-cache"):
+            try:
+                file_path.relative_to((app_dirs.get_cache_dir() / cache_name).resolve())
+                allowed = True
+                break
+            except ValueError:
+                continue
+    if not allowed:
+        try:
+            file_path.relative_to(Path(settings.get_upload_directory()).resolve())
+            allowed = True
+        except ValueError:
+            pass
+
+    if not allowed:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    return file_path
+
+
+@router.post("/extract-frame")
+async def extract_video_frame(
+    file: UploadFile | None = File(None),
+    source_path: str | None = Form(None),
+    position: str = Form("first"),
+    time_seconds: float | None = Form(None),
+):
+    """
+    Extract a still frame from a video and store it as a reference image.
+
+    Frame grab happens at the UI ingestion point (when a video lands in an image
+    slot): we turn the video into a still here, cache it in the non-library
+    reference-prep cache, and from then on it behaves exactly like an image (prep,
+    paint, etc. all apply to the still, and the still is what feeds the job).
+
+    Source is either an uploaded file (e.g. an OS file drop) or a `source_path`
+    pointing at a library/reference video. `position` is first | last | middle |
+    custom (with `time_seconds`).
+
+    Returns the path, filename, dimensions, captured timestamp, and source duration.
+    """
+    import os
+    import tempfile
+    import app_dirs
+    from utils.video_frames import extract_frame_to_image
+
+    tmp_path: str | None = None
+    try:
+        if file is not None:
+            suffix = Path(file.filename or "video.mp4").suffix or ".mp4"
+            fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+            with os.fdopen(fd, "wb") as f:
+                f.write(await file.read())
+            video_path: str | Path = tmp_path
+        elif source_path:
+            video_path = _validate_media_source_path(source_path)
+        else:
+            raise HTTPException(status_code=400, detail="Provide a file or source_path")
+
+        try:
+            img, time_used, duration, fps = extract_frame_to_image(video_path, position, time_seconds)  # type: ignore[arg-type]
+        except RuntimeError as e:
+            # ffmpeg unavailable — factual message, surfaced to the user.
+            raise HTTPException(status_code=422, detail=str(e))
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+        cache_dir = app_dirs.get_cache_dir() / "reference-prep-cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"video_frame_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.png"
+        out_path = cache_dir / filename
+        img.convert("RGB").save(out_path, "PNG")
+
+        log.info(f"Extracted video frame ({position}@{time_used:.2f}s): {out_path} ({img.width}x{img.height})")
+        return {
+            "path": str(out_path),
+            "filename": filename,
+            "width": img.width,
+            "height": img.height,
+            "time_seconds": time_used,
+            "duration": duration,
+            "fps": fps,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Failed to extract video frame: {e}")
+        raise HTTPException(status_code=500, detail="Failed to extract video frame")
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+
+@router.get("/frame-preview")
+async def frame_preview(source_path: str, t: float = 0.0, w: int = 512):
+    """
+    Downscaled JPEG of the frame at time `t` in a video, for live scrubbing in the
+    frame picker. Returns bytes directly (no caching) — the committed frame is taken
+    via /extract-frame. Uses the same seek as extract-frame so the preview matches
+    what you'll get.
+    """
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+    from PIL import Image
+    from utils.video_frames import extract_frame_to_image
+
+    video_path = _validate_media_source_path(source_path)
+    try:
+        img, _, _, _ = extract_frame_to_image(video_path, "custom", t)
+    except (RuntimeError, ValueError) as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    if img.width > w:
+        height = max(1, round(img.height * w / img.width))
+        img = img.resize((w, height), Image.LANCZOS)
+
+    buf = BytesIO()
+    img.convert("RGB").save(buf, "JPEG", quality=80)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="image/jpeg")
+
+
+@router.get("/frame-strip")
+async def frame_strip(source_path: str, count: int = 12, w: int = 96):
+    """
+    A cached horizontal montage of ~`count` frames sampled across a video, used as
+    the frame-picker timeline. Generated once per (video, count, w) and reused.
+    """
+    import hashlib
+    import app_dirs
+    from fastapi.responses import FileResponse
+    from utils.video_frames import build_filmstrip
+
+    video_path = _validate_media_source_path(source_path)
+    count = max(2, min(count, 24))
+    w = max(32, min(w, 160))
+
+    st = video_path.stat()
+    key = hashlib.sha256(f"{video_path}|{st.st_mtime}|{st.st_size}|{count}|{w}".encode()).hexdigest()[:16]
+    cache_dir = app_dirs.get_cache_dir() / "frame-strip-cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    out_path = cache_dir / f"{key}.jpg"
+
+    if not out_path.exists():
+        try:
+            strip = build_filmstrip(video_path, count, w)
+        except (RuntimeError, ValueError) as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        strip.save(out_path, "JPEG", quality=78)
+
+    return FileResponse(out_path, media_type="image/jpeg")
+
+
 class ReferencePreprocessRequest(BaseModel):
     """Request body for full reference image preprocessing pipeline."""
     source_path: str

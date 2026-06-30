@@ -131,19 +131,15 @@ export function isSelectionValidForTool(
     if (accepted === 'video' && mediaType === 'image') {
       return { valid: false, reason: 'Tool requires videos, not images' }
     }
-    if (accepted === 'image' && mediaType === 'video') {
-      return { valid: false, reason: 'Tool requires images, not videos' }
-    }
+    // A video into an image slot is fine — we grab a frame on ingestion.
     if (toolRequiresMask(tool)) {
       return { valid: false, reason: 'Mask tools are not supported in batch mode' }
     }
     return { valid: true }
   }
 
-  // Check media type compatibility
-  if (info.inputType === 'images' && mediaType === 'video') {
-    return { valid: false, reason: 'Tool requires images, not videos' }
-  }
+  // Check media type compatibility. A video into an image slot is fine (we grab a
+  // frame on ingestion); only image-into-video is rejected.
   if (info.inputType === 'videos' && mediaType === 'image') {
     return { valid: false, reason: 'Tool requires videos, not images' }
   }

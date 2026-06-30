@@ -1,6 +1,6 @@
 <template>
   <div
-    class="space-y-3 mb-6"
+    class="relative space-y-3 mb-6"
     :data-drop-zone="`media-picker-${accept}`"
     @dragover.prevent="onDragOver"
     @dragleave="onDragLeave"
@@ -21,7 +21,7 @@
           <div
             :class="[
               'flex flex-col flex-shrink-0',
-              reorderable ? 'w-[13.5rem]' : 'w-[26.5rem]',
+              reorderable ? 'w-[17rem]' : 'w-[26.5rem]',
               hasControlnet && accept === 'image'
                 ? 'gap-0 rounded-lg border border-edge-subtle bg-surface-raised overflow-hidden'
                 : (reorderable ? 'gap-1.5' : 'gap-2')
@@ -32,8 +32,8 @@
                 'relative bg-surface overflow-hidden group flex-shrink-0',
                 reorderable
                   ? (hasControlnet && accept === 'image'
-                      ? 'w-[13.5rem] h-[9.5rem] cursor-grab'
-                      : 'w-[13.5rem] h-[9.5rem] cursor-grab border border-surface-raised rounded-lg')
+                      ? 'w-[17rem] h-[9.5rem] cursor-grab'
+                      : 'w-[17rem] h-[9.5rem] cursor-grab border border-surface-raised rounded-lg')
                   : (hasControlnet && accept === 'image'
                       ? 'w-full h-[18.5rem]'
                       : 'w-full h-[18.5rem] border border-surface-raised rounded-lg'),
@@ -66,6 +66,19 @@
                   </div>
                 </div>
               </template>
+
+              <!-- Frame scrub: while picking a frame, a live <video> takes over the
+                   image area so scrubbing is instant and frame-accurate. -->
+              <video
+                v-else-if="accept === 'image' && item._videoSource && openPrepPanel[item.originalIndex] === 'frame'"
+                :ref="(el) => setScrubVideo(item.originalIndex as number, el as HTMLVideoElement | null)"
+                :src="frameVideoUrl(item)"
+                class="w-full h-full object-contain bg-surface"
+                muted
+                playsinline
+                preload="auto"
+                @loadedmetadata="onScrubVideoLoaded(item, $event)"
+              />
 
               <!-- Image preview -->
               <AppImage
@@ -152,7 +165,102 @@
                 <span class="text-xs text-white font-medium">{{ index + 1 }}</span>
               </div>
 
+              <!-- Frame-grab badge: this still came from a video, at this timestamp -->
+              <div
+                v-if="item._videoSource"
+                class="absolute bottom-1 left-1 z-[5] bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1 pointer-events-none"
+                :title="`Frame from ${item._videoSource.filename}`"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-white">
+                  <path d="M3.25 4A2.25 2.25 0 0 0 1 6.25v7.5A2.25 2.25 0 0 0 3.25 16h7.5A2.25 2.25 0 0 0 13 13.75v-7.5A2.25 2.25 0 0 0 10.75 4h-7.5ZM19 4.75a.75.75 0 0 0-1.28-.53l-3 3a.75.75 0 0 0-.22.53v4.5c0 .199.079.39.22.53l3 3a.75.75 0 0 0 1.28-.53V4.75Z" />
+                </svg>
+                <span class="text-[10px] font-semibold text-white leading-none">{{ formatFrameTime(item._frameTime) }}</span>
+              </div>
+
             </div>
+
+            <!-- Frame picker: choose which frame of the source video to use as the still.
+                 Shown for any video-grabbed item (independent of allowPrep). -->
+            <template v-if="accept === 'image' && !item.isSet && item._videoSource">
+              <div class="w-full">
+                <div
+                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-white/[0.02] transition-colors"
+                  @click="togglePrepPanel(item.originalIndex, 'frame')"
+                >
+                  <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M3.25 4A2.25 2.25 0 0 0 1 6.25v7.5A2.25 2.25 0 0 0 3.25 16h7.5A2.25 2.25 0 0 0 13 13.75v-7.5A2.25 2.25 0 0 0 10.75 4h-7.5ZM19 4.75a.75.75 0 0 0-1.28-.53l-3 3a.75.75 0 0 0-.22.53v4.5c0 .199.079.39.22.53l3 3a.75.75 0 0 0 1.28-.53V4.75Z" /></svg>
+                  <span class="text-[11px] text-content-secondary flex-1">Frame</span>
+                  <!-- The single readout. Click toggles time ↔ frames (not expand/collapse). -->
+                  <button
+                    v-if="frameFps(item) > 0"
+                    @click.stop="toggleFrameDisplay"
+                    :title="frameDisplayMode === 'frames' ? 'Show time' : 'Show frame number'"
+                    class="text-[10px] text-blue-400 font-medium tabular-nums hover:text-blue-300 cursor-pointer"
+                  >{{ headerFrameLabel(item) }}</button>
+                  <span v-else class="text-[10px] text-blue-400 font-medium tabular-nums">{{ headerFrameLabel(item) }}</span>
+                  <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'frame' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                </div>
+                <!-- Frame picker expanded panel (the live preview is the <video> up top) -->
+                <div v-if="openPrepPanel[item.originalIndex] === 'frame'" class="px-2.5 py-2 bg-white/[0.01] space-y-2">
+                  <!-- Filmstrip timeline: full tile width, square cells, undistorted -->
+                  <div
+                    class="relative w-full rounded-md overflow-hidden border border-white/10 bg-black/30 cursor-pointer select-none touch-none"
+                    style="min-height: 38px"
+                    @pointerdown="onScrubPointerDown(item, $event)"
+                    @pointermove="onScrubPointerMove(item, $event)"
+                    @pointerup="onScrubPointerUp(item, $event)"
+                    @pointercancel="onScrubPointerCancel(item)"
+                    @dragstart.prevent
+                  >
+                    <img
+                      v-if="frameStripUrl(item) && !stripFailed[item.originalIndex]"
+                      :src="frameStripUrl(item)"
+                      @load="stripReady[item.originalIndex] = true"
+                      @error="stripFailed[item.originalIndex] = true"
+                      class="block w-full h-auto pointer-events-none"
+                      :class="{ 'opacity-0': !stripReady[item.originalIndex] }"
+                      draggable="false"
+                    />
+                    <!-- plain-track fallback (no strip / OS file drop / still loading) -->
+                    <div
+                      v-if="!frameStripUrl(item) || stripFailed[item.originalIndex] || !stripReady[item.originalIndex]"
+                      class="absolute inset-x-2 top-1/2 -translate-y-1/2 h-1 rounded-full bg-white/10 pointer-events-none"
+                    >
+                      <div class="absolute left-0 top-0 h-full rounded-full bg-blue-500" :style="{ width: framePercent(item) + '%' }"></div>
+                    </div>
+                    <!-- playhead -->
+                    <div
+                      class="absolute top-0 bottom-0 w-0.5 bg-blue-400 pointer-events-none"
+                      style="box-shadow: 0 0 6px rgba(96,165,250,.8)"
+                      :style="{ left: framePercent(item) + '%' }"
+                    >
+                      <div class="absolute -top-[3px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-blue-400"></div>
+                    </div>
+                  </div>
+                  <!-- One unified control strip (full width): step ◀ · First · Middle · Last · step ▶ -->
+                  <div class="flex w-full rounded-md border border-white/10 overflow-hidden">
+                    <button @click="stepFrame(item, -1)" title="Previous frame"
+                      :disabled="atFirstFrame(item)"
+                      class="flex-shrink-0 w-9 flex items-center justify-center py-1 border-r border-white/10 text-content-muted hover:bg-white/[0.08] hover:text-content transition-colors disabled:opacity-30 disabled:pointer-events-none">
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 5 7.5 10l5 5"/></svg>
+                    </button>
+                    <button
+                      v-for="pos in (['first', 'middle', 'last'] as const)"
+                      :key="pos"
+                      @click="setFramePosition(item, pos)"
+                      :class="[
+                        'flex-1 py-1 text-[11px] capitalize border-r border-white/10 transition-colors',
+                        item._framePosition === pos ? 'bg-blue-500/15 text-blue-400 font-medium' : 'text-content-muted hover:bg-white/[0.08]'
+                      ]"
+                    >{{ pos }}</button>
+                    <button @click="stepFrame(item, 1)" title="Next frame"
+                      :disabled="atLastFrame(item)"
+                      class="flex-shrink-0 w-9 flex items-center justify-center py-1 text-content-muted hover:bg-white/[0.08] hover:text-content transition-colors disabled:opacity-30 disabled:pointer-events-none">
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 5l5 5-5 5"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
 
             <!-- Per-image prep controls: Flip/Rotate / Scale / Extend Canvas / Preprocess / Paint -->
             <template v-if="accept === 'image' && !item.isSet && allowPrep">
@@ -167,11 +275,13 @@
                   <span :class="['text-[10px]', hasFlip(item) ? 'text-blue-400 font-medium' : 'text-content-muted']">
                     {{ getFlipStatusText(item) }}
                   </span>
-                  <div
-                    v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'flip'"
-                    class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin flex-shrink-0"
-                  ></div>
-                  <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'flip' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                  <div class="w-3 h-3 flex-shrink-0">
+                    <div
+                      v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'flip'"
+                      class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin"
+                    ></div>
+                    <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'flip' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                  </div>
                 </div>
                 <!-- Flip / Rotate expanded panel -->
                 <div v-if="openPrepPanel[item.originalIndex] === 'flip'" class="px-2.5 py-2 bg-white/[0.01]">
@@ -230,11 +340,13 @@
                   <span :class="['text-[10px]', hasScale(item) ? 'text-blue-400 font-medium' : 'text-content-muted']">
                     {{ getScaleStatusText(item) }}
                   </span>
-                  <div
-                    v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'scale'"
-                    class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin flex-shrink-0"
-                  ></div>
-                  <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'scale' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                  <div class="w-3 h-3 flex-shrink-0">
+                    <div
+                      v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'scale'"
+                      class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin"
+                    ></div>
+                    <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'scale' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                  </div>
                 </div>
                 <!-- Scale expanded panel -->
                 <div v-if="openPrepPanel[item.originalIndex] === 'scale'" class="px-2.5 py-2 bg-white/[0.01] space-y-2">
@@ -386,11 +498,13 @@
                   <span :class="['text-[10px]', item._preprocessor ? 'text-blue-400 font-medium' : 'text-content-muted']">
                     {{ item._preprocessor ? (controlnetLabels[item._preprocessor] || item._preprocessor) : 'Original' }}
                   </span>
-                  <div
-                    v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'preprocess'"
-                    class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin flex-shrink-0"
-                  ></div>
-                  <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'preprocess' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                  <div class="w-3 h-3 flex-shrink-0">
+                    <div
+                      v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'preprocess'"
+                      class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin"
+                    ></div>
+                    <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'preprocess' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                  </div>
                 </div>
                 <!-- Preprocess expanded panel -->
                 <div v-if="openPrepPanel[item.originalIndex] === 'preprocess'" class="px-2.5 py-2 bg-white/[0.01]">
@@ -562,7 +676,7 @@
         @drop.prevent.stop="onDrop($event)"
         :class="[
           'bg-surface border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer flex-shrink-0',
-          reorderable ? 'w-[13.5rem] h-[9.5rem]' : 'w-[26.5rem] h-[18.5rem]',
+          reorderable ? 'w-[17rem] h-[9.5rem]' : 'w-[26.5rem] h-[18.5rem]',
           isDragging ? 'border-blue-500 bg-blue-500/10' : 'border-edge hover:border-blue-500 hover:bg-surface'
         ]"
       >
@@ -589,10 +703,10 @@
       Add at least {{ minItems }} {{ accept === 'image' ? 'images' : 'videos' }}
     </div>
 
-    <!-- Loading indicator -->
-    <div v-if="isUploading" class="flex items-center gap-2 text-sm text-content-muted">
-      <div class="w-4 h-4 border-2 border-edge border-t-blue-500 rounded-full animate-spin"></div>
-      <span>Uploading...</span>
+    <!-- Loading indicator: absolute overlay so it never reflows the layout -->
+    <div v-if="isUploading" class="absolute top-0 right-0 z-10 flex items-center gap-1.5 bg-black/60 backdrop-blur-md rounded-md px-2 py-1 pointer-events-none">
+      <div class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin"></div>
+      <span class="text-[10px] text-content-muted">Working…</span>
     </div>
 
     <!-- Hidden file input -->
@@ -654,10 +768,13 @@ import { getCurrentProfileId } from '../../composables/useProfile'
 import { getCachedPin } from '../../composables/usePinLock'
 import { getApiBase } from '../../apiConfig'
 import { makeProfileKey } from '../../utils/storageKeys'
+import { useVideoFrameExtraction, type FramePosition } from '../../composables/useVideoFrameExtraction'
+import { addToast } from '../../composables/useToasts'
 import AppImage from '../media/AppImage.vue'
 import PaintEditorModal from './PaintEditorModal.vue'
 
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl } = useMediaApi()
+const { extractFrame } = useVideoFrameExtraction()
 
 export interface MediaItem {
   path: string
@@ -706,6 +823,20 @@ export interface MediaItem {
   _basePath?: string | null
   _baseWidth?: number | null
   _baseHeight?: number | null
+  // Frame-grab fields: this still was captured from a video. The item itself is a
+  // normal image (path/width/height point at the captured frame); these describe
+  // its origin so the scrubber can re-open the source and re-capture.
+  _videoSource?: {
+    mediaId?: number      // library video id, if grabbed from the library
+    hash?: string         // library video file hash
+    filename: string      // source video filename (for display)
+    duration?: number     // source duration in seconds
+    fps?: number          // source frame rate (for frame-accurate stepping)
+    sourcePath?: string   // path to the source video on the server (re-extract / playback)
+    clientKey?: string    // session key into the dropped-File cache (OS file drops only)
+  } | null
+  _frameTime?: number          // timestamp (seconds) the frame was captured at
+  _framePosition?: 'first' | 'last' | 'middle' | 'custom'
 }
 
 interface Props {
@@ -729,6 +860,13 @@ interface Props {
   // uniform prep applied to every item. Non-applicable controls (paint, reorder,
   // add) are hidden.
   batchMode?: boolean
+  // Default frame to grab when a VIDEO is dropped into an image slot, indexed by
+  // slot. For the i2v frame picker this is ['last', 'first'] (drop a video into the
+  // Start slot → its last frame to extend forward; into the End slot → its first
+  // frame to connect into). Absent / unset slots default to 'first'.
+  frameGrabDefaults?: Array<'first' | 'last'>
+  // Stable per-tool key used to persist the frame readout mode (time vs frames).
+  frameModeKey?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -741,7 +879,9 @@ const props = withDefaults(defineProps<Props>(), {
   controlnetOptions: () => [],
   allowPrep: false,
   slotLabels: () => [],
-  batchMode: false
+  batchMode: false,
+  frameGrabDefaults: () => [],
+  frameModeKey: ''
 })
 
 const emit = defineEmits<{
@@ -771,6 +911,36 @@ const UPLOAD_ENDPOINTS = {
 function getReferenceFileEndpoint(type: 'image' | 'video') {
   const base = getApiBase()
   return type === 'video' ? `${base}/generate/reference-video-file` : `${base}/generate/reference-file`
+}
+
+// Canonical video formats (matches backend utils/query_builder.VIDEO_FORMATS, plus m4v).
+const VIDEO_EXTENSIONS = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v']
+
+// An image slot accepts videos too: dropping a video grabs a frame (decision: anything
+// that accepts an image accepts a video). Whole-video slots (accept==='video') are
+// unchanged. Frame grab is therefore enabled exactly when this is an image slot.
+const isImageSlot = computed(() => props.accept === 'image')
+
+function isVideoExtension(ext?: string | null): boolean {
+  return !!ext && VIDEO_EXTENSIONS.includes(ext.toLowerCase())
+}
+
+function isVideoFile(file: File): boolean {
+  if (file.type.startsWith('video/')) return true
+  const ext = file.name.split('.').pop()
+  return isVideoExtension(ext)
+}
+
+// Default frame for a video dropped into a given slot index (role-aware for i2v).
+function frameDefaultForSlot(slotIndex: number): FramePosition {
+  return props.frameGrabDefaults?.[slotIndex] ?? 'first'
+}
+
+function formatFrameTime(seconds?: number): string {
+  const s = Math.max(0, Math.floor(seconds ?? 0))
+  const m = Math.floor(s / 60)
+  const rem = s % 60
+  return `${m}:${rem.toString().padStart(2, '0')}`
 }
 
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -928,7 +1098,10 @@ async function backfillDimensions() {
 onMounted(() => { backfillDimensions() })
 
 // Computed
-const fileAcceptString = computed(() => FILE_ACCEPT[props.accept])
+const fileAcceptString = computed(() =>
+  // Image slots also accept videos (we grab a frame); whole-video slots don't change.
+  isImageSlot.value ? `${FILE_ACCEPT.image},${FILE_ACCEPT.video}` : FILE_ACCEPT[props.accept]
+)
 
 const displayLabel = computed(() => {
   if (props.label) return props.label
@@ -1085,9 +1258,10 @@ async function onDrop(event: DragEvent, replaceIndex?: number) {
   const files = event.dataTransfer?.files
   if (!files || files.length === 0) return
 
-  // Filter for matching file type
-  const mimePrefix = props.accept === 'image' ? 'image/' : 'video/'
-  const matchingFiles = Array.from(files).filter(f => f.type.startsWith(mimePrefix))
+  // Image slots accept images and videos (videos → frame grab); video slots only videos.
+  const matchingFiles = Array.from(files).filter(f =>
+    isImageSlot.value ? (f.type.startsWith('image/') || isVideoFile(f)) : f.type.startsWith('video/')
+  )
   if (matchingFiles.length === 0) return
 
   // Calculate how many we can add
@@ -1095,8 +1269,8 @@ async function onDrop(event: DragEvent, replaceIndex?: number) {
   const filesToUpload = matchingFiles.slice(0, slotsAvailable)
 
   for (let i = 0; i < filesToUpload.length; i++) {
-    const targetIndex = replaceIndex !== undefined ? replaceIndex : undefined
-    await uploadFile(filesToUpload[i], i === 0 ? targetIndex : undefined)
+    const targetIndex = i === 0 ? replaceIndex : undefined
+    await uploadFile(filesToUpload[i], targetIndex)
   }
 }
 
@@ -1129,10 +1303,80 @@ function onReorderDragEnd() {
   dropIndex.value = null
 }
 
+// Grab a still from a video (server-side, via ffmpeg) and insert it as a normal
+// image item. The source is either an OS file (a drop / picker) or a library/
+// reference video path. Default frame is role-aware per the target slot
+// (Start→last, End→first, generic→first).
+async function captureAndInsertFrame(
+  src: { file?: File; sourcePath?: string },
+  slotIndex: number,
+  source: { mediaId?: number; hash?: string; filename: string; sourcePath?: string },
+  replaceIndex?: number,
+) {
+  const position = frameDefaultForSlot(slotIndex)
+  isUploading.value = true
+  try {
+    const ext = await extractFrame({ file: src.file, sourcePath: src.sourcePath, position })
+    // For OS file drops there's no server copy of the video — keep the File in the
+    // session cache so the frame picker can scrub + re-extract from it.
+    let clientKey: string | undefined
+    if (src.file) {
+      clientKey = `vf_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+      droppedVideoFiles.set(clientKey, src.file)
+    }
+    const newItem: MediaItem = {
+      path: ext.path,
+      filename: ext.filename,
+      width: ext.width,
+      height: ext.height,
+      _videoSource: {
+        mediaId: source.mediaId,
+        hash: source.hash,
+        filename: source.filename,
+        duration: ext.duration,
+        fps: ext.fps,
+        sourcePath: source.sourcePath,
+        clientKey,
+      },
+      _frameTime: ext.time,
+      _framePosition: position,
+    }
+
+    let newItems: MediaItem[]
+    if (replaceIndex !== undefined) {
+      newItems = [...items.value]
+      newItems[replaceIndex] = newItem
+    } else {
+      newItems = [...items.value, newItem]
+    }
+    items.value = newItems
+    emit('update:modelValue', newItems)
+  } catch (error: any) {
+    console.error('Failed to grab video frame:', error)
+    addToast(error?.response?.data?.detail || error?.message || "Couldn't grab a frame from that video.", 'error')
+  } finally {
+    isUploading.value = false
+  }
+}
+
 async function addFromMediaId(mediaId: number, replaceIndex?: number) {
   isUploading.value = true
   try {
     const mediaItem = await getMediaItem(mediaId)
+
+    // Video dropped into an image slot → grab a frame instead of using it directly.
+    if (isImageSlot.value && isVideoExtension(mediaItem.file_format)) {
+      const slotIndex = replaceIndex ?? items.value.length
+      const filename = mediaItem.file_path?.split('/').pop() || `video.${mediaItem.file_format}`
+      isUploading.value = false  // captureAndInsertFrame manages its own flag
+      await captureAndInsertFrame(
+        { sourcePath: mediaItem.file_path },
+        slotIndex,
+        { mediaId: mediaItem.id, hash: mediaItem.file_hash, filename, sourcePath: mediaItem.file_path },
+        replaceIndex,
+      )
+      return
+    }
 
     // Check if this is a set
     const isSet = mediaItem.file_format === 'stimmaset.json'
@@ -1255,6 +1499,19 @@ function getSetContentType(items: any[]): 'image' | 'video' | null {
 }
 
 async function uploadFile(file: File, replaceIndex?: number) {
+  // Video dropped/picked into an image slot → grab a frame server-side from the
+  // uploaded bytes (the still is all the tool consumes; the video isn't kept).
+  if (isImageSlot.value && isVideoFile(file)) {
+    const slotIndex = replaceIndex ?? items.value.length
+    await captureAndInsertFrame(
+      { file },
+      slotIndex,
+      { filename: file.name },
+      replaceIndex,
+    )
+    return
+  }
+
   isUploading.value = true
   try {
     const formData = new FormData()
@@ -1567,6 +1824,266 @@ function togglePrepPanel(index: number, panel: string) {
     openPrepPanel[index] = panel
   }
 }
+
+// --- Frame picker (for stills grabbed from a video) ---
+// Scrubbing is CLIENT-side and live: while the Frame panel is open, a <video>
+// takes over the tile's image area and we seek it directly on every input, so it's
+// instant and frame-accurate. The committed still is still extracted server-side
+// (ffmpeg, any codec) on release / step / shortcut. Re-picking is like dropping a
+// fresh image: the new still replaces the old and prior prep is dropped.
+const frameScrub = reactive<Record<number, number>>({})        // working scrub time (s)
+const frameCommitting = reactive<Record<number, boolean>>({})  // re-extract in flight
+const frameCommitTimers: Record<number, ReturnType<typeof setTimeout>> = {}
+const scrubVideoEls: Record<number, HTMLVideoElement | null> = {}
+// Session caches for OS file drops (no server copy): the File for re-extraction,
+// and a stable object URL so the scrub <video> can play it.
+const droppedVideoFiles = new Map<string, File>()
+const droppedVideoUrls = new Map<string, string>()
+
+function droppedFileUrl(clientKey: string): string {
+  if (!droppedVideoUrls.has(clientKey)) {
+    const f = droppedVideoFiles.get(clientKey)
+    if (!f) return ''
+    droppedVideoUrls.set(clientKey, URL.createObjectURL(f))
+  }
+  return droppedVideoUrls.get(clientKey) || ''
+}
+
+function frameDuration(item: MediaItem): number {
+  return item._videoSource?.duration || 0
+}
+
+function frameFps(item: MediaItem): number {
+  return item._videoSource?.fps || 0
+}
+
+function frameStep(item: MediaItem): number {
+  const fps = frameFps(item)
+  return fps > 0 ? 1 / fps : 0.04
+}
+
+function atFirstFrame(item: MediaItem): boolean {
+  return frameScrubValue(item) <= 1e-3
+}
+
+function atLastFrame(item: MediaItem): boolean {
+  const dur = frameDuration(item)
+  return dur > 0 && frameScrubValue(item) >= dur - frameStep(item) - 1e-3
+}
+
+function frameScrubValue(item: MediaItem): number {
+  return frameScrub[item.originalIndex as number] ?? item._frameTime ?? 0
+}
+
+// Playable URL for the scrub <video>: a dropped File's object URL, else the library
+// media URL (supports range/seeking), else the reference-video serve path.
+function frameVideoUrl(item: MediaItem): string {
+  const vs = item._videoSource
+  if (!vs) return ''
+  if (vs.clientKey) {
+    const u = droppedFileUrl(vs.clientKey)
+    if (u) return u
+  }
+  if (vs.mediaId) return getMediaFileUrl(vs.mediaId)
+  if (vs.sourcePath) {
+    const base = getApiBase()
+    const profileId = getCurrentProfileId()
+    const pin = getCachedPin(profileId)
+    let u = `${base}/generate/reference-video-file?path=${encodeURIComponent(vs.sourcePath)}&profile=${encodeURIComponent(profileId)}`
+    if (pin) u += `&pin=${encodeURIComponent(pin)}`
+    return u
+  }
+  return ''
+}
+
+function setScrubVideo(index: number, el: HTMLVideoElement | null) {
+  scrubVideoEls[index] = el
+}
+
+function onScrubVideoLoaded(item: MediaItem, event: Event) {
+  // Show the currently-selected frame when the scrubber opens.
+  const el = event.target as HTMLVideoElement
+  const t = frameScrubValue(item)
+  try { el.currentTime = Math.min(t, Math.max(0, (el.duration || frameDuration(item)) - 1e-3)) } catch { /* ignore */ }
+}
+
+function formatScrubTime(seconds: number): string {
+  const s = Math.max(0, seconds)
+  const m = Math.floor(s / 60)
+  const rem = s - m * 60
+  return `${m}:${rem.toFixed(2).padStart(5, '0')}`
+}
+
+// Seek the live <video> immediately (responsive); schedule a debounced server
+// commit so continuous dragging doesn't spam extractions.
+function seekScrub(item: MediaItem, t: number, { commit = 'debounced' as 'debounced' | 'now' | 'none' } = {}) {
+  const i = item.originalIndex as number
+  const dur = frameDuration(item)
+  const clamped = Math.max(0, dur ? Math.min(t, dur) : t)
+  frameScrub[i] = clamped
+  const el = scrubVideoEls[i]
+  if (el) { try { el.currentTime = clamped } catch { /* ignore */ } }
+  if (commit === 'none') return
+  if (frameCommitTimers[i]) clearTimeout(frameCommitTimers[i])
+  if (commit === 'now') {
+    commitFrame(item, 'custom', clamped)
+  } else {
+    frameCommitTimers[i] = setTimeout(() => commitFrame(item, 'custom', clamped), 280)
+  }
+}
+
+function stepFrame(item: MediaItem, dir: number) {
+  if (dir < 0 && atFirstFrame(item)) return
+  if (dir > 0 && atLastFrame(item)) return
+  const step = frameStep(item)
+  seekScrub(item, frameScrubValue(item) + dir * step, { commit: 'debounced' })
+}
+
+async function commitFrame(item: MediaItem, position: FramePosition, timeSeconds?: number) {
+  const i = item.originalIndex as number
+  const vs = item._videoSource
+  const file = vs?.clientKey ? droppedVideoFiles.get(vs.clientKey) : undefined
+  if (!vs || (!vs.sourcePath && !file) || frameCommitting[i]) return
+  if (frameCommitTimers[i]) { clearTimeout(frameCommitTimers[i]); delete frameCommitTimers[i] }
+  frameCommitting[i] = true
+  try {
+    const ext = await extractFrame({ file, sourcePath: vs.sourcePath, position, timeSeconds })
+    const updated: MediaItem = {
+      path: ext.path,
+      filename: ext.filename,
+      width: ext.width,
+      height: ext.height,
+      _videoSource: vs,   // keep source so the picker stays available
+      _frameTime: ext.time,
+      _framePosition: position,
+    }
+    const newItems = [...items.value]
+    newItems[i] = updated
+    items.value = newItems
+    emit('update:modelValue', newItems)
+    frameScrub[i] = ext.time
+  } catch (e: any) {
+    console.error('Failed to pick frame:', e)
+    addToast(e?.response?.data?.detail || e?.message || "Couldn't pick that frame.", 'error')
+  } finally {
+    frameCommitting[i] = false
+  }
+}
+
+function setFramePosition(item: MediaItem, position: 'first' | 'middle' | 'last') {
+  const dur = frameDuration(item)
+  // For the live <video>, land one frame short of the end (seeking exactly to
+  // duration can show black); the committed 'last' frame uses the server's backoff.
+  const t = position === 'first' ? 0 : position === 'middle' ? dur / 2 : Math.max(0, dur - frameStep(item))
+  seekScrub(item, t, { commit: 'none' })
+  commitFrame(item, position)
+}
+
+// Filmstrip timeline (progressive enhancement over the plain track).
+const stripReady = reactive<Record<number, boolean>>({})
+const stripFailed = reactive<Record<number, boolean>>({})
+const stripDragging = reactive<Record<number, boolean>>({})
+
+function frameStripUrl(item: MediaItem): string {
+  const sp = item._videoSource?.sourcePath
+  if (!sp) return ''   // OS file drops have no server copy → plain-track fallback
+  const base = getApiBase()
+  const profileId = getCurrentProfileId()
+  const pin = getCachedPin(profileId)
+  let u = `${base}/generate/frame-strip?source_path=${encodeURIComponent(sp)}&count=6&w=120&profile=${encodeURIComponent(profileId)}`
+  if (pin) u += `&pin=${encodeURIComponent(pin)}`
+  return u
+}
+
+function framePercent(item: MediaItem): number {
+  const dur = frameDuration(item)
+  if (dur <= 0) return 0
+  return Math.min(100, Math.max(0, (frameScrubValue(item) / dur) * 100))
+}
+
+function frameCount(item: MediaItem): number {
+  const fps = frameFps(item)
+  return fps > 0 ? Math.max(1, Math.round(frameDuration(item) * fps)) : 0
+}
+
+function frameIndex(item: MediaItem): number {
+  const fps = frameFps(item)
+  return fps > 0 ? Math.min(frameCount(item), Math.round(frameScrubValue(item) * fps) + 1) : 0
+}
+
+// Readout mode (time vs frames) — persisted per tool (not per slot), defaulting to
+// time. Frames are only shown when we actually know the source fps.
+const frameDisplayMode = ref<'time' | 'frames'>('time')
+
+function loadFrameDisplayMode() {
+  if (!props.frameModeKey) { frameDisplayMode.value = 'time'; return }
+  try {
+    frameDisplayMode.value = localStorage.getItem(makeProfileKey('frame-mode', props.frameModeKey)) === 'frames' ? 'frames' : 'time'
+  } catch { frameDisplayMode.value = 'time' }
+}
+
+function toggleFrameDisplay() {
+  frameDisplayMode.value = frameDisplayMode.value === 'frames' ? 'time' : 'frames'
+  if (props.frameModeKey) {
+    try { localStorage.setItem(makeProfileKey('frame-mode', props.frameModeKey), frameDisplayMode.value) } catch { /* ignore */ }
+  }
+}
+
+function showFrames(item: MediaItem): boolean {
+  return frameDisplayMode.value === 'frames' && frameFps(item) > 0
+}
+
+// The single readout (header). Time shows hundredths; frames show f n/total.
+function headerFrameLabel(item: MediaItem): string {
+  return showFrames(item) ? `f ${frameIndex(item)}/${frameCount(item)}` : formatScrubTime(frameScrubValue(item))
+}
+
+onMounted(loadFrameDisplayMode)
+watch(() => props.frameModeKey, loadFrameDisplayMode)
+
+function scrubFromPointer(item: MediaItem, el: HTMLElement, clientX: number, commit: 'debounced' | 'now') {
+  const r = el.getBoundingClientRect()
+  const frac = r.width > 0 ? Math.min(1, Math.max(0, (clientX - r.left) / r.width)) : 0
+  seekScrub(item, frac * (frameDuration(item) || 0), { commit })
+}
+
+function endScrubDrag(i: number) {
+  stripDragging[i] = false
+  document.body.style.userSelect = ''
+}
+
+function onScrubPointerDown(item: MediaItem, e: PointerEvent) {
+  // Suppress the text-selection a drag would otherwise start across nearby labels.
+  e.preventDefault()
+  document.body.style.userSelect = 'none'
+  const el = e.currentTarget as HTMLElement
+  el.setPointerCapture?.(e.pointerId)
+  stripDragging[item.originalIndex as number] = true
+  scrubFromPointer(item, el, e.clientX, 'debounced')
+}
+
+function onScrubPointerMove(item: MediaItem, e: PointerEvent) {
+  if (!stripDragging[item.originalIndex as number]) return
+  e.preventDefault()
+  scrubFromPointer(item, e.currentTarget as HTMLElement, e.clientX, 'debounced')
+}
+
+function onScrubPointerUp(item: MediaItem, e: PointerEvent) {
+  const i = item.originalIndex as number
+  if (!stripDragging[i]) return
+  endScrubDrag(i)
+  scrubFromPointer(item, e.currentTarget as HTMLElement, e.clientX, 'now')
+}
+
+function onScrubPointerCancel(item: MediaItem) {
+  endScrubDrag(item.originalIndex as number)
+}
+
+onBeforeUnmount(() => {
+  for (const url of droppedVideoUrls.values()) URL.revokeObjectURL(url)
+  for (const t of Object.values(frameCommitTimers)) clearTimeout(t)
+  document.body.style.userSelect = ''  // in case we unmount mid-drag
+})
 
 // --- Scale ---
 

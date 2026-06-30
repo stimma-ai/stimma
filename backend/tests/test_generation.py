@@ -496,6 +496,145 @@ class TestJobListing:
 
 
 # =============================================================================
+# Video frame grab (POST /api/generate/extract-frame)
+# =============================================================================
+
+
+def _ffmpeg_available() -> bool:
+    try:
+        from ffmpeg_checker import FFmpegChecker
+
+        ok, _ = FFmpegChecker().check_availability()
+        return ok
+    except Exception:
+        return False
+
+
+def _make_test_video(path: Path, width: int = 320, height: int = 240, seconds: int = 1) -> None:
+    """Generate a tiny test video with ffmpeg's lavfi testsrc."""
+    import ffmpeg
+
+    (
+        ffmpeg.input(f"testsrc=duration={seconds}:size={width}x{height}:rate=10", f="lavfi")
+        .output(str(path), pix_fmt="yuv420p")
+        .overwrite_output()
+        .run(capture_stdout=True, capture_stderr=True)
+    )
+
+
+@pytest.mark.skipif(not _ffmpeg_available(), reason="ffmpeg not available")
+class TestExtractFrame:
+    """Tests for POST /api/generate/extract-frame (server-side ffmpeg grab)."""
+
+    async def test_extract_first_frame_from_uploaded_video(
+        self, generation_client: httpx.AsyncClient, tmp_path: Path
+    ):
+        """Uploading a video returns a full-res still in the prep cache."""
+        import app_dirs
+
+        vid = tmp_path / "clip.mp4"
+        _make_test_video(vid, 320, 240)
+
+        with open(vid, "rb") as f:
+            response = await generation_client.post(
+                "/api/generate/extract-frame",
+                files={"file": ("clip.mp4", f.read(), "video/mp4")},
+                data={"position": "first"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["width"] == 320
+        assert data["height"] == 240
+        assert data["filename"].startswith("video_frame_")
+        assert data["time_seconds"] == 0.0
+        assert data["fps"] > 0  # testsrc rate=10
+
+        stored = Path(data["path"])
+        assert stored.exists()
+        prep_cache = app_dirs.get_cache_dir() / "reference-prep-cache"
+        assert stored.parent == prep_cache
+
+    async def test_extract_last_frame_reports_duration(
+        self, generation_client: httpx.AsyncClient, tmp_path: Path
+    ):
+        """Last-frame grab seeks near the end and reports the source duration."""
+        vid = tmp_path / "clip2.mp4"
+        _make_test_video(vid, 160, 120, seconds=2)
+
+        with open(vid, "rb") as f:
+            response = await generation_client.post(
+                "/api/generate/extract-frame",
+                files={"file": ("clip2.mp4", f.read(), "video/mp4")},
+                data={"position": "last"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["width"] == 160 and data["height"] == 120
+        assert data["duration"] > 1.0  # ~2s clip
+        assert data["time_seconds"] > 0.0
+
+    async def test_frame_preview_returns_jpeg(
+        self, generation_client: httpx.AsyncClient, tmp_path: Path, output_folder: str
+    ):
+        """The scrub preview returns a downscaled JPEG for an allowed source path."""
+        # Place the video inside the (allowed) generation/output folder so the
+        # source_path passes the media-dir allow-list.
+        vid = Path(output_folder) / "preview_clip.mp4"
+        _make_test_video(vid, 640, 480)
+
+        response = await generation_client.get(
+            "/api/generate/frame-preview",
+            params={"source_path": str(vid), "t": 0.0, "w": 320},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/jpeg"
+        assert len(response.content) > 0
+
+    async def test_frame_strip_returns_montage(
+        self, generation_client: httpx.AsyncClient, output_folder: str
+    ):
+        """The filmstrip endpoint returns a cached wide JPEG montage."""
+        from io import BytesIO
+        from PIL import Image
+
+        vid = Path(output_folder) / "strip_clip.mp4"
+        _make_test_video(vid, 160, 120, seconds=2)
+
+        response = await generation_client.get(
+            "/api/generate/frame-strip",
+            params={"source_path": str(vid), "count": 8, "w": 64},
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/jpeg"
+        img = Image.open(BytesIO(response.content))
+        # 8 cells * 64px wide montage
+        assert img.width == 8 * 64
+        assert img.height > 0
+
+    async def test_extract_requires_a_source(
+        self, generation_client: httpx.AsyncClient
+    ):
+        """No file and no source_path is a 400."""
+        response = await generation_client.post(
+            "/api/generate/extract-frame",
+            data={"position": "first"},
+        )
+        assert response.status_code == 400
+
+    async def test_extract_rejects_disallowed_source_path(
+        self, generation_client: httpx.AsyncClient
+    ):
+        """An arbitrary filesystem path outside allowed media dirs is denied."""
+        response = await generation_client.post(
+            "/api/generate/extract-frame",
+            data={"source_path": "/etc/hosts", "position": "first"},
+        )
+        assert response.status_code == 403
+
+
+# =============================================================================
 # Fixtures for this test file
 # =============================================================================
 

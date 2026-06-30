@@ -376,6 +376,7 @@
           :controlnet-options="controlnetOptions"
           :allow-prep="mediaInputConfig.allowPrep"
           :batch-mode="globalPrefs.batchMode"
+          :frame-mode-key="fullToolIdFromProps"
           @view-media="openSingleImageSlideshow"
           @view-media-batch="openMediaBatchSlideshow"
           @suggest-resolution="onSuggestResolution"
@@ -417,6 +418,8 @@
           :reorderable="hasEndFrame"
           label="Reference Frames"
           :slot-labels="hasEndFrame ? ['Start Frame', 'End Frame'] : ['Start Frame']"
+          :frame-grab-defaults="hasEndFrame ? ['last', 'first'] : ['last']"
+          :frame-mode-key="fullToolIdFromProps"
           :allow-prep="true"
           :allow-sets="false"
           :controlnet-options="controlnetOptions"
@@ -839,6 +842,7 @@ import { useProvidersApi, type ProviderTool } from '../composables/useProvidersA
 import { useToolState, type ToolState } from '../composables/useToolState'
 import { usePresetsApi } from '../composables/usePresetsApi'
 import { useToolSchemaFeatures } from '../composables/useToolSchemaFeatures'
+import { useVideoFrameExtraction, type FramePosition } from '../composables/useVideoFrameExtraction'
 import { useTelemetry } from '../composables/useTelemetry'
 import { makeGlobalKey, makeToolDbKey } from '../utils/storageKeys'
 import { getBlob, putBlob, deleteBlob } from '../utils/blobStorage'
@@ -1736,6 +1740,110 @@ const {
   taskType: 'text-to-image',  // Just for defaults structure - we manage our own state persistence
   fullToolId: fullToolIdFromProps
 })
+
+// --- Video dropped into an image slot → grab a still (centralized safety net) ---
+// MediaPicker converts videos it accepts directly, but a video can reach an
+// image-intent slot from other paths too: Send-to-Tool, restore/remix, and (in the
+// Tauri app) native OS drags that bypass MediaPicker's browser handlers. This watcher
+// (placed after globalPrefs is defined — its getter runs synchronously) normalizes
+// ANY video that lands in an image slot into a captured frame, so a tool only ever
+// receives an image. Role-aware default: generic inputs use the first frame; the i2v
+// Start frame uses the source's LAST frame (extend forward) and the End frame its
+// FIRST (connect into). If a frame can't be grabbed (e.g. an undecodable format), the
+// entry is dropped with a message rather than left to crash the tool at run time.
+const { extractFrame } = useVideoFrameExtraction()
+const VIDEO_INPUT_EXTENSIONS = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v']
+
+function isVideoInputEntry(entry: any): boolean {
+  if (!entry || entry._videoSource) return false  // null, or already a grabbed still
+  const name = String(entry.filename || entry.path || '').toLowerCase()
+  const ext = name.split('.').pop()
+  return !!ext && VIDEO_INPUT_EXTENSIONS.includes(ext)
+}
+
+async function grabFrameForEntry(entry: any, position: FramePosition): Promise<MediaItem> {
+  // Server-side extract from the entry's video path (library original or reference
+  // copy). The backend validates the path against allowed media dirs.
+  if (!entry.path) throw new Error('No source available for this video.')
+  const ext = await extractFrame({ sourcePath: entry.path, position })
+  return {
+    path: ext.path,
+    filename: ext.filename,
+    width: ext.width,
+    height: ext.height,
+    _videoSource: {
+      mediaId: entry.mediaId,
+      hash: entry.hash,
+      filename: entry.filename || 'video',
+      duration: ext.duration,
+      fps: ext.fps,
+      sourcePath: entry.path,
+    },
+    _frameTime: ext.time,
+    _framePosition: position,
+  }
+}
+
+function hasPendingVideoInput(): boolean {
+  const imgs = (globalPrefs.value.inputImages || []) as MediaItem[]
+  return imgs.some(isVideoInputEntry)
+    || isVideoInputEntry(videoImages.startImage)
+    || isVideoInputEntry(videoImages.endImage)
+}
+
+// In-flight guard doubles as a handle the submit path can await, so a fast Run
+// can't beat the grab and ship a raw video.
+let videoNormalizeInFlight: Promise<void> | null = null
+function normalizeVideoInputsToFrames(): Promise<void> {
+  if (videoNormalizeInFlight) return videoNormalizeInFlight
+  if (!hasPendingVideoInput()) return Promise.resolve()
+
+  const run = async () => {
+    const imgs = (globalPrefs.value.inputImages || []) as MediaItem[]
+    if (imgs.some(isVideoInputEntry)) {
+      // Rebuild the array, replacing videos with grabbed stills and dropping any we
+      // can't read (so we never leave a video in an image slot, and never re-loop).
+      const next: MediaItem[] = []
+      for (const entry of imgs) {
+        if (!isVideoInputEntry(entry)) { next.push(entry); continue }
+        try {
+          next.push(await grabFrameForEntry(entry, 'first'))
+        } catch (e: any) {
+          console.error('Frame grab failed:', e)
+          addToast(e?.message || "Couldn't grab a frame from that video.", 'error')
+        }
+      }
+      globalPrefs.value.inputImages = next
+    }
+    if (isVideoInputEntry(videoImages.startImage)) {
+      try {
+        videoImages.startImage = await grabFrameForEntry(videoImages.startImage as MediaItem, 'last')
+      } catch (e: any) {
+        console.error('Frame grab failed (start):', e)
+        addToast(e?.message || "Couldn't grab a frame from that video.", 'error')
+        videoImages.startImage = null
+      }
+    }
+    if (isVideoInputEntry(videoImages.endImage)) {
+      try {
+        videoImages.endImage = await grabFrameForEntry(videoImages.endImage as MediaItem, 'first')
+      } catch (e: any) {
+        console.error('Frame grab failed (end):', e)
+        addToast(e?.message || "Couldn't grab a frame from that video.", 'error')
+        videoImages.endImage = null
+      }
+    }
+  }
+
+  videoNormalizeInFlight = run().finally(() => { videoNormalizeInFlight = null })
+  return videoNormalizeInFlight
+}
+
+watch(
+  () => [globalPrefs.value.inputImages, videoImages.startImage, videoImages.endImage],
+  () => { normalizeVideoInputsToFrames() },
+  { deep: true }
+)
 
 // Auto-deactivate remix on major prompt change (watcher must be after globalPrefs is defined)
 watch(globalPrefs, () => {
@@ -3513,6 +3621,18 @@ async function handleHopToTool(targetTool: { full_tool_id: string; name: string 
 // batch yields N distinct seeds exactly as repeated clicks would.
 async function submitJob() {
   if (!tool.value || !canSubmit.value) return
+
+  // A dropped video becomes an image only after an async frame grab. If the user
+  // hits Run before that settles, wait for it (and one more pass in case a drop
+  // landed mid-flight) so we never submit a raw video to an image tool.
+  await normalizeVideoInputsToFrames()
+  await normalizeVideoInputsToFrames()
+  if (hasPendingVideoInput()) {
+    submissionError.value = "Couldn't turn the dropped video into a frame — remove it and try again."
+    addToast(submissionError.value, 'error')
+    return
+  }
+
   const count = Math.min(8, Math.max(1, uiState.value.batchSize || 1))
   for (let i = 0; i < count; i++) {
     await submitOneJob()
