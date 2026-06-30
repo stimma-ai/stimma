@@ -2611,6 +2611,35 @@ function formatMegapixelArea(width: number, height: number): string {
   return `${Number(mp.toFixed(1))}MP`
 }
 
+// Snap a (width, height) onto the active tool's legal grid so inherited or
+// edited source dimensions land on a size the model actually accepts — a 640×384
+// image-to-image source should run at 640×384, an off-grid size snaps to the
+// nearest legal one. Mirrors the backend snap (stimma-cloud tool-params.ts) and
+// the agent set_resolution handler: nearest allowed pair for constrained tools,
+// otherwise clamp+round each axis to the schema's min/max/step.
+function snapDimsToGrid(width: number, height: number): { width: number; height: number } {
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return { width, height }
+  const dims = allowedDimensions.value
+  if (dims && dims.length) {
+    let best = dims[0]
+    let bestDist = Infinity
+    for (const [w, h] of dims) {
+      const d = (w - width) ** 2 + (h - height) ** 2
+      if (d < bestDist) { bestDist = d; best = [w, h] }
+    }
+    return { width: best[0], height: best[1] }
+  }
+  const props = parameterSchema.value?.properties || {}
+  const snapAxis = (v: number, p: any) => {
+    const step = Number(p?.['x-step']) || 1
+    let x = Math.round(v / step) * step
+    if (p?.minimum != null) x = Math.max(Number(p.minimum), x)
+    if (p?.maximum != null) x = Math.min(Number(p.maximum), x)
+    return x
+  }
+  return { width: snapAxis(width, props.width), height: snapAxis(height, props.height ?? props.width) }
+}
+
 function suggestedDimensionsForLocks(sourceW: number, sourceH: number): { width: number; height: number } | null {
   const oldW = Number(modelParams.value.width)
   const oldH = Number(modelParams.value.height)
@@ -2624,7 +2653,8 @@ function suggestedDimensionsForLocks(sourceW: number, sourceH: number): { width:
   return dimensionsForAreaAndAspect(oldW * oldH, sourceW / sourceH)
 }
 
-function showResAutoChange(newW: number, newH: number) {
+function showResAutoChange(rawW: number, rawH: number) {
+  const { width: newW, height: newH } = snapDimsToGrid(rawW, rawH)
   const oldW = modelParams.value.width
   const oldH = modelParams.value.height
   if (oldW === newW && oldH === newH) return
@@ -2656,16 +2686,18 @@ function resAutoChangeKeepArea() {
   const { oldWidth, oldHeight, newWidth, newHeight } = resAutoChange.value
   const dims = dimensionsForAreaAndAspect(oldWidth * oldHeight, newWidth / newHeight)
   if (dims) {
-    modelParams.value.width = dims.width
-    modelParams.value.height = dims.height
+    const snapped = snapDimsToGrid(dims.width, dims.height)
+    modelParams.value.width = snapped.width
+    modelParams.value.height = snapped.height
   }
   resAutoChange.value = null
   if (resAutoChangeTimer) { clearTimeout(resAutoChangeTimer); resAutoChangeTimer = null }
 }
 
 function onResolutionUpdate(width: number, height: number) {
-  modelParams.value.width = width
-  modelParams.value.height = height
+  const snapped = snapDimsToGrid(width, height)
+  modelParams.value.width = snapped.width
+  modelParams.value.height = snapped.height
 }
 
 function suggestResolutionFromImage(width: number, height: number, options?: { manual?: boolean }) {

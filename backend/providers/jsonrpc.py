@@ -36,6 +36,32 @@ from .base import (
 log = get_logger(__name__)
 
 
+def _format_jsonrpc_error(error: Any) -> str:
+    """Flatten a JSON-RPC error object into a human-readable string.
+
+    JSON-RPC errors carry a generic ``message`` (e.g. "Invalid params") and an
+    optional ``data`` field holding the actionable reason (e.g. a validation
+    message like "height must be >= 512"). The cloud puts the real reason in
+    ``data``; surface it so users learn *why* a job failed, not just that it did.
+    """
+    if not isinstance(error, dict):
+        return str(error) if error else "Unknown error"
+    message = error.get("message") or "Unknown error"
+    data = error.get("data")
+    if data is None or data == "":
+        return message
+    if isinstance(data, str):
+        detail = data
+    elif isinstance(data, dict):
+        detail = data.get("detail") or data.get("message") or json.dumps(data)
+    else:
+        detail = str(data)
+    detail = (detail or "").strip()
+    if detail and detail != message.strip():
+        return f"{message}: {detail}"
+    return message
+
+
 # Asset IDs are opaque tokens from a fixed charset (STP §Asset Management). A receiver must
 # reject anything that doesn't match before using it to build a filesystem path or URL.
 _ASSET_ID_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}\.[A-Za-z0-9]{1,12}$")
@@ -742,7 +768,7 @@ class JsonRpcProvider(ToolProvider):
                 future = self._pending_requests[request_id]
                 if "error" in message:
                     future.set_exception(
-                        RuntimeError(message["error"].get("message", "Unknown error"))
+                        RuntimeError(_format_jsonrpc_error(message["error"]))
                     )
                 else:
                     future.set_result(message.get("result"))
@@ -1348,7 +1374,7 @@ class JsonRpcProvider(ToolProvider):
                         generation_time=generation_time,
                         actual_seed=metadata.get("actual_seed") or output.get("actual_seed"),
                         metadata=metadata,
-                        error=data.get("error", {}).get("message")
+                        error=_format_jsonrpc_error(data.get("error", {}))
                         if not data.get("success")
                         else None,
                     )
