@@ -36,18 +36,19 @@
       <div>
         <h1 class="text-2xl font-semibold text-content">Trash</h1>
         <p class="text-sm text-content-secondary">
-          {{ totalCount }} deleted {{ totalCount === 1 ? 'item' : 'items' }}
+          {{ trashHeaderSubtitle }}
         </p>
       </div>
       <button
         v-if="totalCount > 0"
-        class="flex items-center gap-2 px-4 py-2.5 bg-red-500/15 text-red-500 border border-red-500/30 rounded-lg text-sm font-medium hover:bg-red-500/25 hover:border-red-500/50 transition-all"
+        class="flex items-center gap-2 px-4 py-2.5 bg-red-500/15 text-red-500 border border-red-500/30 rounded-lg text-sm font-medium hover:bg-red-500/25 hover:border-red-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-500/15 disabled:hover:border-red-500/30"
         @click="confirmEmptyTrash"
+        :disabled="isEmptyingTrash"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[18px] h-[18px]">
           <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
         </svg>
-        Empty Trash
+        {{ isEmptyingTrash ? 'Emptying...' : 'Empty Trash' }}
       </button>
     </div>
 
@@ -280,6 +281,7 @@ import { useMultiSelect } from '../composables/useMultiSelect'
 import { useVirtualGrid } from '../composables/useVirtualGrid'
 import { useUrlState } from '../composables/useUrlState'
 import { usePrint } from '../composables/usePrint'
+import { useDeleteOperations } from '../composables/useDeleteOperations'
 import { addToast } from '../composables/useToasts'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { makeProfileKey } from '../utils/storageKeys'
@@ -336,6 +338,18 @@ const emit = defineEmits([
 const isTrashMode = computed(() => props.isTrashMode)
 const savedViewId = computed(() => props.savedViewId)
 const savedViewName = computed(() => props.savedViewName)
+const { activeDeleteOperation } = useDeleteOperations()
+const isEmptyingTrash = computed(() => {
+  const op = activeDeleteOperation.value
+  return props.isTrashMode && op?.kind === 'empty_trash' && ['queued', 'running'].includes(op.status)
+})
+const trashHeaderSubtitle = computed(() => {
+  if (isEmptyingTrash.value) {
+    const op = activeDeleteOperation.value
+    return `Emptying trash: ${op?.processed_items || 0} / ${op?.total_items || totalCount.value}`
+  }
+  return `${totalCount.value} deleted ${totalCount.value === 1 ? 'item' : 'items'}`
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -1401,6 +1415,7 @@ async function handleBulkPermanentDelete() {
 
 // Confirm empty trash
 function confirmEmptyTrash() {
+  if (isEmptyingTrash.value) return
   showEmptyTrashConfirm.value = true
 }
 
@@ -1411,11 +1426,9 @@ async function emptyTrash() {
     const accepted = response?.accepted ?? 0
     showEmptyTrashConfirm.value = false
     if (accepted > 0) {
-      // Immediately clear the trash view — cleanup happens in background
-      totalCount.value = 0
       selectedItemIds.value = []
       multiSelectMode.value = false
-      filterKey.value++
+      addToast(`Queued permanent deletion for ${accepted} ${accepted === 1 ? 'item' : 'items'}`, 'info')
     }
   } catch (error) {
     console.error('Failed to empty trash:', error)

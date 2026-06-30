@@ -19,7 +19,7 @@ import json
 import hashlib
 
 from pydantic import BaseModel
-from database import Face, MediaItem, MediaLineage, MediaMarker, MediaThumbnailCache
+from database import DeleteOperation, DeleteOperationItem, Face, MediaItem, MediaLineage, MediaMarker, MediaThumbnailCache
 from core.dependencies import get_db_session
 from core.profile_context import get_current_profile, set_current_profile
 from database_registry import get_database_registry
@@ -76,6 +76,62 @@ async def _get_faces_data(session: AsyncSession, media_id: int) -> list[dict] | 
     )
     faces = faces_result.scalars().all()
     return [face.to_dict() for face in faces] if faces else None
+
+
+def _source_path_exists(file_path: str, file_format: str) -> bool:
+    path = Path(file_path)
+    if file_format.lower() == 'stimmalayout':
+        return path.is_dir() and (path / 'index.html').exists()
+    return path.exists()
+
+
+def _remove_cache_file(cache_path: Path) -> None:
+    try:
+        cache_path.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
+async def _media_row_exists(session: AsyncSession, media_id: int) -> bool:
+    result = await session.execute(
+        select(MediaItem.id).where(MediaItem.id == media_id).limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def _media_has_active_delete_operation(session: AsyncSession, media_id: int) -> bool:
+    result = await session.execute(
+        select(DeleteOperationItem.media_id)
+        .join(DeleteOperation, DeleteOperation.id == DeleteOperationItem.operation_id)
+        .where(
+            DeleteOperationItem.media_id == media_id,
+            DeleteOperation.status.in_(["queued", "running"]),
+            DeleteOperationItem.state.not_in(["done", "failed"]),
+        )
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
+async def _raise_if_thumbnail_deleted_after_generation(
+    session: AsyncSession,
+    media_id: int,
+    file_path: str,
+    file_format: str,
+    cache_path: Path,
+) -> None:
+    # Release any earlier read transaction so this request can see a delete that
+    # completed while the thumbnail worker was running.
+    await session.rollback()
+    if not await _media_row_exists(session, media_id):
+        _remove_cache_file(cache_path)
+        raise HTTPException(status_code=404, detail="Asset not found")
+    if await _media_has_active_delete_operation(session, media_id):
+        _remove_cache_file(cache_path)
+        raise HTTPException(status_code=404, detail="Asset is being permanently deleted")
+    if not _source_path_exists(file_path, file_format):
+        _remove_cache_file(cache_path)
+        raise HTTPException(status_code=404, detail="Asset file not found on disk")
 
 THEME_PALETTES = {
     'dark': {
@@ -1076,6 +1132,9 @@ def _generate_thumbnail_sync(
             _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
         return True
 
+    except (FileNotFoundError, NotADirectoryError) as e:
+        log.debug(f"Thumbnail source disappeared before generation for {file_path}: {e}")
+        return False
     except Exception as e:
         log.error(f"Error generating thumbnail for {file_path}: {e}", exc_info=True)
         return False
@@ -1547,7 +1606,14 @@ async def get_thumbnail(
     if not item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    face_count = await _get_face_count(session, item.id)
+    media_id = item.id
+    file_path = item.file_path
+    file_format = item.file_format
+
+    if await _media_has_active_delete_operation(session, media_id):
+        raise HTTPException(status_code=404, detail="Asset is being permanently deleted")
+
+    face_count = await _get_face_count(session, media_id)
 
     # Create cache directory from settings (computed via app_dirs)
     settings = get_settings()
@@ -1559,10 +1625,10 @@ async def get_thumbnail(
     THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
-    fmt_lower = item.file_format.lower()
+    fmt_lower = file_format.lower()
     if fmt_lower in ('md', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout'):
         try:
-            mtime_path = Path(item.file_path)
+            mtime_path = Path(file_path)
             if fmt_lower == 'stimmalayout':
                 mtime_path = mtime_path / 'index.html'
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
@@ -1571,7 +1637,7 @@ async def get_thumbnail(
 
     # Include theme in cache key only for synthetic thumbnail types
     theme_suffix = f"_theme{theme}" if fmt_lower in THEMED_FORMATS else ""
-    cache_key = hashlib.md5(f"{item.file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
+    cache_key = hashlib.md5(f"{file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
 
     # Check for cached thumbnail (PNG for transparent images, JPG otherwise)
     cache_path_png = _sharded_cache_path(cache_dir, cache_key, "png")
@@ -1579,14 +1645,14 @@ async def get_thumbnail(
 
     cors_headers = {'Access-Control-Allow-Origin': '*'}
     if cache_path_png.exists():
-        await _record_thumbnail_cache(session, item.id, cache_path_png)
+        await _record_thumbnail_cache(session, media_id, cache_path_png)
         return FileResponse(cache_path_png, media_type="image/png", headers=cors_headers)
     if cache_path_jpg.exists():
-        await _record_thumbnail_cache(session, item.id, cache_path_jpg)
+        await _record_thumbnail_cache(session, media_id, cache_path_jpg)
         return FileResponse(cache_path_jpg, media_type="image/jpeg", headers=cors_headers)
 
     # Determine if source might have transparency (PNG format)
-    might_have_alpha = item.file_format.lower() == 'png'
+    might_have_alpha = file_format.lower() == 'png'
     cache_path = cache_path_png if might_have_alpha else cache_path_jpg
 
     # Ensure shard subdirectory exists
@@ -1598,19 +1664,22 @@ async def get_thumbnail(
     # Generate thumbnail. Layouts go through the async UI-render path; everything
     # else runs in the thread pool.
     layout_status = None
-    if item.file_format.lower() == 'stimmalayout':
+    if not _source_path_exists(file_path, file_format):
+        raise HTTPException(status_code=404, detail="Asset file not found on disk")
+    await session.rollback()
+    if file_format.lower() == 'stimmalayout':
         layout_status = await _generate_layout_thumbnail_to_cache(
-            item.file_path, cache_path, size, palette=palette,
+            file_path, cache_path, size, palette=palette,
         )
         success = layout_status == LAYOUT_THUMB_OK
     else:
-        faces_data = await _get_faces_data(session, item.id) if mode == "crop" and face_count > 0 else None
+        faces_data = await _get_faces_data(session, media_id) if mode == "crop" and face_count > 0 else None
         loop = asyncio.get_event_loop()
         success = await loop.run_in_executor(
             thumbnail_executor,
             _generate_thumbnail_sync,
-            item.file_path,
-            item.file_format,
+            file_path,
+            file_format,
             cache_path,
             size,
             faces_data,
@@ -1619,10 +1688,13 @@ async def get_thumbnail(
         )
 
     if not success:
+        await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)
         # Check if another thread succeeded while we were generating
         if cache_path_png.exists():
+            await _record_thumbnail_cache(session, media_id, cache_path_png)
             return FileResponse(cache_path_png, media_type="image/png", headers=cors_headers)
         if cache_path_jpg.exists():
+            await _record_thumbnail_cache(session, media_id, cache_path_jpg)
             return FileResponse(cache_path_jpg, media_type="image/jpeg", headers=cors_headers)
         if layout_status == LAYOUT_THUMB_TRANSIENT:
             # UI renderer was busy/unconnected — the same layout will render
@@ -1637,7 +1709,8 @@ async def get_thumbnail(
 
     # Return with correct media type
     media_type = "image/png" if might_have_alpha else "image/jpeg"
-    await _record_thumbnail_cache(session, item.id, cache_path)
+    await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)
+    await _record_thumbnail_cache(session, media_id, cache_path)
     return FileResponse(cache_path, media_type=media_type, headers=cors_headers)
 
 
@@ -2119,7 +2192,14 @@ async def get_thumbnail_by_db_guid(
     if not item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    face_count = await _get_face_count(session, item.id)
+    media_id = item.id
+    file_path = item.file_path
+    file_format = item.file_format
+
+    if await _media_has_active_delete_operation(session, media_id):
+        raise HTTPException(status_code=404, detail="Asset is being permanently deleted")
+
+    face_count = await _get_face_count(session, media_id)
 
     # Create cache directory from settings
     settings = get_settings()
@@ -2130,10 +2210,10 @@ async def get_thumbnail_by_db_guid(
     THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
-    fmt_lower = item.file_format.lower()
+    fmt_lower = file_format.lower()
     if fmt_lower in ('md', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout'):
         try:
-            mtime_path = Path(item.file_path)
+            mtime_path = Path(file_path)
             if fmt_lower == 'stimmalayout':
                 mtime_path = mtime_path / 'index.html'
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
@@ -2142,19 +2222,19 @@ async def get_thumbnail_by_db_guid(
 
     # Include theme in cache key only for synthetic thumbnail types
     theme_suffix = f"_theme{theme}" if fmt_lower in THEMED_FORMATS else ""
-    cache_key = hashlib.md5(f"{db_guid}_{item.file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
+    cache_key = hashlib.md5(f"{db_guid}_{file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
 
     cache_path_png = _sharded_cache_path(cache_dir, cache_key, "png")
     cache_path_jpg = _sharded_cache_path(cache_dir, cache_key, "jpg")
 
     if cache_path_png.exists():
-        await _record_thumbnail_cache(session, item.id, cache_path_png)
+        await _record_thumbnail_cache(session, media_id, cache_path_png)
         return FileResponse(cache_path_png, media_type="image/png", headers=CACHE_HEADERS)
     if cache_path_jpg.exists():
-        await _record_thumbnail_cache(session, item.id, cache_path_jpg)
+        await _record_thumbnail_cache(session, media_id, cache_path_jpg)
         return FileResponse(cache_path_jpg, media_type="image/jpeg", headers=CACHE_HEADERS)
 
-    might_have_alpha = item.file_format.lower() == 'png'
+    might_have_alpha = file_format.lower() == 'png'
     cache_path = cache_path_png if might_have_alpha else cache_path_jpg
 
     # Ensure shard subdirectory exists
@@ -2164,19 +2244,22 @@ async def get_thumbnail_by_db_guid(
     palette = THEME_PALETTES.get(theme, THEME_PALETTES['dark'])
 
     layout_status = None
-    if item.file_format.lower() == 'stimmalayout':
+    if not _source_path_exists(file_path, file_format):
+        raise HTTPException(status_code=404, detail="Asset file not found on disk")
+    await session.rollback()
+    if file_format.lower() == 'stimmalayout':
         layout_status = await _generate_layout_thumbnail_to_cache(
-            item.file_path, cache_path, size, palette=palette,
+            file_path, cache_path, size, palette=palette,
         )
         success = layout_status == LAYOUT_THUMB_OK
     else:
-        faces_data = await _get_faces_data(session, item.id) if mode == "crop" and face_count > 0 else None
+        faces_data = await _get_faces_data(session, media_id) if mode == "crop" and face_count > 0 else None
         loop = asyncio.get_event_loop()
         success = await loop.run_in_executor(
             thumbnail_executor,
             _generate_thumbnail_sync,
-            item.file_path,
-            item.file_format,
+            file_path,
+            file_format,
             cache_path,
             size,
             faces_data,
@@ -2185,12 +2268,13 @@ async def get_thumbnail_by_db_guid(
         )
 
     if not success:
+        await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)
         # Check if another thread succeeded while we were generating
         if cache_path_png.exists():
-            await _record_thumbnail_cache(session, item.id, cache_path_png)
+            await _record_thumbnail_cache(session, media_id, cache_path_png)
             return FileResponse(cache_path_png, media_type="image/png", headers=CACHE_HEADERS)
         if cache_path_jpg.exists():
-            await _record_thumbnail_cache(session, item.id, cache_path_jpg)
+            await _record_thumbnail_cache(session, media_id, cache_path_jpg)
             return FileResponse(cache_path_jpg, media_type="image/jpeg", headers=CACHE_HEADERS)
         if layout_status == LAYOUT_THUMB_TRANSIENT:
             # UI renderer momentarily busy/unconnected — retryable, not a hard
@@ -2198,12 +2282,13 @@ async def get_thumbnail_by_db_guid(
             raise HTTPException(
                 status_code=503,
                 detail="Layout thumbnail not ready yet",
-                headers={"Retry-After": "1"},
+                headers={"Retry-After": "1", **CACHE_HEADERS},
             )
         raise HTTPException(status_code=500, detail="Failed to generate thumbnail")
 
     media_type = "image/png" if might_have_alpha else "image/jpeg"
-    await _record_thumbnail_cache(session, item.id, cache_path)
+    await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)
+    await _record_thumbnail_cache(session, media_id, cache_path)
     return FileResponse(cache_path, media_type=media_type, headers=CACHE_HEADERS)
 
 
@@ -2395,7 +2480,14 @@ async def get_thumbnail_path_by_media_id(
     if not item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    face_count = await _get_face_count(session, item.id)
+    media_id = item.id
+    file_path = item.file_path
+    file_format = item.file_format
+
+    if await _media_has_active_delete_operation(session, media_id):
+        raise HTTPException(status_code=404, detail="Asset is being permanently deleted")
+
+    face_count = await _get_face_count(session, media_id)
 
     # Compute cache path (must match get_thumbnail_by_db_guid so the caches are shared)
     settings = get_settings()
@@ -2405,10 +2497,10 @@ async def get_thumbnail_path_by_media_id(
     THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
-    fmt_lower = item.file_format.lower()
+    fmt_lower = file_format.lower()
     if fmt_lower in ('md', 'stimmaset.json', 'stimmagrid.json', 'stimmalayout'):
         try:
-            mtime_path = Path(item.file_path)
+            mtime_path = Path(file_path)
             if fmt_lower == 'stimmalayout':
                 mtime_path = mtime_path / 'index.html'
             mtime_suffix = f"_mtime{mtime_path.stat().st_mtime}"
@@ -2417,21 +2509,21 @@ async def get_thumbnail_path_by_media_id(
 
     # Include theme in cache key only for synthetic thumbnail types
     theme_suffix = f"_theme{theme}" if fmt_lower in THEMED_FORMATS else ""
-    cache_key = hashlib.md5(f"{db_guid}_{item.file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
+    cache_key = hashlib.md5(f"{db_guid}_{file_path}_{size}_{mode}_{face_count}_v{THUMBNAIL_VERSION}{mtime_suffix}{theme_suffix}".encode()).hexdigest()
 
     cache_path_png = _sharded_cache_path(cache_dir, cache_key, "png")
     cache_path_jpg = _sharded_cache_path(cache_dir, cache_key, "jpg")
 
     # Return existing thumbnail path
     if cache_path_png.exists():
-        await _record_thumbnail_cache(session, item.id, cache_path_png)
+        await _record_thumbnail_cache(session, media_id, cache_path_png)
         return {"path": str(cache_path_png)}
     if cache_path_jpg.exists():
-        await _record_thumbnail_cache(session, item.id, cache_path_jpg)
+        await _record_thumbnail_cache(session, media_id, cache_path_jpg)
         return {"path": str(cache_path_jpg)}
 
     # Generate thumbnail
-    might_have_alpha = item.file_format.lower() == 'png'
+    might_have_alpha = file_format.lower() == 'png'
     cache_path = cache_path_png if might_have_alpha else cache_path_jpg
 
     # Ensure shard subdirectory exists
@@ -2440,18 +2532,21 @@ async def get_thumbnail_path_by_media_id(
     # Resolve palette for synthetic thumbnails
     palette = THEME_PALETTES.get(theme, THEME_PALETTES['dark'])
 
-    if item.file_format.lower() == 'stimmalayout':
+    if not _source_path_exists(file_path, file_format):
+        raise HTTPException(status_code=404, detail="Asset file not found on disk")
+    await session.rollback()
+    if file_format.lower() == 'stimmalayout':
         success = await _generate_layout_thumbnail_to_cache(
-            item.file_path, cache_path, size, palette=palette,
+            file_path, cache_path, size, palette=palette,
         ) == LAYOUT_THUMB_OK
     else:
-        faces_data = await _get_faces_data(session, item.id) if mode == "crop" and face_count > 0 else None
+        faces_data = await _get_faces_data(session, media_id) if mode == "crop" and face_count > 0 else None
         loop = asyncio.get_event_loop()
         success = await loop.run_in_executor(
             thumbnail_executor,
             _generate_thumbnail_sync,
-            item.file_path,
-            item.file_format,
+            file_path,
+            file_format,
             cache_path,
             size,
             faces_data,
@@ -2460,10 +2555,17 @@ async def get_thumbnail_path_by_media_id(
         )
 
     if not success:
-        # Fall back to original file path if thumbnail generation fails
-        return {"path": item.file_path}
+        await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)
+        if cache_path_png.exists():
+            await _record_thumbnail_cache(session, media_id, cache_path_png)
+            return {"path": str(cache_path_png)}
+        if cache_path_jpg.exists():
+            await _record_thumbnail_cache(session, media_id, cache_path_jpg)
+            return {"path": str(cache_path_jpg)}
+        raise HTTPException(status_code=500, detail="Failed to generate thumbnail")
 
-    await _record_thumbnail_cache(session, item.id, cache_path)
+    await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)
+    await _record_thumbnail_cache(session, media_id, cache_path)
     return {"path": str(cache_path)}
 
 
