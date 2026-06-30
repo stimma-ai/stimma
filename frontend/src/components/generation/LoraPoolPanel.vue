@@ -83,6 +83,7 @@
             :item="item"
             :display-name="getChipDisplayName(item.lora)"
             :show-raw="showRaw"
+            :unavailable="isUnavailable(item.lora)"
             :group-id="group.id"
             :style="drag.type === 'chip' && drag.loraPath === item.lora && drag.active ? 'opacity: 0.3' : ''"
             @toggle="onToggle(item.lora, $event)"
@@ -110,6 +111,7 @@
             :item="item"
             :display-name="getChipDisplayName(item.lora)"
             :show-raw="showRaw"
+            :unavailable="isUnavailable(item.lora)"
             :group-id="null"
             :style="drag.type === 'chip' && drag.loraPath === item.lora && drag.active ? 'opacity: 0.3' : ''"
             @toggle="onToggle(item.lora, $event)"
@@ -247,6 +249,23 @@ watch(showRaw, (v) => {
 const pool = computed(() => getPool(props.toolId))
 const allItems = computed(() => getAllItems(props.toolId))
 const hasAnyItems = computed(() => allItems.value.length > 0)
+
+// Availability: a pinned pool item is "unavailable" when its path is no longer in
+// the tool's supported LoRA list (e.g. after restoring an old image whose LoRAs the
+// current tool/model doesn't offer). Only evaluate once the available list is
+// actually loaded — an empty list usually means the schema is still loading or
+// refreshing, and we don't want to flash every chip as gone in that window.
+const availablePathSet = computed(() => new Set(props.availableLoras.map(l => l.path)))
+const availabilityKnown = computed(() => !props.isRefreshing && props.availableLoras.length > 0)
+
+function isUnavailable(loraPath: string): boolean {
+  if (!availabilityKnown.value) return false
+  return !availablePathSet.value.has(loraPath)
+}
+
+const unavailableCount = computed(() =>
+  availabilityKnown.value ? allItems.value.filter(i => !availablePathSet.value.has(i.lora)).length : 0
+)
 
 // Filter
 function matchesFilter(loraPath: string): boolean {
@@ -772,6 +791,17 @@ const headerMenuActions = computed(() => {
       action: () => { showRaw.value = !showRaw.value }
     },
     { id: 'divider-1', divider: true },
+    {
+      id: 'remove-unavailable',
+      label: unavailableCount.value > 0 ? `Remove Unavailable (${unavailableCount.value})` : 'Remove Unavailable',
+      disabled: unavailableCount.value === 0,
+      action: () => {
+        if (!props.toolId) return
+        for (const item of allItems.value) {
+          if (!availablePathSet.value.has(item.lora)) removeFromPool(props.toolId, item.lora)
+        }
+      }
+    },
     {
       id: 'clear-unselected',
       label: 'Clear Unselected',

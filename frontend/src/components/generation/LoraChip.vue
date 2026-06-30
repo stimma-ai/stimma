@@ -2,9 +2,11 @@
   <div
     :class="[
       'rounded-lg border text-sm select-none cursor-pointer transition-colors',
-      item.enabled
-        ? 'bg-blue-500/10 border-blue-500/30 text-content'
-        : 'bg-surface-raised/30 border-edge/30 text-content-secondary'
+      unavailable
+        ? 'bg-surface-raised/20 border-edge/20 text-content-muted opacity-60'
+        : item.enabled
+          ? 'bg-blue-500/10 border-blue-500/30 text-content'
+          : 'bg-surface-raised/30 border-edge/30 text-content-secondary'
     ]"
     @pointerdown="onPointerDown"
     @click.stop="onClick"
@@ -13,14 +15,14 @@
     <div class="flex items-center gap-1.5 px-2 py-1.5">
       <!-- Toggle dot -->
       <div class="shrink-0 w-3 flex items-center justify-center">
-        <div v-if="item.enabled" class="w-2.5 h-2.5 rounded-full bg-blue-500" />
+        <div v-if="item.enabled && !unavailable" class="w-2.5 h-2.5 rounded-full bg-blue-500" />
         <div v-else class="w-2.5 h-2.5 rounded-full border border-content-muted" />
       </div>
 
       <!-- Name + secondary chips -->
-      <div class="flex-1 min-w-0" :title="item.lora">
+      <div class="flex-1 min-w-0" :title="unavailable ? item.lora + ' — not available for this tool' : item.lora">
         <div class="flex items-center gap-1">
-          <span :class="['truncate text-xs', item.enabled ? 'font-medium' : '']">{{ displayName.primary }}</span>
+          <span :class="['truncate text-xs', unavailable ? 'line-through' : (item.enabled ? 'font-medium' : '')]">{{ displayName.primary }}</span>
           <span
             v-for="chip in secondaryChips"
             :key="chip"
@@ -82,11 +84,13 @@ interface Props {
   displayName: LoraDisplayName
   showRaw?: boolean
   groupId?: string | null
+  unavailable?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showRaw: false,
   groupId: null,
+  unavailable: false,
 })
 
 const emit = defineEmits<{
@@ -100,6 +104,7 @@ const emit = defineEmits<{
 const directoryPath = computed(() => getDirectoryPath(props.item.lora))
 
 const secondaryChips = computed(() => {
+  if (props.unavailable) return [] // keep unavailable chips quiet — drop the V9/STEP pills
   if (!props.displayName.secondary) return []
   return props.displayName.secondary.split(' ').filter(Boolean)
 })
