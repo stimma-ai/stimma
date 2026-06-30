@@ -26,7 +26,7 @@
       @contextmenu.prevent="handleVideoContextMenu($event, job.result_media_id)"
     >
       <AppImage
-        :src="getThumbnailUrl(getMediaHash(job.result_media_id), 256, imageMode === 'fit' ? { mode: 'fit' } : {})"
+        :src="getThumbnailUrl(getMediaHash(job.result_media_id), thumbnailSize, imageMode === 'fit' ? { mode: 'fit' } : {})"
         :alt="`Generated video ${job.id}`"
         :contain="imageMode === 'fit'"
         container-class="w-full h-full"
@@ -45,14 +45,13 @@
     </div>
     <!-- Image display. Fit mode shows the original full-resolution file — this is
          the user's review surface and must be sharp. Crop mode uses a bounded
-         256px thumbnail (it's cover-cropped down to a small tile, so the original
-         would just waste decode memory). Unlike videos, images can render the
-         original directly, so they do. -->
+         thumbnail for cover-cropped tiles. Unlike videos, images can render the
+         original directly in fit mode, so they do. -->
     <MediaImage
       v-else-if="!isVideo && job.result_media_id"
       :media-id="job.result_media_id"
       :thumbnail="imageMode !== 'fit'"
-      :thumbnail-size="256"
+      :thumbnail-size="thumbnailSize"
       :alt="`Generated image ${job.id}`"
       :contain="imageMode === 'fit'"
       container-class="w-full h-full"
@@ -132,6 +131,7 @@ const props = withDefaults(defineProps<{
   mediaGenerationTimes?: Record<number, number>
   currentMediaId?: number | null
   compactOverlays?: boolean
+  thumbnailSize?: number
 }>(), {
   isVideo: false,
   imageMode: 'cover',
@@ -141,6 +141,7 @@ const props = withDefaults(defineProps<{
   mediaGenerationTimes: () => ({}),
   currentMediaId: null,
   compactOverlays: false,
+  thumbnailSize: 256,
 })
 
 const emit = defineEmits<{

@@ -56,6 +56,7 @@
               :media-generation-times="mediaGenerationTimes"
               :current-media-id="currentMediaId"
               :compact-overlays="compactOverlays"
+              :thumbnail-size="thumbnailSize"
               @job-click="$emit('job-click', $event)"
               @toggle-marker="$emit('toggle-marker', $event)"
               @show-job-info="$emit('show-job-info', $event)"
@@ -82,6 +83,7 @@
                 v-if="item.batch.output_set_hash"
                 :file-hash="item.batch.output_set_hash"
                 :media-id="item.batch.output_set_id"
+                :thumbnail-size="thumbnailSize"
                 alt="Batch output set"
                 container-class="w-full h-full"
               />
@@ -139,6 +141,7 @@
             :media-generation-times="mediaGenerationTimes"
             :current-media-id="currentMediaId"
             :compact-overlays="compactOverlays"
+            :thumbnail-size="thumbnailSize"
             @job-click="$emit('job-click', $event)"
             @toggle-marker="$emit('toggle-marker', $event)"
             @show-job-info="$emit('show-job-info', $event)"
@@ -162,6 +165,7 @@
               :media-generation-times="mediaGenerationTimes"
               :current-media-id="currentMediaId"
               :compact-overlays="compactOverlays"
+              :thumbnail-size="thumbnailSize"
               @job-click="$emit('job-click', $event)"
               @toggle-marker="$emit('toggle-marker', $event)"
               @show-job-info="$emit('show-job-info', $event)"
@@ -284,6 +288,7 @@ interface Props {
   // the raw model/tool id, so the owning view supplies the display name.
   toolDisplayName?: string
   compactOverlays?: boolean
+  thumbnailSize?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -299,6 +304,7 @@ const props = withDefaults(defineProps<Props>(), {
   currentMediaId: null,
   toolDisplayName: '',
   compactOverlays: false,
+  thumbnailSize: 256,
 })
 
 const emit = defineEmits<{

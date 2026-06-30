@@ -710,6 +710,7 @@
           :current-media-id="layoutMode === 'stage' ? stageCurrentMediaId : null"
           :tool-display-name="tool?.name"
           :compact-overlays="layoutMode === 'stage'"
+          :thumbnail-size="queueThumbnailSize"
           empty-message="No jobs yet"
           @job-click="handleQueueClick"
           @toggle-marker="handleToggleMarker"
@@ -914,6 +915,7 @@ const layoutMode = computed<'studio' | 'stage'>({
   get: () => uiState.value.layoutMode,
   set: (v) => { uiState.value.layoutMode = v }
 })
+const queueThumbnailSize = computed(() => layoutMode.value === 'stage' ? 512 : 1024)
 
 // Stage hero state. The hero shows the newest completed generation and follows
 // new arrivals, unless the user has navigated/pinned to an older one (via ←/→ or

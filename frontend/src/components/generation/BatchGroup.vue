@@ -31,6 +31,7 @@
             :media-generation-times="mediaGenerationTimes"
             :current-media-id="currentMediaId"
             :compact-overlays="compactOverlays"
+            :thumbnail-size="thumbnailSize"
             @job-click="$emit('job-click', $event)"
             @toggle-marker="$emit('toggle-marker', $event)"
             @show-job-info="$emit('show-job-info', $event)"
@@ -50,6 +51,7 @@
             :media-generation-times="mediaGenerationTimes"
             :current-media-id="currentMediaId"
             :compact-overlays="compactOverlays"
+            :thumbnail-size="thumbnailSize"
             @job-click="$emit('job-click', $event)"
             @toggle-marker="$emit('toggle-marker', $event)"
             @show-job-info="$emit('show-job-info', $event)"
@@ -111,9 +113,11 @@ withDefaults(defineProps<{
   mediaGenerationTimes?: Record<number, number>
   currentMediaId?: number | null
   compactOverlays?: boolean
+  thumbnailSize?: number
 }>(), {
   showHeader: true,
   compactOverlays: false,
+  thumbnailSize: 256,
 })
 
 defineEmits<{
