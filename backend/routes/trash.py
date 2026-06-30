@@ -873,7 +873,7 @@ async def empty_trash(
         "operation": operation.to_dict(),
         "accepted": len(items_to_delete),
         "total": total_count,
-        "message": f"Queued permanent deletion for {len(items_to_delete)} items"
+        "message": f"Deleted {len(items_to_delete)} items permanently"
     }
 
 

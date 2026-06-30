@@ -1625,7 +1625,7 @@ async function handlePermanentDelete() {
     }
     emit('refresh')
     const accepted = response?.accepted ?? ids.length
-    addToast(`Queued permanent deletion for ${accepted} ${accepted === 1 ? 'item' : 'items'}`, 'info')
+    addToast(`Deleted ${accepted} ${accepted === 1 ? 'item' : 'items'} permanently`, 'info')
   } catch (err: any) {
     console.error('Failed to permanently delete:', err)
     const message = err?.response?.data?.detail || err?.message || 'Unknown error'

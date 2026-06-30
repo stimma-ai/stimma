@@ -1389,7 +1389,7 @@ async function permanentDelete() {
     itemToDelete.value = null
     showDeleteConfirm.value = false
     const accepted = response?.accepted ?? idsToDelete.length
-    addToast(`Queued permanent deletion for ${accepted} ${accepted === 1 ? 'item' : 'items'}`, 'info')
+    addToast(`Deleted ${accepted} ${accepted === 1 ? 'item' : 'items'} permanently`, 'info')
   } catch (error) {
     console.error('Failed to permanently delete:', error)
     addToast('Failed to permanently delete item(s)', 'error')
@@ -1406,7 +1406,7 @@ async function handleBulkPermanentDelete() {
     selectedItemIds.value = []
     multiSelectMode.value = false
     const accepted = response?.accepted ?? idsToDelete.length
-    addToast(`Queued permanent deletion for ${accepted} items`, 'info')
+    addToast(`Deleted ${accepted} items permanently`, 'info')
   } catch (error) {
     console.error('Failed to permanently delete items:', error)
     addToast('Failed to permanently delete items', 'error')
@@ -1428,7 +1428,7 @@ async function emptyTrash() {
     if (accepted > 0) {
       selectedItemIds.value = []
       multiSelectMode.value = false
-      addToast(`Queued permanent deletion for ${accepted} ${accepted === 1 ? 'item' : 'items'}`, 'info')
+      addToast(`Deleted ${accepted} ${accepted === 1 ? 'item' : 'items'} permanently`, 'info')
     }
   } catch (error) {
     console.error('Failed to empty trash:', error)

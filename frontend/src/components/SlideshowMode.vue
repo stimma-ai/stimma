@@ -3856,7 +3856,7 @@ async function handlePermanentDeleteCurrentItem() {
 
   try {
     await permanentlyDeleteMedia(deletedId)
-    addToast('Queued permanent deletion for 1 item', 'info')
+    addToast('Deleted 1 item permanently', 'info')
 
   } catch (error) {
     console.error('Failed to permanently delete media:', error)
