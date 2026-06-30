@@ -148,7 +148,8 @@ import {
   getTaskTypeIconPath,
   formatTaskTypeLabel,
   TASK_TYPE_ORDER,
-  getEligibleTaskTypesForMediaType
+  getEligibleTaskTypesForMediaType,
+  isToolCompatibleWithMediaType
 } from '../utils/taskTypeIcons'
 import type { MediaType } from '../utils/mediaTypes'
 
@@ -176,16 +177,12 @@ const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const selectedTaskType = ref<string | null>(null)
 
-// Filter tools based on media type (null = show all tools), hiding unavailable tools
+// Filter tools based on media type (null = show all tools), hiding unavailable tools.
+// Eligibility honors per-tool x-accept-media overrides (e.g. a video-only filter).
 const eligibleTools = computed(() => {
   const available = props.tools.filter(t => t.availability === 'available')
   if (props.mediaType == null) return available
-  const eligibleTaskTypes = getEligibleTaskTypesForMediaType(props.mediaType)
-  if (eligibleTaskTypes.length === 0) return []
-  return available.filter(t => {
-    const toolTaskTypes = t.task_types?.length ? t.task_types : (t.task_type ? [t.task_type] : [])
-    return toolTaskTypes.some(tt => eligibleTaskTypes.includes(tt))
-  })
+  return available.filter(t => isToolCompatibleWithMediaType(t, props.mediaType).compatible)
 })
 
 // Group tools by task type, sorted within each group

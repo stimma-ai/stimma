@@ -42,15 +42,26 @@ _VIDEO_OUTPUT_TASKS = {"image-to-video", "upscale-video"}
 _running_tasks: dict[int, asyncio.Task] = {}
 
 
-def _step_input_type(step: Dict[str, Any]) -> str:
+def _filter_accepts(filter_id: Any) -> set[str]:
+    """Media types a built-in filter can process (defaults to both). Mirrors the
+    frontend getChainFilterAccepts / the tool's x-accept-media schema."""
+    from filters.defs import get_filter_def
+    d = get_filter_def(filter_id or "") or {}
+    return set(d.get("accepts") or ["image", "video"])
+
+
+def _step_accepts(step: Dict[str, Any]) -> set[str]:
+    """Media types this step accepts as input. Filters declare their set; tool
+    steps take the single type their task implies — one uniform notion, no
+    media-agnostic special case."""
     if step.get("kind") == "filter":
-        return "image"
-    return "video" if step.get("task_type") in _VIDEO_INPUT_TASKS else "image"
+        return _filter_accepts(step.get("filter_id"))
+    return {"video" if step.get("task_type") in _VIDEO_INPUT_TASKS else "image"}
 
 
 def _step_output_type(step: Dict[str, Any]) -> str:
-    if step.get("kind") == "filter":
-        return "image"
+    # Filters preserve the running media type (handled by the caller); this only
+    # covers tool steps that transition image<->video.
     return "video" if step.get("task_type") in _VIDEO_OUTPUT_TASKS else "image"
 
 
@@ -300,13 +311,15 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
             step = steps[idx]
 
             # Media-type transition validation: an incompatible step is
-            # skipped and flagged, not a hard failure (§3.4). Built-in filters
-            # are media-agnostic (per-frame on video, direct on images), so they
-            # accept whatever type is flowing and never trip this check.
-            if step.get("kind") != "filter" and _step_input_type(step) != current_type:
+            # skipped and flagged, not a hard failure (§3.4). A step (tool or
+            # filter) is compatible iff it accepts the type currently flowing.
+            # Today's filters accept both, so they never trip this — but the
+            # check is uniform, not a filter special case.
+            if current_type not in _step_accepts(step):
+                needs = "/".join(sorted(_step_accepts(step)))
                 log.warning(
                     f"[postproc] Run {run_id} step {idx} ({_step_label(step)}) needs "
-                    f"{_step_input_type(step)} input but chain output is {current_type}; skipping"
+                    f"{needs} input but chain output is {current_type}; skipping"
                 )
                 step_results[idx] = {"status": "skipped_incompatible"}
                 await _save_progress(db, run_id, idx, step_results, "running", current_media_id)

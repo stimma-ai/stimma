@@ -709,7 +709,7 @@ import { isSelectionValidForTool } from '../../utils/toolSchemaUtils'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { makeStorageKey } from '../../utils/storageKeys'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
-import { getEligibleTaskTypesForMediaType } from '../../utils/taskTypeIcons'
+import { isToolCompatibleWithMediaType } from '../../utils/taskTypeIcons'
 import { isImage as isImageType, getMediaType, MediaType } from '../../utils/mediaTypes'
 import axios from 'axios'
 import { useWorkspaceTabs } from '../../composables/useWorkspaceTabs'
@@ -992,21 +992,14 @@ const currentMediaType = computed((): MediaType => {
 // A tool is eligible if ANY of its task_types match the eligible types
 const sendToTools = computed(() => {
   const mediaType = currentMediaType.value
-  const eligibleTaskTypes = getEligibleTaskTypesForMediaType(mediaType)
-
-  // If no eligible task types (audio, text, grid), no tools are available
-  if (eligibleTaskTypes.length === 0) return []
-
   const count = isSet.value ? 1 : targetCount.value  // Sets count as 1 input (will be expanded by backend)
 
   return tools.value.filter(t => {
     // Hide unavailable tools (disconnected/unconfigured)
     if (t.availability !== 'available') return false
 
-    // Check if any of the tool's task types are eligible
-    const toolTaskTypes = t.task_types?.length ? t.task_types : (t.task_type ? [t.task_type] : [])
-    const hasEligibleTaskType = toolTaskTypes.some(tt => eligibleTaskTypes.includes(tt))
-    if (!hasEligibleTaskType) return false
+    // Eligibility honors per-tool x-accept-media overrides (e.g. a video-only filter)
+    if (!isToolCompatibleWithMediaType(t, mediaType).compatible) return false
 
     // Check if selection count is valid for this tool
     const validation = isSelectionValidForTool(t, count, mediaType)

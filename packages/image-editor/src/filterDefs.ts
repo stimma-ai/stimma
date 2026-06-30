@@ -29,6 +29,14 @@ export interface ChainFilterDef {
   id: string;
   label: string;
   description: string;
+  /**
+   * Media types this filter can process. Defaults to both — current filters
+   * apply directly to stills and per-frame to video. A filter that only makes
+   * sense on one (e.g. a temporal/video-only effect) narrows this to ['video']
+   * / ['image']; the post-processing chain and send-to-tool both gate on it,
+   * mirroring the backend's `x-accept-media` (backend/filters/schemas.py).
+   */
+  accepts?: ('image' | 'video')[];
   params: ChainFilterParam[];
 }
 
@@ -171,6 +179,11 @@ export const CHAIN_FILTER_DEFS: ChainFilterDef[] = [
 
 export function getChainFilterDef(filterId: string): ChainFilterDef | undefined {
   return CHAIN_FILTER_DEFS.find(f => f.id === filterId);
+}
+
+/** Media types a filter can process (defaults to both image and video). */
+export function getChainFilterAccepts(filterId: string): ('image' | 'video')[] {
+  return getChainFilterDef(filterId)?.accepts ?? ['image', 'video'];
 }
 
 /**

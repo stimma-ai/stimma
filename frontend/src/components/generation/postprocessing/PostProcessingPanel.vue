@@ -93,6 +93,7 @@ import {
   defaultInsertIndex,
   newStepId,
   stepInputMedia,
+  stepAcceptedMedia,
   type ChainStep,
   type PostProcessingChain,
 } from '../../../utils/postProcessingChain'
@@ -162,10 +163,12 @@ const candidateTools = computed(() => {
   })
 })
 
-// In-app filters are media-agnostic (per-frame on video, direct on images), so
-// they're offered for any chain stage — image or video.
+// Offer a filter when some chain stage carries a media type it accepts (today's
+// filters accept both, so they're offered whenever the chain has any stage).
 const candidateFilters = computed<ChainFilterDef[]>(() =>
-  stageTypes.value.size ? CHAIN_FILTER_DEFS : []
+  CHAIN_FILTER_DEFS.filter(f =>
+    [...stageTypes.value].some(t => stepAcceptedMedia({ kind: 'filter', filter_id: f.id }).includes(t))
+  )
 )
 
 // --- Chain mutations --------------------------------------------------------
@@ -223,7 +226,7 @@ function chainTaskTypeFor(tool: ProviderTool): string {
 // Insert a new step at the latest stage that accepts its input type (an image
 // step lands just before the chain's video transition, not at the end).
 function insertStep(step: ChainStep) {
-  const at = defaultInsertIndex(props.chain, stepInputMedia(step.task_type, step.kind), baseType.value)
+  const at = defaultInsertIndex(props.chain, stepAcceptedMedia(step), baseType.value)
   updateChain(c => {
     const steps = [...c.steps]
     steps.splice(at < 0 ? steps.length : at, 0, step)
@@ -309,7 +312,7 @@ function stepProvider(step: ChainStep): { name: string; isStimmaCloud: boolean }
 }
 
 function stepNeededInput(step: ChainStep): string {
-  return stepInputMedia(step.task_type, step.kind)
+  return stepAcceptedMedia(step).join('/')
 }
 
 // --- Drag reorder ------------------------------------------------------------

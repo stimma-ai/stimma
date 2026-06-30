@@ -8,6 +8,8 @@
  * steps that ran).
  */
 
+import { getChainFilterAccepts } from '@stimma/image-editor'
+
 export type ChainStepKind = 'tool' | 'filter'
 
 export interface ChainStep {
@@ -160,21 +162,30 @@ export const CHAIN_TOOL_TASK_TYPES = [
 ] as const
 
 /** Steps that take an image and emit an image. */
-const IMAGE_IN_IMAGE_OUT = new Set(['filter', 'image-to-image', 'upscale-image', 'remove-background'])
+const IMAGE_IN_IMAGE_OUT = new Set(['image-to-image', 'upscale-image', 'remove-background'])
 
-// NOTE: built-in filters (kind === 'filter') are media-agnostic — they apply
-// per-frame to video and directly to images, passing the running media type
-// through unchanged. chainMediaFlow special-cases them; the 'image' returned
-// here is only a fallback default for callers that don't (e.g. insertion).
-export function stepInputMedia(taskType: string | undefined, kind: ChainStepKind): 'image' | 'video' {
-  if (kind === 'filter') return 'image'
+// Media a tool-step task type takes/emits. Filters are NOT special-cased here;
+// they declare their accepted media (getChainFilterAccepts) and preserve the
+// running type (image→image, video→video) — see stepAcceptedMedia / chainMediaFlow.
+export function stepInputMedia(taskType: string | undefined, _kind: ChainStepKind = 'tool'): 'image' | 'video' {
   return taskType === 'upscale-video' ? 'video' : 'image'
 }
 
-export function stepOutputMedia(taskType: string | undefined, kind: ChainStepKind): 'image' | 'video' {
-  if (kind === 'filter') return 'image'
+export function stepOutputMedia(taskType: string | undefined, _kind: ChainStepKind = 'tool'): 'image' | 'video' {
   if (taskType && IMAGE_IN_IMAGE_OUT.has(taskType)) return 'image'
   return taskType === 'image-to-video' || taskType === 'upscale-video' ? 'video' : 'image'
+}
+
+/**
+ * Media types a step accepts as input — the single notion both insertion and
+ * compatibility use, for tool and filter steps alike. Filters declare theirs
+ * (default both); tool steps take the one type their task implies.
+ */
+export function stepAcceptedMedia(
+  step: { kind: ChainStepKind; task_type?: string; filter_id?: string }
+): Array<'image' | 'video'> {
+  if (step.kind === 'filter') return getChainFilterAccepts(step.filter_id || '')
+  return [stepInputMedia(step.task_type, 'tool')]
 }
 
 /**
@@ -202,10 +213,16 @@ export function chainMediaFlow(chain: PostProcessingChain, initial: 'image' | 'v
     positionTypes.push(running)
     inputTypeByStepId[step.id] = running
     if (!step.enabled) continue
-    // Built-in filters are media-agnostic: compatible with whatever is flowing
-    // (image or video) and they leave the running type unchanged.
-    if (step.kind === 'filter') continue
-    if (stepInputMedia(step.task_type, step.kind) !== running) {
+    // Filters declare which media they accept (default both) and preserve the
+    // running type. A filter is compatible iff it accepts what's flowing —
+    // same accepted-media notion tool steps use, no special media-agnostic case.
+    if (step.kind === 'filter') {
+      if (!stepAcceptedMedia(step).includes(running)) {
+        incompatibleStepIds.add(step.id) // skipped; running type unchanged
+      }
+      continue // filters never change the running media type
+    }
+    if (!stepAcceptedMedia(step).includes(running)) {
       incompatibleStepIds.add(step.id)
       continue // an incompatible step is skipped; running type unchanged
     }
@@ -224,12 +241,13 @@ export function chainMediaFlow(chain: PostProcessingChain, initial: 'image' | 'v
  */
 export function defaultInsertIndex(
   chain: PostProcessingChain,
-  inputType: 'image' | 'video',
+  inputType: 'image' | 'video' | Array<'image' | 'video'>,
   initial: 'image' | 'video' = 'image',
 ): number {
+  const accepts = Array.isArray(inputType) ? inputType : [inputType]
   const { positionTypes } = chainMediaFlow(chain, initial)
   for (let p = positionTypes.length - 1; p >= 0; p--) {
-    if (positionTypes[p] === inputType) return p
+    if (accepts.includes(positionTypes[p])) return p
   }
   return -1
 }

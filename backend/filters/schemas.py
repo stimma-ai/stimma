@@ -11,6 +11,13 @@ from typing import Any, Dict
 
 def build_filter_parameter_schema(filter_def: Dict[str, Any]) -> Dict[str, Any]:
     """Build a parameter_schema (JSON Schema) for one filter definition."""
+    # Which media types this filter can natively process. Filters currently
+    # apply to both stills and (per-frame) video, so the default is both. A
+    # future filter that only makes sense on one (e.g. a temporal/video-only
+    # effect, or a still-only operation) declares ``"accepts": ["video"]`` /
+    # ``["image"]`` on its def. The frontend reads ``x-accept-media`` to gate
+    # which library items can be sent to the tool — see getToolDeclaredAcceptMedia.
+    accepts = filter_def.get("accepts") or ["image", "video"]
     properties: Dict[str, Any] = {
         "input_images": {
             "type": "array",
@@ -18,6 +25,7 @@ def build_filter_parameter_schema(filter_def: Dict[str, Any]) -> Dict[str, Any]:
             "minItems": 1,
             "maxItems": 1,
             "x-control": "image_picker",
+            "x-accept-media": list(accepts),
             "description": "Image or video to process (filters apply per-frame to video)",
         },
     }

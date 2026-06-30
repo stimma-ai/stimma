@@ -121,55 +121,60 @@ export const TASK_TYPE_ORDER = [
   'text-to-video',
   'upscale-image',
   'remove-background',
+  'filter',
   'upscale-video',
   'video-stitch',
   'video-extend',
 ]
 
-// Task types that accept image input
-export const IMAGE_INPUT_TASK_TYPES = [
-  'image-to-image',
-  'inpaint-image',
-  'outpaint-image',
-  'image-to-video',
-  'upscale-image',
-  'remove-background',
-]
+// Media-input transform tasks → which media type(s) they consume as their
+// primary input. This is the single source of truth for "what can be sent to
+// a tool", replacing the old IMAGE_INPUT_TASK_TYPES / VIDEO_INPUT_TASK_TYPES
+// arrays. A task type appears here only if it is a media→media transform you
+// can drop a library item onto; data-producing tasks like detect-objects are
+// intentionally absent. Individual tools can OVERRIDE the accepted set per
+// input slot via `x-accept-media` in their parameter_schema (see
+// getToolDeclaredAcceptMedia) — e.g. a video-only filter declares ["video"]
+// even though `filter` defaults to both here.
+export const TASK_INPUT_MEDIA: Record<string, Array<'image' | 'video'>> = {
+  'image-to-image': ['image'],
+  'inpaint-image': ['image'],
+  'outpaint-image': ['image'],
+  'image-to-video': ['image'],
+  'upscale-image': ['image'],
+  'remove-background': ['image'],
+  // Built-in filters apply to stills and (per-frame) video alike.
+  'filter': ['image', 'video'],
+  'upscale-video': ['video'],
+  'video-stitch': ['video'],
+  'video-extend': ['video'],
+}
 
-// Task types that accept video input
-export const VIDEO_INPUT_TASK_TYPES = [
-  'upscale-video',
-  'video-stitch',
-  'video-extend',
-]
-
-// Task types that accept audio input (none currently)
-export const AUDIO_INPUT_TASK_TYPES: string[] = []
-
-// Task types that accept text/document input (none currently)
-export const TEXT_INPUT_TASK_TYPES: string[] = []
+function taskTypesAccepting(target: 'image' | 'video'): string[] {
+  return Object.keys(TASK_INPUT_MEDIA).filter(tt => TASK_INPUT_MEDIA[tt].includes(target))
+}
 
 /**
- * Get eligible task types for a given media type.
+ * Get eligible task types for a given media type. Used for grouping/routing
+ * (which task-type buckets a dropped item can target), NOT for the final
+ * per-tool eligibility decision (that's isToolCompatibleWithMediaType, which
+ * also honors per-tool x-accept-media overrides).
+ *
  * Returns an empty array for unsupported media types (audio, text, grid).
- * Sets default to image task types (caller should pass actual content type when known).
  */
 export function getEligibleTaskTypesForMediaType(mediaType: MediaType | null): string[] {
   switch (mediaType) {
     case 'image':
-      return IMAGE_INPUT_TASK_TYPES
-    case 'video':
-      // A video can be used anywhere an image can (we grab a frame), in addition to
-      // video-only tools (upscale/extend/stitch). Keeps drag/send affordances from
-      // graying out image tools when dragging a video.
-      return Array.from(new Set([...VIDEO_INPUT_TASK_TYPES, ...IMAGE_INPUT_TASK_TYPES]))
     case 'set':
       // Sets default to image tools; caller should pass actual content type when known
-      return IMAGE_INPUT_TASK_TYPES
+      return taskTypesAccepting('image')
+    case 'video':
+      // A video can be used anywhere an image can (we grab a frame), in addition to
+      // native video tasks. Keeps drag/send affordances from graying out image tools
+      // when dragging a video.
+      return Array.from(new Set([...taskTypesAccepting('video'), ...taskTypesAccepting('image')]))
     case 'audio':
-      return AUDIO_INPUT_TASK_TYPES
     case 'text':
-      return TEXT_INPUT_TASK_TYPES
     case 'grid':
     case null:
     default:
@@ -177,12 +182,52 @@ export function getEligibleTaskTypesForMediaType(mediaType: MediaType | null): s
   }
 }
 
+// Media-input parameter slots → the media type they default to. A tool can
+// narrow/override this per slot with `x-accept-media: ['image' | 'video', ...]`.
+const MEDIA_INPUT_SLOT_DEFAULTS: Record<string, 'image' | 'video'> = {
+  input_images: 'image',
+  input_videos: 'video',
+}
+
+/**
+ * Read a tool's declared accepted input media from its parameter_schema's
+ * media-input slots, honoring per-slot `x-accept-media` overrides. Returns null
+ * when no parameter_schema (or no media-input slot) is available — callers then
+ * fall back to the task-type defaults in TASK_INPUT_MEDIA.
+ */
+export function getToolDeclaredAcceptMedia(
+  tool: { parameter_schema?: Record<string, any> }
+): Set<'image' | 'video'> | null {
+  const props = tool?.parameter_schema?.properties
+  if (!props || typeof props !== 'object') return null
+  const accepted = new Set<'image' | 'video'>()
+  let found = false
+  for (const [slot, defaultType] of Object.entries(MEDIA_INPUT_SLOT_DEFAULTS)) {
+    const schema = props[slot]
+    if (!schema) continue
+    found = true
+    const declared = Array.isArray(schema['x-accept-media']) ? schema['x-accept-media'] : null
+    if (declared) {
+      for (const m of declared) if (m === 'image' || m === 'video') accepted.add(m)
+    } else {
+      accepted.add(defaultType)
+    }
+  }
+  return found ? accepted : null
+}
+
 /**
  * Check if a tool is compatible with a given media type.
  * Returns { compatible, reason } for use in compatibility maps.
+ *
+ * A tool is a valid drop/send target for `mediaType` when it has a media→media
+ * transform task type (TASK_INPUT_MEDIA) whose accepted media — taken from the
+ * tool's own `x-accept-media` slot declaration when present, else the task-type
+ * default — includes `mediaType`. Videos additionally bridge into image slots
+ * (we grab a frame), matching the MediaPicker's behavior.
  */
 export function isToolCompatibleWithMediaType(
-  tool: { task_type?: string; task_types?: string[] },
+  tool: { task_type?: string; task_types?: string[]; parameter_schema?: Record<string, any> },
   mediaType: MediaType | null
 ): { compatible: boolean; reason?: string } {
   // Grids cannot be sent to any tool
@@ -190,21 +235,36 @@ export function isToolCompatibleWithMediaType(
     return { compatible: false, reason: 'Grids cannot be sent to tools' }
   }
 
-  const eligibleTaskTypes = getEligibleTaskTypesForMediaType(mediaType)
-
-  // If no eligible task types (audio, text), tool is incompatible
-  if (eligibleTaskTypes.length === 0) {
+  // Sets default to image inputs; caller resolves the real content type when known.
+  const target: 'image' | 'video' | null =
+    mediaType === 'image' || mediaType === 'set' ? 'image'
+    : mediaType === 'video' ? 'video'
+    : null
+  if (!target) {
     const label = mediaType || 'this type'
     return { compatible: false, reason: `No tools support ${label} input` }
   }
 
   const toolTaskTypes = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
-  const hasEligibleTaskType = toolTaskTypes.some(tt => eligibleTaskTypes.includes(tt))
-
-  if (!hasEligibleTaskType) {
+  const transformTaskTypes = toolTaskTypes.filter(tt => TASK_INPUT_MEDIA[tt])
+  if (transformTaskTypes.length === 0) {
     return {
       compatible: false,
-      reason: mediaType === 'video' ? 'Tool does not accept video input' : 'Tool does not accept image input'
+      reason: target === 'video' ? 'Tool does not accept video input' : 'Tool does not accept image input'
+    }
+  }
+
+  // Per-tool override (e.g. video-only filter) wins; otherwise the union of the
+  // transform tasks' default accepted media.
+  const declared = getToolDeclaredAcceptMedia(tool)
+  const accepted = declared ?? new Set(transformTaskTypes.flatMap(tt => TASK_INPUT_MEDIA[tt]))
+
+  // Frame-grab bridge: a video can go anywhere an image is accepted.
+  const ok = target === 'image' ? accepted.has('image') : (accepted.has('video') || accepted.has('image'))
+  if (!ok) {
+    return {
+      compatible: false,
+      reason: target === 'video' ? 'Tool does not accept video input' : 'Tool does not accept image input'
     }
   }
 

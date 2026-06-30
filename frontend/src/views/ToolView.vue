@@ -889,7 +889,7 @@ import FreezeToolDialog from '../components/flow/FreezeToolDialog.vue'
 import { useFlowsApi } from '../composables/useFlowsApi'
 import PostProcessingPanel from '../components/generation/postprocessing/PostProcessingPanel.vue'
 import SchemaParamGroup from '../components/generation/SchemaParamGroup.vue'
-import { CHAIN_TOOL_TASK_TYPES, defaultInsertIndex, emptyChain, mergeRecordedChain, newStepId, normalizeChain, stepInputMedia, toRecordedSteps, type ChainStep, type PostProcessingChain } from '../utils/postProcessingChain'
+import { CHAIN_TOOL_TASK_TYPES, defaultInsertIndex, emptyChain, mergeRecordedChain, newStepId, normalizeChain, stepInputMedia, stepAcceptedMedia, toRecordedSteps, type ChainStep, type PostProcessingChain } from '../utils/postProcessingChain'
 import { CHAIN_FILTER_DEFS, getChainFilterDef, getChainFilterDefaults } from '@stimma/image-editor'
 import RemixBanner from '../components/generation/RemixBanner.vue'
 import PromptAgentChat from '../components/generation/PromptAgentChat.vue'
@@ -4691,7 +4691,7 @@ async function runTool(name: string, args: any): Promise<string> {
       // Default position: the latest stage that accepts the step's input type
       // (an image step lands before the chain's video transition).
       const baseType = outputsVideo.value ? 'video' : 'image'
-      const smart = defaultInsertIndex(toolChain.value, stepInputMedia(step.task_type, step.kind), baseType)
+      const smart = defaultInsertIndex(toolChain.value, stepAcceptedMedia(step), baseType)
       let pos = smart < 0 ? steps.length : smart
       if (args.position != null) {
         const p = Math.round(Number(args.position)) - 1
