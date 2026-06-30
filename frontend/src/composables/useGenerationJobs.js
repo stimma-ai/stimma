@@ -327,25 +327,20 @@ export function useGenerationJobs(options = {}) {
     // Check profile filter - only show jobs for current profile
     const currentProfile = getCurrentProfileId()
     if (data.job?.profile_id && data.job.profile_id !== currentProfile) {
-      console.log(`[useGenerationJobs:${taskType}] Filtering out job ${data.job?.id} - profile mismatch (${data.job?.profile_id} !== ${currentProfile})`)
       return false
     }
     // Check generator instance ID filter.
     // Some websocket events may omit generator_instance_id, so only reject
     // when the event explicitly has a different non-empty instance ID.
     if (generatorInstanceId && data.generator_instance_id && data.generator_instance_id !== generatorInstanceId) {
-      console.log(`[useGenerationJobs:${taskType}] Filtering out job ${data.job?.id} - generator instance mismatch (${data.generator_instance_id} !== ${generatorInstanceId})`)
       return false
     }
     if (generatorInstanceId && !data.generator_instance_id) {
-      console.log(`[useGenerationJobs:${taskType}] Event for job ${data.job?.id} has no generator_instance_id; accepting for resiliency`)
     }
     // Check task type filter
     if (taskType && data.job?.task_type !== taskType) {
-      console.log(`[useGenerationJobs:${taskType}] Filtering out job ${data.job?.id} - task_type mismatch (${data.job?.task_type} !== ${taskType})`)
       return false
     }
-    console.log(`[useGenerationJobs:${taskType}] Accepting job ${data.job?.id} (task_type=${data.job?.task_type})`)
     return true
   }
 
