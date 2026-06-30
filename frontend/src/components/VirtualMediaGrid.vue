@@ -63,9 +63,10 @@
             >
               <div class="w-full h-full overflow-hidden rounded-lg">
                 <AppImage
-                  :src="getThumbnailUrl(rowItem.file_hash)"
+                  :src="getThumbnailUrl(rowItem.file_hash, GRID_THUMBNAIL_SIZE)"
                   :alt="rowItem.vlm_caption || 'Media item'"
                   :contain="rowItem.file_format === 'stimmalayout'"
+                  loading="eager"
                   container-class="w-full h-full"
                 />
                 <video
@@ -428,9 +429,11 @@ const GRID_SIDE_PADDING_PX = 16 // px-2 -> 8px left + 8px right
 // 8px column gap on 2x displays.
 const ROW_VERTICAL_GUTTER_PX = 10.5
 const GRID_GAP_PX = 8 // gap-2
+const GRID_THUMBNAIL_SIZE = 512
 const itemsPerRow = ref(6) // Will be calculated based on window width
 const itemHeight = ref(220) // Height of each virtual row (item width + vertical gutter)
-const bufferSize = ref(800) // Render buffer
+const bufferSize = ref(1200) // Render buffer
+const selectedItemIdSet = computed(() => new Set(props.selectedItemIds))
 
 const rowStyle = {
   paddingLeft: `${GRID_SIDE_PADDING_PX / 2}px`,
@@ -548,7 +551,8 @@ function buildRowsImmediate() {
 
       const item = cache.get(itemIndex)
       if (item) {
-        rowItems.push({ ...item, _gridIndex: itemIndex })
+        if (item._gridIndex !== itemIndex) item._gridIndex = itemIndex
+        rowItems.push(item)
       }
     }
 
@@ -639,8 +643,8 @@ async function loadPage(pageNumber) {
 }
 
 // Handle scroll to load pages as needed
-// Split into immediate (save scroll position) and debounced (page loading)
-let scrollPageLoadTimer = null
+// Split into immediate (save scroll position) and frame-coalesced page loading.
+let scrollPageLoadRafId = null
 
 function handleScroll() {
   if (!scroller.value) return
@@ -654,14 +658,15 @@ function handleScroll() {
   // Save scroll position for persistence (debounced) - immediate path
   debouncedSaveScroll(scrollTop)
 
-  // Debounce the page-load portion (~100ms) to avoid firing 60x/sec
-  if (scrollPageLoadTimer !== null) {
-    clearTimeout(scrollPageLoadTimer)
+  // Coalesce page loading to the next frame so fast scrollbar scrubs do not
+  // pay an extra fixed delay before the visible page request can start.
+  if (scrollPageLoadRafId !== null) {
+    return
   }
-  scrollPageLoadTimer = setTimeout(() => {
-    scrollPageLoadTimer = null
+  scrollPageLoadRafId = requestAnimationFrame(() => {
+    scrollPageLoadRafId = null
     loadVisiblePages()
-  }, 100)
+  })
 }
 
 async function loadVisiblePages() {
@@ -810,7 +815,7 @@ function handleMouseLeave(event, item) {
 
 // Multi-select helpers
 function isSelected(itemId) {
-  return props.selectedItemIds.includes(itemId)
+  return selectedItemIdSet.value.has(itemId)
 }
 
 function handleItemClick(itemId, index, event) {
@@ -1685,10 +1690,10 @@ onUnmounted(() => {
     cancelAnimationFrame(buildRowsRafId)
     buildRowsRafId = null
   }
-  // Cancel any pending scroll page load timer
-  if (scrollPageLoadTimer !== null) {
-    clearTimeout(scrollPageLoadTimer)
-    scrollPageLoadTimer = null
+  // Cancel any pending scroll page load RAF
+  if (scrollPageLoadRafId !== null) {
+    cancelAnimationFrame(scrollPageLoadRafId)
+    scrollPageLoadRafId = null
   }
 })
 

@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from queue import LifoQueue
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -48,12 +48,34 @@ def _sharded_cache_path(cache_dir: Path, cache_key: str, ext: str) -> Path:
 
 
 async def _record_thumbnail_cache(session: AsyncSession, media_id: int, cache_path: Path) -> None:
+    cache_key = (media_id, str(cache_path))
+    if cache_key in _recorded_thumbnail_cache_entries:
+        return
     stmt = sqlite_insert(MediaThumbnailCache).values(
         media_id=media_id,
         cache_path=str(cache_path),
     ).on_conflict_do_nothing(index_elements=['media_id', 'cache_path'])
     await session.execute(stmt)
     await session.commit()
+    _recorded_thumbnail_cache_entries.add(cache_key)
+
+
+_recorded_thumbnail_cache_entries: set[tuple[int, str]] = set()
+
+
+async def _get_face_count(session: AsyncSession, media_id: int) -> int:
+    result = await session.execute(
+        select(func.count(Face.id)).where(Face.media_id == media_id)
+    )
+    return int(result.scalar() or 0)
+
+
+async def _get_faces_data(session: AsyncSession, media_id: int) -> list[dict] | None:
+    faces_result = await session.execute(
+        select(Face).where(Face.media_id == media_id)
+    )
+    faces = faces_result.scalars().all()
+    return [face.to_dict() for face in faces] if faces else None
 
 THEME_PALETTES = {
     'dark': {
@@ -1525,13 +1547,7 @@ async def get_thumbnail(
     if not item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    # Fetch face data for this item
-    from database import Face
-    faces_result = await session.execute(
-        select(Face).where(Face.media_id == item.id)
-    )
-    faces = faces_result.scalars().all()
-    faces_data = [face.to_dict() for face in faces] if faces else None
+    face_count = await _get_face_count(session, item.id)
 
     # Create cache directory from settings (computed via app_dirs)
     settings = get_settings()
@@ -1541,8 +1557,6 @@ async def get_thumbnail(
     # Cache key based on file path, size, face count, and algorithm version
     # Increment THUMBNAIL_VERSION when the cropping/generation algorithm changes
     THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
-    face_count = len(faces) if faces else 0
-
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = item.file_format.lower()
@@ -1590,6 +1604,7 @@ async def get_thumbnail(
         )
         success = layout_status == LAYOUT_THUMB_OK
     else:
+        faces_data = await _get_faces_data(session, item.id) if mode == "crop" and face_count > 0 else None
         loop = asyncio.get_event_loop()
         success = await loop.run_in_executor(
             thumbnail_executor,
@@ -2104,12 +2119,7 @@ async def get_thumbnail_by_db_guid(
     if not item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    # Fetch face data for this item
-    faces_result = await session.execute(
-        select(Face).where(Face.media_id == item.id)
-    )
-    faces = faces_result.scalars().all()
-    faces_data = [face.to_dict() for face in faces] if faces else None
+    face_count = await _get_face_count(session, item.id)
 
     # Create cache directory from settings
     settings = get_settings()
@@ -2118,8 +2128,6 @@ async def get_thumbnail_by_db_guid(
 
     # Cache key includes db_guid for profile isolation in cache
     THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
-    face_count = len(faces) if faces else 0
-
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = item.file_format.lower()
@@ -2162,6 +2170,7 @@ async def get_thumbnail_by_db_guid(
         )
         success = layout_status == LAYOUT_THUMB_OK
     else:
+        faces_data = await _get_faces_data(session, item.id) if mode == "crop" and face_count > 0 else None
         loop = asyncio.get_event_loop()
         success = await loop.run_in_executor(
             thumbnail_executor,
@@ -2386,12 +2395,7 @@ async def get_thumbnail_path_by_media_id(
     if not item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    # Get faces for smart crop
-    faces_result = await session.execute(
-        select(Face).where(Face.media_id == media_id)
-    )
-    faces = faces_result.scalars().all()
-    faces_data = [face.to_dict() for face in faces] if faces else None
+    face_count = await _get_face_count(session, item.id)
 
     # Compute cache path (must match get_thumbnail_by_db_guid so the caches are shared)
     settings = get_settings()
@@ -2399,8 +2403,6 @@ async def get_thumbnail_path_by_media_id(
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
-    face_count = len(faces) if faces else 0
-
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = item.file_format.lower()
@@ -2443,6 +2445,7 @@ async def get_thumbnail_path_by_media_id(
             item.file_path, cache_path, size, palette=palette,
         ) == LAYOUT_THUMB_OK
     else:
+        faces_data = await _get_faces_data(session, item.id) if mode == "crop" and face_count > 0 else None
         loop = asyncio.get_event_loop()
         success = await loop.run_in_executor(
             thumbnail_executor,
