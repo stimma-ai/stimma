@@ -2,6 +2,7 @@ import { ref, watch, onUnmounted, getCurrentInstance } from 'vue'
 import { makeStorageKey, makeProfileKey, makeToolProfileKey } from '../utils/storageKeys'
 import { getToolDefaults } from '../utils/generationDefaults'
 import { getCurrentProfileId } from './useProfile'
+import { AUDIO_TASK_TYPES } from '../utils/taskTypeIcons'
 
 /**
  * Generation preferences composable.
@@ -81,6 +82,7 @@ export interface GlobalPrefs {
   folder_path: string
   inputImages: any[]
   inputVideos: any[]
+  inputAudios: any[]
   promptOptions: PromptOptions
   autoMarkerIds: number[]
   // Per-tool agent note (rides the tool + any preset saved from it): standing
@@ -124,6 +126,16 @@ export interface UseGenerationPreferencesOptions {
 export function useGenerationPreferences(options: UseGenerationPreferencesOptions) {
   const { taskType, toolId, fullToolId } = options
 
+  // Text-to-audio prompts describe SOUND; the family-aware enhancer is tuned for
+  // visual scenes and tends to rewrite audio prompts into nonsensical imagery, so
+  // Enhance Prompt defaults OFF for audio tools (the user can still turn it on).
+  // Matches `outputsAudio` in useToolSchemaFeatures (AUDIO_TASK_TYPES membership).
+  const autoImproveDefaultEnabled = !(AUDIO_TASK_TYPES as readonly string[]).includes(taskType)
+  const defaultPromptOptions = (): PromptOptions => ({
+    ...DEFAULT_PROMPT_OPTIONS,
+    autoImprove: { ...DEFAULT_PROMPT_OPTIONS.autoImprove, enabled: autoImproveDefaultEnabled },
+  })
+
   const preferencesLoaded = ref(false)
   const isLoadingPreferences = ref(false)
 
@@ -134,7 +146,8 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     folder_path: '',
     inputImages: [],
     inputVideos: [],
-    promptOptions: { ...DEFAULT_PROMPT_OPTIONS },
+    inputAudios: [],
+    promptOptions: defaultPromptOptions(),
     autoMarkerIds: [],
     agentInstructions: '',
     agentThinking: false,
@@ -176,10 +189,12 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
           folder_path: data.folder_path ?? '',
           inputImages: data.inputImages ?? [],
           inputVideos: data.inputVideos ?? [],
+          inputAudios: data.inputAudios ?? [],
           promptOptions: {
             // Default ON only when this profile has never stored the setting
-            // (new state); an explicit stored value is preserved as-is.
-            autoImprove: data.promptOptions?.autoImprove ?? { enabled: true, instructions: '' },
+            // (new state); an explicit stored value is preserved as-is. Audio
+            // tools default OFF (see autoImproveDefaultEnabled).
+            autoImprove: data.promptOptions?.autoImprove ?? { enabled: autoImproveDefaultEnabled, instructions: '' },
             varyPrompt: data.promptOptions?.varyPrompt ?? { enabled: false, instructions: '' },
             translate: data.promptOptions?.translate ?? { enabled: false, language: 'zh-Hans' },
           },
@@ -390,7 +405,8 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
       folder_path: '',
       inputImages: [],
       inputVideos: [],
-      promptOptions: { ...DEFAULT_PROMPT_OPTIONS },
+      inputAudios: [],
+      promptOptions: defaultPromptOptions(),
       autoMarkerIds: [],
       agentInstructions: '',
       agentThinking: false,

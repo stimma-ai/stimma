@@ -32,19 +32,24 @@ _VIDEO_FAMILIES = frozenset({
 })
 
 
-def enhancement_mode(family: str, is_video: bool = False, is_image_edit: bool = False) -> str:
+def enhancement_mode(
+    family: str, is_video: bool = False, is_image_edit: bool = False, is_audio: bool = False
+) -> str:
     """Map (task, modelFamily) to an enhancement style.
 
-    The TASK is authoritative for video and edits: any video tool gets
-    cinematography, and a natural-language image model fed input image(s) gets
-    ``edit`` — both regardless of whether the model string is recognized
-    (``is_video`` / ``is_image_edit`` come from the tool's I/O, not the model
-    name). ``_VIDEO_FAMILIES`` is only a fallback for callers that don't pass the
-    task. The remaining styles are model-specific: ``ideogram`` (structured JSON)
-    and ``keyword`` (booru tags for SD1.5/SDXL) keep their style even when editing
+    The TASK is authoritative for audio, video and edits: any audio tool gets the
+    sound-focused ``audio`` style, any video tool gets cinematography, and a
+    natural-language image model fed input image(s) gets ``edit`` — all regardless
+    of whether the model string is recognized (``is_audio`` / ``is_video`` /
+    ``is_image_edit`` come from the tool's I/O, not the model name).
+    ``_VIDEO_FAMILIES`` is only a fallback for callers that don't pass the task.
+    The remaining styles are model-specific: ``ideogram`` (structured JSON) and
+    ``keyword`` (booru tags for SD1.5/SDXL) keep their style even when editing
     (they describe the target, not an instruction over the input); everything else
     is ``edit`` when input images are present, else ``prose``.
     """
+    if is_audio:
+        return "audio"
     if is_video or family in _VIDEO_FAMILIES:
         return "cinematography"
     if family == "ideogram":
@@ -63,6 +68,7 @@ _IMPROVE_PROMPT_BY_MODE = {
     "keyword": "improve_keyword_system_prompt",
     "cinematography": "improve_cinematography_system_prompt",
     "edit": "improve_image_edit_system_prompt",
+    "audio": "improve_audio_system_prompt",
     "prose": "improve_system_prompt",
 }
 
@@ -223,6 +229,10 @@ class ImprovePromptRequest(BaseModel):
     # Whether the tool outputs video. Authoritative for cinematography routing —
     # the task is known, so we don't depend on the model string being recognized.
     is_video: bool = False
+    # Whether the tool outputs audio (text-to-audio / music / sound / speech).
+    # Authoritative for the sound-focused audio style — like is_video, the task is
+    # known, so routing doesn't depend on recognizing the model string.
+    is_audio: bool = False
     # Number of input images the tool will edit (image-to-image / inpaint / edit).
     # >0 on a natural-language image model routes to the edit style, which frames
     # the prompt as an instruction over the input image(s) rather than a fresh
@@ -555,6 +565,7 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         model_family(request.model),
         is_video=request.is_video,
         is_image_edit=request.input_image_count > 0,
+        is_audio=request.is_audio,
     )
 
     # i2v: on the cinematography path, show the source frame to the model so the

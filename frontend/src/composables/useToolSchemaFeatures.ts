@@ -1,29 +1,33 @@
 import { computed, type Ref, type ComputedRef } from 'vue'
 import { detectResolutionControls } from '../utils/resolutionControls'
+import { AUDIO_TASK_TYPES } from '../utils/taskTypeIcons'
+import type { ParamConstraint, ConstraintExpr } from '../utils/paramConstraints'
 
 // Special param names that have dedicated UI components
 const SPECIAL_PARAM_NAMES = new Set([
   // Inputs with dedicated components
   'prompt',
-  'input_images', 'input_videos',
+  'input_images', 'input_videos', 'input_audios',
   'mask',
   'loras',
   // Resolution-related (handled by pickers)
   'width', 'height', 'megapixels', 'aspect_ratio', 'image_size',
   // Video params (handled by dedicated video controls)
   'frame_count', 'fps', 'duration',
+  // Audio: lyrics is prompt-like — rendered right under the main prompt, not as a generic setting
+  'lyrics',
   // Deprecated/removed features
   'supersede_source',
 ])
 
 export interface MediaInputConfig {
-  accept: 'image' | 'video'
+  accept: 'image' | 'video' | 'audio'
   min: number
   max: number
   reorderable: boolean
   label: string
   description?: string
-  control?: string  // x-control value: 'image_picker' | 'video_frame_picker'
+  control?: string  // x-control value: 'image_picker' | 'video_frame_picker' | 'audio_picker'
   allowPrep: boolean  // x-allow-prep: show Scale / Extend Canvas / Paint controls. Implicit true if x-controlnet present.
 }
 
@@ -42,6 +46,7 @@ export interface GenericParam {
   control?: string
   visibleWhen?: { param: string; value: any }
   fullWidth?: boolean
+  constraints?: ParamConstraint[]
 }
 
 export interface GenericParamGroup {
@@ -51,6 +56,7 @@ export interface GenericParamGroup {
   params: GenericParam[]
   singleItem: boolean
   collapsible: boolean
+  hiddenWhen?: ConstraintExpr
 }
 
 export interface UseToolSchemaFeaturesOptions {
@@ -76,16 +82,22 @@ export interface UseToolSchemaFeaturesReturn {
   hasResolution: ComputedRef<boolean>
   hasFrameCount: ComputedRef<boolean>
   hasDuration: ComputedRef<boolean>
+  hasLyrics: ComputedRef<boolean>
   allowedDurations: ComputedRef<number[] | null>
   hasVideoFrames: ComputedRef<boolean>
   hasEndFrame: ComputedRef<boolean>
+  frameMinItems: ComputedRef<number>
+  frameConstraints: ComputedRef<ParamConstraint[] | undefined>
 
   // Output type detection
   outputsVideo: ComputedRef<boolean>
+  outputsAudio: ComputedRef<boolean>
   isFromScratch: ComputedRef<boolean>
 
   // Media input configuration
   mediaInputConfig: ComputedRef<MediaInputConfig | null>
+  // Audio input configuration (separate section, audio-conditioned tools)
+  audioInputConfig: ComputedRef<MediaInputConfig | null>
 
   // Schema-derived choices
   aspectRatioChoices: ComputedRef<string[]>
@@ -173,6 +185,11 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
     return 'duration' in props
   })
 
+  const hasLyrics = computed(() => {
+    const props = tool.value?.parameter_schema?.properties || {}
+    return 'lyrics' in props
+  })
+
   const allowedDurations = computed((): number[] | null => {
     const props = tool.value?.parameter_schema?.properties || {}
     const schema = props.duration
@@ -194,10 +211,32 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
     return max >= 2
   })
 
+  // How many frames the tool actually requires (0 for T2V/I2V-dual-mode tools
+  // like Kling, which support running with zero reference frames).
+  const frameMinItems = computed(() => {
+    const props = tool.value?.parameter_schema?.properties || {}
+    const imagesSchema = props.input_images
+    if (imagesSchema?.['x-control'] !== 'video_frame_picker') return 1
+    return imagesSchema?.['x-min-items'] ?? imagesSchema?.minItems ?? 1
+  })
+
+  // x-constraints on input_images itself (e.g. Kling: frames disabled while
+  // native audio is on). Consumed directly by ToolView rather than routed
+  // through GenericParam, since input_images has dedicated picker UI.
+  const frameConstraints = computed(() => {
+    const props = tool.value?.parameter_schema?.properties || {}
+    return props.input_images?.['x-constraints']
+  })
+
   // Output type detection
   const outputsVideo = computed(() => {
     const taskType = tool.value?.task_type || ''
     return taskType.includes('video')
+  })
+
+  const outputsAudio = computed(() => {
+    const taskType = tool.value?.task_type || ''
+    return (AUDIO_TASK_TYPES as readonly string[]).includes(taskType)
   })
 
   // Unified media input configuration
@@ -246,9 +285,29 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
     return null
   })
 
+  // Audio input — its OWN section, independent of the visual media input above.
+  // Audio-conditioned tools (lip-sync, avatar) take a visual input (image/video)
+  // AND an audio track, so this renders as a separate "reference audio" picker
+  // alongside the primary visual picker.
+  const audioInputConfig = computed((): MediaInputConfig | null => {
+    const props = tool.value?.parameter_schema?.properties || {}
+    if (!('input_audios' in props)) return null
+    const schema = props.input_audios
+    return {
+      accept: 'audio',
+      min: schema?.['x-min-items'] ?? schema?.minItems ?? 1,
+      max: schema?.['x-max-items'] || schema?.maxItems || 1,
+      reorderable: false,
+      label: schema?.['x-label'] || 'Audio',
+      description: schema?.description,
+      control: schema?.['x-control'],
+      allowPrep: false,
+    }
+  })
+
   // Whether this tool generates "from scratch" (no required input media)
   const isFromScratch = computed(() => {
-    return !mediaInputConfig.value && !hasVideoFrames.value
+    return !mediaInputConfig.value && !audioInputConfig.value && !hasVideoFrames.value
   })
 
   // Schema-derived choices
@@ -318,6 +377,7 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
         format: s['x-format'],
         control: s['x-control'],
         visibleWhen: s['x-visible-when'],
+        constraints: s['x-constraints'],
       })
     }
 
@@ -368,6 +428,7 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
           params: groupParams,
           singleItem,
           collapsible: group.collapsed || false,
+          hiddenWhen: group.hidden_when,
         })
       }
     }
@@ -433,16 +494,21 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
     hasResolution,
     hasFrameCount,
     hasDuration,
+    hasLyrics,
     allowedDurations,
     hasVideoFrames,
     hasEndFrame,
+    frameMinItems,
+    frameConstraints,
 
     // Output type detection
     outputsVideo,
+    outputsAudio,
     isFromScratch,
 
     // Media input configuration
     mediaInputConfig,
+    audioInputConfig,
 
     // Schema-derived choices
     aspectRatioChoices,

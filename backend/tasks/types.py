@@ -19,6 +19,10 @@ class TaskType(str, Enum):
     DETECT_OBJECTS = "detect-objects"
     VIDEO_STITCH = "video-stitch"
     VIDEO_EXTEND = "video-extend"
+    LIP_SYNC = "lip-sync"
+    TEXT_TO_AUDIO = "text-to-audio"
+    TEXT_TO_MUSIC = "text-to-music"
+    TEXT_TO_SPEECH = "text-to-speech"
 
     @classmethod
     def from_string(cls, value: str) -> "TaskType":
@@ -39,6 +43,12 @@ class TaskType(str, Enum):
             "rembg": cls.REMOVE_BACKGROUND,
             "background-removal": cls.REMOVE_BACKGROUND,
             "detect": cls.DETECT_OBJECTS,
+            # Audio generation: music/speech have their own task types; "text-to-audio"
+            # is the lower-level case (sound effects / ambience).
+            "t2a": cls.TEXT_TO_AUDIO,
+            "tts": cls.TEXT_TO_SPEECH,
+            "text-to-speech": cls.TEXT_TO_SPEECH,
+            "text-to-music": cls.TEXT_TO_MUSIC,
         }
 
         normalized = value.lower().strip()

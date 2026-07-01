@@ -1681,6 +1681,7 @@ class GenerationQueue:
         # Determine file format from extension
         file_format = file_path.suffix.lstrip('.').lower() or 'png'
         is_video = file_format in ('mp4', 'webm', 'mov', 'avi', 'mkv')
+        is_audio = file_format in ('mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg')
 
         # Compute file hash inline (instead of deferring to ingestion worker)
         sha256 = hashlib.sha256()
@@ -1691,7 +1692,29 @@ class GenerationQueue:
 
         # Get dimensions and duration inline
         duration = None
-        if is_video:
+        audio_sample_rate = None
+        audio_channels = None
+        audio_bit_depth = None
+        audio_bitrate = None
+        audio_codec = None
+        if is_audio:
+            # Audio has no visual dimensions but has audio-specific metadata.
+            # Use the same extractor the scan/ingestion path uses so generated
+            # audio is a first-class media item (duration + codec + waveform
+            # thumbnail) exactly like imported library audio.
+            width, height = 0, 0
+            try:
+                from media_scanner import get_audio_metadata
+                audio_meta = get_audio_metadata(file_path)
+                duration = audio_meta.get('duration')
+                audio_sample_rate = audio_meta.get('sample_rate')
+                audio_channels = audio_meta.get('channels')
+                audio_bit_depth = audio_meta.get('bit_depth')
+                audio_bitrate = audio_meta.get('bitrate')
+                audio_codec = audio_meta.get('codec')
+            except Exception as e:
+                log.warning(f"Failed to extract audio metadata from {output_path}: {e}")
+        elif is_video:
             # Use ffprobe for video dimensions and duration
             try:
                 result = subprocess.run(
@@ -1760,6 +1783,12 @@ class GenerationQueue:
             media_item.megapixels = megapixels
             if duration is not None:
                 media_item.duration = duration
+            if is_audio:
+                media_item.audio_sample_rate = audio_sample_rate
+                media_item.audio_channels = audio_channels
+                media_item.audio_bit_depth = audio_bit_depth
+                media_item.audio_bitrate = audio_bitrate
+                media_item.audio_codec = audio_codec
             media_item.metadata_status = 'completed'
             media_item.metadata_processed_at = datetime.utcnow()
             media_item.metadata_config_version = get_config_version_manager().get_version('metadata')
@@ -1792,6 +1821,13 @@ class GenerationQueue:
                 height=height,
                 megapixels=megapixels,
                 duration=duration,
+                # Audio-specific metadata (null for non-audio) so generated audio
+                # is a first-class media item like imported library audio.
+                audio_sample_rate=audio_sample_rate,
+                audio_channels=audio_channels,
+                audio_bit_depth=audio_bit_depth,
+                audio_bitrate=audio_bitrate,
+                audio_codec=audio_codec,
                 # Link to chat if generated via chat system
                 chat_item_id=chat_item_id,
                 # For videos, we pass the generation metadata directly since it can't be embedded
@@ -2210,7 +2246,12 @@ class GenerationQueue:
 
             # Generate output filename
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-            file_extension = ".mp4" if task_type in ["image-to-video", "text-to-video", "upscale-video", "video-stitch", "video-extend"] else ".png"
+            if task_type in ["image-to-video", "text-to-video", "upscale-video", "video-stitch", "video-extend"]:
+                file_extension = ".mp4"
+            elif task_type in ("text-to-audio", "text-to-music", "text-to-speech"):
+                file_extension = ".flac"
+            else:
+                file_extension = ".png"
             filename = f"gen_{timestamp}_{job.id}{file_extension}"
             output_path = os.path.join(job.folder_path, filename)
             os.makedirs(job.folder_path, exist_ok=True)

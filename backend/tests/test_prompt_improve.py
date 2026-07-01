@@ -31,6 +31,23 @@ def test_video_wins_over_edit():
     assert enhancement_mode(model_family("wan-2.7"), is_video=True, is_image_edit=True) == "cinematography"
 
 
+def test_audio_mode_is_task_driven():
+    # Any audio tool gets the sound-focused style regardless of the model string.
+    assert enhancement_mode(model_family("some-tts-model"), is_audio=True) == "audio"
+    assert enhancement_mode("unknown", is_audio=True) == "audio"
+
+
+def test_audio_wins_over_video_and_edit():
+    # A tool outputs one media type; if is_audio is set it takes precedence.
+    assert enhancement_mode(
+        model_family("wan-2.7"), is_video=True, is_image_edit=True, is_audio=True
+    ) == "audio"
+
+
+def test_improve_request_defaults_is_audio_false():
+    assert ImprovePromptRequest(prompt="x").is_audio is False
+
+
 def test_keyword_and_ideogram_keep_style_when_editing():
     # SD img2img describes the target (keyword); Ideogram has its own JSON path —
     # neither switches to the edit instruction style just because images are present.

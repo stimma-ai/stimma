@@ -1,5 +1,7 @@
 <template>
   <template v-for="paramGroup in groups" :key="paramGroup.group || 'ungrouped'">
+    <!-- Skip the whole section if hidden_when is active -->
+    <template v-if="!isSectionHidden(paramGroup.hiddenWhen, values)">
     <div :class="flat ? 'mb-3 last:mb-0' : 'mb-6 last:mb-0'">
       <!-- Group header - collapsible if paramGroup.collapsible is true -->
       <div v-if="paramGroup.label" class="mb-3">
@@ -17,20 +19,20 @@
       <!-- Parameters list (settings-style: label+desc on left, control on right) -->
       <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" :class="flat ? 'divide-y divide-white/[0.06]' : 'rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]'">
         <template v-for="param in paramGroup.params" :key="param.name">
-          <!-- Skip if visibleWhen condition not met -->
-          <template v-if="!param.visibleWhen || values[param.visibleWhen.param] === param.visibleWhen.value">
+          <!-- Skip if visibleWhen condition not met, or a hide constraint is active -->
+          <template v-if="(!param.visibleWhen || values[param.visibleWhen.param] === param.visibleWhen.value) && !constraintState(param).hidden">
             <!-- Seed control with randomize checkbox -->
             <div v-if="param.control === 'seed'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
                 <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                <div v-if="param.description" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
+                <div v-if="paramDescription(param, constraintState(param))" class="text-xs mt-0.5" :class="constraintState(param).disabled ? 'text-amber-500/80' : 'text-content-muted'">{{ paramDescription(param, constraintState(param)) }}</div>
               </div>
               <div class="flex items-center justify-end gap-3 flex-wrap">
                 <input v-no-autocorrect
                   :value="values[param.name]"
                   @input="emitParam(param.name, parseIntOrNull(($event.target as HTMLInputElement).value))"
                   type="number"
-                  :disabled="values.randomizeSeed ?? true"
+                  :disabled="(values.randomizeSeed ?? true) || constraintState(param).disabled"
                   class="w-28 sm:w-36 px-2 py-1.5 bg-base border border-edge rounded text-content text-sm disabled:opacity-40 focus:outline-none focus:border-blue-500"
                 >
                 <label class="flex items-center gap-1.5 text-xs text-content-tertiary cursor-pointer">
@@ -38,6 +40,7 @@
                     :checked="values.randomizeSeed ?? true"
                     @change="emitParam('randomizeSeed', ($event.target as HTMLInputElement).checked)"
                     type="checkbox"
+                    :disabled="constraintState(param).disabled"
                     class="w-3.5 h-3.5 rounded"
                   >
                   <span>Randomize</span>
@@ -48,13 +51,14 @@
             <div v-else-if="param.enum" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
                 <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                <div v-if="param.description" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
+                <div v-if="paramDescription(param, constraintState(param))" class="text-xs mt-0.5" :class="constraintState(param).disabled ? 'text-amber-500/80' : 'text-content-muted'">{{ paramDescription(param, constraintState(param)) }}</div>
               </div>
               <div class="min-w-0 max-w-[45%] flex-shrink-0">
                 <SettingsDropdown
                   :model-value="String(values[param.name] ?? param.default)"
                   @update:model-value="emitParam(param.name, $event)"
                   :options="param.enum.map((opt: string) => ({ value: opt, label: param.enumLabels?.[opt] || formatEnumOption(opt, param.format) }))"
+                  :disabled="constraintState(param).disabled"
                 />
               </div>
             </div>
@@ -62,7 +66,7 @@
             <div v-else-if="param.type === 'number' || param.type === 'integer'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
                 <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                <div v-if="param.description" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
+                <div v-if="paramDescription(param, constraintState(param))" class="text-xs mt-0.5" :class="constraintState(param).disabled ? 'text-amber-500/80' : 'text-content-muted'">{{ paramDescription(param, constraintState(param)) }}</div>
               </div>
               <div class="flex min-w-0 w-[45%] max-w-[360px] flex-shrink-0 items-center justify-end gap-2">
                 <input v-no-autocorrect
@@ -72,7 +76,8 @@
                   :min="param.minimum ?? 0"
                   :max="param.maximum ?? 100"
                   :step="param.step ?? (param.type === 'integer' ? 1 : 0.1)"
-                  class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+                  :disabled="constraintState(param).disabled"
+                  class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
                 />
                 <input v-no-autocorrect
                   v-if="editingParam === param.name"
@@ -86,9 +91,10 @@
                 />
                 <span
                   v-else
-                  @dblclick="startParamEdit(param.name)"
-                  class="w-12 flex-shrink-0 text-sm text-content-tertiary text-right cursor-text hover:text-content-secondary select-none"
-                  :title="'Double-click to edit'"
+                  @dblclick="!constraintState(param).disabled && startParamEdit(param.name)"
+                  class="w-12 flex-shrink-0 text-sm text-content-tertiary text-right select-none"
+                  :class="constraintState(param).disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-text hover:text-content-secondary'"
+                  :title="constraintState(param).disabled ? '' : 'Double-click to edit'"
                 >{{ formatGenericParamValue(param, values[param.name] ?? param.default) }}</span>
               </div>
             </div>
@@ -96,13 +102,14 @@
             <div v-else-if="param.type === 'boolean'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="w-[55%] flex-shrink-0">
                 <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                <div v-if="param.description" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
+                <div v-if="paramDescription(param, constraintState(param))" class="text-xs mt-0.5" :class="constraintState(param).disabled ? 'text-amber-500/80' : 'text-content-muted'">{{ paramDescription(param, constraintState(param)) }}</div>
               </div>
               <input v-no-autocorrect
                 type="checkbox"
                 :checked="values[param.name] ?? param.default"
                 @change="emitParam(param.name, ($event.target as HTMLInputElement).checked)"
-                class="flex-shrink-0 w-4 h-4 rounded border-edge bg-base text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+                :disabled="constraintState(param).disabled"
+                class="flex-shrink-0 w-4 h-4 rounded border-edge bg-base text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               />
             </div>
             <!-- String input (textarea for x-control: textarea, otherwise single-line) -->
@@ -110,7 +117,7 @@
               <div class="flex items-center justify-between gap-4 mb-2">
                 <div class="w-[55%] flex-shrink-0">
                   <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                  <div v-if="param.description && param.control !== 'textarea'" class="text-xs text-content-muted mt-0.5">{{ param.description }}</div>
+                  <div v-if="param.control !== 'textarea' && paramDescription(param, constraintState(param))" class="text-xs mt-0.5" :class="constraintState(param).disabled ? 'text-amber-500/80' : 'text-content-muted'">{{ paramDescription(param, constraintState(param)) }}</div>
                 </div>
               </div>
               <textarea v-no-autocorrect
@@ -118,22 +125,25 @@
                 :value="values[param.name] ?? param.default ?? ''"
                 @input="emitParam(param.name, ($event.target as HTMLTextAreaElement).value)"
                 rows="4"
-                :placeholder="param.description || ''"
-                class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm resize-y focus:outline-none focus:border-blue-500 font-sans"
+                :placeholder="paramDescription(param, constraintState(param)) || ''"
+                :disabled="constraintState(param).disabled"
+                class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm resize-y focus:outline-none focus:border-blue-500 font-sans disabled:opacity-40 disabled:cursor-not-allowed"
               ></textarea>
               <input v-no-autocorrect
                 v-else
                 type="text"
                 :value="values[param.name] ?? param.default ?? ''"
                 @input="emitParam(param.name, ($event.target as HTMLInputElement).value)"
-                :placeholder="param.description"
-                class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm focus:outline-none focus:border-blue-500"
+                :placeholder="paramDescription(param, constraintState(param))"
+                :disabled="constraintState(param).disabled"
+                class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm focus:outline-none focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed"
               />
             </div>
           </template>
         </template>
       </div>
     </div>
+    </template>
   </template>
 </template>
 
@@ -141,6 +151,7 @@
 import { computed, nextTick, ref } from 'vue'
 import SettingsDropdown from '../ui/SettingsDropdown.vue'
 import type { GenericParam, GenericParamGroup } from '../../composables/useToolSchemaFeatures'
+import { resolveParamConstraints, isSectionHidden, type ParamConstraintState } from '../../utils/paramConstraints'
 
 // Standalone, schema-driven settings renderer. Extracted from ToolView's
 // inline generic-params section so any tool's parameter schema can be hosted
@@ -169,6 +180,20 @@ const emit = defineEmits<{
 
 function emitParam(name: string, value: any) {
   emit('update:param', name, value)
+}
+
+// x-constraints — evaluated against props.values, which callers may enrich
+// beyond the raw submitted params (e.g. ToolView merges in live frame-picker
+// state so a constraint can reference input_images even though that param
+// isn't rendered by this component).
+function constraintState(param: GenericParam): ParamConstraintState {
+  return resolveParamConstraints(param.constraints, props.values)
+}
+
+// While disabled by a constraint, prefer explaining why over the normal
+// description — so a greyed-out control reads as explained, not just inert.
+function paramDescription(param: GenericParam, state: ParamConstraintState): string | undefined {
+  return (state.disabled && state.reason) || param.description
 }
 
 // --- Collapse state (internal fallback when no persistence is provided) ----

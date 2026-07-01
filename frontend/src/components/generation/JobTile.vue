@@ -50,6 +50,7 @@
     <MediaImage
       v-else-if="!isVideo && job.result_media_id"
       :media-id="job.result_media_id"
+      :is-audio="isAudio"
       :thumbnail="imageMode !== 'fit'"
       :thumbnail-size="thumbnailSize"
       :alt="`Generated image ${job.id}`"
@@ -124,6 +125,7 @@ interface Marker { id: number; name: string; color: string; icon_svg: string }
 const props = withDefaults(defineProps<{
   job: Job
   isVideo?: boolean
+  isAudio?: boolean
   imageMode?: 'cover' | 'fit'
   markers?: Marker[]
   mediaMarkers?: Record<number, Marker[]>
@@ -134,6 +136,7 @@ const props = withDefaults(defineProps<{
   thumbnailSize?: number
 }>(), {
   isVideo: false,
+  isAudio: false,
   imageMode: 'cover',
   markers: () => [],
   mediaMarkers: () => ({}),

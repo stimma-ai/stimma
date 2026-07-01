@@ -2,9 +2,10 @@
   <div class="relative" ref="container">
     <button
       type="button"
+      :disabled="disabled"
       @click="toggle"
       @keydown="handleButtonKeydown"
-      class="flex items-center gap-1.5 text-content-secondary text-sm cursor-pointer hover:text-content transition-colors"
+      class="flex items-center gap-1.5 text-content-secondary text-sm cursor-pointer hover:text-content transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-content-secondary"
     >
       <span>{{ displayValue }}</span>
       <svg
@@ -26,27 +27,40 @@
       <div
         v-if="isOpen"
         ref="dropdown"
-        class="fixed z-50 py-1 bg-surface border border-edge rounded-lg shadow-xl max-h-64 overflow-y-auto max-w-64"
-        tabindex="-1"
+        class="fixed z-50 py-1 bg-surface border border-edge rounded-lg shadow-xl overflow-hidden max-w-72 flex flex-col"
         :style="dropdownStyle"
-        @keydown="handleDropdownKeydown"
       >
-        <button
-          v-for="(option, index) in options"
-          :key="option.value"
-          :ref="el => setOptionRef(el, index)"
-          type="button"
-          @click="select(option.value)"
-          @mouseenter="highlightedIndex = index"
-          class="w-full px-3 py-1.5 text-left text-sm transition-colors truncate"
-          :class="index === highlightedIndex
-            ? 'text-content bg-blue-500/30'
-            : option.value === modelValue
-              ? 'text-content bg-blue-500/10'
-              : 'text-content-secondary hover:bg-surface-raised'"
-        >
-          {{ option.label }}
-        </button>
+        <div v-if="searchable" class="px-2 pt-1 pb-1.5 border-b border-edge shrink-0">
+          <input
+            ref="searchInput"
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search..."
+            class="w-full px-2 py-1 text-sm bg-overlay-faint border border-edge-subtle rounded text-content placeholder:text-content-muted focus:outline-none focus:border-blue-500/50"
+            @keydown="handleDropdownKeydown"
+          />
+        </div>
+        <div ref="optionsList" class="overflow-y-auto max-h-64" tabindex="-1" @keydown="handleDropdownKeydown">
+          <button
+            v-for="(option, index) in filteredOptions"
+            :key="option.value"
+            :ref="el => setOptionRef(el, index)"
+            type="button"
+            @click="select(option.value)"
+            @mouseenter="highlightedIndex = index"
+            class="w-full px-3 py-1.5 text-left text-sm transition-colors truncate"
+            :class="index === highlightedIndex
+              ? 'text-content bg-blue-500/30'
+              : option.value === modelValue
+                ? 'text-content bg-blue-500/10'
+                : 'text-content-secondary hover:bg-surface-raised'"
+          >
+            {{ option.label }}
+          </button>
+          <div v-if="filteredOptions.length === 0" class="px-3 py-1.5 text-sm text-content-muted">
+            No matches
+          </div>
+        </div>
       </div>
     </Teleport>
   </div>
@@ -63,18 +77,34 @@ interface Option {
 const props = defineProps<{
   modelValue: string
   options: Option[]
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
 }>()
 
+// Large catalogs (e.g. MiniMax Speech's 332 voices) are unusable as a plain
+// scroll list — auto-enable a search box once the option count crosses this.
+const SEARCH_THRESHOLD = 12
+
 const container = ref<HTMLElement | null>(null)
 const dropdown = ref<HTMLElement | null>(null)
+const optionsList = ref<HTMLElement | null>(null)
+const searchInput = ref<HTMLInputElement | null>(null)
 const isOpen = ref(false)
 const dropdownStyle = ref<Record<string, string>>({})
 const highlightedIndex = ref(0)
+const searchQuery = ref('')
 const optionRefs = ref<(HTMLElement | null)[]>([])
+
+const searchable = computed(() => props.options.length > SEARCH_THRESHOLD)
+
+const filteredOptions = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!searchable.value || !q) return props.options
+  return props.options.filter(o => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q))
+})
 
 function setOptionRef(el: any, index: number) {
   optionRefs.value[index] = el
@@ -94,14 +124,20 @@ function toggle() {
 }
 
 function open() {
+  searchQuery.value = ''
+  optionRefs.value = []
   // Set highlighted index to current selection
-  const currentIndex = props.options.findIndex(o => o.value === props.modelValue)
+  const currentIndex = filteredOptions.value.findIndex(o => o.value === props.modelValue)
   highlightedIndex.value = currentIndex >= 0 ? currentIndex : 0
   isOpen.value = true
   nextTick(() => {
     positionDropdown()
-    // Focus the dropdown for keyboard events
-    dropdown.value?.focus()
+    // Focus the search box if present, otherwise the options list for keyboard events
+    if (searchable.value) {
+      searchInput.value?.focus()
+    } else {
+      optionsList.value?.focus()
+    }
     // Scroll highlighted item into view
     scrollToHighlighted()
   })
@@ -134,7 +170,7 @@ function handleDropdownKeydown(e: KeyboardEvent) {
   switch (e.key) {
     case 'ArrowDown':
       e.preventDefault()
-      highlightedIndex.value = Math.min(highlightedIndex.value + 1, props.options.length - 1)
+      highlightedIndex.value = Math.min(highlightedIndex.value + 1, filteredOptions.value.length - 1)
       scrollToHighlighted()
       break
     case 'ArrowUp':
@@ -144,8 +180,8 @@ function handleDropdownKeydown(e: KeyboardEvent) {
       break
     case 'Enter':
       e.preventDefault()
-      if (props.options[highlightedIndex.value]) {
-        select(props.options[highlightedIndex.value].value)
+      if (filteredOptions.value[highlightedIndex.value]) {
+        select(filteredOptions.value[highlightedIndex.value].value)
       }
       break
     case 'Escape':
@@ -154,6 +190,14 @@ function handleDropdownKeydown(e: KeyboardEvent) {
       break
   }
 }
+
+// Re-anchor the highlight and scroll position whenever the filtered list
+// changes shape (typing narrows/widens it) so arrow-key nav stays in range.
+watch(filteredOptions, () => {
+  optionRefs.value = []
+  highlightedIndex.value = 0
+  nextTick(scrollToHighlighted)
+})
 
 function positionDropdown() {
   if (!container.value) return
@@ -167,7 +211,7 @@ function positionDropdown() {
 
   // Check if dropdown would go off bottom of screen
   const spaceBelow = viewportHeight - rect.bottom - 8
-  const dropdownHeight = Math.min(256, props.options.length * 32 + 8)
+  const dropdownHeight = Math.min(256, filteredOptions.value.length * 32 + 8) + (searchable.value ? 40 : 0)
 
   if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
     // Show above

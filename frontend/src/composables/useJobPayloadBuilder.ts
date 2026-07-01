@@ -17,6 +17,7 @@ export interface PayloadBuilderState {
     folder_path: string
     inputImages: Array<{ path: string; mediaId?: number; width?: number; height?: number; _originalPath?: string; _originalHash?: string; _preprocessor?: string | null; _flip?: any }>
     inputVideos: Array<{ path: string; mediaId?: number }>
+    inputAudios: Array<{ path: string; mediaId?: number }>
     promptOptions?: any
     autoMarkerIds?: number[]
   }
@@ -82,6 +83,10 @@ const paramExtractors: Record<string, (s: PayloadBuilderState) => any> = {
   // Video inputs (unified array)
   'input_videos': (s) => s.globalPrefs.inputVideos.map(v => v.path),
   'input_video_media_ids': (s) => s.globalPrefs.inputVideos.map(v => v.mediaId).filter(Boolean),
+
+  // Audio inputs (unified array) — audio-conditioned tools (lip-sync, avatar)
+  'input_audios': (s) => s.globalPrefs.inputAudios.map(a => a.path),
+  'input_audio_media_ids': (s) => s.globalPrefs.inputAudios.map(a => a.mediaId).filter(Boolean),
 
   // Mask is handled by pre-upload, not extracted here
   'mask': () => null,
@@ -240,6 +245,11 @@ export function extractParameters(config: PayloadBuilderConfig, state: PayloadBu
       // ImagePicker mode — media IDs from inputImages
       params.input_media_ids = state.globalPrefs.inputImages.map(i => i.mediaId).filter(Boolean)
     }
+  }
+
+  // Add media IDs for audio inputs (lineage) — audio-conditioned tools
+  if ('input_audios' in props && state.globalPrefs.inputAudios.some(a => a.mediaId)) {
+    params.input_audio_media_ids = state.globalPrefs.inputAudios.map(a => a.mediaId).filter(Boolean)
   }
 
   // Reference image prep: send original paths + all preprocessing metadata for lineage

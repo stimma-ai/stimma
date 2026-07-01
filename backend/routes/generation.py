@@ -328,6 +328,124 @@ async def upload_reference_video(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Failed to upload file")
 
 
+@router.get("/reference-audio-file")
+async def get_reference_audio_file(path: str):
+    """Serve a reference audio file from the library."""
+    from fastapi.responses import FileResponse
+    from core.profile_context import get_current_profile
+
+    settings = get_settings()
+    profile_id = get_current_profile()
+
+    # Resolve the path
+    file_path = Path(path).resolve()
+
+    # Security check: ensure the file is within a configured profile folder
+    allowed = False
+    for folder in settings.get_folders_for_profile(profile_id):
+        try:
+            folder_path = Path(folder.path).resolve()
+            file_path.relative_to(folder_path)
+            allowed = True
+            break
+        except ValueError:
+            continue
+
+    if not allowed:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Determine media type
+    suffix = file_path.suffix.lower()
+    media_types = {
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".flac": "audio/flac",
+        ".m4a": "audio/mp4",
+        ".aac": "audio/aac",
+        ".ogg": "audio/ogg",
+        ".opus": "audio/opus",
+    }
+    media_type = media_types.get(suffix, "application/octet-stream")
+
+    return FileResponse(file_path, media_type=media_type)
+
+
+@router.post("/upload-reference-audio")
+async def upload_reference_audio(file: UploadFile = File(...)):
+    """
+    Upload a reference audio file for audio-input tasks (lip-sync, avatar, etc.).
+
+    The audio is uploaded directly into the library with a database record,
+    so it won't be lost if referenced in generation data.
+
+    Returns the path and metadata of the uploaded file.
+    """
+    from upload_service import get_upload_service, NoUploadsFolderError, UploadError
+
+    try:
+        upload_service = get_upload_service()
+        content = await file.read()
+        media_item, file_path = await upload_service.upload_file(content, file.filename or "upload.mp3")
+
+        return {
+            "path": file_path,
+            "filename": Path(file_path).name,
+            "media_id": media_item.id,
+            "file_hash": media_item.file_hash,
+            "width": media_item.width,
+            "height": media_item.height,
+        }
+    except NoUploadsFolderError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except UploadError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        log.error(f"Failed to upload reference audio: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload file")
+
+
+@router.post("/copy-audio-to-reference")
+async def copy_audio_to_reference(source_path: str):
+    """
+    Copy an existing audio file into the library uploads folder.
+
+    This creates a library copy that won't be affected if the original
+    is deleted or trashed. Used when sending audio to an audio-input tool.
+
+    Args:
+        source_path: Path to the existing audio file
+
+    Returns:
+        The path, filename, and metadata of the copied file
+    """
+    from upload_service import get_upload_service, NoUploadsFolderError, UploadError
+
+    try:
+        upload_service = get_upload_service()
+        media_item, file_path = await upload_service.copy_existing_to_library(source_path)
+
+        return {
+            "path": file_path,
+            "filename": Path(file_path).name,
+            "media_id": media_item.id,
+            "file_hash": media_item.file_hash,
+            "width": media_item.width,
+            "height": media_item.height,
+        }
+    except NoUploadsFolderError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except UploadError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        log.error(f"Failed to copy reference audio: {e}")
+        raise HTTPException(status_code=500, detail="Failed to copy file")
+
+
 @router.delete("/upload-reference-video/{filename}")
 async def delete_reference_video(filename: str):
     """Delete an uploaded reference video."""

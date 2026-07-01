@@ -49,6 +49,7 @@
               :failed-count="batchFailedCount(item.batch)"
               :complete="false"
               :is-video="isVideo"
+              :is-audio="isAudio"
               :image-mode="imageMode"
               :markers="markers"
               :media-markers="mediaMarkers"
@@ -134,6 +135,7 @@
             :failed-count="batchFailedCount(item.batch)"
             :complete="true"
             :is-video="isVideo"
+            :is-audio="isAudio"
             :image-mode="imageMode"
             :markers="markers"
             :media-markers="mediaMarkers"
@@ -158,6 +160,7 @@
             <JobTile
               :job="item.job"
               :is-video="isVideo"
+              :is-audio="isAudio"
               :image-mode="imageMode"
               :markers="markers"
               :media-markers="mediaMarkers"
@@ -281,6 +284,7 @@ interface Props {
   imageMode?: 'cover' | 'fit'
   emptyMessage?: string
   isVideo?: boolean
+  isAudio?: boolean
   // Media id of the item currently focused/shown elsewhere (e.g. the Stage hero).
   // Its tile gets a blue ring so the user can see what they're looking at.
   currentMediaId?: number | null
@@ -301,6 +305,7 @@ const props = withDefaults(defineProps<Props>(), {
   imageMode: 'cover',
   emptyMessage: 'No jobs yet',
   isVideo: false,
+  isAudio: false,
   currentMediaId: null,
   toolDisplayName: '',
   compactOverlays: false,

@@ -92,6 +92,27 @@ TASK_SCHEMA_REQUIREMENTS: Dict[str, Dict[str, List[str]]] = {
         "optional_input": ["prompt", "negative_prompt"],
         "required_output": ["assets"],
     },
+    TaskType.LIP_SYNC.value: {
+        "required_input": ["input_videos", "input_audios"],
+        "optional_input": ["original_audio_volume", "sound_volume"],
+        "required_output": ["assets"],
+    },
+    TaskType.TEXT_TO_MUSIC.value: {
+        "required_input": ["prompt"],
+        "optional_input": ["lyrics", "instrumental", "duration"],
+        "required_output": ["assets"],
+    },
+    TaskType.TEXT_TO_SPEECH.value: {
+        "required_input": ["prompt"],
+        "optional_input": ["voice", "language", "speed", "input_audios"],
+        "required_output": ["assets"],
+    },
+    # Lower-level audio generation: sound effects / ambience (e.g. Mirelo SFX).
+    TaskType.TEXT_TO_AUDIO.value: {
+        "required_input": ["prompt"],
+        "optional_input": ["duration"],
+        "required_output": ["assets"],
+    },
 }
 
 

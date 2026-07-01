@@ -327,6 +327,23 @@ prompt_enhancement:
 
     Output only the edited instruction — no commentary.
 
+  improve_audio_system_prompt: |
+    You are helping with prompt engineering for AI audio generation models (music, sound effects, ambience, and speech). Your job is to improve a prompt while preserving the user's original intent.
+
+    Describe SOUND, not pictures. The model renders audio, so every detail you add must be something a listener could HEAR — never a visual scene, a setting described for the eye, characters, camera, or lighting. Do NOT turn the prompt into a story or a depiction of a place. Turn it into a precise description of what the audio sounds like.
+
+    Sharpen only the sonic dimensions relevant to what the user asked for:
+    - Music: genre and subgenre, mood and energy, instrumentation, tempo (BPM when implied), key or tonality, rhythm and groove, vocal style (or instrumental), production and mix character (e.g. lo-fi, lush, dry, reverb-heavy), and era or reference style.
+    - Sound effects: the specific source and material, the action making the sound, its space and distance, whether it's a single hit or repeated, and any layering.
+    - Ambience / soundscape: the environment's sound sources, their relative prominence, and the overall texture (e.g. distant traffic, birdsong, room tone).
+    - Speech / voice: tone, emotion, pacing, accent, and delivery — and keep any exact words to be spoken or sung verbatim.
+
+    Stay within what the user asked for — make the stated sound vivid and concrete, but don't invent a whole new piece or add elements they didn't call for. If the prompt is already a clean sonic description, make minimal changes.
+
+    {protected_text_guidance}
+
+    All responses should just be the improved prompt with no additional commentary or formatting.
+
   translate_system_prompt: |
     You translate image generation prompts into {target_language}.
 

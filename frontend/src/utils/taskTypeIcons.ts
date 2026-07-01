@@ -6,6 +6,12 @@ import type { MediaType } from './mediaTypes'
  * Used by: NavigationSidebar, SendToToolMenu, MediaContextMenu, AllToolsView
  */
 
+// Audio-output task types — the canonical set for `outputsAudio`-style checks
+// elsewhere (useToolSchemaFeatures, useGenerationPreferences) instead of a
+// `task_type.includes('audio')` substring match, which only matches
+// 'text-to-audio' and misses 'text-to-music' / 'text-to-speech'.
+export const AUDIO_TASK_TYPES = ['text-to-audio', 'text-to-music', 'text-to-speech'] as const
+
 /**
  * Improved task-generic glyphs (the 12 redrawn variants from the signed-off
  * icon-branding mock: plans/icon-branding/mocks/tool-icons.html `#tasks`).
@@ -36,6 +42,10 @@ export const TASK_TYPE_ICON_SVGS: Record<string, string> = {
   'upscale-image': '<path d="M4 8V5a1 1 0 0 1 1-1h3"/><path d="M20 8V5a1 1 0 0 0-1-1h-3"/><path d="M4 16v3a1 1 0 0 0 1 1h3"/><path d="M20 16v3a1 1 0 0 0-1 1h-3"/><rect x="9" y="9" width="6" height="6" rx="1"/>',
   'upscale-video': '<path d="M4 8V5a1 1 0 0 1 1-1h3"/><path d="M20 8V5a1 1 0 0 0-1-1h-3"/><path d="M4 16v3a1 1 0 0 0 1 1h3"/><path d="M20 16v3a1 1 0 0 0-1 1h-3"/><path d="M10 9.2l5 2.8-5 2.8z" fill="currentColor" stroke="none"/>',
   'remove-background': '<rect x="3" y="3" width="18" height="18" rx="2.5" stroke-dasharray="3 2.5"/><circle cx="12" cy="10.5" r="3"/><path d="M6.5 19c1.1-2.6 3.1-4 5.5-4s4.4 1.4 5.5 4"/>',
+  'text-to-audio': '<path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" stroke-linecap="round"/>',
+  'text-to-music': '<path d="M9 17V5l11-2v12"/><circle cx="6" cy="17" r="3"/><circle cx="17" cy="15" r="3"/>',
+  'text-to-speech': '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v4M9 21h6"/>',
+  'lip-sync': '<circle cx="12" cy="12" r="9"/><path d="M8.5 15a4.5 4.5 0 0 0 7 0" stroke-linecap="round"/><circle cx="8.6" cy="9.4" r="0.9" fill="currentColor" stroke="none"/><circle cx="15.4" cy="9.4" r="0.9" fill="currentColor" stroke="none"/>',
   'filter': '<path d="M5 7h14M5 12h14M5 17h14"/><circle cx="9" cy="7" r="2" fill="#17171c"/><circle cx="15" cy="12" r="2" fill="#17171c"/><circle cx="8" cy="17" r="2" fill="#17171c"/>',
 }
 
@@ -64,6 +74,10 @@ export const TASK_TYPE_ICON_PATHS: Record<string, string> = {
   'upscale-image': 'M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15',
   'upscale-video': 'M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15',
   'remove-background': 'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z',
+  'text-to-audio': 'M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.833.112-1.64.322-2.406C2.806 8.747 3.63 8.25 4.51 8.25H6.75Z',
+  'text-to-music': 'M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553z',
+  'text-to-speech': 'M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z',
+  'lip-sync': 'M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-5.25-4.5h.008v.008h-.008V7.5Zm-6.75 0h.008v.008H9V7.5Z',
 }
 
 // Gradient classes for each task type (used for icon backgrounds in AllToolsView, etc.)
@@ -79,6 +93,10 @@ export const TASK_TYPE_GRADIENT_CLASSES: Record<string, string> = {
   'upscale-image': 'bg-gradient-to-br from-amber-500/80 to-amber-700/80',
   'upscale-video': 'bg-gradient-to-br from-orange-500/80 to-orange-700/80',
   'remove-background': 'bg-gradient-to-br from-indigo-500/80 to-indigo-700/80',
+  'text-to-audio': 'bg-gradient-to-br from-fuchsia-500/80 to-fuchsia-700/80',
+  'text-to-music': 'bg-gradient-to-br from-purple-500/80 to-purple-700/80',
+  'text-to-speech': 'bg-gradient-to-br from-green-500/80 to-green-700/80',
+  'lip-sync': 'bg-gradient-to-br from-yellow-500/80 to-yellow-700/80',
 }
 
 export const DEFAULT_TASK_TYPE_GRADIENT_CLASS = 'bg-gradient-to-br from-gray-500/80 to-gray-700/80'
@@ -106,6 +124,10 @@ export const TASK_TYPE_LABELS: Record<string, string> = {
   'upscale-image': 'Upscale Image',
   'upscale-video': 'Upscale Video',
   'remove-background': 'Background Removal',
+  'text-to-audio': 'Text to Audio',
+  'text-to-music': 'Text to Music',
+  'text-to-speech': 'Text to Speech',
+  'lip-sync': 'Lip Sync',
   'detect-objects': 'Detect Objects',
   'filter': 'Filter',
   'utility': 'Utility',
@@ -125,6 +147,10 @@ export const TASK_TYPE_ORDER = [
   'upscale-video',
   'video-stitch',
   'video-extend',
+  'lip-sync',
+  'text-to-music',
+  'text-to-speech',
+  'text-to-audio',
 ]
 
 // Media-input transform tasks → which media type(s) they consume as their
@@ -136,7 +162,7 @@ export const TASK_TYPE_ORDER = [
 // input slot via `x-accept-media` in their parameter_schema (see
 // getToolDeclaredAcceptMedia) — e.g. a video-only filter declares ["video"]
 // even though `filter` defaults to both here.
-export const TASK_INPUT_MEDIA: Record<string, Array<'image' | 'video'>> = {
+export const TASK_INPUT_MEDIA: Record<string, Array<'image' | 'video' | 'audio'>> = {
   'image-to-image': ['image'],
   'inpaint-image': ['image'],
   'outpaint-image': ['image'],
@@ -148,9 +174,18 @@ export const TASK_INPUT_MEDIA: Record<string, Array<'image' | 'video'>> = {
   'upscale-video': ['video'],
   'video-stitch': ['video'],
   'video-extend': ['video'],
+  // Lip-sync drives a face (image or video) with an audio track.
+  'lip-sync': ['image', 'video', 'audio'],
+  // Audio generation. Audio input (voice/reference conditioning) is OPTIONAL and
+  // per-tool — only tools that actually declare an input_audios slot accept audio,
+  // enforced by the schema check in isToolCompatibleWithMediaType. Listed here so
+  // audio-conditioned tools group/route under this bucket.
+  'text-to-audio': ['audio'],
+  'text-to-music': ['audio'],
+  'text-to-speech': ['audio'],
 }
 
-function taskTypesAccepting(target: 'image' | 'video'): string[] {
+function taskTypesAccepting(target: 'image' | 'video' | 'audio'): string[] {
   return Object.keys(TASK_INPUT_MEDIA).filter(tt => TASK_INPUT_MEDIA[tt].includes(target))
 }
 
@@ -174,6 +209,8 @@ export function getEligibleTaskTypesForMediaType(mediaType: MediaType | null): s
       // when dragging a video.
       return Array.from(new Set([...taskTypesAccepting('video'), ...taskTypesAccepting('image')]))
     case 'audio':
+      // Audio only routes to audio-input tasks — no cross-media bridge.
+      return taskTypesAccepting('audio')
     case 'text':
     case 'grid':
     case null:
@@ -183,37 +220,42 @@ export function getEligibleTaskTypesForMediaType(mediaType: MediaType | null): s
 }
 
 // Media-input parameter slots → the media type they default to. A tool can
-// narrow/override this per slot with `x-accept-media: ['image' | 'video', ...]`.
-const MEDIA_INPUT_SLOT_DEFAULTS: Record<string, 'image' | 'video'> = {
+// narrow/override this per slot with `x-accept-media: ['image'|'video'|'audio', ...]`.
+const MEDIA_INPUT_SLOT_DEFAULTS: Record<string, 'image' | 'video' | 'audio'> = {
   input_images: 'image',
   input_videos: 'video',
+  input_audios: 'audio',
 }
+
+const MEDIA_VALUES = new Set(['image', 'video', 'audio'])
 
 /**
  * Read a tool's declared accepted input media from its parameter_schema's
- * media-input slots, honoring per-slot `x-accept-media` overrides. Returns null
- * when no parameter_schema (or no media-input slot) is available — callers then
+ * media-input slots, honoring per-slot `x-accept-media` overrides.
+ *
+ * Returns the accepted set when a parameter_schema is present — INCLUDING an
+ * empty set when the schema has no media-input slot (the tool definitively
+ * accepts no media input, e.g. a pure text→audio model). Returns null only when
+ * no parameter_schema is available at all (e.g. an orphaned pin), so callers can
  * fall back to the task-type defaults in TASK_INPUT_MEDIA.
  */
 export function getToolDeclaredAcceptMedia(
   tool: { parameter_schema?: Record<string, any> }
-): Set<'image' | 'video'> | null {
+): Set<'image' | 'video' | 'audio'> | null {
   const props = tool?.parameter_schema?.properties
   if (!props || typeof props !== 'object') return null
-  const accepted = new Set<'image' | 'video'>()
-  let found = false
+  const accepted = new Set<'image' | 'video' | 'audio'>()
   for (const [slot, defaultType] of Object.entries(MEDIA_INPUT_SLOT_DEFAULTS)) {
     const schema = props[slot]
     if (!schema) continue
-    found = true
     const declared = Array.isArray(schema['x-accept-media']) ? schema['x-accept-media'] : null
     if (declared) {
-      for (const m of declared) if (m === 'image' || m === 'video') accepted.add(m)
+      for (const m of declared) if (MEDIA_VALUES.has(m)) accepted.add(m)
     } else {
       accepted.add(defaultType)
     }
   }
-  return found ? accepted : null
+  return accepted
 }
 
 /**
@@ -236,36 +278,36 @@ export function isToolCompatibleWithMediaType(
   }
 
   // Sets default to image inputs; caller resolves the real content type when known.
-  const target: 'image' | 'video' | null =
+  const target: 'image' | 'video' | 'audio' | null =
     mediaType === 'image' || mediaType === 'set' ? 'image'
     : mediaType === 'video' ? 'video'
+    : mediaType === 'audio' ? 'audio'
     : null
   if (!target) {
     const label = mediaType || 'this type'
     return { compatible: false, reason: `No tools support ${label} input` }
   }
 
+  const reason = `Tool does not accept ${target} input`
+
   const toolTaskTypes = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
   const transformTaskTypes = toolTaskTypes.filter(tt => TASK_INPUT_MEDIA[tt])
   if (transformTaskTypes.length === 0) {
-    return {
-      compatible: false,
-      reason: target === 'video' ? 'Tool does not accept video input' : 'Tool does not accept image input'
-    }
+    return { compatible: false, reason }
   }
 
-  // Per-tool override (e.g. video-only filter) wins; otherwise the union of the
-  // transform tasks' default accepted media.
+  // Per-tool override (audio input is optional per-tool, a video-only filter, etc.)
+  // wins; otherwise the union of the transform tasks' default accepted media.
   const declared = getToolDeclaredAcceptMedia(tool)
   const accepted = declared ?? new Set(transformTaskTypes.flatMap(tt => TASK_INPUT_MEDIA[tt]))
 
-  // Frame-grab bridge: a video can go anywhere an image is accepted.
-  const ok = target === 'image' ? accepted.has('image') : (accepted.has('video') || accepted.has('image'))
+  // Frame-grab bridge: a video can go anywhere an image is accepted. Audio has no
+  // cross-media bridge — it only goes to tools with a declared audio input.
+  const ok = target === 'audio' ? accepted.has('audio')
+    : target === 'image' ? accepted.has('image')
+    : (accepted.has('video') || accepted.has('image'))
   if (!ok) {
-    return {
-      compatible: false,
-      reason: target === 'video' ? 'Tool does not accept video input' : 'Tool does not accept image input'
-    }
+    return { compatible: false, reason }
   }
 
   return { compatible: true }

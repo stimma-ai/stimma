@@ -24,6 +24,7 @@
           <JobTile
             :job="cell.job"
             :is-video="isVideo"
+            :is-audio="isAudio"
             :image-mode="imageMode"
             :markers="markers"
             :media-markers="mediaMarkers"
@@ -44,6 +45,7 @@
           <JobTile
             :job="cell.job"
             :is-video="isVideo"
+            :is-audio="isAudio"
             :image-mode="imageMode"
             :markers="markers"
             :media-markers="mediaMarkers"
@@ -106,6 +108,7 @@ withDefaults(defineProps<{
   complete: boolean
   showHeader?: boolean
   isVideo?: boolean
+  isAudio?: boolean
   imageMode?: 'cover' | 'fit'
   markers?: Marker[]
   mediaMarkers?: Record<number, Marker[]>

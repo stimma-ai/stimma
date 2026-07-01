@@ -208,6 +208,22 @@
           <div class="text-content-tertiary mb-0.5">Resolution</div>
           <div class="text-content">{{ media.width }} &times; {{ media.height }}</div>
         </div>
+        <div v-if="media.duration" class="bg-overlay-subtle p-2 rounded">
+          <div class="text-content-tertiary mb-0.5">Duration</div>
+          <div class="text-content">{{ formatDuration(media.duration) }}</div>
+        </div>
+        <div v-if="media.audio_sample_rate" class="bg-overlay-subtle p-2 rounded">
+          <div class="text-content-tertiary mb-0.5">Sample Rate</div>
+          <div class="text-content">{{ formatSampleRate(media.audio_sample_rate) }}</div>
+        </div>
+        <div v-if="media.audio_bit_depth" class="bg-overlay-subtle p-2 rounded">
+          <div class="text-content-tertiary mb-0.5">Bit Depth</div>
+          <div class="text-content">{{ media.audio_bit_depth }}-bit</div>
+        </div>
+        <div v-if="media.audio_channels" class="bg-overlay-subtle p-2 rounded">
+          <div class="text-content-tertiary mb-0.5">Channels</div>
+          <div class="text-content">{{ formatChannels(media.audio_channels) }}</div>
+        </div>
         <div v-if="media.created_date" class="bg-overlay-subtle p-2 rounded">
           <div class="text-content-tertiary mb-0.5">Created</div>
           <div class="text-content">{{ formatDate(media.created_date) }}</div>
@@ -403,6 +419,25 @@ function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatDuration(seconds) {
+  if (!seconds || isNaN(seconds)) return ''
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+function formatSampleRate(hz) {
+  if (!hz) return ''
+  if (hz >= 1000) return `${(hz / 1000).toFixed(hz % 1000 === 0 ? 0 : 1)} kHz`
+  return `${hz} Hz`
+}
+
+function formatChannels(channels) {
+  if (channels === 1) return 'Mono'
+  if (channels === 2) return 'Stereo'
+  return `${channels} channels`
 }
 
 // Markers: load for the displayed media (idempotent shared-singleton calls).

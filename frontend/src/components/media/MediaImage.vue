@@ -14,7 +14,7 @@
     :img-class="imgClass"
     :loading="loading"
     :draggable="draggable"
-    :retry-on-error="thumbnail"
+    :retry-on-error="thumbnail || isAudio"
     @click="$emit('click', $event)"
     @load="$emit('load', $event)"
     @error="$emit('error', $event)"
@@ -71,6 +71,10 @@ interface Props {
   fileFormat?: string
   /** Whether this is a video file */
   isVideo?: boolean
+  /** Whether this is an audio file. Audio has no renderable "full file", so we
+   *  always show the waveform thumbnail (even in fit mode) instead of trying to
+   *  load the raw audio into an <img> (which errors). */
+  isAudio?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -102,7 +106,9 @@ const imageSrc = computed(() => {
   const identifier = props.fileHash ?? props.mediaId
   if (!identifier) return undefined
 
-  if (props.thumbnail) {
+  // Audio: never load the raw file into an <img> — use the waveform thumbnail
+  // regardless of fit/full mode (matches how the library renders audio).
+  if (props.thumbnail || props.isAudio) {
     return getThumbnailUrl(identifier, props.thumbnailSize, { mode: props.thumbnailMode })
   }
   return getMediaFileUrl(identifier)

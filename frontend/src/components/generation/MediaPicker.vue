@@ -1,6 +1,7 @@
 <template>
   <div
     class="relative space-y-3 mb-6"
+    :class="disabled ? 'opacity-40 pointer-events-none' : ''"
     :data-drop-zone="`media-picker-${accept}`"
     @dragover.prevent="onDragOver"
     @dragleave="onDragLeave"
@@ -34,9 +35,11 @@
                   ? (hasControlnet && accept === 'image'
                       ? 'w-[17rem] h-[9.5rem] cursor-grab'
                       : 'w-[17rem] h-[9.5rem] cursor-grab border border-surface-raised rounded-lg')
-                  : (hasControlnet && accept === 'image'
-                      ? 'w-full h-[18.5rem]'
-                      : 'w-full h-[18.5rem] border border-surface-raised rounded-lg'),
+                  : (accept === 'audio'
+                      ? 'w-full h-[7rem] border border-surface-raised rounded-lg'
+                      : (hasControlnet && accept === 'image'
+                          ? 'w-full h-[18.5rem]'
+                          : 'w-full h-[18.5rem] border border-surface-raised rounded-lg')),
                 dragIndex === item.originalIndex ? 'opacity-30' : '',
                 dropIndex === index && dropIndex !== dragIndex ? 'ring-2 ring-blue-500' : ''
               ]"
@@ -106,6 +109,14 @@
                 @error="onVideoError($event, item)"
               />
 
+              <!-- Audio preview: waveform band + compact inline player (matches how
+                   audio reads everywhere else in the app — library grid, slideshow). -->
+              <CompactAudioPlayer
+                v-else-if="accept === 'audio'"
+                :src="getMediaUrl(item)"
+                :media-id="item.mediaId"
+              />
+
               <!-- Video error fallback -->
               <div v-if="accept === 'video' && videoErrors[item.path]" class="absolute inset-0 flex items-center justify-center bg-surface">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-8 h-8 text-content-muted">
@@ -157,8 +168,8 @@
                 <span class="text-[10px] uppercase tracking-wide text-white font-semibold leading-none">{{ slotBadge(index) }}</span>
               </div>
 
-              <!-- Order badge -->
-              <div v-else-if="!batchMode" :class="[
+              <!-- Order badge (only meaningful once there's more than one item to order) -->
+              <div v-else-if="!batchMode && displayItems.length > 1" :class="[
                 'absolute flex items-center justify-center pointer-events-none',
                 reorderable ? 'top-1 left-1 w-6 h-6 bg-black/70 rounded-full' : 'top-1 left-1 w-5 h-5 bg-black/70 rounded-full'
               ]">
@@ -676,7 +687,7 @@
         @drop.prevent.stop="onDrop($event)"
         :class="[
           'bg-surface border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer flex-shrink-0',
-          reorderable ? 'w-[17rem] h-[9.5rem]' : 'w-[26.5rem] h-[18.5rem]',
+          reorderable ? 'w-[17rem] h-[9.5rem]' : (accept === 'audio' ? 'w-[26.5rem] h-[7rem]' : 'w-[26.5rem] h-[18.5rem]'),
           isDragging ? 'border-blue-500 bg-blue-500/10' : 'border-edge hover:border-blue-500 hover:bg-surface'
         ]"
       >
@@ -698,9 +709,14 @@
       </div>
     </div>
 
+    <!-- Disabled reason takes priority over the min-items nag — no point telling
+         the user to add an item this picker is currently blocking them from adding. -->
+    <div v-if="disabled && disabledReason" class="text-xs text-amber-500/80">
+      {{ disabledReason }}
+    </div>
     <!-- Min items validation message -->
-    <div v-if="items.length < minItems" class="text-xs text-yellow-500/70">
-      Add at least {{ minItems }} {{ accept === 'image' ? 'images' : 'videos' }}
+    <div v-else-if="items.length < minItems" class="text-xs text-yellow-500/70">
+      Add at least {{ minItems }} {{ accept === 'image' ? 'images' : accept === 'audio' ? 'audio files' : 'videos' }}
     </div>
 
     <!-- Loading indicator: absolute overlay so it never reflows the layout -->
@@ -771,6 +787,7 @@ import { makeProfileKey } from '../../utils/storageKeys'
 import { useVideoFrameExtraction, type FramePosition } from '../../composables/useVideoFrameExtraction'
 import { addToast } from '../../composables/useToasts'
 import AppImage from '../media/AppImage.vue'
+import CompactAudioPlayer from '../viewers/CompactAudioPlayer.vue'
 import PaintEditorModal from './PaintEditorModal.vue'
 
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl } = useMediaApi()
@@ -841,7 +858,7 @@ export interface MediaItem {
 
 interface Props {
   modelValue: MediaItem[]
-  accept: 'image' | 'video'
+  accept: 'image' | 'video' | 'audio'
   minItems?: number
   maxItems?: number
   reorderable?: boolean
@@ -867,6 +884,11 @@ interface Props {
   frameGrabDefaults?: Array<'first' | 'last'>
   // Stable per-tool key used to persist the frame readout mode (time vs frames).
   frameModeKey?: string
+  // Block all interaction (add/drag/drop/reorder/remove) without touching
+  // modelValue — driven by x-constraints (e.g. Kling: frames vs native audio
+  // are mutually exclusive, so whichever the user set first locks the other).
+  disabled?: boolean
+  disabledReason?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -879,6 +901,7 @@ const props = withDefaults(defineProps<Props>(), {
   controlnetOptions: () => [],
   allowPrep: false,
   slotLabels: () => [],
+  disabled: false,
   batchMode: false,
   frameGrabDefaults: () => [],
   frameModeKey: ''
@@ -898,18 +921,21 @@ const API_BASE = '/api'
 // File accept strings by media type
 const FILE_ACCEPT = {
   image: 'image/jpeg,image/png,image/webp',
-  video: 'video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska'
+  video: 'video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska',
+  audio: 'audio/mpeg,audio/wav,audio/flac,audio/mp4,audio/aac,audio/ogg'
 }
 
 // Upload endpoints by media type
 const UPLOAD_ENDPOINTS = {
   image: '/api/generate/upload-reference',
-  video: '/api/generate/upload-reference-video'
+  video: '/api/generate/upload-reference-video',
+  audio: '/api/generate/upload-reference-audio'
 }
 
 // Reference file endpoints by media type (uses getApiBase() for Tauri compatibility)
-function getReferenceFileEndpoint(type: 'image' | 'video') {
+function getReferenceFileEndpoint(type: 'image' | 'video' | 'audio') {
   const base = getApiBase()
+  if (type === 'audio') return `${base}/generate/reference-audio-file`
   return type === 'video' ? `${base}/generate/reference-video-file` : `${base}/generate/reference-file`
 }
 
@@ -1105,6 +1131,7 @@ const fileAcceptString = computed(() =>
 
 const displayLabel = computed(() => {
   if (props.label) return props.label
+  if (props.accept === 'audio') return 'Reference Audio'
   return props.accept === 'image' ? 'Reference Images' : 'Input Videos'
 })
 
@@ -1217,6 +1244,7 @@ function onVideoError(event: Event, item: MediaItem) {
 
 // Drag and drop handlers for adding items
 function onDragOver() {
+  if (props.disabled) return
   isDragging.value = true
 }
 
@@ -1243,6 +1271,7 @@ async function onTileDrop(event: DragEvent, index: number) {
 
 async function onDrop(event: DragEvent, replaceIndex?: number) {
   isDragging.value = false
+  if (props.disabled) return
 
   // Check for media ID from media library drag
   const mediaId = event.dataTransfer?.getData('application/x-media-id')
@@ -1258,9 +1287,14 @@ async function onDrop(event: DragEvent, replaceIndex?: number) {
   const files = event.dataTransfer?.files
   if (!files || files.length === 0) return
 
-  // Image slots accept images and videos (videos → frame grab); video slots only videos.
+  // Image slots accept images and videos (videos → frame grab); video slots only
+  // videos; audio slots only audio.
   const matchingFiles = Array.from(files).filter(f =>
-    isImageSlot.value ? (f.type.startsWith('image/') || isVideoFile(f)) : f.type.startsWith('video/')
+    isImageSlot.value
+      ? (f.type.startsWith('image/') || isVideoFile(f))
+      : props.accept === 'audio'
+        ? f.type.startsWith('audio/')
+        : f.type.startsWith('video/')
   )
   if (matchingFiles.length === 0) return
 

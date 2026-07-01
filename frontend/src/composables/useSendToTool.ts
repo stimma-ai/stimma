@@ -7,6 +7,7 @@ import {
   toolRequiresMask,
 } from '../utils/toolSchemaUtils'
 import { makeToolDbKey } from '../utils/storageKeys'
+import { getMediaType } from '../utils/mediaTypes'
 
 interface MediaEntry {
   mediaId?: number
@@ -175,11 +176,14 @@ export function useSendToTool() {
       } else {
         // Regular media - copy to reference directory
         const isVideo = mediaItem.is_video || false
+        const isAudio = mediaItem.is_audio || false
         let path = mediaItem.file_path
         let filename: string | undefined
 
         try {
-          const endpoint = isVideo
+          const endpoint = isAudio
+            ? `/api/generate/copy-audio-to-reference?source_path=${encodeURIComponent(mediaItem.file_path)}`
+            : isVideo
             ? `/api/generate/copy-video-to-reference?source_path=${encodeURIComponent(mediaItem.file_path)}`
             : `/api/generate/copy-to-reference?source_path=${encodeURIComponent(mediaItem.file_path)}`
           const copyResponse = await axios.post(endpoint)
@@ -231,14 +235,26 @@ export function useSendToTool() {
       return
     }
 
+    // The dragged media's OWN type decides its slot. Audio must land in the audio
+    // slot, never the visual one: avatar/lip-sync tools have both an image/video
+    // (face) slot and an audio slot, and analyzeToolMultiInputCapability
+    // deliberately reports the VISUAL slot — so without this an audio drop would
+    // wrongly fill input_images.
+    const sendsAudio = mediaItems.some(m => getMediaType({ file_format: m.file_format }) === 'audio')
+    const hasAudioSlot = !!props.input_audios
+
     // image-to-video: use startImage if tool has videoFramePicker or start_image in schema
     // (hasStartImageSlot / hasVideoFramePicker computed above with batch detection)
-    if (effectiveTaskType === 'image-to-video' && (hasStartImageSlot || hasVideoFramePicker)) {
+    if (sendsAudio && hasAudioSlot) {
+      sessionStorage.setItem(storageKey, JSON.stringify({ inputAudios: mediaEntries, appendAudios: true }))
+    } else if (effectiveTaskType === 'image-to-video' && (hasStartImageSlot || hasVideoFramePicker)) {
       sessionStorage.setItem(storageKey, JSON.stringify({ startImage: mediaEntries[0] }))
     } else if (multiInputInfo?.supportsMultiInput) {
       // Schema-driven: tool explicitly accepts arrays
       if (multiInputInfo.inputType === 'videos') {
         sessionStorage.setItem(storageKey, JSON.stringify({ inputVideos: mediaEntries, appendVideos: true }))
+      } else if (multiInputInfo.inputType === 'audios') {
+        sessionStorage.setItem(storageKey, JSON.stringify({ inputAudios: mediaEntries, appendAudios: true }))
       } else {
         sessionStorage.setItem(storageKey, JSON.stringify({ inputImages: mediaEntries, appendImages: true }))
       }

@@ -347,6 +347,20 @@
           />
         </div>
 
+        <!-- Lyrics (audio music tools): a second, prompt-like input. Sits right
+             under the main prompt — the prompt is the production brief (genre,
+             mood), the lyrics are the words sung. Bound to modelParams like the
+             other special params; empty → instrumental / auto-written lyrics. -->
+        <div v-if="hasLyrics" class="mb-6">
+          <label class="block text-sm font-medium text-content mb-1.5">Lyrics</label>
+          <textarea
+            v-model="modelParams.lyrics"
+            rows="5"
+            placeholder="Optional lyrics. Use section tags like [Verse], [Chorus]. Leave empty for an instrumental or auto-written track."
+            class="w-full rounded-lg border border-edge-subtle bg-overlay-faint px-3 py-2 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-blue-500/50 resize-y"
+          />
+        </div>
+
         <!-- Page-level agent chat. Mounted unconditionally and teleported into
              the single full-width dock so it survives layout switches without
              ever changing target — the chat stays put while the studio/stage
@@ -385,6 +399,21 @@
           @explode="explodeBatch"
         />
 
+        <!-- Reference audio: its own section, separate from the visual input
+             above (audio-conditioned tools like lip-sync / avatar). -->
+        <MediaPicker
+          v-if="audioInputConfig"
+          :model-value="audioInputItems"
+          @update:model-value="updateAudioInputItems"
+          :accept="audioInputConfig.accept"
+          :min-items="audioInputConfig.min"
+          :max-items="audioInputConfig.max"
+          :reorderable="audioInputConfig.reorderable"
+          :label="audioInputConfig.label"
+          :description="audioInputConfig.description"
+          :allow-prep="false"
+        />
+
         <!-- Inpaint: Combined source image + Mask editor -->
         <MaskEditor
           ref="maskEditorRef"
@@ -414,7 +443,7 @@
           :model-value="frameItems"
           @update:model-value="updateFrameItems"
           accept="image"
-          :min-items="1"
+          :min-items="frameMinItems"
           :max-items="hasEndFrame ? 2 : 1"
           :reorderable="hasEndFrame"
           label="Reference Frames"
@@ -424,6 +453,8 @@
           :allow-prep="true"
           :allow-sets="false"
           :controlnet-options="controlnetOptions"
+          :disabled="frameConstraintState.disabled"
+          :disabled-reason="frameConstraintState.reason"
           @view-media="openSingleImageSlideshow"
           @suggest-resolution="onSuggestResolution"
           @suggest-aspect="onSuggestAspect"
@@ -436,7 +467,7 @@
             <div class="flex items-center justify-between gap-4 px-4 py-3">
               <div class="min-w-0 flex-1">
                 <div class="text-sm font-medium text-content">Duration</div>
-                <div class="text-xs text-content-muted mt-0.5">Video length in seconds</div>
+                <div class="text-xs text-content-muted mt-0.5">{{ outputsAudio ? 'Audio length in seconds' : 'Video length in seconds' }}</div>
               </div>
               <!-- Dropdown for fixed duration options -->
               <SettingsDropdown
@@ -541,8 +572,10 @@
           @upload="uploadLora"
         />
 
-        <!-- Post-processing chain (auto-runs after each generation when On) -->
+        <!-- Post-processing chain (auto-runs after each generation when On).
+             Not shown for audio tools — no audio post-processing chains exist. -->
         <PostProcessingPanel
+          v-if="!outputsAudio"
           v-model:chain="toolChain"
           :current-tool-id="fullToolIdFromProps"
           :base-media-type="outputsVideo ? 'video' : 'image'"
@@ -551,7 +584,7 @@
         <!-- Generic Parameters (dynamic from tool schema, grouped) -->
         <SchemaParamGroup
           :groups="groupedGenericParams"
-          :values="modelParams"
+          :values="constraintValues"
           :is-group-collapsed="getGroupCollapsed"
           :on-toggle-group-collapsed="toggleGroupCollapsed"
           @update:param="(name, value) => { modelParams[name] = value }"
@@ -616,6 +649,16 @@
             :src="getMediaFileUrl(stageCurrentHash)"
             class="w-full h-full object-contain"
             autoplay loop muted playsinline
+          />
+          <!-- Audio result: inline player. Stop click propagation so transport
+               controls don't also trigger the slideshow zoom on the wrapper. -->
+          <AudioPlayer
+            v-else-if="outputsAudio && stageCurrentMediaId != null"
+            :key="`tool-audio-${stageCurrentMediaId}`"
+            :src="stageCurrentHash ? getMediaFileUrl(stageCurrentHash) : ''"
+            :media-id="stageCurrentMediaId"
+            class="w-full h-full cursor-default"
+            @click.stop
           />
           <MediaImage
             v-else-if="stageCurrentMediaId != null"
@@ -707,6 +750,7 @@
           :batch-jobs="jobsManager.batchJobs.value"
           :active-chain-runs="jobsManager.activeChainRuns.value"
           :is-video="outputsVideo"
+          :is-audio="outputsAudio"
           :image-mode="uiState.imageMode"
           :current-media-id="layoutMode === 'stage' ? stageCurrentMediaId : null"
           :tool-display-name="tool?.name"
@@ -865,6 +909,7 @@ import ForeverModeButton from '../components/ForeverModeButton.vue'
 import BatchRunButton from '../components/BatchRunButton.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import { MediaContextMenu, MediaImage } from '../components/media'
+import { AudioPlayer } from '../components/viewers'
 import {
   AIMaskAssistant,
   AIPromptEditor,
@@ -889,6 +934,7 @@ import FreezeToolDialog from '../components/flow/FreezeToolDialog.vue'
 import { useFlowsApi } from '../composables/useFlowsApi'
 import PostProcessingPanel from '../components/generation/postprocessing/PostProcessingPanel.vue'
 import SchemaParamGroup from '../components/generation/SchemaParamGroup.vue'
+import { resolveParamConstraints } from '../utils/paramConstraints'
 import { CHAIN_TOOL_TASK_TYPES, defaultInsertIndex, emptyChain, mergeRecordedChain, newStepId, normalizeChain, stepInputMedia, stepAcceptedMedia, toRecordedSteps, type ChainStep, type PostProcessingChain } from '../utils/postProcessingChain'
 import { CHAIN_FILTER_DEFS, getChainFilterDef, getChainFilterDefaults } from '@stimma/image-editor'
 import RemixBanner from '../components/generation/RemixBanner.vue'
@@ -1370,6 +1416,18 @@ function updateMediaInputItems(items: any[]) {
   if (globalPrefs.value.batchMode && items.length === 0) {
     globalPrefs.value.batchMode = false
   }
+}
+
+// Reference audio is its own input section (audio-conditioned tools); it has a
+// dedicated picker and state slot, independent of the visual input above.
+const audioInputItems = computed(() => {
+  if (!audioInputConfig.value) return []
+  return globalPrefs.value.inputAudios
+})
+
+function updateAudioInputItems(items: any[]) {
+  if (!audioInputConfig.value) return
+  globalPrefs.value.inputAudios = items
 }
 
 // Explode a batch into ordinary reference items: keep what the slot can hold,
@@ -2474,12 +2532,17 @@ const {
   hasResolution,
   hasFrameCount,
   hasDuration,
+  hasLyrics,
   allowedDurations,
   hasVideoFrames,
   hasEndFrame,
+  frameMinItems,
+  frameConstraints,
   outputsVideo,
+  outputsAudio,
   isFromScratch,
   mediaInputConfig,
+  audioInputConfig,
   aspectRatioChoices,
   imageSizeChoices,
   parameterSchema,
@@ -2492,9 +2555,48 @@ const {
   availableLoras,
 })
 
+// Values used to evaluate x-constraints (SchemaParamGroup.vue, below). Frame
+// state lives in videoImages/frameItems, and reference-audio state in
+// globalPrefs.inputAudios (via audioInputItems) — neither is part of
+// modelParams, so params like Kling's `sound` (constrained on `input_images`)
+// or Fish Audio / Qwen3-TTS's `voice` (constrained on `input_audios`) need
+// them available live too.
+const constraintValues = computed(() => ({
+  ...modelParams.value,
+  ...(hasVideoFrames.value ? { input_images: frameItems.value } : {}),
+  ...(audioInputConfig.value ? { input_audios: audioInputItems.value } : {}),
+}))
+
+// input_images isn't a GenericParam (it has its own MediaPicker, not a
+// SchemaParamGroup row), so its constraint state — e.g. Kling: frames
+// disabled while native audio is on — is resolved directly here rather than
+// via the groupedGenericParams loop above.
+const frameConstraintState = computed(() => resolveParamConstraints(frameConstraints.value, constraintValues.value))
+
+// Converges any param with an active `disable` constraint + force_value to
+// that value — regardless of whether the user changed the constraining param
+// (e.g. dropped a frame) or the constrained param (e.g. toggled audio) first.
+// Not gated by isInitialLoading: a restored preset/remix with an invalid
+// combination (e.g. sound:true + a frame) must self-correct on load too.
+watch([groupedGenericParams, constraintValues], () => {
+  for (const group of groupedGenericParams.value) {
+    for (const param of group.params) {
+      const state = resolveParamConstraints(param.constraints, constraintValues.value)
+      if (state.disabled && state.forceValue !== undefined && modelParams.value[param.name] !== state.forceValue) {
+        modelParams.value[param.name] = state.forceValue
+      }
+    }
+  }
+}, { deep: true, immediate: true })
+
 // Video output → cinematography enhancement. This is the AUTHORITATIVE signal
 // (we know the task); the backend doesn't rely on recognizing the model string.
 const enhanceIsVideo = computed(() => !!outputsVideo.value)
+
+// Audio output → sound-focused enhancement (text-to-audio / music / sound /
+// speech). Authoritative like enhanceIsVideo; keeps the enhancer from rewriting
+// an audio prompt into a visual scene.
+const enhanceIsAudio = computed(() => !!outputsAudio.value)
 
 // Image edit → edit-style enhancement. Input images on a non-video tool mean the
 // prompt is an instruction over those images, not a fresh scene to describe. The
@@ -2530,6 +2632,7 @@ const { getCachedImprovedPrompt, onCacheUsed, updateConcurrentJobs } = usePrompt
   autoImproveInstructions: computed(() => globalPrefs.value.promptOptions?.autoImprove?.instructions ?? null),
   model: computed(() => toolModelString.value || null),
   isVideo: enhanceIsVideo,
+  isAudio: enhanceIsAudio,
   inputImageCount: enhanceInputImageCount,
 })
 
@@ -2616,6 +2719,7 @@ const inputFieldChecks: Record<string, () => boolean> = {
     return globalPrefs.value.inputImages?.length > 0
   },
   'input_videos': () => globalPrefs.value.inputVideos?.length >= (mediaInputConfig.value?.min || 2),
+  'input_audios': () => globalPrefs.value.inputAudios?.length >= (audioInputConfig.value?.min || 1),
   'mask': () => !!maskDataUrl.value,
   'prompt': () => true, // Prompts are always optional (unconditional generation)
   'negative_prompt': () => true, // Always optional
@@ -3179,6 +3283,22 @@ function loadPendingInput() {
       }
     }
 
+    // Audio handoff (send-to-tool of an audio asset → audio-conditioned tools)
+    if (config.inputAudios?.length > 0) {
+      const newAudios = config.inputAudios.map((aud: any) => ({
+        path: aud.path,
+        filename: aud.filename || aud.hash,
+        hash: aud.hash,
+        mediaId: aud.mediaId,
+      }))
+      const max = audioInputConfig.value?.max ?? 1
+      if (config.appendAudios && max > 1) {
+        globalPrefs.value.inputAudios = [...globalPrefs.value.inputAudios, ...newAudios].slice(0, max)
+      } else {
+        globalPrefs.value.inputAudios = newAudios.slice(0, max)
+      }
+    }
+
     // Clear only the loadInput trigger; preserve project_id (and any other
     // params) so the KeepAlive component key stays on the project-scoped
     // instance instead of bouncing to the global tool.
@@ -3728,6 +3848,8 @@ async function submitOneJob() {
           model: toolModelString.value || null,
           // Task-authoritative: video tools always get cinematography.
           isVideo: enhanceIsVideo.value,
+          // Task-authoritative: audio tools always get the sound-focused style.
+          isAudio: enhanceIsAudio.value,
           // Input images on a non-video tool → edit-style enhancement.
           inputImageCount: enhanceInputImageCount.value,
           mode: enhanceMode.value,
@@ -3907,12 +4029,13 @@ async function submitOneJob() {
 function mediaIdCompanionField(field: string): string {
   if (field === 'input_images') return 'input_media_ids'
   if (field === 'input_videos') return 'input_video_media_ids'
+  if (field === 'input_audios') return 'input_audio_media_ids'
   return `${field}_media_id`
 }
 
 function isSchemaMediaField(name: string, schema: any): boolean {
   if (!schema) return false
-  if (name === 'input_images' || name === 'input_videos') return true
+  if (name === 'input_images' || name === 'input_videos' || name === 'input_audios') return true
   const type = String(schema.type || '').toLowerCase()
   const format = String(schema.format || schema['x-format'] || '').toLowerCase()
   const control = String(schema['x-control'] || '').toLowerCase()
@@ -3920,9 +4043,11 @@ function isSchemaMediaField(name: string, schema: any): boolean {
     type === 'media' ||
     format.includes('image') ||
     format.includes('video') ||
+    format.includes('audio') ||
     control.includes('image') ||
     control.includes('video') ||
-    /(^|_)(image|video)s?$/.test(name)
+    control.includes('audio') ||
+    /(^|_)(image|video|audio)s?$/.test(name)
   )
 }
 

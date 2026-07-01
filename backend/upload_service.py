@@ -42,7 +42,9 @@ class UploadService:
 
     ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
     ALLOWED_VIDEO_EXTENSIONS = {'.mp4', '.webm', '.mov', '.avi', '.mkv'}
-    ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS | ALLOWED_VIDEO_EXTENSIONS
+    # Mirrors media_scanner.AUDIO_EXTENSIONS
+    ALLOWED_AUDIO_EXTENSIONS = {'.mp3', '.wav', '.flac', '.aac', '.m4a', '.ogg'}
+    ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS | ALLOWED_VIDEO_EXTENSIONS | ALLOWED_AUDIO_EXTENSIONS
 
     def __init__(self, profile_id: str = None):
         self.profile_id = profile_id or get_current_profile()
@@ -212,12 +214,38 @@ class UploadService:
             # Compute hash
             file_hash = self._compute_file_hash(dest_path)
 
-            # Determine if video
+            # Determine media kind
             is_video = ext in self.ALLOWED_VIDEO_EXTENSIONS
+            is_audio = ext in self.ALLOWED_AUDIO_EXTENSIONS
             file_format = ext.lstrip('.')
 
-            # Get dimensions
-            if is_video:
+            # Get dimensions (audio has none)
+            duration = None
+            audio_sample_rate = None
+            audio_channels = None
+            audio_bit_depth = None
+            audio_bitrate = None
+            audio_codec = None
+            if is_audio:
+                width, height = 0, 0
+                # Audio has no visual dimensions but has audio-specific metadata.
+                # Extract it inline (same extractor as the scan/ingestion and
+                # generation paths) so uploaded audio is a first-class media item
+                # with duration + sample rate + channels + codec. Uploads set
+                # metadata_status='completed', so the background metadata pass
+                # never backfills this — it must happen here.
+                try:
+                    from media_scanner import get_audio_metadata
+                    audio_meta = get_audio_metadata(dest_path)
+                    duration = audio_meta.get('duration')
+                    audio_sample_rate = audio_meta.get('sample_rate')
+                    audio_channels = audio_meta.get('channels')
+                    audio_bit_depth = audio_meta.get('bit_depth')
+                    audio_bitrate = audio_meta.get('bitrate')
+                    audio_codec = audio_meta.get('codec')
+                except Exception as e:
+                    log.warning(f"Failed to extract audio metadata from upload {dest_path}: {e}")
+            elif is_video:
                 width, height = self._get_video_dimensions(dest_path)
             else:
                 width, height = self._get_image_dimensions(dest_path)
@@ -228,7 +256,7 @@ class UploadService:
             raw_metadata = None
             extracted_prompt = None
             generation_metadata = None
-            if not is_video:
+            if not is_video and not is_audio:
                 try:
                     from exif_extractor import extract_prompt_from_exif, parse_external_metadata
                     raw_metadata, extracted_prompt = extract_prompt_from_exif(dest_path)
@@ -263,6 +291,12 @@ class UploadService:
                     width=width,
                     height=height,
                     megapixels=megapixels,
+                    duration=duration,
+                    audio_sample_rate=audio_sample_rate,
+                    audio_channels=audio_channels,
+                    audio_bit_depth=audio_bit_depth,
+                    audio_bitrate=audio_bitrate,
+                    audio_codec=audio_codec,
                     raw_metadata=raw_metadata,
                     extracted_prompt=extracted_prompt,
                     generation_metadata=generation_metadata,

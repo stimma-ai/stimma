@@ -4,6 +4,7 @@ import { getToolDefaults } from '../utils/generationDefaults'
 import { getCurrentProfileId } from './useProfile'
 import { makeToolProfileKey } from '../utils/storageKeys'
 import { emptyChain, normalizeChain, type PostProcessingChain } from '../utils/postProcessingChain'
+import { AUDIO_TASK_TYPES } from '../utils/taskTypeIcons'
 
 // Tool state type (parameters, loras, etc.)
 export type ToolState = Record<string, any>
@@ -134,6 +135,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       return rest
     })
     state.inputVideos = globalPrefs.value.inputVideos || []
+    state.inputAudios = globalPrefs.value.inputAudios || []
     state.promptOptions = globalPrefs.value.promptOptions || {
       autoImprove: { enabled: false, instructions: '' },
       varyPrompt: { enabled: false, instructions: '' }
@@ -174,6 +176,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     globalPrefs.value.prompt = state.prompt ?? ''
     globalPrefs.value.inputImages = state.inputImages ?? []
     globalPrefs.value.inputVideos = state.inputVideos ?? []
+    globalPrefs.value.inputAudios = state.inputAudios ?? []
     globalPrefs.value.promptOptions = state.promptOptions ?? {
       autoImprove: { enabled: false, instructions: '' },
       varyPrompt: { enabled: false, instructions: '' }
@@ -260,7 +263,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
 
     for (const key of allKeys) {
       if (EPHEMERAL_STATE_KEYS.has(key)) continue
-      if (key === 'inputImages' || key === 'inputVideos') continue
+      if (key === 'inputImages' || key === 'inputVideos' || key === 'inputAudios') continue
 
       // agentInstructions defaults to '' but older states omit the key entirely;
       // treat absent and empty as equal so loading a pre-feature preset doesn't
@@ -391,6 +394,7 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       negative_prompt: schemaDefaults.negativePrompt ?? '',
       inputImages: [],
       inputVideos: [],
+      inputAudios: [],
       promptOptions: {
         autoImprove: { enabled: false, instructions: '' },
         varyPrompt: { enabled: false, instructions: '' }
@@ -454,6 +458,19 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
 
   // Initialize state from preset or tool defaults
   async function initializeState(savedPresetId: number | null) {
+    // Seed the task-type-aware Enhance Prompt default before any saved state
+    // is applied below. Brand-new tools (no preset, no localStorage, no
+    // backend-saved state) never hit an applyToolState() call in this
+    // function, so this seed is what actually sticks for them; a real saved
+    // value (preset/localStorage/tool state) overrides it further down.
+    globalPrefs.value.promptOptions = {
+      ...globalPrefs.value.promptOptions,
+      autoImprove: {
+        enabled: !(AUDIO_TASK_TYPES as readonly string[]).includes(tool.value?.task_type || ''),
+        instructions: globalPrefs.value.promptOptions?.autoImprove?.instructions ?? '',
+      },
+    }
+
     if (savedPresetId) {
       try {
         const { getPreset } = usePresetsApi()

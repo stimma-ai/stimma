@@ -408,7 +408,7 @@ class ToolParamExpectation:
     required: bool = False
 
 
-_MEDIA_ARRAY_CONTROLS = frozenset({"image_picker", "video_frame_picker"})
+_MEDIA_ARRAY_CONTROLS = frozenset({"image_picker", "video_frame_picker", "audio_picker"})
 
 # Kwargs `tool()` accepts that are NOT part of any tool's parameter_schema. They
 # are resolved into real schema params before dispatch (see resolve_params_from),

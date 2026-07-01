@@ -73,8 +73,143 @@ def _valid_asset_id(asset_id: str) -> bool:
 
 # Media inputs are identified by their declared `x-control`, never by field name (STP keeps
 # field names conventional, not load-bearing). These controls carry uploadable file paths.
-_ARRAY_MEDIA_CONTROLS = {"image_picker", "video_picker", "video_frame_picker"}
+_ARRAY_MEDIA_CONTROLS = {"image_picker", "video_picker", "video_frame_picker", "audio_picker"}
 _SINGLE_MEDIA_CONTROLS = {"mask_editor"}
+
+
+# ── Schema-driven media conversion (STP `x-accept-media`) ────────────────────
+# A media input can declare the MIME types the provider accepts. We convert an
+# asset ONLY when its (sniffed) format isn't accepted, and target the provider's
+# preferred format — preferring lossless so we never add a second lossy generation.
+
+# Aliases → canonical MIME used in accept lists.
+_MIME_ALIASES = {
+    "audio/mp3": "audio/mpeg", "audio/x-wav": "audio/wav", "audio/wave": "audio/wav",
+    "audio/x-m4a": "audio/mp4", "audio/m4a": "audio/mp4", "audio/x-aac": "audio/aac",
+    "image/jpg": "image/jpeg",
+}
+
+# target MIME → (suffix, ffmpeg output args) for audio/video transcodes.
+_AV_TARGETS = {
+    "audio/wav": (".wav", ["-vn", "-c:a", "pcm_s16le"]),
+    "audio/mpeg": (".mp3", ["-vn", "-c:a", "libmp3lame", "-b:a", "192k"]),
+    "audio/aac": (".m4a", ["-vn", "-c:a", "aac", "-b:a", "192k"]),
+    "video/mp4": (".mp4", ["-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac"]),
+    "video/webm": (".webm", ["-c:v", "libvpx-vp9", "-c:a", "libopus"]),
+}
+
+
+def _canon_mime(m: Optional[str]) -> Optional[str]:
+    if not m:
+        return None
+    m = m.lower()
+    return _MIME_ALIASES.get(m, m)
+
+
+def _sniff_mime(data: bytes, category: Optional[str]) -> Optional[str]:
+    """Best-effort MIME from magic bytes. `category` (image/audio/video) resolves
+    the ftyp ambiguity (m4a vs mp4). Extension/declared type lie (webp named .png,
+    m4a labeled x-m4a), so the actual bytes are authoritative."""
+    b = data[:16]
+    if len(b) < 4:
+        return None
+    if b[:4] == b"\x89PNG":
+        return "image/png"
+    if b[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if b[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    if b[:4] == b"RIFF" and data[8:12] == b"WAVE":
+        return "audio/wav"
+    if b[:3] == b"GIF":
+        return "image/gif"
+    if b[4:8] == b"ftyp":
+        return "video/mp4" if category == "video" else "audio/mp4"
+    if b[:3] == b"ID3" or (b[0] == 0xFF and (b[1] & 0xE0) == 0xE0):
+        return "audio/mpeg"
+    if b[:4] == b"fLaC":
+        return "audio/flac"
+    if b[:4] == b"OggS":
+        return "video/ogg" if category == "video" else "audio/ogg"
+    if b[:4] == b"\x1aE\xdf\xa3":
+        return "video/webm"
+    return None
+
+
+def _transcode_image_to(data: bytes, target_mime: str) -> Optional[bytes]:
+    from io import BytesIO
+    try:
+        try:
+            from utils.image_ops import open_oriented
+            img = open_oriented(BytesIO(data))
+        except Exception:
+            from PIL import Image
+            img = Image.open(BytesIO(data))
+        buf = BytesIO()
+        if target_mime == "image/jpeg":
+            img.convert("RGB").save(buf, format="JPEG", quality=95)
+        else:
+            img.save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception as e:
+        log.warning(f"Image transcode to {target_mime} failed: {e}")
+        return None
+
+
+async def _transcode_av_to(src_path, target_mime: str) -> Optional[bytes]:
+    spec = _AV_TARGETS.get(target_mime)
+    if spec is None or shutil.which("ffmpeg") is None:
+        return None
+    suffix, args = spec
+    out_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            out_path = tmp.name
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-y", "-i", str(src_path), *args, out_path,
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            log.warning(f"ffmpeg transcode to {target_mime} failed: {stderr.decode(errors='replace')[:300]}")
+            return None
+        with open(out_path, "rb") as f:
+            return f.read()
+    except Exception as e:
+        log.warning(f"AV transcode error: {e}")
+        return None
+    finally:
+        if out_path:
+            try:
+                os.unlink(out_path)
+            except OSError:
+                pass
+
+
+async def _prepare_media_for_accept(src_path, data: bytes, declared_mime: str, accept: Dict[str, Any]) -> Optional[tuple[bytes, str]]:
+    """Return (bytes, mime) if the asset was converted to a provider-accepted
+    format, or None to pass the source through unchanged. Raises with a clear
+    message if conversion is required but impossible."""
+    accepted = [_canon_mime(m) for m in (accept.get("mime_types") or [])]
+    if not accepted:
+        return None
+    category = accepted[0].split("/")[0]
+    source_mime = _canon_mime(_sniff_mime(data, category)) or _canon_mime(declared_mime)
+    if source_mime and source_mime in accepted:
+        return None  # already accepted → passthrough (no quality loss)
+
+    target = _canon_mime(accept.get("transcode_to")) or accepted[0]
+    if target.startswith("image/"):
+        out = _transcode_image_to(data, target)
+    else:
+        out = await _transcode_av_to(src_path, target)
+    if out is None:
+        raise RuntimeError(
+            f"This tool needs {', '.join(accept.get('mime_types') or [])}; "
+            f"couldn't convert the input ({source_mime or declared_mime}). "
+            f"{'ffmpeg is required for audio/video conversion.' if not target.startswith('image/') else ''}".strip()
+        )
+    return out, target
 
 
 def _media_input_keys(parameter_schema: Optional[Dict[str, Any]]) -> tuple[set, set]:
@@ -1404,7 +1539,9 @@ class JsonRpcProvider(ToolProvider):
 
         processed = dict(parameters)
 
-        async def upload_file(file_path: str) -> str:
+        schema_props = (parameter_schema or {}).get("properties", {})
+
+        async def upload_file(file_path: str, accept: Optional[Dict[str, Any]] = None) -> str:
             """Upload a file as an asset and return the asset ID."""
             path = Path(file_path)
             if not path.exists() or not path.is_file():
@@ -1414,10 +1551,26 @@ class JsonRpcProvider(ToolProvider):
                 return file_path  # Stdio uses shared filesystem
 
             # WebSocket: upload as asset and return asset ID
-            data = path.read_bytes()
             mime_type, _ = mimetypes.guess_type(str(path))
             if not mime_type:
                 mime_type = "application/octet-stream"
+
+            # Schema-driven conversion: if the tool declared accepted MIME types
+            # (`x-accept-media`) and the source isn't one of them, transcode to the
+            # provider's preferred format (only when needed, lossless-first).
+            if accept and accept.get("mime_types"):
+                data = path.read_bytes()
+                prepared = await _prepare_media_for_accept(path, data, mime_type, accept)
+                if prepared is not None:
+                    out_bytes, out_mime = prepared
+                    asset_id = await self.upload_asset(out_bytes, out_mime)
+                    log.info(f"Converted media input {path.name} -> {out_mime} ({len(out_bytes)} bytes) -> {asset_id}")
+                    return asset_id
+                asset_id = await self.upload_asset(data, mime_type)
+                log.debug(f"Uploaded input asset (accepted as-is): {path.name} ({len(data)} bytes) -> {asset_id}")
+                return asset_id
+
+            data = path.read_bytes()
             asset_id = await self.upload_asset(data, mime_type)
             log.debug(f"Uploaded input asset: {path.name} ({len(data)} bytes) -> {asset_id}")
             return asset_id
@@ -1425,12 +1578,14 @@ class JsonRpcProvider(ToolProvider):
         # Process single file keys
         for key in single_file_keys:
             if key in parameters and isinstance(parameters[key], str):
-                processed[key] = await upload_file(parameters[key])
+                accept = schema_props.get(key, {}).get("x-accept-media")
+                processed[key] = await upload_file(parameters[key], accept)
 
         # Process array file keys
         for key in array_file_keys:
             if key in parameters and isinstance(parameters[key], list):
-                processed[key] = [await upload_file(p) for p in parameters[key] if isinstance(p, str)]
+                accept = schema_props.get(key, {}).get("x-accept-media")
+                processed[key] = [await upload_file(p, accept) for p in parameters[key] if isinstance(p, str)]
 
         return processed
 

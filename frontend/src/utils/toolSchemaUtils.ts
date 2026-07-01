@@ -7,8 +7,8 @@ import type { ProviderTool } from '../composables/useProvidersApi'
 
 export interface MultiInputInfo {
   supportsMultiInput: boolean
-  inputType: 'images' | 'videos' | null
-  propertyName: string | null  // 'input_images', 'input_videos'
+  inputType: 'images' | 'videos' | 'audios' | null
+  propertyName: string | null  // 'input_images', 'input_videos', 'input_audios'
   minItems: number
   maxItems: number
 }
@@ -26,13 +26,14 @@ export function analyzeToolMultiInputCapability(tool: ProviderTool): MultiInputI
   const properties = schema?.properties || {}
   const required = schema?.required || []
 
-  // Pattern 1: Check for array-type input properties
-  const multiInputProps = ['input_images', 'input_videos']
+  // Pattern 1: Check for array-type input properties. Visual inputs are matched
+  // before audio so avatar/lip-sync (visual + audio) report their visual input.
+  const multiInputProps = ['input_images', 'input_videos', 'input_audios']
 
   for (const propName of multiInputProps) {
     const prop = properties[propName]
     if (prop && prop.type === 'array') {
-      const inputType = propName === 'input_images' ? 'images' : 'videos'
+      const inputType = propName === 'input_images' ? 'images' : propName === 'input_videos' ? 'videos' : 'audios'
 
       // Get constraints from schema or ui_hints
       // ui_hints are mapped to x-* properties in JSON Schema by the backend

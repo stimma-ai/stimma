@@ -11,6 +11,7 @@ const INTERNAL_KEYS = new Set([
   'auto_marker_ids',
   'input_media_ids',
   'input_video_media_ids',
+  'input_audio_media_ids',
   '_original_input_paths',
   '_input_preprocessors',
   '_input_preprocessor_params',

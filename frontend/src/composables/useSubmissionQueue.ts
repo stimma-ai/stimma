@@ -36,6 +36,9 @@ export interface SubmitPromptOptions {
     // Whether the tool outputs video — authoritative for cinematography routing
     // (we know the task, so it doesn't depend on the model string being recognized).
     isVideo?: boolean
+    // Whether the tool outputs audio — authoritative for the sound-focused audio
+    // style (text-to-audio / music / sound / speech), same as isVideo.
+    isAudio?: boolean
     // Number of input images the tool will edit (image-to-image / inpaint). >0
     // routes a natural-language image model to the edit style. 0 for text-to-image.
     inputImageCount?: number
@@ -54,7 +57,7 @@ export interface SubmitPromptOptions {
  * Returns the improved prompt, or the original if all retries drop verbatim
  * placeholders. Throws (with a helpful message) on API failure.
  */
-async function improveViaApi(prompt: string, instructions: string | null, model: string | null, isVideo: boolean, inputImageCount: number, mediaId: number | null): Promise<string> {
+async function improveViaApi(prompt: string, instructions: string | null, model: string | null, isVideo: boolean, inputImageCount: number, mediaId: number | null, isAudio: boolean): Promise<string> {
   // Extract [verbatim] segments and replace with placeholders before sending to LLM
   const { processed: promptWithPlaceholders, segments: verbatimSegments } = extractVerbatim(prompt)
   const MAX_RETRIES = 3
@@ -66,6 +69,7 @@ async function improveViaApi(prompt: string, instructions: string | null, model:
       instructions: instructions || null,
       model: model || null,
       is_video: isVideo,
+      is_audio: isAudio,
       input_image_count: inputImageCount,
       media_id: mediaId ?? null,
     })
@@ -143,7 +147,7 @@ async function applyImproveAndTranslate(
       processedPrompt = cachedImprovedPrompt
     } else {
       try {
-        processedPrompt = await improveViaApi(processedPrompt, ai.instructions || null, ai.model || null, !!ai.isVideo, ai.inputImageCount ?? 0, ai.mediaId ?? null)
+        processedPrompt = await improveViaApi(processedPrompt, ai.instructions || null, ai.model || null, !!ai.isVideo, ai.inputImageCount ?? 0, ai.mediaId ?? null, !!ai.isAudio)
       } catch (err) {
         console.error('[SubmissionQueue] Failed to enhance prompt:', err)
         throw new Error(`Enhance Prompt is enabled, but prompt enhancement failed: ${getApiErrorMessage(err)}`)

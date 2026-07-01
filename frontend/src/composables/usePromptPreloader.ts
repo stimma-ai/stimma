@@ -26,6 +26,9 @@ interface PromptPreloaderOptions {
   // Whether the tool outputs video — forwarded so a cached t2v prompt is built
   // with the cinematography style (not prose).
   isVideo?: Ref<boolean>
+  // Whether the tool outputs audio — forwarded so a cached t2a prompt is built
+  // with the sound-focused audio style (not prose).
+  isAudio?: Ref<boolean>
   // Number of input images the tool will edit — forwarded so a cached prompt for
   // an edit tool is built with the edit style. Changes invalidate the cache.
   inputImageCount?: Ref<number>
@@ -45,6 +48,7 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
     autoImproveInstructions,
     model,
     isVideo,
+    isAudio,
     inputImageCount,
     minCacheSize = 2,
     debounceMs = 1500  // Wait a bit longer than typing debounce
@@ -52,6 +56,7 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
 
   const currentModel = () => model?.value ?? null
   const currentIsVideo = () => isVideo?.value ?? false
+  const currentIsAudio = () => isAudio?.value ?? false
   const currentInputImageCount = () => inputImageCount?.value ?? 0
 
   // Cache of pre-computed improved prompts
@@ -125,6 +130,7 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
           instructions: instructions || null,
           model: currentModel(),
           is_video: currentIsVideo(),
+          is_audio: currentIsAudio(),
           input_image_count: currentInputImageCount()
         })
 
