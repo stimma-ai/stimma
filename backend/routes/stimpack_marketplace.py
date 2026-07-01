@@ -3,7 +3,7 @@ Stimpack marketplace routes — proxies to stimma.ai cloud API for marketplace o
 
 Handles: browse, detail, install, publish, check-updates, update, mine.
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 
 import httpx
 
@@ -70,6 +70,31 @@ async def _cloud_post(path: str, data: dict | None = None, auth: bool = True) ->
         )
         response.raise_for_status()
         return response.json()
+
+
+# --- Avatars ---
+
+@router.get("/avatar/{key:path}")
+async def get_author_avatar(key: str):
+    """Proxy a marketplace author avatar from the cloud.
+
+    The frontend can't load these directly: dev cloud targets sit behind
+    Cloudflare Access, whose headers only the backend can attach.
+    """
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{get_settings().cloud.base_url}/api/avatars/{key}",
+            headers=with_cloud_access_headers(),
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        return Response(
+            content=response.content,
+            media_type=response.headers.get("content-type", "image/png"),
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
 
 
 # --- Browse / Detail ---

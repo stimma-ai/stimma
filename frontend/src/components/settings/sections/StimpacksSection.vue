@@ -1,48 +1,48 @@
 <template>
-  <div class="flex flex-col gap-6 h-full">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <h3 class="text-base font-medium text-content">Stimpacks</h3>
-      <div class="flex items-center gap-2">
+  <div class="flex h-full flex-col bg-base">
+    <!-- Header (matches the boards/chats landing treatment) -->
+    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
+      <span class="text-xl font-semibold leading-none text-content">Stimpacks</span>
+      <div class="flex items-center gap-3">
         <label
-          class="flex items-center gap-1.5 px-3 py-1.5 text-xs text-content-secondary hover:text-content bg-surface hover:bg-surface-raised border border-edge rounded-lg transition-colors cursor-pointer"
+          class="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
         >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
           </svg>
-          Upload
+          <span>Upload</span>
           <input type="file" accept=".md,.zip" class="hidden" @change="handleFileUpload" />
         </label>
         <button
           @click="handleNewStimpack"
-          class="flex items-center gap-1.5 px-3 py-1.5 text-xs text-content-secondary hover:text-content bg-surface hover:bg-surface-raised border border-edge rounded-lg transition-colors"
+          class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
         >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          New
+          <span>New</span>
         </button>
         <button
           @click="showCatalog = true"
-          class="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors"
+          class="flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-1.5 text-sm text-white transition-colors hover:bg-blue-500"
         >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          Add
+          <span>Add</span>
         </button>
       </div>
     </div>
 
     <!-- Loading state -->
-    <div v-if="loading" class="flex items-center justify-center py-12">
-      <div class="w-6 h-6 border-2 border-edge border-t-content-secondary rounded-full animate-spin"></div>
+    <div v-if="loading" class="py-20 text-center text-content-muted">
+      <div class="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-edge border-t-content-secondary"></div>
     </div>
 
     <!-- Drag-drop zone + stimpack list -->
     <div
       v-else
-      class="flex-1 min-h-0"
+      class="flex-1 overflow-y-auto px-6 pb-6"
       @dragover.prevent="isDragging = true"
       @dragleave.prevent="isDragging = false"
       @drop.prevent="handleDrop"
@@ -50,27 +50,22 @@
       <!-- Drag overlay -->
       <div
         v-if="isDragging"
-        class="border-2 border-dashed border-blue-500/50 rounded-xl bg-blue-500/5 flex items-center justify-center py-12"
+        class="mt-6 flex items-center justify-center rounded-lg border-2 border-dashed border-blue-500/50 bg-blue-500/5 py-12"
       >
         <p class="text-sm text-blue-400">Drop .md or .zip file to install stimpack</p>
       </div>
 
       <!-- Installed stimpacks grid -->
       <template v-else>
-        <!-- Count -->
-        <div v-if="stimpacks.length > 0" class="flex items-center justify-end mb-4">
-          <span class="text-xs text-content-muted">{{ stimpacks.length }} {{ stimpacks.length === 1 ? 'stimpack' : 'stimpacks' }}</span>
-        </div>
-
-        <div v-if="stimpacks.length > 0" class="grid grid-cols-2 gap-4">
+        <div v-if="stimpacks.length > 0" class="grid grid-cols-1 gap-5 pt-6 sm:grid-cols-2 xl:grid-cols-3">
           <div
             v-for="stimpack in stimpacks"
             :key="stimpack.name"
-            class="group border border-edge rounded-2xl p-5 hover:border-edge-strong transition-all duration-200"
+            class="group rounded-lg border border-edge-subtle bg-overlay-faint p-5 transition-all hover:border-edge hover:bg-overlay-subtle"
           >
             <!-- Title + 3-dots -->
             <div class="flex items-start justify-between gap-2 mb-2">
-              <h4 class="text-sm font-bold text-content" style="letter-spacing: -0.01em;">{{ stimpack.display_name || stimpack.name }}</h4>
+              <h4 class="truncate text-sm font-semibold text-content">{{ stimpack.display_name || stimpack.name }}</h4>
               <div class="relative flex-shrink-0">
                 <button
                   @click.stop="toggleContextMenu(stimpack.name)"
@@ -151,9 +146,9 @@
           </div>
         </div>
 
-        <div v-else class="text-center py-12">
-          <p class="text-sm text-content-muted">No stimpacks installed.</p>
-          <p class="text-xs text-content-muted mt-1">Click <strong>Add</strong> to browse available stimpacks, or drag and drop a .md/.zip file.</p>
+        <div v-else class="flex h-64 flex-col items-center justify-center text-center">
+          <p class="mb-2 text-content-muted">No stimpacks yet</p>
+          <p class="text-sm text-content-muted">Click <strong>Add</strong> to browse available stimpacks, or drag and drop a .md/.zip file.</p>
         </div>
       </template>
     </div>
@@ -291,14 +286,15 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useStimpacksApi, type Stimpack, type StimpackDetail, type MarketplaceStimpack } from '../../../composables/useStimpacksApi'
 import { getApiBase } from '../../../apiConfig'
 import { getCurrentProfileId } from '../../../composables/useProfile'
-import { useCloudAccount } from '../../../composables/useCloudAccount'
 import { addToast } from '../../../composables/useToasts'
 import StimpackEditorModal from '../StimpackEditorModal.vue'
 import ConfirmModal from '../../ConfirmModal.vue'
 
-const { cloudBaseUrl } = useCloudAccount()
+// Avatars proxy through the local backend, which attaches the Cloudflare
+// Access headers dev cloud targets require — a direct cloud URL renders as a
+// broken image there.
 function avatarUrl(key: string): string {
-  return `${cloudBaseUrl.value}/api/avatars/${key}`
+  return `${getApiBase()}/stimpack-marketplace/avatar/${key}`
 }
 
 const {
