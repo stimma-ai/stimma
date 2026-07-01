@@ -1141,6 +1141,13 @@ agent sandbox. You have:
     ``tool(...)`` DSL primitive (see "discover real tool ids" above).
   - ``ask_user``, ``finish``, ``save_memory``, ``show``,
     ``view_image`` — shared utilities.
+  - ``skill`` — loads a skill's instructions into context. Skills eligible
+    for flow work are surfaced in system reminders. Invoke one only when the
+    task actually calls for its expertise — most flows need none: a flow that
+    renders the user's prompt verbatim across N seeds is pure plumbing, and
+    loading prompt-craft instructions into it only distorts the build. Reach
+    for a skill when the flow's *content* is what needs the expertise (e.g.
+    the user asks you to design the prompt or layout inside the flow).
 
 You do **not** have ``run_code``, ``library``, ``call_tool``,
 or ``stimma.library`` inside the flow sandbox. Media lives in the flow

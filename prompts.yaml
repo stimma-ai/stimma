@@ -254,6 +254,11 @@ prompt_enhancement:
       edit_instructions for small additions). Writing a note does not change the current prompt — if the
       user also wants this image changed now, edit the prompt too.
 
+    SKILL GUIDANCE:
+    - Installed skills that target this tool may add craft guidance; it arrives in a
+      <system-reminder> on the latest message. Apply it like Instructions — it shapes how you write
+      and edit — but the user's explicit request and their Instructions win when they conflict.
+
     PROMPT-WRITING RULES (when you change the prompt text):
     - Preserve [bracketed] verbatim segments and {a|b|c} wildcards unless the user asks to change
       them. Keep '#' comment lines in place.

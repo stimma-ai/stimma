@@ -278,4 +278,4 @@ stimma quick reference (inside run_code / run_file):
     r = await <name_from_catalog>(prompt="a cat", width=1024)   # r.media_id, r.path, r.seed
   stimma.show(r) to display; asyncio.gather() for parallel batches.
   stimma.* also has: .library (search/get/save), .llm(), .show(), .detect_faces().
-NOT available in run_code (use as agent tools outside run_code): create_layout, bash, view_image, ask_user, browse_web, stimpack"""
+NOT available in run_code (use as agent tools outside run_code): create_layout, bash, view_image, ask_user, browse_web, skill"""

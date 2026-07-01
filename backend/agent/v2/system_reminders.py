@@ -12,33 +12,43 @@ passes them to build_messages().
 
 from typing import List, Optional, Set
 
-from .stimpacks import StimpackInfo
+from .stimpacks import SkillInfo
 
 
-def build_stimpacks_reminder(
-    all_stimpacks: List[StimpackInfo],
-    invoked_stimpacks: Set[str],
+def build_skills_reminder(
+    all_skills: List[SkillInfo],
+    invoked_skills: Set[str],
+    environment: str = "chat",
 ) -> Optional[str]:
-    """Build a system reminder listing available stimpacks.
+    """Build a system reminder listing skills eligible in this environment.
 
-    Only includes stimpacks that haven't already been invoked in this conversation.
-    Returns None if no stimpacks are available or all have been invoked.
+    ``environment`` is "chat" or "flow" — a skill appears only when its
+    frontmatter opts into that surface. Skills already invoked in this
+    conversation are omitted. Returns None when nothing is available.
     """
-    available = [s for s in all_stimpacks if s.name not in invoked_stimpacks]
+    eligible = [s for s in all_skills if getattr(s.environments, environment, False)]
+    available = [
+        s for s in eligible
+        if s.qualified_name not in invoked_skills
+        and s.slug not in invoked_skills
+        and s.pack_name not in invoked_skills  # legacy: invoked by pack name
+    ]
     if not available:
         return None
 
-    lines = ["<system-reminder>", "Stimpacks available if useful:", ""]
+    lines = ["<system-reminder>", "Skills available if useful:", ""]
     for s in available:
         desc = s.description
         if s.provides:
             desc += f" (imports: {', '.join(s.provides)})"
-        lines.append(f"- {s.name}: {desc}")
+        lines.append(f"- {s.qualified_name}: {desc} [{s.pack_display_name}]")
     lines.append("")
     lines.append(
-        "Load every stimpack that clearly applies up front, before starting work — "
-        "loading a stimpack mid-task injects new instructions that can reset your focus "
-        "and cause you to redo completed steps."
+        "Invoke a skill only when the task actually calls for it — being listed "
+        "here means it's available, not that it applies. When skills do apply, "
+        "load them all up front, before starting work: loading a skill mid-task "
+        "injects new instructions that can reset your focus and cause you to "
+        "redo completed steps."
     )
     lines.append("</system-reminder>")
     return "\n".join(lines)

@@ -1273,7 +1273,19 @@ async def agent_step(request: AgentStepRequest):
     # (the established pattern — see system_reminders.py), NOT a second system
     # message. This keeps the system prompt prefix stable for caching, keeps the
     # volatile state at the tail, and never persists it into stored history.
-    state_json = json.dumps(request.state_context, ensure_ascii=False, indent=2)
+    #
+    # Skill guidance (bodies of installed skills targeting this tool, computed
+    # by the frontend alongside the rest of state_context) is markdown, not
+    # state — pop it out of the JSON snapshot and deliver it as its own
+    # reminder so it reads as instructions rather than data.
+    state_context = dict(request.state_context)
+    skill_guidance = None
+    notes = state_context.get("notes")
+    if isinstance(notes, dict) and notes.get("skill_guidance"):
+        notes = dict(notes)
+        skill_guidance = str(notes.pop("skill_guidance"))
+        state_context["notes"] = notes
+    state_json = json.dumps(state_context, ensure_ascii=False, indent=2)
     state_reminder = (
         "<system-reminder>\n"
         "Editor screen state at the START of this turn (before any tools you call now). "
@@ -1282,6 +1294,14 @@ async def agent_step(request: AgentStepRequest):
         f"```json\n{state_json}\n```\n"
         "</system-reminder>"
     )
+    reminders = [state_reminder]
+    if skill_guidance:
+        reminders.append(
+            "<system-reminder>\n"
+            "Skill guidance for this tool (from the user's installed skills):\n\n"
+            f"{skill_guidance}\n"
+            "</system-reminder>"
+        )
 
     # Budget the history against the real model window, then drop-the-middle via
     # the shared compactor. Shallow-copy history dicts so the in-place reminder
@@ -1290,15 +1310,16 @@ async def agent_step(request: AgentStepRequest):
     max_tokens = response_reserve(max_ctx)
     overhead = _estimate_tokens([
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": state_reminder},
+        {"role": "user", "content": "\n\n".join(reminders)},
     ])
     history_budget = max(1000, int(max_ctx * 0.80) - overhead["total"] - max_tokens)
 
     messages = [{"role": "system", "content": system_prompt}]
     messages += [dict(m) for m in request.conversation_history]
     messages = _apply_token_budget(messages, budget=history_budget)
-    # Inject the state reminder (+ timestamp) into the last user message in place.
-    _inject_last_user_context(messages, [state_reminder])
+    # Inject the state reminder (+ skill guidance, + timestamp) into the last
+    # user message in place.
+    _inject_last_user_context(messages, reminders)
 
     # Telemetry: one prompt_agent_step per request/response cycle. Identity
     # fields classify through the helpers (model_family / endpoint_class);

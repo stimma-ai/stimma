@@ -1,29 +1,30 @@
 """Stimpack index, loading, and saving.
 
-A **stimpack** is the installable PACKAGE / marketplace unit. It is a directory
-holding a ``stimpack.json`` manifest plus the files for one or more typed
-*resources*. The manifest declares which resources the pack provides:
+A **stimpack** is the installable PACKAGE / marketplace unit. A **skill** is
+one targeted agent capability inside it — the unit the agent discovers and
+invokes, flat across packs. A stimpack holds one or more skills:
 
     stimpacks/
         my-stimpack/
-            stimpack.json       # manifest: name, version, resources[]
-            SKILL.md            # the `skill` resource (agent instructions)
+            stimpack.json       # manifest: PACK identity (name, version, ...)
+            skills/
+                <skill-slug>/
+                    SKILL.md    # frontmatter (incl. `environments`) + body
+                    lib/        # optional Python modules for run_code
             .marketplace.json   # optional — tracks marketplace origin
-            example.png         # optional companion files
-            lib/                # optional Python modules for run_code (skill)
+
+Skills are **discovered** by scanning ``skills/*/SKILL.md``; targeting lives in
+each skill's frontmatter (`environments:`), not the manifest. A legacy pack
+with a root ``SKILL.md`` (with or without a manifest) still loads as a
+single-skill stimpack — that's the format ``save_stimpack`` (user/agent
+authoring) writes.
 
 Resource types (manifest ``resources[].type``):
-    skill            -> SKILL.md (+ optional lib/). FULLY WIRED: injected on
-                        invoke; lib/* importable in run_code.
+    skill            -> legacy root SKILL.md declaration. FULLY WIRED.
     tool | flow | asset | model | flow_guidance
                      -> manifest schema + a lander interface are defined, but
                         the landers are stubs that log "recognized, not yet
                         loaded" until they are wired up.
-
-``skill`` is the only place the word "skill" survives — it names the
-agent-instruction RESOURCE TYPE, not the package. A bare ``SKILL.md`` with no
-``stimpack.json`` still loads as a single-``skill`` stimpack via a derived
-default manifest; every vended pack ships a real manifest.
 
 Stimpacks come from two sources:
 - **Local**: created by the user or agent directly on disk
@@ -51,6 +52,7 @@ from core.profile_context import get_current_profile
 log = get_logger(__name__)
 
 SKILL_FILENAME = "SKILL.md"  # the `skill` resource document (resource type name, not the package)
+SKILLS_DIRNAME = "skills"  # multi-skill layout: <pack>/skills/<slug>/SKILL.md
 STIMPACK_MANIFEST = "stimpack.json"
 MARKETPLACE_SIDECAR = ".marketplace.json"
 AUTO_INSTALL_STATE_FILE = ".marketplace-auto-install-state.json"
@@ -109,13 +111,87 @@ class StimpackManifest:
         return [r for r in self.resources if r.type == resource_type]
 
     @property
-    def skill_resource(self) -> Optional[StimpackResource]:
-        resources = self.resources_of_type(RESOURCE_TYPE_SKILL)
-        return resources[0] if resources else None
-
-    @property
     def resource_types(self) -> list[str]:
         return [r.type for r in self.resources]
+
+
+@dataclass
+class SkillEnvironments:
+    """Per-skill eligibility (`environments:` frontmatter block).
+
+    Opt-in: an absent key means the skill is not offered in that environment.
+    An absent block entirely defaults to chat-only, so a skill never silently
+    does nothing; flow/tool stay strict opt-in.
+
+    ``tool`` is ``True`` (every tool) or scoped via ``tool_task_types``
+    (``tool: { task_types: [...] }`` in frontmatter).
+    """
+    chat: bool = False
+    flow: bool = False
+    tool: bool = False
+    tool_task_types: Optional[list[str]] = None  # None = all task types (when tool=True)
+
+    def eligible_for_tool(self, task_types: list[str] | None) -> bool:
+        """True if this skill applies to a tool with the given task types."""
+        if not self.tool:
+            return False
+        if self.tool_task_types is None:
+            return True
+        return bool(set(self.tool_task_types) & set(task_types or []))
+
+    def to_dict(self) -> dict:
+        tool: bool | dict = self.tool
+        if self.tool and self.tool_task_types is not None:
+            tool = {"task_types": list(self.tool_task_types)}
+        return {"chat": self.chat, "flow": self.flow, "tool": tool}
+
+
+def _parse_environments(fm: dict) -> SkillEnvironments:
+    """Parse the `environments:` frontmatter block (absent block => chat only)."""
+    env = fm.get("environments")
+    if not isinstance(env, dict):
+        return SkillEnvironments(chat=True)
+    tool_raw = env.get("tool", False)
+    tool = False
+    tool_task_types: Optional[list[str]] = None
+    if isinstance(tool_raw, dict):
+        raw_types = tool_raw.get("task_types")
+        if isinstance(raw_types, list) and raw_types:
+            tool = True
+            tool_task_types = [str(t) for t in raw_types]
+    elif tool_raw:
+        tool = True
+    return SkillEnvironments(
+        chat=bool(env.get("chat", False)),
+        flow=bool(env.get("flow", False)),
+        tool=tool,
+        tool_task_types=tool_task_types,
+    )
+
+
+@dataclass
+class SkillInfo:
+    """One skill inside a stimpack — the flat unit the agent discovers/invokes."""
+    slug: str  # skill directory name (or frontmatter name for legacy root skills)
+    display_name: str
+    description: str
+    environments: SkillEnvironments
+    provides: list[str]  # importable lib/ modules advertised in frontmatter
+    skill_md: Path  # absolute path to this skill's SKILL.md
+    dir_path: Path  # this skill's directory (contains SKILL.md + optional lib/)
+    pack_name: str
+    pack_display_name: str
+
+    @property
+    def qualified_name(self) -> str:
+        """Pack-qualified identity (collision-safe across packs).
+
+        Collapses to the bare slug for legacy single-skill packs where the
+        skill is named after its pack.
+        """
+        if self.slug == self.pack_name:
+            return self.slug
+        return f"{self.pack_name}/{self.slug}"
 
 
 @dataclass
@@ -141,7 +217,8 @@ class StimpackInfo:
     dir_path: Path  # the stimpack's directory
     tier: str  # "local" | "marketplace"
     manifest: StimpackManifest
-    provides: list[str] = field(default_factory=list)
+    skills: list[SkillInfo] = field(default_factory=list)
+    provides: list[str] = field(default_factory=list)  # union of skills' provides
     marketplace: Optional[MarketplaceMeta] = None
     is_dev: bool = False  # Loaded from the dev_stimpacks_dir override (shadows profile copy)
 
@@ -157,17 +234,22 @@ class StimpackInfo:
 
     @property
     def skill_md_path(self) -> Optional[Path]:
-        """Absolute path to the SKILL.md of the `skill` resource, if any."""
-        resource = self.manifest.skill_resource
-        if resource is None:
-            return None
-        return self.dir_path / (resource.path or SKILL_FILENAME)
+        """Absolute path to the first skill's SKILL.md, if any (legacy convenience)."""
+        return self.skills[0].skill_md if self.skills else None
 
 
 @dataclass
 class StimpackContent:
     info: StimpackInfo
-    content: str  # the `skill` resource markdown body (without frontmatter)
+    content: str  # the first skill's markdown body (without frontmatter)
+
+
+@dataclass
+class SkillContent:
+    """A loaded skill: its info, owning pack, and markdown body."""
+    skill: SkillInfo
+    pack: StimpackInfo
+    content: str  # markdown body (without frontmatter)
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +278,37 @@ class ResourceLander(ABC):
         ...
 
 
+def _skill_lib_modules(skill_dir: Path) -> dict[str, Path]:
+    """Importable modules from a skill's lib/ directory.
+
+    Each top-level package (dir with __init__.py) or module (.py file)
+    directly inside lib/ becomes importable in run_code.
+    """
+    lib_dir = skill_dir / "lib"
+    if not lib_dir.is_dir():
+        return {}
+    module_paths: dict[str, Path] = {}
+    for child in lib_dir.iterdir():
+        if child.is_dir() and (child / "__init__.py").exists():
+            module_paths[child.name] = lib_dir
+        elif child.is_file() and child.suffix == ".py" and child.stem != "__init__":
+            module_paths[child.stem] = lib_dir
+    return module_paths
+
+
+def _read_skill_body(skill_md: Path) -> Optional[str]:
+    """Read a SKILL.md and return its markdown body (frontmatter stripped)."""
+    if not skill_md.is_file():
+        return None
+    try:
+        text = skill_md.read_text(encoding="utf-8")
+        _, body = _parse_frontmatter(text, skill_md)
+        return body
+    except Exception as e:  # pragma: no cover - defensive
+        log.warning(f"Failed to read skill {skill_md}: {e}")
+        return None
+
+
 class SkillLander(ResourceLander):
     """Fully-wired lander for the `skill` resource: inject SKILL.md + lib/ modules."""
 
@@ -203,32 +316,17 @@ class SkillLander(ResourceLander):
 
     def load(self, info: "StimpackInfo", resource: "StimpackResource") -> LanderResult:
         skill_md = info.dir_path / (resource.path or SKILL_FILENAME)
-        injection: Optional[str] = None
-        if skill_md.is_file():
-            try:
-                text = skill_md.read_text(encoding="utf-8")
-                _, body = _parse_frontmatter(text, skill_md)
-                injection = body
-            except Exception as e:  # pragma: no cover - defensive
-                log.warning(f"Failed to read skill resource {skill_md}: {e}")
-        return LanderResult(injection=injection, lib_modules=self.lib_modules(info))
+        injection = _read_skill_body(skill_md)
+        return LanderResult(
+            injection=injection, lib_modules=_skill_lib_modules(skill_md.parent)
+        )
 
-    def lib_modules(self, info: "StimpackInfo") -> dict[str, Path]:
-        """Importable modules from the skill resource's lib/ directory.
-
-        Each top-level package (dir with __init__.py) or module (.py file)
-        directly inside lib/ becomes importable in run_code.
-        """
-        lib_dir = info.dir_path / "lib"
-        if not lib_dir.is_dir():
-            return {}
-        module_paths: dict[str, Path] = {}
-        for child in lib_dir.iterdir():
-            if child.is_dir() and (child / "__init__.py").exists():
-                module_paths[child.name] = lib_dir
-            elif child.is_file() and child.suffix == ".py" and child.stem != "__init__":
-                module_paths[child.stem] = lib_dir
-        return module_paths
+    def load_skill(self, skill: "SkillInfo") -> LanderResult:
+        """Land one skill: its SKILL.md body + its lib/ modules."""
+        return LanderResult(
+            injection=_read_skill_body(skill.skill_md),
+            lib_modules=_skill_lib_modules(skill.dir_path),
+        )
 
 
 class _StubLander(ResourceLander):
@@ -642,6 +740,68 @@ def record_removed_auto_installed_stimpack(name: str, profile_id: Optional[str] 
     _write_auto_install_state(state, profile_id=profile_id)
 
 
+def _parse_skill_dir(
+    skill_dir: Path,
+    skill_md: Path,
+    pack_name: str,
+    pack_display_name: str,
+    slug: Optional[str] = None,
+) -> Optional[SkillInfo]:
+    """Parse one skill's SKILL.md into a SkillInfo."""
+    try:
+        fm, _ = _parse_frontmatter(skill_md.read_text(encoding="utf-8"), skill_md)
+    except Exception as e:
+        log.warning(f"Failed to parse skill frontmatter {skill_md}: {e}")
+        return None
+    resolved_slug = slug or fm.get("name") or skill_dir.name
+    return SkillInfo(
+        slug=str(resolved_slug),
+        display_name=fm.get("display_name") or _title_case_from_slug(str(resolved_slug)),
+        description=fm.get("description", "") or "",
+        environments=_parse_environments(fm),
+        provides=fm.get("provides", []) or [],
+        skill_md=skill_md,
+        dir_path=skill_dir,
+        pack_name=pack_name,
+        pack_display_name=pack_display_name,
+    )
+
+
+def _discover_skills(stimpack_dir: Path, manifest: StimpackManifest) -> list[SkillInfo]:
+    """Discover a pack's skills.
+
+    Primary layout: ``skills/<slug>/SKILL.md`` — one skill per subfolder, slug
+    from the folder name. Legacy layout: manifest-declared `skill` resources
+    (typically a root SKILL.md), slug from frontmatter name (falling back to
+    the pack name so a bare legacy pack keeps its old identity).
+    """
+    skills: list[SkillInfo] = []
+    skills_root = stimpack_dir / SKILLS_DIRNAME
+    if skills_root.is_dir():
+        for child in sorted(skills_root.iterdir()):
+            skill_md = child / SKILL_FILENAME
+            if child.is_dir() and skill_md.is_file():
+                skill = _parse_skill_dir(
+                    child, skill_md, manifest.name, manifest.display_name, slug=child.name
+                )
+                if skill:
+                    skills.append(skill)
+    if skills:
+        return skills
+
+    # Legacy: manifest-declared skill resources rooted in the pack dir.
+    for resource in manifest.resources_of_type(RESOURCE_TYPE_SKILL):
+        skill_md = stimpack_dir / (resource.path or SKILL_FILENAME)
+        if not skill_md.is_file():
+            continue
+        skill = _parse_skill_dir(
+            skill_md.parent, skill_md, manifest.name, manifest.display_name
+        )
+        if skill:
+            skills.append(skill)
+    return skills
+
+
 def _parse_stimpack_dir(stimpack_dir: Path, is_dev: bool = False) -> Optional[StimpackInfo]:
     """Parse a stimpack directory into StimpackInfo via its (loaded/derived) manifest."""
     manifest = _load_or_derive_manifest(stimpack_dir)
@@ -652,18 +812,14 @@ def _parse_stimpack_dir(stimpack_dir: Path, is_dev: bool = False) -> Optional[St
     tier = "marketplace" if marketplace else "local"
     author = manifest.author or ("marketplace" if marketplace else "user")
 
-    # `provides` (advertised importable lib modules) comes from the skill
-    # resource's SKILL.md frontmatter, if present.
+    skills = _discover_skills(stimpack_dir, manifest)
+
+    # `provides` (advertised importable lib modules) is the union across skills.
     provides: list[str] = []
-    skill_res = manifest.skill_resource
-    if skill_res is not None:
-        skill_md = stimpack_dir / (skill_res.path or SKILL_FILENAME)
-        if skill_md.is_file():
-            try:
-                fm, _ = _parse_frontmatter(skill_md.read_text(encoding="utf-8"), skill_md)
-                provides = fm.get("provides", []) or []
-            except Exception:
-                provides = []
+    for skill in skills:
+        for module in skill.provides:
+            if module not in provides:
+                provides.append(module)
 
     manifest_path = stimpack_dir / STIMPACK_MANIFEST
     primary = manifest_path if manifest_path.is_file() else (stimpack_dir / SKILL_FILENAME)
@@ -678,6 +834,7 @@ def _parse_stimpack_dir(stimpack_dir: Path, is_dev: bool = False) -> Optional[St
         dir_path=stimpack_dir,
         tier=tier,
         manifest=manifest,
+        skills=skills,
         provides=provides,
         marketplace=marketplace,
         is_dev=is_dev,
@@ -729,11 +886,11 @@ def telemetry_stimpack_source(info: Optional[StimpackInfo]) -> str:
 
 
 def load_stimpack(name: str, profile_id: Optional[str] = None) -> Optional[StimpackContent]:
-    """Load a stimpack by name and return its `skill` resource content.
+    """Load a stimpack by name and return its first skill's content.
 
-    The agent invokes a stimpack to load its instructions; the `skill` resource
-    (SKILL.md) is landed via the skill lander and its body returned for
-    injection. Stimpacks without a skill resource return empty content.
+    Pack-level convenience for management surfaces (settings CRUD). Runtime
+    activation goes through ``load_skill`` — the agent invokes skills, flat.
+    Stimpacks without skills return empty content.
     """
     if not profile_id:
         profile_id = get_current_profile()
@@ -742,43 +899,103 @@ def load_stimpack(name: str, profile_id: Optional[str] = None) -> Optional[Stimp
         info = _parse_stimpack_dir(stimpack_dir, is_dev=is_dev)
         if info and info.name == name:
             content = ""
-            skill_res = info.manifest.skill_resource
-            if skill_res is not None:
-                lander = get_lander(RESOURCE_TYPE_SKILL)
-                if lander is not None:
-                    result = lander.load(info, skill_res)
-                    content = result.injection or ""
+            lander = get_lander(RESOURCE_TYPE_SKILL)
+            if info.skills and isinstance(lander, SkillLander):
+                result = lander.load_skill(info.skills[0])
+                content = result.injection or ""
             # Run stub landers for non-skill resources so they are logged.
             for resource in info.manifest.resources:
                 if resource.type == RESOURCE_TYPE_SKILL:
                     continue
-                lander = get_lander(resource.type)
-                if lander is not None:
-                    lander.load(info, resource)
+                stub = get_lander(resource.type)
+                if stub is not None:
+                    stub.load(info, resource)
             return StimpackContent(info=info, content=content)
     return None
 
 
-def get_stimpack_lib_modules(enabled_stimpacks: list[str] | None) -> dict[str, Path]:
-    """Build {module_name: lib_dir_path} for enabled stimpacks' skill resources.
+# ---------------------------------------------------------------------------
+# Flat skill listing and loading (the agent-facing surface)
+# ---------------------------------------------------------------------------
+
+def list_skills(profile_id: Optional[str] = None) -> list[SkillInfo]:
+    """Return all skills across installed stimpacks, flat."""
+    skills: list[SkillInfo] = []
+    for pack in list_installed_stimpacks(profile_id=profile_id):
+        skills.extend(pack.skills)
+    return skills
+
+
+def find_skill(
+    name: str, profile_id: Optional[str] = None
+) -> Optional[tuple[StimpackInfo, SkillInfo]]:
+    """Resolve a skill by pack-qualified name, or by bare slug when unique.
+
+    Also accepts a pack name for legacy single-skill packs (old chat history
+    and old prompts address packs by name).
+    """
+    if not name:
+        return None
+    packs = list_installed_stimpacks(profile_id=profile_id)
+    for pack in packs:
+        for skill in pack.skills:
+            if skill.qualified_name == name:
+                return pack, skill
+    bare_matches = [
+        (pack, skill)
+        for pack in packs
+        for skill in pack.skills
+        if skill.slug == name
+    ]
+    if len(bare_matches) == 1:
+        return bare_matches[0]
+    if len(bare_matches) > 1:
+        log.warning(f"Skill name '{name}' is ambiguous across packs — use the qualified name")
+        return None
+    # Legacy: a pack name addressing its only skill.
+    for pack in packs:
+        if pack.name == name and len(pack.skills) == 1:
+            return pack, pack.skills[0]
+    return None
+
+
+def load_skill(name: str, profile_id: Optional[str] = None) -> Optional[SkillContent]:
+    """Load one skill by (qualified or unique bare) name for injection."""
+    found = find_skill(name, profile_id=profile_id)
+    if not found:
+        return None
+    pack, skill = found
+    lander = get_lander(RESOURCE_TYPE_SKILL)
+    content = ""
+    if isinstance(lander, SkillLander):
+        content = lander.load_skill(skill).injection or ""
+    return SkillContent(skill=skill, pack=pack, content=content)
+
+
+def get_stimpack_lib_modules(enabled_skills: list[str] | None) -> dict[str, Path]:
+    """Build {module_name: lib_dir_path} for invoked skills' lib/ directories.
 
     Each top-level package (directory with __init__.py) or module (.py file)
-    directly inside a stimpack's skill-resource lib/ directory becomes an
-    importable module in run_code.
+    directly inside a skill's lib/ directory becomes an importable module in
+    run_code. Names are skill names (qualified or bare); on module-name
+    collision across skills the first wins.
     """
-    if not enabled_stimpacks:
-        return {}
-    lander = get_lander(RESOURCE_TYPE_SKILL)
-    if not isinstance(lander, SkillLander):
+    if not enabled_skills:
         return {}
     module_paths: dict[str, Path] = {}
-    for name in enabled_stimpacks:
-        loaded = load_stimpack(name)
-        if not loaded:
+    for name in enabled_skills:
+        found = find_skill(name)
+        if not found:
             continue
-        if loaded.info.manifest.skill_resource is None:
-            continue
-        module_paths.update(lander.lib_modules(loaded.info))
+        _, skill = found
+        for module, lib_dir in _skill_lib_modules(skill.dir_path).items():
+            if module in module_paths and module_paths[module] != lib_dir:
+                log.warning(
+                    f"Skill lib module '{module}' from '{skill.qualified_name}' "
+                    f"collides with an already-loaded module — keeping the first"
+                )
+                continue
+            module_paths[module] = lib_dir
     return module_paths
 
 
@@ -954,6 +1171,12 @@ def save_stimpack(
         raise ValueError(f"Invalid stimpack name: {name}")
 
     stimpack_dir = get_user_stimpacks_dir(profile_id) / slug
+    if (stimpack_dir / SKILLS_DIRNAME).is_dir():
+        # This editor writes the legacy root-SKILL.md layout; overwriting a
+        # multi-skill pack with it would orphan the pack's other skills.
+        raise ValueError(
+            f"Stimpack '{name}' contains multiple skills and cannot be edited here"
+        )
     stimpack_dir.mkdir(parents=True, exist_ok=True)
     path = stimpack_dir / SKILL_FILENAME
 

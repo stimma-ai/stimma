@@ -2260,12 +2260,16 @@ async def update_agent_settings(
     )
 
 
-@router.get("/{chat_id}/invoked-stimpacks")
-async def list_invoked_stimpacks(
+@router.get("/{chat_id}/invoked-skills")
+async def list_invoked_skills(
     chat_id: int,
     session: AsyncSession = Depends(get_db_session),
 ):
-    """List stimpacks that have been invoked in this chat."""
+    """List skills that have been invoked in this chat.
+
+    "stimpack_name" is the legacy metadata key from before skills were
+    addressed flat — old history items still count as invoked.
+    """
     result = await session.execute(
         select(ChatItem)
         .where(ChatItem.chat_id == chat_id, ChatItem.item_type == "stimpack_injection")
@@ -2275,38 +2279,39 @@ async def list_invoked_stimpacks(
         if item.item_metadata:
             try:
                 meta = json.loads(item.item_metadata) if isinstance(item.item_metadata, str) else item.item_metadata
-                name = meta.get("stimpack_name")
+                name = meta.get("skill_name") or meta.get("stimpack_name")
                 if name and name not in names:
                     names.append(name)
             except (json.JSONDecodeError, TypeError):
                 pass
-    return {"stimpacks": names}
+    return {"skills": names}
 
 
-class InvokeStimpackRequest(PydanticBaseModel):
+class InvokeSkillRequest(PydanticBaseModel):
     name: str
 
 
-@router.post("/{chat_id}/invoke-stimpack")
-async def invoke_stimpack_in_chat(
+@router.post("/{chat_id}/invoke-skill")
+async def invoke_skill_in_chat(
     chat_id: int,
-    body: InvokeStimpackRequest,
+    body: InvokeSkillRequest,
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Directly inject a stimpack into a chat's conversation context.
+    """Directly inject a skill into a chat's conversation context.
 
     Creates a stimpack_injection ChatItem without requiring an agent turn.
-    Used by the frontend sidebar for manual stimpack activation.
+    Used by the frontend sidebar for manual skill activation.
     """
     chat = await session.get(Chat, chat_id)
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    from agent.v2.stimpacks import load_stimpack
+    from agent.v2.stimpacks import load_skill
 
-    loaded = load_stimpack(body.name)
+    loaded = load_skill(body.name)
     if not loaded:
-        raise HTTPException(status_code=404, detail=f"Stimpack '{body.name}' not found")
+        raise HTTPException(status_code=404, detail=f"Skill '{body.name}' not found")
+    qualified = loaded.skill.qualified_name
 
     # Check if already invoked
     result = await session.execute(
@@ -2317,18 +2322,18 @@ async def invoke_stimpack_in_chat(
         if item.item_metadata:
             try:
                 meta = json.loads(item.item_metadata) if isinstance(item.item_metadata, str) else item.item_metadata
-                if meta.get("stimpack_name") == body.name:
-                    return {"status": "already_loaded", "stimpack_name": body.name}
+                if qualified in (meta.get("skill_name"), meta.get("stimpack_name")):
+                    return {"status": "already_loaded", "skill_name": qualified}
             except (json.JSONDecodeError, TypeError):
                 pass
 
     inj_item = ChatItem(
         chat_id=chat_id,
         item_type="stimpack_injection",
-        message_text=f"## Stimpack: {loaded.info.display_name}\n\n{loaded.content}",
+        message_text=f"## Skill: {loaded.skill.display_name}\n\n{loaded.content}",
         item_metadata=json.dumps({
-            "stimpack_name": body.name,
-            "stimpack_display_name": loaded.info.display_name,
+            "skill_name": qualified,
+            "skill_display_name": loaded.skill.display_name,
         }),
     )
     session.add(inj_item)
@@ -2338,4 +2343,4 @@ async def invoke_stimpack_in_chat(
         "item": inj_item.to_dict(),
     })
 
-    return {"status": "loaded", "stimpack_name": body.name, "item_id": inj_item.id}
+    return {"status": "loaded", "skill_name": qualified, "item_id": inj_item.id}

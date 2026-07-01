@@ -2149,6 +2149,18 @@ def _stimpacks_api():
     return stimpacks
 
 
+class SkillResponse(BaseModel):
+    """One skill inside a stimpack — the flat, agent-facing capability unit."""
+    slug: str
+    qualified_name: str
+    display_name: str
+    description: str
+    environments: dict  # {chat: bool, flow: bool, tool: bool | {task_types: [...]}}
+    provides: list[str] = []
+    pack_name: str
+    pack_display_name: str
+
+
 class StimpackResponse(BaseModel):
     name: str
     display_name: str
@@ -2161,6 +2173,7 @@ class StimpackResponse(BaseModel):
     marketplace_version: int | None = None  # version number if from marketplace
     marketplace_author: str | None = None  # marketplace author username
     marketplace_author_avatar_key: str | None = None
+    skills: list[SkillResponse] = []
 
 
 class StimpackDetailResponse(StimpackResponse):
@@ -2182,6 +2195,19 @@ class StimpackUpdateRequest(BaseModel):
     content: str | None = None
 
 
+def _skill_info_to_response(skill) -> SkillResponse:
+    return SkillResponse(
+        slug=skill.slug,
+        qualified_name=skill.qualified_name,
+        display_name=skill.display_name,
+        description=skill.description,
+        environments=skill.environments.to_dict(),
+        provides=skill.provides,
+        pack_name=skill.pack_name,
+        pack_display_name=skill.pack_display_name,
+    )
+
+
 def _stimpack_info_to_response(s) -> StimpackResponse:
     return StimpackResponse(
         name=s.name,
@@ -2195,6 +2221,7 @@ def _stimpack_info_to_response(s) -> StimpackResponse:
         marketplace_version=s.marketplace.version if s.marketplace else None,
         marketplace_author=s.marketplace.author if s.marketplace else None,
         marketplace_author_avatar_key=s.marketplace.author_avatar_key if s.marketplace and s.marketplace.author_avatar_key else None,
+        skills=[_skill_info_to_response(sk) for sk in s.skills],
     )
 
 
@@ -2221,6 +2248,28 @@ async def list_stimpacks_endpoint():
     profile_id = get_current_profile()
     stimpacks = _stimpacks_api().list_installed_stimpacks(profile_id=profile_id)
     return [_stimpack_info_to_response(s) for s in stimpacks]
+
+
+@router.get("/skills", response_model=list[SkillResponse])
+async def list_skills_endpoint():
+    """List all skills across installed stimpacks, flat."""
+    profile_id = get_current_profile()
+    skills = _stimpacks_api().list_skills(profile_id=profile_id)
+    return [_skill_info_to_response(s) for s in skills]
+
+
+@router.get("/skills/{name:path}/content")
+async def get_skill_content_endpoint(name: str):
+    """Return one skill's markdown body (frontmatter stripped) by qualified name."""
+    profile_id = get_current_profile()
+    loaded = _stimpacks_api().load_skill(name, profile_id=profile_id)
+    if not loaded:
+        raise HTTPException(status_code=404, detail=f"Skill '{name}' not found")
+    return {
+        "qualified_name": loaded.skill.qualified_name,
+        "display_name": loaded.skill.display_name,
+        "content": loaded.content,
+    }
 
 
 @router.get("/stimpacks/{name}/download")

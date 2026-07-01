@@ -17,7 +17,7 @@ from ..tools_registry import tool, ToolParameter
         "Batch: import the tool once, then `results = await asyncio.gather(*[<tool>(prompt=p) for p in prompts]); stimma.show(results)` "
         "If run_code already called stimma.show(), do NOT call the show tool again afterward — images are already visible. "
         + ALLOWED_MODULES_PROMPT_DESCRIPTION
-        + " Enabled stimpacks may provide additional importable modules — check the stimpacks inventory."
+        + " Invoked skills may provide additional importable modules — check the skills inventory."
     ),
     parameters=[
         ToolParameter(name="code", type="string", description="Python code to execute"),
