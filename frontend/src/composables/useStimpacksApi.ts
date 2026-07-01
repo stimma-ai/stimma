@@ -1,6 +1,23 @@
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 
+export interface SkillEnvironments {
+  chat: boolean
+  flow: boolean
+  tool: boolean | { task_types: string[] }
+}
+
+export interface Skill {
+  slug: string
+  qualified_name: string
+  display_name: string
+  description: string
+  environments: SkillEnvironments
+  provides: string[]
+  pack_name: string
+  pack_display_name: string
+}
+
 export interface Stimpack {
   name: string
   display_name: string
@@ -13,6 +30,7 @@ export interface Stimpack {
   marketplace_version: number | null
   marketplace_author: string | null
   marketplace_author_avatar_key: string | null
+  skills: Skill[]
 }
 
 export interface StimpackDetail extends Stimpack {
@@ -83,6 +101,31 @@ export function useStimpacksApi() {
   async function listStimpacks(): Promise<Stimpack[]> {
     const response = await axios.get(base())
     return response.data
+  }
+
+  // --- Flat skills (the agent-facing units inside stimpacks) ---
+
+  async function listSkills(): Promise<Skill[]> {
+    const response = await axios.get(`${getApiBase()}/settings/skills`)
+    return response.data
+  }
+
+  async function getSkillContent(qualifiedName: string): Promise<{ qualified_name: string; display_name: string; content: string }> {
+    // Qualified names contain '/' and the backend route takes a path param —
+    // encode each segment but keep the separators.
+    const path = qualifiedName.split('/').map(encodeURIComponent).join('/')
+    const response = await axios.get(`${getApiBase()}/settings/skills/${path}/content`)
+    return response.data
+  }
+
+  /** True if a skill is eligible for a tool with the given task types. */
+  function skillEligibleForTool(skill: Skill, taskTypes: string[]): boolean {
+    const tool = skill.environments?.tool
+    if (tool === true) return true
+    if (tool && typeof tool === 'object' && Array.isArray(tool.task_types)) {
+      return tool.task_types.some(t => taskTypes.includes(t))
+    }
+    return false
   }
 
   async function getStimpack(name: string): Promise<StimpackDetail> {
@@ -172,6 +215,10 @@ export function useStimpacksApi() {
     updateStimpack,
     deleteStimpack,
     uploadStimpack,
+    // Skills (flat)
+    listSkills,
+    getSkillContent,
+    skillEligibleForTool,
     // Marketplace
     browseMarketplace,
     getMarketplaceStimpack,

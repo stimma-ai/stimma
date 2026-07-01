@@ -1087,9 +1087,9 @@
           <!-- HITL Response - hidden (completed HITL displayed inline above) -->
           <template v-else-if="item.item_type === 'hitl_response'"></template>
 
-          <!-- Stimpack injection - subtle indicator -->
+          <!-- Skill injection - subtle indicator (legacy items carry stimpack_* metadata keys) -->
           <div v-else-if="item.item_type === 'stimpack_injection'" class="flex justify-center py-1">
-            <span class="text-[11px] text-content-muted italic">Activated Stimpack: {{ item.item_metadata?.stimpack_display_name || item.item_metadata?.stimpack_name || 'unknown' }}</span>
+            <span class="text-[11px] text-content-muted italic">Activated skill: {{ item.item_metadata?.skill_display_name || item.item_metadata?.skill_name || item.item_metadata?.stimpack_display_name || item.item_metadata?.stimpack_name || 'unknown' }}</span>
           </div>
 
           <!-- Empty assistant message (skip) -->
@@ -1261,6 +1261,14 @@
         class="mb-2 text-xs text-amber-500"
       >
         {{ modelUnavailableMessage }}
+      </div>
+      <div v-if="embedded && activeSkillNames.length > 0" class="mb-2 flex justify-end">
+        <span
+          class="px-2 py-0.5 rounded-full text-[10px] bg-blue-500/15 border border-blue-500/50 text-blue-400"
+          :title="'Active skills: ' + activeSkillNames.join(', ')"
+        >
+          {{ activeSkillNames.length }} {{ activeSkillNames.length === 1 ? 'skill' : 'skills' }} active
+        </span>
       </div>
       <ChatInputBox
         ref="chatInputBoxRef"
@@ -1874,7 +1882,8 @@ const TOOL_DISPLAY_NAMES = {
   ask_user: 'Asking You',
   browse_web: 'Browsing Web',
   library: null,         // Special: varies by action arg
-  stimpack: null,           // Special: "Stimpack: <display_name>"
+  skill: null,           // Special: "Skill: <display_name>"
+  stimpack: null,        // backward compat for old chats: "Skill: <display_name>"
   delegate: null,        // Special: shows specialist or truncated task
   create_parameter_sweep: 'Creating Parameter Sweep',
   assemble_grid: 'Creating Grid',  // backward compat for old chats
@@ -1941,9 +1950,9 @@ function getToolCallDisplayName(toolCallItem) {
     if (toolId) return formatToolId(String(toolId))
     return 'Tool'
   }
-  if (toolCallItem.tool_name === 'stimpack') {
+  if (toolCallItem.tool_name === 'skill' || toolCallItem.tool_name === 'stimpack') {
     const displayName = args._display_name || (args.name ? formatToolId(String(args.name)) : null)
-    return displayName ? `Stimpack: ${displayName}` : 'Stimpack'
+    return displayName ? `Skill: ${displayName}` : 'Skill'
   }
   if (toolCallItem.tool_name === 'delegate') {
     if (args.specialist) return formatToolId(String(args.specialist))
@@ -2079,6 +2088,20 @@ function isInvisiblePassthroughItem(item) {
 // Filter out child items (subagent activity) from the main list
 const topLevelItems = computed(() => {
   return items.value.filter(item => !item.parent_item_id)
+})
+
+// Distinct skills active in this conversation (legacy items carry stimpack_* keys)
+const activeSkillNames = computed(() => {
+  const names = new Map()
+  for (const item of items.value) {
+    if (item.item_type !== 'stimpack_injection') continue
+    const meta = item.item_metadata || {}
+    const name = meta.skill_name || meta.stimpack_name
+    if (name && !names.has(name)) {
+      names.set(name, meta.skill_display_name || meta.stimpack_display_name || name)
+    }
+  }
+  return [...names.values()]
 })
 
 // Get child items for a given parent (delegate tool_call)

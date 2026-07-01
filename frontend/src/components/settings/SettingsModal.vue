@@ -139,11 +139,6 @@
                 <AgentSection />
               </template>
 
-              <!-- Stimpacks Section -->
-              <template v-else-if="activeSection === 'stimpacks'">
-                <StimpacksSection />
-              </template>
-
               <!-- Advanced Section -->
               <template v-else-if="activeSection === 'ai-services'">
                 <AIServicesSection
@@ -198,7 +193,6 @@ import PrivacySection from './sections/PrivacySection.vue'
 import AIServicesSection from './sections/AIServicesSection.vue'
 import DeveloperSection from './sections/DeveloperSection.vue'
 import AgentSection from './sections/AgentSection.vue'
-import StimpacksSection from './sections/StimpacksSection.vue'
 import WildcardsSection from './sections/WildcardsSection.vue'
 import PinEntryModal from '../PinEntryModal.vue'
 import { setWildcards, setSegments } from '../../composables/useWildcards'

@@ -370,6 +370,7 @@
             ref="promptAgentChatRef"
             :prompt="globalPrefs.prompt"
             :has-prompt="hasPrompt"
+            :active-skills="activeToolSkills"
             v-model:instructions="globalPrefs.agentInstructions"
           />
         </Teleport>
@@ -869,6 +870,7 @@ import axios from 'axios'
 import { ArchiveBoxIcon, PhotoIcon } from '@heroicons/vue/24/outline'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useGenerationPreferences } from '../composables/useGenerationPreferences'
+import { useStimpacksApi, type Skill } from '../composables/useStimpacksApi'
 import { useGenerationJobs } from '../composables/useGenerationJobs'
 import {
   buildBasePayload,
@@ -4409,6 +4411,41 @@ function setResolution(args: { width?: number; height?: number; megapixels?: num
   return `Set resolution: ${changed.join(', ')}.`
 }
 
+// --- Tool-targeted skills ---------------------------------------------------
+// Skills whose `environments.tool` matches this tool's task types auto-activate:
+// their bodies ride state_context.notes.skill_guidance into the prompt agent.
+
+const { listSkills: listSkillsApi, getSkillContent, skillEligibleForTool } = useStimpacksApi()
+const activeToolSkills = ref<Skill[]>([])
+const toolSkillGuidance = ref('')
+
+async function loadToolSkills() {
+  const taskTypes = tool.value?.task_types || []
+  if (!taskTypes.length) {
+    activeToolSkills.value = []
+    toolSkillGuidance.value = ''
+    return
+  }
+  try {
+    const all = await listSkillsApi()
+    const eligible = all.filter(s => skillEligibleForTool(s, taskTypes))
+    activeToolSkills.value = eligible
+    const bodies = await Promise.all(eligible.map(async s => {
+      try {
+        const detail = await getSkillContent(s.qualified_name)
+        return `## Skill: ${s.display_name}\n\n${detail.content}`
+      } catch {
+        return null
+      }
+    }))
+    toolSkillGuidance.value = bodies.filter(Boolean).join('\n\n---\n\n')
+  } catch {
+    activeToolSkills.value = []
+    toolSkillGuidance.value = ''
+  }
+}
+watch(() => tool.value?.full_tool_id, () => { void loadToolSkills() }, { immediate: true })
+
 // --- State context ---------------------------------------------------------
 
 function getStateContext(): Record<string, any> {
@@ -4574,6 +4611,12 @@ function getStateContext(): Record<string, any> {
   // agent knows the current text for surgical edits.
   ctx.notes = {
     instructions: globalPrefs.value.agentInstructions || '',
+  }
+
+  // Tool-targeted skill bodies (auto-active by task_type match). The backend
+  // lifts this out of the state JSON and injects it as its own reminder.
+  if (toolSkillGuidance.value) {
+    ctx.notes.skill_guidance = toolSkillGuidance.value
   }
 
   return ctx

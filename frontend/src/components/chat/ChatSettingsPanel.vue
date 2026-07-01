@@ -49,44 +49,44 @@
             Guide the agent's behavior. Try: style preferences, output formats, tool constraints, or specific parameters like LoRAs and CFG values.
           </p>
 
-          <!-- Stimpacks -->
+          <!-- Skills -->
           <div class="mt-4">
-            <label class="text-xs font-medium text-content-tertiary mb-1.5 block">Stimpacks</label>
+            <label class="text-xs font-medium text-content-tertiary mb-1.5 block">Skills</label>
             <p class="text-[11px] text-content-muted mb-2">
-              Activate a stimpack to guide the agent's approach. Stimpacks stay active for the rest of the conversation.
+              Activate a skill to guide the agent's approach. Skills stay active for the rest of the conversation.
             </p>
-            <div v-if="loadingStimpacks" class="text-[11px] text-content-muted py-2">Loading...</div>
-            <div v-else-if="stimpacks.length > 0" class="bg-surface rounded-lg border border-edge">
+            <div v-if="loadingSkills" class="text-[11px] text-content-muted py-2">Loading...</div>
+            <div v-else-if="skills.length > 0" class="bg-surface rounded-lg border border-edge">
               <div
-                v-for="(stimpack, idx) in stimpacks"
-                :key="stimpack.name"
+                v-for="(skill, idx) in skills"
+                :key="skill.qualified_name"
                 class="flex items-center justify-between px-3 py-2 transition-colors"
-                :class="idx < stimpacks.length - 1 ? 'border-b border-edge' : ''"
+                :class="idx < skills.length - 1 ? 'border-b border-edge' : ''"
               >
                 <div class="min-w-0 mr-2">
                   <div class="flex items-center gap-2">
                     <span
                       class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                      :class="isStimpackInvoked(stimpack.name) ? 'bg-blue-500' : 'bg-white/10'"
+                      :class="isSkillInvoked(skill) ? 'bg-blue-500' : 'bg-white/10'"
                     />
-                    <span class="text-xs leading-4" :class="isStimpackInvoked(stimpack.name) ? 'text-content font-medium' : 'text-content-secondary'">{{ stimpack.display_name || stimpack.name }}</span>
+                    <span class="text-xs leading-4" :class="isSkillInvoked(skill) ? 'text-content font-medium' : 'text-content-secondary'">{{ skill.display_name || skill.slug }}</span>
                   </div>
-                  <p v-if="stimpack.description" class="text-[10px] text-content-muted truncate mt-0.5 pl-3.5">{{ stimpack.description }}</p>
+                  <p v-if="skill.description" class="text-[10px] text-content-muted truncate mt-0.5 pl-3.5">{{ skill.description }}</p>
                 </div>
                 <div class="flex items-center flex-shrink-0">
                   <button
-                    v-if="!isStimpackInvoked(stimpack.name)"
-                    @click="invokeStimpack(stimpack.name)"
-                    :disabled="invokingStimpack === stimpack.name"
+                    v-if="!isSkillInvoked(skill)"
+                    @click="invokeSkill(skill.qualified_name)"
+                    :disabled="invokingSkill === skill.qualified_name"
                     class="text-[10px] px-2 py-0.5 rounded text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
                   >
-                    {{ invokingStimpack === stimpack.name ? 'Activating...' : 'Activate' }}
+                    {{ invokingSkill === skill.qualified_name ? 'Activating...' : 'Activate' }}
                   </button>
                   <span v-else class="text-[10px] text-content-muted px-2">Active</span>
                 </div>
               </div>
             </div>
-            <p v-else class="text-[11px] text-content-muted">No stimpacks available.</p>
+            <p v-else class="text-[11px] text-content-muted">No skills available.</p>
           </div>
         </div>
       </div>
@@ -204,7 +204,7 @@ import { useAgentPresetsApi, type AgentSettings, type ToolConfig } from '../../c
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
 import { useWebSocket } from '../../composables/useWebSocket'
 import StimpackEditorModal from '../settings/StimpackEditorModal.vue'
-import { useStimpacksApi, type Stimpack, type StimpackDetail } from '../../composables/useStimpacksApi'
+import { useStimpacksApi, type Skill, type StimpackDetail } from '../../composables/useStimpacksApi'
 
 const props = defineProps<{
   chatId: number
@@ -217,7 +217,7 @@ const isVisible = computed(() => props.visible ?? true)
 const { getChatAgentSettings, updateChatAgentSettings } = useAgentPresetsApi()
 const { listAllTools } = useProvidersApi()
 const { on: onWsEvent } = useWebSocket()
-const { listStimpacks: listStimpacksApi, getStimpack: getStimpackApi, updateStimpack: updateStimpackApi } = useStimpacksApi()
+const { listSkills: listSkillsApi, getStimpack: getStimpackApi, updateStimpack: updateStimpackApi } = useStimpacksApi()
 
 // Tabs
 const tabs = [
@@ -236,9 +236,9 @@ const localInstructions = ref('')
 const localToolConfig = ref<ToolConfig | null>(null)
 const showInstructionsModal = ref(false)
 
-// Stimpacks state
-const stimpacks = ref<Stimpack[]>([])
-const loadingStimpacks = ref(false)
+// Skills state (chat-eligible skills across installed stimpacks)
+const skills = ref<Skill[]>([])
+const loadingSkills = ref(false)
 
 // Add tool dropdown state
 const showAddToolDropdown = ref(false)
@@ -428,51 +428,55 @@ function formatTaskType(taskType: string): string {
     .replace(/\b\w/g, char => char.toUpperCase())
 }
 
-// Stimpacks methods
-async function loadStimpacks() {
-  loadingStimpacks.value = true
+// Skills methods
+async function loadSkills() {
+  loadingSkills.value = true
   try {
-    stimpacks.value = await listStimpacksApi()
+    const all = await listSkillsApi()
+    skills.value = all.filter(s => s.environments?.chat)
   } catch (err) {
-    console.error('Failed to load stimpacks:', err)
+    console.error('Failed to load skills:', err)
   } finally {
-    loadingStimpacks.value = false
+    loadingSkills.value = false
   }
 }
 
-// Track which stimpacks have been invoked in this chat (from stimpack_injection items)
-const invokedStimpacks = ref<Set<string>>(new Set())
-const invokingStimpack = ref<string | null>(null)
+// Track which skills have been invoked in this chat (from stimpack_injection items)
+const invokedSkills = ref<Set<string>>(new Set())
+const invokingSkill = ref<string | null>(null)
 
-function isStimpackInvoked(name: string): boolean {
-  return invokedStimpacks.value.has(name)
+function isSkillInvoked(skill: Skill): boolean {
+  // Old history may record the bare slug or legacy pack name
+  return invokedSkills.value.has(skill.qualified_name)
+    || invokedSkills.value.has(skill.slug)
+    || invokedSkills.value.has(skill.pack_name)
 }
 
-async function invokeStimpack(name: string) {
-  if (invokedStimpacks.value.has(name)) return
-  invokingStimpack.value = name
+async function invokeSkill(name: string) {
+  if (invokedSkills.value.has(name)) return
+  invokingSkill.value = name
   try {
-    const response = await fetch(`/api/chats/${props.chatId}/invoke-stimpack`, {
+    const response = await fetch(`/api/chats/${props.chatId}/invoke-skill`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
     })
     if (response.ok) {
-      invokedStimpacks.value = new Set([...invokedStimpacks.value, name])
+      invokedSkills.value = new Set([...invokedSkills.value, name])
     }
   } catch (err) {
-    console.error('Failed to invoke stimpack:', err)
+    console.error('Failed to invoke skill:', err)
   } finally {
-    invokingStimpack.value = null
+    invokingSkill.value = null
   }
 }
 
-async function loadInvokedStimpacks() {
+async function loadInvokedSkills() {
   try {
-    const response = await fetch(`/api/chats/${props.chatId}/invoked-stimpacks`)
+    const response = await fetch(`/api/chats/${props.chatId}/invoked-skills`)
     if (response.ok) {
       const data = await response.json()
-      invokedStimpacks.value = new Set(data.stimpacks || [])
+      invokedSkills.value = new Set(data.skills || [])
     }
   } catch {
     // Fallback: will be populated via WebSocket events
@@ -507,7 +511,7 @@ async function handleStimpackSave(data: { name: string; display_name: string; de
     })
     showStimpackEditor.value = false
     editingStimpack.value = null
-    await loadStimpacks()
+    await loadSkills()
   } catch (err) {
     console.error('Failed to save stimpack:', err)
   }
@@ -529,14 +533,15 @@ function setupWebSocketSubscriptions() {
     }
   }))
 
-  // Listen for stimpack invocations (from agent or API)
+  // Listen for skill invocations (from agent or API)
   wsUnsubscribes.push(onWsEvent('chat_item_created', (data: any) => {
     if (data.chat_id !== props.chatId) return
     const item = data.item
     if (item?.item_type === 'stimpack_injection') {
       const meta = typeof item.item_metadata === 'string' ? JSON.parse(item.item_metadata) : item.item_metadata
-      if (meta?.stimpack_name) {
-        invokedStimpacks.value = new Set([...invokedStimpacks.value, meta.stimpack_name])
+      const name = meta?.skill_name || meta?.stimpack_name
+      if (name) {
+        invokedSkills.value = new Set([...invokedSkills.value, name])
       }
     }
   }))
@@ -550,18 +555,18 @@ function cleanupWebSocketSubscriptions() {
 // Watch for chat changes
 watch(() => props.chatId, () => {
   loadSettings()
-  loadInvokedStimpacks()
+  loadInvokedSkills()
 }, { immediate: true })
 
 // Load tools and setup WebSocket on mount
 function handleStimpacksChanged() {
-  loadStimpacks()
+  loadSkills()
 }
 
 onMounted(() => {
   loadTools()
-  loadStimpacks()
-  loadInvokedStimpacks()
+  loadSkills()
+  loadInvokedSkills()
   setupWebSocketSubscriptions()
   window.addEventListener('stimpacks-changed', handleStimpacksChanged)
   // Use mousedown instead of click: when clicking a category inside TaskTypeToolList,

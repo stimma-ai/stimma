@@ -280,6 +280,14 @@
           >
             <WrenchIcon class="w-4 h-4" />
           </button>
+          <!-- Active skills indicator — skills targeting this tool feed the agent. -->
+          <span
+            v-if="agent && activeSkills.length > 0"
+            class="ml-1 px-2 py-0.5 rounded-full text-[10px] bg-blue-500/15 border border-blue-500/50 text-blue-400 whitespace-nowrap"
+            :title="'Active skills: ' + activeSkills.map(s => s.display_name).join(', ')"
+          >
+            {{ activeSkills.length }} {{ activeSkills.length === 1 ? 'skill' : 'skills' }} active
+          </span>
         </div>
 
         <button
@@ -476,6 +484,8 @@ interface Props {
   placeholder?: string
   /** Per-tool Instructions — standing guidance, co-edited by user + agent. */
   instructions?: string
+  /** Skills auto-activated for this tool (by task_type match) — shown as an indicator. */
+  activeSkills?: Array<{ qualified_name: string; display_name: string }>
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -484,6 +494,7 @@ const props = withDefaults(defineProps<Props>(), {
   hasPrompt: false,
   placeholder: '',
   instructions: '',
+  activeSkills: () => [],
 })
 
 const emit = defineEmits<{

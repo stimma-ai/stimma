@@ -231,6 +231,18 @@
             <span>Tools</span>
           </button>
 
+          <!-- Stimpacks landing link -->
+          <button
+            @click="handleNavClick('stimpacks')"
+            class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
+            :class="activeTab === 'stimpacks' ? '!bg-overlay-hover !text-content' : ''"
+          >
+            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+            </svg>
+            <span>Stimpacks</span>
+          </button>
+
           <!-- ==================== ZONE 2: Workspace Tabs ==================== -->
           <div v-if="pinnedTabs.length > 0 || openTabs.length > 0" class="mt-3">
             <div class="mx-3 mb-2 border-t border-edge-subtle"></div>

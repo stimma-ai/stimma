@@ -6,6 +6,7 @@ import UploadView from '../views/UploadView.vue'
 import ChatView from '../views/ChatView.vue'
 import SavedViewPage from '../views/SavedViewPage.vue'
 import AllToolsView from '../views/AllToolsView.vue'
+import StimpacksView from '../views/StimpacksView.vue'
 import ToolView from '../views/ToolView.vue'
 import ImageEditorView from '../views/ImageEditorView.vue'
 import LineageView from '../views/LineageView.vue'
@@ -148,6 +149,11 @@ const routes = [
     path: '/tools',
     name: 'all-tools',
     component: AllToolsView
+  },
+  {
+    path: '/stimpacks',
+    name: 'stimpacks',
+    component: StimpacksView
   },
   {
     path: '/edit-image',

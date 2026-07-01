@@ -16,7 +16,7 @@ from privacy_lockdown import disabled_message, is_privacy_lockdown_enabled
 
 router = APIRouter(prefix="/api/stimpack-marketplace", tags=["stimpack-marketplace"])
 log = get_logger(__name__)
-DEFAULT_AUTO_INSTALL_STIMPACKS = ("prompt-engineering", "layout-design", "tool-selection")
+DEFAULT_AUTO_INSTALL_STIMPACKS = ("stimma-essentials",)
 
 
 def _stimpacks_api():
