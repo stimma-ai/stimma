@@ -43,13 +43,23 @@ def build_skills_reminder(
             desc += f" (imports: {', '.join(s.provides)})"
         lines.append(f"- {s.qualified_name}: {desc} [{s.pack_display_name}]")
     lines.append("")
-    lines.append(
-        "Invoke a skill only when the task actually calls for it — being listed "
-        "here means it's available, not that it applies. When skills do apply, "
-        "load them all up front, before starting work: loading a skill mid-task "
-        "injects new instructions that can reset your focus and cause you to "
-        "redo completed steps."
-    )
+    if environment == "flow":
+        # Flow builds are mostly plumbing; the historical failure mode was
+        # loading skills into flows that didn't call for them. Chat keeps the
+        # unhedged load-up-front instruction below.
+        lines.append(
+            "Invoke a skill only when the task actually calls for it — being "
+            "listed here means it's available, not that it applies. When skills "
+            "do apply, load them all up front, before starting work: loading a "
+            "skill mid-task injects new instructions that can reset your focus "
+            "and cause you to redo completed steps."
+        )
+    else:
+        lines.append(
+            "Load every skill that clearly applies up front, before starting "
+            "work — loading a skill mid-task injects new instructions that can "
+            "reset your focus and cause you to redo completed steps."
+        )
     lines.append("</system-reminder>")
     return "\n".join(lines)
 
