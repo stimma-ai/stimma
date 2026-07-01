@@ -580,7 +580,7 @@
       class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-[9998] transition-all duration-300 py-2 px-2"
       :style="{
         height: `${STRIP_HEIGHT}px`,
-        right: showSidebar ? '320px' : '0px'
+        right: (showSidebar && !focusMode) ? `${SIDEBAR_WIDTH}px` : '0px'
       }"
     >
       <!-- When viewing a source image, show single centered thumbnail -->
@@ -1338,6 +1338,7 @@ const controlBarOrientation = ref(savedSettings.controlBarOrientation ?? 'horizo
 // Image strip state (shows items from current dataset)
 const showImageStrip = ref(savedSettings.showImageStrip ?? true)
 const STRIP_HEIGHT = 136
+const SIDEBAR_WIDTH = 384
 const focusMode = ref(savedSettings.focusMode ?? false)
 // Markers and boards state
 const availableMarkers = ref([])
@@ -1887,7 +1888,7 @@ const hasOnlyCaption = computed(() => {
 const controlBarStyle = computed(() => {
   const anchors = controlBarEdgeAnchors.value
   // In focus mode, treat sidebar as if it's not there
-  const sidebarWidth = (showSidebar.value && !focusMode.value) ? 384 : 0
+  const sidebarWidth = (showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0
   // Account for image strip height when visible
   const relatedStripOffset = (showImageStrip.value && !focusMode.value) ? STRIP_HEIGHT : 0
 
@@ -1895,24 +1896,31 @@ const controlBarStyle = computed(() => {
   if (anchors.horizontal !== null && anchors.vertical !== null) {
     const style = {}
 
+    // Clamp distances to non-negative. A stale/corrupt persisted value
+    // (e.g. from dragging the bar underneath the sidebar/strip before that
+    // was prevented) could otherwise push the bar off-screen with no way
+    // to get it back short of clearing localStorage.
+    const horizontalDistance = Math.max(0, anchors.horizontalDistance)
+    const verticalDistance = Math.max(0, anchors.verticalDistance)
+
     // Calculate horizontal position
     if (anchors.horizontal === 'left') {
       // When anchored to left, no sidebar adjustment needed (sidebar is on right)
-      style.left = `${anchors.horizontalDistance}px`
+      style.left = `${horizontalDistance}px`
       style.right = 'auto'
     } else {
       // When anchored to right, account for sidebar on right
-      style.right = `${sidebarWidth + anchors.horizontalDistance}px`
+      style.right = `${sidebarWidth + horizontalDistance}px`
       style.left = 'auto'
     }
 
     // Calculate vertical position
     if (anchors.vertical === 'top') {
-      style.top = `${anchors.verticalDistance}px`
+      style.top = `${verticalDistance}px`
       style.bottom = 'auto'
     } else {
       // When anchored to bottom, account for related strip
-      style.bottom = `${anchors.verticalDistance + relatedStripOffset}px`
+      style.bottom = `${verticalDistance + relatedStripOffset}px`
       style.top = 'auto'
     }
 
@@ -3126,7 +3134,7 @@ function startDrag(event) {
   // If no edge anchors are set yet, initialize them based on current visual position
   // This prevents the "hop" when transitioning from centered to edge-anchored positioning
   if (controlBarEdgeAnchors.value.horizontal === null || controlBarEdgeAnchors.value.vertical === null) {
-    const sidebarWidth = (showSidebar.value && !focusMode.value) ? 384 : 0
+    const sidebarWidth = (showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0
     const containerRect = overlay.value.getBoundingClientRect()
     const containerWidth = containerRect.width
     const containerHeight = containerRect.height
@@ -3137,13 +3145,14 @@ function startDrag(event) {
     const currentX = rect.left - containerRect.left
     const currentY = rect.top - containerRect.top
 
-    // Calculate distances from edges
-    const distanceFromLeft = currentX
-    const distanceFromRight = (containerWidth - sidebarWidth) - (currentX + controlBarWidth)
-    const distanceFromTop = currentY
+    // Calculate distances from edges (clamped non-negative in case the bar's
+    // actual position is already behind the sidebar/strip from a stale state)
+    const distanceFromLeft = Math.max(0, currentX)
+    const distanceFromRight = Math.max(0, (containerWidth - sidebarWidth) - (currentX + controlBarWidth))
+    const distanceFromTop = Math.max(0, currentY)
     // Account for image strip when calculating bottom distance (consistent with controlBarStyle)
     const relatedStripOffset = (showImageStrip.value && !focusMode.value) ? STRIP_HEIGHT : 0
-    const distanceFromBottom = containerHeight - relatedStripOffset - (currentY + controlBarHeight)
+    const distanceFromBottom = Math.max(0, containerHeight - relatedStripOffset - (currentY + controlBarHeight))
 
     // Set initial anchors
     controlBarEdgeAnchors.value = {
@@ -3180,20 +3189,23 @@ function onDrag(event) {
       const x = event.clientX - containerRect.left - dragStart.value.x
       const y = event.clientY - containerRect.top - dragStart.value.y
 
-      // Keep within container bounds
-      const maxX = containerRect.width - controlBar.value.offsetWidth
-      const maxY = containerRect.height - controlBar.value.offsetHeight
-
-      const clampedX = Math.max(0, Math.min(x, maxX))
-      const clampedY = Math.max(0, Math.min(y, maxY))
-
-      // Calculate which edges are nearest
-      // In focus mode, treat sidebar as if it's not there
-      const sidebarWidth = (showSidebar.value && !focusMode.value) ? 384 : 0
+      // In focus mode, treat sidebar/strip as if they're not there
+      const sidebarWidth = (showSidebar.value && !focusMode.value) ? SIDEBAR_WIDTH : 0
+      const relatedStripOffset = (showImageStrip.value && !focusMode.value) ? STRIP_HEIGHT : 0
       const containerWidth = containerRect.width
       const containerHeight = containerRect.height
       const controlBarWidth = controlBar.value.offsetWidth
       const controlBarHeight = controlBar.value.offsetHeight
+
+      // Keep within container bounds, excluding the sidebar/strip so the bar
+      // can never be dragged underneath them (which produced negative saved
+      // distances that persisted after the sidebar closed — the bar would
+      // then render off-screen).
+      const maxX = containerWidth - sidebarWidth - controlBarWidth
+      const maxY = containerHeight - relatedStripOffset - controlBarHeight
+
+      const clampedX = Math.max(0, Math.min(x, maxX))
+      const clampedY = Math.max(0, Math.min(y, maxY))
 
       // Determine horizontal edge (relative to viewing area, not full viewport)
       // Sidebar is on the right, so left distance is just clampedX
@@ -3204,7 +3216,6 @@ function onDrag(event) {
       // Determine vertical edge
       const distanceFromTop = clampedY
       // Account for image strip when calculating bottom distance (consistent with controlBarStyle)
-      const relatedStripOffset = (showImageStrip.value && !focusMode.value) ? STRIP_HEIGHT : 0
       const distanceFromBottom = containerHeight - relatedStripOffset - (clampedY + controlBarHeight)
 
       // Update anchors based on nearest edges
@@ -5311,10 +5322,10 @@ button :deep(svg) {
 
 /* Volume slider (vertical) */
 .volume-slider-vertical {
-  -webkit-appearance: slider-vertical;
+  -webkit-appearance: none;
   writing-mode: vertical-lr;
   direction: rtl;
-  appearance: slider-vertical;
+  appearance: none;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 9999px;
   width: 4px;
