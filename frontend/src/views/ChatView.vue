@@ -1262,60 +1262,6 @@
       >
         {{ modelUnavailableMessage }}
       </div>
-      <div v-if="embedded && embeddedSkills.length > 0" class="mb-2 flex justify-end relative">
-        <button
-          @click="showSkillsPopover = !showSkillsPopover"
-          class="px-2 py-0.5 rounded-full text-[10px] border transition-colors"
-          :class="activeSkillNames.length > 0
-            ? 'bg-blue-500/15 border-blue-500/50 text-blue-400'
-            : 'bg-white/[0.05] border-white/10 text-content-muted hover:text-content-secondary'"
-          :title="activeSkillNames.length > 0 ? 'Active skills: ' + activeSkillNames.join(', ') : 'Skills available for this flow'"
-        >
-          {{ activeSkillNames.length > 0
-            ? `${activeSkillNames.length} ${activeSkillNames.length === 1 ? 'skill' : 'skills'} active`
-            : 'Skills' }}
-        </button>
-        <div v-if="showSkillsPopover" class="fixed inset-0 z-40" @click="showSkillsPopover = false"></div>
-        <div
-          v-if="showSkillsPopover"
-          class="absolute bottom-full right-0 mb-2 w-80 z-50 bg-surface border border-edge rounded-xl shadow-2xl overflow-hidden"
-        >
-          <div class="px-3 pt-2.5 pb-1.5">
-            <span class="text-xs font-medium text-content-tertiary">Skills</span>
-            <p class="text-[11px] text-content-muted mt-0.5">Activated skills guide the agent for the rest of the conversation.</p>
-          </div>
-          <div class="max-h-64 overflow-y-auto">
-            <div
-              v-for="(skill, idx) in embeddedSkills"
-              :key="skill.qualified_name"
-              class="flex items-center justify-between px-3 py-2"
-              :class="idx < embeddedSkills.length - 1 ? 'border-b border-edge' : ''"
-            >
-              <div class="min-w-0 mr-2">
-                <div class="flex items-center gap-2">
-                  <span
-                    class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    :class="isEmbeddedSkillActive(skill) ? 'bg-blue-500' : 'bg-white/10'"
-                  />
-                  <span class="text-xs leading-4" :class="isEmbeddedSkillActive(skill) ? 'text-content font-medium' : 'text-content-secondary'">{{ skill.display_name || skill.slug }}</span>
-                </div>
-                <p v-if="skill.description" class="text-[10px] text-content-muted truncate mt-0.5 pl-3.5">{{ skill.description }}</p>
-              </div>
-              <div class="flex items-center flex-shrink-0">
-                <button
-                  v-if="!isEmbeddedSkillActive(skill)"
-                  @click="activateEmbeddedSkill(skill.qualified_name)"
-                  :disabled="invokingEmbeddedSkill === skill.qualified_name"
-                  class="text-[10px] px-2 py-0.5 rounded text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
-                >
-                  {{ invokingEmbeddedSkill === skill.qualified_name ? 'Activating...' : 'Activate' }}
-                </button>
-                <span v-else class="text-[10px] text-content-muted px-2">Active</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
       <ChatInputBox
         ref="chatInputBoxRef"
         v-model="messageInput"
@@ -1328,6 +1274,14 @@
       >
         <template #context-header>
           <slot name="context-header" />
+        </template>
+        <template #toolbar-extra>
+          <SkillsMenuButton
+            :skills="eligibleSkills"
+            :active-keys="invokedSkillKeySet"
+            :invoking="invokingSkillName"
+            @activate="activateSkill"
+          />
         </template>
         <template #model-picker>
           <ChatModelPicker
@@ -1462,6 +1416,7 @@ import { MediaImage, AppImage, MediaContextMenu } from '../components/media'
 import ChatImageStrip from '../components/chat/ChatImageStrip.vue'
 import ChatInputAttachments from '../components/chat/ChatInputAttachments.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
+import SkillsMenuButton from '../components/chat/SkillsMenuButton.vue'
 import FlowRefChip from '../components/flow/FlowRefChip.vue'
 import { useFlowReferences, formatReferencesForMessage, parseMessageReferences, type FlowReference } from '../composables/useFlowReferences'
 import { pendingMedia, consumePendingMedia } from '../composables/usePendingMedia'
@@ -2140,49 +2095,39 @@ const topLevelItems = computed(() => {
   return items.value.filter(item => !item.parent_item_id)
 })
 
-// Distinct skills active in this conversation (legacy items carry stimpack_* keys)
-const invokedSkillKeys = computed(() => {
-  const keys = new Map()
+// Skills menu on the chat input — the one place skills are seen/activated.
+// Regular chats list chat-eligible skills; embedded (flow) chats list
+// flow-eligible ones. Activation state comes from stimpack_injection items
+// (legacy items carry stimpack_* metadata keys).
+const invokedSkillKeySet = computed(() => {
+  const keys = new Set()
   for (const item of items.value) {
     if (item.item_type !== 'stimpack_injection') continue
     const meta = item.item_metadata || {}
     const name = meta.skill_name || meta.stimpack_name
-    if (name && !keys.has(name)) {
-      keys.set(name, meta.skill_display_name || meta.stimpack_display_name || name)
-    }
+    if (name) keys.add(name)
   }
   return keys
 })
-const activeSkillNames = computed(() => [...invokedSkillKeys.value.values()])
 
-// Skills panel for embedded (flow) chats — the settings panel with the chat
-// skills list is suppressed there, so status/activation live in a popover.
-const embeddedSkills = ref([])
-const showSkillsPopover = ref(false)
-const invokingEmbeddedSkill = ref(null)
+const eligibleSkills = ref([])
+const invokingSkillName = ref(null)
 
-async function loadEmbeddedSkills() {
-  if (!props.embedded) return
+async function loadEligibleSkills() {
   try {
     const all = await listSkillsApi()
-    embeddedSkills.value = all.filter(s => s.environments?.flow)
+    const env = props.embedded ? 'flow' : 'chat'
+    eligibleSkills.value = all.filter(s => s.environments?.[env])
   } catch (err) {
     console.error('Failed to load skills:', err)
   }
 }
 
-function isEmbeddedSkillActive(skill) {
-  // Old history may record the bare slug or legacy pack name
-  return invokedSkillKeys.value.has(skill.qualified_name)
-    || invokedSkillKeys.value.has(skill.slug)
-    || invokedSkillKeys.value.has(skill.pack_name)
-}
-
-async function activateEmbeddedSkill(name) {
-  invokingEmbeddedSkill.value = name
+async function activateSkill(name) {
+  invokingSkillName.value = name
   try {
     // The resulting stimpack_injection item arrives via WebSocket and flips
-    // the status dot through invokedSkillKeys.
+    // the status dot through invokedSkillKeySet.
     await fetch(`/api/chats/${chatId.value}/invoke-skill`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2191,8 +2136,12 @@ async function activateEmbeddedSkill(name) {
   } catch (err) {
     console.error('Failed to activate skill:', err)
   } finally {
-    invokingEmbeddedSkill.value = null
+    invokingSkillName.value = null
   }
+}
+
+function handleSkillsChanged() {
+  loadEligibleSkills()
 }
 
 // Get child items for a given parent (delegate tool_call)
@@ -5200,7 +5149,8 @@ onMounted(() => {
   chatId.value = resolveChatIdSource()
   loadChat()
   loadMarkers()
-  loadEmbeddedSkills()
+  loadEligibleSkills()
+  window.addEventListener('stimpacks-changed', handleSkillsChanged)
   // Set up WebSocket subscriptions (shared singleton handles connection)
   setupWebSocketSubscriptions()
   loadItems().then(() => {
@@ -5237,6 +5187,7 @@ onUnmounted(() => {
   cleanupWebSocketSubscriptions()
   window.removeEventListener('profile-changed', handleProfileChanged)
   window.removeEventListener('markers-changed', loadMarkers)
+  window.removeEventListener('stimpacks-changed', handleSkillsChanged)
   if (messagesContainer.value) {
     messagesContainer.value.removeEventListener('click', handleLinkClick)
   }

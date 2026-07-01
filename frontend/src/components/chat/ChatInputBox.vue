@@ -65,6 +65,8 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
           </button>
+          <!-- Extra toolbar controls (e.g. the skills menu) between plus and mic -->
+          <slot name="toolbar-extra" />
           <VoiceInputButton ref="voiceBtn" :get-text="getText" :set-text="setText" :focus="focusTextarea" :surface="voiceSurface" />
         </div>
 

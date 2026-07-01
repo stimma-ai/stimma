@@ -280,40 +280,8 @@
           >
             <WrenchIcon class="w-4 h-4" />
           </button>
-          <!-- Active skills indicator — skills targeting this tool feed the agent. -->
-          <div v-if="agent && activeSkills.length > 0" class="relative">
-            <button
-              @click="showSkillsPopover = !showSkillsPopover"
-              class="ml-1 px-2 py-0.5 rounded-full text-[10px] bg-blue-500/15 border border-blue-500/50 text-blue-400 whitespace-nowrap hover:bg-blue-500/25 transition-colors"
-              title="Skills guiding this tool's assistant"
-            >
-              {{ activeSkills.length }} {{ activeSkills.length === 1 ? 'skill' : 'skills' }} active
-            </button>
-            <div v-if="showSkillsPopover" class="fixed inset-0 z-40" @click="showSkillsPopover = false"></div>
-            <div
-              v-if="showSkillsPopover"
-              class="absolute bottom-full left-0 mb-2 w-72 z-50 bg-surface border border-edge rounded-xl shadow-2xl overflow-hidden"
-            >
-              <div class="px-3 pt-2.5 pb-1.5">
-                <span class="text-xs font-medium text-content-tertiary">Active skills</span>
-                <p class="text-[11px] text-content-muted mt-0.5">These skills match this tool and guide the assistant automatically.</p>
-              </div>
-              <div class="max-h-56 overflow-y-auto">
-                <div
-                  v-for="(s, idx) in activeSkills"
-                  :key="s.qualified_name"
-                  class="px-3 py-2"
-                  :class="idx < activeSkills.length - 1 ? 'border-b border-edge' : ''"
-                >
-                  <div class="flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500" />
-                    <span class="text-xs leading-4 text-content font-medium">{{ s.display_name }}</span>
-                  </div>
-                  <p v-if="s.description" class="text-[10px] text-content-muted mt-0.5 pl-3.5">{{ s.description }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <!-- Active skills — skills targeting this tool feed the agent automatically. -->
+          <SkillsMenuButton v-if="agent" :skills="activeSkills" mode="view" />
         </div>
 
         <button
@@ -478,6 +446,7 @@ import { useTelemetry } from '../../composables/useTelemetry'
 import { extractVerbatim, restoreVerbatim, verifyVerbatimPreserved } from '../../utils/promptProcessor'
 import SuggestionSubmenu from './SuggestionSubmenu.vue'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
+import SkillsMenuButton from '../chat/SkillsMenuButton.vue'
 import { devModeRef } from '../../appConfig'
 import PromptAgentThumbButtons from '@stimma/prompt-agent-thumb-buttons'
 
@@ -538,7 +507,6 @@ const instructionsText = computed({
 // Settings drawer (wrench toggle) holds Instructions + the thinking toggle.
 // Collapsed by default — these are occasional fields.
 const showSettings = ref(false)
-const showSkillsPopover = ref(false)
 
 // Injected page-wide mini-agent. Present → full-agent mode (drives the whole
 // screen via tool calls); absent → prompt-only mode (single-shot /enhance).
