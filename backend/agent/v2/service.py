@@ -1464,7 +1464,7 @@ async def _run_agentic_loop_inner(
                     item_type="tool_call",
                     tool_name=fn_name,
                     tool_call_id=tool_call_id,
-                    tool_args=fn_arguments,
+                    tool_args=_enrich_tool_args(fn_name, fn_arguments),
                 )
                 session.add(call_item)
                 await session.commit()
@@ -1843,7 +1843,7 @@ async def resume_after_hitl(
                 item_type="tool_call",
                 tool_name=pending["tool_name"],
                 tool_call_id=tool_call_id,
-                tool_args=pending["fn_arguments"],
+                tool_args=_enrich_tool_args(pending["tool_name"], pending["fn_arguments"]),
             )
             session.add(call_item)
             await session.commit()

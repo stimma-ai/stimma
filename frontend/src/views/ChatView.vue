@@ -1262,13 +1262,59 @@
       >
         {{ modelUnavailableMessage }}
       </div>
-      <div v-if="embedded && activeSkillNames.length > 0" class="mb-2 flex justify-end">
-        <span
-          class="px-2 py-0.5 rounded-full text-[10px] bg-blue-500/15 border border-blue-500/50 text-blue-400"
-          :title="'Active skills: ' + activeSkillNames.join(', ')"
+      <div v-if="embedded && embeddedSkills.length > 0" class="mb-2 flex justify-end relative">
+        <button
+          @click="showSkillsPopover = !showSkillsPopover"
+          class="px-2 py-0.5 rounded-full text-[10px] border transition-colors"
+          :class="activeSkillNames.length > 0
+            ? 'bg-blue-500/15 border-blue-500/50 text-blue-400'
+            : 'bg-white/[0.05] border-white/10 text-content-muted hover:text-content-secondary'"
+          :title="activeSkillNames.length > 0 ? 'Active skills: ' + activeSkillNames.join(', ') : 'Skills available for this flow'"
         >
-          {{ activeSkillNames.length }} {{ activeSkillNames.length === 1 ? 'skill' : 'skills' }} active
-        </span>
+          {{ activeSkillNames.length > 0
+            ? `${activeSkillNames.length} ${activeSkillNames.length === 1 ? 'skill' : 'skills'} active`
+            : 'Skills' }}
+        </button>
+        <div v-if="showSkillsPopover" class="fixed inset-0 z-40" @click="showSkillsPopover = false"></div>
+        <div
+          v-if="showSkillsPopover"
+          class="absolute bottom-full right-0 mb-2 w-80 z-50 bg-surface border border-edge rounded-xl shadow-2xl overflow-hidden"
+        >
+          <div class="px-3 pt-2.5 pb-1.5">
+            <span class="text-xs font-medium text-content-tertiary">Skills</span>
+            <p class="text-[11px] text-content-muted mt-0.5">Activated skills guide the agent for the rest of the conversation.</p>
+          </div>
+          <div class="max-h-64 overflow-y-auto">
+            <div
+              v-for="(skill, idx) in embeddedSkills"
+              :key="skill.qualified_name"
+              class="flex items-center justify-between px-3 py-2"
+              :class="idx < embeddedSkills.length - 1 ? 'border-b border-edge' : ''"
+            >
+              <div class="min-w-0 mr-2">
+                <div class="flex items-center gap-2">
+                  <span
+                    class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    :class="isEmbeddedSkillActive(skill) ? 'bg-blue-500' : 'bg-white/10'"
+                  />
+                  <span class="text-xs leading-4" :class="isEmbeddedSkillActive(skill) ? 'text-content font-medium' : 'text-content-secondary'">{{ skill.display_name || skill.slug }}</span>
+                </div>
+                <p v-if="skill.description" class="text-[10px] text-content-muted truncate mt-0.5 pl-3.5">{{ skill.description }}</p>
+              </div>
+              <div class="flex items-center flex-shrink-0">
+                <button
+                  v-if="!isEmbeddedSkillActive(skill)"
+                  @click="activateEmbeddedSkill(skill.qualified_name)"
+                  :disabled="invokingEmbeddedSkill === skill.qualified_name"
+                  class="text-[10px] px-2 py-0.5 rounded text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 transition-colors disabled:opacity-50"
+                >
+                  {{ invokingEmbeddedSkill === skill.qualified_name ? 'Activating...' : 'Activate' }}
+                </button>
+                <span v-else class="text-[10px] text-content-muted px-2">Active</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <ChatInputBox
         ref="chatInputBoxRef"
@@ -1468,6 +1514,7 @@ import {
 import ChatItemWrapper from '../components/chat/ChatItemWrapper.vue'
 import ChatErrorDisclosure from '../components/chat/ChatErrorDisclosure.vue'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useStimpacksApi } from '../composables/useStimpacksApi'
 import { useSlideshow } from '../composables/useSlideshow'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { makeProfileKey } from '../utils/storageKeys'
@@ -1491,6 +1538,7 @@ const props = defineProps<{
 const route = useRoute()
 const router = useRouter()
 const { getMediaItem, getThumbnailUrl } = useMediaApi()
+const { listSkills: listSkillsApi } = useStimpacksApi()
 const { cloudBaseUrl } = useCloudAccount()
 const { isAuthenticated } = useAuth()
 const { models: availableModels, globalDefault, loading: modelsLoading, invalidateCache: invalidateModelCache, fetchModels: fetchAvailableModels, getResolvedModel } = useAvailableModels()
@@ -1951,7 +1999,9 @@ function getToolCallDisplayName(toolCallItem) {
     return 'Tool'
   }
   if (toolCallItem.tool_name === 'skill' || toolCallItem.tool_name === 'stimpack') {
-    const displayName = args._display_name || (args.name ? formatToolId(String(args.name)) : null)
+    // Fallback shows only the leaf of a pack-qualified name ("pack/skill")
+    const leaf = args.name ? String(args.name).split('/').pop() : null
+    const displayName = args._display_name || (leaf ? formatToolId(leaf) : null)
     return displayName ? `Skill: ${displayName}` : 'Skill'
   }
   if (toolCallItem.tool_name === 'delegate') {
@@ -2091,18 +2141,59 @@ const topLevelItems = computed(() => {
 })
 
 // Distinct skills active in this conversation (legacy items carry stimpack_* keys)
-const activeSkillNames = computed(() => {
-  const names = new Map()
+const invokedSkillKeys = computed(() => {
+  const keys = new Map()
   for (const item of items.value) {
     if (item.item_type !== 'stimpack_injection') continue
     const meta = item.item_metadata || {}
     const name = meta.skill_name || meta.stimpack_name
-    if (name && !names.has(name)) {
-      names.set(name, meta.skill_display_name || meta.stimpack_display_name || name)
+    if (name && !keys.has(name)) {
+      keys.set(name, meta.skill_display_name || meta.stimpack_display_name || name)
     }
   }
-  return [...names.values()]
+  return keys
 })
+const activeSkillNames = computed(() => [...invokedSkillKeys.value.values()])
+
+// Skills panel for embedded (flow) chats — the settings panel with the chat
+// skills list is suppressed there, so status/activation live in a popover.
+const embeddedSkills = ref([])
+const showSkillsPopover = ref(false)
+const invokingEmbeddedSkill = ref(null)
+
+async function loadEmbeddedSkills() {
+  if (!props.embedded) return
+  try {
+    const all = await listSkillsApi()
+    embeddedSkills.value = all.filter(s => s.environments?.flow)
+  } catch (err) {
+    console.error('Failed to load skills:', err)
+  }
+}
+
+function isEmbeddedSkillActive(skill) {
+  // Old history may record the bare slug or legacy pack name
+  return invokedSkillKeys.value.has(skill.qualified_name)
+    || invokedSkillKeys.value.has(skill.slug)
+    || invokedSkillKeys.value.has(skill.pack_name)
+}
+
+async function activateEmbeddedSkill(name) {
+  invokingEmbeddedSkill.value = name
+  try {
+    // The resulting stimpack_injection item arrives via WebSocket and flips
+    // the status dot through invokedSkillKeys.
+    await fetch(`/api/chats/${chatId.value}/invoke-skill`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+  } catch (err) {
+    console.error('Failed to activate skill:', err)
+  } finally {
+    invokingEmbeddedSkill.value = null
+  }
+}
 
 // Get child items for a given parent (delegate tool_call)
 function getChildItems(parentItemId) {
@@ -5109,6 +5200,7 @@ onMounted(() => {
   chatId.value = resolveChatIdSource()
   loadChat()
   loadMarkers()
+  loadEmbeddedSkills()
   // Set up WebSocket subscriptions (shared singleton handles connection)
   setupWebSocketSubscriptions()
   loadItems().then(() => {
