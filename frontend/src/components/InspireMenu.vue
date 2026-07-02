@@ -146,6 +146,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { makeStorageKey } from '../utils/storageKeys'
+import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
 
 interface RemixTool {
   full_tool_id: string
@@ -198,7 +199,13 @@ const loadingTools = ref(false)
 const tools = ref<RemixTool[]>([])
 const containerRef = ref<HTMLElement | null>(null)
 const menuRef = ref<HTMLElement | null>(null)
-const menuStyle = ref({})
+// Viewport-aware placement below/above the trigger, clamped and height-capped
+const anchorRect = ref<DOMRect | null>(null)
+const { menuStyle: anchoredStyle } = useAnchoredMenuPosition(menuRef, anchorRect, showMenu)
+const menuStyle = computed(() => ({
+  ...anchoredStyle.value,
+  minWidth: `${Math.max(anchorRect.value?.width ?? 0, 200)}px`,
+}))
 const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
 
@@ -242,24 +249,9 @@ async function toggleMenu() {
     return
   }
 
-  // Position the menu
   if (containerRef.value) {
-    const rect = containerRef.value.getBoundingClientRect()
-    const menuWidth = 220
-    const viewportWidth = window.innerWidth
-
-    let left = rect.left
-    if (left + menuWidth > viewportWidth - 16) {
-      left = Math.max(16, rect.right - menuWidth)
-    }
-
-    menuStyle.value = {
-      top: `${rect.bottom + 4}px`,
-      left: `${left}px`,
-      minWidth: `${Math.max(rect.width, 200)}px`
-    }
+    anchorRect.value = containerRef.value.getBoundingClientRect()
   }
-
   showMenu.value = true
   loadingTools.value = true
 

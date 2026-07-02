@@ -20,10 +20,10 @@
       <div v-if="open" class="fixed inset-0 z-[10040]" @click="open = false"></div>
       <div
         v-if="open"
-        class="fixed w-80 z-[10050] bg-surface border border-edge rounded-xl shadow-2xl overflow-hidden"
+        class="fixed w-80 z-[10050] bg-surface border border-edge rounded-xl shadow-2xl overflow-hidden flex flex-col"
         :style="menuPosition"
       >
-        <div class="px-3 pt-2.5 pb-1.5">
+        <div class="px-3 pt-2.5 pb-1.5 shrink-0">
           <span class="text-xs font-medium text-content-tertiary">{{ mode === 'view' ? 'Active skills' : 'Skills' }}</span>
           <p class="text-[11px] text-content-muted mt-0.5">
             {{ mode === 'view'
@@ -31,7 +31,7 @@
               : 'Activated skills guide the agent for the rest of the conversation.' }}
           </p>
         </div>
-        <div class="max-h-64 overflow-y-auto">
+        <div class="max-h-64 overflow-y-auto flex-1 min-h-0">
           <div
             v-for="(skill, idx) in skills"
             :key="skill.qualified_name"
@@ -111,10 +111,12 @@ function toggle() {
   if (!open.value && buttonRef.value) {
     const rect = buttonRef.value.getBoundingClientRect()
     // Open upward from the button, left-aligned, clamped to the viewport.
+    // Cap the height to the space above so short windows scroll instead of clipping.
     const left = Math.max(8, Math.min(rect.left, window.innerWidth - MENU_WIDTH - 8))
     menuPosition.value = {
       left: `${left}px`,
       bottom: `${window.innerHeight - rect.top + 8}px`,
+      maxHeight: `${Math.max(rect.top - 16, 40)}px`,
     }
   }
   open.value = !open.value

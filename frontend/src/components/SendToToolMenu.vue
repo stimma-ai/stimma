@@ -35,9 +35,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useProvidersApi, type ProviderTool } from '../composables/useProvidersApi'
 import { useSendToTool } from '../composables/useSendToTool'
+import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
 import type { MediaType } from '../utils/mediaTypes'
 import TaskTypeToolList from './TaskTypeToolList.vue'
 
@@ -66,7 +67,14 @@ const tools = ref<ProviderTool[]>([])
 const containerRef = ref<HTMLElement | null>(null)
 const menuRef = ref<HTMLElement | null>(null)
 const toolListRef = ref<InstanceType<typeof TaskTypeToolList> | null>(null)
-const menuStyle = ref({})
+
+// Viewport-aware placement below/above the trigger, clamped and height-capped
+const anchorRect = ref<DOMRect | null>(null)
+const { menuStyle: anchoredStyle } = useAnchoredMenuPosition(menuRef, anchorRect, showMenu)
+const menuStyle = computed(() => ({
+  ...anchoredStyle.value,
+  minWidth: `${Math.max(anchorRect.value?.width ?? 0, 200)}px`,
+}))
 
 // Reset tool list when menu opens
 watch(showMenu, (visible) => {
@@ -81,24 +89,9 @@ async function toggleMenu() {
     return
   }
 
-  // Position the menu
   if (containerRef.value) {
-    const rect = containerRef.value.getBoundingClientRect()
-    const menuWidth = 220
-    const viewportWidth = window.innerWidth
-
-    let left = rect.left
-    if (left + menuWidth > viewportWidth - 16) {
-      left = Math.max(16, rect.right - menuWidth)
-    }
-
-    menuStyle.value = {
-      top: `${rect.bottom + 4}px`,
-      left: `${left}px`,
-      minWidth: `${Math.max(rect.width, 200)}px`
-    }
+    anchorRect.value = containerRef.value.getBoundingClientRect()
   }
-
   showMenu.value = true
 
   // Load tools if not already loaded

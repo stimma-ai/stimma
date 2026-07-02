@@ -4,7 +4,7 @@
       v-if="visible"
       ref="menuRef"
       class="action-menu"
-      :style="{ top: `${computedPosition.y}px`, left: `${computedPosition.x}px` }"
+      :style="menuStyle"
       @click.stop
     >
       <div
@@ -26,8 +26,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
+import { useContextMenuPosition } from '../composables/useContextMenuPosition'
 
 const props = defineProps({
   visible: {
@@ -66,6 +67,11 @@ const computedPosition = computed(() => {
 
 const menuRef = ref(null)
 
+// Viewport-aware positioning (clamps to window, re-clamps as content resizes)
+const menuCoords = computed(() => computedPosition.value)
+const menuVisible = computed(() => props.visible)
+const { menuStyle } = useContextMenuPosition(menuRef, menuCoords, menuVisible)
+
 function handleAction(action) {
   if (action.disabled || action.divider || action.id === 'divider') return
 
@@ -90,41 +96,6 @@ function handleEscape(event) {
     emit('close')
   }
 }
-
-// Adjust position if menu would go off-screen
-watch(() => props.visible, (newVisible) => {
-  if (newVisible && menuRef.value) {
-    requestAnimationFrame(() => {
-      const menu = menuRef.value
-      if (!menu) return
-
-      const rect = menu.getBoundingClientRect()
-      const viewport = {
-        width: window.innerWidth,
-        height: window.innerHeight
-      }
-
-      let { x, y } = computedPosition.value
-
-      // Adjust horizontal position
-      if (x + rect.width > viewport.width) {
-        x = viewport.width - rect.width - 10
-      }
-
-      // Adjust vertical position
-      if (y + rect.height > viewport.height) {
-        y = viewport.height - rect.height - 10
-      }
-
-      // Ensure menu doesn't go off the left or top edge
-      x = Math.max(10, x)
-      y = Math.max(10, y)
-
-      menu.style.left = `${x}px`
-      menu.style.top = `${y}px`
-    })
-  }
-})
 
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)

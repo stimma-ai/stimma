@@ -40,7 +40,7 @@
             @keydown="handleDropdownKeydown"
           />
         </div>
-        <div ref="optionsList" class="overflow-y-auto max-h-64" tabindex="-1" @keydown="handleDropdownKeydown">
+        <div ref="optionsList" class="overflow-y-auto max-h-64 flex-1 min-h-0" tabindex="-1" @keydown="handleDropdownKeydown">
           <button
             v-for="(option, index) in filteredOptions"
             :key="option.value"
@@ -200,31 +200,38 @@ watch(filteredOptions, () => {
 })
 
 function positionDropdown() {
-  if (!container.value) return
+  if (!container.value || !dropdown.value) return
 
   const rect = container.value.getBoundingClientRect()
   const viewportHeight = window.innerHeight
+  const menuWidth = dropdown.value.offsetWidth
+  const menuHeight = dropdown.value.offsetHeight
 
-  // Position below the button, right-aligned
-  const top = rect.bottom + 4
-  const right = window.innerWidth - rect.right
+  // Right-aligned to the button, but keep the left edge on-screen
+  const right = Math.max(8, Math.min(window.innerWidth - rect.right, window.innerWidth - menuWidth - 8))
 
-  // Check if dropdown would go off bottom of screen
-  const spaceBelow = viewportHeight - rect.bottom - 8
-  const dropdownHeight = Math.min(256, filteredOptions.value.length * 32 + 8) + (searchable.value ? 40 : 0)
+  const spaceBelow = viewportHeight - rect.bottom - 12
+  const spaceAbove = rect.top - 12
 
-  if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
+  if (menuHeight <= spaceBelow) {
+    // Show below
+    dropdownStyle.value = {
+      top: `${rect.bottom + 4}px`,
+      right: `${right}px`,
+    }
+  } else if (menuHeight <= spaceAbove) {
     // Show above
     dropdownStyle.value = {
       bottom: `${viewportHeight - rect.top + 4}px`,
       right: `${right}px`,
     }
   } else {
-    // Show below
-    dropdownStyle.value = {
-      top: `${top}px`,
-      right: `${right}px`,
-    }
+    // Doesn't fit either side — open on the roomier side and cap height
+    const below = spaceBelow >= spaceAbove
+    const space = Math.max(Math.floor(below ? spaceBelow : spaceAbove), 40)
+    dropdownStyle.value = below
+      ? { top: `${rect.bottom + 4}px`, right: `${right}px`, maxHeight: `${space}px` }
+      : { bottom: `${viewportHeight - rect.top + 4}px`, right: `${right}px`, maxHeight: `${space}px` }
   }
 }
 

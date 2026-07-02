@@ -1,4 +1,4 @@
-import { ref, computed, watch, nextTick, type Ref } from 'vue'
+import { ref, computed, watch, nextTick, onUnmounted, type Ref } from 'vue'
 
 const PADDING = 8
 
@@ -9,8 +9,74 @@ export interface ContextMenuCoords {
 }
 
 /**
+ * Measure a menu's layout size for placement decisions.
+ *
+ * Uses offsetWidth/offsetHeight so CSS transforms (scale-in animations) don't
+ * under-report the final size. When `appliedCap` — a max-height we set
+ * ourselves — is what's constraining the element, the rendered height is
+ * self-fulfilling, so fall back to content height (scrollHeight) to decide
+ * placement as if the cap weren't there.
+ */
+function measureMenu(el: HTMLElement, appliedCap: number | null = null): { w: number; h: number } {
+  const w = el.offsetWidth || 180
+  let h = el.offsetHeight || 200
+  if (appliedCap !== null && h >= appliedCap - 1) {
+    h = Math.max(h, el.scrollHeight)
+  }
+  return { w, h }
+}
+
+/**
+ * Re-run `reposition` whenever the menu's content resizes (async-loaded items)
+ * or the window resizes, for as long as `visible` is true. Also runs it once
+ * after the menu first renders. Shared plumbing for all positioners below.
+ */
+function useRepositionTriggers(
+  menuRef: Ref<HTMLElement | null>,
+  visible: Ref<boolean>,
+  reposition: () => void,
+  onShow?: () => void
+) {
+  let resizeObserver: ResizeObserver | null = null
+
+  function unobserve() {
+    resizeObserver?.disconnect()
+    resizeObserver = null
+  }
+
+  function onWindowResize() {
+    reposition()
+  }
+
+  function teardown() {
+    unobserve()
+    window.removeEventListener('resize', onWindowResize)
+  }
+
+  watch(visible, async (v) => {
+    if (v) {
+      onShow?.()
+      await nextTick()
+      reposition()
+      unobserve()
+      if (menuRef.value && typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => reposition())
+        resizeObserver.observe(menuRef.value)
+      }
+      window.addEventListener('resize', onWindowResize)
+    } else {
+      teardown()
+    }
+  }, { immediate: true })
+
+  onUnmounted(teardown)
+}
+
+/**
  * Provides viewport-aware positioning for a context menu element.
- * Measures the actual rendered size and adjusts to stay on-screen.
+ * Measures the actual rendered size and adjusts to stay on-screen; re-clamps
+ * as async content loads and caps the height to the viewport so oversized
+ * menus scroll instead of clipping.
  */
 export function useContextMenuPosition(
   menuRef: Ref<HTMLElement | null>,
@@ -20,15 +86,14 @@ export function useContextMenuPosition(
   const adjustedX = ref(0)
   const adjustedY = ref(0)
   const anchorBottom = ref(false)
+  const maxHeight = ref<number | null>(null)
 
   function reposition() {
     const el = menuRef.value
     if (!el || !visible.value) return
 
     const { x, y, bottomY } = coords.value
-    const rect = el.getBoundingClientRect()
-    const w = rect.width || 180
-    const h = rect.height || 200
+    const { w, h } = measureMenu(el, maxHeight.value)
 
     // Horizontal: prefer click position, clamp to viewport
     let ax = x
@@ -36,12 +101,15 @@ export function useContextMenuPosition(
       ax = Math.max(PADDING, window.innerWidth - w - PADDING)
     }
     ax = Math.max(PADDING, ax)
+    adjustedX.value = ax
 
     // Vertical
     if (bottomY !== undefined) {
       anchorBottom.value = true
-      adjustedX.value = ax
-      adjustedY.value = window.innerHeight - bottomY
+      // Keep the bottom edge on-screen, and cap height so the top edge is too
+      const anchoredBottom = Math.min(bottomY, window.innerHeight - PADDING)
+      adjustedY.value = window.innerHeight - anchoredBottom
+      maxHeight.value = h > anchoredBottom - PADDING ? anchoredBottom - PADDING : null
       return
     }
 
@@ -51,39 +119,91 @@ export function useContextMenuPosition(
       ay = Math.max(PADDING, window.innerHeight - h - PADDING)
     }
     ay = Math.max(PADDING, ay)
-
-    adjustedX.value = ax
     adjustedY.value = ay
+
+    const available = window.innerHeight - 2 * PADDING
+    maxHeight.value = h > available ? available : null
   }
 
-  watch(visible, async (v) => {
-    if (v) {
-      // Set initial position from raw coords so the menu renders near the click
-      adjustedX.value = coords.value.x
-      adjustedY.value = coords.value.bottomY !== undefined
-        ? window.innerHeight - coords.value.bottomY
-        : coords.value.y
-      anchorBottom.value = coords.value.bottomY !== undefined
-      // Then measure and adjust after render
-      await nextTick()
-      requestAnimationFrame(reposition)
-    }
+  useRepositionTriggers(menuRef, visible, reposition, () => {
+    // Seed from raw coords so the menu renders near the click before measuring
+    adjustedX.value = coords.value.x
+    adjustedY.value = coords.value.bottomY !== undefined
+      ? window.innerHeight - coords.value.bottomY
+      : coords.value.y
+    anchorBottom.value = coords.value.bottomY !== undefined
+    maxHeight.value = null
   })
 
   const menuStyle = computed(() => {
-    if (anchorBottom.value) {
-      return {
-        left: `${adjustedX.value}px`,
-        bottom: `${adjustedY.value}px`,
-      }
+    const style: Record<string, string> = anchorBottom.value
+      ? { left: `${adjustedX.value}px`, bottom: `${adjustedY.value}px` }
+      : { top: `${adjustedY.value}px`, left: `${adjustedX.value}px` }
+    if (maxHeight.value !== null) {
+      style.maxHeight = `${maxHeight.value}px`
+      style.overflowY = 'auto'
     }
-    return {
-      top: `${adjustedY.value}px`,
-      left: `${adjustedX.value}px`,
-    }
+    return style
   })
 
   return { menuStyle, reposition }
+}
+
+/**
+ * Viewport-aware positioning for a dropdown menu anchored to a trigger element
+ * (e.g. "Send to Tool" buttons). Prefers opening below the anchor, flips above
+ * when there isn't room, clamps horizontally, and caps the height to whichever
+ * side it opens on so the menu scrolls instead of clipping.
+ */
+export function useAnchoredMenuPosition(
+  menuRef: Ref<HTMLElement | null>,
+  anchorRect: Ref<DOMRect | null>,
+  visible: Ref<boolean>,
+  opts: { gap?: number } = {}
+) {
+  const gap = opts.gap ?? 4
+  const style = ref<Record<string, string>>({})
+  let appliedCap: number | null = null
+
+  function reposition() {
+    const el = menuRef.value
+    const anchor = anchorRect.value
+    if (!el || !anchor || !visible.value) return
+
+    const { w, h } = measureMenu(el, appliedCap)
+
+    let x = anchor.left
+    if (x + w > window.innerWidth - PADDING) {
+      x = Math.max(PADDING, window.innerWidth - w - PADDING)
+    }
+    x = Math.max(PADDING, x)
+
+    const spaceBelow = window.innerHeight - PADDING - (anchor.bottom + gap)
+    const spaceAbove = anchor.top - gap - PADDING
+
+    const next: Record<string, string> = { left: `${x}px` }
+    appliedCap = null
+    if (h <= spaceBelow) {
+      next.top = `${anchor.bottom + gap}px`
+    } else if (h <= spaceAbove) {
+      next.top = `${anchor.top - gap - h}px`
+    } else {
+      // Doesn't fully fit either side — open on the roomier side and cap height
+      const below = spaceBelow >= spaceAbove
+      const space = Math.max(Math.floor(below ? spaceBelow : spaceAbove), 40)
+      next.top = below ? `${anchor.bottom + gap}px` : `${Math.max(PADDING, anchor.top - gap - space)}px`
+      next.maxHeight = `${space}px`
+      next.overflowY = 'auto'
+      appliedCap = space
+    }
+    style.value = next
+  }
+
+  useRepositionTriggers(menuRef, visible, reposition, () => {
+    appliedCap = null
+  })
+
+  return { menuStyle: style, reposition }
 }
 
 const SUBMENU_GAP = 4
@@ -130,6 +250,31 @@ function computeSubmenuX(
     // preferable to overlapping the parent the user is reading.
     return { x: parentRect.right + gap, opensLeft: false }
   }
+}
+
+/**
+ * Clamp a submenu's y-position to the viewport and cap its height when it
+ * cannot fit. Returns the positional style fields shared by all submenu
+ * positioners; the caller should feed `maxHeight` (if present) back into the
+ * next measurement as the applied cap.
+ */
+function computeSubmenuStyle(
+  x: number,
+  triggerTop: number,
+  submenuHeight: number
+): Record<string, string> {
+  let y = triggerTop
+  if (y + submenuHeight > window.innerHeight - PADDING) {
+    y = Math.max(PADDING, window.innerHeight - submenuHeight - PADDING)
+  }
+
+  const style: Record<string, string> = { top: `${y}px`, left: `${x}px` }
+  const available = window.innerHeight - 2 * PADDING
+  if (submenuHeight > available) {
+    style.maxHeight = `${available}px`
+    style.overflowY = 'auto'
+  }
+  return style
 }
 
 /**
@@ -180,8 +325,9 @@ export function useSubmenuPosition(
   submenuRef: Ref<HTMLElement | null>,
   active: Ref<boolean>
 ) {
-  const pos = ref({ top: '0px', left: '0px' })
+  const pos = ref<Record<string, string>>({ top: '0px', left: '0px' })
   const bridgeStyle = ref<Record<string, string>>({ display: 'none' })
+  let appliedCap: number | null = null
 
   function reposition() {
     const parent = parentMenuRef.value
@@ -189,33 +335,28 @@ export function useSubmenuPosition(
     if (!parent || !trigger) {
       pos.value = { top: '0px', left: '0px' }
       bridgeStyle.value = { display: 'none' }
+      appliedCap = null
       return
     }
 
     const parentRect = parent.getBoundingClientRect()
     const submenu = submenuRef.value
-    const submenuWidth = submenu ? submenu.getBoundingClientRect().width : 260
-    const submenuHeight = submenu ? submenu.getBoundingClientRect().height : 400
+    const measured = submenu ? measureMenu(submenu, appliedCap) : { w: 260, h: 400 }
 
-    const { x, opensLeft } = computeSubmenuX(parentRect, submenuWidth)
+    const { x, opensLeft } = computeSubmenuX(parentRect, measured.w)
 
-    // Vertical: align to trigger top, clamp to viewport
-    let y = trigger.top
-    if (y + submenuHeight > window.innerHeight - PADDING) {
-      y = Math.max(PADDING, window.innerHeight - submenuHeight - PADDING)
-    }
-
-    pos.value = { top: `${y}px`, left: `${x}px` }
+    const style = computeSubmenuStyle(x, trigger.top, measured.h)
+    appliedCap = style.maxHeight ? parseInt(style.maxHeight, 10) : null
+    pos.value = style
     bridgeStyle.value = computeBridgeStyle(parentRect, trigger, opensLeft)
   }
 
-  watch(active, async (v) => {
-    if (v) {
-      await nextTick()
-      requestAnimationFrame(reposition)
-    } else {
-      bridgeStyle.value = { display: 'none' }
-    }
+  useRepositionTriggers(submenuRef, active, reposition, () => {
+    appliedCap = null
+  })
+
+  watch(active, (v) => {
+    if (!v) bridgeStyle.value = { display: 'none' }
   })
 
   return { submenuStyle: pos, bridgeStyle, reposition }
@@ -226,4 +367,4 @@ export function useSubmenuPosition(
  * computed properties (e.g. MediaContextMenu which shares one position
  * across multiple submenus).
  */
-export { computeSubmenuX, computeBridgeStyle, SUBMENU_GAP }
+export { computeSubmenuX, computeBridgeStyle, computeSubmenuStyle, measureMenu, SUBMENU_GAP }

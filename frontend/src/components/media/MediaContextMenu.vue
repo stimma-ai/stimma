@@ -694,7 +694,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { setPendingMedia } from '../../composables/usePendingMedia'
-import { useContextMenuPosition, computeSubmenuX, computeBridgeStyle } from '../../composables/useContextMenuPosition'
+import { useContextMenuPosition, computeSubmenuX, computeBridgeStyle, computeSubmenuStyle, measureMenu } from '../../composables/useContextMenuPosition'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { addToast } from '../../composables/useToasts'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
@@ -1053,42 +1053,55 @@ function getActiveSubmenuEl(): HTMLElement | null {
   }
 }
 
+let submenuAppliedCap: number | null = null
+
 function repositionSubmenu() {
   if (!submenuTriggerRect.value || !menuRef.value) {
     submenuPosition.value = { top: '0px', left: '0px' }
     submenuBridgeStyle.value = { display: 'none' }
+    submenuAppliedCap = null
     return
   }
 
-  const padding = 8
   const triggerRect = submenuTriggerRect.value
   const menuRect = menuRef.value.getBoundingClientRect()
 
-  // Measure actual submenu width (fall back to 260 before first render)
+  // Measure actual submenu size (fall back before first render)
   const submenuEl = getActiveSubmenuEl()
-  const submenuWidth = submenuEl ? submenuEl.getBoundingClientRect().width : 260
-  const submenuHeight = submenuEl ? submenuEl.getBoundingClientRect().height : 400
+  const measured = submenuEl ? measureMenu(submenuEl, submenuAppliedCap) : { w: 260, h: 400 }
 
-  const { x, opensLeft } = computeSubmenuX(menuRect, submenuWidth)
+  const { x, opensLeft } = computeSubmenuX(menuRect, measured.w)
 
-  // Vertical: align to trigger, clamp to viewport
-  let y = triggerRect.top
-  if (y + submenuHeight > window.innerHeight - padding) {
-    y = Math.max(padding, window.innerHeight - submenuHeight - padding)
-  }
-
-  submenuPosition.value = { top: `${y}px`, left: `${x}px` }
+  const style = computeSubmenuStyle(x, triggerRect.top, measured.h)
+  submenuAppliedCap = style.maxHeight ? parseInt(style.maxHeight, 10) : null
+  submenuPosition.value = style
   submenuBridgeStyle.value = computeBridgeStyle(menuRect, triggerRect, opensLeft)
 }
 
-// Reposition after the submenu renders (so we can measure its actual size)
+// Reposition after the submenu renders (so we can measure its actual size),
+// then keep re-clamping while its async content (tool/board lists) loads in
+let submenuResizeObserver: ResizeObserver | null = null
+
 watch(activeSubmenu, async (menu) => {
+  submenuResizeObserver?.disconnect()
+  submenuResizeObserver = null
   if (menu) {
+    submenuAppliedCap = null
     await nextTick()
-    requestAnimationFrame(repositionSubmenu)
+    repositionSubmenu()
+    const el = getActiveSubmenuEl()
+    if (el && typeof ResizeObserver !== 'undefined') {
+      submenuResizeObserver = new ResizeObserver(() => repositionSubmenu())
+      submenuResizeObserver.observe(el)
+    }
   } else {
     submenuBridgeStyle.value = { display: 'none' }
   }
+})
+
+onUnmounted(() => {
+  submenuResizeObserver?.disconnect()
+  submenuResizeObserver = null
 })
 
 // Fetch media item when menu opens

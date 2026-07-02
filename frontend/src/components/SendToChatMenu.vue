@@ -58,10 +58,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { setPendingMedia } from '../composables/usePendingMedia'
+import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
 
 interface Chat {
   id: number
@@ -85,7 +86,14 @@ const loading = ref(false)
 const chats = ref<Chat[]>([])
 const containerRef = ref<HTMLElement | null>(null)
 const menuRef = ref<HTMLElement | null>(null)
-const menuStyle = ref({})
+
+// Viewport-aware placement below/above the trigger, clamped and height-capped
+const anchorRect = ref<DOMRect | null>(null)
+const { menuStyle: anchoredStyle } = useAnchoredMenuPosition(menuRef, anchorRect, showMenu)
+const menuStyle = computed(() => ({
+  ...anchoredStyle.value,
+  minWidth: `${Math.max(anchorRect.value?.width ?? 0, 200)}px`,
+}))
 
 async function loadChats() {
   loading.value = true
@@ -111,24 +119,9 @@ async function toggleMenu() {
     return
   }
 
-  // Position the menu
   if (containerRef.value) {
-    const rect = containerRef.value.getBoundingClientRect()
-    const menuWidth = 220
-    const viewportWidth = window.innerWidth
-
-    let left = rect.left
-    if (left + menuWidth > viewportWidth - 16) {
-      left = Math.max(16, rect.right - menuWidth)
-    }
-
-    menuStyle.value = {
-      top: `${rect.bottom + 4}px`,
-      left: `${left}px`,
-      minWidth: `${Math.max(rect.width, 200)}px`
-    }
+    anchorRect.value = containerRef.value.getBoundingClientRect()
   }
-
   showMenu.value = true
 
   // Load chats if not already loaded
