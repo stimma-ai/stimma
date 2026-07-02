@@ -114,7 +114,10 @@ def lint_code(code: str) -> list[LintWarning]:
 
     _ensure_tables()
     warnings: list[LintWarning] = []
-    _LintVisitor(warnings, _stimma_methods, _library_methods, _stimma_kwargs, _library_kwargs).visit(tree)
+    visitor = _LintVisitor(warnings, _stimma_methods, _library_methods, _stimma_kwargs, _library_kwargs)
+    visitor.visit(tree)
+    visitor.finalize()
+    warnings.sort(key=lambda w: w.line)
     return warnings
 
 
@@ -137,6 +140,13 @@ class _LintVisitor(ast.NodeVisitor):
         # Track tool imports: from stimma.tools.<task> import gen → {local_name}.
         # These are async tool functions; used to catch a missing `await`.
         self.tool_imports: set[str] = set()
+        # Unawaited async calls assigned to plain names: warn only if the
+        # name is never consumed (awaited, passed to a call like
+        # asyncio.gather/list.append, or collected into a container).
+        # Building coroutines for a later gather is the documented pattern.
+        self.deferred_unawaited: list[tuple[frozenset[str], int, str, str]] = []
+        self.awaited_names: set[str] = set()
+        self.consumed_names: set[str] = set()
 
     # ── from stimma import X ──────────────────────────────────────
 
@@ -225,6 +235,8 @@ class _LintVisitor(ast.NodeVisitor):
 
     def visit_Await(self, node: ast.Await) -> None:
         val = node.value
+        if isinstance(val, ast.Name):
+            self.awaited_names.add(val.id)
         if isinstance(val, ast.Call):
             name, is_library = self._resolve_call(val)
             if name is not None:
@@ -310,6 +322,11 @@ class _LintVisitor(ast.NodeVisitor):
                         suggestion="asyncio.gather() only accepts return_exceptions=True/False.",
                     ))
 
+        # Names passed as call arguments (incl. inside tuples/lists/starred)
+        # count as consumed — e.g. coros.append((i, j, coro)), gather(*coros).
+        for arg in list(node.args) + [kw.value for kw in node.keywords]:
+            self.consumed_names.update(_collect_bare_names(arg))
+
         # bare agent-tool-name function call: create_layout(...), bash(...), etc.
         if isinstance(node.func, ast.Name) and node.func.id in AGENT_ONLY_TOOLS:
             tool_name = node.func.id
@@ -324,38 +341,84 @@ class _LintVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Assign(self, node: ast.Assign) -> None:
-        self._check_unawaited(node.value, node.lineno)
+        if all(isinstance(t, ast.Name) for t in node.targets):
+            targets = frozenset(t.id for t in node.targets)
+            self._check_unawaited(node.value, node.lineno, targets=targets)
+        # Non-Name targets (subscript, attribute, unpack) store the value
+        # into a structure — assume it's coroutine collection for a gather.
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if node.value is not None and isinstance(node.target, ast.Name):
+            self._check_unawaited(node.value, node.lineno, targets=frozenset({node.target.id}))
         self.generic_visit(node)
 
     def visit_Expr(self, node: ast.Expr) -> None:
         self._check_unawaited(node.value, node.lineno)
         self.generic_visit(node)
 
-    def _check_unawaited(self, node: ast.AST, lineno: int) -> None:
-        """Warn if an async stimma call is used without await."""
+    # Container literals count as consumption: coros = [a, b] etc.
+
+    def visit_List(self, node: ast.List) -> None:
+        if isinstance(node.ctx, ast.Load):
+            self.consumed_names.update(_collect_bare_names(node))
+        self.generic_visit(node)
+
+    def visit_Tuple(self, node: ast.Tuple) -> None:
+        if isinstance(node.ctx, ast.Load):
+            self.consumed_names.update(_collect_bare_names(node))
+        self.generic_visit(node)
+
+    def visit_Set(self, node: ast.Set) -> None:
+        self.consumed_names.update(_collect_bare_names(node))
+        self.generic_visit(node)
+
+    def visit_Dict(self, node: ast.Dict) -> None:
+        self.consumed_names.update(_collect_bare_names(node))
+        self.generic_visit(node)
+
+    def _check_unawaited(
+        self, node: ast.AST, lineno: int, targets: frozenset[str] | None = None
+    ) -> None:
+        """Warn if an async stimma call is used without await.
+
+        With ``targets`` (assignment to plain names), the warning is deferred:
+        it only fires if none of the names are later consumed — assigning a
+        coroutine and gathering it later is valid and common.
+        """
         if isinstance(node, ast.Await):
             return  # properly awaited
         if not isinstance(node, ast.Call):
             return
         # Tool functions imported from stimma.tools.<task> are async.
         if isinstance(node.func, ast.Name) and node.func.id in self.tool_imports:
-            self.warnings.append(LintWarning(
-                line=lineno,
-                message=f"{node.func.id}() is an async tool — you must await it.",
-                suggestion=f"Add `await`: `r = await {node.func.id}(...)`",
-            ))
-            return
-        name, is_library = self._resolve_call(node)
-        if name is None:
-            return
-        lookup = self.library_methods if is_library else self.stimma_methods
-        if name in lookup and lookup[name]:
+            message = f"{node.func.id}() is an async tool — you must await it."
+            suggestion = (
+                f"Add `await`: `r = await {node.func.id}(...)` — or pass the "
+                f"coroutine to asyncio.gather() for parallel batches."
+            )
+        else:
+            name, is_library = self._resolve_call(node)
+            if name is None:
+                return
+            lookup = self.library_methods if is_library else self.stimma_methods
+            if name not in lookup or not lookup[name]:
+                return
             prefix = "stimma.library." if is_library else "stimma."
-            self.warnings.append(LintWarning(
-                line=lineno,
-                message=f"{prefix}{name}() is async — you must await it.",
-                suggestion=f"Add `await`: `await {prefix}{name}(...)`",
-            ))
+            message = f"{prefix}{name}() is async — you must await it."
+            suggestion = f"Add `await`: `await {prefix}{name}(...)`"
+        if targets is not None:
+            self.deferred_unawaited.append((targets, lineno, message, suggestion))
+        else:
+            self.warnings.append(LintWarning(line=lineno, message=message, suggestion=suggestion))
+
+    def finalize(self) -> None:
+        """Emit deferred unawaited warnings whose targets were never consumed."""
+        consumed = self.awaited_names | self.consumed_names
+        for targets, lineno, message, suggestion in self.deferred_unawaited:
+            if targets & consumed:
+                continue
+            self.warnings.append(LintWarning(line=lineno, message=message, suggestion=suggestion))
 
     # ── async def main() wrapper (unnecessary) ──────────────────────
 
@@ -370,6 +433,25 @@ class _LintVisitor(ast.NodeVisitor):
 
 
 # ── Helpers ─────────────────────────────────────────────────────────
+
+def _collect_bare_names(node: ast.AST) -> set[str]:
+    """Collect Name identifiers used directly under ``node``.
+
+    Skips names reached through attribute access (the ``x`` in ``x.y``):
+    attribute access on an unawaited coroutine is the bug we want to keep
+    flagging, so it must not count as consumption.
+    """
+    found: set[str] = set()
+    stack: list[ast.AST] = [node]
+    while stack:
+        n = stack.pop()
+        if isinstance(n, ast.Attribute):
+            continue
+        if isinstance(n, ast.Name):
+            found.add(n.id)
+        stack.extend(ast.iter_child_nodes(n))
+    return found
+
 
 def _get_stimma_call_name(call: ast.Call) -> tuple[str | None, bool]:
     """Extract method name from stimma.foo() or stimma.library.foo() calls.
