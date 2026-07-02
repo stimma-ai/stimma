@@ -4,16 +4,26 @@ Test Provider - configurable mock provider for integration tests.
 Provides realistic tool execution simulation with:
 - Configurable progress events
 - Configurable success/failure behavior
-- Deterministic dummy image output
+- Deterministic dummy outputs for image, video, and audio task types
+
+Image outputs render their own generation parameters (tool id, prompt, seed,
+dimensions) onto the canvas and embed the full parameter dict as a PNG text
+chunk under the key "stimma:test_params", so integration tests and eval
+graders can verify exactly what flowed through the pipeline. Video and audio
+outputs are minimal valid container files; their parameters are available in
+the ExecutionResult metadata and the media item's generation metadata.
 """
 
 import asyncio
+import base64
 import io
+import json
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 
-from PIL import Image
+from PIL import Image, ImageDraw
+from PIL.PngImagePlugin import PngInfo
 
 from .base import (
     ExecutionProgress,
@@ -22,6 +32,41 @@ from .base import (
     ToolDescriptor,
     ToolProvider,
 )
+
+# Minimal valid media containers for non-image outputs (generated with ffmpeg,
+# FLAC padding stripped). Deterministic and dependency-free.
+_STUB_FLAC_B64 = (
+    "ZkxhQwAAACICQAJAAAANAAANAfQA8AAAAZBrQxvy2nyTErPlwh5n9lkbhAAADgYAAABmZm1wZWcAAAAA//h0CAABjyQAAAB9Xw=="
+)
+_STUB_MP4_B64 = (
+    "AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAyJtZGF0AAACrQYF//+p3EXpvebZSLeWLNgg2SPu"
+    "73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMt"
+    "MjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTEgcmVmPTMgZGVibG9j"
+    "az0xOjA6MCBhbmFseXNlPTB4MzoweDExMyBtZT1oZXggc3VibWU9NyBwc3k9MSBwc3lfcmQ9MS4wMDowLjAwIG1peGVkX3Jl"
+    "Zj0xIG1lX3JhbmdlPTE2IGNocm9tYV9tZT0xIHRyZWxsaXM9MSA4eDhkY3Q9MSBjcW09MCBkZWFkem9uZT0yMSwxMSBmYXN0"
+    "X3Bza2lwPTEgY2hyb21hX3FwX29mZnNldD0tMiB0aHJlYWRzPTIgbG9va2FoZWFkX3RocmVhZHM9MSBzbGljZWRfdGhyZWFk"
+    "cz0wIG5yPTAgZGVjaW1hdGU9MSBpbnRlcmxhY2VkPTAgYmx1cmF5X2NvbXBhdD0wIGNvbnN0cmFpbmVkX2ludHJhPTAgYmZy"
+    "YW1lcz0zIGJfcHlyYW1pZD0yIGJfYWRhcHQ9MSBiX2JpYXM9MCBkaXJlY3Q9MSB3ZWlnaHRiPTEgb3Blbl9nb3A9MCB3ZWln"
+    "aHRwPTIga2V5aW50PTI1MCBrZXlpbnRfbWluPTggc2NlbmVjdXQ9NDAgaW50cmFfcmVmcmVzaD0wIHJjX2xvb2thaGVhZD00"
+    "MCByYz1jcmYgbWJ0cmVlPTEgY3JmPTIzLjAgcWNvbXA9MC42MCBxcG1pbj0wIHFwbWF4PTY5IHFwc3RlcD00IGlwX3JhdGlv"
+    "PTEuNDAgYXE9MToxLjAwAIAAAAAfZYiEABH//veIHzKI2rXchHnrFT9RiMZbXPnZroYp3wAAAApBmiRsQ//+qZ00AAAACEGe"
+    "QniH/wTFAAAACAGeYXRDvwW8AAAACAGeY2pDvwW9AAAAEEGaZUmoQWiZTAh3//6pnTUAAANdbW9vdgAAAGxtdmhkAAAAAAAA"
+    "AAAAAAAAAAAD6AAAAu4AAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAA"
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAqx0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAAu4AAAAAAAAAAAAA"
+    "AAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAEAAAABAAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAA"
+    "AAEAAALuAAAQAAABAAAAAAIkbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAMABVxAAAAAAALWhkbHIAAAAAAAAAAHZp"
+    "ZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABz21pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYA"
+    "AAAAAAAAAQAAAAx1cmwgAAAAAQAAAY9zdGJsAAAAv3N0c2QAAAAAAAAAAQAAAK9hdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAA"
+    "AAAAAEAAQABIAAAASAAAAAAAAAABDExhdmMgbGlieDI2NAAAAAAAAAAAAAAAAAAAAAAAAAAAGP//AAAANWF2Y0MBZAAK/+EA"
+    "GGdkAAqs2UQmwEQAAAMABAAAAwBAPEiWWAEABmjr48siwP34+AAAAAAQcGFzcAAAAAEAAAABAAAAFGJ0cnQAAAAAAAAhFQAA"
+    "AAAAAAAYc3R0cwAAAAAAAAABAAAABgAACAAAAAAUc3RzcwAAAAAAAAABAAAAAQAAAEBjdHRzAAAAAAAAAAYAAAABAAAQAAAA"
+    "AAEAACgAAAAAAQAAEAAAAAABAAAAAAAAAAEAAAgAAAAAAQAAEAAAAAAcc3RzYwAAAAAAAAABAAAAAQAAAAYAAAABAAAALHN0"
+    "c3oAAAAAAAAAAAAAAAYAAALUAAAADgAAAAwAAAAMAAAADAAAABQAAAAUc3RjbwAAAAAAAAABAAAAMAAAAD11ZHRhAAAANW1l"
+    "dGEAAAAAAAAAIWhkbHIAAAAAAAAAAG1kaXJhcHBsAAAAAAAAAAAAAAAACGlsc3Q="
+)
+
+_VIDEO_TASK_TYPES = {"image-to-video", "text-to-video", "upscale-video", "video-stitch", "video-extend", "lip-sync"}
+_AUDIO_TASK_TYPES = {"text-to-audio", "text-to-music", "text-to-speech"}
 
 
 @dataclass
@@ -123,6 +168,7 @@ class TestToolProvider(ToolProvider):
         self._descriptors["text-to-image:test-model"] = ToolDescriptor(
             id="text-to-image:test-model",
             name="Test Text-to-Image",
+            description="Fast draft-quality image generation for quick iteration.",
             task_type="text-to-image",
             parameter_schema={
                 "type": "object",
@@ -310,6 +356,7 @@ class TestToolProvider(ToolProvider):
         self._descriptors["text-to-image:test-model-alt"] = ToolDescriptor(
             id="text-to-image:test-model-alt",
             name="Test Alt Text-to-Image",
+            description="Slow, maximum-quality image generation for final output.",
             task_type="text-to-image",
             parameter_schema={
                 "type": "object",
@@ -345,6 +392,96 @@ class TestToolProvider(ToolProvider):
             },
             metadata={"generator_type": "test"},
         )
+
+        self._register_extended_tools()
+
+    def _register_extended_tools(self) -> None:
+        """Register fake tools for the remaining media task types.
+
+        Schemas follow tasks/schemas.py TASK_SCHEMA_REQUIREMENTS for each task
+        type. Video tools output a stub MP4, audio tools a stub FLAC.
+        """
+        _prompt = {"prompt": {"type": "string"}}
+        _neg = {"negative_prompt": {"type": "string", "default": ""}}
+        _seed = {"seed": {"type": "integer", "minimum": 0}}
+        _images = {
+            "input_images": {
+                "type": "array",
+                "items": {"type": "string", "format": "file-path"},
+                "minItems": 1,
+                "maxItems": 4,
+                "x-control": "image_picker",
+            }
+        }
+        _videos = {
+            "input_videos": {
+                "type": "array",
+                "items": {"type": "string", "format": "file-path"},
+                "minItems": 1,
+                "maxItems": 4,
+                "x-control": "video_picker",
+            }
+        }
+        _size = {
+            "width": {"type": "integer", "default": 512},
+            "height": {"type": "integer", "default": 512},
+        }
+        _duration = {"duration": {"type": "number", "default": 5.0, "minimum": 0.5, "maximum": 60.0}}
+
+        specs = [
+            ("text-to-video:test-t2v", "Test Text-to-Video", "text-to-video",
+             {**_prompt, **_neg, **_size, **_duration, **_seed}, ["prompt"]),
+            ("remove-background:test-rmbg", "Test Background Removal", "remove-background",
+             {**_images}, ["input_images"]),
+            ("outpaint-image:test-outpaint", "Test Outpaint", "outpaint-image",
+             {**_images, **_prompt, **_neg, **_seed,
+              "expand_left": {"type": "integer", "default": 0, "minimum": 0},
+              "expand_right": {"type": "integer", "default": 0, "minimum": 0},
+              "expand_top": {"type": "integer", "default": 0, "minimum": 0},
+              "expand_bottom": {"type": "integer", "default": 0, "minimum": 0}},
+             ["input_images"]),
+            ("filter:test-filter", "Test Filter", "filter",
+             {**_images, "intensity": {"type": "number", "default": 1.0, "minimum": 0.0, "maximum": 2.0}},
+             ["input_images"]),
+            ("upscale-video:test-upscale-video", "Test Video Upscale", "upscale-video",
+             {**_videos, "scale": {"type": "integer", "default": 2, "enum": [2, 4]}},
+             ["input_videos"]),
+            ("video-extend:test-extend", "Test Video Extend", "video-extend",
+             {**_videos, **_prompt, **_neg, **_duration, **_seed}, ["input_videos"]),
+            ("video-stitch:test-stitch", "Test Video Stitch", "video-stitch",
+             {**_videos, **_prompt, **_neg}, ["input_videos"]),
+            ("text-to-speech:test-tts", "Test Text-to-Speech", "text-to-speech",
+             {**_prompt,
+              "voice": {"type": "string", "default": "narrator", "enum": ["narrator", "casual", "formal"]},
+              "speed": {"type": "number", "default": 1.0, "minimum": 0.5, "maximum": 2.0}},
+             ["prompt"]),
+            ("text-to-music:test-music", "Test Text-to-Music", "text-to-music",
+             {**_prompt, **_duration,
+              "lyrics": {"type": "string", "default": ""},
+              "instrumental": {"type": "boolean", "default": True}},
+             ["prompt"]),
+            ("text-to-audio:test-sfx", "Test Sound Effects", "text-to-audio",
+             {**_prompt, **_duration}, ["prompt"]),
+        ]
+
+        for tool_id, name, task_type, properties, required in specs:
+            self._descriptors[tool_id] = ToolDescriptor(
+                id=tool_id,
+                name=name,
+                task_type=task_type,
+                parameter_schema={
+                    "type": "object",
+                    "required": required,
+                    "properties": properties,
+                },
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "assets": {"type": "array", "items": {"type": "string", "format": "binary"}},
+                    },
+                },
+                metadata={"generator_type": "test"},
+            )
 
     async def list_tools(self) -> List[ToolDescriptor]:
         """Return all available test tools."""
@@ -423,7 +560,13 @@ class TestToolProvider(ToolProvider):
         # Generate dummy output
         generation_time = asyncio.get_event_loop().time() - start_time
         seed = parameters.get("seed", 12345)
-        output_bytes = self._generate_dummy_image(config, seed)
+        task_type = self._descriptors[tool_id].task_type or ""
+        if task_type in _VIDEO_TASK_TYPES:
+            output_bytes = base64.b64decode(_STUB_MP4_B64)
+        elif task_type in _AUDIO_TASK_TYPES:
+            output_bytes = base64.b64decode(_STUB_FLAC_B64)
+        else:
+            output_bytes = self._generate_dummy_image(config, seed, tool_id, parameters)
 
         # Save to output_path if specified
         if output_path:
@@ -439,12 +582,52 @@ class TestToolProvider(ToolProvider):
                 "test_tool": True,
                 "tool_id": tool_id,
                 "output_path": output_path,
+                "parameters": parameters,
             },
         )
 
-    def _generate_dummy_image(self, config: TestToolConfig, seed: int) -> bytes:
-        """Generate a deterministic dummy PNG image."""
-        width, height = config.output_size
+    def _resolve_output_size(self, config: TestToolConfig, tool_id: str, parameters: Dict[str, Any]) -> tuple:
+        """Output dimensions: explicit width/height params win; image-input
+        tools inherit their first input's dimensions (times scale for
+        upscale); otherwise the configured default."""
+        width = parameters.get("width")
+        height = parameters.get("height")
+        if isinstance(width, int) and isinstance(height, int) and width > 0 and height > 0:
+            return (width, height)
+
+        inputs = parameters.get("input_images") or []
+        if inputs:
+            try:
+                with Image.open(inputs[0]) as src:
+                    w, h = src.size
+                scale = parameters.get("scale", 1)
+                if tool_id.startswith("upscale-image:") and isinstance(scale, int):
+                    return (w * scale, h * scale)
+                if tool_id.startswith("outpaint-image:"):
+                    return (
+                        w + int(parameters.get("expand_left") or 0) + int(parameters.get("expand_right") or 0),
+                        h + int(parameters.get("expand_top") or 0) + int(parameters.get("expand_bottom") or 0),
+                    )
+                return (w, h)
+            except Exception:
+                pass
+        return config.output_size
+
+    def _generate_dummy_image(
+        self,
+        config: TestToolConfig,
+        seed: int,
+        tool_id: str = "",
+        parameters: Optional[Dict[str, Any]] = None,
+    ) -> bytes:
+        """Generate a deterministic dummy PNG image.
+
+        The generation parameters are rendered onto the canvas and embedded as
+        a PNG text chunk ("stimma:test_params") so tests and eval graders can
+        verify what flowed through the pipeline end to end.
+        """
+        parameters = parameters or {}
+        width, height = self._resolve_output_size(config, tool_id, parameters)
 
         # Use seed to vary the color slightly
         r, g, b = config.output_color
@@ -462,10 +645,41 @@ class TestToolProvider(ToolProvider):
                 if (x + y + seed) % 10 == 0:
                     pixels[x, y] = (255, 255, 255)
 
-        # Convert to PNG bytes
+        self._draw_params(img, tool_id, seed, parameters)
+
+        serializable = {k: v for k, v in parameters.items() if isinstance(v, (str, int, float, bool, list, dict, type(None)))}
+        info = PngInfo()
+        info.add_text(
+            "stimma:test_params",
+            json.dumps({"tool_id": tool_id, "seed": seed, "parameters": serializable}, default=str),
+        )
+
         buffer = io.BytesIO()
-        img.save(buffer, format="PNG")
+        img.save(buffer, format="PNG", pnginfo=info)
         return buffer.getvalue()
+
+    def _draw_params(self, img: Image.Image, tool_id: str, seed: int, parameters: Dict[str, Any]) -> None:
+        """Render key generation params onto the image for visual verification."""
+        width, height = img.size
+        if width < 48 or height < 32:
+            return
+        draw = ImageDraw.Draw(img)
+        lines = [tool_id or "test", f"seed={seed} {width}x{height}"]
+        prompt = parameters.get("prompt")
+        if prompt:
+            # Wrap the prompt to the canvas width (default font is ~6px/char)
+            chars = max(8, (width - 8) // 6)
+            text = str(prompt)
+            lines.extend(text[i:i + chars] for i in range(0, min(len(text), chars * 8), chars))
+        line_height = 12
+        band_height = min(height, len(lines) * line_height + 8)
+        draw.rectangle([0, 0, width, band_height], fill=(0, 0, 0))
+        y = 4
+        for line in lines:
+            if y + line_height > height:
+                break
+            draw.text((4, y), line, fill=(255, 255, 255))
+            y += line_height
 
 
 # Singleton instance for tests
