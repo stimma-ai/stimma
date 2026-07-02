@@ -1,194 +1,262 @@
 # Stimpack Authoring Guide
 
-Quick reference for creating Stimma agent stimpacks. Written for the coding agent and for humans.
+The canonical reference for building Stimma stimpacks. Written for humans and
+for coding agents — if an agent is building a stimpack for you, point it at
+this file (or at https://docs.stimma.ai/stimpacks/creating/ for the hosted
+version).
 
-## What stimpacks are
+> **For coding agents — paste this to get started:**
+>
+> Build a Stimma stimpack: a directory with a thin `stimpack.json` manifest
+> (`{"name", "display_name", "description", "version", "format": 1, "author",
+> "tags"}`) and one skill per folder under `skills/<slug>/SKILL.md`. Each
+> SKILL.md has YAML frontmatter (`name`, `display_name`, `description`, `tags`,
+> optional `environments:` — `chat`/`flow` booleans, `tool` either `true` or
+> `{task_types: [...]}`; omit the block for chat-only — and optional
+> `provides:` listing Python modules in a sibling `lib/` dir) followed by a
+> markdown body of instructions written like a brief to a capable assistant.
+> Validate with `stimma stimpacks validate <pack-dir>`, live-test with
+> `stimma stimpacks dev <parent-dir>` (skills reload on edit, no reinstall),
+> and ship as a zip of the pack directory. Full spec:
+> `docs/STIMPACK_AUTHORING.md` in the stimma repo.
 
-A **stimpack** is the installable/marketplace PACKAGE. It is a directory holding a `stimpack.json` manifest plus the files for one or more typed **resources**. The most common resource is a `skill` — a `SKILL.md` instruction document that loads into the agent's context on demand to teach it domain-specific workflows, patterns, and mental models. Stimpacks are **not** required for basic operation — the agent works fine without any enabled.
+## Concepts
 
-> Naming: the package is always a "stimpack". The word "skill" survives only as the name of the agent-instruction **resource type** (`SKILL.md`).
+- A **stimpack** is the installable *container* — the unit of browse, install,
+  trust, and update. It holds one or more skills today, and is designed to
+  carry other typed content later (assets, tools, flows).
+- A **skill** is one targeted agent capability: a markdown instruction document
+  (plus optional Python) the agent loads into context on demand. The agent
+  discovers and invokes skills *flat*, addressed as `<pack>/<skill-slug>`
+  (e.g. `stimma-essentials/variations`).
+- Skills are **not** required for basic operation — the agent works fine with
+  none installed. A skill earns its place by making the agent better at one
+  category of work.
 
-## Stimpack manifest (`stimpack.json`)
+## Container format
 
-Every stimpack declares its resources in a `stimpack.json` at the pack root:
+```
+my-stimpack/
+    stimpack.json            # pack identity — thin, see below
+    skills/                  # one skill per folder
+        my-skill/
+            SKILL.md         # frontmatter + markdown body
+            lib/             # optional bundled Python for this skill
+        another-skill/
+            SKILL.md
+    example.png              # companion files are allowed and preserved
+```
+
+### `stimpack.json` (the manifest)
 
 ```json
 {
   "name": "my-stimpack",
   "display_name": "My Stimpack",
-  "description": "One-line description shown in the stimpacks inventory",
+  "description": "One-line description shown on the pack card",
   "version": "1",
-  "author": "system",
-  "tags": ["relevant", "tags"],
-  "resources": [
-    { "type": "skill", "path": "SKILL.md" }
-  ]
+  "format": 1,
+  "author": "user",
+  "tags": ["relevant", "tags"]
 }
 ```
 
-### Resource types
+The manifest is deliberately **thin**: pack identity only. Skills are
+*discovered* by scanning `skills/*/SKILL.md` — they are not declared in the
+manifest — and each skill is self-describing via its own frontmatter, so its
+targeting travels with it.
 
-| Type | Status | Backed by |
-|------|--------|-----------|
-| `skill` | **Fully wired** | `SKILL.md` (+ optional `lib/`). Injected on invoke; `lib/*` importable in `run_code`. |
-| `tool` | Recognized, not yet loaded | (manifest schema + stub lander) |
-| `flow` | Recognized, not yet loaded | (manifest schema + stub lander) |
-| `asset` | Recognized, not yet loaded | (manifest schema + stub lander) |
-| `model` | Recognized, not yet loaded | (manifest schema + stub lander) |
-| `flow_guidance` | Recognized, not yet loaded | (manifest schema + stub lander) |
+| Field | Required | Notes |
+|-------|----------|-------|
+| `name` | yes | Kebab-case, globally unique on the marketplace |
+| `display_name` | yes | Human-facing name |
+| `description` | yes | One-liner for the pack card |
+| `version` | yes | Content version (string); the marketplace assigns its own integer publish versions |
+| `format` | no | **Container-format version** (integer, default `1`). Loaders warn on packs newer than they support and load best-effort. Always write `1` today. |
+| `author` | yes | `user`, `agent`, or `system` (first-party) |
+| `tags` | no | Discovery/categorization |
+| `resources` | no | Legacy: declares a root-level `skill` resource for single-skill packs (see below). Reserved for future declared resource types. |
 
-Only `skill` is fully wired today. The other types have a manifest schema and a lander interface in place (each currently a stub that logs "recognized, not yet loaded"), so new resource types can be added incrementally.
+### Extensibility contract
 
-A **bare `SKILL.md` with no `stimpack.json`** still loads: a default single-`skill` manifest is derived from its frontmatter. Vended/published stimpacks should ship a real `stimpack.json`.
+This is a container format; extend it without breaking old loaders:
 
-## Stimpack types
+- **New content types get their own typed root** (like `skills/`) and/or a
+  `resources` declaration. The loader already recognizes `tool`, `flow`,
+  `asset`, `model`, and `flow_guidance` resource types with stub landers —
+  they parse today and activate when wired.
+- **Unknown manifest fields, frontmatter keys, and resource types are
+  ignored** (with a warning), never fatal.
+- **Incompatible changes bump `format`.** An old app loads a newer pack
+  best-effort and logs a warning telling the user to update.
 
-### Markdown-only stimpacks (most common)
+### Legacy single-skill layout
 
-Pure guidance — the agent reads the instructions and uses its existing tools (`run_code`, `.stimma.tools` generated imports, etc.) to carry them out. Good for workflows, checklists, prompt engineering patterns.
+A pack may instead be a bare root `SKILL.md` (with or without a manifest) —
+this is what the in-app editor and the agent's `skill(action="create")` write.
+It loads as a one-skill pack whose skill is named after the pack. If both a
+root `SKILL.md` and a `skills/` directory exist, `skills/` wins and the root
+file is ignored. New multi-skill packs should always use `skills/`.
 
-### Stimpacks with code
-
-Stimpacks can bundle a `lib/` directory containing Python modules that become importable inside `run_code` when the stimpack is enabled. Good for domain-specific processing libraries (color grading, image analysis, data transforms) that are too large or specialized for the system prompt.
-
-## Directory layout
-
-```
-stimpacks/
-    my-stimpack/
-        stimpack.json         # Manifest — declares the pack's resources
-        SKILL.md              # The `skill` resource — frontmatter + markdown body
-        example.png           # Optional — companion assets
-        lib/                  # Optional — Python modules for run_code (skill)
-            my_lib/
-                __init__.py
-                utils.py
-                data/
-                    presets.json
-```
-
-Stimpacks are stored in two locations:
-- **Dev/built-in source**: sibling repo `../stimma-skills` — enabled locally with `stimma stimpacks dev`, read-only in the app, shadows installed copies
-- **Profile-installed/User/Agent**: app data directory stimpacks folder — read-write for user and agent-created packs
-
-## SKILL.md format
+## SKILL.md
 
 ```yaml
 ---
-name: my-stimpack
-display_name: My Stimpack
-description: One-line description shown in stimpacks inventory
-author: system        # system | user | agent
-tags: [relevant, tags]
-provides:             # optional — list Python modules in lib/
-  - my_lib
+name: product-photo
+display_name: Product Photography
+description: Consistent product shots on white backgrounds with soft lighting
+author: user
+tags: [photography, ecommerce]
+environments:
+  chat: true
+  flow: true
+  tool:
+    task_types: [text-to-image, image-to-image]
+provides:
+  - product_photo_utils
 ---
 
-# My Stimpack
+# Product Photography
 
-Markdown body goes here. This is what the agent sees when the stimpack is invoked.
+Generate product images with studio lighting, white cyclorama background,
+and soft shadow. Frame the product centered with 15-20% padding...
 ```
 
-### Frontmatter fields
+| Field | Required | Notes |
+|-------|----------|-------|
+| `name` | yes | Kebab-case; should match the folder slug |
+| `display_name` | yes | Shown in skill lists and "Activated skill" indicators |
+| `description` | yes | **This is how the agent decides to invoke the skill.** One specific sentence. |
+| `author` | yes | `system` (first-party), `user` (edited), or `agent` (auto-created) |
+| `tags` | no | |
+| `environments` | no | Targeting — see below |
+| `provides` | no | Python modules bundled in this skill's `lib/`. Shows as `(imports: ...)` in the skills reminder |
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | yes | Kebab-case identifier, must be unique |
-| `display_name` | yes | Human-readable name |
-| `description` | yes | One-liner for the stimpacks inventory table |
-| `author` | yes | `system` (bundled), `user` (edited), or `agent` (auto-created) |
-| `tags` | no | For discovery and categorization |
-| `provides` | no | List of Python module names available in `lib/`. Shows as `(imports: my_lib)` in the stimpacks inventory |
+### Targeting (`environments`)
 
-### Markdown body guidelines
+Skills opt into the surfaces where they apply:
 
-- Lead with a one-line summary of what the stimpack does
-- Describe the workflow as principles and mental models, not rigid step lists
-- If the stimpack has code (`provides`), include a Usage section with import examples
-- Reference the current runtime surface by name: `.stimma.tools` imports, `asyncio.gather()`, etc.
-- Code examples should be complete enough to copy-paste-adapt, with comments explaining each section
-- Keep it focused — one primary workflow per stimpack
+- `chat` (boolean) — the main agent conversation. The agent invokes by
+  judgment from the description; users can also activate manually from the
+  skills menu on the chat input.
+- `flow` (boolean) — the flow-building assistant. Strict opt-in: irrelevant
+  skills actively hurt flow builds, so only opt in if the skill helps *author
+  workflows*.
+- `tool` — the assistant on tool screens. `true` for every tool, or
+  `{ task_types: [text-to-image, ...] }` to scope it. Tool-surface skills
+  **auto-activate** on matching tools; there is no invoke judgment here, so
+  the eligibility scope is the relevance gate. The object form is the general
+  "narrow it" slot (future keys, e.g. specific tool ids, add no format break).
 
-## Stimpacks with Python code
+**Absent key = not offered there. Absent block = chat only** — the right
+default for most skills.
 
-### How it works
+### Writing the body
 
-1. Put Python modules in `lib/` inside the stimpack directory
-2. Declare them in frontmatter via `provides: [module_name]`
-3. When the stimpack is enabled, the agent can `import module_name` inside `run_code`
+The body is what lands in the agent's context on invoke. Write it like a brief
+to a capable assistant who knows Stimma's tools but not your preferences:
 
-The `lib/` directory acts as a Python package root. Each top-level directory with `__init__.py` (or top-level `.py` file) inside `lib/` becomes an importable module.
+- Lead with a one-line summary of what the skill does
+- **Teach principles, not rigid steps** — the agent adapts principles;
+  procedures break when anything varies
+- **Be specific where it matters** — exact values, parameter ranges, model
+  preferences
+- One minimal example beats several variations; reference the current runtime
+  surface by name (`.stimma.tools` imports, `asyncio.gather()`, etc.)
+- Keep it focused — one primary workflow per skill; every token rides the
+  conversation after invoke
 
-### Example structure
+## Skills with Python code (`lib/`)
+
+A skill may bundle Python in its own `lib/` directory:
+
+1. Put modules in `lib/` inside the **skill's** folder
+2. Declare them in the skill's frontmatter via `provides: [module_name]`
+3. While the skill is active, agent code in `run_code` can `import module_name`
+
+The `lib/` directory acts as a package root: each top-level directory with
+`__init__.py` (or top-level `.py` file) becomes an importable module.
 
 ```
-color-math/
-    SKILL.md
-    lib/
-        color_math/           # <- importable as `color_math`
-            __init__.py
-            conversions.py
-            blend.py
+skills/
+    color-math/
+        SKILL.md              # provides: [color_math]
+        lib/
+            color_math/       # <- importable as `color_math`
+                __init__.py
+                conversions.py
 ```
 
-Agent code in `run_code`:
-```python
-from color_math import rgb_to_hsl, blend
-# ... use functions on numpy arrays
+Rules:
+
+- **Skill code is trusted** — it runs via real `importlib`, not inside the
+  sandbox, with the same access as any installed Python package.
+- **Dependencies**: numpy, scipy, PIL, and anything else installed in the
+  backend environment are importable. Skills cannot import other skills'
+  modules.
+- **Data files**: load with `Path(__file__).parent / "data" / "file.json"`.
+- **Module names must not collide** with built-in allowed modules (json,
+  numpy, PIL, math, ...) or with modules from other active skills — collisions
+  are skipped with a warning (first wins).
+- **Async is fine** — agent code can `await` your functions.
+- **Document the API in the SKILL.md body** — exact import statements,
+  function signatures, expected shapes/dtypes/ranges, one complete usage
+  example. The markdown *is* the documentation the agent reads.
+
+## Developing and testing
+
+The dev loop, end to end:
+
+```bash
+# 1. Scaffold: create <dir>/my-stimpack/{stimpack.json,skills/<slug>/SKILL.md}
+
+# 2. Validate — parses with the app's real loader; errors exit non-zero
+stimma stimpacks validate path/to/my-stimpack
+
+# 3. Live-test: point the app at the PARENT directory (each child dir = one pack)
+stimma stimpacks dev path/to/dir-containing-packs
+#    SKILL.md edits are picked up live — no publish, no reinstall.
+#    Open a chat and check the skills (book icon) menu on the input bar;
+#    ask the agent something the skill should shape; for tool-targeted
+#    skills open a matching tool and check the same menu there.
+stimma stimpacks dev --off   # when done (dev packs shadow installed ones by name)
+
+# 4. Package: zip the pack directory (drag-drop the .zip onto the Stimpacks
+#    page to install; `Download as Zip` on any card shows the expected shape)
+cd path/to/my-stimpack && zip -r ../my-stimpack.zip . -x "*.DS_Store" -x "*__pycache__*"
 ```
 
-### Rules for stimpack code
-
-- **Stimpack code is trusted** — it runs via real `importlib`, not inside the sandbox. It has the same access as any installed Python package.
-- **Dependencies**: Stimpack code can freely import numpy, scipy, PIL, and any other package installed in the backend environment. It cannot import other stimpacks' modules.
-- **Data files**: Use `Path(__file__).parent / "data" / "file.json"` to load data files relative to the module. `__file__` is set correctly by the import system.
-- **Module names must not collide** with built-in allowed modules (json, numpy, PIL, math, etc.). Collisions are detected at runtime and the stimpack module is skipped with a warning.
-- **Async is fine**: Stimpack modules can define async functions. Agent code in `run_code` can `await` them.
-
-### SKILL.md for code stimpacks
-
-When a stimpack provides importable code, the markdown body should document:
-
-1. **What to import** — show the exact import statement
-2. **Function signatures** — list available functions with argument types and descriptions
-3. **Data format** — what array shapes, dtypes, value ranges functions expect and return
-4. **Usage examples** — complete code blocks the agent can adapt
-
-The agent learns about the stimpack's API by reading the markdown, then uses it in `run_code`. The markdown is the documentation.
+`validate` reports the pack as the agent will see it — every skill with its
+per-environment eligibility and resolved lib modules — and catches the common
+mistakes: missing descriptions, `provides` naming a module `lib/` doesn't
+have, module collisions, unknown `environments` keys, empty bodies, a root
+`SKILL.md` shadowed by `skills/`.
 
 ## Distribution
 
-### As a zip file
+- **Marketplace**: upload the zip at stimma.ai/stimpacks. First-party packs
+  live in the sibling `stimma-skills` repo and publish with
+  `stimmacloud stimpacks publish`. Publishes are moderated; new packs may be
+  quarantined until approved.
+- **Direct sharing**: send the zip; recipients drop it on the Stimpacks page.
 
-Stimpacks can be distributed as `.zip` files. The zip should contain `SKILL.md` at the top level (or in a subdirectory), plus any companion files including `lib/`. Install via the UI or programmatically with `install_stimpack_from_file(path)`.
+## Skill lifecycle at runtime
 
-```
-my-stimpack.zip
-    SKILL.md
-    lib/
-        my_lib/
-            __init__.py
-            ...
-```
-
-### Bundled with the app
-
-Place the stimpack directory in the sibling `../stimma-skills` repo. For local development, run `tools/stimma stimpacks dev` so the app uses that checkout as the built-in source. Set `author: system` in frontmatter. The agent discovers and invokes stimpacks dynamically via system reminders.
-
-## Stimpack lifecycle
-
-1. **Discovery**: Agent sees the stimpacks inventory table (name, description, enabled status, provided imports)
-2. **Invocation**: Agent calls `stimpack(action="invoke", name="...")` to load full content into context
-3. **Execution**: Agent uses normal tools (`run_code`, `.stimma.tools` imports, etc.) guided by the stimpack's instructions
-4. **Creation**: Agent can create new stimpacks via `stimpack(action="create", ...)`
-5. **Forking**: Users can edit bundled stimpacks — the edit creates a user-tier copy
+1. **Discovery**: eligible skills are surfaced to the agent per environment
+   (name, description, provided imports) via system reminders
+2. **Invocation**: the agent calls `skill(action="invoke", name="<pack>/<slug>")`,
+   or the user activates from the skills menu; the body lands in context
+3. **Execution**: the agent works with its normal tools, guided by the skill
+4. **Creation**: the agent can write new single-skill packs via
+   `skill(action="create", ...)`
 
 ## Checklist for new stimpacks
 
-- [ ] `SKILL.md` has complete frontmatter (name, display_name, description, author, tags)
-- [ ] Description is concise enough for the inventory table (~10 words)
-- [ ] Markdown body teaches principles, not rigid procedures
-- [ ] If the stimpack has `lib/`: `provides` lists all importable module names
-- [ ] If the stimpack has `lib/`: markdown documents the API with import examples
-- [ ] Module names don't collide with built-in modules
-- [ ] Tested: enable the stimpack, run a prompt that exercises it, verify the agent uses it correctly
+- [ ] `stimpack.json` has name, display_name, description, version, `format: 1`
+- [ ] Every skill folder has a `SKILL.md` with complete frontmatter
+- [ ] Each description is one specific sentence (~10 words) — it's the invoke signal
+- [ ] `environments` reflects where the skill genuinely helps (default: chat only)
+- [ ] Bodies teach principles, not rigid procedures
+- [ ] Skills with `lib/`: `provides` lists every importable module, and the body documents the API
+- [ ] `stimma stimpacks validate <pack>` passes with no errors
+- [ ] Tested live via `stimma stimpacks dev`: the agent invokes it when relevant and the output improves

@@ -151,6 +151,64 @@ class TestMultiSkillLoad:
         with pytest.raises(ValueError, match="multiple skills"):
             sp.save_stimpack("test-pack", "new content")
 
+    def test_format_version_parsed_with_default(self, multi_skill_pack, stimpacks_dir):
+        # No format field -> current version
+        info = sp._parse_stimpack_dir(multi_skill_pack)
+        assert info.manifest.format == sp.STIMPACK_FORMAT_VERSION
+
+        # A pack from the future still loads (best-effort), carrying its format
+        future = stimpacks_dir / "future-pack"
+        _write_manifest(future, "future-pack")
+        manifest = json.loads((future / "stimpack.json").read_text())
+        manifest["format"] = sp.STIMPACK_FORMAT_VERSION + 1
+        (future / "stimpack.json").write_text(json.dumps(manifest))
+        _write_skill(future, "solo", "name: solo\ndescription: Solo skill", "Solo body")
+        info = sp._parse_stimpack_dir(future)
+        assert info is not None
+        assert info.manifest.format == sp.STIMPACK_FORMAT_VERSION + 1
+        assert len(info.skills) == 1
+
+
+# =============================================================================
+# Validator
+# =============================================================================
+
+class TestValidator:
+    def test_valid_pack_passes(self, multi_skill_pack):
+        from agent.v2.stimpack_validate import validate_pack
+        report, warnings, errors = validate_pack(multi_skill_pack)
+        assert errors == []
+        assert any("test-pack" in line for line in report)
+
+    def test_catches_bad_provides_and_empty_body(self, stimpacks_dir):
+        from agent.v2.stimpack_validate import validate_pack
+        pack = stimpacks_dir / "broken-pack"
+        _write_manifest(pack, "broken-pack")
+        _write_skill(
+            pack, "ghost-lib",
+            "name: ghost-lib\ndescription: Claims a lib it lacks\nprovides:\n  - missing_module",
+            "Some body",
+        )
+        _write_skill(pack, "empty", "name: empty\ndescription: No body", "   ")
+        report, warnings, errors = validate_pack(pack)
+        assert any("missing_module" in e for e in errors)
+        assert any("no body" in e for e in errors)
+
+    def test_flags_shadowed_root_skill_and_unknown_env(self, stimpacks_dir):
+        from agent.v2.stimpack_validate import validate_pack
+        pack = stimpacks_dir / "warn-pack"
+        _write_manifest(pack, "warn-pack")
+        _write_skill(
+            pack, "odd",
+            "name: odd\ndescription: Unknown env key\nenvironments:\n  chat: true\n  toolview: true",
+            "Body",
+        )
+        (pack / "SKILL.md").write_text("---\nname: warn-pack\n---\n\nDead root", encoding="utf-8")
+        report, warnings, errors = validate_pack(pack)
+        assert errors == []
+        assert any("IGNORED" in w for w in warnings)
+        assert any("toolview" in w for w in warnings)
+
 
 # =============================================================================
 # lib/ aggregation

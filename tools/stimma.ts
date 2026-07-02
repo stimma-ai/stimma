@@ -539,6 +539,8 @@ Commands:
   stimpacks dev [path]   Use a stimpacks dir as the live authority for built-in stimpacks
                       (default: sibling stimma-skills repo). Shadows installed copies.
   stimpacks dev --off    Clear the dev stimpacks override
+  stimpacks validate PATH...  Validate stimpack directories with the real loader
+                      (skills, environments, lib modules; non-zero exit on errors)
   backup          Create timestamped backup of data directory
   lint backend    Run ruff over the backend (undefined names, syntax errors)
   lint frontend-dead-code
@@ -1434,10 +1436,27 @@ const DEV_STIMPACKS_LINE_RE = /^dev_stimpacks_dir:.*$/m;
 
 async function commandStimpacks(args: string[], bundleId: string, sandbox: string): Promise<void> {
   const sub = args[0];
+
+  if (sub === "validate") {
+    const targets = args.slice(1).filter((a) => !a.startsWith("--"));
+    if (targets.length === 0) {
+      console.error("Usage: stimma stimpacks validate <path> [<path> ...]");
+      Deno.exit(1);
+    }
+    const abs = targets.map((t) => resolve(t));
+    const code = await run(
+      "uv",
+      ["run", "python", "-m", "agent.v2.stimpack_validate", ...abs],
+      { cwd: join(repoRoot, "backend"), check: false },
+    );
+    Deno.exit(code);
+  }
+
   if (sub !== "dev") {
     console.error(
-      "Usage: stimma stimpacks dev [path]   Set dev stimpacks override (default: sibling stimma-skills)\n" +
-      "       stimma stimpacks dev --off    Clear the dev stimpacks override",
+      "Usage: stimma stimpacks dev [path]      Set dev stimpacks override (default: sibling stimma-skills)\n" +
+      "       stimma stimpacks dev --off       Clear the dev stimpacks override\n" +
+      "       stimma stimpacks validate <path> Validate a stimpack directory with the real loader",
     );
     Deno.exit(1);
   }

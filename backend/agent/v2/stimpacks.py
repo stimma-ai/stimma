@@ -54,6 +54,11 @@ log = get_logger(__name__)
 SKILL_FILENAME = "SKILL.md"  # the `skill` resource document (resource type name, not the package)
 SKILLS_DIRNAME = "skills"  # multi-skill layout: <pack>/skills/<slug>/SKILL.md
 STIMPACK_MANIFEST = "stimpack.json"
+
+# Container-format version this loader understands (`format` in stimpack.json;
+# absent = 1). Bump when the on-disk contract changes incompatibly; newer packs
+# still best-effort load with a warning so an old app degrades, not breaks.
+STIMPACK_FORMAT_VERSION = 1
 MARKETPLACE_SIDECAR = ".marketplace.json"
 AUTO_INSTALL_STATE_FILE = ".marketplace-auto-install-state.json"
 
@@ -105,6 +110,7 @@ class StimpackManifest:
     version: str
     author: str
     tags: list[str]
+    format: int = STIMPACK_FORMAT_VERSION  # container-format version
     resources: list[StimpackResource] = field(default_factory=list)
 
     def resources_of_type(self, resource_type: str) -> list[StimpackResource]:
@@ -573,6 +579,16 @@ def _parse_manifest(manifest_path: Path, stimpack_dir: Path) -> Optional[Stimpac
     if not resources and (stimpack_dir / SKILL_FILENAME).is_file():
         resources = [StimpackResource(type=RESOURCE_TYPE_SKILL, spec={"type": RESOURCE_TYPE_SKILL, "path": SKILL_FILENAME})]
 
+    try:
+        pack_format = int(data.get("format", STIMPACK_FORMAT_VERSION))
+    except (TypeError, ValueError):
+        pack_format = STIMPACK_FORMAT_VERSION
+    if pack_format > STIMPACK_FORMAT_VERSION:
+        log.warning(
+            f"Stimpack {manifest_path} declares format {pack_format}, newer than the "
+            f"supported {STIMPACK_FORMAT_VERSION} — loading best-effort; consider updating Stimma"
+        )
+
     name = data.get("name") or stimpack_dir.name
     # Fall back to skill-resource frontmatter for human-facing metadata.
     fm: dict = {}
@@ -592,6 +608,7 @@ def _parse_manifest(manifest_path: Path, stimpack_dir: Path) -> Optional[Stimpac
         version=str(data.get("version", "1")),
         author=data.get("author") or fm.get("author", ""),
         tags=data.get("tags") or fm.get("tags", []) or [],
+        format=pack_format,
         resources=resources,
     )
 
@@ -1142,6 +1159,7 @@ def _write_default_manifest(
         "display_name": display_name,
         "description": description,
         "version": "1",
+        "format": STIMPACK_FORMAT_VERSION,
         "author": "user",
         "tags": tags or [],
         "resources": [{"type": RESOURCE_TYPE_SKILL, "path": SKILL_FILENAME}],
