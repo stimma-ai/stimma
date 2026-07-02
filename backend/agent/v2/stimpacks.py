@@ -1152,6 +1152,7 @@ def _write_default_manifest(
     display_name: str,
     description: str,
     tags: list[str],
+    author: str = "user",
 ) -> None:
     """Write a minimal stimpack.json declaring a single `skill` resource."""
     manifest = {
@@ -1160,7 +1161,7 @@ def _write_default_manifest(
         "description": description,
         "version": "1",
         "format": STIMPACK_FORMAT_VERSION,
-        "author": "user",
+        "author": author,
         "tags": tags or [],
         "resources": [{"type": RESOURCE_TYPE_SKILL, "path": SKILL_FILENAME}],
     }
@@ -1178,6 +1179,7 @@ def save_stimpack(
     display_name: str = "",
     tags: Optional[list[str]] = None,
     profile_id: Optional[str] = None,
+    author: str = "user",
 ) -> Path:
     """Save a stimpack (a single `skill` resource + manifest) to the profile dir."""
     if not profile_id:
@@ -1205,12 +1207,12 @@ def save_stimpack(
         "name": name,
         "display_name": resolved_display,
         "description": description,
-        "author": "user",
+        "author": author,
         "tags": resolved_tags,
     }
     text = "---\n" + yaml.dump(frontmatter, default_flow_style=False).strip() + "\n---\n\n" + content
     path.write_text(text, encoding="utf-8")
-    _write_default_manifest(stimpack_dir, name, resolved_display, description, resolved_tags)
+    _write_default_manifest(stimpack_dir, name, resolved_display, description, resolved_tags, author)
     _invalidate_cache(profile_id)
     return path
 

@@ -400,6 +400,17 @@ async def _run_agent_background(
     registry = get_database_registry()
     db = registry.get_database(profile_id)
 
+    # Serialize runs per chat: if a run is already active (the user sent a
+    # message mid-turn, or the previous run is still winding down after an
+    # abort), wait for it to finish instead of letting run_agent's concurrency
+    # guard drop this run — a dropped run means a committed user message the
+    # agent never answers.
+    from agent.v2.service import get_active_task
+    prev_task = get_active_task(chat_id)
+    if prev_task and not prev_task.done() and prev_task is not asyncio.current_task():
+        log.info(f"Chat {chat_id}: waiting for previous agent run to finish before starting")
+        await asyncio.gather(prev_task, return_exceptions=True)
+
     try:
         async with db.async_session_maker() as session:
             result = await session.execute(select(Chat).where(Chat.id == chat_id))
@@ -1840,6 +1851,60 @@ async def stop_agent_execution(
         "chat_id": chat_id,
         "item": item.to_dict()
     })
+
+    return {"success": True}
+
+
+@router.post("/{chat_id}/retry")
+async def retry_after_error(
+    chat_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Retry the last agent turn after an error.
+
+    Deletes the trailing error item(s) so the transient failure leaves no
+    residue in the transcript, then re-runs the agent loop on the existing
+    conversation (no new user message is appended).
+    """
+    result = await session.execute(select(Chat).where(Chat.id == chat_id))
+    chat = result.scalar_one_or_none()
+
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    from agent.v2.service import is_execution_active
+    if is_execution_active(chat_id):
+        raise HTTPException(status_code=409, detail="Agent is already running")
+
+    # Delete trailing consecutive error items
+    items_result = await session.execute(
+        select(ChatItem)
+        .where(ChatItem.chat_id == chat_id)
+        .order_by(ChatItem.id.desc())
+    )
+    deleted_ids = []
+    for item in items_result.scalars():
+        if item.item_type != "error":
+            break
+        deleted_ids.append(item.id)
+        await session.delete(item)
+    if deleted_ids:
+        await session.commit()
+        for item_id in deleted_ids:
+            await ws_manager.broadcast("chat_item_deleted", {
+                "chat_id": chat_id,
+                "item_id": item_id,
+            })
+
+    from core.profile_context import get_current_profile
+    asyncio.create_task(
+        _run_agent_background(
+            chat_id=chat_id,
+            user_message=None,
+            profile_id=get_current_profile(),
+        )
+    )
 
     return {"success": True}
 

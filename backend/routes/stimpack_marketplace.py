@@ -3,6 +3,8 @@ Stimpack marketplace routes — proxies to stimma.ai cloud API for marketplace o
 
 Handles: browse, detail, install, publish, check-updates, update, mine.
 """
+from urllib.parse import quote, urlsplit
+
 from fastapi import APIRouter, HTTPException, Response
 
 import httpx
@@ -28,6 +30,31 @@ def _stimpacks_api():
 
 def _cloud_base() -> str:
     return f"{get_settings().cloud.base_url}/api/stimpacks"
+
+
+def _normalize_avatar_key(key: str) -> str:
+    """Return the path segment expected by the cloud avatar endpoint."""
+    normalized = key.strip()
+    if "://" in normalized:
+        normalized = urlsplit(normalized).path
+    normalized = normalized.lstrip("/")
+
+    # Marketplace records store the R2-style key (`avatars/...`). If a full API
+    # path or URL is supplied, strip the route prefix but preserve the storage
+    # key's own `avatars/` segment.
+    route_prefix = "api/avatars/"
+    if normalized.startswith(route_prefix):
+        normalized = normalized[len(route_prefix):]
+
+    if not normalized:
+        raise HTTPException(status_code=404, detail="Avatar not found")
+    return normalized
+
+
+def _cloud_avatar_url(key: str) -> str:
+    normalized = _normalize_avatar_key(key)
+    encoded = quote(normalized, safe="/")
+    return f"{get_settings().cloud.base_url.rstrip('/')}/api/avatars/{encoded}"
 
 
 async def _cloud_get(path: str, params: dict | None = None, auth: bool = True) -> dict:
@@ -85,11 +112,18 @@ async def get_author_avatar(key: str):
         raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{get_settings().cloud.base_url}/api/avatars/{key}",
+            _cloud_avatar_url(key),
             headers=with_cloud_access_headers(),
             timeout=30.0,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            status_code = e.response.status_code
+            if status_code == 404:
+                raise HTTPException(status_code=404, detail="Avatar not found") from e
+            log.warning(f"Failed to fetch marketplace avatar: {status_code}")
+            raise HTTPException(status_code=502, detail="Failed to fetch marketplace avatar") from e
         return Response(
             content=response.content,
             media_type=response.headers.get("content-type", "image/png"),

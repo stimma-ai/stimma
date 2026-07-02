@@ -133,7 +133,7 @@
     </div>
 
     <!-- Other Providers Section -->
-    <h4 class="text-sm font-medium text-content-secondary mb-3">Other Providers</h4>
+    <h4 class="text-sm font-medium text-content-secondary mb-3">Tool Providers</h4>
 
     <!-- Provider list -->
     <div class="space-y-4">
@@ -847,7 +847,7 @@ const cloudProvider = computed(() => {
   return props.providers.find(p => p.id === 'stimma-cloud')
 })
 
-// Other providers (excluding stimma-cloud which has its own section)
+// Tool providers (excluding stimma-cloud which has its own section)
 const otherProviders = computed(() => {
   return props.providers.filter(p => p.id !== 'stimma-cloud')
 })

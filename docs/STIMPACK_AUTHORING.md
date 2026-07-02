@@ -191,9 +191,13 @@ Rules:
 
 - **Skill code is trusted** — it runs via real `importlib`, not inside the
   sandbox, with the same access as any installed Python package.
-- **Dependencies**: numpy, scipy, PIL, and anything else installed in the
-  backend environment are importable. Skills cannot import other skills'
-  modules.
+- **Dependencies**: numpy, PIL, and anything else installed in the backend
+  environment are importable — including packages like scipy that arrive as
+  transitive dependencies of other backend packages, though those aren't
+  guaranteed to stick around across versions. This is separate from
+  `run_code`'s sandboxed allow-list (a fixed module set that does **not**
+  include scipy); `lib/` code runs unsandboxed via real `importlib` and isn't
+  bound by that list. Skills cannot import other skills' modules.
 - **Data files**: load with `Path(__file__).parent / "data" / "file.json"`.
 - **Module names must not collide** with built-in allowed modules (json,
   numpy, PIL, math, ...) or with modules from other active skills — collisions

@@ -1572,6 +1572,9 @@ const editingItemId = ref(null) // ID of item being edited, null if not editing
 const editingText = ref('') // Current text in inline editor
 const editingMinSize = ref({ width: 0, height: 0 }) // Original bubble size when editing started
 const messageQueue = ref([]) // Queued messages when agent is busy: [{text, attachments}]
+let lastSendStartedAt = 0 // When the last POST /items started (watchdog grace period)
+let queueBackoffUntil = 0 // Don't retry a failed queued send before this time
+let queueWatchdogTimer = null // Interval that reconciles state while messages are queued
 // uploadInput is now managed by ChatInputBox
 
 // WebSocket - use shared singleton composable
@@ -3183,6 +3186,8 @@ const modelUnavailableMessage = computed(() => {
 async function sendMessage(queuedMessage = null) {
   if (isChatModelUnavailable.value) {
     addToast({ type: 'error', message: modelUnavailableMessage.value })
+    // A dequeued message must survive the early return — put it back.
+    if (queuedMessage) messageQueue.value.unshift(queuedMessage)
     return
   }
 
@@ -3242,6 +3247,7 @@ async function sendMessage(queuedMessage = null) {
   if (hasActiveHITLRequest.value) {
     const interrupted = await interruptPendingHITLRequest()
     if (!interrupted) {
+      if (queuedMessage) messageQueue.value.unshift(queuedMessage)
       return
     }
   }
@@ -3279,6 +3285,7 @@ async function sendMessage(queuedMessage = null) {
   // Mark agent as running BEFORE the request to avoid race condition
   // (agent might finish before the fetch response arrives)
   agentRunning.value = true
+  lastSendStartedAt = Date.now()
 
   // Once the POST is accepted the message is committed (the user_message is
   // created server-side and arrives over WebSocket). Past this point a failure
@@ -3319,6 +3326,20 @@ async function sendMessage(queuedMessage = null) {
     scrollToBottom()
   } catch (error) {
     console.error('Error sending message:', error)
+    if (!sent) {
+      // The POST never committed, so no agent run is coming — roll back the
+      // optimistic running flag, otherwise the composer and queue deadlock
+      // waiting for an agent_stopped that will never arrive.
+      agentRunning.value = false
+      // A dequeued message that failed to send goes back to the queue front
+      // (visible, retried by the queue watchdog) instead of vanishing. The
+      // backoff keeps the idle-watcher from retrying in a tight loop while
+      // the backend is unreachable.
+      if (queuedMessage) {
+        messageQueue.value.unshift(queuedMessage)
+        queueBackoffUntil = Date.now() + 5000
+      }
+    }
     // Restore attachments and refs only when the send itself failed (so the
     // user can retry without re-attaching). If the message already committed,
     // leave the composer cleared — restoring would bring sent attachments back.
@@ -3335,6 +3356,7 @@ async function sendMessage(queuedMessage = null) {
 function processNextQueuedMessage() {
   if (sending.value || agentRunning.value || agentPlanning.value) return
   if (messageQueue.value.length === 0) return
+  if (Date.now() < queueBackoffUntil) return
 
   const next = messageQueue.value.shift()
   sendMessage(next)
@@ -3349,6 +3371,34 @@ watch(
     }
   }
 )
+
+// Queue watchdog: while messages are queued, periodically reconcile agent
+// state with the server and try to drain. The idle-watcher above only fires
+// on local state *changes* — if agentRunning is stale-true (a missed
+// agent_stopped over WebSocket, a send that never started a run), nothing
+// ever changes and the queue would sit "queued" forever. The watchdog asks
+// the backend for the truth (syncAgentStatus) and retries the drain.
+watch(() => messageQueue.value.length, (len) => {
+  if (len > 0 && !queueWatchdogTimer) {
+    queueWatchdogTimer = setInterval(async () => {
+      if (messageQueue.value.length === 0) {
+        clearInterval(queueWatchdogTimer)
+        queueWatchdogTimer = null
+        return
+      }
+      // Grace period after a send: the backend registers the run a moment
+      // after the POST returns, and plan-status would briefly report idle —
+      // reconciling in that window would double-send.
+      if (Date.now() - lastSendStartedAt < 8000) return
+      if (sending.value) return
+      await syncAgentStatus()
+      processNextQueuedMessage()
+    }, 5000)
+  } else if (len === 0 && queueWatchdogTimer) {
+    clearInterval(queueWatchdogTimer)
+    queueWatchdogTimer = null
+  }
+})
 
 
 // ===== Input Attachments & Drag/Drop =====
@@ -3864,7 +3914,33 @@ function isLastChatItem(item) {
 
 async function retryAfterError() {
   if (agentRunning.value || agentPlanning.value || sending.value) return
-  await sendMessage({ text: 'try again', attachments: [] })
+  // Optimistically remove the trailing error item(s) — the retry should
+  // leave no residue from a transient failure. The backend deletes them
+  // too and broadcasts chat_item_deleted, so this just avoids a flash.
+  const removed = []
+  while (items.value.length > 0 && items.value[items.value.length - 1].item_type === 'error') {
+    removed.unshift(items.value.pop())
+  }
+  try {
+    const response = await fetch(`/api/chats/${chatId.value}/retry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    if (!response.ok) {
+      console.error('Failed to retry:', await response.text())
+      // Retry never started — put the error items back so the user
+      // still sees what happened and can try again.
+      items.value = [...items.value, ...removed]
+      return
+    }
+    // agent_started arrives over WebSocket; set optimistically so the
+    // composer flips to the stop button without a gap.
+    agentRunning.value = true
+    lastSendStartedAt = Date.now()
+  } catch (error) {
+    console.error('Error retrying:', error)
+    items.value = [...items.value, ...removed]
+  }
 }
 
 // Remove all LLM setup error items (after successful sign-in or endpoint config)
@@ -3977,6 +4053,12 @@ async function replayFromHere(item) {
   // mutate the historical message in place).
   const attachments = getMessageAttachments(item).map(a => ({ ...a }))
 
+  // Abort any running agent BEFORE deleting and resending. Without this the
+  // resend lands in the client-side queue behind a run whose completion event
+  // may never arrive (or that we're about to orphan by deleting its items),
+  // leaving the message stuck "queued" forever.
+  await cancelAgent()
+
   // Delete this item and all items after it
   await deleteFromHere(item.id)
 
@@ -4047,6 +4129,9 @@ async function submitEditedMessage(item) {
 
   // Clear editing state
   cancelEditing()
+
+  // Abort any running agent first — see replayFromHere for why.
+  await cancelAgent()
 
   // Delete this item and all items after it
   await deleteFromHere(item.id)
@@ -4257,7 +4342,9 @@ async function cancelAgent() {
     })
     if (response.ok) {
       agentRunning.value = false
+      agentPlanning.value = false
       agentPaused.value = false
+      runningNodes.value = []
     } else {
       console.error('Failed to cancel agent:', await response.text())
     }
@@ -5185,6 +5272,10 @@ onDeactivated(() => {
 
 onUnmounted(() => {
   cleanupWebSocketSubscriptions()
+  if (queueWatchdogTimer) {
+    clearInterval(queueWatchdogTimer)
+    queueWatchdogTimer = null
+  }
   window.removeEventListener('profile-changed', handleProfileChanged)
   window.removeEventListener('markers-changed', loadMarkers)
   window.removeEventListener('stimpacks-changed', handleSkillsChanged)
@@ -5226,7 +5317,9 @@ watch(() => route.params.id, (newId) => {
     // Drop attachments from the previous chat synchronously, before any pending
     // media for the new chat gets attached, so the clear can't wipe it.
     if (chatChanged) inputAttachments.value = []
-    // Reset agent state for new chat
+    // Reset agent state for new chat. The queue must not carry over — a
+    // message queued in the previous chat would otherwise post to this one.
+    if (chatChanged) messageQueue.value = []
     agentRunning.value = false
     agentPaused.value = false
     agentPlanning.value = false
@@ -5256,6 +5349,7 @@ watch(() => props.chatId, (newId) => {
   chatId.value = n
   loading.value = true
   items.value = []
+  messageQueue.value = []
   agentRunning.value = false
   agentPaused.value = false
   agentPlanning.value = false

@@ -118,18 +118,18 @@
             <!-- Author row -->
             <div class="flex items-center text-[11px] text-content-muted">
               <span class="inline-flex items-center gap-1.5">
-                <template v-if="stimpack.tier === 'marketplace' && stimpack.marketplace_author">
+                <template v-if="stimpack.tier === 'marketplace' && marketplaceAuthor(stimpack)">
                   <img
-                    v-if="stimpack.marketplace_author_avatar_key && !failedAvatars.has(stimpack.marketplace_author_avatar_key)"
-                    :src="avatarUrl(stimpack.marketplace_author_avatar_key)"
+                    v-if="marketplaceAvatarKey(stimpack) && !failedAvatars.has(marketplaceAvatarKey(stimpack))"
+                    :src="avatarUrl(marketplaceAvatarKey(stimpack))"
                     alt=""
                     class="w-4 h-4 rounded-full object-cover"
-                    @error="failedAvatars.add(stimpack.marketplace_author_avatar_key)"
+                    @error="handleAvatarError(marketplaceAvatarKey(stimpack))"
                   />
                   <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  {{ stimpack.marketplace_author }}
+                  {{ marketplaceAuthor(stimpack) }}
                 </template>
                 <template v-else>
                   {{ stimpack.is_dev ? 'Dev repo' : (stimpack.author === 'user' ? 'Custom' : stimpack.author) }}
@@ -440,13 +440,29 @@ const stimpacks = ref<Stimpack[]>([])
 const catalogStimpacks = ref<MarketplaceStimpack[]>([])
 const showCatalog = ref(false)
 const catalogLoading = ref(false)
+const catalogLoaded = ref(false)
 const catalogSearch = ref('')
 const installingStimpack = ref<string | null>(null)
 const openContextMenu = ref<string | null>(null)
 const isDragging = ref(false)
+const marketplaceByName = ref<Map<string, MarketplaceStimpack>>(new Map())
 
 // Computed
 const installedNames = computed(() => new Set(stimpacks.value.map(s => s.name)))
+
+function marketplaceAuthor(stimpack: Stimpack): string {
+  return marketplaceByName.value.get(stimpack.name)?.authorUsername || stimpack.marketplace_author || ''
+}
+
+function marketplaceAvatarKey(stimpack: Stimpack): string {
+  const freshKey = marketplaceByName.value.get(stimpack.name)?.authorAvatarKey
+  if (freshKey) return freshKey
+  return catalogLoaded.value ? (stimpack.marketplace_author_avatar_key || '') : ''
+}
+
+function handleAvatarError(key: string) {
+  if (key) failedAvatars.add(key)
+}
 
 // Data loading
 async function loadStimpacks() {
@@ -465,11 +481,17 @@ async function loadCatalog() {
   try {
     const result = await browseMarketplace({ q: catalogSearch.value || undefined, limit: 50 })
     catalogStimpacks.value = result.stimpacks
+    const nextMarketplaceByName = new Map(marketplaceByName.value)
+    for (const stimpack of result.stimpacks) {
+      nextMarketplaceByName.set(stimpack.name, stimpack)
+    }
+    marketplaceByName.value = nextMarketplaceByName
   } catch (err) {
     console.error('Failed to load marketplace:', err)
     catalogStimpacks.value = []
   } finally {
     catalogLoading.value = false
+    catalogLoaded.value = true
   }
 }
 

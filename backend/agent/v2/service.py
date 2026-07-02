@@ -44,6 +44,11 @@ def is_execution_active(chat_id: int) -> bool:
     return chat_id in _active_chat_executions
 
 
+def get_active_task(chat_id: int) -> Optional[asyncio.Task]:
+    """Return the asyncio task of the active execution for this chat, if any."""
+    return _active_chat_tasks.get(chat_id)
+
+
 def _mark_running(chat_id: int) -> None:
     _interrupt_flags[chat_id] = False
 
@@ -818,9 +823,14 @@ async def run_agent(
         except Exception:
             pass
 
-    # Guard against concurrent execution
+    # Guard against concurrent execution. Callers serialize on the active task
+    # before invoking run_agent, so this should not trip in practice — but if
+    # it does, the frontend has already marked the agent as running, so a
+    # silent return would leave it waiting for an agent_stopped that never
+    # comes. Broadcast one so the UI recovers.
     if chat_id in _active_chat_executions:
         log.warning(f"Chat {chat_id}: Agent already running, skipping")
+        await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "already_running"})
         return
     _active_chat_executions.add(chat_id)
     _mark_running(chat_id)

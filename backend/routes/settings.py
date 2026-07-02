@@ -1627,6 +1627,51 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
         else:
             scenarios["vision"] = LLMScenarioResult(passed=False, elapsed_ms=elapsed, error=error_str)
 
+    # --- Context window scenario (local only — cloud configs are catalog-stamped) ---
+    if is_local:
+        t0 = time.time()
+        configured_tokens = int(getattr(config, "max_context_tokens", 0) or 128_000)
+        # Half the configured window is enough to catch the common failure
+        # (server started with a much smaller -c/context-length than the UI
+        # claims) without paying for a full-window prefill on every test.
+        probe_tokens = min(max(configured_tokens // 2, 4096), 32_000)
+        filler = ("The quick brown fox jumps over the lazy dog. " * ((probe_tokens * 4) // 46 + 1))[: probe_tokens * 4]
+        try:
+            resp = await llm_completion(config,
+                messages=[
+                    {"role": "system", "content": "Reply with a single word."},
+                    {"role": "user", "content": f"{filler}\n\nIgnore the text above. Reply with exactly: OK"},
+                ],
+                max_tokens=8, temperature=0.1,
+                extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+                apply_endpoint_extras=False,
+            )
+            elapsed = int((time.time() - t0) * 1000)
+            sent_tokens = resp.usage.prompt_tokens or 0
+            if sent_tokens and sent_tokens < probe_tokens * 0.6:
+                # Endpoint accepted the request but silently truncated instead
+                # of erroring — the configured window isn't actually honored.
+                scenarios["context"] = LLMScenarioResult(
+                    passed=False, elapsed_ms=elapsed,
+                    error=(
+                        f"Endpoint reported only {sent_tokens} prompt tokens for a "
+                        f"~{probe_tokens}-token request — it may be silently truncating "
+                        f"context below the configured {configured_tokens:,}."
+                    ),
+                )
+            else:
+                scenarios["context"] = LLMScenarioResult(
+                    passed=True, elapsed_ms=elapsed,
+                    detail=f"Accepted ~{sent_tokens or probe_tokens:,} prompt tokens",
+                )
+        except Exception as e:
+            elapsed = int((time.time() - t0) * 1000)
+            error_str = str(e)[:200]
+            scenarios["context"] = LLMScenarioResult(
+                passed=False, elapsed_ms=elapsed,
+                error=f"Rejected a ~{probe_tokens}-token request — real context window is smaller than the configured {configured_tokens:,}: {error_str}",
+            )
+
     # At minimum, text must pass for detection to be meaningful.
     text_passed = scenarios.get("text", LLMScenarioResult(passed=False)).passed
     detected = None

@@ -151,7 +151,7 @@ async def skill_tool(
         if find_skill(name):
             return f"Error: Skill '{name}' already exists. Use action=\"edit\" to update it."
         try:
-            path = save_stimpack(name, content, description=description or "", tags=tags)
+            path = save_stimpack(name, content, description=description or "", tags=tags, author="agent")
             return f"Created skill '{name}' at {path.name}"
         except ValueError as e:
             return f"Error: {e}"
@@ -164,8 +164,9 @@ async def skill_tool(
         found = find_skill(name)
         if found and len(found[0].skills) > 1:
             return f"Error: Skill '{name}' is part of the '{found[0].display_name}' stimpack and cannot be edited here."
+        existing_author = found[0].author if found else "agent"
         try:
-            path = save_stimpack(name, content, description=description or "", tags=tags)
+            path = save_stimpack(name, content, description=description or "", tags=tags, author=existing_author)
             return f"Updated skill '{name}' at {path.name}"
         except ValueError as e:
             return f"Error: {e}"
