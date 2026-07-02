@@ -3,16 +3,13 @@
     <button
       ref="buttonRef"
       @click="toggle"
-      class="relative w-8 h-8 flex items-center justify-center rounded-full transition-colors"
-      :class="activeCount > 0
-        ? 'text-blue-400 hover:bg-blue-500/10'
-        : 'text-content-muted hover:text-content-secondary hover:bg-white/[0.05]'"
+      class="relative w-8 h-8 flex items-center justify-center rounded-full transition-colors text-content-muted hover:text-content-secondary hover:bg-white/[0.05]"
       :title="title"
     >
       <BookOpenIcon class="w-5 h-5" />
       <span
         v-if="activeCount > 0"
-        class="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-1 rounded-full bg-blue-500 text-white text-[9px] font-medium flex items-center justify-center"
+        class="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-1 rounded-full bg-white/15 text-content-secondary text-[9px] font-medium flex items-center justify-center"
       >{{ activeCount }}</span>
     </button>
 

@@ -289,7 +289,7 @@
                 <span v-if="getActivityGroupSummary(getActivityGroup(item.id)).hasRunningThinking" class="activity-thinking" :class="{ 'activity-thinking--solo': getActivityGroupSummary(getActivityGroup(item.id)).toolNames.length === 0 }">
                     <span class="thinking-dots">thinking</span>
                 </span>
-                <span v-if="getActivityGroupSummary(getActivityGroup(item.id)).hasFailed && isLastActivityGroup(getActivityGroup(item.id))" class="activity-failed-badge">failed</span>
+                <span v-if="getActivityGroupSummary(getActivityGroup(item.id)).hasFailed && !getActivityGroupSummary(getActivityGroup(item.id)).isRunning && isLastActivityGroup(getActivityGroup(item.id))" class="activity-failed-badge">failed</span>
               </div>
 
               <!-- Expanded timeline -->

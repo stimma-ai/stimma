@@ -16,8 +16,8 @@
       <div class="min-h-full flex flex-col items-center px-8 lg:px-16" :class="loaded ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
 
         <!-- Hero area — centered in space above content -->
-        <div class="flex-1 flex flex-col items-center justify-center w-full">
-          <h1 class="text-3xl font-semibold text-content mb-10">What would you like to create today?</h1>
+        <div class="flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16">
+          <h1 class="text-3xl font-semibold text-content mb-16">What would you like to create today?</h1>
 
           <div class="w-full max-w-[720px]">
             <ChatInputBox
