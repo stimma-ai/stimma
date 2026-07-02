@@ -144,6 +144,45 @@ class TestChainExecutorFilters:
         trace_ids = [e.get("media_id") for e in meta["lineage_trace"]]
         assert trace_ids == [base.id, intermediate_id]
 
+    async def test_final_media_generation_time_includes_full_chain(self, generation_app, generation_db_session, mock_ws, tmp_path):
+        # The result-tile duration must reflect base generation + every
+        # executed post-processing step, not just the last step's own
+        # (typically tiny) compute time.
+        base_generation_time = 4.75
+        base = await _make_base_media(generation_db_session, tmp_path, "chain_duration_base.png")
+        async with generation_db_session() as session:
+            result = await session.execute(select(MediaItem).where(MediaItem.id == base.id))
+            media = result.scalar_one()
+            media.generation_metadata = json.dumps({"parameters": {"generation_time": base_generation_time}})
+            await session.commit()
+
+        steps = [
+            {"kind": "filter", "filter_id": "resize", "settings": {"long_edge": 48}},
+            {"kind": "filter", "filter_id": "filter", "settings": {"filter": "mono"}},
+        ]
+        run_id = await start_chain_for_job(
+            job=_fake_job(),
+            base_media_id=base.id,
+            chain_steps=steps,
+            profile_id="default",
+            websocket_manager=mock_ws,
+        )
+        run = await _wait_for_run(generation_db_session, run_id)
+        assert run.status == "completed"
+
+        step_results = json.loads(run.step_results)
+        steps_total_seconds = sum(
+            r["duration_ms"] for r in step_results if r["status"] == "done"
+        ) / 1000.0
+
+        async with generation_db_session() as session:
+            result = await session.execute(select(MediaItem).where(MediaItem.id == run.final_media_id))
+            final = result.scalar_one()
+        total = json.loads(final.generation_metadata)["parameters"]["generation_time"]
+
+        assert total >= base_generation_time
+        assert total == pytest.approx(base_generation_time + steps_total_seconds, abs=0.05)
+
     async def test_completed_chain_points_base_job_at_final_media(self, generation_app, generation_db_session, mock_ws, tmp_path):
         # The base job IS the result-strip item: when its chain completes, the
         # job's result_media_id becomes the chain's final output.
@@ -202,6 +241,16 @@ class TestChainExecutorFilters:
         assert step_results[0]["status"] == "skipped_incompatible"
         assert step_results[1]["status"] == "done"
         assert run.final_media_id == step_results[1]["media_id"]
+
+        # Lineage records only steps that actually ran — the skipped step
+        # never happened and must not show up in the recorded chain.
+        async with generation_db_session() as session:
+            result = await session.execute(
+                select(MediaItem).where(MediaItem.id == run.final_media_id)
+            )
+            final = result.scalar_one()
+        meta = json.loads(final.generation_metadata)
+        assert meta["parameters"]["post_processing_chain"] == [steps[1]]
 
     async def test_failure_pauses_and_keeps_last_good(self, generation_app, generation_db_session, mock_ws, tmp_path):
         base = await _make_base_media(generation_db_session, tmp_path, "chain_fail.png")

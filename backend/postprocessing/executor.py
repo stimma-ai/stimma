@@ -97,6 +97,48 @@ def _run_duration_ms(run_created_at) -> int:
         return 0
 
 
+async def _generation_time_seconds(db, media_id: int) -> float:
+    """Read a media item's own recorded generation_time (seconds), if any."""
+    async with db.async_session_maker() as session:
+        result = await session.execute(
+            select(MediaItem.generation_metadata).where(MediaItem.id == media_id)
+        )
+        row = result.first()
+    if not row or not row[0]:
+        return 0.0
+    try:
+        meta = json.loads(row[0]) if isinstance(row[0], str) else row[0]
+    except (TypeError, ValueError):
+        return 0.0
+    params = meta.get("parameters") or {}
+    return float(meta.get("generation_time") or params.get("generation_time") or 0.0)
+
+
+async def _apply_chain_total_generation_time(db, media_id: int, total_seconds: float) -> None:
+    """Overwrite the final media's recorded generation_time with the chain
+    total (base generation + every executed post-processing step) so the
+    result-tile badge reflects the whole invocation, not just the last step."""
+    async with db.async_session_maker() as session:
+        result = await session.execute(
+            select(MediaItem.generation_metadata).where(MediaItem.id == media_id)
+        )
+        row = result.first()
+        if not row or not row[0]:
+            return
+        try:
+            meta = json.loads(row[0]) if isinstance(row[0], str) else row[0]
+        except (TypeError, ValueError):
+            return
+        params = meta.setdefault("parameters", {})
+        params["generation_time"] = round(total_seconds, 2)
+        await session.execute(
+            update(MediaItem)
+            .where(MediaItem.id == media_id)
+            .values(generation_metadata=json.dumps(meta))
+        )
+        await session.commit()
+
+
 async def _settle_pipeline_for_run(
     db,
     job_id: int,
@@ -331,6 +373,12 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
             await _broadcast(websocket_manager, db, run_id, profile_id, job_instance_id)
 
             started = time.perf_counter()
+            # Lineage covers only steps that actually executed: prior steps
+            # already marked "done" plus this one (skipped/failed steps never
+            # happened, so they're never recorded — see POSTPROCESSING_CHAINS_PLAN).
+            executed_steps = [
+                steps[i] for i in range(idx) if step_results[i].get("status") == "done"
+            ] + [step]
             try:
                 # Built-in filters are catalog tools on the lightweight
                 # provider — a filter step is just a tool step spelled
@@ -342,12 +390,12 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
                         "settings": step.get("settings"),
                     }
                     out_media_id = await _run_tool_step(
-                        db, tool_step, current_media_id, project_id, steps,
+                        db, tool_step, current_media_id, project_id, executed_steps,
                         run_id=base_run_id,
                     )
                 else:
                     out_media_id = await _run_tool_step(
-                        db, step, current_media_id, project_id, steps,
+                        db, step, current_media_id, project_id, executed_steps,
                         run_id=base_run_id,
                     )
             except Exception as e:
@@ -409,6 +457,18 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
                 )
             )
             await session.commit()
+
+        # Roll the chain's total time (base generation + every executed step)
+        # onto the final media, so its result-tile badge reflects the whole
+        # invocation rather than just the last step's own compute time.
+        steps_total_ms = sum(
+            sr.get("duration_ms", 0) for sr in step_results if sr.get("status") == "done"
+        )
+        if steps_total_ms:
+            base_time_s = await _generation_time_seconds(db, base_media_id)
+            await _apply_chain_total_generation_time(
+                db, current_media_id, base_time_s + steps_total_ms / 1000.0
+            )
 
         # The base job IS the result-strip item: point it at the chain's final
         # output and re-broadcast it, so its tile becomes the final image (the
