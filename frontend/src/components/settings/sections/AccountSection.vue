@@ -14,41 +14,62 @@
     </div>
 
     <div v-else-if="!user" class="min-h-[60vh] flex flex-col items-center justify-center text-center">
-      <div class="w-16 h-16 mb-5 rounded-full bg-gradient-to-br from-teal-600 via-cyan-500 to-indigo-500 flex items-center justify-center">
-        <svg class="w-8 h-8 text-content" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+      <!-- Local tools connected: pitch cloud as an addition to a working stack -->
+      <template v-if="hasLocalTools">
+        <div class="flex items-center gap-2 text-xs text-content-tertiary bg-surface border border-edge rounded-full px-3.5 py-1.5 mb-5">
+          <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+          Local tools connected
+        </div>
+        <h3 class="text-2xl font-semibold text-content mb-3 max-w-md text-balance">Add the frontier to your <span class="stimma-cloud-text">local stack.</span></h3>
+        <p class="text-sm text-content-tertiary leading-relaxed max-w-md mb-6">
+          Your local setup stays as it is. Stimma Cloud adds the newest closed image and video models, plus a hosted agent. Run each job wherever you choose.
+        </p>
+        <button
+          @click="handleConnect"
+          class="px-6 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 text-white rounded-lg font-medium text-sm transition-all hover:shadow-lg hover:shadow-cyan-500/25 hover:-translate-y-0.5"
+          :disabled="isConnecting"
+        >
+          {{ isConnecting ? 'Connecting...' : 'Connect Stimma Cloud' }}
+        </button>
+        <p class="text-xs text-content-muted mt-2.5">Works alongside your local tools · Sign in or create an account in your browser</p>
+      </template>
+
+      <!-- Nothing connected: cloud is the missing piece, with local setup as the alternative -->
+      <template v-else>
+        <svg class="w-8 h-8 mb-4" viewBox="0 0 24 24" fill="none" stroke="url(#account-cloud-grad)" stroke-width="1.5" aria-hidden="true">
+          <defs>
+            <linearGradient id="account-cloud-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#0d9488" />
+              <stop offset="0.5" stop-color="#06b6d4" />
+              <stop offset="1" stop-color="#6366f1" />
+            </linearGradient>
+          </defs>
           <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
         </svg>
-      </div>
-      <h3 class="text-lg font-semibold text-content mb-2">Run the best AI models without GPU limits</h3>
-      <p class="text-sm text-content-tertiary mb-6">
-        Offload demanding jobs to the cloud. More power, less waiting.
-      </p>
-      <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-content-secondary mb-6">
-        <span class="flex items-center gap-1.5">
-          <svg class="w-3 h-3 text-cyan-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-          Premium models
-        </span>
-        <span class="flex items-center gap-1.5">
-          <svg class="w-3 h-3 text-cyan-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-          Faster processing
-        </span>
-        <span class="flex items-center gap-1.5">
-          <svg class="w-3 h-3 text-cyan-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-          No GPU constraints
-        </span>
-        <span class="flex items-center gap-1.5">
-          <svg class="w-3 h-3 text-cyan-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-          Hosted LLMs
-        </span>
-      </div>
-      <button
-        @click="handleConnect"
-        class="px-6 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 text-white rounded-lg font-medium text-sm transition-all hover:shadow-lg hover:shadow-cyan-500/25 hover:-translate-y-0.5"
-        :disabled="isConnecting"
-      >
-        {{ isConnecting ? 'Connecting...' : 'Unlock Stimma Cloud' }}
-      </button>
-      <p class="text-xs text-content-muted mt-2.5">No setup required</p>
+        <h3 class="text-2xl font-semibold text-content mb-3 max-w-md text-balance">Stimma isn't connected to any AI <span class="stimma-cloud-text">yet.</span></h3>
+        <p class="text-sm text-content-tertiary leading-relaxed max-w-md mb-6">
+          Stimma needs two things to work: tools that generate images and video, and a model that powers the agent. Stimma Cloud is both. Sign in once and start creating.
+        </p>
+        <button
+          @click="handleConnect"
+          class="px-6 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 text-white rounded-lg font-medium text-sm transition-all hover:shadow-lg hover:shadow-cyan-500/25 hover:-translate-y-0.5"
+          :disabled="isConnecting"
+        >
+          {{ isConnecting ? 'Connecting...' : 'Connect Stimma Cloud' }}
+        </button>
+        <p class="text-xs text-content-muted mt-2.5">No setup required · Sign in or create an account in your browser</p>
+        <div class="mt-8 pt-5 border-t border-edge w-full max-w-sm">
+          <div class="text-[11px] font-semibold uppercase tracking-wider text-content-muted mb-2.5">Bringing your own AI?</div>
+          <div class="flex flex-col items-center gap-1.5 text-xs">
+            <button @click="emit('navigate', 'tools')" class="text-content-tertiary hover:text-content transition-colors">
+              Connect ComfyUI or another tool provider in <span class="font-medium text-content-secondary">Tools</span> →
+            </button>
+            <button @click="emit('navigate', 'ai-services')" class="text-content-tertiary hover:text-content transition-colors">
+              Point the agent at a local LLM in <span class="font-medium text-content-secondary">Advanced</span> →
+            </button>
+          </div>
+        </div>
+      </template>
       <p v-if="connectMessage" class="text-sm text-red-500 text-center mt-4">{{ connectMessage }}</p>
     </div>
 
@@ -252,7 +273,11 @@ import { useCloudAccount } from '../../../composables/useCloudAccount'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import { isTauri } from '../../../apiConfig'
 
-const emit = defineEmits(['close'])
+const props = defineProps({
+  toolProviders: { type: Array, default: () => [] },
+})
+
+const emit = defineEmits(['close', 'navigate'])
 
 const { user, authError, signOut, signInWithBrowser } = useAuth()
 const { cloudBaseUrl, cloudUser, isCloudLoading, cloudError, fetchCloudAccount, ensureCloudBaseUrl, formatBalance, getPlanDisplayName } = useCloudAccount()
@@ -266,6 +291,12 @@ const connectError = ref('')
 // is fully reserved and nothing reflows when data lands. Once cloudUser is
 // cached (module-scoped), reopening settings skips skeletons entirely.
 const isFirstLoad = computed(() => isCloudLoading.value && !cloudUser.value)
+
+// Signed-out CTA state: with a working local stack, cloud is pitched as an
+// addition; with nothing connected, it's the missing piece + local setup links.
+const hasLocalTools = computed(() =>
+  props.toolProviders.some(p => p.id !== 'stimma-cloud' && p.enabled !== false && p.status === 'connected')
+)
 
 // Check if user has a paid subscription (not free tier)
 const hasPaidSubscription = computed(() => {

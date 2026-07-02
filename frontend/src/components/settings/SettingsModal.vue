@@ -121,7 +121,11 @@
 
               <!-- Account Section -->
               <template v-else-if="activeSection === 'account'">
-                <AccountSection @close="close" />
+                <AccountSection
+                  :tool-providers="settings?.tool_providers || []"
+                  @close="close"
+                  @navigate="activeSection = $event"
+                />
               </template>
 
               <!-- Privacy Section -->

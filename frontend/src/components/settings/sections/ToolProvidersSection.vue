@@ -26,10 +26,17 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
               </svg>
             </div>
-            <div class="flex-1">
+            <div class="flex-1 min-w-0">
               <p class="text-sm text-content-secondary">Stimma Cloud tools</p>
-              <p class="text-xs text-content-muted mt-0.5">Subscribe for hosted generation tools, or configure your own providers below</p>
+              <p class="text-xs text-content-muted mt-0.5">The newest closed image and video models, plus a hosted agent. Works alongside the providers below.</p>
             </div>
+            <button
+              @click="handleCloudConnect"
+              :disabled="isCloudConnecting"
+              class="flex-shrink-0 px-3.5 py-1.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded-lg text-xs font-medium transition-all disabled:opacity-60"
+            >
+              {{ isCloudConnecting ? 'Connecting...' : 'Connect' }}
+            </button>
           </div>
         </div>
 
@@ -829,8 +836,22 @@ const props = defineProps({
 })
 
 // Auth and cloud account state
-const { user, isAuthenticated } = useAuth()
+const { user, isAuthenticated, signInWithBrowser } = useAuth()
 const { cloudBaseUrl, cloudUser, fetchCloudAccount, ensureCloudBaseUrl } = useCloudAccount()
+
+// Signed-out Connect button on the Stimma Cloud card
+const isCloudConnecting = ref(false)
+
+async function handleCloudConnect() {
+  isCloudConnecting.value = true
+  try {
+    await signInWithBrowser()
+  } catch (error) {
+    addToast(error.message || 'Connection failed', 'error')
+  } finally {
+    isCloudConnecting.value = false
+  }
+}
 
 // Cloud dashboard URL
 const cloudDashboardUrl = computed(() => cloudBaseUrl.value + '/link/dashboard')
