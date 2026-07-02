@@ -5,29 +5,11 @@
   >
     <!-- Full panel content -->
     <div class="flex-1 flex flex-col overflow-hidden">
-      <!-- Tab Bar -->
-      <div class="px-3 pt-3 pb-2 flex justify-center">
-        <div class="inline-flex rounded-lg bg-surface p-0.5">
-          <button
-            v-for="tab in tabs"
-            :key="tab.id"
-            @click="activeTab = tab.id"
-            class="px-3 py-1 text-xs font-medium rounded-md transition-colors"
-            :class="activeTab === tab.id
-              ? 'bg-surface-raised text-content'
-              : 'text-content-tertiary hover:text-content'"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Agent Tab -->
-      <div v-if="activeTab === 'agent'" class="flex-1 flex flex-col overflow-hidden">
-        <div class="px-3 pb-3 flex-1 overflow-y-auto pt-2">
-          <!-- Additional Instructions -->
-          <div class="flex items-center justify-between mb-1">
-            <label class="text-xs font-medium text-content-tertiary">Additional Instructions</label>
+      <div class="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-4">
+        <!-- Additional Instructions section -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <h4 class="text-[11px] font-medium text-content-muted uppercase tracking-wider">Additional Instructions</h4>
             <button
               @click="showInstructionsModal = true"
               class="p-1 text-content-muted hover:text-content-secondary transition-colors"
@@ -41,80 +23,71 @@
           <textarea
             v-model="localInstructions"
             placeholder="Give the agent special instructions for this chat..."
-            rows="8"
+            rows="6"
             class="w-full bg-surface text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 resize-none"
             @blur="saveInstructions"
           />
-          <p class="text-[11px] text-content-muted mt-2 leading-relaxed">
+          <p class="text-[11px] text-content-muted mt-1 leading-relaxed">
             Guide the agent's behavior. Try: style preferences, output formats, tool constraints, or specific parameters like LoRAs and CFG values.
           </p>
-
         </div>
-      </div>
 
-      <!-- Permissions Tab -->
-      <div v-else-if="activeTab === 'permissions'" class="flex-1 flex flex-col min-h-0">
-        <!-- Loading state -->
-        <div v-if="loadingTools" class="flex-1 flex items-center justify-center text-content-muted text-sm">
+        <div v-if="loadingTools" class="py-8 text-center text-content-muted text-sm">
           Loading tools...
         </div>
-
         <template v-else>
-          <div class="flex-1 overflow-y-auto px-3 pt-3 pb-3 space-y-4">
-            <!-- V2 Agent Tools section -->
-            <div>
-              <h4 class="text-[11px] font-medium text-content-muted uppercase tracking-wider mb-1.5">Agent Tools</h4>
-              <div class="bg-surface rounded-lg border border-edge overflow-hidden">
-                <div
-                  v-for="(tool, idx) in V2_TOOLS"
-                  :key="tool.name"
-                  class="flex items-center justify-between px-3 py-2"
-                  :class="idx < V2_TOOLS.length - 1 ? 'border-b border-edge' : ''"
+          <!-- V2 Agent Tools section -->
+          <div>
+            <h4 class="text-[11px] font-medium text-content-muted uppercase tracking-wider mb-1.5">Agent Tools</h4>
+            <div class="bg-surface rounded-lg border border-edge overflow-hidden">
+              <div
+                v-for="(tool, idx) in V2_TOOLS"
+                :key="tool.name"
+                class="flex items-center justify-between px-3 py-2"
+                :class="idx < V2_TOOLS.length - 1 ? 'border-b border-edge' : ''"
+              >
+                <span class="text-[13px] text-content">{{ tool.label }}</span>
+                <select
+                  :value="getV2Permission(tool.name)"
+                  @change="setV2Permission(tool.name, ($event.target as HTMLSelectElement).value)"
+                  class="text-xs bg-base text-content border border-edge rounded-md px-2 py-1 focus:outline-none focus:border-blue-500 cursor-pointer"
                 >
-                  <span class="text-[13px] text-content">{{ tool.label }}</span>
-                  <select
-                    :value="getV2Permission(tool.name)"
-                    @change="setV2Permission(tool.name, ($event.target as HTMLSelectElement).value)"
-                    class="text-xs bg-base text-content border border-edge rounded-md px-2 py-1 focus:outline-none focus:border-blue-500 cursor-pointer"
-                  >
-                    <option value="ask">Ask</option>
-                    <option value="allow">Allow</option>
-                    <option value="deny">Deny</option>
-                  </select>
-                </div>
+                  <option value="ask">Ask</option>
+                  <option value="allow">Allow</option>
+                  <option value="deny">Deny</option>
+                </select>
               </div>
             </div>
+          </div>
 
-            <!-- Generation Tools section -->
-            <div>
-              <div class="flex items-center justify-between mb-1.5">
-                <h4 class="text-[11px] font-medium text-content-muted uppercase tracking-wider">Generation Tools</h4>
-                <button
-                  ref="addToolButtonRef"
-                  @click="toggleAddToolDropdown"
-                  class="text-[11px] text-blue-400 hover:text-blue-300 transition-colors font-medium"
-                >
-                  + Add
-                </button>
-              </div>
-              <div v-if="configuredTools.length > 0" class="bg-surface rounded-lg border border-edge overflow-hidden">
-                <ToolConfigRow
-                  v-for="(tool, idx) in configuredTools"
-                  :key="tool.full_tool_id"
-                  :tool="tool"
-                  :config="localToolConfig"
-                  :show-neutral="false"
-                  :show-border="idx < configuredTools.length - 1"
-                  @update:config="handleToolConfigUpdate"
-                  @remove="handleRemoveTool(tool.full_tool_id)"
-                />
-              </div>
-              <p v-else class="text-[11px] text-content-muted mt-1">No generation tools configured.</p>
+          <!-- Generation Tools section -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <h4 class="text-[11px] font-medium text-content-muted uppercase tracking-wider">Generation Tools</h4>
+              <button
+                ref="addToolButtonRef"
+                @click="toggleAddToolDropdown"
+                class="text-[11px] text-blue-400 hover:text-blue-300 transition-colors font-medium"
+              >
+                + Add
+              </button>
             </div>
+            <div v-if="configuredTools.length > 0" class="bg-surface rounded-lg border border-edge overflow-hidden">
+              <ToolConfigRow
+                v-for="(tool, idx) in configuredTools"
+                :key="tool.full_tool_id"
+                :tool="tool"
+                :config="localToolConfig"
+                :show-neutral="false"
+                :show-border="idx < configuredTools.length - 1"
+                @update:config="handleToolConfigUpdate"
+                @remove="handleRemoveTool(tool.full_tool_id)"
+              />
+            </div>
+            <p v-else class="text-[11px] text-content-muted mt-1">No generation tools configured.</p>
           </div>
         </template>
       </div>
-
     </div>
 
     <!-- Add Tool Dropdown -->
@@ -181,11 +154,6 @@ const { on: onWsEvent } = useWebSocket()
 const { getStimpack: getStimpackApi, updateStimpack: updateStimpackApi } = useStimpacksApi()
 
 // Tabs
-const tabs = [
-  { id: 'agent', label: 'Agent' },
-  { id: 'permissions', label: 'Tool Permissions' },
-]
-const activeTab = ref('agent')
 
 // State
 const settings = ref<AgentSettings | null>(null)
