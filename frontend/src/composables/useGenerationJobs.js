@@ -83,7 +83,14 @@ export function useGenerationJobs(options = {}) {
     const sortByDate = (a, b) => {
       const dateA = new Date(a.completed_at || a.created_at)
       const dateB = new Date(b.completed_at || b.created_at)
-      return dateB - dateA
+      const diff = dateB - dateA
+      if (diff !== 0) return diff
+      // Deterministic tie-break: fast bursts can complete within the same
+      // timestamp, and the slideshow pins arrival positions by index — this
+      // order must never re-shuffle between recomputes. (Pending jobs have
+      // string ids; leave their ties to the stable sort.)
+      if (typeof a.id === 'number' && typeof b.id === 'number') return b.id - a.id
+      return 0
     }
 
     // Include pending jobs (enhancing) in active list
@@ -92,14 +99,19 @@ export function useGenerationJobs(options = {}) {
       ...filteredJobs.filter(j => ['queued', 'assigned', 'processing'].includes(j.status))
     ]
     const failed = filteredJobs.filter(j => j.status === 'failed')
+    // Sort BEFORE capping: the cap must keep the most recently COMPLETED
+    // jobs. Slicing in jobs.value (queue) order would let every newly queued
+    // job evict a completed job from the middle of the list, silently shifting
+    // slideshow indexes with no corresponding arrival event.
     const completed = filteredJobs
       .filter(j => j.status === 'completed' && !jobIdsWithActiveChain.value.has(j.id))
-      .slice(0, 50)
+      .sort(sortByDate)
+      .slice(0, 100)
 
     return [
       ...active.sort(sortByDate),
       ...failed.sort(sortByDate),
-      ...completed.sort(sortByDate)
+      ...completed
     ]
   })
 
@@ -761,7 +773,15 @@ export function useGenerationJobs(options = {}) {
         j.result_media_id &&
         !failedMediaLoads.value.has(j.result_media_id)
       )
-      .sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at))
+      .sort((a, b) => {
+        // Must match allJobs' completed ordering exactly (including the id
+        // tie-break) — the slideshow's arrival pinning and page provider both
+        // read this list and assume one stable order.
+        const diff = new Date(b.completed_at) - new Date(a.completed_at)
+        if (diff !== 0) return diff
+        if (typeof a.id === 'number' && typeof b.id === 'number') return b.id - a.id
+        return 0
+      })
   })
 
   // Create page provider for slideshow

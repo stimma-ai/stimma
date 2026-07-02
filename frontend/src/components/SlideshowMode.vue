@@ -1316,10 +1316,11 @@ const currentMediaId = ref(null) // Track by ID to survive list mutations (prepe
 const isUserNavigating = ref(false) // Flag to distinguish user navigation from index drift
 // True when the user is "riding the live stream" and should auto-advance through
 // new arrivals. May be true while currentIndex > 0 (the stepper is catching up to
-// the newest). The single source of truth for the auto-advance decision: set
-// synchronously from user intent in the navigation functions (so it can never go
-// stale while a page loads or during an in-flight step), with the baseCurrentItem
-// watcher as a backstop. Browse mode (false) = no auto-advance; arrivals only pin.
+// the newest). The single source of truth for the auto-advance decision.
+// INVARIANT: only an explicit user navigation landing on index 0 may set this
+// true (synchronously, in the nav functions, so it can never go stale while a
+// page loads or during an in-flight step). The baseCurrentItem backstop may only
+// clear it. Browse mode (false) = no auto-advance; arrivals only pin.
 const followStream = ref((props.items ? props.index : props.startIndex) === 0)
 const localTotalCount = ref(props.items ? props.items.length : props.totalCount)
 const refreshKey = ref(0) // Used to force image reload without index change
@@ -1823,15 +1824,16 @@ watch(currentItem, (newItem) => {
   // Skip during atomic transitions - we'll set displayItem manually
   if (isAtomicTransition.value) return
 
-  // Lock the on-screen image when the user is viewing an older item (not following
-  // the newest). In generate-forever mode the underlying list mutates constantly as
-  // new images arrive; without this guard, transient index/cache churn would let a
-  // different item briefly become currentItem and flicker the display. Only explicit
-  // user navigation (isUserNavigating) or the atomic follow-latest path may change it.
+  // Lock the on-screen image unless the user is caught up riding the newest item.
+  // In generate-forever mode the underlying list mutates constantly as new images
+  // arrive; index/cache churn (arrival pins, page refetches, drift correction) must
+  // never swap the display. Blessed display changes bypass this watcher entirely:
+  // user navigation lands via the baseCurrentItem accept path / stepFromAnchor, and
+  // follow catch-up steps via performFollowStep (isAtomicTransition). Only at lag 0
+  // (followStream && index 0) may a new newest item flow through here to the screen.
   if (
     props.autoAdvanceOnNew &&
-    !followStream.value &&
-    !isUserNavigating.value &&
+    !(followStream.value && currentIndex.value === 0) &&
     currentMediaId.value != null &&
     newItem?.id !== currentMediaId.value
   ) {
@@ -1863,6 +1865,22 @@ watch(currentItem, (newItem) => {
     }
   }
 }, { immediate: true })
+
+// Blessed display write for user-navigation acceptance. The currentItem watcher
+// above locks all unblessed identity changes, so navigation must set the screen
+// explicitly. Mirrors the watcher's display-set, including the same-id+hash skip
+// so a re-fetched instance of the already-shown item doesn't flash a reload.
+function applyDisplayItem(newItem) {
+  if (!newItem || (!newItem.file_hash && !newItem._placeholder && !newItem.id)) return
+  if (
+    displayItem.value &&
+    newItem.id === displayItem.value.id &&
+    newItem.file_hash === displayItem.value.file_hash
+  ) return
+  mediaLoaded.value = false
+  displayItem.value = newItem
+  if (newItem.file_hash) preloadDragPreview(getThumbnailUrl(newItem.file_hash, 128))
+}
 
 // Single re-arm point: whenever the actually-displayed item changes identity
 // (user navigation, a follow-step, a play-step, or initial load), stamp when it
@@ -1975,12 +1993,18 @@ watch(baseCurrentItem, (newItem) => {
     // If user is navigating, always accept the new item
     if (isUserNavigating.value) {
       isUserNavigating.value = false
-      // Backstop for the synchronous followStream set in the nav functions:
-      // follow the stream only when the user is on the newest item.
-      followStream.value = currentIndex.value === 0
+      // Backstop for the synchronous followStream set in the nav functions. This
+      // may only DISABLE follow (the index moved off 0 while the nav was pending,
+      // e.g. an arrival pinned it) — enabling follow happens exclusively in the
+      // nav functions, from an explicit user landing on the newest item. Async
+      // drift must never be able to turn auto-advance back on.
+      if (currentIndex.value !== 0) followStream.value = false
       console.log(`[SlideshowMode] User navigation: setting currentMediaId = ${newItem.id} followStream=${followStream.value}`)
       currentMediaId.value = newItem.id
       emit('update:currentMediaId', newItem.id)
+      // The currentItem watcher locks unblessed changes, so land the navigation
+      // on the screen explicitly.
+      applyDisplayItem(newItem)
       return
     }
 
@@ -2310,6 +2334,59 @@ async function preloadNearbyItems(displayIndex) {
 }
 
 // Navigation
+
+// Index of the item the user is actually LOOKING at. currentIndex can briefly
+// disagree with the on-screen item while arrival pins / drift correction are
+// reconciling a mutating list (generate-forever), so relative navigation must
+// step from the anchor's real position, not from a possibly-drifted index.
+function displayAnchorIndex() {
+  // A nav is already pending (target page still loading): chain from its
+  // target so rapid keypresses each advance one step.
+  if (isUserNavigating.value) return currentIndex.value
+  if (props.items || props.mediaList || isRandomized.value) return currentIndex.value
+  if (currentMediaId.value == null || localRemovedIds.value.size > 0) return currentIndex.value
+  for (const [index, item] of itemsCache.value.entries()) {
+    if (item && item.id === currentMediaId.value) return index
+  }
+  return currentIndex.value
+}
+
+// Step `delta` items from the on-screen anchor. Landing on index 0 (the newest)
+// is the ONLY way follow mode turns on; landing anywhere else always leaves it.
+// Returns false when the target is out of range (caller decides wrap/stop).
+function stepFromAnchor(delta) {
+  const target = displayAnchorIndex() + delta
+  if (target < 0 || target >= localTotalCount.value) return false
+  followStream.value = target === 0
+  if (target === currentIndex.value) {
+    // The index had drifted off the anchor and already points at the target.
+    // Assigning the same value is reactively inert (no watcher would fire), so
+    // accept the cached item directly and apply the user-nav side effects here.
+    const item = baseCurrentItem.value
+    if (item?.id) {
+      currentMediaId.value = item.id
+      emit('update:currentMediaId', item.id)
+      applyDisplayItem(item)
+      if (gridMultiSelectMode.value) {
+        gridMultiSelectMode.value = false
+        gridSelectedCells.value = []
+      }
+      setOverviewData.value = null
+      gridOverviewData.value = null
+    } else {
+      // Target not loaded yet: leave the index in place, kick the page load
+      // (the currentIndex watcher won't fire for an unchanged index), and let
+      // the accept path land it once the item arrives.
+      isUserNavigating.value = true
+      void ensureItemLoaded(getActualIndex(target))
+    }
+    return true
+  }
+  isUserNavigating.value = true
+  currentIndex.value = target
+  return true
+}
+
 function next() {
   // Handle set view navigation
   if (isViewingSet.value) {
@@ -2319,10 +2396,7 @@ function next() {
     return
   }
 
-  if (currentIndex.value < localTotalCount.value - 1) {
-    isUserNavigating.value = true
-    currentIndex.value++
-    followStream.value = currentIndex.value === 0
+  if (stepFromAnchor(1)) {
     resetSlideshowTimer()
   } else if (loopEnabled.value) {
     isUserNavigating.value = true
@@ -2343,10 +2417,7 @@ function previous() {
     return
   }
 
-  if (currentIndex.value > 0) {
-    isUserNavigating.value = true
-    currentIndex.value--
-    followStream.value = currentIndex.value === 0
+  if (stepFromAnchor(-1)) {
     resetSlideshowTimer()
   }
 }
