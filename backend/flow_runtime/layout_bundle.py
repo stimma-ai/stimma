@@ -79,7 +79,9 @@ def extract_all_refs(html: str) -> list[str]:
     for pattern in (SRC_ATTR_RE, CSS_URL_RE):
         for match in pattern.finditer(html):
             ref = _ref_from_match(match)
-            if ref and not ref.startswith(('data:', 'http://', 'https://', '/')):
+            # '#...' is an in-document fragment reference (SVG gradients,
+            # filters, clip paths — fill="url(#grad)"), not a file.
+            if ref and not ref.startswith(('data:', 'http://', 'https://', '/', '#')):
                 refs.append(ref)
     return refs
 
@@ -103,7 +105,7 @@ def copy_referenced_images(html: str, workspace_path: Path, bundle_path: Path) -
     """
 
     def _copy_and_rewrite(src_value: str) -> str | None:
-        if src_value.startswith(('data:', 'http://', 'https://', '/')):
+        if src_value.startswith(('data:', 'http://', 'https://', '/', '#')):
             return None
         source = workspace_path / src_value
         if not source.exists() or source.suffix.lower() not in IMAGE_EXTENSIONS:
