@@ -840,12 +840,21 @@ class StimmaSDK:
     async def llm(self, prompt: str, images: Sequence[str | Path] | None = None) -> str:
         llm_config = await get_chat_llm_config(self._effective_model_slug, role="agent")
         text_part: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+        # Cap to the same max side as view_image's "high" detail — full-resolution
+        # photos base64-encode to megabytes each, which silently blows past the
+        # cloud LLM proxy's 4MB request cap and its per-request cost estimate.
+        max_side = 1024
         for image in images or []:
             image_path = self._resolve_path(image)
+            from PIL import Image
             from utils.image_ops import open_oriented
             with open_oriented(image_path) as img:
                 if img.mode != "RGB":
                     img = img.convert("RGB")
+                if max(img.size) > max_side:
+                    scale = max_side / max(img.size)
+                    w, h = int(img.width * scale), int(img.height * scale)
+                    img = img.resize((w, h), Image.LANCZOS)
                 buf = io.BytesIO()
                 img.save(buf, format="JPEG", quality=90)
             b64 = base64.b64encode(buf.getvalue()).decode("ascii")

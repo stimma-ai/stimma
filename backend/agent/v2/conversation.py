@@ -343,7 +343,10 @@ async def _compress_stale_items(
 
     - Replaces large tool results older than STALE_TURN_THRESHOLD user turns
     - Replaces superseded run_code arguments with a line-count summary
-    - Never touches view_image markers (they become multimodal content)
+    - Replaces view_image markers older than STALE_TURN_THRESHOLD user turns
+      with a text placeholder (they'd otherwise re-embed full image bytes as
+      base64 on every build_messages call, regardless of their tiny stored
+      JSON length)
     """
     # Find user turn boundaries in the items list
     user_turn_indices = [i for i, item in enumerate(items) if item.item_type == "user_message"]
@@ -370,15 +373,25 @@ async def _compress_stale_items(
         # Compress old tool results
         if item.item_type == "tool_result":
             content = item.tool_result or item.tool_error or ""
-            if isinstance(content, str) and len(content) > TRUNCATION_MIN_CHARS:
-                # Skip view_image markers — they become multimodal content
+            if isinstance(content, str) and content:
+                # view_image markers are a small JSON pointer (path/detail) in
+                # the DB — the actual image bytes are read from disk and
+                # re-embedded as base64 on every build_messages call, so they
+                # never trip the TRUNCATION_MIN_CHARS length check below even
+                # though they're the largest thing in the request. Age them
+                # out by turn regardless of their (tiny) stored length.
                 try:
                     parsed = json.loads(content)
-                    if isinstance(parsed, dict) and parsed.get("__view_image__"):
-                        continue
                 except (json.JSONDecodeError, TypeError):
-                    pass
+                    parsed = None
 
+                if isinstance(parsed, dict) and parsed.get("__view_image__"):
+                    if item.tool_result:
+                        item.tool_result = "[Image shown earlier in this conversation — call view_image again if you need to see it]"
+                        dirty = True
+                    continue
+
+            if isinstance(content, str) and len(content) > TRUNCATION_MIN_CHARS:
                 tool_name = call_id_to_name.get(item.tool_call_id or "", "tool")
                 placeholder = f"[{tool_name} result: {len(content)} chars — use the tool again if you need this data]"
                 if item.tool_result and len(item.tool_result) > TRUNCATION_MIN_CHARS:
