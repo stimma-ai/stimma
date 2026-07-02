@@ -36,7 +36,7 @@ def _read_tasks(workspace_dir: str) -> dict:
             return json.loads(p.read_text())
         except (json.JSONDecodeError, OSError):
             pass
-    return {"tasks": [], "next_id": 1}
+    return {"tasks": [], "next_id": 0}
 
 
 def _write_tasks(workspace_dir: str, data: dict) -> None:
@@ -55,6 +55,10 @@ def _read_scratchpad(workspace_dir: str) -> str:
 
 def _write_scratchpad(workspace_dir: str, content: str) -> None:
     _scratchpad_path(workspace_dir).write_text(content)
+
+
+def _format_task_lines(tasks: list[dict]) -> str:
+    return "\n".join(f"  {t['id']}: {t['text']}" for t in tasks)
 
 
 def _summary(tasks_data: dict, scratchpad: str) -> str:
@@ -215,27 +219,31 @@ async def notepad(
 
     tasks_data = _read_tasks(workspace_dir)
     scratchpad = _read_scratchpad(workspace_dir)
+    result: str | None = None
 
     if action == "set_tasks":
         if not tasks:
             return "Error: tasks parameter required for set_tasks"
-        new_tasks = []
-        next_id = 1
-        for text in tasks:
-            new_tasks.append({"id": next_id, "text": text, "status": "pending"})
-            next_id += 1
-        tasks_data = {"tasks": new_tasks, "next_id": next_id}
+        new_tasks = [
+            {"id": idx, "text": text, "status": "pending"}
+            for idx, text in enumerate(tasks)
+        ]
+        tasks_data = {"tasks": new_tasks, "next_id": len(new_tasks)}
         _write_tasks(workspace_dir, tasks_data)
+        result = f"Created {len(new_tasks)} tasks:\n{_format_task_lines(new_tasks)}"
 
     elif action == "add_tasks":
         if not tasks:
             return "Error: tasks parameter required for add_tasks"
-        next_id = tasks_data.get("next_id", 1)
+        next_id = tasks_data.get("next_id", 0)
+        added = []
         for text in tasks:
-            tasks_data["tasks"].append({"id": next_id, "text": text, "status": "pending"})
+            added.append({"id": next_id, "text": text, "status": "pending"})
             next_id += 1
+        tasks_data["tasks"].extend(added)
         tasks_data["next_id"] = next_id
         _write_tasks(workspace_dir, tasks_data)
+        result = f"Added {len(added)} tasks:\n{_format_task_lines(added)}"
 
     elif action == "update_task":
         if task_id is None or not status:
@@ -247,8 +255,11 @@ async def notepad(
                 found = True
                 break
         if not found:
-            return f"Error: Task {task_id} not found"
+            existing = tasks_data.get("tasks", [])
+            listing = _format_task_lines(existing) if existing else "  (none)"
+            return f"Error: Task {task_id} not found. Current tasks:\n{listing}"
         _write_tasks(workspace_dir, tasks_data)
+        result = f"Task {task_id} marked {status}."
 
     elif action == "write_scratchpad":
         if content is None:
@@ -275,4 +286,5 @@ async def notepad(
     if session and chat_id:
         await _sync_chat_item(workspace_dir, chat_id, session, tasks_data, scratchpad)
 
-    return _summary(tasks_data, scratchpad)
+    summary = _summary(tasks_data, scratchpad)
+    return f"{result}\n{summary}" if result else summary
