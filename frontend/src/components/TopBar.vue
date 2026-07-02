@@ -962,6 +962,22 @@ async function fetchPauseStatus() {
   }
 }
 
+async function fetchSystemWarnings() {
+  // Broadcasts are missed if the websocket reconnects at the wrong moment,
+  // so also check current state directly on mount.
+  try {
+    const response = await axios.get(`${API_URL}/api/processing/warnings`)
+    for (const warning of response.data?.warnings || []) {
+      const exists = systemWarnings.value.some(w => w.type === warning.type)
+      if (!exists) {
+        systemWarnings.value.push(warning)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch system warnings:', error)
+  }
+}
+
 async function triggerRescan() {
   rescanning.value = true
   try {
@@ -986,6 +1002,7 @@ onMounted(() => {
   fetchPauseStatus()
   loadProfiles()
   refreshActiveDeleteOperation()
+  fetchSystemWarnings()
 
   // WebSocket broadcasts aggregate stats across ALL profiles
   // Use it as a trigger to re-fetch profile-specific stats from API
@@ -996,10 +1013,10 @@ onMounted(() => {
   // Subscribe to system warnings
   unsubscribeSystemWarning = wsOn('system_warning', (data) => {
     // Add warning if not already present
-    const exists = systemWarnings.value.some(w => w.type === data.warning_type)
+    const exists = systemWarnings.value.some(w => w.type === data.type)
     if (!exists) {
       systemWarnings.value.push({
-        type: data.warning_type,
+        type: data.type,
         title: data.title || 'System Warning',
         message: data.message || '',
         action_url: data.action_url || ''
@@ -1010,7 +1027,7 @@ onMounted(() => {
   // Subscribe to system warning cleared events
   unsubscribeSystemWarningCleared = wsOn('system_warning_cleared', (data) => {
     // Remove warning from array
-    systemWarnings.value = systemWarnings.value.filter(w => w.type !== data.warning_type)
+    systemWarnings.value = systemWarnings.value.filter(w => w.type !== data.type)
   })
 })
 

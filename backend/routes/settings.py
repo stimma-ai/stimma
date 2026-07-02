@@ -273,6 +273,7 @@ class SettingsResponse(BaseModel):
     sandbox: str  # e.g., "default" or a named dev/test sandbox
     cloud_base_url: str  # Base URL for stimma.ai cloud services
     developer_mode: bool  # Show debug tools and developer options in the UI
+    debug_force_ffmpeg_missing: bool = False  # Dev-only: pretend ffmpeg/ffprobe aren't installed
     theme: str  # UI theme preference: light, dark, system
     # Usage telemetry consent: True/False, or None while
     # undetermined (onboarding not completed). Official builds only —
@@ -672,6 +673,7 @@ async def get_settings_all():
         sandbox=get_sandbox(),
         cloud_base_url=settings.cloud.base_url,
         developer_mode=settings.developer_mode,
+        debug_force_ffmpeg_missing=settings.debug_force_ffmpeg_missing,
         theme=settings.theme,
         telemetry_enabled=settings.telemetry.enabled,
         distribution=get_distribution(),
@@ -705,6 +707,26 @@ async def update_developer_mode(request: UpdateDeveloperModeRequest):
     patch_global_section("developer_mode", request.enabled)
     log.info("developer_mode updated", enabled=request.enabled)
     return {"status": "success", "developer_mode": request.enabled}
+
+
+class UpdateDebugForceFFmpegMissingRequest(BaseModel):
+    """Request to update the debug ffmpeg-missing override setting."""
+    enabled: bool
+
+
+@router.patch("/debug-force-ffmpeg-missing")
+async def update_debug_force_ffmpeg_missing(request: UpdateDebugForceFFmpegMissingRequest):
+    """Dev-only: force FFmpeg to appear missing so its warning UI can be exercised."""
+    from config import reload_settings
+    from ffmpeg_checker import get_ffmpeg_checker
+
+    patch_global_section("debug_force_ffmpeg_missing", request.enabled)
+    reload_settings()
+    log.info("debug_force_ffmpeg_missing updated", enabled=request.enabled)
+
+    get_ffmpeg_checker().clear_cache()
+
+    return {"status": "success", "debug_force_ffmpeg_missing": request.enabled}
 
 
 class UpdateThemeRequest(BaseModel):

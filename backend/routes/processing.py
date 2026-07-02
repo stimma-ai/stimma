@@ -3,6 +3,7 @@ from core.logging import get_logger
 from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import select, func, and_, or_, literal, Integer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1574,3 +1575,18 @@ async def recheck_ffmpeg():
             "ffprobe_available": ffprobe_available,
             "message": "FFmpeg is available"
         }
+
+
+class MarkWarningShownRequest(BaseModel):
+    warning_type: str
+
+
+@router.post("/system/warning-shown")
+async def mark_system_warning_shown(request: MarkWarningShownRequest):
+    """Mark a system warning as dismissed so it isn't re-shown unprompted."""
+    from ffmpeg_checker import get_ffmpeg_checker
+
+    if request.warning_type == "ffmpeg_missing":
+        get_ffmpeg_checker().mark_warning_shown()
+
+    return {"status": "success"}

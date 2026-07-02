@@ -153,7 +153,9 @@
                 <DeveloperSection
                   v-if="settings"
                   :developer-mode="settings.developer_mode"
+                  :debug-force-ffmpeg-missing="settings.debug_force_ffmpeg_missing"
                   @update-developer-mode="handleDeveloperModeUpdate"
+                  @update-debug-force-ffmpeg-missing="handleDebugForceFfmpegMissingUpdate"
                 />
               </template>
             </div>
@@ -210,7 +212,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close'])
 
-const { fetchSettings, updateFolders, updateMarkers, updateWildcards, updatePromptSegments, updateToolProvider, createToolProvider, deleteToolProvider, updateBackgroundWork, updateLlmSettings, createProfile, deleteProfile, renameProfile, rescanFolders, updateDeveloperMode } = useSettingsApi()
+const { fetchSettings, updateFolders, updateMarkers, updateWildcards, updatePromptSegments, updateToolProvider, createToolProvider, deleteToolProvider, updateBackgroundWork, updateLlmSettings, createProfile, deleteProfile, renameProfile, rescanFolders, updateDeveloperMode, updateDebugForceFfmpegMissing, recheckFfmpeg } = useSettingsApi()
 const { on, off } = useWebSocket()
 const { currentProfileId, setCurrentProfileId, loadProfiles } = useProfile()
 const { showPinModal, pinModalProfileId, pinModalError, submitPin, cancelPinEntry, ensurePinForProfile } = usePinLock()
@@ -496,6 +498,20 @@ async function handleDeveloperModeUpdate(enabled) {
     await updateDeveloperMode(enabled)
   } catch (err) {
     console.error('Failed to persist developer mode:', err)
+  }
+}
+
+async function handleDebugForceFfmpegMissingUpdate(enabled) {
+  // Optimistic update
+  if (settings.value) {
+    settings.value = { ...settings.value, debug_force_ffmpeg_missing: enabled }
+  }
+  try {
+    await updateDebugForceFfmpegMissing(enabled)
+    // Trigger an immediate recheck so the warning UI reacts right away
+    await recheckFfmpeg()
+  } catch (err) {
+    console.error('Failed to persist debug ffmpeg-missing override:', err)
   }
 }
 

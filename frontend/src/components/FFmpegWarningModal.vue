@@ -104,12 +104,26 @@ async function dismiss() {
 
 function handleSystemWarning(data) {
   // Only show for ffmpeg_missing warnings
-  if (data?.warning_type === 'ffmpeg_missing') {
+  if (data?.type === 'ffmpeg_missing') {
     show.value = true
   }
 }
 
+async function checkActiveWarnings() {
+  // Broadcasts are missed if the websocket reconnects at the wrong moment,
+  // so also check current state directly on mount.
+  try {
+    const response = await axios.get(`${API_URL}/api/processing/warnings`)
+    if (response.data?.warnings?.some(w => w.type === 'ffmpeg_missing')) {
+      show.value = true
+    }
+  } catch (error) {
+    console.error('Failed to check active system warnings:', error)
+  }
+}
+
 onMounted(() => {
+  checkActiveWarnings()
   // Subscribe to system_warning events
   unsubscribe = on('system_warning', handleSystemWarning)
 })

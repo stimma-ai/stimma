@@ -53,6 +53,30 @@
         </div>
       </div>
 
+      <!-- Force FFmpeg Missing Toggle (for taking screenshots of the warning UI) -->
+      <div class="mt-3 p-4 bg-surface-raised/50 rounded-lg">
+        <div class="flex items-center justify-between">
+          <div class="flex-1 min-w-0">
+            <h4 class="text-sm font-medium text-content">Force FFmpeg Missing</h4>
+            <p class="text-xs text-content-tertiary mt-0.5">Pretend FFmpeg isn't installed, to preview the missing-FFmpeg warning</p>
+          </div>
+          <button
+            @click="toggleForceFfmpegMissing"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-surface',
+              localForceFfmpegMissing ? 'bg-blue-600' : 'bg-surface-hover'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                localForceFfmpegMissing ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+      </div>
+
       <div class="mt-3 p-4 bg-surface-raised/50 rounded-lg">
         <div class="flex items-center justify-between gap-3">
           <div class="flex-1 min-w-0">
@@ -234,12 +258,17 @@ const props = defineProps({
   developerMode: {
     type: Boolean,
     default: false
+  },
+  debugForceFfmpegMissing: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['update-developer-mode'])
+const emit = defineEmits(['update-developer-mode', 'update-debug-force-ffmpeg-missing'])
 
 const localDevMode = ref(false)
+const localForceFfmpegMissing = ref(false)
 const { fetchRequestMetrics, resetRequestMetrics } = useSettingsApi()
 
 const showRequestMetricsModal = ref(false)
@@ -258,10 +287,20 @@ watch(() => props.developerMode, (newValue) => {
   localDevMode.value = newValue
 }, { immediate: true })
 
+watch(() => props.debugForceFfmpegMissing, (newValue) => {
+  localForceFfmpegMissing.value = newValue
+}, { immediate: true })
+
 function toggleDeveloperMode() {
   const newValue = !localDevMode.value
   localDevMode.value = newValue
   emit('update-developer-mode', newValue)
+}
+
+function toggleForceFfmpegMissing() {
+  const newValue = !localForceFfmpegMissing.value
+  localForceFfmpegMissing.value = newValue
+  emit('update-debug-force-ffmpeg-missing', newValue)
 }
 
 function toggleHidePrices() {

@@ -181,6 +181,23 @@ export function useSettingsApi() {
   }
 
   /**
+   * Dev-only: force FFmpeg to appear missing (or restore real detection).
+   * @param {boolean} enabled - Whether to force FFmpeg/ffprobe to appear missing
+   */
+  async function updateDebugForceFfmpegMissing(enabled) {
+    const response = await axios.patch(`${getAPIBase()}/settings/debug-force-ffmpeg-missing`, { enabled })
+    return response.data
+  }
+
+  /**
+   * Force an immediate FFmpeg availability recheck and broadcast the result.
+   */
+  async function recheckFfmpeg() {
+    const response = await axios.post(`${getAPIBase()}/processing/recheck-ffmpeg`)
+    return response.data
+  }
+
+  /**
    * Update theme setting.
    * @param {string} theme - Theme preference (light, dark, system)
    */
@@ -226,6 +243,8 @@ export function useSettingsApi() {
     getDatabaseCleanupPreview,
     executeDatabaseCleanup,
     updateDeveloperMode,
+    updateDebugForceFfmpegMissing,
+    recheckFfmpeg,
     updateTheme,
     fetchRequestMetrics,
     resetRequestMetrics,

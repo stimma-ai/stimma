@@ -12,6 +12,7 @@ from typing import Optional, Tuple
 from core.logging import get_logger
 
 from app_dirs import get_cache_dir
+from config import get_settings
 
 log = get_logger(__name__)
 
@@ -50,6 +51,14 @@ class FFmpegChecker:
             Tuple of (ffmpeg_available, ffprobe_available)
         """
         current_time = time.time()
+
+        # Dev-only override to simulate a missing FFmpeg install (e.g. for screenshots)
+        if get_settings().debug_force_ffmpeg_missing:
+            self._last_check_time = current_time
+            self._cached_ffmpeg_available = False
+            self._cached_ffprobe_available = False
+            log.debug("FFmpeg availability forced to missing via debug_force_ffmpeg_missing")
+            return False, False
 
         # Return cached result if within TTL
         if use_cache and (current_time - self._last_check_time) < self._cache_ttl:

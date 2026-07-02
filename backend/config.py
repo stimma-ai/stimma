@@ -562,6 +562,7 @@ class Settings(BaseSettings):
 
     # Global settings (shared across all profiles)
     developer_mode: bool = False  # Show debug tools and developer options in the UI
+    debug_force_ffmpeg_missing: bool = False  # Dev-only: pretend ffmpeg/ffprobe aren't installed
     # Dev-only: when set, stimpacks in this directory are the authority for built-in
     # stimpacks — they shadow same-named stimpacks installed in any profile. Lets us edit
     # the stimma-skills repo and pick up changes live, with no publish/install round
