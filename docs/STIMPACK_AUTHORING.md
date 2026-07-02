@@ -205,6 +205,24 @@ Rules:
 
 ## Developing and testing
 
+### Without a source checkout (packaged app)
+
+Everything needed ships in the app, anchored on the **Stimpacks** page:
+
+1. **Open Folder** (header button) reveals the profile's stimpacks folder.
+   Every child directory is one pack. Drop a pack in — or edit any file in
+   place — and it's picked up **live**: the loader re-reads from disk on every
+   agent turn, no restart or reinstall.
+2. **Validate** (card menu) runs the same checks as the CLI and shows the
+   report in-app.
+3. Test in a chat: the skills (book icon) menu on the input bar shows what's
+   eligible; ask the agent something the skill should shape.
+4. **Download as Zip** (card menu) produces the shareable artifact;
+   **Publish to Marketplace** (card menu, your own packs) submits it for
+   listing — first publishes are moderated before going live.
+
+### With a source checkout
+
 The dev loop, end to end:
 
 ```bash
@@ -234,10 +252,11 @@ have, module collisions, unknown `environments` keys, empty bodies, a root
 
 ## Distribution
 
-- **Marketplace**: upload the zip at stimma.ai/stimpacks. First-party packs
-  live in the sibling `stimma-skills` repo and publish with
-  `stimmacloud stimpacks publish`. Publishes are moderated; new packs may be
-  quarantined until approved.
+- **Marketplace**: use **Publish to Marketplace** on the pack's card in the
+  app (requires a signed-in Stimma Cloud account). First publish creates the
+  listing and goes through moderation; later publishes bump the version.
+  First-party packs live in the sibling `stimma-skills` repo and publish with
+  `stimmacloud stimpacks publish`.
 - **Direct sharing**: send the zip; recipients drop it on the Stimpacks page.
 
 ## Skill lifecycle at runtime

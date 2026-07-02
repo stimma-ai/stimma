@@ -103,6 +103,16 @@ export function useStimpacksApi() {
     return response.data
   }
 
+  async function getStimpacksDir(): Promise<string> {
+    const response = await axios.get(`${getApiBase()}/settings/stimpacks-dir`)
+    return response.data.path
+  }
+
+  async function validateStimpack(name: string): Promise<{ valid: boolean; report: string[]; warnings: string[]; errors: string[] }> {
+    const response = await axios.post(`${base()}/${encodeURIComponent(name)}/validate`)
+    return response.data
+  }
+
   // --- Flat skills (the agent-facing units inside stimpacks) ---
 
   async function listSkills(): Promise<Skill[]> {
@@ -192,6 +202,14 @@ export function useStimpacksApi() {
     return response.data
   }
 
+  async function publishToMarketplace(name: string): Promise<{
+    version?: { version: number; status: string }
+    moderation?: { decision: string; reason?: string }
+  }> {
+    const response = await axios.post(`${marketplaceBase()}/publish/${encodeURIComponent(name)}`)
+    return response.data
+  }
+
   async function checkUpdates(): Promise<Array<{ name: string; newVersion: number; versionId: string }>> {
     const response = await axios.get(`${marketplaceBase()}/check-updates`)
     return response.data.updates || []
@@ -219,6 +237,10 @@ export function useStimpacksApi() {
     listSkills,
     getSkillContent,
     skillEligibleForTool,
+    // Dev/authoring
+    getStimpacksDir,
+    validateStimpack,
+    publishToMarketplace,
     // Marketplace
     browseMarketplace,
     getMarketplaceStimpack,

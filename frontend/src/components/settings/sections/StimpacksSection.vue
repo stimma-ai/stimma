@@ -2,34 +2,30 @@
   <div class="flex h-full flex-col bg-base">
     <!-- Header (matches the boards/chats landing treatment) -->
     <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
-      <span class="text-xl font-semibold leading-none text-content">Stimpacks</span>
+      <div class="flex flex-col gap-1">
+        <span class="text-xl font-semibold leading-none text-content">Stimpacks</span>
+        <p class="text-sm text-content-tertiary">Stimpacks extend Stimma with new skills and capabilities.</p>
+      </div>
       <div class="flex items-center gap-3">
-        <label
-          class="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
+        <button
+          v-if="canOpenFolder"
+          @click="openStimpacksFolder"
+          class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
+          title="Open the profile's stimpacks folder — packs dropped or edited here load live"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
           </svg>
-          <span>Upload</span>
-          <input type="file" accept=".md,.zip" class="hidden" @change="handleFileUpload" />
-        </label>
+          <span>Open Folder</span>
+        </button>
         <button
-          @click="handleNewStimpack"
+          @click="showCatalog = true"
           class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          <span>New</span>
-        </button>
-        <button
-          @click="showCatalog = true"
-          class="flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-1.5 text-sm text-white transition-colors hover:bg-blue-500"
-        >
-          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          <span>Add</span>
+          <span>Add Stimpack</span>
         </button>
       </div>
     </div>
@@ -80,19 +76,25 @@
                   @mousedown.stop
                   class="absolute right-0 top-full mt-1 bg-surface border border-edge rounded-lg shadow-xl z-[10030] w-44 py-1 overflow-hidden"
                 >
-                  <button
-                    v-if="!stimpack.is_dev"
-                    @click="handleEditStimpack(stimpack)"
-                    class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-surface-hover transition-colors"
-                  >
-                    Edit
-                  </button>
                   <div
-                    v-else
+                    v-if="stimpack.is_dev"
                     class="px-3 py-1.5 text-xs text-content-muted"
                   >
                     Edit in dev repo
                   </div>
+                  <button
+                    @click="handleValidateStimpack(stimpack)"
+                    class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-surface-hover transition-colors"
+                  >
+                    Validate
+                  </button>
+                  <button
+                    v-if="stimpack.tier === 'local' && !stimpack.is_dev"
+                    @click="handlePublishStimpack(stimpack)"
+                    class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-surface-hover transition-colors"
+                  >
+                    Publish to Marketplace
+                  </button>
                   <button
                     @click="handleDownloadStimpackZip(stimpack); openContextMenu = null"
                     class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-surface-hover transition-colors"
@@ -154,7 +156,7 @@
 
         <div v-else class="flex h-64 flex-col items-center justify-center text-center">
           <p class="mb-2 text-content-muted">No stimpacks yet</p>
-          <p class="text-sm text-content-muted">Click <strong>Add</strong> to browse available stimpacks, or drag and drop a .md/.zip file.</p>
+          <p class="text-sm text-content-muted">Click <strong>Add Stimpack</strong> to browse available stimpacks, or drag and drop a .md/.zip file.</p>
         </div>
       </template>
     </div>
@@ -167,7 +169,7 @@
           class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
           @click.self="showCatalog = false"
         >
-          <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[640px] max-w-[90vw] max-h-[80vh] flex flex-col overflow-hidden">
+          <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[920px] max-w-[92vw] h-[80vh] max-h-[820px] flex flex-col overflow-hidden">
             <!-- Header -->
             <div class="flex items-center justify-between px-6 py-4 border-b border-edge">
               <div>
@@ -184,15 +186,24 @@
               </button>
             </div>
 
-            <!-- Search -->
-            <div class="px-6 pt-4">
+            <!-- Search + install from file -->
+            <div class="px-6 pt-4 flex items-center gap-2">
               <input
                 v-model="catalogSearch"
                 @input="loadCatalog()"
                 type="text"
                 placeholder="Search stimpacks..."
-                class="w-full px-3 py-2 text-sm bg-base border border-edge rounded-lg text-content placeholder-content-muted focus:outline-none focus:border-blue-500/50"
+                class="flex-1 px-3 py-2 text-sm bg-base border border-edge rounded-lg text-content placeholder-content-muted focus:outline-none focus:border-blue-500/50"
               />
+              <label
+                title="Install from a .md or .zip file..."
+                class="flex-shrink-0 cursor-pointer flex items-center justify-center w-9 h-9 text-content-tertiary hover:text-content-secondary hover:bg-overlay-subtle border border-edge rounded-lg transition-colors"
+              >
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                </svg>
+                <input type="file" accept=".md,.zip" class="hidden" @change="handleFileUpload" />
+              </label>
             </div>
 
             <!-- Stimpack cards grid -->
@@ -200,7 +211,7 @@
               <div v-if="catalogLoading" class="flex items-center justify-center py-12">
                 <div class="w-6 h-6 border-2 border-edge border-t-content-secondary rounded-full animate-spin"></div>
               </div>
-              <div v-else-if="catalogStimpacks.length > 0" class="grid grid-cols-2 gap-4">
+              <div v-else-if="catalogStimpacks.length > 0" class="grid grid-cols-3 gap-4">
                 <div
                   v-for="stimpack in catalogStimpacks"
                   :key="stimpack.name"
@@ -270,14 +281,6 @@
       </Transition>
     </Teleport>
 
-    <!-- Stimpack Editor Modal -->
-    <StimpackEditorModal
-      v-if="showStimpackEditor"
-      :stimpack="editingStimpack"
-      @close="showStimpackEditor = false"
-      @save="handleSaveStimpack"
-    />
-
     <!-- Remove Stimpack Confirmation -->
     <ConfirmModal
       :show="showRemoveConfirm"
@@ -290,23 +293,69 @@
       @cancel="showRemoveConfirm = false"
     />
 
+    <!-- Publish Confirmation -->
+    <ConfirmModal
+      :show="showPublishConfirm"
+      title="Publish to Marketplace?"
+      :message="`Publish &quot;${pendingPublish?.display_name || pendingPublish?.name}&quot; to the stimma.ai marketplace? New packs are reviewed before going live.`"
+      confirm-text="Publish"
+      @confirm="executePublishStimpack"
+      @cancel="showPublishConfirm = false; pendingPublish = null"
+    />
+
+    <!-- Validation results -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="validationResult"
+          class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+          @click.self="validationResult = null"
+        >
+          <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[560px] max-w-[90vw] max-h-[70vh] flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-3.5 border-b border-edge">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-content">Validation</span>
+                <span
+                  class="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                  :class="validationResult.valid ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'"
+                >{{ validationResult.valid ? 'Valid' : 'Invalid' }}</span>
+              </div>
+              <button
+                @click="validationResult = null"
+                class="w-6 h-6 flex items-center justify-center rounded text-content-muted hover:text-content transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div class="flex-1 overflow-y-auto px-5 py-4 font-mono text-xs leading-relaxed">
+              <p v-for="(line, i) in validationResult.report" :key="'r' + i" class="text-content-secondary whitespace-pre-wrap">{{ line }}</p>
+              <p v-for="(line, i) in validationResult.warnings" :key="'w' + i" class="text-amber-400 whitespace-pre-wrap mt-1">warning: {{ line }}</p>
+              <p v-for="(line, i) in validationResult.errors" :key="'e' + i" class="text-red-400 whitespace-pre-wrap mt-1">error: {{ line }}</p>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { useStimpacksApi, type Stimpack, type StimpackDetail, type MarketplaceStimpack } from '../../../composables/useStimpacksApi'
-import { getApiBase } from '../../../apiConfig'
+import { useStimpacksApi, type Stimpack, type MarketplaceStimpack } from '../../../composables/useStimpacksApi'
+import { getApiBase, isTauri } from '../../../apiConfig'
 import { getCurrentProfileId } from '../../../composables/useProfile'
 import { addToast } from '../../../composables/useToasts'
-import StimpackEditorModal from '../StimpackEditorModal.vue'
 import ConfirmModal from '../../ConfirmModal.vue'
 
 // Avatars proxy through the local backend, which attaches the Cloudflare
 // Access headers dev cloud targets require — a direct cloud URL renders as a
 // broken image there.
 function avatarUrl(key: string): string {
-  return `${getApiBase()}/stimpack-marketplace/avatar/${key}`
+  const profileId = getCurrentProfileId()
+  return `${getApiBase()}/stimpack-marketplace/avatar/${key}?profile=${encodeURIComponent(profileId)}`
 }
 
 // Keys whose image failed to load (e.g. object missing from the target env's
@@ -315,14 +364,75 @@ const failedAvatars = reactive(new Set<string>())
 
 const {
   listStimpacks,
-  getStimpack,
-  createStimpack,
-  updateStimpack,
   deleteStimpack,
   uploadStimpack,
   browseMarketplace,
   installFromMarketplace,
+  getStimpacksDir,
+  validateStimpack,
+  publishToMarketplace,
 } = useStimpacksApi()
+
+// --- Local development affordances -----------------------------------------
+
+// Opening a Finder/Explorer window needs the Tauri shell; hide in plain browsers.
+const canOpenFolder = isTauri()
+
+async function openStimpacksFolder() {
+  try {
+    const path = await getStimpacksDir()
+    const { openPath } = await import('@tauri-apps/plugin-opener')
+    await openPath(path)
+  } catch (err) {
+    console.error('Failed to open stimpacks folder:', err)
+    addToast('Failed to open the stimpacks folder.', 'error')
+  }
+}
+
+const validationResult = ref<{ valid: boolean; report: string[]; warnings: string[]; errors: string[] } | null>(null)
+
+async function handleValidateStimpack(stimpack: Stimpack) {
+  openContextMenu.value = null
+  try {
+    validationResult.value = await validateStimpack(stimpack.name)
+  } catch (err) {
+    console.error('Failed to validate stimpack:', err)
+    addToast('Validation failed to run.', 'error')
+  }
+}
+
+const showPublishConfirm = ref(false)
+const pendingPublish = ref<Stimpack | null>(null)
+const publishing = ref(false)
+
+function handlePublishStimpack(stimpack: Stimpack) {
+  openContextMenu.value = null
+  pendingPublish.value = stimpack
+  showPublishConfirm.value = true
+}
+
+async function executePublishStimpack() {
+  if (!pendingPublish.value || publishing.value) return
+  showPublishConfirm.value = false
+  const stimpack = pendingPublish.value
+  pendingPublish.value = null
+  publishing.value = true
+  try {
+    const result = await publishToMarketplace(stimpack.name)
+    const status = result.version?.status || result.moderation?.decision || 'submitted'
+    if (status === 'approved') {
+      addToast(`Published "${stimpack.display_name || stimpack.name}" v${result.version?.version ?? ''} to the marketplace.`, 'success')
+    } else {
+      addToast(`Submitted "${stimpack.display_name || stimpack.name}" — pending marketplace review.`, 'success')
+    }
+  } catch (err: any) {
+    console.error('Failed to publish stimpack:', err)
+    const detail = err?.response?.data?.detail
+    addToast(detail ? `Publish failed: ${detail}` : 'Publish failed.', 'error')
+  } finally {
+    publishing.value = false
+  }
+}
 
 // State
 const loading = ref(false)
@@ -334,10 +444,6 @@ const catalogSearch = ref('')
 const installingStimpack = ref<string | null>(null)
 const openContextMenu = ref<string | null>(null)
 const isDragging = ref(false)
-
-// Stimpack editor
-const showStimpackEditor = ref(false)
-const editingStimpack = ref<StimpackDetail | null>(null)
 
 // Computed
 const installedNames = computed(() => new Set(stimpacks.value.map(s => s.name)))
@@ -428,48 +534,6 @@ function handleDownloadStimpackZip(stimpack: Stimpack) {
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-}
-
-function handleNewStimpack() {
-  editingStimpack.value = null
-  showStimpackEditor.value = true
-}
-
-async function handleEditStimpack(stimpack: Stimpack) {
-  openContextMenu.value = null
-  try {
-    editingStimpack.value = await getStimpack(stimpack.name)
-    showStimpackEditor.value = true
-  } catch (err) {
-    console.error('Failed to load stimpack detail:', err)
-  }
-}
-
-async function handleSaveStimpack(data: { name: string; display_name: string; description: string; tags: string[]; content: string }) {
-  try {
-    if (editingStimpack.value) {
-      await updateStimpack(editingStimpack.value.name, {
-        display_name: data.display_name,
-        description: data.description,
-        tags: data.tags,
-        content: data.content,
-      })
-    } else {
-      await createStimpack({
-        name: data.name,
-        display_name: data.display_name,
-        description: data.description,
-        tags: data.tags,
-        content: data.content,
-      })
-    }
-    showStimpackEditor.value = false
-    editingStimpack.value = null
-    await loadStimpacks()
-    notifyStimpacksChanged()
-  } catch (err) {
-    console.error('Failed to save stimpack:', err)
-  }
 }
 
 // Context menu

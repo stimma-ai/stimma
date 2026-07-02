@@ -2250,6 +2250,27 @@ async def list_stimpacks_endpoint():
     return [_stimpack_info_to_response(s) for s in stimpacks]
 
 
+@router.get("/stimpacks-dir")
+async def get_stimpacks_dir():
+    """Path of the profile's stimpacks folder — packs dropped/edited here load live."""
+    from agent.v2.stimpacks import get_user_stimpacks_dir
+    profile_id = get_current_profile()
+    return {"path": str(get_user_stimpacks_dir(profile_id))}
+
+
+@router.post("/stimpacks/{name}/validate")
+async def validate_stimpack_endpoint(name: str):
+    """Run the stimpack validator against an installed pack's directory."""
+    from agent.v2.stimpack_validate import validate_pack
+    profile_id = get_current_profile()
+    installed = _stimpacks_api().list_installed_stimpacks(profile_id=profile_id)
+    info = next((s for s in installed if s.name == name), None)
+    if not info:
+        raise HTTPException(status_code=404, detail=f"Stimpack '{name}' not found")
+    report, warnings, errors = validate_pack(info.dir_path)
+    return {"valid": not errors, "report": report, "warnings": warnings, "errors": errors}
+
+
 @router.get("/skills", response_model=list[SkillResponse])
 async def list_skills_endpoint():
     """List all skills across installed stimpacks, flat."""

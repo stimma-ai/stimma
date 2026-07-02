@@ -203,6 +203,51 @@ async def install_from_marketplace(name: str):
     }
 
 
+# --- Publish ---
+
+@router.post("/publish/{name}")
+async def publish_to_marketplace(name: str, changelog: str | None = None):
+    """Package an installed stimpack and publish it to the marketplace.
+
+    First publish auto-creates the listing (it lands in moderation);
+    subsequent publishes bump the version. Requires a signed-in cloud account.
+    """
+    if is_privacy_lockdown_enabled():
+        raise HTTPException(status_code=403, detail=disabled_message("Marketplace stimpacks"))
+    profile_id = get_current_profile()
+    stimpacks_api = _stimpacks_api()
+
+    zip_bytes = stimpacks_api.package_stimpack_as_zip(name, profile_id=profile_id)
+    if not zip_bytes:
+        raise HTTPException(status_code=404, detail=f"Stimpack '{name}' not found")
+
+    token = await get_id_token()
+    if not token:
+        raise HTTPException(status_code=401, detail="Sign in to Stimma Cloud to publish stimpacks")
+
+    headers = with_cloud_access_headers()
+    headers["Authorization"] = f"Bearer {token}"
+    data = {"changelog": changelog} if changelog else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{_cloud_base()}/{name}/versions",
+            files={"file": (f"{name}.zip", zip_bytes, "application/zip")},
+            data=data,
+            headers=headers,
+            timeout=120.0,
+        )
+    if response.status_code >= 400:
+        try:
+            detail = response.json().get("error") or response.text
+        except Exception:
+            detail = response.text
+        raise HTTPException(status_code=response.status_code, detail=detail)
+
+    from telemetry import get_telemetry_client
+    get_telemetry_client().track("stimpack_marketplace_published", {"stimpackName": name}, category="stimpacks")
+    return response.json()
+
+
 # --- Check Updates ---
 
 @router.get("/check-updates")
