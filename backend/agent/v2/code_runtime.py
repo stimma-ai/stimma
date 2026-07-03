@@ -53,6 +53,20 @@ from PIL import Image
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
+def _disabled_image_show(self, *args, **kwargs):
+    raise RuntimeError(
+        "Image.show() opens a desktop image viewer on the user's machine and is disabled. "
+        "Use stimma.show(path_or_media_id) to display images to the user in chat."
+    )
+
+
+# Agent-written code calls PIL's Image.show() constantly; on the backend host
+# that spawns a native Preview/viewer window per image, stealing focus on the
+# user's machine. Disable it process-wide (nothing in the backend uses it) and
+# point the model at the product path.
+PIL.Image.Image.show = _disabled_image_show
+
 from config import get_settings
 from core.profile_context import get_current_profile
 from database import MediaItem
