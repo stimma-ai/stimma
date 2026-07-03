@@ -77,6 +77,12 @@ class TestToolConfig:
     should_fail: bool = False
     fail_at_progress: float = 0.5  # Progress value at which to fail (0.0-1.0)
     fail_message: str = "Simulated failure"
+    # Marker-based failure: fail only when the prompt contains this substring
+    # (case-insensitive). Unlike should_fail, this is safe to leave configured
+    # while other tests/eval trials share the provider concurrently — only
+    # requests that opt in via their prompt are affected.
+    fail_if_prompt_contains: Optional[str] = None
+    fail_count: Optional[int] = None  # With fail_if_prompt_contains: fail only the first N matching calls
     output_size: tuple = (64, 64)  # Width, height of dummy images
     output_color: tuple = (255, 0, 0)  # RGB color for dummy images
 
@@ -106,6 +112,21 @@ class TestToolProvider(ToolProvider):
         self._tool_configs: Dict[str, TestToolConfig] = {}
         self._assets: Dict[str, bytes] = {}
         self._cancelled_requests: set = set()
+        self._marker_fail_counts: Dict[tuple, int] = {}
+        # Additive marker rules: (marker, fail_count, message) per tool.
+        # Unlike configure_tool (replace semantics), multiple independent
+        # tests/eval tasks can arm rules on the same tool concurrently.
+        self._marker_rules: Dict[str, list] = {}
+
+    def add_marker_failure(
+        self,
+        tool_id: str,
+        marker: str,
+        fail_count: Optional[int] = None,
+        message: str = "Simulated provider failure",
+    ) -> None:
+        """Arm an additive prompt-marker failure rule on a tool."""
+        self._marker_rules.setdefault(tool_id, []).append((marker, fail_count, message))
 
     @property
     def provider_id(self) -> str:
@@ -161,6 +182,8 @@ class TestToolProvider(ToolProvider):
         """Reset all tool configurations to defaults."""
         self._tool_configs.clear()
         self._cancelled_requests.clear()
+        self._marker_fail_counts.clear()
+        self._marker_rules.clear()
 
     def _register_tools(self) -> None:
         """Register test tools."""
@@ -518,6 +541,28 @@ class TestToolProvider(ToolProvider):
 
         config = self._tool_configs.get(tool_id, TestToolConfig())
         request_id = request_id or str(uuid.uuid4())
+
+        # Marker-based failure: triggers only for prompts containing a
+        # marker, so rules can stay armed while unrelated requests share the
+        # provider. fail_count limits failures per unique prompt text — a
+        # verbatim retry of the same prompt then succeeds (transient-error
+        # simulation).
+        prompt_text = str(parameters.get("prompt") or "").lower()
+        rules = list(self._marker_rules.get(tool_id, []))
+        if config.fail_if_prompt_contains:
+            rules.append((config.fail_if_prompt_contains, config.fail_count, config.fail_message))
+        for marker, fail_count, message in rules:
+            if marker.lower() not in prompt_text:
+                continue
+            if fail_count is not None:
+                key = (tool_id, marker, str(parameters.get("prompt") or ""))
+                seen = self._marker_fail_counts.get(key, 0)
+                if seen >= fail_count:
+                    continue
+                self._marker_fail_counts[key] = seen + 1
+            yield ExecutionProgress(progress=0.0, stage="initializing", message="Starting...")
+            yield ExecutionResult(success=False, error=message)
+            return
 
         # Progress stages
         stages = [

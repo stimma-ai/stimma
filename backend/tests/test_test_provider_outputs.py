@@ -140,3 +140,40 @@ async def test_failure_injection_still_works(provider):
 
 async def test_media_kind_sets_are_disjoint():
     assert not (_VIDEO_TASK_TYPES & _AUDIO_TASK_TYPES)
+
+
+async def test_marker_failure_only_hits_matching_prompts(provider):
+    provider.configure_tool(
+        "text-to-image:test-model",
+        TestToolConfig(fail_if_prompt_contains="cursed obsidian"),
+    )
+    bad = await _execute(provider, "text-to-image:test-model", {"prompt": "a cursed obsidian mirror"})
+    assert not bad.success
+    ok = await _execute(provider, "text-to-image:test-model", {"prompt": "a friendly teapot"})
+    assert ok.success
+    provider.reset_configs()
+
+
+async def test_marker_rules_are_additive(provider):
+    provider.add_marker_failure("text-to-image:test-model", "raven", fail_count=1)
+    provider.add_marker_failure("text-to-image:test-model", "phoenix")
+    r1 = await _execute(provider, "text-to-image:test-model", {"prompt": "a raven statue"})
+    r2 = await _execute(provider, "text-to-image:test-model", {"prompt": "a raven statue"})
+    r3 = await _execute(provider, "text-to-image:test-model", {"prompt": "a phoenix emblem"})
+    r4 = await _execute(provider, "text-to-image:test-model", {"prompt": "a phoenix emblem"})
+    assert not r1.success and r2.success  # transient rule
+    assert not r3.success and not r4.success  # hard rule
+    provider.reset_configs()
+
+
+async def test_marker_failure_count_allows_retry(provider):
+    provider.configure_tool(
+        "text-to-image:test-model",
+        TestToolConfig(fail_if_prompt_contains="glitchy", fail_count=1),
+    )
+    params = {"prompt": "a glitchy robot"}
+    first = await _execute(provider, "text-to-image:test-model", params)
+    second = await _execute(provider, "text-to-image:test-model", params)
+    assert not first.success
+    assert second.success
+    provider.reset_configs()
