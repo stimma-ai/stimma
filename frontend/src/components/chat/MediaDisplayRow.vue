@@ -44,11 +44,12 @@
 
     <!-- Style 0: Output Only (no input side, no arrow) -->
     <template v-else-if="row.input.type === 'output_only'">
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2" :class="{ 'w-full': fill }">
         <!-- Output image - smaller when compact -->
         <OutputImage
           :row="row"
           :size="compact ? 134 : 160"
+          :fill="fill"
           :use-thumbnail="false"
           @view-image="(id) => $emit('view-image', id)"
           @retry="(id) => $emit('retry', id)"
@@ -171,6 +172,11 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  // Output-only rows fill the parent's width instead of using a fixed tile size
+  fill: {
+    type: Boolean,
+    default: false
+  },
   libraryMode: {
     type: Boolean,
     default: false
@@ -181,7 +187,9 @@ defineEmits(['view-image', 'retry', 'cancel', 'show-job-info'])
 
 const rowClass = computed(() => {
   if (props.compact && props.row.input?.type === 'output_only') {
-    return 'media-display-row flex items-center justify-center'
+    return props.fill
+      ? 'media-display-row flex items-center justify-center w-full'
+      : 'media-display-row flex items-center justify-center'
   }
   return 'media-display-row flex items-center gap-3'
 })

@@ -1557,20 +1557,20 @@ async def _run_agentic_loop_inner(
                     continue
                 break
 
-            # A tool ran: the model is working and has made progress, so any
-            # prior narration-stall streak is cleared.
-            any_tool_executed = True
+            # A tool ran: the model is working, so any text-only streak is
+            # cleared.
             consecutive_textonly = 0
             # Continue loop for next LLM call
             continue
 
-        # Text response with no tool call. This is only a real end-of-turn if
-        # the model produced a visible reply and hasn't started working yet (a
-        # plain conversational answer). Two cases are NOT valid ends and get one
+        # Text response with no tool call — the model's native end of turn.
+        # Accept it whenever the user got a visible reply and no tool has
+        # flagged unresolved work. Two cases are NOT valid ends and get one
         # nudge before we give up, so the model can neither stall silently nor
         # spin:
-        #   - narration stall: it already acted, then ended on a message with no
-        #     `finish` (it was supposed to keep going or call `finish`).
+        #   - unresolved work: a tool reported the job isn't done (e.g. the
+        #     flow build is still broken) and the model narrated instead of
+        #     fixing it.
         #   - empty turn: no visible message AND no tool call. Some reasoning
         #     models spend the whole turn inside the think block and emit no
         #     post-think content, so the user would see nothing. The empty
@@ -1579,8 +1579,7 @@ async def _run_agentic_loop_inner(
         _raise_if_interrupted(chat_id)
         consecutive_textonly += 1
         empty_turn = not (content and content.strip())
-        work_in_flight = bool(needs_continuation) or any_tool_executed
-        if (work_in_flight or empty_turn) and consecutive_textonly < 2:
+        if (needs_continuation or empty_turn) and consecutive_textonly < 2:
             if needs_continuation:
                 # Stronger signal: a tool reported unresolved work (e.g. the
                 # flow build is still broken). Point the model straight at it.
@@ -1588,25 +1587,14 @@ async def _run_agentic_loop_inner(
                 pending_stall_nudge = (
                     "<system-reminder>\n"
                     "Your last tool call reported unresolved work (the flow build is still broken). "
-                    "Continue with the tool call that fixes it — do not end on a narration-only message. "
-                    "Call `finish` only once the work is actually done.\n"
-                    "</system-reminder>"
-                )
-            elif empty_turn:
-                pending_stall_nudge = (
-                    "<system-reminder>\n"
-                    "Your last turn produced no message and no tool call, so nothing was sent to the user. "
-                    "Reply with a message now, or make the appropriate tool call if there is work to do. "
-                    "Call `finish` only once you are genuinely done.\n"
+                    "Continue with the tool call that fixes it — do not end on a narration-only message.\n"
                     "</system-reminder>"
                 )
             else:
                 pending_stall_nudge = (
                     "<system-reminder>\n"
-                    "Your last message did not hand control back — that takes an explicit `finish` call. "
-                    "If the task is still in progress, continue with the next tool call. "
-                    "If you're done (or are waiting on the user), just call `finish` now — silently, with no new message, "
-                    "since the message you already sent speaks for itself. `finish` is invisible to the user, so don't announce that you're finishing.\n"
+                    "Your last turn produced no message and no tool call, so nothing was sent to the user. "
+                    "Reply with a message now, or make the appropriate tool call if there is work to do.\n"
                     "</system-reminder>"
                 )
             continue

@@ -1,5 +1,5 @@
 <template>
-  <div class="media-display bg-surface rounded-lg p-3">
+  <div class="media-display bg-surface rounded-lg p-3" :class="rootWidthClass">
     <!-- Header with title (always show if present) -->
     <div v-if="displayData.title" class="mb-3">
       <span class="text-sm text-content-secondary font-medium">
@@ -17,6 +17,7 @@
         :key="row.id"
         :row="row"
         :compact="shouldUseCompactLayout"
+        :fill="isFillDisplay"
         :library-mode="isLibraryMode"
         @view-image="(mediaId) => $emit('view-image', mediaId)"
         @retry="retryRow"
@@ -124,12 +125,28 @@ const shouldUseCompactLayout = computed(() =>
 const isOutputGallery = computed(() =>
   allOutputOnly.value && rows.value.length > 1
 )
+// Shown results (agent `show`) fill the chat width so they're evaluable in place;
+// library-mode displays keep their small fixed thumbnails.
+const isFillDisplay = computed(() =>
+  allOutputOnly.value && !isLibraryMode.value
+)
 const itemsPerLoad = computed(() =>
   isOutputGallery.value ? GALLERY_ITEMS_PER_LOAD : DEFAULT_ITEMS_PER_LOAD
 )
+const rootWidthClass = computed(() => {
+  if (!isFillDisplay.value) return 'w-fit max-w-full'
+  return rows.value.length === 1 ? 'w-full max-w-[560px]' : 'w-full max-w-[1120px]'
+})
 const rowsContainerClass = computed(() => {
   if (isOutputGallery.value) {
-    return 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3'
+    if (!isFillDisplay.value) {
+      return 'grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3'
+    }
+    // 2 or 4 items read best as a 2-wide grid (large tiles); otherwise allow 3 columns
+    const cols = rows.value.length <= 4
+      ? 'grid-cols-1 sm:grid-cols-2'
+      : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
+    return `grid gap-3 w-full ${cols}`
   }
   return shouldUseCompactLayout.value ? 'flex flex-wrap gap-2' : 'space-y-3'
 })

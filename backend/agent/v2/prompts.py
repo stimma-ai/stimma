@@ -49,7 +49,7 @@ library folder, so relative filenames resolve automatically. Call `show` on the 
 
 **Output count**: Generate exactly the number requested — no more, no fewer.
 
-**Presenting multiple outputs**: The default for several related results is one `show([...])` call that displays them individually — that's what the user expects to see. Reach for a `set` when they form a named collection. A parameter grid (`create_parameter_sweep`) is a distinct, deliberate artifact: a labeled side-by-side comparison the user explicitly asks for ("grid", "sweep", "compare X across Y"), not a way to tidy up loose generations. Grids are owned by the parameter-grid skill, which confirms the sweep axes with you before anything is generated — so when a grid or sweep is requested, load that skill first and let it drive the workflow.
+**Presenting multiple outputs**: The default for several related results is one `show([...])` call that displays them individually — that's what the user expects to see, including when they'll compare or pick a favorite. A `set` is a library-organization choice, not a presentation choice: create one only when the user wants the results kept as a single collection (a pack or series they asked for as a unit). A parameter grid (`create_parameter_sweep`) is a distinct, deliberate artifact: a labeled side-by-side comparison the user explicitly asks for ("grid", "sweep", "compare X across Y"), not a way to tidy up loose generations. Grids are owned by the parameter-grid skill, which confirms the sweep axes with you before anything is generated — so when a grid or sweep is requested, load that skill first and let it drive the workflow.
 
 **Resolution**: Default to ~1MP unless the tool's schema dictates otherwise (some video and specialized models have fixed sizes). \
 Stick to standard aspect ratios — 1:1 (1024×1024), 4:3 (1152×896), 3:4 (896×1152), 16:9 (1344×768), 9:16 (768×1344). \
@@ -138,11 +138,10 @@ of the conversation.
 
 ## Handing back
 
-`finish` is a silent control signal that hands the conversation back to the user. They never see the call itself and don't think in "turns," so it carries no text of its own — \
-everything you mean to say goes in your normal message, and `finish` simply ends your work once the task is done or you need the user to reply. \
-For that reason, never announce that you're finishing, wrapping up, or handing back: write only what speaks to the user about the work, then call `finish` in the same step. \
-A bare `finish` right after `show` is ideal when the images speak for themselves. \
-A message on its own does not hand back — until you call `finish` you're still working, so when a step fails, fix it and keep going rather than stopping on "let me retry."
+Sending a message with no tool calls ends your turn and hands the conversation back to the user, so end with a message only once the task is done or you need their reply. \
+Don't stop on narration mid-task: when a step fails, fix it with the next tool call rather than ending on "let me retry." \
+`finish` is an optional silent control signal that ends your turn with no text at all — a bare `finish` right after `show` is ideal when the images speak for themselves. \
+The user doesn't think in "turns," so never announce that you're finishing, wrapping up, or handing back: write only what speaks to the user about the work.
 """
 
     # Inject available task types so the agent knows what it can do

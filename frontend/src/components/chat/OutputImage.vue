@@ -2,7 +2,7 @@
   <!-- Output image container: always square with letterboxing (v2) -->
   <div
     class="rounded overflow-hidden flex-shrink-0 relative group"
-    :style="{ width: `${size}px`, height: `${size}px` }"
+    :style="containerStyle"
     :class="{
       'bg-base flex items-center justify-center': row.output.status === 'pending' || row.output.status === 'generating',
       'cursor-pointer': (row.output.status === 'complete' || row.output.status === 'trashed') && !isTrashed && !row.output.deleted,
@@ -192,6 +192,11 @@ const props = defineProps({
     type: Number,
     default: 240
   },
+  // Fill the parent's width (square letterbox preserved via aspect-ratio) instead of a fixed pixel size
+  fill: {
+    type: Boolean,
+    default: false
+  },
   useThumbnail: {
     type: Boolean,
     default: true
@@ -199,6 +204,12 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['view-image', 'retry', 'cancel', 'show-job-info'])
+
+const containerStyle = computed(() =>
+  props.fill
+    ? { width: '100%', aspectRatio: '1 / 1' }
+    : { width: `${props.size}px`, height: `${props.size}px` }
+)
 
 const workspaceImageSrc = computed(() => {
   const src = props.row.output.workspace_url
@@ -310,8 +321,8 @@ const outputMediaType = computed(() => {
 })
 
 // Force thumbnail mode for composite media (grids, sets) whose raw files are JSON, not images.
-// Default to thumbnail until we know the type — safe because at display sizes (134-160px)
-// a 512px thumbnail is visually identical to full-res.
+// Default to thumbnail until we know the type — safe because chat tiles top out around the
+// 512px thumbnail size.
 const ATOMIC_IMAGE_TYPES = new Set(['image'])
 const effectiveThumbnail = computed(() => {
   if (props.useThumbnail) return true

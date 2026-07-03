@@ -237,7 +237,7 @@ def _normalize_response(raw_response) -> LLMResponse:
     message = choice.message
 
     # --- Content & thinking ---
-    raw_content = message.content or ""
+    raw_content = getattr(message, 'content', None) or ""
     thinking = _extract_reasoning_field(message) or _extract_thinking_from_content(raw_content)
     content = strip_thinking_tags(raw_content)
 
