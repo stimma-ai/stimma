@@ -44,7 +44,7 @@
                 dropIndex === index && dropIndex !== dragIndex ? 'ring-2 ring-blue-500' : ''
               ]"
               :draggable="reorderable && !batchMode"
-              @dragstart="reorderable && !batchMode && onReorderDragStart(item.originalIndex)"
+              @dragstart="reorderable && !batchMode && onReorderDragStart($event, item)"
               @dragend="reorderable && onReorderDragEnd()"
               @dragover.prevent.stop="onTileDragOver($event, index)"
               @dragleave.stop="onDragLeave"
@@ -827,6 +827,7 @@ import { getCachedPin } from '../../composables/usePinLock'
 import { getApiBase } from '../../apiConfig'
 import { makeProfileKey } from '../../utils/storageKeys'
 import { useVideoFrameExtraction, type FramePosition } from '../../composables/useVideoFrameExtraction'
+import { createDragPreview, handleDragEnd as clearDragPreview } from '../../composables/useDragPreview'
 import { addToast } from '../../composables/useToasts'
 import AppImage from '../media/AppImage.vue'
 import CompactAudioPlayer from '../viewers/CompactAudioPlayer.vue'
@@ -1360,9 +1361,21 @@ async function onDrop(event: DragEvent, replaceIndex?: number) {
 }
 
 // Reorder drag handlers
-function onReorderDragStart(index: number) {
+function onReorderDragStart(event: DragEvent, item: MediaItem) {
+  const index = item.originalIndex as number
   dragIndex.value = index
   dropIndex.value = index
+
+  // Reordering within this picker runs entirely off dragIndex/dropIndex above and
+  // never reads dataTransfer. Setting the standard in-app media payload here too
+  // (same shape MediaImage.vue uses) is what lets external drop zones — the
+  // sidebar's board/tool/chat tabs — accept a drop of this tile; it's inert for
+  // the reorder path since onReorderDrop/onTileDrop never look at it.
+  if (item.mediaId && event.dataTransfer) {
+    const thumbnailUrl = getThumbnailUrl(item.mediaId, 128)
+    const ext = item.filename?.split('.').pop()?.toLowerCase() || ''
+    createDragPreview(event, thumbnailUrl, item.mediaId, ext, props.accept === 'video')
+  }
 }
 
 function onReorderDragOver(event: DragEvent, displayIndex: number) {
@@ -1386,6 +1399,7 @@ function onReorderDrop() {
 function onReorderDragEnd() {
   dragIndex.value = null
   dropIndex.value = null
+  clearDragPreview()
 }
 
 // Grab a still from a video (server-side, via ffmpeg) and insert it as a normal
