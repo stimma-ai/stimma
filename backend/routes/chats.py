@@ -1059,6 +1059,106 @@ async def clone_chat(
     return ChatResponse(**cloned_chat.to_dict())
 
 
+def generate_branch_name(base_name: str, existing_names: List[str]) -> str:
+    """Generate a unique branched-chat name like 'X (copy)', 'X (copy 2)'."""
+    import re
+
+    match = re.match(r'^(.+?)\s+\(copy(?:\s+(\d+))?\)$', base_name)
+    if match:
+        base_name = match.group(1)
+
+    candidate = f"{base_name} (copy)"
+    if candidate not in existing_names:
+        return candidate
+
+    n = 2
+    while f"{base_name} (copy {n})" in existing_names:
+        n += 1
+    return f"{base_name} (copy {n})"
+
+
+@router.post("/{chat_id}/branch", response_model=ChatResponse)
+async def branch_chat(
+    chat_id: int,
+    from_chatitem_id: int,
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Create a new chat that's a copy of this chat's items up to and including from_chatitem_id."""
+    result = await session.execute(select(Chat).where(Chat.id == chat_id))
+    source_chat = result.scalar_one_or_none()
+
+    if not source_chat:
+        raise HTTPException(status_code=404, detail="Source chat not found")
+
+    result = await session.execute(
+        select(ChatItem).where(
+            and_(ChatItem.id == from_chatitem_id, ChatItem.chat_id == chat_id)
+        )
+    )
+    anchor_item = result.scalar_one_or_none()
+
+    if not anchor_item:
+        raise HTTPException(status_code=404, detail="Chat item not found")
+
+    result = await session.execute(
+        select(ChatItem)
+        .where(and_(ChatItem.chat_id == chat_id, ChatItem.id <= from_chatitem_id))
+        .order_by(ChatItem.id)
+    )
+    source_items = result.scalars().all()
+
+    result = await session.execute(
+        select(Chat.name).where(Chat.deleted_at.is_(None))
+    )
+    existing_names = [row[0] for row in result]
+    name = generate_branch_name(source_chat.name, existing_names)
+
+    branched_chat = Chat(
+        name=name,
+        project_id=source_chat.project_id,
+        flow_id=source_chat.flow_id,
+        throttle=source_chat.throttle,
+        generation_settings=source_chat.generation_settings,
+        additional_instructions=source_chat.additional_instructions,
+        agent_tool_config=source_chat.agent_tool_config,
+        model_slug=source_chat.model_slug,
+    )
+    session.add(branched_chat)
+    await session.flush()
+
+    id_map = {}
+    for old_item in source_items:
+        new_item = ChatItem(
+            chat_id=branched_chat.id,
+            created_at=old_item.created_at,
+            item_type=old_item.item_type,
+            message_text=old_item.message_text,
+            tool_name=old_item.tool_name,
+            tool_call_id=old_item.tool_call_id,
+            tool_args=old_item.tool_args,
+            tool_result=old_item.tool_result,
+            tool_error=old_item.tool_error,
+            media_id=old_item.media_id,
+            media_ids=old_item.media_ids,
+            grid_layout=old_item.grid_layout,
+            parent_item_id=id_map.get(old_item.parent_item_id),
+            item_metadata=old_item.item_metadata,
+        )
+        session.add(new_item)
+        await session.flush()
+        id_map[old_item.id] = new_item.id
+
+    await session.commit()
+    await session.refresh(branched_chat)
+
+    await ws_manager.broadcast("chat_created", {
+        "chat": branched_chat.to_dict()
+    })
+
+    log.info(f"Branched chat created: id={branched_chat.id}, name={branched_chat.name}, from chat={chat_id} item={from_chatitem_id}, items={len(source_items)}")
+    return ChatResponse(**branched_chat.to_dict())
+
+
 @router.post("/{chat_id}/clear")
 async def clear_chat(
     chat_id: int,

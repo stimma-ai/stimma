@@ -492,7 +492,7 @@
               :show-replay="!!item.message_text"
               @edit="startEditing(item)"
               @replay="replayFromHere(item)"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -575,7 +575,7 @@
               :show-thumbs="true"
               :thumb-agent-context="chat?.flow_id ? 'flow' : 'main'"
               :thumb-package-source="{ type: 'chat', chatId }"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -636,7 +636,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -673,7 +673,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -715,7 +715,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -780,7 +780,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -806,7 +806,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -841,7 +841,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -930,7 +930,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -955,7 +955,7 @@
               class="w-full"
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -973,7 +973,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -989,7 +989,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -1007,7 +1007,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -1023,7 +1023,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -1040,7 +1040,7 @@
               :item-id="item.id"
               align="left"
               :show-actions="true"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -1100,7 +1100,7 @@
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
-              @delete-from-here="deleteFromHere(item.id)"
+              @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
@@ -4271,6 +4271,26 @@ async function cloneChat() {
     }
   } catch (error) {
     console.error('Error cloning chat:', error)
+  }
+}
+
+async function branchFromHere(itemId) {
+  try {
+    const response = await fetch(`/api/chats/${chatId.value}/branch?from_chatitem_id=${itemId}`, {
+      method: 'POST'
+    })
+
+    if (response.ok) {
+      const newChat = await response.json()
+      router.push({ name: 'chat', params: { id: newChat.id } })
+    } else {
+      const errorText = await response.text()
+      console.error('Branch failed:', response.status, errorText)
+      addToast('Failed to branch chat', 'error', 5000)
+    }
+  } catch (error) {
+    console.error('Error branching chat:', error)
+    addToast('Failed to branch chat', 'error', 5000)
   }
 }
 

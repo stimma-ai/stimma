@@ -39,6 +39,19 @@
         :agent-context="thumbAgentContext"
         :package-source="thumbPackageSource"
       />
+      <!-- Branch (copy chat up to this point into a new chat) -->
+      <button
+        @click.stop="$emit('branch')"
+        class="p-1 rounded text-content-muted hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
+        title="Branch chat from here"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5">
+          <line x1="6" y1="3" x2="6" y2="15" />
+          <circle cx="18" cy="6" r="3" />
+          <circle cx="6" cy="18" r="3" />
+          <path d="M18 9a9 9 0 0 1-9 9" />
+        </svg>
+      </button>
       <!-- Trash -->
       <button
         @click.stop="handleTrash($event)"
@@ -103,7 +116,7 @@ defineProps({
   }
 })
 
-const emit = defineEmits(['edit', 'replay', 'delete', 'delete-from-here', 'debug'])
+const emit = defineEmits(['edit', 'replay', 'delete', 'delete-from-here', 'debug', 'branch'])
 
 function handleTrash(event) {
   if (event.shiftKey) {
