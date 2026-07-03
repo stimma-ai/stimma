@@ -382,15 +382,20 @@ export function useGenerationJobs(options = {}) {
   async function handleJobCompleted(data) {
     if (!matchesFilters(data)) return
 
+    // Load the media record BEFORE exposing the job to the grid: the tile's
+    // type (image vs video) comes from mediaData, and a post-processing chain
+    // can repoint an image job at a video. Splicing first opens a window where
+    // the tile renders through the wrong path and self-evicts on load error.
+    if (data.job.result_media_id) {
+      await loadMediaHash(data.job.result_media_id, true)
+    }
+
     const index = jobs.value.findIndex(j => j.id === data.job.id)
     if (index !== -1) {
       jobs.value.splice(index, 1, data.job)
     } else {
       // Job wasn't in list (e.g., page was refreshed during processing) - add it
       jobs.value.unshift(data.job)
-    }
-    if (data.job.result_media_id) {
-      await loadMediaHash(data.job.result_media_id, true)
     }
   }
 

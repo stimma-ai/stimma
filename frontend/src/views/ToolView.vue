@@ -748,6 +748,7 @@
           :media-hashes="jobsManager.mediaHashes.value"
           :media-markers="jobsManager.mediaMarkers.value"
           :media-generation-times="jobsManager.mediaGenerationTimes.value"
+          :media-data="jobsManager.mediaData.value"
           :batch-jobs="jobsManager.batchJobs.value"
           :active-chain-runs="jobsManager.activeChainRuns.value"
           :is-video="outputsVideo"
@@ -1545,43 +1546,8 @@ const frameCountConfig = computed(() => {
   return { min: 1, max: 161, default: 81 }
 })
 
-// Duration config from schema (for tools using duration param instead of frame_count)
-const durationConfig = computed(() => {
-  const props = tool.value?.parameter_schema?.properties || {}
-  const schema = props.duration
-  if (schema) {
-    return {
-      min: schema.minimum ?? 1.0,
-      max: schema.maximum ?? 10.0,
-      step: schema['x-step'] ?? 0.5,
-      default: schema.default ?? 5.0,
-    }
-  }
-  return { min: 1.0, max: 10.0, step: 0.5, default: 5.0 }
-})
-
-// Whether tool has an fps param
-const hasFps = computed(() => {
-  const props = tool.value?.parameter_schema?.properties || {}
-  return 'fps' in props
-})
-
-const fpsOptions = computed(() => {
-  const props = tool.value?.parameter_schema?.properties || {}
-  const fpsSchema = props.fps
-  if (fpsSchema) {
-    const min = fpsSchema.minimum ?? 16
-    const max = fpsSchema.maximum ?? 32
-    const options = new Set<number>()
-    for (const v of [16, 24, 25, 30, 32]) {
-      if (v >= min && v <= max) options.add(v)
-    }
-    if (fpsSchema.default != null) options.add(fpsSchema.default)
-    const sorted = Array.from(options).sort((a: number, b: number) => a - b)
-    if (sorted.length > 0) return sorted
-  }
-  return [16, 24, 32]
-})
+// durationConfig / hasFps / fpsOptions now come from useToolSchemaFeatures
+// (shared with ChainStepSettings.vue) — see the destructure below.
 
 const estimatedDuration = computed(() => {
   // If tool uses duration param directly, use it
@@ -2536,6 +2502,10 @@ const {
   hasDuration,
   hasLyrics,
   allowedDurations,
+  durationConfig,
+  hasFps,
+  fpsOptions,
+  videoParamDefaults,
   hasVideoFrames,
   hasEndFrame,
   frameMinItems,
@@ -3125,15 +3095,14 @@ async function loadTool(forceReload = false, silent = false) {
   // Load persisted inspiration state
   loadRemixState()
 
-  // Set video-specific defaults (for tools with duration param)
+  // Set video-specific defaults (for tools with duration param). Shared with
+  // the chain-step panel via videoParamDefaults — one source of truth.
   if (hasDuration.value) {
     if (modelParams.value.duration == null) {
-      modelParams.value.duration = allowedDurations.value?.[0] ?? durationConfig.value.default
+      modelParams.value.duration = videoParamDefaults.value.duration
     }
     if (hasFps.value && !modelParams.value.fps) {
-      const props = tool.value?.parameter_schema?.properties || {}
-      const fpsDefault = props.fps?.default
-      modelParams.value.fps = fpsDefault || fpsOptions.value[0] || 24
+      modelParams.value.fps = videoParamDefaults.value.fps
     }
   }
 

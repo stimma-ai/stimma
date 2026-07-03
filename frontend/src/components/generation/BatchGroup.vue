@@ -23,7 +23,7 @@
         <div v-if="cell.state === 'done'" class="relative">
           <JobTile
             :job="cell.job"
-            :is-video="isVideo"
+            :is-video="jobIsVideo(cell.job)"
             :is-audio="isAudio"
             :image-mode="imageMode"
             :markers="markers"
@@ -44,7 +44,7 @@
         <div v-else-if="cell.state === 'postprocessing'" class="relative">
           <JobTile
             :job="cell.job"
-            :is-video="isVideo"
+            :is-video="jobIsVideo(cell.job)"
             :is-audio="isAudio"
             :image-mode="imageMode"
             :markers="markers"
@@ -95,12 +95,13 @@
 
 <script setup lang="ts">
 import JobTile from './JobTile.vue'
+import { isVideo as isVideoMedia } from '../../utils/mediaTypes'
 
 interface Job { id: number; status: string; result_media_id?: number; auto_delete_at?: string; parameters?: string }
 interface Marker { id: number; name: string; color: string; icon_svg: string }
 interface BatchCell { key: string; state: 'pending' | 'postprocessing' | 'done' | 'failed'; job: Job; mediaId?: number }
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   cells: BatchCell[]
   total: number
   completedCount: number
@@ -114,6 +115,9 @@ withDefaults(defineProps<{
   mediaMarkers?: Record<number, Marker[]>
   mediaHashes?: Record<number, string>
   mediaGenerationTimes?: Record<number, number>
+  // Full media records by id — a member's tile type follows its ACTUAL media
+  // (an i2v post-processing chain turns an image job's result into a video).
+  mediaData?: Record<number, any>
   currentMediaId?: number | null
   compactOverlays?: boolean
   thumbnailSize?: number
@@ -122,6 +126,15 @@ withDefaults(defineProps<{
   compactOverlays: false,
   thumbnailSize: 256,
 })
+
+// Same rule as JobsGrid.jobIsVideo: actual media type when loaded, else the
+// tool's output type. A video rendered through the image path fires
+// media-load-error, which silently drops the job.
+function jobIsVideo(job: Job): boolean {
+  const media = job.result_media_id ? props.mediaData?.[job.result_media_id] : null
+  if (media?.file_format) return isVideoMedia(media)
+  return props.isVideo ?? false
+}
 
 defineEmits<{
   (e: 'job-click', job: Job): void

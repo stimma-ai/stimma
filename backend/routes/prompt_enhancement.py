@@ -248,6 +248,23 @@ class ImprovePromptResponse(BaseModel):
     improved_prompt: str
 
 
+# Language code → English name for the Translate control. Mirrors the
+# frontend's promptLanguages.ts (code/english pairs); used by in-process
+# callers (post-processing chain executor) that hold the stored code.
+PROMPT_LANGUAGE_ENGLISH_BY_CODE = {
+    "zh-Hans": "Simplified Chinese",
+    "zh-Hant": "Traditional Chinese",
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "ja": "Japanese",
+    "ko": "Korean",
+}
+
+
 class TranslatePromptRequest(BaseModel):
     prompt: str
     # The target language as a human-readable English name, e.g. "Simplified

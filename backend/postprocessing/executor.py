@@ -391,12 +391,12 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
                     }
                     out_media_id = await _run_tool_step(
                         db, tool_step, current_media_id, project_id, executed_steps,
-                        run_id=base_run_id,
+                        run_id=base_run_id, profile_id=profile_id,
                     )
                 else:
                     out_media_id = await _run_tool_step(
                         db, step, current_media_id, project_id, executed_steps,
-                        run_id=base_run_id,
+                        run_id=base_run_id, profile_id=profile_id,
                     )
             except Exception as e:
                 log.error(f"[postproc] Run {run_id} step {idx} ({_step_label(step)}) failed: {e}")
@@ -595,6 +595,74 @@ async def _media_type(db, media_id: int) -> str:
     return "video" if fmt in _VIDEO_FORMATS else "image"
 
 
+# Task types whose output is audio — mirrors AUDIO_TASK_TYPES in the
+# frontend's taskTypeIcons.ts (routes /prompt/improve to the sound style).
+_AUDIO_TASK_TYPES = {"text-to-audio", "text-to-music", "text-to-speech"}
+
+
+async def _apply_prompt_pipeline(
+    db,
+    prompt: str,
+    prompt_options: Optional[Dict[str, Any]],
+    tool_id: str,
+    task_type: Optional[str],
+    input_media_id: int,
+    parameters: Optional[Dict[str, Any]] = None,
+    profile_id: Optional[str] = None,
+) -> str:
+    """Run the full generate-time prompt pipeline on a chain step's prompt —
+    identical behavior to an interactive submit (prompt_pipeline.py mirrors
+    useSubmissionQueue.ts): Enhance/Translate per the step's promptOptions,
+    then wildcard/comment/verbatim resolution, then Ideogram JSON when
+    applicable. LLM failures propagate and fail the step like a failed tool
+    call."""
+    from prompt_pipeline import run_prompt_pipeline
+
+    model: Optional[str] = None
+    model_vendor: Optional[str] = None
+    effective_task = task_type or ""
+    schema_props: Dict[str, Any] = {}
+    try:
+        from providers.registry import ProviderRegistry
+        provider_tool = ProviderRegistry.get_instance().get_tool(tool_id)
+        if provider_tool:
+            descriptor = provider_tool[1]
+            model = descriptor.model
+            model_vendor = descriptor.model_vendor
+            effective_task = task_type or descriptor.task_type or ""
+            schema_props = (descriptor.parameter_schema or {}).get("properties", {})
+    except Exception as e:
+        log.warning(f"[postproc] Could not resolve tool descriptor for prompt pipeline ({tool_id}): {e}")
+
+    params = parameters or {}
+
+    def _dim(name: str) -> Optional[int]:
+        try:
+            v = params.get(name)
+            return int(v) if v else None
+        except (TypeError, ValueError):
+            return None
+
+    return await run_prompt_pipeline(
+        db,
+        prompt,
+        prompt_options,
+        model=model,
+        model_vendor=model_vendor,
+        is_video="video" in effective_task,
+        is_audio=effective_task in _AUDIO_TASK_TYPES,
+        # Chain steps always feed exactly one input image (or none, if the
+        # tool takes no image input at all).
+        input_image_count=1 if ("input_images" in schema_props or "input_image" in schema_props) else 0,
+        # Enables the image-aware cinematography path for i2v steps.
+        media_id=input_media_id,
+        # Ideogram JSON composes layout for the real canvas when the step sets one.
+        width=_dim("width"),
+        height=_dim("height"),
+        profile_id=profile_id,
+    )
+
+
 async def _run_tool_step(
     db,
     step: Dict[str, Any],
@@ -602,6 +670,7 @@ async def _run_tool_step(
     project_id: Optional[int],
     all_steps: List[Dict[str, Any]],
     run_id: Optional[str] = None,
+    profile_id: Optional[str] = None,
 ) -> int:
     """Execute one STP tool step via execute_call_tool (media_id → media_id)."""
     from agent.v2.tools.call_tool import execute_call_tool
@@ -618,6 +687,23 @@ async def _run_tool_step(
     if run_id:
         # Telemetry only: ties this step's tool_* events to the base pipeline.
         parameters["_run_id"] = run_id
+
+    # The stored prompt goes through the SAME generate-time pipeline as an
+    # interactive submit (Enhance/Translate per step.promptOptions, then
+    # wildcards/comments/verbatim, then Ideogram JSON) before any other
+    # parameter resolution. Final processing runs even with no promptOptions —
+    # a chain-step prompt must behave exactly like one typed in the editor.
+    if isinstance(parameters.get("prompt"), str) and parameters["prompt"].strip():
+        parameters["prompt"] = await _apply_prompt_pipeline(
+            db,
+            prompt=parameters["prompt"],
+            prompt_options=step.get("promptOptions"),
+            tool_id=tool_id,
+            task_type=step.get("task_type"),
+            input_media_id=input_media_id,
+            parameters=parameters,
+            profile_id=profile_id,
+        )
 
     # Relative upscale: the step stores scale_factor because the input isn't
     # known at config time. Resolve it against the actual input here — same

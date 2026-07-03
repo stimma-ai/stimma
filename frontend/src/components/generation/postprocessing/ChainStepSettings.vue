@@ -6,16 +6,19 @@
     </div>
     <div v-else-if="!stepTool" class="text-xs text-content-muted py-1">Loading tool schema…</div>
     <template v-else>
-      <!-- Prompt (img2img refine steps care about it) -->
+      <!-- Prompt (img2img refine steps care about it) — the full AIPromptEditor,
+           including its inline sparkle chat (no page-level chat dock exists in
+           the step config panel, so external-chat stays off). -->
       <div v-if="hasPrompt" class="px-1 py-2">
         <div class="text-sm font-medium text-content mb-2">Prompt</div>
-        <textarea v-no-autocorrect
-          :value="step.settings.prompt ?? ''"
-          @input="updateSetting('prompt', ($event.target as HTMLTextAreaElement).value)"
-          rows="2"
+        <AIPromptEditor
+          :model-value="step.settings.prompt ?? ''"
+          @update:model-value="updateSetting('prompt', $event)"
+          :rows="4"
+          :prompt-options="step.promptOptions ?? defaultPromptOptions"
+          @update:prompt-options="emit('update:promptOptions', $event)"
           :placeholder="promptPlaceholder"
-          class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm resize-y focus:outline-none focus:border-blue-500 font-sans"
-        ></textarea>
+        />
       </div>
       <!-- Upscale resolution (x-control: upscale_resolution) — same dedicated
            picker the tool gets standalone; stores scale_factor OR resolution. -->
@@ -69,6 +72,44 @@
         </div>
       </div>
 
+      <!-- Duration / FPS (dedicated controls in ToolView; simple rows here).
+           Unset values display videoParamDefaults — the same prefill ToolView
+           applies — so the panel shows exactly what the step will run with. -->
+      <div v-if="hasDuration" class="flex items-center justify-between gap-4 px-1 py-2">
+        <div class="text-sm font-medium text-content">Duration</div>
+        <div v-if="allowedDurations" class="min-w-0 max-w-[55%] flex-shrink-0">
+          <SettingsDropdown
+            :model-value="String(step.settings.duration ?? videoParamDefaults.duration)"
+            @update:model-value="updateSetting('duration', Number($event))"
+            :options="allowedDurations.map((d: number) => ({ value: String(d), label: `${d}s` }))"
+          />
+        </div>
+        <div v-else class="flex min-w-0 w-[55%] max-w-[360px] flex-shrink-0 items-center justify-end gap-2">
+          <input v-no-autocorrect
+            type="range"
+            :value="step.settings.duration ?? videoParamDefaults.duration"
+            @input="updateSetting('duration', Number(($event.target as HTMLInputElement).value))"
+            :min="durationConfig.min"
+            :max="durationConfig.max"
+            :step="durationConfig.step"
+            class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+          />
+          <span class="w-10 flex-shrink-0 text-sm text-content-tertiary text-right select-none">
+            {{ Number(step.settings.duration ?? videoParamDefaults.duration).toFixed(1) }}s
+          </span>
+        </div>
+      </div>
+      <div v-if="hasFps" class="flex items-center justify-between gap-4 px-1 py-2">
+        <div class="text-sm font-medium text-content">FPS</div>
+        <div class="min-w-0 max-w-[55%] flex-shrink-0">
+          <SettingsDropdown
+            :model-value="String(step.settings.fps ?? videoParamDefaults.fps ?? fpsOptions[0])"
+            @update:model-value="updateSetting('fps', Number($event))"
+            :options="fpsOptions.map((fps: number) => ({ value: String(fps), label: `${fps} fps` }))"
+          />
+        </div>
+      </div>
+
       <SchemaParamGroup
         :groups="groupedGenericParams"
         :values="step.settings"
@@ -76,7 +117,7 @@
         disable-collapse
         @update:param="updateSetting"
       />
-      <div v-if="!groupedGenericParams.length && !hasPrompt && !showUpscalePicker && !hasAspectRatio && !hasMegapixels" class="text-xs text-content-muted py-1">
+      <div v-if="!groupedGenericParams.length && !hasPrompt && !showUpscalePicker && !hasAspectRatio && !hasMegapixels && !hasDuration && !hasFps" class="text-xs text-content-muted py-1">
         This tool has no tunable settings.
       </div>
     </template>
@@ -120,13 +161,18 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import AIPromptEditor from '../AIPromptEditor.vue'
 import SchemaParamGroup from '../SchemaParamGroup.vue'
 import SettingsDropdown from '../../ui/SettingsDropdown.vue'
 import UpscaleResolutionPicker from '../UpscaleResolutionPicker.vue'
 import { useToolSchemaFeatures } from '../../../composables/useToolSchemaFeatures'
 import { useProvidersApi, type ProviderTool } from '../../../composables/useProvidersApi'
 import { getChainFilterDef } from '@stimma/image-editor'
-import type { ChainStep } from '../../../utils/postProcessingChain'
+import { defaultChainStepPromptOptions, type ChainStep, type ChainStepPromptOptions } from '../../../utils/postProcessingChain'
+
+// Fallback for steps saved before promptOptions existed — the same ToolView
+// new-state defaults normalizeChain fills in (Enhance ON).
+const defaultPromptOptions = defaultChainStepPromptOptions()
 
 const props = defineProps<{
   step: ChainStep
@@ -134,6 +180,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:settings', settings: Record<string, any>): void
+  (e: 'update:promptOptions', value: ChainStepPromptOptions): void
 }>()
 
 function updateSetting(name: string, value: any) {
@@ -174,6 +221,12 @@ const {
   aspectRatioChoices,
   imageSizeChoices,
   hasMegapixels,
+  hasDuration,
+  durationConfig,
+  allowedDurations,
+  hasFps,
+  fpsOptions,
+  videoParamDefaults,
 } = useToolSchemaFeatures({
   tool: stepTool,
   availableLoras: computed(() => []),

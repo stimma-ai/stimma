@@ -1,6 +1,9 @@
 <template>
   <div class="h-full flex flex-col">
-    <div v-if="jobs.length === 0" class="text-center py-12 px-4 text-content-muted">
+    <!-- Empty only when there's truly nothing to show: a job whose chain is
+         running is hidden from `jobs` (the chain bar represents it), so the
+         bar must keep the grid alive or the whole strip blinks out. -->
+    <div v-if="jobs.length === 0 && activeChainRuns.length === 0" class="text-center py-12 px-4 text-content-muted">
       <p>{{ emptyMessage }}</p>
     </div>
     <div v-else class="flex flex-col gap-4">
@@ -55,6 +58,7 @@
               :media-markers="mediaMarkers"
               :media-hashes="mediaHashes"
               :media-generation-times="mediaGenerationTimes"
+              :media-data="mediaData"
               :current-media-id="currentMediaId"
               :compact-overlays="compactOverlays"
               :thumbnail-size="thumbnailSize"
@@ -141,6 +145,7 @@
             :media-markers="mediaMarkers"
             :media-hashes="mediaHashes"
             :media-generation-times="mediaGenerationTimes"
+            :media-data="mediaData"
             :current-media-id="currentMediaId"
             :compact-overlays="compactOverlays"
             :thumbnail-size="thumbnailSize"
@@ -159,7 +164,7 @@
           <div class="grid grid-cols-1 gap-4">
             <JobTile
               :job="item.job"
-              :is-video="isVideo"
+              :is-video="jobIsVideo(item.job)"
               :is-audio="isAudio"
               :image-mode="imageMode"
               :markers="markers"
@@ -208,6 +213,7 @@ import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
+import { isVideo as isVideoMedia } from '../../utils/mediaTypes'
 
 const { getMediaFileUrl, getThumbnailUrl } = useMediaApi()
 const contextMenu = useMediaContextMenu()
@@ -276,6 +282,10 @@ interface Props {
   mediaHashes?: Record<number, string>
   mediaMarkers?: Record<number, Marker[]>
   mediaGenerationTimes?: Record<number, number>
+  // Full media records by id (file_format etc.) — a completed job's tile type
+  // follows its ACTUAL media, not the tool (an i2v post-processing chain turns
+  // an image job's result into a video).
+  mediaData?: Record<number, any>
   batchJobs?: Record<string, BatchInfo>
   // In-flight/paused post-processing chains (rendered as progress bars; a
   // completed chain has no presence of its own — the base job's tile becomes
@@ -300,6 +310,7 @@ const props = withDefaults(defineProps<Props>(), {
   mediaHashes: () => ({}),
   mediaMarkers: () => ({}),
   mediaGenerationTimes: () => ({}),
+  mediaData: () => ({}),
   batchJobs: () => ({}),
   activeChainRuns: () => [],
   imageMode: 'cover',
@@ -327,6 +338,17 @@ const emit = defineEmits<{
   (e: 'dismiss-chain', chainRunId: number): void
 }>()
 
+
+// A post-processing chain can transition a job's result media type (an image
+// job whose chain ends in an i2v step points at a VIDEO). Type each tile from
+// its actual media record when loaded; fall back to the tool's output type.
+// Rendering a video through the image path fires media-load-error, which
+// silently drops the job from the strip.
+function jobIsVideo(job: Job): boolean {
+  const media = job.result_media_id ? props.mediaData[job.result_media_id] : null
+  if (media?.file_format) return isVideoMedia(media)
+  return props.isVideo
+}
 
 // Get all batch job IDs for filtering
 const batchJobIds = computed(() => {

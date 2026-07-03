@@ -46,6 +46,7 @@
               <ChainStepSettings
                 :step="step"
                 @update:settings="updateStepSettings(step.id, $event)"
+                @update:prompt-options="updateStepPromptOptions(step.id, $event)"
               />
             </template>
           </ChainStepCard>
@@ -90,13 +91,16 @@ import { isStimmaCloudTool } from '../../../utils/stimmaCloud'
 import {
   CHAIN_TOOL_TASK_TYPES,
   chainMediaFlow,
+  defaultChainStepPromptOptions,
   defaultInsertIndex,
   newStepId,
   stepInputMedia,
   stepAcceptedMedia,
   type ChainStep,
+  type ChainStepPromptOptions,
   type PostProcessingChain,
 } from '../../../utils/postProcessingChain'
+import { videoParamDefaultsForTool } from '../../../composables/useToolSchemaFeatures'
 import {
   CHAIN_FILTER_DEFS,
   getChainFilterDef,
@@ -210,6 +214,13 @@ function updateStepSettings(id: string, settings: Record<string, any>) {
   }))
 }
 
+function updateStepPromptOptions(id: string, promptOptions: ChainStepPromptOptions) {
+  updateChain(c => ({
+    ...c,
+    steps: c.steps.map(s => (s.id === id ? { ...s, promptOptions } : s)),
+  }))
+}
+
 const addMenuOpen = ref(false)
 function toggleAddMenu() {
   addMenuOpen.value = !addMenuOpen.value
@@ -246,7 +257,13 @@ function addToolStep(tool: ProviderTool) {
     tool_id: tool.full_tool_id,
     task_type: chainTaskTypeFor(tool),
     tool_name: tool.name,
-    settings: {}, // empty = the tool's schema defaults (overlaid at execution)
+    // Unset settings fall back to the tool's schema defaults at execution;
+    // duration/fps are seeded eagerly because ToolView prefills them too
+    // (videoParamDefaultsForTool is the shared source of truth) — the panel
+    // must show exactly what the step will run with.
+    settings: { ...videoParamDefaultsForTool(tool) },
+    // Same new-state prompt defaults as ToolView (Enhance ON).
+    promptOptions: defaultChainStepPromptOptions(),
   })
 }
 

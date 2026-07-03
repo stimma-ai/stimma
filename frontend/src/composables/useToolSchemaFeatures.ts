@@ -64,6 +64,44 @@ export interface UseToolSchemaFeaturesOptions {
   availableLoras: ComputedRef<any[]>
 }
 
+function fpsOptionsFromProps(props: any): number[] {
+  const fpsSchema = props?.fps
+  if (fpsSchema) {
+    const min = fpsSchema.minimum ?? 16
+    const max = fpsSchema.maximum ?? 32
+    const options = new Set<number>()
+    for (const v of [16, 24, 25, 30, 32]) {
+      if (v >= min && v <= max) options.add(v)
+    }
+    if (fpsSchema.default != null) options.add(fpsSchema.default)
+    const sorted = Array.from(options).sort((a: number, b: number) => a - b)
+    if (sorted.length > 0) return sorted
+  }
+  return [16, 24, 32]
+}
+
+/**
+ * The duration/fps a video tool runs with before the user touches anything —
+ * THE single source of truth, shared by ToolView's on-load prefill and the
+ * chain-step panel (which seeds new step settings from it). Duration prefers
+ * the first allowed value, then the schema default; fps prefers the schema
+ * default, then the first offered option.
+ */
+export function videoParamDefaultsForTool(tool: any): { duration?: number; fps?: number } {
+  const props = tool?.parameter_schema?.properties || {}
+  if (!('duration' in props)) return {}
+  const schema = props.duration
+  const allowed = schema?.['x-allowed-values'] || schema?.['x-allowed-durations']
+  const duration =
+    (Array.isArray(allowed) && allowed.length > 0 ? allowed[0] : undefined) ??
+    schema?.default ?? 5.0
+  const result: { duration?: number; fps?: number } = { duration }
+  if ('fps' in props) {
+    result.fps = props.fps?.default || fpsOptionsFromProps(props)[0] || 24
+  }
+  return result
+}
+
 // Mask format types for x-mask-format hint
 export type MaskFormat = 'alpha' | 'white-black' | 'black-white'
 
@@ -84,6 +122,10 @@ export interface UseToolSchemaFeaturesReturn {
   hasDuration: ComputedRef<boolean>
   hasLyrics: ComputedRef<boolean>
   allowedDurations: ComputedRef<number[] | null>
+  durationConfig: ComputedRef<{ min: number; max: number; step: number; default: number }>
+  hasFps: ComputedRef<boolean>
+  fpsOptions: ComputedRef<number[]>
+  videoParamDefaults: ComputedRef<{ duration?: number; fps?: number }>
   hasVideoFrames: ComputedRef<boolean>
   hasEndFrame: ComputedRef<boolean>
   frameMinItems: ComputedRef<number>
@@ -196,6 +238,33 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
     const allowed = schema?.['x-allowed-values'] || schema?.['x-allowed-durations']
     return Array.isArray(allowed) && allowed.length > 0 ? allowed : null
   })
+
+  // Duration config from schema (for tools using duration param instead of frame_count)
+  const durationConfig = computed(() => {
+    const props = tool.value?.parameter_schema?.properties || {}
+    const schema = props.duration
+    if (schema) {
+      return {
+        min: schema.minimum ?? 1.0,
+        max: schema.maximum ?? 10.0,
+        step: schema['x-step'] ?? 0.5,
+        default: schema.default ?? 5.0,
+      }
+    }
+    return { min: 1.0, max: 10.0, step: 0.5, default: 5.0 }
+  })
+
+  // Whether tool has an fps param
+  const hasFps = computed(() => {
+    const props = tool.value?.parameter_schema?.properties || {}
+    return 'fps' in props
+  })
+
+  const fpsOptions = computed(() =>
+    fpsOptionsFromProps(tool.value?.parameter_schema?.properties || {})
+  )
+
+  const videoParamDefaults = computed(() => videoParamDefaultsForTool(tool.value))
 
   const hasVideoFrames = computed(() => {
     const props = tool.value?.parameter_schema?.properties || {}
@@ -496,6 +565,10 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
     hasDuration,
     hasLyrics,
     allowedDurations,
+    durationConfig,
+    hasFps,
+    fpsOptions,
+    videoParamDefaults,
     hasVideoFrames,
     hasEndFrame,
     frameMinItems,

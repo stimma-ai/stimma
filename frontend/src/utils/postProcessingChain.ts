@@ -9,8 +9,23 @@
  */
 
 import { getChainFilterAccepts } from '@stimma/image-editor'
+import { DEFAULT_PROMPT_OPTIONS, type PromptOptions } from '../composables/useGenerationPreferences'
 
 export type ChainStepKind = 'tool' | 'filter'
+
+/** Enhance/Translate toggles for a step's prompt — same raw shape
+ *  AIPromptEditor emits (the shared PromptOptions). */
+export type ChainStepPromptOptions = PromptOptions
+
+/**
+ * The prompt options a tool step starts with — ToolView's own new-state
+ * defaults (Enhance ON), so a chain-step prompt behaves exactly like one
+ * typed in the editor. Tool steps ALWAYS carry promptOptions; this is
+ * enforced wherever steps enter the model (add / normalize / remix-merge).
+ */
+export function defaultChainStepPromptOptions(): ChainStepPromptOptions {
+  return clonePromptOptions(DEFAULT_PROMPT_OPTIONS)
+}
 
 export interface ChainStep {
   /** Stable per-instance id for drag/reorder and agent addressing. */
@@ -27,6 +42,9 @@ export interface ChainStep {
   filter_id?: string
   /** Param values; for tool steps these overlay the tool's schema defaults. */
   settings: Record<string, any>
+  /** Enhance/Translate toggles for this step's prompt (tool steps only).
+      Kept OUT of `settings` — settings is sent verbatim as STP params. */
+  promptOptions?: ChainStepPromptOptions
 }
 
 export interface PostProcessingChain {
@@ -47,6 +65,15 @@ export interface RecordedChainStep {
   tool_name?: string
   filter_id?: string
   settings: Record<string, any>
+  promptOptions?: ChainStepPromptOptions
+}
+
+function clonePromptOptions(po: ChainStepPromptOptions): ChainStepPromptOptions {
+  return {
+    autoImprove: { ...po.autoImprove },
+    varyPrompt: { ...po.varyPrompt },
+    ...(po.translate ? { translate: { ...po.translate } } : {}),
+  }
 }
 
 export function emptyChain(): PostProcessingChain {
@@ -69,6 +96,15 @@ export function normalizeChain(value: any): PostProcessingChain {
         tool_name: s.tool_name,
         filter_id: s.filter_id,
         settings: s.settings && typeof s.settings === 'object' ? { ...s.settings } : {},
+        // Tool steps always carry promptOptions (missing = pre-feature state,
+        // which gets ToolView's defaults, Enhance ON — not "everything off").
+        ...(s.kind !== 'filter'
+          ? {
+              promptOptions: s.promptOptions && typeof s.promptOptions === 'object'
+                ? clonePromptOptions(s.promptOptions)
+                : defaultChainStepPromptOptions(),
+            }
+          : {}),
       })),
   }
 }
@@ -92,6 +128,7 @@ export function toRecordedSteps(chain: PostProcessingChain): RecordedChainStep[]
         rec.tool_id = s.tool_id
         rec.task_type = s.task_type
         rec.tool_name = s.tool_name
+        if (s.promptOptions) rec.promptOptions = clonePromptOptions(s.promptOptions)
       } else {
         rec.filter_id = s.filter_id
       }
@@ -124,6 +161,11 @@ export function mergeRecordedChain(
         ...match.step,
         enabled: true,
         settings: { ...rec.settings },
+        // Pre-feature lineage has no promptOptions — restore to the defaults,
+        // same as normalizeChain (tool steps always carry promptOptions).
+        promptOptions: rec.promptOptions
+          ? clonePromptOptions(rec.promptOptions)
+          : (rec.kind === 'tool' ? defaultChainStepPromptOptions() : undefined),
         ...(rec.kind === 'tool'
           ? { task_type: rec.task_type ?? match.step.task_type, tool_name: rec.tool_name ?? match.step.tool_name }
           : {}),
@@ -138,6 +180,9 @@ export function mergeRecordedChain(
       tool_name: rec.tool_name,
       filter_id: rec.filter_id,
       settings: { ...rec.settings },
+      ...(rec.kind === 'tool'
+        ? { promptOptions: rec.promptOptions ? clonePromptOptions(rec.promptOptions) : defaultChainStepPromptOptions() }
+        : {}),
     }
   })
 

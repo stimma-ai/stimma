@@ -318,3 +318,81 @@ class TestChainExecutorFilters:
         assert resp.status_code == 200
         runs = resp.json()["runs"]
         assert all(r["status"] in ("paused", "running") for r in runs)
+
+
+class TestChainPromptPipeline:
+    """Chain-step prompts run the SAME generate-time pipeline as an interactive
+    submit (prompt_pipeline.py — covered in depth by test_prompt_pipeline.py);
+    these tests cover the executor's threading of it."""
+
+    async def test_tool_step_sends_rewritten_prompt(self, generation_app, generation_db_session, monkeypatch):
+        import agent.v2.tools.call_tool as call_tool_mod
+        import postprocessing.executor as executor_mod
+
+        seen = {}
+
+        async def fake_execute_call_tool(**kwargs):
+            seen["parameters"] = kwargs["parameters"]
+            return {"media_id": 4242}
+
+        async def fake_pipeline(db, prompt, prompt_options, tool_id, task_type, input_media_id,
+                                parameters=None, profile_id=None):
+            seen["prompt_options"] = prompt_options
+            seen["profile_id"] = profile_id
+            return prompt + " [ENHANCED]"
+
+        monkeypatch.setattr(call_tool_mod, "execute_call_tool", fake_execute_call_tool)
+        monkeypatch.setattr(executor_mod, "_apply_prompt_pipeline", fake_pipeline)
+
+        step = {
+            "kind": "tool",
+            "tool_id": "test:i2i",
+            "task_type": "image-to-image",
+            "settings": {"prompt": "make it moody"},
+            "promptOptions": {"autoImprove": {"enabled": True, "instructions": ""}},
+        }
+        media_id = await executor_mod._run_tool_step(
+            SimpleNamespace(async_session_maker=generation_db_session),
+            step,
+            input_media_id=1,
+            project_id=None,
+            all_steps=[step],
+            profile_id="default",
+        )
+        assert media_id == 4242
+        assert seen["parameters"]["prompt"] == "make it moody [ENHANCED]"
+        assert seen["prompt_options"] == step["promptOptions"]
+        assert seen["profile_id"] == "default"
+        # promptOptions must never leak into the STP parameters.
+        assert "promptOptions" not in seen["parameters"]
+
+    async def test_pipeline_runs_even_without_prompt_options(self, generation_app, generation_db_session, monkeypatch):
+        # Final processing (wildcards/comments/verbatim) applies to EVERY
+        # chain-step prompt, exactly like an interactive submit.
+        import agent.v2.tools.call_tool as call_tool_mod
+        import postprocessing.executor as executor_mod
+
+        seen = {}
+
+        async def fake_execute_call_tool(**kwargs):
+            seen["parameters"] = kwargs["parameters"]
+            return {"media_id": 4243}
+
+        monkeypatch.setattr(call_tool_mod, "execute_call_tool", fake_execute_call_tool)
+
+        step = {
+            "kind": "tool",
+            "tool_id": "test:i2i",
+            "task_type": "image-to-image",
+            "settings": {"prompt": "# note to self\na [red] {dog|dog}"},
+        }
+        media_id = await executor_mod._run_tool_step(
+            SimpleNamespace(async_session_maker=generation_db_session),
+            step,
+            input_media_id=1,
+            project_id=None,
+            all_steps=[step],
+            profile_id="default",
+        )
+        assert media_id == 4243
+        assert seen["parameters"]["prompt"] == "a red dog"
