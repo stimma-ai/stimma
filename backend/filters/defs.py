@@ -225,6 +225,16 @@ CHAIN_FILTER_DEFS: List[Dict[str, Any]] = [
         "label": "Resize",
         "params": [{"name": "long_edge", "label": "Long Edge (px)", "type": "integer", "default": 2048, "min": 64, "max": 8192, "step": 64}],
     },
+    {
+        "id": "reverse",
+        "description": "Play the clip backwards",
+        "label": "Reverse",
+        # A temporal, whole-clip operation — there's no single-frame notion of
+        # "reversed", so unlike every other filter here this doesn't apply to
+        # stills. See filters/video_ops.py's WHOLE_CLIP_VIDEO_FILTERS.
+        "accepts": ["video"],
+        "params": [],
+    },
 ]
 
 

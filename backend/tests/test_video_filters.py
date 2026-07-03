@@ -1,9 +1,12 @@
 """Built-in chain filters applied to video (filters/video_ops.py).
 
-Filters are media-agnostic: the same per-frame PIL math runs on every decoded
-frame and the clip is re-encoded. These tests synthesize a tiny clip with
-ffmpeg, run a few representative filters, and assert the output is a valid video
-with the expected geometry. Skipped when ffmpeg/ffprobe aren't installed.
+Most filters are media-agnostic: the same per-frame PIL math runs on every
+decoded frame and the clip is re-encoded (apply_builtin_filter_video). Reverse
+is the exception — a whole-clip temporal op with no per-frame handler, applied
+via apply_reverse_video instead (see WHOLE_CLIP_VIDEO_FILTERS). These tests
+synthesize a tiny clip with ffmpeg, run a few representative filters, and
+assert the output is a valid video with the expected geometry. Skipped when
+ffmpeg/ffprobe aren't installed.
 """
 
 import shutil
@@ -11,7 +14,7 @@ import subprocess
 
 import pytest
 
-from filters.video_ops import apply_builtin_filter_video
+from filters.video_ops import apply_builtin_filter_video, apply_reverse_video
 
 requires_ffmpeg = pytest.mark.skipif(
     shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
@@ -27,6 +30,35 @@ def _make_clip(path, size="64x48", rate=10, duration=1, audio=False) -> str:
     cmd += [str(path)]
     subprocess.run(cmd, check=True, capture_output=True)
     return str(path)
+
+
+def _make_fade_clip(path, size="64x48", rate=10, duration=1) -> str:
+    """A clip that fades black -> white over its duration — a deterministic,
+    monotonic brightness ramp so reversal is checkable without decoding
+    against exact source bytes (the encoder is lossy). fade=in on a white
+    source ramps from black up to white; on a black source it would stay
+    black throughout, since "fade in" means "from black to the source".
+    """
+    cmd = ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",
+           f"color=c=white:s={size}:d={duration}:r={rate},fade=t=in:st=0:d={duration}",
+           str(path)]
+    subprocess.run(cmd, check=True, capture_output=True)
+    return str(path)
+
+
+def _decode_frames(path, w, h):
+    proc = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(path), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        check=True, capture_output=True,
+    )
+    frame_bytes = w * h * 3
+    raw = proc.stdout
+    n = len(raw) // frame_bytes
+    return [raw[i * frame_bytes:(i + 1) * frame_bytes] for i in range(n)]
+
+
+def _mean(frame: bytes) -> float:
+    return sum(frame) / len(frame)
 
 
 def _probe_dims(path):
@@ -104,3 +136,38 @@ def test_odd_dimensions_are_evened(tmp_path):
     w, h, _ = _probe_dims(out)
     assert w % 2 == 0 and h % 2 == 0
     assert (w, h) == (64, 48)
+
+
+# --- reverse: a whole-clip op, not a per-frame one (see WHOLE_CLIP_VIDEO_FILTERS) ---
+
+@requires_ffmpeg
+def test_reverse_flips_frame_order(tmp_path):
+    src = _make_fade_clip(tmp_path / "in.mp4", size="64x48", rate=10, duration=1)
+    out = apply_reverse_video(str(src), str(tmp_path / "out.mp4"))
+
+    w, h, in_frame_count = _probe_dims(src)
+    _, _, out_frame_count = _probe_dims(out)
+    assert out_frame_count == in_frame_count
+
+    in_means = [_mean(f) for f in _decode_frames(src, w, h)]
+    out_means = [_mean(f) for f in _decode_frames(out, w, h)]
+    # Source ramps dark -> bright; reversed should ramp bright -> dark.
+    assert out_means[0] == pytest.approx(in_means[-1], abs=8)
+    assert out_means[-1] == pytest.approx(in_means[0], abs=8)
+    assert out_means[0] > out_means[-1]
+
+
+@requires_ffmpeg
+def test_reverse_reverses_audio(tmp_path):
+    src = _make_clip(tmp_path / "in.mp4", audio=True)
+    assert _has_audio(src)
+    out = apply_reverse_video(str(src), str(tmp_path / "out.mp4"))
+    assert _has_audio(out)
+
+
+@requires_ffmpeg
+def test_reverse_handles_clip_with_no_audio(tmp_path):
+    src = _make_clip(tmp_path / "in.mp4", audio=False)
+    assert not _has_audio(src)
+    out = apply_reverse_video(str(src), str(tmp_path / "out.mp4"))
+    assert not _has_audio(out)

@@ -156,6 +156,9 @@
         </div>
       </div>
     </template>
+    <div v-if="!filterParams.length" class="text-xs text-content-muted py-1">
+      This filter has no tunable settings.
+    </div>
   </div>
 </template>
 

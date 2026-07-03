@@ -191,7 +191,7 @@
             </div>
 
             <!-- Frame picker: choose which frame of the source video to use as the still.
-                 Shown for any video-grabbed item (independent of allowPrep). -->
+                 Shown for any video-grabbed item. -->
             <template v-if="accept === 'image' && !item.isSet && item._videoSource">
               <div class="w-full">
                 <div
@@ -273,8 +273,10 @@
               </div>
             </template>
 
-            <!-- Per-image prep controls: Flip/Rotate / Scale / Extend Canvas / Preprocess / Paint -->
-            <template v-if="accept === 'image' && !item.isSet && allowPrep">
+            <!-- Per-image prep controls: Flip/Rotate / Scale / Extend Canvas / Preprocess / Paint.
+                 Always offered — prep is baked client-side before submit, so it works
+                 regardless of whether the tool declares x-allow-prep. -->
+            <template v-if="accept === 'image' && !item.isSet">
               <!-- Flip / Rotate row -->
               <div class="w-full">
                 <div
@@ -866,7 +868,6 @@ interface Props {
   description?: string
   allowSets?: boolean  // Allow sets to be dropped (for batch processing)
   controlnetOptions?: string[]  // e.g. ["canny", "depth", "lineart", "pose"]
-  allowPrep?: boolean  // Show Scale / Extend Canvas / Paint controls (driven by schema x-allow-prep)
   // Named slots: when provided, each tile is a role (e.g. ['Start Frame', 'End
   // Frame']) rather than an anonymous ordered item. Drives the per-tile badge,
   // the empty add-tile label, and the "use same for both" loop shortcut. Items
@@ -899,7 +900,6 @@ const props = withDefaults(defineProps<Props>(), {
   description: '',
   allowSets: true,
   controlnetOptions: () => [],
-  allowPrep: false,
   slotLabels: () => [],
   disabled: false,
   batchMode: false,

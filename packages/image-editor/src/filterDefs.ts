@@ -175,6 +175,15 @@ export const CHAIN_FILTER_DEFS: ChainFilterDef[] = [
       { name: 'long_edge', label: 'Long Edge (px)', type: 'integer', default: 2048, min: 64, max: 8192, step: 64 },
     ],
   },
+  {
+    id: 'reverse',
+    label: 'Reverse',
+    description: 'Play the clip backwards',
+    // A temporal, whole-clip operation — there's no single-frame notion of
+    // "reversed", so unlike every other filter here this doesn't apply to stills.
+    accepts: ['video'],
+    params: [],
+  },
 ];
 
 export function getChainFilterDef(filterId: string): ChainFilterDef | undefined {

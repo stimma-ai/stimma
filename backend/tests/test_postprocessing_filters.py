@@ -124,8 +124,23 @@ def test_chain_filter_defs_match_editor():
 
 
 def test_every_def_has_a_handler():
+    """Every filter def maps to either a per-frame PIL handler (FILTER_HANDLERS,
+    applied identically to stills and video frames) or, for a filter that only
+    makes sense on a whole clip (e.g. reverse — there's no single-frame notion
+    of "reversed"), a whole-clip handler in video_ops.WHOLE_CLIP_VIDEO_FILTERS.
+    The latter must also declare video-only accepts, since it can't run on a
+    still."""
+    from filters.video_ops import WHOLE_CLIP_VIDEO_FILTERS
+
     for d in CHAIN_FILTER_DEFS:
-        assert d["id"] in bf.FILTER_HANDLERS
+        has_frame_handler = d["id"] in bf.FILTER_HANDLERS
+        has_whole_clip_handler = d["id"] in WHOLE_CLIP_VIDEO_FILTERS
+        assert has_frame_handler or has_whole_clip_handler, f"{d['id']} has no handler at all"
+        if has_whole_clip_handler and not has_frame_handler:
+            assert d.get("accepts") == ["video"], (
+                f"{d['id']} has no per-frame handler so it can't run on a still — "
+                "it must declare accepts: ['video']"
+            )
 
 
 async def test_filters_register_as_builtin_tools_with_valid_schemas():
@@ -299,6 +314,13 @@ def test_motion_blur_smears_along_direction():
 def test_unknown_filter_id_raises():
     with pytest.raises(ValueError):
         bf.apply_builtin_filter("nope", _gradient_image(), {})
+
+
+def test_reverse_has_no_per_frame_handler():
+    """reverse is a whole-clip filter (filters.video_ops.WHOLE_CLIP_VIDEO_FILTERS),
+    not a per-frame one — it has no FILTER_HANDLERS entry and can't run on a still."""
+    with pytest.raises(ValueError):
+        bf.apply_builtin_filter("reverse", _gradient_image(), {})
 
 
 def test_invalid_aspect_raises():

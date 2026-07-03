@@ -298,10 +298,11 @@ class LightweightProvider(ToolProvider):
         filter_id: str,
         parameters: Dict[str, Any],
     ) -> ExecutionResult:
-        """Apply one built-in filter to the input image."""
+        """Apply one built-in filter to the input image or video."""
         import tempfile
         import time
 
+        from filters.defs import get_filter_def
         from filters.ops import apply_builtin_filter
 
         from utils.query_builder import VIDEO_FORMATS
@@ -320,6 +321,14 @@ class LightweightProvider(ToolProvider):
         started = time.perf_counter()
         is_video = Path(str(image_path)).suffix.lstrip(".").lower() in VIDEO_FORMATS
 
+        # Most filters accept both stills and video; a few (e.g. reverse) only
+        # make sense on video — don't silently misapply them to a still.
+        accepts = (get_filter_def(filter_id) or {}).get("accepts") or ["image", "video"]
+        if not is_video and "image" not in accepts:
+            return ExecutionResult(success=False, error=f"Filter '{filter_id}' does not support image input")
+        if is_video and "video" not in accepts:
+            return ExecutionResult(success=False, error=f"Filter '{filter_id}' does not support video input")
+
         def _apply_image() -> str:
             from utils.image_ops import open_oriented
             with open_oriented(image_path) as img:
@@ -333,12 +342,16 @@ class LightweightProvider(ToolProvider):
         def _apply_video() -> str:
             import os
 
-            from filters.video_ops import apply_builtin_filter_video
+            from filters.video_ops import WHOLE_CLIP_VIDEO_FILTERS, apply_builtin_filter_video
             fd, tmp_path = tempfile.mkstemp(suffix=".mp4", prefix=f"filter_{filter_id}_")
             os.close(fd)
-            # Per-frame application reuses apply_builtin_filter, which overlays
-            # the filter def defaults — so pass the raw settings through.
-            apply_builtin_filter_video(filter_id, str(image_path), tmp_path, settings)
+            whole_clip = WHOLE_CLIP_VIDEO_FILTERS.get(filter_id)
+            if whole_clip is not None:
+                whole_clip(str(image_path), tmp_path)
+            else:
+                # Per-frame application reuses apply_builtin_filter, which overlays
+                # the filter def defaults — so pass the raw settings through.
+                apply_builtin_filter_video(filter_id, str(image_path), tmp_path, settings)
             return tmp_path
 
         tmp_path = await asyncio.to_thread(_apply_video if is_video else _apply_image)

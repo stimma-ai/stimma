@@ -167,8 +167,9 @@ const candidateTools = computed(() => {
   })
 })
 
-// Offer a filter when some chain stage carries a media type it accepts (today's
-// filters accept both, so they're offered whenever the chain has any stage).
+// Offer a filter when some chain stage carries a media type it accepts (most
+// filters accept both, so they're offered whenever the chain has any stage;
+// a video-only filter like reverse only shows up once a stage is video).
 const candidateFilters = computed<ChainFilterDef[]>(() =>
   CHAIN_FILTER_DEFS.filter(f =>
     [...stageTypes.value].some(t => stepAcceptedMedia({ kind: 'filter', filter_id: f.id }).includes(t))

@@ -188,3 +188,39 @@ def apply_builtin_filter_video(
                     proc.kill()
                 except Exception:
                     pass
+
+
+def apply_reverse_video(input_path: str, output_path: str) -> str:
+    """Reverse a video's frames (and its audio track, if present) end-to-end.
+
+    Every filter above is per-frame: it reads one frame, transforms it, writes
+    it, and never needs to see another frame. Reverse can't work that way —
+    the first output frame is the *last* input frame, so nothing can be
+    emitted until the whole clip has been read. That rules out the streaming
+    pipeline in ``apply_builtin_filter_video``, so this shells out to ffmpeg's
+    own ``reverse``/``areverse`` filters, which buffer the full clip
+    internally. Returns ``output_path``.
+    """
+    _ensure_ffmpeg()
+    has_audio = _probe(input_path)["has_audio"]
+
+    cmd = ["ffmpeg", "-v", "error", "-y", "-i", input_path, "-vf", "reverse"]
+    cmd += ["-af", "areverse"] if has_audio else ["-an"]
+    cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", output_path]
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"ffmpeg failed to reverse video: {result.stderr.strip()}")
+
+    log.info(f"[filter:video] reverse: {input_path} -> {output_path}")
+    return output_path
+
+
+# Filters that operate on the whole clip at once rather than frame-by-frame —
+# apply_builtin_filter_video's per-frame pipeline can't express them, so each
+# gets its own whole-clip function here instead of an entry in
+# filters.ops.FILTER_HANDLERS. Every def with no per-frame handler must have
+# one here (asserted in tests/test_postprocessing_filters.py).
+WHOLE_CLIP_VIDEO_FILTERS: Dict[str, Callable[[str, str], str]] = {
+    "reverse": apply_reverse_video,
+}

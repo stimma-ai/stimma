@@ -252,6 +252,31 @@ class TestChainExecutorFilters:
         meta = json.loads(final.generation_metadata)
         assert meta["parameters"]["post_processing_chain"] == [steps[1]]
 
+    async def test_video_only_filter_is_skipped_on_image_chain(self, generation_app, generation_db_session, mock_ws, tmp_path):
+        """reverse (accepts=['video']) is the first filter with a narrowed
+        accepts set — assert it hits the same skip path as an incompatible
+        tool step (test_incompatible_step_is_skipped_not_failed above), not a
+        crash, when the chain's running media type is a still image."""
+        base = await _make_base_media(generation_db_session, tmp_path, "chain_reverse_skip.png")
+
+        steps = [
+            {"kind": "filter", "filter_id": "reverse", "settings": {}},
+            {"kind": "filter", "filter_id": "resize", "settings": {"long_edge": 32}},
+        ]
+        run_id = await start_chain_for_job(
+            job=_fake_job(job_id=99003),
+            base_media_id=base.id,
+            chain_steps=steps,
+            profile_id="default",
+            websocket_manager=mock_ws,
+        )
+        run = await _wait_for_run(generation_db_session, run_id)
+        assert run.status == "completed"
+        step_results = json.loads(run.step_results)
+        assert step_results[0]["status"] == "skipped_incompatible"
+        assert step_results[1]["status"] == "done"
+        assert run.final_media_id == step_results[1]["media_id"]
+
     async def test_failure_pauses_and_keeps_last_good(self, generation_app, generation_db_session, mock_ws, tmp_path):
         base = await _make_base_media(generation_db_session, tmp_path, "chain_fail.png")
 

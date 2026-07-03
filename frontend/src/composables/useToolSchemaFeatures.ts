@@ -21,14 +21,22 @@ const SPECIAL_PARAM_NAMES = new Set([
 ])
 
 export interface MediaInputConfig {
+  // Media type this slot's picker should show/accept — what the user drops or
+  // browses for. Usually matches paramKey's media type, EXCEPT a video-only
+  // filter (e.g. reverse) still uses the input_images schema slot/param, just
+  // narrowed to video via x-accept-media.
   accept: 'image' | 'video' | 'audio'
+  // Which parameter_schema property (and matching globalPrefs.inputImages /
+  // inputVideos array) this slot reads/writes — the payload builder
+  // (useJobPayloadBuilder.ts) is keyed strictly by this name, not by `accept`.
+  // Unset for the audio slot, which has no such ambiguity (always inputAudios).
+  paramKey?: 'input_images' | 'input_videos'
   min: number
   max: number
   reorderable: boolean
   label: string
   description?: string
   control?: string  // x-control value: 'image_picker' | 'video_frame_picker' | 'audio_picker'
-  allowPrep: boolean  // x-allow-prep: show Scale / Extend Canvas / Paint controls. Implicit true if x-controlnet present.
 }
 
 export interface GenericParam {
@@ -322,16 +330,24 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
         return null
       }
       const max = schema?.['x-max-items'] || schema?.maxItems || 3
-      const hasControlnetHint = Array.isArray(schema?.['x-controlnet']) && schema['x-controlnet'].length > 0
+      // Normally an image slot (with the usual video → frame-grab bridge), but
+      // a tool can narrow it to video-only via x-accept-media — e.g. a
+      // temporal filter like reverse that only makes sense on a whole clip,
+      // never a still. Mirrors the backend's schema (filters/schemas.py).
+      const declaredAccept: string[] | null = Array.isArray(schema?.['x-accept-media']) ? schema['x-accept-media'] : null
+      const accept: 'image' | 'video' = declaredAccept && !declaredAccept.includes('image') && declaredAccept.includes('video')
+        ? 'video'
+        : 'image'
+      const defaultLabel = accept === 'video' ? 'Input Video' : (max > 1 ? 'Reference Images' : 'Input Image')
       return {
-        accept: 'image',
+        accept,
+        paramKey: 'input_images',
         min: schema?.['x-min-items'] ?? schema?.minItems ?? 1,
         max,
-        reorderable: max > 1,
-        label: schema?.['x-label'] || (max > 1 ? 'Reference Images' : 'Input Image'),
+        reorderable: accept === 'image' && max > 1,
+        label: schema?.['x-label'] || defaultLabel,
         description: schema?.description,
         control,
-        allowPrep: schema?.['x-allow-prep'] === true || hasControlnetHint,
       }
     }
 
@@ -341,13 +357,13 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
       const control = schema?.['x-control']
       return {
         accept: 'video',
+        paramKey: 'input_videos',
         min: schema?.['x-min-items'] ?? schema?.minItems ?? 2,
         max: schema?.['x-max-items'] || schema?.maxItems || 999,
         reorderable: true,
         label: schema?.['x-label'] || 'Input Videos',
         description: schema?.description,
         control,
-        allowPrep: false,
       }
     }
 
@@ -370,7 +386,6 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
       label: schema?.['x-label'] || 'Audio',
       description: schema?.description,
       control: schema?.['x-control'],
-      allowPrep: false,
     }
   })
 

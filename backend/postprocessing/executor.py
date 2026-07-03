@@ -355,8 +355,9 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
             # Media-type transition validation: an incompatible step is
             # skipped and flagged, not a hard failure (§3.4). A step (tool or
             # filter) is compatible iff it accepts the type currently flowing.
-            # Today's filters accept both, so they never trip this — but the
-            # check is uniform, not a filter special case.
+            # Most filters accept both, so this never trips for them — a
+            # video-only filter (e.g. reverse) on an image-only chain does.
+            # The check is uniform, not a filter special case.
             if current_type not in _step_accepts(step):
                 needs = "/".join(sorted(_step_accepts(step)))
                 log.warning(

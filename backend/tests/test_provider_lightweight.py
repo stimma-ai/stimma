@@ -266,3 +266,61 @@ class TestSingleton:
         a = get_lightweight_provider()
         b = get_lightweight_provider()
         assert a is b
+
+
+# ---------------------------------------------------------------------------
+# Filter media-type gating — reverse is video-only (see filters/defs.py
+# CHAIN_FILTER_DEFS "accepts"), unlike every other built-in filter.
+# ---------------------------------------------------------------------------
+
+
+def _create_test_video(tmp_path, duration=1) -> str:
+    import shutil
+    import subprocess
+
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg not installed")
+    path = tmp_path / "test_input.mp4"
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-f", "lavfi",
+         "-i", f"testsrc=size=32x32:rate=10:duration={duration}", str(path)],
+        check=True, capture_output=True,
+    )
+    return str(path)
+
+
+class TestFilterMediaTypeValidation:
+    async def test_reverse_rejects_image_input(self, provider, tmp_path):
+        await provider.connect()
+        image_path = _create_test_image(tmp_path)
+
+        results = []
+        async for item in provider.execute("reverse", {"input_images": [image_path]}):
+            results.append(item)
+
+        final = results[-1]
+        assert final.success is False
+        assert "does not support image input" in final.error
+
+    async def test_reverse_accepts_video_input(self, provider, tmp_path):
+        await provider.connect()
+        video_path = _create_test_video(tmp_path)
+
+        results = []
+        async for item in provider.execute("reverse", {"input_images": [video_path]}):
+            results.append(item)
+
+        final = results[-1]
+        assert final.success is True
+
+    async def test_blur_still_accepts_image_input(self, provider, tmp_path):
+        """Regression: gating a video-only filter must not affect a dual-media one."""
+        await provider.connect()
+        image_path = _create_test_image(tmp_path)
+
+        results = []
+        async for item in provider.execute("blur", {"input_images": [image_path], "amount": 20}):
+            results.append(item)
+
+        final = results[-1]
+        assert final.success is True

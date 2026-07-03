@@ -390,7 +390,6 @@
           :label="mediaInputConfig.label"
           :description="mediaInputConfig.description"
           :controlnet-options="controlnetOptions"
-          :allow-prep="mediaInputConfig.allowPrep"
           :batch-mode="globalPrefs.batchMode"
           :frame-mode-key="fullToolIdFromProps"
           @view-media="openSingleImageSlideshow"
@@ -412,7 +411,6 @@
           :reorderable="audioInputConfig.reorderable"
           :label="audioInputConfig.label"
           :description="audioInputConfig.description"
-          :allow-prep="false"
         />
 
         <!-- Inpaint: Combined source image + Mask editor -->
@@ -451,7 +449,6 @@
           :slot-labels="hasEndFrame ? ['Start Frame', 'End Frame'] : ['Start Frame']"
           :frame-grab-defaults="hasEndFrame ? ['last', 'first'] : ['last']"
           :frame-mode-key="fullToolIdFromProps"
-          :allow-prep="true"
           :allow-sets="false"
           :controlnet-options="controlnetOptions"
           :disabled="frameConstraintState.disabled"
@@ -1399,10 +1396,13 @@ function findNearestAspectRatio(width: number, height: number): string {
   return nearestAR
 }
 
-// Computed getter for media input items based on accept type
+// Computed getter for media input items — keyed by which parameter_schema
+// property (and matching globalPrefs array) this slot is, NOT by accept type:
+// a video-only filter still uses the input_images slot/param, just narrowed
+// to video via x-accept-media (see MediaInputConfig.paramKey).
 const mediaInputItems = computed(() => {
   if (!mediaInputConfig.value) return []
-  return mediaInputConfig.value.accept === 'image'
+  return mediaInputConfig.value.paramKey === 'input_images'
     ? globalPrefs.value.inputImages
     : globalPrefs.value.inputVideos
 })
@@ -1410,7 +1410,7 @@ const mediaInputItems = computed(() => {
 // Update handler for media input items
 function updateMediaInputItems(items: any[]) {
   if (!mediaInputConfig.value) return
-  if (mediaInputConfig.value.accept === 'image') {
+  if (mediaInputConfig.value.paramKey === 'input_images') {
     globalPrefs.value.inputImages = items
   } else {
     globalPrefs.value.inputVideos = items
@@ -3185,8 +3185,10 @@ function loadPendingInput() {
       return
     }
 
-    // Apply input based on what the tool's parameter_schema expects
-    if (mediaInputConfig.value?.accept === 'image' && config.inputImages?.length > 0) {
+    // Apply input based on what the tool's parameter_schema expects (keyed by
+    // paramKey — the schema property/globalPrefs array — not accept type; a
+    // video-only filter still restores into inputImages via input_images).
+    if (mediaInputConfig.value?.paramKey === 'input_images' && config.inputImages?.length > 0) {
       const newImages = config.inputImages.map((img: any) => ({
         path: img.path,
         filename: img.filename || img.hash,

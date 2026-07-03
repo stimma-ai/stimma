@@ -169,7 +169,8 @@ export const TASK_INPUT_MEDIA: Record<string, Array<'image' | 'video' | 'audio'>
   'image-to-video': ['image'],
   'upscale-image': ['image'],
   'remove-background': ['image'],
-  // Built-in filters apply to stills and (per-frame) video alike.
+  // Built-in filters mostly apply to stills and (per-frame) video alike; a
+  // few (e.g. reverse) are video-only via their own x-accept-media override.
   'filter': ['image', 'video'],
   'upscale-video': ['video'],
   'video-stitch': ['video'],
