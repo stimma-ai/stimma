@@ -316,8 +316,11 @@ def _estimate_tokens(messages: List[Dict[str, Any]]) -> Dict[str, int]:
                     if block.get("type") == "text":
                         text_tokens += len(block.get("text", "")) // 4
                     elif block.get("type") == "image_url":
-                        # Vision tokens: ~85 low detail, ~765 high detail
-                        images += 170  # conservative average
+                        # Vision tokens vary by model family and detail level;
+                        # Qwen-VL-style patch encoders run ~1300 tokens for a
+                        # 1024px image. Underestimating here overflows small
+                        # context windows, so budget high.
+                        images += 900
         elif content is None:
             # Assistant message with tool_calls
             tool_calls = msg.get("tool_calls", [])

@@ -123,12 +123,14 @@ def _get_default_folder(workspace_dir: Optional[str] = None) -> str:
 
 
 # Consecutive-failure streaks per (workspace, tool). LLMs will otherwise
-# retry a hard-failing tool indefinitely; escalating the error text is the
-# reliable (code-level) way to break the loop. Bounded, in-memory, and reset
-# on any success for that tool.
+# retry a hard-failing tool indefinitely; escalating error text alone proved
+# insufficient (models retried through explicit "STOP retrying" guidance), so
+# past the hard cap we refuse to submit at all — instant, costless, and
+# unambiguous. Streaks reset on any success for that tool.
 _failure_streaks: Dict[tuple, int] = {}
 _FAILURE_STREAK_WARN = 2
 _FAILURE_STREAK_MAX = 4
+_FAILURE_STREAK_BLOCK = 5
 
 
 def _with_retry_guidance(workspace_dir: Optional[str], tool_id: str, error_msg: str) -> str:
@@ -155,6 +157,17 @@ def _with_retry_guidance(workspace_dir: Optional[str], tool_id: str, error_msg: 
 
 def _clear_failure_streak(workspace_dir: Optional[str], tool_id: str) -> None:
     _failure_streaks.pop((str(workspace_dir), tool_id), None)
+
+
+def _check_failure_block(workspace_dir: Optional[str], tool_id: str) -> None:
+    """Refuse execution outright once a tool has hard-failed repeatedly."""
+    streak = _failure_streaks.get((str(workspace_dir), tool_id), 0)
+    if streak >= _FAILURE_STREAK_BLOCK:
+        raise RuntimeError(
+            f"Refusing to run '{tool_id}': it has failed {streak} times in a row and further "
+            "retries are blocked. Report the failure to the user (what you tried and the error "
+            "that came back). Do not call this tool again unless the user asks you to."
+        )
 
 
 async def execute_call_tool(
@@ -415,6 +428,8 @@ async def execute_call_tool(
         val = final_params.get(meta_key)
         if val is not None:
             job_params[meta_key] = val
+
+    _check_failure_block(kwargs.get("workspace_dir"), tool_id)
 
     queue = get_generation_queue()
     job_id = await queue.submit_job(
