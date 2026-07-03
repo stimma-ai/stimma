@@ -458,10 +458,17 @@ class TestToolProvider(ToolProvider):
              {**_images}, ["input_images"]),
             ("outpaint-image:test-outpaint", "Test Outpaint", "outpaint-image",
              {**_images, **_prompt, **_neg, **_seed,
-              "expand_left": {"type": "integer", "default": 0, "minimum": 0},
-              "expand_right": {"type": "integer", "default": 0, "minimum": 0},
-              "expand_top": {"type": "integer", "default": 0, "minimum": 0},
-              "expand_bottom": {"type": "integer", "default": 0, "minimum": 0}},
+              "expand_left": {"type": "integer", "default": 0, "minimum": 0,
+                              "description": "Pixels of new canvas to add on the left edge."},
+              "expand_right": {"type": "integer", "default": 0, "minimum": 0,
+                               "description": "Pixels of new canvas to add on the right edge."},
+              "expand_top": {"type": "integer", "default": 0, "minimum": 0,
+                             "description": "Pixels of new canvas to add on the top edge."},
+              "expand_bottom": {"type": "integer", "default": 0, "minimum": 0,
+                                "description": "Pixels of new canvas to add on the bottom edge. "
+                                               "Output size is input size plus the expands — for a target "
+                                               "aspect ratio, compute the padding from the input dimensions "
+                                               "(e.g. 1024x1024 -> 16:9 needs 1024*16/9-1024 = 796 total horizontal)."}},
              ["input_images"]),
             ("filter:test-filter", "Test Filter", "filter",
              {**_images, "intensity": {"type": "number", "default": 1.0, "minimum": 0.0, "maximum": 2.0}},

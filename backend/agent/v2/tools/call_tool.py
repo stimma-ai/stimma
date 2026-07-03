@@ -122,6 +122,41 @@ def _get_default_folder(workspace_dir: Optional[str] = None) -> str:
         return "./output"
 
 
+# Consecutive-failure streaks per (workspace, tool). LLMs will otherwise
+# retry a hard-failing tool indefinitely; escalating the error text is the
+# reliable (code-level) way to break the loop. Bounded, in-memory, and reset
+# on any success for that tool.
+_failure_streaks: Dict[tuple, int] = {}
+_FAILURE_STREAK_WARN = 2
+_FAILURE_STREAK_MAX = 4
+
+
+def _with_retry_guidance(workspace_dir: Optional[str], tool_id: str, error_msg: str) -> str:
+    key = (str(workspace_dir), tool_id)
+    streak = _failure_streaks.get(key, 0) + 1
+    _failure_streaks[key] = streak
+    if len(_failure_streaks) > 4096:
+        _failure_streaks.clear()
+    if streak >= _FAILURE_STREAK_MAX:
+        return (
+            f"{error_msg}\n\nThis tool has now failed {streak} times in a row. "
+            "STOP retrying it — the failure is not transient. Report the failure to the user "
+            "plainly (what you tried, what error came back) and, only if one exists, offer a "
+            "genuinely different tool or approach."
+        )
+    if streak >= _FAILURE_STREAK_WARN:
+        return (
+            f"{error_msg}\n\nThis tool has failed {streak} times in a row. "
+            "At most one more retry is reasonable; if that fails too, stop and report the "
+            "failure to the user instead of retrying again."
+        )
+    return error_msg
+
+
+def _clear_failure_streak(workspace_dir: Optional[str], tool_id: str) -> None:
+    _failure_streaks.pop((str(workspace_dir), tool_id), None)
+
+
 async def execute_call_tool(
     tool_id: str,
     parameters: Optional[Dict[str, Any]] = None,
@@ -417,7 +452,7 @@ async def execute_call_tool(
     # 8. Handle failure
     if errors and not media_ids and cancelled_count == 0:
         error_msg = "; ".join(errors)
-        raise RuntimeError(error_msg)
+        raise RuntimeError(_with_retry_guidance(kwargs.get("workspace_dir"), tool_id, error_msg))
 
     if cancelled_count > 0 and not media_ids:
         raise RuntimeError("Generation cancelled by user")
@@ -425,6 +460,7 @@ async def execute_call_tool(
     if not media_ids:
         raise RuntimeError("Generation completed without media output")
 
+    _clear_failure_streak(kwargs.get("workspace_dir"), tool_id)
     media_id = media_ids[0]
 
     # 9. Copy output to workspace so the agent can reference/manipulate it
