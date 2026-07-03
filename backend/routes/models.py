@@ -114,7 +114,11 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
             "slug": "local",
             "source": "endpoint",
             "name": "Local Endpoint",
+            # Kept for tooltips and non-picker consumers; the picker renders
+            # endpoint_url/endpoint_model as separate truncated lines.
             "description": f"{agent_config.endpoint.url} ({agent_model})",
+            "endpoint_url": agent_config.endpoint.url,
+            "endpoint_model": agent_model,
             "available": True,
             "status": "available",
             "max_context_tokens": local_max_context_tokens,

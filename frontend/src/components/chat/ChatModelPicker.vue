@@ -104,7 +104,6 @@
               <div class="flex-1 min-w-0">
                 <div class="text-sm text-content">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
                 <div v-if="model.description" class="text-[11px] leading-snug text-content-muted whitespace-normal break-words">{{ model.description }}</div>
-                <div v-if="model.based_on" class="text-[10px] leading-snug text-content-muted/70 whitespace-normal break-words">Based on {{ model.based_on }}</div>
               </div>
               <svg v-if="isSelectedModel(model)" class="w-4 h-4 text-cyan-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
@@ -128,7 +127,11 @@
             >
               <div class="flex-1 min-w-0">
                 <div class="text-sm text-content">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
-                <div v-if="model.description" class="text-[11px] leading-snug text-content-muted whitespace-normal break-words">{{ model.description }}</div>
+                <template v-if="model.endpoint_url">
+                  <div class="text-[11px] leading-snug font-mono text-content-muted truncate" :title="model.endpoint_url">{{ model.endpoint_url }}</div>
+                  <div class="text-[11px] leading-snug font-mono text-content-muted/70 truncate" :title="model.endpoint_model">{{ model.endpoint_model }}</div>
+                </template>
+                <div v-else-if="model.description" class="text-[11px] leading-snug text-content-muted whitespace-normal break-words">{{ model.description }}</div>
               </div>
               <svg v-if="isSelectedModel(model)" class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
