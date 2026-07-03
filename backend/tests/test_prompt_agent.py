@@ -115,3 +115,27 @@ async def test_agent_step_returns_text_reply():
         ))
     assert result.tool_calls == []
     assert "dramatic" in result.message
+
+
+def test_tool_schemas_match_frontend_command_surface():
+    """Every tool the prompt agent advertises must have a frontend handler.
+
+    The prompt-editor mini-agent's tool calls are executed by ToolView.vue's
+    command dispatcher (and mirrored by the eval harness's simulated screen).
+    A schema without a handler silently no-ops for users; a renamed handler
+    silently orphans the schema. Pin the contract.
+    """
+    import re
+    from pathlib import Path
+
+    from prompt_agent_tools import TOOL_SCHEMAS
+
+    vue = Path(__file__).resolve().parents[2] / "frontend" / "src" / "views" / "ToolView.vue"
+    source = vue.read_text()
+    handler_names = set(re.findall(r"case '([a-z_]+)':", source))
+
+    schema_names = {t["function"]["name"] for t in TOOL_SCHEMAS}
+    missing_handlers = schema_names - handler_names
+    assert not missing_handlers, (
+        f"prompt_agent_tools.py advertises tools with no ToolView.vue handler: {sorted(missing_handlers)}"
+    )
