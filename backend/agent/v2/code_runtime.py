@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import importlib as _importlib
 import builtins as py_builtins
 import hashlib
 import io
@@ -174,6 +175,13 @@ def _make_safe_import(
             return extra_modules[name]
         if name in ALLOWED_MODULES:
             return ALLOWED_MODULES[name]
+        # Allowed packages lazily import their own submodules (numpy pulls in
+        # numpy.core._methods on np.array, PIL loads codec plugins). Blocking
+        # those breaks basic usage of the package itself, so permit any
+        # submodule of an allowed top-level package.
+        top_level = name.split(".")[0]
+        if top_level in ALLOWED_MODULES and top_level in ("numpy", "PIL", "urllib", "aiohttp", "asyncio", "collections", "datetime", "json"):
+            return _importlib.import_module(name)
         if name == "os":
             return SimpleNamespace(path=os.path)
         # Check stimpack modules

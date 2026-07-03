@@ -68,6 +68,14 @@ _STUB_MP4_B64 = (
 _VIDEO_TASK_TYPES = {"image-to-video", "text-to-video", "upscale-video", "video-stitch", "video-extend", "lip-sync"}
 _AUDIO_TASK_TYPES = {"text-to-audio", "text-to-music", "text-to-speech"}
 
+# Standard ~1MP generation buckets (SDXL convention, both orientations).
+# Declared as x-allowed-dimensions on width so call_tool's aspect snap
+# enforces the resolution policy in code, like well-configured real tools.
+_STANDARD_DIMENSIONS = [
+    [1024, 1024], [1152, 896], [896, 1152], [1216, 832], [832, 1216],
+    [1344, 768], [768, 1344], [1536, 640], [640, 1536],
+]
+
 
 @dataclass
 class TestToolConfig:
@@ -199,8 +207,13 @@ class TestToolProvider(ToolProvider):
                 "properties": {
                     "prompt": {"type": "string"},
                     "negative_prompt": {"type": "string", "default": ""},
-                    "width": {"type": "integer", "default": 512},
-                    "height": {"type": "integer", "default": 512},
+                    "width": {
+                        "type": "integer",
+                        "default": 1024,
+                        "description": "Output width. Snapped to the nearest standard ~1MP bucket by aspect ratio.",
+                        "x-allowed-dimensions": _STANDARD_DIMENSIONS,
+                    },
+                    "height": {"type": "integer", "default": 1024},
                     "steps": {
                         "type": "integer",
                         "default": 20,
@@ -387,8 +400,13 @@ class TestToolProvider(ToolProvider):
                 "properties": {
                     "prompt": {"type": "string"},
                     "negative_prompt": {"type": "string", "default": ""},
-                    "width": {"type": "integer", "default": 768},
-                    "height": {"type": "integer", "default": 768},
+                    "width": {
+                        "type": "integer",
+                        "default": 1024,
+                        "description": "Output width. Snapped to the nearest standard ~1MP bucket by aspect ratio.",
+                        "x-allowed-dimensions": _STANDARD_DIMENSIONS,
+                    },
+                    "height": {"type": "integer", "default": 1024},
                     "steps": {
                         "type": "integer",
                         "default": 30,
@@ -686,21 +704,28 @@ class TestToolProvider(ToolProvider):
         parameters = parameters or {}
         width, height = self._resolve_output_size(config, tool_id, parameters)
 
-        # Use seed to vary the color slightly
+        # Deterministic abstract composition rather than a flat rectangle:
+        # vision-capable agents inspect their outputs, and a solid color reads
+        # as a broken generation — they then reject the tool and route around
+        # it, which is not the behavior under test.
         r, g, b = config.output_color
-        r = (r + seed) % 256
-        g = (g + seed * 2) % 256
-        b = (b + seed * 3) % 256
+        base = ((r + seed) % 256, (g + seed * 2) % 256, (b + seed * 3) % 256)
+        other = ((r + seed * 5 + 90) % 256, (g + seed * 7 + 40) % 256, (b + seed * 11 + 160) % 256)
 
-        # Create a simple colored image
-        img = Image.new("RGB", (width, height), (r, g, b))
-
-        # Add a simple pattern based on seed
-        pixels = img.load()
-        for x in range(width):
-            for y in range(height):
-                if (x + y + seed) % 10 == 0:
-                    pixels[x, y] = (255, 255, 255)
+        img = Image.new("RGB", (width, height), base)
+        draw = ImageDraw.Draw(img, "RGBA")
+        for y in range(height):
+            t = y / max(1, height - 1)
+            row = tuple(int(base[i] * (1 - t) + other[i] * t) for i in range(3))
+            draw.line([(0, y), (width, y)], fill=row)
+        rng_vals = [(seed * (i + 3) * 2654435761) % 2**32 for i in range(24)]
+        for i in range(5):
+            cx = rng_vals[i * 4] % width
+            cy = rng_vals[i * 4 + 1] % height
+            rad = max(8, (rng_vals[i * 4 + 2] % max(16, width // 3)))
+            col = ((rng_vals[i * 4 + 3] % 200) + 30, (rng_vals[i * 4 + 3] // 7 % 200) + 30,
+                   (rng_vals[i * 4 + 3] // 41 % 200) + 30, 110)
+            draw.ellipse([cx - rad, cy - rad, cx + rad, cy + rad], fill=col)
 
         self._draw_params(img, tool_id, seed, parameters)
 

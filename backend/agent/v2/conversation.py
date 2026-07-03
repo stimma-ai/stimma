@@ -184,13 +184,22 @@ def _item_to_message(item: ChatItem) -> Dict[str, Any] | None:
         return {"role": "assistant", "content": item.message_text or ""}
 
     if item.item_type == "tool_call":
-        # Reconstruct assistant message with tool_calls
+        # Reconstruct assistant message with tool_calls. Arguments must be
+        # valid JSON on replay: strict providers (Fireworks, OpenAI) validate
+        # historical tool_calls and 400 the WHOLE conversation on one
+        # malformed entry, bricking every later turn. Wrap irreparable args
+        # instead of replaying them raw.
+        args = item.tool_args or "{}"
+        try:
+            json.loads(args)
+        except (ValueError, TypeError):
+            args = json.dumps({"_malformed_arguments": str(item.tool_args)[:2000]})
         tool_call = {
             "id": item.tool_call_id or "",
             "type": "function",
             "function": {
                 "name": item.tool_name or "",
-                "arguments": item.tool_args or "{}",
+                "arguments": args,
             },
         }
         return {

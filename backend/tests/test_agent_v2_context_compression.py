@@ -79,3 +79,33 @@ async def test_only_view_image_results_older_than_the_threshold_are_compressed()
     )
     parsed = json.loads(recent_view_image.tool_result)
     assert parsed["__view_image__"] is True
+
+
+class TestToolCallArgsSanitized:
+    def test_malformed_tool_args_replaced_with_valid_json(self):
+        import json
+        from types import SimpleNamespace
+        from agent.v2.conversation import _item_to_message
+
+        item = SimpleNamespace(
+            item_type="tool_call", tool_call_id="abc", tool_name="write_file",
+            tool_args='{"file_path": "x.html", "content": "<div>',  # truncated
+            message_text=None, item_metadata=None,
+        )
+        msg = _item_to_message(item)
+        args = msg["tool_calls"][0]["function"]["arguments"]
+        parsed = json.loads(args)  # must not raise
+        assert "_malformed_arguments" in parsed
+
+    def test_valid_tool_args_pass_through(self):
+        import json
+        from types import SimpleNamespace
+        from agent.v2.conversation import _item_to_message
+
+        item = SimpleNamespace(
+            item_type="tool_call", tool_call_id="abc", tool_name="write_file",
+            tool_args='{"file_path": "x.html"}',
+            message_text=None, item_metadata=None,
+        )
+        msg = _item_to_message(item)
+        assert json.loads(msg["tool_calls"][0]["function"]["arguments"]) == {"file_path": "x.html"}
