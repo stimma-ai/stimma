@@ -1451,17 +1451,38 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
     def _ms(start: float) -> int:
         return int((time.time() - start) * 1000)
 
+    # Strict OpenAI-compatible providers (Fireworks, OpenAI) 400 on the
+    # vLLM/Qwen chat_template_kwargs flag. Try with it (to keep scratchpad out
+    # of content on template-thinking models), and on rejection retry bare and
+    # skip the flag for the rest of the profile.
+    _ctk_rejected = False
+
+    async def _completion_thinking_off(**kw):
+        nonlocal _ctk_rejected
+        if not _ctk_rejected:
+            try:
+                return await llm_completion(
+                    config,
+                    extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+                    apply_endpoint_extras=False,
+                    **kw,
+                )
+            except Exception as e:
+                msg = str(e).lower()
+                if "chat_template_kwargs" not in msg and "extra inputs" not in msg:
+                    raise
+                _ctk_rejected = True
+        return await llm_completion(config, apply_endpoint_extras=False, **kw)
+
     # --- Probe 1: thinking OFF (also the "text" capability) ---
     t0 = time.time()
     try:
-        off = await llm_completion(config,
+        off = await _completion_thinking_off(
             messages=[
                 {"role": "system", "content": "You are a helpful assistant. Reply concisely."},
                 {"role": "user", "content": "What is the capital of France? Reply in one sentence."},
             ],
             max_tokens=1024, temperature=0.1,
-            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
-            apply_endpoint_extras=False,
         )
         elapsed = _ms(t0)
         runtime = _detect_runtime(off) or runtime
@@ -1565,14 +1586,12 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
                 },
             },
         }
-        resp = await llm_completion(config,
+        resp = await _completion_thinking_off(
             messages=[
                 {"role": "system", "content": "Use the provided tools when appropriate."},
                 {"role": "user", "content": "What's the weather in Tokyo?"},
             ],
             tools=[weather_tool], max_tokens=1024, temperature=0.1,
-            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
-            apply_endpoint_extras=False,
         )
         elapsed = int((time.time() - t0) * 1000)
         if resp.tool_calls:
@@ -1602,7 +1621,7 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
         png = b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", ihdr) + _chunk(b"IDAT", zlib.compress(raw_data)) + _chunk(b"IEND", b"")
         b64 = base64.b64encode(png).decode()
 
-        resp = await llm_completion(config,
+        resp = await _completion_thinking_off(
             messages=[{
                 "role": "user",
                 "content": [
@@ -1611,8 +1630,6 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
                 ],
             }],
             max_tokens=1024, temperature=0.1,
-            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
-            apply_endpoint_extras=False,
         )
         elapsed = int((time.time() - t0) * 1000)
         if resp.content:
@@ -1637,14 +1654,12 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
         probe_tokens = min(max(configured_tokens // 2, 4096), 32_000)
         filler = ("The quick brown fox jumps over the lazy dog. " * ((probe_tokens * 4) // 46 + 1))[: probe_tokens * 4]
         try:
-            resp = await llm_completion(config,
+            resp = await _completion_thinking_off(
                 messages=[
                     {"role": "system", "content": "Reply with a single word."},
                     {"role": "user", "content": f"{filler}\n\nIgnore the text above. Reply with exactly: OK"},
                 ],
                 max_tokens=8, temperature=0.1,
-                extra_body={"chat_template_kwargs": {"enable_thinking": False}},
-                apply_endpoint_extras=False,
             )
             elapsed = int((time.time() - t0) * 1000)
             sent_tokens = resp.usage.prompt_tokens or 0
