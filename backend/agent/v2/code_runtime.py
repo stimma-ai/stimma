@@ -1378,7 +1378,13 @@ def _format_run_code_receipt(
         mid = f"media_id={r.media_id}" if r.media_id is not None else "media_id=?"
         tool = r.tool_name or "tool"
         sp = _short_prompt(r.prompt)
-        return f"  - {mid} — {tool}" + (f', prompt="{sp}"' if sp else "")
+        line = f"  - {mid} — {tool}" + (f', prompt="{sp}"' if sp else "")
+        if r.media_id is not None and r.seed is not None:
+            # The anchoring handle for follow-ups ("more like this one", "same
+            # but ..."): reuse this result's recorded settings rather than
+            # re-describing from scratch.
+            line += f"  [iterate: params_from={r.media_id}; keep seed={r.seed} for a near-miss]"
+        return line
 
     lines: list[str] = []
     if successes:
