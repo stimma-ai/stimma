@@ -115,11 +115,14 @@ file path.""",
     ),
     "library.save": SDKMethodHelp(
         name="library.save",
-        signature="await stimma.library.save(item, **metadata)",
+        signature="await stimma.library.save(item, tags=None, sources=None, inspired_by=None)",
         summary="Save workspace files or generated results to the media library.",
         details="""\
 Library save is explicit. Generated results shown with stimma.show() may be
-displayed to the user, but save when the user asks to keep a durable asset.""",
+displayed to the user, but save when the user asks to keep a durable asset.
+When saving an image you composed or edited in code (a path rather than a
+ToolResult), pass sources=[media_id, ...] for the images it was made from so
+the derivation shows up in lineage. ToolResults carry their own provenance.""",
         group="library",
         is_async=True,
     ),

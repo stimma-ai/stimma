@@ -446,7 +446,11 @@ def render_tool_stub(
             "    params_from: a library media id. Start from that image's recorded "
             "generation parameters (its settings, not its pixels) and override only what you pass."
         )
-        doc.append("    e.g. params_from=42, seed=None → same image, fresh seed.")
+        doc.append("    e.g. params_from=42, seed=None → same concept, fresh roll.")
+        doc.append(
+            "    Near-miss variation ('same but ...'): params_from=<id> and KEEP its seed, "
+            "changing only the prompt detail — identity holds, the detail shifts."
+        )
 
     lines.append('    """')
     for d in doc:

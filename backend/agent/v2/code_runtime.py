@@ -489,7 +489,11 @@ class StimmaLibraryAPI:
         item: ToolResult | str | Path,
         tags: list[str] | None = None,
         inspired_by: int | Sequence[int] | None = None,
+        sources: int | Sequence[int] | None = None,
     ) -> dict[str, Any]:
+        """Save to the library. For images composed/edited in code (a path,
+        not a ToolResult), pass sources=[media ids] so the derivation is
+        recorded — otherwise code-path edits are invisible to lineage."""
         provenance = None
         if isinstance(item, ToolResult):
             provenance = {
@@ -507,6 +511,18 @@ class StimmaLibraryAPI:
             path = item.path
         else:
             path = Path(item)
+            src_ids = [sources] if isinstance(sources, int) else [int(s) for s in (sources or [])]
+            if src_ids:
+                provenance = {
+                    "task_type": "code",
+                    "tool_id": "run_code",
+                    "parameters": {},
+                    "seed": None,
+                    "source_media_ids": src_ids,
+                }
+                base = await self._sdk._build_edit_provenance(src_ids)
+                provenance["lineage_trace"] = base.get("lineage_trace", [])
+                provenance["source_inputs"] = base.get("source_inputs", [])
 
         raw = await save_workspace_file(
             session=self._sdk.session,
