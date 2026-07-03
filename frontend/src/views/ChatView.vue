@@ -279,10 +279,7 @@
                 </template>
                 <span class="activity-tool-list">
                   <template v-if="getActivityGroupSummary(getActivityGroup(item.id)).toolNames.length > 0">
-                    <template v-for="(name, idx) in getActivityGroupSummary(getActivityGroup(item.id)).toolNames" :key="idx">
-                      <span v-if="idx > 0" class="activity-sep">&rarr;</span>
-                      <span class="activity-tool-name">{{ name }}</span>
-                    </template>
+                    <span class="activity-tool-name">{{ getActivityGroupSummary(getActivityGroup(item.id)).toolNames[getActivityGroupSummary(getActivityGroup(item.id)).toolNames.length - 1] }}</span>
                   </template>
                   <span v-else-if="!getActivityGroupSummary(getActivityGroup(item.id)).hasRunningThinking" class="activity-tool-name">Working</span>
                 </span>
@@ -331,13 +328,13 @@
                     <div class="activity-step-summary" style="cursor: default;">
                       <span class="activity-step-name">{{ getToolCallDisplayName(actItem) }}</span>
                       <a
-                        v-if="actItem.tool_args?.action === 'fetch' && actItem.tool_args?.url"
+                        v-if="devModeRef && actItem.tool_args?.action === 'fetch' && actItem.tool_args?.url"
                         :href="actItem.tool_args.url"
                         target="_blank"
                         rel="noopener noreferrer"
                         class="activity-step-preview hover:underline cursor-pointer"
                       >{{ actItem.tool_args.url }}</a>
-                      <span v-else-if="getToolCallPreview(actItem)" class="activity-step-preview">{{ getToolCallPreview(actItem) }}</span>
+                      <span v-else-if="devModeRef && getToolCallPreview(actItem)" class="activity-step-preview">{{ getToolCallPreview(actItem) }}</span>
                       <span v-if="getToolCallStatus(actItem) === 'failed'" class="activity-failed-badge">failed</span>
                       <span v-if="getToolCallStatus(actItem) === 'running'" class="activity-running-badge">running</span>
                     </div>
@@ -402,7 +399,7 @@
                             <details class="activity-details flex-1 min-w-0">
                               <summary class="activity-step-summary">
                                 <span class="activity-step-name">{{ getToolCallDisplayName(childItem) }}</span>
-                                <span v-if="getToolCallPreview(childItem)" class="activity-step-preview">{{ getToolCallPreview(childItem) }}</span>
+                                <span v-if="devModeRef && getToolCallPreview(childItem)" class="activity-step-preview">{{ getToolCallPreview(childItem) }}</span>
                                 <span v-if="getDelegateChildToolStatus(childItem, getChildItems(actItem.id)) === 'failed'" class="activity-failed-badge">failed</span>
                                 <span v-if="getDelegateChildToolStatus(childItem, getChildItems(actItem.id)) === 'running'" class="activity-running-badge">running</span>
                               </summary>
@@ -436,7 +433,7 @@
                     <details v-if="toolCallHasExpandableContent(actItem)" class="activity-details flex-1 min-w-0">
                       <summary class="activity-step-summary">
                         <span class="activity-step-name">{{ getToolCallDisplayName(actItem) }}</span>
-                        <span v-if="getToolCallPreview(actItem)" class="activity-step-preview">{{ getToolCallPreview(actItem) }}</span>
+                        <span v-if="devModeRef && getToolCallPreview(actItem)" class="activity-step-preview">{{ getToolCallPreview(actItem) }}</span>
                         <span
                           v-if="getToolCallStatus(actItem) === 'failed'"
                           class="activity-failed-badge"
@@ -467,7 +464,7 @@
                     </details>
                     <div v-else class="activity-step-summary activity-details flex-1 min-w-0" style="cursor: default; list-style: none;">
                       <span class="activity-step-name">{{ getToolCallDisplayName(actItem) }}</span>
-                      <span v-if="getToolCallPreview(actItem)" class="activity-step-preview">{{ getToolCallPreview(actItem) }}</span>
+                      <span v-if="devModeRef && getToolCallPreview(actItem)" class="activity-step-preview">{{ getToolCallPreview(actItem) }}</span>
                       <span
                         v-if="getToolCallStatus(actItem) === 'running'"
                         class="activity-running-badge"
@@ -955,6 +952,7 @@
           <!-- Media Display: left-aligned, expands as needed -->
           <div v-else-if="item.item_type === 'media_display'" class="flex justify-start">
             <ChatItemWrapper
+              class="w-full"
               :item-id="item.id"
               align="left"
               @delete-from-here="deleteFromHere(item.id)"
@@ -1891,6 +1889,11 @@ const TOOL_DISPLAY_NAMES = {
   skill: null,           // Special: "Skill: <display_name>"
   stimpack: null,        // backward compat for old chats: "Skill: <display_name>"
   delegate: null,        // Special: shows specialist or truncated task
+  glob: 'Finding Files',
+  grep: 'Searching Files',
+  read_file: 'Reading File',
+  write_file: 'Saving File',
+  edit_file: 'Editing File',
   create_parameter_sweep: 'Creating Parameter Sweep',
   assemble_grid: 'Creating Grid',  // backward compat for old chats
   assemble_set: 'Creating Set',
@@ -5555,11 +5558,6 @@ watch(wsConnected, (connected, wasConnected) => {
 .activity-tool-name {
   font-weight: 500;
   white-space: nowrap;
-}
-
-.activity-sep {
-  opacity: 0.3;
-  font-size: 11px;
 }
 
 .activity-thinking {

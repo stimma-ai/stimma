@@ -1107,7 +1107,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, onDeactivated, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useTelemetry } from '../composables/useTelemetry'
@@ -1119,6 +1119,7 @@ import { useTauriDrag } from '../composables/useTauriDrag'
 import { createDragPreview, preloadDragPreview, handleDragEnd } from '../composables/useDragPreview'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import { useBrowseFilters } from '../composables/useBrowseFilters'
+import { useMediaPlayback, useManagedMediaElement } from '../composables/useMediaPlayback'
 import { usePrint } from '../composables/usePrint'
 import axios from 'axios'
 import {
@@ -1328,8 +1329,9 @@ const isPlaying = ref(false)
 const loopEnabled = ref(savedSettings.loopEnabled ?? false)
 const showInfo = ref(false)
 const showCaption = ref(false)
-const isMuted = ref(savedSettings.volume === 0 || savedSettings.volume === undefined)
-const volume = ref(savedSettings.volume ?? 0)
+// Global video-channel mute/volume, shared with every video surface and
+// persisted by the composable (so muting sticks across close/reopen).
+const { videoMuted: isMuted, videoVolume: volume, toggleVideoMute } = useMediaPlayback()
 const showVolumeSlider = ref(false)
 const volumeSliderRef = ref(null)
 const volumeButtonRef = ref(null)
@@ -1438,6 +1440,9 @@ const currentDurationIndex = ref(savedSettings.durationIndex ?? 3) // Default to
 const slideshowTimer = ref(null)
 
 const videoElement = ref(null)
+// Registry wiring: pause on KeepAlive deactivate, tear down on unmount/keyed
+// swap (a removed element otherwise keeps playing its audio per spec).
+useManagedMediaElement(videoElement)
 const controlBar = ref(null)
 const overlay = ref(null)
 const gridViewerRef = ref(null)
@@ -3067,13 +3072,7 @@ function toggleMute() {
   if (preventClick.value) return
   trackControl(isMuted.value ? 'unmute' : 'mute')
   if (isVideo.value) {
-    if (isMuted.value) {
-      // Unmute: restore to previous volume (or 50% if was 0)
-      isMuted.value = false
-      if (volume.value === 0) volume.value = 0.5
-    } else {
-      isMuted.value = true
-    }
+    toggleVideoMute()
     // Apply to the element immediately (the isMuted watcher also does this, but
     // setting it here keeps the DOM in lockstep with the toggle within the gesture).
     if (videoElement.value) {
@@ -4795,6 +4794,12 @@ onDeactivated(() => {
   cleanupCursorTimeout()
 })
 
+// The playback registry pauses the video on deactivate; resume the ambient
+// autoplay when the user navigates back to a view with the slideshow open.
+onActivated(() => {
+  if (isVideo.value && videoElement.value) void videoElement.value.play()
+})
+
 // Set up ResizeObserver when container ref becomes available
 watch(mediaContainerRef, (newRef, oldRef) => {
   // Clean up old observer
@@ -4995,11 +5000,8 @@ watch(() => contextMenu.state.value.visible, (visible) => {
   }
 })
 
-// Watch volume and persist + apply to video element
+// Apply volume to the video element (persistence lives in useMediaPlayback)
 watch(volume, (newValue) => {
-  const settings = loadSettings()
-  settings.volume = newValue
-  saveSettings(settings)
   if (videoElement.value) {
     videoElement.value.volume = newValue
   }

@@ -75,8 +75,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, watchEffect, onUnmounted } from 'vue'
 import { useMediaApi } from '../../composables/useMediaApi'
+import { useMediaPlayback, useManagedMediaElement } from '../../composables/useMediaPlayback'
 
 const props = defineProps<{
   src: string
@@ -93,6 +94,17 @@ const fauxBars = [38, 62, 30, 80, 52, 70, 44, 92, 58, 34, 74, 48, 66, 40, 84, 56
 
 const audioRef = ref<HTMLAudioElement | null>(null)
 const bandRef = ref<HTMLElement | null>(null)
+
+// No volume UI of its own — follows the global audio channel, and joins the
+// playback registry (pause on KeepAlive deactivate, teardown on unmount).
+const { audioMuted, audioVolume } = useMediaPlayback()
+useManagedMediaElement(audioRef)
+watchEffect(() => {
+  const a = audioRef.value
+  if (!a) return
+  a.muted = audioMuted.value
+  a.volume = audioVolume.value
+})
 const isPlaying = ref(false)
 const currentTime = ref(0)
 const audioDuration = ref(props.duration || 0)
