@@ -254,7 +254,7 @@ export function extractParameters(config: PayloadBuilderConfig, state: PayloadBu
 
   // Reference image prep: send original paths + all preprocessing metadata for lineage
   const images = state.globalPrefs.inputImages
-  const hasPrep = images.some((i: any) => i._preprocessor || i._paintLayerPath || i._extendPadding || i._scale || i._flip)
+  const hasPrep = images.some((i: any) => i._preprocessor || i._paintLayerPath || i._extendPadding || i._scale || i._flip || i._crop)
   if (hasPrep) {
     params._original_input_paths = images.map((i: any) => i._originalPath || i.path)
     params._original_input_hashes = images.map((i: any) => i._originalHash).filter(Boolean)
@@ -265,6 +265,7 @@ export function extractParameters(config: PayloadBuilderConfig, state: PayloadBu
     params._input_extend_bg_colors = images.map((i: any) => i._extendBgColor || null)
     params._input_scales = images.map((i: any) => i._scale || null)
     params._input_flips = images.map((i: any) => i._flip || null)
+    params._input_crops = images.map((i: any) => i._crop || null)
   }
 
   return params

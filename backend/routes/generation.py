@@ -713,6 +713,7 @@ class ReferencePreprocessRequest(BaseModel):
     """Request body for full reference image preprocessing pipeline."""
     source_path: str
     flip: dict[str, bool | int] | None = None  # { horizontal?: bool, vertical?: bool, rotation?: 0|90|180|270 }
+    crop: dict[str, float] | None = None  # { x, y, width, height, rotation? } normalized 0-1 rect (post-flip image) + optional rect rotation in clockwise degrees
     scale: dict[str, str | float | int] | None = None  # { mode: "factor"|"min_edge", factor?: float, min_edge?: int }
     preprocessor: str | None = None
     preprocessor_params: dict[str, int | float] | None = None
@@ -727,10 +728,11 @@ async def preprocess_reference_pipeline(request: ReferencePreprocessRequest) -> 
 
     Applies in order:
     1. Flip / rotate (if flip provided)
-    2. Scale (resize by factor or min-edge)
-    3. ControlNet preprocessor (if preprocessor provided)
-    4. Canvas extension (if extend_padding provided, with bg color)
-    5. Paint layer compositing (if paint_layer_path provided)
+    2. Crop (normalized rect of the post-flip image)
+    3. Scale (resize by factor or min-edge)
+    4. ControlNet preprocessor (if preprocessor provided)
+    5. Canvas extension (if extend_padding provided, with bg color)
+    6. Paint layer compositing (if paint_layer_path provided)
 
     Also returns base_path (result after steps 1-3, before paint) for the paint editor.
 
@@ -750,9 +752,13 @@ async def preprocess_reference_pipeline(request: ReferencePreprocessRequest) -> 
 
     # Build cache key from all inputs
     # v2: EXIF orientation applied to source — invalidates pre-fix entries
-    cache_parts = ["v2", str(source.stat().st_mtime), str(source.stat().st_size)]
+    # v3: crop rotation — pre-rotation code cached unrotated output under
+    #     rotation-inclusive keys, so those entries must not be served
+    cache_parts = ["v3", str(source.stat().st_mtime), str(source.stat().st_size)]
     if request.flip:
         cache_parts.append(f"flip:{json.dumps(request.flip, sort_keys=True)}")
+    if request.crop:
+        cache_parts.append(f"crop:{json.dumps(request.crop, sort_keys=True)}")
     if request.scale:
         cache_parts.append(f"scale:{json.dumps(request.scale, sort_keys=True)}")
     if request.preprocessor:
@@ -807,7 +813,30 @@ async def preprocess_reference_pipeline(request: ReferencePreprocessRequest) -> 
                 # PIL rotate() is counter-clockwise; negate for clockwise degrees.
                 img = img.rotate(-rotation, expand=True)
 
-        # Step 3: Scale
+        # Step 3: Crop — normalized left/top-anchored rect of the post-flip image,
+        # optionally rotated (clockwise degrees) about its own center.
+        if request.crop:
+            cx = float(request.crop.get("x", 0.0))
+            cy = float(request.crop.get("y", 0.0))
+            cw = float(request.crop.get("width", 1.0))
+            ch = float(request.crop.get("height", 1.0))
+            rot = float(request.crop.get("rotation", 0.0) or 0.0)
+            left = max(0, min(round(img.width * cx), img.width - 1))
+            top = max(0, min(round(img.height * cy), img.height - 1))
+            right = max(left + 1, min(round(img.width * (cx + cw)), img.width))
+            bottom = max(top + 1, min(round(img.height * (cy + ch)), img.height))
+            if rot:
+                # Rotate the image about the rect center so the rotated rect
+                # becomes the axis-aligned box below. PIL rotates content
+                # counter-clockwise for positive angles, which is exactly the
+                # inverse of the rect's clockwise rotation. Areas revealed by
+                # the rotation fill transparent (black once flattened to RGB).
+                center = ((left + right) / 2, (top + bottom) / 2)
+                img = img.rotate(rot, center=center, resample=Image.BICUBIC)
+            if rot or (left, top, right, bottom) != (0, 0, img.width, img.height):
+                img = img.crop((left, top, right, bottom))
+
+        # Step 4: Scale
         if request.scale:
             mode = request.scale.get("mode", "factor")
             if mode == "factor":
@@ -833,7 +862,7 @@ async def preprocess_reference_pipeline(request: ReferencePreprocessRequest) -> 
                     new_h = max(1, round(img.height * factor))
                     img = img.resize((new_w, new_h), Image.LANCZOS)
 
-        # Step 4: Apply controlnet preprocessor
+        # Step 5: Apply controlnet preprocessor
         if request.preprocessor:
             intermediate_path = cache_dir / f"{cache_hash}_intermediate.png"
             img.convert("RGB").save(intermediate_path)
@@ -850,7 +879,7 @@ async def preprocess_reference_pipeline(request: ReferencePreprocessRequest) -> 
             intermediate_path.unlink(missing_ok=True)
             img = Image.open(output_path).convert("RGBA")
 
-        # Step 5: Extend canvas
+        # Step 6: Extend canvas
         if request.extend_padding:
             p = request.extend_padding
             top = int(img.height * p.get("top", 0) / 100)
@@ -883,7 +912,7 @@ async def preprocess_reference_pipeline(request: ReferencePreprocessRequest) -> 
                 "base_height": img.height,
             }
 
-        # Step 6: Composite paint layer
+        # Step 7: Composite paint layer
         if has_paint:
             paint_path = Path(request.paint_layer_path)
             paint_layer = Image.open(paint_path).convert("RGBA")
@@ -1488,7 +1517,7 @@ async def submit_media_batch_jobs(
         prep = request.prep or {}
         has_prep = any(
             prep.get(k) for k in (
-                "scale", "flip", "preprocessor", "extend_padding",
+                "scale", "flip", "crop", "preprocessor", "extend_padding",
             )
         )
 
@@ -1508,6 +1537,7 @@ async def submit_media_batch_jobs(
                 prep_req = ReferencePreprocessRequest(
                     source_path=source_path,
                     flip=prep.get("flip"),
+                    crop=prep.get("crop"),
                     scale=prep.get("scale"),
                     preprocessor=prep.get("preprocessor"),
                     preprocessor_params=prep.get("preprocessor_params"),
@@ -1532,6 +1562,7 @@ async def submit_media_batch_jobs(
                 parameters["_input_preprocessor_params"] = [prep.get("preprocessor_params")]
                 parameters["_input_scales"] = [prep.get("scale")]
                 parameters["_input_flips"] = [prep.get("flip")]
+                parameters["_input_crops"] = [prep.get("crop")]
                 parameters["_input_extend_padding"] = [prep.get("extend_padding")]
                 parameters["_input_extend_bg_colors"] = [prep.get("extend_bg_color")]
                 parameters["_input_paint_layers"] = [None]

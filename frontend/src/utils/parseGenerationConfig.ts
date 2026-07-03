@@ -13,6 +13,7 @@ export interface SourceInput {
   role?: string
   _preprocessor?: string | null
   _flip?: { horizontal?: boolean; vertical?: boolean; rotation?: number } | null
+  _crop?: { x: number; y: number; width: number; height: number } | null
 }
 
 export interface LoraConfig {

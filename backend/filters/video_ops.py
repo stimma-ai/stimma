@@ -190,8 +190,10 @@ def apply_builtin_filter_video(
                     pass
 
 
-def apply_reverse_video(input_path: str, output_path: str) -> str:
-    """Reverse a video's frames (and its audio track, if present) end-to-end.
+def apply_reverse_video(input_path: str, output_path: str, *, audio: str = "reverse") -> str:
+    """Reverse a video's frames end-to-end. ``audio`` controls the audio track:
+    "reverse" (default) plays it backwards too, in sync with the reversed
+    picture; "keep" leaves it playing forward, out of sync; "remove" drops it.
 
     Every filter above is per-frame: it reads one frame, transforms it, writes
     it, and never needs to see another frame. Reverse can't work that way —
@@ -201,18 +203,30 @@ def apply_reverse_video(input_path: str, output_path: str) -> str:
     own ``reverse``/``areverse`` filters, which buffer the full clip
     internally. Returns ``output_path``.
     """
+    if audio not in ("reverse", "remove", "keep"):
+        raise ValueError(f"Unknown reverse audio mode: {audio}")
+
     _ensure_ffmpeg()
     has_audio = _probe(input_path)["has_audio"]
 
-    cmd = ["ffmpeg", "-v", "error", "-y", "-i", input_path, "-vf", "reverse"]
-    cmd += ["-af", "areverse"] if has_audio else ["-an"]
+    cmd = ["ffmpeg", "-v", "error", "-y", "-i", input_path]
+    if has_audio and audio == "keep":
+        # Reverse only the video stream; map the ORIGINAL (unfiltered, still
+        # forward-playing) audio stream alongside it.
+        cmd += ["-filter_complex", "[0:v]reverse[v]", "-map", "[v]", "-map", "0:a:0",
+                "-c:a", "aac", "-b:a", "192k"]
+    elif has_audio and audio == "reverse":
+        cmd += ["-vf", "reverse", "-af", "areverse"]
+    else:
+        # No audio track to carry, or the caller asked to drop it.
+        cmd += ["-vf", "reverse", "-an"]
     cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", output_path]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"ffmpeg failed to reverse video: {result.stderr.strip()}")
 
-    log.info(f"[filter:video] reverse: {input_path} -> {output_path}")
+    log.info(f"[filter:video] reverse (audio={audio}): {input_path} -> {output_path}")
     return output_path
 
 
@@ -220,7 +234,11 @@ def apply_reverse_video(input_path: str, output_path: str) -> str:
 # apply_builtin_filter_video's per-frame pipeline can't express them, so each
 # gets its own whole-clip function here instead of an entry in
 # filters.ops.FILTER_HANDLERS. Every def with no per-frame handler must have
-# one here (asserted in tests/test_postprocessing_filters.py).
-WHOLE_CLIP_VIDEO_FILTERS: Dict[str, Callable[[str, str], str]] = {
-    "reverse": apply_reverse_video,
+# one here (asserted in tests/test_postprocessing_filters.py). Each callable
+# takes the raw (unmerged-with-defaults) settings dict, same as a filter step's
+# stored settings — it's responsible for its own defaults.
+WHOLE_CLIP_VIDEO_FILTERS: Dict[str, Callable[[str, str, Dict[str, Any]], str]] = {
+    "reverse": lambda input_path, output_path, settings: apply_reverse_video(
+        input_path, output_path, audio=str(settings.get("audio") or "reverse")
+    ),
 }

@@ -228,12 +228,15 @@ CHAIN_FILTER_DEFS: List[Dict[str, Any]] = [
     {
         "id": "reverse",
         "description": "Play the clip backwards",
-        "label": "Reverse",
+        "label": "Reverse Video",
         # A temporal, whole-clip operation — there's no single-frame notion of
         # "reversed", so unlike every other filter here this doesn't apply to
         # stills. See filters/video_ops.py's WHOLE_CLIP_VIDEO_FILTERS.
         "accepts": ["video"],
-        "params": [],
+        "params": [
+            {"name": "audio", "label": "Audio Track", "type": "enum", "default": "reverse",
+             "options": ["reverse", "remove", "keep"]},
+        ],
     },
 ]
 

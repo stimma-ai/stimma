@@ -61,6 +61,32 @@ def _mean(frame: bytes) -> float:
     return sum(frame) / len(frame)
 
 
+def _make_audio_ramp_clip(path, duration=1) -> str:
+    """A clip whose audio ramps silent -> loud over its duration (afade=in on a
+    sine tone) — deterministic and direction-checkable, same idea as
+    _make_fade_clip's video ramp."""
+    cmd = ["ffmpeg", "-v", "error", "-y",
+           "-f", "lavfi", "-i", f"testsrc=size=32x32:rate=10:duration={duration}",
+           "-f", "lavfi", "-i", f"sine=frequency=440:duration={duration}",
+           "-af", f"afade=t=in:st=0:d={duration}",
+           str(path)]
+    subprocess.run(cmd, check=True, capture_output=True)
+    return str(path)
+
+
+def _decode_pcm_abs_mean_halves(path):
+    """Mean absolute amplitude of the first vs second half of the audio track."""
+    proc = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(path), "-f", "s16le", "-ar", "8000", "-ac", "1", "-"],
+        check=True, capture_output=True,
+    )
+    import array
+    samples = array.array("h", proc.stdout)
+    mid = len(samples) // 2
+    first, second = samples[:mid], samples[mid:]
+    return (sum(abs(s) for s in first) / len(first), sum(abs(s) for s in second) / len(second))
+
+
 def _probe_dims(path):
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0",
@@ -171,3 +197,36 @@ def test_reverse_handles_clip_with_no_audio(tmp_path):
     assert not _has_audio(src)
     out = apply_reverse_video(str(src), str(tmp_path / "out.mp4"))
     assert not _has_audio(out)
+
+
+@requires_ffmpeg
+def test_reverse_audio_mode_reverse_flips_audio_too(tmp_path):
+    src = _make_audio_ramp_clip(tmp_path / "in.mp4")
+    out = apply_reverse_video(str(src), str(tmp_path / "out.mp4"), audio="reverse")
+    assert _has_audio(out)
+    first, second = _decode_pcm_abs_mean_halves(out)
+    # Source ramps quiet -> loud; audio "reverse" flips it to loud -> quiet.
+    assert first > second
+
+
+@requires_ffmpeg
+def test_reverse_audio_mode_keep_leaves_audio_forward(tmp_path):
+    src = _make_audio_ramp_clip(tmp_path / "in.mp4")
+    out = apply_reverse_video(str(src), str(tmp_path / "out.mp4"), audio="keep")
+    assert _has_audio(out)
+    first, second = _decode_pcm_abs_mean_halves(out)
+    # Video is reversed but audio "keep" stays forward: still quiet -> loud.
+    assert second > first
+
+
+@requires_ffmpeg
+def test_reverse_audio_mode_remove_drops_audio(tmp_path):
+    src = _make_clip(tmp_path / "in.mp4", audio=True)
+    assert _has_audio(src)
+    out = apply_reverse_video(str(src), str(tmp_path / "out.mp4"), audio="remove")
+    assert not _has_audio(out)
+
+
+def test_reverse_invalid_audio_mode_raises(tmp_path):
+    with pytest.raises(ValueError):
+        apply_reverse_video(str(tmp_path / "in.mp4"), str(tmp_path / "out.mp4"), audio="bogus")

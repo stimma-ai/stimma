@@ -281,7 +281,7 @@
                           :contain="true"
                           container-class="w-full h-full"
                         />
-                        <div v-if="source.preprocessor || source.paint_layer || source.extend_padding || source.flip" class="absolute top-1 right-1 flex flex-col gap-0.5 items-end">
+                        <div v-if="source.preprocessor || source.paint_layer || source.extend_padding || source.flip || source.crop" class="absolute top-1 right-1 flex flex-col gap-0.5 items-end">
                           <span v-if="source.preprocessor" class="px-2 py-1 bg-black/70 text-white text-[10px] rounded-full leading-none">
                             {{ formatPreprocessor(source.preprocessor, source.preprocessor_params) }}
                           </span>
@@ -293,6 +293,9 @@
                           </span>
                           <span v-if="source.flip && formatFlip(source.flip)" class="px-2 py-1 bg-black/70 text-white text-[10px] rounded-full leading-none">
                             {{ formatFlip(source.flip) }}
+                          </span>
+                          <span v-if="source.crop" class="px-2 py-1 bg-black/70 text-white text-[10px] rounded-full leading-none">
+                            Cropped
                           </span>
                         </div>
                       </button>
@@ -342,7 +345,7 @@
                           class="w-full h-full object-contain"
                           @error="handleExternalImageError"
                         />
-                        <div v-if="source.preprocessor || source.paint_layer || source.extend_padding || source.flip" class="absolute top-1 right-1 flex flex-col gap-0.5 items-end">
+                        <div v-if="source.preprocessor || source.paint_layer || source.extend_padding || source.flip || source.crop" class="absolute top-1 right-1 flex flex-col gap-0.5 items-end">
                           <span v-if="source.preprocessor" class="px-2 py-1 bg-black/70 text-white text-[10px] rounded-full leading-none">
                             {{ formatPreprocessor(source.preprocessor, source.preprocessor_params) }}
                           </span>
@@ -354,6 +357,9 @@
                           </span>
                           <span v-if="source.flip && formatFlip(source.flip)" class="px-2 py-1 bg-black/70 text-white text-[10px] rounded-full leading-none">
                             {{ formatFlip(source.flip) }}
+                          </span>
+                          <span v-if="source.crop" class="px-2 py-1 bg-black/70 text-white text-[10px] rounded-full leading-none">
+                            Cropped
                           </span>
                         </div>
                       </button>

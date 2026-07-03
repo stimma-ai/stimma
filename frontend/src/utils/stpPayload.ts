@@ -21,6 +21,7 @@ const INTERNAL_KEYS = new Set([
   '_input_extend_bg_colors',
   '_input_scales',
   '_input_flips',
+  '_input_crops',
 ])
 
 export interface StpCallPayload {

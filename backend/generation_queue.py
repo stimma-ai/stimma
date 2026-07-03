@@ -527,6 +527,7 @@ class GenerationQueue:
                 input_extend_bg_colors = params.get('_input_extend_bg_colors', [])
                 input_scales = params.get('_input_scales', [])
                 input_flips = params.get('_input_flips', [])
+                input_crops = params.get('_input_crops', [])
 
                 # Determine role names based on task type
                 is_video_task = task_type in ('image-to-video', 'text-to-video')
@@ -591,6 +592,10 @@ class GenerationQueue:
                     flip = input_flips[i] if i < len(input_flips) else None
                     if flip:
                         entry["flip"] = flip
+                    # Add crop if applied
+                    crop = input_crops[i] if i < len(input_crops) else None
+                    if crop:
+                        entry["crop"] = crop
                     source_inputs.append(entry)
 
                     # Inherit lineage from all input images

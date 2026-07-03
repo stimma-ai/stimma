@@ -167,8 +167,23 @@ _IMAGE_TOOLS = [
         ["index", "direction"],
     ),
     _fn(
+        "crop_image",
+        "Crop a reference image to a normalized rect (fractions 0-1 of the flipped/rotated image), "
+        "with optional free rotation of the rect (straighten). "
+        "Pass width=1, height=1, x=0, y=0, rotation=0 (or omit everything) to clear the crop.",
+        {
+            "index": {"type": "integer", "description": "0-based image index."},
+            "x": {"type": "number", "description": "Left edge, 0-1."},
+            "y": {"type": "number", "description": "Top edge, 0-1."},
+            "width": {"type": "number", "description": "Crop width, 0-1."},
+            "height": {"type": "number", "description": "Crop height, 0-1."},
+            "rotation": {"type": "number", "description": "Rect rotation in clockwise degrees, -45 to 45."},
+        },
+        ["index"],
+    ),
+    _fn(
         "reset_image_transforms",
-        "Clear flip/rotate/scale/extend/preprocess on one reference image, back to the original.",
+        "Clear flip/rotate/crop/scale/extend/preprocess on one reference image, back to the original.",
         {"index": {"type": "integer", "description": "0-based image index."}},
         ["index"],
     ),

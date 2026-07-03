@@ -1460,6 +1460,7 @@ async function explodeBatch() {
   const prepFields = {
     _scale: rep._scale ?? null,
     _flip: rep._flip ?? null,
+    _crop: rep._crop ?? null,
     _preprocessor: rep._preprocessor ?? null,
     _preprocessorParams: rep._preprocessorParams ?? null,
     _extendPadding: rep._extendPadding ?? null,
@@ -1775,11 +1776,14 @@ const {
 // image-intent slot from other paths too: Send-to-Tool, restore/remix, and (in the
 // Tauri app) native OS drags that bypass MediaPicker's browser handlers. This watcher
 // (placed after globalPrefs is defined — its getter runs synchronously) normalizes
-// ANY video that lands in an image slot into a captured frame, so a tool only ever
-// receives an image. Role-aware default: generic inputs use the first frame; the i2v
-// Start frame uses the source's LAST frame (extend forward) and the End frame its
-// FIRST (connect into). If a frame can't be grabbed (e.g. an undecodable format), the
-// entry is dropped with a message rather than left to crash the tool at run time.
+// ANY video that lands in an image-intent slot into a captured frame, so an
+// image-only tool only ever receives an image. Skipped when the input_images slot is
+// actually video-only (accept === 'video', e.g. the reverse filter) — see
+// inputImagesSlotWantsStills — since that tool wants the whole video, not a frame.
+// Role-aware default: generic inputs use the first frame; the i2v Start frame uses
+// the source's LAST frame (extend forward) and the End frame its FIRST (connect
+// into). If a frame can't be grabbed (e.g. an undecodable format), the entry is
+// dropped with a message rather than left to crash the tool at run time.
 const { extractFrame } = useVideoFrameExtraction()
 const VIDEO_INPUT_EXTENSIONS = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v']
 
@@ -1813,9 +1817,17 @@ async function grabFrameForEntry(entry: any, position: FramePosition): Promise<M
   }
 }
 
+// A video-only input_images slot (e.g. the reverse filter, x-accept-media:
+// ['video']) stores its item in globalPrefs.inputImages too — paramKey and
+// accept diverge there (see MediaInputConfig.paramKey) — so this safety net
+// must not grab a frame for it; the tool wants the whole video.
+function inputImagesSlotWantsStills(): boolean {
+  return mediaInputConfig.value?.accept !== 'video'
+}
+
 function hasPendingVideoInput(): boolean {
   const imgs = (globalPrefs.value.inputImages || []) as MediaItem[]
-  return imgs.some(isVideoInputEntry)
+  return (inputImagesSlotWantsStills() && imgs.some(isVideoInputEntry))
     || isVideoInputEntry(videoImages.startImage)
     || isVideoInputEntry(videoImages.endImage)
 }
@@ -1829,7 +1841,7 @@ function normalizeVideoInputsToFrames(): Promise<void> {
 
   const run = async () => {
     const imgs = (globalPrefs.value.inputImages || []) as MediaItem[]
-    if (imgs.some(isVideoInputEntry)) {
+    if (inputImagesSlotWantsStills() && imgs.some(isVideoInputEntry)) {
       // Rebuild the array, replacing videos with grabbed stills and dropping any we
       // can't read (so we never leave a video in an image slot, and never re-loop).
       const next: MediaItem[] = []
@@ -3454,6 +3466,7 @@ async function loadPendingGeneration() {
               _extendBgColor: source.extend_bg_color || null,
               _scale: source.scale || null,
               _flip: source.flip || null,
+              _crop: source.crop || null,
             })
           } catch (err) {
             console.warn(`Failed to copy source input to reference:`, err)
@@ -3579,6 +3592,7 @@ async function loadRemix(mediaId: string) {
               _extendBgColor: source.extend_bg_color || null,
               _scale: source.scale || null,
               _flip: source.flip || null,
+              _crop: source.crop || null,
             })
           } catch (err) {
             console.warn('Failed to copy source input to reference:', err)
@@ -3683,6 +3697,7 @@ async function handleHopToTool(targetTool: { full_tool_id: string; name: string 
         extend_bg_color: img._extendBgColor || img.extend_bg_color || null,
         scale: img._scale || img.scale || null,
         flip: img._flip || img.flip || null,
+        crop: img._crop || img.crop || null,
         role: img.role || null,
       })),
       // Don't transfer sampling params - let target tool use its defaults
@@ -3873,7 +3888,8 @@ async function submitOneJob() {
     const mediaIdField = batchField === 'input_videos' ? 'input_video_media_ids' : 'input_media_ids'
     for (const k of [batchField, mediaIdField, '_original_input_paths', '_original_input_hashes',
       '_input_preprocessors', '_input_preprocessor_params', '_input_paint_layers',
-      '_input_extend_padding', '_input_extend_bg_colors', '_input_scales', '_input_flips']) {
+      '_input_extend_padding', '_input_extend_bg_colors', '_input_scales', '_input_flips',
+      '_input_crops']) {
       delete batchParameters[k]
     }
 
@@ -3883,6 +3899,7 @@ async function submitOneJob() {
     const prep: Record<string, any> = {}
     if (rep._scale) prep.scale = rep._scale
     if (rep._flip) prep.flip = rep._flip
+    if (rep._crop) prep.crop = rep._crop
     if (rep._preprocessor) {
       prep.preprocessor = rep._preprocessor
       prep.preprocessor_params = rep._preprocessorParams || null
@@ -4468,6 +4485,7 @@ function getStateContext(): Record<string, any> {
           rotation: ((img._flip?.rotation ?? 0) % 360 + 360) % 360,
         },
         preprocessor: img._preprocessor ?? null,
+        crop: img._crop ?? null,
         scale: img._scale ?? null,
         extend: img._extendPadding ?? null,
       }))
@@ -4688,6 +4706,9 @@ async function runTool(name: string, args: any): Promise<string> {
     case 'rotate_image':
       if (!picker?.rotateImage) return 'No reference-image input on this tool.'
       return await picker.rotateImage(Number(args.index), args.direction)
+    case 'crop_image':
+      if (!picker?.cropImage) return 'No reference-image input on this tool.'
+      return await picker.cropImage(Number(args.index), args)
     case 'reset_image_transforms':
       if (!picker?.resetImageTransforms) return 'No reference-image input on this tool.'
       return await picker.resetImageTransforms(Number(args.index))

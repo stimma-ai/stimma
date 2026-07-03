@@ -342,6 +342,38 @@
                 </div>
               </div>
 
+              <!-- Crop row (opens the modal crop editor) -->
+              <div class="w-full">
+                <div class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle">
+                  <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75V16.5a.75.75 0 0 0 .75.75h12.25M3.75 7.5H16.5a.75.75 0 0 1 .75.75v12.25"/></svg>
+                  <span class="text-[11px] text-content-secondary flex-1">Crop</span>
+                  <span v-if="hasCrop(item)" class="text-[10px] tabular-nums text-blue-400 font-medium">
+                    {{ getCropStatusText(item) }}
+                  </span>
+                  <div
+                    v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'crop'"
+                    class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin flex-shrink-0"
+                  ></div>
+                  <button
+                    v-if="hasCrop(item)"
+                    @click="resetCrop(item.originalIndex)"
+                    class="text-[10px] px-1.5 py-0.5 rounded border border-white/10 text-content-muted bg-white/[0.05] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 transition-colors"
+                    title="Clear crop"
+                  >
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                  </button>
+                  <button
+                    @click="openCropEditor(item.originalIndex)"
+                    :class="[
+                      'text-[10px] px-2 py-0.5 rounded border transition-colors',
+                      hasCrop(item)
+                        ? 'border-blue-500/50 text-blue-400 bg-blue-500/10 hover:bg-blue-500/15'
+                        : 'border-white/10 text-content-muted bg-white/[0.05] hover:bg-white/[0.08]'
+                    ]"
+                  >Edit</button>
+                </div>
+              </div>
+
               <!-- Scale row -->
               <div class="w-full">
                 <div
@@ -399,12 +431,12 @@
                   <!-- Manual: W × H with locked aspect -->
                   <div v-else-if="item._scale?.mode === 'manual'" class="pl-5 flex items-center gap-1.5">
                     <input v-no-autocorrect type="number" min="1" step="1"
-                      :value="item._scale?.width ?? origDims(item).w"
+                      :value="item._scale?.width ?? croppedDims(item).w"
                       @change="onManualDimensionInput(item.originalIndex, 'width', parseInt(($event.target as HTMLInputElement).value))"
                       class="w-16 px-1.5 py-0.5 text-[10px] bg-base border border-edge-subtle rounded text-content tabular-nums focus:outline-none focus:border-edge" />
                     <svg class="w-3 h-3 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m12 0H4.5a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h15a1.5 1.5 0 0 0 1.5-1.5v-7.5a1.5 1.5 0 0 0-1.5-1.5z"/></svg>
                     <input v-no-autocorrect type="number" min="1" step="1"
-                      :value="item._scale?.height ?? origDims(item).h"
+                      :value="item._scale?.height ?? croppedDims(item).h"
                       @change="onManualDimensionInput(item.originalIndex, 'height', parseInt(($event.target as HTMLInputElement).value))"
                       class="w-16 px-1.5 py-0.5 text-[10px] bg-base border border-edge-subtle rounded text-content tabular-nums focus:outline-none focus:border-edge" />
                   </div>
@@ -620,15 +652,12 @@
                   <button
                     @click="openPaintEditor(item.originalIndex)"
                     :class="[
-                      'text-[10px] px-2 py-0.5 rounded border transition-colors flex items-center gap-1',
+                      'text-[10px] px-2 py-0.5 rounded border transition-colors',
                       item._paintLayerDataUrl
                         ? 'border-blue-500/50 text-blue-400 bg-blue-500/10 hover:bg-blue-500/15'
                         : 'border-white/10 text-content-muted bg-white/[0.05] hover:bg-white/[0.08]'
                     ]"
-                  >
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg>
-                    {{ item._paintLayerDataUrl ? 'Edit' : 'Open' }}
-                  </button>
+                  >Edit</button>
                 </div>
               </div>
 
@@ -765,6 +794,17 @@
       </div>
     </Teleport>
 
+    <!-- Crop editor modal -->
+    <CropEditorModal
+      v-model="cropEditorOpen"
+      :image-url="cropEditorImage?.url ?? null"
+      :image-width="cropEditorImage?.width"
+      :image-height="cropEditorImage?.height"
+      :flip="cropEditorImage?.flip ?? null"
+      :crop="cropEditorImage?.crop ?? null"
+      @apply="onCropApply"
+    />
+
     <!-- Paint editor modal -->
     <PaintEditorModal
       v-if="paintEditorIndex !== null"
@@ -791,6 +831,7 @@ import { addToast } from '../../composables/useToasts'
 import AppImage from '../media/AppImage.vue'
 import CompactAudioPlayer from '../viewers/CompactAudioPlayer.vue'
 import PaintEditorModal from './PaintEditorModal.vue'
+import CropEditorModal from './CropEditorModal.vue'
 
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl } = useMediaApi()
 const { extractFrame } = useVideoFrameExtraction()
@@ -837,6 +878,16 @@ export interface MediaItem {
     horizontal?: boolean
     vertical?: boolean
     rotation?: number  // 0 | 90 | 180 | 270, clockwise degrees
+  } | null
+  // Crop field (applied after flip/rotate, before scale): normalized
+  // left/top-anchored rect, fractions 0-1 of the post-flip image, plus an
+  // optional free rotation of the rect (straighten) in clockwise degrees.
+  _crop?: {
+    x: number
+    y: number
+    width: number
+    height: number
+    rotation?: number
   } | null
   // Base image for paint editor (after scale+preprocess+extend, before paint)
   _basePath?: string | null
@@ -975,7 +1026,7 @@ const isDragging = ref(false)
 const videoErrors = ref<Record<string, boolean>>({})
 
 // Per-image controlnet preprocessing state
-type ProcessingReason = 'flip' | 'scale' | 'preprocess' | 'extend' | 'paint'
+type ProcessingReason = 'flip' | 'crop' | 'scale' | 'preprocess' | 'extend' | 'paint'
 const processingIndex = ref<number | null>(null)
 const processingReason = ref<ProcessingReason | null>(null)
 const delayedProcessingIndex = ref<number | null>(null)
@@ -1739,6 +1790,7 @@ async function applyFullPreprocessing(index: number, reason: ProcessingReason = 
   const originalHeight = item._originalHeight ?? item.height
 
   const itemHasFlip = hasFlip(item)
+  const itemHasCrop = hasCrop(item)
   const hasPreprocessor = !!item._preprocessor
   const hasPaint = !!(item._paintLayerDataUrl || item._paintLayerPath)
   const hasExtend = !!(item._extendPadding && (
@@ -1748,7 +1800,7 @@ async function applyFullPreprocessing(index: number, reason: ProcessingReason = 
   const itemHasScale = hasScale(item)
 
   // Nothing to do — restore original
-  if (!itemHasFlip && !hasPreprocessor && !hasPaint && !hasExtend && !itemHasScale) {
+  if (!itemHasFlip && !itemHasCrop && !hasPreprocessor && !hasPaint && !hasExtend && !itemHasScale) {
     if (item._originalPath) {
       const newItems = [...items.value]
       newItems[index] = {
@@ -1786,7 +1838,7 @@ async function applyFullPreprocessing(index: number, reason: ProcessingReason = 
       paintLayerPath = uploadResponse.data.path
     }
 
-    // Build request body: flip/rotate → scale → preprocess → extend → paint
+    // Build request body: flip/rotate → crop → scale → preprocess → extend → paint
     const body: Record<string, any> = {
       source_path: originalPath,
     }
@@ -1797,12 +1849,16 @@ async function applyFullPreprocessing(index: number, reason: ProcessingReason = 
         rotation: ((item._flip!.rotation ?? 0) % 360 + 360) % 360,
       }
     }
+    if (itemHasCrop) {
+      body.crop = item._crop
+    }
     if (itemHasScale) {
       const s = item._scale!
       if (s.mode === 'megapixels') {
         body.scale = { mode: 'megapixels', megapixels: s.megapixels || 1 }
       } else if (s.mode === 'manual') {
-        const { w } = origDims(item)
+        // Scale runs on the post-crop image, so the factor is relative to it.
+        const { w } = croppedDims(item)
         const factor = (s.width || w) / w
         body.scale = { mode: 'factor', factor }
       } else {
@@ -2191,9 +2247,46 @@ function origDims(item: MediaItem): { w: number; h: number } {
   return { w, h }
 }
 
-function origMegapixels(item: MediaItem): number {
+// Pre-scale dimensions: crop runs right after flip/rotate, so every downstream
+// stage (scale, extend, footer) sees the cropped size.
+function croppedDims(item: MediaItem): { w: number; h: number } {
   const { w, h } = origDims(item)
+  const c = item._crop
+  if (!c || !hasCrop(item)) return { w, h }
+  return {
+    w: Math.max(1, Math.round(w * c.width)),
+    h: Math.max(1, Math.round(h * c.height)),
+  }
+}
+
+function origMegapixels(item: MediaItem): number {
+  const { w, h } = croppedDims(item)
   return (w * h) / 1_000_000
+}
+
+// --- Crop ---
+
+function hasCrop(item: MediaItem): boolean {
+  const c = item._crop
+  if (!c) return false
+  return c.x > 0.0005 || c.y > 0.0005 || c.width < 0.999 || c.height < 0.999 || !!c.rotation
+}
+
+function getCropStatusText(item: MediaItem): string {
+  if (!hasCrop(item)) return 'Off'
+  const { w, h } = croppedDims(item)
+  const rot = item._crop?.rotation
+  return rot ? `${w} × ${h} · ${rot}°` : `${w} × ${h}`
+}
+
+function resetCrop(index: number) {
+  const item = items.value[index]
+  if (!item) return
+  const newItems = [...items.value]
+  newItems[index] = { ...item, _crop: null }
+  items.value = newItems
+  emit('update:modelValue', newItems)
+  applyFullPreprocessing(index, 'crop')
 }
 
 function hasScale(item: MediaItem): boolean {
@@ -2205,7 +2298,7 @@ function hasScale(item: MediaItem): boolean {
     return Math.abs(target - origMegapixels(item)) > 0.05
   }
   if (item._scale.mode === 'manual') {
-    const { w } = origDims(item)
+    const { w } = croppedDims(item)
     const target = item._scale.width
     if (!target) return false
     return target !== w
@@ -2225,7 +2318,7 @@ type ScaleMode = 'factor' | 'megapixels' | 'manual'
 function onScaleModeChange(index: number, mode: ScaleMode) {
   const item = items.value[index]
   if (!item) return
-  const { w, h } = origDims(item)
+  const { w, h } = croppedDims(item)
   const defaults: Record<ScaleMode, NonNullable<MediaItem['_scale']>> = {
     factor: { mode: 'factor', factor: item._scale?.factor || 1 },
     megapixels: { mode: 'megapixels', megapixels: item._scale?.megapixels || Number(origMegapixels(item).toFixed(1)) },
@@ -2258,7 +2351,7 @@ function onMegapixelsSliderInput(index: number, mp: number) {
 function onManualDimensionInput(index: number, dim: 'width' | 'height', value: number) {
   const item = items.value[index]
   if (!item || !value || value < 1) return
-  const { w, h } = origDims(item)
+  const { w, h } = croppedDims(item)
   const aspect = w / h
   let width: number, height: number
   if (dim === 'width') {
@@ -2318,10 +2411,11 @@ function getExtendStatusText(item: MediaItem): string {
 
 // Returns post-scale, pre-extend dimensions. After applyFullPreprocessing runs,
 // item.width/height reflects the full pipeline output (post-extend), so we must
-// start from _originalWidth/_originalHeight (the source) and apply scale ourselves.
+// start from _originalWidth/_originalHeight (the source) and apply crop + scale
+// ourselves.
 function getPostScaleDimensions(item: MediaItem): { width: number; height: number } {
-  // origDims already accounts for flip/rotate (90°/270° swaps W/H).
-  const { w, h } = origDims(item)
+  // croppedDims accounts for flip/rotate (90°/270° swaps W/H) and crop.
+  const { w, h } = croppedDims(item)
   const s = item._scale
   if (!s) return { width: w, height: h }
   if (s.mode === 'factor') {
@@ -2430,6 +2524,61 @@ function onExtendBgColorCommit(index: number, color: string) {
     applyFullPreprocessing(index, 'extend')
   }
 }
+
+// --- Crop Editor ---
+
+const cropEditorOpen = ref(false)
+const cropEditorIndex = ref<number | null>(null)
+// Snapshot for the modal: original (pre-prep) image URL + flip so the surface
+// shows exactly what the backend crops (crop runs on the post-flip image).
+const cropEditorImage = ref<{
+  url: string
+  width?: number
+  height?: number
+  flip: MediaItem['_flip']
+  crop: MediaItem['_crop']
+} | null>(null)
+
+function openCropEditor(index: number) {
+  const item = items.value[index]
+  if (!item) return
+  // Build a URL for the ORIGINAL image (the current path may already have
+  // crop/scale/extend/paint baked in).
+  const url = getMediaUrl({
+    ...item,
+    path: item._originalPath || item.path,
+    hash: item._originalHash || item.hash,
+  })
+  if (!url) return
+  cropEditorImage.value = {
+    url,
+    width: item._originalWidth ?? item.width,
+    height: item._originalHeight ?? item.height,
+    flip: item._flip ?? null,
+    crop: item._crop ?? null,
+  }
+  cropEditorIndex.value = index
+  cropEditorOpen.value = true
+}
+
+function onCropApply(rect: { x: number; y: number; width: number; height: number } | null) {
+  const index = cropEditorIndex.value
+  if (index === null) return
+  const item = items.value[index]
+  if (!item) return
+  const newItems = [...items.value]
+  newItems[index] = { ...item, _crop: rect }
+  items.value = newItems
+  emit('update:modelValue', newItems)
+  applyFullPreprocessing(index, 'crop')
+}
+
+watch(cropEditorOpen, (open) => {
+  if (!open) {
+    cropEditorIndex.value = null
+    cropEditorImage.value = null
+  }
+})
 
 // --- Paint Editor ---
 
@@ -2575,6 +2724,7 @@ async function agentResetTransforms(index: number): Promise<string> {
   newItems[index] = {
     ...item,
     _flip: null,
+    _crop: null,
     _scale: null,
     _extendPadding: null,
     _extendBgColor: null,
@@ -2585,6 +2735,34 @@ async function agentResetTransforms(index: number): Promise<string> {
   emit('update:modelValue', newItems)
   await applyFullPreprocessing(index, 'preprocess')
   return `Reset all transforms on image ${index}.`
+}
+
+async function agentCrop(
+  index: number,
+  args: { x?: number; y?: number; width?: number; height?: number; rotation?: number },
+): Promise<string> {
+  const item = items.value[index]
+  if (!item) return `No image at index ${index} (there are ${items.value.length}).`
+  const rotation = Math.max(-45, Math.min(45, Math.round(Number(args.rotation ?? 0) * 10) / 10)) || 0
+  const rect: NonNullable<MediaItem['_crop']> = {
+    x: Math.max(0, Math.min(1, Number(args.x ?? 0))),
+    y: Math.max(0, Math.min(1, Number(args.y ?? 0))),
+    width: Math.max(0.02, Math.min(1, Number(args.width ?? 1))),
+    height: Math.max(0.02, Math.min(1, Number(args.height ?? 1))),
+    ...(rotation !== 0 ? { rotation } : {}),
+  }
+  rect.width = Math.min(rect.width, 1 - rect.x)
+  rect.height = Math.min(rect.height, 1 - rect.y)
+  const fullFrame = rect.x <= 0.0005 && rect.y <= 0.0005 && rect.width >= 0.999 && rect.height >= 0.999
+    && rotation === 0
+  const newItems = [...items.value]
+  newItems[index] = { ...item, _crop: fullFrame ? null : rect }
+  items.value = newItems
+  emit('update:modelValue', newItems)
+  await applyFullPreprocessing(index, 'crop')
+  return fullFrame
+    ? `Cleared crop on image ${index}.`
+    : `Cropped image ${index} to ${getCropStatusText(items.value[index])}.`
 }
 
 async function agentPreprocess(index: number, preprocessor: string): Promise<string> {
@@ -2610,7 +2788,7 @@ async function agentScale(
   } else if (args.mode === 'megapixels') {
     newItems[index] = { ...item, _scale: { mode: 'megapixels', megapixels: args.megapixels ?? origMegapixels(item) } }
   } else if (args.mode === 'manual') {
-    const { w, h } = origDims(item)
+    const { w, h } = croppedDims(item)
     newItems[index] = { ...item, _scale: { mode: 'manual', width: args.width ?? w, height: args.height ?? h } }
   } else {
     return `Invalid scale mode "${args.mode}". Use factor, megapixels, or manual.`
@@ -2654,5 +2832,6 @@ defineExpose({
   preprocessImage: agentPreprocess,
   scaleImage: agentScale,
   extendImage: agentExtend,
+  cropImage: agentCrop,
 })
 </script>

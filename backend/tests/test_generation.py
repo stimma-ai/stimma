@@ -634,6 +634,83 @@ class TestExtractFrame:
         assert response.status_code == 403
 
 
+class TestReferencePrepCrop:
+    """Crop step in the reference prep pipeline (flip → crop → scale → ...)."""
+
+    @pytest.fixture
+    def quadrant_image(self, output_folder):
+        """1000x500 image with distinct quadrant colors."""
+        from PIL import Image
+
+        path = Path(output_folder) / "prep_crop_src.png"
+        img = Image.new("RGB", (1000, 500))
+        img.paste(Image.new("RGB", (500, 250), (255, 0, 0)), (0, 0))        # top-left red
+        img.paste(Image.new("RGB", (500, 250), (0, 255, 0)), (500, 0))      # top-right green
+        img.paste(Image.new("RGB", (500, 250), (0, 0, 255)), (0, 250))      # bottom-left blue
+        img.paste(Image.new("RGB", (500, 250), (255, 255, 0)), (500, 250))  # bottom-right yellow
+        img.save(path)
+        return path
+
+    async def test_crop_extracts_normalized_region(self, quadrant_image):
+        from PIL import Image
+        from routes.generation import ReferencePreprocessRequest, preprocess_reference_pipeline
+
+        result = await preprocess_reference_pipeline(ReferencePreprocessRequest(
+            source_path=str(quadrant_image),
+            crop={"x": 0.5, "y": 0.0, "width": 0.5, "height": 1.0},
+        ))
+        assert (result["width"], result["height"]) == (500, 500)
+        out = Image.open(result["path"]).convert("RGB")
+        assert out.getpixel((250, 100)) == (0, 255, 0)   # green (top-right)
+        assert out.getpixel((250, 400)) == (255, 255, 0) # yellow (bottom-right)
+
+    async def test_crop_applies_after_rotation(self, quadrant_image):
+        """Crop rect is relative to the post-flip image: after 90° CW rotation,
+        the rotated top-left region is the original bottom-left quadrant."""
+        from PIL import Image
+        from routes.generation import ReferencePreprocessRequest, preprocess_reference_pipeline
+
+        result = await preprocess_reference_pipeline(ReferencePreprocessRequest(
+            source_path=str(quadrant_image),
+            flip={"rotation": 90},
+            crop={"x": 0.0, "y": 0.0, "width": 0.5, "height": 0.25},
+        ))
+        assert (result["width"], result["height"]) == (250, 250)
+        out = Image.open(result["path"]).convert("RGB")
+        assert out.getpixel((125, 125)) == (0, 0, 255)  # blue (original bottom-left)
+
+    async def test_crop_rotation_straightens_about_rect_center(self, quadrant_image):
+        """crop.rotation rotates the rect clockwise on the image; the pipeline
+        rotates the image the opposite way about the rect center before the
+        axis-aligned cut. With 90° the quadrants pinwheel around the center."""
+        from PIL import Image
+        from routes.generation import ReferencePreprocessRequest, preprocess_reference_pipeline
+
+        # Center 250x250 rect (image center = quadrant intersection at 500,250),
+        # rotated 90°: content rotates 90° CCW, so the top-right (green) quadrant
+        # moves into the top-left of the output.
+        result = await preprocess_reference_pipeline(ReferencePreprocessRequest(
+            source_path=str(quadrant_image),
+            crop={"x": 0.375, "y": 0.25, "width": 0.25, "height": 0.5, "rotation": 90.0},
+        ))
+        assert (result["width"], result["height"]) == (250, 250)
+        out = Image.open(result["path"]).convert("RGB")
+        assert out.getpixel((60, 60)) == (0, 255, 0)      # green (was top-right)
+        assert out.getpixel((190, 60)) == (255, 255, 0)   # yellow (was bottom-right)
+        assert out.getpixel((60, 190)) == (255, 0, 0)     # red (was top-left)
+        assert out.getpixel((190, 190)) == (0, 0, 255)    # blue (was bottom-left)
+
+    async def test_scale_factor_applies_to_cropped_dims(self, quadrant_image):
+        from routes.generation import ReferencePreprocessRequest, preprocess_reference_pipeline
+
+        result = await preprocess_reference_pipeline(ReferencePreprocessRequest(
+            source_path=str(quadrant_image),
+            crop={"x": 0.0, "y": 0.0, "width": 0.5, "height": 0.5},
+            scale={"mode": "factor", "factor": 2.0},
+        ))
+        assert (result["width"], result["height"]) == (1000, 500)
+
+
 # =============================================================================
 # Fixtures for this test file
 # =============================================================================

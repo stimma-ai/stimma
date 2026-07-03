@@ -274,19 +274,30 @@ class TestSingleton:
 # ---------------------------------------------------------------------------
 
 
-def _create_test_video(tmp_path, duration=1) -> str:
+def _create_test_video(tmp_path, duration=1, audio=False) -> str:
     import shutil
     import subprocess
 
     if shutil.which("ffmpeg") is None:
         pytest.skip("ffmpeg not installed")
     path = tmp_path / "test_input.mp4"
-    subprocess.run(
-        ["ffmpeg", "-v", "error", "-y", "-f", "lavfi",
-         "-i", f"testsrc=size=32x32:rate=10:duration={duration}", str(path)],
-        check=True, capture_output=True,
-    )
+    cmd = ["ffmpeg", "-v", "error", "-y", "-f", "lavfi",
+           "-i", f"testsrc=size=32x32:rate=10:duration={duration}"]
+    if audio:
+        cmd += ["-f", "lavfi", "-i", f"sine=frequency=440:duration={duration}"]
+    cmd += [str(path)]
+    subprocess.run(cmd, check=True, capture_output=True)
     return str(path)
+
+
+def _video_has_audio(path) -> bool:
+    import subprocess
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "a:0",
+         "-show_entries", "stream=index", "-of", "csv=p=0", str(path)],
+        capture_output=True, text=True,
+    ).stdout.strip()
+    return bool(out)
 
 
 class TestFilterMediaTypeValidation:
@@ -324,3 +335,19 @@ class TestFilterMediaTypeValidation:
 
         final = results[-1]
         assert final.success is True
+
+    async def test_reverse_audio_setting_reaches_the_whole_clip_handler(self, provider, tmp_path):
+        """Wiring check: the "audio" param travels from tool parameters through
+        WHOLE_CLIP_VIDEO_FILTERS into apply_reverse_video (the ffmpeg-level
+        behavior itself is covered by tests/test_video_filters.py)."""
+        await provider.connect()
+        video_path = _create_test_video(tmp_path, audio=True)
+        assert _video_has_audio(video_path)
+
+        results = []
+        async for item in provider.execute("reverse", {"input_images": [video_path], "audio": "remove"}):
+            results.append(item)
+
+        final = results[-1]
+        assert final.success is True
+        assert not _video_has_audio(final.metadata["output_path"])

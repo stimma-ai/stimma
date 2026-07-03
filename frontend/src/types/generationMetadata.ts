@@ -27,6 +27,7 @@ export interface GenerationSourceInput {
   extend_bg_color?: string | null
   scale?: unknown
   flip?: unknown
+  crop?: unknown
   /** Set by the hard-delete tombstoner when a source media item is purged. */
   deleted?: boolean
 }

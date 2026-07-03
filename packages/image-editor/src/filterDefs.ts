@@ -177,12 +177,21 @@ export const CHAIN_FILTER_DEFS: ChainFilterDef[] = [
   },
   {
     id: 'reverse',
-    label: 'Reverse',
+    label: 'Reverse Video',
     description: 'Play the clip backwards',
     // A temporal, whole-clip operation — there's no single-frame notion of
     // "reversed", so unlike every other filter here this doesn't apply to stills.
     accepts: ['video'],
-    params: [],
+    params: [
+      {
+        name: 'audio', label: 'Audio Track', type: 'enum', default: 'reverse',
+        options: [
+          { value: 'reverse', label: 'Reverse' },
+          { value: 'remove', label: 'Remove' },
+          { value: 'keep', label: 'Keep As-Is' },
+        ],
+      },
+    ],
   },
 ];
 

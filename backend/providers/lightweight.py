@@ -347,7 +347,7 @@ class LightweightProvider(ToolProvider):
             os.close(fd)
             whole_clip = WHOLE_CLIP_VIDEO_FILTERS.get(filter_id)
             if whole_clip is not None:
-                whole_clip(str(image_path), tmp_path)
+                whole_clip(str(image_path), tmp_path, settings)
             else:
                 # Per-frame application reuses apply_builtin_filter, which overlays
                 # the filter def defaults — so pass the raw settings through.
