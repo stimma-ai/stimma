@@ -284,6 +284,12 @@ def _normalize_response(raw_response) -> LLMResponse:
         # Prompt caching fields (Anthropic via Stimma Cloud proxy, or OpenAI)
         usage.cache_creation_input_tokens = getattr(raw_usage, 'cache_creation_input_tokens', 0) or 0
         usage.cache_read_input_tokens = getattr(raw_usage, 'cache_read_input_tokens', 0) or 0
+        if not usage.cache_read_input_tokens:
+            # OpenAI-compatible spelling (OpenAI, Fireworks, vLLM):
+            # usage.prompt_tokens_details.cached_tokens
+            prompt_details = getattr(raw_usage, 'prompt_tokens_details', None)
+            if prompt_details:
+                usage.cache_read_input_tokens = getattr(prompt_details, 'cached_tokens', 0) or 0
 
     # Extract Stimma Cloud quota if present (injected by llm_http from response headers)
     quota = None
