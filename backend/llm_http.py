@@ -220,13 +220,16 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
         if key in kwargs:
             body[key] = kwargs.pop(key)
 
-    # Send both max_tokens and max_completion_tokens for maximum compatibility.
-    # OpenAI endpoints use max_completion_tokens, vLLM accepts both,
-    # OpenRouter uses max_tokens.
+    # Output-token cap naming varies by provider: OpenAI's newer models
+    # require max_completion_tokens, most others (vLLM, OpenRouter,
+    # Fireworks) use max_tokens, and Anthropic's OpenAI-compat endpoint
+    # REJECTS requests that set both. Pick one by host.
     if "max_tokens" in kwargs:
         val = kwargs.pop("max_tokens")
-        body["max_tokens"] = val
-        body["max_completion_tokens"] = val
+        if "api.openai.com" in (api_base or ""):
+            body["max_completion_tokens"] = val
+        else:
+            body["max_tokens"] = val
 
     # Build URL — base_url is like "http://host/v1"
     if not api_base:
