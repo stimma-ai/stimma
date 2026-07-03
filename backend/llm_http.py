@@ -231,6 +231,11 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
         else:
             body["max_tokens"] = val
 
+    # Claude 5 models reject `temperature` outright on the Anthropic
+    # OpenAI-compat endpoint ("deprecated for this model").
+    if "api.anthropic.com" in (api_base or ""):
+        body.pop("temperature", None)
+
     # Build URL — base_url is like "http://host/v1"
     if not api_base:
         raise ValueError("No LLM endpoint configured (api_base is empty)")
