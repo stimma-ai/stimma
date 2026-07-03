@@ -19,9 +19,11 @@ from privacy_lockdown import is_privacy_lockdown_enabled
 router = APIRouter(prefix="/api/models", tags=["models"])
 log = get_logger(__name__)
 
+# Slugs are stable identifiers: 'agent-max' is the flagship "Stimma Agent",
+# 'default' is "Stimma Agent Flash".
 PUBLIC_CLOUD_FALLBACK_MODELS = {
-    "agent-max": "Stimma Agent Max",
-    "default": "Stimma Agent",
+    "agent-max": "Stimma Agent",
+    "default": "Stimma Agent Flash",
 }
 
 
@@ -71,6 +73,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
                             "source": "stimma_cloud",
                             "name": entry["name"],
                             "description": entry.get("description", ""),
+                            "based_on": entry.get("based_on"),
                             "available": True,
                             "status": "available",
                             "max_context_tokens": get_max_context_tokens(entry["slug"]),
@@ -140,8 +143,8 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     }
     if cloud_status == "available":
         auto_model.update({
-            "name": "Auto: Stimma Agent Max",
-            "description": "Uses Stimma Agent Max from Stimma Cloud.",
+            "name": "Auto: Stimma Agent",
+            "description": "Uses Stimma Agent from Stimma Cloud.",
             "available": True,
             "status": "available",
             "resolved_slug": "agent-max",

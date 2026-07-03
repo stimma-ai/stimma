@@ -43,8 +43,8 @@
     <div class="p-4 rounded-lg border border-edge mb-3">
       <div class="flex items-center justify-between gap-4">
         <div class="flex-1 min-w-0">
-          <h4 class="text-sm font-medium text-content">Prompt Improvement &amp; Utilities</h4>
-          <p class="text-xs text-content-tertiary mt-0.5">Used for prompt enhancement, chat naming, and other quick tasks</p>
+          <h4 class="text-sm font-medium text-content">Quick Tasks</h4>
+          <p class="text-xs text-content-tertiary mt-0.5">Used for prompt enhancement, the tool assistant, chat naming, and other quick tasks</p>
         </div>
         <select
           :value="utilityModelSource"
@@ -52,7 +52,6 @@
           class="w-56 bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500"
         >
           <option value="auto" :disabled="!hasAnyUtilityModel">{{ utilityAutoLabel }}</option>
-          <option value="stimma_cloud" :disabled="!hasCloudAvailable">Stimma Agent{{ !hasCloudAvailable ? ' · unavailable' : '' }}</option>
           <option value="endpoint" :disabled="!hasLocalEndpoint">Local Endpoint{{ !hasLocalEndpoint ? ' · configure first' : '' }}</option>
         </select>
       </div>
@@ -361,7 +360,7 @@ onMounted(refreshVoiceModelReady)
 watch(voiceModel, refreshVoiceModelReady)
 
 // --- Available models (for chat dropdown) ---
-const { models: availableModelsRaw, globalDefault, fetchModels, invalidateCache, cloudMessage } = useAvailableModels()
+const { models: availableModelsRaw, globalDefault, fetchModels, invalidateCache } = useAvailableModels()
 const defaultModelSlug = ref('auto')
 const availableModelsList = computed(() => {
   if (availableModelsRaw.value.length > 0) return availableModelsRaw.value
@@ -462,15 +461,12 @@ const sharedApiKeyDisplay = computed(() => {
 const utilityModelSource = ref('auto')
 const utilityModelStatus = computed(() => {
   if (utilityModelSource.value === 'endpoint' && !hasLocalEndpoint.value) {
-    return { available: false, message: 'Configure a local endpoint before using it for prompt improvement.' }
-  }
-  if (utilityModelSource.value === 'stimma_cloud' && !hasCloudAvailable.value) {
-    return { available: false, message: cloudMessage.value || 'Stimma Cloud is not available right now.' }
+    return { available: false, message: 'Configure a local endpoint before using it for quick tasks.' }
   }
   if (utilityModelSource.value === 'auto') {
-    if (hasCloudAvailable.value) return { available: true, message: 'Auto will use Stimma Cloud.' }
-    if (hasLocalEndpoint.value) return { available: true, message: 'Auto will use the local endpoint.' }
-    return { available: false, message: 'No AI utility model is available. Sign in to Stimma Cloud or configure Local.' }
+    if (hasCloudAvailable.value) return { available: true, message: 'Auto uses a fast Stimma Cloud model.' }
+    if (hasLocalEndpoint.value) return { available: true, message: 'Auto uses your local endpoint.' }
+    return { available: false, message: 'No quick-task model is available. Sign in to Stimma Cloud or configure a local endpoint.' }
   }
   return null
 })
@@ -508,7 +504,10 @@ watch(() => props.llmSettings, (newSettings) => {
     last_test_passed: ep.last_test_passed ?? null,
   }
   extraBodyText.value = ep.extra_body ? JSON.stringify(ep.extra_body, null, 2) : ''
-  utilityModelSource.value = fastCfg?.source || 'auto'
+  // 'stimma_cloud' was a selectable pin before Quick Tasks became a two-option
+  // routing choice; auto prefers cloud, so legacy configs display as auto.
+  const fastSource = fastCfg?.source || 'auto'
+  utilityModelSource.value = fastSource === 'stimma_cloud' ? 'auto' : fastSource
 
   initialLoadDone = true
   if (sharedEndpoint.value.url) fetchEndpointModels()
