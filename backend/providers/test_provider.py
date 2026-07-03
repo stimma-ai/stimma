@@ -558,11 +558,16 @@ class TestToolProvider(ToolProvider):
         rules = list(self._marker_rules.get(tool_id, []))
         if config.fail_if_prompt_contains:
             rules.append((config.fail_if_prompt_contains, config.fail_count, config.fail_message))
+        # fail_count scope: the caller's output folder when available (one
+        # transient failure per consumer, regardless of prompt rewording),
+        # falling back to the exact prompt text.
+        import os as _os
+        count_scope = _os.path.dirname(output_path) if output_path else str(parameters.get("prompt") or "")
         for marker, fail_count, message in rules:
             if marker.lower() not in prompt_text:
                 continue
             if fail_count is not None:
-                key = (tool_id, marker, str(parameters.get("prompt") or ""))
+                key = (tool_id, marker, count_scope)
                 seen = self._marker_fail_counts.get(key, 0)
                 if seen >= fail_count:
                     continue

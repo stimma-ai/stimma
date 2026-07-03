@@ -306,9 +306,13 @@ def _estimate_tokens(messages: List[Dict[str, Any]]) -> Dict[str, int]:
         content = msg.get("content")
         role = msg.get("role", "")
 
+        # Tool results are JSON/code-dense and tokenize nearer chars/3 than
+        # the chars/4 of prose; underestimating them overflows small windows.
+        divisor = 3 if role == "tool" else 4
+
         text_tokens = 0
         if isinstance(content, str):
-            text_tokens = len(content) // 4
+            text_tokens = len(content) // divisor
         elif isinstance(content, list):
             # Multimodal content blocks
             for block in content:
