@@ -163,16 +163,16 @@ _IMAGE_TOOLS = [
     _fn(
         "rotate_image",
         "Rotate a reference image 90° left or right.",
-        {"index": {"type": "integer"}, "direction": {"type": "string", "enum": ["left", "right"]}},
+        {"index": {"type": "integer", "description": "0-based image index."}, "direction": {"type": "string", "enum": ["left", "right"]}},
         ["index", "direction"],
     ),
     _fn(
         "reset_image_transforms",
         "Clear flip/rotate/scale/extend/preprocess on one reference image, back to the original.",
-        {"index": {"type": "integer"}},
+        {"index": {"type": "integer", "description": "0-based image index."}},
         ["index"],
     ),
-    _fn("remove_image", "Remove one reference image.", {"index": {"type": "integer"}}, ["index"]),
+    _fn("remove_image", "Remove one reference image.", {"index": {"type": "integer", "description": "0-based image index."}}, ["index"]),
     _fn("clear_images", "Remove all reference images.", {}),
     _fn(
         "reorder_image",
