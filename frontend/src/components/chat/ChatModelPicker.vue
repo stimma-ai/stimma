@@ -88,59 +88,34 @@
             <div v-if="cloudModels.length > 0 || localModels.length > 0" class="border-t border-edge my-1" />
           </template>
 
-          <!-- Cloud models section -->
-          <template v-if="cloudModels.length > 0">
-            <div class="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider stimma-cloud-text">
-              Stimma Cloud
-            </div>
-            <button
-              v-for="model in cloudModels"
-              :key="model.slug"
-              :disabled="model.available === false"
-              @click="selectModel(model)"
-              class="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
-              :class="modelButtonClass(model, 'bg-cyan-500/10')"
-            >
-              <div class="flex-1 min-w-0">
-                <div class="text-sm text-content">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
-                <div v-if="model.description" class="text-[11px] leading-snug text-content-muted whitespace-normal break-words">{{ model.description }}</div>
+          <!-- Models (cloud + local, one flat list; provenance lives in the subtitle) -->
+          <button
+            v-for="model in pickerModels"
+            :key="model.slug"
+            :disabled="model.available === false"
+            @click="selectModel(model)"
+            class="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
+            :class="modelButtonClass(model, model.source === 'stimma_cloud' ? 'bg-cyan-500/10' : 'bg-blue-500/10')"
+          >
+            <div class="flex-1 min-w-0">
+              <div class="text-sm text-content">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
+              <div v-if="model.source === 'stimma_cloud' && model.description" class="text-[11px] leading-snug whitespace-normal break-words">
+                <span class="stimma-cloud-text font-medium">Stimma Cloud</span><span class="text-content-muted"> · {{ model.description }}</span>
               </div>
-              <svg v-if="isSelectedModel(model)" class="w-4 h-4 text-cyan-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-              </svg>
-            </button>
-          </template>
-
-          <!-- Local endpoint section -->
-          <template v-if="localModels.length > 0">
-            <div v-if="cloudModels.length > 0 || visibleAutoModels.length > 0" class="border-t border-edge my-1" />
-            <div class="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-content-muted">
-              Local
+              <div
+                v-else-if="model.endpoint_model"
+                class="text-[11px] leading-snug font-mono text-content-muted truncate"
+                :title="model.endpoint_url ? `${model.endpoint_url} (${model.endpoint_model})` : model.endpoint_model"
+              >{{ model.endpoint_model }}</div>
+              <div v-else-if="model.description" class="text-[11px] leading-snug text-content-muted whitespace-normal break-words">{{ model.description }}</div>
             </div>
-            <button
-              v-for="model in localModels"
-              :key="model.slug"
-              :disabled="model.available === false"
-              @click="selectModel(model)"
-              class="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
-              :class="modelButtonClass(model, 'bg-blue-500/10')"
-            >
-              <div class="flex-1 min-w-0">
-                <div class="text-sm text-content">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
-                <template v-if="model.endpoint_url">
-                  <div class="text-[11px] leading-snug font-mono text-content-muted truncate" :title="model.endpoint_url">{{ model.endpoint_url }}</div>
-                  <div class="text-[11px] leading-snug font-mono text-content-muted/70 truncate" :title="model.endpoint_model">{{ model.endpoint_model }}</div>
-                </template>
-                <div v-else-if="model.description" class="text-[11px] leading-snug text-content-muted whitespace-normal break-words">{{ model.description }}</div>
-              </div>
-              <svg v-if="isSelectedModel(model)" class="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-              </svg>
-            </button>
-          </template>
+            <svg v-if="isSelectedModel(model)" class="w-4 h-4 flex-shrink-0" :class="model.source === 'stimma_cloud' ? 'text-cyan-400' : 'text-blue-400'" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+            </svg>
+          </button>
 
           <!-- Empty state -->
-          <div v-if="visibleAutoModels.length === 0 && cloudModels.length === 0 && localModels.length === 0" class="px-3 py-2 text-xs text-content-muted">
+          <div v-if="visibleAutoModels.length === 0 && pickerModels.length === 0" class="px-3 py-2 text-xs text-content-muted">
             No models available
           </div>
         </template>
@@ -210,6 +185,7 @@ const autoModels = computed(() => models.value.filter(m => m.source === 'auto'))
 const visibleAutoModels = computed(() => autoModels.value.filter(m => !m.resolved_slug))
 const cloudModels = computed(() => models.value.filter(m => m.source === 'stimma_cloud'))
 const localModels = computed(() => models.value.filter(m => m.source === 'endpoint'))
+const pickerModels = computed(() => [...cloudModels.value, ...localModels.value])
 
 onMounted(() => {
   // Use the in-memory cache if it's fresh; only the first open of a run hits
