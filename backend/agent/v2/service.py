@@ -1146,24 +1146,25 @@ async def _run_agentic_loop_inner(
     cumulative_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "reasoning_tokens": 0, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
     cumulative_llm_seconds = 0.0
 
-    # Turn-termination state. The loop hands control back to the user only on
-    # an *explicit* signal: the model calls `finish` (or ask_user / a
-    # permission pause). A text-only message no longer silently ends the turn
-    # once the model has started working — that's the classic narration-stall
-    # ("retrying with the corrected code…" with no tool call attached) that
-    # used to drop multi-step tasks on the floor.
+    # Turn-termination state. A response with no tool calls is the model's
+    # native end of turn, and we accept it whenever the user actually got a
+    # reply — even mid-task. Forcing a continuation after a completed answer
+    # is worse than a premature stop: re-invoked with nothing left to do, the
+    # model invents work (it hallucinates the user's next request and
+    # self-adopts it). `finish` remains a valid explicit exit — a bare finish
+    # after `show` lets the images speak for themselves — but a substantive
+    # closing message doesn't need it.
     #
-    # `any_tool_executed` goes sticky-true once the model has acted this run.
-    # `consecutive_textonly` counts back-to-back text-only responses; a single
-    # tool call resets it. If the model stalls (text-only with work in flight)
-    # we nudge it once to continue-or-`finish`; if it stalls again immediately
-    # without making progress we give up and end the turn, so a model that
-    # won't comply can't spin against max_turns. `needs_continuation` is the
-    # stronger per-tool signal (flow build still broken) and gets a more
-    # specific nudge. The list persists across iterations so turn N's tool
-    # result is still visible at turn N+1's check.
+    # Only two text-only shapes are rejected, each with a single nudge before
+    # we give up so a non-compliant model can't spin against max_turns:
+    #   - a tool flagged unresolved work (`needs_continuation`, e.g. the flow
+    #     build is still broken): the model must keep going, not narrate.
+    #   - an empty turn: no visible message and no tool call (reasoning models
+    #     sometimes spend the whole turn in the think block).
+    # `consecutive_textonly` counts back-to-back text-only responses; a tool
+    # call resets it. The `needs_continuation` list persists across iterations
+    # so turn N's tool result is still visible at turn N+1's check.
     pending_stall_nudge: str | None = None
-    any_tool_executed = False
     consecutive_textonly = 0
     needs_continuation: list[bool] = []
     # Whether the user has seen anything this run — a non-empty assistant
@@ -1289,10 +1290,14 @@ async def _run_agentic_loop_inner(
         llm_config = await get_chat_llm_config(effective_model_slug, role='agent')
         turn_stats["llm_config"] = llm_config
 
+        # The tools schema counts as prompt input at the provider but isn't in
+        # the messages list — budget for it or small windows overflow.
+        tools_overhead = len(json.dumps(tools_schema)) // 4 if tools_schema else 0
         messages, estimated_prompt_tokens = await build_messages(
             chat_id, session, system_prompt,
             system_reminders=system_reminders,
             max_context_tokens=llm_config.max_context_tokens,
+            overhead_tokens=tools_overhead,
         )
 
         thinking_item = await _create_thinking_item(chat_id, session, ws_manager)

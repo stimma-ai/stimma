@@ -32,9 +32,16 @@ def response_reserve(max_context_tokens: int) -> int:
     return max(2_048, min(8_192, max_context_tokens // 10))
 
 
-def compute_history_budget(max_context_tokens: int, system_tokens: int) -> int:
-    """Estimated-token budget for history + images after reserving system and response."""
-    return int(max_context_tokens * COMPACTION_PCT) - system_tokens - response_reserve(max_context_tokens)
+def compute_history_budget(max_context_tokens: int, system_tokens: int, overhead_tokens: int = 0) -> int:
+    """Estimated-token budget for history + images after reserving system and response.
+
+    overhead_tokens covers prompt content that isn't in the messages list —
+    principally the tools schema (function definitions), which the provider
+    counts as input. On 128k windows it's noise; on a 32k local model the
+    agent's ~8k tool schema is a quarter of the window and ignoring it
+    overflows the context.
+    """
+    return int(max_context_tokens * COMPACTION_PCT) - system_tokens - overhead_tokens - response_reserve(max_context_tokens)
 
 
 async def build_messages(
@@ -43,6 +50,7 @@ async def build_messages(
     system_prompt: str,
     system_reminders: List[str] | None = None,
     max_context_tokens: int = 128_000,
+    overhead_tokens: int = 0,
 ) -> tuple[List[Dict[str, Any]], int]:
     """Build LLM messages from chat history.
 
@@ -98,7 +106,7 @@ async def build_messages(
     # Token budget: drop middle messages if history exceeds budget.
     # Preserves first + last turns so the prefix stays anchored for caching.
     pre_tokens = _estimate_tokens(messages)
-    budget = compute_history_budget(max_context_tokens, pre_tokens["system"])
+    budget = compute_history_budget(max_context_tokens, pre_tokens["system"], overhead_tokens)
     messages = _apply_token_budget(messages, budget=budget, correction=correction)
     post_tokens = _estimate_tokens(messages)
 
