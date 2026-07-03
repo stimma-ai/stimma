@@ -166,7 +166,7 @@ def _check_failure_block(workspace_dir: Optional[str], tool_id: str) -> None:
         raise RuntimeError(
             f"Refusing to run '{tool_id}': it has failed {streak} times in a row and further "
             "retries are blocked. Report the failure to the user (what you tried and the error "
-            "that came back). Do not call this tool again unless the user asks you to."
+            "that came back); it becomes available again once the user weighs in."
         )
 
 
