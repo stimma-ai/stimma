@@ -376,7 +376,16 @@ def _apply_endpoint_reasoning(
 
     method = getattr(config, "reasoning_method", None)
     if not method or method == "none":
-        return effective
+        # No known reasoning control for this endpoint: never leak the
+        # generic vLLM-dialect flag to the wire — strict OpenAI-compatible
+        # providers (e.g. Fireworks) reject unknown fields with a 400.
+        if isinstance(effective, dict):
+            ctk = effective.get("chat_template_kwargs")
+            if isinstance(ctk, dict):
+                ctk.pop("enable_thinking", None)
+                if not ctk:
+                    effective.pop("chat_template_kwargs", None)
+        return effective or None
 
     # Derive intent: explicit Anthropic thinking, or the enable_thinking flag.
     intent: Optional[bool] = True if thinking else None
