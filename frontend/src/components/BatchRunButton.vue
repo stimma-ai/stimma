@@ -7,6 +7,7 @@
     >
       <!-- Main run button -->
       <button
+        data-testid="tool-run-button"
         @click="emit('run')"
         :disabled="disabled"
         class="px-4 py-2 text-white text-sm font-semibold transition-colors hover:bg-blue-600 disabled:cursor-not-allowed flex items-center justify-center gap-2"

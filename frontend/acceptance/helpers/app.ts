@@ -122,10 +122,28 @@ export async function openPromptToolById(page: Page, toolId: string, projectId?:
 }
 
 export async function submitGeneration(page: Page, prompt: string) {
+  await disablePromptTransforms(page);
   await promptInput(page).fill(prompt);
-  const runButton = page.getByRole('button', { name: /^Run/ });
+  const runButton = page.getByTestId('tool-run-button');
   await expect(runButton).toBeEnabled({ timeout: 10000 });
-  await runButton.click({ force: true });
+  await runButton.click();
+}
+
+async function disablePromptTransforms(page: Page) {
+  const enhanceButton = page.getByRole('button', { name: 'Enhance Prompt' }).first();
+  if (await enhanceButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    const isActive = await enhanceButton.evaluate((el) => el.className.includes('text-purple-500'));
+    if (isActive) await enhanceButton.click();
+  }
+
+  const translateButton = page.getByRole('button', { name: /Translate Prompt|Simplified Chinese|Traditional Chinese|Japanese|Korean|English/ }).first();
+  if (await translateButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    const isActive = await translateButton.evaluate((el) => el.className.includes('text-blue-500'));
+    if (isActive) {
+      await translateButton.click();
+      await page.getByRole('button', { name: 'Off' }).click();
+    }
+  }
 }
 
 export async function setBatchSize(page: Page, size: number) {
