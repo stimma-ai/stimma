@@ -502,6 +502,12 @@
                     v-if="isTabGenerating(tab) && tab.type !== 'flow'"
                     class="w-2.5 h-2.5 border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0 self-center"
                   ></span>
+                  <span
+                    v-else-if="unseenKindFor(tab.id)"
+                    class="w-2 h-2 rounded-full flex-shrink-0 self-center"
+                    :class="unseenKindFor(tab.id) === 'error' ? 'bg-red-500' : 'bg-blue-500'"
+                    :title="unseenKindFor(tab.id) === 'error' ? 'Finished with errors since you last looked' : 'Finished since you last looked'"
+                  ></span>
                 </template>
               </button>
               <!-- Unavailable indicator (warning triangle), same slot a close X would use -->
@@ -788,6 +794,12 @@
                     v-if="isTabGenerating(tab) && tab.type !== 'flow'"
                     class="w-2.5 h-2.5 border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0 self-center"
                   ></span>
+                  <span
+                    v-else-if="unseenKindFor(tab.id)"
+                    class="w-2 h-2 rounded-full flex-shrink-0 self-center"
+                    :class="unseenKindFor(tab.id) === 'error' ? 'bg-red-500' : 'bg-blue-500'"
+                    :title="unseenKindFor(tab.id) === 'error' ? 'Finished with errors since you last looked' : 'Finished since you last looked'"
+                  ></span>
                 </template>
               </button>
               <!-- Unavailable indicator (warning triangle); hidden on hover so the close X
@@ -854,6 +866,7 @@ import { makeProfileKey } from '../utils/storageKeys'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { createTaskTypeIconComponent, isToolCompatibleWithMediaType, getEligibleTaskTypesForMediaType } from '../utils/taskTypeIcons'
 import { useGenerationStatus } from '../composables/useGenerationStatus'
+import { useUnseenActivity } from '../composables/useUnseenActivity'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { useSendToTool } from '../composables/useSendToTool'
@@ -902,6 +915,9 @@ const { on, connected: wsConnected } = useWebSocket()
 
 // Generation status
 const { isToolActive: isToolGenerating } = useGenerationStatus()
+
+// Finished-while-away dots (blue = done, red = failed)
+const { unseenKindFor } = useUnseenActivity()
 
 // Send to tool
 const { sendToTool } = useSendToTool()
