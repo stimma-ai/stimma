@@ -111,7 +111,9 @@ export async function openPromptToolById(page: Page, toolId: string, projectId?:
 
 export async function submitGeneration(page: Page, prompt: string) {
   await promptInput(page).fill(prompt);
-  await page.getByRole('button', { name: /^Run/ }).click();
+  const runButton = page.getByRole('button', { name: /^Run/ });
+  await expect(runButton).toBeEnabled({ timeout: 10000 });
+  await runButton.click({ force: true });
 }
 
 export async function setBatchSize(page: Page, size: number) {
@@ -602,7 +604,7 @@ export async function waitFor<T>(check: () => Promise<T | null>, timeoutMs: numb
 }
 
 function promptInput(page: Page) {
-  return page.getByRole('textbox').first();
+  return page.locator('.cm-content[contenteditable="true"]').first();
 }
 
 async function continueWithoutAccountIfNeeded(page: Page) {
