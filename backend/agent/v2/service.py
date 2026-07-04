@@ -710,14 +710,19 @@ async def _copy_media_to_workspace(
 ) -> List[Dict[str, Any]]:
     """Copy selected media files into the workspace.
 
-    Returns list of dicts: [{"media_id": 123, "filename": "image.png"}, ...]
+    Returns list of dicts: [{"media_id": 123, "filename": "image.png",
+    "generated_by": "provider:tool", "task_type": "image-to-image",
+    "source_media_ids": [41]}, ...] — the provenance keys are present only
+    when the item recorded them, and feed the attachment note so the agent
+    starts from the real generating tool instead of guessing.
     """
     workspace = get_workspace_dir(chat_id, project_id)
     copied = []
     result = await session.execute(
-        select(MediaItem.id, MediaItem.file_path).where(MediaItem.id.in_(media_ids))
+        select(MediaItem).where(MediaItem.id.in_(media_ids))
     )
-    for media_id, file_path in result.fetchall():
+    for item in result.scalars().all():
+        file_path = item.file_path
         if file_path and os.path.exists(file_path):
             filename = os.path.basename(file_path)
             dest = os.path.join(str(workspace), filename)
@@ -729,9 +734,27 @@ async def _copy_media_to_workspace(
                     shutil.copytree(file_path, dest)
                 else:
                     shutil.copy2(file_path, dest)
-                copied.append({"media_id": media_id, "filename": filename})
+                entry: Dict[str, Any] = {"media_id": item.id, "filename": filename}
+                gen = {}
+                if item.generation_metadata:
+                    try:
+                        gen = json.loads(item.generation_metadata) or {}
+                    except (ValueError, TypeError):
+                        gen = {}
+                tool_id = item.tool_id or gen.get("tool_id")
+                if tool_id:
+                    entry["generated_by"] = tool_id
+                if gen.get("task_type"):
+                    entry["task_type"] = gen["task_type"]
+                source_ids = [
+                    s["media_id"] for s in gen.get("source_inputs") or []
+                    if isinstance(s, dict) and s.get("media_id")
+                ]
+                if source_ids:
+                    entry["source_media_ids"] = source_ids
+                copied.append(entry)
             except Exception as e:
-                log.warning(f"Failed to copy media {media_id} to workspace: {e}")
+                log.warning(f"Failed to copy media {item.id} to workspace: {e}")
     return copied
 
 

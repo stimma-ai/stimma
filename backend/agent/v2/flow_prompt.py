@@ -304,6 +304,18 @@ There is no nested ``inputs={...}`` or ``parameters={...}`` — the runtime
 splits them for you based on the tool's schema. Writing
 ``tool(..., parameters={"resolution": 3200})`` is a validation error.
 
+To reuse an existing library item's recorded settings, pass
+``params_from=<media_id>``: the call inherits every knob that item recorded
+(prompt, seed, dimensions, loras, sampler, …), and any kwarg you also pass
+explicitly wins. It carries settings only — never the source image's pixels;
+use an input-image parameter for that. When a flow must reproduce or extend
+an existing asset, call the ``media_info`` tool FIRST: it returns the
+recorded ``tool_id``, ``task_type``, and full parameters for the item and
+every ancestor hop, so you write each ``tool(...)`` against what actually
+made it instead of guessing a model — the asset you were handed is often the
+END of a chain (generate → edit → upscale), and reproducing only its last
+step drops the upstream hops.
+
 ``task_type`` is **required** and must be one of the tool's declared
 ``task_types`` (e.g. ``"text-to-image"``, ``"image-to-image"``). It pins what
 the call is doing so the flow row can render as the action ("Generate
