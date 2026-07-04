@@ -59,8 +59,18 @@
       <template v-for="(section, sIdx) in sections" :key="section.title">
         <div v-if="sIdx > 0" class="border-t border-edge-subtle"></div>
         <div class="py-1.5">
-          <div class="text-[10.5px] font-semibold uppercase tracking-wider text-content-muted px-3.5 pt-1 pb-0.5">
-            {{ section.title }}
+          <div class="flex items-center justify-between px-3.5 pt-1 pb-0.5">
+            <div class="text-[10.5px] font-semibold uppercase tracking-wider text-content-muted">
+              {{ section.title }}
+            </div>
+            <button
+              v-if="section.action"
+              :data-search-idx="section.action.index"
+              class="text-[11px] rounded px-1.5 py-0.5 -my-0.5 cursor-pointer transition-colors"
+              :class="section.action.index === selectedIndex ? 'bg-blue-500/15 text-blue-400' : 'text-blue-400/80 hover:text-blue-400'"
+              @mouseenter="selectedIndex = section.action.index"
+              @click="activateItem(section.action)"
+            >{{ section.action.label }}</button>
           </div>
 
           <!-- Asset thumbnail strip -->
@@ -239,6 +249,8 @@ interface Section {
   title: string
   items: SelectableItem[]
   strip?: boolean
+  /** Right-aligned header action (the strip's "View all" escape hatch). */
+  action?: SelectableItem
 }
 
 function isEscapeKind(kind: SelectableItem['kind']): boolean {
@@ -377,10 +389,20 @@ const sections = computed<Section[]>(() => {
     })
   }
   // The app's asset-search duality: prompt text vs CLIP visual similarity.
+  // Each strip carries its own "View all" escape hatch in the header — the
+  // action gets its index BEFORE the thumbnails so arrow-key order matches
+  // the visual top-to-bottom layout.
   if (promptMediaResults.value.length > 0) {
+    const action = next({
+      key: 'browse-prompt',
+      kind: 'browse-prompt',
+      label: 'View all',
+      data: null,
+    })
     result.push({
       title: 'Prompt matches',
       strip: true,
+      action,
       items: promptMediaResults.value.map(m => next({
         key: `asset:prompt:${m.id}`,
         kind: 'asset',
@@ -391,9 +413,16 @@ const sections = computed<Section[]>(() => {
     })
   }
   if (visualMediaResults.value.length > 0) {
+    const action = next({
+      key: 'browse-visual',
+      kind: 'browse-visual',
+      label: 'View all',
+      data: null,
+    })
     result.push({
       title: 'Visual matches',
       strip: true,
+      action,
       items: visualMediaResults.value.map(m => next({
         key: `asset:visual:${m.id}`,
         kind: 'asset',
@@ -403,32 +432,12 @@ const sections = computed<Section[]>(() => {
       })),
     })
   }
-  const scopeSuffix = scopeProject.value
-    ? ` in ${scopeProject.value.name || 'this project'}`
-    : ''
-  result.push({
-    title: 'Library',
-    items: [
-      next({
-        key: 'browse-prompt',
-        kind: 'browse-prompt',
-        label: `View all prompt matches${scopeSuffix} for “${query.value.trim()}”`,
-        meta: 'Browse',
-        data: null,
-      }),
-      next({
-        key: 'browse-visual',
-        kind: 'browse-visual',
-        label: `View all visual matches${scopeSuffix} for “${query.value.trim()}”`,
-        meta: 'Browse',
-        data: null,
-      }),
-    ],
-  })
   return result
 })
 
-const flatItems = computed<SelectableItem[]>(() => sections.value.flatMap(s => s.items))
+const flatItems = computed<SelectableItem[]>(() =>
+  sections.value.flatMap(s => s.action ? [s.action, ...s.items] : s.items),
+)
 
 // --- Search execution ---
 
