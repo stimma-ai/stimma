@@ -192,6 +192,7 @@ import {
 } from './appConfig'
 import { initFeatureFlags } from './composables/useFeatureFlags'
 import { useWebSocket } from './composables/useWebSocket'
+import { useUnseenActivity } from './composables/useUnseenActivity'
 import { runStartupCleanup } from './utils/storageCleanup'
 import { setCloudBaseUrl } from './composables/useCloudAccount'
 import { useRouteRestore } from './composables/useRouteRestore'
@@ -648,6 +649,9 @@ async function loadAppSettings() {
   const privacyLockdown = settings.privacy_lockdown_active === true
   setPrivacyLockdownActive(privacyLockdown)
   initFeatureFlags(useWebSocket().on)
+  // Sidebar "finished while away" dots must track even when the sidebar
+  // itself is unmounted (mobile, closed), so the singleton starts here.
+  useUnseenActivity()
   // Auto update checks start only once Privacy Lockdown state is known.
   void startUpdaterLoop(privacyLockdown)
   // Sync theme from backend config (backend is source of truth,
