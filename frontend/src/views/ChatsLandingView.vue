@@ -230,6 +230,7 @@
 import { ref, computed, onMounted, onActivated, onUnmounted, nextTick , watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
+import { useAgentActivity } from '../composables/useAgentActivity'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
 import { useToasts } from '../composables/useToasts'
 import ConnectionError from '../components/ConnectionError.vue'
@@ -271,8 +272,8 @@ watch(() => route.query.q, (q) => {
 const editingChatId = ref(null)
 const editingName = ref('')
 
-// Chat generation tracking
-const generatingChatIds = ref(new Set())
+// Chat generation tracking (primed on load/reconnect, cleared on disconnect)
+const { isChatGenerating } = useAgentActivity()
 
 // Selection state
 const selectedIds = ref(new Set())
@@ -284,20 +285,6 @@ const emptyContextMenuVisible = ref(false)
 const emptyContextMenuX = ref(0)
 const emptyContextMenuY = ref(0)
 const emptyMenuRef = ref(null)
-
-on('agent_started', (data) => {
-  generatingChatIds.value.add(data.chat_id)
-  generatingChatIds.value = new Set(generatingChatIds.value)
-})
-
-on('agent_stopped', (data) => {
-  generatingChatIds.value.delete(data.chat_id)
-  generatingChatIds.value = new Set(generatingChatIds.value)
-})
-
-function isChatGenerating(chatId) {
-  return generatingChatIds.value.has(chatId)
-}
 
 const filteredChats = computed(() => {
   if (!searchQuery.value.trim()) return chats.value

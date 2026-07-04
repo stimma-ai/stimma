@@ -867,6 +867,7 @@ import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { createTaskTypeIconComponent, isToolCompatibleWithMediaType, getEligibleTaskTypesForMediaType } from '../utils/taskTypeIcons'
 import { useGenerationStatus } from '../composables/useGenerationStatus'
 import { useUnseenActivity } from '../composables/useUnseenActivity'
+import { useAgentActivity } from '../composables/useAgentActivity'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { useSendToTool } from '../composables/useSendToTool'
@@ -918,6 +919,9 @@ const { isToolActive: isToolGenerating } = useGenerationStatus()
 
 // Finished-while-away dots (blue = done, red = failed)
 const { unseenKindFor } = useUnseenActivity()
+
+// Chat agent activity (primed on load/reconnect, cleared on disconnect)
+const { isChatGenerating } = useAgentActivity()
 
 // Send to tool
 const { sendToTool } = useSendToTool()
@@ -1007,9 +1011,6 @@ const tabReorderDropTarget = ref<{ index: number, group: 'pinned' | 'open' } | n
 // Inline rename state
 const editingItem = ref<{ tabId: string, tabType: string, entityId: string } | null>(null)
 const editingName = ref('')
-
-// Chat generation tracking
-const generatingChatIds = ref(new Set())
 
 // Resize state
 const MIN_SIDEBAR_WIDTH = 200
@@ -1323,7 +1324,7 @@ function isTabActive(tab: WorkspaceTab): boolean {
 
 function isTabGenerating(tab: WorkspaceTab): boolean {
   if (tab.type === 'tool') return isToolGenerating(tab.entityId, tab.projectId ?? null)
-  if (tab.type === 'chat') return generatingChatIds.value.has(parseInt(tab.entityId, 10))
+  if (tab.type === 'chat') return isChatGenerating(tab.entityId)
   return false
 }
 
@@ -2061,15 +2062,9 @@ on('project_updated', (data) => {
   }
 })
 
-on('agent_started', (data) => {
-  generatingChatIds.value.add(data.chat_id)
-  generatingChatIds.value = new Set(generatingChatIds.value)
-})
-
+// Spinner state itself lives in useAgentActivity; this only refreshes
+// chat preview data (new images/messages may exist).
 on('agent_stopped', (data) => {
-  generatingChatIds.value.delete(data.chat_id)
-  generatingChatIds.value = new Set(generatingChatIds.value)
-  // Refresh chat preview data (new images/messages may exist)
   loadChatMetadata(String(data.chat_id), true)
 })
 

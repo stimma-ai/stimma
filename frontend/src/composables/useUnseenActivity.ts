@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue'
 import { useWebSocket } from './useWebSocket'
+import { useAgentActivity } from './useAgentActivity'
 import { useWorkspaceTabs } from './useWorkspaceTabs'
 import { instanceMatchesTool } from './useGenerationStatus'
 import router from '../router'
@@ -113,11 +114,10 @@ function init() {
     if (data?.chat_id != null) clearUnseen(`chat:${data.chat_id}`)
   })
 
-  on('agent_stopped', (data: any) => {
-    if (data?.chat_id == null) return
-    // already_running is a no-op echo for a start that never happened.
-    if (data.reason === 'already_running') return
-    setUnseen(`chat:${data.chat_id}`, data.reason === 'error' ? 'error' : 'done')
+  // Covers live agent_stopped events AND runs discovered to have ended
+  // while the socket was down (reported by the reconnect re-prime).
+  useAgentActivity().onAgentRunEnd((chatId, reason) => {
+    setUnseen(`chat:${chatId}`, reason === 'error' ? 'error' : 'done')
   })
 
   // Counts are meaningless across a disconnect — jobs may have died or

@@ -705,6 +705,16 @@ async def list_chat_previews(
     return ChatPreviewListResponse(items=items, total=total, page=page, page_size=page_size)
 
 
+@router.get("/agent/running")
+async def get_running_agent_chats():
+    """Chat ids with an active agent execution — lets the frontend prime
+    its spinner state on load/reconnect instead of relying solely on
+    agent_started/agent_stopped WebSocket events. Must stay declared
+    before the /{chat_id} routes."""
+    from agent.v2.service import get_active_chat_ids
+    return {"chat_ids": get_active_chat_ids()}
+
+
 @router.get("/{chat_id}", response_model=ChatResponse)
 async def get_chat(
     chat_id: int,

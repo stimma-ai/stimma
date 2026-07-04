@@ -44,6 +44,11 @@ def is_execution_active(chat_id: int) -> bool:
     return chat_id in _active_chat_executions
 
 
+def get_active_chat_ids() -> list[int]:
+    """Return chat ids with an active agent execution."""
+    return sorted(_active_chat_executions)
+
+
 def get_active_task(chat_id: int) -> Optional[asyncio.Task]:
     """Return the asyncio task of the active execution for this chat, if any."""
     return _active_chat_tasks.get(chat_id)
