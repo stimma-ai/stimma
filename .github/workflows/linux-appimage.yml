@@ -36,6 +36,7 @@ jobs:
   linux-appimage:
     name: Build Linux AppImage (${{ inputs.arch }})
     runs-on: ${{ fromJSON(inputs.runs_on) }}
+    timeout-minutes: 35
 
     env:
       RUST_BACKTRACE: 1
@@ -239,6 +240,7 @@ jobs:
         run: uv run --python 3.11 python ../scripts/generate-icons.py --channel "$CHANNEL"
 
       - name: Build Linux AppImage
+        timeout-minutes: 20
         env:
           VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
           VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/${{ env.LINUX_PLATFORM }}/latest.json
@@ -260,6 +262,7 @@ jobs:
           fi
 
       - name: Smoke-check bundled backend launcher
+        timeout-minutes: 2
         run: |
           set -euo pipefail
           root="src-tauri/binaries/stimma-backend-${LINUX_TARGET_TRIPLE}"
@@ -268,6 +271,7 @@ jobs:
           head -40 /tmp/stimma-backend-help.txt
 
       - name: Smoke-check AppImage backend launcher
+        timeout-minutes: 2
         run: |
           set -euo pipefail
           appdir="$(find src-tauri/target/release/bundle/appimage -maxdepth 1 -name '*.AppDir' -print -quit)"

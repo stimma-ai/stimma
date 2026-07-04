@@ -57,6 +57,7 @@ jobs:
   release-windows:
     name: Build and publish Windows
     runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 35
 
     env:
       RUST_BACKTRACE: 1
@@ -327,6 +328,7 @@ jobs:
         run: uv run --python 3.11 python ../scripts/generate-icons.py --channel "$env:CHANNEL"
 
       - name: Build Windows app
+        timeout-minutes: 20
         shell: powershell
         env:
           VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}

@@ -28,6 +28,7 @@ jobs:
   release-macos:
     name: Build and publish macOS
     runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 35
 
     env:
       RUST_BACKTRACE: 1
@@ -266,6 +267,7 @@ jobs:
 
       - name: Build signed and notarized macOS app
         if: vars.ENABLE_APPLE_SIGNING == 'true'
+        timeout-minutes: 25
         env:
           VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
           VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/darwin-aarch64/latest.json
@@ -283,6 +285,7 @@ jobs:
 
       - name: Build macOS app (Apple signing disabled)
         if: vars.ENABLE_APPLE_SIGNING != 'true'
+        timeout-minutes: 20
         env:
           VITE_STIMMA_RELEASE_CHANNEL: ${{ env.STIMMA_RELEASE_CHANNEL }}
           VITE_STIMMA_UPDATE_ENDPOINT: ${{ env.STIMMA_UPDATE_BASE_URL }}/stimma/${{ env.STIMMA_RELEASE_CHANNEL }}/darwin-aarch64/latest.json
