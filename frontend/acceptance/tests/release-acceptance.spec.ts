@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   createProject,
+  expectTestTextToImageTool,
   openTool,
   submitGeneration,
   waitForGeneratedMedia,
@@ -15,7 +16,8 @@ test.describe('release acceptance', () => {
 
   test('fresh app loads tools and completes a fake text-to-image generation', async ({ page }) => {
     await page.goto('/tools');
-    await expect(page.getByText('Test Text-to-Image')).toBeVisible({ timeout: 30000 });
+    await waitForShell(page);
+    await expectTestTextToImageTool(page);
 
     await openTool(page);
     await submitGeneration(page, 'acceptance test image');
@@ -32,7 +34,8 @@ test.describe('release acceptance', () => {
     const project = await createProject(page, 'Acceptance Project');
 
     await page.goto(`/projects/${project.id}/tools`);
-    await expect(page.getByText('Test Text-to-Image')).toBeVisible({ timeout: 30000 });
+    await waitForShell(page);
+    await expectTestTextToImageTool(page);
 
     await openTool(page, project.id);
     await submitGeneration(page, 'acceptance project scoped image');

@@ -16,6 +16,9 @@ export function useRouteRestore() {
   function restoreRoute() {
     const key = makeProfileKey(STORAGE_KEY)
     const savedPath = localStorage.getItem(key)
+    // Only restore from the app root. Deep links and typed URLs must win over
+    // whatever route happened to be saved last.
+    if (route.fullPath !== '/') return
     // Don't restore over a route that opted out (e.g. dev previews accessed
     // via direct URL). Otherwise the saved path clobbers the user's typed URL.
     if (route.meta?.skipRouteRestore) return

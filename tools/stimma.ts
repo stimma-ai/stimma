@@ -1296,6 +1296,7 @@ server:
 async function resetAcceptanceArtifacts(): Promise<void> {
   for (const path of [
     join(repoRoot, "frontend", "test-results"),
+    join(repoRoot, "frontend", "acceptance", ".auth"),
     join(repoRoot, "frontend", "acceptance", "playwright-report"),
     join(repoRoot, "frontend", "acceptance", "acceptance"),
   ]) {

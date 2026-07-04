@@ -17,9 +17,13 @@ export default async function globalSetup(config: FullConfig) {
   await page.evaluate(() => {
     const bundleId = localStorage.getItem('stimma_bundle_id') || '';
     const sandbox = localStorage.getItem('stimma_sandbox') || 'default';
-    localStorage.setItem(`stimma_${bundleId}_${sandbox}_global_onboarding_completed`, '1');
+    const profileId = localStorage.getItem('profileId') || 'profile-acceptance';
+    const prefix = bundleId ? `stimma_${bundleId}_${sandbox}` : 'stimma';
+    localStorage.setItem(`${prefix}_global_onboarding_completed`, '1');
+    localStorage.setItem(`${prefix}_${profileId}_last_route`, '/browse');
   });
   await page.goto(`${baseURL}/browse`);
+  await page.waitForURL(/\/browse/, { timeout: 10000 });
 
   if (process.env.STIMMA_TEST_PROVIDER) {
     const backendURL = process.env.STIMMA_ACCEPTANCE_BACKEND_URL || 'http://localhost:19291';

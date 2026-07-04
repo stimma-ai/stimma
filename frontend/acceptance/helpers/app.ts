@@ -65,8 +65,20 @@ type ChatItem = {
 
 export async function waitForShell(page: Page) {
   await continueWithoutAccountIfNeeded(page);
-  await expect(page.getByText('All Assets', { exact: true }).first()).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText('All Assets', { exact: true }).first()).toBeVisible({ timeout: 10000 });
   await expect(page.getByText('Tools', { exact: true }).first()).toBeVisible();
+}
+
+export async function expectTestTextToImageTool(page: Page) {
+  const tools = await apiJSON<Array<{ full_tool_id: string; name?: string; metadata?: Record<string, unknown> }>>(
+    page,
+    '/api/tools/providers/tools',
+  );
+  const toolIds = tools.map((tool) => tool.full_tool_id);
+  if (!toolIds.includes(TEST_T2I_TOOL_ID)) {
+    throw new Error(`Acceptance test provider did not expose ${TEST_T2I_TOOL_ID}. Available tools: ${toolIds.join(', ') || '(none)'}`);
+  }
+  await expect(page.getByText('Test Text-to-Image')).toBeVisible({ timeout: 10000 });
 }
 
 export async function goToBrowse(page: Page) {
@@ -100,7 +112,7 @@ export async function openToolById(page: Page, toolId: string, projectId?: numbe
   if (!page.url().includes(toolUrl)) {
     await page.goto(url);
   }
-  await expect(page.getByRole('button', { name: /^Run/ })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByRole('button', { name: /^Run/ })).toBeVisible({ timeout: 10000 });
 }
 
 export async function openPromptToolById(page: Page, toolId: string, projectId?: number, extraQuery: Record<string, string> = {}) {
