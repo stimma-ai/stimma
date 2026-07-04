@@ -65,7 +65,15 @@ _STUB_MP4_B64 = (
     "dGEAAAAAAAAAIWhkbHIAAAAAAAAAAG1kaXJhcHBsAAAAAAAAAAAAAAAACGlsc3Q="
 )
 
-_VIDEO_TASK_TYPES = {"image-to-video", "text-to-video", "upscale-video", "video-stitch", "video-extend", "lip-sync"}
+_VIDEO_TASK_TYPES = {
+    "image-to-video",
+    "text-to-video",
+    "video-to-video",
+    "upscale-video",
+    "video-stitch",
+    "video-extend",
+    "lip-sync",
+}
 _AUDIO_TASK_TYPES = {"text-to-audio", "text-to-music", "text-to-speech"}
 
 # Standard ~1MP generation buckets (SDXL convention, both orientations).
@@ -75,6 +83,31 @@ _STANDARD_DIMENSIONS = [
     [1024, 1024], [1152, 896], [896, 1152], [1216, 832], [832, 1216],
     [1344, 768], [768, 1344], [1536, 640], [640, 1536],
 ]
+
+# LoRA stack input, matching the {path, weight} shape call_tool/params_from
+# emit (see agent/v2/tools/library.py _normalize_loras_for_input). The path
+# enum is how tools advertise their available LoRAs — _resolve_lora_paths
+# fuzzy-matches short names ("inkwash") against it, like real tools.
+_LORAS_SCHEMA = {
+    "type": "array",
+    "default": [],
+    "items": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+            "path": {
+                "type": "string",
+                "enum": [
+                    "styles/inkwash-v2.safetensors",
+                    "styles/watercolor-v2.safetensors",
+                    "detail/crisp-detail-xl.safetensors",
+                ],
+            },
+            "weight": {"type": "number", "default": 1.0, "minimum": -2.0, "maximum": 2.0},
+        },
+    },
+    "x-control": "lora_picker",
+}
 
 
 @dataclass
@@ -226,6 +259,12 @@ class TestToolProvider(ToolProvider):
                         "minimum": 1.0,
                         "maximum": 20.0,
                     },
+                    "scheduler": {
+                        "type": "string",
+                        "default": "euler",
+                        "enum": ["euler", "karras", "ddim", "dpmpp-2m"],
+                    },
+                    "loras": _LORAS_SCHEMA,
                     "seed": {
                         "type": "integer",
                         "minimum": 0,
@@ -419,6 +458,12 @@ class TestToolProvider(ToolProvider):
                         "minimum": 1.0,
                         "maximum": 20.0,
                     },
+                    "scheduler": {
+                        "type": "string",
+                        "default": "euler",
+                        "enum": ["euler", "karras", "ddim", "dpmpp-2m"],
+                    },
+                    "loras": _LORAS_SCHEMA,
                     "seed": {
                         "type": "integer",
                         "minimum": 0,
@@ -494,6 +539,8 @@ class TestToolProvider(ToolProvider):
             ("upscale-video:test-upscale-video", "Test Video Upscale", "upscale-video",
              {**_videos, "scale": {"type": "integer", "default": 2, "enum": [2, 4]}},
              ["input_videos"]),
+            ("video-to-video:test-v2v", "Test Video to Video", "video-to-video",
+             {**_videos, **_prompt, **_neg, **_seed}, ["input_videos"]),
             ("video-extend:test-extend", "Test Video Extend", "video-extend",
              {**_videos, **_prompt, **_neg, **_duration, **_seed}, ["input_videos"]),
             ("video-stitch:test-stitch", "Test Video Stitch", "video-stitch",
