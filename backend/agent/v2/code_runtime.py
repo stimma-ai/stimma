@@ -694,7 +694,13 @@ class StimmaSDK:
         params_from = kwargs.pop("params_from", None)
         if params_from is not None:
             from .tools.library import resolve_params_from
-            kwargs = await resolve_params_from(self.session, tool_id, params_from, kwargs)
+            # Every gather() branch reaches this at t=0, so use a fresh,
+            # short-lived session rather than the shared SDK session — see
+            # delegate()'s db session below for the same pattern.
+            from database_registry import get_database_registry
+            params_db = get_database_registry().get_database(get_current_profile())
+            async with params_db.async_session_maker() as params_session:
+                kwargs = await resolve_params_from(params_session, tool_id, params_from, kwargs)
 
         # Unwrap ControlNetInput objects in input_images
         raw_images = kwargs.get("input_images", [])

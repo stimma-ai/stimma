@@ -345,7 +345,13 @@ async def execute_call_tool(
                 preprocessor_params_list.append(None)
                 continue
 
-            source_path = await _resolve_media_path(session, media_id_val)
+            # Use a fresh session for this read to avoid concurrent-use errors on
+            # the shared SDK session when multiple call_tool invocations run
+            # concurrently via asyncio.gather().
+            from database_registry import get_database_registry
+            cn_db = get_database_registry().get_database(get_current_profile())
+            async with cn_db.async_session_maker() as cn_session:
+                source_path = await _resolve_media_path(cn_session, media_id_val)
             from controlnet import preprocess
             output_path, w, h = await preprocess(source_path, cn_preprocessor, cn_params)
 
@@ -460,11 +466,23 @@ async def execute_call_tool(
                 return "interrupted"
             return "running"
 
-        media_ids, errors, cancelled_count, _job_to_media = await wait_for_jobs(
-            [job_id],
-            session,
-            status_checker=_status_checker,
-        )
+        # wait_for_jobs polls for the full generation duration — the biggest
+        # collision window for the shared SDK session under concurrent
+        # asyncio.gather() calls. It never actually issues queries on the
+        # `session` argument itself (it derives its own session_maker and
+        # opens a fresh short-lived session per poll internally) — the param
+        # only needs to exist for API compatibility. Hand it a session of its
+        # own, created the same way as the workspace-copy fresh session
+        # below, so the shared SDK session is never referenced while this
+        # potentially multi-minute wait is in flight.
+        from database_registry import get_database_registry
+        wait_db = get_database_registry().get_database(get_current_profile())
+        async with wait_db.async_session_maker() as wait_session:
+            media_ids, errors, cancelled_count, _job_to_media = await wait_for_jobs(
+                [job_id],
+                wait_session,
+                status_checker=_status_checker,
+            )
     except asyncio.CancelledError:
         await queue.cancel_job(job_id)
         raise
