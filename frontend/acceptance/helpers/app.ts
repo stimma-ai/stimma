@@ -207,11 +207,22 @@ export async function waitForGeneratedMedia(
   if (options.prompt) query.set('prompt_query', options.prompt);
   if (options.projectId != null) query.set('project_id', String(options.projectId));
 
-  return waitFor(async () => {
-    const media = await apiJSON<{ items: MediaItem[] }>(page, `/api/media?${query.toString()}`);
-    const expectedCount = options.expectedCount ?? 1;
-    return media.items.length >= expectedCount ? media.items : null;
-  }, 30000);
+  const expectedCount = options.expectedCount ?? 1;
+  let lastCount = 0;
+  try {
+    return await waitFor(async () => {
+      const media = await apiJSON<{ items: MediaItem[] }>(page, `/api/media?${query.toString()}`);
+      lastCount = media.items.length;
+      return media.items.length >= expectedCount ? media.items : null;
+    }, 30000, `generated media count >= ${expectedCount}`);
+  } catch (err) {
+    const detail = [
+      `Timed out waiting for generated media count >= ${expectedCount}`,
+      `last_count=${lastCount}`,
+      `query=${query.toString()}`,
+    ].join('; ');
+    throw new Error(`${detail}; cause=${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 export async function listMedia(page: Page, params: Record<string, string | number | boolean>): Promise<MediaItem[]> {
@@ -588,7 +599,7 @@ export async function sendChatMessage(page: Page, message: string) {
   }).toPass({ timeout: 30000 });
 }
 
-export async function waitFor<T>(check: () => Promise<T | null>, timeoutMs: number): Promise<T> {
+export async function waitFor<T>(check: () => Promise<T | null>, timeoutMs: number, label = 'condition'): Promise<T> {
   const deadline = Date.now() + timeoutMs;
   let lastError: unknown = null;
   while (Date.now() < deadline) {
@@ -600,7 +611,8 @@ export async function waitFor<T>(check: () => Promise<T | null>, timeoutMs: numb
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw lastError instanceof Error ? lastError : new Error('Timed out waiting for condition');
+  const suffix = lastError instanceof Error ? `; last_error=${lastError.message}` : '';
+  throw new Error(`Timed out waiting for ${label} after ${timeoutMs}ms${suffix}`);
 }
 
 function promptInput(page: Page) {

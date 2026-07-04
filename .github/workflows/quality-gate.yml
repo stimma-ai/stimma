@@ -113,7 +113,7 @@ jobs:
 
       - name: Run smoke acceptance tests
         if: ${{ inputs.acceptance_suite != 'full' }}
-        run: tools/stimma test acceptance acceptance/tests/release-acceptance.spec.ts
+        run: tools/stimma test acceptance acceptance/tests/release-acceptance.spec.ts --timeout=30000 --retries=0
 
       - name: Run full acceptance tests
         if: ${{ inputs.acceptance_suite == 'full' }}
