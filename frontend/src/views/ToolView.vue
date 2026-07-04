@@ -3866,8 +3866,13 @@ async function submitOneJob() {
   const promptOptions = rawPromptOptions
     ? {
         ...rawPromptOptions,
+        // Tools with no prompt input have nothing to enhance or translate —
+        // force both off here rather than trusting stale UI state left over
+        // from a previously-selected prompt tool (autoImprove.enabled/translate
+        // panels are shared, generic components).
         autoImprove: {
           ...rawPromptOptions.autoImprove,
+          enabled: toolHasPrompt && !!rawPromptOptions.autoImprove?.enabled,
           model: toolModelString.value || null,
           // Task-authoritative: video tools always get cinematography.
           isVideo: enhanceIsVideo.value,
@@ -3878,6 +3883,10 @@ async function submitOneJob() {
           mode: enhanceMode.value,
           // i2v: source frame for the enhancer (used on the cinematography path).
           mediaId: enhanceSourceMediaId.value,
+        },
+        translate: {
+          ...rawPromptOptions.translate,
+          enabled: toolHasPrompt && !!rawPromptOptions.translate?.enabled,
         },
       }
     : rawPromptOptions
@@ -3955,7 +3964,7 @@ async function submitOneJob() {
         ...basePayload,
         batch_input: { field: batchField, media_ids: mediaIds },
         constant_inputs: constantInputs,
-        parameters: { ...batchParameters, prompt: processedPrompt },
+        parameters: { ...batchParameters, ...(toolHasPrompt ? { prompt: processedPrompt } : {}) },
         prep: Object.keys(prep).length ? prep : undefined,
         prompt_metadata: promptMetadata,
       }),
@@ -4009,7 +4018,7 @@ async function submitOneJob() {
         ...basePayload,
         parameters: {
           ...batchParameters,
-          prompt: processedPrompt,
+          ...(toolHasPrompt ? { prompt: processedPrompt } : {}),
         },
         prompt_metadata: promptMetadata,
         // Let backend generate smart title from input set info
@@ -4038,7 +4047,7 @@ async function submitOneJob() {
         ...basePayload,
         parameters: {
           ...capturedState.parameters,
-          prompt: processedPrompt,  // Override with processed prompt
+          ...(toolHasPrompt ? { prompt: processedPrompt } : {}),  // Override with processed prompt
         },
         prompt_metadata: promptMetadata,
       }),

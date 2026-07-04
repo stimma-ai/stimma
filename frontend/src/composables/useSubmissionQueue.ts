@@ -138,6 +138,7 @@ async function applyImproveAndTranslate(
   cachedImprovedPrompt: string | null | undefined,
 ): Promise<string> {
   let processedPrompt = prompt
+  if (!processedPrompt.trim()) return processedPrompt
 
   // 1) Enhance (text styles only). Ideogram ('ideogram-json') is handled
   // post-resolve in applyJsonMode, so skip the text rewrite here.
