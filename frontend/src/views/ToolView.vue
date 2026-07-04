@@ -876,6 +876,7 @@ import { useWebSocket } from '../composables/useWebSocket'
 import { useGenerationPreferences } from '../composables/useGenerationPreferences'
 import { useStimpacksApi, type Skill } from '../composables/useStimpacksApi'
 import { useGenerationJobs } from '../composables/useGenerationJobs'
+import { useGenerationStatus } from '../composables/useGenerationStatus'
 import {
   buildBasePayload,
   buildCapturedState,
@@ -1767,6 +1768,7 @@ const jobsManager = useGenerationJobs({
   taskType: null,  // We filter by generatorInstanceId instead
   generatorInstanceId: generatorInstanceId
 })
+const { beginInstanceWork } = useGenerationStatus()
 
 // Generation preferences composable - called at TOP LEVEL during setup
 // taskType is a placeholder - the real key is toolId which creates tool-specific storage
@@ -3913,6 +3915,12 @@ async function submitOneJob() {
   const pendingId = needsEnhancing
     ? jobsManager.addPendingJob(prompt, { model_name: tool.value!.model, generator_name: tool.value!.generator })
     : null
+  const finishPendingStatus = pendingId ? beginInstanceWork(generatorInstanceId) : null
+  const removePendingEnhancementJob = () => {
+    if (!pendingId) return
+    jobsManager?.removePendingJob(pendingId)
+    finishPendingStatus?.()
+  }
 
   if (cachedPrompt) onCacheUsed()
 
@@ -3922,7 +3930,7 @@ async function submitOneJob() {
     const mediaIds = mediaInputItems.value.map((i: any) => i.mediaId).filter(Boolean)
     if (mediaIds.length === 0) {
       submissionError.value = 'Batch slot has no library items to run'
-      if (pendingId) jobsManager?.removePendingJob(pendingId)
+      removePendingEnhancementJob()
       return
     }
 
@@ -3969,14 +3977,14 @@ async function submitOneJob() {
         prompt_metadata: promptMetadata,
       }),
       onSubmitted: (batchInfo: BatchJobResponse) => {
-        if (pendingId) jobsManager?.removePendingJob(pendingId)
+        removePendingEnhancementJob()
         console.log(`Media-batch submitted: ${batchInfo.total_jobs} jobs, batch_id: ${batchInfo.batch_id}`)
         if (uiState.value.generateForeverMode) {
           foreverModeActiveBatchId.value = batchInfo.batch_id
         }
       },
       onError: (err: any) => {
-        if (pendingId) jobsManager?.removePendingJob(pendingId)
+        removePendingEnhancementJob()
         submissionError.value = err.response?.data?.detail || 'Failed to submit batch job'
       },
     })
@@ -3993,6 +4001,7 @@ async function submitOneJob() {
     if (!setInput?.setId) {
       console.error('Set input missing setId')
       submissionError.value = 'Invalid set input'
+      removePendingEnhancementJob()
       return
     }
 
@@ -4024,7 +4033,7 @@ async function submitOneJob() {
         // Let backend generate smart title from input set info
       }),
       onSubmitted: (batchInfo: BatchJobResponse) => {
-        if (pendingId) jobsManager?.removePendingJob(pendingId)
+        removePendingEnhancementJob()
         console.log(`Batch submitted: ${batchInfo.total_jobs} jobs, batch_id: ${batchInfo.batch_id}`)
         // Track active batch for forever mode (batches run sequentially)
         if (uiState.value.generateForeverMode) {
@@ -4032,7 +4041,7 @@ async function submitOneJob() {
         }
       },
       onError: (err: any) => {
-        if (pendingId) jobsManager?.removePendingJob(pendingId)
+        removePendingEnhancementJob()
         submissionError.value = err.response?.data?.detail || 'Failed to submit batch job'
       }
     })
@@ -4051,9 +4060,9 @@ async function submitOneJob() {
         },
         prompt_metadata: promptMetadata,
       }),
-      onSubmitted: () => { if (pendingId) jobsManager?.removePendingJob(pendingId) },
+      onSubmitted: removePendingEnhancementJob,
       onError: (err: any) => {
-        if (pendingId) jobsManager?.removePendingJob(pendingId)
+        removePendingEnhancementJob()
         submissionError.value = err.response?.data?.detail || 'Failed to submit job'
       }
     })

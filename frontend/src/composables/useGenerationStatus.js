@@ -4,7 +4,22 @@ import { useWebSocket } from './useWebSocket'
 // Shared state across all instances - track by task type and generator instance
 const activeJobsByTaskType = ref({})
 const activeJobsByInstanceId = ref({})
+const pendingWorkByInstanceId = ref({})
 let initialized = false
+let pendingWorkEpoch = 0
+
+function incrementInstanceCount(counts, instanceId) {
+  counts.value[instanceId] = (counts.value[instanceId] || 0) + 1
+}
+
+function decrementInstanceCount(counts, instanceId) {
+  const prevCount = counts.value[instanceId] || 0
+  if (prevCount <= 1) {
+    delete counts.value[instanceId]
+  } else {
+    counts.value[instanceId] = prevCount - 1
+  }
+}
 
 // Check whether a generator_instance_id belongs to a tool (optionally scoped
 // to a project). Handles formats: tool-{id}, tool-{id}@@{uuid} (new),
@@ -47,10 +62,7 @@ export function useGenerationStatus() {
 
       // Track by instance ID (for tools) - takes precedence
       if (isToolJob) {
-        if (!activeJobsByInstanceId.value[instanceId]) {
-          activeJobsByInstanceId.value[instanceId] = 0
-        }
-        activeJobsByInstanceId.value[instanceId]++
+        incrementInstanceCount(activeJobsByInstanceId, instanceId)
         console.log(`[useGenerationStatus] Job queued: instanceId=${instanceId}, count=${activeJobsByInstanceId.value[instanceId]}`)
       } else {
         // Only track by task type if NOT a tool job
@@ -75,7 +87,7 @@ export function useGenerationStatus() {
       if (isToolJob) {
         const prevCount = activeJobsByInstanceId.value[instanceId] || 0
         if (prevCount > 0) {
-          activeJobsByInstanceId.value[instanceId] = prevCount - 1
+          decrementInstanceCount(activeJobsByInstanceId, instanceId)
           console.log(`[useGenerationStatus] Job completed: instanceId=${instanceId}, count=${prevCount}->${activeJobsByInstanceId.value[instanceId]}`)
         }
       } else {
@@ -94,7 +106,7 @@ export function useGenerationStatus() {
       if (isToolJob) {
         const prevCount = activeJobsByInstanceId.value[instanceId] || 0
         if (prevCount > 0) {
-          activeJobsByInstanceId.value[instanceId] = prevCount - 1
+          decrementInstanceCount(activeJobsByInstanceId, instanceId)
           console.log(`[useGenerationStatus] Job failed: instanceId=${instanceId}, count=${prevCount}->${activeJobsByInstanceId.value[instanceId]}`)
         } else {
           console.warn(`[useGenerationStatus] Job failed but no count to decrement: instanceId=${instanceId}`)
@@ -115,7 +127,7 @@ export function useGenerationStatus() {
       if (isToolJob) {
         const prevCount = activeJobsByInstanceId.value[instanceId] || 0
         if (prevCount > 0) {
-          activeJobsByInstanceId.value[instanceId] = prevCount - 1
+          decrementInstanceCount(activeJobsByInstanceId, instanceId)
           console.log(`[useGenerationStatus] Job cancelled: instanceId=${instanceId}, count=${prevCount}->${activeJobsByInstanceId.value[instanceId]}`)
         }
       } else {
@@ -130,12 +142,29 @@ export function useGenerationStatus() {
       console.log('[useGenerationStatus] WebSocket disconnected - clearing all job counts')
       activeJobsByTaskType.value = {}
       activeJobsByInstanceId.value = {}
+      pendingWorkByInstanceId.value = {}
+      pendingWorkEpoch++
     })
+  }
+
+  // Track pre-submit work that belongs to a ToolView, such as prompt
+  // enhancement/translation before the backend emits generation_job_queued.
+  const beginInstanceWork = (instanceId) => {
+    incrementInstanceCount(pendingWorkByInstanceId, instanceId)
+    const epoch = pendingWorkEpoch
+    let finished = false
+    return () => {
+      if (finished) return
+      finished = true
+      if (epoch !== pendingWorkEpoch) return
+      decrementInstanceCount(pendingWorkByInstanceId, instanceId)
+    }
   }
 
   // Check if any jobs are active (backwards compatible)
   const isGenerating = () => {
-    return Object.values(activeJobsByTaskType.value).some(count => count > 0)
+    return Object.values(activeJobsByTaskType.value).some(count => count > 0) ||
+      Object.values(pendingWorkByInstanceId.value).some(count => count > 0)
   }
 
   // Check if a specific task type has active jobs
@@ -145,27 +174,35 @@ export function useGenerationStatus() {
 
   // Check if a specific instance ID has active jobs (for tools)
   const isInstanceActive = (instanceId) => {
-    return (activeJobsByInstanceId.value[instanceId] || 0) > 0
+    return (activeJobsByInstanceId.value[instanceId] || 0) > 0 ||
+      (pendingWorkByInstanceId.value[instanceId] || 0) > 0
   }
 
   // Check if a specific tool has active jobs. Without the projectId scoping,
   // both the global and project rows in the sidebar share one lookup and spin
   // together — see instanceMatchesTool above.
   const isToolActive = (toolId, projectId = null) => {
-    return Object.entries(activeJobsByInstanceId.value).some(([instanceId, count]) => {
+    const hasActiveJob = Object.entries(activeJobsByInstanceId.value).some(([instanceId, count]) => {
+      return count > 0 && instanceMatchesTool(instanceId, toolId, projectId)
+    })
+    if (hasActiveJob) return true
+    return Object.entries(pendingWorkByInstanceId.value).some(([instanceId, count]) => {
       return count > 0 && instanceMatchesTool(instanceId, toolId, projectId)
     })
   }
 
   // Computed for total active jobs (backwards compatible)
   const activeJobCount = computed(() => {
-    return Object.values(activeJobsByTaskType.value).reduce((sum, count) => sum + count, 0)
+    return Object.values(activeJobsByTaskType.value).reduce((sum, count) => sum + count, 0) +
+      Object.values(pendingWorkByInstanceId.value).reduce((sum, count) => sum + count, 0)
   })
 
   return {
     activeJobCount,
     activeJobsByTaskType,
     activeJobsByInstanceId,
+    pendingWorkByInstanceId,
+    beginInstanceWork,
     isGenerating,
     isTaskTypeActive,
     isInstanceActive,
