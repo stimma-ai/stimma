@@ -443,7 +443,21 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
                 f"in {duration_ms}ms"
             )
 
-        # Finalize
+        # Roll the chain's total time (base generation + every executed step)
+        # onto the final media, so its result-tile badge reflects the whole
+        # invocation rather than just the last step's own compute time.
+        steps_total_ms = sum(
+            sr.get("duration_ms", 0) for sr in step_results if sr.get("status") == "done"
+        )
+        if steps_total_ms:
+            base_time_s = await _generation_time_seconds(db, base_media_id)
+            await _apply_chain_total_generation_time(
+                db, current_media_id, base_time_s + steps_total_ms / 1000.0
+            )
+
+        # Finalize only after final-media metadata is settled. Tests and UI
+        # poll for "completed", so this status must mean the final media is
+        # ready to read.
         async with db.async_session_maker() as session:
             await session.execute(
                 update(PostProcessingChainRun)
@@ -458,18 +472,6 @@ async def _run_chain(run_id: int, profile_id: str, job_instance_id: Optional[str
                 )
             )
             await session.commit()
-
-        # Roll the chain's total time (base generation + every executed step)
-        # onto the final media, so its result-tile badge reflects the whole
-        # invocation rather than just the last step's own compute time.
-        steps_total_ms = sum(
-            sr.get("duration_ms", 0) for sr in step_results if sr.get("status") == "done"
-        )
-        if steps_total_ms:
-            base_time_s = await _generation_time_seconds(db, base_media_id)
-            await _apply_chain_total_generation_time(
-                db, current_media_id, base_time_s + steps_total_ms / 1000.0
-            )
 
         # The base job IS the result-strip item: point it at the chain's final
         # output and re-broadcast it, so its tile becomes the final image (the
