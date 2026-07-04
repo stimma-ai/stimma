@@ -1,6 +1,6 @@
 import { ref, watch } from 'vue'
 import { useWebSocket } from './useWebSocket'
-import { useWorkspaceTabs, type WorkspaceTab } from './useWorkspaceTabs'
+import { useWorkspaceTabs } from './useWorkspaceTabs'
 import { instanceMatchesTool } from './useGenerationStatus'
 import router from '../router'
 
@@ -56,11 +56,11 @@ function clearActiveIfSeen() {
   if (windowFocused.value) clearUnseen(activeTabKey())
 }
 
-function matchingToolTabs(instanceId: string): WorkspaceTab[] {
+function matchingToolTabIds(instanceId: string): string[] {
   const { tabs } = useWorkspaceTabs()
-  return tabs.value.filter(t =>
-    t.type === 'tool' && instanceMatchesTool(instanceId, t.entityId, t.projectId ?? null)
-  )
+  return tabs.value
+    .filter(t => t.type === 'tool' && instanceMatchesTool(instanceId, t.entityId, t.projectId ?? null))
+    .map(t => t.id)
 }
 
 function init() {
@@ -77,12 +77,12 @@ function init() {
   on('generation_job_queued', (data: any) => {
     const instanceId = instanceIdOf(data)
     if (!instanceId) return
-    for (const tab of matchingToolTabs(instanceId)) {
-      const run = toolRuns.get(tab.id)
+    for (const tabId of matchingToolTabIds(instanceId)) {
+      const run = toolRuns.get(tabId)
       if (!run || run.count <= 0) {
         // Fresh batch: previous dot is superseded by the live spinner.
-        toolRuns.set(tab.id, { count: 1, sawFailure: false })
-        clearUnseen(tab.id)
+        toolRuns.set(tabId, { count: 1, sawFailure: false })
+        clearUnseen(tabId)
       } else {
         run.count++
       }
@@ -92,14 +92,14 @@ function init() {
   const onJobDone = (failed: boolean) => (data: any) => {
     const instanceId = instanceIdOf(data)
     if (!instanceId) return
-    for (const tab of matchingToolTabs(instanceId)) {
-      const run = toolRuns.get(tab.id)
+    for (const tabId of matchingToolTabIds(instanceId)) {
+      const run = toolRuns.get(tabId)
       if (!run || run.count <= 0) continue
       run.count--
       if (failed) run.sawFailure = true
       if (run.count === 0) {
-        toolRuns.delete(tab.id)
-        setUnseen(tab.id, run.sawFailure ? 'error' : 'done')
+        toolRuns.delete(tabId)
+        setUnseen(tabId, run.sawFailure ? 'error' : 'done')
       }
     }
   }
