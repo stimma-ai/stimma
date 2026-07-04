@@ -6,11 +6,10 @@
       :total-count="jobsManager?.totalCompletedCount.value || 0"
       :start-index="slideshowState.startIndex"
       :page-provider="slideshowState.pageProvider"
-      :new-item-index-resolver="resolveSlideshowNewItemIndex"
+      :live-item-ids="slideshowLiveItemIds"
       :randomized="slideshowState.randomized"
       :random-seed="slideshowState.randomSeed"
       :auto-advance-on-new="true"
-      :generator-instance-id="generatorInstanceId"
       :inline="true"
       @close="exitSlideshow"
       @compare-with-source="handleCompareFromSlideshow"
@@ -5376,22 +5375,12 @@ function handleJobClick(job: any) {
   }
 }
 
-function resolveSlideshowNewItemIndex(data: any): number {
-  if (!jobsManager) return -1
-  const jobs = jobsManager.sortedCompletedJobs.value || []
-  const jobId = data?.job?.id
-  if (jobId != null) {
-    const byJob = jobs.findIndex((job: any) => job.id === jobId)
-    if (byJob >= 0) return byJob
-  }
-
-  const mediaId = data?.job?.result_media_id
-  if (mediaId != null) {
-    return jobs.findIndex((job: any) => job.result_media_id === mediaId)
-  }
-
-  return -1
-}
+// Provider-order ids for the slideshow's arrival pinning. The slideshow diffs
+// successive values, so this must be the same list (same order) the page
+// provider serves.
+const slideshowLiveItemIds = computed(() =>
+  jobsManager ? jobsManager.sortedCompletedJobs.value.map((job: any) => job.id) : null
+)
 
 async function openSlideshow(job: any) {
   if (!job.result_media_id || !jobsManager) return

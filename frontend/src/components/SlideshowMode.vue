@@ -1243,21 +1243,19 @@ const props = defineProps({
    */
   pageProvider: Function,
   /**
-   * Optional resolver for live inserts in pageProvider-backed streams.
-   * Returns the item's current index in the provider order, or -1 if hidden.
+   * Live provider-order item ids for pageProvider-backed streams
+   * (generate-forever). Arrival pinning diffs successive values of this list,
+   * so pins are 1:1 with items actually entering the provider order — the
+   * completion WS event fires before the jobs manager exposes the job (it
+   * prefetches media first), so an event-time index lookup would miss.
    */
-  newItemIndexResolver: Function,
+  liveItemIds: {
+    type: Array,
+    default: null
+  },
   randomSeed: Number,
   randomized: Boolean,
   autoAdvanceOnNew: Boolean,
-  generatorInstanceId: {
-    type: String,
-    default: null
-  },
-  taskType: {
-    type: String,
-    default: null
-  },
   inline: {
     type: Boolean,
     default: false
@@ -4556,40 +4554,31 @@ function pinForArrival(insertIndex = 0) {
   }
 }
 
-// WebSocket entry point: a generation for this tool completed.
-function handleNewImageGenerated(data) {
-  if (!props.autoAdvanceOnNew) return
-
-  // Filter to this generator instance. Accept events that omit the id (resiliency,
-  // matching useGenerationJobs) so our pin stays 1:1 with the jobs the manager adds
-  // — otherwise the displayed item would drift relative to the list.
-  if (props.generatorInstanceId && data.generator_instance_id && data.generator_instance_id !== props.generatorInstanceId) {
-    console.log(`[SlideshowDebug] drop_event_instance_mismatch eventInstance=${data.generator_instance_id} jobId=${data.job?.id}`)
-    return
+// Arrival entry point: diff successive provider-order id lists and pin each
+// inserted item at the index it actually landed. Watching the list (rather than
+// the completion WS event) keeps pins exactly 1:1 with provider inserts: the
+// jobs manager prefetches media before exposing a completed job, so at WS time
+// the job is not in the list yet and an index lookup would drop every arrival.
+// This also naturally covers post-processing chains (the job enters the list
+// only when its final image is ready) and out-of-order completions.
+watch(() => props.liveItemIds, (newIds, oldIds) => {
+  if (!props.autoAdvanceOnNew || !Array.isArray(newIds) || !Array.isArray(oldIds)) return
+  const known = new Set(oldIds)
+  // Ascending index order: pinForArrival works in final-list coordinates once
+  // every earlier (newer) insert has been applied, so applying top-down after a
+  // multi-insert flush shifts the cache exactly once per inserted item.
+  let pinned = 0
+  for (let index = 0; index < newIds.length; index++) {
+    if (known.has(newIds[index])) continue
+    pinForArrival(index)
+    pinned++
   }
-  if (props.taskType && data.job?.task_type !== props.taskType) {
-    console.log(`[SlideshowDebug] drop_event_task_mismatch eventTask=${data.job?.task_type} jobId=${data.job?.id}`)
-    return
-  }
-
-  console.log(`[SlideshowDebug] ws_event_received jobId=${data.job?.id} followStream=${followStream.value} currentIndex=${currentIndex.value} total=${props.totalCount}`)
-
-  let insertIndex = 0
-  if (props.newItemIndexResolver) {
-    const resolvedIndex = props.newItemIndexResolver(data)
-    if (!Number.isFinite(resolvedIndex) || resolvedIndex < 0) {
-      console.log(`[SlideshowDebug] drop_event_not_in_provider jobId=${data.job?.id} mediaId=${data.job?.result_media_id}`)
-      scheduleAdvance()
-      return
-    }
-    insertIndex = resolvedIndex
-  }
-
+  if (!pinned) return
+  console.log(`[SlideshowDebug] live_inserts count=${pinned} followStream=${followStream.value} currentIndex=${currentIndex.value}`)
   // Every visible arrival pins when it lands before/on the current item (never swaps
   // the screen). The stepper catches up if we follow.
-  pinForArrival(insertIndex)
   scheduleAdvance()
-}
+})
 
 // --- scheduling -------------------------------------------------------------
 
@@ -4941,9 +4930,8 @@ onMounted(async () => {
 
   // Subscribe to WebSocket events FIRST - before any awaits that could fail
   // and prevent registration. Store unsubscribe functions for cleanup.
-  if (props.autoAdvanceOnNew) {
-    wsUnsubscribers.push(onWebSocketEvent('generation_job_completed', handleNewImageGenerated))
-  }
+  // (Generate-forever arrivals are driven by the liveItemIds watcher, not a WS
+  // event — the provider list is the source of truth for insert positions.)
   wsUnsubscribers.push(onWebSocketEvent('media_deleted', handleMediaDeletedWs))
   wsUnsubscribers.push(onWebSocketEvent('media_bulk_deleted', handleMediaBulkDeletedWs))
 
