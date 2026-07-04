@@ -1,6 +1,7 @@
 import { ref, watch, type Ref } from 'vue'
 import axios from 'axios'
-import { processPromptClientSide, extractVerbatim, restoreVerbatim, verifyVerbatimPreserved } from '../utils/promptProcessor'
+import { resolveWildcardsForLLM, extractVerbatim, restoreVerbatim, verifyVerbatimPreserved } from '../utils/promptProcessor'
+import { getWildcards, getSegments } from './useWildcards'
 import { getApiBase } from '../apiConfig'
 
 function getAPIBase() {
@@ -58,6 +59,7 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
   const currentIsVideo = () => isVideo?.value ?? false
   const currentIsAudio = () => isAudio?.value ?? false
   const currentInputImageCount = () => inputImageCount?.value ?? 0
+  const resolvePrompt = (value: string) => resolveWildcardsForLLM(value, getWildcards(), getSegments())
 
   // Cache of pre-computed improved prompts
   const cache = ref<PreloadedPrompt[]>([])
@@ -82,8 +84,8 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
     originalPrompt: string,
     instructions: string | null
   ): string | null {
-    // Process wildcards first (same as submission does)
-    const processedPrompt = processPromptClientSide(originalPrompt)
+    // Resolve wildcards first (same as submission does)
+    const processedPrompt = resolvePrompt(originalPrompt)
 
     // Look for a match in cache
     const index = cache.value.findIndex(
@@ -109,8 +111,8 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
   async function preloadSinglePrompt(originalPrompt: string, instructions: string | null): Promise<void> {
     if (!originalPrompt.trim()) return
 
-    // Process wildcards
-    const processedPrompt = processPromptClientSide(originalPrompt)
+    // Resolve wildcards
+    const processedPrompt = resolvePrompt(originalPrompt)
 
     // Extract [verbatim] segments and replace with placeholders before sending to LLM
     const { processed: promptWithPlaceholders, segments: verbatimSegments } = extractVerbatim(processedPrompt)
@@ -258,7 +260,7 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
     ([newPrompt, enabled]) => {
       if (enabled && newPrompt.trim()) {
         // If prompt changed, clear old cached prompts (they're for the old prompt)
-        const processedNew = processPromptClientSide(newPrompt)
+        const processedNew = resolvePrompt(newPrompt)
         if (processedNew !== lastPreloadedPrompt) {
           clearCache()
           lastPreloadedPrompt = processedNew

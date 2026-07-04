@@ -613,8 +613,8 @@ async def _apply_prompt_pipeline(
 ) -> str:
     """Run the full generate-time prompt pipeline on a chain step's prompt —
     identical behavior to an interactive submit (prompt_pipeline.py mirrors
-    useSubmissionQueue.ts): Enhance/Translate per the step's promptOptions,
-    then wildcard/comment/verbatim resolution, then Ideogram JSON when
+    useSubmissionQueue.ts): wildcard resolution first, Enhance/Translate per
+    the step's promptOptions, final cleanup, then Ideogram JSON when
     applicable. LLM failures propagate and fail the step like a failed tool
     call."""
     from prompt_pipeline import run_prompt_pipeline
@@ -690,8 +690,8 @@ async def _run_tool_step(
         parameters["_run_id"] = run_id
 
     # The stored prompt goes through the SAME generate-time pipeline as an
-    # interactive submit (Enhance/Translate per step.promptOptions, then
-    # wildcards/comments/verbatim, then Ideogram JSON) before any other
+    # interactive submit (wildcards first, Enhance/Translate per
+    # step.promptOptions, final cleanup, then Ideogram JSON) before any other
     # parameter resolution. Final processing runs even with no promptOptions —
     # a chain-step prompt must behave exactly like one typed in the editor.
     if isinstance(parameters.get("prompt"), str) and parameters["prompt"].strip():

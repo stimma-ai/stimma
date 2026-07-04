@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { processFinalPrompt, extractVerbatim, restoreVerbatim, verifyVerbatimPreserved, type NamedWildcard, type PromptSegment } from '../utils/promptProcessor'
+import { processFinalPrompt, resolveWildcardsForLLM, extractVerbatim, restoreVerbatim, verifyVerbatimPreserved, type NamedWildcard, type PromptSegment } from '../utils/promptProcessor'
 import { getWildcards, getSegments } from './useWildcards'
 import { getApiBase } from '../apiConfig'
 import { promptLanguageByCode } from '../components/generation/promptLanguages'
@@ -17,12 +17,15 @@ function getApiErrorMessage(error: any): string {
 
 /**
  * Prompt transforms applied at generate time, in declared order:
- *   1. Enhance (autoImprove) — family-aware LLM rewrite (optionally pre-cached).
+ *   1. Resolve wildcards — expand {{name}} and inline {a|b|c}, preserving
+ *      comments and [verbatim] markers for the LLM steps.
+ *   2. Enhance (autoImprove) — family-aware LLM rewrite (optionally pre-cached).
  *      The model family (resolved server-side) picks the style: prose / booru
  *      keywords / cinematography. For Ideogram (mode 'ideogram-json') the text
- *      step is SKIPPED here — JSON must run post-resolve (step 3).
- *   2. translate    — translate into a target language
- *   3. Ideogram JSON — when Enhance is on and the tool is Ideogram, convert the
+ *      step is SKIPPED here — JSON must run post-resolve (step 5).
+ *   3. translate    — translate into a target language
+ *   4. Final cleanup — strip comments and unwrap [verbatim].
+ *   5. Ideogram JSON — when Enhance is on and the tool is Ideogram, convert the
  *      fully-resolved prompt to structured JSON (final step).
  * All are non-destructive: the editor text is untouched; only the prompt that is
  * actually sent to the tool is transformed.
@@ -128,19 +131,22 @@ async function ideogramJsonViaApi(prompt: string, size?: ImageSize): Promise<str
 }
 
 /**
- * Apply auto-improve then translate to a prompt that still contains wildcards
- * and [verbatim] markers (run BEFORE processFinalPrompt). Returns the
- * transformed prompt. `cachedImprovedPrompt`, if present, skips the improve call.
+ * Resolve wildcards, then apply auto-improve and translate to a prompt that
+ * still contains comments and [verbatim] markers (run BEFORE processFinalPrompt).
+ * Returns the transformed prompt. `cachedImprovedPrompt`, if present, skips the
+ * improve call because it was built from the same resolved prompt.
  */
 async function applyImproveAndTranslate(
   prompt: string,
   promptOptions: SubmitPromptOptions | undefined,
   cachedImprovedPrompt: string | null | undefined,
+  wildcards: NamedWildcard[],
+  segments: PromptSegment[],
 ): Promise<string> {
-  let processedPrompt = prompt
+  let processedPrompt = resolveWildcardsForLLM(prompt, wildcards, segments)
   if (!processedPrompt.trim()) return processedPrompt
 
-  // 1) Enhance (text styles only). Ideogram ('ideogram-json') is handled
+  // 2) Enhance (text styles only). Ideogram ('ideogram-json') is handled
   // post-resolve in applyJsonMode, so skip the text rewrite here.
   const ai = promptOptions?.autoImprove
   if (ai?.enabled && ai.mode !== 'ideogram-json') {
@@ -156,7 +162,7 @@ async function applyImproveAndTranslate(
     }
   }
 
-  // 2) Translate
+  // 3) Translate
   if (promptOptions?.translate?.enabled && promptOptions.translate.language) {
     try {
       processedPrompt = await translateViaApi(processedPrompt, promptOptions.translate.language)
@@ -222,9 +228,10 @@ function buildPromptMetadata(prompt: string, promptOptions: SubmitPromptOptions 
  * Queue a generation job with async prompt enhancement.
  *
  * This function processes the job in the background:
- * 1. If autoImprove enabled, enhances via LLM
- * 2. Processes prompt (strips comments, expands wildcards, unwraps verbatim)
- * 3. Submits to backend
+ * 1. Resolves wildcards
+ * 2. If autoImprove enabled, enhances via LLM
+ * 3. Processes prompt (strips comments, unwraps verbatim)
+ * 4. Submits to backend
  *
  * The caller is responsible for:
  * - Adding a pending job to the UI before calling this
@@ -254,14 +261,18 @@ export async function submitJobAsync(params: {
   const { prompt, promptOptions, cachedImprovedPrompt, imageSize, wildcards, segments, buildPayload, onSubmitted, onError } = params
 
   try {
-    // 1) Auto-improve + 2) translate (on the un-resolved prompt, preserving
-    // wildcards + [verbatim]). The slow part.
-    let processedPrompt = await applyImproveAndTranslate(prompt, promptOptions, cachedImprovedPrompt)
+    const promptWildcards = wildcards ?? getWildcards()
+    const promptSegments = segments ?? getSegments()
 
-    // Final processing: expand {{name}}, strip comments, unwrap verbatim, expand inline wildcards
-    processedPrompt = processFinalPrompt(processedPrompt, wildcards ?? getWildcards(), segments ?? getSegments())
+    // 1) Resolve wildcards, then 2) auto-improve + 3) translate (preserving
+    // comments + [verbatim]). The slow part.
+    let processedPrompt = await applyImproveAndTranslate(prompt, promptOptions, cachedImprovedPrompt, promptWildcards, promptSegments)
 
-    // 3) JSON mode — convert the fully resolved prompt to Ideogram 4 JSON (last step)
+    // Final cleanup: strip comments, unwrap verbatim, and resolve any wildcard
+    // syntax the LLM may have introduced.
+    processedPrompt = processFinalPrompt(processedPrompt, promptWildcards, promptSegments)
+
+    // 5) JSON mode — convert the fully resolved prompt to Ideogram 4 JSON (last step)
     processedPrompt = await applyJsonMode(processedPrompt, promptOptions, imageSize)
 
     // Build prompt metadata for restoration on "generate more"
@@ -317,13 +328,16 @@ export async function submitBatchJobAsync(params: {
   const { prompt, promptOptions, cachedImprovedPrompt, imageSize, wildcards, segments, buildPayload, onSubmitted, onError } = params
 
   try {
-    // 1) Auto-improve + 2) translate
-    let processedPrompt = await applyImproveAndTranslate(prompt, promptOptions, cachedImprovedPrompt)
+    const promptWildcards = wildcards ?? getWildcards()
+    const promptSegments = segments ?? getSegments()
+
+    // 1) Resolve wildcards, then 2) auto-improve + 3) translate
+    let processedPrompt = await applyImproveAndTranslate(prompt, promptOptions, cachedImprovedPrompt, promptWildcards, promptSegments)
 
     // Final processing
-    processedPrompt = processFinalPrompt(processedPrompt, wildcards ?? getWildcards(), segments ?? getSegments())
+    processedPrompt = processFinalPrompt(processedPrompt, promptWildcards, promptSegments)
 
-    // 3) JSON mode (last step)
+    // 5) JSON mode (last step)
     processedPrompt = await applyJsonMode(processedPrompt, promptOptions, imageSize)
 
     // Build prompt metadata
@@ -366,12 +380,15 @@ export async function submitMediaBatchJobAsync(params: {
   const { prompt, promptOptions, cachedImprovedPrompt, imageSize, wildcards, segments, buildPayload, onSubmitted, onError } = params
 
   try {
-    // 1) Auto-improve + 2) translate
-    let processedPrompt = await applyImproveAndTranslate(prompt, promptOptions, cachedImprovedPrompt)
+    const promptWildcards = wildcards ?? getWildcards()
+    const promptSegments = segments ?? getSegments()
 
-    processedPrompt = processFinalPrompt(processedPrompt, wildcards ?? getWildcards(), segments ?? getSegments())
+    // 1) Resolve wildcards, then 2) auto-improve + 3) translate
+    let processedPrompt = await applyImproveAndTranslate(prompt, promptOptions, cachedImprovedPrompt, promptWildcards, promptSegments)
 
-    // 3) JSON mode (last step)
+    processedPrompt = processFinalPrompt(processedPrompt, promptWildcards, promptSegments)
+
+    // 5) JSON mode (last step)
     processedPrompt = await applyJsonMode(processedPrompt, promptOptions, imageSize)
 
     const promptMetadata = buildPromptMetadata(prompt, promptOptions)

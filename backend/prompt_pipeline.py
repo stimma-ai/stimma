@@ -7,15 +7,18 @@ The behavior must stay in lockstep with the client implementation — users
 expect a chain-step prompt to be treated identically to one submitted from
 the editor:
 
-  1. Enhance (autoImprove) — family-aware LLM rewrite with [verbatim]
+  1. Resolve wildcards — expand {{name}} (segments first, then wildcards)
+     and inline {a|b|c}, preserving # comments and [verbatim] markers for
+     the LLM steps.
+  2. Enhance (autoImprove) — family-aware LLM rewrite with [verbatim]
      protection and a 3-attempt retry when placeholders get dropped
      (falls back to the original prompt, like improveViaApi).
-     Skipped in Ideogram JSON mode — that runs post-resolve (step 4).
-  2. Translate — same verbatim protection; unknown language codes are a
+     Skipped in Ideogram JSON mode — that runs post-resolve (step 5).
+  3. Translate — same verbatim protection; unknown language codes are a
      no-op (mirrors translateViaApi).
-  3. Final processing — expand {{name}} (segments first, then wildcards),
-     strip # comments, unwrap [verbatim], expand inline {a|b|c}.
-  4. Ideogram JSON — when Enhance is on and the tool is Ideogram 4,
+  4. Final cleanup — strip # comments, unwrap [verbatim], and resolve any
+     wildcard syntax the LLM may have introduced.
+  5. Ideogram JSON — when Enhance is on and the tool is Ideogram 4,
      convert the fully-resolved prompt to structured JSON (final step).
 
 All steps are non-destructive: the stored step prompt is untouched; only
@@ -134,6 +137,19 @@ def process_final_prompt(
     result = unwrap_verbatim(result)
     result = expand_wildcards(result)
     return result
+
+
+def resolve_wildcards_for_llm(
+    prompt: str,
+    wildcards: Optional[List[Dict[str, Any]]] = None,
+    segments: Optional[List[Dict[str, Any]]] = None,
+) -> str:
+    """Resolve random prompt syntax before any LLM step, while preserving
+    comments and [verbatim] markers."""
+    result = prompt
+    if wildcards or segments:
+        result = expand_named_wildcards(result, wildcards or [], segments)
+    return expand_wildcards(result)
 
 
 # --- Ideogram 4 detection (mirrors isIdeogram4 in ToolView.vue) ----------------
@@ -259,7 +275,8 @@ async def run_prompt_pipeline(
     `prompt_options` is the raw PromptOptions shape the editor persists
     ({autoImprove: {enabled, instructions}, translate: {enabled, language}});
     absent/disabled options skip the LLM steps, but final processing
-    (wildcards/comments/verbatim) ALWAYS runs — same as an interactive submit.
+    (comments/verbatim and any LLM-introduced wildcards) ALWAYS runs — same
+    as an interactive submit.
     LLM failures propagate (the caller fails the step, like the interactive
     submit surfaces the error); verbatim-drop retries fall back non-fatally.
     """
@@ -273,9 +290,10 @@ async def run_prompt_pipeline(
     enhance_on = bool(auto_improve.get("enabled"))
     ideogram_json_mode = enhance_on and is_ideogram4(model_vendor, model)
 
-    processed = prompt
+    wildcards, segments = _profile_wildcards_and_segments(profile_id)
+    processed = resolve_wildcards_for_llm(prompt, wildcards, segments)
 
-    # 1) Enhance (text styles only — Ideogram JSON runs post-resolve).
+    # 2) Enhance (text styles only — Ideogram JSON runs post-resolve).
     if enhance_on and not ideogram_json_mode:
         processed = await _improve_with_verbatim_protection(
             db,
@@ -288,15 +306,15 @@ async def run_prompt_pipeline(
             media_id=media_id,
         )
 
-    # 2) Translate.
+    # 3) Translate.
     if translate.get("enabled") and translate.get("language"):
         processed = await _translate_with_verbatim_protection(processed, translate["language"])
 
-    # 3) Final processing: {{name}}, comments, verbatim, inline wildcards.
-    wildcards, segments = _profile_wildcards_and_segments(profile_id)
+    # 4) Final cleanup: comments, verbatim, and any wildcard syntax introduced
+    # by the LLM.
     processed = process_final_prompt(processed, wildcards, segments)
 
-    # 4) Ideogram JSON — on the fully resolved prompt (last step).
+    # 5) Ideogram JSON — on the fully resolved prompt (last step).
     if ideogram_json_mode:
         processed = await _to_ideogram_json(processed, width, height)
 

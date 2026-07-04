@@ -59,6 +59,14 @@ class TestWildcards:
 
 
 class TestProcessFinalPrompt:
+    def test_resolve_wildcards_for_llm_preserves_comments_and_verbatim(self):
+        out = pp.resolve_wildcards_for_llm(
+            "{{scene}}\n# keep as guidance\n[exact {tone|tone}]",
+            wildcards=[],
+            segments=[{"name": "scene", "content": "a {red|red} fox"}],
+        )
+        assert out == "a red fox\n# keep as guidance\n[exact tone]"
+
     def test_full_resolution_order(self):
         # {{name}} expands first so segment content gets further processing.
         out = pp.process_final_prompt(
@@ -124,6 +132,36 @@ class TestRunPromptPipeline:
         assert translate_req.prompt == "ENHANCED {a|a} prompt"
         assert translate_req.target_language == "Simplified Chinese"
         assert out == "TRANSLATED a prompt"
+
+    async def test_resolves_wildcards_before_enhance(self, generation_app, generation_db_session, monkeypatch):
+        import routes.prompt_enhancement as pe
+
+        monkeypatch.setattr(
+            pp,
+            "_profile_wildcards_and_segments",
+            lambda profile_id: (
+                [{"name": "animal", "values": ["fox"]}],
+                [{"name": "scene", "content": "with {red|red} fur"}],
+            ),
+        )
+
+        seen = {}
+
+        async def fake_improve(request, session):
+            seen["prompt"] = request.prompt
+            return pe.ImprovePromptResponse(improved_prompt=f"better {request.prompt} plus {{spark|spark}}")
+
+        monkeypatch.setattr(pe, "improve_prompt", fake_improve)
+
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "a {{animal}} {{scene}}\n# lighting note\n[exact words]",
+            {"autoImprove": {"enabled": True, "instructions": ""}},
+            profile_id="profile-test",
+        )
+
+        assert seen["prompt"] == "a fox with red fur\n# lighting note\n__VERBATIM_A__"
+        assert out == "better a fox with red fur\nexact words plus spark"
 
     async def test_verbatim_survives_enhance_via_retry(self, generation_app, generation_db_session, monkeypatch):
         import routes.prompt_enhancement as pe

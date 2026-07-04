@@ -167,6 +167,20 @@ export function unwrapVerbatim(prompt: string): string {
 }
 
 /**
+ * Resolve random prompt syntax before any LLM step.
+ * Expands {{name}} first (so segment content can contain inline wildcards),
+ * then expands inline wildcards, while preserving comments and [verbatim]
+ * markers for the enhancement/translation stages.
+ */
+export function resolveWildcardsForLLM(prompt: string, wildcards?: NamedWildcard[], segments?: PromptSegment[]): string {
+  let result = prompt
+  if ((wildcards && wildcards.length > 0) || (segments && segments.length > 0)) {
+    result = expandNamedWildcards(result, wildcards || [], segments)
+  }
+  return expandWildcards(result)
+}
+
+/**
  * Process a prompt for final generation.
  * Expands {{name}} first (so segment content gets further processing),
  * then strips comments, unwraps verbatim, expands inline wildcards.
@@ -184,7 +198,7 @@ export function processFinalPrompt(prompt: string, wildcards?: NamedWildcard[], 
 
 /**
  * Process a prompt through the full pipeline (client-side parts only)
- * @deprecated Use processFinalPrompt instead for full processing
+ * @deprecated Use resolveWildcardsForLLM/processFinalPrompt instead.
  */
 export function processPromptClientSide(prompt: string): string {
   return expandWildcards(prompt)
