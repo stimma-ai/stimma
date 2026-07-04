@@ -207,7 +207,7 @@
         </div>
 
         <!-- Instructions -->
-        <div class="mb-3.5">
+        <div>
           <label class="block text-xs font-medium text-content-tertiary mb-1.5">Instructions</label>
           <textarea v-no-autocorrect
             v-model="instructionsText"
@@ -215,22 +215,6 @@
             placeholder="Standing guidance for this tool — e.g. prefer portrait framing, keep skin texture realistic, avoid harsh lighting."
             class="w-full bg-surface border border-edge rounded-lg text-content text-xs px-3 py-2 focus:outline-none focus:border-blue-500/50 resize-y font-sans leading-relaxed"
           ></textarea>
-        </div>
-
-        <!-- Thinking -->
-        <div class="pt-3 border-t border-edge">
-          <label class="flex gap-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              :checked="agent.thinking.value"
-              @change="agent.thinking.value = $event.target.checked"
-              class="mt-0.5 accent-blue-500 w-3.5 h-3.5 shrink-0"
-            />
-            <div class="min-w-0">
-              <div class="text-xs text-content">Enable Thinking</div>
-              <div class="text-[11px] text-content-muted mt-0.5 leading-relaxed">Lets the agent reason before acting. Slower, but can improve quality on some models.</div>
-            </div>
-          </label>
         </div>
       </div>
     </div>
@@ -250,7 +234,7 @@
         class="w-full bg-transparent text-content text-sm px-4 pt-3 pb-1 focus:outline-none font-sans"
       />
 
-      <!-- Action bar: undo/redo/thinking lower-left, send lower-right -->
+      <!-- Action bar: undo/redo/settings lower-left, send lower-right -->
       <div class="flex items-center justify-between px-2.5 pb-2 pt-1">
         <div class="flex items-center gap-0.5">
           <button
@@ -270,13 +254,13 @@
             <ArrowUturnRightIcon class="w-4 h-4" />
           </button>
           <VoiceInputButton ref="voiceBtn" icon-class="w-4 h-4" :get-text="getFeedbackText" :set-text="setFeedbackText" :focus="focusFeedback" surface="prompt_agent" />
-          <!-- Agent settings (Instructions, Thinking) — expands the drawer above. -->
+          <!-- Agent settings (Instructions) — expands the drawer above. -->
           <button
             v-if="agent"
             @click="showSettings = !showSettings"
             class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
             :class="showSettings ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : 'text-content-muted hover:text-content-secondary hover:bg-white/[0.05]'"
-            title="Agent settings — Instructions & Thinking"
+            title="Agent settings — Instructions"
           >
             <WrenchIcon class="w-4 h-4" />
           </button>
@@ -504,8 +488,8 @@ const instructionsText = computed({
   get: () => props.instructions ?? '',
   set: (v: string) => emit('update:instructions', v),
 })
-// Settings drawer (wrench toggle) holds Instructions + the thinking toggle.
-// Collapsed by default — these are occasional fields.
+// Settings drawer (wrench toggle) holds Instructions.
+// Collapsed by default — an occasional field.
 const showSettings = ref(false)
 
 // Injected page-wide mini-agent. Present → full-agent mode (drives the whole
@@ -541,12 +525,10 @@ function collectPromptAgentConversation() {
 }
 
 // Extras sent on every suggestion request so ideas + dropdown options honor the
-// tool's standing Instructions and follow the thinking toggle, exactly like the
-// agent loop does.
+// tool's standing Instructions, exactly like the agent loop does.
 function suggestionExtras() {
   return {
     instructions: props.instructions || '',
-    thinking: agent?.thinking?.value ?? false,
   }
 }
 

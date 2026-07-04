@@ -22,8 +22,11 @@ function findLegacyToolKey(fullToolId: string, part: string): string | null {
   return null
 }
 
-// Ephemeral keys that shouldn't be part of saved state
-const EPHEMERAL_STATE_KEYS = new Set(['seed', 'randomizeSeed', 'selected_loras', 'folder_path'])
+// Ephemeral keys that shouldn't be part of saved state. agentThinking is a
+// legacy key — the per-tool thinking toggle was removed (2026-07, the cloud
+// tiers pin reasoning server-side); old saved states/presets may still carry
+// it, so it must be ignored on apply and in the modified comparison.
+const EPHEMERAL_STATE_KEYS = new Set(['seed', 'randomizeSeed', 'selected_loras', 'folder_path', 'agentThinking'])
 
 export interface UseToolStateOptions {
   fullToolId: string       // The actual tool ID (for API calls)
@@ -145,7 +148,6 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     // Per-tool agent Instructions ride the state blob, so they travel with the
     // tool's working state AND any preset saved from it.
     state.agentInstructions = globalPrefs.value.agentInstructions || ''
-    state.agentThinking = globalPrefs.value.agentThinking ?? false
 
     // Media-batch slot state rides the tool's working state so it survives reload
     // (and presets) — otherwise the items restore but the slot reverts to N refs.
@@ -183,7 +185,6 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     }
     globalPrefs.value.autoMarkerIds = state.autoMarkerIds ?? []
     globalPrefs.value.agentInstructions = state.agentInstructions ?? ''
-    globalPrefs.value.agentThinking = state.agentThinking ?? false
     globalPrefs.value.batchMode = state.batchMode ?? false
     globalPrefs.value.batchField = state.batchField ?? 'input_images'
 
@@ -283,12 +284,6 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
         if ((currentState[key] ?? 'input_images') !== (base[key] ?? 'input_images')) return true
         continue
       }
-      // agentThinking defaults to false; absent (older state) == false.
-      if (key === 'agentThinking') {
-        if ((currentState[key] ?? false) !== (base[key] ?? false)) return true
-        continue
-      }
-
       const currentVal = JSON.stringify(currentState[key])
       const baseVal = JSON.stringify(base[key])
       if (currentVal !== baseVal) {

@@ -88,9 +88,6 @@ export interface GlobalPrefs {
   // Per-tool agent note (rides the tool + any preset saved from it): standing
   // guidance co-edited by the user and the agent.
   agentInstructions: string
-  // Per-tool extended-thinking toggle — a normal tool setting (persisted,
-  // scoped, rides presets). Defaults off.
-  agentThinking: boolean
   // Media-batch: when true the media slot is a batch source (run once per item
   // in inputImages/inputVideos). batchField names the slot. The uniform batch
   // prep lives on the representative item (items[0]._scale/_flip/...), so there
@@ -150,7 +147,6 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     promptOptions: defaultPromptOptions(),
     autoMarkerIds: [],
     agentInstructions: '',
-    agentThinking: false,
     batchMode: false,
     batchField: 'input_images',
   })
@@ -200,7 +196,6 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
           },
           autoMarkerIds: data.autoMarkerIds ?? [],
           agentInstructions: data.agentInstructions ?? '',
-          agentThinking: data.agentThinking ?? false,
           batchMode: data.batchMode ?? false,
           batchField: data.batchField ?? 'input_images',
         }
@@ -409,7 +404,6 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
       promptOptions: defaultPromptOptions(),
       autoMarkerIds: [],
       agentInstructions: '',
-      agentThinking: false,
       batchMode: false,
       batchField: 'input_images',
     }

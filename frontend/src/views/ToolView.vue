@@ -2973,7 +2973,6 @@ function getCurrentState() {
     negative_prompt: modelParams.value.negative_prompt,
     promptOptions: globalPrefs.value.promptOptions,
     agentInstructions: globalPrefs.value.agentInstructions || '',
-    agentThinking: globalPrefs.value.agentThinking ?? false,
     postProcessingChain: toolChain.value,
   }
 }
@@ -5050,16 +5049,6 @@ async function runTool(name: string, args: any): Promise<string> {
   }
 }
 
-// Extended-thinking toggle. It's a normal per-tool setting: backed by
-// globalPrefs so it persists, scopes to the tool/project, and rides presets like
-// any other param (see buildToolState/applyToolState/getCurrentState). Defaults
-// off — the prompt-agent does single-step editor control; the user turns it on
-// per tool when a weaker model needs the extra reasoning.
-const promptAgentThinking = computed<boolean>({
-  get: () => globalPrefs.value.agentThinking ?? false,
-  set: (v: boolean) => { globalPrefs.value.agentThinking = v },
-})
-
 // Snapshot for undo lazily — once per run, before the first MUTATING tool — so
 // non-mutating tools (undo/redo/search/generate) behave like the buttons and
 // don't create spurious undo entries or clear the redo stack.
@@ -5085,7 +5074,6 @@ const promptMiniAgent = usePromptMiniAgent({
       agentRunSnapshotTaken = true
     }
   },
-  getThinking: () => promptAgentThinking.value,
 })
 
 provide(PROMPT_EDITOR_AGENT_KEY, {
@@ -5095,7 +5083,6 @@ provide(PROMPT_EDITOR_AGENT_KEY, {
   lastReply: promptMiniAgent.lastReply,
   messages: promptMiniAgent.messages,
   clearHistory: promptMiniAgent.clearHistory,
-  thinking: promptAgentThinking,
   snapshot: undo.snapshot,
   undo: undo.undo,
   redo: undo.redo,
