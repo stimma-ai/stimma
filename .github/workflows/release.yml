@@ -11,6 +11,11 @@ on:
         description: Release tag ref, branch, or SHA
         required: true
         default: main
+      skip_quality_gate:
+        description: Emergency bypass for the release quality gate
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -60,6 +65,7 @@ jobs:
   quality-gate:
     name: Quality gate
     needs: release-meta
+    if: ${{ !inputs.skip_quality_gate }}
     uses: ./.github/workflows/quality-gate.yml
     with:
       ref: ${{ needs.release-meta.outputs.ref }}
@@ -69,6 +75,7 @@ jobs:
     needs:
       - release-meta
       - quality-gate
+    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/release-macos.yml
     with:
       ref: ${{ needs.release-meta.outputs.ref }}
@@ -83,6 +90,7 @@ jobs:
     needs:
       - release-meta
       - quality-gate
+    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/release-windows.yml
     with:
       ref: ${{ needs.release-meta.outputs.ref }}
@@ -97,6 +105,7 @@ jobs:
     needs:
       - release-meta
       - quality-gate
+    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/linux-appimage.yml
     with:
       ref: ${{ needs.release-meta.outputs.ref }}
@@ -111,6 +120,7 @@ jobs:
     needs:
       - release-meta
       - quality-gate
+    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/linux-appimage.yml
     with:
       ref: ${{ needs.release-meta.outputs.ref }}

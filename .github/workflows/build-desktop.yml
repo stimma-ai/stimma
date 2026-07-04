@@ -27,6 +27,11 @@ on:
         required: true
         default: false
         type: boolean
+      skip_quality_gate:
+        description: Emergency bypass for the desktop build quality gate
+        required: false
+        default: false
+        type: boolean
 
 # The reusable build workflows request `contents: write` (they create GitHub
 # release assets on tag builds). A called workflow can never be granted more
@@ -44,6 +49,7 @@ permissions:
 jobs:
   quality-gate:
     name: Quality gate
+    if: ${{ !inputs.skip_quality_gate }}
     uses: ./.github/workflows/quality-gate.yml
     with:
       ref: ${{ inputs.ref }}
@@ -51,6 +57,7 @@ jobs:
   macos:
     name: macOS
     needs: quality-gate
+    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/release-macos.yml
     with:
       ref: ${{ inputs.ref }}
@@ -63,6 +70,7 @@ jobs:
   windows:
     name: Windows
     needs: quality-gate
+    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/release-windows.yml
     with:
       ref: ${{ inputs.ref }}
@@ -75,6 +83,7 @@ jobs:
   linux:
     name: Linux AppImage x64
     needs: quality-gate
+    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/linux-appimage.yml
     with:
       ref: ${{ inputs.ref }}
@@ -87,6 +96,7 @@ jobs:
   linux-arm64:
     name: Linux AppImage arm64
     needs: quality-gate
+    if: ${{ always() && (inputs.skip_quality_gate || needs.quality-gate.result == 'success') }}
     uses: ./.github/workflows/linux-appimage.yml
     with:
       ref: ${{ inputs.ref }}
