@@ -9,12 +9,25 @@ on:
         required: false
         default: ""
         type: string
+      acceptance_suite:
+        description: "Acceptance suite to run: smoke or full"
+        required: false
+        default: smoke
+        type: string
   workflow_dispatch:
     inputs:
       ref:
         description: Git ref to test
         required: false
         default: ""
+      acceptance_suite:
+        description: Acceptance suite to run
+        required: false
+        default: smoke
+        type: choice
+        options:
+          - smoke
+          - full
 
 permissions:
   contents: read
@@ -23,6 +36,7 @@ jobs:
   backend-tests:
     name: Backend tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -53,6 +67,7 @@ jobs:
   acceptance-tests:
     name: Acceptance tests
     runs-on: ubuntu-latest
+    timeout-minutes: 8
 
     steps:
       - name: Checkout
@@ -96,7 +111,12 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium
 
-      - name: Run acceptance tests
+      - name: Run smoke acceptance tests
+        if: ${{ inputs.acceptance_suite != 'full' }}
+        run: tools/stimma test acceptance acceptance/tests/release-acceptance.spec.ts
+
+      - name: Run full acceptance tests
+        if: ${{ inputs.acceptance_suite == 'full' }}
         run: tools/stimma test acceptance
 
       - name: Upload acceptance artifacts
