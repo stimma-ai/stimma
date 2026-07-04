@@ -1,3 +1,5 @@
+> If this checkout lives inside a larger workspace, check the parent directory (`../CLAUDE.md` / `../AGENTS.md`) for additional agent guidance — some agents don't walk up on their own.
+
 ## Development notes
 
 - ALWAYS USE TAILWINDCSS. No custom CSS unless absolutely necessary.
