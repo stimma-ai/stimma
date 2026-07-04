@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { useWebSocket } from './useWebSocket'
 import { useAgentActivity } from './useAgentActivity'
 import { useWorkspaceTabs } from './useWorkspaceTabs'
@@ -135,8 +135,12 @@ function init() {
     window.addEventListener('blur', () => { windowFocused.value = false })
   }
 
-  // Visiting a tab clears its dot.
-  watch(router.currentRoute, clearActiveIfSeen)
+  // Visiting a tab clears its dot. Registered as a router hook, NOT a
+  // watch(): init() usually runs first from NavigationSidebar's setup, and a
+  // watch would bind to that component's effect scope — unmounting the
+  // sidebar (lock screen, no-chrome routes) would silently kill it, leaving
+  // dots that never clear. afterEach is scope-independent.
+  router.afterEach(() => clearActiveIfSeen())
 }
 
 export function useUnseenActivity() {
