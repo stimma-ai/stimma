@@ -2,6 +2,35 @@ name: Release / Windows
 run-name: ${{ github.event_name == 'push' && format('Release / Windows - {0}', github.ref_name) || format('Release / Windows - {0}', inputs.channel) }}
 
 on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build
+        required: true
+        default: main
+      channel:
+        description: Release channel for updater endpoint
+        required: true
+        default: alpha
+        type: choice
+        options:
+          - sandbox
+          - alpha
+          - beta
+          - production
+      version:
+        description: App version to embed
+        required: true
+      publish_updates:
+        description: Publish updater and download artifacts to Cloudflare R2
+        required: true
+        default: true
+        type: boolean
+      publish_github_release:
+        description: Publish assets to the GitHub release
+        required: false
+        default: true
+        type: boolean
   workflow_call:
     inputs:
       ref:
@@ -42,6 +71,7 @@ jobs:
       UV_PYTHON_DOWNLOADS: true
       PYTHONUTF8: "1"
       PYTHONIOENCODING: utf-8
+      RUSTFLAGS: "-C target-feature=+crt-static"
 
     steps:
       - name: Checkout
