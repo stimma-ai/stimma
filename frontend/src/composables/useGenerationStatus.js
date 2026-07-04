@@ -6,6 +6,27 @@ const activeJobsByTaskType = ref({})
 const activeJobsByInstanceId = ref({})
 let initialized = false
 
+// Check whether a generator_instance_id belongs to a tool (optionally scoped
+// to a project). Handles formats: tool-{id}, tool-{id}@@{uuid} (new),
+// tool-{id}-{uuid} (legacy). toolId (full_tool_id) uses colons, but
+// generator_instance_id uses underscores. Project-scoped ToolViews build
+// their generator_instance_id with a `__project_{id}` suffix (see
+// ToolView.vue projectSuffix/toolIdForStorage), so the global instance and a
+// project-scoped instance of the same tool are distinct.
+export function instanceMatchesTool(instanceId, toolId, projectId = null) {
+  const storageToolId = toolId.replace(/:/g, '_')
+  const projectSuffix = projectId ? `__project_${projectId}` : ''
+  const prefix = `tool-${storageToolId}${projectSuffix}`
+  // Exact match (no tab GUID suffix)
+  if (instanceId === prefix) return true
+  // New format: tool-{id}@@{uuid} - use @@ separator to avoid ambiguity with hyphens in tool IDs
+  if (instanceId.startsWith(`${prefix}@@`)) return true
+  // Legacy format: tool-{id}-{uuid} - only match if followed by valid UUID pattern
+  // UUID format: 8-4-4-4-12 hex chars (e.g., 550e8400-e29b-41d4-a716-446655440000)
+  const legacyMatch = instanceId.match(new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`, 'i'))
+  return !!legacyMatch
+}
+
 /**
  * Composable for tracking active generation jobs
  * Returns reactive state that shows if generation is in progress
@@ -127,30 +148,12 @@ export function useGenerationStatus() {
     return (activeJobsByInstanceId.value[instanceId] || 0) > 0
   }
 
-  // Check if a specific tool has active jobs
-  // Handles formats: tool-{id}, tool-{id}@@{uuid} (new), tool-{id}-{uuid} (legacy)
-  // Note: toolId (full_tool_id) uses colons, but generator_instance_id uses underscores
-  //
-  // projectId scopes the lookup to a project-scoped tool instance. Project-scoped
-  // ToolViews build their generator_instance_id with a `__project_{id}` suffix (see
-  // ToolView.vue projectSuffix/toolIdForStorage), so the global instance and a
-  // project-scoped instance of the same tool are distinct. Without this, both the
-  // global and project rows in the sidebar share one lookup and spin together.
+  // Check if a specific tool has active jobs. Without the projectId scoping,
+  // both the global and project rows in the sidebar share one lookup and spin
+  // together — see instanceMatchesTool above.
   const isToolActive = (toolId, projectId = null) => {
-    // Convert colons to underscores to match the storage-safe format used in generator_instance_id
-    const storageToolId = toolId.replace(/:/g, '_')
-    const projectSuffix = projectId ? `__project_${projectId}` : ''
-    const prefix = `tool-${storageToolId}${projectSuffix}`
     return Object.entries(activeJobsByInstanceId.value).some(([instanceId, count]) => {
-      if (count <= 0) return false
-      // Exact match (no tab GUID suffix)
-      if (instanceId === prefix) return true
-      // New format: tool-{id}@@{uuid} - use @@ separator to avoid ambiguity with hyphens in tool IDs
-      if (instanceId.startsWith(`${prefix}@@`)) return true
-      // Legacy format: tool-{id}-{uuid} - only match if followed by valid UUID pattern
-      // UUID format: 8-4-4-4-12 hex chars (e.g., 550e8400-e29b-41d4-a716-446655440000)
-      const legacyMatch = instanceId.match(new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`, 'i'))
-      return !!legacyMatch
+      return count > 0 && instanceMatchesTool(instanceId, toolId, projectId)
     })
   }
 
