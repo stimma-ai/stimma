@@ -806,7 +806,10 @@ export function useGenerationJobs(options = {}) {
 
         // Return cached data if available
         if (mediaData.value[mediaId]) {
-          return mediaData.value[mediaId]
+          return {
+            ...mediaData.value[mediaId],
+            _slideshowItemKey: job.id
+          }
         }
 
         // Fallback: fetch from API if not in cache (shouldn't normally happen)
@@ -814,7 +817,10 @@ export function useGenerationJobs(options = {}) {
           const response = await axios.get(`${getAPIBase()}/media/${mediaId}`)
           // Cache it for future use
           mediaData.value = { ...mediaData.value, [mediaId]: response.data }
-          return response.data
+          return {
+            ...response.data,
+            _slideshowItemKey: job.id
+          }
         } catch (err) {
           console.error(`Failed to fetch media ${mediaId}:`, err)
           return null

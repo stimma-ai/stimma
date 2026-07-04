@@ -14,6 +14,7 @@ import json
 from httpx import AsyncClient
 from unittest.mock import patch, AsyncMock
 
+import prompt_pipeline as pp
 from database import CachedProviderTool
 from tests.helpers.media import create_media_item
 
@@ -80,7 +81,11 @@ class TestMediaBatchSubmission:
                 "folder_path": "/tmp/test",
                 "task_type": "upscale-image",
                 "batch_input": {"field": "input_images", "media_ids": [m1.id, m2.id, m3.id]},
-                "parameters": {"steps": 20, "resolution": 2048},
+                "parameters": {
+                    "prompt": "clean up\n# enhancer note\n[leave this alone]",
+                    "steps": 20,
+                    "resolution": 2048,
+                },
             })
 
         assert response.status_code == 200, response.text
@@ -88,6 +93,7 @@ class TestMediaBatchSubmission:
         assert data["total_jobs"] == 3
         assert len(data["job_ids"]) == 3
         assert mock_queue.submit_batch_job.call_count == 3
+        assert [c["consume_pending_request"] for c in calls] == [True, False, False]
 
         # All jobs share one batch_id
         batch_ids = {c["batch_id"] for c in calls}
@@ -107,9 +113,95 @@ class TestMediaBatchSubmission:
             assert params["input_media_ids"] == [mid]
             assert params["_batch_presentation_only"] is True
             assert params["_batch_index"] == idx
+            assert params["prompt"] == "clean up\nleave this alone"
             assert params["steps"] == 20
             # No output set for presentation-only batches
             assert call["batch_output_title"] is None
+
+    async def test_submit_media_batch_uses_one_prompt_preload_per_child(
+        self, generation_client: AsyncClient, generation_db_session, monkeypatch
+    ):
+        """Prompt preloads are one-use child hints, not one shared batch hint."""
+        async with generation_db_session() as session:
+            m1 = await create_media_item(session, file_format='png')
+            m2 = await create_media_item(session, file_format='png')
+
+        import routes.prompt_enhancement as pe
+
+        async def fail_improve(request, session):
+            raise AssertionError("matching child prompt preloads should skip live improve")
+
+        monkeypatch.setattr(pe, "improve_prompt", fail_improve)
+
+        signature = pp.prompt_sources_signature([], [])
+        prompt_preloads = [
+            {
+                "originalPrompt": "clean up",
+                "processedPrompt": "clean up",
+                "improvedPrompt": "cached prompt one",
+                "instructions": None,
+                "model": "Test Upscale",
+                "isVideo": False,
+                "isAudio": False,
+                "inputImageCount": 1,
+                "promptSourcesSignature": signature,
+            },
+            {
+                "originalPrompt": "clean up",
+                "processedPrompt": "clean up",
+                "improvedPrompt": "cached prompt two",
+                "instructions": None,
+                "model": "Test Upscale",
+                "isVideo": False,
+                "isAudio": False,
+                "inputImageCount": 1,
+                "promptSourcesSignature": signature,
+            },
+        ]
+
+        mock_queue, calls = _capture_queue()
+        with patch('generation_queue.get_generation_queue', return_value=mock_queue):
+            response = await generation_client.post("/api/generate/submit-media-batch", json={
+                "tool_id": UPSCALE_TOOL_ID,
+                "folder_path": "/tmp/test",
+                "task_type": "upscale-image",
+                "batch_input": {"field": "input_images", "media_ids": [m1.id, m2.id]},
+                "parameters": {"prompt": "clean up"},
+                "prompt_options": {"autoImprove": {"enabled": True, "model": "Test Upscale"}},
+                "prompt_preloads": prompt_preloads,
+            })
+
+        assert response.status_code == 200, response.text
+        assert [c["parameters"]["prompt"] for c in calls] == ["cached prompt one", "cached prompt two"]
+
+    async def test_submit_media_batch_prompt_pipeline_failure_queues_no_partial_jobs(
+        self, generation_client: AsyncClient, generation_db_session
+    ):
+        async with generation_db_session() as session:
+            m1 = await create_media_item(session, file_format='png')
+            m2 = await create_media_item(session, file_format='png')
+
+        mock_queue, _ = _capture_queue()
+
+        async def fail_second(parameters, **kwargs):
+            if parameters.get("_batch_index") == 1:
+                raise RuntimeError("enhancement failed")
+            return parameters
+
+        with (
+            patch('generation_queue.get_generation_queue', return_value=mock_queue),
+            patch('routes.generation._apply_generation_prompt_pipeline', side_effect=fail_second),
+        ):
+            response = await generation_client.post("/api/generate/submit-media-batch", json={
+                "tool_id": UPSCALE_TOOL_ID,
+                "folder_path": "/tmp/test",
+                "task_type": "upscale-image",
+                "batch_input": {"field": "input_images", "media_ids": [m1.id, m2.id]},
+                "parameters": {"prompt": "clean up"},
+            })
+
+        assert response.status_code == 500
+        mock_queue.submit_batch_job.assert_not_called()
 
     async def test_submit_media_batch_applies_prep(self, generation_client: AsyncClient, generation_db_session):
         """Uniform prep is applied per item via the preprocess pipeline."""

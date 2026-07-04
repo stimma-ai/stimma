@@ -977,6 +977,7 @@ class GenerationQueue:
         batch_total: Optional[int] = None,
         batch_output_title: Optional[str] = None,
         batch_input_set_ids: Optional[List[int]] = None,
+        consume_pending_request: bool = True,
     ) -> int:
         """Shared implementation for creating and submitting a generation job.
 
@@ -986,13 +987,13 @@ class GenerationQueue:
         Returns:
             Job ID
         """
-        backend_name, generator_type = self._resolve_backend_info(tool_id, backend_name, generator_name)
-        profile_id = get_current_profile()
-
         if not generator_instance_id:
             generator_instance_id = "legacy-generate-tab"
 
         try:
+            backend_name, generator_type = self._resolve_backend_info(tool_id, backend_name, generator_name)
+            profile_id = get_current_profile()
+
             # Verify folder allows generation (profile-aware)
             settings = get_settings()
             valid_folders = settings.get_generation_folders_for_profile(profile_id)
@@ -1075,17 +1076,19 @@ class GenerationQueue:
 
             return job_id
         finally:
-            # Always consume one pending work request timestamp, even on failure.
-            # The pending reservation was created when _fill_available_slots sent the work request;
-            # once submit is called (success or failure), that reservation is consumed.
-            timestamps = self._pending_work_requests.get(backend_name, []) if backend_name else []
-            if timestamps:
-                timestamps.pop(0)
-                log.debug(f"Forever mode: job submitted for {backend_name}, pending now {len(timestamps)}")
-            timestamps = self._pending_work_requests_per_client.get(generator_instance_id, []) if generator_instance_id else []
-            if timestamps:
-                timestamps.pop(0)
-                log.debug(f"Forever mode: job submitted by {generator_instance_id}, client_pending now {len(timestamps)}")
+            # Consume a forever-mode reservation only when the caller says this
+            # submit was triggered by a reserved work request. Manual submits
+            # and local follow-up submits can happen while pending reservations
+            # exist for the same client; they must not steal those slots.
+            if consume_pending_request:
+                timestamps = self._pending_work_requests.get(backend_name, []) if backend_name else []
+                if timestamps:
+                    timestamps.pop(0)
+                    log.debug(f"Forever mode: job submitted for {backend_name}, pending now {len(timestamps)}")
+                timestamps = self._pending_work_requests_per_client.get(generator_instance_id, []) if generator_instance_id else []
+                if timestamps:
+                    timestamps.pop(0)
+                    log.debug(f"Forever mode: job submitted by {generator_instance_id}, client_pending now {len(timestamps)}")
 
     async def submit_job(
         self,
@@ -1100,6 +1103,7 @@ class GenerationQueue:
         tool_id: Optional[str] = None,
         preset_id: Optional[int] = None,
         project_id: Optional[int] = None,
+        consume_pending_request: bool = True,
     ) -> int:
         """Submit a new generation job to the queue.
 
@@ -1117,6 +1121,7 @@ class GenerationQueue:
             backend_name=backend_name, task_type=task_type,
             tool_id=tool_id, preset_id=preset_id,
             project_id=project_id,
+            consume_pending_request=consume_pending_request,
         )
 
     async def submit_batch_job(
@@ -1136,6 +1141,7 @@ class GenerationQueue:
         tool_id: Optional[str] = None,
         preset_id: Optional[int] = None,
         project_id: Optional[int] = None,
+        consume_pending_request: bool = True,
     ) -> int:
         """Submit a generation job that is part of a batch.
 
@@ -1153,6 +1159,7 @@ class GenerationQueue:
             batch_id=batch_id, batch_total=batch_total,
             batch_output_title=batch_output_title,
             batch_input_set_ids=batch_input_set_ids,
+            consume_pending_request=consume_pending_request,
         )
 
     async def get_job(self, job_id: int, profile_id: str = None) -> Optional[Dict[str, Any]]:

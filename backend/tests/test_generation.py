@@ -8,6 +8,8 @@ import asyncio
 import json
 import pytest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import httpx
 from sqlalchemy import select
@@ -18,11 +20,156 @@ from tests.helpers import (
     create_media_with_generation_metadata,
     process_job,
 )
+from routes import generation as generation_routes
 
 
 # =============================================================================
 # Job Submission Tests
 # =============================================================================
+
+
+class TestPromptPipelineRouting:
+    """Tests for backend prompt-enhancement context inferred at submit time."""
+
+    def test_image_size_parameter_does_not_count_as_input_image(self):
+        parameters = {
+            "prompt": "a beautiful modern handbag on display on a table",
+            "aspect_ratio": "1:1",
+            "image_size": "1K",
+        }
+        schema_props = {
+            "prompt": {"type": "string"},
+            "aspect_ratio": {"type": "string", "description": "Output image aspect ratio"},
+            "image_size": {"type": "string", "description": "Output image size"},
+        }
+
+        assert generation_routes._prompt_input_image_count(parameters, schema_props, "text-to-image") == 0
+
+    def test_real_image_picker_counts_as_input_image(self):
+        parameters = {
+            "prompt": "make it luxe",
+            "input_images": ["/tmp/source.png"],
+            "image_size": "1K",
+        }
+        schema_props = {
+            "prompt": {"type": "string"},
+            "input_images": {
+                "type": "array",
+                "items": {"type": "string", "format": "file-path"},
+                "x-control": "image_picker",
+            },
+            "image_size": {"type": "string", "description": "Output image size"},
+        }
+
+        assert generation_routes._prompt_input_image_count(parameters, schema_props, "image-to-image") == 1
+
+    def test_optional_image_picker_without_actual_image_does_not_count(self):
+        parameters = {
+            "prompt": "a beautiful modern handbag on display on a table",
+            "input_images": [],
+            "input_media_ids": [],
+        }
+        schema_props = {
+            "prompt": {"type": "string"},
+            "input_images": {
+                "type": "array",
+                "items": {"type": "string", "format": "file-path"},
+                "x-control": "image_picker",
+            },
+        }
+
+        assert generation_routes._prompt_input_image_count(parameters, schema_props, "text-to-image") == 0
+
+    def test_media_id_companion_without_path_does_not_count_as_input_image(self):
+        parameters = {
+            "prompt": "a beautiful modern handbag on display on a table",
+            "input_media_ids": [123],
+        }
+        schema_props = {
+            "prompt": {"type": "string"},
+            "input_images": {
+                "type": "array",
+                "items": {"type": "string", "format": "file-path"},
+                "x-control": "image_picker",
+            },
+        }
+
+        assert generation_routes._prompt_input_image_count(parameters, schema_props, "text-to-image") == 0
+
+    def test_i2v_source_media_id_uses_only_start_frame_slot(self):
+        assert generation_routes._prompt_media_id(
+            {"input_media_ids": [None, 456]},
+            "image-to-video",
+        ) is None
+        assert generation_routes._prompt_media_id(
+            {"input_media_ids": [123, 456]},
+            "image-to-video",
+        ) == 123
+
+    def test_prompt_context_uses_descriptor_metadata_and_name_fallbacks(self, monkeypatch):
+        descriptor = SimpleNamespace(
+            model=None,
+            model_vendor=None,
+            metadata={"model_name": "sdxl_base_1.0.safetensors", "model_vendor": "stability"},
+            name="Friendly Tool Name",
+            task_type="text-to-image",
+            parameter_schema={"properties": {"prompt": {"type": "string"}}},
+        )
+        registry = SimpleNamespace(get_tool=lambda tool_id: (SimpleNamespace(provider_id="test"), descriptor))
+
+        import providers.registry as provider_registry
+
+        monkeypatch.setattr(provider_registry.ProviderRegistry, "get_instance", lambda: registry)
+
+        model, vendor, task, props = generation_routes._prompt_pipeline_context("test:tool", None, None)
+
+        assert model == "sdxl_base_1.0.safetensors"
+        assert vendor == "stability"
+        assert task == "text-to-image"
+        assert "prompt" in props
+
+    def test_prompt_context_uses_tool_name_when_model_metadata_is_absent(self, monkeypatch):
+        descriptor = SimpleNamespace(
+            model=None,
+            model_vendor="ideogram",
+            metadata={},
+            name="Ideogram 4.0",
+            task_type="text-to-image",
+            parameter_schema={"properties": {"prompt": {"type": "string"}}},
+        )
+        registry = SimpleNamespace(get_tool=lambda tool_id: (SimpleNamespace(provider_id="test"), descriptor))
+
+        import providers.registry as provider_registry
+
+        monkeypatch.setattr(provider_registry.ProviderRegistry, "get_instance", lambda: registry)
+
+        model, vendor, _, _ = generation_routes._prompt_pipeline_context("test:ideogram", None, None)
+
+        assert model == "Ideogram 4.0"
+        assert vendor == "ideogram"
+
+    def test_prompt_context_prefers_client_model_hint_before_name_fallback(self, monkeypatch):
+        descriptor = SimpleNamespace(
+            model=None,
+            model_vendor=None,
+            metadata={},
+            name="Friendly Display Name",
+            task_type="text-to-image",
+            parameter_schema={"properties": {"prompt": {"type": "string"}}},
+        )
+        registry = SimpleNamespace(get_tool=lambda tool_id: (SimpleNamespace(provider_id="test"), descriptor))
+
+        import providers.registry as provider_registry
+
+        monkeypatch.setattr(provider_registry.ProviderRegistry, "get_instance", lambda: registry)
+
+        model, _, _, _ = generation_routes._prompt_pipeline_context(
+            "test:tool",
+            None,
+            {"autoImprove": {"model": "sdxl_base_1.0.safetensors"}},
+        )
+
+        assert model == "sdxl_base_1.0.safetensors"
 
 
 class TestJobSubmission:
@@ -86,6 +233,70 @@ class TestJobSubmission:
 
         assert response.status_code == 400
         assert "generation" in response.json()["detail"].lower()
+
+    async def test_submit_runs_prompt_pipeline_server_side(
+        self,
+        generation_client: httpx.AsyncClient,
+        generation_db_session,
+        output_folder: str,
+    ):
+        """The submit route stores the backend-processed prompt, not raw editor text."""
+        response = await generation_client.post(
+            "/api/generate/submit",
+            json={
+                "tool_id": "test:text-to-image:test-model",
+                "folder_path": output_folder,
+                "task_type": "text-to-image",
+                "parameters": {
+                    "prompt": "visible\n# enhancer-only note\n[fixed words]",
+                    "width": 64,
+                    "height": 64,
+                    "steps": 10,
+                    "seed": 42,
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        async with generation_db_session() as session:
+            job = await session.get(GenerationJob, response.json()["job_id"])
+            params = json.loads(job.parameters)
+
+        assert params["prompt"] == "visible\nfixed words"
+
+    async def test_submit_declines_reserved_work_when_prompt_pipeline_fails_before_queue(
+        self,
+        generation_client: httpx.AsyncClient,
+        output_folder: str,
+    ):
+        """Server-side enhancement failures must not strand forever-mode slots."""
+        mock_queue = AsyncMock()
+        mock_queue.submit_job = AsyncMock()
+        mock_queue.decline_work_request = AsyncMock()
+
+        with (
+            patch("generation_queue.get_generation_queue", return_value=mock_queue),
+            patch(
+                "routes.generation._apply_generation_prompt_pipeline",
+                AsyncMock(side_effect=RuntimeError("enhancement failed")),
+            ),
+        ):
+            response = await generation_client.post(
+                "/api/generate/submit",
+                json={
+                    "tool_id": "test:text-to-image:test-model",
+                    "folder_path": output_folder,
+                    "task_type": "text-to-image",
+                    "parameters": {"prompt": "test"},
+                    "generator_instance_id": "forever-client",
+                    "forever_work_reserved": True,
+                    "prompt_options": {"autoImprove": {"enabled": True}},
+                },
+            )
+
+        assert response.status_code == 500
+        mock_queue.submit_job.assert_not_called()
+        mock_queue.decline_work_request.assert_awaited_once_with("forever-client", "test")
 
 
 # =============================================================================

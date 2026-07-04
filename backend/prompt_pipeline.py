@@ -28,6 +28,7 @@ the prompt actually sent to the tool is transformed.
 from __future__ import annotations
 
 import random
+import json
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -255,6 +256,86 @@ def _profile_wildcards_and_segments(profile_id: Optional[str]) -> Tuple[List[Dic
         return [], []
 
 
+def prompt_sources_signature(
+    wildcards: List[Dict[str, Any]],
+    segments: List[Dict[str, Any]],
+) -> str:
+    """Stable signature shared with usePromptPreloader.ts for preload validation."""
+    normalized_wildcards = sorted(
+        (
+            {
+                "name": str(w.get("name", "")).lower(),
+                "values": list(w.get("values") or []),
+            }
+            for w in wildcards
+        ),
+        key=lambda item: item["name"],
+    )
+    normalized_segments = sorted(
+        (
+            {
+                "name": str(s.get("name", "")).lower(),
+                "content": s.get("content") or "",
+            }
+            for s in segments
+        ),
+        key=lambda item: item["name"],
+    )
+    return json.dumps(
+        {"wildcards": normalized_wildcards, "segments": normalized_segments},
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def _normalized_optional_string(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text if text else None
+
+
+def _validated_prompt_preload(
+    prompt_preload: Optional[Dict[str, Any]],
+    *,
+    prompt: str,
+    instructions: Optional[str],
+    model: Optional[str],
+    is_video: bool,
+    is_audio: bool,
+    input_image_count: int,
+    source_signature: str,
+) -> Optional[str]:
+    if not isinstance(prompt_preload, dict):
+        return None
+
+    try:
+        if prompt_preload.get("originalPrompt") != prompt:
+            return None
+        if prompt_preload.get("promptSourcesSignature") != source_signature:
+            return None
+        if _normalized_optional_string(prompt_preload.get("instructions")) != _normalized_optional_string(instructions):
+            return None
+        if _normalized_optional_string(prompt_preload.get("model")) != _normalized_optional_string(model):
+            return None
+        if bool(prompt_preload.get("isVideo")) != bool(is_video):
+            return None
+        if bool(prompt_preload.get("isAudio")) != bool(is_audio):
+            return None
+        if int(prompt_preload.get("inputImageCount") or 0) != int(input_image_count or 0):
+            return None
+    except (TypeError, ValueError):
+        return None
+
+    processed_prompt = prompt_preload.get("processedPrompt")
+    improved_prompt = prompt_preload.get("improvedPrompt")
+    if not isinstance(processed_prompt, str) or not processed_prompt.strip():
+        return None
+    if not isinstance(improved_prompt, str) or not improved_prompt.strip():
+        return None
+    return improved_prompt
+
+
 async def run_prompt_pipeline(
     db,
     prompt: str,
@@ -269,6 +350,7 @@ async def run_prompt_pipeline(
     width: Optional[int] = None,
     height: Optional[int] = None,
     profile_id: Optional[str] = None,
+    prompt_preload: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Run the full generate-time pipeline on a prompt, server-side.
 
@@ -288,17 +370,40 @@ async def run_prompt_pipeline(
     translate = options.get("translate") or {}
 
     enhance_on = bool(auto_improve.get("enabled"))
-    ideogram_json_mode = enhance_on and is_ideogram4(model_vendor, model)
+    ideogram_json_mode = enhance_on and (
+        auto_improve.get("mode") == "ideogram-json"
+        or is_ideogram4(model_vendor, model)
+    )
 
     wildcards, segments = _profile_wildcards_and_segments(profile_id)
-    processed = resolve_wildcards_for_llm(prompt, wildcards, segments)
+    source_signature = prompt_sources_signature(wildcards, segments)
+    instructions = (auto_improve.get("instructions") or "").strip() or None
 
-    # 2) Enhance (text styles only — Ideogram JSON runs post-resolve).
+    preloaded_improved: Optional[str] = None
     if enhance_on and not ideogram_json_mode:
+        preloaded_improved = _validated_prompt_preload(
+            prompt_preload,
+            prompt=prompt,
+            instructions=instructions,
+            model=model,
+            is_video=is_video,
+            is_audio=is_audio,
+            input_image_count=input_image_count,
+            source_signature=source_signature,
+        )
+
+    if preloaded_improved is not None:
+        log.debug("[prompt-pipeline] Using preloaded prompt enhancement")
+        processed = preloaded_improved
+    else:
+        processed = resolve_wildcards_for_llm(prompt, wildcards, segments)
+
+    # 2) Enhance (text styles only; Ideogram JSON runs post-resolve).
+    if enhance_on and not ideogram_json_mode and preloaded_improved is None:
         processed = await _improve_with_verbatim_protection(
             db,
             processed,
-            instructions=(auto_improve.get("instructions") or "").strip() or None,
+            instructions=instructions,
             model=model,
             is_video=is_video,
             is_audio=is_audio,

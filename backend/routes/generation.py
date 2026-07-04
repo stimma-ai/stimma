@@ -5,7 +5,7 @@ import os
 import uuid
 import shutil
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import Any, List, Optional, Dict
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from pydantic import BaseModel
@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import MediaItem, MediaLineage, GenerationJob, Tool, CachedProviderTool
+from database_registry import get_database_registry
 from core.dependencies import get_db_session
 from core.profile_context import get_current_profile
 from core.logging import get_logger
@@ -24,6 +25,289 @@ from project_service import get_project_or_404
 
 router = APIRouter(prefix="/api/generate", tags=["generation"])
 log = get_logger(__name__)
+
+
+# Task types whose output is audio; mirrors the prompt enhancer routing used
+# by post-processing chain steps.
+_AUDIO_TASK_TYPES = {"text-to-audio", "text-to-music", "text-to-speech"}
+_IMAGE_INPUT_CONTROLS = {"image_picker"}
+_IMAGE_FILE_FORMATS = {"file-path", "image-file"}
+_NON_INPUT_IMAGE_FIELDS = {
+    "aspect_ratio",
+    "height",
+    "image_size",
+    "megapixels",
+    "resolution",
+    "target_resolution",
+    "width",
+}
+_IMAGE_INPUT_FIELD_NAMES = {
+    "image",
+    "images",
+    "input_image",
+    "input_images",
+    "source_image",
+    "source_images",
+    "pose_image",
+    "reference_image",
+    "reference_images",
+}
+
+
+def _provider_id_for_tool(tool_id: str) -> str:
+    return tool_id.split(":")[0] if ":" in tool_id else tool_id
+
+
+def _model_name_for_tool(tool_id: str) -> str:
+    return tool_id.split(":")[-1] if ":" in tool_id else tool_id
+
+
+def _count_value(value: Any) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, list):
+        return sum(_count_value(item) for item in value)
+    if isinstance(value, dict):
+        # Set references are expanded before prompt routing. A dict here is not
+        # a concrete media item for this single job.
+        return 0
+    if isinstance(value, str):
+        return 1 if value.strip() else 0
+    return 0
+
+
+def _first_int(value: Any) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, list):
+        for item in value:
+            found = _first_int(item)
+            if found is not None:
+                return found
+    return None
+
+
+def _first_slot_int(value: Any) -> Optional[int]:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, list):
+        if not value:
+            return None
+        return _first_slot_int(value[0])
+    return None
+
+
+def _optional_int(parameters: Dict[str, Any], name: str) -> Optional[int]:
+    try:
+        value = parameters.get(name)
+        return int(value) if value else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _field_can_carry_image_input(field: str, schema_props: Dict[str, Any]) -> bool:
+    lowered = field.lower()
+    if (
+        field.startswith("_")
+        or field.endswith("_media_id")
+        or field.endswith("_media_ids")
+        or lowered in _NON_INPUT_IMAGE_FIELDS
+    ):
+        return False
+    prop = schema_props.get(field) or {}
+    control = str(prop.get("x-control") or "")
+    if control in _IMAGE_INPUT_CONTROLS:
+        return True
+    if control in {"video_picker", "video_frame_picker", "audio_picker"}:
+        return False
+
+    if lowered in _IMAGE_INPUT_FIELD_NAMES or lowered.endswith("_image") or lowered.endswith("_images"):
+        fmt = str(prop.get("format") or prop.get("x-format") or "").lower()
+        content_type = str(prop.get("contentMediaType") or "").lower()
+        item_schema = prop.get("items") if isinstance(prop.get("items"), dict) else {}
+        item_fmt = str(item_schema.get("format") or item_schema.get("x-format") or "").lower()
+        item_content_type = str(item_schema.get("contentMediaType") or "").lower()
+        if (
+            fmt in _IMAGE_FILE_FORMATS
+            or item_fmt in _IMAGE_FILE_FORMATS
+            or content_type.startswith("image/")
+            or item_content_type.startswith("image/")
+        ):
+            return True
+        # Historical/local tools sometimes declare media by conventional name
+        # only. Keep the fallback name-based, but not description-based.
+        return True
+    return False
+
+
+def _prompt_input_image_count(
+    parameters: Dict[str, Any],
+    schema_props: Dict[str, Any],
+    effective_task: str,
+) -> int:
+    # The enhancer's video style is task-authoritative; don't let the source
+    # frame make image-to-video look like an image edit.
+    if "video" in (effective_task or ""):
+        return 0
+    return sum(
+        _count_value(value)
+        for field, value in parameters.items()
+        if _field_can_carry_image_input(field, schema_props)
+    )
+
+
+def _prompt_media_id(parameters: Dict[str, Any], effective_task: str) -> Optional[int]:
+    if "video" in (effective_task or ""):
+        # i2v enhancement may include the start frame as visual context. Keep
+        # positional media-id arrays positional: [None, end_id] must not promote
+        # the end frame into the "first frame" slot.
+        for key in (
+            "input_media_ids",
+            "input_image_media_ids",
+            "input_images_media_id",
+            "input_image_media_id",
+            "image_media_id",
+            "source_image_media_id",
+        ):
+            found = _first_slot_int(parameters.get(key))
+            if found is not None:
+                return found
+        return None
+
+    priority = (
+        "input_media_ids",
+        "input_image_media_ids",
+        "input_images_media_id",
+        "input_image_media_id",
+        "image_media_id",
+        "source_image_media_id",
+    )
+    for key in priority:
+        found = _first_int(parameters.get(key))
+        if found is not None:
+            return found
+    for key, value in parameters.items():
+        if key.endswith("_media_id") or key.endswith("_media_ids"):
+            found = _first_int(value)
+            if found is not None:
+                return found
+    return None
+
+
+def _model_from_prompt_options(prompt_options: Optional[Dict[str, Any]]) -> Optional[str]:
+    if not isinstance(prompt_options, dict):
+        return None
+    auto_improve = prompt_options.get("autoImprove")
+    if not isinstance(auto_improve, dict):
+        return None
+    model = auto_improve.get("model")
+    return str(model) if isinstance(model, str) and model.strip() else None
+
+
+def _prompt_pipeline_context(
+    tool_id: str,
+    task_type: Optional[str],
+    prompt_options: Optional[Dict[str, Any]],
+) -> tuple[Optional[str], Optional[str], str, Dict[str, Any]]:
+    model: Optional[str] = None
+    model_vendor: Optional[str] = None
+    effective_task = task_type or ""
+    schema_props: Dict[str, Any] = {}
+    try:
+        from providers.registry import ProviderRegistry
+        provider_tool = ProviderRegistry.get_instance().get_tool(tool_id)
+        if provider_tool:
+            descriptor = provider_tool[1]
+            metadata = getattr(descriptor, "metadata", None) or {}
+            model = (
+                getattr(descriptor, "model", None)
+                or metadata.get("model_name")
+                or metadata.get("model")
+            )
+            model_vendor = getattr(descriptor, "model_vendor", None) or metadata.get("model_vendor")
+            effective_task = task_type or descriptor.task_type or ""
+            schema_props = (descriptor.parameter_schema or {}).get("properties", {})
+            if not model:
+                model = _model_from_prompt_options(prompt_options) or getattr(descriptor, "name", None)
+    except Exception as e:
+        log.warning(f"Could not resolve tool descriptor for prompt pipeline ({tool_id}): {e}")
+    model = model or _model_from_prompt_options(prompt_options) or _model_name_for_tool(tool_id)
+    return model, model_vendor, effective_task, schema_props
+
+
+def _should_consume_forever_reservation(request) -> bool:
+    # New clients send true only for a reserved forever work request and false
+    # for manual/local submits. Omitted preserves legacy submit semantics.
+    return getattr(request, "forever_work_reserved", None) is not False
+
+
+def _prompt_preload_for_batch_index(request, idx: int) -> Optional[Dict[str, Any]]:
+    preloads = getattr(request, "prompt_preloads", None)
+    if not isinstance(preloads, list) or idx >= len(preloads):
+        return None
+    preload = preloads[idx]
+    return preload if isinstance(preload, dict) else None
+
+
+async def _apply_generation_prompt_pipeline(
+    parameters: Dict[str, Any],
+    *,
+    tool_id: str,
+    task_type: Optional[str],
+    prompt_options: Optional[Dict[str, Any]],
+    prompt_preload: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    prompt = parameters.get("prompt")
+    if not isinstance(prompt, str):
+        return parameters
+
+    from prompt_pipeline import run_prompt_pipeline
+
+    profile_id = get_current_profile()
+    db = get_database_registry().get_database(profile_id)
+    model, model_vendor, effective_task, schema_props = _prompt_pipeline_context(tool_id, task_type, prompt_options)
+    processed_prompt = await run_prompt_pipeline(
+        db,
+        prompt,
+        prompt_options,
+        model=model,
+        model_vendor=model_vendor,
+        is_video="video" in effective_task,
+        is_audio=effective_task in _AUDIO_TASK_TYPES,
+        input_image_count=_prompt_input_image_count(parameters, schema_props, effective_task),
+        media_id=_prompt_media_id(parameters, effective_task),
+        width=_optional_int(parameters, "width"),
+        height=_optional_int(parameters, "height"),
+        profile_id=profile_id,
+        prompt_preload=prompt_preload,
+    )
+
+    updated = dict(parameters)
+    updated["prompt"] = processed_prompt
+    return updated
+
+
+async def _decline_unqueued_reserved_work(
+    generation_queue,
+    request,
+    provider_id: Optional[str],
+    reservation_handed_to_queue: bool,
+) -> None:
+    if reservation_handed_to_queue or not _should_consume_forever_reservation(request):
+        return
+    if not request.generator_instance_id or not provider_id:
+        return
+    try:
+        await generation_queue.decline_work_request(request.generator_instance_id, provider_id)
+    except Exception as e:
+        log.warning(
+            "Failed to decline reserved forever work after pre-queue submit failure: "
+            f"generator_instance_id={request.generator_instance_id}, backend={provider_id}: {e}"
+        )
 
 
 # NOTE: Legacy endpoints removed:
@@ -1145,16 +1429,21 @@ async def submit_generation_job(request: GenerationJobRequest):
     """Submit a new generation job to the queue."""
     from generation_queue import get_generation_queue
     generation_queue = get_generation_queue()
+    provider_id = _provider_id_for_tool(request.tool_id)
+    reservation_handed_to_queue = False
 
     log.info(f"Received generation request: tool_id={request.tool_id}, task_type={request.task_type}")
 
     try:
-        # Extract provider_id from tool_id for backend_name
-        # tool_id format: "provider_id:tool_name"
-        provider_id = request.tool_id.split(":")[0] if ":" in request.tool_id else request.tool_id
-
         # Build the single flat parameters dict with job metadata that needs tracking
         parameters = dict(request.parameters) if request.parameters else {}
+        parameters = await _apply_generation_prompt_pipeline(
+            parameters,
+            tool_id=request.tool_id,
+            task_type=request.task_type,
+            prompt_options=request.prompt_options,
+            prompt_preload=request.prompt_preload,
+        )
         if request.prompt_metadata:
             parameters["prompt_metadata"] = request.prompt_metadata.model_dump()
         if request.auto_marker_ids:
@@ -1171,9 +1460,10 @@ async def submit_generation_job(request: GenerationJobRequest):
                 "auto_delete_configured", auto_delete_props, category="generation"
             )
 
+        reservation_handed_to_queue = True
         job_id = await generation_queue.submit_job(
             generator_name=provider_id,  # Legacy field, use provider_id
-            model_name=request.tool_id.split(":")[-1] if ":" in request.tool_id else request.tool_id,
+            model_name=_model_name_for_tool(request.tool_id),
             folder_path=request.folder_path,
             parameters=parameters,
             auto_delete_duration=request.auto_delete_duration,
@@ -1183,12 +1473,18 @@ async def submit_generation_job(request: GenerationJobRequest):
             tool_id=request.tool_id,
             preset_id=request.preset_id,
             project_id=request.project_id,
+            consume_pending_request=_should_consume_forever_reservation(request),
         )
 
         return {"job_id": job_id, "status": "queued"}
+    except HTTPException:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
+        raise
     except ValueError as e:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         log.error(f"Error submitting generation job: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1211,6 +1507,8 @@ async def submit_batch_jobs(
     import itertools
 
     generation_queue = get_generation_queue()
+    provider_id = _provider_id_for_tool(request.tool_id)
+    reservation_handed_to_queue = False
 
     log.info(f"Received batch generation request: tool_id={request.tool_id}, task_type={request.task_type}")
 
@@ -1270,15 +1568,12 @@ async def submit_batch_jobs(
         # Generate batch_id
         batch_id = str(uuid.uuid4())
 
-        # Extract provider_id from tool_id
-        provider_id = request.tool_id.split(":")[0] if ":" in request.tool_id else request.tool_id
-
         # Generate smart title upfront if user didn't provide one
         output_title = request.output_set_title
         log.info(f"BATCH TITLE DEBUG: output_set_title={request.output_set_title}, input_set_ids={input_set_ids}")
         if not output_title and input_set_ids:
             from structured_media import generate_smart_batch_title
-            tool_name = request.tool_id.split(":")[-1] if ":" in request.tool_id else request.tool_id
+            tool_name = _model_name_for_tool(request.tool_id)
             log.info(f"BATCH TITLE DEBUG: Calling generate_smart_batch_title with tool={tool_name}, task={request.task_type}")
             try:
                 output_title = await generate_smart_batch_title(
@@ -1293,8 +1588,10 @@ async def submit_batch_jobs(
             if output_title:
                 log.info(f"Generated smart batch title upfront: '{output_title}'")
 
-        # Create jobs for each combination
-        job_ids = []
+        # Prepare every child before queueing any of them. Prompt enhancement
+        # failures are pre-queue failures; they should not leave a partial batch
+        # running behind a failed HTTP response.
+        prepared_jobs = []
         for idx, combination in enumerate(combinations):
             # Build the single flat parameters dict for this combination.
             # regular_inputs already carries every non-set param (prompt, steps,
@@ -1317,16 +1614,31 @@ async def submit_batch_jobs(
             # Store batch index for output ordering (0-based position in input)
             parameters["_batch_index"] = idx
 
+            parameters = await _apply_generation_prompt_pipeline(
+                parameters,
+                tool_id=request.tool_id,
+                task_type=request.task_type,
+                prompt_options=request.prompt_options,
+                prompt_preload=_prompt_preload_for_batch_index(request, idx),
+            )
+
             # Add prompt metadata if provided
             if request.prompt_metadata:
                 parameters["prompt_metadata"] = request.prompt_metadata.model_dump()
             if request.auto_marker_ids:
                 parameters["auto_marker_ids"] = request.auto_marker_ids
 
+            prepared_jobs.append(parameters)
+
+        # Create jobs for each prepared combination.
+        job_ids = []
+        consume_reserved_work = _should_consume_forever_reservation(request)
+        for idx, parameters in enumerate(prepared_jobs):
             # Submit job with batch tracking
+            reservation_handed_to_queue = True
             job_id = await generation_queue.submit_batch_job(
                 generator_name=provider_id,
-                model_name=request.tool_id.split(":")[-1] if ":" in request.tool_id else request.tool_id,
+                model_name=_model_name_for_tool(request.tool_id),
                 folder_path=request.folder_path,
                 parameters=parameters,
                 auto_delete_duration=request.auto_delete_duration,
@@ -1340,6 +1652,7 @@ async def submit_batch_jobs(
                 batch_total=total_jobs if idx == 0 else None,  # Only first job stores total
                 batch_output_title=output_title,
                 batch_input_set_ids=input_set_ids if idx == 0 else None,  # Kept for backwards compat
+                consume_pending_request=consume_reserved_work and idx == 0,
             )
             job_ids.append(job_id)
 
@@ -1360,10 +1673,13 @@ async def submit_batch_jobs(
         )
 
     except HTTPException:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         raise
     except ValueError as e:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         log.error(f"Error submitting batch generation jobs: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1451,6 +1767,8 @@ async def submit_media_batch_jobs(
 
     field = request.batch_input.field
     media_ids = request.batch_input.media_ids
+    provider_id = _provider_id_for_tool(request.tool_id)
+    reservation_handed_to_queue = False
 
     log.info(
         f"Received media-batch request: tool_id={request.tool_id}, "
@@ -1458,8 +1776,10 @@ async def submit_media_batch_jobs(
     )
 
     if not media_ids:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         raise HTTPException(status_code=400, detail="batch_input.media_ids is empty")
     if len(media_ids) > MEDIA_BATCH_MAX_JOBS:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         raise HTTPException(
             status_code=400,
             detail=f"Batch too large: {len(media_ids)} jobs. Maximum is {MEDIA_BATCH_MAX_JOBS}."
@@ -1541,12 +1861,11 @@ async def submit_media_batch_jobs(
         )
 
         batch_id = str(uuid.uuid4())
-        provider_id = request.tool_id.split(":")[0] if ":" in request.tool_id else request.tool_id
-        model_name = request.tool_id.split(":")[-1] if ":" in request.tool_id else request.tool_id
+        model_name = _model_name_for_tool(request.tool_id)
         media_id_field = _BATCH_MEDIA_ID_FIELDS.get(field, "input_media_ids")
         total_jobs = len(media_ids)
 
-        job_ids = []
+        prepared_jobs = []
         for idx, media_id in enumerate(media_ids):
             source_path = id_to_path[media_id]
 
@@ -1590,11 +1909,25 @@ async def submit_media_batch_jobs(
             # Presentation-only grouping: keep individuals in the library, no set.
             parameters["_batch_presentation_only"] = True
 
+            parameters = await _apply_generation_prompt_pipeline(
+                parameters,
+                tool_id=request.tool_id,
+                task_type=request.task_type,
+                prompt_options=request.prompt_options,
+                prompt_preload=_prompt_preload_for_batch_index(request, idx),
+            )
+
             if request.prompt_metadata:
                 parameters["prompt_metadata"] = request.prompt_metadata.model_dump()
             if request.auto_marker_ids:
                 parameters["auto_marker_ids"] = request.auto_marker_ids
 
+            prepared_jobs.append(parameters)
+
+        job_ids = []
+        consume_reserved_work = _should_consume_forever_reservation(request)
+        for idx, parameters in enumerate(prepared_jobs):
+            reservation_handed_to_queue = True
             job_id = await generation_queue.submit_batch_job(
                 generator_name=provider_id,
                 model_name=model_name,
@@ -1611,6 +1944,7 @@ async def submit_media_batch_jobs(
                 batch_total=total_jobs if idx == 0 else None,  # Only first job stores total
                 batch_output_title=None,
                 batch_input_set_ids=None,
+                consume_pending_request=consume_reserved_work and idx == 0,
             )
             job_ids.append(job_id)
 
@@ -1631,10 +1965,13 @@ async def submit_media_batch_jobs(
         )
 
     except HTTPException:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         raise
     except ValueError as e:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         log.error(f"Error submitting media-batch jobs: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 

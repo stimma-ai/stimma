@@ -1,19 +1,27 @@
 import { ref, watch, type Ref } from 'vue'
 import axios from 'axios'
 import { resolveWildcardsForLLM, extractVerbatim, restoreVerbatim, verifyVerbatimPreserved } from '../utils/promptProcessor'
-import { getWildcards, getSegments } from './useWildcards'
+import { getWildcards, getSegments, useWildcards, useSegments } from './useWildcards'
 import { getApiBase } from '../apiConfig'
 
 function getAPIBase() {
   return getApiBase()
 }
 
-interface PreloadedPrompt {
+export interface PromptPreloadHint {
   originalPrompt: string
-  processedPrompt: string  // After wildcards, before LLM
-  improvedPrompt: string   // After LLM improvement
+  processedPrompt: string
+  improvedPrompt: string
   instructions: string | null
-  model: string | null     // The tool model used (enhancement style depends on it)
+  model: string | null
+  isVideo: boolean
+  isAudio: boolean
+  inputImageCount: number
+  promptSourcesSignature: string
+}
+
+interface PreloadedPrompt extends PromptPreloadHint {
+  cacheKey: string
   timestamp: number
 }
 
@@ -59,7 +67,36 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
   const currentIsVideo = () => isVideo?.value ?? false
   const currentIsAudio = () => isAudio?.value ?? false
   const currentInputImageCount = () => inputImageCount?.value ?? 0
+  const { wildcards } = useWildcards()
+  const { segments } = useSegments()
   const resolvePrompt = (value: string) => resolveWildcardsForLLM(value, getWildcards(), getSegments())
+  const promptSourcesSignature = () => {
+    const wildcards = getWildcards()
+      .map(w => ({ name: String(w.name).toLowerCase(), values: [...(w.values || [])] }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+    const segments = getSegments()
+      .map(s => ({ name: String(s.name).toLowerCase(), content: s.content || '' }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+    return JSON.stringify({ wildcards, segments })
+  }
+  const buildSnapshot = (originalPrompt: string, instructions: string | null) => {
+    const processedPrompt = resolvePrompt(originalPrompt)
+    const normalizedInstructions = (instructions || '').trim() || null
+    const cacheContext = {
+      originalPrompt,
+      instructions: normalizedInstructions,
+      model: currentModel(),
+      isVideo: currentIsVideo(),
+      isAudio: currentIsAudio(),
+      inputImageCount: currentInputImageCount(),
+      promptSourcesSignature: promptSourcesSignature(),
+    }
+    return {
+      ...cacheContext,
+      processedPrompt,
+      cacheKey: JSON.stringify(cacheContext),
+    }
+  }
 
   // Cache of pre-computed improved prompts
   const cache = ref<PreloadedPrompt[]>([])
@@ -74,34 +111,45 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
 
   // Debounce timer
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  let cacheGeneration = 0
 
   /**
    * Consume a cached improved prompt for the given input.
    * Returns the improved prompt if found and REMOVES it from cache, null otherwise.
    * Each improved prompt is unique and should only be used once.
    */
-  function consumeCachedImprovedPrompt(
+  function consumePromptPreload(
     originalPrompt: string,
     instructions: string | null
-  ): string | null {
-    // Resolve wildcards first (same as submission does)
-    const processedPrompt = resolvePrompt(originalPrompt)
+  ): PromptPreloadHint | null {
+    const snapshot = buildSnapshot(originalPrompt, instructions)
 
     // Look for a match in cache
-    const index = cache.value.findIndex(
-      c => c.processedPrompt === processedPrompt &&
-           c.instructions === (instructions || null) &&
-           c.model === currentModel()
-    )
+    const index = cache.value.findIndex(c => c.cacheKey === snapshot.cacheKey)
 
     if (index !== -1) {
       // Remove and return the cached prompt (consume it)
       const cached = cache.value.splice(index, 1)[0]
       console.log(`[PromptPreloader] Consumed cached prompt, ${cache.value.length} remaining`)
-      return cached.improvedPrompt
+      const { cacheKey, timestamp, ...hint } = cached
+      return hint
     }
 
     return null
+  }
+
+  function consumePromptPreloads(
+    originalPrompt: string,
+    instructions: string | null,
+    count: number,
+  ): PromptPreloadHint[] {
+    const hints: PromptPreloadHint[] = []
+    for (let i = 0; i < count; i++) {
+      const hint = consumePromptPreload(originalPrompt, instructions)
+      if (!hint) break
+      hints.push(hint)
+    }
+    return hints
   }
 
   /**
@@ -111,14 +159,14 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
   async function preloadSinglePrompt(originalPrompt: string, instructions: string | null): Promise<void> {
     if (!originalPrompt.trim()) return
 
-    // Resolve wildcards
-    const processedPrompt = resolvePrompt(originalPrompt)
+    const snapshot = buildSnapshot(originalPrompt, instructions)
+    const generation = cacheGeneration
 
     // Extract [verbatim] segments and replace with placeholders before sending to LLM
-    const { processed: promptWithPlaceholders, segments: verbatimSegments } = extractVerbatim(processedPrompt)
+    const { processed: promptWithPlaceholders, segments: verbatimSegments } = extractVerbatim(snapshot.processedPrompt)
 
     // Use a unique key for each loading request (allows parallel loads of same prompt)
-    const loadKey = `${processedPrompt}|${instructions || ''}|${Date.now()}|${Math.random()}`
+    const loadKey = `${snapshot.cacheKey}|${Date.now()}|${Math.random()}`
     loadingPrompts.value.add(loadKey)
 
     try {
@@ -129,11 +177,11 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         const response = await axios.post(`${getAPIBase()}/prompt/improve`, {
           prompt: promptWithPlaceholders,
-          instructions: instructions || null,
-          model: currentModel(),
-          is_video: currentIsVideo(),
-          is_audio: currentIsAudio(),
-          input_image_count: currentInputImageCount()
+          instructions: snapshot.instructions,
+          model: snapshot.model,
+          is_video: snapshot.isVideo,
+          is_audio: snapshot.isAudio,
+          input_image_count: snapshot.inputImageCount
         })
 
         const candidatePrompt = response.data.improved_prompt
@@ -159,6 +207,11 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
         return
       }
 
+      if (generation !== cacheGeneration) {
+        console.log('[PromptPreloader] Dropping stale preloaded prompt')
+        return
+      }
+
       // Add to cache (remove oldest if at capacity)
       const capacity = getCacheCapacity()
       while (cache.value.length >= capacity) {
@@ -166,11 +219,8 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
       }
 
       cache.value.push({
-        originalPrompt,
-        processedPrompt,
+        ...snapshot,
         improvedPrompt,
-        instructions: instructions || null,
-        model: currentModel(),
         timestamp: Date.now()
       })
 
@@ -209,6 +259,7 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
    * Clear the cache (e.g., when settings change significantly)
    */
   function clearCache() {
+    cacheGeneration++
     cache.value = []
     loadingPrompts.value.clear()
     if (debounceTimer) {
@@ -251,19 +302,29 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
     }, debounceMs)
   }
 
-  // Track the last prompt we preloaded for
-  let lastPreloadedPrompt = ''
+  // Track the last effective prompt/enhancer config we preloaded for.
+  let lastPreloadedKey = ''
 
   // Watch for prompt changes and pre-load when auto-improve is enabled
   watch(
-    [prompt, autoImproveEnabled, autoImproveInstructions],
+    [
+      prompt,
+      autoImproveEnabled,
+      autoImproveInstructions,
+      wildcards,
+      segments,
+      ...(model ? [model] : []),
+      ...(isVideo ? [isVideo] : []),
+      ...(isAudio ? [isAudio] : []),
+      ...(inputImageCount ? [inputImageCount] : []),
+    ],
     ([newPrompt, enabled]) => {
       if (enabled && newPrompt.trim()) {
-        // If prompt changed, clear old cached prompts (they're for the old prompt)
-        const processedNew = resolvePrompt(newPrompt)
-        if (processedNew !== lastPreloadedPrompt) {
+        // If prompt or enhancer routing changed, old cached prompts are stale.
+        const key = buildSnapshot(newPrompt, autoImproveInstructions.value).cacheKey
+        if (key !== lastPreloadedKey) {
           clearCache()
-          lastPreloadedPrompt = processedNew
+          lastPreloadedKey = key
         }
         schedulePreload()
       }
@@ -278,24 +339,6 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
     }
   })
 
-  // The enhancement style depends on the model — switching tools/models
-  // invalidates any prompts cached for the old model.
-  if (model) {
-    watch(model, () => {
-      clearCache()
-      lastPreloadedPrompt = ''
-    })
-  }
-
-  // Adding/removing input images flips an edit tool between prose and edit style
-  // (and changes the "first/second image" phrasing) — invalidate stale prompts.
-  if (inputImageCount) {
-    watch(inputImageCount, () => {
-      clearCache()
-      lastPreloadedPrompt = ''
-    })
-  }
-
   /**
    * Called after using a cached prompt to trigger preloading the next one.
    * This is useful for rapid generation where we want to have prompts ready.
@@ -306,14 +349,17 @@ export function usePromptPreloader(options: PromptPreloaderOptions) {
     if (autoImproveEnabled.value && prompt.value.trim()) {
       // Small delay to avoid interfering with the current submission
       setTimeout(() => {
-        preloadPrompt(prompt.value, autoImproveInstructions.value)
+        if (autoImproveEnabled.value && prompt.value.trim()) {
+          preloadPrompt(prompt.value, autoImproveInstructions.value)
+        }
       }, 100)
     }
   }
 
   return {
-    // Renamed: consumes (removes) a prompt from cache, each improved prompt is used only once
-    getCachedImprovedPrompt: consumeCachedImprovedPrompt,
+    // Consumes (removes) a prompt from cache; each improved prompt is used only once.
+    consumePromptPreload,
+    consumePromptPreloads,
     preloadPrompt,
     clearCache,
     onCacheUsed,

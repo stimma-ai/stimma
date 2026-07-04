@@ -122,6 +122,7 @@ class PromptMetadata(BaseModel):
     auto_improve_instructions: Optional[str] = None
     translate_enabled: Optional[bool] = False
     translate_language: Optional[str] = None
+    json_mode_enabled: Optional[bool] = False
 
 
 class GenerationJobRequest(BaseModel):
@@ -144,8 +145,12 @@ class GenerationJobRequest(BaseModel):
     generator_instance_id: Optional[str] = None
     preset_id: Optional[int] = None
     prompt_metadata: Optional[PromptMetadata] = None
+    prompt_options: Optional[dict] = None
+    prompt_preload: Optional[dict] = None
+    prompt_preloads: Optional[List[dict]] = None
     auto_marker_ids: Optional[List[int]] = None
     project_id: Optional[int] = None  # Project to associate generated media with
+    forever_work_reserved: Optional[bool] = None
 
 
 class BatchSetInput(BaseModel):
@@ -172,8 +177,12 @@ class BatchJobRequest(BaseModel):
     generator_instance_id: Optional[str] = None
     preset_id: Optional[int] = None
     prompt_metadata: Optional[PromptMetadata] = None
+    prompt_options: Optional[dict] = None
+    prompt_preload: Optional[dict] = None
+    prompt_preloads: Optional[List[dict]] = None
     auto_marker_ids: Optional[List[int]] = None
     project_id: Optional[int] = None  # Project to associate generated media with
+    forever_work_reserved: Optional[bool] = None
 
     # Batch-specific options
     output_set_title: Optional[str] = None  # Title for the output set
@@ -230,8 +239,12 @@ class MediaBatchJobRequest(BaseModel):
     generator_instance_id: Optional[str] = None
     preset_id: Optional[int] = None
     prompt_metadata: Optional[PromptMetadata] = None
+    prompt_options: Optional[dict] = None
+    prompt_preload: Optional[dict] = None
+    prompt_preloads: Optional[List[dict]] = None
     auto_marker_ids: Optional[List[int]] = None
     project_id: Optional[int] = None
+    forever_work_reserved: Optional[bool] = None
 
 
 class GenerationJobResponse(BaseModel):

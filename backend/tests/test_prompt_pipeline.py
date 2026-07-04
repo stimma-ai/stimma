@@ -263,6 +263,30 @@ class TestRunPromptPipeline:
         assert seen["size"] == (1024, 768)
         assert out == '{"scene": "resolved"}'
 
+    async def test_ideogram_json_mode_honors_explicit_frontend_mode(
+        self, generation_app, generation_db_session, monkeypatch
+    ):
+        import routes.prompt_enhancement as pe
+
+        async def fail_improve(request, session):
+            raise AssertionError("explicit ideogram-json mode must skip text rewrite")
+
+        async def fake_json(request):
+            return pe.IdeogramJsonResponse(json_prompt='{"scene": "from mode"}')
+
+        monkeypatch.setattr(pe, "improve_prompt", fail_improve)
+        monkeypatch.setattr(pe, "prompt_to_ideogram_json", fake_json)
+
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "a poster",
+            {"autoImprove": {"enabled": True, "mode": "ideogram-json"}},
+            model=None,
+            model_vendor=None,
+        )
+
+        assert out == '{"scene": "from mode"}'
+
     async def test_profile_wildcards_are_used(self, generation_app, monkeypatch):
         monkeypatch.setattr(
             pp,
@@ -279,3 +303,103 @@ class TestRunPromptPipeline:
             profile_id="profile-test",
         )
         assert out == "a fox in watercolor"
+
+    async def test_matching_prompt_preload_skips_live_improve(
+        self, generation_app, generation_db_session, monkeypatch
+    ):
+        import routes.prompt_enhancement as pe
+
+        wildcards = [{"name": "animal", "values": ["fox"]}]
+        segments = [{"name": "style", "content": "watercolor"}]
+        monkeypatch.setattr(pp, "_profile_wildcards_and_segments", lambda profile_id: (wildcards, segments))
+
+        async def fail_improve(request, session):
+            raise AssertionError("matching preload should skip live improve")
+
+        monkeypatch.setattr(pe, "improve_prompt", fail_improve)
+
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "a {{animal}} in {{style}}",
+            {"autoImprove": {"enabled": True, "instructions": "make it vivid"}},
+            model="flux-dev",
+            profile_id="profile-test",
+            prompt_preload={
+                "originalPrompt": "a {{animal}} in {{style}}",
+                "processedPrompt": "a fox in watercolor",
+                "improvedPrompt": "a vivid fox in watercolor",
+                "instructions": "make it vivid",
+                "model": "flux-dev",
+                "isVideo": False,
+                "isAudio": False,
+                "inputImageCount": 0,
+                "promptSourcesSignature": pp.prompt_sources_signature(wildcards, segments),
+            },
+        )
+
+        assert out == "a vivid fox in watercolor"
+
+    async def test_prompt_preload_normalizes_instruction_whitespace(
+        self, generation_app, generation_db_session, monkeypatch
+    ):
+        import routes.prompt_enhancement as pe
+
+        async def fail_improve(request, session):
+            raise AssertionError("matching preload should tolerate instruction whitespace")
+
+        monkeypatch.setattr(pe, "improve_prompt", fail_improve)
+
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "a handbag",
+            {"autoImprove": {"enabled": True, "instructions": "  make it vivid  "}},
+            model="flux-dev",
+            prompt_preload={
+                "originalPrompt": "a handbag",
+                "processedPrompt": "a handbag",
+                "improvedPrompt": "a vivid handbag",
+                "instructions": "make it vivid",
+                "model": "flux-dev",
+                "isVideo": False,
+                "isAudio": False,
+                "inputImageCount": 0,
+                "promptSourcesSignature": pp.prompt_sources_signature([], []),
+            },
+        )
+
+        assert out == "a vivid handbag"
+
+    async def test_stale_prompt_preload_falls_back_to_live_improve(
+        self, generation_app, generation_db_session, monkeypatch
+    ):
+        import routes.prompt_enhancement as pe
+
+        calls = []
+
+        async def fake_improve(request, session):
+            calls.append(request)
+            return pe.ImprovePromptResponse(improved_prompt="live improved prompt")
+
+        monkeypatch.setattr(pe, "improve_prompt", fake_improve)
+
+        out = await pp.run_prompt_pipeline(
+            _db(generation_db_session),
+            "original prompt",
+            {"autoImprove": {"enabled": True, "instructions": "current instructions"}},
+            model="flux-dev",
+            prompt_preload={
+                "originalPrompt": "original prompt",
+                "processedPrompt": "original prompt",
+                "improvedPrompt": "stale improved prompt",
+                "instructions": "old instructions",
+                "model": "flux-dev",
+                "isVideo": False,
+                "isAudio": False,
+                "inputImageCount": 0,
+                "promptSourcesSignature": pp.prompt_sources_signature([], []),
+            },
+        )
+
+        assert out == "live improved prompt"
+        assert len(calls) == 1
+        assert calls[0].instructions == "current instructions"

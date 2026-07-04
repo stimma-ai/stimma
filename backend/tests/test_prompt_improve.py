@@ -4,6 +4,8 @@ Covers the bug where a plain prose prompt (no brackets/wildcards) was enhanced
 into one containing a hallucinated ``__VERBATIM_A__`` token, which then reached
 the image model and failed the job with 'Invalid params'.
 """
+import pytest
+
 from routes.prompt_enhancement import (
     _protected_text_guidance,
     _strip_hallucinated_placeholders,
@@ -12,6 +14,33 @@ from routes.prompt_enhancement import (
     ImprovePromptRequest,
 )
 from model_family import model_family
+
+
+@pytest.fixture
+def prompt_variant_probe(monkeypatch):
+    """Capture the actual system prompt key/messages selected by improve_prompt."""
+    import llm_resolver
+    import routes.prompt_enhancement as pe
+
+    seen = {"prompt_keys": [], "messages": None}
+
+    async def fake_llm_config(role):
+        assert role == "agent-fast"
+        return {"provider": "test"}
+
+    def fake_get_prompt(namespace, key):
+        assert namespace == "prompt_enhancement"
+        seen["prompt_keys"].append(key)
+        return f"SYSTEM_KEY:{key}\n{{input_images_desc}}\n{{protected_text_guidance}}"
+
+    async def fake_llm_complete_text(*, config, messages, max_tokens, temperature):
+        seen["messages"] = messages
+        return "improved prompt"
+
+    monkeypatch.setattr(llm_resolver, "get_effective_llm_config", fake_llm_config)
+    monkeypatch.setattr(pe, "get_prompt", fake_get_prompt)
+    monkeypatch.setattr(pe, "llm_complete_text", fake_llm_complete_text)
+    return seen
 
 
 # --- enhancement_mode: image-edit routing -----------------------------------
@@ -57,6 +86,77 @@ def test_keyword_and_ideogram_keep_style_when_editing():
 
 def test_improve_request_defaults_input_image_count_zero():
     assert ImprovePromptRequest(prompt="x").input_image_count == 0
+
+
+@pytest.mark.parametrize(
+    ("improve_request", "expected_prompt_key", "expected_user_prefix"),
+    [
+        (
+            ImprovePromptRequest(prompt="a beautiful handbag", model="flux1-dev", input_image_count=0),
+            "improve_system_prompt",
+            "Please improve this prompt with a light touch:",
+        ),
+        (
+            ImprovePromptRequest(prompt="1girl, handbag", model="sdxl_base_1.0.safetensors", input_image_count=0),
+            "improve_keyword_system_prompt",
+            "Please improve this prompt with a light touch:",
+        ),
+        (
+            ImprovePromptRequest(prompt="put the handbag on the table", model="flux1-dev", input_image_count=1),
+            "improve_image_edit_system_prompt",
+            "Refine this image-edit instruction:",
+        ),
+        (
+            ImprovePromptRequest(prompt="slow dolly in", model="some-unknown-model", is_video=True, input_image_count=1),
+            "improve_cinematography_system_prompt",
+            "Please improve this prompt with a light touch:",
+        ),
+        (
+            ImprovePromptRequest(prompt="soft leather rustle", model="some-unknown-model", is_audio=True),
+            "improve_audio_system_prompt",
+            "Please improve this prompt with a light touch:",
+        ),
+    ],
+)
+async def test_improve_prompt_selects_expected_variant_without_source_image(
+    improve_request, expected_prompt_key, expected_user_prefix, prompt_variant_probe
+):
+    import routes.prompt_enhancement as pe
+
+    response = await pe.improve_prompt(improve_request, session=None)
+
+    assert response.improved_prompt == "improved prompt"
+    assert prompt_variant_probe["prompt_keys"] == [expected_prompt_key]
+    assert prompt_variant_probe["messages"][0]["content"].startswith(f"SYSTEM_KEY:{expected_prompt_key}")
+    assert prompt_variant_probe["messages"][1]["content"].startswith(expected_user_prefix)
+
+
+async def test_improve_prompt_selects_i2v_source_image_variant(prompt_variant_probe, monkeypatch):
+    import routes.prompt_enhancement as pe
+
+    async def fake_source_image(session, media_id):
+        assert media_id == 123
+        return "abc123"
+
+    monkeypatch.setattr(pe, "_load_source_image_b64", fake_source_image)
+
+    response = await pe.improve_prompt(
+        ImprovePromptRequest(
+            prompt="slow dolly in toward the handbag",
+            model="some-unknown-model",
+            is_video=True,
+            media_id=123,
+        ),
+        session=object(),
+    )
+
+    assert response.improved_prompt == "improved prompt"
+    assert prompt_variant_probe["prompt_keys"] == ["improve_cinematography_image_system_prompt"]
+    user_content = prompt_variant_probe["messages"][1]["content"]
+    assert isinstance(user_content, list)
+    assert user_content[0]["type"] == "text"
+    assert "first frame" in user_content[0]["text"]
+    assert user_content[1]["image_url"]["url"] == "data:image/jpeg;base64,abc123"
 
 
 # --- _input_images_phrase ----------------------------------------------------

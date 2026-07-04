@@ -58,7 +58,8 @@ class TestBatchJobSubmission:
                 "folder_path": "/tmp/test",
                 "task_type": "upscale",
                 "parameters": {
-                    "input_image": {"set_id": set_item.id}
+                    "input_image": {"set_id": set_item.id},
+                    "prompt": "paint it\n# enhancer note\n[exactly]",
                 },
                 "output_set_title": "Upscaled Images"
             })
@@ -72,6 +73,59 @@ class TestBatchJobSubmission:
 
             # Verify submit_batch_job was called 3 times
             assert mock_queue.submit_batch_job.call_count == 3
+            assert [call.kwargs["consume_pending_request"] for call in mock_queue.submit_batch_job.await_args_list] == [
+                True,
+                False,
+                False,
+            ]
+            for call in mock_queue.submit_batch_job.await_args_list:
+                assert call.kwargs["parameters"]["prompt"] == "paint it\nexactly"
+
+    async def test_submit_batch_prompt_pipeline_failure_queues_no_partial_jobs(
+        self, generation_client: AsyncClient, generation_db_session
+    ):
+        """All batch prompts are prepared before any child job is queued."""
+        async with generation_db_session() as session:
+            media1 = await create_media_item(session, file_format='png', vlm_caption='Image 1')
+            media2 = await create_media_item(session, file_format='png', vlm_caption='Image 2')
+            set_data = {
+                "version": 1,
+                "title": "Test Set",
+                "items": [
+                    {"path": media1.file_path, "resolved": {"id": media1.id, "file_format": "png"}},
+                    {"path": media2.file_path, "resolved": {"id": media2.id, "file_format": "png"}},
+                ],
+            }
+            set_item = await create_media_item(
+                session,
+                file_format='stimmaset.json',
+                raw_metadata=json.dumps(set_data),
+            )
+
+        mock_queue = AsyncMock()
+        mock_queue.submit_batch_job = AsyncMock()
+
+        async def fail_second(parameters, **kwargs):
+            if parameters.get("_batch_index") == 1:
+                raise RuntimeError("enhancement failed")
+            return parameters
+
+        with (
+            patch('generation_queue.get_generation_queue', return_value=mock_queue),
+            patch('routes.generation._apply_generation_prompt_pipeline', side_effect=fail_second),
+        ):
+            response = await generation_client.post("/api/generate/submit-batch", json={
+                "tool_id": "test:upscale",
+                "folder_path": "/tmp/test",
+                "task_type": "upscale",
+                "parameters": {
+                    "input_image": {"set_id": set_item.id},
+                    "prompt": "paint it",
+                },
+            })
+
+        assert response.status_code == 500
+        mock_queue.submit_batch_job.assert_not_called()
 
     async def test_submit_batch_empty_set_error(self, generation_client: AsyncClient, generation_db_session):
         """Test that submitting a batch with an empty set returns an error."""

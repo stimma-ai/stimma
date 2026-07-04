@@ -1,34 +1,35 @@
 import axios from 'axios'
-import { processFinalPrompt, resolveWildcardsForLLM, extractVerbatim, restoreVerbatim, verifyVerbatimPreserved, type NamedWildcard, type PromptSegment } from '../utils/promptProcessor'
-import { getWildcards, getSegments } from './useWildcards'
 import { getApiBase } from '../apiConfig'
-import { promptLanguageByCode } from '../components/generation/promptLanguages'
 
 function getAPIBase() {
   return getApiBase()
 }
 
-function getApiErrorMessage(error: any): string {
-  const detail = error?.response?.data?.detail
-  if (typeof detail === 'string') return detail
-  if (detail?.message) return detail.message
-  return error?.message || 'Request failed'
+function handleReservedSubmitFailure(
+  error: any,
+  payload: Record<string, any> | null,
+  backendSubmitStarted: boolean,
+  onNoBackendSubmission?: (error: any) => void,
+  onBackendRejected?: (error: any) => void,
+) {
+  if (payload?.forever_work_reserved !== true) {
+    if (!backendSubmitStarted) {
+      onNoBackendSubmission?.(error)
+    }
+    return
+  }
+  if (!backendSubmitStarted || !error?.response || error.response.status === 422) {
+    onNoBackendSubmission?.(error)
+    return
+  }
+  onBackendRejected?.(error)
 }
 
 /**
- * Prompt transforms applied at generate time, in declared order:
- *   1. Resolve wildcards — expand {{name}} and inline {a|b|c}, preserving
- *      comments and [verbatim] markers for the LLM steps.
- *   2. Enhance (autoImprove) — family-aware LLM rewrite (optionally pre-cached).
- *      The model family (resolved server-side) picks the style: prose / booru
- *      keywords / cinematography. For Ideogram (mode 'ideogram-json') the text
- *      step is SKIPPED here — JSON must run post-resolve (step 5).
- *   3. translate    — translate into a target language
- *   4. Final cleanup — strip comments and unwrap [verbatim].
- *   5. Ideogram JSON — when Enhance is on and the tool is Ideogram, convert the
- *      fully-resolved prompt to structured JSON (final step).
- * All are non-destructive: the editor text is untouched; only the prompt that is
- * actually sent to the tool is transformed.
+ * Prompt transforms are applied by the backend submit routes immediately before
+ * queueing. The frontend sends the raw editor prompt plus this option shape so
+ * single jobs, batch jobs, media-batch jobs, forever mode, and post-processing
+ * chains all use one generate-time prompt pipeline.
  */
 export interface SubmitPromptOptions {
   autoImprove?: {
@@ -55,145 +56,10 @@ export interface SubmitPromptOptions {
   translate?: { enabled: boolean; language?: string | null }
 }
 
-/**
- * Run auto-improve (the slow LLM call) on a prompt, preserving [verbatim] text.
- * Returns the improved prompt, or the original if all retries drop verbatim
- * placeholders. Throws (with a helpful message) on API failure.
- */
-async function improveViaApi(prompt: string, instructions: string | null, model: string | null, isVideo: boolean, inputImageCount: number, mediaId: number | null, isAudio: boolean): Promise<string> {
-  // Extract [verbatim] segments and replace with placeholders before sending to LLM
-  const { processed: promptWithPlaceholders, segments: verbatimSegments } = extractVerbatim(prompt)
-  const MAX_RETRIES = 3
-
-  // Retry loop to ensure verbatim placeholders survive the rewrite
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const improveResponse = await axios.post(`${getAPIBase()}/prompt/improve`, {
-      prompt: promptWithPlaceholders,
-      instructions: instructions || null,
-      model: model || null,
-      is_video: isVideo,
-      is_audio: isAudio,
-      input_image_count: inputImageCount,
-      media_id: mediaId ?? null,
-    })
-    const candidatePrompt = improveResponse.data.improved_prompt
-    if (verbatimSegments.length === 0) return candidatePrompt
-    if (verifyVerbatimPreserved(candidatePrompt, verbatimSegments)) {
-      return restoreVerbatim(candidatePrompt, verbatimSegments)
-    }
-    console.warn(`[SubmissionQueue] Improve attempt ${attempt + 1}: verbatim placeholders dropped, retrying...`)
-  }
-  console.warn('[SubmissionQueue] All improve retries failed to preserve verbatim text, using original prompt')
-  return prompt
-}
-
-/**
- * Translate a prompt into the given language code, preserving [verbatim] text,
- * wildcards, and comments. Throws (with a helpful message) on API failure.
- */
-async function translateViaApi(prompt: string, languageCode: string): Promise<string> {
-  const lang = promptLanguageByCode(languageCode)
-  if (!lang) return prompt  // unknown code — nothing to do
-
-  const { processed: promptWithPlaceholders, segments: verbatimSegments } = extractVerbatim(prompt)
-  const MAX_RETRIES = 3
-
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const response = await axios.post(`${getAPIBase()}/prompt/translate`, {
-      prompt: promptWithPlaceholders,
-      target_language: lang.english,
-    })
-    const candidate = response.data.translated_prompt
-    if (verbatimSegments.length === 0) return candidate
-    if (verifyVerbatimPreserved(candidate, verbatimSegments)) {
-      return restoreVerbatim(candidate, verbatimSegments)
-    }
-    console.warn(`[SubmissionQueue] Translate attempt ${attempt + 1}: verbatim placeholders dropped, retrying...`)
-  }
-  console.warn('[SubmissionQueue] All translate retries failed to preserve verbatim text, using untranslated prompt')
-  return prompt
-}
-
 /** Target output canvas, so JSON mode can compose layout for the real aspect ratio. */
 export interface ImageSize {
   width?: number | null
   height?: number | null
-}
-
-/** Convert a (fully resolved) prompt to Ideogram 4 structured JSON. */
-async function ideogramJsonViaApi(prompt: string, size?: ImageSize): Promise<string> {
-  const response = await axios.post(`${getAPIBase()}/prompt/to-ideogram-json`, {
-    prompt,
-    width: size?.width ?? null,
-    height: size?.height ?? null,
-  })
-  return response.data.json_prompt
-}
-
-/**
- * Resolve wildcards, then apply auto-improve and translate to a prompt that
- * still contains comments and [verbatim] markers (run BEFORE processFinalPrompt).
- * Returns the transformed prompt. `cachedImprovedPrompt`, if present, skips the
- * improve call because it was built from the same resolved prompt.
- */
-async function applyImproveAndTranslate(
-  prompt: string,
-  promptOptions: SubmitPromptOptions | undefined,
-  cachedImprovedPrompt: string | null | undefined,
-  wildcards: NamedWildcard[],
-  segments: PromptSegment[],
-): Promise<string> {
-  let processedPrompt = resolveWildcardsForLLM(prompt, wildcards, segments)
-  if (!processedPrompt.trim()) return processedPrompt
-
-  // 2) Enhance (text styles only). Ideogram ('ideogram-json') is handled
-  // post-resolve in applyJsonMode, so skip the text rewrite here.
-  const ai = promptOptions?.autoImprove
-  if (ai?.enabled && ai.mode !== 'ideogram-json') {
-    if (cachedImprovedPrompt) {
-      processedPrompt = cachedImprovedPrompt
-    } else {
-      try {
-        processedPrompt = await improveViaApi(processedPrompt, ai.instructions || null, ai.model || null, !!ai.isVideo, ai.inputImageCount ?? 0, ai.mediaId ?? null, !!ai.isAudio)
-      } catch (err) {
-        console.error('[SubmissionQueue] Failed to enhance prompt:', err)
-        throw new Error(`Enhance Prompt is enabled, but prompt enhancement failed: ${getApiErrorMessage(err)}`)
-      }
-    }
-  }
-
-  // 3) Translate
-  if (promptOptions?.translate?.enabled && promptOptions.translate.language) {
-    try {
-      processedPrompt = await translateViaApi(processedPrompt, promptOptions.translate.language)
-    } catch (err) {
-      console.error('[SubmissionQueue] Failed to translate prompt:', err)
-      throw new Error(`Translate is enabled, but translation failed: ${getApiErrorMessage(err)}`)
-    }
-  }
-
-  return processedPrompt
-}
-
-/**
- * Apply Ideogram JSON conversion to a fully resolved prompt (run AFTER
- * processFinalPrompt, so wildcards are expanded and verbatim is unwrapped).
- * Runs only when Enhance is on and the tool is Ideogram (mode 'ideogram-json').
- * Returns serialized JSON, or the input unchanged otherwise.
- */
-async function applyJsonMode(
-  resolvedPrompt: string,
-  promptOptions: SubmitPromptOptions | undefined,
-  imageSize?: ImageSize,
-): Promise<string> {
-  const ai = promptOptions?.autoImprove
-  if (!(ai?.enabled && ai.mode === 'ideogram-json')) return resolvedPrompt
-  try {
-    return await ideogramJsonViaApi(resolvedPrompt, imageSize)
-  } catch (err) {
-    console.error('[SubmissionQueue] Failed to convert prompt to JSON:', err)
-    throw new Error(`Enhance Prompt is enabled, but Ideogram JSON conversion failed: ${getApiErrorMessage(err)}`)
-  }
 }
 
 /**
@@ -225,69 +91,66 @@ function buildPromptMetadata(prompt: string, promptOptions: SubmitPromptOptions 
 }
 
 /**
- * Queue a generation job with async prompt enhancement.
- *
- * This function processes the job in the background:
- * 1. Resolves wildcards
- * 2. If autoImprove enabled, enhances via LLM
- * 3. Processes prompt (strips comments, unwraps verbatim)
- * 4. Submits to backend
+ * Queue a generation job. Prompt processing now happens in the backend submit
+ * route before the job is written to the queue.
  *
  * The caller is responsible for:
  * - Adding a pending job to the UI before calling this
  * - Removing the pending job when onSubmitted or onError is called
+ * - Releasing any forever-mode reservation if onNoBackendSubmission is called
  */
 export async function submitJobAsync(params: {
   // Prompt processing
   prompt: string
   promptOptions?: SubmitPromptOptions
-  // Target output canvas — used by JSON mode to compose layout for the real aspect ratio.
+  // Kept for call-site compatibility; the backend derives dimensions from parameters.
   imageSize?: ImageSize
-  // Optional: pre-cached improved prompt from usePromptPreloader
-  // If provided and auto-improve is enabled, this will be used instead of calling the API
+  // Kept for call-site compatibility. Prompt preloads are attached by ToolView
+  // as backend-validated hints rather than processed here.
   cachedImprovedPrompt?: string | null
-  // Named wildcards from settings for {{name}} expansion
-  wildcards?: NamedWildcard[]
-  // Prompt segments from settings for {{name}} expansion
-  segments?: PromptSegment[]
-  // The payload builder function - called after prompt processing
-  // Receives both the processed prompt and metadata about the original prompt/options
-  buildPayload: (processedPrompt: string, promptMetadata: PromptMetadata) => Record<string, any>
+  wildcards?: unknown[]
+  segments?: unknown[]
+  // Receives the raw editor prompt and metadata about the original prompt/options.
+  buildPayload: (rawPrompt: string, promptMetadata: PromptMetadata) => Record<string, any>
   // Called after successful submission
   onSubmitted?: () => void
   // Called on error
   onError?: (error: any) => void
+  // Called when cancellation/building failed before the backend submit endpoint was reached.
+  onNoBackendSubmission?: (error: any) => void
+  // Called when the backend received reserved forever work but rejected it before queueing.
+  onBackendRejected?: (error: any) => void
+  // Return false to cancel before backend submission.
+  shouldSubmit?: () => boolean
+  onCancelled?: () => void
 }): Promise<void> {
-  const { prompt, promptOptions, cachedImprovedPrompt, imageSize, wildcards, segments, buildPayload, onSubmitted, onError } = params
+  const { prompt, promptOptions, buildPayload, onSubmitted, onError, onNoBackendSubmission, onBackendRejected, shouldSubmit, onCancelled } = params
+  let backendSubmitStarted = false
+  let payload: Record<string, any> | null = null
 
   try {
-    const promptWildcards = wildcards ?? getWildcards()
-    const promptSegments = segments ?? getSegments()
-
-    // 1) Resolve wildcards, then 2) auto-improve + 3) translate (preserving
-    // comments + [verbatim]). The slow part.
-    let processedPrompt = await applyImproveAndTranslate(prompt, promptOptions, cachedImprovedPrompt, promptWildcards, promptSegments)
-
-    // Final cleanup: strip comments, unwrap verbatim, and resolve any wildcard
-    // syntax the LLM may have introduced.
-    processedPrompt = processFinalPrompt(processedPrompt, promptWildcards, promptSegments)
-
-    // 5) JSON mode — convert the fully resolved prompt to Ideogram 4 JSON (last step)
-    processedPrompt = await applyJsonMode(processedPrompt, promptOptions, imageSize)
-
     // Build prompt metadata for restoration on "generate more"
     const promptMetadata = buildPromptMetadata(prompt, promptOptions)
 
-    // Build the final payload with processed prompt and metadata
-    const payload = buildPayload(processedPrompt, promptMetadata)
+    // Build the final payload with the raw prompt and metadata. The backend
+    // applies wildcards/enhance/translate/final cleanup/Ideogram JSON.
+    payload = buildPayload(prompt, promptMetadata)
+
+    if (shouldSubmit && !shouldSubmit()) {
+      onCancelled?.()
+      onNoBackendSubmission?.(new Error('Submission cancelled'))
+      return
+    }
 
     // Submit to backend
+    backendSubmitStarted = true
     await axios.post(`${getAPIBase()}/generate/submit`, payload)
 
     onSubmitted?.()
   } catch (error) {
     console.error('Failed to submit job:', error)
     onError?.(error)
+    handleReservedSubmitFailure(error, payload, backendSubmitStarted, onNoBackendSubmission, onBackendRejected)
   }
 }
 
@@ -308,51 +171,51 @@ export interface BatchJobResponse {
  * expands the set and creates individual jobs for each item.
  */
 export async function submitBatchJobAsync(params: {
-  // Prompt processing
   prompt: string
   promptOptions?: SubmitPromptOptions
-  // Target output canvas — used by JSON mode to compose layout for the real aspect ratio.
   imageSize?: ImageSize
   cachedImprovedPrompt?: string | null
-  // Named wildcards from settings for {{name}} expansion
-  wildcards?: NamedWildcard[]
-  // Prompt segments from settings for {{name}} expansion
-  segments?: PromptSegment[]
-  // The payload builder function - called after prompt processing
-  buildPayload: (processedPrompt: string, promptMetadata: PromptMetadata) => Record<string, any>
+  wildcards?: unknown[]
+  segments?: unknown[]
+  buildPayload: (rawPrompt: string, promptMetadata: PromptMetadata) => Record<string, any>
   // Called after successful submission with batch info
   onSubmitted?: (batchInfo: BatchJobResponse) => void
   // Called on error
   onError?: (error: any) => void
+  // Called when cancellation/building failed before the backend submit endpoint was reached.
+  onNoBackendSubmission?: (error: any) => void
+  // Called when the backend received reserved forever work but rejected it before queueing.
+  onBackendRejected?: (error: any) => void
+  // Return false to cancel before backend submission.
+  shouldSubmit?: () => boolean
+  onCancelled?: () => void
 }): Promise<void> {
-  const { prompt, promptOptions, cachedImprovedPrompt, imageSize, wildcards, segments, buildPayload, onSubmitted, onError } = params
+  const { prompt, promptOptions, buildPayload, onSubmitted, onError, onNoBackendSubmission, onBackendRejected, shouldSubmit, onCancelled } = params
+  let backendSubmitStarted = false
+  let payload: Record<string, any> | null = null
 
   try {
-    const promptWildcards = wildcards ?? getWildcards()
-    const promptSegments = segments ?? getSegments()
-
-    // 1) Resolve wildcards, then 2) auto-improve + 3) translate
-    let processedPrompt = await applyImproveAndTranslate(prompt, promptOptions, cachedImprovedPrompt, promptWildcards, promptSegments)
-
-    // Final processing
-    processedPrompt = processFinalPrompt(processedPrompt, promptWildcards, promptSegments)
-
-    // 5) JSON mode (last step)
-    processedPrompt = await applyJsonMode(processedPrompt, promptOptions, imageSize)
-
     // Build prompt metadata
     const promptMetadata = buildPromptMetadata(prompt, promptOptions)
 
     // Build the final payload
-    const payload = buildPayload(processedPrompt, promptMetadata)
+    payload = buildPayload(prompt, promptMetadata)
+
+    if (shouldSubmit && !shouldSubmit()) {
+      onCancelled?.()
+      onNoBackendSubmission?.(new Error('Submission cancelled'))
+      return
+    }
 
     // Submit to batch endpoint
+    backendSubmitStarted = true
     const response = await axios.post<BatchJobResponse>(`${getAPIBase()}/generate/submit-batch`, payload)
 
     onSubmitted?.(response.data)
   } catch (error) {
     console.error('Failed to submit batch job:', error)
     onError?.(error)
+    handleReservedSubmitFailure(error, payload, backendSubmitStarted, onNoBackendSubmission, onBackendRejected)
   }
 }
 
@@ -368,37 +231,42 @@ export async function submitBatchJobAsync(params: {
 export async function submitMediaBatchJobAsync(params: {
   prompt: string
   promptOptions?: SubmitPromptOptions
-  // Target output canvas — used by JSON mode to compose layout for the real aspect ratio.
   imageSize?: ImageSize
   cachedImprovedPrompt?: string | null
-  wildcards?: NamedWildcard[]
-  segments?: PromptSegment[]
-  buildPayload: (processedPrompt: string, promptMetadata: PromptMetadata) => Record<string, any>
+  wildcards?: unknown[]
+  segments?: unknown[]
+  buildPayload: (rawPrompt: string, promptMetadata: PromptMetadata) => Record<string, any>
   onSubmitted?: (batchInfo: BatchJobResponse) => void
   onError?: (error: any) => void
+  // Called when cancellation/building failed before the backend submit endpoint was reached.
+  onNoBackendSubmission?: (error: any) => void
+  // Called when the backend received reserved forever work but rejected it before queueing.
+  onBackendRejected?: (error: any) => void
+  // Return false to cancel before backend submission.
+  shouldSubmit?: () => boolean
+  onCancelled?: () => void
 }): Promise<void> {
-  const { prompt, promptOptions, cachedImprovedPrompt, imageSize, wildcards, segments, buildPayload, onSubmitted, onError } = params
+  const { prompt, promptOptions, buildPayload, onSubmitted, onError, onNoBackendSubmission, onBackendRejected, shouldSubmit, onCancelled } = params
+  let backendSubmitStarted = false
+  let payload: Record<string, any> | null = null
 
   try {
-    const promptWildcards = wildcards ?? getWildcards()
-    const promptSegments = segments ?? getSegments()
-
-    // 1) Resolve wildcards, then 2) auto-improve + 3) translate
-    let processedPrompt = await applyImproveAndTranslate(prompt, promptOptions, cachedImprovedPrompt, promptWildcards, promptSegments)
-
-    processedPrompt = processFinalPrompt(processedPrompt, promptWildcards, promptSegments)
-
-    // 5) JSON mode (last step)
-    processedPrompt = await applyJsonMode(processedPrompt, promptOptions, imageSize)
-
     const promptMetadata = buildPromptMetadata(prompt, promptOptions)
 
-    const payload = buildPayload(processedPrompt, promptMetadata)
+    payload = buildPayload(prompt, promptMetadata)
+    if (shouldSubmit && !shouldSubmit()) {
+      onCancelled?.()
+      onNoBackendSubmission?.(new Error('Submission cancelled'))
+      return
+    }
+
+    backendSubmitStarted = true
     const response = await axios.post<BatchJobResponse>(`${getAPIBase()}/generate/submit-media-batch`, payload)
 
     onSubmitted?.(response.data)
   } catch (error) {
     console.error('Failed to submit media-batch job:', error)
     onError?.(error)
+    handleReservedSubmitFailure(error, payload, backendSubmitStarted, onNoBackendSubmission, onBackendRejected)
   }
 }

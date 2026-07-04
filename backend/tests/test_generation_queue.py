@@ -104,6 +104,56 @@ class TestPendingCounterManagement:
         assert len(generation_queue._pending_work_requests[backend]) == 1
         assert len(generation_queue._pending_work_requests_per_client[client]) == 1
 
+    async def test_submit_job_tool_resolution_failure_still_decrements_pending(
+        self, generation_queue, output_folder
+    ):
+        """Even failures before DB validation consume the owned reservation."""
+        _reset_queue_state(generation_queue)
+
+        backend = "missing"
+        client = "test-client-invalid-tool"
+        generation_queue._pending_work_requests[backend] = _make_timestamps(1)
+        generation_queue._pending_work_requests_per_client[client] = _make_timestamps(1)
+
+        with pytest.raises(ValueError, match="Tool not found"):
+            await generation_queue.submit_job(
+                generator_name="missing",
+                model_name="missing-tool",
+                folder_path=output_folder,
+                parameters={"prompt": "invalid tool", "steps": 5, "seed": 1},
+                generator_instance_id=client,
+                backend_name=backend,
+                tool_id="missing:tool",
+            )
+
+        assert len(generation_queue._pending_work_requests[backend]) == 0
+        assert len(generation_queue._pending_work_requests_per_client[client]) == 0
+
+    async def test_submit_job_can_skip_pending_consumption(
+        self, generation_queue, output_folder
+    ):
+        """Manual/local submits must not consume an unrelated reserved slot."""
+        _reset_queue_state(generation_queue)
+
+        backend = "test"
+        client = "test-client-manual"
+        generation_queue._pending_work_requests[backend] = _make_timestamps(1)
+        generation_queue._pending_work_requests_per_client[client] = _make_timestamps(1)
+
+        await generation_queue.submit_job(
+            generator_name="test",
+            model_name="test-model",
+            folder_path=output_folder,
+            parameters={"prompt": "manual submit", "steps": 5, "seed": 1},
+            generator_instance_id=client,
+            backend_name=backend,
+            tool_id="test:text-to-image:test-model",
+            consume_pending_request=False,
+        )
+
+        assert len(generation_queue._pending_work_requests[backend]) == 1
+        assert len(generation_queue._pending_work_requests_per_client[client]) == 1
+
     async def test_submit_batch_job_failure_still_decrements_pending(
         self, generation_queue, output_folder
     ):

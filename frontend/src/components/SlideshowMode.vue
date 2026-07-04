@@ -1216,6 +1216,12 @@ import { useWorkspaceTabs } from '../composables/useWorkspaceTabs'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { getCachedPin } from '../composables/usePinLock'
 import { getApiBase } from '../apiConfig'
+import {
+  diffInsertedLiveIds,
+  orderLiveAdvanceCandidates,
+  orderLiveAdvanceKeys,
+  shouldQueueLiveArrival
+} from '../utils/slideshowLiveQueue'
 
 const router = useRouter()
 const { nextEditorId } = useWorkspaceTabs()
@@ -1328,12 +1334,10 @@ const metadataCache = ref(new Map()) // mediaId -> { faces, boards, job, chat }
 const isAtomicTransition = ref(false)
 
 // --- Auto-advance engine (generate-forever) ---------------------------------
-// In follow mode, NEW arrivals never swap the on-screen item: each arrival only
-// "pins" the current image (currentIndex++ + cache shift). A separate dwell-gated
-// stepper walks currentIndex back down toward 0 (the newest), one step per dwell
-// window. So while following, currentIndex == the lag (0 = caught up to newest).
-// This makes "step through every image" fall out for free and is self-correcting
-// against list shifts/deletions because lag is derived from currentIndex.
+// In follow mode, NEW arrivals never swap the on-screen item. Arrivals shift the
+// cache/currentIndex only to keep the displayed item's provider position honest,
+// then enqueue stable live item keys. A dwell-gated stepper drains that queue one
+// visible item at a time, so index churn cannot itself become an advance source.
 //
 // Minimum on-screen time before an auto-advance step (issue: don't blow past
 // images during fast bursts). Videos additionally wait for a natural end.
@@ -1345,10 +1349,12 @@ let currentShownAt = 0
 // async preload+swap step. There is only ever one of each in flight.
 let dwellTimer = null
 let stepInFlight = false
+let liveAdvanceEpoch = 0
 // When true, the <video> stops looping (:loop="!videoAdvanceArmed") so its next
 // natural end fires `ended`, which performs the queued advance. False = seamless
 // native loop (idle, or before the dwell floor has elapsed).
 const videoAdvanceArmed = ref(false)
+const liveAdvanceQueue = ref([])
 
 // WebSocket unsubscribe functions (cleaned up in onUnmounted)
 const wsUnsubscribers = []
@@ -1705,6 +1711,12 @@ const currentItem = computed(() => {
   if (sourceViewStack.value.length > 0) {
     return sourceViewStack.value[sourceViewStack.value.length - 1].item
   }
+  // ToolView live generation keeps the visible media pinned while the provider
+  // list prepends underneath it. In that mode, consumers of currentItem should
+  // see the same item as the actual media element, not the moving index target.
+  if (props.autoAdvanceOnNew && displayItem.value) {
+    return displayItem.value
+  }
   return baseCurrentItem.value
 })
 const isCurrentItemTrashed = computed(() => {
@@ -1915,13 +1927,14 @@ watch(currentItem, (newItem) => {
   // Skip during atomic transitions - we'll set displayItem manually
   if (isAtomicTransition.value) return
 
-  // Lock the on-screen image unless the user is caught up riding the newest item.
+  // Lock the on-screen image unless a non-live slideshow is accepting an index
+  // change. In live ToolView mode, currentItem itself resolves to displayItem, so
+  // arrivals cannot flow through this watcher and must use the queued stepper.
   // In generate-forever mode the underlying list mutates constantly as new images
   // arrive; index/cache churn (arrival pins, page refetches, drift correction) must
   // never swap the display. Blessed display changes bypass this watcher entirely:
   // user navigation lands via the baseCurrentItem accept path / stepFromAnchor, and
-  // follow catch-up steps via performFollowStep (isAtomicTransition). Only at lag 0
-  // (followStream && index 0) may a new newest item flow through here to the screen.
+  // follow catch-up steps via performFollowStep (isAtomicTransition).
   if (
     props.autoAdvanceOnNew &&
     !(followStream.value && currentIndex.value === 0) &&
@@ -1971,6 +1984,53 @@ function applyDisplayItem(newItem) {
   mediaLoaded.value = false
   displayItem.value = newItem
   if (newItem.file_hash) preloadDragPreview(getThumbnailUrl(newItem.file_hash, 128))
+}
+
+function applyMediaPatchToLocalState(mediaId, updates) {
+  if (!mediaId || !updates || Object.keys(updates).length === 0) return
+
+  let cacheChanged = false
+  const newCache = new Map(itemsCache.value)
+  for (const [index, item] of itemsCache.value.entries()) {
+    if (item?.id === mediaId) {
+      newCache.set(index, { ...item, ...updates })
+      cacheChanged = true
+    }
+  }
+  if (cacheChanged) {
+    itemsCache.value = newCache
+  }
+
+  if (props.mediaList?.updateItem) {
+    props.mediaList.updateItem(mediaId, updates)
+  }
+
+  if (displayItem.value?.id === mediaId) {
+    displayItem.value = { ...displayItem.value, ...updates }
+  }
+
+  for (const stackEntry of sourceViewStack.value) {
+    if (stackEntry.item?.id === mediaId) {
+      stackEntry.item = { ...stackEntry.item, ...updates }
+    }
+  }
+}
+
+function mediaUpdatePatch(fields = [], media = {}) {
+  const patch = {}
+  if (fields.includes('caption') || fields.includes('prompt') || fields.includes('metadata')) {
+    Object.assign(patch, media)
+  }
+  if (fields.includes('markers')) {
+    patch.markers = media.markers || []
+  }
+  if (fields.includes('tags')) {
+    patch.tags = media.tags || []
+  }
+  if ('auto_delete_at' in media) {
+    patch.auto_delete_at = media.auto_delete_at
+  }
+  return patch
 }
 
 // Single re-arm point: whenever the actually-displayed item changes identity
@@ -2139,12 +2199,12 @@ watch(baseCurrentItem, (newItem) => {
         // the wrong item. This protects against the list shifting under us as new images
         // stream in. Other pageProvider views (no autoAdvanceOnNew) keep original behavior
         // (no drift handling) by falling through.
-        // Only "snap to newest" when actually caught up (lag 0). While following
-        // with lag (currentIndex > 0) we are pinned to a specific older item just
-        // like browse mode, so fall through to the scan-and-correct path to keep
-        // tracking it — otherwise drift would yank us to the newest. The stepper
-        // updates currentMediaId itself, so its decrements never reach here.
-        if (followStream.value && currentIndex.value === 0) {
+        // Only "snap to newest" when actually caught up and no queued arrival is
+        // draining. While following with a queue we are pinned to a specific older
+        // item just like browse mode, so fall through to the scan-and-correct path
+        // to keep tracking it; otherwise drift would yank us to the newest. The
+        // stepper updates currentMediaId itself, so its decrements never reach here.
+        if (followStream.value && currentIndex.value === 0 && liveAdvanceQueue.value.length === 0) {
           console.log(`[SlideshowMode] Caught up at index 0, accepting new newest item ${newItem.id} (was tracking ${currentMediaId.value})`)
           // Fall through to accept the new item
         } else {
@@ -2175,6 +2235,9 @@ watch(baseCurrentItem, (newItem) => {
     console.log(`[SlideshowMode] Setting currentMediaId = ${newItem.id} (was ${currentMediaId.value})`)
     currentMediaId.value = newItem.id
     emit('update:currentMediaId', newItem.id)
+    if (props.autoAdvanceOnNew && followStream.value && currentIndex.value === 0 && liveAdvanceQueue.value.length === 0) {
+      applyDisplayItem(newItem)
+    }
   }
 }, { immediate: true })
 
@@ -2462,6 +2525,7 @@ function displayAnchorIndex() {
 function stepFromAnchor(delta) {
   const target = displayAnchorIndex() + delta
   if (target < 0 || target >= localTotalCount.value) return false
+  clearLiveAdvanceQueue()
   followStream.value = target === 0
   if (target === currentIndex.value) {
     // The index had drifted off the anchor and already points at the target.
@@ -2504,6 +2568,7 @@ function next() {
   if (stepFromAnchor(1)) {
     resetSlideshowTimer()
   } else if (loopEnabled.value) {
+    clearLiveAdvanceQueue()
     isUserNavigating.value = true
     currentIndex.value = 0
     followStream.value = true
@@ -2528,6 +2593,7 @@ function previous() {
 }
 
 function goToFirst() {
+  clearLiveAdvanceQueue()
   isUserNavigating.value = true
   currentIndex.value = 0
   followStream.value = true
@@ -2535,6 +2601,7 @@ function goToFirst() {
 }
 
 function goToLast() {
+  clearLiveAdvanceQueue()
   isUserNavigating.value = true
   currentIndex.value = localTotalCount.value - 1
   followStream.value = currentIndex.value === 0
@@ -2543,6 +2610,7 @@ function goToLast() {
 
 function goToIndex(index) {
   if (index >= 0 && index < localTotalCount.value) {
+    clearLiveAdvanceQueue()
     isUserNavigating.value = true
     currentIndex.value = index
     followStream.value = currentIndex.value === 0
@@ -3117,6 +3185,7 @@ async function toggleRandomize() {
   if (preventClick.value) return
   trackControl('shuffle')
   const savedIndex = currentIndex.value
+  clearLiveAdvanceQueue()
 
   if (isRandomized.value) {
     // Turn off randomization - keep same display index
@@ -4089,10 +4158,84 @@ function applyRemovalToCount(removedCount) {
   }
 }
 
+function removeMediaIdsFromCache(removedIds) {
+  let cacheChanged = false
+  const newCache = new Map(itemsCache.value)
+  for (const [index, item] of itemsCache.value.entries()) {
+    if (item && removedIds.has(item.id)) {
+      newCache.delete(index)
+      cacheChanged = true
+    }
+  }
+  if (cacheChanged) {
+    itemsCache.value = newCache
+  }
+}
+
+function pruneLiveQueueForRemovedMediaIds(removedIds) {
+  if (!props.autoAdvanceOnNew || removedIds.size === 0 || liveAdvanceQueue.value.length === 0) return
+
+  const removedKeys = new Set()
+  const collectRemovedKey = (item) => {
+    if (!item || !removedIds.has(item.id)) return
+    const key = getLiveItemKey(item)
+    if (key != null) removedKeys.add(key)
+  }
+
+  collectRemovedKey(displayItem.value)
+  for (const item of itemsCache.value.values()) {
+    collectRemovedKey(item)
+  }
+
+  if (removedKeys.size === 0) return
+
+  const oldHead = liveAdvanceQueue.value[0]
+  liveAdvanceQueue.value = liveAdvanceQueue.value.filter(key => !removedKeys.has(key))
+  if (liveAdvanceQueue.value[0] !== oldHead) {
+    liveAdvanceEpoch++
+  }
+}
+
+async function replaceDisplayedItemAfterRemoval(removedIds) {
+  if (!displayItem.value || !removedIds.has(displayItem.value.id)) {
+    scheduleAdvance()
+    return
+  }
+
+  liveAdvanceEpoch++
+  displayItem.value = null
+  mediaLoaded.value = false
+  currentMediaId.value = null
+  visibleFaceOverlays.value.clear()
+
+  await nextTick()
+  if (localTotalCount.value <= 0) return
+
+  const nextIndex = Math.max(0, Math.min(currentIndex.value, localTotalCount.value - 1))
+  currentIndex.value = nextIndex
+  await ensureItemLoaded(getActualIndex(nextIndex))
+
+  const replacement = baseCurrentItem.value
+  if (replacement?.id) {
+    dropLiveQueueKey(getLiveItemKey(replacement))
+    currentMediaId.value = replacement.id
+    emit('update:currentMediaId', replacement.id)
+    applyDisplayItem(replacement)
+  }
+  scheduleAdvance()
+}
+
+function handleRemovedMediaIdsLocally(removedIds) {
+  pruneLiveQueueForRemovedMediaIds(removedIds)
+  removeMediaIdsFromCache(removedIds)
+  void replaceDisplayedItemAfterRemoval(removedIds)
+}
+
 async function handleDeleteCurrentItem() {
   if (!currentItem.value) return
 
   const deletedId = currentItem.value.id
+  const removedIds = new Set([deletedId])
 
   try {
     // Mark as being deleted by us so websocket handler skips it
@@ -4113,6 +4256,7 @@ async function handleDeleteCurrentItem() {
     // snaps to the authoritative parent count; otherwise stay at the same index and
     // the next item will appear here.
     applyRemovalToCount(1)
+    handleRemovedMediaIdsLocally(removedIds)
 
   } catch (error) {
     console.error('Failed to delete media:', error)
@@ -4186,6 +4330,7 @@ async function handleRestoreCurrentItem() {
 
     // Reconcile the total (and close/clamp if needed)
     applyRemovalToCount(1)
+    handleRemovedMediaIdsLocally(new Set([restoredId]))
 
   } catch (error) {
     console.error('Failed to restore media:', error)
@@ -4428,28 +4573,12 @@ function manageTags() {
 async function handleTagsSaved(mediaId) {
   // Fetch updated media item to get the latest tags
   const response = await axios.get(`/api/media/${mediaId}`)
-
-  // Update the item in cache
-  const actualIndex = getActualIndex(currentIndex.value)
-  const updatedItem = { ...itemsCache.value.get(actualIndex), tags: response.data.tags }
-  itemsCache.value.set(actualIndex, updatedItem)
-
-  // Also update the current item directly so the info panel sees it immediately
-  if (currentItem.value && currentItem.value.id === mediaId) {
-    currentItem.value.tags = response.data.tags
-  }
+  applyMediaPatchToLocalState(mediaId, { tags: response.data.tags })
 }
 
 // Handle tags updated from inline editor (no redundant fetch needed)
 function handleTagsUpdated(mediaId, tags) {
-  const actualIndex = getActualIndex(currentIndex.value)
-  const cached = itemsCache.value.get(actualIndex)
-  if (cached) {
-    itemsCache.value.set(actualIndex, { ...cached, tags })
-  }
-  if (currentItem.value?.id === mediaId) {
-    currentItem.value.tags = tags
-  }
+  applyMediaPatchToLocalState(mediaId, { tags })
 }
 
 // Handle compare with source - emit to parent with both IDs
@@ -4554,6 +4683,74 @@ function pinForArrival(insertIndex = 0) {
   }
 }
 
+function getLiveItemKey(item) {
+  if (!item) return null
+  return item._slideshowItemKey ?? item.id ?? null
+}
+
+function clearLiveAdvanceQueue() {
+  if (liveAdvanceQueue.value.length > 0) {
+    liveAdvanceQueue.value = []
+  }
+  liveAdvanceEpoch++
+}
+
+function enqueueLiveAdvances(candidates) {
+  const ordered = orderLiveAdvanceCandidates(candidates)
+  if (ordered.length === 0) return
+  liveAdvanceQueue.value = [
+    ...liveAdvanceQueue.value,
+    ...ordered.map(candidate => candidate.key)
+  ]
+}
+
+function liveIndexForKey(key) {
+  return Array.isArray(props.liveItemIds) ? props.liveItemIds.indexOf(key) : -1
+}
+
+function dropLiveQueueHead(key) {
+  if (liveAdvanceQueue.value[0] !== key) return
+  liveAdvanceQueue.value = liveAdvanceQueue.value.slice(1)
+}
+
+function dropLiveQueueKey(key) {
+  if (key == null || liveAdvanceQueue.value.length === 0) return
+  const nextQueue = liveAdvanceQueue.value.filter(candidateKey => candidateKey !== key)
+  if (nextQueue.length === liveAdvanceQueue.value.length) return
+  liveAdvanceQueue.value = nextQueue
+  liveAdvanceEpoch++
+}
+
+function sortLiveAdvanceQueue() {
+  const oldHead = liveAdvanceQueue.value[0]
+  const ordered = orderLiveAdvanceKeys(liveAdvanceQueue.value, props.liveItemIds)
+  liveAdvanceQueue.value = ordered
+  if (ordered[0] !== oldHead) {
+    liveAdvanceEpoch++
+  }
+}
+
+function clearProviderCacheSlot(actualIndex) {
+  const pageSize = 50
+  loadingPages.value.delete(Math.floor(actualIndex / pageSize))
+  itemsCache.value.delete(actualIndex)
+}
+
+async function refreshLiveItemForKey(key) {
+  const targetDisplayIndex = liveIndexForKey(key)
+  if (targetDisplayIndex < 0) return null
+
+  const actualIndex = getActualIndex(targetDisplayIndex)
+  clearProviderCacheSlot(actualIndex)
+  await ensureItemLoaded(actualIndex)
+
+  const item = itemsCache.value.get(actualIndex) || null
+  if (getLiveItemKey(item) === key) {
+    return { index: targetDisplayIndex, actualIndex, item }
+  }
+  return null
+}
+
 // Arrival entry point: diff successive provider-order id lists and pin each
 // inserted item at the index it actually landed. Watching the list (rather than
 // the completion WS event) keeps pins exactly 1:1 with provider inserts: the
@@ -4563,18 +4760,32 @@ function pinForArrival(insertIndex = 0) {
 // only when its final image is ready) and out-of-order completions.
 watch(() => props.liveItemIds, (newIds, oldIds) => {
   if (!props.autoAdvanceOnNew || !Array.isArray(newIds) || !Array.isArray(oldIds)) return
-  const known = new Set(oldIds)
+  const arrivals = diffInsertedLiveIds(newIds, oldIds)
+  if (arrivals.length === 0) {
+    sortLiveAdvanceQueue()
+    scheduleAdvance()
+    return
+  }
   // Ascending index order: pinForArrival works in final-list coordinates once
   // every earlier (newer) insert has been applied, so applying top-down after a
   // multi-insert flush shifts the cache exactly once per inserted item.
+  const queueCandidates = []
   let pinned = 0
-  for (let index = 0; index < newIds.length; index++) {
-    if (known.has(newIds[index])) continue
-    pinForArrival(index)
+  for (const arrival of arrivals) {
+    const shouldQueue = shouldQueueLiveArrival({
+      currentIndex: currentIndex.value,
+      insertIndex: arrival.index,
+      followStream: followStream.value,
+      randomized: isRandomized.value
+    })
+    pinForArrival(arrival.index)
+    if (shouldQueue) queueCandidates.push(arrival)
     pinned++
   }
   if (!pinned) return
-  console.log(`[SlideshowDebug] live_inserts count=${pinned} followStream=${followStream.value} currentIndex=${currentIndex.value}`)
+  enqueueLiveAdvances(queueCandidates)
+  sortLiveAdvanceQueue()
+  console.log(`[SlideshowDebug] live_inserts count=${pinned} queued=${queueCandidates.length} followStream=${followStream.value} currentIndex=${currentIndex.value}`)
   // Every visible arrival pins when it lands before/on the current item (never swaps
   // the screen). The stepper catches up if we follow.
   scheduleAdvance()
@@ -4584,9 +4795,9 @@ watch(() => props.liveItemIds, (newIds, oldIds) => {
 
 // Is the follow-catch-up stepper the active advance source right now? Disabled in
 // sub-views and under shuffle (where "newest" is meaningless). Takes precedence
-// over the manual Play timer while there is lag to catch up.
+// over the manual Play timer while live arrivals are queued.
 function followActiveNow() {
-  return props.autoAdvanceOnNew && followStream.value && !isRandomized.value && currentIndex.value > 0
+  return props.autoAdvanceOnNew && followStream.value && !isRandomized.value && liveAdvanceQueue.value.length > 0
 }
 
 // Is the manual Play timer the active advance source right now?
@@ -4708,40 +4919,44 @@ function applyMetadataFromCache(item) {
   inspiredDescendants.value = metadata.inspiredDescendants || []
 }
 
-// Follow-catch-up step: advance one image toward the newest (currentIndex - 1),
-// preloading first to avoid flicker, then swapping atomically. Serialized so only
-// one runs at a time. Arrivals during the awaits pin (currentIndex++), shifting the
-// target identically — so currentIndex-1 recomputed in the swap section still points
-// at the same media (the pin is the reconciliation). Aborts without swapping if the
-// user navigated away mid-preload (issue 1b).
+// Follow-catch-up step: drain one queued live arrival, preloading first to avoid
+// flicker, then swapping atomically. The queue stores stable provider item keys
+// (ToolView job ids), so arrivals during awaits can shift indexes without changing
+// the target media. Aborts without swapping if the user navigated away mid-preload.
 async function performFollowStep() {
   if (stepInFlight) return
   if (!shouldStillAdvance(performFollowStep)) return
+  const targetKey = liveAdvanceQueue.value[0]
+  if (targetKey == null) return
+
   stepInFlight = true
   isAtomicTransition.value = true
+  const stepEpoch = liveAdvanceEpoch
   let swapped = false
   try {
-    let targetDisplayIndex = currentIndex.value - 1
-    let actualIndex = getActualIndex(targetDisplayIndex)
-    await ensureItemLoaded(actualIndex)
-    let target = itemsCache.value.get(actualIndex)
+    let resolved = await refreshLiveItemForKey(targetKey)
+    let targetDisplayIndex = resolved?.index ?? -1
+    let actualIndex = resolved?.actualIndex ?? -1
+    let target = resolved?.item || null
+    if (targetDisplayIndex < 0) {
+      dropLiveQueueHead(targetKey)
+      return
+    }
 
     // Brief retry if the file isn't ingested yet (rare; it usually arrived >=1.5s ago).
     let retries = 0
     while ((!target || (!target.file_hash && !target._placeholder)) && retries < 3) {
       await new Promise(r => setTimeout(r, 300))
-      targetDisplayIndex = currentIndex.value - 1
-      actualIndex = getActualIndex(targetDisplayIndex)
-      const pageSize = 50
-      loadingPages.value.delete(Math.floor(actualIndex / pageSize))
-      itemsCache.value.delete(actualIndex)
-      await ensureItemLoaded(actualIndex)
-      target = itemsCache.value.get(actualIndex)
+      resolved = await refreshLiveItemForKey(targetKey)
+      targetDisplayIndex = resolved?.index ?? -1
+      actualIndex = resolved?.actualIndex ?? -1
+      target = resolved?.item || null
+      if (targetDisplayIndex < 0) break
       retries++
     }
 
     if (!target || (!target.file_hash && !target._placeholder)) {
-      console.warn(`[SlideshowDebug] follow_step_target_not_ready actualIndex=${actualIndex} id=${target?.id}`)
+      console.warn(`[SlideshowDebug] follow_step_target_not_ready key=${targetKey} actualIndex=${actualIndex} id=${target?.id}`)
       return // re-armed in finally
     }
 
@@ -4753,26 +4968,36 @@ async function performFollowStep() {
     await Promise.all(preloads)
 
     // Re-validate AFTER the awaits: never yank a user who navigated away (issue 1b).
-    if (!shouldStillAdvance(performFollowStep)) {
+    if (
+      stepEpoch !== liveAdvanceEpoch ||
+      liveAdvanceQueue.value[0] !== targetKey ||
+      !shouldStillAdvance(performFollowStep)
+    ) {
       console.log('[SlideshowDebug] follow_step_aborted no_longer_following')
       return
     }
 
     // ---- synchronous swap section (no awaits) ----
-    targetDisplayIndex = currentIndex.value - 1
-    actualIndex = getActualIndex(targetDisplayIndex)
-    const swapItem = itemsCache.value.get(actualIndex) || target
+    targetDisplayIndex = liveIndexForKey(targetKey)
+    if (targetDisplayIndex < 0) {
+      dropLiveQueueHead(targetKey)
+      return
+    }
+    const currentActualIndex = getActualIndex(targetDisplayIndex)
+    const cachedAtCurrentSlot = itemsCache.value.get(currentActualIndex)
+    const swapItem = getLiveItemKey(cachedAtCurrentSlot) === targetKey ? cachedAtCurrentSlot : target
     mediaLoaded.value = false
     currentIndex.value = targetDisplayIndex
     displayItem.value = swapItem
     // Keep the drift tracker in sync so the baseCurrentItem watcher doesn't fight us.
     currentMediaId.value = swapItem.id
     emit('update:currentMediaId', swapItem.id)
+    dropLiveQueueHead(targetKey)
     applyMetadataFromCache(swapItem)
     visibleFaceOverlays.value.clear()
     if (swapItem.file_hash) preloadDragPreview(getThumbnailUrl(swapItem.file_hash, 128))
     swapped = true
-    console.log(`[SlideshowDebug] follow_step_swap index=${targetDisplayIndex} id=${swapItem.id} lagRemaining=${targetDisplayIndex}`)
+    console.log(`[SlideshowDebug] follow_step_swap index=${targetDisplayIndex} id=${swapItem.id} queuedRemaining=${liveAdvanceQueue.value.length}`)
     if (stripScrollerRef.value?.refresh) void stripScrollerRef.value.refresh()
   } finally {
     isAtomicTransition.value = false
@@ -4827,6 +5052,7 @@ function handleMediaDeletedWs(data) {
 
   // If we initiated this delete, skip handling (already handled in handleDeleteCurrentItem)
   if (deletingItemIds.value.has(media_id)) return
+  const removedIds = new Set([media_id])
 
   // External deletion - mark as removed and advance
   localRemovedIds.value = new Set([...localRemovedIds.value, media_id])
@@ -4836,15 +5062,8 @@ function handleMediaDeletedWs(data) {
     props.mediaList.removeItem(media_id)
   }
 
-  // Clear from cache if present
-  for (const [index, item] of itemsCache.value.entries()) {
-    if (item && item.id === media_id) {
-      itemsCache.value.delete(index)
-      break
-    }
-  }
-
   applyRemovalToCount(1)
+  handleRemovedMediaIdsLocally(removedIds)
 }
 
 // WebSocket handler: media_bulk_deleted
@@ -4862,20 +5081,16 @@ function handleMediaBulkDeletedWs(data) {
   }
 
   const idsToRemove = new Set(externalIds)
-  for (const [index, item] of itemsCache.value.entries()) {
-    if (item && idsToRemove.has(item.id)) {
-      itemsCache.value.delete(index)
-    }
-  }
 
   applyRemovalToCount(externalIds.length)
+  handleRemovedMediaIdsLocally(idsToRemove)
 }
 
 // WebSocket handler: auto_delete_removed
 function handleAutoDeleteRemovedWs(data) {
   const { media_id } = data
-  if (media_id && currentItem.value && currentItem.value.id === media_id) {
-    currentItem.value.auto_delete_at = null
+  if (media_id) {
+    applyMediaPatchToLocalState(media_id, { auto_delete_at: null })
   }
 }
 
@@ -4883,43 +5098,12 @@ function handleAutoDeleteRemovedWs(data) {
 function handleMediaUpdatedWs(data) {
   const { media_id, fields, media } = data
   if (!media_id || !media) return
+  const updateFields = Array.isArray(fields) ? fields : []
 
-  // Update item in cache if present
-  for (const [index, item] of itemsCache.value.entries()) {
-    if (item && item.id === media_id) {
-      if (fields.includes('markers')) {
-        item.markers = media.markers || []
-      }
-      if (fields.includes('tags')) {
-        item.tags = media.tags || []
-      }
-      if (fields.includes('caption') || fields.includes('prompt') || fields.includes('metadata')) {
-        Object.assign(item, media)
-      }
-      if ('auto_delete_at' in media) {
-        item.auto_delete_at = media.auto_delete_at
-      }
-      break
-    }
-  }
-
-  // Also update sourceViewStack items if viewing this media
-  for (const stackEntry of sourceViewStack.value) {
-    if (stackEntry.item && stackEntry.item.id === media_id) {
-      if (fields.includes('markers')) {
-        stackEntry.item.markers = media.markers || []
-      }
-      if (fields.includes('tags')) {
-        stackEntry.item.tags = media.tags || []
-      }
-      if (fields.includes('caption') || fields.includes('prompt') || fields.includes('metadata')) {
-        Object.assign(stackEntry.item, media)
-      }
-    }
-  }
+  applyMediaPatchToLocalState(media_id, mediaUpdatePatch(updateFields, media))
 
   // Force re-render of marker UI if markers changed
-  if (fields.includes('markers')) {
+  if (updateFields.includes('markers')) {
     markerUpdateTrigger.value++
   }
 }
@@ -5167,10 +5351,12 @@ function handleContextMenu(event, mediaId, fileHash) {
 watch(() => props.randomized, (newValue) => {
   if (newValue && props.randomSeed && !isRandomized.value) {
     // Parent enabled randomization (e.g., from URL)
+    clearLiveAdvanceQueue()
     isRandomized.value = true
     shuffledIndices.value = createShuffledIndices(props.totalCount, props.randomSeed)
   } else if (!newValue && isRandomized.value) {
     // Parent disabled randomization
+    clearLiveAdvanceQueue()
     isRandomized.value = false
     shuffledIndices.value = []
   }
@@ -5514,7 +5700,6 @@ async function toggleMarker(markerId) {
 
   const isActive = isMarkerActive(markerId)
   const mediaId = currentItem.value.id
-  const actualIndex = getActualIndex(currentIndex.value)
 
   try {
     let response
@@ -5529,11 +5714,7 @@ async function toggleMarker(markerId) {
     // Use markers from toggle response (avoids a separate GET request)
     const updatedMarkers = response.data.markers
 
-    // Update the item in cache - create new Map to trigger reactivity
-    const updatedItem = { ...itemsCache.value.get(actualIndex), markers: updatedMarkers }
-    const newCache = new Map(itemsCache.value)
-    newCache.set(actualIndex, updatedItem)
-    itemsCache.value = newCache
+    applyMediaPatchToLocalState(mediaId, { markers: updatedMarkers })
 
     // Force re-render of marker UI
     markerUpdateTrigger.value++

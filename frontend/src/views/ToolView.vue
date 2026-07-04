@@ -3,13 +3,13 @@
     <!-- Slideshow Mode (overlays everything when active) -->
     <SlideshowMode
       v-if="slideshowState.active"
-      :total-count="jobsManager?.totalCompletedCount.value || 0"
+      :total-count="slideshowTotalCount"
       :start-index="slideshowState.startIndex"
       :page-provider="slideshowState.pageProvider"
-      :live-item-ids="slideshowLiveItemIds"
+      :live-item-ids="slideshowState.autoAdvanceOnNew ? slideshowLiveItemIds : null"
       :randomized="slideshowState.randomized"
       :random-seed="slideshowState.randomSeed"
-      :auto-advance-on-new="true"
+      :auto-advance-on-new="slideshowState.autoAdvanceOnNew"
       :inline="true"
       @close="exitSlideshow"
       @compare-with-source="handleCompareFromSlideshow"
@@ -2194,8 +2194,15 @@ const slideshowState = reactive({
   startIndex: 0,
   pageProvider: null as any,
   randomized: false,
-  randomSeed: null as number | null
+  randomSeed: null as number | null,
+  autoAdvanceOnNew: false
 })
+
+const slideshowTotalCount = computed(() =>
+  slideshowState.autoAdvanceOnNew
+    ? (jobsManager?.totalCompletedCount.value || 0)
+    : slideshowState.totalCount
+)
 
 function enterSlideshow(params: any) {
   slideshowState.active = true
@@ -2204,6 +2211,7 @@ function enterSlideshow(params: any) {
   slideshowState.pageProvider = params.pageProvider
   slideshowState.randomized = params.randomized
   slideshowState.randomSeed = params.randomSeed
+  slideshowState.autoAdvanceOnNew = !!params.autoAdvanceOnNew
   enterSlideshowMode()
 }
 
@@ -2616,10 +2624,14 @@ const enhanceInputImageCount = computed(() => {
 const enhanceSourceMediaId = computed<number | null>(() =>
   videoImages.startImage?.mediaId ?? null
 )
-const enhanceUsesImage = computed(() => enhanceSourceMediaId.value != null)
+const enhanceUsesImage = computed(() => {
+  const source: any = videoImages.startImage
+  return !!(source?.path || source?.file_path || source?.filePath)
+})
 
-// Prompt preloader
-const { getCachedImprovedPrompt, onCacheUsed, updateConcurrentJobs } = usePromptPreloader({
+// Prompt preloading speculatively runs the text-enhance LLM step and sends the
+// resolved/improved pair as a backend-validated one-use hint on submit.
+const { consumePromptPreload, consumePromptPreloads, onCacheUsed, updateConcurrentJobs } = usePromptPreloader({
   prompt: computed(() => globalPrefs.value.prompt),
   // Only the text-rewrite path with no source image is pre-cached. Ideogram
   // converts post-resolve, and i2v depends on the frame, so neither can be
@@ -2773,8 +2785,10 @@ const queuedJobsCount = computed(() => {
 
 const activeJobCount = computed(() => {
   const jobs = jobsManager?.jobs.value
-  if (!jobs) return 0
-  return jobs.filter((j: any) => ['queued', 'assigned', 'processing'].includes(j.status)).length
+  const pendingJobs = jobsManager?.pendingJobs.value
+  if (!jobs && !pendingJobs) return 0
+  return (jobs || []).filter((j: any) => ['queued', 'assigned', 'processing'].includes(j.status)).length +
+    (pendingJobs || []).length
 })
 
 watch(activeJobCount, (count) => {
@@ -3767,8 +3781,32 @@ async function handleHopToTool(targetTool: { full_tool_id: string; name: string 
 // shortcut to pressing Run N times — no grouping. Each iteration captures the
 // current seed and (when randomize is on) rolls a fresh one for the next, so a
 // batch yields N distinct seeds exactly as repeated clicks would.
-async function submitJob() {
-  if (!tool.value || !canSubmit.value) return
+type ForeverSubmitOptions = {
+  foreverBackendName?: string
+  foreverSessionId?: number
+  foreverReserved?: boolean
+}
+
+type SubmitJobResult = {
+  submitted: boolean
+  declineReservation: boolean
+}
+
+function isForeverSubmissionCurrent(options: ForeverSubmitOptions): boolean {
+  if (options.foreverSessionId == null) return true
+  return uiState.value.generateForeverMode && options.foreverSessionId === foreverModeSessionId.value
+}
+
+function noSubmit(options: ForeverSubmitOptions, declineReservation = true): SubmitJobResult {
+  return {
+    submitted: false,
+    declineReservation: declineReservation && options.foreverReserved !== false,
+  }
+}
+
+async function submitJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobResult> {
+  if (!tool.value || !canSubmit.value) return noSubmit(options)
+  if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
 
   // A dropped video becomes an image only after an async frame grab. If the user
   // hits Run before that settles, wait for it (and one more pass in case a drop
@@ -3778,19 +3816,36 @@ async function submitJob() {
   if (hasPendingVideoInput()) {
     submissionError.value = "Couldn't turn the dropped video into a frame — remove it and try again."
     addToast(submissionError.value, 'error')
-    return
+    return noSubmit(options)
   }
+  if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
 
-  const count = Math.min(8, Math.max(1, uiState.value.batchSize || 1))
+  const count = options.foreverBackendName
+    ? 1
+    : Math.min(8, Math.max(1, uiState.value.batchSize || 1))
+  let submitted = false
+  let declineReservation = true
   for (let i = 0; i < count; i++) {
-    await submitOneJob()
+    const result = await submitOneJob(options)
+    submitted = result.submitted || submitted
+    declineReservation = result.declineReservation
   }
+  return { submitted, declineReservation }
 }
 
-async function submitOneJob() {
-  if (!tool.value || !canSubmit.value) {
-    return
+function recordUnsubmittedForeverWork(options: ForeverSubmitOptions) {
+  if (!isForeverSubmissionCurrent(options)) return
+  if (options.foreverBackendName && options.foreverReserved !== false) {
+    declineWorkRequest(options.foreverBackendName)
   }
+  void recordForeverFailure()
+}
+
+async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJobResult> {
+  if (!tool.value || !canSubmit.value) {
+    return noSubmit(options)
+  }
+  if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
 
   submissionError.value = null
 
@@ -3828,9 +3883,10 @@ async function submitOneJob() {
     } catch (err: any) {
       console.error('Pre-upload task failed:', err)
       submissionError.value = err.response?.data?.detail || 'Upload failed'
-      return
+      return noSubmit(options)
     }
   }
+  if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
 
   // Build captured state from schema
   const capturedState = buildCapturedState(builderConfig, builderState, uploadResults)
@@ -3900,16 +3956,23 @@ async function submitOneJob() {
     ? { width: Number(capturedState.parameters?.width) || null, height: Number(capturedState.parameters?.height) || null }
     : undefined
 
-  // Pre-cached improved prompts only exist for the text-rewrite path with no
-  // source image (i2v depends on the frame, so it's never pre-cached).
-  const cachedPrompt = toolHasPrompt && enhanceOn && enhanceMode.value === 'text' && !enhanceUsesImage.value
-    ? getCachedImprovedPrompt(prompt, promptOptions!.autoImprove.instructions || null)
+  // Pre-cached prompt hints exist for the text-rewrite path with no source
+  // image. The backend validates context before using each hint, then still
+  // owns translation, final cleanup, and queue/reservation accounting.
+  const canUsePromptPreload = toolHasPrompt && enhanceOn && enhanceMode.value === 'text' && !enhanceUsesImage.value
+  const consumePreloadHint = () => canUsePromptPreload
+    ? consumePromptPreload(prompt, promptOptions!.autoImprove.instructions || null)
     : null
+  const consumePreloadHints = (count: number) => canUsePromptPreload
+    ? consumePromptPreloads(prompt, promptOptions!.autoImprove.instructions || null, count)
+    : []
 
-  // Show a pending placeholder whenever the slow generate-time pipeline will run
-  // (enhance-without-cache, which includes Ideogram JSON, or translate).
+  // Show a pending placeholder whenever the generate-time prompt pipeline may
+  // do LLM work. Even with a preload hint the backend can reject it as stale and
+  // fall back to live enhancement, so keep the slot visibly active until the
+  // backend emits the real queued job.
   const needsEnhancing = toolHasPrompt && (
-    (enhanceOn && !cachedPrompt) ||
+    enhanceOn ||
     promptOptions?.translate?.enabled
   )
   const pendingId = needsEnhancing
@@ -3922,8 +3985,6 @@ async function submitOneJob() {
     finishPendingStatus?.()
   }
 
-  if (cachedPrompt) onCacheUsed()
-
   // Media-batch: run the tool once per item in the batched slot.
   if (globalPrefs.value.batchMode) {
     const batchField = globalPrefs.value.batchField || 'input_images'
@@ -3931,7 +3992,14 @@ async function submitOneJob() {
     if (mediaIds.length === 0) {
       submissionError.value = 'Batch slot has no library items to run'
       removePendingEnhancementJob()
-      return
+      return noSubmit(options)
+    }
+    const promptPreloads = consumePreloadHints(mediaIds.length)
+    if (promptPreloads.length > 0) onCacheUsed()
+    const trackForeverBatchSubmit = options.foreverSessionId != null && isForeverSubmissionCurrent(options)
+    if (trackForeverBatchSubmit) foreverModeBatchSubmitInFlight.value = true
+    const clearForeverBatchSubmit = () => {
+      if (trackForeverBatchSubmit) foreverModeBatchSubmitInFlight.value = false
     }
 
     // Backend injects the batched media (and its prep) per item, so strip those
@@ -3967,28 +4035,45 @@ async function submitOneJob() {
       prompt,
       promptOptions,
       imageSize,
-      cachedImprovedPrompt: cachedPrompt,
       buildPayload: (processedPrompt, promptMetadata) => ({
         ...basePayload,
+        prompt_options: promptOptions || undefined,
+        prompt_preloads: promptPreloads.length > 0 ? promptPreloads : undefined,
+        forever_work_reserved: options.foreverReserved === true,
         batch_input: { field: batchField, media_ids: mediaIds },
         constant_inputs: constantInputs,
         parameters: { ...batchParameters, ...(toolHasPrompt ? { prompt: processedPrompt } : {}) },
         prep: Object.keys(prep).length ? prep : undefined,
         prompt_metadata: promptMetadata,
       }),
+      shouldSubmit: () => isForeverSubmissionCurrent(options),
+      onCancelled: () => {
+        removePendingEnhancementJob()
+        clearForeverBatchSubmit()
+      },
       onSubmitted: (batchInfo: BatchJobResponse) => {
         removePendingEnhancementJob()
         console.log(`Media-batch submitted: ${batchInfo.total_jobs} jobs, batch_id: ${batchInfo.batch_id}`)
         if (uiState.value.generateForeverMode) {
           foreverModeActiveBatchId.value = batchInfo.batch_id
         }
+        clearForeverBatchSubmit()
       },
       onError: (err: any) => {
         removePendingEnhancementJob()
+        clearForeverBatchSubmit()
         submissionError.value = err.response?.data?.detail || 'Failed to submit batch job'
       },
+      onNoBackendSubmission: () => {
+        clearForeverBatchSubmit()
+        recordUnsubmittedForeverWork(options)
+      },
+      onBackendRejected: () => {
+        clearForeverBatchSubmit()
+        void recordForeverFailure()
+      },
     })
-    return
+    return { submitted: true, declineReservation: false }
   }
 
   // Check if this is a batch submission (any input has a set)
@@ -4002,7 +4087,12 @@ async function submitOneJob() {
       console.error('Set input missing setId')
       submissionError.value = 'Invalid set input'
       removePendingEnhancementJob()
-      return
+      return noSubmit(options)
+    }
+    const trackForeverBatchSubmit = options.foreverSessionId != null && isForeverSubmissionCurrent(options)
+    if (trackForeverBatchSubmit) foreverModeBatchSubmitInFlight.value = true
+    const clearForeverBatchSubmit = () => {
+      if (trackForeverBatchSubmit) foreverModeBatchSubmitInFlight.value = false
     }
 
     // Build parameters with set reference for the first media input
@@ -4022,9 +4112,10 @@ async function submitOneJob() {
       prompt,
       promptOptions,
       imageSize,
-      cachedImprovedPrompt: cachedPrompt,
       buildPayload: (processedPrompt, promptMetadata) => ({
         ...basePayload,
+        prompt_options: promptOptions || undefined,
+        forever_work_reserved: options.foreverReserved === true,
         parameters: {
           ...batchParameters,
           ...(toolHasPrompt ? { prompt: processedPrompt } : {}),
@@ -4032,6 +4123,11 @@ async function submitOneJob() {
         prompt_metadata: promptMetadata,
         // Let backend generate smart title from input set info
       }),
+      shouldSubmit: () => isForeverSubmissionCurrent(options),
+      onCancelled: () => {
+        removePendingEnhancementJob()
+        clearForeverBatchSubmit()
+      },
       onSubmitted: (batchInfo: BatchJobResponse) => {
         removePendingEnhancementJob()
         console.log(`Batch submitted: ${batchInfo.total_jobs} jobs, batch_id: ${batchInfo.batch_id}`)
@@ -4039,34 +4135,58 @@ async function submitOneJob() {
         if (uiState.value.generateForeverMode) {
           foreverModeActiveBatchId.value = batchInfo.batch_id
         }
+        clearForeverBatchSubmit()
       },
       onError: (err: any) => {
         removePendingEnhancementJob()
+        clearForeverBatchSubmit()
         submissionError.value = err.response?.data?.detail || 'Failed to submit batch job'
-      }
+      },
+      onNoBackendSubmission: () => {
+        clearForeverBatchSubmit()
+        recordUnsubmittedForeverWork(options)
+      },
+      onBackendRejected: () => {
+        clearForeverBatchSubmit()
+        void recordForeverFailure()
+      },
     })
   } else {
     // Regular single-job submission
+    const promptPreload = consumePreloadHint()
+    if (promptPreload) onCacheUsed()
     submitJobAsync({
       prompt,
       promptOptions,
       imageSize,
-      cachedImprovedPrompt: cachedPrompt,
       buildPayload: (processedPrompt, promptMetadata) => ({
         ...basePayload,
+        prompt_options: promptOptions || undefined,
+        prompt_preload: promptPreload || undefined,
+        forever_work_reserved: options.foreverReserved === true,
         parameters: {
           ...capturedState.parameters,
           ...(toolHasPrompt ? { prompt: processedPrompt } : {}),  // Override with processed prompt
         },
         prompt_metadata: promptMetadata,
       }),
+      shouldSubmit: () => isForeverSubmissionCurrent(options),
+      onCancelled: removePendingEnhancementJob,
       onSubmitted: removePendingEnhancementJob,
       onError: (err: any) => {
         removePendingEnhancementJob()
         submissionError.value = err.response?.data?.detail || 'Failed to submit job'
-      }
+      },
+      onNoBackendSubmission: () => {
+        recordUnsubmittedForeverWork(options)
+      },
+      onBackendRejected: () => {
+        void recordForeverFailure()
+      },
     })
   }
+
+  return { submitted: true, declineReservation: false }
 }
 
 function mediaIdCompanionField(field: string): string {
@@ -4124,9 +4244,17 @@ function extractMediaBatchConstantInputs(parameters: Record<string, any>, batchF
 // Forever mode
 async function startForeverMode(concurrency: number) {
   if (!tool.value) return
+  if (uiState.value.generateForeverMode) {
+    await stopForeverMode()
+  }
+  foreverModeSessionId.value++
   uiState.value.generateForeverMode = true
   modelParams.value.randomizeSeed = true
   foreverModeIdleCount.value = 0  // Reset idle counter on start
+  consecutiveFailures.value = 0
+  foreverModeBatchSubmitInFlight.value = false
+  workRequestQueue.value = []
+  updateConcurrentJobs(concurrency)
   try {
     await axios.post(`${API_BASE}/generate/forever/register`, null, {
       params: {
@@ -4143,9 +4271,12 @@ async function startForeverMode(concurrency: number) {
 
 async function stopForeverMode() {
   if (!tool.value) return
+  foreverModeSessionId.value++
   uiState.value.generateForeverMode = false
   foreverModeActiveBatchId.value = null  // Clear active batch tracking
   foreverModePendingBatchCompletion.value = null
+  foreverModeBatchSubmitInFlight.value = false
+  workRequestQueue.value = []
   try {
     await axios.post(`${API_BASE}/generate/forever/unregister`, null, {
       params: {
@@ -5150,10 +5281,13 @@ const { on: onWebSocketEvent, send: sendWebSocketMessage, connected: wsConnected
 
 watch(wsConnected, async (isConnected, wasConnected) => {
   if (!isConnected && wasConnected) {
+    foreverModeSessionId.value++
+    workRequestQueue.value = []
     // On disconnect, clear forever mode batch tracking to prevent stalls
     // (if backend crashes mid-batch, the batch_completed event never fires)
     foreverModeActiveBatchId.value = null
     foreverModePendingBatchCompletion.value = null
+    foreverModeBatchSubmitInFlight.value = false
   }
 
   if (isConnected && tool.value) {
@@ -5207,13 +5341,21 @@ watch(toolAvailability, (availability) => {
   startAvailabilityPolling()
 })
 
-// Queue of pending work requests (count of how many jobs to submit)
-const workRequestQueue = ref(0)
+type ForeverWorkRequest = {
+  backendName: string
+  sessionId: number
+  reserved: boolean
+}
+
+// Queue of pending work requests, preserving the backend reservation each came from.
+const workRequestQueue = ref<ForeverWorkRequest[]>([])
 const processingWorkQueue = ref(false)
+const foreverModeSessionId = ref(0)
 
 // Track active batch in forever mode (batches run sequentially, not in parallel)
 const foreverModeActiveBatchId = ref<string | null>(null)
 const foreverModePendingBatchCompletion = ref<any | null>(null)
+const foreverModeBatchSubmitInFlight = ref(false)
 
 // Track consecutive failures to auto-disable forever mode
 const consecutiveFailures = ref(0)
@@ -5224,6 +5366,10 @@ function isInBatchMode(): boolean {
   if (globalPrefs.value.batchMode) return true
   const inputImages = globalPrefs.value.inputImages || []
   return inputImages.some((img: any) => img.isSet)
+}
+
+function isForeverBatchBlocked(): boolean {
+  return !!foreverModeActiveBatchId.value || foreverModeBatchSubmitInFlight.value
 }
 
 function declineWorkRequest(backendName: string) {
@@ -5244,14 +5390,18 @@ async function handleWorkRequest(data: any) {
 
   // In batch mode, ignore work requests if a batch is already running
   // (batches should run sequentially, parallelization happens within the batch)
-  if (isInBatchMode() && foreverModeActiveBatchId.value) {
+  if (isInBatchMode() && isForeverBatchBlocked()) {
     console.log('[Forever Mode] Ignoring work request - batch already in progress')
     declineWorkRequest(data.backend_name)
     return
   }
 
   // Queue this work request
-  workRequestQueue.value++
+  workRequestQueue.value.push({
+    backendName: data.backend_name,
+    sessionId: foreverModeSessionId.value,
+    reserved: true,
+  })
 
   // Process queue if not already processing
   if (!processingWorkQueue.value) {
@@ -5264,16 +5414,30 @@ async function processWorkQueue() {
   processingWorkQueue.value = true
 
   try {
-    while (workRequestQueue.value > 0 && uiState.value.generateForeverMode && canSubmit.value) {
+    while (workRequestQueue.value.length > 0 && uiState.value.generateForeverMode && canSubmit.value) {
       // In batch mode, only process if no batch is active
-      if (isInBatchMode() && foreverModeActiveBatchId.value) {
+      if (isInBatchMode() && isForeverBatchBlocked()) {
         console.log('[Forever Mode] Waiting for current batch to complete')
         break
       }
 
-      workRequestQueue.value--
+      const request = workRequestQueue.value.shift()
+      if (!request) continue
+      if (request.sessionId !== foreverModeSessionId.value) {
+        continue
+      }
       modelParams.value.seed = generateRandomSeed()
-      await submitJob()
+      const result = await submitJob({
+        foreverBackendName: request.backendName,
+        foreverSessionId: request.sessionId,
+        foreverReserved: request.reserved,
+      })
+      if (!result.submitted && result.declineReservation) {
+        declineWorkRequest(request.backendName)
+        if (isForeverSubmissionCurrent({ foreverSessionId: request.sessionId })) {
+          void recordForeverFailure()
+        }
+      }
 
       // In batch mode, stop after submitting one batch - wait for completion
       if (isInBatchMode()) {
@@ -5282,11 +5446,12 @@ async function processWorkQueue() {
     }
   } finally {
     // Decline any remaining queued work requests that won't be processed
-    if (workRequestQueue.value > 0 && tool.value) {
-      const remaining = workRequestQueue.value
-      workRequestQueue.value = 0
-      for (let i = 0; i < remaining; i++) {
-        declineWorkRequest(tool.value.generator)
+    if (workRequestQueue.value.length > 0 && tool.value) {
+      const remaining = workRequestQueue.value.splice(0)
+      for (const request of remaining) {
+        if (request.reserved && request.sessionId === foreverModeSessionId.value) {
+          declineWorkRequest(request.backendName)
+        }
       }
     }
     processingWorkQueue.value = false
@@ -5294,6 +5459,17 @@ async function processWorkQueue() {
 }
 
 // Forever mode failure tracking
+async function recordForeverFailure() {
+  if (!uiState.value.generateForeverMode) return
+
+  consecutiveFailures.value++
+
+  if (consecutiveFailures.value >= MAX_CONSECUTIVE_FAILURES) {
+    consecutiveFailures.value = 0
+    await stopForeverMode()
+  }
+}
+
 async function handleForeverModeJobCompleted(data: any) {
   // Only track jobs from this generator instance
   if (data.generator_instance_id !== generatorInstanceId) return
@@ -5314,12 +5490,7 @@ async function handleForeverModeJobFailed(data: any) {
   if (data.generator_instance_id !== generatorInstanceId) return
   if (!uiState.value.generateForeverMode) return
 
-  consecutiveFailures.value++
-
-  if (consecutiveFailures.value >= MAX_CONSECUTIVE_FAILURES) {
-    consecutiveFailures.value = 0
-    await stopForeverMode()
-  }
+  await recordForeverFailure()
 }
 
 async function handleForeverModeBatchCompleted(data: any) {
@@ -5368,7 +5539,11 @@ async function maybeResumeForeverModeBatch() {
 
   // Queue another work request to continue forever mode
   if (uiState.value.generateForeverMode && canSubmit.value) {
-    workRequestQueue.value++
+    workRequestQueue.value.push({
+      backendName: tool.value.generator,
+      sessionId: foreverModeSessionId.value,
+      reserved: false,
+    })
     if (!processingWorkQueue.value) {
       await processWorkQueue()
     }
@@ -5412,7 +5587,8 @@ async function openSlideshow(job: any) {
     startIndex: index,
     pageProvider: jobsManager.fetchGeneratedImages,
     randomized: false,
-    randomSeed: null
+    randomSeed: null,
+    autoAdvanceOnNew: true
   })
 }
 
@@ -5432,7 +5608,8 @@ async function openSingleImageSlideshow(mediaId: number) {
     startIndex: 0,
     pageProvider: singleImageProvider,
     randomized: false,
-    randomSeed: null
+    randomSeed: null,
+    autoAdvanceOnNew: false
   })
 }
 
@@ -5457,7 +5634,8 @@ async function openMediaBatchSlideshow(mediaIds: number[]) {
     startIndex: 0,
     pageProvider: batchProvider,
     randomized: false,
-    randomSeed: null
+    randomSeed: null,
+    autoAdvanceOnNew: false
   })
 }
 
@@ -5695,6 +5873,10 @@ onDeactivated(() => {
 })
 
 onUnmounted(async () => {
+  foreverModeSessionId.value++
+  workRequestQueue.value = []
+  foreverModeBatchSubmitInFlight.value = false
+
   // Clean up profile change listeners
   window.removeEventListener('profile-will-change', handleProfileWillChange)
   window.removeEventListener('profile-changed', handleProfileChanged)
