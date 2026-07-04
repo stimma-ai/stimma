@@ -227,8 +227,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onActivated, onUnmounted, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onActivated, onUnmounted, nextTick , watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
 import { useToasts } from '../composables/useToasts'
@@ -259,6 +259,13 @@ const chats = ref([])
 const loading = ref(true)
 const loadError = ref(false)
 const searchQuery = ref('')
+
+// Global search "View all" handoff: seed the local filter from ?q= so the
+// omnibox's per-type result caps never hide matches for good.
+const route = useRoute()
+watch(() => route.query.q, (q) => {
+  if (typeof q === 'string' && q) searchQuery.value = q
+}, { immediate: true })
 
 // Inline editing state
 const editingChatId = ref(null)

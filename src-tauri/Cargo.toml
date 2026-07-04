@@ -35,6 +35,7 @@ cpal = "0.15"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 futures-util = "0.3"
 crc32fast = "1.4"
+sherpa-onnx = "1.13.3"
 
 # Whisper is built with Metal acceleration on macOS and CPU elsewhere.
 # `whisper-cpp-log` routes whisper.cpp/ggml's internal logging (per-token decoder

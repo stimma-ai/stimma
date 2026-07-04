@@ -37,6 +37,7 @@ export const TASK_TYPE_ICON_SVGS: Record<string, string> = {
   'outpaint-image': '<rect x="8.5" y="8.5" width="7" height="7" rx="1"/><path d="M5 8V5h3M16 5h3v3M19 16v3h-3M8 19H5v-3"/>',
   'text-to-video': '<rect x="2.5" y="6" width="15" height="12" rx="2"/><path d="M17.5 10l4-2.5v9l-4-2.5z"/><path d="M6 9.5h0.01M6 14.5h0.01"/>',
   'image-to-video': '<rect x="2.5" y="6" width="15" height="12" rx="2"/><path d="M17.5 10l4-2.5v9l-4-2.5z"/><path d="M8 9.5l4 2.5-4 2.5z" fill="currentColor" stroke="none"/>',
+  'video-to-video': '<rect x="2.5" y="6" width="15" height="12" rx="2"/><path d="M17.5 10l4-2.5v9l-4-2.5z"/><path d="M6.5 9h5M6.5 12h5M6.5 15h5"/>',
   'video-stitch': '<rect x="2.5" y="7" width="8" height="10" rx="1.5"/><rect x="13.5" y="7" width="8" height="10" rx="1.5"/><path d="M12 5v14" stroke-dasharray="2 2"/>',
   'video-extend': '<rect x="2.5" y="7" width="11" height="10" rx="1.5"/><path d="M16.5 12h5M19 9.5l2.5 2.5-2.5 2.5"/>',
   'upscale-image': '<path d="M4 8V5a1 1 0 0 1 1-1h3"/><path d="M20 8V5a1 1 0 0 0-1-1h-3"/><path d="M4 16v3a1 1 0 0 0 1 1h3"/><path d="M20 16v3a1 1 0 0 0-1 1h-3"/><rect x="9" y="9" width="6" height="6" rx="1"/>',
@@ -69,6 +70,7 @@ export const TASK_TYPE_ICON_PATHS: Record<string, string> = {
   'outpaint-image': 'M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15',
   'text-to-video': 'm15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z',
   'image-to-video': 'm15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z',
+  'video-to-video': 'm15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z',
   'video-stitch': 'm15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z',
   'video-extend': 'm15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z',
   'upscale-image': 'M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15',
@@ -88,6 +90,7 @@ export const TASK_TYPE_GRADIENT_CLASSES: Record<string, string> = {
   'outpaint-image': 'bg-gradient-to-br from-pink-500/80 to-pink-700/80',
   'text-to-video': 'bg-gradient-to-br from-emerald-500/80 to-emerald-700/80',
   'image-to-video': 'bg-gradient-to-br from-teal-500/80 to-teal-700/80',
+  'video-to-video': 'bg-gradient-to-br from-lime-500/80 to-green-700/80',
   'video-stitch': 'bg-gradient-to-br from-cyan-500/80 to-cyan-700/80',
   'video-extend': 'bg-gradient-to-br from-sky-500/80 to-sky-700/80',
   'upscale-image': 'bg-gradient-to-br from-amber-500/80 to-amber-700/80',
@@ -119,6 +122,7 @@ export const TASK_TYPE_LABELS: Record<string, string> = {
   'outpaint-image': 'Outpaint',
   'text-to-video': 'Text to Video',
   'image-to-video': 'Image to Video',
+  'video-to-video': 'Video to Video',
   'video-stitch': 'Video Stitch',
   'video-extend': 'Video Extend',
   'upscale-image': 'Upscale Image',
@@ -141,6 +145,7 @@ export const TASK_TYPE_ORDER = [
   'outpaint-image',
   'image-to-video',
   'text-to-video',
+  'video-to-video',
   'upscale-image',
   'remove-background',
   'filter',
@@ -172,6 +177,7 @@ export const TASK_INPUT_MEDIA: Record<string, Array<'image' | 'video' | 'audio'>
   // Built-in filters mostly apply to stills and (per-frame) video alike; a
   // few (e.g. reverse) are video-only via their own x-accept-media override.
   'filter': ['image', 'video'],
+  'video-to-video': ['video'],
   'upscale-video': ['video'],
   'video-stitch': ['video'],
   'video-extend': ['video'],
@@ -325,7 +331,12 @@ export function getTaskTypeIconPath(taskType: string): string {
  * Get the human-readable label for a task type
  */
 export function formatTaskTypeLabel(taskType: string): string {
-  return TASK_TYPE_LABELS[taskType] || taskType
+  if (TASK_TYPE_LABELS[taskType]) return TASK_TYPE_LABELS[taskType]
+  return taskType
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 }
 
 /**

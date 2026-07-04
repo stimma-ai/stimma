@@ -63,12 +63,13 @@
       </p>
     </div>
 
-    <!-- Voice Input (on-device Whisper) -->
+    <!-- Voice Input (on-device ASR) -->
     <div v-if="voiceSupported" class="p-4 rounded-lg border border-edge mb-6">
       <div class="flex items-center justify-between gap-4">
         <div class="flex-1 min-w-0">
           <h4 class="text-sm font-medium text-content">Voice Input</h4>
           <p class="text-xs text-content-tertiary mt-0.5">Audio is processed entirely on your device</p>
+          <p class="text-xs text-content-muted mt-1">{{ selectedVoiceModel.description }}</p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           <svg
@@ -84,8 +85,13 @@
             @change="voiceModel = $event.target.value"
             class="w-52 bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500"
           >
-            <option value="base.en">Whisper Base (142 MB)</option>
-            <option value="small.en">Whisper Small (466 MB)</option>
+            <option
+              v-for="model in VOICE_MODELS"
+              :key="model.id"
+              :value="model.id"
+            >
+              {{ model.label }} ({{ model.size }})
+            </option>
           </select>
         </div>
       </div>
@@ -340,7 +346,7 @@ import { ref, watch, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
 import { useAvailableModels } from '../../../composables/useAvailableModels'
-import { voiceModel, isModelReady, supported as voiceSupported } from '../../../composables/useVoiceInput'
+import { VOICE_MODELS, voiceModel, isModelReady, supported as voiceSupported } from '../../../composables/useVoiceInput'
 
 const props = defineProps({
   llmSettings: {
@@ -353,6 +359,9 @@ const emit = defineEmits(['update'])
 
 // --- Voice input model (on-device Whisper) ---
 const voiceModelReady = ref(false)
+const selectedVoiceModel = computed(() => {
+  return VOICE_MODELS.find(model => model.id === voiceModel.value) || VOICE_MODELS[0]
+})
 async function refreshVoiceModelReady() {
   voiceModelReady.value = await isModelReady(voiceModel.value)
 }

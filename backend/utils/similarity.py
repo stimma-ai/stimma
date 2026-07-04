@@ -15,6 +15,41 @@ from database import Face, MediaItem
 
 DEFAULT_FACE_SIMILARITY_THRESHOLD = 0.55
 
+DEFAULT_RELEVANCE_K = 2.5
+MIN_SCORES_FOR_RELEVANCE_CUTOFF = 30
+
+
+def compute_relevance_cutoff(
+    scores: Sequence[float],
+    absolute_floor: float,
+    k: float = DEFAULT_RELEVANCE_K,
+    min_n: int = MIN_SCORES_FOR_RELEVANCE_CUTOFF,
+) -> float:
+    """
+    Derive a per-query relevance cutoff from the shape of a CLIP text->image score
+    distribution, instead of a single flat threshold.
+
+    A real visual concept produces a spiky head of scores clearly separated from
+    the body of the library. A nonsense or non-visual query produces a flat
+    distribution where the "top" score is statistically indistinguishable from
+    the median. This uses a robust contrast test (median + k*MAD) to detect that
+    separation, floored at `absolute_floor` so a homogeneous-but-relevant library
+    (e.g. an all-dog library queried with "dog", which is flat-but-high) isn't
+    dropped just for lacking contrast.
+    """
+    if len(scores) < min_n:
+        return absolute_floor
+
+    arr = np.asarray(scores, dtype=np.float64)
+    median = float(np.median(arr))
+    mad = float(np.median(np.abs(arr - median)))
+
+    if mad == 0.0:
+        return absolute_floor
+
+    contrast_cutoff = median + k * mad
+    return max(absolute_floor, contrast_cutoff)
+
 
 def parse_similarity_ids(raw_ids: str, field_name: str, max_ids: int = 3) -> list[int]:
     """Parse a comma-separated list of media IDs for similarity filters."""

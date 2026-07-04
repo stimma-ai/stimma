@@ -52,6 +52,11 @@ TASK_SCHEMA_REQUIREMENTS: Dict[str, Dict[str, List[str]]] = {
         "optional_input": ["negative_prompt"],
         "required_output": ["assets"],
     },
+    TaskType.VIDEO_TO_VIDEO.value: {
+        "required_input": ["input_videos"],
+        "optional_input": ["prompt", "negative_prompt"],
+        "required_output": ["assets"],
+    },
     TaskType.UPSCALE_IMAGE.value: {
         "required_input": ["input_images"],
         "optional_input": [],

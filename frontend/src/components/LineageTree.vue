@@ -240,6 +240,7 @@ import ImageDetailsCard from './media/ImageDetailsCard.vue'
 import { useMarkers } from '../composables/useMarkers'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
+import { formatTaskTypeLabel } from '../utils/taskTypeIcons'
 
 const router = useRouter()
 const props = defineProps({
@@ -626,14 +627,14 @@ async function fetchTree() {
 function formatEdgeLabel(edge) {
   if (!edge) return ''
   if (edge.relationship_type === 'inspired') return 'Remixed'
-  const labels = { 'image-to-image': 'Edited', 'text-to-image': 'Generated', 'upscale': 'Upscaled', 'grid-creation': 'Grid', 'set-creation': 'Set', 'image-editor': 'Edited' }
-  return labels[edge.task_type] || edge.task_type?.replace(/^.*:/, '').replace(/-/g, ' ') || ''
+  const labels = { 'image-to-image': 'Edited', 'video-to-video': 'Video Edited', 'text-to-image': 'Generated', 'upscale': 'Upscaled', 'upscale-image': 'Upscaled', 'upscale-video': 'Upscaled', 'video-extend': 'Extended', 'video-stitch': 'Stitched', 'grid-creation': 'Grid', 'set-creation': 'Set', 'image-editor': 'Edited' }
+  return labels[edge.task_type] || formatTaskTypeLabel(edge.task_type?.replace(/^.*:/, '') || '')
 }
 
 function formatNodeLabel(taskType) {
   if (!taskType) return ''
-  const labels = { 'image-to-image': 'Edited', 'text-to-image': 'Generated', 'upscale': 'Upscaled', 'grid-creation': 'Grid', 'set-creation': 'Set', 'image-editor': 'Edited' }
-  return labels[taskType] || taskType.replace(/^.*:/, '').replace(/-/g, ' ')
+  const labels = { 'image-to-image': 'Edited', 'video-to-video': 'Video Edited', 'text-to-image': 'Generated', 'upscale': 'Upscaled', 'upscale-image': 'Upscaled', 'upscale-video': 'Upscaled', 'video-extend': 'Extended', 'video-stitch': 'Stitched', 'grid-creation': 'Grid', 'set-creation': 'Set', 'image-editor': 'Edited' }
+  return labels[taskType] || formatTaskTypeLabel(taskType.replace(/^.*:/, ''))
 }
 
 function formatToolId(toolId) {

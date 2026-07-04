@@ -214,7 +214,7 @@ function handleJobClick() {
   if (props.job.status === 'completed' || props.job.status === 'failed') emit('job-click', props.job)
 }
 function onDragStart(event: DragEvent, mediaId?: number) {
-  if (mediaId) createDragPreview(event, getThumbnailUrl(mediaId, 128), mediaId)
+  if (mediaId) createDragPreview(event, getThumbnailUrl(mediaId, 128), mediaId, undefined, props.isVideo)
 }
 function handleVideoContextMenu(event: MouseEvent, mediaId?: number) {
   if (mediaId) contextMenu.show({ event, mediaId, fileHash: props.mediaHashes[mediaId] })

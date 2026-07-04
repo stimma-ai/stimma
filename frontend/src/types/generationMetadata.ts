@@ -60,7 +60,7 @@ export interface GenerationMetadata {
   version?: number
   /** "stimma" | "flow" | "external" | "batch" | "agent_v2_*" | "flow_create_layout" ... */
   source?: string
-  /** text-to-image, image-to-image, image-to-video, layout, document-creation, ... */
+  /** text-to-image, image-to-image, image-to-video, video-to-video, layout, document-creation, ... */
   task_type?: string
   tool_id?: string | null
   generator?: string | null

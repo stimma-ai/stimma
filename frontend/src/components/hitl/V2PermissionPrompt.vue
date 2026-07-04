@@ -174,6 +174,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'
 import { MediaImage } from '../media'
 import { useTheme } from '../../composables/useTheme'
 
@@ -247,10 +248,7 @@ const codeBlockClass = computed(() => isLight.value
 )
 
 function formatTaskType(taskType: string) {
-  return taskType
-    .split('-')
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
+  return formatTaskTypeLabel(taskType)
 }
 
 const taskTypeLabel = computed(() => {

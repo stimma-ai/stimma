@@ -613,7 +613,9 @@ async def extract_video_frame(
             raise HTTPException(status_code=400, detail="Provide a file or source_path")
 
         try:
-            img, time_used, duration, fps = extract_frame_to_image(video_path, position, time_seconds)  # type: ignore[arg-type]
+            img, time_used, duration, fps = await asyncio.to_thread(
+                extract_frame_to_image, video_path, position, time_seconds  # type: ignore[arg-type]
+            )
         except RuntimeError as e:
             # ffmpeg unavailable — factual message, surfaced to the user.
             raise HTTPException(status_code=422, detail=str(e))
@@ -664,7 +666,8 @@ async def frame_preview(source_path: str, t: float = 0.0, w: int = 512):
 
     video_path = _validate_media_source_path(source_path)
     try:
-        img, _, _, _ = extract_frame_to_image(video_path, "custom", t)
+        # to_thread: the ffmpeg extraction would otherwise block the event loop
+        img, _, _, _ = await asyncio.to_thread(extract_frame_to_image, video_path, "custom", t)
     except (RuntimeError, ValueError) as e:
         raise HTTPException(status_code=422, detail=str(e))
 
@@ -700,13 +703,29 @@ async def frame_strip(source_path: str, count: int = 12, w: int = 96):
     out_path = cache_dir / f"{key}.jpg"
 
     if not out_path.exists():
+        # Off the event loop: building the montage shells out to ffmpeg ~count
+        # times and takes seconds — inline it and every other request (including
+        # the video file itself) stalls behind it.
         try:
-            strip = build_filmstrip(video_path, count, w)
+            strip = await asyncio.to_thread(build_filmstrip, video_path, count, w)
         except (RuntimeError, ValueError) as e:
             raise HTTPException(status_code=422, detail=str(e))
         strip.save(out_path, "JPEG", quality=78)
 
     return FileResponse(out_path, media_type="image/jpeg")
+
+
+@router.get("/video-info")
+async def video_info(source_path: str):
+    """
+    Duration + fps for a library video. Drives the slideshow transport readout
+    (frames mode needs the source frame rate, which media rows don't carry).
+    """
+    from utils.video_frames import probe_video_info
+
+    video_path = _validate_media_source_path(source_path)
+    duration, fps = await asyncio.to_thread(probe_video_info, video_path)
+    return {"duration": duration, "fps": fps}
 
 
 class ReferencePreprocessRequest(BaseModel):

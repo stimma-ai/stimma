@@ -235,7 +235,7 @@
       />
 
       <!-- Action bar: undo/redo/settings lower-left, send lower-right -->
-      <div class="flex items-center justify-between px-2.5 pb-2 pt-1">
+      <div class="flex items-center justify-between px-2.5 pb-2 pt-2">
         <div class="flex items-center gap-0.5">
           <button
             @click="undo"

@@ -265,7 +265,7 @@ export function useSendToTool() {
 
       if (['image-to-image', 'upscale-image', 'inpaint-image', 'outpaint-image', 'remove-background'].includes(effectiveTaskType) || hasInputImage) {
         sessionStorage.setItem(storageKey, JSON.stringify({ inputImages: mediaEntries, appendImages: true }))
-      } else if (effectiveTaskType === 'upscale-video' || effectiveTaskType === 'video-extend') {
+      } else if (effectiveTaskType === 'upscale-video' || effectiveTaskType === 'video-to-video' || effectiveTaskType === 'video-extend') {
         sessionStorage.setItem(storageKey, JSON.stringify({ inputVideos: mediaEntries }))
       } else if (effectiveTaskType === 'video-stitch') {
         sessionStorage.setItem(storageKey, JSON.stringify({ inputVideos: mediaEntries }))

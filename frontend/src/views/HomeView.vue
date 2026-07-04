@@ -75,6 +75,7 @@
                 v-for="board in visibleBoards"
                 :key="board.id"
                 @click="openBoard(board.id)"
+                @contextmenu="handleBoardContextMenu($event, board)"
                 @dragover.prevent="dragOverBoardId = board.id"
                 @dragleave="dragOverBoardId === board.id && (dragOverBoardId = null)"
                 @drop.prevent="handleBoardDrop(board.id, $event)"
@@ -123,6 +124,7 @@
                 v-for="flow in visibleFlows"
                 :key="flow.id"
                 @click="openFlow(flow)"
+                @contextmenu="handleFlowContextMenu($event, flow)"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
               >
                 <EntityIcon type="flow" size="md" />
@@ -159,6 +161,7 @@
                 v-for="chat in visibleChats"
                 :key="chat.id"
                 @click="openChat(chat)"
+                @contextmenu="handleChatContextMenu($event, chat)"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
               >
                 <div v-if="hasChatMedia(chat)" class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden">
@@ -187,6 +190,13 @@
         </div>
       </div>
     </div>
+
+    <EntityContextMenu
+      @open="handleContextMenuOpen"
+      @delete="handleContextMenuDelete"
+      @rename="handleContextMenuRename"
+      @move-to-project="handleContextMenuMoveToProject"
+    />
   </div>
 </template>
 
@@ -195,19 +205,24 @@ import { ref, computed, onMounted, onActivated, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { MediaImage } from '../components/media'
 import EntityIcon from '../components/EntityIcon.vue'
+import EntityContextMenu from '../components/EntityContextMenu.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import FlowStatusPill from '../components/flow/FlowStatusPill.vue'
 import { useSlideshow } from '../composables/useSlideshow'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useFlowsApi } from '../composables/useFlowsApi'
+import { useEntityContextMenu } from '../composables/useEntityContextMenu'
+import { useToasts } from '../composables/useToasts'
 import { getDroppedMediaIds } from '../composables/useDragPreview'
 import { pendingMedia, consumePendingMedia } from '../composables/usePendingMedia'
 
 const router = useRouter()
-const { getMediaItem, getBoards, getBoard, addMediaToBoard } = useMediaApi()
-const { listFlows } = useFlowsApi()
+const { getMediaItem, getBoards, getBoard, addMediaToBoard, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
+const { listFlows, updateFlow, deleteFlow, restoreFlow } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
+const entityContextMenu = useEntityContextMenu()
+const { addToast } = useToasts()
 
 const chatInputBoxRef = ref(null)
 const contentRef = ref(null)
@@ -399,6 +414,178 @@ function openBoard(boardId) {
 
 function openFlow(flow) {
   router.push({ name: 'flow', params: { id: String(flow.id) } })
+}
+
+// ==================== Entity context menu ====================
+
+function handleBoardContextMenu(event, board) {
+  entityContextMenu.show({
+    event,
+    entityType: 'board',
+    entityId: board.id,
+    entityName: board.name || 'Untitled',
+    projectId: board.project_id ?? null,
+    isSelected: false,
+    selectedCount: 0
+  })
+}
+
+function handleFlowContextMenu(event, flow) {
+  entityContextMenu.show({
+    event,
+    entityType: 'flow',
+    entityId: flow.id,
+    entityName: flow.name || 'Untitled',
+    projectId: flow.project_id ?? null,
+    isSelected: false,
+    selectedCount: 0
+  })
+}
+
+function handleChatContextMenu(event, chat) {
+  entityContextMenu.show({
+    event,
+    entityType: 'chat',
+    entityId: chat.id,
+    entityName: chat.name || 'Untitled',
+    projectId: chat.project_id ?? null,
+    isSelected: false,
+    selectedCount: 0
+  })
+}
+
+function handleContextMenuOpen(entityType, entityId) {
+  if (entityType === 'board') openBoard(entityId)
+  else if (entityType === 'flow') router.push({ name: 'flow', params: { id: String(entityId) } })
+  else if (entityType === 'chat') router.push({ name: 'chat', params: { id: entityId } })
+}
+
+function handleContextMenuRename(entityType, entityId) {
+  if (entityType === 'board') router.push({ name: 'board-detail', params: { id: entityId }, query: { rename: '1' } })
+  else if (entityType === 'flow') router.push({ name: 'flow', params: { id: String(entityId) }, query: { rename: '1' } })
+  else if (entityType === 'chat') router.push({ name: 'chat', params: { id: entityId }, query: { rename: '1' } })
+}
+
+async function handleContextMenuMoveToProject(entityType, entityId, projectId) {
+  try {
+    if (entityType === 'board') {
+      await updateBoard(entityId, { project_id: projectId })
+      await loadRecentBoards()
+    } else if (entityType === 'flow') {
+      await updateFlow(entityId, { project_id: projectId })
+      await loadRecentFlows()
+    } else if (entityType === 'chat') {
+      await fetch(`/api/chats/${entityId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: projectId })
+      })
+      await loadRecentChats()
+    }
+  } catch (err) {
+    console.error(`Failed to move ${entityType} to project:`, err)
+  }
+}
+
+function handleContextMenuDelete(entityType, entityId) {
+  if (entityType === 'board') deleteBoardEntry(entityId)
+  else if (entityType === 'flow') deleteFlowEntry(entityId)
+  else if (entityType === 'chat') deleteChatEntry(entityId)
+}
+
+async function deleteBoardEntry(id) {
+  const removed = recentBoards.value.find((b) => b.id === id)
+  if (!removed) return
+  recentBoards.value = recentBoards.value.filter((b) => b.id !== id)
+
+  try {
+    await deleteBoard(id)
+  } catch (err) {
+    console.error('Failed to delete board:', err)
+    recentBoards.value = [removed, ...recentBoards.value]
+    addToast('Failed to delete board', 'error', 5000)
+    return
+  }
+
+  addToast('Deleted 1 board', 'info', 5000, {
+    label: 'Undo',
+    onClick: async () => {
+      if (!recentBoards.value.find((b) => b.id === id)) {
+        recentBoards.value = [removed, ...recentBoards.value]
+      }
+      try {
+        await restoreBoard(id)
+      } catch (err) {
+        console.error('Failed to restore board:', err)
+        recentBoards.value = recentBoards.value.filter((b) => b.id !== id)
+        addToast('Failed to restore board', 'error', 5000)
+      }
+    }
+  })
+}
+
+async function deleteFlowEntry(id) {
+  const removed = recentFlows.value.find((r) => r.id === id)
+  if (!removed) return
+  recentFlows.value = recentFlows.value.filter((r) => r.id !== id)
+
+  try {
+    await deleteFlow(id)
+  } catch (err) {
+    console.error('Failed to delete flow:', err)
+    recentFlows.value = [removed, ...recentFlows.value]
+    addToast('Failed to delete flow', 'error', 5000)
+    return
+  }
+
+  addToast('Deleted 1 flow', 'info', 5000, {
+    label: 'Undo',
+    onClick: async () => {
+      if (!recentFlows.value.find((r) => r.id === id)) {
+        recentFlows.value = [removed, ...recentFlows.value]
+      }
+      try {
+        await restoreFlow(id)
+      } catch (err) {
+        console.error('Failed to restore flow:', err)
+        recentFlows.value = recentFlows.value.filter((r) => r.id !== id)
+        addToast('Failed to restore flow', 'error', 5000)
+      }
+    }
+  })
+}
+
+async function deleteChatEntry(id) {
+  const removed = recentChats.value.find((c) => c.id === id)
+  if (!removed) return
+  recentChats.value = recentChats.value.filter((c) => c.id !== id)
+
+  try {
+    const response = await fetch(`/api/chats/${id}`, { method: 'DELETE' })
+    if (!response.ok) throw new Error('delete failed')
+  } catch (err) {
+    console.error('Failed to delete chat:', err)
+    recentChats.value = [removed, ...recentChats.value]
+    addToast('Failed to delete chat', 'error', 5000)
+    return
+  }
+
+  addToast('Deleted 1 chat', 'info', 5000, {
+    label: 'Undo',
+    onClick: async () => {
+      if (!recentChats.value.find((c) => c.id === id)) {
+        recentChats.value = [removed, ...recentChats.value]
+      }
+      try {
+        const response = await fetch(`/api/chats/${id}/restore`, { method: 'POST' })
+        if (!response.ok) throw new Error('restore failed')
+      } catch (err) {
+        console.error('Failed to restore chat:', err)
+        recentChats.value = recentChats.value.filter((c) => c.id !== id)
+        addToast('Failed to restore chat', 'error', 5000)
+      }
+    }
+  })
 }
 
 async function handleBoardDrop(boardId, event) {

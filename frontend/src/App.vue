@@ -162,7 +162,7 @@
 <script setup>
 import axios from 'axios'
 import { useTelemetry } from './composables/useTelemetry'
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavigationSidebar from './components/NavigationSidebar.vue'
 import ProjectScopeBar from './components/ProjectScopeBar.vue'
@@ -174,6 +174,7 @@ import SettingsModal from './components/settings/SettingsModal.vue'
 import FeedbackRoot from '@stimma/feedback-root'
 import { useProfile } from './composables/useProfile'
 import { useAuth } from './composables/useAuth'
+import { requestGlobalSearchFocus } from './composables/useGlobalSearch'
 import {
   profileRequiresPin,
   hasCachedPin,
@@ -277,6 +278,11 @@ const projectChrome = ref({
   activeRouteName: '',
   surfaceLabel: ''
 })
+
+// Current project context for the global search omnibox scope chip. Follows
+// the same resolution as the ProjectScopeBar: whenever that bar is visible,
+// search opens scoped to that project.
+provide('searchProjectScope', computed(() => projectChrome.value.project))
 
 // Generate a unique component key for each route
 // For tools and chats, include the ID so each gets its own cached instance
@@ -455,6 +461,13 @@ async function toggleDeveloperMode() {
 }
 
 function handleKeydown(e) {
+  // Cmd/Ctrl+K: focus the global search omnibox
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault()
+    requestGlobalSearchFocus()
+    return
+  }
+
   // Cmd/Ctrl+, to open Settings
   if ((e.metaKey || e.ctrlKey) && e.key === ',') {
     e.preventDefault()

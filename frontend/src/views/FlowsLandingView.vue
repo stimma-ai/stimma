@@ -105,8 +105,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted , watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import FlowCard from '../components/flow/FlowCard.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
@@ -132,6 +132,13 @@ const flows = ref<Flow[]>([])
 const loading = ref(false)
 const loadError = ref<string | null>(null)
 const searchQuery = ref('')
+
+// Global search "View all" handoff: seed the local filter from ?q= so the
+// omnibox's per-type result caps never hide matches for good.
+const route = useRoute()
+watch(() => route.query.q, (q) => {
+  if (typeof q === 'string' && q) searchQuery.value = q
+}, { immediate: true })
 const renamingId = ref<number | null>(null)
 const sortKey = ref<SortKey>('updated')
 const unsubs: Array<() => void> = []

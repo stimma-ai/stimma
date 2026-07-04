@@ -153,6 +153,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
+import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'
 
 const props = defineProps<{
   prompt: string
@@ -226,9 +227,7 @@ const actionText = computed(() => {
 // Methods
 function formatTaskType(taskType: string): string {
   if (!taskType) return 'this task'
-  return taskType
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, char => char.toUpperCase())
+  return formatTaskTypeLabel(taskType)
 }
 
 function isStimmaCloud(tool: ProviderTool): boolean {

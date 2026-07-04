@@ -15,7 +15,7 @@
       <span
         class="text-[10px] uppercase font-semibold tracking-wide px-1.5 py-0.5 rounded"
         :class="typeBadgeClass"
-      >{{ task.task_type }}</span>
+      >{{ taskTypeLabel }}</span>
       <span v-if="task.phase_path?.length" class="text-[11px] text-content-muted truncate">
         {{ task.phase_path.join(' / ') }}
       </span>
@@ -142,6 +142,7 @@ import HitlActionCard from './HitlActionCard.vue'
 import HitlSelectInline from './HitlSelectInline.vue'
 import type { FlowTask } from '../../composables/useFlowsApi'
 import { parseFlowError } from '../../utils/flowErrors'
+import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'
 
 interface Props {
   task: FlowTask
@@ -172,6 +173,7 @@ const parsedTaskError = computed(() =>
 const devErrorClass = computed(() =>
   props.allowInnerScroll ? 'max-h-60 overflow-y-auto custom-scrollbar' : '',
 )
+const taskTypeLabel = computed(() => formatTaskTypeLabel(props.task.task_type))
 
 // ----- Select -----
 const selectCandidatesRaw = computed<any[]>(() => {

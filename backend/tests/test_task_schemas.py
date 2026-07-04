@@ -27,6 +27,9 @@ class TestNormalizeTaskType:
     def test_unknown_passes_through(self):
         assert normalize_task_type("totally-made-up") == "totally-made-up"
 
+    def test_enum_alias_resolves_video_to_video(self):
+        assert TaskType.from_string("v2v") == TaskType.VIDEO_TO_VIDEO
+
 
 # ---------------------------------------------------------------------------
 # Schema requirements coverage
@@ -86,6 +89,18 @@ class TestValidateToolSchema:
         errors = validate_tool_schema("image-to-video", inp, out)
         assert any("input_images" in e for e in errors)
 
+    def test_video_to_video_requires_input_videos(self):
+        inp = {"properties": {"input_videos": {}}}
+        out = {"properties": {"assets": {}}}
+        errors = validate_tool_schema("video-to-video", inp, out)
+        assert errors == []
+
+    def test_video_to_video_missing_input_videos_fails(self):
+        inp = {"properties": {"prompt": {}}}
+        out = {"properties": {"assets": {}}}
+        errors = validate_tool_schema("video-to-video", inp, out)
+        assert any("input_videos" in e for e in errors)
+
     def test_alias_resolves_in_validation(self):
         inp = {"properties": {"prompt": {}, "input_images": {}}}
         out = {"properties": {"assets": {}}}
@@ -100,6 +115,9 @@ class TestValidateToolSchema:
 class TestIsKnownTaskType:
     def test_known_type(self):
         assert is_known_task_type("text-to-image") is True
+
+    def test_video_to_video_is_known(self):
+        assert is_known_task_type("video-to-video") is True
 
     def test_alias_is_known(self):
         assert is_known_task_type("image-edit") is True

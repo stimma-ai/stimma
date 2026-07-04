@@ -1,5 +1,5 @@
 <template>
-  <div class="flex items-center justify-between px-4 h-14 bg-surface border-b border-edge-subtle flex-shrink-0" data-tauri-drag-region>
+  <div class="relative flex items-center justify-between px-4 h-14 bg-surface border-b border-edge-subtle flex-shrink-0" data-tauri-drag-region>
     <!-- Left side: navigation buttons -->
     <div class="flex items-center gap-0.5">
       <button
@@ -24,6 +24,13 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
         </svg>
       </button>
+    </div>
+
+    <!-- Center: global search omnibox -->
+    <!-- z-30: the translate wrapper traps the dropdown's z-index in its own
+         stacking context, which must outrank the view roots (relative, z-auto) -->
+    <div class="absolute left-1/2 top-0 h-full -translate-x-1/2 flex items-center z-30">
+      <GlobalSearchBox />
     </div>
 
     <!-- Right side: controls and progress -->
@@ -506,6 +513,7 @@ import { useSettingsApi } from '../composables/useSettingsApi'
 import { useAppUpdater } from '../composables/useAppUpdater'
 import { captioningEnabledRef } from '../appConfig'
 import LogoFeedbackMenu from '@stimma/logo-feedback-menu'
+import GlobalSearchBox from './search/GlobalSearchBox.vue'
 
 const router = useRouter()
 const route = useRoute()

@@ -78,6 +78,14 @@ export function useUrlState() {
       params.set('xk', filters.excludedKeywords.join(','))
     }
 
+    // Projects (membership filter, by id)
+    if (filters.selectedProjects?.length > 0) {
+      params.set('prj', filters.selectedProjects.join(','))
+    }
+    if (filters.excludedProjects?.length > 0) {
+      params.set('xprj', filters.excludedProjects.join(','))
+    }
+
     // Folders (use base64 to handle special chars in paths)
     if (filters.selectedFolders?.length > 0) {
       params.set('f', btoa(filters.selectedFolders.join('|')))
@@ -156,6 +164,14 @@ export function useUrlState() {
     if (queryParams.mt) {
       filters.mediaTypes = queryParams.mt.split(',').map(t => t === 'i' ? 'images' : 'videos')
     }
+    // Projects
+    if (queryParams.prj) {
+      filters.selectedProjects = queryParams.prj.split(',').map(Number).filter(Number.isFinite)
+    }
+    if (queryParams.xprj) {
+      filters.excludedProjects = queryParams.xprj.split(',').map(Number).filter(Number.isFinite)
+    }
+
     if (queryParams.xmt) {
       filters.excludedMediaTypes = queryParams.xmt.split(',').map(t => t === 'i' ? 'images' : 'videos')
     }

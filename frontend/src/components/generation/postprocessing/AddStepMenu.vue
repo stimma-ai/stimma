@@ -130,6 +130,7 @@ const TOOL_CATEGORIES: { label: string; taskTypes: string[] }[] = [
   { label: 'Background Removal', taskTypes: ['remove-background'] },
   { label: 'Image Edit', taskTypes: ['image-to-image'] },
   { label: 'Image to Video', taskTypes: ['image-to-video'] },
+  { label: 'Video Edit', taskTypes: ['video-to-video'] },
 ]
 
 const toolGroups = computed(() => {

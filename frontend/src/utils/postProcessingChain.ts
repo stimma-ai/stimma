@@ -203,6 +203,7 @@ export const CHAIN_TOOL_TASK_TYPES = [
   'upscale-image',
   'remove-background',
   'image-to-video',
+  'video-to-video',
   'upscale-video',
 ] as const
 
@@ -213,12 +214,12 @@ const IMAGE_IN_IMAGE_OUT = new Set(['image-to-image', 'upscale-image', 'remove-b
 // they declare their accepted media (getChainFilterAccepts) and preserve the
 // running type (image→image, video→video) — see stepAcceptedMedia / chainMediaFlow.
 export function stepInputMedia(taskType: string | undefined, _kind: ChainStepKind = 'tool'): 'image' | 'video' {
-  return taskType === 'upscale-video' ? 'video' : 'image'
+  return taskType === 'upscale-video' || taskType === 'video-to-video' ? 'video' : 'image'
 }
 
 export function stepOutputMedia(taskType: string | undefined, _kind: ChainStepKind = 'tool'): 'image' | 'video' {
   if (taskType && IMAGE_IN_IMAGE_OUT.has(taskType)) return 'image'
-  return taskType === 'image-to-video' || taskType === 'upscale-video' ? 'video' : 'image'
+  return taskType === 'image-to-video' || taskType === 'video-to-video' || taskType === 'upscale-video' ? 'video' : 'image'
 }
 
 /**

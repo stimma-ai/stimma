@@ -3,6 +3,29 @@
  */
 
 /**
+ * Format a past timestamp relative to now (e.g., "5m ago", "3h ago").
+ * Falls back to a locale date beyond a week.
+ *
+ * @param {string|null} dateStr - ISO timestamp
+ * @returns {string} Relative time string, or '' for falsy input
+ */
+export function formatRelativeTime(dateStr) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now - date
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+  return date.toLocaleDateString()
+}
+
+/**
  * Format remaining time for auto-delete badge display
  * Uses thresholds: < 60min = minutes, < 72h = hours, >= 72h = days
  *

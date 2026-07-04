@@ -52,7 +52,7 @@
       </div>
 
       <!-- Action bar -->
-      <div class="flex items-center justify-between px-3 pb-2">
+      <div class="flex items-center justify-between px-3 pb-2 pt-2">
         <!-- Left: model picker + upload button -->
         <div class="flex items-center gap-1">
           <slot name="model-picker" />

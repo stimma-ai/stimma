@@ -1,10 +1,11 @@
 //! On-device push-to-talk voice transcription.
 //!
 //! Audio is captured with `cpal`, downsampled to 16 kHz mono, and fed to a
-//! locally-loaded Whisper model (whisper.cpp via `whisper-rs`, Metal-accelerated
-//! on macOS). While the user holds the key, we re-transcribe the whole utterance
-//! every ~600 ms and stream interim text to the frontend over a Tauri `Channel`;
-//! on release we run one final pass and return the clean transcript.
+//! locally-loaded ASR model. Whisper uses whisper.cpp via `whisper-rs`
+//! (Metal-accelerated on macOS); Parakeet uses an int8 sherpa-onnx export. While
+//! the user holds the key, we re-transcribe the whole utterance every ~600 ms and
+//! stream interim text to the frontend over a Tauri `Channel`; on release we run
+//! one final pass and return the clean transcript.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -14,11 +15,12 @@ use std::time::{Duration, Instant};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use futures_util::StreamExt;
 use serde::Serialize;
+use sherpa_onnx::{OfflineRecognizer, OfflineRecognizerConfig, OfflineTransducerModelConfig};
 use tauri::ipc::Channel;
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 const SAMPLE_RATE: u32 = 16_000;
-/// Minimum audio (in samples at 16 kHz) before we bother running Whisper.
+/// Minimum audio (in samples at 16 kHz) before we bother running ASR.
 const MIN_SAMPLES: usize = SAMPLE_RATE as usize / 2; // 0.5s
 /// How long to wait between interim transcription passes.
 const INTERIM_INTERVAL_MS: u64 = 600;
@@ -37,19 +39,96 @@ const SILENCE_PEAK: f32 = 0.01;
 // Model registry
 // ---------------------------------------------------------------------------
 
-/// Returns `(filename, download_url)` for a known model id, or `None`.
-fn model_info(model_id: &str) -> Option<(&'static str, &'static str)> {
-    // Weights are mirrored to our R2 bucket (free, unmetered egress) from the
-    // upstream HuggingFace repo "ggerganov/whisper.cpp".
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ModelKind {
+    Whisper,
+    SherpaParakeetTdt,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ModelFile {
+    relative_path: &'static str,
+    download_url: &'static str,
+    fallback_url: Option<&'static str>,
+    size: Option<u64>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ModelInfo {
+    kind: ModelKind,
+    files: &'static [ModelFile],
+}
+
+const WHISPER_BASE_FILES: &[ModelFile] = &[ModelFile {
+    relative_path: "ggml-base.en.bin",
+    download_url: "https://models.stimma.ai/whisper/ggml-base.en.bin",
+    fallback_url: None,
+    size: None,
+}];
+
+const WHISPER_SMALL_FILES: &[ModelFile] = &[ModelFile {
+    relative_path: "ggml-small.en.bin",
+    download_url: "https://models.stimma.ai/whisper/ggml-small.en.bin",
+    fallback_url: None,
+    size: None,
+}];
+
+const PARAKEET_TDT_06B_V2_FILES: &[ModelFile] = &[
+    ModelFile {
+        relative_path: "parakeet-tdt-0.6b-v2-int8/encoder.int8.onnx",
+        download_url:
+            "https://models.stimma.ai/parakeet/parakeet-tdt-0.6b-v2-int8/encoder.int8.onnx",
+        fallback_url: Some(
+            "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/main/encoder.int8.onnx",
+        ),
+        size: Some(652_184_296),
+    },
+    ModelFile {
+        relative_path: "parakeet-tdt-0.6b-v2-int8/decoder.int8.onnx",
+        download_url:
+            "https://models.stimma.ai/parakeet/parakeet-tdt-0.6b-v2-int8/decoder.int8.onnx",
+        fallback_url: Some(
+            "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/main/decoder.int8.onnx",
+        ),
+        size: Some(7_257_753),
+    },
+    ModelFile {
+        relative_path: "parakeet-tdt-0.6b-v2-int8/joiner.int8.onnx",
+        download_url:
+            "https://models.stimma.ai/parakeet/parakeet-tdt-0.6b-v2-int8/joiner.int8.onnx",
+        fallback_url: Some(
+            "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/main/joiner.int8.onnx",
+        ),
+        size: Some(1_739_080),
+    },
+    ModelFile {
+        relative_path: "parakeet-tdt-0.6b-v2-int8/tokens.txt",
+        download_url: "https://models.stimma.ai/parakeet/parakeet-tdt-0.6b-v2-int8/tokens.txt",
+        fallback_url: Some(
+            "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/main/tokens.txt",
+        ),
+        size: Some(9_384),
+    },
+];
+
+/// Returns metadata for a known model id, or `None`.
+fn model_info(model_id: &str) -> Option<ModelInfo> {
+    // Weights are primarily served from our R2 bucket (free, unmetered egress).
+    // Whisper comes from "ggerganov/whisper.cpp"; Parakeet v2 int8 comes from
+    // the sherpa-onnx export of NVIDIA's English-only Parakeet TDT 0.6B v2 model.
     match model_id {
-        "base.en" => Some((
-            "ggml-base.en.bin",
-            "https://models.stimma.ai/whisper/ggml-base.en.bin",
-        )),
-        "small.en" => Some((
-            "ggml-small.en.bin",
-            "https://models.stimma.ai/whisper/ggml-small.en.bin",
-        )),
+        "base.en" => Some(ModelInfo {
+            kind: ModelKind::Whisper,
+            files: WHISPER_BASE_FILES,
+        }),
+        "small.en" => Some(ModelInfo {
+            kind: ModelKind::Whisper,
+            files: WHISPER_SMALL_FILES,
+        }),
+        "parakeet-tdt-0.6b-v2" => Some(ModelInfo {
+            kind: ModelKind::SherpaParakeetTdt,
+            files: PARAKEET_TDT_06B_V2_FILES,
+        }),
         _ => None,
     }
 }
@@ -60,9 +139,32 @@ fn models_dir(app: &tauri::AppHandle) -> PathBuf {
     cache.join("whisper-models")
 }
 
-fn model_path(app: &tauri::AppHandle, model_id: &str) -> Result<PathBuf, String> {
-    let (filename, _) = model_info(model_id).ok_or_else(|| format!("unknown model: {model_id}"))?;
-    Ok(models_dir(app).join(filename))
+fn model_file_path(app: &tauri::AppHandle, file: &ModelFile) -> PathBuf {
+    models_dir(app).join(file.relative_path)
+}
+
+fn model_primary_path(app: &tauri::AppHandle, model_id: &str) -> Result<PathBuf, String> {
+    let info = model_info(model_id).ok_or_else(|| format!("unknown model: {model_id}"))?;
+    let file = info
+        .files
+        .first()
+        .ok_or_else(|| format!("model {model_id} has no files"))?;
+    Ok(model_file_path(app, file))
+}
+
+fn model_dir(app: &tauri::AppHandle, model_id: &str) -> Result<PathBuf, String> {
+    Ok(model_primary_path(app, model_id)?
+        .parent()
+        .ok_or_else(|| format!("model {model_id} has no parent directory"))?
+        .to_path_buf())
+}
+
+fn model_is_downloaded(app: &tauri::AppHandle, model_id: &str) -> Result<bool, String> {
+    let info = model_info(model_id).ok_or_else(|| format!("unknown model: {model_id}"))?;
+    Ok(info.files.iter().all(|file| {
+        let path = model_file_path(app, file);
+        path.is_file() && path.metadata().map(|m| m.len() > 0).unwrap_or(false)
+    }))
 }
 
 // ---------------------------------------------------------------------------
@@ -82,41 +184,81 @@ struct Session {
 
 pub struct VoiceState {
     /// Cached loaded model, keyed by model id, kept warm across sessions.
-    ctx: Mutex<Option<(String, Arc<WhisperContext>)>>,
+    model: Mutex<Option<(String, LoadedModel)>>,
     session: Mutex<Option<Session>>,
 }
 
 impl VoiceState {
     pub fn new() -> Self {
         Self {
-            ctx: Mutex::new(None),
+            model: Mutex::new(None),
             session: Mutex::new(None),
         }
     }
 }
 
+#[derive(Clone)]
+enum LoadedModel {
+    Whisper(Arc<WhisperContext>),
+    SherpaParakeetTdt(Arc<OfflineRecognizer>),
+}
+
 /// Loads the requested model, reusing the cached context when the id matches.
-fn ensure_ctx(
+fn ensure_model(
     state: &VoiceState,
     app: &tauri::AppHandle,
     model_id: &str,
-) -> Result<Arc<WhisperContext>, String> {
-    let mut guard = state.ctx.lock().unwrap();
-    if let Some((id, ctx)) = guard.as_ref() {
+) -> Result<LoadedModel, String> {
+    let mut guard = state.model.lock().unwrap();
+    if let Some((id, model)) = guard.as_ref() {
         if id == model_id {
-            return Ok(ctx.clone());
+            return Ok(model.clone());
         }
     }
-    let path = model_path(app, model_id)?;
-    if !path.exists() {
+
+    if !model_is_downloaded(app, model_id)? {
         return Err(format!("model {model_id} not downloaded"));
     }
-    let path_str = path.to_str().ok_or("model path is not valid UTF-8")?;
-    let ctx = WhisperContext::new_with_params(path_str, WhisperContextParameters::default())
-        .map_err(|e| format!("failed to load model: {e}"))?;
-    let ctx = Arc::new(ctx);
-    *guard = Some((model_id.to_string(), ctx.clone()));
-    Ok(ctx)
+
+    let info = model_info(model_id).ok_or_else(|| format!("unknown model: {model_id}"))?;
+    let model = match info.kind {
+        ModelKind::Whisper => {
+            let path = model_primary_path(app, model_id)?;
+            let path_str = path.to_str().ok_or("model path is not valid UTF-8")?;
+            let ctx =
+                WhisperContext::new_with_params(path_str, WhisperContextParameters::default())
+                    .map_err(|e| format!("failed to load model: {e}"))?;
+            LoadedModel::Whisper(Arc::new(ctx))
+        }
+        ModelKind::SherpaParakeetTdt => {
+            let dir = model_dir(app, model_id)?;
+            let path = |name: &str| -> Result<String, String> {
+                dir.join(name)
+                    .to_str()
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| format!("{name} path is not valid UTF-8"))
+            };
+
+            let mut config = OfflineRecognizerConfig::default();
+            config.model_config.transducer = OfflineTransducerModelConfig {
+                encoder: Some(path("encoder.int8.onnx")?),
+                decoder: Some(path("decoder.int8.onnx")?),
+                joiner: Some(path("joiner.int8.onnx")?),
+            };
+            config.model_config.tokens = Some(path("tokens.txt")?);
+            config.model_config.model_type = Some("nemo_transducer".into());
+            config.model_config.provider = Some("cpu".into());
+            config.model_config.num_threads = 4;
+            config.decoding_method = Some("greedy_search".into());
+
+            let recognizer = OfflineRecognizer::create(&config)
+                .ok_or_else(|| "failed to load Parakeet model".to_string())?;
+            LoadedModel::SherpaParakeetTdt(Arc::new(recognizer))
+        }
+    };
+
+    *guard = Some((model_id.to_string(), model.clone()));
+    Ok(model)
 }
 
 // ---------------------------------------------------------------------------
@@ -137,8 +279,12 @@ pub enum TranscriptEvent {
     /// Capture started successfully (mic is live).
     Started,
     /// Interim transcript of the utterance so far.
-    Partial { text: String },
-    Error { message: String },
+    Partial {
+        text: String,
+    },
+    Error {
+        message: String,
+    },
 }
 
 #[derive(Serialize)]
@@ -146,6 +292,7 @@ pub enum TranscriptEvent {
 pub struct ModelStatus {
     base_en: bool,
     small_en: bool,
+    parakeet_tdt_06b_v2: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -155,8 +302,9 @@ pub struct ModelStatus {
 #[tauri::command]
 pub async fn voice_model_status(app: tauri::AppHandle) -> Result<ModelStatus, String> {
     Ok(ModelStatus {
-        base_en: model_path(&app, "base.en")?.exists(),
-        small_en: model_path(&app, "small.en")?.exists(),
+        base_en: model_is_downloaded(&app, "base.en")?,
+        small_en: model_is_downloaded(&app, "small.en")?,
+        parakeet_tdt_06b_v2: model_is_downloaded(&app, "parakeet-tdt-0.6b-v2")?,
     })
 }
 
@@ -180,42 +328,95 @@ async fn download_model_inner(
 ) -> Result<(), String> {
     use std::io::Write;
 
-    let (filename, url) = model_info(model_id).ok_or_else(|| format!("unknown model: {model_id}"))?;
+    let info = model_info(model_id).ok_or_else(|| format!("unknown model: {model_id}"))?;
     let dir = models_dir(app);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
-    let final_path = dir.join(filename);
-    if final_path.exists() {
+    if model_is_downloaded(app, model_id)? {
         let _ = on_event.send(DownloadEvent::Done);
         return Ok(());
     }
 
-    let tmp_path = dir.join(format!("{filename}.part"));
-    let resp = reqwest::get(url).await.map_err(|e| e.to_string())?;
-    if !resp.status().is_success() {
-        return Err(format!("download failed with status {}", resp.status()));
-    }
-    let total = resp.content_length();
-
-    let mut file = std::fs::File::create(&tmp_path).map_err(|e| e.to_string())?;
-    let mut stream = resp.bytes_stream();
-    let mut downloaded: u64 = 0;
+    let known_total = info
+        .files
+        .iter()
+        .try_fold(0u64, |acc, file| file.size.map(|size| acc + size));
+    let mut downloaded: u64 = info
+        .files
+        .iter()
+        .map(|file| {
+            let path = model_file_path(app, file);
+            path.metadata().map(|m| m.len()).unwrap_or(0)
+        })
+        .sum();
     let mut last_emit: u64 = 0;
 
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| e.to_string())?;
-        file.write_all(&chunk).map_err(|e| e.to_string())?;
-        downloaded += chunk.len() as u64;
-        // Throttle progress events to ~1 per MB.
-        if downloaded - last_emit >= 1_000_000 {
-            last_emit = downloaded;
-            let _ = on_event.send(DownloadEvent::Progress { downloaded, total });
+    for model_file in info.files {
+        let final_path = model_file_path(app, model_file);
+        if final_path.is_file() && final_path.metadata().map(|m| m.len() > 0).unwrap_or(false) {
+            continue;
         }
-    }
-    file.flush().map_err(|e| e.to_string())?;
-    drop(file);
 
-    std::fs::rename(&tmp_path, &final_path).map_err(|e| e.to_string())?;
+        if let Some(parent) = final_path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+
+        let tmp_path = final_path.with_extension(format!(
+            "{}part",
+            final_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| format!("{e}."))
+                .unwrap_or_default()
+        ));
+        let mut resp = None;
+        let mut errors = Vec::new();
+        for url in [Some(model_file.download_url), model_file.fallback_url]
+            .into_iter()
+            .flatten()
+        {
+            match reqwest::get(url).await {
+                Ok(candidate) if candidate.status().is_success() => {
+                    resp = Some(candidate);
+                    break;
+                }
+                Ok(candidate) => {
+                    errors.push(format!("{url} returned {}", candidate.status()));
+                }
+                Err(e) => {
+                    errors.push(format!("{url} failed: {e}"));
+                }
+            }
+        }
+        let resp = resp.ok_or_else(|| {
+            format!(
+                "download failed for {}: {}",
+                model_file.relative_path,
+                errors.join("; ")
+            )
+        })?;
+        let fallback_total = resp.content_length().map(|total| downloaded + total);
+        let total = known_total.or(fallback_total);
+
+        let mut file = std::fs::File::create(&tmp_path).map_err(|e| e.to_string())?;
+        let mut stream = resp.bytes_stream();
+
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|e| e.to_string())?;
+            file.write_all(&chunk).map_err(|e| e.to_string())?;
+            downloaded += chunk.len() as u64;
+            // Throttle progress events to ~1 per MB.
+            if downloaded - last_emit >= 1_000_000 {
+                last_emit = downloaded;
+                let _ = on_event.send(DownloadEvent::Progress { downloaded, total });
+            }
+        }
+        file.flush().map_err(|e| e.to_string())?;
+        drop(file);
+
+        std::fs::rename(&tmp_path, &final_path).map_err(|e| e.to_string())?;
+    }
+
     let _ = on_event.send(DownloadEvent::Done);
     Ok(())
 }
@@ -232,7 +433,7 @@ pub async fn voice_start(
         prev.stop.store(true, Ordering::SeqCst);
     }
 
-    let ctx = ensure_ctx(&state, &app, &model_id)?;
+    let model = ensure_model(&state, &app, &model_id)?;
 
     let stop = Arc::new(AtomicBool::new(false));
     let finished = Arc::new(AtomicBool::new(false));
@@ -252,7 +453,7 @@ pub async fn voice_start(
     // The cpal stream is `!Send`, so it must be built and dropped on the same
     // thread. We own the whole capture+decode loop here.
     std::thread::spawn(move || {
-        capture_and_transcribe(ctx, stop, finished, result, last_seen, on_event);
+        capture_and_transcribe(model, stop, finished, result, last_seen, on_event);
     });
 
     Ok(())
@@ -305,7 +506,7 @@ pub async fn voice_keepalive(state: tauri::State<'_, Arc<VoiceState>>) -> Result
 // ---------------------------------------------------------------------------
 
 fn capture_and_transcribe(
-    ctx: Arc<WhisperContext>,
+    model: LoadedModel,
     stop: Arc<AtomicBool>,
     finished: Arc<AtomicBool>,
     result: Arc<Mutex<String>>,
@@ -360,7 +561,9 @@ fn capture_and_transcribe(
             let raw_cb = raw.clone();
             device.build_input_stream(
                 &stream_cfg,
-                move |data: &[i16], _: &_| push_mono(&raw_cb, data, channels, |s| s as f32 / 32768.0),
+                move |data: &[i16], _: &_| {
+                    push_mono(&raw_cb, data, channels, |s| s as f32 / 32768.0)
+                },
                 err_fn,
                 None,
             )
@@ -428,9 +631,9 @@ fn capture_and_transcribe(
         let speech = samples.len() >= MIN_SAMPLES && peak >= SILENCE_PEAK;
 
         if speech {
-            match run_whisper(&ctx, &samples) {
+            match run_transcription(&model, &samples) {
                 Ok(text) => {
-                    let cleaned = clean_transcript(&text);
+                    let cleaned = clean_transcript(&model, &text);
                     if stopping {
                         *result.lock().unwrap() = cleaned;
                     } else if !cleaned.is_empty() {
@@ -440,7 +643,11 @@ fn capture_and_transcribe(
                 Err(e) => log::error!("[voice] transcription failed: {e}"),
             }
         } else if stopping {
-            log::info!("[voice] no speech captured (samples={}, peak={:.4})", samples.len(), peak);
+            log::info!(
+                "[voice] no speech captured (samples={}, peak={:.4})",
+                samples.len(),
+                peak
+            );
         }
 
         if stopping {
@@ -469,6 +676,13 @@ fn push_mono<T: Copy>(
     }
 }
 
+fn run_transcription(model: &LoadedModel, samples: &[f32]) -> Result<String, String> {
+    match model {
+        LoadedModel::Whisper(ctx) => run_whisper(ctx, samples),
+        LoadedModel::SherpaParakeetTdt(recognizer) => run_parakeet(recognizer, samples),
+    }
+}
+
 fn run_whisper(ctx: &WhisperContext, samples: &[f32]) -> Result<String, String> {
     let mut state = ctx.create_state().map_err(|e| e.to_string())?;
 
@@ -493,9 +707,26 @@ fn run_whisper(ctx: &WhisperContext, samples: &[f32]) -> Result<String, String> 
     Ok(out.trim().to_string())
 }
 
+fn run_parakeet(recognizer: &OfflineRecognizer, samples: &[f32]) -> Result<String, String> {
+    let stream = recognizer.create_stream();
+    stream.accept_waveform(SAMPLE_RATE as i32, samples);
+    recognizer.decode(&stream);
+    let result = stream
+        .get_result()
+        .ok_or_else(|| "failed to decode Parakeet transcript".to_string())?;
+    Ok(result.text.trim().to_string())
+}
+
+fn clean_transcript(model: &LoadedModel, text: &str) -> String {
+    match model {
+        LoadedModel::Whisper(_) => clean_whisper_transcript(text),
+        LoadedModel::SherpaParakeetTdt(_) => collapse_whitespace(text),
+    }
+}
+
 /// Strips Whisper's non-speech annotations, e.g. `[BLANK_AUDIO]`, `(music)`,
 /// `*laughs*`, which it emits during silence or background noise.
-fn clean_transcript(text: &str) -> String {
+fn clean_whisper_transcript(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut depth: i32 = 0;
     for ch in text.chars() {
@@ -508,7 +739,11 @@ fn clean_transcript(text: &str) -> String {
         }
     }
     // Collapse whitespace left behind by removed annotations.
-    out.split_whitespace().collect::<Vec<_>>().join(" ")
+    collapse_whitespace(&out)
+}
+
+fn collapse_whitespace(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 // ---------------------------------------------------------------------------

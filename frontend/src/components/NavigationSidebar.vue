@@ -858,6 +858,7 @@ import { useMediaApi } from '../composables/useMediaApi'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { useSendToTool } from '../composables/useSendToTool'
 import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspaceTabs'
+import { removeRecentEntity } from '../composables/useRecentEntities'
 import { useProjectRoute } from '../composables/useProjectRoute'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
 import { useFlowCounts } from '../composables/useFlowCounts'
@@ -1968,6 +1969,7 @@ on('chat_deleted', (data) => {
     else router.push({ name: 'browse' })
   }
   removeTabByEntity('chat', String(data.chat_id))
+  removeRecentEntity('chat', String(data.chat_id))
 })
 
 // Flow events - update tab names, remove tabs on deletion
@@ -1987,6 +1989,7 @@ on('flow_deleted', (data) => {
     else router.push({ name: 'flows' })
   }
   removeTabByEntity('flow', String(data.flow_id))
+  removeRecentEntity('flow', String(data.flow_id))
 })
 
 // Board events - open new boards as tabs, update names, remove on deletion
@@ -2020,6 +2023,7 @@ on('board_deleted', (data) => {
   boardMetadata.value.delete(String(data.board_id))
   boardMetadata.value = new Map(boardMetadata.value)
   removeTabByEntity('board', String(data.board_id))
+  removeRecentEntity('board', String(data.board_id))
 })
 
 // Chat generation tracking

@@ -97,6 +97,8 @@ def _resolve_effective_task_type(tool_descriptor, params: Dict[str, Any]) -> str
 
     input_images = params.get("input_images", []) or []
     has_input_images = isinstance(input_images, list) and len(input_images) > 0
+    input_videos = params.get("input_videos", []) or []
+    has_input_videos = isinstance(input_videos, list) and len(input_videos) > 0
 
     if has_input_images and "image-to-image" in task_types:
         return "image-to-image"
@@ -104,6 +106,9 @@ def _resolve_effective_task_type(tool_descriptor, params: Dict[str, Any]) -> str
     # Dual-mode video tools: text-to-video can become image-to-video when image input exists.
     if has_input_images and primary == "text-to-video" and "image-to-video" in task_types:
         return "image-to-video"
+
+    if has_input_videos and "video-to-video" in task_types:
+        return "video-to-video"
 
     return primary
 

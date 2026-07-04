@@ -156,8 +156,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref , watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
 import { MediaImage } from '../components/media'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
@@ -182,6 +182,13 @@ const boards = ref([])
 const boardDetails = ref(new Map())
 const loading = ref(false)
 const searchQuery = ref('')
+
+// Global search "View all" handoff: seed the local filter from ?q= so the
+// omnibox's per-type result caps never hide matches for good.
+const route = useRoute()
+watch(() => route.query.q, (q) => {
+  if (typeof q === 'string' && q) searchQuery.value = q
+}, { immediate: true })
 const sortBy = ref('updated')
 const sortDropdownOpen = ref(false)
 const sortDropdownRef = ref(null)

@@ -66,6 +66,7 @@ const {
   downloadTotal,
   start,
   stop,
+  cancel,
   handleInputKeydown,
   handleInputKeyup,
 } = useVoiceInput({
@@ -76,7 +77,9 @@ const {
 })
 
 // Let the host input wire Space-to-dictate to its text field.
-defineExpose({ handleInputKeydown, handleInputKeyup })
+// `cancel` lets hosts abort dictation when their input blurs mid-hold —
+// otherwise the space keyup never arrives and the mic keeps recording.
+defineExpose({ handleInputKeydown, handleInputKeyup, cancel })
 
 const HOLD_MS = 400
 let downAt = 0

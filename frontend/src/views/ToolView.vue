@@ -642,12 +642,19 @@
           @click="openSlideshow(stageCurrentJob)"
           title="Open in slideshow"
         >
-          <video
+          <div
             v-if="outputsVideo && stageCurrentHash"
-            :src="getMediaFileUrl(stageCurrentHash)"
-            class="w-full h-full object-contain"
-            autoplay loop muted playsinline
-          />
+            class="absolute inset-0"
+            draggable="true"
+            @dragstart.stop="onHeroDragStart($event)"
+            @dragend="handleHeroDragEnd"
+          >
+            <video
+              :src="getMediaFileUrl(stageCurrentHash)"
+              class="w-full h-full object-contain"
+              autoplay loop muted playsinline
+            />
+          </div>
           <!-- Audio result: inline player. Stop click propagation so transport
                controls don't also trigger the slideshow zoom on the wrapper. -->
           <AudioPlayer
@@ -879,6 +886,7 @@ import {
   type PayloadBuilderConfig,
 } from '../composables/useJobPayloadBuilder'
 import { submitJobAsync, submitBatchJobAsync, submitMediaBatchJobAsync, BatchJobResponse } from '../composables/useSubmissionQueue'
+import { createDragPreview, handleDragEnd as handleHeroDragEnd } from '../composables/useDragPreview'
 import { useToolAutoDeleteDuration } from '../composables/useToolAutoDeleteDuration'
 import { usePromptPreloader } from '../composables/usePromptPreloader'
 import { useTabNavigation } from '../composables/useTabNavigation'
@@ -899,6 +907,7 @@ import { formatRemainingTime } from '../utils/timeFormat'
 import { isStimmaCloudTool as isStimmaCloud } from '../utils/stimmaCloud'
 import { copyToClipboard } from '../utils/clipboard'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
+import { formatTaskTypeLabel } from '../utils/taskTypeIcons'
 import { addToast } from '../composables/useToasts'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import CompareMode from '../components/CompareMode.vue'
@@ -1090,6 +1099,12 @@ const stageCurrentMediaId = computed<number | null>(() => stageCurrentJob.value?
 const stageCurrentHash = computed<string | null>(() =>
   stageCurrentMediaId.value != null ? (jobsManager?.mediaHashes.value?.[stageCurrentMediaId.value] ?? null) : null
 )
+
+function onHeroDragStart(event: DragEvent) {
+  const mediaId = stageCurrentMediaId.value
+  if (mediaId == null) return
+  createDragPreview(event, getThumbnailUrl(mediaId, 128), mediaId, undefined, true)
+}
 const stageGenerationTime = computed<number | null>(() => {
   if (stageCurrentMediaId.value == null) return null
   const time = jobsManager?.mediaGenerationTimes.value?.[stageCurrentMediaId.value]
@@ -1324,7 +1339,7 @@ const taskTypesDisplay = computed(() => {
   const taskTypes = tool.value?.task_types
   if (!taskTypes || taskTypes.length === 0) return null
   return taskTypes
-    .map(t => t.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '))
+    .map(t => formatTaskTypeLabel(t))
     .join(' · ')
 })
 
@@ -1851,7 +1866,7 @@ function normalizeVideoInputsToFrames(): Promise<void> {
           next.push(await grabFrameForEntry(entry, 'first'))
         } catch (e: any) {
           console.error('Frame grab failed:', e)
-          addToast(e?.message || "Couldn't grab a frame from that video.", 'error')
+          addToast(e?.response?.data?.detail || e?.message || "Couldn't grab a frame from that video.", 'error')
         }
       }
       globalPrefs.value.inputImages = next
@@ -1861,7 +1876,7 @@ function normalizeVideoInputsToFrames(): Promise<void> {
         videoImages.startImage = await grabFrameForEntry(videoImages.startImage as MediaItem, 'last')
       } catch (e: any) {
         console.error('Frame grab failed (start):', e)
-        addToast(e?.message || "Couldn't grab a frame from that video.", 'error')
+        addToast(e?.response?.data?.detail || e?.message || "Couldn't grab a frame from that video.", 'error')
         videoImages.startImage = null
       }
     }
@@ -1870,7 +1885,7 @@ function normalizeVideoInputsToFrames(): Promise<void> {
         videoImages.endImage = await grabFrameForEntry(videoImages.endImage as MediaItem, 'first')
       } catch (e: any) {
         console.error('Frame grab failed (end):', e)
-        addToast(e?.message || "Couldn't grab a frame from that video.", 'error')
+        addToast(e?.response?.data?.detail || e?.message || "Couldn't grab a frame from that video.", 'error')
         videoImages.endImage = null
       }
     }
@@ -3138,6 +3153,7 @@ async function loadTool(forceReload = false, silent = false) {
   // Check for pending generation config from "Generate more like this" action
   nextTick(() => {
     loadPendingGeneration()
+    loadPresetFromQuery()
   })
 
   // Check for remixFrom query param (also supports legacy inspireFrom/loadFromMedia)
@@ -3490,6 +3506,27 @@ async function loadPendingGeneration() {
   } catch (err) {
     console.error('Failed to load pending generation config:', err)
     sessionStorage.removeItem(storageKey)
+  }
+}
+
+// Apply a preset carried on the route (global search preset results navigate
+// here with ?preset_id=). Consumes the query param like loadPendingGeneration.
+async function loadPresetFromQuery() {
+  const presetId = route.query.preset_id
+  if (!presetId || !tool.value) return
+  try {
+    if (!agentPresets.value.length) await refreshAgentPresets()
+    const preset = agentPresets.value.find((p: any) => String(p.id) === String(presetId))
+    if (preset) {
+      handlePresetSelect(preset)
+      aiPromptEditorRef.value?.setPromptText?.(globalPrefs.value.prompt || '')
+    }
+  } catch (err) {
+    console.error('Failed to apply preset from query:', err)
+  } finally {
+    const restQuery = { ...route.query }
+    delete restQuery.preset_id
+    router.replace({ query: restQuery })
   }
 }
 
@@ -5538,6 +5575,13 @@ watch(() => route.query.loadGeneration, (newValue) => {
       exitSlideshow()
     }
     loadPendingGeneration()
+  }
+}, { immediate: false })
+
+// Watch for preset_id query param (global search preset results, KeepAlive'd instances)
+watch(() => route.query.preset_id, (newValue) => {
+  if (newValue && tool.value) {
+    loadPresetFromQuery()
   }
 }, { immediate: false })
 

@@ -137,6 +137,68 @@ class ChatItemListResponse(PydanticBaseModel):
 router = APIRouter(prefix="/api/chats", tags=["chats"])
 
 
+async def collect_chat_media(session, chat_ids):
+    """Generated media per chat, newest first, parsed from media_display items.
+
+    Media references live in item_metadata.display_data.rows[].output.media_id
+    (media_items.chat_item_id is not populated by the agent pipeline). Returns
+    (media_ids_by_chat, media_info) where media_info maps id -> file_hash for
+    all referenced, non-deleted media. Shared by chat previews and global
+    search thumbnails.
+    """
+    if not chat_ids:
+        return {}, {}
+
+    media_display_query = (
+        select(ChatItem.chat_id, ChatItem.item_metadata)
+        .where(
+            ChatItem.chat_id.in_(chat_ids),
+            ChatItem.item_type == 'media_display',
+            ChatItem.item_metadata.isnot(None),
+        )
+        .order_by(desc(ChatItem.id))
+    )
+    media_display_rows = (await session.execute(media_display_query)).all()
+
+    media_ids_by_chat = {}  # chat_id -> [media_id, ...] ordered newest first
+    all_media_ids = set()
+    for chat_id_val, metadata_raw in media_display_rows:
+        if chat_id_val not in media_ids_by_chat:
+            media_ids_by_chat[chat_id_val] = []
+
+        try:
+            metadata = json.loads(metadata_raw) if isinstance(metadata_raw, str) else metadata_raw
+            if not metadata:
+                continue
+            display_data = metadata.get('display_data', {})
+            if not isinstance(display_data, dict):
+                continue
+            for media_row in display_data.get('rows', []):
+                if not isinstance(media_row, dict):
+                    continue
+                output = media_row.get('output', {})
+                if isinstance(output, dict) and output.get('status') == 'complete':
+                    mid = output.get('media_id')
+                    if mid and isinstance(mid, int):
+                        media_ids_by_chat[chat_id_val].append(mid)
+                        all_media_ids.add(mid)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+    media_info = {}
+    if all_media_ids:
+        media_query = (
+            select(MediaItem.id, MediaItem.file_hash)
+            .where(
+                MediaItem.id.in_(list(all_media_ids)),
+                MediaItem.deleted_at.is_(None),
+            )
+        )
+        media_info = {row[0]: row[1] for row in (await session.execute(media_query)).all()}
+
+    return media_ids_by_chat, media_info
+
+
 def generate_unique_chat_name(existing_names: List[str]) -> str:
     """Generate a unique 'Untitled' or 'Untitled N' name."""
     if "Untitled" not in existing_names:
@@ -610,60 +672,7 @@ async def list_chat_previews(
     last_msg_result = await session.execute(last_msg_query)
     last_messages = {row[0]: row[1] for row in last_msg_result.all()}
 
-    # Extract media IDs from media_display chat items' metadata
-    # Media references are in item_metadata.display_data.rows[].output.media_id
-    media_display_query = (
-        select(ChatItem.chat_id, ChatItem.item_metadata)
-        .where(
-            ChatItem.chat_id.in_(chat_ids),
-            ChatItem.item_type == 'media_display',
-            ChatItem.item_metadata.isnot(None),
-        )
-        .order_by(desc(ChatItem.id))
-    )
-    media_display_result = await session.execute(media_display_query)
-    media_display_rows = media_display_result.all()
-
-    # Parse metadata to extract media IDs per chat (newest first)
-    media_ids_by_chat = {}  # chat_id -> [media_id, ...] ordered newest first
-    all_media_ids = set()
-    for row in media_display_rows:
-        chat_id_val = row[0]
-        metadata_raw = row[1]
-        if chat_id_val not in media_ids_by_chat:
-            media_ids_by_chat[chat_id_val] = []
-
-        try:
-            metadata = json.loads(metadata_raw) if isinstance(metadata_raw, str) else metadata_raw
-            if not metadata:
-                continue
-            display_data = metadata.get('display_data', {})
-            if not isinstance(display_data, dict):
-                continue
-            for media_row in display_data.get('rows', []):
-                if not isinstance(media_row, dict):
-                    continue
-                output = media_row.get('output', {})
-                if isinstance(output, dict) and output.get('status') == 'complete':
-                    mid = output.get('media_id')
-                    if mid and isinstance(mid, int):
-                        media_ids_by_chat[chat_id_val].append(mid)
-                        all_media_ids.add(mid)
-        except (json.JSONDecodeError, TypeError):
-            continue
-
-    # Fetch actual media info for all collected IDs (filter out deleted)
-    media_info = {}
-    if all_media_ids:
-        media_query = (
-            select(MediaItem.id, MediaItem.file_hash)
-            .where(
-                MediaItem.id.in_(list(all_media_ids)),
-                MediaItem.deleted_at.is_(None),
-            )
-        )
-        media_result = await session.execute(media_query)
-        media_info = {row[0]: row[1] for row in media_result.all()}
+    media_ids_by_chat, media_info = await collect_chat_media(session, chat_ids)
 
     # Build recent_media and gen_counts per chat
     gen_counts = {}

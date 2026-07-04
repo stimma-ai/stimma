@@ -603,7 +603,7 @@ class GenerationQueue:
                         parent_trace = await self._get_inherited_lineage(session, media_id)
                         lineage_trace = self._merge_lineage_traces(lineage_trace, parent_trace)
 
-            # --- input_videos handling (video-stitch, video-extend, upscale-video) ---
+            # --- input_videos handling (video-to-video, video-stitch, video-extend, upscale-video) ---
             input_videos = params.get('input_videos', [])
             input_video_media_ids = params.get('input_video_media_ids', [])
 
@@ -2251,7 +2251,7 @@ class GenerationQueue:
 
             # Generate output filename
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-            if task_type in ["image-to-video", "text-to-video", "upscale-video", "video-stitch", "video-extend"]:
+            if task_type in ["image-to-video", "text-to-video", "video-to-video", "upscale-video", "video-stitch", "video-extend"]:
                 file_extension = ".mp4"
             elif task_type in ("text-to-audio", "text-to-music", "text-to-speech"):
                 file_extension = ".flac"

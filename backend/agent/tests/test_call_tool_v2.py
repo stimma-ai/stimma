@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from agent.v2.tools.call_tool import call_tool
+from agent.v2.tools.call_tool import _resolve_effective_task_type, call_tool
 
 
 class _FakeToolDescriptor:
@@ -124,3 +124,11 @@ async def test_call_tool_routes_input_images(session, test_chat, fake_queue, moc
     assert submit_kwargs.kwargs["task_type"] == "image-to-image"
     assert submit_kwargs.kwargs["parameters"]["input_images"] == [101]
     assert submit_kwargs.kwargs["parameters"]["input_media_ids"] == [101]
+
+
+def test_resolve_effective_task_type_routes_input_videos():
+    descriptor = _FakeToolDescriptor()
+    descriptor.task_type = "text-to-video"
+    descriptor.task_types = ["text-to-video", "video-to-video"]
+
+    assert _resolve_effective_task_type(descriptor, {"input_videos": [202]}) == "video-to-video"

@@ -1614,6 +1614,7 @@ const browseFilterQueryKeys = new Set([
   's', 'k', 'xk',
   'f', 'xf',
   'tl', 'xtl',
+  'prj', 'xprj',
   'sim', 'fsim',
   'st', 'rs'
 ])

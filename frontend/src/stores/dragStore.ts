@@ -28,6 +28,12 @@ export const draggedMediaInfo = computed(() => draggedMedia.value)
  */
 export const draggedMediaType = computed((): MediaType | null => {
   if (!draggedMedia.value) return null
+  // isVideo is authoritative when the source couldn't supply a real file
+  // extension (e.g. dragging from a completed-job tile or a library-backed
+  // reference item) — falling through to fileFormat-based detection would
+  // silently default those drags to 'image' (getMediaType's fallback) and
+  // make video-only tools look incompatible.
+  if (draggedMedia.value.isVideo) return 'video'
   return getMediaType({ file_format: draggedMedia.value.fileFormat })
 })
 

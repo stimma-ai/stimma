@@ -15,7 +15,7 @@ export interface PayloadBuilderState {
     prompt: string
     negative_prompt: string
     folder_path: string
-    inputImages: Array<{ path: string; mediaId?: number; width?: number; height?: number; _originalPath?: string; _originalHash?: string; _preprocessor?: string | null; _flip?: any }>
+    inputImages: Array<{ path: string; mediaId?: number; width?: number; height?: number; _originalPath?: string; _originalHash?: string; _preprocessor?: string | null; _flip?: any; _videoSource?: { mediaId?: number } | null }>
     inputVideos: Array<{ path: string; mediaId?: number }>
     inputAudios: Array<{ path: string; mediaId?: number }>
     promptOptions?: any
@@ -23,8 +23,8 @@ export interface PayloadBuilderState {
   }
   modelParams: Record<string, any>
   videoImages: {
-    startImage: { path: string; mediaId?: number } | null
-    endImage: { path: string; mediaId?: number } | null
+    startImage: { path: string; mediaId?: number; _videoSource?: { mediaId?: number } | null } | null
+    endImage: { path: string; mediaId?: number; _videoSource?: { mediaId?: number } | null } | null
   }
   maskDataUrl: string | null
   enabledLoras: any[]
@@ -51,6 +51,14 @@ export interface PreUploadResult {
   [key: string]: any
 }
 
+// A picked item's own mediaId if it's a real library image, else the library
+// id of the video it was frame-grabbed from (for lineage) — an extracted
+// frame isn't itself a library item, so its only linkable identity is its
+// source video's id, stashed on `_videoSource` by MediaPicker/ToolView.
+function lineageMediaId(i: { mediaId?: number; _videoSource?: { mediaId?: number } | null }): number | undefined {
+  return i.mediaId ?? i._videoSource?.mediaId ?? undefined
+}
+
 // Parameter extractors - keyed by parameter_schema property name.
 // Unified table: well-known inputs (prompt, images, mask, dimensions, seed) and
 // tuning parameters (steps, cfg, sampler, etc.) all live here, keyed by field name.
@@ -72,12 +80,15 @@ const paramExtractors: Record<string, (s: PayloadBuilderState) => any> = {
   },
   'input_media_ids': (s) => {
     if (s.videoImages.startImage) {
-      const ids = []
-      if (s.videoImages.startImage.mediaId) ids.push(s.videoImages.startImage.mediaId)
-      if (s.videoImages.endImage?.mediaId) ids.push(s.videoImages.endImage.mediaId)
-      return ids
+      // Positional with input_images (start, end) — pad with null rather than
+      // dropping a missing id, so e.g. an id-less start doesn't shift end's id
+      // into the start slot on the backend.
+      const startId = lineageMediaId(s.videoImages.startImage) ?? null
+      if (!s.videoImages.endImage) return startId == null ? [] : [startId]
+      const endId = lineageMediaId(s.videoImages.endImage) ?? null
+      return startId == null && endId == null ? [] : [startId, endId]
     }
-    return s.globalPrefs.inputImages.map(i => i.mediaId).filter(Boolean)
+    return s.globalPrefs.inputImages.map(lineageMediaId).filter(Boolean)
   },
 
   // Video inputs (unified array)
@@ -147,6 +158,7 @@ const paramExtractors: Record<string, (s: PayloadBuilderState) => any> = {
  * we infer the task type based on what inputs are provided:
  * - If input images are provided AND tool supports "image-to-image" → "image-to-image"
  * - If start frame is provided AND tool supports "image-to-video" → "image-to-video"
+ * - If input videos are provided AND tool supports "video-to-video" → "video-to-video"
  * - Otherwise → use the primary task_type
  *
  * This ensures lineage tracking and source_inputs are properly recorded.
@@ -158,6 +170,8 @@ export function resolveEffectiveTaskType(config: PayloadBuilderConfig, state: Pa
   // Check if input images are provided
   const hasInputImages = state.globalPrefs.inputImages.length > 0 &&
     state.globalPrefs.inputImages.some(img => img.path)
+  const hasInputVideos = state.globalPrefs.inputVideos.length > 0 &&
+    state.globalPrefs.inputVideos.some(video => video.path)
 
   // If tool supports image-to-image and we have input images, use image-to-image
   if (hasInputImages && taskTypes.includes('image-to-image')) {
@@ -169,6 +183,10 @@ export function resolveEffectiveTaskType(config: PayloadBuilderConfig, state: Pa
     if (state.videoImages?.startImage?.path) {
       return 'image-to-video'
     }
+  }
+
+  if (hasInputVideos && taskTypes.includes('video-to-video')) {
+    return 'video-to-video'
   }
 
   return primaryTaskType
@@ -233,17 +251,27 @@ export function extractParameters(config: PayloadBuilderConfig, state: PayloadBu
     params.height = bestPair[1]
   }
 
-  // Add media IDs for image inputs
+  // Add media IDs for image inputs (lineage). A frame grabbed from a library
+  // video has no mediaId of its own — lineageMediaId() falls back to the
+  // source video's id (stashed on _videoSource) so the generated output still
+  // links back to it.
   if ('input_images' in props) {
     if (state.videoImages.startImage) {
-      // VideoFramePicker mode — media IDs from videoImages
-      const ids = []
-      if (state.videoImages.startImage.mediaId) ids.push(state.videoImages.startImage.mediaId)
-      if (state.videoImages.endImage?.mediaId) ids.push(state.videoImages.endImage.mediaId)
-      if (ids.length > 0) params.input_media_ids = ids
-    } else if (state.globalPrefs.inputImages.some(i => i.mediaId)) {
+      // VideoFramePicker mode — media IDs from videoImages, positional with
+      // input_images (start, end); pad with null so a missing id doesn't
+      // shift the other slot's id into the wrong role.
+      const startId = lineageMediaId(state.videoImages.startImage) ?? null
+      let ids: (number | null)[] | null = null
+      if (!state.videoImages.endImage) {
+        if (startId != null) ids = [startId]
+      } else {
+        const endId = lineageMediaId(state.videoImages.endImage) ?? null
+        if (startId != null || endId != null) ids = [startId, endId]
+      }
+      if (ids) params.input_media_ids = ids
+    } else if (state.globalPrefs.inputImages.some(i => lineageMediaId(i))) {
       // ImagePicker mode — media IDs from inputImages
-      params.input_media_ids = state.globalPrefs.inputImages.map(i => i.mediaId).filter(Boolean)
+      params.input_media_ids = state.globalPrefs.inputImages.map(lineageMediaId).filter(Boolean)
     }
   }
 

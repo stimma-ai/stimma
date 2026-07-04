@@ -122,8 +122,8 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onActivated, onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onActivated, onMounted, onUnmounted, ref , watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
 import EntityIcon from '../components/EntityIcon.vue'
@@ -139,6 +139,13 @@ const { on: onWsEvent } = useWebSocket()
 const projects = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
+
+// Global search "View all" handoff: seed the local filter from ?q= so the
+// omnibox's per-type result caps never hide matches for good.
+const route = useRoute()
+watch(() => route.query.q, (q) => {
+  if (typeof q === 'string' && q) searchQuery.value = q
+}, { immediate: true })
 const showDeleteModal = ref(false)
 const pendingDeleteProject = ref(null)
 const editingProjectId = ref(null)

@@ -139,6 +139,7 @@ import { useProvidersApi, type ProviderTool } from '../../composables/useProvide
 import { useWebSocket } from '../../composables/useWebSocket'
 import StimpackEditorModal from '../settings/StimpackEditorModal.vue'
 import { useStimpacksApi, type StimpackDetail } from '../../composables/useStimpacksApi'
+import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'
 
 const props = defineProps<{
   chatId: number
@@ -348,9 +349,7 @@ async function handleRemoveTool(toolId: string) {
 
 function formatTaskType(taskType: string): string {
   if (!taskType) return ''
-  return taskType
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, char => char.toUpperCase())
+  return formatTaskTypeLabel(taskType)
 }
 
 // Stimpack editor modal state

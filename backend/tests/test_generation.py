@@ -613,6 +613,31 @@ class TestExtractFrame:
         assert img.width == 8 * 64
         assert img.height > 0
 
+    async def test_video_info_returns_duration_and_fps(
+        self, generation_client: httpx.AsyncClient, output_folder: str
+    ):
+        """The video-info endpoint probes duration + fps for an allowed source path."""
+        vid = Path(output_folder) / "info_clip.mp4"
+        _make_test_video(vid, 160, 120, seconds=2)
+
+        response = await generation_client.get(
+            "/api/generate/video-info",
+            params={"source_path": str(vid)},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["duration"] > 1.0  # ~2s clip
+        assert data["fps"] > 0.0
+
+    async def test_video_info_rejects_disallowed_source_path(
+        self, generation_client: httpx.AsyncClient
+    ):
+        response = await generation_client.get(
+            "/api/generate/video-info",
+            params={"source_path": "/etc/hosts"},
+        )
+        assert response.status_code == 403
+
     async def test_extract_requires_a_source(
         self, generation_client: httpx.AsyncClient
     ):

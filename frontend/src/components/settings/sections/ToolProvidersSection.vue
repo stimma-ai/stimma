@@ -686,7 +686,7 @@
                         :key="tt"
                         class="text-xs text-content-muted bg-surface-raised/50 rounded px-1.5 py-0.5"
                       >
-                        {{ tt }}
+                        {{ formatTaskTypeLabel(tt) }}
                       </span>
                       <span class="text-xs text-content-muted font-mono">{{ tool.tool_id }}</span>
                     </div>
@@ -827,6 +827,7 @@ import { useCloudAccount, formatBalance, getPlanDisplayName } from '../../../com
 import { copyToClipboard } from '../../../utils/clipboard'
 import { addToast } from '../../../composables/useToasts'
 import { devModeRef } from '../../../appConfig'
+import { formatTaskTypeLabel } from '../../../utils/taskTypeIcons'
 
 const props = defineProps({
   providers: {

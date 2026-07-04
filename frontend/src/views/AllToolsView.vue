@@ -321,6 +321,13 @@ const tools = ref([])
 const loading = ref(true)
 const loadError = ref(false)
 const searchQuery = ref(localStorage.getItem(getSearchKey()) || '')
+
+// Global search "View all" handoff: seed the local filter from ?q= so the
+// omnibox's per-type result caps never hide matches for good.
+watch(() => route.query.q, (q) => {
+  if (typeof q === 'string' && q) searchQuery.value = q
+}, { immediate: true })
+
 const activeTaskFilters = ref(new Set())
 const activeProviderFilters = ref(new Set())
 const filtersInitialized = ref(false)

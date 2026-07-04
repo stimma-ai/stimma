@@ -43,9 +43,9 @@
                 dragIndex === item.originalIndex ? 'opacity-30' : '',
                 dropIndex === index && dropIndex !== dragIndex ? 'ring-2 ring-blue-500' : ''
               ]"
-              :draggable="reorderable && !batchMode"
-              @dragstart="reorderable && !batchMode && onReorderDragStart($event, item)"
-              @dragend="reorderable && onReorderDragEnd()"
+              :draggable="!!item.mediaId && !batchMode"
+              @dragstart="item.mediaId && !batchMode && onReorderDragStart($event, item)"
+              @dragend="onReorderDragEnd()"
               @dragover.prevent.stop="onTileDragOver($event, index)"
               @dragleave.stop="onDragLeave"
               @drop.prevent.stop="onTileDrop($event, index)"

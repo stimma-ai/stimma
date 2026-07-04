@@ -264,6 +264,9 @@ Common task_type values and their meanings:
 | outpaint-image | Extended canvas | 1 image |
 | upscale-image | Resolution upscaling | 1 image |
 | image-to-video | Animated from still | 1 image |
+| text-to-video | Generated video from text prompt | None |
+| video-to-video | Video edit / transformation | 1 video |
+| upscale-video | Video resolution upscaling | 1 video |
 | video-extend | Extended video | 1 video |
 | video-stitch | Combined videos | 2+ videos |
 

@@ -77,12 +77,21 @@ def _probe_duration(video_path: str | Path) -> float:
     return _probe(video_path)[0]
 
 
-def _resolve_time(position: FramePosition, duration: float, time_seconds: float | None) -> float:
+def probe_video_info(video_path: str | Path) -> Tuple[float, float]:
+    """Best-effort (duration_seconds, fps) for a video; either may be 0.0 if unknown."""
+    return _probe(video_path)
+
+
+def _resolve_time(position: FramePosition, duration: float, time_seconds: float | None, fps: float = 0.0) -> float:
     """Map a position/time request to a concrete seek timestamp."""
     if position == "first":
         return 0.0
     if position == "last":
-        return max(0.0, duration - _LAST_FRAME_BACKOFF) if duration else 0.0
+        # Back off by exactly one frame (matches the frontend's optimistic preview)
+        # so the committed timestamp still rounds to the last frame index, not the
+        # one before it. Fall back to a fixed backoff if fps is unknown.
+        backoff = (1.0 / fps) if fps > 0 else _LAST_FRAME_BACKOFF
+        return max(0.0, duration - backoff) if duration else 0.0
     if position == "middle":
         return duration / 2 if duration else 0.0
     # custom
@@ -111,16 +120,24 @@ def extract_frame_to_image(
         )
 
     duration, fps = _probe(video_path)
-    t = _resolve_time(position, duration, time_seconds)
+    t = _resolve_time(position, duration, time_seconds, fps)
 
-    def _grab(seek: float) -> bytes:
+    def _grab(seek: float) -> bytes | None:
         # Input-side seek (fast); accurate enough for first/last/scrub MVP.
-        out, _ = (
-            ffmpeg.input(str(video_path), ss=seek)
-            .output("pipe:", vframes=1, format="image2", vcodec="mjpeg")
-            .run(capture_stdout=True, capture_stderr=True)
-        )
-        return out
+        try:
+            out, _ = (
+                ffmpeg.input(str(video_path), ss=seek)
+                .output("pipe:", vframes=1, format="image2", vcodec="mjpeg")
+                .run(capture_stdout=True, capture_stderr=True)
+            )
+            return out
+        except ffmpeg.Error as e:
+            # ffmpeg-python's Error.__str__ is a fixed "see stderr" placeholder;
+            # the actual diagnostic only lives on e.stderr, so log it explicitly
+            # or it's lost entirely.
+            stderr = (e.stderr or b"").decode(errors="replace").strip()
+            log.error(f"ffmpeg failed to grab frame at t={seek:.3f}s from {video_path}: {stderr}")
+            return None
 
     out = _grab(t)
     if not out and t > 0.0:

@@ -1,5 +1,5 @@
 /**
- * Push-to-talk voice input backed by on-device Whisper (Tauri/Rust).
+ * Push-to-talk voice input backed by on-device ASR models (Tauri/Rust).
  *
  * The Rust side captures the mic and streams interim transcripts over a Tauri
  * Channel; this composable folds those partials into the target text field live
@@ -14,16 +14,41 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { isTauri as checkIsTauri, initApiConfig } from '../apiConfig'
 import { useTelemetry } from './useTelemetry'
 
-export type VoiceModel = 'base.en' | 'small.en'
+export const VOICE_MODELS = [
+  {
+    id: 'base.en',
+    label: 'Whisper Base',
+    size: '142 MB',
+    description: 'Fastest Whisper option.',
+  },
+  {
+    id: 'small.en',
+    label: 'Whisper Small',
+    size: '466 MB',
+    description: 'More accurate Whisper option.',
+  },
+  {
+    id: 'parakeet-tdt-0.6b-v2',
+    label: 'Parakeet TDT 0.6B v2',
+    size: '661 MB',
+    description: 'English only; optimized for faster local transcription.',
+  },
+] as const
+
+export type VoiceModel = typeof VOICE_MODELS[number]['id']
 export type VoiceState = 'idle' | 'downloading' | 'recording' | 'finalizing' | 'error'
 
 // ---- Selected model (persisted, shared across all inputs) -----------------
 
 const VOICE_MODEL_KEY = 'stimma.voiceModel'
 
+function isVoiceModel(value: string | null): value is VoiceModel {
+  return VOICE_MODELS.some((model) => model.id === value)
+}
+
 function loadModel(): VoiceModel {
   const v = localStorage.getItem(VOICE_MODEL_KEY)
-  return v === 'small.en' ? 'small.en' : 'base.en'
+  return isVoiceModel(v) ? v : 'base.en'
 }
 
 export const voiceModel = ref<VoiceModel>(loadModel())
@@ -62,6 +87,13 @@ initTauri()
 interface ModelStatus {
   baseEn: boolean
   smallEn: boolean
+  parakeetTdt06bV2: boolean
+}
+
+function statusForModel(status: ModelStatus, model: VoiceModel): boolean {
+  if (model === 'small.en') return status.smallEn
+  if (model === 'parakeet-tdt-0.6b-v2') return status.parakeetTdt06bV2
+  return status.baseEn
 }
 
 /** Whether the given model is already downloaded. */
@@ -69,7 +101,7 @@ export async function isModelReady(model: VoiceModel): Promise<boolean> {
   await initTauri()
   if (!supported.value) return false
   const status: ModelStatus = await invokeFn('voice_model_status')
-  return model === 'small.en' ? status.smallEn : status.baseEn
+  return statusForModel(status, model)
 }
 
 // ---- Composable -----------------------------------------------------------
@@ -83,7 +115,7 @@ export interface VoiceInputOptions {
   focus?: () => void
   /**
    * Telemetry surface (closed enum: main_chat | flow_chat | prompt_agent |
-   * feedback). No transcript is ever tracked — only surface, duration, and
+   * feedback | global_search). No transcript is ever tracked — only surface, duration, and
    * the committed/cancelled outcome.
    */
   surface?: string

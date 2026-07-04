@@ -65,7 +65,7 @@ These tools run inside Stimma and are always available:
 | **Editing** | inpaint, outpaint, uncrop, extend canvas |
 | **Extraction** | remove background, crop to face, smart crop |
 | **Analysis** | score image, interrogate, detect objects, extract keywords |
-| **Video** | image-to-video, video upscale |
+| **Video** | text-to-video, image-to-video, video-to-video, video upscale |
 | **Library** | add/remove tags, create collection, set marker, move to trash |
 | **Prompting** | enhance prompt, craft prompt, style transfer |
 | **Utility** | resize, convert format, composite images |

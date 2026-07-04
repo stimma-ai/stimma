@@ -24,6 +24,7 @@ import ProjectFlowsView from '../views/ProjectFlowsView.vue'
 import ProjectSettingsView from '../views/ProjectSettingsView.vue'
 import ProjectToolsView from '../views/ProjectToolsView.vue'
 import OnboardingView from '../views/OnboardingView.vue'
+import SearchResultsView from '../views/SearchResultsView.vue'
 import ForeachMockView from '../views/ForeachMockView.vue'
 import { useTelemetry } from '../composables/useTelemetry'
 
@@ -47,6 +48,11 @@ const routes = [
     path: '/browse',
     name: 'browse',
     component: BrowseGridView
+  },
+  {
+    path: '/search',
+    name: 'search',
+    component: SearchResultsView
   },
   {
     path: '/boards',

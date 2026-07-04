@@ -1476,6 +1476,7 @@ import { marked } from 'marked'
 import axios from 'axios'
 import { devModeRef } from '../appConfig'
 import { escapeHtmlAttribute, sanitizeHtml } from '../utils/sanitizeHtml'
+import { formatTaskTypeLabel } from '../utils/taskTypeIcons'
 
 const props = defineProps<{
   // Optional override for chat identity. When provided, this takes precedence
@@ -1998,7 +1999,7 @@ function getToolCallPreview(toolCallItem) {
     case 'call_tool': {
       // Show task type or prompt snippet instead of raw tool_id
       const taskType = args._task_type || args.inputs?._task_type
-      if (taskType) return String(taskType).replace(/-/g, ' ')
+      if (taskType) return formatTaskTypeLabel(String(taskType))
       const prompt = args.inputs?.prompt || args.inputs?.positive_prompt
       if (prompt) return String(prompt).slice(0, 60)
       return ''

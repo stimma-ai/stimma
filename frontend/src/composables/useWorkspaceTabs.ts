@@ -3,6 +3,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { makeProfileKey } from '../utils/storageKeys'
 import { useProvidersApi } from './useProvidersApi'
 import { isSettingsLoaded } from '../appConfig'
+import { recordEntityVisit, updateRecentEntityName, type RecentEntityType } from './useRecentEntities'
 
 export type WorkspaceTabType = 'tool' | 'chat' | 'board' | 'editor' | 'lineage' | 'project' | 'flow'
 
@@ -170,6 +171,9 @@ export function useWorkspaceTabs() {
    * Add a tab (idempotent by type+entityId+projectId). Returns the tab.
    */
   function addTab(type: WorkspaceTabType, entityId: string, displayName?: string, projectId?: number, projectName?: string): WorkspaceTab {
+    // Every entity open flows through here (the sidebar's route watcher), so
+    // this is the one place cross-entity recents get recorded.
+    recordEntityVisit(type as RecentEntityType, entityId, displayName)
     const id = makeTabId(type, entityId, projectId)
     const existing = tabs.value.find(t => t.id === id)
     if (existing) {
@@ -370,6 +374,7 @@ export function useWorkspaceTabs() {
     if (tab && tab.displayName !== name) {
       tab.displayName = name
       tabs.value = [...tabs.value]
+      updateRecentEntityName(tab.type as RecentEntityType, tab.entityId, name)
     }
   }
 

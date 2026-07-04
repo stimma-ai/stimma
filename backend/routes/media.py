@@ -17,6 +17,7 @@ from utils.query_builder import (
     TEXT_FORMATS, SET_FORMATS, GRID_FORMATS, LAYOUT_FORMATS, STRUCTURED_FORMATS, RESOLUTION_MAP
 )
 from utils.similarity import (
+    compute_relevance_cutoff,
     filter_items_by_face_similarity,
     parse_similarity_ids,
     sort_similarity_items,
@@ -78,6 +79,7 @@ async def get_media(
     similar_face_to: Optional[str] = Query(None, description="Comma-separated media IDs to find images with similar faces (supports 1-3 IDs)"),
     similar_to_text: Optional[str] = Query(None, description="Text query to find visually similar images using CLIP text encoding"),
     similarity_threshold: Optional[float] = Query(None, description="Similarity threshold for filtering results (0.0-1.0, default from settings)"),
+    similarity_cutoff: Optional[str] = Query(None, pattern="^(auto)$", description="For similar_to_text: 'auto' replaces the flat threshold with a per-query cutoff derived from the score distribution's shape"),
     is_generated: Optional[bool] = Query(None, description="Filter for generated images (true) or non-generated (false)"),
     marker_ids: Optional[str] = Query(None, description="Comma-separated marker IDs to filter by (OR logic - item must have at least one)"),
     excluded_marker_ids: Optional[str] = Query(None, description="Comma-separated marker IDs to exclude (NOT logic - item must NOT have any)"),
@@ -241,7 +243,8 @@ async def get_media(
 
         # Compute similarities - use lower threshold for text-to-image (scores are typically 0.2-0.4)
         threshold = similarity_threshold if similarity_threshold is not None else get_settings().clip_text_similarity_threshold
-        filtered_items = []
+        all_scores: dict[int, float] = {}
+        scored_items = []
         stale_embedding_ids = []  # Items with wrong dimension embeddings
 
         for item in all_items:
@@ -251,15 +254,29 @@ async def get_media(
                 if embedding.shape[0] != CLIP_EMBEDDING_DIM:
                     stale_embedding_ids.append(item.id)
                     continue
-                similarity = clip_service.compute_similarity(query_embedding, embedding)
-                if similarity >= threshold:
-                    similarity_scores[item.id] = float(similarity)
-                    filtered_items.append(item)
+                all_scores[item.id] = float(clip_service.compute_similarity(query_embedding, embedding))
+                scored_items.append(item)
 
         # Schedule re-indexing for items with stale embeddings (wrong dimensions)
         if stale_embedding_ids:
             log.warning(f"Found {len(stale_embedding_ids)} items with stale CLIP embeddings (wrong dimensions), scheduling re-index")
             await _reset_stale_clip_embeddings(session, stale_embedding_ids)
+
+        # An explicit similarity_threshold always wins. Otherwise 'auto' replaces the flat
+        # default with a cutoff derived from this query's own score distribution, so
+        # non-visual/absent-concept queries (a flat distribution) return little to nothing
+        # while still keeping a homogeneous-but-relevant library (flat-but-high) intact.
+        if similarity_cutoff == "auto" and similarity_threshold is None:
+            effective_threshold = compute_relevance_cutoff(list(all_scores.values()), absolute_floor=threshold)
+        else:
+            effective_threshold = threshold
+
+        filtered_items = []
+        for item in scored_items:
+            score = all_scores[item.id]
+            if score >= effective_threshold:
+                similarity_scores[item.id] = score
+                filtered_items.append(item)
 
         # Sort filtered items based on sort_by parameter
         if sort_by == "similarity":
