@@ -5117,6 +5117,7 @@ provide(PROMPT_EDITOR_AGENT_KEY, {
   running: promptMiniAgent.running,
   error: promptMiniAgent.error,
   lastReply: promptMiniAgent.lastReply,
+  lastDebugTrace: promptMiniAgent.lastDebugTrace,
   messages: promptMiniAgent.messages,
   clearHistory: promptMiniAgent.clearHistory,
   snapshot: undo.snapshot,

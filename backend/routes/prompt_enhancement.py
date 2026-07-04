@@ -564,6 +564,11 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
     Applies light-touch improvements to fix grammar, add clarity,
     and enhance descriptions while preserving the original intent.
     """
+    if not request.prompt.strip():
+        # Nothing to improve (e.g. a tool with no prompt input) — don't spend
+        # an LLM call asking the model to improve an empty string.
+        return ImprovePromptResponse(improved_prompt=request.prompt)
+
     from llm_resolver import LLMUnavailableError, get_effective_llm_config
 
     try:
@@ -695,6 +700,10 @@ async def translate_prompt(request: TranslatePromptRequest):
 
     if not request.target_language.strip():
         raise HTTPException(status_code=400, detail="target_language is required")
+
+    if not request.prompt.strip():
+        # Nothing to translate (e.g. a tool with no prompt input).
+        return TranslatePromptResponse(translated_prompt=request.prompt)
 
     try:
         llm_config = await get_effective_llm_config('agent-fast')
@@ -1010,6 +1019,8 @@ async def suggest_categories(request: SuggestCategoriesRequest):
             "system_prompt": system_prompt,
             "user_prompt": request.prompt,
             "raw_response": None,
+            "model": llm_config.get_model(),
+            "api_base": llm_config.get_api_base(),
         }
 
     try:
@@ -1174,6 +1185,8 @@ Category: {request.category.label} ({request.category.category})"""
             "system_prompt": system_prompt,
             "user_prompt": user_content,
             "raw_response": None,
+            "model": llm_config.get_model(),
+            "api_base": llm_config.get_api_base(),
         }
 
     try:
@@ -1245,12 +1258,21 @@ class AgentStepRequest(BaseModel):
     thinking: bool = True
     # Stable id for the whole editor conversation, for caching + trace grouping.
     session_id: Optional[str] = None
+    # Dev-mode diagnostic: when true, the response carries a `debug` trace
+    # (resolved model/api_base, the full message list sent to the LLM, and the
+    # raw response text) so a failed/refused step can be copied into a bug report.
+    debug: bool = False
 
 
 class AgentStepResponse(BaseModel):
     message: str
     tool_calls: List[AgentToolCall] = []
     thinking: Optional[str] = None
+    # True when this step produced no tool calls and its text reads as a
+    # textual refusal (see refusal_detection.is_refusal) rather than a normal
+    # final reply.
+    refused: bool = False
+    debug: Optional[dict] = None
 
 
 @router.post("/agent/step", response_model=AgentStepResponse)
@@ -1338,6 +1360,20 @@ async def agent_step(request: AgentStepRequest):
     # user message in place.
     _inject_last_user_context(messages, reminders)
 
+    # Dev-mode diagnostic trace (see AgentStepRequest.debug). Built once, before
+    # the LLM call, so it's available in every return path — success, refusal,
+    # and every exception branch below — with raw_response/error_type filled in
+    # as each path learns them.
+    debug_info: Optional[dict] = None
+    if request.debug:
+        debug_info = {
+            "model": llm_config.get_model(),
+            "api_base": llm_config.get_api_base(),
+            "messages": [dict(m) for m in messages],
+            "raw_response": None,
+            "error_type": None,
+        }
+
     # Telemetry: one prompt_agent_step per request/response cycle. Identity
     # fields classify through the helpers (model_family / endpoint_class);
     # errorType domain is the shared agent error list incl. refusal.
@@ -1374,32 +1410,58 @@ async def agent_step(request: AgentStepRequest):
                 **agent_llm_options(enable_thinking=request.thinking),
             )
             tool_calls = [AgentToolCall(id=tc.id, name=tc.name, arguments=tc.arguments) for tc in resp.tool_calls]
+            if debug_info:
+                debug_info["raw_response"] = resp.content
+
             # Shared refusal classifier: only the categorical label egresses.
             from refusal_detection import is_refusal
-            if not tool_calls and is_refusal(resp.content):
+            refused = not tool_calls and is_refusal(resp.content)
+            if refused:
                 _track_step("failed", error_type="refusal")
+                if debug_info:
+                    debug_info["error_type"] = "refusal"
             else:
                 _track_step("completed")
-            return AgentStepResponse(message=resp.content or "", tool_calls=tool_calls, thinking=resp.thinking)
+            return AgentStepResponse(
+                message=resp.content or "",
+                tool_calls=tool_calls,
+                thinking=resp.thinking,
+                refused=refused,
+                debug=debug_info,
+            )
         except asyncio.TimeoutError:
             log.error("Prompt-agent step timed out")
             _track_step("timeout")
+            if debug_info:
+                debug_info["error_type"] = "timeout"
+                raise HTTPException(
+                    status_code=504,
+                    detail={"message": "The request timed out. Try again.", "debug": debug_info},
+                )
             raise HTTPException(status_code=504, detail="The request timed out. Try again.")
-        except ContentFilteredError:
+        except ContentFilteredError as e:
             log.warning("Prompt-agent step content-filtered")
             _track_step("failed", error_type="content_filtered")
-            raise HTTPException(
-                status_code=422,
-                detail="The model declined this request (content filter). Try rephrasing.",
-            )
+            message = "The model declined this request (content filter). Try rephrasing."
+            if debug_info:
+                debug_info["error_type"] = "content_filtered"
+                debug_info["raw_response"] = getattr(e, "upstream_message", None)
+                raise HTTPException(status_code=422, detail={"message": message, "debug": debug_info})
+            raise HTTPException(status_code=422, detail=message)
         except QuotaExceededError as e:
             log.warning(f"Prompt-agent step quota exceeded: {e}")
             _track_step("failed", error_type="quota_exceeded")
-            raise HTTPException(
-                status_code=429,
-                detail=str(e) or "LLM quota exceeded. Check your plan or usage and try again.",
-            )
+            message = str(e) or "LLM quota exceeded. Check your plan or usage and try again."
+            if debug_info:
+                debug_info["error_type"] = "quota_exceeded"
+                debug_info["raw_response"] = getattr(e, "upstream_message", None)
+                raise HTTPException(status_code=429, detail={"message": message, "debug": debug_info})
+            raise HTTPException(status_code=429, detail=message)
         except Exception as e:
             log.error(f"Prompt-agent step error: {e}", exc_info=True)
-            _track_step("failed", error_type=classify_agent_error(e))
+            error_type = classify_agent_error(e)
+            _track_step("failed", error_type=error_type)
+            if debug_info:
+                debug_info["error_type"] = error_type
+                raise HTTPException(status_code=500, detail={"message": str(e), "debug": debug_info})
             raise HTTPException(status_code=500, detail=str(e))

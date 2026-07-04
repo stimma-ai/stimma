@@ -1,5 +1,5 @@
 import type { InjectionKey, Ref, ComputedRef } from 'vue'
-import type { AgentMessage } from './usePromptMiniAgent'
+import type { AgentMessage, AgentDebugTrace } from './usePromptMiniAgent'
 
 /**
  * Shape of the object ToolView provides and AIPromptEditor injects.
@@ -15,6 +15,8 @@ export interface PromptEditorAgent {
   running: Ref<boolean>
   error: Ref<string | null>
   lastReply: Ref<string>
+  /** Dev-mode LLM trace for the last failed/refused step (null otherwise). */
+  lastDebugTrace: Ref<AgentDebugTrace | null>
   messages: Ref<AgentMessage[]>
   clearHistory: () => void
   /** Take a coarse-grained undo snapshot (used before pill-applied edits). */

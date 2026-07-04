@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import axios from 'axios'
+import { devModeRef } from '../appConfig'
 
 /**
  * Prompt-editor mini-agent loop driver.
@@ -29,6 +30,17 @@ export interface AgentMessage {
   thinking?: string | null
 }
 
+/** Dev-mode diagnostic trace attached to a failed/refused step (see backend
+ *  AgentStepResponse.debug) — resolved model/api_base, the full message list
+ *  sent to the LLM, the raw response text, and an error classification. */
+export interface AgentDebugTrace {
+  model?: string
+  api_base?: string
+  messages?: { role: string; content: string | null }[]
+  raw_response?: string | null
+  error_type?: string | null
+}
+
 export interface MiniAgentContext {
   /** Compact, live snapshot of the editor screen. Refreshed every step. */
   getStateContext: () => Record<string, any>
@@ -54,6 +66,9 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
   const running = ref(false)
   const error = ref<string | null>(null)
   const lastReply = ref<string>('')
+  // Debug trace for the last failed/refused step (dev mode only — see
+  // AgentDebugTrace). Cleared at the start of every run.
+  const lastDebugTrace = ref<AgentDebugTrace | null>(null)
   // Stable id for the whole conversation (caching + trace grouping); a new
   // conversation (/clear) gets a fresh id.
   const sessionId = ref<string>(newSessionId())
@@ -99,6 +114,7 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
 
   async function runOne(text: string): Promise<void> {
     error.value = null
+    lastDebugTrace.value = null
 
     // Reset per-run state (the host snapshots lazily via onBeforeTool).
     ctx.onRunStart?.()
@@ -123,8 +139,15 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
           conversation_history: wireHistory,
           state_context: stateForTurn,
           session_id: sessionId.value,
+          debug: devModeRef.value,
         })
-        const data = resp.data as { message: string; tool_calls: AgentToolCall[]; thinking?: string | null }
+        const data = resp.data as {
+          message: string
+          tool_calls: AgentToolCall[]
+          thinking?: string | null
+          refused?: boolean
+          debug?: AgentDebugTrace | null
+        }
         const toolCalls = data.tool_calls || []
 
         messages.value.push({
@@ -141,6 +164,11 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
         })
 
         if (toolCalls.length === 0) {
+          if (data.refused) {
+            lastDebugTrace.value = data.debug || null
+            error.value = data.message || 'The assistant declined this request.'
+            return
+          }
           lastReply.value = data.message || ''
           return
         }
@@ -166,6 +194,7 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
       }
       lastReply.value = 'Stopped after too many steps. Try a more specific instruction.'
     } catch (e: any) {
+      lastDebugTrace.value = e?.response?.data?.detail?.debug || null
       error.value =
         e?.response?.data?.detail?.message ||
         e?.response?.data?.detail ||
@@ -174,5 +203,5 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
     }
   }
 
-  return { messages, running, error, lastReply, send, clearHistory }
+  return { messages, running, error, lastReply, lastDebugTrace, send, clearHistory }
 }

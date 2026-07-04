@@ -181,6 +181,16 @@
             v-if="f.kind === 'reply'"
             :package-source="collectPromptAgentConversation"
           />
+          <!-- Dev mode: copy the failed step's full LLM trace for a bug report -->
+          <button
+            v-if="f.kind === 'error' && devModeRef && agentDebugTrace"
+            @click.stop="copyAgentTrace"
+            class="p-0.5 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
+            :title="agentTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
+          >
+            <CheckIcon v-if="agentTraceCopied" class="w-3.5 h-3.5 text-green-500" />
+            <BugAntIcon v-else class="w-3.5 h-3.5" />
+          </button>
         </div>
       </TransitionGroup>
     </template>
@@ -351,7 +361,17 @@
         <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
-        <p class="text-xs text-amber-500">{{ refusalMessage }}</p>
+        <p class="text-xs text-amber-500 flex-1">{{ refusalMessage }}</p>
+        <!-- Dev mode: copy the refused request's full LLM trace for a bug report -->
+        <button
+          v-if="devModeRef && ideasDebugTrace"
+          @click="copyIdeasTrace"
+          class="p-1 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
+          :title="ideasTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
+        >
+          <CheckIcon v-if="ideasTraceCopied" class="w-3.5 h-3.5 text-green-500" />
+          <BugAntIcon v-else class="w-3.5 h-3.5" />
+        </button>
       </div>
 
       <!-- Error state -->
@@ -360,6 +380,16 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
         <p class="text-xs text-red-500 flex-1">{{ ideasError }}</p>
+        <!-- Dev mode: copy the failed request's full LLM trace for a bug report -->
+        <button
+          v-if="devModeRef && ideasDebugTrace"
+          @click="copyIdeasTrace"
+          class="p-1 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
+          :title="ideasTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
+        >
+          <CheckIcon v-if="ideasTraceCopied" class="w-3.5 h-3.5 text-green-500" />
+          <BugAntIcon v-else class="w-3.5 h-3.5" />
+        </button>
         <button
           @click="refreshIdeasClick()"
           :disabled="isLoadingIdeas"
@@ -376,13 +406,23 @@
         </button>
       </div>
 
-      <!-- No ideas yet -->
-      <div v-else class="py-4 flex items-center justify-center">
+      <!-- No ideas yet (also where an all-options refusal lands: empty subitems) -->
+      <div v-else class="py-4 flex items-center justify-center gap-2">
         <button
           @click="refreshIdeasClick()"
           class="text-xs text-content-muted hover:text-purple-500 transition-colors"
         >
           Click to load ideas
+        </button>
+        <!-- Dev mode: copy the failed/refused request's full LLM trace for a bug report -->
+        <button
+          v-if="devModeRef && ideasDebugTrace"
+          @click="copyIdeasTrace"
+          class="p-1 rounded flex-shrink-0 text-content-muted hover:text-purple-500 hover:bg-purple-500/10 transition-colors"
+          :title="ideasTraceCopied ? 'Copied!' : 'Copy LLM trace for bug report'"
+        >
+          <CheckIcon v-if="ideasTraceCopied" class="w-3.5 h-3.5 text-green-500" />
+          <BugAntIcon v-else class="w-3.5 h-3.5" />
         </button>
       </div>
     </div>
@@ -424,7 +464,8 @@ import type { PromptEditorAgent } from '../../composables/promptEditorAgentKey'
 import { PROMPT_EDITOR_AGENT_KEY } from '../../composables/promptEditorAgentKey'
 import type { PromptEditorHandle } from '../../composables/promptEditorHandle'
 import { SparklesIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon, BugAntIcon, ArrowPathIcon, ChevronDownIcon, LightBulbIcon } from '@heroicons/vue/24/solid'
-import { WrenchIcon, ChevronUpIcon } from '@heroicons/vue/24/outline'
+import { WrenchIcon, ChevronUpIcon, CheckIcon } from '@heroicons/vue/24/outline'
+import { copyToClipboard } from '../../utils/clipboard'
 import axios from 'axios'
 import { useTelemetry } from '../../composables/useTelemetry'
 import { extractVerbatim, restoreVerbatim, verifyVerbatimPreserved } from '../../utils/promptProcessor'
@@ -679,6 +720,61 @@ const IDEAS_DEBOUNCE_MS = 500
 
 // Refusal message from LLM (e.g., content policy rejection)
 const refusalMessage = ref<string | null>(null)
+
+// ── Dev-mode bug-report traces ─────────────────────────────────────────────
+// When dev mode is on, suggestion requests send debug:true and the backend
+// returns the full LLM exchange (model, api_base, prompts, raw response). On a
+// failure/refusal a small bug button copies it as markdown for a bug report.
+const ideasDebugTrace = ref<Record<string, any> | null>(null)
+const ideasTraceCopied = ref(false)
+const agentTraceCopied = ref(false)
+// The mini-agent loop captures its own trace on refused/failed steps.
+const agentDebugTrace = computed(() => agent?.lastDebugTrace?.value ?? null)
+
+function stringifyTraceContent(content: any): string {
+  if (typeof content === 'string') return content
+  if (content == null) return '(none)'
+  try { return JSON.stringify(content, null, 2) } catch { return String(content) }
+}
+
+// Readable markdown trace — clear section headers so it pastes well into a chat.
+function formatDebugTrace(title: string, trace: Record<string, any>): string {
+  const lines: string[] = [`# ${title}`, '']
+  if (trace.model) lines.push(`- model: ${trace.model}`)
+  if (trace.api_base) lines.push(`- api_base: ${trace.api_base}`)
+  if (trace.error_type) lines.push(`- error_type: ${trace.error_type}`)
+  if (trace.message) lines.push(`- message: ${trace.message}`)
+  lines.push('')
+  if (Array.isArray(trace.messages)) {
+    for (const m of trace.messages) {
+      lines.push(`## ${m.role}`, '', stringifyTraceContent(m.content), '')
+    }
+  } else {
+    if (trace.system_prompt) lines.push('## system', '', trace.system_prompt, '')
+    if (trace.user_prompt) lines.push('## user', '', trace.user_prompt, '')
+  }
+  lines.push('## raw_response', '', stringifyTraceContent(trace.raw_response), '')
+  return lines.join('\n')
+}
+
+async function copyIdeasTrace() {
+  const trace = ideasDebugTrace.value
+  if (!trace) return
+  const title = `Ideas trace — ${trace.surface || 'suggestions'}`
+  if (await copyToClipboard(formatDebugTrace(title, trace))) {
+    ideasTraceCopied.value = true
+    setTimeout(() => { ideasTraceCopied.value = false }, 2000)
+  }
+}
+
+async function copyAgentTrace() {
+  const trace = agentDebugTrace.value
+  if (!trace) return
+  if (await copyToClipboard(formatDebugTrace('Tool assistant trace', trace))) {
+    agentTraceCopied.value = true
+    setTimeout(() => { agentTraceCopied.value = false }, 2000)
+  }
+}
 
 // Reset conversation history
 function resetConversation() {
@@ -962,6 +1058,7 @@ async function fetchIdeas(force = false) {
 
   ideasError.value = null
   refusalMessage.value = null
+  ideasDebugTrace.value = null
   lastPromptForIdeas.value = props.prompt
 
   try {
@@ -971,13 +1068,20 @@ async function fetchIdeas(force = false) {
     const catResponse = await axios.post('/api/prompt/suggest-categories', {
       prompt: promptForIdeas,
       ...suggestionExtras(),
-      debug: showDebug.value
+      debug: showDebug.value || devModeRef.value
     }, {
       signal: ideasAbortController.signal
     })
 
     if (catResponse.data.message) {
       refusalMessage.value = catResponse.data.message
+      if (catResponse.data.debug) {
+        ideasDebugTrace.value = {
+          surface: 'suggest-categories',
+          ...catResponse.data.debug,
+          message: catResponse.data.message,
+        }
+      }
       if (!hasExistingSuggestions) {
         isLoadingCategories.value = false
         isLoadingIdeas.value = false
@@ -1105,11 +1209,23 @@ async function fetchOptionsBatch(promptForIdeas: string, cats: CategoryItem[], e
     })),
     exclude_by_category: excludeMap || {},
     ...suggestionExtras(),
-    debug: showDebug.value
+    debug: showDebug.value || devModeRef.value
   }, {
     signal: ideasAbortController?.signal
   })
-  return response.data.results || []
+  const results = response.data.results || []
+  // Dev mode: a category that refused or answered unparseably comes back with
+  // empty subitems (+ message/debug). Keep the first such trace for the bug
+  // button — it renders only in the error/empty states.
+  const failed = results.find((r: any) => (!r.subitems || r.subitems.length === 0) && (r.debug || r.message))
+  if (failed) {
+    ideasDebugTrace.value = {
+      surface: `suggest-options (${failed.label || failed.category})`,
+      ...(failed.debug || {}),
+      message: failed.message,
+    }
+  }
+  return results
 }
 
 // Refresh options only (keep categories stable, exclude previous options)
