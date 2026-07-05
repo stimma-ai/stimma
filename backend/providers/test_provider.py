@@ -18,6 +18,7 @@ import asyncio
 import base64
 import io
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable, Dict, List, Optional
@@ -629,7 +630,10 @@ class TestToolProvider(ToolProvider):
         import os as _os
         count_scope = _os.path.dirname(output_path) if output_path else str(parameters.get("prompt") or "")
         for marker, fail_count, message in rules:
-            if marker.lower() not in prompt_text:
+            # Word-boundary match: a "crow" rule must not fire on "crowned".
+            # Rules from unrelated concurrent consumers share this provider,
+            # so accidental substring collisions cross-contaminate otherwise.
+            if not re.search(rf"\b{re.escape(marker.lower())}\b", prompt_text):
                 continue
             if fail_count is not None:
                 key = (tool_id, marker, count_scope)
@@ -788,27 +792,20 @@ class TestToolProvider(ToolProvider):
         return buffer.getvalue()
 
     def _draw_params(self, img: Image.Image, tool_id: str, seed: int, parameters: Dict[str, Any]) -> None:
-        """Render key generation params onto the image for visual verification."""
+        """Small corner watermark for humans debugging test outputs.
+
+        Deliberately NOT a banner with the prompt text: vision-capable agents
+        inspect their outputs, and legible prompt prose burned onto the canvas
+        reads as a placeholder/broken generation — they then distrust the tool
+        and route around it, which is never the behavior under test. Machine
+        verification uses the "stimma:test_params" PNG text chunk instead.
+        """
         width, height = img.size
-        if width < 48 or height < 32:
+        if width < 64 or height < 32:
             return
-        draw = ImageDraw.Draw(img)
-        lines = [tool_id or "test", f"seed={seed} {width}x{height}"]
-        prompt = parameters.get("prompt")
-        if prompt:
-            # Wrap the prompt to the canvas width (default font is ~6px/char)
-            chars = max(8, (width - 8) // 6)
-            text = str(prompt)
-            lines.extend(text[i:i + chars] for i in range(0, min(len(text), chars * 8), chars))
-        line_height = 12
-        band_height = min(height, len(lines) * line_height + 8)
-        draw.rectangle([0, 0, width, band_height], fill=(0, 0, 0))
-        y = 4
-        for line in lines:
-            if y + line_height > height:
-                break
-            draw.text((4, y), line, fill=(255, 255, 255))
-            y += line_height
+        draw = ImageDraw.Draw(img, "RGBA")
+        tag = f"{(tool_id or 'test').split(':')[-1]} #{seed}"
+        draw.text((6, height - 16), tag, fill=(255, 255, 255, 140))
 
 
 # Singleton instance for tests

@@ -127,21 +127,38 @@ def _get_default_folder(workspace_dir: Optional[str] = None) -> str:
         return "./output"
 
 
-# Consecutive-failure streaks per (workspace, tool). LLMs will otherwise
-# retry a hard-failing tool indefinitely; escalating error text alone proved
-# insufficient (models retried through explicit "STOP retrying" guidance), so
-# past the hard cap we refuse to submit at all — instant, costless, and
-# unambiguous. Streaks reset on any success for that tool.
+# Consecutive-failure streaks per (workspace, tool) AND per (workspace,
+# task_type). LLMs will otherwise retry a hard-failing tool indefinitely;
+# escalating error text alone proved insufficient (models retried through
+# explicit "STOP retrying" guidance), so past the hard cap we refuse to
+# submit at all — instant, costless, and unambiguous. The task-type streak
+# exists because alternating between sibling models (draft vs quality tier)
+# resets nothing about a backend that is down — without it, each variant
+# gets its own full retry budget. Streaks reset on any success for that
+# tool / task type.
 _failure_streaks: Dict[tuple, int] = {}
 _FAILURE_STREAK_WARN = 2
 _FAILURE_STREAK_MAX = 4
 _FAILURE_STREAK_BLOCK = 5
+_TASK_TYPE_STREAK_BLOCK = 8
 
 
-def _with_retry_guidance(workspace_dir: Optional[str], tool_id: str, error_msg: str) -> str:
+def _type_key(workspace_dir: Optional[str], task_type: Optional[str]) -> Optional[tuple]:
+    return (str(workspace_dir), f"type:{task_type}") if task_type else None
+
+
+def _with_retry_guidance(
+    workspace_dir: Optional[str], tool_id: str, error_msg: str,
+    task_type: Optional[str] = None,
+) -> str:
     key = (str(workspace_dir), tool_id)
     streak = _failure_streaks.get(key, 0) + 1
     _failure_streaks[key] = streak
+    type_streak = 0
+    tkey = _type_key(workspace_dir, task_type)
+    if tkey:
+        type_streak = _failure_streaks.get(tkey, 0) + 1
+        _failure_streaks[tkey] = type_streak
     if len(_failure_streaks) > 4096:
         _failure_streaks.clear()
     if streak >= _FAILURE_STREAK_MAX:
@@ -150,6 +167,13 @@ def _with_retry_guidance(workspace_dir: Optional[str], tool_id: str, error_msg: 
             "STOP retrying it — the failure is not transient. Report the failure to the user "
             "plainly (what you tried, what error came back) and, only if one exists, offer a "
             "genuinely different tool or approach."
+        )
+    if type_streak >= _FAILURE_STREAK_MAX and type_streak > streak:
+        return (
+            f"{error_msg}\n\nThis is the {type_streak}th consecutive failure across "
+            f"{task_type} tools in this session. Switching to a sibling model does not fix a "
+            "backend that is down — STOP retrying this task type and report the failure to "
+            "the user plainly (what you tried, what error came back)."
         )
     if streak >= _FAILURE_STREAK_WARN:
         return (
@@ -160,18 +184,35 @@ def _with_retry_guidance(workspace_dir: Optional[str], tool_id: str, error_msg: 
     return error_msg
 
 
-def _clear_failure_streak(workspace_dir: Optional[str], tool_id: str) -> None:
+def _clear_failure_streak(
+    workspace_dir: Optional[str], tool_id: str, task_type: Optional[str] = None
+) -> None:
     _failure_streaks.pop((str(workspace_dir), tool_id), None)
+    tkey = _type_key(workspace_dir, task_type)
+    if tkey:
+        _failure_streaks.pop(tkey, None)
 
 
-def _check_failure_block(workspace_dir: Optional[str], tool_id: str) -> None:
-    """Refuse execution outright once a tool has hard-failed repeatedly."""
+def _check_failure_block(
+    workspace_dir: Optional[str], tool_id: str, task_type: Optional[str] = None
+) -> None:
+    """Refuse execution outright once a tool (or its whole task type) has
+    hard-failed repeatedly."""
     streak = _failure_streaks.get((str(workspace_dir), tool_id), 0)
     if streak >= _FAILURE_STREAK_BLOCK:
         raise RuntimeError(
             f"Refusing to run '{tool_id}': it has failed {streak} times in a row and further "
             "retries are blocked. Report the failure to the user (what you tried and the error "
             "that came back); it becomes available again once the user weighs in."
+        )
+    tkey = _type_key(workspace_dir, task_type)
+    type_streak = _failure_streaks.get(tkey, 0) if tkey else 0
+    if type_streak >= _TASK_TYPE_STREAK_BLOCK:
+        raise RuntimeError(
+            f"Refusing to run '{tool_id}': {task_type} tools have failed {type_streak} times "
+            "in a row in this session (across model variants) and further retries are blocked. "
+            "Report the failure to the user (what you tried and the error that came back); "
+            "generation becomes available again once the user weighs in."
         )
 
 
@@ -440,7 +481,7 @@ async def execute_call_tool(
         if val is not None:
             job_params[meta_key] = val
 
-    _check_failure_block(kwargs.get("workspace_dir"), tool_id)
+    _check_failure_block(kwargs.get("workspace_dir"), tool_id, task_type)
 
     queue = get_generation_queue()
     job_id = await queue.submit_job(
@@ -490,7 +531,7 @@ async def execute_call_tool(
     # 8. Handle failure
     if errors and not media_ids and cancelled_count == 0:
         error_msg = "; ".join(errors)
-        raise RuntimeError(_with_retry_guidance(kwargs.get("workspace_dir"), tool_id, error_msg))
+        raise RuntimeError(_with_retry_guidance(kwargs.get("workspace_dir"), tool_id, error_msg, task_type))
 
     if cancelled_count > 0 and not media_ids:
         raise RuntimeError("Generation cancelled by user")
@@ -498,7 +539,7 @@ async def execute_call_tool(
     if not media_ids:
         raise RuntimeError("Generation completed without media output")
 
-    _clear_failure_streak(kwargs.get("workspace_dir"), tool_id)
+    _clear_failure_streak(kwargs.get("workspace_dir"), tool_id, task_type)
     media_id = media_ids[0]
 
     # 9. Copy output to workspace so the agent can reference/manipulate it
