@@ -358,7 +358,7 @@ jobs:
         continue-on-error: true
         with:
           name: stimma-macos-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
-          retention-days: 3
+          retention-days: 1
           path: |
             ${{ steps.collect.outputs.dmg_file }}
             ${{ steps.collect.outputs.app_tar }}

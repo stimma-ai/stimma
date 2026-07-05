@@ -124,7 +124,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: acceptance-artifacts
-          retention-days: 7
+          retention-days: 2
           if-no-files-found: ignore
           path: |
             frontend/test-results/

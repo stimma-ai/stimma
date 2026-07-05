@@ -388,7 +388,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: stimma-windows-${{ env.STIMMA_RELEASE_CHANNEL }}-${{ steps.version.outputs.version }}
-          retention-days: 3
+          retention-days: 1
           path: |
             ${{ steps.collect.outputs.installer_file }}
             ${{ steps.collect.outputs.app_archive }}
