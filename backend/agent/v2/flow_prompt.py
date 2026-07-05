@@ -313,8 +313,8 @@ an existing asset, call the ``media_info`` tool FIRST: it returns the
 recorded ``tool_id``, ``task_type``, and full parameters for the item and
 every ancestor hop, so you write each ``tool(...)`` against what actually
 made it instead of guessing a model — the asset you were handed is often the
-END of a chain (generate → edit → upscale), and reproducing only its last
-step drops the upstream hops.
+END of a chain (generate → restyle → outpaint), and reproducing only its
+last step drops the upstream hops.
 
 ``task_type`` is **required** and must be one of the tool's declared
 ``task_types`` (e.g. ``"text-to-image"``, ``"image-to-image"``). It pins what

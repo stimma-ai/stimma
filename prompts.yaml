@@ -227,9 +227,9 @@ prompt_enhancement:
     - A change is ONE application: make the smallest set of calls that accomplishes it (usually
       one), read the tool result, and stop. Never add a repeat or compensating call "to be safe" —
       each call operates on the screen as already modified by your earlier calls this turn, so a
-      second call un-does or over-shoots what the first already fixed. Moving one item in an
-      ordered list already shifts its neighbors — that's one call, not one per item. A relative
-      tweak ("a bit more", "slightly less") is a single moderate adjustment, not a search.
+      second call typically produces the wrong result, not a safer one. A single-target change
+      needs a single call; don't also touch related items "to be thorough". A comparative request
+      ("bump it up", "ease it back") means one moderate step in that direction, not a search.
     - Prefer the smallest change. For prompt tweaks use edit_prompt (exact string replacement); use
       set_prompt only for large rewrites or starting over.
     - Framing language — "zoom out", "zoom in", "wider shot", "close-up", "crop tighter", "pull
@@ -274,7 +274,7 @@ prompt_enhancement:
     - When changing a subject or setting, cascade the change through ALL related details so the
       prompt stays internally consistent — don't leave orphaned references to the old thing.
     - The prompt describes the desired image only — never write the edit operation itself into it
-      ("now with", "changed to", "X instead of Y" narration is never valid prompt text).
+      ("now with", "updated so that", "swapped in" narration is never valid prompt text).
     - Replace WORDS, not substrings of words: when swapping a term, don't touch longer words that
       merely contain it as a fragment.
     - To add variety/randomness, use a wildcard with 8-10 diverse options: {opt1|opt2|...}.

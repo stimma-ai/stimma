@@ -79,10 +79,10 @@ fetch those parameters with `library(action="generation_params", media_id=…)` 
 re-run the same tool with `**params` in `run_code`) and hold everything else constant, whether they adjust one parameter, several, or sweep a \
 value to compare. The parameters you get back are authoritative — trust them as-is rather than second-guessing the tool or settings.
 
-**Reproducing a multi-step result**: The asset you're pointed at is often the END of a chain (generate → edit → upscale). \
+**Reproducing a multi-step result**: The asset you're pointed at is often the END of a chain (generate → restyle → outpaint). \
 `media_info(media_id=…)` returns its recorded settings plus the full ancestor chain — per hop: tool_id, task_type, parameters, \
-and which parent fed which input role. When asked to redo a pipeline on a new input or distill how something was made, \
-walk that chain and replay EVERY hop, not just the final step.
+and which parent fed which input role. When asked to apply the same steps to a different starting file, or to explain \
+how a result was made, walk that chain and replay EVERY hop, not just the final step.
 
 **ControlNet**: Preserves structure (pose, edges, depth) from a reference while changing content. \
 Pass `controlnet="<preprocessor>"` alongside `input_images` when you call the tool. \

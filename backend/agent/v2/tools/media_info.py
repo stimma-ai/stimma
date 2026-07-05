@@ -2,7 +2,7 @@
 
 Available in BOTH chat and flow scopes: flow chats deliberately exclude the
 library/call_tool/run_code tools (to keep those namespaces out of program.py),
-but distilling an asset into a repeatable flow needs its provenance — which
+but turning an asset into a repeatable flow needs its provenance — which
 tool made it, with which parameters, fed by which parents in which input
 roles, all the way to the roots. Chat needs the same walk: reading only the
 final asset's generation_params and replaying the last step silently drops
@@ -149,10 +149,10 @@ async def build_media_info(session: AsyncSession, media_id: int) -> Dict[str, An
         "Get a media item's recorded generation settings AND its full ancestor chain: "
         "per hop, the tool_id that made it, task_type, prompt, every recorded parameter, "
         "and which parent fed which input role. Use this before reproducing, varying, or "
-        "distilling an asset into a flow — the visible item is often the END of a chain "
-        "(e.g. generate → edit → upscale), and replaying only its last step silently drops "
-        "the upstream hops. In flows, pair with params_from=<media_id> to inherit a hop's "
-        "recorded knobs at runtime."
+        "turning an asset into a reusable flow — the visible item is often the END of a "
+        "chain (e.g. generate → restyle → outpaint), and replaying only its last step "
+        "silently drops the upstream hops. In flows, pair with params_from=<media_id> to "
+        "inherit a hop's recorded knobs at runtime."
     ),
     parameters=[
         ToolParameter(
