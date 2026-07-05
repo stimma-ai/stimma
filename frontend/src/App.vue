@@ -179,6 +179,7 @@ import {
   profileRequiresPin,
   hasCachedPin,
   cachePin,
+  clearCachedPin,
   startIdleTracking,
 } from './composables/usePinLock'
 import { getApiBase, isTauri } from './apiConfig'
@@ -482,6 +483,13 @@ function handleKeydown(e) {
     return
   }
 
+  // Cmd/Ctrl+Shift+L: lock the current profile now, if it has a PIN set
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyL') {
+    e.preventDefault()
+    lockCurrentProfileNow()
+    return
+  }
+
   // Cmd/Ctrl+R to refresh in Tauri (browser handles this natively)
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'r' && isTauri()) {
     e.preventDefault()
@@ -739,6 +747,18 @@ watch(isAuthenticated, async (authenticated) => {
     window.dispatchEvent(new CustomEvent('settings-loaded'))
   }
 })
+
+// Cmd/Ctrl+Shift+L: lock the current profile immediately (no-op if it has no PIN)
+function lockCurrentProfileNow() {
+  const profile = profiles.value.find(p => p.id === currentProfileId.value)
+  if (!profile?.has_pin) return
+
+  trackTelemetry('profile_locked', {}, 'settings')
+  clearCachedPin(currentProfileId.value)
+  lockScreenPin.value = ''
+  lockScreenError.value = ''
+  isLocked.value = true
+}
 
 // Handle auto-lock event from idle timeout
 function handleAutoLock(event) {
