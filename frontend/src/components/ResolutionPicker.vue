@@ -174,6 +174,9 @@ const emit = defineEmits<{
   (e: 'update:mode', mode: 'aspect' | 'manual'): void
   (e: 'update:lockSize', value: boolean): void
   (e: 'update:lockArea', value: boolean): void
+  /** The auto-change mode as one atomic value — listen to this instead of the
+      two boolean events when the pair matters (they arrive in sequence). */
+  (e: 'update:autoChangeLock', mode: 'none' | 'area' | 'size'): void
 }>()
 
 const showDropdown = ref(false)
@@ -317,6 +320,7 @@ function toggleLockArea() {
 function setAutoChangeLock(mode: 'none' | 'area' | 'size') {
   emit('update:lockSize', mode === 'size')
   emit('update:lockArea', mode === 'area')
+  emit('update:autoChangeLock', mode)
 }
 
 function autoLockButtonClass(active: boolean) {

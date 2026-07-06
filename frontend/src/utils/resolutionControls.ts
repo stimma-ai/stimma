@@ -56,6 +56,37 @@ export function detectResolutionControls(props: Props): ResolutionControls {
 }
 
 /**
+ * Snap a (width, height) onto a tool's legal grid so inherited or edited
+ * source dimensions land on a size the model actually accepts — a 640×384
+ * image-to-image source should run at 640×384, an off-grid size snaps to the
+ * nearest legal one. Mirrors the backend snap (stimma-cloud tool-params.ts,
+ * agent stp_utils.snap_dims_to_schema): nearest allowed pair for constrained
+ * tools, otherwise clamp+round each axis to the schema's min/max/step.
+ */
+export function snapDimsToGrid(props: Props, width: number, height: number): { width: number; height: number } {
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return { width, height }
+  const p = props || {}
+  const dims = detectResolutionControls(p).allowedDimensions
+  if (dims && dims.length) {
+    let best = dims[0]
+    let bestDist = Infinity
+    for (const [w, h] of dims) {
+      const d = (w - width) ** 2 + (h - height) ** 2
+      if (d < bestDist) { bestDist = d; best = [w, h] }
+    }
+    return { width: best[0], height: best[1] }
+  }
+  const snapAxis = (v: number, axis: any) => {
+    const step = Number(axis?.['x-step']) || 1
+    let x = Math.round(v / step) * step
+    if (axis?.minimum != null) x = Math.max(Number(axis.minimum), x)
+    if (axis?.maximum != null) x = Math.min(Number(axis.maximum), x)
+    return x
+  }
+  return { width: snapAxis(width, p.width), height: snapAxis(height, p.height ?? p.width) }
+}
+
+/**
  * Param names a picker fully owns, so callers can hide the raw fields that the
  * picker subsumes. Depends on which pickers are active for this schema.
  */

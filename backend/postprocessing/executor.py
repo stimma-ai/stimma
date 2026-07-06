@@ -666,6 +666,75 @@ async def _apply_prompt_pipeline(
     )
 
 
+async def _adapt_resolution_to_input(
+    db,
+    tool_id: str,
+    step: Dict[str, Any],
+    parameters: Dict[str, Any],
+    input_media_id: int,
+) -> None:
+    """Adapt the step's resolution parameters to the actual input media —
+    ToolView's reference-image behavior, applied at run time because a chain
+    step's input doesn't exist at config time.
+
+    Aspect-ratio tools follow the input unless the step pinned aspect_ratio in
+    its settings. Width/height tools follow the step's resolutionLock:
+    auto = adopt the input's dimensions, area = keep the configured pixel
+    budget but match the input's aspect, size = never touch. Steps saved
+    before resolutionLock existed pin explicitly-set dimensions and adapt
+    otherwise. Everything lands snapped to the tool's legal grid."""
+    from agent.tools.stp_utils import nearest_aspect_choice, snap_dims_to_schema
+    from providers.registry import ProviderRegistry
+
+    provider_tool = ProviderRegistry.get_instance().get_tool(tool_id)
+    if not provider_tool:
+        return
+    descriptor = provider_tool[1]
+    props = (descriptor.parameter_schema or {}).get("properties", {})
+    has_aspect = "aspect_ratio" in props
+    has_wh = "width" in props and "height" in props
+    if not has_aspect and not has_wh:
+        return
+
+    lock = step.get("resolutionLock")
+    if lock not in ("auto", "area", "size"):
+        lock = "size" if (parameters.get("width") and parameters.get("height")) else "auto"
+
+    needs_aspect = has_aspect and "aspect_ratio" not in parameters and lock != "size"
+    needs_dims = has_wh and lock != "size"
+    if not needs_aspect and not needs_dims:
+        return
+
+    async with db.async_session_maker() as session:
+        result = await session.execute(
+            select(MediaItem.width, MediaItem.height).where(MediaItem.id == input_media_id)
+        )
+        row = result.first()
+    if not row or not row[0] or not row[1]:
+        return
+    src_w, src_h = int(row[0]), int(row[1])
+
+    if needs_aspect:
+        choice = nearest_aspect_choice(props["aspect_ratio"].get("enum") or [], src_w, src_h)
+        if choice is not None:
+            parameters["aspect_ratio"] = choice
+
+    if needs_dims:
+        w, h = float(src_w), float(src_h)
+        if lock == "area":
+            base_w = parameters.get("width") or props.get("width", {}).get("default")
+            base_h = parameters.get("height") or props.get("height", {}).get("default")
+            try:
+                area = float(base_w) * float(base_h)
+            except (TypeError, ValueError):
+                area = 0.0
+            if area > 0:
+                aspect = src_w / src_h
+                h = max(1.0, round((area / aspect) ** 0.5))
+                w = max(1.0, round(h * aspect))
+        parameters["width"], parameters["height"] = snap_dims_to_schema(descriptor, w, h)
+
+
 async def _run_tool_step(
     db,
     step: Dict[str, Any],
@@ -683,6 +752,12 @@ async def _run_tool_step(
         raise ValueError("Tool step has no tool_id")
 
     parameters: Dict[str, Any] = dict(step.get("settings") or {})
+    # Seed semantics match ToolView's submit path: unless the step explicitly
+    # unchecked Randomize, drop any lingering seed so every run gets a fresh
+    # one (execute_call_tool randomizes a missing seed). randomizeSeed itself
+    # is UI state, never an STP parameter.
+    if parameters.pop("randomizeSeed", True) is not False:
+        parameters.pop("seed", None)
     parameters["input_images"] = [input_media_id]
     # Record the chain on the step output so remixing any chained image
     # restores the chain (lands in generation_metadata.parameters).
@@ -707,6 +782,13 @@ async def _run_tool_step(
             parameters=parameters,
             profile_id=profile_id,
         )
+
+    # The input media is only known now — adapt the step's canvas to it, the
+    # same way ToolView reacts to a newly-set reference image.
+    try:
+        await _adapt_resolution_to_input(db, tool_id, step, parameters, input_media_id)
+    except Exception as e:
+        log.warning(f"[postproc] Resolution adaptation failed for {tool_id}: {e}")
 
     # Relative upscale: the step stores scale_factor because the input isn't
     # known at config time. Resolve it against the actual input here — same

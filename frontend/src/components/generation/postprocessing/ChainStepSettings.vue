@@ -32,15 +32,41 @@
         compact
       />
 
+      <!-- Width/height canvas — the same ResolutionPicker + auto/area/size
+           locking ToolView has. The step's input image only exists at run
+           time, so the executor resolves "Use image size" / "Maintain area"
+           against the actual input; "Maintain current size" pins the dims. -->
+      <div v-if="hasWidthHeight" class="flex items-center justify-between gap-4 px-1 py-2">
+        <div class="min-w-0">
+          <div class="text-sm font-medium text-content">Resolution</div>
+          <div class="text-xs text-content-muted">{{ resolutionHint }}</div>
+        </div>
+        <div class="flex-shrink-0">
+          <ResolutionPicker
+            :width="stepWidth"
+            :height="stepHeight"
+            :lock-size="resolutionLock === 'size'"
+            :lock-area="resolutionLock === 'area'"
+            @update="onStepResolutionUpdate"
+            @update:auto-change-lock="onAutoChangeLock"
+          />
+        </div>
+      </div>
+
       <!-- Aspect ratio / image size / megapixels (dedicated controls in
-           ToolView; rendered as simple rows here) -->
+           ToolView; rendered as simple rows here). Unset aspect_ratio means
+           "match the input image" — the executor picks the nearest choice at
+           run time; choosing a ratio pins it. -->
       <div v-if="hasAspectRatio && aspectRatioChoices.length" class="flex items-center justify-between gap-4 px-1 py-2">
         <div class="text-sm font-medium text-content">Aspect Ratio</div>
         <div class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
-            :model-value="String(step.settings.aspect_ratio ?? schemaDefault('aspect_ratio') ?? aspectRatioChoices[0])"
-            @update:model-value="updateSetting('aspect_ratio', $event)"
-            :options="aspectRatioChoices.map((v: string) => ({ value: v, label: v }))"
+            :model-value="String(step.settings.aspect_ratio ?? MATCH_INPUT)"
+            @update:model-value="updateSetting('aspect_ratio', $event === MATCH_INPUT ? undefined : $event)"
+            :options="[
+              { value: MATCH_INPUT, label: 'Match input' },
+              ...aspectRatioChoices.map((v: string) => ({ value: v, label: v })),
+            ]"
           />
         </div>
       </div>
@@ -117,7 +143,7 @@
         disable-collapse
         @update:param="updateSetting"
       />
-      <div v-if="!groupedGenericParams.length && !hasPrompt && !showUpscalePicker && !hasAspectRatio && !hasMegapixels && !hasDuration && !hasFps" class="text-xs text-content-muted py-1">
+      <div v-if="!groupedGenericParams.length && !hasPrompt && !showUpscalePicker && !hasWidthHeight && !hasAspectRatio && !hasMegapixels && !hasDuration && !hasFps" class="text-xs text-content-muted py-1">
         This tool has no tunable settings.
       </div>
     </template>
@@ -165,13 +191,24 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import AIPromptEditor from '../AIPromptEditor.vue'
+import ResolutionPicker from '../../ResolutionPicker.vue'
 import SchemaParamGroup from '../SchemaParamGroup.vue'
 import SettingsDropdown from '../../ui/SettingsDropdown.vue'
 import UpscaleResolutionPicker from '../UpscaleResolutionPicker.vue'
 import { useToolSchemaFeatures } from '../../../composables/useToolSchemaFeatures'
 import { useProvidersApi, type ProviderTool } from '../../../composables/useProvidersApi'
 import { getChainFilterDef } from '@stimma/image-editor'
-import { defaultChainStepPromptOptions, type ChainStep, type ChainStepPromptOptions } from '../../../utils/postProcessingChain'
+import { snapDimsToGrid } from '../../../utils/resolutionControls'
+import {
+  defaultChainStepPromptOptions,
+  resolveResolutionLock,
+  type ChainStep,
+  type ChainStepPromptOptions,
+  type ChainStepResolutionLock,
+} from '../../../utils/postProcessingChain'
+
+/** Dropdown sentinel for "aspect_ratio unset = follow the input image". */
+const MATCH_INPUT = '__match_input__'
 
 // Fallback for steps saved before promptOptions existed — the same ToolView
 // new-state defaults normalizeChain fills in (Enhance ON).
@@ -184,6 +221,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:settings', settings: Record<string, any>): void
   (e: 'update:promptOptions', value: ChainStepPromptOptions): void
+  (e: 'update:resolutionLock', value: ChainStepResolutionLock): void
 }>()
 
 function updateSetting(name: string, value: any) {
@@ -220,6 +258,7 @@ const {
   hasPrompt,
   promptPlaceholder,
   showUpscalePicker,
+  hasWidthHeight,
   hasAspectRatio,
   aspectRatioChoices,
   imageSizeChoices,
@@ -241,6 +280,31 @@ function schemaProp(name: string): any {
 
 function schemaDefault(name: string): any {
   return schemaProp(name)?.default
+}
+
+// --- Width/height resolution + lock (executor applies it at run time) ------
+
+const resolutionLock = computed<ChainStepResolutionLock>(() => resolveResolutionLock(props.step))
+
+const stepWidth = computed(() => Number(props.step.settings.width ?? schemaDefault('width') ?? 1024))
+const stepHeight = computed(() => Number(props.step.settings.height ?? schemaDefault('height') ?? 1024))
+
+const resolutionHint = computed(() => {
+  if (resolutionLock.value === 'size') return 'Fixed size'
+  if (resolutionLock.value === 'area') return 'Keeps this area, matches input aspect'
+  return 'Matches the input image'
+})
+
+function onStepResolutionUpdate(width: number, height: number) {
+  const snapped = snapDimsToGrid(stepTool.value?.parameter_schema?.properties, width, height)
+  emit('update:settings', { width: snapped.width, height: snapped.height })
+  // Typing an explicit size while on "use image size" pins it — otherwise the
+  // executor would silently discard the edit at run time.
+  if (resolutionLock.value === 'auto') emit('update:resolutionLock', 'size')
+}
+
+function onAutoChangeLock(mode: 'none' | 'area' | 'size') {
+  emit('update:resolutionLock', mode === 'none' ? 'auto' : mode)
 }
 
 // The upscale picker is a dedicated multi-mode control. In a chain step the

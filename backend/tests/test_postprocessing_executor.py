@@ -421,3 +421,152 @@ class TestChainPromptPipeline:
         )
         assert media_id == 4243
         assert seen["parameters"]["prompt"] == "a red dog"
+
+
+class TestChainStepResolutionAdaptation:
+    """The executor mirrors ToolView's reference-image resolution behavior:
+    when the step's input media becomes known, aspect-ratio tools follow it
+    unless the step pinned aspect_ratio, and width/height tools follow the
+    step's resolutionLock (auto/area/size)."""
+
+    ASPECT_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "prompt": {"type": "string"},
+            "input_images": {"type": "array"},
+            "aspect_ratio": {"type": "string", "enum": ["16:9", "9:16", "1:1"], "default": "16:9"},
+        },
+    }
+    WH_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "prompt": {"type": "string"},
+            "input_images": {"type": "array"},
+            "width": {"type": "integer", "default": 1280, "minimum": 256, "maximum": 2048, "x-step": 64},
+            "height": {"type": "integer", "default": 720, "minimum": 256, "maximum": 2048, "x-step": 64},
+        },
+    }
+    CONSTRAINED_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "prompt": {"type": "string"},
+            "input_images": {"type": "array"},
+            "width": {"type": "integer", "x-allowed-dimensions": [[1280, 720], [720, 1280], [960, 960]]},
+            "height": {"type": "integer"},
+        },
+    }
+
+    def _patch_tool(self, monkeypatch, schema):
+        from providers.registry import ProviderRegistry
+
+        descriptor = SimpleNamespace(
+            parameter_schema=schema,
+            model=None,
+            model_vendor=None,
+            task_type="image-to-video",
+        )
+        monkeypatch.setattr(
+            ProviderRegistry, "get_instance",
+            classmethod(lambda cls: SimpleNamespace(get_tool=lambda tool_id: (None, descriptor))),
+        )
+
+    async def _run_step(self, generation_db_session, monkeypatch, tmp_path, step):
+        import agent.v2.tools.call_tool as call_tool_mod
+        import postprocessing.executor as executor_mod
+
+        seen = {}
+
+        async def fake_execute_call_tool(**kwargs):
+            seen.update(kwargs["parameters"])
+            return {"media_id": 4244}
+
+        monkeypatch.setattr(call_tool_mod, "execute_call_tool", fake_execute_call_tool)
+
+        # Portrait input, already on a 64-grid.
+        source = await _make_base_media(generation_db_session, tmp_path, "portrait.png", size=(640, 960))
+        await executor_mod._run_tool_step(
+            SimpleNamespace(async_session_maker=generation_db_session),
+            step,
+            input_media_id=source.id,
+            project_id=None,
+            all_steps=[step],
+            profile_id="default",
+        )
+        return seen
+
+    async def test_aspect_tool_follows_input_when_unset(self, generation_app, generation_db_session, monkeypatch, tmp_path):
+        self._patch_tool(monkeypatch, self.ASPECT_SCHEMA)
+        step = {"kind": "tool", "tool_id": "test:i2v", "task_type": "image-to-video", "settings": {}}
+        seen = await self._run_step(generation_db_session, monkeypatch, tmp_path, step)
+        assert seen["aspect_ratio"] == "9:16"
+
+    async def test_pinned_aspect_is_honored(self, generation_app, generation_db_session, monkeypatch, tmp_path):
+        self._patch_tool(monkeypatch, self.ASPECT_SCHEMA)
+        step = {"kind": "tool", "tool_id": "test:i2v", "task_type": "image-to-video",
+                "settings": {"aspect_ratio": "1:1"}}
+        seen = await self._run_step(generation_db_session, monkeypatch, tmp_path, step)
+        assert seen["aspect_ratio"] == "1:1"
+
+    async def test_wh_auto_adopts_input_dimensions(self, generation_app, generation_db_session, monkeypatch, tmp_path):
+        self._patch_tool(monkeypatch, self.WH_SCHEMA)
+        step = {"kind": "tool", "tool_id": "test:i2v", "task_type": "image-to-video",
+                "settings": {}, "resolutionLock": "auto"}
+        seen = await self._run_step(generation_db_session, monkeypatch, tmp_path, step)
+        assert (seen["width"], seen["height"]) == (640, 960)
+
+    async def test_wh_lock_size_never_touched(self, generation_app, generation_db_session, monkeypatch, tmp_path):
+        self._patch_tool(monkeypatch, self.WH_SCHEMA)
+        step = {"kind": "tool", "tool_id": "test:i2v", "task_type": "image-to-video",
+                "settings": {"width": 1280, "height": 704}, "resolutionLock": "size"}
+        seen = await self._run_step(generation_db_session, monkeypatch, tmp_path, step)
+        assert (seen["width"], seen["height"]) == (1280, 704)
+
+    async def test_wh_lock_area_keeps_budget_matches_aspect(self, generation_app, generation_db_session, monkeypatch, tmp_path):
+        self._patch_tool(monkeypatch, self.WH_SCHEMA)
+        step = {"kind": "tool", "tool_id": "test:i2v", "task_type": "image-to-video",
+                "settings": {"width": 1024, "height": 1024}, "resolutionLock": "area"}
+        seen = await self._run_step(generation_db_session, monkeypatch, tmp_path, step)
+        w, h = seen["width"], seen["height"]
+        assert w % 64 == 0 and h % 64 == 0
+        # Aspect follows the 2:3 portrait input; area stays near the 1MP budget.
+        assert abs(w / h - 640 / 960) < 0.1
+        assert abs(w * h - 1024 * 1024) / (1024 * 1024) < 0.15
+
+    async def test_legacy_step_with_explicit_dims_is_pinned(self, generation_app, generation_db_session, monkeypatch, tmp_path):
+        self._patch_tool(monkeypatch, self.WH_SCHEMA)
+        # No resolutionLock (pre-feature step): saved dimensions were deliberate.
+        step = {"kind": "tool", "tool_id": "test:i2v", "task_type": "image-to-video",
+                "settings": {"width": 1280, "height": 704}}
+        seen = await self._run_step(generation_db_session, monkeypatch, tmp_path, step)
+        assert (seen["width"], seen["height"]) == (1280, 704)
+
+    async def test_legacy_step_without_dims_adapts(self, generation_app, generation_db_session, monkeypatch, tmp_path):
+        self._patch_tool(monkeypatch, self.WH_SCHEMA)
+        step = {"kind": "tool", "tool_id": "test:i2v", "task_type": "image-to-video", "settings": {}}
+        seen = await self._run_step(generation_db_session, monkeypatch, tmp_path, step)
+        assert (seen["width"], seen["height"]) == (640, 960)
+
+    async def test_seed_randomizes_unless_pinned(self, generation_app, generation_db_session, monkeypatch, tmp_path):
+        self._patch_tool(monkeypatch, self.WH_SCHEMA)
+        # Randomize re-checked after a seed was typed: the stale seed must not
+        # be reused, and the UI flag must never reach STP parameters.
+        step = {"kind": "tool", "tool_id": "test:i2v", "task_type": "image-to-video",
+                "settings": {"seed": 42, "randomizeSeed": True}}
+        seen = await self._run_step(generation_db_session, monkeypatch, tmp_path, step)
+        assert "seed" not in seen
+        assert "randomizeSeed" not in seen
+
+    async def test_seed_pinned_when_randomize_off(self, generation_app, generation_db_session, monkeypatch, tmp_path):
+        self._patch_tool(monkeypatch, self.WH_SCHEMA)
+        step = {"kind": "tool", "tool_id": "test:i2v", "task_type": "image-to-video",
+                "settings": {"seed": 42, "randomizeSeed": False}}
+        seen = await self._run_step(generation_db_session, monkeypatch, tmp_path, step)
+        assert seen["seed"] == 42
+        assert "randomizeSeed" not in seen
+
+    async def test_constrained_tool_snaps_to_allowed_pair(self, generation_app, generation_db_session, monkeypatch, tmp_path):
+        self._patch_tool(monkeypatch, self.CONSTRAINED_SCHEMA)
+        step = {"kind": "tool", "tool_id": "test:i2v", "task_type": "image-to-video",
+                "settings": {}, "resolutionLock": "auto"}
+        seen = await self._run_step(generation_db_session, monkeypatch, tmp_path, step)
+        assert (seen["width"], seen["height"]) == (720, 1280)

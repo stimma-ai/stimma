@@ -207,3 +207,52 @@ def _snap_to_allowed(w: int, h: int, allowed: List[List[int]]) -> Tuple[int, int
             best_diff = diff
             best = pair
     return best[0], best[1]
+
+
+def snap_dims_to_schema(tool_descriptor, width: float, height: float) -> Tuple[int, int]:
+    """Snap (width, height) onto the tool's legal grid: nearest allowed pair by
+    aspect-ratio similarity for constrained tools (same rule call_tool applies,
+    so a portrait source lands on the portrait pair, not a same-area square),
+    otherwise clamp+round each axis to the schema's min/max/x-step."""
+    allowed = _get_allowed_dimensions(tool_descriptor)
+    if allowed:
+        return _snap_to_allowed(int(round(width)), int(round(height)), allowed)
+
+    props = (tool_descriptor.parameter_schema or {}).get("properties", {})
+
+    def snap_axis(v: float, p: Dict[str, Any]) -> int:
+        step = p.get("x-step") or 1
+        x = round(v / step) * step
+        if p.get("minimum") is not None:
+            x = max(p["minimum"], x)
+        if p.get("maximum") is not None:
+            x = min(p["maximum"], x)
+        return int(x)
+
+    return (
+        snap_axis(width, props.get("width", {})),
+        snap_axis(height, props.get("height", props.get("width", {}))),
+    )
+
+
+def nearest_aspect_choice(choices: List[Any], width: float, height: float) -> Optional[str]:
+    """Pick the "W:H" choice closest to width/height. Mirrors ToolView's
+    findNearestAspectRatio; returns None when no choice is parseable."""
+    if not height:
+        return None
+    target = width / height
+    best: Optional[str] = None
+    best_diff = float("inf")
+    for choice in choices or []:
+        if not isinstance(choice, str) or ":" not in choice:
+            continue
+        try:
+            w_s, h_s = choice.split(":", 1)
+            ratio = float(w_s) / float(h_s)
+        except (ValueError, ZeroDivisionError):
+            continue
+        diff = abs(target - ratio)
+        if diff < best_diff:
+            best_diff = diff
+            best = choice
+    return best

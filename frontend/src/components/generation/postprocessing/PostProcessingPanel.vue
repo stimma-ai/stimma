@@ -47,6 +47,7 @@
                 :step="step"
                 @update:settings="updateStepSettings(step.id, $event)"
                 @update:prompt-options="updateStepPromptOptions(step.id, $event)"
+                @update:resolution-lock="updateStepResolutionLock(step.id, $event)"
               />
             </template>
           </ChainStepCard>
@@ -98,6 +99,7 @@ import {
   stepAcceptedMedia,
   type ChainStep,
   type ChainStepPromptOptions,
+  type ChainStepResolutionLock,
   type PostProcessingChain,
 } from '../../../utils/postProcessingChain'
 import { videoParamDefaultsForTool } from '../../../composables/useToolSchemaFeatures'
@@ -222,6 +224,13 @@ function updateStepPromptOptions(id: string, promptOptions: ChainStepPromptOptio
   }))
 }
 
+function updateStepResolutionLock(id: string, resolutionLock: ChainStepResolutionLock) {
+  updateChain(c => ({
+    ...c,
+    steps: c.steps.map(s => (s.id === id ? { ...s, resolutionLock } : s)),
+  }))
+}
+
 const addMenuOpen = ref(false)
 function toggleAddMenu() {
   addMenuOpen.value = !addMenuOpen.value
@@ -265,6 +274,8 @@ function addToolStep(tool: ProviderTool) {
     settings: { ...videoParamDefaultsForTool(tool) },
     // Same new-state prompt defaults as ToolView (Enhance ON).
     promptOptions: defaultChainStepPromptOptions(),
+    // New steps adapt their resolution to the input media at run time.
+    resolutionLock: 'auto',
   })
 }
 

@@ -899,6 +899,7 @@ import { useToolSchemaFeatures } from '../composables/useToolSchemaFeatures'
 import { useVideoFrameExtraction, type FramePosition } from '../composables/useVideoFrameExtraction'
 import { useTelemetry } from '../composables/useTelemetry'
 import { makeGlobalKey, makeToolDbKey } from '../utils/storageKeys'
+import { snapDimsToGrid as snapDimsToSchemaGrid } from '../utils/resolutionControls'
 import { getBlob, putBlob, deleteBlob } from '../utils/blobStorage'
 import { getToolDefaults } from '../utils/generationDefaults'
 import { parseGenerationConfig, type GenerationConfigUpdate } from '../utils/parseGenerationConfig'
@@ -2840,33 +2841,10 @@ function formatMegapixelArea(width: number, height: number): string {
   return `${Number(mp.toFixed(1))}MP`
 }
 
-// Snap a (width, height) onto the active tool's legal grid so inherited or
-// edited source dimensions land on a size the model actually accepts — a 640×384
-// image-to-image source should run at 640×384, an off-grid size snaps to the
-// nearest legal one. Mirrors the backend snap (stimma-cloud tool-params.ts) and
-// the agent set_resolution handler: nearest allowed pair for constrained tools,
-// otherwise clamp+round each axis to the schema's min/max/step.
+// Snap onto the active tool's legal grid (shared util — also used by chain
+// step settings and mirrored by the backend snaps).
 function snapDimsToGrid(width: number, height: number): { width: number; height: number } {
-  if (!Number.isFinite(width) || !Number.isFinite(height)) return { width, height }
-  const dims = allowedDimensions.value
-  if (dims && dims.length) {
-    let best = dims[0]
-    let bestDist = Infinity
-    for (const [w, h] of dims) {
-      const d = (w - width) ** 2 + (h - height) ** 2
-      if (d < bestDist) { bestDist = d; best = [w, h] }
-    }
-    return { width: best[0], height: best[1] }
-  }
-  const props = parameterSchema.value?.properties || {}
-  const snapAxis = (v: number, p: any) => {
-    const step = Number(p?.['x-step']) || 1
-    let x = Math.round(v / step) * step
-    if (p?.minimum != null) x = Math.max(Number(p.minimum), x)
-    if (p?.maximum != null) x = Math.min(Number(p.maximum), x)
-    return x
-  }
-  return { width: snapAxis(width, props.width), height: snapAxis(height, props.height ?? props.width) }
+  return snapDimsToSchemaGrid(parameterSchema.value?.properties, width, height)
 }
 
 function suggestedDimensionsForLocks(sourceW: number, sourceH: number): { width: number; height: number } | null {

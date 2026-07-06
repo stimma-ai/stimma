@@ -13,6 +13,18 @@ import { DEFAULT_PROMPT_OPTIONS, type PromptOptions } from '../composables/useGe
 
 export type ChainStepKind = 'tool' | 'filter'
 
+/**
+ * How a width/height tool step reacts to the input media it receives at run
+ * time — ToolView's resolution lock, applied by the executor because a chain
+ * step's input doesn't exist at config time:
+ * - 'auto': adopt the input's dimensions (snapped to the tool's grid)
+ * - 'area': keep the configured pixel budget, match the input's aspect
+ * - 'size': use the configured dimensions verbatim
+ * Aspect-ratio tools don't use this — an unset settings.aspect_ratio means
+ * "match input" and a set one is pinned.
+ */
+export type ChainStepResolutionLock = 'auto' | 'area' | 'size'
+
 /** Enhance/Translate toggles for a step's prompt — same raw shape
  *  AIPromptEditor emits (the shared PromptOptions). */
 export type ChainStepPromptOptions = PromptOptions
@@ -45,6 +57,9 @@ export interface ChainStep {
   /** Enhance/Translate toggles for this step's prompt (tool steps only).
       Kept OUT of `settings` — settings is sent verbatim as STP params. */
   promptOptions?: ChainStepPromptOptions
+  /** Run-time resolution behavior for width/height tool steps.
+      Kept OUT of `settings` — settings is sent verbatim as STP params. */
+  resolutionLock?: ChainStepResolutionLock
 }
 
 export interface PostProcessingChain {
@@ -66,6 +81,7 @@ export interface RecordedChainStep {
   filter_id?: string
   settings: Record<string, any>
   promptOptions?: ChainStepPromptOptions
+  resolutionLock?: ChainStepResolutionLock
 }
 
 function clonePromptOptions(po: ChainStepPromptOptions): ChainStepPromptOptions {
@@ -78,6 +94,17 @@ function clonePromptOptions(po: ChainStepPromptOptions): ChainStepPromptOptions 
 
 export function emptyChain(): PostProcessingChain {
   return { enabled: false, steps: [] }
+}
+
+/** Resolve a step's resolutionLock, tolerating pre-feature data: explicitly
+    saved dimensions were deliberate, so they pin; anything else adapts.
+    The executor applies the same rule to old queued runs and lineage. */
+export function resolveResolutionLock(
+  step: { resolutionLock?: any; settings?: Record<string, any> },
+): ChainStepResolutionLock {
+  const lock = step.resolutionLock
+  if (lock === 'auto' || lock === 'area' || lock === 'size') return lock
+  return step.settings?.width && step.settings?.height ? 'size' : 'auto'
 }
 
 export function normalizeChain(value: any): PostProcessingChain {
@@ -103,6 +130,7 @@ export function normalizeChain(value: any): PostProcessingChain {
               promptOptions: s.promptOptions && typeof s.promptOptions === 'object'
                 ? clonePromptOptions(s.promptOptions)
                 : defaultChainStepPromptOptions(),
+              resolutionLock: resolveResolutionLock(s),
             }
           : {}),
       })),
@@ -129,6 +157,7 @@ export function toRecordedSteps(chain: PostProcessingChain): RecordedChainStep[]
         rec.task_type = s.task_type
         rec.tool_name = s.tool_name
         if (s.promptOptions) rec.promptOptions = clonePromptOptions(s.promptOptions)
+        rec.resolutionLock = resolveResolutionLock(s)
       } else {
         rec.filter_id = s.filter_id
       }
@@ -167,7 +196,11 @@ export function mergeRecordedChain(
           ? clonePromptOptions(rec.promptOptions)
           : (rec.kind === 'tool' ? defaultChainStepPromptOptions() : undefined),
         ...(rec.kind === 'tool'
-          ? { task_type: rec.task_type ?? match.step.task_type, tool_name: rec.tool_name ?? match.step.tool_name }
+          ? {
+              task_type: rec.task_type ?? match.step.task_type,
+              tool_name: rec.tool_name ?? match.step.tool_name,
+              resolutionLock: resolveResolutionLock(rec),
+            }
           : {}),
       }
     }
@@ -181,7 +214,10 @@ export function mergeRecordedChain(
       filter_id: rec.filter_id,
       settings: { ...rec.settings },
       ...(rec.kind === 'tool'
-        ? { promptOptions: rec.promptOptions ? clonePromptOptions(rec.promptOptions) : defaultChainStepPromptOptions() }
+        ? {
+            promptOptions: rec.promptOptions ? clonePromptOptions(rec.promptOptions) : defaultChainStepPromptOptions(),
+            resolutionLock: resolveResolutionLock(rec),
+          }
         : {}),
     }
   })
