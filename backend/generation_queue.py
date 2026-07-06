@@ -100,6 +100,145 @@ def parse_duration(duration_str: str) -> Optional[timedelta]:
         return None
 
 
+def _compute_generated_file_metadata(output_path: str, is_video: bool, is_audio: bool, generation_metadata: Optional[str]) -> dict:
+    """Blocking metadata extraction for a just-generated file: hash, dimensions/duration
+    (ffprobe for video, PIL for images), and embedded EXIF/PNG generation metadata.
+
+    Must be called via asyncio.to_thread/run_in_executor - never awaited directly on the
+    event loop, since ffprobe subprocess calls and whole-file hashing can take seconds.
+
+    DIAGNOSTIC INSTRUMENTATION (2026-07-06): logs are temporary, added to pin down an
+    8-30s stall reported opening the slideshow during heavy generate-forever. Remove once
+    confirmed/fixed.
+    """
+    import hashlib
+    import subprocess
+    import time as _time
+    from exif_extractor import extract_stimma_metadata
+
+    file_path = Path(output_path)
+    _t_start = _time.time()
+
+    _t_hash0 = _time.time()
+    sha256 = hashlib.sha256()
+    with open(output_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(65536), b''):  # 64KB chunks for speed
+            sha256.update(chunk)
+    file_hash = sha256.hexdigest()
+    _hash_ms = (_time.time() - _t_hash0) * 1000
+    if _hash_ms > 200:
+        log.warning(f"SLOWTRACE_METADATA: hashing {output_path} took {_hash_ms:.0f}ms")
+
+    duration = None
+    audio_sample_rate = None
+    audio_channels = None
+    audio_bit_depth = None
+    audio_bitrate = None
+    audio_codec = None
+    if is_audio:
+        # Audio has no visual dimensions but has audio-specific metadata.
+        # Use the same extractor the scan/ingestion path uses so generated
+        # audio is a first-class media item (duration + codec + waveform
+        # thumbnail) exactly like imported library audio.
+        width, height = 0, 0
+        _t_audio0 = _time.time()
+        try:
+            from media_scanner import get_audio_metadata
+            audio_meta = get_audio_metadata(file_path)
+            duration = audio_meta.get('duration')
+            audio_sample_rate = audio_meta.get('sample_rate')
+            audio_channels = audio_meta.get('channels')
+            audio_bit_depth = audio_meta.get('bit_depth')
+            audio_bitrate = audio_meta.get('bitrate')
+            audio_codec = audio_meta.get('codec')
+        except Exception as e:
+            log.warning(f"Failed to extract audio metadata from {output_path}: {e}")
+        _audio_ms = (_time.time() - _t_audio0) * 1000
+        if _audio_ms > 200:
+            log.warning(f"SLOWTRACE_METADATA: audio metadata {output_path} took {_audio_ms:.0f}ms")
+    elif is_video:
+        # Use ffprobe for video dimensions and duration
+        _t_ffprobe0 = _time.time()
+        try:
+            result = subprocess.run(
+                ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                 '-show_entries', 'stream=width,height,duration', '-of', 'csv=p=0', output_path],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                parts = result.stdout.strip().split(',')
+                width, height = int(parts[0]), int(parts[1])
+                # Duration may be in stream or format - try stream first
+                if len(parts) > 2 and parts[2]:
+                    try:
+                        duration = float(parts[2])
+                    except (ValueError, IndexError):
+                        pass
+            else:
+                width, height = 0, 0
+
+            # If duration not in stream, try format duration
+            if duration is None:
+                result = subprocess.run(
+                    ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                     '-of', 'csv=p=0', output_path],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    try:
+                        duration = float(result.stdout.strip())
+                    except ValueError:
+                        pass
+        except Exception:
+            width, height = 0, 0
+        _ffprobe_ms = (_time.time() - _t_ffprobe0) * 1000
+        if _ffprobe_ms > 200:
+            log.warning(f"SLOWTRACE_METADATA: ffprobe {output_path} took {_ffprobe_ms:.0f}ms")
+    else:
+        # Use PIL for image dimensions
+        _t_pil0 = _time.time()
+        try:
+            from utils.image_ops import open_oriented
+            with open_oriented(output_path) as img:
+                width, height = img.size
+        except Exception:
+            width, height = 0, 0
+        _pil_ms = (_time.time() - _t_pil0) * 1000
+        if _pil_ms > 200:
+            log.warning(f"SLOWTRACE_METADATA: PIL decode {output_path} took {_pil_ms:.0f}ms")
+
+    megapixels = (width * height) / 1_000_000
+
+    # For images, extract generation metadata from embedded EXIF/PNG chunks
+    # (Videos pass generation_metadata directly since it can't be embedded)
+    if not is_video and generation_metadata is None:
+        _t_exif0 = _time.time()
+        try:
+            generation_metadata = extract_stimma_metadata(file_path)
+        except Exception as e:
+            log.warning(f"Failed to extract stimma metadata from {output_path}: {e}")
+        _exif_ms = (_time.time() - _t_exif0) * 1000
+        if _exif_ms > 200:
+            log.warning(f"SLOWTRACE_METADATA: EXIF extract {output_path} took {_exif_ms:.0f}ms")
+
+    _total_ms = (_time.time() - _t_start) * 1000
+    log.info(f"SLOWTRACE_METADATA_TOTAL: {output_path} thread-side metadata computation took {_total_ms:.0f}ms")
+
+    return {
+        'file_hash': file_hash,
+        'width': width,
+        'height': height,
+        'duration': duration,
+        'audio_sample_rate': audio_sample_rate,
+        'audio_channels': audio_channels,
+        'audio_bit_depth': audio_bit_depth,
+        'audio_bitrate': audio_bitrate,
+        'audio_codec': audio_codec,
+        'megapixels': megapixels,
+        'generation_metadata': generation_metadata,
+    }
+
+
 class GenerationQueue:
     """Manages the generation job queue."""
 
@@ -1680,12 +1819,8 @@ class GenerationQueue:
             generation_metadata: Optional JSON string with generation metadata (for videos which can't embed metadata)
         """
         import os
-        import hashlib
         from pathlib import Path
         from datetime import datetime
-        from PIL import Image
-        import subprocess
-        from exif_extractor import extract_stimma_metadata
 
         file_path = Path(output_path)
         stat_info = os.stat(output_path)
@@ -1695,89 +1830,23 @@ class GenerationQueue:
         is_video = file_format in ('mp4', 'webm', 'mov', 'avi', 'mkv')
         is_audio = file_format in ('mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg')
 
-        # Compute file hash inline (instead of deferring to ingestion worker)
-        sha256 = hashlib.sha256()
-        with open(output_path, 'rb') as f:
-            for chunk in iter(lambda: f.read(65536), b''):  # 64KB chunks for speed
-                sha256.update(chunk)
-        file_hash = sha256.hexdigest()
-
-        # Get dimensions and duration inline
-        duration = None
-        audio_sample_rate = None
-        audio_channels = None
-        audio_bit_depth = None
-        audio_bitrate = None
-        audio_codec = None
-        if is_audio:
-            # Audio has no visual dimensions but has audio-specific metadata.
-            # Use the same extractor the scan/ingestion path uses so generated
-            # audio is a first-class media item (duration + codec + waveform
-            # thumbnail) exactly like imported library audio.
-            width, height = 0, 0
-            try:
-                from media_scanner import get_audio_metadata
-                audio_meta = get_audio_metadata(file_path)
-                duration = audio_meta.get('duration')
-                audio_sample_rate = audio_meta.get('sample_rate')
-                audio_channels = audio_meta.get('channels')
-                audio_bit_depth = audio_meta.get('bit_depth')
-                audio_bitrate = audio_meta.get('bitrate')
-                audio_codec = audio_meta.get('codec')
-            except Exception as e:
-                log.warning(f"Failed to extract audio metadata from {output_path}: {e}")
-        elif is_video:
-            # Use ffprobe for video dimensions and duration
-            try:
-                result = subprocess.run(
-                    ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
-                     '-show_entries', 'stream=width,height,duration', '-of', 'csv=p=0', output_path],
-                    capture_output=True, text=True, timeout=5
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    parts = result.stdout.strip().split(',')
-                    width, height = int(parts[0]), int(parts[1])
-                    # Duration may be in stream or format - try stream first
-                    if len(parts) > 2 and parts[2]:
-                        try:
-                            duration = float(parts[2])
-                        except (ValueError, IndexError):
-                            pass
-                else:
-                    width, height = 0, 0
-
-                # If duration not in stream, try format duration
-                if duration is None:
-                    result = subprocess.run(
-                        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-                         '-of', 'csv=p=0', output_path],
-                        capture_output=True, text=True, timeout=5
-                    )
-                    if result.returncode == 0 and result.stdout.strip():
-                        try:
-                            duration = float(result.stdout.strip())
-                        except ValueError:
-                            pass
-            except Exception:
-                width, height = 0, 0
-        else:
-            # Use PIL for image dimensions
-            try:
-                from utils.image_ops import open_oriented
-                with open_oriented(output_path) as img:
-                    width, height = img.size
-            except Exception:
-                width, height = 0, 0
-
-        megapixels = (width * height) / 1_000_000
-
-        # For images, extract generation metadata from embedded EXIF/PNG chunks
-        # (Videos pass generation_metadata directly since it can't be embedded)
-        if not is_video and generation_metadata is None:
-            try:
-                generation_metadata = extract_stimma_metadata(file_path)
-            except Exception as e:
-                log.warning(f"Failed to extract stimma metadata from {output_path}: {e}")
+        # Hashing, ffprobe subprocess calls, and PIL decoding are all blocking
+        # I/O/CPU work - run off the event loop so a slow video (double ffprobe
+        # + whole-file hash) can't stall every other in-flight request.
+        computed = await asyncio.to_thread(
+            _compute_generated_file_metadata, output_path, is_video, is_audio, generation_metadata
+        )
+        file_hash = computed['file_hash']
+        width = computed['width']
+        height = computed['height']
+        duration = computed['duration']
+        audio_sample_rate = computed['audio_sample_rate']
+        audio_channels = computed['audio_channels']
+        audio_bit_depth = computed['audio_bit_depth']
+        audio_bitrate = computed['audio_bitrate']
+        audio_codec = computed['audio_codec']
+        megapixels = computed['megapixels']
+        generation_metadata = computed['generation_metadata']
 
         # Check if the file was already inserted by the ingestion worker (race condition)
         existing_result = await session.execute(
