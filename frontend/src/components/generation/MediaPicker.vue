@@ -712,14 +712,15 @@
       <!-- Add button -->
       <div
         v-if="!batchMode && items.length < maxItems"
-        @click="openFilePicker"
+        ref="addTileRef"
+        @click="onAddTileClick"
         @dragover.prevent.stop="onDragOver"
         @dragleave.stop="onDragLeave"
         @drop.prevent.stop="onDrop($event)"
         :class="[
           'bg-surface border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer flex-shrink-0',
           reorderable ? 'w-[17rem] h-[9.5rem]' : (accept === 'audio' ? 'w-[26.5rem] h-[7rem]' : 'w-[26.5rem] h-[18.5rem]'),
-          isDragging ? 'border-blue-500 bg-blue-500/10' : 'border-edge hover:border-blue-500 hover:bg-surface'
+          isDragging || pickerPopoverOpen ? 'border-blue-500 bg-blue-500/10' : 'border-edge hover:border-blue-500 hover:bg-surface'
         ]"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-content-muted">
@@ -765,6 +766,18 @@
       class="hidden"
       @change="handleFileSelect"
     >
+
+    <!-- In-app media picker: recents-first popover anchored to the add tile;
+         "Browse Files…" inside it falls back to the OS dialog. -->
+    <MediaPickerPopover
+      v-if="pickerPopoverOpen"
+      :accept="accept"
+      :anchor-el="addTileRef"
+      :exclude-ids="pickerExcludeIds"
+      @pick="onPopoverPick"
+      @browse="onPopoverBrowse"
+      @close="pickerPopoverOpen = false"
+    />
 
     <!-- Full-screen preview modal for preprocessed images -->
     <Teleport to="body">
@@ -833,6 +846,9 @@ import AppImage from '../media/AppImage.vue'
 import CompactAudioPlayer from '../viewers/CompactAudioPlayer.vue'
 import PaintEditorModal from './PaintEditorModal.vue'
 import CropEditorModal from './CropEditorModal.vue'
+import MediaPickerPopover from './MediaPickerPopover.vue'
+import { recordMediaInputUse, removeRecentMediaInput, type RecentInputKind } from '../../composables/useRecentMediaInputs'
+import { getMediaType } from '../../utils/mediaTypes'
 
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl } = useMediaApi()
 const { extractFrame } = useVideoFrameExtraction()
@@ -1245,6 +1261,30 @@ function openFilePicker() {
   fileInput.value?.click()
 }
 
+// In-app media picker popover state. The add tile opens the popover; the OS
+// file dialog is reached through its "Browse Files…" button.
+const pickerPopoverOpen = ref(false)
+const addTileRef = ref<HTMLElement | null>(null)
+
+const pickerExcludeIds = computed(() =>
+  items.value.map(i => i.mediaId).filter((id): id is number => typeof id === 'number')
+)
+
+function onAddTileClick() {
+  if (props.disabled) return
+  pickerPopoverOpen.value = !pickerPopoverOpen.value
+}
+
+async function onPopoverPick(mediaId: number) {
+  pickerPopoverOpen.value = false
+  await addFromMediaId(mediaId)
+}
+
+function onPopoverBrowse() {
+  pickerPopoverOpen.value = false
+  openFilePicker()
+}
+
 const previewModalUrl = ref('')
 const previewModalRef = ref<HTMLElement | null>(null)
 
@@ -1463,6 +1503,18 @@ async function addFromMediaId(mediaId: number, replaceIndex?: number) {
   try {
     const mediaItem = await getMediaItem(mediaId)
 
+    // Feed the picker popover's "Recent" tab. Atomic media only — sets are a
+    // batch mechanism, not a reusable input.
+    const kind = getMediaType(mediaItem)
+    if (kind === 'image' || kind === 'video' || kind === 'audio') {
+      recordMediaInputUse({
+        mediaId: mediaItem.id,
+        fileHash: mediaItem.file_hash,
+        fileFormat: mediaItem.file_format,
+        kind: kind as RecentInputKind,
+      })
+    }
+
     // Video dropped into an image slot → grab a frame instead of using it directly.
     if (isImageSlot.value && isVideoExtension(mediaItem.file_format)) {
       const slotIndex = replaceIndex ?? items.value.length
@@ -1568,6 +1620,10 @@ async function addFromMediaId(mediaId: number, replaceIndex?: number) {
     }
   } catch (error) {
     console.error('Failed to add from media library:', error)
+    // The item no longer exists — stop offering it in the Recent tab.
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      removeRecentMediaInput(mediaId)
+    }
   } finally {
     isUploading.value = false
   }

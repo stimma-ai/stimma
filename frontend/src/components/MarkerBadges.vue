@@ -1,13 +1,15 @@
 <template>
-  <div class="flex gap-1">
+  <div class="flex" :class="small ? 'gap-0.5' : 'gap-1'">
     <div
       v-for="marker in markers"
       :key="marker.id"
-      class="w-6 h-6 bg-black/60 backdrop-blur-md rounded flex items-center justify-center"
+      class="bg-black/60 backdrop-blur-md rounded flex items-center justify-center"
+      :class="small ? 'w-4 h-4' : 'w-6 h-6'"
       :title="getMarkerDef(marker.id)?.name || marker.name"
     >
       <span
-        class="w-4 h-4 flex items-center justify-center icon-container"
+        class="flex items-center justify-center icon-container"
+        :class="small ? 'w-3 h-3' : 'w-4 h-4'"
         :style="{ color: getMarkerDef(marker.id)?.color || marker.color }"
         v-html="markerIconSvg(marker)"
       />
@@ -23,6 +25,11 @@ defineProps({
   markers: {
     type: Array,
     default: () => []
+  },
+  // Compact badges for small tiles (e.g. the media picker popover grid)
+  small: {
+    type: Boolean,
+    default: false
   }
 })
 
