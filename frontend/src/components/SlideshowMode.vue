@@ -449,7 +449,7 @@
         <div
           v-else
           :class="[
-            mediaLoaded && hasExactDimensions ? 'bg-checker' : 'bg-slideshow-matt',
+            displayItem.has_alpha !== false && mediaLoaded && hasExactDimensions ? 'bg-checker' : 'bg-slideshow-matt',
             zoomScale > 1 ? 'cursor-grabbing' : 'cursor-zoom-in'
           ]"
           :style="checkerOverlayStyle"
@@ -602,9 +602,9 @@
               :thumbnail-size="256"
               :draggable="false"
               :enable-context-menu="false"
+              :has-alpha="currentItem.has_alpha"
               container-class="w-full h-full"
               img-class="w-full h-full object-cover"
-              @load="$event.target.classList.add('bg-checker')"
             />
           </div>
           <!-- Marker badges -->
@@ -643,8 +643,9 @@
               thumbnail
               :thumbnail-size="256"
               :enable-context-menu="false"
+              :has-alpha="item.has_alpha"
               container-class="w-full h-full"
-              img-class="w-full h-full object-cover bg-checker"
+              img-class="w-full h-full object-cover"
             />
           </div>
           <!-- Marker badges -->
@@ -704,9 +705,9 @@
                 thumbnail
                 :thumbnail-size="256"
                 :enable-context-menu="false"
+                :has-alpha="item.has_alpha"
                 container-class="w-full h-full"
                 img-class="w-full h-full object-cover"
-                @load="$event.target.classList.add('bg-checker')"
                 @error="handleThumbnailError($event, item, index)"
               />
             </div>
@@ -5328,12 +5329,28 @@ function parseLandmarks(landmarksStr) {
   }
 }
 
-// Handle media load event - show checkerboard for transparency only after loaded
-function handleMediaLoad() {
-  mediaLoaded.value = true
-  // Apply saved volume to newly loaded video
-  if (videoElement.value) {
-    videoElement.value.volume = volume.value
+// Handle media load event - show checkerboard for transparency only after loaded.
+// For <img>, the native `load` event fires once bytes are downloaded but before
+// the browser finishes decoding the bitmap (async decoding by default), leaving
+// a brief window where nothing is painted and the checker background shows
+// through underneath. Wait for decode() so the flip to checker lines up with
+// pixels actually landing on screen. Rapid nav guard: bail if the user has
+// already moved on to a different item by the time decode() settles.
+function handleMediaLoad(event) {
+  const img = event?.target
+  const itemId = displayItem.value?.id
+  const finish = () => {
+    if (displayItem.value?.id !== itemId) return
+    mediaLoaded.value = true
+    // Apply saved volume to newly loaded video
+    if (videoElement.value) {
+      videoElement.value.volume = volume.value
+    }
+  }
+  if (img?.tagName === 'IMG' && typeof img.decode === 'function') {
+    img.decode().then(finish, finish)
+  } else {
+    finish()
   }
 }
 

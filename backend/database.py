@@ -27,6 +27,11 @@ class MediaItem(Base):
     megapixels = Column(Float, nullable=False, index=True)
     duration = Column(Float, nullable=True)  # seconds, for videos/audio
 
+    # Whether the file's format declares an alpha channel (PNG RGBA/tRNS, WebP
+    # alpha, etc.) — read from the header only, no pixel decode. NULL = not yet
+    # computed (pre-dates this field; backfilled via metadata_status='pending').
+    has_alpha = Column(Boolean, nullable=True, index=True)
+
     # Audio-specific properties
     audio_sample_rate = Column(Integer, nullable=True)  # Hz (e.g., 44100, 48000)
     audio_channels = Column(Integer, nullable=True)  # 1=mono, 2=stereo, etc.
@@ -181,6 +186,7 @@ class MediaItem(Base):
             "file_format": self.file_format,
             "width": self.width,
             "height": self.height,
+            "has_alpha": self.has_alpha,
             "megapixels": self.megapixels,
             "duration": self.duration,
             # Audio metadata

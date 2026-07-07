@@ -110,15 +110,19 @@ class UploadService:
                 sha256.update(chunk)
         return sha256.hexdigest()
 
-    def _get_image_dimensions(self, file_path: Path) -> Tuple[int, int]:
-        """Get image dimensions, honoring EXIF orientation."""
+    def _get_image_dimensions(self, file_path: Path) -> Tuple[int, int, Optional[bool]]:
+        """Get image dimensions and alpha-channel presence, honoring EXIF orientation."""
         try:
-            from utils.image_ops import open_oriented
-            with open_oriented(file_path) as img:
-                return img.size
+            from PIL import ImageOps
+            from utils.image_ops import has_alpha_channel
+            with Image.open(file_path) as img:
+                has_alpha = has_alpha_channel(img)
+                rotated = ImageOps.exif_transpose(img)
+                width, height = rotated.size
+            return width, height, has_alpha
         except Exception as e:
             log.warning(f"Failed to get image dimensions for {file_path}: {e}")
-            return 0, 0
+            return 0, 0, None
 
     def _get_video_dimensions(self, file_path: Path) -> Tuple[int, int]:
         """Get video dimensions using ffprobe."""
@@ -226,6 +230,7 @@ class UploadService:
             audio_bit_depth = None
             audio_bitrate = None
             audio_codec = None
+            has_alpha = None
             if is_audio:
                 width, height = 0, 0
                 # Audio has no visual dimensions but has audio-specific metadata.
@@ -245,10 +250,12 @@ class UploadService:
                     audio_codec = audio_meta.get('codec')
                 except Exception as e:
                     log.warning(f"Failed to extract audio metadata from upload {dest_path}: {e}")
+                has_alpha = False
             elif is_video:
                 width, height = self._get_video_dimensions(dest_path)
+                has_alpha = False
             else:
-                width, height = self._get_image_dimensions(dest_path)
+                width, height, has_alpha = self._get_image_dimensions(dest_path)
 
             megapixels = (width * height) / 1_000_000
 
@@ -290,6 +297,7 @@ class UploadService:
                     metadata_config_version=get_config_version_manager().get_version('metadata'),
                     width=width,
                     height=height,
+                    has_alpha=has_alpha,
                     megapixels=megapixels,
                     duration=duration,
                     audio_sample_rate=audio_sample_rate,

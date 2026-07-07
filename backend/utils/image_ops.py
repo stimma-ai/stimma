@@ -13,6 +13,22 @@ from PIL import Image, ImageOps
 ResizeMode = Literal["nearest", "bilinear", "bicubic"]
 
 
+def has_alpha_channel(img: Image.Image) -> bool:
+    """Whether the image's format declares an alpha channel.
+
+    Reads only `mode`/`info`, which Pillow already populates from the file
+    header on `Image.open()` — never triggers a pixel decode, so this is
+    cheap even scanning an entire library. Reports channel *presence* (e.g.
+    a PNG saved as RGBA or with a tRNS entry), not whether any pixel is
+    actually non-opaque.
+    """
+    if img.mode in ("RGBA", "LA", "PA"):
+        return True
+    if img.mode == "P":
+        return "transparency" in img.info
+    return False
+
+
 def open_oriented(path: str | Path) -> Image.Image:
     """Open an image with its EXIF orientation applied.
 

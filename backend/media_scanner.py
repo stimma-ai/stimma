@@ -7,6 +7,7 @@ from PIL import Image, ImageOps
 import asyncio
 
 from core.logging import get_logger
+from utils.image_ops import has_alpha_channel
 
 log = get_logger(__name__)
 
@@ -65,11 +66,13 @@ def compute_file_hash(file_path: Path) -> str:
     return sha256.hexdigest()
 
 
-def get_image_dimensions(file_path: Path) -> Tuple[int, int]:
-    """Get width and height of an image, honoring EXIF orientation."""
+def get_image_dimensions(file_path: Path) -> Tuple[int, int, bool]:
+    """Get width, height, and alpha-channel presence of an image, honoring EXIF orientation."""
     with Image.open(file_path) as img:
+        has_alpha = has_alpha_channel(img)
         rotated = ImageOps.exif_transpose(img)
-        return rotated.size
+        width, height = rotated.size
+        return width, height, has_alpha
 
 
 def get_video_dimensions(file_path: Path) -> Tuple[int, int, Optional[float]]:
@@ -416,6 +419,7 @@ def extract_metadata(file_path: Path) -> dict:
     # Initialize defaults
     width = 0
     height = 0
+    has_alpha = None
     duration = None
     raw_metadata = None
     audio_sample_rate = None
@@ -427,6 +431,7 @@ def extract_metadata(file_path: Path) -> dict:
     # Get dimensions/duration based on type
     if is_video:
         width, height, duration = get_video_dimensions(file_path)
+        has_alpha = False  # No video format in this pipeline carries real alpha
     elif is_audio:
         # Audio has no visual dimensions but has audio-specific metadata
         audio_meta = get_audio_metadata(file_path)
@@ -436,6 +441,7 @@ def extract_metadata(file_path: Path) -> dict:
         audio_bit_depth = audio_meta['bit_depth']
         audio_bitrate = audio_meta['bitrate']
         audio_codec = audio_meta['codec']
+        has_alpha = False
     elif is_structured:
         # Parse structured media for raw_metadata storage
         import json
@@ -451,7 +457,7 @@ def extract_metadata(file_path: Path) -> dict:
                 raw_metadata = json.dumps(parsed)
     else:
         # Regular image
-        width, height = get_image_dimensions(file_path)
+        width, height, has_alpha = get_image_dimensions(file_path)
 
     megapixels = (width * height) / 1_000_000 if width > 0 and height > 0 else 0
 
@@ -462,6 +468,7 @@ def extract_metadata(file_path: Path) -> dict:
         "file_format": ext[1:],  # Remove the leading dot
         "width": width,
         "height": height,
+        "has_alpha": has_alpha,
         "megapixels": megapixels,
         "duration": duration,
         "created_date": created_date,

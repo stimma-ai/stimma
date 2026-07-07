@@ -29,6 +29,7 @@
         :src="getThumbnailUrl(getMediaHash(job.result_media_id), thumbnailSize, imageMode === 'fit' ? { mode: 'fit' } : {})"
         :alt="`Generated video ${job.id}`"
         :contain="imageMode === 'fit'"
+        :has-alpha="false"
         container-class="w-full h-full"
         retry-on-error
       />
@@ -55,6 +56,7 @@
       :thumbnail-size="thumbnailSize"
       :alt="`Generated image ${job.id}`"
       :contain="imageMode === 'fit'"
+      :has-alpha="mediaHasAlpha[job.result_media_id]"
       container-class="w-full h-full"
       @error="$emit('media-load-error', job.result_media_id)"
     />
@@ -130,6 +132,7 @@ const props = withDefaults(defineProps<{
   markers?: Marker[]
   mediaMarkers?: Record<number, Marker[]>
   mediaHashes?: Record<number, string>
+  mediaHasAlpha?: Record<number, boolean>
   mediaGenerationTimes?: Record<number, number>
   currentMediaId?: number | null
   compactOverlays?: boolean
@@ -141,6 +144,7 @@ const props = withDefaults(defineProps<{
   markers: () => [],
   mediaMarkers: () => ({}),
   mediaHashes: () => ({}),
+  mediaHasAlpha: () => ({}),
   mediaGenerationTimes: () => ({}),
   currentMediaId: null,
   compactOverlays: false,

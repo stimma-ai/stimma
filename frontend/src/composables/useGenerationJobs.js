@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, unref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useWebSocket } from './useWebSocket'
 import { useMediaApi } from './useMediaApi'
@@ -16,9 +16,16 @@ function getAPIBase() {
  * @param {Object} options
  * @param {string} options.taskType - Filter jobs by task type (e.g., 'text-to-image', 'image-to-image')
  * @param {string} options.generatorInstanceId - Optional instance ID to filter jobs by client
+ * @param {import('vue').Ref<number|null>} options.activeCap - Optional reactive cap on the
+ *   displayed "active" (pending/queued/assigned/processing) count, e.g. generate-forever's
+ *   configured concurrency. Backend-side, a freed slot's replacement job can broadcast
+ *   'generation_request_work' slightly before the outgoing job's own 'generation_job_completed'
+ *   lands (finalize work is intentionally detached from slot-freeing to keep the GPU fed) -
+ *   without a cap that shows as a transient N+1 tile for a fraction of a second. Null/unset
+ *   means uncapped (manual, non-forever-mode generation has no such limit to enforce).
  */
 export function useGenerationJobs(options = {}) {
-  const { taskType = null, generatorInstanceId = null } = options
+  const { taskType = null, generatorInstanceId = null, activeCap = null } = options
 
   const { on: onWebSocketEvent } = useWebSocket()
   const { getMarkers, addMarkerToMedia, removeMarkerFromMedia } = useMediaApi()
@@ -28,11 +35,23 @@ export function useGenerationJobs(options = {}) {
   const pendingJobs = ref([])  // Client-side pending jobs (enhancing prompt)
   const mediaHashes = ref({})
   const mediaData = ref({})  // Full media objects for slideshow
+  // Derived from mediaData so job tiles can gate the checkerboard on the file's
+  // actual alpha channel instead of racing image-load timing.
+  const mediaHasAlpha = computed(() => {
+    const result = {}
+    for (const [id, data] of Object.entries(mediaData.value)) {
+      if (data && typeof data.has_alpha === 'boolean') result[id] = data.has_alpha
+    }
+    return result
+  })
   const mediaMarkers = ref({})
   const mediaGenerationTimes = ref({})
   const availableMarkers = ref([])
   const dismissedJobs = ref(new Set())
   const failedMediaLoads = ref(new Set())
+  // Completed jobs whose media record is still being fetched: their bar is
+  // gone (status already applied) but their tile isn't shown yet.
+  const mediaLoadingJobIds = ref(new Set())
   const isLoading = ref(true)
 
   // Batch tracking
@@ -94,22 +113,32 @@ export function useGenerationJobs(options = {}) {
     }
 
     // Include pending jobs (enhancing) in active list
-    const active = [
+    let active = [
       ...pendingJobs.value,
       ...filteredJobs.filter(j => ['queued', 'assigned', 'processing'].includes(j.status))
     ]
+    // Sort BEFORE capping (same reasoning as `completed` below): keep the
+    // most-recently-created entries, which drops the stale slot occupant
+    // rather than the job that just replaced it.
+    active = active.sort(sortByDate)
+    const cap = unref(activeCap)
+    if (cap && active.length > cap) {
+      active = active.slice(0, cap)
+    }
     const failed = filteredJobs.filter(j => j.status === 'failed')
     // Sort BEFORE capping: the cap must keep the most recently COMPLETED
     // jobs. Slicing in jobs.value (queue) order would let every newly queued
     // job evict a completed job from the middle of the list, silently shifting
     // slideshow indexes with no corresponding arrival event.
     const completed = filteredJobs
-      .filter(j => j.status === 'completed' && !jobIdsWithActiveChain.value.has(j.id))
+      .filter(j => j.status === 'completed' &&
+        !jobIdsWithActiveChain.value.has(j.id) &&
+        !mediaLoadingJobIds.value.has(j.id))
       .sort(sortByDate)
       .slice(0, 100)
 
     return [
-      ...active.sort(sortByDate),
+      ...active,
       ...failed.sort(sortByDate),
       ...completed
     ]
@@ -190,7 +219,9 @@ export function useGenerationJobs(options = {}) {
   // Load media data for a job result (stores full object for slideshow use)
   async function loadMediaHash(mediaId, markFailedOnError = true) {
     try {
-      const response = await axios.get(`${getAPIBase()}/media/${mediaId}`)
+      // Timeout: under generation load this endpoint can stall (connection
+      // contention); a hung GET must not strand its caller forever.
+      const response = await axios.get(`${getAPIBase()}/media/${mediaId}`, { timeout: 30000 })
       if (response.data && response.data.file_hash) {
         // Store full media object for slideshow
         mediaData.value = {
@@ -356,6 +387,27 @@ export function useGenerationJobs(options = {}) {
     return true
   }
 
+  // Batches whose first arriving job already consumed a placeholder — one
+  // submit shows one placeholder but a batch submit queues N jobs.
+  const placeholderConsumedBatches = new Set()
+
+  // A submit that does LLM prompt work shows a client-side 'enhancing'
+  // placeholder until the real job exists. The queued-job broadcast lands
+  // BEFORE the submit HTTP response resolves, so without this the strip shows
+  // both the placeholder and its own queued bar for that window. Placeholders
+  // can't be correlated to job ids (the id doesn't exist at placeholder time),
+  // so retire the oldest one per newly arrived job/batch; the submit's own
+  // removePendingJob on HTTP completion stays as the backstop.
+  function consumePendingPlaceholder(job) {
+    if (pendingJobs.value.length === 0) return
+    if (job.batch_id) {
+      if (placeholderConsumedBatches.has(job.batch_id)) return
+      placeholderConsumedBatches.add(job.batch_id)
+    }
+    // addPendingJob unshifts, so the oldest placeholder is the last element.
+    pendingJobs.value = pendingJobs.value.slice(0, -1)
+  }
+
   // WebSocket event handlers
   function handleJobQueued(data) {
     if (!matchesFilters(data)) return
@@ -363,6 +415,7 @@ export function useGenerationJobs(options = {}) {
     const existingIndex = jobs.value.findIndex(j => j.id === data.job.id)
     if (existingIndex === -1) {
       jobs.value.unshift(data.job)
+      consumePendingPlaceholder(data.job)
     } else {
       jobs.value.splice(existingIndex, 1, data.job)
     }
@@ -376,26 +429,40 @@ export function useGenerationJobs(options = {}) {
       jobs.value.splice(index, 1, data.job)
     } else {
       jobs.value.unshift(data.job)
+      consumePendingPlaceholder(data.job)
     }
   }
 
   async function handleJobCompleted(data) {
     if (!matchesFilters(data)) return
 
-    // Load the media record BEFORE exposing the job to the grid: the tile's
-    // type (image vs video) comes from mediaData, and a post-processing chain
-    // can repoint an image job at a video. Splicing first opens a window where
-    // the tile renders through the wrong path and self-evicts on load error.
-    if (data.job.result_media_id) {
-      await loadMediaHash(data.job.result_media_id, true)
-    }
-
+    // Apply the terminal status IMMEDIATELY so the in-progress bar clears in
+    // lockstep with the backend slot. Gating this on the media fetch below let
+    // bars pile up under load: adds are instant (queued/started handlers are
+    // synchronous) but removals waited on an HTTP roundtrip, so at a
+    // completion every couple of seconds the strip showed far more
+    // "Generating…" bars than there were running jobs.
     const index = jobs.value.findIndex(j => j.id === data.job.id)
     if (index !== -1) {
       jobs.value.splice(index, 1, data.job)
     } else {
       // Job wasn't in list (e.g., page was refreshed during processing) - add it
       jobs.value.unshift(data.job)
+    }
+
+    // The completed TILE stays held back (via mediaLoadingJobIds in allJobs)
+    // until the media record is loaded: the tile's type (image vs video) comes
+    // from mediaData, and a post-processing chain can repoint an image job at
+    // a video — rendering through the wrong path self-evicts on load error.
+    if (data.job.result_media_id && !mediaData.value[data.job.result_media_id]) {
+      mediaLoadingJobIds.value = new Set([...mediaLoadingJobIds.value, data.job.id])
+      try {
+        await loadMediaHash(data.job.result_media_id, true)
+      } finally {
+        const next = new Set(mediaLoadingJobIds.value)
+        next.delete(data.job.id)
+        mediaLoadingJobIds.value = next
+      }
     }
   }
 
@@ -894,6 +961,7 @@ export function useGenerationJobs(options = {}) {
     sortedCompletedJobs,
     mediaHashes,
     mediaData,
+    mediaHasAlpha,
     mediaMarkers,
     mediaGenerationTimes,
     availableMarkers,

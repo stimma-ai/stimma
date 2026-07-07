@@ -260,7 +260,7 @@
                     <div v-if="source.media_id" class="flex flex-col">
                       <button
                         @click="source.preprocessor && getPreprocessedUrl(source) ? openExternalImageModal(getPreprocessedUrl(source), true) : $emit('navigate-to-source-media', source.media_id)"
-                        class="relative w-32 h-32 rounded-lg overflow-hidden border border-edge hover:border-blue-500 transition-colors bg-checker p-0 cursor-pointer"
+                        class="relative w-32 h-32 rounded-lg overflow-hidden border border-edge hover:border-blue-500 transition-colors p-0 cursor-pointer"
                         :title="formatSourceRole(source.role)"
                       >
                         <!-- Preprocessed inputs show a derived preview URL, not the stored library asset. -->

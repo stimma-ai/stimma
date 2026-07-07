@@ -749,6 +749,7 @@
           :jobs="allJobs"
           :markers="jobsManager.availableMarkers.value"
           :media-hashes="jobsManager.mediaHashes.value"
+          :media-has-alpha="jobsManager.mediaHasAlpha.value"
           :media-markers="jobsManager.mediaMarkers.value"
           :media-generation-times="jobsManager.mediaGenerationTimes.value"
           :media-data="jobsManager.mediaData.value"
@@ -761,6 +762,7 @@
           :tool-display-name="tool?.name"
           :compact-overlays="layoutMode === 'stage'"
           :thumbnail-size="queueThumbnailSize"
+          :slot-count="uiState.generateForeverMode ? (uiState.generateForeverConcurrency ?? 1) : null"
           empty-message="No jobs yet"
           @job-click="handleQueueClick"
           @toggle-marker="handleToggleMarker"
@@ -888,7 +890,7 @@ import {
 import { submitJobAsync, submitBatchJobAsync, submitMediaBatchJobAsync, BatchJobResponse } from '../composables/useSubmissionQueue'
 import { createDragPreview, handleDragEnd as handleHeroDragEnd } from '../composables/useDragPreview'
 import { useToolAutoDeleteDuration } from '../composables/useToolAutoDeleteDuration'
-import { usePromptPreloader } from '../composables/usePromptPreloader'
+import { usePromptWarmPool } from '../composables/usePromptWarmPool'
 import { useTabNavigation } from '../composables/useTabNavigation'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import { useMediaApi } from '../composables/useMediaApi'
@@ -1762,12 +1764,19 @@ function calculateWordSetDifference(a: string, b: string): number {
 
 let remixDeactivateTimer: ReturnType<typeof setTimeout> | null = null
 
+// Caps the displayed "active" job count to generate-forever's concurrency
+// (set up below, once uiState exists) - passed as a ref since uiState isn't
+// defined yet at this point in setup. Null/unset (manual generation, forever
+// mode off) leaves the active list uncapped.
+const activeJobsCap = ref<number | null>(null)
+
 // Job management composable - called at top level
 // This MUST be called synchronously during setup, not in an async function
 // taskType will be null initially, but jobs are filtered by generatorInstanceId anyway
 const jobsManager = useGenerationJobs({
   taskType: null,  // We filter by generatorInstanceId instead
-  generatorInstanceId: generatorInstanceId
+  generatorInstanceId: generatorInstanceId,
+  activeCap: activeJobsCap
 })
 const { beginInstanceWork } = useGenerationStatus()
 
@@ -1787,6 +1796,12 @@ const {
   taskType: 'text-to-image',  // Just for defaults structure - we manage our own state persistence
   fullToolId: fullToolIdFromProps
 })
+
+watch(
+  () => uiState.value.generateForeverMode ? uiState.value.generateForeverConcurrency : null,
+  (cap) => { activeJobsCap.value = cap ?? null },
+  { immediate: true }
+)
 
 // --- Video dropped into an image slot → grab a still (centralized safety net) ---
 // MediaPicker converts videos it accepts directly, but a video can reach an
@@ -2630,13 +2645,19 @@ const enhanceUsesImage = computed(() => {
   return !!(source?.path || source?.file_path || source?.filePath)
 })
 
-// Prompt preloading speculatively runs the text-enhance LLM step and sends the
-// resolved/improved pair as a backend-validated one-use hint on submit.
-const { consumePromptPreload, consumePromptPreloads, onCacheUsed, updateConcurrentJobs } = usePromptPreloader({
+// Server-owned prompt warm pool: while generate-forever is running, tells the
+// server how many LLM-enhanced prompt variants to keep ready so submits pick
+// one up with zero added latency. Scoped to forever mode's own lifecycle
+// (registers/tears down alongside it) - a single manual generation has no
+// duty cycle to preserve, so it isn't speculated for here; it just goes
+// through the normal enhance-at-submit path.
+const { clear: clearPromptWarmPool } = usePromptWarmPool({
+  generatorInstanceId,
+  toolId: computed(() => tool.value?.full_tool_id ?? null),
   prompt: computed(() => globalPrefs.value.prompt),
-  // Only the text-rewrite path with no source image is pre-cached. Ideogram
-  // converts post-resolve, and i2v depends on the frame, so neither can be
-  // precomputed from prompt text alone.
+  // Only the text-rewrite path with no source image can be pre-enhanced from
+  // prompt text alone. Ideogram converts post-resolve, and i2v depends on the
+  // frame, so neither is eligible.
   autoImproveEnabled: computed(() =>
     (globalPrefs.value.promptOptions?.autoImprove?.enabled ?? false) &&
     enhanceMode.value === 'text' &&
@@ -2647,6 +2668,8 @@ const { consumePromptPreload, consumePromptPreloads, onCacheUsed, updateConcurre
   isVideo: enhanceIsVideo,
   isAudio: enhanceIsAudio,
   inputImageCount: enhanceInputImageCount,
+  active: computed(() => uiState.value.generateForeverMode ?? false),
+  concurrency: computed(() => uiState.value.generateForeverConcurrency ?? 1),
 })
 
 // Tool state composable - provides state persistence, presets, and modified detection
@@ -2782,18 +2805,6 @@ const queuedJobsCount = computed(() => {
   const jobs = jobsManager?.jobs.value
   if (!jobs) return 0
   return jobs.filter((j: any) => ['queued', 'assigned'].includes(j.status)).length
-})
-
-const activeJobCount = computed(() => {
-  const jobs = jobsManager?.jobs.value
-  const pendingJobs = jobsManager?.pendingJobs.value
-  if (!jobs && !pendingJobs) return 0
-  return (jobs || []).filter((j: any) => ['queued', 'assigned', 'processing'].includes(j.status)).length +
-    (pendingJobs || []).length
-})
-
-watch(activeJobCount, (count) => {
-  updateConcurrentJobs(count)
 })
 
 // OS Detection
@@ -3934,21 +3945,10 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
     ? { width: Number(capturedState.parameters?.width) || null, height: Number(capturedState.parameters?.height) || null }
     : undefined
 
-  // Pre-cached prompt hints exist for the text-rewrite path with no source
-  // image. The backend validates context before using each hint, then still
-  // owns translation, final cleanup, and queue/reservation accounting.
-  const canUsePromptPreload = toolHasPrompt && enhanceOn && enhanceMode.value === 'text' && !enhanceUsesImage.value
-  const consumePreloadHint = () => canUsePromptPreload
-    ? consumePromptPreload(prompt, promptOptions!.autoImprove.instructions || null)
-    : null
-  const consumePreloadHints = (count: number) => canUsePromptPreload
-    ? consumePromptPreloads(prompt, promptOptions!.autoImprove.instructions || null, count)
-    : []
-
   // Show a pending placeholder whenever the generate-time prompt pipeline may
-  // do LLM work. Even with a preload hint the backend can reject it as stale and
-  // fall back to live enhancement, so keep the slot visibly active until the
-  // backend emits the real queued job.
+  // do LLM work. Enhancement happens server-side at submit time (either from
+  // the forever-mode warm pool or synchronously), so keep the slot visibly
+  // active until the backend emits the real queued job.
   const needsEnhancing = toolHasPrompt && (
     enhanceOn ||
     promptOptions?.translate?.enabled
@@ -3972,8 +3972,6 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
       removePendingEnhancementJob()
       return noSubmit(options)
     }
-    const promptPreloads = consumePreloadHints(mediaIds.length)
-    if (promptPreloads.length > 0) onCacheUsed()
     const trackForeverBatchSubmit = options.foreverSessionId != null && isForeverSubmissionCurrent(options)
     if (trackForeverBatchSubmit) foreverModeBatchSubmitInFlight.value = true
     const clearForeverBatchSubmit = () => {
@@ -4016,7 +4014,6 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
       buildPayload: (processedPrompt, promptMetadata) => ({
         ...basePayload,
         prompt_options: promptOptions || undefined,
-        prompt_preloads: promptPreloads.length > 0 ? promptPreloads : undefined,
         forever_work_reserved: options.foreverReserved === true,
         batch_input: { field: batchField, media_ids: mediaIds },
         constant_inputs: constantInputs,
@@ -4131,8 +4128,6 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
     })
   } else {
     // Regular single-job submission
-    const promptPreload = consumePreloadHint()
-    if (promptPreload) onCacheUsed()
     submitJobAsync({
       prompt,
       promptOptions,
@@ -4140,7 +4135,6 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
       buildPayload: (processedPrompt, promptMetadata) => ({
         ...basePayload,
         prompt_options: promptOptions || undefined,
-        prompt_preload: promptPreload || undefined,
         forever_work_reserved: options.foreverReserved === true,
         parameters: {
           ...capturedState.parameters,
@@ -4232,7 +4226,6 @@ async function startForeverMode(concurrency: number) {
   consecutiveFailures.value = 0
   foreverModeBatchSubmitInFlight.value = false
   workRequestQueue.value = []
-  updateConcurrentJobs(concurrency)
   try {
     await axios.post(`${API_BASE}/generate/forever/register`, null, {
       params: {
@@ -4255,6 +4248,11 @@ async function stopForeverMode() {
   foreverModePendingBatchCompletion.value = null
   foreverModeBatchSubmitInFlight.value = false
   workRequestQueue.value = []
+  // Belt-and-suspenders: /forever/unregister below already tears down the
+  // warm pool server-side, but that call can fail (caught/logged, not
+  // retried) - clearing directly against the pool's own endpoint means the
+  // pool doesn't outlive forever mode even if unregister doesn't land.
+  clearPromptWarmPool()
   try {
     await axios.post(`${API_BASE}/generate/forever/unregister`, null, {
       params: {
@@ -4265,6 +4263,48 @@ async function stopForeverMode() {
     })
   } catch (err) {
     console.error('Failed to unregister forever mode:', err)
+  }
+}
+
+// Re-registers forever mode after a WebSocket reconnect, retrying with capped
+// backoff until it succeeds rather than giving up after a fixed count (see
+// call site in the wsConnected watcher for why a silent give-up is unsafe).
+// Bails early if forever mode was stopped or restarted (new session id) while
+// waiting, so an old reconnect's retry loop can't stomp on a fresh one.
+async function reregisterForeverModeWithRetry() {
+  if (!tool.value) return
+  const session = foreverModeSessionId.value
+  const stillCurrent = () =>
+    uiState.value.generateForeverMode && foreverModeSessionId.value === session
+
+  // Small initial delay to give backend HTTP routes a moment to come up.
+  await new Promise(resolve => setTimeout(resolve, 500))
+
+  const delaysMs = [1000, 2000, 4000, 8000, 8000, 8000, 8000, 8000]
+  let attempt = 0
+  while (stillCurrent()) {
+    try {
+      await axios.post(`${API_BASE}/generate/forever/register`, null, {
+        params: {
+          generator_instance_id: generatorInstanceId,
+          backend_name: tool.value.generator,
+          max_concurrency: uiState.value.generateForeverConcurrency,
+          tool_id: tool.value.full_tool_id
+        }
+      })
+      if (attempt > 0) submissionError.value = null
+      return
+    } catch (err) {
+      console.error(`Failed to re-register forever mode (attempt ${attempt + 1}):`, err)
+      if (attempt === 2) {
+        // Surface it after a few failures so this isn't silent, but keep
+        // retrying in the background rather than giving up.
+        submissionError.value = 'Reconnecting generate-forever mode...'
+      }
+      const delay = delaysMs[Math.min(attempt, delaysMs.length - 1)]
+      await new Promise(resolve => setTimeout(resolve, delay))
+      attempt++
+    }
   }
 }
 
@@ -5278,30 +5318,15 @@ watch(wsConnected, async (isConnected, wasConnected) => {
       await jobsManager?.loadJobs()
     }
 
-    // Re-register forever mode on reconnect
+    // Re-register forever mode on reconnect. Retries with capped backoff
+    // rather than giving up after a fixed count - a backend restart (nodemon
+    // picking up a file change, DB migrations running at startup) can easily
+    // take longer than a few seconds to have its HTTP routes back up, and a
+    // silent permanent give-up here leaves the UI showing forever mode "on"
+    // while the server has no idea it exists - jobs then queue forever with
+    // nothing to dispatch them, and nothing else will ever retry.
     if (wasConnected === false && uiState.value.generateForeverMode) {
-      // Small delay to ensure backend HTTP routes are ready
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      // Retry up to 3 times
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          await axios.post(`${API_BASE}/generate/forever/register`, null, {
-            params: {
-              generator_instance_id: generatorInstanceId,
-              backend_name: tool.value.generator,
-              max_concurrency: uiState.value.generateForeverConcurrency,
-              tool_id: tool.value.full_tool_id
-            }
-          })
-          break
-        } catch (err) {
-          console.error(`Failed to re-register forever mode (attempt ${attempt + 1}):`, err)
-          if (attempt < 2) {
-            await new Promise(resolve => setTimeout(resolve, 1000))
-          }
-        }
-      }
+      void reregisterForeverModeWithRetry()
     }
   }
   // If we had an error and connection is restored, retry loading

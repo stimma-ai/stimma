@@ -29,7 +29,7 @@
     <template v-if="contain && displaySrc && !error">
       <div class="absolute inset-0 flex items-center justify-center">
         <div
-          class="bg-checker max-w-full max-h-full"
+          :class="['max-w-full max-h-full', loaded && showChecker ? 'bg-checker' : '']"
           :style="contentStyle"
           :draggable="draggable"
           @dragstart="$emit('dragstart', $event)"
@@ -59,7 +59,8 @@
       :src="displaySrc"
       :alt="alt"
       :class="[
-        'w-full h-full object-cover bg-checker transition-opacity duration-150',
+        'w-full h-full object-cover transition-opacity duration-150',
+        showChecker ? 'bg-checker' : '',
         loaded ? 'opacity-100' : 'opacity-0',
         imgClass
       ]"
@@ -113,6 +114,15 @@ interface Props {
   alt?: string
   /** Use object-contain (fit whole image). Default is object-cover (fill, may crop). */
   contain?: boolean
+  /**
+   * Whether the source file actually has an alpha channel (from media
+   * metadata, computed at ingest — header-only, no pixel decode). `false`
+   * means the checkerboard never renders at all, so there's nothing to race
+   * against a loading image. `null`/`undefined` (unknown — not a library
+   * item, or metadata predates this field) falls back to the old
+   * load-gated checker so nothing regresses.
+   */
+  hasAlpha?: boolean | null
   /** Additional classes for the container div */
   containerClass?: string
   /** Additional classes for the img element */
@@ -136,6 +146,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   alt: '',
   contain: false,
+  hasAlpha: null,
   containerClass: '',
   imgClass: '',
   loading: 'lazy',
@@ -154,6 +165,10 @@ const emit = defineEmits<{
 
 const loaded = ref(false)
 const error = ref(false)
+// hasAlpha === false is a known fact from file metadata — never render the
+// checker for opaque content, so there's no loading race to hide. Unknown
+// (null/undefined) keeps today's load-gated checker as a safe fallback.
+const showChecker = computed(() => props.hasAlpha !== false)
 const imgRef = ref<HTMLImageElement | null>(null)
 const containerRef = ref<HTMLElement | null>(null)
 const naturalWidth = ref(0)
@@ -255,9 +270,20 @@ watch(() => props.src, (nextSrc) => {
     if (requestId !== preloadRequestId) return
     naturalWidth.value = preload.naturalWidth
     naturalHeight.value = preload.naturalHeight
-    displaySrc.value = normalizedSrc
-    loaded.value = true
-    error.value = false
+    const finish = () => {
+      if (requestId !== preloadRequestId) return
+      displaySrc.value = normalizedSrc
+      loaded.value = true
+      error.value = false
+    }
+    // decode() before flipping loaded — `load` alone fires before the bitmap
+    // is guaranteed decoded, leaving a gap where the checker background
+    // underneath shows through blank space.
+    if (typeof preload.decode === 'function') {
+      preload.decode().then(finish, finish)
+    } else {
+      finish()
+    }
   }
   preload.onerror = () => {
     if (requestId !== preloadRequestId) return
@@ -273,12 +299,25 @@ watch(() => props.src, (nextSrc) => {
 
 function handleLoad(event: Event) {
   const img = event.target as HTMLImageElement
+  const srcAtLoad = displaySrc.value
   naturalWidth.value = img.naturalWidth
   naturalHeight.value = img.naturalHeight
-  loaded.value = true
-  error.value = false
   retryCount = 0
   clearRetryTimer()
+  const finish = () => {
+    // Bail if the src has already moved on (rapid swap) by the time decode() settles.
+    if (displaySrc.value !== srcAtLoad) return
+    loaded.value = true
+    error.value = false
+  }
+  // decode() before flipping loaded — `load` alone fires before the bitmap is
+  // guaranteed decoded, leaving a gap where the checker background underneath
+  // shows through blank space.
+  if (typeof img.decode === 'function') {
+    img.decode().then(finish, finish)
+  } else {
+    finish()
+  }
   emit('load', event)
 }
 

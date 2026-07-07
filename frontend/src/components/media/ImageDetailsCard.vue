@@ -7,6 +7,7 @@
         :file-hash="media.file_hash"
         :thumbnail="false"
         :contain="true"
+        :has-alpha="media.has_alpha"
         container-class="w-full h-full"
       />
     </div>
@@ -46,7 +47,7 @@
           <button
             v-for="(source, si) in resolvedSourceInputs"
             :key="si"
-            class="relative rounded-lg overflow-hidden border border-edge hover:border-blue-500 transition-colors bg-checker p-0 cursor-pointer"
+            class="relative rounded-lg overflow-hidden border border-edge hover:border-blue-500 transition-colors p-0 cursor-pointer"
             :class="source.inTree === false ? 'opacity-50 pointer-events-none' : ''"
             :style="{ width: '80px', height: '80px' }"
             :title="sourceTitle(source)"

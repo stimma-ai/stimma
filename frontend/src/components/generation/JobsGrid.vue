@@ -3,14 +3,14 @@
     <!-- Empty only when there's truly nothing to show: a job whose chain is
          running is hidden from `jobs` (the chain bar represents it), so the
          bar must keep the grid alive or the whole strip blinks out. -->
-    <div v-if="jobs.length === 0 && activeChainRuns.length === 0" class="text-center py-12 px-4 text-content-muted">
+    <div v-if="jobs.length === 0 && activeChainRuns.length === 0 && waitingSlotCount === 0" class="text-center py-12 px-4 text-content-muted">
       <p>{{ emptyMessage }}</p>
     </div>
     <div v-else class="flex flex-col gap-4">
       <!-- In-flight progress: slim landscape bars docked at the top of the
            results area — one per job/batch/chain, stacked newest-first so
            finishing work flows into the completed list below. -->
-      <div v-if="activeDisplayItems.length > 0" class="flex flex-col gap-2">
+      <div v-if="activeDisplayItems.length > 0 || waitingSlotCount > 0" class="flex flex-col gap-2">
         <template v-for="item in activeDisplayItems" :key="item.key">
           <!-- Active individual job (queued/processing/enhancing) -->
           <PipelineProgressBar
@@ -57,6 +57,7 @@
               :markers="markers"
               :media-markers="mediaMarkers"
               :media-hashes="mediaHashes"
+              :media-has-alpha="mediaHasAlpha"
               :media-generation-times="mediaGenerationTimes"
               :media-data="mediaData"
               :current-media-id="currentMediaId"
@@ -72,6 +73,21 @@
             />
           </div>
         </template>
+        <!-- Unfilled generation slots (forever mode): the strip reads as a
+             stable set of `slotCount` lanes, so slots this instance hasn't
+             been granted yet (backend saturated, or the next submit is still
+             in flight) show as waiting lanes instead of vanishing. -->
+        <PipelineProgressBar
+          v-for="i in waitingSlotCount"
+          :key="`waiting-slot-${i}`"
+          :name="toolDisplayName || 'Generation'"
+          status="queued"
+          label="Waiting for slot…"
+          :segments="[{ status: 'pending' }]"
+          :show-cancel="false"
+          :compact="compactOverlays"
+          class="opacity-50"
+        />
       </div>
 
       <!-- Completed/failed items -->
@@ -144,6 +160,7 @@
             :markers="markers"
             :media-markers="mediaMarkers"
             :media-hashes="mediaHashes"
+            :media-has-alpha="mediaHasAlpha"
             :media-generation-times="mediaGenerationTimes"
             :media-data="mediaData"
             :current-media-id="currentMediaId"
@@ -170,6 +187,7 @@
               :markers="markers"
               :media-markers="mediaMarkers"
               :media-hashes="mediaHashes"
+              :media-has-alpha="mediaHasAlpha"
               :media-generation-times="mediaGenerationTimes"
               :current-media-id="currentMediaId"
               :compact-overlays="compactOverlays"
@@ -280,6 +298,7 @@ interface Props {
   jobs: Job[]
   markers?: Marker[]
   mediaHashes?: Record<number, string>
+  mediaHasAlpha?: Record<number, boolean>
   mediaMarkers?: Record<number, Marker[]>
   mediaGenerationTimes?: Record<number, number>
   // Full media records by id (file_format etc.) — a completed job's tile type
@@ -303,11 +322,16 @@ interface Props {
   toolDisplayName?: string
   compactOverlays?: boolean
   thumbnailSize?: number
+  // Forever-mode concurrency for this instance, or null when not in forever
+  // mode. When set, the active strip renders as that many stable lanes:
+  // unoccupied ones show as "Waiting for slot…" placeholders.
+  slotCount?: number | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   markers: () => [],
   mediaHashes: () => ({}),
+  mediaHasAlpha: () => ({}),
   mediaMarkers: () => ({}),
   mediaGenerationTimes: () => ({}),
   mediaData: () => ({}),
@@ -321,6 +345,7 @@ const props = withDefaults(defineProps<Props>(), {
   toolDisplayName: '',
   compactOverlays: false,
   thumbnailSize: 256,
+  slotCount: null,
 })
 
 const emit = defineEmits<{
@@ -612,6 +637,26 @@ const activeDisplayItems = computed(() =>
 const completedDisplayItems = computed(() =>
   unifiedDisplayItems.value.filter(item => !ACTIVE_ITEM_TYPES.has(item.type))
 )
+
+// Generation slots currently occupied by active items. A post-processing
+// chain does NOT hold a slot — the backend frees the generation slot before
+// the chain tail runs (that's why chain bars can appear on top of a full set
+// of generating lanes).
+const waitingSlotCount = computed(() => {
+  if (!props.slotCount) return 0
+  let used = 0
+  for (const item of activeDisplayItems.value) {
+    if (item.type === 'active-job') {
+      used += 1
+    } else if (item.type === 'active-batch' || item.type === 'media-batch-active') {
+      // A batch bar stands for all its member jobs; members that are queued/
+      // assigned/processing each hold a slot. An in-progress batch with no
+      // countable members yet still holds at least one.
+      used += Math.max(item.batch?.inProgress || 0, 1)
+    }
+  }
+  return Math.max(0, props.slotCount - used)
+})
 
 // --- PipelineProgressBar models ---------------------------------------------
 // Each active item (job / batch / chain) is normalised into the same segmented

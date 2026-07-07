@@ -66,6 +66,7 @@
                   :src="getThumbnailUrl(rowItem.file_hash, GRID_THUMBNAIL_SIZE)"
                   :alt="rowItem.vlm_caption || 'Media item'"
                   :contain="rowItem.file_format === 'stimmalayout'"
+                  :has-alpha="rowItem.has_alpha"
                   loading="eager"
                   container-class="w-full h-full"
                 />

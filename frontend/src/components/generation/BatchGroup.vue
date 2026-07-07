@@ -29,6 +29,7 @@
             :markers="markers"
             :media-markers="mediaMarkers"
             :media-hashes="mediaHashes"
+            :media-has-alpha="mediaHasAlpha"
             :media-generation-times="mediaGenerationTimes"
             :current-media-id="currentMediaId"
             :compact-overlays="compactOverlays"
@@ -50,6 +51,7 @@
             :markers="markers"
             :media-markers="mediaMarkers"
             :media-hashes="mediaHashes"
+            :media-has-alpha="mediaHasAlpha"
             :media-generation-times="mediaGenerationTimes"
             :current-media-id="currentMediaId"
             :compact-overlays="compactOverlays"
@@ -114,6 +116,7 @@ const props = withDefaults(defineProps<{
   markers?: Marker[]
   mediaMarkers?: Record<number, Marker[]>
   mediaHashes?: Record<number, string>
+  mediaHasAlpha?: Record<number, boolean>
   mediaGenerationTimes?: Record<number, number>
   // Full media records by id — a member's tile type follows its ACTUAL media
   // (an i2v post-processing chain turns an image job's result into a video).

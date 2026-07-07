@@ -32,6 +32,14 @@ log = get_logger(__name__)
 
 PENDING_REQUEST_TTL = 30  # seconds — generous for WS→frontend→HTTP roundtrip
 
+# Prompt warm pool: how long a generator instance's "keep N enhanced variants
+# warm" intent survives without a refresh ping before it's treated as
+# abandoned. Mirrors PENDING_REQUEST_TTL's self-healing role — the primary
+# teardown paths are explicit (forever-mode unregister, WS disconnect), this
+# is only the backstop for a client that vanishes without either.
+PROMPT_WARM_POOL_TTL = 30  # seconds
+PROMPT_WARM_POOL_MAX_CONCURRENCY = 8  # sane ceiling regardless of client input
+
 
 def resolve_recorded_seed(requested_seed, actual_seed):
     """Prefer the provider's actual seed, but fall back when it is absent."""
@@ -130,6 +138,7 @@ def _compute_generated_file_metadata(output_path: str, is_video: bool, is_audio:
         log.warning(f"SLOWTRACE_METADATA: hashing {output_path} took {_hash_ms:.0f}ms")
 
     duration = None
+    has_alpha = None
     audio_sample_rate = None
     audio_channels = None
     audio_bit_depth = None
@@ -153,6 +162,7 @@ def _compute_generated_file_metadata(output_path: str, is_video: bool, is_audio:
             audio_codec = audio_meta.get('codec')
         except Exception as e:
             log.warning(f"Failed to extract audio metadata from {output_path}: {e}")
+        has_alpha = False
         _audio_ms = (_time.time() - _t_audio0) * 1000
         if _audio_ms > 200:
             log.warning(f"SLOWTRACE_METADATA: audio metadata {output_path} took {_audio_ms:.0f}ms")
@@ -191,6 +201,7 @@ def _compute_generated_file_metadata(output_path: str, is_video: bool, is_audio:
                         pass
         except Exception:
             width, height = 0, 0
+        has_alpha = False
         _ffprobe_ms = (_time.time() - _t_ffprobe0) * 1000
         if _ffprobe_ms > 200:
             log.warning(f"SLOWTRACE_METADATA: ffprobe {output_path} took {_ffprobe_ms:.0f}ms")
@@ -198,9 +209,10 @@ def _compute_generated_file_metadata(output_path: str, is_video: bool, is_audio:
         # Use PIL for image dimensions
         _t_pil0 = _time.time()
         try:
-            from utils.image_ops import open_oriented
+            from utils.image_ops import open_oriented, has_alpha_channel
             with open_oriented(output_path) as img:
                 width, height = img.size
+                has_alpha = has_alpha_channel(img)
         except Exception:
             width, height = 0, 0
         _pil_ms = (_time.time() - _t_pil0) * 1000
@@ -228,6 +240,7 @@ def _compute_generated_file_metadata(output_path: str, is_video: bool, is_audio:
         'file_hash': file_hash,
         'width': width,
         'height': height,
+        'has_alpha': has_alpha,
         'duration': duration,
         'audio_sample_rate': audio_sample_rate,
         'audio_channels': audio_channels,
@@ -265,6 +278,19 @@ class GenerationQueue:
         self._forever_mode_lock = asyncio.Lock()
         # Event to wake workers immediately when a job is submitted
         self._job_submitted_event = asyncio.Event()
+
+        # Prompt warm pool: server-owned, in-memory-only pre-enhancement of
+        # generate-forever prompts. Scoped exactly to a generator instance's
+        # forever-mode lifecycle (never persisted, never survives a restart).
+        # generator_instance_id -> desired {tool_id, prompt, instructions, model,
+        # is_video, is_audio, input_image_count, prompt_sources_signature,
+        # concurrency, profile_id, updated_at}
+        self._prompt_warm_intent: Dict[str, Dict[str, Any]] = {}
+        # generator_instance_id -> list of ready preload dicts (shape matches
+        # what prompt_pipeline._validated_prompt_preload expects)
+        self._prompt_warm_ready: Dict[str, List[Dict[str, Any]]] = {}
+        # generator_instance_id -> set of in-flight refill asyncio.Tasks
+        self._prompt_warm_tasks: Dict[str, set] = {}
 
     def _get_db(self, profile_id: str = None):
         """Get database for the specified profile or current profile."""
@@ -344,6 +370,9 @@ class GenerationQueue:
                 log.debug(f"Forever mode: released {client_pending_count} pending requests for {backend_name}, pending now {len(self._pending_work_requests[backend_name])}")
             self._pending_work_requests_per_client.pop(generator_instance_id, None)
             log.info(f"Forever mode: unregistered {generator_instance_id} from backend {backend_name}")
+        # Forever mode is the only thing that authorizes the prompt warm pool to
+        # exist - stopping it (for any backend) tears the pool down immediately.
+        self.teardown_prompt_warm_pool(generator_instance_id)
 
     async def cleanup_disconnected_client(self, generator_instance_id: str):
         """
@@ -369,6 +398,184 @@ class GenerationQueue:
 
         # Cancel all queued jobs for this instance
         await self.cancel_queued_jobs_for_instance(generator_instance_id, error_message='Client disconnected')
+
+        # A dropped connection means there's no one left to consume warm prompts
+        # or refresh the intent - tear it down rather than let it idle to TTL.
+        self.teardown_prompt_warm_pool(generator_instance_id)
+
+    # --- Prompt warm pool ---------------------------------------------------
+    #
+    # Server-owned replacement for client-driven speculative prompt-enhancement
+    # preloading. Exists ONLY while a generator instance's forever-mode
+    # registration is live (see unregister_forever_mode/cleanup_disconnected_client
+    # above for the two explicit teardown paths; _prompt_warm_pool_stale below is
+    # the TTL backstop for a client that vanishes without either). Never
+    # persisted - a fresh process always starts with an empty pool.
+
+    _PROMPT_WARM_INTENT_FIELDS = (
+        'tool_id', 'prompt', 'instructions', 'model', 'is_video', 'is_audio',
+        'input_image_count', 'prompt_sources_signature', 'profile_id',
+    )
+
+    def _prompt_warm_pool_stale(self, generator_instance_id: str) -> bool:
+        intent = self._prompt_warm_intent.get(generator_instance_id)
+        if not intent:
+            return True
+        return (time.monotonic() - intent['updated_at']) > PROMPT_WARM_POOL_TTL
+
+    async def update_prompt_warm_pool(
+        self,
+        generator_instance_id: str,
+        *,
+        tool_id: str,
+        prompt: str,
+        instructions: Optional[str],
+        model: Optional[str],
+        is_video: bool,
+        is_audio: bool,
+        input_image_count: int,
+        prompt_sources_signature: str,
+        concurrency: int,
+        profile_id: str,
+    ) -> None:
+        """Set/refresh what should be kept warm for this generator instance.
+
+        Fire-and-forget from the caller's perspective: bookkeeping only, then
+        spawns background refill tasks and returns immediately without ever
+        waiting on an LLM call. If the prompt/settings changed since the last
+        call, whatever was warming for the old signature is discarded - that's
+        by design, matching generate-forever's "throw away stale LLM work"
+        contract.
+        """
+        concurrency = max(0, min(concurrency, PROMPT_WARM_POOL_MAX_CONCURRENCY))
+        # profile_id is part of the comparable snapshot, not just bookkeeping:
+        # GenerationQueue is a process-wide singleton serving multiple profiles,
+        # and entries warmed under one profile's DB/wildcards/segments must
+        # never be served to a submit under a different profile.
+        new_snapshot = {
+            'tool_id': tool_id, 'prompt': prompt, 'instructions': instructions,
+            'model': model, 'is_video': is_video, 'is_audio': is_audio,
+            'input_image_count': input_image_count,
+            'prompt_sources_signature': prompt_sources_signature,
+            'profile_id': profile_id,
+        }
+        existing = self._prompt_warm_intent.get(generator_instance_id)
+        existing_snapshot = (
+            {k: existing[k] for k in self._PROMPT_WARM_INTENT_FIELDS} if existing else None
+        )
+        if existing_snapshot != new_snapshot:
+            self._cancel_prompt_warm_tasks(generator_instance_id)
+            self._prompt_warm_ready[generator_instance_id] = []
+
+        self._prompt_warm_intent[generator_instance_id] = {
+            **new_snapshot,
+            'concurrency': concurrency,
+            'updated_at': time.monotonic(),
+        }
+
+        if concurrency <= 0:
+            self.teardown_prompt_warm_pool(generator_instance_id)
+            return
+
+        self._top_up_prompt_warm_pool(generator_instance_id)
+
+    def _cancel_prompt_warm_tasks(self, generator_instance_id: str) -> None:
+        tasks = self._prompt_warm_tasks.pop(generator_instance_id, None)
+        if not tasks:
+            return
+        for task in tasks:
+            task.cancel()
+
+    def _top_up_prompt_warm_pool(self, generator_instance_id: str) -> None:
+        intent = self._prompt_warm_intent.get(generator_instance_id)
+        if not intent:
+            return
+        ready = self._prompt_warm_ready.setdefault(generator_instance_id, [])
+        tasks = self._prompt_warm_tasks.setdefault(generator_instance_id, set())
+        needed = intent['concurrency'] - len(ready) - len(tasks)
+        for _ in range(max(0, needed)):
+            task = asyncio.create_task(self._refill_prompt_warm_pool(generator_instance_id, intent))
+            tasks.add(task)
+
+            def _on_refill_done(t, gid=generator_instance_id):
+                self._prompt_warm_tasks.get(gid, set()).discard(t)
+
+            task.add_done_callback(_on_refill_done)
+
+    async def _refill_prompt_warm_pool(self, generator_instance_id: str, intent: Dict[str, Any]) -> None:
+        """Background task body: enhance one variant and append it if the
+        intent hasn't moved on since this task started."""
+        try:
+            from prompt_pipeline import (
+                _improve_with_verbatim_protection,
+                _profile_wildcards_and_segments,
+                resolve_wildcards_for_llm,
+            )
+            wildcards, segments = _profile_wildcards_and_segments(intent['profile_id'])
+            processed_prompt = resolve_wildcards_for_llm(intent['prompt'], wildcards, segments)
+            db = self._get_db(intent['profile_id'])
+            improved_prompt = await _improve_with_verbatim_protection(
+                db,
+                processed_prompt,
+                instructions=intent['instructions'],
+                model=intent['model'],
+                is_video=intent['is_video'],
+                is_audio=intent['is_audio'],
+                input_image_count=intent['input_image_count'],
+                media_id=None,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            log.warning(f"Prompt warm pool: refill failed for {generator_instance_id}: {e}")
+            return
+
+        current = self._prompt_warm_intent.get(generator_instance_id)
+        current_snapshot = (
+            {k: current[k] for k in self._PROMPT_WARM_INTENT_FIELDS} if current else None
+        )
+        target_snapshot = {k: intent[k] for k in self._PROMPT_WARM_INTENT_FIELDS}
+        if current_snapshot != target_snapshot:
+            # Prompt changed while this was in flight - discard (accepted waste).
+            return
+
+        self._prompt_warm_ready.setdefault(generator_instance_id, []).append({
+            'originalPrompt': intent['prompt'],
+            'processedPrompt': processed_prompt,
+            'promptSourcesSignature': intent['prompt_sources_signature'],
+            'instructions': intent['instructions'],
+            'model': intent['model'],
+            'isVideo': intent['is_video'],
+            'isAudio': intent['is_audio'],
+            'inputImageCount': intent['input_image_count'],
+            'improvedPrompt': improved_prompt,
+        })
+
+    def consume_prompt_warm_pool(self, generator_instance_id: str) -> Optional[Dict[str, Any]]:
+        """Pop one ready pre-enhanced prompt for this instance, if any, and
+        trigger a refill to replace it. Returns None on miss/stale - callers
+        must fall back to synchronous enhancement, same as when no client
+        preload exists at all (no regression versus today's behavior).
+        """
+        if self._prompt_warm_pool_stale(generator_instance_id):
+            self.teardown_prompt_warm_pool(generator_instance_id)
+            return None
+        ready = self._prompt_warm_ready.get(generator_instance_id)
+        if not ready:
+            return None
+        # A successful consume proves the session is still live even if the
+        # client hasn't sent an explicit update ping recently (e.g. a steady
+        # forever-mode run with an unchanging prompt) - refresh the TTL clock
+        # so an actively-used pool never expires out from under itself.
+        self._prompt_warm_intent[generator_instance_id]['updated_at'] = time.monotonic()
+        entry = ready.pop(0)
+        self._top_up_prompt_warm_pool(generator_instance_id)
+        return entry
+
+    def teardown_prompt_warm_pool(self, generator_instance_id: str) -> None:
+        self._cancel_prompt_warm_tasks(generator_instance_id)
+        self._prompt_warm_ready.pop(generator_instance_id, None)
+        self._prompt_warm_intent.pop(generator_instance_id, None)
 
     async def decline_work_request(self, generator_instance_id: str, backend_name: str):
         """Handle a client declining a work request (couldn't submit).
@@ -1839,6 +2046,7 @@ class GenerationQueue:
         file_hash = computed['file_hash']
         width = computed['width']
         height = computed['height']
+        has_alpha = computed['has_alpha']
         duration = computed['duration']
         audio_sample_rate = computed['audio_sample_rate']
         audio_channels = computed['audio_channels']
@@ -1861,6 +2069,7 @@ class GenerationQueue:
             media_item.file_size = stat_info.st_size
             media_item.width = width
             media_item.height = height
+            media_item.has_alpha = has_alpha
             media_item.megapixels = megapixels
             if duration is not None:
                 media_item.duration = duration
@@ -1900,6 +2109,7 @@ class GenerationQueue:
                 metadata_config_version=get_config_version_manager().get_version('metadata'),
                 width=width,
                 height=height,
+                has_alpha=has_alpha,
                 megapixels=megapixels,
                 duration=duration,
                 # Audio-specific metadata (null for non-audio) so generated audio

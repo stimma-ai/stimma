@@ -10,6 +10,7 @@
     :src="imageSrc"
     :alt="alt"
     :contain="contain"
+    :has-alpha="hasAlpha"
     :container-class="containerClass"
     :img-class="imgClass"
     :loading="loading"
@@ -54,6 +55,10 @@ interface Props {
   alt?: string
   /** Use object-contain (fit whole image). Default is object-cover (fill, may crop). */
   contain?: boolean
+  /** Whether the source file has an alpha channel (media_items.has_alpha). Pass
+   *  the media item's `has_alpha` field so the checkerboard only ever renders
+   *  for genuinely transparent files. */
+  hasAlpha?: boolean | null
   /** Additional classes for the container div */
   containerClass?: string
   /** Additional classes for the img element */

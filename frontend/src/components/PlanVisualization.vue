@@ -130,7 +130,7 @@
                   :draggable="false"
                   :enable-context-menu="false"
                   container-class="w-full h-full"
-                  img-class="max-w-full max-h-full object-contain bg-checker"
+                  img-class="max-w-full max-h-full object-contain"
                   :alt="`Reference image ${mediaId}`"
                 />
               </div>
@@ -259,7 +259,7 @@
                       :draggable="false"
                       :enable-context-menu="false"
                       container-class="w-full h-full"
-                      img-class="max-w-full max-h-full object-contain bg-checker"
+                      img-class="max-w-full max-h-full object-contain"
                       :alt="`Reference image ${mediaId}`"
                     />
                   </div>
@@ -407,7 +407,7 @@
                           :draggable="false"
                           :enable-context-menu="false"
                           container-class="w-full h-full"
-                          img-class="max-w-full max-h-full object-contain bg-checker"
+                          img-class="max-w-full max-h-full object-contain"
                           :alt="`Reference image ${mediaId}`"
                         />
                       </div>

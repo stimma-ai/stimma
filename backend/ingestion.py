@@ -1175,6 +1175,7 @@ class MediaIngestion:
                     item.file_hash = metadata['file_hash']
                     item.width = metadata['width']
                     item.height = metadata['height']
+                    item.has_alpha = metadata.get('has_alpha')
                     item.megapixels = metadata['megapixels']
                     item.duration = metadata.get('duration')
 

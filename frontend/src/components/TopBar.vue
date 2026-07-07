@@ -461,7 +461,7 @@
                   <img
                     v-if="item.file_hash"
                     :src="getThumbnailUrl(item.file_hash, 64)"
-                    class="w-full h-full object-cover bg-checker"
+                    :class="['w-full h-full object-cover', item.has_alpha !== false ? 'bg-checker' : '']"
                     @error="$event.target.style.display = 'none'"
                   />
                   <div v-else class="w-full h-full flex items-center justify-center text-content-muted">

@@ -28,6 +28,7 @@ class MediaItemResponse(BaseModel):
     file_format: str
     width: int
     height: int
+    has_alpha: Optional[bool] = None
     megapixels: float
     duration: Optional[float]
     # Audio-specific metadata
