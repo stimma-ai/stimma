@@ -39,17 +39,33 @@
           {{ trashHeaderSubtitle }}
         </p>
       </div>
-      <button
-        v-if="totalCount > 0"
-        class="flex items-center gap-2 px-4 py-2.5 bg-red-500/15 text-red-500 border border-red-500/30 rounded-lg text-sm font-medium hover:bg-red-500/25 hover:border-red-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-500/15 disabled:hover:border-red-500/30"
-        @click="confirmEmptyTrash"
-        :disabled="isEmptyingTrash"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[18px] h-[18px]">
-          <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-        {{ isEmptyingTrash ? 'Emptying...' : 'Empty Trash' }}
-      </button>
+      <div class="flex items-center gap-3">
+        <button
+          v-if="totalCount > 0"
+          class="flex items-center gap-2 px-4 py-2.5 bg-red-500/15 text-red-500 border border-red-500/30 rounded-lg text-sm font-medium hover:bg-red-500/25 hover:border-red-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-500/15 disabled:hover:border-red-500/30"
+          @click="confirmEmptyTrash"
+          :disabled="isEmptyingTrash"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[18px] h-[18px]">
+            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          {{ isEmptyingTrash ? 'Emptying...' : 'Empty Trash' }}
+        </button>
+        <div v-if="isEmptyingTrash" class="relative w-9 h-9 shrink-0" :title="`${Math.round(trashEmptyProgress * 100)}%`">
+          <svg class="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" class="text-white/10" />
+            <circle
+              cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
+              class="text-red-500 transition-[stroke-dashoffset] duration-300"
+              stroke-dasharray="97.39"
+              :stroke-dashoffset="97.39 * (1 - trashEmptyProgress)"
+            />
+          </svg>
+          <span class="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-content-secondary">
+            {{ Math.round(trashEmptyProgress * 100) }}
+          </span>
+        </div>
+      </div>
     </div>
 
     <!-- Filter Bar -->
@@ -349,6 +365,12 @@ const trashHeaderSubtitle = computed(() => {
     return `Emptying trash: ${op?.processed_items || 0} / ${op?.total_items || totalCount.value}`
   }
   return `${totalCount.value} deleted ${totalCount.value === 1 ? 'item' : 'items'}`
+})
+const trashEmptyProgress = computed(() => {
+  const op = activeDeleteOperation.value
+  const total = op?.total_items || totalCount.value || 0
+  if (!total) return 0
+  return Math.min(1, (op?.processed_items || 0) / total)
 })
 
 const route = useRoute()
