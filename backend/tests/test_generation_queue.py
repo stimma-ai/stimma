@@ -6,6 +6,7 @@ forever mode slot filling, client cleanup, and cancellation behavior.
 These complement test_generation.py (which tests via HTTP API).
 """
 
+import asyncio
 import time
 
 import pytest
@@ -522,6 +523,256 @@ class TestClientCleanup:
 
         count = await generation_queue.cancel_queued_jobs_for_instance(client)
         assert count == 3
+
+
+# =============================================================================
+# Prompt Warm Pool
+# =============================================================================
+
+
+def _clear_warm_pool(queue):
+    queue._prompt_warm_intent.clear()
+    queue._prompt_warm_ready.clear()
+    queue._prompt_warm_tasks.clear()
+
+
+async def _await_warm_tasks(queue, generator_instance_id):
+    """Let a generator instance's in-flight refill tasks finish."""
+    tasks = list(queue._prompt_warm_tasks.get(generator_instance_id, ()))
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+class TestPromptWarmPool:
+    """Tests for the server-owned generate-forever prompt warm pool."""
+
+    async def _update(self, queue, client, prompt="a cat", concurrency=2, **overrides):
+        kwargs = dict(
+            tool_id="test:text-to-image:test-model",
+            prompt=prompt,
+            instructions=None,
+            model="test-model",
+            is_video=False,
+            is_audio=False,
+            input_image_count=0,
+            prompt_sources_signature="sig-1",
+            concurrency=concurrency,
+            profile_id="default",
+        )
+        kwargs.update(overrides)
+        await queue.update_prompt_warm_pool(client, **kwargs)
+
+    async def test_update_spawns_refills_and_consume_returns_ready_entry(self, generation_queue):
+        _clear_warm_pool(generation_queue)
+        client = "warm-basic"
+
+        with patch(
+            "prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])
+        ), patch(
+            "prompt_pipeline._improve_with_verbatim_protection", AsyncMock(return_value="an improved cat")
+        ):
+            await self._update(generation_queue, client, concurrency=2)
+            await _await_warm_tasks(generation_queue, client)
+
+        assert len(generation_queue._prompt_warm_ready[client]) == 2
+
+        entry = generation_queue.consume_prompt_warm_pool(client)
+        assert entry is not None
+        assert entry["improvedPrompt"] == "an improved cat"
+        assert entry["originalPrompt"] == "a cat"
+        assert entry["promptSourcesSignature"] == "sig-1"
+        # Consuming one triggers a refill to top back up to capacity.
+        assert len(generation_queue._prompt_warm_ready[client]) + len(
+            generation_queue._prompt_warm_tasks.get(client, ())
+        ) == 2
+
+    async def test_consume_returns_none_when_pool_empty(self, generation_queue):
+        _clear_warm_pool(generation_queue)
+        assert generation_queue.consume_prompt_warm_pool("no-such-instance") is None
+
+    async def test_consume_refreshes_ttl_so_a_steady_run_never_expires(self, generation_queue):
+        """A successful consume must prove liveness even with no new update
+        ping - otherwise a steady forever-mode run with an unchanging prompt
+        silently loses its warm pool ~TTL seconds after the last edit, even
+        while jobs keep consuming it fine in the meantime."""
+        _clear_warm_pool(generation_queue)
+        client = "warm-ttl-refresh"
+
+        with patch(
+            "prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])
+        ), patch(
+            "prompt_pipeline._improve_with_verbatim_protection", AsyncMock(return_value="improved")
+        ):
+            await self._update(generation_queue, client, concurrency=1)
+            await _await_warm_tasks(generation_queue, client)
+
+        from generation_queue import PROMPT_WARM_POOL_TTL
+        # Backdate close to (but not past) the TTL, as if this is a steady run
+        # a while after the last explicit update ping.
+        generation_queue._prompt_warm_intent[client]["updated_at"] -= (PROMPT_WARM_POOL_TTL - 1)
+
+        with patch(
+            "prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])
+        ), patch(
+            "prompt_pipeline._improve_with_verbatim_protection", AsyncMock(return_value="improved 2")
+        ):
+            entry = generation_queue.consume_prompt_warm_pool(client)
+            assert entry is not None  # still alive - not yet past TTL
+            await _await_warm_tasks(generation_queue, client)
+
+        # If consuming didn't refresh the clock, this second backdate-by-most-
+        # of-the-TTL would now push it over the edge relative to the ORIGINAL
+        # ping. It shouldn't, because the first consume just reset the clock.
+        generation_queue._prompt_warm_intent[client]["updated_at"] -= (PROMPT_WARM_POOL_TTL - 1)
+        assert generation_queue.consume_prompt_warm_pool(client) is not None
+
+    async def test_consume_returns_none_and_tears_down_when_stale(self, generation_queue):
+        _clear_warm_pool(generation_queue)
+        client = "warm-stale"
+
+        with patch(
+            "prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])
+        ), patch(
+            "prompt_pipeline._improve_with_verbatim_protection", AsyncMock(return_value="improved")
+        ):
+            await self._update(generation_queue, client, concurrency=1)
+            await _await_warm_tasks(generation_queue, client)
+
+        assert generation_queue._prompt_warm_ready[client]  # sanity: something is ready
+
+        # Backdate the intent past the TTL to simulate an abandoned instance.
+        from generation_queue import PROMPT_WARM_POOL_TTL
+        generation_queue._prompt_warm_intent[client]["updated_at"] -= (PROMPT_WARM_POOL_TTL + 1)
+
+        assert generation_queue.consume_prompt_warm_pool(client) is None
+        assert client not in generation_queue._prompt_warm_intent
+        assert client not in generation_queue._prompt_warm_ready
+
+    async def test_signature_change_discards_stale_work(self, generation_queue):
+        _clear_warm_pool(generation_queue)
+        client = "warm-change"
+
+        with patch(
+            "prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])
+        ), patch(
+            "prompt_pipeline._improve_with_verbatim_protection", AsyncMock(return_value="improved A")
+        ):
+            await self._update(generation_queue, client, prompt="prompt A", concurrency=1)
+            await _await_warm_tasks(generation_queue, client)
+
+        assert len(generation_queue._prompt_warm_ready[client]) == 1
+
+        with patch(
+            "prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])
+        ), patch(
+            "prompt_pipeline._improve_with_verbatim_protection", AsyncMock(return_value="improved B")
+        ):
+            # Changing the prompt (without awaiting) must immediately clear the
+            # ready list for the old signature - stale work is discarded, not served.
+            await self._update(generation_queue, client, prompt="prompt B", concurrency=1)
+            assert generation_queue._prompt_warm_ready[client] == []
+            await _await_warm_tasks(generation_queue, client)
+
+        entry = generation_queue.consume_prompt_warm_pool(client)
+        assert entry["originalPrompt"] == "prompt B"
+        assert entry["improvedPrompt"] == "improved B"
+
+    async def test_profile_change_discards_stale_work(self, generation_queue):
+        """GenerationQueue is a process-wide singleton serving multiple profiles.
+        A profile switch for the same generator instance must be treated as a
+        signature change even when every other field is identical - otherwise
+        an entry enhanced under one profile's DB/wildcards could be served to
+        a submit under a different profile."""
+        _clear_warm_pool(generation_queue)
+        client = "warm-profile-change"
+
+        # _get_db routes to a real per-profile registry lookup - stub it here
+        # since this test is only about the signature comparison, not actual
+        # per-profile DB routing (which is exercised elsewhere).
+        with patch.object(
+            generation_queue.__class__, "_get_db", lambda self, profile_id=None: None
+        ), patch(
+            "prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])
+        ), patch(
+            "prompt_pipeline._improve_with_verbatim_protection", AsyncMock(return_value="improved for A")
+        ):
+            await self._update(generation_queue, client, concurrency=1, profile_id="profile-A")
+            await _await_warm_tasks(generation_queue, client)
+
+        assert len(generation_queue._prompt_warm_ready[client]) == 1
+
+        with patch.object(
+            generation_queue.__class__, "_get_db", lambda self, profile_id=None: None
+        ), patch(
+            "prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])
+        ), patch(
+            "prompt_pipeline._improve_with_verbatim_protection", AsyncMock(return_value="improved for B")
+        ):
+            # Same prompt/tool/model/signature - only profile_id differs.
+            await self._update(generation_queue, client, concurrency=1, profile_id="profile-B")
+            assert generation_queue._prompt_warm_ready[client] == []
+            await _await_warm_tasks(generation_queue, client)
+
+        entry = generation_queue.consume_prompt_warm_pool(client)
+        assert entry["improvedPrompt"] == "improved for B"
+
+    async def test_concurrency_zero_clears_pool(self, generation_queue):
+        _clear_warm_pool(generation_queue)
+        client = "warm-zero"
+
+        with patch(
+            "prompt_pipeline._profile_wildcards_and_segments", return_value=([], [])
+        ), patch(
+            "prompt_pipeline._improve_with_verbatim_protection", AsyncMock(return_value="improved")
+        ):
+            await self._update(generation_queue, client, concurrency=1)
+            await _await_warm_tasks(generation_queue, client)
+
+        await self._update(generation_queue, client, concurrency=0)
+
+        assert generation_queue.consume_prompt_warm_pool(client) is None
+        assert client not in generation_queue._prompt_warm_ready
+        # concurrency=0 is a full teardown, not just a cleared ready list -
+        # no zombie intent should linger in memory.
+        assert client not in generation_queue._prompt_warm_intent
+
+    async def test_unregister_forever_mode_tears_down_warm_pool(self, generation_queue):
+        _clear_warm_pool(generation_queue)
+        _reset_queue_state(generation_queue)
+        client = "warm-unregister"
+        backend = "test"
+
+        generation_queue._forever_mode_clients[backend] = {client: 1}
+        generation_queue._prompt_warm_intent[client] = {
+            "tool_id": "t", "prompt": "p", "instructions": None, "model": None,
+            "is_video": False, "is_audio": False, "input_image_count": 0,
+            "prompt_sources_signature": "s", "concurrency": 1,
+            "profile_id": "default", "updated_at": time.monotonic(),
+        }
+        generation_queue._prompt_warm_ready[client] = [{"improvedPrompt": "x"}]
+
+        await generation_queue.unregister_forever_mode(client, backend)
+
+        assert client not in generation_queue._prompt_warm_intent
+        assert client not in generation_queue._prompt_warm_ready
+
+    async def test_disconnect_tears_down_warm_pool(self, generation_queue):
+        _clear_warm_pool(generation_queue)
+        _reset_queue_state(generation_queue)
+        client = "warm-disconnect"
+
+        generation_queue._prompt_warm_intent[client] = {
+            "tool_id": "t", "prompt": "p", "instructions": None, "model": None,
+            "is_video": False, "is_audio": False, "input_image_count": 0,
+            "prompt_sources_signature": "s", "concurrency": 1,
+            "profile_id": "default", "updated_at": time.monotonic(),
+        }
+        generation_queue._prompt_warm_ready[client] = [{"improvedPrompt": "x"}]
+
+        await generation_queue.cleanup_disconnected_client(client)
+
+        assert client not in generation_queue._prompt_warm_intent
+        assert client not in generation_queue._prompt_warm_ready
 
     async def test_cancel_queued_jobs_uses_custom_error_message(
         self, generation_queue, generation_db_session, mock_ws

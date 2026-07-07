@@ -260,12 +260,30 @@ async def _apply_generation_prompt_pipeline(
     task_type: Optional[str],
     prompt_options: Optional[Dict[str, Any]],
     prompt_preload: Optional[Dict[str, Any]],
+    generator_instance_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     prompt = parameters.get("prompt")
     if not isinstance(prompt, str):
         return parameters
 
     from prompt_pipeline import run_prompt_pipeline
+
+    # A client-supplied preload wins if present (manual/legacy submits). Forever
+    # mode no longer sends one - it registers intent via the prompt warm pool
+    # instead, so fall back to whatever the server has kept warm for this
+    # generator instance. Either way, a miss just means the synchronous
+    # enhance-at-submit path below runs, exactly like today with no preload.
+    effective_preload = prompt_preload
+    if effective_preload is None and generator_instance_id:
+        from generation_queue import get_generation_queue
+        try:
+            effective_preload = get_generation_queue().consume_prompt_warm_pool(generator_instance_id)
+        except Exception as e:
+            # A miss must never regress a submit - if the warm pool itself is
+            # broken, fall through to the synchronous enhance-at-submit path
+            # exactly as if no preload existed, same as a normal cache miss.
+            log.warning(f"Prompt warm pool consume failed for {generator_instance_id}: {e}")
+            effective_preload = None
 
     profile_id = get_current_profile()
     db = get_database_registry().get_database(profile_id)
@@ -283,7 +301,7 @@ async def _apply_generation_prompt_pipeline(
         width=_optional_int(parameters, "width"),
         height=_optional_int(parameters, "height"),
         profile_id=profile_id,
-        prompt_preload=prompt_preload,
+        prompt_preload=effective_preload,
     )
 
     updated = dict(parameters)
@@ -1443,6 +1461,7 @@ async def submit_generation_job(request: GenerationJobRequest):
             task_type=request.task_type,
             prompt_options=request.prompt_options,
             prompt_preload=request.prompt_preload,
+            generator_instance_id=request.generator_instance_id,
         )
         if request.prompt_metadata:
             parameters["prompt_metadata"] = request.prompt_metadata.model_dump()
@@ -1620,6 +1639,7 @@ async def submit_batch_jobs(
                 task_type=request.task_type,
                 prompt_options=request.prompt_options,
                 prompt_preload=_prompt_preload_for_batch_index(request, idx),
+                generator_instance_id=request.generator_instance_id,
             )
 
             # Add prompt metadata if provided
@@ -1915,6 +1935,7 @@ async def submit_media_batch_jobs(
                 task_type=request.task_type,
                 prompt_options=request.prompt_options,
                 prompt_preload=_prompt_preload_for_batch_index(request, idx),
+                generator_instance_id=request.generator_instance_id,
             )
 
             if request.prompt_metadata:
@@ -2862,6 +2883,51 @@ async def unregister_forever_mode(
     }, category="generation")
 
     return {"status": "unregistered", "generator_instance_id": generator_instance_id, "backend_name": backend_name}
+
+
+class PromptWarmPoolUpdateRequest(BaseModel):
+    generator_instance_id: str
+    tool_id: str
+    prompt: str
+    instructions: Optional[str] = None
+    model: Optional[str] = None
+    is_video: bool = False
+    is_audio: bool = False
+    input_image_count: int = 0
+    prompt_sources_signature: str = ""
+    # How many enhanced variants to keep warm. Client authority - it's the one
+    # that knows the forever-mode concurrency it's driving toward. 0 clears
+    # the pool for this instance without waiting for unregister/TTL.
+    concurrency: int = 0
+
+
+@router.post("/prompt-warm-pool/update")
+async def update_prompt_warm_pool(request: PromptWarmPoolUpdateRequest):
+    """Fire-and-forget: keep `concurrency` LLM-enhanced variants of this prompt
+    warm for this generator instance, so generate-forever submits can pick up
+    an already-enhanced prompt with zero added latency.
+
+    Returns immediately - the actual LLM work happens in server-owned
+    background tasks, never on this request's connection. Scoped to the
+    generator instance's forever-mode registration; only meaningful while that
+    registration is active (see GenerationQueue's prompt warm pool docs).
+    """
+    from generation_queue import get_generation_queue
+    queue = get_generation_queue()
+    await queue.update_prompt_warm_pool(
+        request.generator_instance_id,
+        tool_id=request.tool_id,
+        prompt=request.prompt,
+        instructions=request.instructions,
+        model=request.model,
+        is_video=request.is_video,
+        is_audio=request.is_audio,
+        input_image_count=request.input_image_count,
+        prompt_sources_signature=request.prompt_sources_signature,
+        concurrency=request.concurrency,
+        profile_id=get_current_profile(),
+    )
+    return {"status": "ok"}
 
 
 @router.post("/cancel-queued")
