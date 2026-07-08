@@ -655,13 +655,28 @@ async function continueWithoutAccountIfNeeded(page: Page) {
   const deadline = Date.now() + 30000;
 
   while (Date.now() < deadline) {
-    if (await shell.isVisible({ timeout: 250 }).catch(() => false)) return;
+    if (await shell.isVisible({ timeout: 250 }).catch(() => false)) {
+      await dismissReadinessPanelIfNeeded(page);
+      return;
+    }
     if (await skip.isVisible({ timeout: 250 }).catch(() => false)) {
       await skip.click();
       await page.getByRole('button', { name: 'Continue without account' }).first().click();
       await expect(shell).toBeVisible({ timeout: 30000 });
+      await dismissReadinessPanelIfNeeded(page);
       return;
     }
   }
   throw new Error('Timed out waiting for either onboarding or the application shell');
+}
+
+// The readiness panel is expected on a fresh unentitled profile (the
+// acceptance sandbox has a test tool provider but no agent LLM). It overlays
+// the shell on every full page load, so dismiss it wherever we settle a load.
+async function dismissReadinessPanelIfNeeded(page: Page) {
+  const dismiss = page.getByTestId('readiness-dismiss');
+  if (await dismiss.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await dismiss.click();
+    await expect(page.getByTestId('readiness-panel')).toBeHidden({ timeout: 5000 });
+  }
 }

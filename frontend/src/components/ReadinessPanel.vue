@@ -3,6 +3,7 @@
     <Transition name="modal">
       <div
         v-if="shouldShowPanel"
+        data-testid="readiness-panel"
         class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/50 backdrop-blur-sm"
         @click.self="handleDismiss"
       >
@@ -76,6 +77,7 @@
               Don't show this again
             </label>
             <button
+              data-testid="readiness-dismiss"
               @click="handleDismiss"
               class="px-4 py-2 bg-surface-raised hover:bg-surface-hover text-content rounded-lg font-medium text-sm transition-colors"
             >

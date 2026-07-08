@@ -1265,8 +1265,14 @@ generators: []
 default_model: auto
 
 llms:
+  # A configured (not live) endpoint keeps the app-entry readiness gate
+  # satisfied — the lane's fake tool provider covers generation, and no
+  # acceptance test exercises the agent LLM itself.
   agent:
     source: auto
+    endpoint:
+      url: "http://127.0.0.1:1/acceptance-fake"
+      model: "acceptance-fake"
   agent-fast:
     source: auto
 
