@@ -1,0 +1,84 @@
+name: Canary
+run-name: Canary - ${{ inputs.ref || 'main' }}
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build
+        required: false
+        default: main
+
+# A new push to main should supersede any canary build already running —
+# the runners are self-hosted, so stacked builds are expensive.
+concurrency:
+  group: canary-build
+  cancel-in-progress: true
+
+# The reusable release-macos.yml workflow requests `contents: write` (it
+# creates GitHub release assets on tag builds / publishes updater artifacts).
+# A called workflow can never be granted more permission than its caller
+# holds, so this workflow grants write explicitly to keep the called
+# workflow within its permission set.
+permissions:
+  contents: write
+
+jobs:
+  version:
+    name: Compute canary version
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.resolve.outputs.ref }}
+      version: ${{ steps.resolve.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: resolve
+        run: |
+          set -euo pipefail
+          ref="${{ inputs.ref || 'main' }}"
+
+          latest_prod="$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -t. -k1,1n -k2,2n -k3,3n | tail -n1)"
+          if [ -z "$latest_prod" ]; then
+            next="0.1.0"
+          else
+            major="$(echo "$latest_prod" | cut -d. -f1)"
+            minor="$(echo "$latest_prod" | cut -d. -f2)"
+            patch="$(echo "$latest_prod" | cut -d. -f3)"
+            next="${major}.${minor}.$((patch + 1))"
+          fi
+
+          count="$(git rev-list --count HEAD)"
+          version="${next}-canary.${count}"
+
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  quality-gate:
+    name: Quality gate
+    needs: version
+    uses: ./.github/workflows/quality-gate.yml
+    with:
+      ref: ${{ needs.version.outputs.ref }}
+
+  macos:
+    name: macOS
+    needs:
+      - version
+      - quality-gate
+    uses: ./.github/workflows/release-macos.yml
+    with:
+      ref: ${{ needs.version.outputs.ref }}
+      channel: canary
+      version: ${{ needs.version.outputs.version }}
+      publish_updates: true
+      publish_github_release: false
+    secrets: inherit

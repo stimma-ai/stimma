@@ -43,7 +43,7 @@ jobs:
       # Official build marker: gates telemetry/consent/update-check in all
       # three app layers. Release CI is the ONLY place this is set.
       STIMMA_DISTRIBUTION: official
-      STIMMA_RELEASE_CHANNEL: ${{ github.event_name == 'push' && (contains(github.ref_name, '-alpha.') && 'alpha' || contains(github.ref_name, '-beta.') && 'beta' || 'production') || inputs.channel }}
+      STIMMA_RELEASE_CHANNEL: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) && (contains(github.ref_name, '-beta.') && 'beta' || 'production') || inputs.channel }}
       STIMMA_UPDATE_BASE_URL: ${{ vars.STIMMA_UPDATE_BASE_URL || 'https://updates.stimma.ai' }}
       R2_BUCKET: ${{ vars.R2_BUCKET }}
       R2_S3_ENDPOINT: ${{ vars.R2_S3_ENDPOINT }}
@@ -168,8 +168,8 @@ jobs:
           set -euo pipefail
           VERSION="${INPUT_VERSION}"
           if [ -z "$VERSION" ] && [ "$EVENT_NAME" = "push" ]; then
-            if [[ ! "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9]+)?$ ]]; then
-              echo "Release tags must look like v1.2.3, v1.2.3-alpha.1, or v1.2.3-beta.1."
+            if [[ ! "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]]; then
+              echo "Release tags must look like v1.2.3 or v1.2.3-beta.1."
               exit 1
             fi
             VERSION="${REF_NAME#v}"
@@ -202,12 +202,12 @@ jobs:
           bundle_ids = {
               "production": "ai.stimma.stimma",
               "beta": "ai.stimma.stimma.beta",
-              "alpha": "ai.stimma.stimma.alpha",
+              "canary": "ai.stimma.stimma.canary",
           }
           product_names = {
               "production": "Stimma",
               "beta": "Stimma Beta",
-              "alpha": "Stimma Alpha",
+              "canary": "Stimma Canary",
           }
 
           tauri = Path("src-tauri/tauri.conf.json")
@@ -420,13 +420,13 @@ jobs:
           import sys
 
           def key(version: str):
-              m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-(?:(alpha|beta)\.)?(\d+))?$", version)
+              m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-(?:(canary|beta)\.)?(\d+))?$", version)
               if not m:
                   raise SystemExit(f"Unparseable version: {version}")
               core = tuple(int(m.group(i)) for i in range(1, 4))
               channel = m.group(4) or os.environ["CHANNEL"]
               n = int(m.group(5) or 0)
-              rank = {"alpha": 1, "beta": 2, "production": 3}.get(channel, 0)
+              rank = {"canary": 1, "beta": 2, "production": 3}.get(channel, 0)
               return (*core, rank, n)
 
           candidate = os.environ["CANDIDATE_VERSION"]

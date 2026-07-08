@@ -47,14 +47,12 @@ jobs:
             ref_name="${ref_name#refs/heads/}"
           fi
 
-          if [[ "$ref_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+$ ]]; then
-            channel="alpha"
-          elif [[ "$ref_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
+          if [[ "$ref_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
             channel="beta"
           elif [[ "$ref_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             channel="production"
           else
-            echo "Release refs must be tags like v1.2.3, v1.2.3-alpha.1, or v1.2.3-beta.1."
+            echo "Release refs must be tags like v1.2.3 or v1.2.3-beta.1."
             exit 1
           fi
 

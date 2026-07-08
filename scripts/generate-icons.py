@@ -4,7 +4,7 @@ Generate app icons with optional channel badge overlay.
 
 Usage:
     python scripts/generate-icons.py                    # No badge (production)
-    python scripts/generate-icons.py --channel alpha    # Orange "ALPHA" badge
+    python scripts/generate-icons.py --channel canary   # Purple "CANARY" badge
     python scripts/generate-icons.py --channel beta     # Blue "BETA" badge
 """
 import argparse
@@ -24,8 +24,8 @@ BASE_ICON = ICONS_DIR / "icon-base.png"
 MACOS_BASE_ICON = ICONS_DIR / "icon-macos-base.png"  # HIG-compliant 1024x1024 with squircle + padding
 
 CHANNEL_BADGES = {
-    "alpha": {"color": (249, 115, 22), "label": "ALPHA"},   # Orange
-    "beta":  {"color": (59, 130, 246),  "label": "BETA"},    # Blue
+    "canary": {"color": (168, 85, 247), "label": "CANARY"},  # Purple
+    "beta":   {"color": (59, 130, 246),  "label": "BETA"},    # Blue
 }
 
 # All output sizes needed by Tauri
@@ -171,7 +171,7 @@ def generate_ico(source_img: Image.Image, output_path: Path) -> None:
 def main():
     parser = argparse.ArgumentParser(description="Generate app icons with optional channel badge")
     parser.add_argument("--channel", default="production",
-                        help="Release channel: production (no badge), alpha, beta")
+                        help="Release channel: production (no badge), canary, beta")
     args = parser.parse_args()
 
     if not BASE_ICON.exists():

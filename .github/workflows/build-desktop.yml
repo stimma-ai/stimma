@@ -15,7 +15,7 @@ on:
         type: choice
         options:
           - sandbox
-          - alpha
+          - canary
           - beta
           - production
       version:

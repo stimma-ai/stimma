@@ -81,7 +81,7 @@ const channelLabel = computed(() => {
   const value = channel.value
   if (value === 'production') return 'Stable'
   if (value === 'beta') return 'Beta'
-  if (value === 'alpha') return 'Alpha'
+  if (value === 'canary') return 'Canary'
   return 'Dev'
 })
 

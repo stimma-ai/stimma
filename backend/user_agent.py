@@ -97,7 +97,7 @@ def get_app_version() -> str:
 
 
 def get_app_branch() -> str:
-    """Release branch: ``production`` | ``beta`` | ``alpha`` | ``dev``.
+    """Release branch: ``production`` | ``beta`` | ``canary`` | ``dev``.
 
     Derived from the bundle ID (patched per channel by release CI).
     Source builds and the debug channel report ``dev``.
@@ -106,14 +106,14 @@ def get_app_branch() -> str:
     if _app_branch:
         return _app_branch
 
-    from app_context import get_bundle_id, BUNDLE_ID_STABLE
+    from app_context import get_bundle_id, BUNDLE_ID_STABLE, BUNDLE_ID_CANARY
     bundle_id = get_bundle_id()
     if bundle_id == BUNDLE_ID_STABLE:
         branch = "production"
     elif bundle_id == f"{BUNDLE_ID_STABLE}.beta":
         branch = "beta"
-    elif bundle_id == f"{BUNDLE_ID_STABLE}.alpha":
-        branch = "alpha"
+    elif bundle_id == BUNDLE_ID_CANARY:
+        branch = "canary"
     else:
         branch = "dev"
 

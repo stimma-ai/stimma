@@ -339,11 +339,9 @@ async function runCapture(cmd: string, args: string[] = [], opts: CaptureOptions
 const CHANNEL_BUNDLE_IDS: Record<string, string> = {
   debug: "ai.stimma.stimma.debug",
   sandbox: "ai.stimma.stimma.debug",
-  alpha: "ai.stimma.stimma.alpha",
+  canary: "ai.stimma.stimma.canary",
   beta: "ai.stimma.stimma.beta",
   production: "ai.stimma.stimma",
-  // Backward-compatible aliases. New commands should use alpha/production.
-  canary: "ai.stimma.stimma.alpha",
   stable: "ai.stimma.stimma",
 };
 
@@ -513,7 +511,7 @@ Usage: stimma [FLAGS] <command> <subcommand>
 
 Flags:
   --prod              Shorthand for --channel=production
-  --channel=CHANNEL   Release channel: debug (default), sandbox, alpha, beta, production
+  --channel=CHANNEL   Release channel: debug (default), sandbox, canary, beta, production
   --sandbox=NAME      Sandbox name (default: "default")
   --official          dev/run only: set STIMMA_DISTRIBUTION=official in the child
                       process so telemetry, consent UI, thumbs, and crash reports
@@ -549,8 +547,8 @@ Commands:
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
-  tag alpha [X.Y.Z]   Tag HEAD as the next alpha (train = next production version)
   tag beta [X.Y.Z]    Tag HEAD as the next beta (train = next production version)
+                      (canary builds are automatic on push to main — not tag-driven)
   promote production  Promote the latest beta's commit to a production release
                       [--ref REF] hotfix override: promote an explicit git ref
                       [--yes] skip the confirmation prompt
@@ -686,8 +684,15 @@ async function commandTag(args: string[]): Promise<void> {
     Deno.exit(1);
   }
 
-  if (!mode || (mode !== "alpha" && mode !== "beta") || args.length > 2) {
-    console.error("Usage: stimma tag {alpha|beta} [X.Y.Z]");
+  if (mode === "alpha" || mode === "canary") {
+    console.error("`stimma tag alpha`/`stimma tag canary` is gone — canary builds are automatic on push to");
+    console.error("main (see .github/workflows/canary.yml), not cut from a tag.");
+    console.error("To build one manually, dispatch the Canary workflow instead.");
+    Deno.exit(1);
+  }
+
+  if (mode !== "beta" || args.length > 2) {
+    console.error("Usage: stimma tag beta [X.Y.Z]");
     Deno.exit(1);
   }
 
@@ -783,6 +788,10 @@ async function commandPromote(args: string[]): Promise<void> {
   }
 
   if (!yes) {
+    if (!Deno.stdin.isTerminal()) {
+      console.log("Non-interactive shell: re-run with --yes to confirm this promotion.");
+      Deno.exit(1);
+    }
     const answer = prompt(`Tag ${prodName} from this commit and start the production release? (y/N)`);
     if (answer?.toLowerCase() !== "y") {
       console.log("Aborted.");
@@ -1553,7 +1562,7 @@ async function commandStimpacks(args: string[], bundleId: string, sandbox: strin
 function appBranchForBundle(bundleId: string): string {
   if (bundleId === "ai.stimma.stimma") return "production";
   if (bundleId === "ai.stimma.stimma.beta") return "beta";
-  if (bundleId === "ai.stimma.stimma.alpha") return "alpha";
+  if (bundleId === "ai.stimma.stimma.canary") return "canary";
   return "dev";
 }
 

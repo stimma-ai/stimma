@@ -5,7 +5,7 @@ Daily update check against our API.
 reads the manifest and touches install/MAU counters; the response tells
 us whether a newer version exists on this install's branch.
 
-Runs only in official builds on an update branch (alpha/beta/production);
+Runs only in official builds on an update branch (canary/beta/production);
 dev/source builds never call it. Suppressed by Privacy Lockdown
 and by the ``disable_update_check`` config setting. Result is logged —
 installation itself stays with the existing in-app updater UI.
@@ -52,7 +52,7 @@ def should_check() -> bool:
     except Exception:
         pass
     from user_agent import get_app_branch
-    return get_app_branch() in ("alpha", "beta", "production")
+    return get_app_branch() in ("canary", "beta", "production")
 
 
 async def check_once() -> Optional[dict]:

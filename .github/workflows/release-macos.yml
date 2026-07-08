@@ -35,7 +35,7 @@ jobs:
       # Official build marker: gates telemetry/consent/update-check in all
       # three app layers. Release CI is the ONLY place this is set.
       STIMMA_DISTRIBUTION: official
-      STIMMA_RELEASE_CHANNEL: ${{ github.event_name == 'push' && (contains(github.ref_name, '-alpha.') && 'alpha' || contains(github.ref_name, '-beta.') && 'beta' || 'production') || inputs.channel }}
+      STIMMA_RELEASE_CHANNEL: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) && (contains(github.ref_name, '-beta.') && 'beta' || 'production') || inputs.channel }}
       STIMMA_UPDATE_BASE_URL: ${{ vars.STIMMA_UPDATE_BASE_URL || 'https://updates.stimma.ai' }}
       R2_BUCKET: ${{ vars.R2_BUCKET }}
       R2_S3_ENDPOINT: ${{ vars.R2_S3_ENDPOINT }}
@@ -106,8 +106,8 @@ jobs:
           set -euo pipefail
           VERSION="${INPUT_VERSION}"
           if [ -z "$VERSION" ] && [ "$EVENT_NAME" = "push" ]; then
-            if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta)\.[0-9]+)?$ ]]; then
-              echo "Release tags must look like v1.2.3, v1.2.3-alpha.1, or v1.2.3-beta.1."
+            if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]]; then
+              echo "Release tags must look like v1.2.3 or v1.2.3-beta.1."
               exit 1
             fi
             VERSION="${TAG_NAME#v}"
@@ -142,9 +142,9 @@ jobs:
               BUNDLE_ID="ai.stimma.stimma.beta"
               PRODUCT_NAME="Stimma Beta"
               ;;
-            alpha)
-              BUNDLE_ID="ai.stimma.stimma.alpha"
-              PRODUCT_NAME="Stimma Alpha"
+            canary)
+              BUNDLE_ID="ai.stimma.stimma.canary"
+              PRODUCT_NAME="Stimma Canary"
               ;;
             *)
               BUNDLE_ID="ai.stimma.stimma.debug"
@@ -260,7 +260,7 @@ jobs:
       - name: Detach stale Stimma DMG mounts
         run: |
           set -euo pipefail
-          find /Volumes -maxdepth 1 -type d \( -name "Stimma" -o -name "Stimma [0-9]*" -o -name "Stimma Alpha" -o -name "Stimma Alpha [0-9]*" \) -print0 |
+          find /Volumes -maxdepth 1 -type d \( -name "Stimma" -o -name "Stimma [0-9]*" -o -name "Stimma Canary" -o -name "Stimma Canary [0-9]*" \) -print0 |
             while IFS= read -r -d '' volume; do
               hdiutil detach "$volume" || diskutil unmount force "$volume" || true
             done
@@ -454,13 +454,13 @@ jobs:
           import sys
 
           def key(version: str):
-              m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-(?:(alpha|beta)\.)?(\d+))?$", version)
+              m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-(?:(canary|beta)\.)?(\d+))?$", version)
               if not m:
                   raise SystemExit(f"Unparseable version: {version}")
               core = tuple(int(m.group(i)) for i in range(1, 4))
               channel = m.group(4) or os.environ["CHANNEL"]
               n = int(m.group(5) or 0)
-              rank = {"alpha": 1, "beta": 2, "production": 3}.get(channel, 0)
+              rank = {"canary": 1, "beta": 2, "production": 3}.get(channel, 0)
               return (*core, rank, n)
 
           candidate = os.environ["CANDIDATE_VERSION"]
