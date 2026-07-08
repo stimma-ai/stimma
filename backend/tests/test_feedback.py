@@ -486,8 +486,9 @@ class TestCrashReports:
         import feedback_client
         monkeypatch.setattr(feedback_client, "submit_feedback", fake_submit)
 
-        sent = await crash_reports.send_pending(track=False)
-        assert sent == 2
+        result = await crash_reports.send_pending(track=False)
+        assert result.sent == 2
+        assert result.failed is False
         assert crash_reports.list_pending() == []
         for call in submitted:
             assert call["kind"] == "crash"
@@ -501,6 +502,29 @@ class TestCrashReports:
             assert b"log line 1" in call["logs"]
 
     @pytest.mark.asyncio
+    async def test_send_pending_network_failure_marks_failed_and_keeps_pending(
+        self, crash_env, monkeypatch
+    ):
+        """A transient network error (DNS/TLS/timeout) must not look like
+        success: send_pending reports failed=True and the report file is
+        left on disk for the next attempt — this is the bug WS-F crash
+        reports never arriving at admin.stimma.ai traced back to."""
+        import crash_reports
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        crash_reports.record_crash(_boom(ValueError))
+
+        async def boom_network(**kwargs):
+            raise ConnectionError("could not connect")
+
+        import feedback_client
+        monkeypatch.setattr(feedback_client, "submit_feedback", boom_network)
+
+        result = await crash_reports.send_pending(track=False)
+        assert result.sent == 0
+        assert result.failed is True
+        assert len(crash_reports.list_pending()) == 1  # retried next launch
+
+    @pytest.mark.asyncio
     async def test_send_pending_noop_in_dev(self, crash_env, monkeypatch):
         import crash_reports
         # Write while official…
@@ -508,7 +532,9 @@ class TestCrashReports:
         crash_reports.record_crash(_boom())
         # …but sending in a dev build is inert.
         monkeypatch.delenv("STIMMA_DISTRIBUTION", raising=False)
-        assert await crash_reports.send_pending(track=False) == 0
+        result = await crash_reports.send_pending(track=False)
+        assert result.sent == 0
+        assert result.failed is False
         assert len(crash_reports.list_pending()) == 1
 
     @pytest.mark.asyncio
@@ -629,9 +655,13 @@ class TestCrashRateLimiting:
         monkeypatch.setattr(feedback_client, "submit_feedback", fake_submit)
 
         # Budget is 3 per rolling 24h — the remainder stays pending
-        assert await crash_reports.send_pending(track=False) == 3
+        result = await crash_reports.send_pending(track=False)
+        assert result.sent == 3
+        assert result.failed is False
         assert len(crash_reports.list_pending()) == 2
-        assert await crash_reports.send_pending(track=False) == 0
+        result = await crash_reports.send_pending(track=False)
+        assert result.sent == 0
+        assert result.failed is False  # throttled, not a real attempt
         assert len(crash_reports.list_pending()) == 2
 
         # Age the recorded sends past the window -> budget refills
@@ -639,7 +669,9 @@ class TestCrashRateLimiting:
         state = json.loads(tp.read_text())
         state["sendTimes"] = [t - 25 * 3600 for t in state["sendTimes"]]
         tp.write_text(json.dumps(state))
-        assert await crash_reports.send_pending(track=False) == 2
+        result = await crash_reports.send_pending(track=False)
+        assert result.sent == 2
+        assert result.failed is False
         assert crash_reports.list_pending() == []
         # And the spent budget is persisted again
         state = json.loads(tp.read_text())
@@ -658,13 +690,19 @@ class TestCrashRateLimiting:
         monkeypatch.setattr(feedback_client, "submit_feedback", fake_submit)
 
         crash_reports.record_crash(_boom(ValueError))
-        assert await crash_reports.send_pending(track=False, auto=True) == 1
+        result = await crash_reports.send_pending(track=False, auto=True)
+        assert result.sent == 1
+        assert result.failed is False
         # A fresh crash right after: auto-send is spaced out (10 min)…
         crash_reports.record_crash(_boom(TypeError))
-        assert await crash_reports.send_pending(track=False, auto=True) == 0
+        result = await crash_reports.send_pending(track=False, auto=True)
+        assert result.sent == 0
+        assert result.failed is False  # spacing throttle, not a real attempt
         assert len(crash_reports.list_pending()) == 1
         # …but a manual dialog send still works (within the daily budget)
-        assert await crash_reports.send_pending(track=False) == 1
+        result = await crash_reports.send_pending(track=False)
+        assert result.sent == 1
+        assert result.failed is False
         assert crash_reports.list_pending() == []
 
     @pytest.mark.asyncio
@@ -681,7 +719,9 @@ class TestCrashRateLimiting:
 
         import feedback_client
         monkeypatch.setattr(feedback_client, "submit_feedback", limited)
-        assert await crash_reports.send_pending(track=False) == 0
+        result = await crash_reports.send_pending(track=False)
+        assert result.sent == 0
+        assert result.failed is True  # a real attempt was made and the server rejected it
         # Reports stay pending; backoff is persisted for ~24h
         assert len(crash_reports.list_pending()) == 2
         state = json.loads(crash_reports._throttle_path().read_text())
@@ -692,14 +732,20 @@ class TestCrashRateLimiting:
             return "fake-id"
 
         monkeypatch.setattr(feedback_client, "submit_feedback", fake_submit)
-        assert await crash_reports.send_pending(track=False) == 0
-        assert await crash_reports.send_pending(track=False, auto=True) == 0
+        result = await crash_reports.send_pending(track=False)
+        assert result.sent == 0
+        assert result.failed is False  # backoff blocks before any attempt
+        result = await crash_reports.send_pending(track=False, auto=True)
+        assert result.sent == 0
+        assert result.failed is False
         assert len(crash_reports.list_pending()) == 2
 
         # Backoff expiry restores sending
         state["backoffUntil"] = time.time() - 1
         crash_reports._throttle_path().write_text(json.dumps(state))
-        assert await crash_reports.send_pending(track=False) == 2
+        result = await crash_reports.send_pending(track=False)
+        assert result.sent == 2
+        assert result.failed is False
 
     @pytest.mark.asyncio
     async def test_crash_storm_is_deduped_and_quiet(self, crash_env, monkeypatch):
@@ -980,6 +1026,33 @@ class TestFeedbackRoutes:
         assert data["sent"] == 0
         assert data["pending"] == 1
         assert sends == []  # no send attempt at all
+
+    @pytest.mark.asyncio
+    async def test_crash_decision_send_failure_reports_send_failed(
+        self, feedback_client_fixture, monkeypatch
+    ):
+        """A real send attempt that errors (network/server) must surface as
+        'send_failed', not the previous silent 'success' with sent=0 —
+        the frontend needs this to toast the user instead of closing the
+        dialog as if the report went out."""
+        monkeypatch.setenv("STIMMA_DISTRIBUTION", "official")
+        import crash_reports
+        monkeypatch.setattr(crash_reports, "is_send_throttled", lambda auto=False: False)
+
+        async def fake_send(*a, **k):
+            return crash_reports.SendResult(sent=0, failed=True)
+
+        monkeypatch.setattr(crash_reports, "send_pending", fake_send)
+        monkeypatch.setattr(crash_reports, "list_pending", lambda: [{"file": "1-abc.json"}])
+
+        resp = await feedback_client_fixture.post(
+            "/api/feedback/crashes/decision", json={"action": "send"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "send_failed"
+        assert data["sent"] == 0
+        assert data["pending"] == 1
 
     @pytest.mark.asyncio
     async def test_rate_limit_propagates(self, feedback_client_fixture, monkeypatch):

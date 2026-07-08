@@ -176,6 +176,11 @@ async function crashDecision(action) {
     if (data?.status === 'rate_limited') {
       // Client-side send throttle — reports stay pending; quiet note only.
       useToasts().addToast('Crash reporting is rate-limited — report saved.', 'info')
+    } else if (data?.status === 'send_failed') {
+      // Send was attempted and errored — the report stays on disk and is
+      // retried on next launch. Without this note the dialog closing reads
+      // as "sent."
+      useToasts().addToast('Crash report could not be sent — saved for retry.', 'info')
     }
   } catch (err) {
     console.warn('[feedback] crash decision failed:', err)

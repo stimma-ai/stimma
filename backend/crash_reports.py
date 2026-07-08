@@ -44,7 +44,7 @@ import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, NamedTuple, Optional
 
 from core.logging import get_logger
 
@@ -316,32 +316,45 @@ def discard_pending() -> int:
     return count
 
 
-async def send_pending(track: bool = True, auto: bool = False) -> int:
+class SendResult(NamedTuple):
+    """Outcome of a ``send_pending`` call.
+
+    ``failed`` is True iff at least one report was actually attempted
+    (a request went out) and errored — never for a report left pending
+    only because the budget/backoff was already spent before any attempt
+    was made. That distinction lets ``failed`` mean "something is wrong,"
+    not "we were throttled."
+    """
+    sent: int
+    failed: bool
+
+
+async def send_pending(track: bool = True, auto: bool = False) -> SendResult:
     """Send pending reports as kind='crash' feedback rows, throttled.
 
     Best-effort: each successfully sent report's file is deleted; on any
     failure the remainder is left pending for a later attempt. The send
     throttle (rolling 24h budget, auto-send spacing, 429 backoff) applies
     to BOTH the consent-'always' auto path (``auto=True``) and manual
-    dialog sends — throttled reports simply stay pending. Returns the
-    number sent.
+    dialog sends — throttled reports simply stay pending.
     """
     from distribution import is_official
     from privacy_lockdown import is_privacy_lockdown_enabled
     if not is_official() or is_privacy_lockdown_enabled():
-        return 0
+        return SendResult(0, False)
 
     budget = _send_budget(auto)
     if budget <= 0:
-        return 0
+        return SendResult(0, False)
 
     from feedback_client import submit_feedback, FeedbackSubmitError
 
     pending = get_pending_dir()
     if not pending.exists():
-        return 0
+        return SendResult(0, False)
 
     sent = 0
+    failed = False
     for path in sorted(pending.glob("*.json")):
         if sent >= budget:
             break  # rolling-24h budget spent — the rest stays pending
@@ -369,14 +382,16 @@ async def send_pending(track: bool = True, auto: bool = False) -> int:
             sent += 1
             _record_send(auto)
         except FeedbackSubmitError as e:
-            log.info("crash report send failed", status=e.status_code)
+            log.warning("crash report send failed", status=e.status_code)
+            failed = True
             if e.status_code == 429:
                 # Server's daily cap — stop all crash sends for a while
                 # and keep everything pending.
                 _record_server_backoff()
                 break
         except Exception:
-            log.info("crash report send failed (network)")
+            log.warning("crash report send failed (network)")
+            failed = True
             break
 
     if sent and track:
@@ -390,14 +405,17 @@ async def send_pending(track: bool = True, auto: bool = False) -> int:
             )
         except Exception:
             pass
-    return sent
+    return SendResult(sent, failed)
 
 
 async def send_pending_silently() -> None:
     """Auto-send path for consent 'always' — fully silent (D12, no toast).
 
     Throttled auto-sends (budget spent, <10 min since the last auto-send,
-    or 429 backoff) silently leave reports pending.
+    or 429 backoff) silently leave reports pending. A failed attempt also
+    leaves its report pending (``send_pending`` never deletes on failure),
+    so it's retried on the next launch or the next auto-send window —
+    this path stays silent by design (D12), the retry is the recovery.
     """
     try:
         await send_pending(auto=True)

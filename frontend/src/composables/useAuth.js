@@ -7,6 +7,7 @@
 import { ref, readonly } from 'vue'
 import { isTauri, getApiBase } from '../apiConfig'
 import { isPrivacyLockdownActive, setPrivacyLockdownActive } from './usePrivacyLockdown'
+import { useReadiness } from './useReadiness'
 
 // Global reactive state (shared across all components)
 const user = ref(null)
@@ -111,6 +112,21 @@ export async function signInWithBrowser() {
     if (result.user) {
       setUser(result.user)
     }
+
+    // Desktop-login plan chooser carries back `choice` (skip|purchase) on the
+    // callback redirect, surfaced here via the poll result. A subscribed
+    // login never sets it (no interstitial shown) — nothing new for that
+    // case. Unsubscribed with no choice at all is legacy/edge and treated
+    // like 'skip'. See plans/OOBE_ENTITLEMENT_FLOW.md section B.
+    const tier = (result.tier || '').toLowerCase()
+    const isSubscribed = !!tier && tier !== 'free' && tier !== 'byoai'
+    if (result.choice === 'purchase') {
+      await useReadiness().handleLoginChoice('purchase')
+    } else if (result.choice === 'skip' || (!result.choice && !isSubscribed)) {
+      await useReadiness().handleLoginChoice('skip')
+    }
+
+    return result
 
   } catch (error) {
     console.error('Google sign-in error:', error)

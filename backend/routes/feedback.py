@@ -297,5 +297,15 @@ async def crash_decision(req: CrashDecisionRequest):
             "pending": len(crash_reports.list_pending()),
         }
 
-    sent = await crash_reports.send_pending()
-    return {"status": "success", "sent": sent}
+    result = await crash_reports.send_pending()
+    if result.failed:
+        # At least one report was attempted and errored (network/server
+        # failure) — distinct from "nothing was pending" or "throttled",
+        # both of which still report success. The failed report(s) stay
+        # pending on disk and are retried on next launch or next decision.
+        return {
+            "status": "send_failed",
+            "sent": result.sent,
+            "pending": len(crash_reports.list_pending()),
+        }
+    return {"status": "success", "sent": result.sent}

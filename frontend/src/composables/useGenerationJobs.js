@@ -469,9 +469,17 @@ export function useGenerationJobs(options = {}) {
   async function handleJobFailed(data) {
     if (!matchesFilters(data)) return
 
+    // A job that fails fast enough (e.g. an entitlement/balance rejection
+    // right at the start of processing) can have its 'failed' broadcast land
+    // before this client ever added it via handleJobQueued/handleJobStarted.
+    // Without this fallback the job silently never appears — it "evaporates"
+    // instead of showing as a failed tile with a reason.
     const index = jobs.value.findIndex(j => j.id === data.job.id)
     if (index !== -1) {
       jobs.value.splice(index, 1, data.job)
+    } else {
+      jobs.value.unshift(data.job)
+      consumePendingPlaceholder(data.job)
     }
   }
 

@@ -8,7 +8,7 @@
       :class="disabled
         ? 'text-content-muted opacity-60 cursor-not-allowed'
         : currentUnavailable
-        ? 'text-amber-500 hover:text-amber-400 hover:bg-amber-500/10'
+        ? 'text-content-muted opacity-70 hover:text-content-secondary hover:bg-white/[0.05]'
         : isCloudModel
         ? 'text-teal-500 hover:text-teal-400 hover:bg-teal-500/10'
         : 'text-content-muted hover:text-content-secondary hover:bg-white/[0.05]'"
@@ -150,7 +150,14 @@ const dropdownStyle = ref({})
 // The effective slug (what's actually being used)
 const effectiveSlug = computed(() => props.modelSlug || globalDefault.value)
 
-const currentDisplayName = computed(() => props.disabled ? props.disabledLabel : getModelDisplayName(effectiveSlug.value))
+const currentDisplayName = computed(() => {
+  if (props.disabled) return props.disabledLabel
+  // Informational, not alarming: a bare "Agent unavailable" instead of
+  // "<model name> · unavailable" — the CTA card (when present) carries the
+  // remedy, this pill just states the fact.
+  if (currentUnavailable.value) return 'Agent unavailable'
+  return getModelDisplayName(effectiveSlug.value)
+})
 
 // The trigger shows a spinner until the model list resolves, so the label
 // doesn't flicker from the raw 'auto' slug to its resolved name. Once the

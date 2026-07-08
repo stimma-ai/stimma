@@ -10,12 +10,22 @@ import re
 from core.dependencies import get_db_session
 
 from prompts import get_prompt
-from llm import llm_complete_text
+from llm import llm_complete_text, EntitlementError
 from llm_correlation import llm_correlation_context
 from model_family import model_family
 
 router = APIRouter(prefix="/api/prompt", tags=["prompt"])
 log = get_logger(__name__)
+
+
+def _entitlement_http_exception(e: EntitlementError) -> HTTPException:
+    """EntitlementError -> a typed 402 the frontend can classify on status +
+    code, not by matching the message string (which is Stimma Cloud's raw
+    upstream text and may change)."""
+    return HTTPException(
+        status_code=402,
+        detail={"code": "subscription_required", "message": str(e)},
+    )
 
 
 # Map a modelFamily (from model_family.py) to a prompt-enhancement style. The
@@ -538,6 +548,8 @@ IMPORTANT: The user's edits are INTENTIONAL. If they removed something, do NOT a
         except asyncio.TimeoutError:
             log.error("Prompt enhancement request timed out")
             raise HTTPException(status_code=504, detail="Request timed out")
+        except EntitlementError as e:
+            raise _entitlement_http_exception(e)
         except Exception as e:
             log.error(f"Prompt enhancement error: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -681,6 +693,8 @@ async def improve_prompt(request: ImprovePromptRequest, session: AsyncSession = 
         except asyncio.TimeoutError:
             log.error("Prompt improve request timed out")
             raise HTTPException(status_code=504, detail="Request timed out")
+        except EntitlementError as e:
+            raise _entitlement_http_exception(e)
         except Exception as e:
             log.error(f"Prompt improve error: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -741,6 +755,8 @@ async def translate_prompt(request: TranslatePromptRequest):
         except asyncio.TimeoutError:
             log.error("Prompt translate request timed out")
             raise HTTPException(status_code=504, detail="Request timed out")
+        except EntitlementError as e:
+            raise _entitlement_http_exception(e)
         except Exception as e:
             log.error(f"Prompt translate error: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -880,6 +896,8 @@ async def prompt_to_ideogram_json(request: IdeogramJsonRequest):
         except asyncio.TimeoutError:
             log.error("Ideogram JSON request timed out")
             raise HTTPException(status_code=504, detail="Request timed out")
+        except EntitlementError as e:
+            raise _entitlement_http_exception(e)
         except Exception as e:
             log.error(f"Ideogram JSON error: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -1285,7 +1303,7 @@ async def agent_step(request: AgentStepRequest):
     next assistant message (text + tool_calls).
     """
     import json
-    from llm import llm_completion, QuotaExceededError, ContentFilteredError
+    from llm import llm_completion, QuotaExceededError, ContentFilteredError, EntitlementError
     from llm_resolver import LLMUnavailableError, get_effective_llm_config
     from prompt_agent_tools import TOOL_SCHEMAS
     # Reuse the shared agent LLM infrastructure — thinking options, output
@@ -1457,6 +1475,14 @@ async def agent_step(request: AgentStepRequest):
                 debug_info["raw_response"] = getattr(e, "upstream_message", None)
                 raise HTTPException(status_code=429, detail={"message": message, "debug": debug_info})
             raise HTTPException(status_code=429, detail=message)
+        except EntitlementError as e:
+            log.warning(f"Prompt-agent step: no active subscription: {e}")
+            _track_step("failed", error_type="subscription_required")
+            message = str(e) or "No active Stimma Cloud subscription."
+            if debug_info:
+                debug_info["error_type"] = "subscription_required"
+                raise HTTPException(status_code=402, detail={"code": "subscription_required", "message": message, "debug": debug_info})
+            raise HTTPException(status_code=402, detail={"code": "subscription_required", "message": message})
         except Exception as e:
             log.error(f"Prompt-agent step error: {e}", exc_info=True)
             error_type = classify_agent_error(e)

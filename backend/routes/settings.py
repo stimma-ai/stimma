@@ -139,6 +139,20 @@ class ToolProviderResponse(BaseModel):
     url: Optional[str] = None
 
 
+class ReadinessResponse(BaseModel):
+    """App-entry readiness (OOBE entitlement flow).
+
+    ready = has_agent_llm AND has_generation. `missing` lists which
+    ingredient(s) are absent so the UI can show only relevant guidance.
+    Config presence counts for tool providers; live connection status does
+    not (connections are async and this runs at a startup moment).
+    """
+    ready: bool
+    has_agent_llm: bool
+    has_generation: bool
+    missing: List[str] = []  # subset of ["agent_llm", "generation"]
+
+
 class ProfileResponse(BaseModel):
     """Profile summary for settings."""
     id: str
@@ -282,6 +296,7 @@ class SettingsResponse(BaseModel):
     distribution: str = "dev"  # Build distribution: 'dev' | 'official'
     privacy_lockdown_active: bool = False
     default_model: str = 'agent-max'  # Global default model slug
+    readiness: ReadinessResponse  # App-entry readiness gate (OOBE entitlement flow)
 
 
 class FolderUpdate(BaseModel):
@@ -659,6 +674,8 @@ async def get_settings_all():
             endpoint=endpoint_response,
         ))
 
+    readiness = _compute_readiness(settings, registry)
+
     return SettingsResponse(
         profiles=profiles,
         current_profile=current_profile_id,
@@ -679,6 +696,80 @@ async def get_settings_all():
         distribution=get_distribution(),
         privacy_lockdown_active=is_privacy_lockdown(),
         default_model=settings.default_model,
+        readiness=readiness,
+    )
+
+
+def _has_active_subscription() -> bool:
+    """Mirrors the frontend's tier check (useCloudAccount consumers):
+    signed in with a tier that isn't 'free' or 'byoai'. Reads the locally
+    persisted auth state only — no network call.
+    """
+    from auth_storage import load_auth_state
+
+    auth_state = load_auth_state()
+    if not auth_state:
+        return False
+    tier = (auth_state.get('tier') or '').lower()
+    return bool(tier) and tier not in ('free', 'byoai')
+
+
+def _has_cloud_balance() -> bool:
+    from auth_storage import load_auth_state
+
+    auth_state = load_auth_state()
+    if not auth_state:
+        return False
+    return (auth_state.get('credits') or 0) > 0
+
+
+def _has_local_agent_llm_configured(settings) -> bool:
+    """Config presence for the 'agent' role's custom endpoint, regardless of
+    which source ('auto'/'stimma_cloud'/'endpoint') is currently selected —
+    a filled-in endpoint is a real fallback either way (see llm_resolver's
+    'auto' handling).
+    """
+    role_config = settings.llms.get('agent')
+    if not role_config or not role_config.endpoint:
+        return False
+    return bool(role_config.endpoint.url and role_config.endpoint.model)
+
+
+def _has_local_generation_provider_configured(registry) -> bool:
+    """Any enabled STP/ComfyUI provider other than the stimma-cloud pseudo-
+    provider. Enabled-in-config counts; live connection status does not.
+    """
+    local_ids = registry.get_enabled_provider_ids() - {STIMMA_CLOUD_PROVIDER_ID}
+    return bool(local_ids)
+
+
+def _compute_readiness(settings, registry) -> ReadinessResponse:
+    """App-entry readiness gate.
+
+    Agent LLM = active subscription OR local LLM endpoint configured.
+    Way to generate = active subscription OR cloud balance > 0 OR any
+    non-cloud STP/ComfyUI provider configured.
+    """
+    has_active_subscription = _has_active_subscription()
+
+    has_agent_llm = has_active_subscription or _has_local_agent_llm_configured(settings)
+    has_generation = (
+        has_active_subscription
+        or _has_cloud_balance()
+        or _has_local_generation_provider_configured(registry)
+    )
+
+    missing = []
+    if not has_agent_llm:
+        missing.append('agent_llm')
+    if not has_generation:
+        missing.append('generation')
+
+    return ReadinessResponse(
+        ready=not missing,
+        has_agent_llm=has_agent_llm,
+        has_generation=has_generation,
+        missing=missing,
     )
 
 

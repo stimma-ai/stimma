@@ -181,6 +181,15 @@
             v-if="f.kind === 'reply'"
             :package-source="collectPromptAgentConversation"
           />
+          <!-- Remedy sits beside the error, not inside its text. -->
+          <button
+            v-if="f.code === 'subscription_required'"
+            @click.stop="connectStimmaCloud"
+            :disabled="cloudConnecting"
+            class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium stimma-cloud-text border border-current/20 hover:border-current/40 transition-colors"
+          >
+            {{ cloudConnecting ? 'Connecting…' : 'Connect Stimma Cloud' }}
+          </button>
           <!-- Dev mode: copy the failed step's full LLM trace for a bug report -->
           <button
             v-if="f.kind === 'error' && devModeRef && agentDebugTrace"
@@ -295,7 +304,17 @@
       </div>
     </div>
 
-    <p v-if="error" class="mt-2 text-xs text-red-500">{{ error }}</p>
+    <div v-if="error" class="mt-2 flex items-center gap-2">
+      <p class="text-xs text-red-500">{{ error }}</p>
+      <button
+        v-if="errorCode === 'subscription_required'"
+        @click="connectStimmaCloud"
+        :disabled="cloudConnecting"
+        class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium stimma-cloud-text border border-current/20 hover:border-current/40 transition-colors"
+      >
+        {{ cloudConnecting ? 'Connecting…' : 'Connect Stimma Cloud' }}
+      </button>
+    </div>
 
     <!-- Ideas container (BELOW input). Prompt-bound suggestions only show when a
          prompt editor is wired in; a prompt-less tool gets a tools-only chat. -->
@@ -474,6 +493,7 @@ import VoiceInputButton from '../voice/VoiceInputButton.vue'
 import SkillsMenuButton from '../chat/SkillsMenuButton.vue'
 import { devModeRef } from '../../appConfig'
 import PromptAgentThumbButtons from '@stimma/prompt-agent-thumb-buttons'
+import { signInWithBrowser } from '../../composables/useAuth'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -589,14 +609,14 @@ function applyPrompt(text: string) {
 // Transient toasts for agent replies/errors. New ones are inserted at the TOP
 // and each evaporates on its own timer, so quick back-to-back commands let the
 // conversation flow by.
-interface AgentFlash { id: number; kind: 'reply' | 'error'; text: string }
+interface AgentFlash { id: number; kind: 'reply' | 'error'; text: string; code?: string | null }
 const agentFlashes = ref<AgentFlash[]>([])
 let agentFlashSeq = 0
 const agentFlashTimers = new Set<ReturnType<typeof setTimeout>>()
 
-function pushAgentFlash(kind: 'reply' | 'error', text: string, ms: number) {
+function pushAgentFlash(kind: 'reply' | 'error', text: string, ms: number, code: string | null = null) {
   const id = agentFlashSeq++
-  agentFlashes.value.unshift({ id, kind, text })
+  agentFlashes.value.unshift({ id, kind, text, code })
   const t = setTimeout(() => {
     agentFlashes.value = agentFlashes.value.filter((f) => f.id !== id)
     agentFlashTimers.delete(t)
@@ -606,7 +626,13 @@ function pushAgentFlash(kind: 'reply' | 'error', text: string, ms: number) {
 
 if (agent) {
   watch(agent.lastReply, (v) => { if (v) pushAgentFlash('reply', v, 6000) })
-  watch(agent.error, (v) => { if (v) pushAgentFlash('error', v, 10000) })
+  watch(agent.error, (v) => {
+    if (!v) return
+    // Entitlement errors carry a remedy (sign in) — give them longer to be
+    // read/acted on than an ordinary transient agent error.
+    const code = agent.errorCode.value
+    pushAgentFlash('error', v, code === 'subscription_required' ? 20000 : 10000, code)
+  })
 }
 
 // The debug/conversation panel shows the agent's real exchange when injected
@@ -658,7 +684,22 @@ const undoStack = ref<string[]>([])
 const redoStack = ref<string[]>([])
 const isLoading = ref(false)
 const error = ref<string | null>(null)
+// Discriminator for the last error, e.g. 'subscription_required' — drives
+// the CTA shown beside the error text; never folded into the error string.
+const errorCode = ref<string | null>(null)
 const showDebug = ref(false)
+
+const cloudConnecting = ref(false)
+async function connectStimmaCloud() {
+  cloudConnecting.value = true
+  try {
+    await signInWithBrowser()
+  } catch (err: any) {
+    console.error('Failed to connect Stimma Cloud:', err)
+  } finally {
+    cloudConnecting.value = false
+  }
+}
 
 // Queue for sequential enhancement operations
 const enhanceQueue = ref<string[]>([])
@@ -784,6 +825,7 @@ function resetConversation() {
   lastAIPrompt.value = null
   feedbackText.value = ''
   error.value = null
+  errorCode.value = null
 }
 
 // Delete a single debug entry
@@ -865,6 +907,7 @@ function enhance() {
 
   if (agent) {
     error.value = null
+    errorCode.value = null
     feedbackHistory.value.push(text)
     feedbackText.value = ''
     historyIndex.value = -1
@@ -896,6 +939,7 @@ async function processEnhanceQueue() {
   isProcessingQueue = true
   isLoading.value = true
   error.value = null
+  errorCode.value = null
 
   while (enhanceQueue.value.length > 0) {
     const feedback = enhanceQueue.value.shift()!
@@ -1010,6 +1054,7 @@ IMPORTANT: The user's edits are INTENTIONAL. If they removed something, do NOT a
   } catch (err: any) {
     console.error('Failed to enhance prompt:', err)
     const detail = err.response?.data?.detail
+    errorCode.value = typeof detail === 'object' ? detail?.code || null : null
     error.value = typeof detail === 'string'
       ? detail
       : detail?.message || 'Failed to enhance prompt'

@@ -22,9 +22,20 @@ from config import get_settings
 from prompts import get_prompt
 from utils.websocket import ws_manager
 from project_service import get_project_or_404
+from llm import EntitlementError
 
 router = APIRouter(prefix="/api/generate", tags=["generation"])
 log = get_logger(__name__)
+
+
+def _entitlement_http_exception(e) -> HTTPException:
+    """Enhance-at-submit hit EntitlementError (llm.py) — no active Stimma
+    Cloud subscription. 402 + a typed code so the frontend can classify
+    without matching the message string."""
+    return HTTPException(
+        status_code=402,
+        detail={"code": "subscription_required", "message": str(e)},
+    )
 
 
 # Task types whose output is audio; mirrors the prompt enhancer routing used
@@ -1502,6 +1513,9 @@ async def submit_generation_job(request: GenerationJobRequest):
     except ValueError as e:
         await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         raise HTTPException(status_code=400, detail=str(e))
+    except EntitlementError as e:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
+        raise _entitlement_http_exception(e)
     except Exception as e:
         await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         log.error(f"Error submitting generation job: {e}", exc_info=True)
@@ -1698,6 +1712,9 @@ async def submit_batch_jobs(
     except ValueError as e:
         await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         raise HTTPException(status_code=400, detail=str(e))
+    except EntitlementError as e:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
+        raise _entitlement_http_exception(e)
     except Exception as e:
         await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         log.error(f"Error submitting batch generation jobs: {e}", exc_info=True)
@@ -1991,6 +2008,9 @@ async def submit_media_batch_jobs(
     except ValueError as e:
         await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         raise HTTPException(status_code=400, detail=str(e))
+    except EntitlementError as e:
+        await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
+        raise _entitlement_http_exception(e)
     except Exception as e:
         await _decline_unqueued_reserved_work(generation_queue, request, provider_id, reservation_handed_to_queue)
         log.error(f"Error submitting media-batch jobs: {e}", exc_info=True)

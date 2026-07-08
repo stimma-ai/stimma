@@ -14,6 +14,7 @@ from aiohttp import web
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+from urllib.parse import urlparse
 
 from config import get_settings
 from core.logging import get_logger
@@ -26,6 +27,22 @@ log = get_logger(__name__)
 def _get_cloud_base_url() -> str:
     """Get the cloud base URL from settings."""
     return get_settings().cloud.base_url
+
+
+def _is_stimma_continue_url(url: str) -> bool:
+    """Open-redirect guard for the desktop-login `continue` param.
+
+    Only an https URL on the stimma.ai origin (or a subdomain of it) may be
+    used as a 302 target from the localhost callback.
+    """
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme != "https":
+        return False
+    host = (parsed.hostname or "").lower()
+    return host == "stimma.ai" or host.endswith(".stimma.ai")
 
 
 def _html_page(title: str, message: str, is_error: bool = False) -> str:
@@ -138,6 +155,10 @@ async def start_auth() -> StartAuthResponse:
         code = request.query.get('code')
         received_state = request.query.get('state')
         error = request.query.get('error')
+        # From the desktop-login plan chooser: 'skip' or 'purchase'. Any other
+        # value (including unknown/absent) is treated like 'skip' downstream.
+        choice = request.query.get('choice')
+        continue_url = request.query.get('continue')
 
         session = _pending_sessions.get(session_id)
         if not session:
@@ -238,7 +259,8 @@ async def start_auth() -> StartAuthResponse:
                             session['result'] = {
                                 'user': user,
                                 'tier': tier,
-                                'completed': True
+                                'completed': True,
+                                'choice': choice,
                             }
 
                         except Exception as auth_error:
@@ -249,13 +271,23 @@ async def start_auth() -> StartAuthResponse:
                                 'user': user,
                                 'tier': 'free',  # Fallback to free tier
                                 'completed': True,
-                                'auth_warning': str(auth_error)
+                                'auth_warning': str(auth_error),
+                                'choice': choice,
                             }
 
                         session['completed'] = True
 
                         # Schedule server shutdown
                         asyncio.create_task(_shutdown_session(session_id))
+
+                        # choice=purchase carries a `continue` URL that starts Stripe
+                        # checkout on stimma.ai. Release the callback immediately with
+                        # a 302 there (plain top-level navigation, no fetch/XHR to
+                        # localhost) instead of the usual "close this window" page.
+                        # Anything else (missing/invalid continue, choice=skip, no
+                        # choice at all) falls through to today's behavior.
+                        if choice == 'purchase' and continue_url and _is_stimma_continue_url(continue_url):
+                            return web.HTTPFound(location=continue_url)
 
                         return web.Response(
                             text=_html_page("Success!", "You can close this window and return to Stimma."),

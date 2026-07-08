@@ -8,6 +8,8 @@
   <!-- Image/generation details popup (global, opened via useMediaDetailsModal) -->
   <MediaDetailsModal />
 
+  <ReadinessPanel />
+
   <FeedbackRoot />
 
   <!-- Full-screen lock screen when PIN is required -->
@@ -170,10 +172,12 @@ import TopBar from './components/TopBar.vue'
 import ToastContainer from './components/ToastContainer.vue'
 import FFmpegWarningModal from './components/FFmpegWarningModal.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
+import ReadinessPanel from './components/ReadinessPanel.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
 import FeedbackRoot from '@stimma/feedback-root'
 import { useProfile } from './composables/useProfile'
 import { useAuth } from './composables/useAuth'
+import { useReadiness } from './composables/useReadiness'
 import { requestGlobalSearchFocus } from './composables/useGlobalSearch'
 import {
   profileRequiresPin,
@@ -214,6 +218,7 @@ const router = useRouter()
 const { getBoard, getProject } = useMediaApi()
 const { currentProfileId, profiles, loadProfiles, setCurrentProfileId } = useProfile()
 const { isAuthenticated, initAuth } = useAuth()
+const { checkStartupReadiness } = useReadiness()
 const { fetchSettings, updateDeveloperMode } = useSettingsApi()
 const { runAutoInstall, checkUpdates: checkStimpackUpdates, updateFromMarketplace } = useStimpacksApi()
 import { setWildcards, setSegments } from './composables/useWildcards'
@@ -713,6 +718,9 @@ async function checkStartupPin() {
     }
     // Restore saved route if not locked
     restoreRoute()
+    // Onboarding already finished in some prior launch — check the
+    // app-entry readiness gate (ReadinessPanel shows itself when unready).
+    void checkStartupReadiness()
   }
 }
 
@@ -724,6 +732,7 @@ watch(isLocked, async (locked, wasLocked) => {
   } else if (wasLocked) {
     // Restore saved route after unlocking
     restoreRoute()
+    void checkStartupReadiness()
   }
 })
 

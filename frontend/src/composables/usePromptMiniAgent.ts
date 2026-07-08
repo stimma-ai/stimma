@@ -65,6 +65,10 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
   const messages = ref<AgentMessage[]>([])
   const running = ref(false)
   const error = ref<string | null>(null)
+  // Discriminator for the last error, e.g. 'subscription_required' — lets the
+  // UI show a CTA beside the error instead of folding the remedy into the
+  // error string itself. Null for anything not specifically classified.
+  const errorCode = ref<string | null>(null)
   const lastReply = ref<string>('')
   // Debug trace for the last failed/refused step (dev mode only — see
   // AgentDebugTrace). Cleared at the start of every run.
@@ -82,6 +86,7 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
     pending.length = 0
     messages.value = []
     error.value = null
+    errorCode.value = null
     lastReply.value = ''
     sessionId.value = newSessionId()
   }
@@ -114,6 +119,7 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
 
   async function runOne(text: string): Promise<void> {
     error.value = null
+    errorCode.value = null
     lastDebugTrace.value = null
 
     // Reset per-run state (the host snapshots lazily via onBeforeTool).
@@ -195,6 +201,7 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
       lastReply.value = 'Stopped after too many steps. Try a more specific instruction.'
     } catch (e: any) {
       lastDebugTrace.value = e?.response?.data?.detail?.debug || null
+      errorCode.value = e?.response?.data?.detail?.code || null
       error.value =
         e?.response?.data?.detail?.message ||
         e?.response?.data?.detail ||
@@ -203,5 +210,5 @@ export function usePromptMiniAgent(ctx: MiniAgentContext) {
     }
   }
 
-  return { messages, running, error, lastReply, lastDebugTrace, send, clearHistory }
+  return { messages, running, error, errorCode, lastReply, lastDebugTrace, send, clearHistory }
 }

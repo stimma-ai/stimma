@@ -134,6 +134,21 @@ class ContentFilteredError(Exception):
         self.upstream_status = upstream_status
 
 
+class EntitlementError(Exception):
+    """Raised when Stimma Cloud rejects an LLM request with type
+    'subscription_error' (403) — the account has no active subscription.
+
+    Distinct from QuotaExceededError (has a subscription, used it up) and
+    from LLMUnavailableError/LLMSubscriptionRequiredError in llm_resolver.py
+    (raised before any request goes out, from locally cached tier state).
+    This one is raised from the live response, so it also catches the case
+    where the local tier cache is stale."""
+
+    def __init__(self, message: str, upstream_status: int | None = None):
+        super().__init__(message)
+        self.upstream_status = upstream_status
+
+
 class LLMConnectionError(Exception):
     """Raised when we can't reach the LLM endpoint at the transport level.
 
@@ -359,6 +374,12 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
                         upstream_message=upstream_msg_passthrough,
                         upstream_metadata=upstream_meta_passthrough,
                         upstream_status=upstream_status_passthrough,
+                    )
+
+                if err_type == "subscription_error":
+                    raise EntitlementError(
+                        err_data.get("message", "No active Stimma Cloud subscription."),
+                        upstream_status=resp.status_code,
                     )
 
                 # Generic upstream failure — raise HTTPStatusError ourselves so

@@ -1255,7 +1255,7 @@
         </button>
       </div>
       <div
-        v-if="modelUnavailableMessage && !showNoModelSetupHero"
+        v-if="modelUnavailableMessage && !showNoModelSetupHero && !showingConnectCloudCta"
         class="mb-2 text-xs text-amber-500"
       >
         {{ modelUnavailableMessage }}
@@ -3165,6 +3165,14 @@ const noUsableChatModels = computed(() => {
 })
 
 const showNoModelSetupHero = computed(() => noUsableChatModels.value && !loadError.value && !loading.value)
+
+// The "Almost There" Connect-Stimma-Cloud CTA card renders as the trailing
+// chat item after a failed turn (isLLMSetupError). When it's showing, it IS
+// the messaging — the amber banner above the composer would just repeat it.
+const showingConnectCloudCta = computed(() => {
+  const last = items.value[items.value.length - 1]
+  return last?.item_type === 'error' && isLLMSetupError(last)
+})
 
 const selectedChatModel = computed(() => {
   const slug = chat.value?.model_slug || globalDefault.value

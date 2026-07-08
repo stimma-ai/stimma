@@ -35,6 +35,7 @@ from llm_http import (
     acompletion as _raw_acompletion,
     QuotaExceededError,
     ContentFilteredError,
+    EntitlementError,
     is_auto_tool_choice_unsupported_error,
 )
 
@@ -49,6 +50,7 @@ __all__ = [
     "Usage",
     "QuotaExceededError",
     "ContentFilteredError",
+    "EntitlementError",
     "is_auto_tool_choice_unsupported_error",
     "llm_completion",
     "llm_complete_text",

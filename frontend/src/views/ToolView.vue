@@ -596,8 +596,16 @@
           @update:param="(name, value) => { modelParams[name] = value }"
         />
 
-        <div v-if="submissionError" class="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-500 text-sm">
-          {{ submissionError }}
+        <div v-if="submissionError" class="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-500 text-sm flex items-center justify-between gap-3">
+          <span>{{ submissionError }}</span>
+          <button
+            v-if="submissionErrorCode === 'subscription_required'"
+            @click="connectStimmaCloudForSubmission"
+            :disabled="submissionCloudConnecting"
+            class="flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium stimma-cloud-text border border-current/20 hover:border-current/40 transition-colors"
+          >
+            {{ submissionCloudConnecting ? 'Connecting…' : 'Connect Stimma Cloud' }}
+          </button>
         </div>
        </div>
       </div>
@@ -966,6 +974,7 @@ import SettingsDropdown from '../components/ui/SettingsDropdown.vue'
 import { getApiBase } from '../apiConfig'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { getCachedPin } from '../composables/usePinLock'
+import { signInWithBrowser } from '../composables/useAuth'
 
 const API_BASE = '/api'
 const router = useRouter()
@@ -1210,6 +1219,30 @@ const tool = ref<ToolWithState | null>(null)
 const isInitialLoading = ref(true)
 const error = ref<{ message: string; statusCode?: number } | null>(null)
 const submissionError = ref<string | null>(null)
+// Discriminator for the last submission error, e.g. 'subscription_required'
+// (enhance-at-submit has no LLM entitlement) — drives the CTA shown beside
+// the error text; never folded into the error string itself.
+const submissionErrorCode = ref<string | null>(null)
+
+function classifySubmissionError(err: any): string {
+  const detail = err?.response?.data?.detail
+  const code = typeof detail === 'object' ? detail?.code : null
+  submissionErrorCode.value = code || null
+  if (typeof detail === 'string') return detail
+  return detail?.message || 'Failed to submit job'
+}
+
+const submissionCloudConnecting = ref(false)
+async function connectStimmaCloudForSubmission() {
+  submissionCloudConnecting.value = true
+  try {
+    await signInWithBrowser()
+  } catch (err: any) {
+    console.error('Failed to connect Stimma Cloud:', err)
+  } finally {
+    submissionCloudConnecting.value = false
+  }
+}
 let loadRetryTimeout: ReturnType<typeof setTimeout> | null = null
 let availabilityPollInterval: ReturnType<typeof setInterval> | null = null
 const LOAD_RETRY_DELAY_MS = 1000
@@ -3892,6 +3925,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
   if (!isForeverSubmissionCurrent(options)) return noSubmit(options, false)
 
   submissionError.value = null
+  submissionErrorCode.value = null
 
   // Ensure seed exists
   if (!modelParams.value.seed) {
@@ -4092,7 +4126,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
       onError: (err: any) => {
         removePendingEnhancementJob()
         clearForeverBatchSubmit()
-        submissionError.value = err.response?.data?.detail || 'Failed to submit batch job'
+        submissionError.value = classifySubmissionError(err)
       },
       onNoBackendSubmission: () => {
         clearForeverBatchSubmit()
@@ -4170,7 +4204,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
       onError: (err: any) => {
         removePendingEnhancementJob()
         clearForeverBatchSubmit()
-        submissionError.value = err.response?.data?.detail || 'Failed to submit batch job'
+        submissionError.value = classifySubmissionError(err)
       },
       onNoBackendSubmission: () => {
         clearForeverBatchSubmit()
@@ -4202,7 +4236,7 @@ async function submitOneJob(options: ForeverSubmitOptions = {}): Promise<SubmitJ
       onSubmitted: removePendingEnhancementJob,
       onError: (err: any) => {
         removePendingEnhancementJob()
-        submissionError.value = err.response?.data?.detail || 'Failed to submit job'
+        submissionError.value = classifySubmissionError(err)
       },
       onNoBackendSubmission: () => {
         recordUnsubmittedForeverWork(options)
