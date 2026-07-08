@@ -549,9 +549,11 @@ Commands:
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
-  tag alpha [X.Y.Z]   Create and push next alpha tag (or for explicit base version)
-  tag beta [X.Y.Z]    Create and push next beta tag (or for explicit base version)
-  tag production [X.Y.Z] Create and push production tag
+  tag alpha [X.Y.Z]   Tag HEAD as the next alpha (train = next production version)
+  tag beta [X.Y.Z]    Tag HEAD as the next beta (train = next production version)
+  promote production  Promote the latest beta's commit to a production release
+                      [--ref REF] hotfix override: promote an explicit git ref
+                      [--yes] skip the confirmation prompt
   dir               Print data directory path
   fork              List all sandboxes with sizes and ports
   fork create NAME  Copy default sandbox to a new named sandbox
@@ -657,7 +659,7 @@ async function tagExists(tagName: string): Promise<boolean> {
   return out.code === 0;
 }
 
-async function createAndPushTag(tagName: string): Promise<void> {
+async function createAndPushTag(tagName: string, commit?: string): Promise<void> {
   if (await tagExists(tagName)) {
     console.error(`Tag already exists: ${tagName}`);
     Deno.exit(1);
@@ -665,30 +667,27 @@ async function createAndPushTag(tagName: string): Promise<void> {
   // Annotated tag with a message — works regardless of the repo's
   // tag.gpgSign / forceSignAnnotated git config (a lightweight `git tag <name>`
   // fails with "no tag message?" when annotation is forced).
-  await run("git", ["tag", "-a", tagName, "-m", `Release ${tagName}`], { cwd: repoRoot });
+  const tagArgs = ["tag", "-a", tagName, "-m", `Release ${tagName}`];
+  if (commit) tagArgs.push(commit);
+  await run("git", tagArgs, { cwd: repoRoot });
   await run("git", ["push", "origin", `refs/tags/${tagName}`], { cwd: repoRoot });
   console.log(`Tagged and pushed: ${tagName}`);
-}
-
-function nextAvailablePatch(core: SemverCore, existing: Set<string>): SemverCore {
-  let candidate = core;
-  while (existing.has(`v${fmtCore(candidate)}`)) {
-    candidate = bumpPatch(candidate);
-  }
-  return candidate;
 }
 
 async function commandTag(args: string[]): Promise<void> {
   const mode = args[0];
   const explicit = args[1];
 
-  if (!mode || (mode !== "alpha" && mode !== "beta" && mode !== "production")) {
-    console.error("Usage: stimma tag {alpha|beta|production} [X.Y.Z]");
+  if (mode === "production") {
+    console.error("`stimma tag production` is gone — production is a promotion of a tested beta commit,");
+    console.error("not a build of whatever HEAD happens to be.");
+    console.error("Use: stimma promote production            (promotes the latest beta)");
+    console.error("     stimma promote production --ref REF  (hotfix: promote an explicit git ref)");
     Deno.exit(1);
   }
 
-  if (args.length > 2) {
-    console.error("Usage: stimma tag {alpha|beta|production} [X.Y.Z]");
+  if (!mode || (mode !== "alpha" && mode !== "beta") || args.length > 2) {
+    console.error("Usage: stimma tag {alpha|beta} [X.Y.Z]");
     Deno.exit(1);
   }
 
@@ -697,44 +696,7 @@ async function commandTag(args: string[]): Promise<void> {
   const tags = await listTags();
   const productionTags = tags.map(parseProductionTag).filter((v): v is SemverCore => v !== null);
   const preTags = tags.map(parsePreTag).filter((v): v is PreTag => v !== null);
-  const alphaTags = preTags.filter((t) => t.channel === "alpha");
-  const betaTags = preTags.filter((t) => t.channel === "beta");
-
   const latestProduction = maxCore(productionTags);
-  const latestAlpha = maxPreTag(alphaTags);
-  const latestBeta = maxPreTag(betaTags);
-
-  if (mode === "production") {
-    let core: SemverCore;
-    if (explicit) {
-      const parsed = parseCore(explicit);
-      if (!parsed) {
-        console.error(`Invalid version '${explicit}'. Expected X.Y.Z.`);
-        Deno.exit(1);
-      }
-      core = parsed;
-    } else {
-      // Promote the latest pre-release train — but never at or below the
-      // latest production version. A stale beta train (e.g. beta at 0.1.41
-      // after production shipped 1.0.0) must not produce a production tag
-      // the updater would consider a downgrade.
-      let candidate: SemverCore | null = null;
-      if (latestBeta) {
-        candidate = { major: latestBeta.major, minor: latestBeta.minor, patch: latestBeta.patch };
-      } else if (latestAlpha) {
-        candidate = { major: latestAlpha.major, minor: latestAlpha.minor, patch: latestAlpha.patch };
-      }
-      if (latestProduction && (!candidate || compareCore(candidate, latestProduction) <= 0)) {
-        candidate = bumpPatch(latestProduction);
-      }
-      core = candidate ?? { major: 0, minor: 1, patch: 0 };
-    }
-    if (!explicit) {
-      core = nextAvailablePatch(core, new Set(tags));
-    }
-    await createAndPushTag(`v${fmtCore(core)}`);
-    return;
-  }
 
   const channel = mode;
   let base: SemverCore;
@@ -745,16 +707,11 @@ async function commandTag(args: string[]): Promise<void> {
       Deno.exit(1);
     }
     base = parsed;
-  } else if (channel === "alpha" && latestAlpha) {
-    base = { major: latestAlpha.major, minor: latestAlpha.minor, patch: latestAlpha.patch };
-  } else if (channel === "beta" && latestBeta) {
-    base = { major: latestBeta.major, minor: latestBeta.minor, patch: latestBeta.patch };
-  } else if (channel === "beta" && latestAlpha) {
-    base = { major: latestAlpha.major, minor: latestAlpha.minor, patch: latestAlpha.patch };
-  } else if (latestProduction) {
-    base = bumpPatch(latestProduction);
   } else {
-    base = { major: 0, minor: 1, patch: 0 };
+    // Pre-release trains always carry the NEXT production version. They
+    // rebase automatically when production moves, so a train can never fall
+    // below the shipped version (where the updater would stop offering it).
+    base = latestProduction ? bumpPatch(latestProduction) : { major: 0, minor: 1, patch: 0 };
   }
 
   const existingForBase = preTags
@@ -762,6 +719,78 @@ async function commandTag(args: string[]): Promise<void> {
     .filter((t) => compareCore(t, base) === 0);
   const nextN = (existingForBase.length > 0 ? Math.max(...existingForBase.map((t) => t.number)) : 0) + 1;
   await createAndPushTag(`v${fmtCore(base)}-${channel}.${nextN}`);
+}
+
+async function commandPromote(args: string[]): Promise<void> {
+  const target = args[0];
+  const rest = args.slice(1);
+  let ref: string | null = null;
+  let yes = false;
+  for (let i = 0; i < rest.length; i++) {
+    const a = rest[i];
+    if (a === "--yes" || a === "-y") yes = true;
+    else if (a === "--ref") ref = rest[++i] ?? null;
+    else if (a.startsWith("--ref=")) ref = a.slice("--ref=".length);
+    else {
+      console.error(`Unknown argument: ${a}`);
+      console.error("Usage: stimma promote production [--ref REF] [--yes]");
+      Deno.exit(1);
+    }
+  }
+
+  if (target !== "production" || (ref !== null && !ref.trim())) {
+    console.error("Usage: stimma promote production [--ref REF] [--yes]");
+    Deno.exit(1);
+  }
+
+  const tags = await listTags();
+  const productionTags = tags.map(parseProductionTag).filter((v): v is SemverCore => v !== null);
+  const preTags = tags.map(parsePreTag).filter((v): v is PreTag => v !== null);
+  const latestProduction = maxCore(productionTags);
+  const latestBeta = maxPreTag(preTags.filter((t) => t.channel === "beta"));
+
+  if (!latestBeta) {
+    console.error("No beta tags found. Cut one first: stimma tag beta");
+    Deno.exit(1);
+  }
+  const betaName = `v${fmtCore(latestBeta)}-beta.${latestBeta.number}`;
+
+  if (latestProduction && compareCore(latestBeta, latestProduction) <= 0) {
+    console.error(`Latest beta ${betaName} is not ahead of production v${fmtCore(latestProduction)}.`);
+    console.error("Cut a fresh beta from the code you want to ship: stimma tag beta");
+    Deno.exit(1);
+  }
+
+  const commitRef = ref ?? betaName;
+  const resolved = await runCapture("git", ["rev-parse", "--verify", `${commitRef}^{commit}`], { cwd: repoRoot });
+  if (resolved.code !== 0) {
+    console.error(`Cannot resolve '${commitRef}' to a commit.`);
+    Deno.exit(1);
+  }
+  const commit = resolved.stdout.trim();
+  const describe = await runCapture("git", ["log", "-1", "--format=%h %ad %s", "--date=short", commit], { cwd: repoRoot });
+
+  const prodName = `v${fmtCore(latestBeta)}`;
+  console.log(`Promoting ${ref ? `ref '${ref}'` : betaName} to ${prodName}`);
+  console.log(`  commit: ${describe.stdout.trim() || commit}`);
+  if (ref) {
+    console.log(`  note: overriding the beta commit; ${prodName} will NOT match ${betaName}'s build.`);
+  }
+  const drift = await runCapture("git", ["rev-list", "--count", `${commit}..main`], { cwd: repoRoot });
+  const driftCount = Number(drift.stdout.trim());
+  if (drift.code === 0 && Number.isFinite(driftCount) && driftCount > 0) {
+    console.log(`  note: main is ${driftCount} commit(s) ahead of this commit — those are NOT in this release.`);
+  }
+
+  if (!yes) {
+    const answer = prompt(`Tag ${prodName} from this commit and start the production release? (y/N)`);
+    if (answer?.toLowerCase() !== "y") {
+      console.log("Aborted.");
+      Deno.exit(1);
+    }
+  }
+
+  await createAndPushTag(prodName, commit);
 }
 
 async function detectTargetTriple(): Promise<string> {
@@ -2007,6 +2036,11 @@ async function main(): Promise<void> {
 
     case "tag": {
       await commandTag(args.slice(1));
+      break;
+    }
+
+    case "promote": {
+      await commandPromote(args.slice(1));
       break;
     }
 
