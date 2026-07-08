@@ -18,7 +18,7 @@
       <div
         v-if="showMenu"
         ref="menuRef"
-        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[9999] py-1 min-w-[200px] max-h-[400px] overflow-y-auto"
+        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[9999] py-1 w-[300px] max-h-[min(640px,calc(100vh-24px))] overflow-y-auto"
         :style="menuStyle"
       >
         <TaskTypeToolList
@@ -76,7 +76,7 @@ const anchorRect = ref<DOMRect | null>(null)
 const { menuStyle: anchoredStyle } = useAnchoredMenuPosition(menuRef, anchorRect, showMenu)
 const menuStyle = computed(() => ({
   ...anchoredStyle.value,
-  minWidth: `${Math.max(anchorRect.value?.width ?? 0, 200)}px`,
+  minWidth: `${Math.max(anchorRect.value?.width ?? 0, 300)}px`,
 }))
 
 // Reset tool list when menu opens

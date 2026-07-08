@@ -168,11 +168,6 @@
                     </template>
                     <template v-else>{{ item.label }}</template>
                   </div>
-                  <!-- Open-instance badge: enter switches to this tab -->
-                  <span
-                    v-if="item.kind === 'tool-instance'"
-                    class="flex-shrink-0 rounded-full bg-blue-500/15 border border-blue-500/50 text-blue-400 px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide leading-none"
-                  >Open · switch</span>
                   <!-- Project tag: instance rows show their own project; under
                        scope, tool/preset rows open the project flavor -->
                   <span
@@ -192,12 +187,11 @@
                 </div>
                 <div v-if="item.sub" class="text-[11.5px] text-content-tertiary truncate">{{ item.sub }}</div>
               </div>
-              <span v-if="item.provider || item.meta || item.plus" class="flex-shrink-0 text-[11.5px] pl-3 inline-flex items-center gap-2">
-                <span v-if="item.provider" :class="item.provider.cloud ? 'stimma-gradient-text' : 'text-content-muted'">{{ item.provider.name }}</span>
-                <span v-if="item.provider && item.meta" class="text-content-muted">·</span>
-                <span v-if="item.meta" class="text-content-muted">{{ item.meta }}</span>
-                <!-- Quiet ＋: instances of this tool are open; this row opens fresh -->
-                <span v-if="item.plus" class="text-content-muted" title="Opens a new tab of this tool">＋</span>
+              <!-- Trailing columns: provider glyph, then a fixed-width
+                   right-aligned time column so rows line up. -->
+              <span v-if="item.provider || item.meta" class="flex-shrink-0 pl-3 inline-flex items-center gap-2 text-[11.5px] text-content-muted">
+                <ToolProviderLabel v-if="item.provider" :cloud="!!item.provider.cloud" :provider-name="item.provider.name" />
+                <span v-if="item.meta" class="w-[52px] text-right tabular-nums whitespace-nowrap">{{ item.meta }}</span>
               </span>
             </button>
           </template>
@@ -226,6 +220,7 @@ import { ref, computed, inject, nextTick, watch, onBeforeUnmount, type ComputedR
 import { useRouter, useRoute } from 'vue-router'
 import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
 import ToolIcon from '../tools/ToolIcon.vue'
+import ToolProviderLabel from '../tools/ToolProviderLabel.vue'
 import { MediaImage } from '../media'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
@@ -256,8 +251,6 @@ interface SelectableItem {
   provider?: { name: string; cloud: boolean }
   /** Which asset flavor this thumbnail belongs to (assets only). */
   set?: 'prompt' | 'visual'
-  /** Catalog tool rows that are the open-fresh gesture (instances are open). */
-  plus?: boolean
   highlight?: boolean
   data: any
   index: number
@@ -331,10 +324,6 @@ function focusInput() { inputRef.value?.focus() }
 
 // --- Sections ---
 
-const RECENT_TYPE_LABELS: Record<string, string> = {
-  tool: 'Tool', chat: 'Chat', board: 'Board', project: 'Project', flow: 'Flow',
-}
-
 const sections = computed<Section[]>(() => {
   let index = 0
   const next = (item: Omit<SelectableItem, 'index'>): SelectableItem => ({ ...item, index: index++ })
@@ -361,7 +350,9 @@ const sections = computed<Section[]>(() => {
             key: `recent:${r.type}:${r.id}`,
             kind: r.type,
             label: r.name,
-            meta: `${RECENT_TYPE_LABELS[r.type]} · ${time}`,
+            // Time only — the row's left icon already conveys the type, so the
+            // trailing column stays a uniform width and lines up across rows.
+            meta: time,
             data: { id: r.id },
           })
         }),
@@ -373,14 +364,13 @@ const sections = computed<Section[]>(() => {
   const e = entityResults.value
   if (toolResults.value.length > 0 || openInstanceResults.value.length > 0) {
     // Open instances rank first: enter on them SWITCHES. Catalog rows below
-    // are the open-fresh gesture (marked with a quiet ＋ when instances of
-    // that tool are already open) — enter on those never surprises by
-    // stealing an existing tab.
-    const openByTool = new Set(openInstanceResults.value.map(t => t.entityId))
-    result.push({
-      title: 'Tools',
-      items: [
-        ...openInstanceResults.value.map(tab => {
+    // are the open-fresh gesture — enter on those opens a new tab and never
+    // surprises by stealing an existing one. The "Active Tools" / "All Tools"
+    // section split carries that meaning, so catalog rows need no per-row badge.
+    if (openInstanceResults.value.length > 0) {
+      result.push({
+        title: 'Active Tools',
+        items: openInstanceResults.value.map(tab => {
           const catalogTool = toolById.value.get(tab.entityId)
           return next({
             key: `tool-instance:${tab.id}`,
@@ -394,17 +384,21 @@ const sections = computed<Section[]>(() => {
             data: tab,
           })
         }),
-        ...toolResults.value.map(t => next({
+      })
+    }
+    if (toolResults.value.length > 0) {
+      result.push({
+        title: openInstanceResults.value.length > 0 ? 'All Tools' : 'Tools',
+        items: toolResults.value.map(t => next({
           key: `tool:${t.full_tool_id}`,
           kind: 'tool',
           label: t.name,
           provider: { name: t.provider_name, cloud: isStimmaCloudTool(t) },
-          plus: openByTool.has(t.full_tool_id),
           highlight: true,
           data: t,
         })),
-      ],
-    })
+      })
+    }
   }
   const entitySections: Array<[string, SearchResultKind, keyof EntitySearchResults]> = [
     ['Chats', 'chat', 'chats'],

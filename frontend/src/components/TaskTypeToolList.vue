@@ -12,9 +12,9 @@
     </svg>
 
     <!-- Filter box -->
-    <div class="px-2 py-1.5 border-b border-edge-subtle">
+    <div class="px-2.5 py-2 border-b border-edge-subtle">
       <div class="relative">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-content-muted">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-content-muted">
           <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
         </svg>
         <input
@@ -22,7 +22,7 @@
           v-model="searchQuery"
           type="text"
           placeholder="Filter tools..."
-          class="w-full bg-overlay-subtle border border-edge-subtle rounded px-2 py-1 pl-7 text-xs text-content placeholder:text-content-muted focus:outline-none focus:border-edge"
+          class="w-full bg-overlay-subtle border border-edge-subtle rounded-md px-2.5 py-1.5 pl-8 text-[13px] text-content placeholder:text-content-muted focus:outline-none focus:border-edge"
           @mousedown.stop
           @click.stop
         />
@@ -33,29 +33,24 @@
          the top level and while filtering; gated behind showOpenInstances so
          settings-style pickers don't grow workspace rows. -->
     <template v-if="showOpenInstances && !selectedTaskType && filteredOpenInstances.length > 0">
-      <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
-        Open
+      <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+        Active Tools
       </div>
       <button
         v-for="row in filteredOpenInstances"
         :key="`instance-${row.tab.id}`"
         @click="handleInstanceClick(row)"
-        class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+        class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
       >
         <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(row.tool) ? '' : 'text-content-tertiary'">
           <ToolIcon :tool="row.tool" size="xs" :bare="true" :ring="false" />
         </div>
-        <div class="flex-1 min-w-0">
-          <div class="truncate">{{ row.tab.customName || row.tab.displayName }}</div>
-          <div class="truncate text-[10px] leading-tight text-content-muted">
-            <template v-if="row.tab.customName">{{ row.tab.displayName }} · </template><span :class="isStimmaCloudTool(row.tool) ? 'stimma-gradient-text' : ''">{{ row.tool.provider_name }}</span>
-          </div>
-        </div>
+        <span class="flex-1 min-w-0 truncate">{{ row.tab.customName || row.tab.displayName }}<span v-if="row.tab.customName" class="text-content-muted"> · {{ row.tab.displayName }}</span></span>
         <span
           v-if="row.tab.projectName"
           class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"
         >{{ row.tab.projectName }}</span>
-        <span class="flex-shrink-0 rounded-full bg-blue-500/15 border border-blue-500/50 text-blue-400 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide leading-none">Open</span>
+        <ToolProviderLabel :cloud="isStimmaCloudTool(row.tool)" :provider-name="row.tool.provider_name" class="pl-3" />
       </button>
       <div class="border-t border-edge-subtle my-1"></div>
     </template>
@@ -67,7 +62,10 @@
       No compatible tools
     </div>
     <template v-else-if="searchQuery.trim()">
-      <!-- Filtered results (flat, no section headers) -->
+      <!-- Filtered results (flat) -->
+      <div v-if="showAllToolsHeader && filteredTools.length > 0" class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+        All Tools
+      </div>
       <div v-if="filteredTools.length === 0" class="px-3 py-2 text-xs text-content-tertiary">
         No matching tools
       </div>
@@ -75,31 +73,30 @@
         v-for="tool in filteredTools"
         :key="tool.full_tool_id"
         @click="handleToolClick(tool, getToolPrimaryTaskType(tool))"
-        class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+        class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
       >
         <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
           <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
         </div>
-        <div class="flex-1 min-w-0">
-          <div class="truncate">{{ tool.name }}</div>
-          <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(tool) ? 'stimma-gradient-text' : 'text-content-muted'">{{ tool.provider_name }}</div>
-        </div>
+        <span class="flex-1 min-w-0 truncate">{{ tool.name }}</span>
+        <ToolProviderLabel :cloud="isStimmaCloudTool(tool)" :provider-name="tool.provider_name" class="pl-3" />
       </button>
     </template>
     <template v-else-if="!selectedTaskType">
       <!-- Task type category list -->
-      <template v-for="(taskType, index) in taskTypeKeys" :key="taskType">
-        <div v-if="index > 0" class="border-t border-edge-subtle my-1"></div>
-
+      <div v-if="showAllToolsHeader" class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+        All Tools
+      </div>
+      <template v-for="taskType in taskTypeKeys" :key="taskType">
         <button
           @click="selectTaskType(taskType)"
-          class="w-full px-3 py-1.5 text-left text-xs hover:bg-overlay-light flex items-center gap-2"
+          class="w-full px-3.5 py-2 text-left text-[13px] hover:bg-overlay-light flex items-center gap-2.5"
         >
           <svg class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" :d="getTaskTypeIconPath(taskType)" />
           </svg>
           <span class="flex-1 font-medium text-content">{{ formatTaskTypeLabel(taskType) }}</span>
-          <span class="text-[10px] text-content-muted">{{ groupedTools[taskType].length }}</span>
+          <span class="text-[11.5px] text-content-muted tabular-nums">{{ groupedTools[taskType].length }}</span>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted">
             <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
           </svg>
@@ -111,7 +108,7 @@
       <!-- Back header -->
       <button
         @click="selectedTaskType = null"
-        class="w-full px-3 py-1.5 text-left text-xs hover:bg-overlay-light flex items-center gap-2 border-b border-edge-subtle"
+        class="w-full px-3.5 py-2 text-left text-[13px] hover:bg-overlay-light flex items-center gap-2.5 border-b border-edge-subtle"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted">
           <path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd" />
@@ -124,22 +121,20 @@
 
       <!-- Recent section -->
       <template v-if="recentToolsForSelectedTaskType.length > 0">
-        <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+        <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
           Recents
         </div>
         <button
           v-for="tool in recentToolsForSelectedTaskType"
           :key="`recent-${selectedTaskType}-${tool.full_tool_id}`"
           @click="handleToolClick(tool, selectedTaskType)"
-          class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+          class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
         >
           <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
             <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
           </div>
-          <div class="flex-1 min-w-0">
-            <div class="truncate">{{ tool.name }}</div>
-            <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(tool) ? 'stimma-gradient-text' : 'text-content-muted'">{{ tool.provider_name }}</div>
-          </div>
+          <span class="flex-1 min-w-0 truncate">{{ tool.name }}</span>
+          <ToolProviderLabel :cloud="isStimmaCloudTool(tool)" :provider-name="tool.provider_name" class="pl-3" />
         </button>
         <div class="border-t border-edge-subtle my-1"></div>
       </template>
@@ -147,7 +142,7 @@
       <!-- All tools in this category -->
       <div
         v-if="recentToolsForSelectedTaskType.length > 0"
-        class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider"
+        class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider"
       >
         All Tools
       </div>
@@ -155,15 +150,13 @@
         v-for="tool in allToolsForSelectedTaskType"
         :key="`${selectedTaskType}-${tool.full_tool_id}`"
         @click="handleToolClick(tool, selectedTaskType)"
-        class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+        class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
       >
         <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
           <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
         </div>
-        <div class="flex-1 min-w-0">
-          <div class="truncate">{{ tool.name }}</div>
-          <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(tool) ? 'stimma-gradient-text' : 'text-content-muted'">{{ tool.provider_name }}</div>
-        </div>
+        <span class="flex-1 min-w-0 truncate">{{ tool.name }}</span>
+        <ToolProviderLabel :cloud="isStimmaCloudTool(tool)" :provider-name="tool.provider_name" class="pl-3" />
       </button>
     </template>
   </div>
@@ -174,6 +167,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import type { ProviderTool } from '../composables/useProvidersApi'
 import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 import ToolIcon from './tools/ToolIcon.vue'
+import ToolProviderLabel from './tools/ToolProviderLabel.vue'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { makeStorageKey } from '../utils/storageKeys'
 import {
@@ -325,6 +319,12 @@ const filteredOpenInstances = computed(() => {
     tool.provider_name.toLowerCase().includes(query)
   )
 })
+
+// Show an "All Tools" header on the catalog list only when the "Active Tools"
+// section is present above it, so the two sections read as a pair.
+const showAllToolsHeader = computed(() =>
+  props.showOpenInstances && !selectedTaskType.value && filteredOpenInstances.value.length > 0
+)
 
 function handleInstanceClick(row: { tab: WorkspaceTab; tool: ProviderTool }) {
   emit('select-instance', row.tab, row.tool, getToolPrimaryTaskType(row.tool))

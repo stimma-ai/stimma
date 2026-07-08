@@ -375,16 +375,16 @@
           <div
             v-if="activeSubmenu === 'generate'"
             ref="generateSubmenuRef"
-            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10021] py-1 min-w-[220px] max-h-[400px] flex flex-col"
+            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10021] py-1 w-[300px] max-h-[min(640px,calc(100vh-24px))] flex flex-col"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
             @mouseleave="closeSubmenuDelayed"
             @click.stop
           >
             <!-- Filter box -->
-            <div class="px-2 py-1.5 border-b border-edge-subtle flex-shrink-0">
+            <div class="px-2.5 py-2 border-b border-edge-subtle flex-shrink-0">
               <div class="relative">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-content-muted">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-content-muted">
                   <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
                 </svg>
                 <input
@@ -392,92 +392,84 @@
                   v-model="generateSearchQuery"
                   type="text"
                   placeholder="Filter tools..."
-                  class="w-full bg-overlay-subtle border border-edge-subtle rounded px-2 py-1 pl-7 text-xs text-content placeholder:text-content-muted focus:outline-none focus:border-edge"
+                  class="w-full bg-overlay-subtle border border-edge-subtle rounded-md px-2.5 py-1.5 pl-8 text-[13px] text-content placeholder:text-content-muted focus:outline-none focus:border-edge"
                 />
               </div>
             </div>
 
             <div class="overflow-y-auto flex-1">
-              <div v-if="loadingGenerateTools" class="px-3 py-2 text-xs text-content-tertiary">Loading tools...</div>
-              <div v-else-if="generateMoreTools.length === 0" class="px-3 py-2 text-xs text-content-tertiary">No tools available</div>
+              <div v-if="loadingGenerateTools" class="px-3.5 py-2 text-xs text-content-tertiary">Loading tools...</div>
+              <div v-else-if="generateMoreTools.length === 0" class="px-3.5 py-2 text-xs text-content-tertiary">No tools available</div>
               <template v-else-if="generateSearchQuery.trim()">
                 <!-- Filtered results (flat, no sections) -->
-                <div v-if="filteredGenerateTools.length === 0" class="px-3 py-2 text-xs text-content-tertiary">No matching tools</div>
+                <div v-if="filteredGenerateTools.length === 0" class="px-3.5 py-2 text-xs text-content-tertiary">No matching tools</div>
                 <button
                   v-for="tool in filteredGenerateTools"
                   :key="tool.full_tool_id"
                   @click="sendToGenerateTool(tool)"
-                  class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+                  class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
                 >
-                  <svg class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'" fill="none" viewBox="0 0 24 24" stroke-width="2" :stroke="isStimmaCloudTool(tool) ? 'url(#stimma-gradient-context)' : 'currentColor'" overflow="visible">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
-                  </svg>
-                  <div class="flex-1 min-w-0">
-                    <div class="truncate">{{ tool.name }}</div>
-                    <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(tool) ? 'stimma-gradient-text' : 'text-content-muted'">{{ tool.provider_name }}</div>
+                  <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
+                    <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
                   </div>
+                  <span class="flex-1 min-w-0 truncate">{{ tool.name }}</span>
+                  <ToolProviderLabel :cloud="isStimmaCloudTool(tool)" :provider-name="tool.provider_name" class="pl-3" />
                 </button>
               </template>
               <template v-else>
                 <!-- Original tool section (if exists) -->
                 <template v-if="originalTool">
-                  <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+                  <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
                     Original
                   </div>
                   <button
                     @click="sendToGenerateTool(originalTool)"
-                    class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+                    class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
                   >
-                    <svg class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(originalTool) ? '' : 'text-content-tertiary'" fill="none" viewBox="0 0 24 24" stroke-width="2" :stroke="isStimmaCloudTool(originalTool) ? 'url(#stimma-gradient-context)' : 'currentColor'" overflow="visible">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
-                    </svg>
-                    <div class="flex-1 min-w-0">
-                      <div class="truncate">{{ originalTool.name }}</div>
-                      <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(originalTool) ? 'stimma-gradient-text' : 'text-content-muted'">{{ originalTool.provider_name }}</div>
+                    <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(originalTool) ? '' : 'text-content-tertiary'">
+                      <ToolIcon :tool="originalTool" size="xs" :bare="true" :ring="false" />
                     </div>
+                    <span class="flex-1 min-w-0 truncate">{{ originalTool.name }}</span>
+                    <ToolProviderLabel :cloud="isStimmaCloudTool(originalTool)" :provider-name="originalTool.provider_name" class="pl-3" />
                   </button>
                 </template>
 
                 <!-- Recent tools section -->
                 <template v-if="recentGenerateTools.length > 0">
                   <div v-if="originalTool" class="border-t border-edge-subtle my-1"></div>
-                  <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+                  <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
                     Recent
                   </div>
                   <button
                     v-for="tool in recentGenerateTools"
                     :key="`recent-${tool.full_tool_id}`"
                     @click="sendToGenerateTool(tool)"
-                    class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+                    class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
                   >
-                    <svg class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'" fill="none" viewBox="0 0 24 24" stroke-width="2" :stroke="isStimmaCloudTool(tool) ? 'url(#stimma-gradient-context)' : 'currentColor'" overflow="visible">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
-                    </svg>
-                    <div class="flex-1 min-w-0">
-                      <div class="truncate">{{ tool.name }}</div>
-                      <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(tool) ? 'stimma-gradient-text' : 'text-content-muted'">{{ tool.provider_name }}</div>
+                    <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
+                      <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
                     </div>
+                    <span class="flex-1 min-w-0 truncate">{{ tool.name }}</span>
+                    <ToolProviderLabel :cloud="isStimmaCloudTool(tool)" :provider-name="tool.provider_name" class="pl-3" />
                   </button>
                 </template>
 
                 <!-- All tools section -->
                 <div v-if="originalTool || recentGenerateTools.length > 0" class="border-t border-edge-subtle my-1"></div>
-                <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+                <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
                   {{ originalTool ? 'All Tools' : 'Generate Image' }}
                 </div>
                 <button
                   v-for="tool in otherGenerateTools"
                   :key="tool.full_tool_id"
                   @click="sendToGenerateTool(tool)"
-                  class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+                  class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
                 >
-                  <svg class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'" fill="none" viewBox="0 0 24 24" stroke-width="2" :stroke="isStimmaCloudTool(tool) ? 'url(#stimma-gradient-context)' : 'currentColor'" overflow="visible">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
-                  </svg>
-                  <div class="flex-1 min-w-0">
-                    <div class="truncate">{{ tool.name }}</div>
-                    <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(tool) ? 'stimma-gradient-text' : 'text-content-muted'">{{ tool.provider_name }}</div>
+                  <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
+                    <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
                   </div>
+                  <span class="flex-1 min-w-0 truncate">{{ tool.name }}</span>
+                  <ToolProviderLabel :cloud="isStimmaCloudTool(tool)" :provider-name="tool.provider_name" class="pl-3" />
                 </button>
               </template>
             </div>
@@ -516,7 +508,7 @@
           <div
             v-if="activeSubmenu === 'tool'"
             ref="toolSubmenuRef"
-            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10021] py-1 min-w-[220px] max-h-[400px] overflow-y-auto"
+            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10021] py-1 w-[300px] max-h-[min(640px,calc(100vh-24px))] overflow-y-auto"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
             @mouseleave="closeSubmenuDelayed"
@@ -527,7 +519,7 @@
               :tools="sendToTools"
               :media-type="currentMediaType"
               :loading="loadingTools"
-              gradient-id="stimma-gradient-context"
+             
               show-open-instances
               @select="handleToolSelect"
               @select-instance="handleToolInstanceSelect"
@@ -707,6 +699,8 @@ import ProjectPickerSubmenu from '../ProjectPickerSubmenu.vue'
 import ExportModal from '../ExportModal.vue'
 import ShareDialog from '../ShareDialog.vue'
 import TaskTypeToolList from '../TaskTypeToolList.vue'
+import ToolIcon from '../tools/ToolIcon.vue'
+import ToolProviderLabel from '../tools/ToolProviderLabel.vue'
 import { isSelectionValidForTool } from '../../utils/toolSchemaUtils'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { makeStorageKey } from '../../utils/storageKeys'
