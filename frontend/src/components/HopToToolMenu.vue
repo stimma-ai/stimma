@@ -1,11 +1,25 @@
 <template>
   <div class="relative" ref="containerRef">
-    <!-- Tool name with dropdown chevron -->
+    <!-- Instance/tool name with dropdown chevron; double-click renames the
+         instance (mirrors the sidebar row) -->
+    <input
+      v-if="editingName !== null"
+      ref="renameInputRef"
+      v-model="editingName"
+      class="text-2xl font-semibold text-content bg-transparent border-b border-edge outline-none min-w-0 max-w-[420px]"
+      :placeholder="toolName"
+      spellcheck="false"
+      @keydown.enter.prevent="saveRename"
+      @keydown.escape.prevent="cancelRename"
+      @blur="saveRename"
+    />
     <button
+      v-else
       @click="toggleMenu"
+      @dblclick.stop="startRename"
       class="flex items-center gap-1 group cursor-pointer"
     >
-      <h2 class="text-2xl font-semibold text-content">{{ toolName }}</h2>
+      <h2 class="text-2xl font-semibold text-content">{{ customName || toolName }}</h2>
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 20 20"
@@ -38,10 +52,37 @@
         <div v-if="loadingTools" class="px-3 py-2 text-xs text-content-tertiary">
           Loading tools...
         </div>
-        <div v-else-if="Object.keys(groupedTools).length === 0" class="px-3 py-2 text-xs text-content-tertiary">
+        <div v-else-if="Object.keys(groupedTools).length === 0 && openInstances.length === 0" class="px-3 py-2 text-xs text-content-tertiary">
           No other compatible tools available
         </div>
         <template v-else>
+          <!-- Open instances (includes sibling instances of this same tool) -->
+          <template v-if="openInstances.length > 0">
+            <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+              Open
+            </div>
+            <button
+              v-for="row in openInstances"
+              :key="`hop-instance-${row.tab.id}`"
+              @click="hopToInstance(row)"
+              class="w-full px-3 py-2 text-left text-sm text-content hover:bg-overlay-light flex items-center gap-2"
+            >
+              <div class="w-4 h-4 flex-shrink-0" :class="isStimmaCloudTool(row.tool) ? '' : 'text-content-tertiary'">
+                <ToolIcon :tool="row.tool" size="xs" :bare="true" :ring="false" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="truncate">{{ row.tab.customName || row.tab.displayName }}</div>
+                <div v-if="row.tab.customName" class="truncate text-[10px] leading-tight text-content-muted">{{ row.tab.displayName }}</div>
+              </div>
+              <span
+                v-if="row.tab.projectName"
+                class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"
+              >{{ row.tab.projectName }}</span>
+              <span class="flex-shrink-0 rounded-full bg-blue-500/15 border border-blue-500/50 text-blue-400 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide leading-none">Open</span>
+            </button>
+            <div v-if="Object.keys(groupedTools).length > 0" class="border-t border-edge-subtle my-1"></div>
+          </template>
+
           <!-- Tools grouped by task type -->
           <template v-for="(groupTools, taskType, groupIndex) in groupedTools" :key="taskType">
             <!-- Divider between groups -->
@@ -72,8 +113,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useProvidersApi, type ProviderTool } from '../composables/useProvidersApi'
+import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
 import ToolIcon from './tools/ToolIcon.vue'
@@ -86,11 +128,17 @@ interface Props {
   sourceToolId: string
   toolName: string
   sourceTaskTypes: string[]
+  /** This instance's user-given name (window title); toolName stays the tool. */
+  customName?: string | null
+  /** This instance's tab id — excluded from the Open list. */
+  currentTabId?: string | null
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'hop', tool: ProviderTool): void
+  (e: 'hop-instance', tab: WorkspaceTab, tool: ProviderTool): void
+  (e: 'rename', name: string | null): void
 }>()
 
 const { fetchProvidersAndTools } = useProvidersApi()
@@ -177,6 +225,56 @@ async function toggleMenu() {
 function hopToTool(tool: ProviderTool) {
   showMenu.value = false
   emit('hop', tool)
+}
+
+function hopToInstance(row: { tab: WorkspaceTab; tool: ProviderTool }) {
+  showMenu.value = false
+  emit('hop-instance', row.tab, row.tool)
+}
+
+// Open tool-instance tabs compatible with this tool's task types — including
+// sibling instances of the SAME tool (groupedTools deliberately excludes the
+// tool itself, so without this section siblings would be unreachable).
+const { tabs: workspaceTabs } = useWorkspaceTabs()
+const openInstances = computed(() => {
+  const byId = new Map(tools.value.map(t => [t.full_tool_id, t]))
+  const sourceTypes = new Set(props.sourceTaskTypes)
+  return (workspaceTabs.value as WorkspaceTab[])
+    .filter(t => t.type === 'tool' && !!t.instanceId && t.id !== (props.currentTabId ?? undefined))
+    .filter(t => {
+      const tool = byId.get(t.entityId)
+      if (!tool) return false
+      if (tool.full_tool_id === props.sourceToolId) return true
+      const toolTaskTypes = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
+      return toolTaskTypes.some(tt => sourceTypes.has(tt))
+    })
+    .sort((a, b) => (b.lastActivatedAt ?? 0) - (a.lastActivatedAt ?? 0))
+    .slice(0, 5)
+    .map(tab => ({ tab, tool: byId.get(tab.entityId)! }))
+})
+
+// --- Inline rename (double-click the title, like the sidebar row) ---
+const editingName = ref<string | null>(null)
+const renameInputRef = ref<HTMLInputElement | null>(null)
+
+function startRename() {
+  showMenu.value = false
+  editingName.value = props.customName || ''
+  nextTick(() => {
+    renameInputRef.value?.focus()
+    renameInputRef.value?.select()
+  })
+}
+
+function saveRename() {
+  if (editingName.value === null) return
+  const name = editingName.value.trim()
+  editingName.value = null
+  emit('rename', name || null)
+}
+
+function cancelRename() {
+  editingName.value = null
 }
 
 // Close menu when clicking outside

@@ -102,7 +102,11 @@
               :source-tool-id="tool.full_tool_id"
               :tool-name="tool.name"
               :source-task-types="tool.task_types || []"
+              :custom-name="instanceCustomName"
+              :current-tab-id="ownTab?.id ?? null"
               @hop="handleHopToTool"
+              @hop-instance="(tab, hopTool) => handleHopToTool(hopTool, tab)"
+              @rename="renameInstance"
             />
           </div>
           <div class="flex items-center gap-2">
@@ -142,8 +146,13 @@
             />
           </div>
         </div>
-        <!-- Subtitle: Provider, task types -->
+        <!-- Subtitle: Provider, task types. Renamed instances condense the
+             tool name onto this row (mirrors the sidebar row contract). -->
         <div class="text-xs mt-1 mb-6 flex items-center gap-1.5 text-content-muted">
+          <template v-if="instanceCustomName">
+            <span>{{ tool.name }}</span>
+            <span>·</span>
+          </template>
           <span v-if="isStimmaCloudTool" class="stimma-cloud-text font-medium">Stimma Cloud</span>
           <span v-else class="text-content-muted">{{ providerDisplayName }}</span>
           <template v-if="taskTypesDisplay">
@@ -557,7 +566,7 @@
         <LoraPoolPanel
           v-if="hasLoras"
           ref="loraPoolPanelRef"
-          :tool-id="fullToolIdFromProps"
+          :tool-id="scopedToolId(fullToolIdFromProps)"
           :model-name="tool?.model || null"
           :available-loras="availableLoras"
           :is-refreshing="isRefreshingLoras"
@@ -876,6 +885,7 @@ import axios from 'axios'
 import { ArchiveBoxIcon, PhotoIcon } from '@heroicons/vue/24/outline'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useGenerationPreferences } from '../composables/useGenerationPreferences'
+import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../composables/useWorkspaceTabs'
 import { useStimpacksApi, type Skill } from '../composables/useStimpacksApi'
 import { useGenerationJobs } from '../composables/useGenerationJobs'
 import { useGenerationStatus } from '../composables/useGenerationStatus'
@@ -967,6 +977,15 @@ const projectScopeId = computed(() => {
   const parsed = parseInt(String(value), 10)
   return Number.isFinite(parsed) ? parsed : null
 })
+// Instance discriminator — injected on every tool route by the router guard.
+// Fixed for this component's lifetime (the KeepAlive key includes it, so a
+// different instance mounts a different ToolView).
+const instanceScopeId = (() => {
+  const raw = route.query.instance
+  if (raw == null) return null
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return value ? String(value) : null
+})()
 // Layout mode: 'studio' = controls primary (default), 'stage' = current image
 // primary with controls demoted to a rail. Persisted per-tool via uiState
 // (makeToolProfileKey 'ui'), like imageMode — see useGenerationPreferences.
@@ -1589,9 +1608,25 @@ const outputFolder = ref<string | null>(null)
 // (each tool gets its own KeepAlive'd component instance via unique key)
 const fullToolIdFromProps = props.fullToolId || ''
 // Create a storage-safe ID (replace colons with underscores)
-// Include project scope for project-scoped tool instances
-const projectSuffix = projectScopeId.value ? `__project_${projectScopeId.value}` : ''
-const toolIdForStorage = fullToolIdFromProps.replace(/:/g, '_') + projectSuffix
+// Include project scope for project-scoped tool instances, then the instance
+// suffix — every tool tab is an instance with fully independent state.
+const ownProjectScopeId = projectScopeId.value
+const projectSuffix = ownProjectScopeId ? `__project_${ownProjectScopeId}` : ''
+const instanceSuffix = instanceScopeId ? `__i_${instanceScopeId}` : ''
+const toolIdForStorage = fullToolIdFromProps.replace(/:/g, '_') + projectSuffix + instanceSuffix
+
+// True when the CURRENT route addresses this exact component (tool + project
+// + instance). KeepAlive keeps deactivated ToolViews' watchers live, and two
+// instances of the same tool must not both consume a query-param handoff.
+function isMyToolRoute(): boolean {
+  if (route.name !== 'tool' || route.params.fullToolId !== fullToolIdFromProps) return false
+  const rawProj = route.query.project_id
+  const routeProj = rawProj == null ? null : parseInt(String(Array.isArray(rawProj) ? rawProj[0] : rawProj), 10) || null
+  if ((ownProjectScopeId ?? null) !== routeProj) return false
+  const rawInst = route.query.instance
+  const routeInst = rawInst == null ? null : String(Array.isArray(rawInst) ? rawInst[0] : rawInst)
+  return routeInst === instanceScopeId
+}
 
 function buildToolWithState(providerTool: ProviderTool, state: Record<string, any> = {}): ToolWithState {
   const derivedGenerator = providerTool.metadata?.generator_name ||
@@ -1652,13 +1687,28 @@ if (!tabGuid) {
   localStorage.setItem(browserGuidKey, tabGuid)
 }
 
-// Generator instance ID for this tool (unique per tool AND per browser tab)
-// Use @@ as separator to avoid ambiguity with hyphens in tool IDs (e.g., nano-banana vs nano-banana-edit)
-const generatorInstanceId = `tool-${toolIdForStorage}@@${tabGuid}`
+// Generator instance ID for this tool (unique per tool instance AND browser).
+// Use @@ as separator to avoid ambiguity with hyphens in tool IDs (e.g., nano-banana vs nano-banana-edit).
+// Tabs migrated from the pre-instance format carry a legacy (unsuffixed)
+// feedScope so their job-feed history stays attached — prefer it when present.
+const _tabsForFeed = useWorkspaceTabs()
+const _feedTab = instanceScopeId ? _tabsForFeed.getToolInstanceTab(fullToolIdFromProps, projectScopeId.value, instanceScopeId) : undefined
+const generatorInstanceId = `tool-${_feedTab?.feedScope || toolIdForStorage}@@${tabGuid}`
 
-// Scoped tool ID for localStorage keys (includes project suffix for project-scoped instances)
+// This instance's workspace tab (reactive — carries customName for the
+// header title, updated by renames from here or the sidebar).
+const ownTab = computed(() => instanceScopeId
+  ? _tabsForFeed.getToolInstanceTab(fullToolIdFromProps, ownProjectScopeId, instanceScopeId)
+  : undefined)
+const instanceCustomName = computed(() => ownTab.value?.customName || null)
+
+function renameInstance(name: string | null) {
+  if (ownTab.value) _tabsForFeed.updateTabCustomName(ownTab.value.id, name)
+}
+
+// Scoped tool ID for localStorage keys (project suffix + instance suffix)
 function scopedToolId(fullToolId: string): string {
-  return projectSuffix ? fullToolId + projectSuffix : fullToolId
+  return fullToolId + projectSuffix + instanceSuffix
 }
 
 // Load saved video images for this tool (persistence for image-to-video)
@@ -1794,7 +1844,9 @@ const {
   loadUIState,
 } = useGenerationPreferences({
   taskType: 'text-to-image',  // Just for defaults structure - we manage our own state persistence
-  fullToolId: fullToolIdFromProps
+  // Instance-scoped: prompt/inputs (_global) and layout/batch (_ui) belong to
+  // this tab, not the tool. (Pre-instance these leaked across project scopes.)
+  fullToolId: scopedToolId(fullToolIdFromProps)
 })
 
 watch(
@@ -1969,7 +2021,7 @@ function handleInpaintImageUpdate(image: { path: string; filename?: string; hash
 
 // Persist mask + paint-layer data URLs to IndexedDB (too large for localStorage).
 // Keys are tool-scoped + db_guid-scoped so they don't leak across profiles/reinstalls.
-const maskStorageKey = computed(() => tool.value ? makeToolDbKey(tool.value.full_tool_id, 'mask') : null)
+const maskStorageKey = computed(() => tool.value ? makeToolDbKey(scopedToolId(tool.value.full_tool_id), 'mask') : null)
 
 // Track if we've ever had a mask in this session (to avoid clearing on initial load)
 const hadMaskInSession = ref(false)
@@ -2000,7 +2052,7 @@ watch([maskDataUrl, inpaintSourceImage], ([newMask, newImage], [oldMask]) => {
 // Load persisted mask when tool changes (only if image path matches)
 watch([() => tool.value?.full_tool_id, inpaintSourceImage], async ([newFullToolId, currentImage]) => {
   if (!newFullToolId) return
-  const key = makeToolDbKey(newFullToolId, 'mask')
+  const key = makeToolDbKey(scopedToolId(newFullToolId), 'mask')
   const stored = await getBlob<{ mask: string; imagePath: string }>(key).catch(() => null)
   // Bail if tool switched under us while the async load was in flight
   if (tool.value?.full_tool_id !== newFullToolId) return
@@ -2028,7 +2080,7 @@ let paintPersistTimeouts: Record<number, ReturnType<typeof setTimeout>> = {}
 
 function getPaintStorageKey(slotIndex: number): string | null {
   if (!tool.value) return null
-  return makeToolDbKey(tool.value.full_tool_id, 'paint', slotIndex)
+  return makeToolDbKey(scopedToolId(tool.value.full_tool_id), 'paint', slotIndex)
 }
 
 // Watch inputImages for paint layer changes and persist each slot separately
@@ -2080,7 +2132,7 @@ async function restorePaintLayers() {
   for (let i = 0; i < images.length; i++) {
     if (images[i]._paintLayerDataUrl) continue
 
-    const key = makeToolDbKey(fullToolId, 'paint', i)
+    const key = makeToolDbKey(scopedToolId(fullToolId), 'paint', i)
     const stored = await getBlob<{ paint: string; imagePath: string }>(key).catch(() => null)
     if (!stored) continue
     // Bail if tool switched under us
@@ -2371,7 +2423,7 @@ let _syncingToPool = false
 
 // When the composable pool changes, update the ref
 watch(
-  () => _loraPool.getAllItems(fullToolIdFromProps),
+  () => _loraPool.getAllItems(scopedToolId(fullToolIdFromProps)),
   (items) => {
     if (_syncingToPool) return
     _syncingFromPool = true
@@ -2386,7 +2438,7 @@ watch(toolLoras, (items) => {
   if (_syncingFromPool) return
   if (!fullToolIdFromProps) return
   _syncingToPool = true
-  _loraPool.syncItemsToPool(fullToolIdFromProps, items)
+  _loraPool.syncItemsToPool(scopedToolId(fullToolIdFromProps), items)
   nextTick(() => { _syncingToPool = false })
 }, { deep: true })
 
@@ -2700,7 +2752,7 @@ const {
   flushPendingSaves,
 } = useToolState({
   fullToolId: fullToolIdFromProps,
-  scopedToolId: projectSuffix ? fullToolIdFromProps + projectSuffix : undefined,
+  scopedToolId: (projectSuffix || instanceSuffix) ? scopedToolId(fullToolIdFromProps) : undefined,
   tool,
   globalPrefs,
   modelParams,
@@ -3413,7 +3465,7 @@ async function loadPendingGeneration() {
   if (pendingGenerationApplied.value) return
   if (!route.query.loadGeneration || !tool.value) return
 
-  const storageKey = makeToolDbKey(tool.value.full_tool_id, 'pending_generation')
+  const storageKey = makeToolDbKey(scopedToolId(tool.value.full_tool_id), 'pending_generation')
   const pendingConfig = sessionStorage.getItem(storageKey)
   if (!pendingConfig) return
 
@@ -3681,7 +3733,7 @@ async function loadRemix(mediaId: string) {
 }
 
 // Handle hopping to another tool with current state
-async function handleHopToTool(targetTool: { full_tool_id: string; name: string }) {
+async function handleHopToTool(targetTool: { full_tool_id: string; name: string }, targetTab?: { projectId?: number; instanceId?: string }) {
   if (!tool.value) return
 
   trackTelemetry('tool_hop_used', {
@@ -3719,8 +3771,15 @@ async function handleHopToTool(targetTool: { full_tool_id: string; name: string 
 
     const hopConfig = response.data
 
-    // Store config in sessionStorage for the target tool to pick up
-    const storageKey = makeToolDbKey(targetTool.full_tool_id, 'pending_generation')
+    // Store config in sessionStorage for the target tool to pick up.
+    // An explicitly picked instance tab wins; otherwise target the
+    // most-recent open instance of the target tool in THIS view's project
+    // scope (hop previously dropped project scope). Key is instance-scoped.
+    const { resolveToolInstance } = _tabsForFeed
+    const hopProjectId = targetTab ? (targetTab.projectId ?? null) : ownProjectScopeId
+    const hopInstanceId = targetTab?.instanceId
+      ?? resolveToolInstance(targetTool.full_tool_id, hopProjectId).instanceId
+    const storageKey = makeToolDbKey(toolInstanceScopedId(targetTool.full_tool_id, hopProjectId, hopInstanceId), 'pending_generation')
     const payload: Record<string, any> = {
       prompt: hopConfig.prompt,
       negative_prompt: hopConfig.negative_prompt,
@@ -3750,14 +3809,10 @@ async function handleHopToTool(targetTool: { full_tool_id: string; name: string 
 
     sessionStorage.setItem(storageKey, JSON.stringify(payload))
 
-    // Navigate to target tool
-    router.push({
-      name: 'tool',
-      params: { fullToolId: targetTool.full_tool_id },
-      query: {
-        loadGeneration: Date.now().toString(),  // Force detection for KeepAlive'd components
-      }
-    })
+    // Navigate to target tool instance
+    router.push(toolInstanceRoute(targetTool.full_tool_id, hopProjectId, hopInstanceId, {
+      loadGeneration: Date.now().toString(),  // Force detection for KeepAlive'd components
+    }))
   } catch (err) {
     console.error('Failed to hop to tool:', err)
   } finally {
@@ -5744,7 +5799,7 @@ function handleKeyDown(event: KeyboardEvent) {
 // Watch for loadInput query param (when navigating from "Send to Tool")
 // Uses timestamp value to force detection even when already on this route
 watch(() => route.query.loadInput, (newValue, oldValue) => {
-  if (newValue && tool.value && !isInitialLoading.value) {
+  if (newValue && tool.value && !isInitialLoading.value && isMyToolRoute()) {
     // Close slideshow if open so user sees the new input
     if (slideshowState.active) {
       exitSlideshow()
@@ -5756,7 +5811,7 @@ watch(() => route.query.loadInput, (newValue, oldValue) => {
 // Watch for loadGeneration query param (when navigating from "Generate more like this" or "View in Tool")
 // Uses timestamp value to force detection even when already on this route (similar to loadInput)
 watch(() => route.query.loadGeneration, (newValue) => {
-  if (newValue && tool.value) {
+  if (newValue && tool.value && isMyToolRoute()) {
     // Reset the flag so we can load the new config (important for KeepAlive'd components)
     pendingGenerationApplied.value = false
     // Close slideshow if open
@@ -5769,7 +5824,7 @@ watch(() => route.query.loadGeneration, (newValue) => {
 
 // Watch for preset_id query param (global search preset results, KeepAlive'd instances)
 watch(() => route.query.preset_id, (newValue) => {
-  if (newValue && tool.value) {
+  if (newValue && tool.value && isMyToolRoute()) {
     loadPresetFromQuery()
   }
 }, { immediate: false })
@@ -5778,9 +5833,10 @@ watch(() => route.query.preset_id, (newValue) => {
 watch(
   () => route.query.remixFrom || route.query.inspireFrom || route.query.loadFromMedia,
   (mediaId) => {
-    // IMPORTANT: Only load if this watcher is for the CURRENT route's tool
-    // During navigation, watchers on the OLD page can fire before deactivation
-    if (mediaId && tool.value && route.params.fullToolId === tool.value.full_tool_id) {
+    // IMPORTANT: Only load if this watcher is for the CURRENT route's exact
+    // instance — during navigation, watchers on the OLD page can fire before
+    // deactivation, and sibling instances of the same tool stay live.
+    if (mediaId && tool.value && isMyToolRoute()) {
       if (slideshowState.active) {
         exitSlideshow()
       }

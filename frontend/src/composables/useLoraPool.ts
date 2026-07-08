@@ -48,14 +48,74 @@ function generateGroupId(): string {
   return `g_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+// ── Instance-scoped selection overlays ──────────────────────
+//
+// The pool (membership + groups + order + default weights) is the user's
+// workspace: ONE per tool, shared across projects, presets, and tool
+// instances. Which LoRAs are *selected* (enabled) and at what weight is
+// per-instance state.
+//
+// Callers pass either a bare tool id (legacy behavior: selection lives in the
+// pool items) or an instance-scoped id like
+// `{fullToolId}__project_{N}__i_{K}` (ToolView's scopedToolId). For scoped
+// ids, structure comes from the base tool's pool and enabled/weight from a
+// per-instance overlay persisted at lorapool_{scopedId}. A missing overlay
+// entry reads as disabled at the pool's default weight.
+
+interface LoraSelection { enabled: boolean; weight: number }
+type SelectionOverlay = Record<string, LoraSelection>
+
+function baseToolId(toolId: string): string {
+  return toolId.split('__project_')[0].split('__i_')[0]
+}
+
+function isInstanceScoped(toolId: string | null | undefined): boolean {
+  return !!toolId && toolId.includes('__i_')
+}
+
 // Singleton state - shared across all component instances
 const pools = ref<Record<string, LoraPool>>({})
 const loadedToolIds = ref<Set<string>>(new Set())
+const overlays = ref<Record<string, SelectionOverlay>>({})
+const loadedOverlayIds = ref<Set<string>>(new Set())
 // Version counter to force reactive updates when pools are mutated
 const poolVersion = ref(0)
 
 function bumpVersion() {
   poolVersion.value++
+}
+
+function ensureOverlay(scopedId: string): SelectionOverlay {
+  void poolVersion.value
+  if (!loadedOverlayIds.value.has(scopedId)) {
+    try {
+      const saved = localStorage.getItem(getPoolKey(scopedId))
+      const parsed = saved ? JSON.parse(saved) : null
+      overlays.value[scopedId] = (parsed && typeof parsed === 'object' && parsed.selections && typeof parsed.selections === 'object')
+        ? parsed.selections
+        : {}
+    } catch {
+      overlays.value[scopedId] = {}
+    }
+    loadedOverlayIds.value.add(scopedId)
+  }
+  return overlays.value[scopedId] || {}
+}
+
+function saveOverlay(scopedId: string): void {
+  try {
+    localStorage.setItem(getPoolKey(scopedId), JSON.stringify({ selections: overlays.value[scopedId] || {} }))
+  } catch (err) {
+    console.error(`Failed to save LoRA selection overlay for ${scopedId}:`, err)
+  }
+}
+
+// Apply an instance's selection overlay to a pool item.
+function overlayItem(item: LoraPoolItem, overlay: SelectionOverlay): LoraPoolItem {
+  const sel = overlay[item.lora]
+  return sel
+    ? { ...item, enabled: sel.enabled, weight: sel.weight }
+    : { ...item, enabled: false }
 }
 
 /**
@@ -154,10 +214,17 @@ function ensureLoaded(toolId: string | null | undefined): LoraPool {
 }
 
 /**
- * Get the pool for a given model family.
+ * Get the pool for a given tool (or tool instance). Instance-scoped ids get
+ * the base tool's structure with the instance's selection overlay applied.
  */
 function getPool(toolId: string | null | undefined): LoraPool {
-  return ensureLoaded(toolId)
+  if (!toolId || !isInstanceScoped(toolId)) return ensureLoaded(toolId)
+  const base = ensureLoaded(baseToolId(toolId))
+  const overlay = ensureOverlay(toolId)
+  return {
+    groups: base.groups.map(g => ({ ...g, items: g.items.map(i => overlayItem(i, overlay)) })),
+    ungrouped: base.ungrouped.map(i => overlayItem(i, overlay))
+  }
 }
 
 /**
@@ -165,7 +232,7 @@ function getPool(toolId: string | null | undefined): LoraPool {
  * Preserves order: groups first (in order), then ungrouped.
  */
 function getAllItems(toolId: string | null | undefined): LoraPoolItem[] {
-  const pool = ensureLoaded(toolId)
+  const pool = getPool(toolId)
   const items: LoraPoolItem[] = []
   for (const group of pool.groups) {
     items.push(...group.items)
@@ -225,21 +292,29 @@ function getContainerItems(pool: LoraPool, groupId: string | null): LoraPoolItem
 function addToPool(toolId: string, lora: LoraOption, weight = 1.0, enabled = true): void {
   if (!toolId || !lora.path) return
 
-  const pool = ensureLoaded(toolId)
-  // Don't add if already in pool
-  if (findLora(pool, lora.path)) return
-
-  pool.ungrouped.push({
-    lora: lora.path,
-    weight,
-    enabled,
-    // Preserve the human-friendly name (LoraOption.name) on the pool item
-    // so the UI can show e.g. "klein_snofs_v1_4.safetensors" instead of
-    // the opaque cloud id we use as the key.
-    ...(lora.name ? { name: lora.name } : {}),
-  })
-  pools.value[toolId] = { ...pool }
-  savePool(toolId)
+  const base = baseToolId(toolId)
+  const pool = ensureLoaded(base)
+  // Membership is shared; selection for the adding instance is set below even
+  // when the LoRA is already a pool member.
+  if (!findLora(pool, lora.path)) {
+    pool.ungrouped.push({
+      lora: lora.path,
+      weight,
+      enabled,
+      // Preserve the human-friendly name (LoraOption.name) on the pool item
+      // so the UI can show e.g. "klein_snofs_v1_4.safetensors" instead of
+      // the opaque cloud id we use as the key.
+      ...(lora.name ? { name: lora.name } : {}),
+    })
+    pools.value[base] = { ...pool }
+    savePool(base)
+  }
+  if (isInstanceScoped(toolId)) {
+    const overlay = ensureOverlay(toolId)
+    overlay[lora.path] = { enabled, weight }
+    overlays.value[toolId] = { ...overlay }
+    saveOverlay(toolId)
+  }
   bumpVersion()
 }
 
@@ -249,23 +324,36 @@ function addToPool(toolId: string, lora: LoraOption, weight = 1.0, enabled = tru
 function removeFromPool(toolId: string, loraPath: string): void {
   if (!toolId || !loraPath) return
 
-  const pool = ensureLoaded(toolId)
+  const base = baseToolId(toolId)
+  const pool = ensureLoaded(base)
   const location = findLora(pool, loraPath)
   if (!location) return
 
   const items = getContainerItems(pool, location.groupId)
   items.splice(location.index, 1)
 
-  pools.value[toolId] = { ...pool }
-  savePool(toolId)
+  pools.value[base] = { ...pool }
+  savePool(base)
   bumpVersion()
 }
 
 /**
- * Toggle the enabled state of a LoRA.
+ * Toggle the enabled state of a LoRA. Selection is per-instance for scoped
+ * ids; the shared pool item is untouched.
  */
 function toggleEnabled(toolId: string, loraPath: string): void {
   if (!toolId || !loraPath) return
+
+  if (isInstanceScoped(toolId)) {
+    const merged = getAllItems(toolId).find(i => i.lora === loraPath)
+    if (!merged) return
+    const overlay = ensureOverlay(toolId)
+    overlay[loraPath] = { enabled: !merged.enabled, weight: merged.weight }
+    overlays.value[toolId] = { ...overlay }
+    saveOverlay(toolId)
+    bumpVersion()
+    return
+  }
 
   const pool = ensureLoaded(toolId)
   const location = findLora(pool, loraPath)
@@ -280,23 +368,33 @@ function toggleEnabled(toolId: string, loraPath: string): void {
 }
 
 /**
- * Update the weight of a LoRA.
+ * Update the weight of a LoRA. Per-instance for scoped ids; the shared pool
+ * item's weight is also updated as the default other instances start from.
  */
 function updateWeight(toolId: string, loraPath: string, weight: number): void {
   if (!toolId || !loraPath) return
 
-  const pool = ensureLoaded(toolId)
+  const clampedWeight = Math.max(0, Math.min(10, weight))
+  const roundedWeight = Math.round(clampedWeight * 100) / 100
+
+  const base = baseToolId(toolId)
+  const pool = ensureLoaded(base)
   const location = findLora(pool, loraPath)
   if (!location) return
 
-  const clampedWeight = Math.max(0, Math.min(10, weight))
-  const roundedWeight = Math.round(clampedWeight * 100) / 100
+  if (isInstanceScoped(toolId)) {
+    const merged = getAllItems(toolId).find(i => i.lora === loraPath)
+    const overlay = ensureOverlay(toolId)
+    overlay[loraPath] = { enabled: merged?.enabled ?? false, weight: roundedWeight }
+    overlays.value[toolId] = { ...overlay }
+    saveOverlay(toolId)
+  }
 
   const items = getContainerItems(pool, location.groupId)
   items[location.index] = { ...items[location.index], weight: roundedWeight }
 
-  pools.value[toolId] = { ...pool }
-  savePool(toolId)
+  pools.value[base] = { ...pool }
+  savePool(base)
   bumpVersion()
 }
 
@@ -306,15 +404,16 @@ function updateWeight(toolId: string, loraPath: string, weight: number): void {
 function reorderInContainer(toolId: string, groupId: string | null, fromIndex: number, toIndex: number): void {
   if (!toolId) return
 
-  const pool = ensureLoaded(toolId)
+  const base = baseToolId(toolId)
+  const pool = ensureLoaded(base)
   const items = getContainerItems(pool, groupId)
   if (fromIndex < 0 || fromIndex >= items.length || toIndex < 0 || toIndex >= items.length) return
 
   const [item] = items.splice(fromIndex, 1)
   items.splice(toIndex, 0, item)
 
-  pools.value[toolId] = { ...pool }
-  savePool(toolId)
+  pools.value[base] = { ...pool }
+  savePool(base)
   bumpVersion()
 }
 
@@ -329,7 +428,8 @@ function moveToContainer(
 ): void {
   if (!toolId || !loraPath) return
 
-  const pool = ensureLoaded(toolId)
+  const base = baseToolId(toolId)
+  const pool = ensureLoaded(base)
   const location = findLora(pool, loraPath)
   if (!location) return
 
@@ -345,8 +445,8 @@ function moveToContainer(
     targetItems.push(item)
   }
 
-  pools.value[toolId] = { ...pool }
-  savePool(toolId)
+  pools.value[base] = { ...pool }
+  savePool(base)
   bumpVersion()
 }
 
@@ -358,12 +458,13 @@ function moveToContainer(
 function createGroup(toolId: string, label = ''): string {
   if (!toolId) return ''
 
-  const pool = ensureLoaded(toolId)
+  const base = baseToolId(toolId)
+  const pool = ensureLoaded(base)
   const id = generateGroupId()
   pool.groups.push({ id, label, items: [] })
 
-  pools.value[toolId] = { ...pool }
-  savePool(toolId)
+  pools.value[base] = { ...pool }
+  savePool(base)
   return id
 }
 
@@ -373,13 +474,14 @@ function createGroup(toolId: string, label = ''): string {
 function renameGroup(toolId: string, groupId: string, label: string): void {
   if (!toolId || !groupId) return
 
-  const pool = ensureLoaded(toolId)
+  const base = baseToolId(toolId)
+  const pool = ensureLoaded(base)
   const group = pool.groups.find(g => g.id === groupId)
   if (!group) return
 
   group.label = label
-  pools.value[toolId] = { ...pool }
-  savePool(toolId)
+  pools.value[base] = { ...pool }
+  savePool(base)
   bumpVersion()
 }
 
@@ -389,7 +491,8 @@ function renameGroup(toolId: string, groupId: string, label: string): void {
 function explodeGroup(toolId: string, groupId: string): void {
   if (!toolId || !groupId) return
 
-  const pool = ensureLoaded(toolId)
+  const base = baseToolId(toolId)
+  const pool = ensureLoaded(base)
   const groupIndex = pool.groups.findIndex(g => g.id === groupId)
   if (groupIndex === -1) return
 
@@ -397,8 +500,8 @@ function explodeGroup(toolId: string, groupId: string): void {
   pool.ungrouped.push(...group.items)
   pool.groups.splice(groupIndex, 1)
 
-  pools.value[toolId] = { ...pool }
-  savePool(toolId)
+  pools.value[base] = { ...pool }
+  savePool(base)
   bumpVersion()
 }
 
@@ -415,14 +518,15 @@ function removeGroup(toolId: string, groupId: string): void {
 function reorderGroups(toolId: string, fromIndex: number, toIndex: number): void {
   if (!toolId) return
 
-  const pool = ensureLoaded(toolId)
+  const base = baseToolId(toolId)
+  const pool = ensureLoaded(base)
   if (fromIndex < 0 || fromIndex >= pool.groups.length || toIndex < 0 || toIndex >= pool.groups.length) return
 
   const [group] = pool.groups.splice(fromIndex, 1)
   pool.groups.splice(toIndex, 0, group)
 
-  pools.value[toolId] = { ...pool }
-  savePool(toolId)
+  pools.value[base] = { ...pool }
+  savePool(base)
   bumpVersion()
 }
 
@@ -433,6 +537,18 @@ function reorderGroups(toolId: string, fromIndex: number, toIndex: number): void
  */
 function soloEnable(toolId: string, loraPath: string): void {
   if (!toolId || !loraPath) return
+
+  if (isInstanceScoped(toolId)) {
+    const merged = getAllItems(toolId)
+    const overlay = ensureOverlay(toolId)
+    for (const item of merged) {
+      overlay[item.lora] = { enabled: item.lora === loraPath, weight: item.weight }
+    }
+    overlays.value[toolId] = { ...overlay }
+    saveOverlay(toolId)
+    bumpVersion()
+    return
+  }
 
   const pool = ensureLoaded(toolId)
 
@@ -465,27 +581,11 @@ function mergeIntoPool(
 ): void {
   if (!toolId) return
 
-  const pool = ensureLoaded(toolId)
+  const base = baseToolId(toolId)
+  const pool = ensureLoaded(base)
   const incomingPaths = new Set((incomingLoras || []).map(l => l.lora).filter(Boolean))
 
-  // Helper to update items in a container
-  function updateItems(items: LoraPoolItem[]): LoraPoolItem[] {
-    return items.map(item => {
-      if (incomingPaths.has(item.lora)) {
-        const incoming = incomingLoras.find(l => l.lora === item.lora)!
-        return { ...item, weight: incoming.weight, enabled: true }
-      }
-      return { ...item, enabled: false }
-    })
-  }
-
-  // Update all groups
-  for (const group of pool.groups) {
-    group.items = updateItems(group.items)
-  }
-  pool.ungrouped = updateItems(pool.ungrouped)
-
-  // Add new LoRAs that aren't in any container
+  // Add new LoRAs that aren't in any container (membership never prunes)
   for (const incoming of (incomingLoras || [])) {
     if (!incoming.lora) continue
     if (!findLora(pool, incoming.lora)) {
@@ -497,8 +597,38 @@ function mergeIntoPool(
     }
   }
 
-  pools.value[toolId] = { ...pool }
-  savePool(toolId)
+  if (isInstanceScoped(toolId)) {
+    // Selection lands on the instance: incoming enabled at their weights,
+    // everything else deselected. The shared pool structure is untouched.
+    const overlay = ensureOverlay(toolId)
+    for (const key of Object.keys(overlay)) {
+      overlay[key] = { ...overlay[key], enabled: false }
+    }
+    for (const incoming of (incomingLoras || [])) {
+      if (!incoming.lora) continue
+      overlay[incoming.lora] = { enabled: true, weight: incoming.weight }
+    }
+    overlays.value[toolId] = { ...overlay }
+    saveOverlay(toolId)
+  } else {
+    // Legacy (non-instance) callers: selection lives in the pool items.
+    function updateItems(items: LoraPoolItem[]): LoraPoolItem[] {
+      return items.map(item => {
+        if (incomingPaths.has(item.lora)) {
+          const incoming = incomingLoras.find(l => l.lora === item.lora)!
+          return { ...item, weight: incoming.weight, enabled: true }
+        }
+        return { ...item, enabled: false }
+      })
+    }
+    for (const group of pool.groups) {
+      group.items = updateItems(group.items)
+    }
+    pool.ungrouped = updateItems(pool.ungrouped)
+  }
+
+  pools.value[base] = { ...pool }
+  savePool(base)
   bumpVersion()
 }
 
@@ -520,17 +650,59 @@ function getEnabledLoras(toolId: string | null | undefined): Array<{ lora: strin
 /**
  * Remove all disabled (unselected) items from the pool.
  */
+/**
+ * LoRAs enabled by OTHER instances of the same tool (loaded overlays plus
+ * persisted ones scanned from localStorage). Used so bulk structural
+ * removals never destroy a sibling tab's active selection.
+ */
+function siblingEnabledPaths(base: string, exceptScopedId: string): Set<string> {
+  const enabled = new Set<string>()
+  const readSelections = (selections: SelectionOverlay | null | undefined) => {
+    for (const [lora, sel] of Object.entries(selections || {})) {
+      if (sel?.enabled) enabled.add(lora)
+    }
+  }
+  for (const [sid, overlay] of Object.entries(overlays.value)) {
+    if (sid !== exceptScopedId && baseToolId(sid) === base) readSelections(overlay)
+  }
+  // Persisted overlays not currently loaded
+  const basePoolKey = getPoolKey(base)
+  const exceptKey = getPoolKey(exceptScopedId)
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key || key === exceptKey || !key.startsWith(`${basePoolKey}__`) || !key.includes('__i_')) continue
+      const sid = base + key.slice(basePoolKey.length)
+      if (loadedOverlayIds.value.has(sid)) continue // already counted above
+      try {
+        const parsed = JSON.parse(localStorage.getItem(key) || 'null')
+        readSelections(parsed?.selections)
+      } catch { /* ignore malformed */ }
+    }
+  } catch { /* ignore */ }
+  return enabled
+}
+
 function removeDisabled(toolId: string): void {
   if (!toolId) return
-  const pool = ensureLoaded(toolId)
+  const base = baseToolId(toolId)
+  const pool = ensureLoaded(base)
 
-  pool.ungrouped = pool.ungrouped.filter(i => i.enabled)
+  // "Disabled" is judged from the caller's view (instance selection for
+  // scoped ids); removal is structural, i.e. shared — so spare anything a
+  // sibling instance currently has enabled.
+  const enabledPaths = new Set(getAllItems(toolId).filter(i => i.enabled).map(i => i.lora))
+  if (isInstanceScoped(toolId)) {
+    for (const lora of siblingEnabledPaths(base, toolId)) enabledPaths.add(lora)
+  }
+
+  pool.ungrouped = pool.ungrouped.filter(i => enabledPaths.has(i.lora))
   pool.groups = pool.groups
-    .map(g => ({ ...g, items: g.items.filter(i => i.enabled) }))
+    .map(g => ({ ...g, items: g.items.filter(i => enabledPaths.has(i.lora)) }))
     .filter(g => g.items.length > 0)
 
-  pools.value[toolId] = { ...pool }
-  savePool(toolId)
+  pools.value[base] = { ...pool }
+  savePool(base)
   bumpVersion()
 }
 
@@ -540,8 +712,13 @@ function removeDisabled(toolId: string): void {
 function clearPool(toolId: string): void {
   if (!toolId) return
 
-  pools.value[toolId] = { groups: [], ungrouped: [] }
-  savePool(toolId)
+  const base = baseToolId(toolId)
+  pools.value[base] = { groups: [], ungrouped: [] }
+  savePool(base)
+  if (isInstanceScoped(toolId)) {
+    overlays.value[toolId] = {}
+    saveOverlay(toolId)
+  }
   bumpVersion()
 }
 
@@ -551,6 +728,8 @@ function clearPool(toolId: string): void {
 function handleProfileChanged(): void {
   loadedToolIds.value.clear()
   pools.value = {}
+  loadedOverlayIds.value.clear()
+  overlays.value = {}
 }
 
 // Listen for profile and account changes
@@ -559,12 +738,40 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Sync a flat items array into the pool, preserving group structure.
- * Updates existing items in-place (weight, enabled), adds new ones to ungrouped,
- * removes items not in the incoming array.
+ * Sync a flat items array into the pool.
+ *
+ * Instance-scoped ids (the normal ToolView path — preset apply, saved-state
+ * restore, agent edits): membership MERGES into the shared pool and never
+ * prunes it; the items' enabled/weight become exactly this instance's
+ * selection (pool members absent from `items` read as deselected).
+ *
+ * Legacy (non-instance) ids keep the historical replace semantics: update
+ * in place, add missing, remove items not in the incoming array.
  */
 function syncItemsToPool(toolId: string, items: LoraPoolItem[]): void {
   if (!toolId) return
+
+  if (isInstanceScoped(toolId)) {
+    const base = baseToolId(toolId)
+    const pool = ensureLoaded(base)
+    let poolChanged = false
+    for (const item of items) {
+      if (item.lora && !findLora(pool, item.lora)) {
+        pool.ungrouped.push({ ...item })
+        poolChanged = true
+      }
+    }
+    if (poolChanged) {
+      pools.value[base] = { ...pool }
+      savePool(base)
+    }
+    overlays.value[toolId] = Object.fromEntries(
+      items.filter(i => i.lora).map(i => [i.lora, { enabled: i.enabled, weight: i.weight }])
+    )
+    saveOverlay(toolId)
+    bumpVersion()
+    return
+  }
 
   const pool = ensureLoaded(toolId)
   const incomingMap = new Map(items.map(i => [i.lora, i]))

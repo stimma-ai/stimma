@@ -528,7 +528,9 @@
               :media-type="currentMediaType"
               :loading="loadingTools"
               gradient-id="stimma-gradient-context"
+              show-open-instances
               @select="handleToolSelect"
+              @select-instance="handleToolInstanceSelect"
             />
           </div>
         </div>
@@ -712,7 +714,7 @@ import { sanitizeSvg } from '../../utils/sanitizeHtml'
 import { isToolCompatibleWithMediaType } from '../../utils/taskTypeIcons'
 import { isImage as isImageType, getMediaType, MediaType } from '../../utils/mediaTypes'
 import axios from 'axios'
-import { useWorkspaceTabs } from '../../composables/useWorkspaceTabs'
+import { useWorkspaceTabs, toolInstanceRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
 import { usePrint } from '../../composables/usePrint'
 import { useTelemetry } from '../../composables/useTelemetry'
 
@@ -1495,15 +1497,20 @@ function sendToGenerateTool(tool: GenerateMoreTool) {
   trackTelemetry('remix_used')
   addRecentGenerateToolId(tool.full_tool_id)
 
-  // Navigate immediately - ToolView will fetch config and show loading state
-  router.push({
-    name: 'tool',
-    params: { fullToolId: tool.full_tool_id },
-    query: {
-      remixFrom: mediaId.toString(),
-      _ts: Date.now().toString()
-    }
-  })
+  // Navigate immediately - ToolView will fetch config and show loading state.
+  // Target the most-recent open instance of the tool in the current project
+  // context (mirrors useSendToTool's effectiveProjectId inference — remix
+  // previously dropped project scope entirely).
+  const route = router.currentRoute.value
+  const projectId = route.params.id && String(route.name || '').startsWith('project-')
+    ? Number(route.params.id)
+    : null
+  const { resolveToolInstance } = useWorkspaceTabs()
+  const { instanceId } = resolveToolInstance(tool.full_tool_id, projectId)
+  router.push(toolInstanceRoute(tool.full_tool_id, projectId, instanceId, {
+    remixFrom: mediaId.toString(),
+    _ts: Date.now().toString()
+  }))
 }
 
 function handleToolSelect(tool: ProviderTool, targetTaskType: string) {
@@ -1518,6 +1525,18 @@ function handleToolSelect(tool: ProviderTool, targetTaskType: string) {
   // Use the shared composable - supports both single and multiple items
   // Pass the target task type so tools with multiple task types use the correct input handling
   sendToToolComposable(items, tool, targetTaskType)
+}
+
+function handleToolInstanceSelect(tab: WorkspaceTab, tool: ProviderTool, targetTaskType: string) {
+  contextMenu.hide()
+  activeSubmenu.value = null
+
+  const items = selectedItems.value.length > 0 ? selectedItems.value : (mediaItem.value ? [mediaItem.value] : [])
+  if (items.length === 0) return
+
+  trackTelemetry('send_to_tool_used')
+  // Instance rows target that exact tab (its project scope rides along).
+  sendToToolComposable(items, tool, targetTaskType, tab.projectId ?? null, tab.instanceId ?? null)
 }
 
 async function sendToNewChat() {

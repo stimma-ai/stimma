@@ -221,7 +221,10 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     if (!tool.value) return null
     if (!getCurrentProfileId()) return null  // profile not yet set
     let saved = localStorage.getItem(getToolStateKey())
-    if (!saved) {
+    // Legacy-key rescue predates scoped ids. Never apply it to instance-scoped
+    // state: a fresh instance must start from tool defaults, not resurrect
+    // pre-instance leftovers (the tab migration already moved live state).
+    if (!saved && !storageToolId.includes('__i_')) {
       const legacyKey = findLegacyToolKey(fullToolId, 'state')
       if (legacyKey) {
         saved = localStorage.getItem(legacyKey)

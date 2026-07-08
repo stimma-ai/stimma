@@ -385,11 +385,17 @@
 
                   <!-- Tool with title/subtitle -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
-                    <div class="flex-1 min-w-0 flex flex-col">
+                    <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="startInlineRename(tab)">
                       <span class="truncate text-[13px] text-content">
-                        {{ tab.displayName }}
+                        {{ getToolTabTitle(tab) }}
+                      </span>
+                      <!-- Renamed instance: tool name condenses onto the subtitle
+                           line, provider (and its cloud gradient) preserved -->
+                      <span v-if="tab.customName" class="truncate text-[11px] text-content-muted">
+                        {{ tab.displayName }} · <span :class="getToolSubtitleClass(tab.entityId)">{{ getToolSubtitle(tab.entityId) }}</span>
                       </span>
                       <span
+                        v-else
                         class="truncate text-[11px]"
                         :class="getToolSubtitleClass(tab.entityId)"
                       >
@@ -677,11 +683,17 @@
 
                   <!-- Tool with title/subtitle -->
                   <div v-if="tab.type === 'tool'" class="flex-1 min-w-0 flex items-center gap-1.5">
-                    <div class="flex-1 min-w-0 flex flex-col">
+                    <div class="flex-1 min-w-0 flex flex-col" @dblclick.stop="startInlineRename(tab)">
                       <span class="truncate text-[13px] text-content">
-                        {{ tab.displayName }}
+                        {{ getToolTabTitle(tab) }}
+                      </span>
+                      <!-- Renamed instance: tool name condenses onto the subtitle
+                           line, provider (and its cloud gradient) preserved -->
+                      <span v-if="tab.customName" class="truncate text-[11px] text-content-muted">
+                        {{ tab.displayName }} · <span :class="getToolSubtitleClass(tab.entityId)">{{ getToolSubtitle(tab.entityId) }}</span>
                       </span>
                       <span
+                        v-else
                         class="truncate text-[11px]"
                         :class="getToolSubtitleClass(tab.entityId)"
                       >
@@ -852,7 +864,7 @@
     </Transition>
 
     <!-- Workspace Tabs Context Menu -->
-    <WorkspaceTabsContextMenu @rename="handleRenameFromContextMenu" @refresh="loadPinnedTools" />
+    <WorkspaceTabsContextMenu @rename="handleRenameFromContextMenu" @rename-tab="handleRenameTabFromContextMenu" @refresh="loadPinnedTools" />
   </div>
 </template>
 
@@ -871,7 +883,7 @@ import { useAgentActivity } from '../composables/useAgentActivity'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { useSendToTool } from '../composables/useSendToTool'
-import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspaceTabs'
+import { useWorkspaceTabs, toolTabRoute, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 import { removeRecentEntity } from '../composables/useRecentEntities'
 import { useProjectRoute } from '../composables/useProjectRoute'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
@@ -915,7 +927,7 @@ const activeTab = computed(() => {
 const { on, connected: wsConnected } = useWebSocket()
 
 // Generation status
-const { isToolActive: isToolGenerating } = useGenerationStatus()
+const { isToolActive: isToolGenerating, isFeedScopeActive } = useGenerationStatus()
 
 // Finished-while-away dots (blue = done, red = failed)
 const { unseenKindFor } = useUnseenActivity()
@@ -930,7 +942,8 @@ const { sendToTool } = useSendToTool()
 const {
   pinnedTabs, openTabs, allTabs, addTab, addEditorTab, updateEditorMedia, nextEditorId,
   findNextTab, removeTab, updateTabName, removeTabByEntity,
-  reconcileToolPins, moveTab, setLastLibraryRoute, getLastLibraryRoute
+  reconcileToolPins, moveTab, setLastLibraryRoute, getLastLibraryRoute,
+  markTabActivated, updateTabCustomName
 } = useWorkspaceTabs()
 
 // Per-project last-visited sub-route memory
@@ -1078,6 +1091,20 @@ function getToolProvider(fullToolId: string): string {
 // Subtitle under a tool tab. When the tool is reachable we show its provider
 // (e.g. "ComfyUI"); when it isn't we keep the provider identity AND explain
 // *why* it's greyed out, e.g. "ComfyUI · disconnected".
+// Title for a tool instance row: custom name wins; unnamed duplicates of the
+// same (tool, project) get a positional "(2)" so identical rows stay tellable.
+function getToolTabTitle(tab: WorkspaceTab): string {
+  if (tab.customName) return tab.customName
+  const unnamedSiblings = allTabs.value.filter(t =>
+    t.type === 'tool' && !t.customName &&
+    t.entityId === tab.entityId &&
+    (t.projectId ?? null) === (tab.projectId ?? null)
+  )
+  if (unnamedSiblings.length <= 1) return tab.displayName
+  const idx = unnamedSiblings.findIndex(t => t.id === tab.id)
+  return idx > 0 ? `${tab.displayName} (${idx + 1})` : tab.displayName
+}
+
 function getToolSubtitle(fullToolId: string): string {
   const availability = getToolAvailability(fullToolId)
   const provider = getToolProvider(fullToolId)
@@ -1311,7 +1338,8 @@ function isTabActive(tab: WorkspaceTab): boolean {
   if (tab.type === 'tool') {
     if (route.name !== 'tool' || route.params.fullToolId !== tab.entityId) return false
     const routeProjectId = route.query.project_id ? Number(route.query.project_id) : null
-    return (tab.projectId || null) === routeProjectId
+    if ((tab.projectId || null) !== routeProjectId) return false
+    return (tab.instanceId || null) === (route.query.instance ? String(route.query.instance) : null)
   }
   if (tab.type === 'chat') return route.name === 'chat' && String(route.params.id) === tab.entityId
   if (tab.type === 'board') return route.name === 'board-detail' && String(route.params.id) === tab.entityId
@@ -1323,15 +1351,16 @@ function isTabActive(tab: WorkspaceTab): boolean {
 }
 
 function isTabGenerating(tab: WorkspaceTab): boolean {
-  if (tab.type === 'tool') return isToolGenerating(tab.entityId, tab.projectId ?? null)
+  if (tab.type === 'tool') {
+    return tab.feedScope ? isFeedScopeActive(tab.feedScope) : isToolGenerating(tab.entityId, tab.projectId ?? null)
+  }
   if (tab.type === 'chat') return isChatGenerating(tab.entityId)
   return false
 }
 
 function navigateToTab(tab: WorkspaceTab) {
   if (tab.type === 'tool') {
-    const query = tab.projectId ? { project_id: String(tab.projectId) } : undefined
-    router.push({ name: 'tool', params: { fullToolId: tab.entityId }, query })
+    router.push(toolTabRoute(tab))
   }
   else if (tab.type === 'chat') router.push({ name: 'chat', params: { id: tab.entityId } })
   else if (tab.type === 'board') router.push({ name: 'board-detail', params: { id: tab.entityId } })
@@ -1364,12 +1393,15 @@ function closeTab(tabId: string) {
 }
 
 function showTabContextMenu(tab: WorkspaceTab, event: MouseEvent) {
-  // Resolve project_id from metadata for boards/chats
+  // Resolve project_id from metadata for boards/chats; tool instances carry
+  // their own scope (used by "New Tab" to open a sibling in the same project)
   let projectId: number | null = null
   if (tab.type === 'board') {
     projectId = boardMetadata.value.get(tab.entityId)?.project_id ?? null
   } else if (tab.type === 'chat') {
     projectId = chatMetadata.value.get(tab.entityId)?.project_id ?? null
+  } else if (tab.type === 'tool') {
+    projectId = tab.projectId ?? null
   }
   tabsContextMenu.show({
     event,
@@ -1451,13 +1483,14 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
     const tool = allToolsMap.value.get(tab.entityId)
     if (!tool) return
 
-    emit('media-dropped-on-tool', { fullToolId: tab.entityId, mediaId })
+    emit('media-dropped-on-tool', { fullToolId: tab.entityId, mediaId, instanceId: tab.instanceId })
     try {
       const toolTaskTypes = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
       const eligibleTaskTypes = getEligibleTaskTypesForMediaType(draggedMediaType.value)
       const targetTaskType = toolTaskTypes.find((tt: string) => eligibleTaskTypes.includes(tt)) || tool.task_type
       // Pass all dropped ids (multi-select drag) so they batch instead of only the first.
-      await sendToTool(mediaIds.length > 1 ? mediaIds : mediaId, { full_tool_id: tool.full_tool_id, task_type: tool.task_type, parameter_schema: tool.parameter_schema }, targetTaskType, tab.projectId ?? null)
+      // Target THIS row's instance, not just the tool+project.
+      await sendToTool(mediaIds.length > 1 ? mediaIds : mediaId, { full_tool_id: tool.full_tool_id, task_type: tool.task_type, parameter_schema: tool.parameter_schema }, targetTaskType, tab.projectId ?? null, tab.instanceId ?? null)
       if (props.isMobile) emit('close')
     } catch (error) {
       console.error('Failed to send media to tool:', error)
@@ -1774,10 +1807,17 @@ function handleRenameFromContextMenu(tabType: 'board' | 'chat' | 'flow' | 'proje
   })
 }
 
+function handleRenameTabFromContextMenu(tabId: string) {
+  const tab = allTabs.value.find(t => t.id === tabId)
+  if (tab) startInlineRename(tab)
+}
+
 function startInlineRename(tab: WorkspaceTab) {
-  if (tab.type !== 'chat' && tab.type !== 'board' && tab.type !== 'flow') return
+  if (tab.type !== 'chat' && tab.type !== 'board' && tab.type !== 'flow' && tab.type !== 'tool') return
   editingItem.value = { tabId: tab.id, tabType: tab.type, entityId: tab.entityId }
-  editingName.value = tab.displayName || ''
+  // Tool instances: edit the custom name (window title), starting empty when
+  // the tab still shows the plain tool name.
+  editingName.value = tab.type === 'tool' ? (tab.customName || '') : (tab.displayName || '')
   nextTick(() => {
     const input = document.querySelector('input[autofocus]') as HTMLInputElement | null
     if (input) {
@@ -1791,6 +1831,15 @@ async function saveRename() {
   if (!editingItem.value) return
   const { tabType, entityId, tabId } = editingItem.value
   const newName = editingName.value.trim()
+
+  // Tool instances rename locally (window title); clearing the name reverts
+  // to the tool name. No backend entity to PATCH.
+  if (tabType === 'tool') {
+    updateTabCustomName(tabId, newName || null)
+    editingItem.value = null
+    editingName.value = ''
+    return
+  }
 
   if (!newName) {
     cancelRename()
@@ -2071,7 +2120,9 @@ on('agent_stopped', (data) => {
 // ==================== Route watcher: auto-create tabs ====================
 
 watch(
-  () => ({ name: route.name, params: { ...route.params } }),
+  // Include project_id + instance in the source: switching between two
+  // instances of the same tool is a query-only change (name/params identical).
+  () => ({ name: route.name, params: { ...route.params }, projectQ: route.query.project_id, instanceQ: route.query.instance }),
   (current) => {
     const name = current.name as string
     const params = current.params
@@ -2088,18 +2139,22 @@ watch(
       const toolDisplayName = tool?.name || fullToolId.split(':').pop() || fullToolId
       const rawProjectId = route.query.project_id
       const projectId = rawProjectId ? parseInt(String(Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId), 10) : undefined
+      // The router guard guarantees ?instance on tool routes.
+      const instanceId = route.query.instance ? String(route.query.instance) : undefined
       if (projectId && Number.isFinite(projectId)) {
         // Project-scoped tool tab — look up project name
-        const tab = addTab('tool', fullToolId, toolDisplayName, projectId)
+        const tab = addTab('tool', fullToolId, toolDisplayName, projectId, undefined, instanceId)
+        markTabActivated(tab.id)
         if (!tab.projectName) {
           getProject(projectId).then(project => {
             if (project) {
-              addTab('tool', fullToolId, toolDisplayName, projectId, project.name || 'Untitled Project')
+              addTab('tool', fullToolId, toolDisplayName, projectId, project.name || 'Untitled Project', instanceId)
             }
           }).catch(() => {})
         }
       } else {
-        addTab('tool', fullToolId, toolDisplayName)
+        const tab = addTab('tool', fullToolId, toolDisplayName, undefined, undefined, instanceId)
+        markTabActivated(tab.id)
       }
     } else if (name?.startsWith('project-') && params.id) {
       const projectId = String(params.id)

@@ -27,7 +27,9 @@
           :media-type="mediaType"
           :loading="loading"
           gradient-id="stimma-gradient-sendtool"
+          show-open-instances
           @select="handleSelect"
+          @select-instance="handleSelectInstance"
         />
       </div>
     </Teleport>
@@ -38,6 +40,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useProvidersApi, type ProviderTool } from '../composables/useProvidersApi'
 import { useSendToTool } from '../composables/useSendToTool'
+import type { WorkspaceTab } from '../composables/useWorkspaceTabs'
 import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
 import type { MediaType } from '../utils/mediaTypes'
 import TaskTypeToolList from './TaskTypeToolList.vue'
@@ -110,6 +113,13 @@ async function toggleMenu() {
 async function handleSelect(tool: ProviderTool, taskType: string) {
   showMenu.value = false
   await sendToTool(props.mediaItem as any, tool, taskType)
+  emit('sent')
+}
+
+// Instance rows target that exact tab (its project scope rides along).
+async function handleSelectInstance(tab: WorkspaceTab, tool: ProviderTool, taskType: string) {
+  showMenu.value = false
+  await sendToTool(props.mediaItem as any, tool, taskType, tab.projectId ?? null, tab.instanceId ?? null)
   emit('sent')
 }
 

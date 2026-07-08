@@ -191,6 +191,18 @@ export function useGenerationStatus() {
     })
   }
 
+  // Check activity for a specific tool-instance tab by its feedScope (the
+  // tool-side token of generatorInstanceId, including any __project_N /
+  // __i_K suffixes). Prefix match is exact-or-@@-delimited, so a legacy
+  // (unsuffixed) scope never matches an instance-suffixed generator id.
+  const isFeedScopeActive = (feedScope) => {
+    const prefix = `tool-${feedScope}`
+    const matches = ([instanceId, count]) =>
+      count > 0 && (instanceId === prefix || instanceId.startsWith(`${prefix}@@`))
+    return Object.entries(activeJobsByInstanceId.value).some(matches) ||
+      Object.entries(pendingWorkByInstanceId.value).some(matches)
+  }
+
   // Computed for total active jobs (backwards compatible)
   const activeJobCount = computed(() => {
     return Object.values(activeJobsByTaskType.value).reduce((sum, count) => sum + count, 0) +
@@ -206,6 +218,7 @@ export function useGenerationStatus() {
     isGenerating,
     isTaskTypeActive,
     isInstanceActive,
-    isToolActive
+    isToolActive,
+    isFeedScopeActive
   }
 }

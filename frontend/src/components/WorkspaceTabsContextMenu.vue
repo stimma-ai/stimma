@@ -60,8 +60,22 @@
         <span>Close All Unpinned</span>
       </button>
 
-      <!-- Rename (chats, boards, flows & projects) -->
-      <template v-if="contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'board' || contextMenu.state.value.tabType === 'flow' || contextMenu.state.value.tabType === 'project'">
+      <!-- New Tab (tools): open a fresh instance of this tool -->
+      <template v-if="contextMenu.state.value.tabType === 'tool'">
+        <div class="border-t border-edge-subtle my-1"></div>
+        <button
+          @click="handleNewToolTab"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+        >
+          <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          <span>New Tab</span>
+        </button>
+      </template>
+
+      <!-- Rename (tools, chats, boards, flows & projects) -->
+      <template v-if="contextMenu.state.value.tabType === 'tool' || contextMenu.state.value.tabType === 'chat' || contextMenu.state.value.tabType === 'board' || contextMenu.state.value.tabType === 'flow' || contextMenu.state.value.tabType === 'project'">
         <div class="border-t border-edge-subtle my-1"></div>
         <button
           @click="handleRename"
@@ -142,7 +156,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
-import { useWorkspaceTabs } from '../composables/useWorkspaceTabs'
+import { useWorkspaceTabs, toolTabRoute, toolInstanceRoute, toolRouteTabId } from '../composables/useWorkspaceTabs'
 import { useProjectRoute } from '../composables/useProjectRoute'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useToasts } from '../composables/useToasts'
@@ -164,7 +178,9 @@ const router = useRouter()
 const route = useRoute()
 
 function getActiveTabId(): string | null {
-  if (route.name === 'tool') return `tool:${route.params.fullToolId}`
+  if (route.name === 'tool') {
+    return toolRouteTabId(route)
+  }
   if (route.name === 'chat') return `chat:${route.params.id}`
   if (route.name === 'board-detail') return `board:${route.params.id}`
   if (route.name === 'flow') return `flow:${route.params.id}`
@@ -175,8 +191,7 @@ function getActiveTabId(): string | null {
 
 function goToTab(tab: import('../composables/useWorkspaceTabs').WorkspaceTab) {
   if (tab.type === 'tool') {
-    const query = tab.projectId ? { project_id: String(tab.projectId) } : undefined
-    router.push({ name: 'tool', params: { fullToolId: tab.entityId }, query })
+    router.push(toolTabRoute(tab))
   }
   else if (tab.type === 'chat') router.push({ name: 'chat', params: { id: tab.entityId } })
   else if (tab.type === 'board') router.push({ name: 'board-detail', params: { id: tab.entityId } })
@@ -201,6 +216,7 @@ const menuRef = ref<HTMLElement | null>(null)
 
 const emit = defineEmits<{
   (e: 'rename', tabType: 'board' | 'chat' | 'project' | 'flow', entityId: string, currentName: string): void
+  (e: 'rename-tab', tabId: string): void
   (e: 'refresh'): void
 }>()
 
@@ -262,11 +278,25 @@ function handleCloseAllUnpinned() {
 }
 
 function handleRename() {
-  const { tabType, entityId, displayName } = contextMenu.state.value
+  const { tabType, entityId, displayName, tabId } = contextMenu.state.value
   contextMenu.hide()
+  // Tool tabs rename by tab id (entityId alone can't identify an instance).
+  if (tabType === 'tool' && tabId) {
+    emit('rename-tab', tabId)
+    return
+  }
   if (tabType && entityId && (tabType === 'chat' || tabType === 'board' || tabType === 'project' || tabType === 'flow')) {
     emit('rename', tabType, entityId, displayName || '')
   }
+}
+
+function handleNewToolTab() {
+  const { tabType, entityId, projectId } = contextMenu.state.value
+  contextMenu.hide()
+  if (tabType !== 'tool' || !entityId) return
+  const { resolveToolInstance } = useWorkspaceTabs()
+  const { instanceId } = resolveToolInstance(entityId, projectId ?? null, { forceNew: true })
+  router.push(toolInstanceRoute(entityId, projectId ?? null, instanceId))
 }
 
 async function handleDelete() {

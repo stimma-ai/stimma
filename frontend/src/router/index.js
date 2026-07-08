@@ -206,6 +206,30 @@ const router = createRouter({
   routes
 })
 
+// Every tool navigation lands on a specific instance. Legacy entry paths
+// (send-to, remix, hop, deep links, All Tools) navigate without ?instance;
+// resolve it here — most-recently-active open instance matching
+// (tool, project), else a freshly minted one. Callers that want an explicit
+// fresh instance pass ?instance themselves.
+router.beforeEach(async (to) => {
+  if (to.name !== 'tool' || to.query.instance) return true
+  const { whenTabsReady, useWorkspaceTabs } = await import('../composables/useWorkspaceTabs')
+  // Don't hang tool navigation forever if settings never load (e.g. backend
+  // unreachable at boot): after the grace period resolve against whatever tab
+  // state exists — worst case a fresh instance is minted.
+  await Promise.race([whenTabsReady(), new Promise(resolve => setTimeout(resolve, 4000))])
+  const { resolveToolInstance } = useWorkspaceTabs()
+  const projectId = to.query.project_id ? Number(to.query.project_id) : null
+  const { instanceId } = resolveToolInstance(String(to.params.fullToolId), projectId)
+  return {
+    name: 'tool',
+    params: to.params,
+    query: { ...to.query, instance: instanceId },
+    hash: to.hash,
+    replace: true
+  }
+})
+
 // Track screen navigation with the catalog's `screen_viewed` event. Only
 // the route NAME is sent — never the path, which can embed entity ids
 // (/boards/<id>, /lineage/<mediaId>). Dev-only routes are excluded.

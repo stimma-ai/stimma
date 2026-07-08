@@ -1213,7 +1213,7 @@ import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType } from '../utils/mediaTypes'
 import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer } from './viewers'
 import { makeProfileKey, makeToolDbKey } from '../utils/storageKeys'
-import { useWorkspaceTabs } from '../composables/useWorkspaceTabs'
+import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../composables/useWorkspaceTabs'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { getCachedPin } from '../composables/usePinLock'
 import { getApiBase } from '../apiConfig'
@@ -4411,14 +4411,22 @@ function viewInTool(step) {
     source_tool_id: step.tool_id,
   }
 
-  // Store config in sessionStorage for the tool to pick up
-  // Key must match ToolView.vue's loadPendingGeneration() which uses makeToolDbKey
-  const storageKey = makeToolDbKey(toolId, 'pending_generation')
+  // Target the most-recent open instance of the tool (or a fresh one) in the
+  // current project context, and write the handoff under the matching
+  // instance-scoped key — ToolView.vue's loadPendingGeneration() reads
+  // scopedToolId(tool) + 'pending_generation'.
+  const slideshowRoute = router.currentRoute.value
+  const projectId = slideshowRoute.params.id && String(slideshowRoute.name || '').startsWith('project-')
+    ? Number(slideshowRoute.params.id)
+    : null
+  const { resolveToolInstance } = useWorkspaceTabs()
+  const { instanceId } = resolveToolInstance(toolId, projectId)
+  const storageKey = makeToolDbKey(toolInstanceScopedId(toolId, projectId, instanceId), 'pending_generation')
   // Store flat config directly (not nested under 'config' key) to match parseGenerationConfig expectations
   sessionStorage.setItem(storageKey, JSON.stringify(config))
 
   // Navigate to the tool (use timestamp to force route change detection for KeepAlive'd components)
-  router.push({ name: 'tool', params: { fullToolId: toolId }, query: { loadGeneration: Date.now().toString() } })
+  router.push(toolInstanceRoute(toolId, projectId, instanceId, { loadGeneration: Date.now().toString() }))
 }
 
 // Project picker state

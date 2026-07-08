@@ -1,6 +1,8 @@
 import { ref, computed, readonly, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { makeProfileKey } from '../utils/storageKeys'
+import { makeProfileKey, makeGlobalKey, makeToolProfileKey, makeToolDbKey } from '../utils/storageKeys'
+import { listBlobKeys, getBlob, putBlob, deleteBlob } from '../utils/blobStorage'
+import { getCurrentProfileId, getCurrentDbGuid } from './useProfile'
 import { useProvidersApi } from './useProvidersApi'
 import { isSettingsLoaded } from '../appConfig'
 import { recordEntityVisit, updateRecentEntityName, type RecentEntityType } from './useRecentEntities'
@@ -8,7 +10,7 @@ import { recordEntityVisit, updateRecentEntityName, type RecentEntityType } from
 export type WorkspaceTabType = 'tool' | 'chat' | 'board' | 'editor' | 'lineage' | 'project' | 'flow'
 
 export interface WorkspaceTab {
-  id: string              // 'tool:{fullToolId}', 'chat:{id}', 'board:{id}', 'editor:{editorId}'
+  id: string              // 'tool:{fullToolId}[:project:{p}]:i:{K}', 'chat:{id}', 'board:{id}', 'editor:{editorId}'
   type: WorkspaceTabType
   entityId: string        // fullToolId, chatId, boardId, or editorId (unique instance)
   pinned: boolean
@@ -17,6 +19,50 @@ export interface WorkspaceTab {
   editorMediaId?: string  // Only for editor tabs: the current mediaId being edited
   projectId?: number      // For project-scoped tool tabs: the project this instance belongs to
   projectName?: string    // Cached project name for display
+  instanceId?: string     // Tool tabs: instance discriminator; every tool tab is an instance
+  customName?: string     // Tool tabs: user-given name (window title); displayName stays the tool name
+  lastActivatedAt?: number // Tool tabs: last time this tab was navigated to (instance resolution)
+  feedScope?: string      // Tool tabs: tool-side token of the job-feed generatorInstanceId
+}
+
+/**
+ * Scoped tool id for storage keys: the string handed to makeToolProfileKey /
+ * makeToolDbKey. Mirrors ToolView's scopedToolId(): project suffix first,
+ * then the instance suffix.
+ */
+export function toolInstanceScopedId(fullToolId: string, projectId?: number | null, instanceId?: string | null): string {
+  const proj = projectId ? `__project_${projectId}` : ''
+  const inst = instanceId ? `__i_${instanceId}` : ''
+  return `${fullToolId}${proj}${inst}`
+}
+
+/**
+ * Tool-side token of a tool instance's generatorInstanceId (job feed key).
+ * Matches ToolView's toolIdForStorage (colons → underscores + suffixes).
+ */
+export function toolInstanceFeedScope(fullToolId: string, projectId?: number | null, instanceId?: string | null): string {
+  return toolInstanceScopedId(fullToolId, projectId, instanceId).replace(/:/g, '_')
+}
+
+/**
+ * Router location for a tool instance. The one way to build tool routes so
+ * project_id and instance never get dropped.
+ */
+export function toolInstanceRoute(fullToolId: string, projectId?: number | null, instanceId?: string | null, extraQuery?: Record<string, string>) {
+  return {
+    name: 'tool' as const,
+    params: { fullToolId },
+    query: {
+      ...(projectId ? { project_id: String(projectId) } : {}),
+      ...(instanceId ? { instance: String(instanceId) } : {}),
+      ...(extraQuery || {})
+    }
+  }
+}
+
+/** Router location for an existing tool tab. */
+export function toolTabRoute(tab: WorkspaceTab, extraQuery?: Record<string, string>) {
+  return toolInstanceRoute(tab.entityId, tab.projectId, tab.instanceId, extraQuery)
 }
 
 function getStorageKey(): string {
@@ -37,6 +83,175 @@ const MAX_RECENTLY_CLOSED = 20
 
 // Editor instance counter - initialized from existing tabs
 let editorIdCounter = 0
+
+// Tool instance counter — persisted and strictly monotonic. Never derived
+// downward from live tabs: a closed instance's storage keys survive until the
+// next startup sweep, so reusing its id would resurrect leftover state.
+// GLOBAL (not per-profile): the startup sweep can't attribute db-guid-scoped
+// keys to a profile, so ids must be unique across profiles or one profile's
+// live id would shield another profile's orphans forever.
+function getInstanceCounterKey(): string {
+  return makeGlobalKey('workspace_tabs', 'tool_instance_counter')
+}
+
+function nextToolInstanceId(): string {
+  let counter = 0
+  try {
+    counter = parseInt(localStorage.getItem(getInstanceCounterKey()) || '0', 10) || 0
+  } catch {}
+  // Defensive: never mint below an id already referenced by a live tab
+  for (const tab of tabs.value) {
+    if (tab.type === 'tool' && tab.instanceId) {
+      const num = parseInt(tab.instanceId, 10)
+      if (!isNaN(num) && num >= counter) counter = num + 1
+    }
+  }
+  try {
+    localStorage.setItem(getInstanceCounterKey(), String(counter + 1))
+  } catch {}
+  return String(counter)
+}
+
+// Db-guid-scoped key suffixes that are per-instance (used by the migration;
+// profile-scoped parts are handled inline below, and the startup sweep in
+// utils/storageCleanup.ts matches the __i_{K} token instead of a part list).
+const INSTANCE_DB_KEY_PARTS = ['video_images', 'remix'] as const
+
+/**
+ * One-time migration: pre-instance tool tabs (no instanceId) become instances.
+ * Storage keys move from the (tool, project)-scoped names to instance-scoped
+ * names; `_global`/`_ui` (previously shared per bare tool) are copied into
+ * each instance of that tool. feedScope keeps the legacy token so the job
+ * feed history stays attached.
+ */
+function migrateToolTabsToInstances() {
+  if (!getCurrentProfileId()) return
+  const legacyToolTabs = tabs.value.filter(t => t.type === 'tool' && !t.instanceId)
+  if (legacyToolTabs.length === 0) return
+
+  const copyKey = (storage: Storage, oldKey: string, newKey: string) => {
+    try {
+      const val = storage.getItem(oldKey)
+      if (val !== null && storage.getItem(newKey) === null) storage.setItem(newKey, val)
+    } catch {}
+  }
+
+  const legacyGlobalKeysToDelete = new Set<string>()
+  const hasDbGuid = !!getCurrentDbGuid()
+  const blobPairs: Array<{ bareToolId: string; newScoped: string }> = []
+
+  for (const tab of legacyToolTabs) {
+    const instanceId = nextToolInstanceId()
+    const oldScoped = toolInstanceScopedId(tab.entityId, tab.projectId)
+    const newScoped = toolInstanceScopedId(tab.entityId, tab.projectId, instanceId)
+
+    for (const part of ['state', 'active_preset', 'collapsed_groups', 'ai_prompt_expanded']) {
+      copyKey(localStorage, makeToolProfileKey(oldScoped, part), makeToolProfileKey(newScoped, part))
+      try { localStorage.removeItem(makeToolProfileKey(oldScoped, part)) } catch {}
+    }
+    // _global/_ui were keyed by bare tool id (shared across the tool's global
+    // and project-scoped tabs) — copy into this instance, delete afterwards.
+    for (const part of ['global', 'ui']) {
+      const oldKey = makeToolProfileKey(tab.entityId, part)
+      copyKey(localStorage, oldKey, makeToolProfileKey(newScoped, part))
+      legacyGlobalKeysToDelete.add(oldKey)
+    }
+    if (hasDbGuid) {
+      for (const part of INSTANCE_DB_KEY_PARTS) {
+        copyKey(localStorage, makeToolDbKey(oldScoped, part), makeToolDbKey(newScoped, part))
+        try { localStorage.removeItem(makeToolDbKey(oldScoped, part)) } catch {}
+      }
+      blobPairs.push({ bareToolId: tab.entityId, newScoped })
+    }
+
+    tab.instanceId = instanceId
+    tab.feedScope = toolInstanceFeedScope(tab.entityId, tab.projectId) // legacy token: keeps feed history
+    tab.id = makeTabId('tool', tab.entityId, tab.projectId, instanceId)
+    // Stamp so the duplicate prune below never mistakes a migrated original
+    // for spurious-mint trash.
+    tab.lastActivatedAt = Date.now()
+  }
+
+  for (const key of legacyGlobalKeysToDelete) {
+    try { localStorage.removeItem(key) } catch {}
+  }
+  tabs.value = [...tabs.value]
+
+  // Persist the migrated blob SYNCHRONOUSLY, bypassing the isReloadingProfile
+  // gate on the watcher-driven save: the legacy keys were just moved, so a
+  // crash before the tabs blob lands would leave a blob without instanceIds
+  // and orphaned __i_ keys (which the startup sweep would then purge).
+  try {
+    localStorage.setItem(getStorageKey(), JSON.stringify(tabs.value))
+  } catch (err) {
+    console.error('[useWorkspaceTabs] Failed to persist migrated tabs:', err)
+  }
+
+  // Mask/paint blobs live in IndexedDB under BARE tool ids (they predate even
+  // project scoping); copy them into each migrated instance, best-effort.
+  void migrateInstanceBlobs(blobPairs)
+}
+
+async function migrateInstanceBlobs(pairs: Array<{ bareToolId: string; newScoped: string }>) {
+  const migratedBare = new Set<string>()
+  for (const { bareToolId, newScoped } of pairs) {
+    try {
+      const oldMaskKey = makeToolDbKey(bareToolId, 'mask')
+      const mask = await getBlob(oldMaskKey)
+      if (mask !== null) await putBlob(makeToolDbKey(newScoped, 'mask'), mask)
+
+      const paintKeys = await listBlobKeys(makeToolDbKey(bareToolId, 'paint'))
+      for (const oldKey of paintKeys) {
+        // Suffix after '..._paint' is '_{slotIndex}'
+        const suffix = oldKey.slice(makeToolDbKey(bareToolId, 'paint').length)
+        if (!/^_\d+$/.test(suffix)) continue
+        const paint = await getBlob(oldKey)
+        if (paint !== null) await putBlob(makeToolDbKey(newScoped, 'paint') + suffix, paint)
+      }
+      migratedBare.add(bareToolId)
+    } catch { /* best-effort */ }
+  }
+  // Delete bare-key originals only after every instance of that tool got its copy.
+  for (const bareToolId of migratedBare) {
+    try {
+      await deleteBlob(makeToolDbKey(bareToolId, 'mask'))
+      const paintKeys = await listBlobKeys(makeToolDbKey(bareToolId, 'paint'))
+      for (const key of paintKeys) {
+        if (/^_\d+$/.test(key.slice(makeToolDbKey(bareToolId, 'paint').length))) {
+          await deleteBlob(key)
+        }
+      }
+    } catch { /* best-effort */ }
+  }
+}
+
+/**
+ * Self-heal duplicate tool tabs created by the (fixed) pre-load pin-reconcile
+ * race. A tab a user actually opened is always navigated to, which stamps
+ * lastActivatedAt; renames set customName. Within each (tool, project) group,
+ * never-activated unnamed instance tabs are spurious beyond the first —
+ * keep the oldest (lowest displayOrder), drop the rest.
+ */
+function pruneNeverActivatedDuplicates() {
+  const groups = new Map<string, WorkspaceTab[]>()
+  for (const tab of tabs.value) {
+    if (tab.type !== 'tool' || !tab.instanceId || tab.customName || tab.lastActivatedAt) continue
+    const key = `${tab.entityId}::${tab.projectId ?? ''}`
+    const list = groups.get(key) || []
+    list.push(tab)
+    groups.set(key, list)
+  }
+  const drop = new Set<string>()
+  for (const list of groups.values()) {
+    if (list.length <= 1) continue
+    list.sort((a, b) => a.displayOrder - b.displayOrder)
+    for (const tab of list.slice(1)) drop.add(tab.id)
+  }
+  if (drop.size > 0) {
+    tabs.value = tabs.value.filter(t => !drop.has(t.id))
+    console.log(`[useWorkspaceTabs] pruned ${drop.size} duplicate never-activated tool tabs`)
+  }
+}
 
 function initEditorIdCounter() {
   // Migrate old-format editor tabs (entityId was mediaId, no editorMediaId)
@@ -67,6 +282,27 @@ let isReloadingProfile = false
 // Flag to prevent saving until settings are loaded (appModifier set)
 let settingsReady = false
 
+// Resolves once tabs have been loaded from storage FOR A REAL PROFILE. The
+// router's tool-instance guard awaits this so it never resolves (and mints)
+// instances against an empty or wrong-profile tab list. reconcileToolPins
+// checks the flag for the same reason: creating a uniquely-id'd instance tab
+// against a not-yet-loaded list produces a permanent duplicate.
+let tabsLoadedForProfile = false
+let markTabsLoaded: () => void = () => {}
+const tabsLoaded: Promise<void> = new Promise(resolve => { markTabsLoaded = resolve })
+
+function noteTabsLoaded() {
+  if (getCurrentProfileId()) {
+    tabsLoadedForProfile = true
+    markTabsLoaded()
+  }
+}
+
+/** Await initial tab load (used by the router guard). */
+export function whenTabsReady(): Promise<void> {
+  return tabsLoaded
+}
+
 // --- Persistence ---
 
 function loadFromStorage() {
@@ -79,6 +315,8 @@ function loadFromStorage() {
         // Restore nextDisplayOrder
         nextDisplayOrder = parsed.reduce((max: number, t: WorkspaceTab) => Math.max(max, t.displayOrder), 0) + 1
         initEditorIdCounter()
+        migrateToolTabsToInstances()
+        pruneNeverActivatedDuplicates()
         return
       }
     }
@@ -109,6 +347,7 @@ function saveToStorage() {
 if (isSettingsLoaded()) {
   settingsReady = true
   loadFromStorage()
+  noteTabsLoaded()
 }
 
 // Watch for changes and sync to localStorage
@@ -123,6 +362,7 @@ if (typeof window !== 'undefined') {
       loadFromStorage()
     } finally {
       isReloadingProfile = false
+      noteTabsLoaded()
     }
   })
 
@@ -132,6 +372,7 @@ if (typeof window !== 'undefined') {
       loadFromStorage()
     } finally {
       isReloadingProfile = false
+      noteTabsLoaded()
     }
   })
 
@@ -139,9 +380,25 @@ if (typeof window !== 'undefined') {
 
 // --- Helpers ---
 
-function makeTabId(type: WorkspaceTabType, entityId: string, projectId?: number): string {
-  if (projectId && type === 'tool') return `${type}:${entityId}:project:${projectId}`
+export function makeTabId(type: WorkspaceTabType, entityId: string, projectId?: number, instanceId?: string): string {
+  if (type === 'tool') {
+    const proj = projectId ? `:project:${projectId}` : ''
+    const inst = instanceId ? `:i:${instanceId}` : ''
+    return `${type}:${entityId}${proj}${inst}`
+  }
   return `${type}:${entityId}`
+}
+
+/**
+ * Tab id for the tool route currently in `route` — the one builder for
+ * "which tab is active" checks (App.vue, WorkspaceTabsContextMenu). Returns
+ * null when the route isn't a tool route.
+ */
+export function toolRouteTabId(route: { name?: unknown; params: Record<string, any>; query: Record<string, any> }): string | null {
+  if (route.name !== 'tool' || !route.params.fullToolId) return null
+  const proj = route.query.project_id ? Number(route.query.project_id) : undefined
+  const inst = route.query.instance ? String(route.query.instance) : undefined
+  return makeTabId('tool', String(route.params.fullToolId), Number.isFinite(proj) ? proj : undefined, inst)
 }
 
 // --- Composable ---
@@ -170,11 +427,11 @@ export function useWorkspaceTabs() {
   /**
    * Add a tab (idempotent by type+entityId+projectId). Returns the tab.
    */
-  function addTab(type: WorkspaceTabType, entityId: string, displayName?: string, projectId?: number, projectName?: string): WorkspaceTab {
+  function addTab(type: WorkspaceTabType, entityId: string, displayName?: string, projectId?: number, projectName?: string, instanceId?: string): WorkspaceTab {
     // Every entity open flows through here (the sidebar's route watcher), so
     // this is the one place cross-entity recents get recorded.
     recordEntityVisit(type as RecentEntityType, entityId, displayName)
-    const id = makeTabId(type, entityId, projectId)
+    const id = makeTabId(type, entityId, projectId, instanceId)
     const existing = tabs.value.find(t => t.id === id)
     if (existing) {
       // Update displayName if provided and different
@@ -194,10 +451,72 @@ export function useWorkspaceTabs() {
       pinned: false,
       displayOrder: nextDisplayOrder++,
       displayName: displayName !== undefined ? displayName : entityId,
-      ...(projectId ? { projectId, projectName: projectName || '' } : {})
+      ...(projectId ? { projectId, projectName: projectName || '' } : {}),
+      ...(type === 'tool' && instanceId
+        ? { instanceId, feedScope: toolInstanceFeedScope(entityId, projectId, instanceId) }
+        : {})
     }
     tabs.value = [...tabs.value, tab]
     return tab
+  }
+
+  /**
+   * Resolve which instance a GENERIC tool reference should land on (All Tools
+   * card, deep link, tool-level send-to/remix/hop): the most recently
+   * activated open UNNAMED instance matching (tool, project) exactly, else a
+   * freshly minted id. Renaming an instance claims it as a station — generic
+   * references never land in (or apply config onto) a named instance; those
+   * are only reached by name (sidebar row, ⌘K/menu instance rows).
+   * `forceNew` always mints (the explicit "open fresh" gesture).
+   */
+  function resolveToolInstance(fullToolId: string, projectId?: number | null, opts?: { forceNew?: boolean }): { instanceId: string, existing: boolean } {
+    if (!opts?.forceNew) {
+      const matching = tabs.value.filter(t =>
+        t.type === 'tool' &&
+        t.entityId === fullToolId &&
+        (t.projectId ?? null) === (projectId ?? null) &&
+        t.instanceId &&
+        !t.customName
+      )
+      if (matching.length > 0) {
+        const best = matching.reduce((a, b) =>
+          (b.lastActivatedAt ?? 0) > (a.lastActivatedAt ?? 0) ||
+          ((b.lastActivatedAt ?? 0) === (a.lastActivatedAt ?? 0) && b.displayOrder > a.displayOrder) ? b : a)
+        return { instanceId: best.instanceId!, existing: true }
+      }
+    }
+    return { instanceId: nextToolInstanceId(), existing: false }
+  }
+
+  /**
+   * Find an open tool-instance tab.
+   */
+  function getToolInstanceTab(fullToolId: string, projectId: number | null | undefined, instanceId: string): WorkspaceTab | undefined {
+    return tabs.value.find(t => t.id === makeTabId('tool', fullToolId, projectId ?? undefined, instanceId))
+  }
+
+  /**
+   * Stamp a tab as just-activated (drives most-recent instance resolution).
+   */
+  function markTabActivated(tabId: string) {
+    const tab = tabs.value.find(t => t.id === tabId)
+    if (tab) {
+      tab.lastActivatedAt = Date.now()
+      tabs.value = [...tabs.value]
+    }
+  }
+
+  /**
+   * Set or clear a tool tab's user-given name. Purely local (a window title):
+   * displayName keeps the tool name.
+   */
+  function updateTabCustomName(tabId: string, name: string | null) {
+    const tab = tabs.value.find(t => t.id === tabId)
+    if (!tab || tab.type !== 'tool') return
+    const trimmed = (name || '').trim()
+    if (trimmed) tab.customName = trimmed
+    else delete tab.customName
+    tabs.value = [...tabs.value]
   }
 
   /**
@@ -329,7 +648,9 @@ export function useWorkspaceTabs() {
     const tab = tabs.value.find(t => t.id === tabId)
     if (!tab || tab.pinned) return
 
-    if (tab.type === 'tool') {
+    // Backend pins are tool-level; only call the API when this is the first
+    // pinned instance of the tool.
+    if (tab.type === 'tool' && !tabs.value.some(t => t.type === 'tool' && t.pinned && t.entityId === tab.entityId)) {
       const { pinProviderTool } = useProvidersApi()
       try {
         await pinProviderTool(tab.entityId)
@@ -351,7 +672,9 @@ export function useWorkspaceTabs() {
     const tab = tabs.value.find(t => t.id === tabId)
     if (!tab || !tab.pinned) return
 
-    if (tab.type === 'tool') {
+    // Backend pins are tool-level; only unpin the API when no other pinned
+    // instance of this tool remains.
+    if (tab.type === 'tool' && !tabs.value.some(t => t.type === 'tool' && t.pinned && t.entityId === tab.entityId && t.id !== tab.id)) {
       const { unpinProviderTool } = useProvidersApi()
       try {
         await unpinProviderTool(tab.entityId)
@@ -455,7 +778,9 @@ export function useWorkspaceTabs() {
 
     // If reordering pinned tools, also update backend
     if (group === 'pinned') {
-      const pinnedToolIds = reordered.filter(t => t.type === 'tool').map(t => t.entityId)
+      // Backend pin order is tool-level: dedupe multiple pinned instances of
+      // the same tool, keeping first occurrence in display order.
+      const pinnedToolIds = [...new Set(reordered.filter(t => t.type === 'tool').map(t => t.entityId))]
       if (pinnedToolIds.length > 0) {
         const { reorderPinnedTools } = useProvidersApi()
         reorderPinnedTools(pinnedToolIds).catch(err => {
@@ -470,28 +795,43 @@ export function useWorkspaceTabs() {
    * Called on init and when tool_pinned/tool_unpinned events fire.
    */
   async function reconcileToolPins(pinnedToolsFromApi: any[]) {
+    // NEVER create tabs before the profile's tabs have loaded: instance ids
+    // are unique, so a tab minted against an incomplete list is a permanent
+    // duplicate once the real list arrives. Pins reconcile again after load
+    // (profile-changed handler / pin events).
+    if (!tabsLoadedForProfile) return
+
     const apiPinnedIds = new Set(pinnedToolsFromApi.map(t => t.full_tool_id))
 
-    // Add pinned tabs for tools that are pinned in API but not in tabs
+    // Backend pins are tool-level; ensure each API-pinned tool has at least
+    // one pinned instance tab (any project scope counts).
     for (const tool of pinnedToolsFromApi) {
-      const id = makeTabId('tool', tool.full_tool_id)
-      const existing = tabs.value.find(t => t.id === id)
-      if (existing) {
-        if (!existing.pinned) existing.pinned = true
-        if (existing.displayName !== tool.name) existing.displayName = tool.name
+      const matching = tabs.value.filter(t => t.type === 'tool' && t.entityId === tool.full_tool_id)
+      if (matching.length > 0) {
+        for (const t of matching) {
+          if (t.displayName !== tool.name) t.displayName = tool.name
+        }
+        if (!matching.some(t => t.pinned)) {
+          const best = matching.reduce((a, b) => (b.lastActivatedAt ?? 0) > (a.lastActivatedAt ?? 0) ? b : a)
+          best.pinned = true
+        }
       } else {
+        const instanceId = nextToolInstanceId()
         tabs.value.push({
-          id,
+          id: makeTabId('tool', tool.full_tool_id, undefined, instanceId),
           type: 'tool',
           entityId: tool.full_tool_id,
           pinned: true,
           displayOrder: nextDisplayOrder++,
-          displayName: tool.name
+          displayName: tool.name,
+          instanceId,
+          feedScope: toolInstanceFeedScope(tool.full_tool_id, undefined, instanceId),
+          lastActivatedAt: Date.now()
         })
       }
     }
 
-    // Unpin tool tabs that are no longer pinned in API
+    // Unpin tool tabs whose tool is no longer pinned in API
     for (const tab of tabs.value) {
       if (tab.type === 'tool' && tab.pinned && !apiPinnedIds.has(tab.entityId)) {
         tab.pinned = false
@@ -529,6 +869,10 @@ export function useWorkspaceTabs() {
     updateEditorMedia,
     updateLineageFocus,
     nextEditorId,
+    resolveToolInstance,
+    getToolInstanceTab,
+    markTabActivated,
+    updateTabCustomName,
     findNextTab,
     removeTab,
     removeTabByEntity,

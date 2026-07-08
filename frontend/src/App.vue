@@ -200,7 +200,7 @@ import { useRouteRestore } from './composables/useRouteRestore'
 import { useTabNavigation } from './composables/useTabNavigation'
 import { useTheme } from './composables/useTheme'
 import { useMediaApi } from './composables/useMediaApi'
-import { useWorkspaceTabs } from './composables/useWorkspaceTabs'
+import { useWorkspaceTabs, toolTabRoute, toolRouteTabId } from './composables/useWorkspaceTabs'
 import { useProjectRoute } from './composables/useProjectRoute'
 import { useToasts } from './composables/useToasts'
 import { useAppUpdater } from './composables/useAppUpdater'
@@ -291,8 +291,12 @@ provide('searchProjectScope', computed(() => projectChrome.value.project))
 function getComponentKey(route) {
   if (route.name === 'tool') {
     const projectId = route.query.project_id
-    if (projectId) return `tool-${route.params.fullToolId}-project-${projectId}`
-    return `tool-${route.params.fullToolId}`
+    // Every tool tab is an instance (?instance is injected by the router
+    // guard); the key must include it or two tabs of the same tool would
+    // share one KeepAlive'd ToolView.
+    const instance = route.query.instance ? `-i${route.query.instance}` : ''
+    if (projectId) return `tool-${route.params.fullToolId}-project-${projectId}${instance}`
+    return `tool-${route.params.fullToolId}${instance}`
   }
   if (route.name === 'chat') {
     return `chat-${route.params.id}`
@@ -420,9 +424,7 @@ function handleResize() {
 
 function getActiveTabId() {
   if (route.name === 'tool') {
-    const projectId = route.query.project_id
-    if (projectId) return `tool:${route.params.fullToolId}:project:${projectId}`
-    return `tool:${route.params.fullToolId}`
+    return toolRouteTabId(route)
   }
   if (route.name === 'chat') return `chat:${route.params.id}`
   if (route.name === 'board-detail') return `board:${route.params.id}`
@@ -434,8 +436,7 @@ function getActiveTabId() {
 
 function navigateToTab(tab) {
   if (tab.type === 'tool') {
-    const query = tab.projectId ? { project_id: String(tab.projectId) } : undefined
-    router.push({ name: 'tool', params: { fullToolId: tab.entityId }, query })
+    router.push(toolTabRoute(tab))
   }
   else if (tab.type === 'chat') router.push({ name: 'chat', params: { id: tab.entityId } })
   else if (tab.type === 'board') router.push({ name: 'board-detail', params: { id: tab.entityId } })

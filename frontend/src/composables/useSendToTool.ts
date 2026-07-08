@@ -8,6 +8,7 @@ import {
 } from '../utils/toolSchemaUtils'
 import { makeToolDbKey } from '../utils/storageKeys'
 import { getMediaType } from '../utils/mediaTypes'
+import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from './useWorkspaceTabs'
 
 interface MediaEntry {
   mediaId?: number
@@ -60,7 +61,8 @@ export function useSendToTool() {
     mediaIdOrItems: number | MediaItem | Array<number | MediaItem>,
     tool: Pick<Tool, 'full_tool_id' | 'task_type'> & { parameter_schema?: Record<string, any> },
     targetTaskType?: string,
-    projectId?: number | null
+    projectId?: number | null,
+    instanceId?: string | null
   ) {
     // Use the target task type if provided, otherwise fall back to tool's primary task type
     const effectiveTaskType = targetTaskType || tool.task_type
@@ -204,22 +206,32 @@ export function useSendToTool() {
       }
     }
 
-    // Infer project context from current route if not explicitly provided
+    // Infer project context from current route if not explicitly provided.
+    // An explicit instance target already pins the full (tool, project,
+    // instance) triple — its caller passed the tab's own projectId (possibly
+    // null for a global tab), which must NOT be overridden by route inference
+    // or the handoff key/route would address a different instance.
     const route = router.currentRoute.value
-    const effectiveProjectId = projectId ?? (
-      route.params.id && String(route.name || '').startsWith('project-')
-        ? Number(route.params.id)
-        : null
-    )
+    const effectiveProjectId = instanceId != null
+      ? (projectId ?? null)
+      : projectId ?? (
+        route.params.id && String(route.name || '').startsWith('project-')
+          ? Number(route.params.id)
+          : null
+      )
 
-    // Project-scoped pending-input key. ToolView keeps a separate KeepAlive'd
-    // instance per (tool, project) and reads a matching scoped key, so the
-    // project-entangled tool and the global tool never race to consume the same
-    // handoff. Must mirror ToolView's scopedToolId(): `${id}__project_${pid}`.
-    const scopedToolId = effectiveProjectId
-      ? `${tool.full_tool_id}__project_${effectiveProjectId}`
-      : tool.full_tool_id
+    // Resolve the target INSTANCE: an explicit one (sidebar row drop, menu
+    // instance pick) wins; otherwise the most-recently-active open instance
+    // matching (tool, project), opening a fresh one only when none exists.
+    // The pending-input key mirrors ToolView's scopedToolId() (project +
+    // instance suffixes) so sibling instances never race to consume a handoff.
+    const { resolveToolInstance } = useWorkspaceTabs()
+    const targetInstanceId = instanceId
+      ?? resolveToolInstance(tool.full_tool_id, effectiveProjectId).instanceId
+    const scopedToolId = toolInstanceScopedId(tool.full_tool_id, effectiveProjectId, targetInstanceId)
     const storageKey = makeToolDbKey(scopedToolId, 'pending_input')
+    const targetRoute = (extra: Record<string, string>) =>
+      toolInstanceRoute(tool.full_tool_id, effectiveProjectId, targetInstanceId, extra)
 
     // Media-batch: run the single-input tool once per item in one slot. Mark the
     // slot as a batch; ToolView enters batch mode and Run submits one job per item.
@@ -229,9 +241,7 @@ export function useSendToTool() {
         field: batchField,
         items: mediaEntries,
       }))
-      const query: Record<string, string> = { loadInput: Date.now().toString() }
-      if (effectiveProjectId) query.project_id = String(effectiveProjectId)
-      router.push({ name: 'tool', params: { fullToolId: tool.full_tool_id }, query })
+      router.push(targetRoute({ loadInput: Date.now().toString() }))
       return
     }
 
@@ -273,11 +283,7 @@ export function useSendToTool() {
     }
 
     // Add timestamp to force route change detection (important for KeepAlive'd components)
-    const query: Record<string, string> = { loadInput: Date.now().toString() }
-    if (effectiveProjectId) {
-      query.project_id = String(effectiveProjectId)
-    }
-    router.push({ name: 'tool', params: { fullToolId: tool.full_tool_id }, query })
+    router.push(targetRoute({ loadInput: Date.now().toString() }))
   }
 
   return {

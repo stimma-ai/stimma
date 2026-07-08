@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import type { Router } from 'vue-router'
 import { useProvidersApi, type ProviderTool } from './useProvidersApi'
 import { frecencyFor } from './useRecentEntities'
+import { useWorkspaceTabs, toolInstanceRoute, type WorkspaceTab } from './useWorkspaceTabs'
 
 /**
  * Shared search logic for the global search omnibox and the /search page.
@@ -134,6 +135,28 @@ export function useGlobalSearch() {
     )
   }
 
+  /**
+   * Open tool-instance tabs matching the query (custom name AND tool name are
+   * both fair game — a renamed "Hands" instance is findable either way).
+   * Ranked by recency of activation. These are "switch to" results: they rank
+   * above catalog tools, which are the open-fresh gesture.
+   */
+  function searchOpenToolInstances(q: string, limit = 5, projectId?: number | null): WorkspaceTab[] {
+    if (!q.trim()) return []
+    const { tabs } = useWorkspaceTabs()
+    const instances = (tabs.value as WorkspaceTab[]).filter(t =>
+      t.type === 'tool' && !!t.instanceId &&
+      (projectId == null || (t.projectId ?? null) === projectId)
+    )
+    return rankNameMatches(
+      instances,
+      q,
+      t => `${t.customName || ''} ${t.displayName || ''}`,
+      t => t.lastActivatedAt ?? 0,
+      limit,
+    )
+  }
+
   /** Assets whose generation/extracted PROMPT matches the query (word-boundary). */
   async function searchMediaByPrompt(q: string, pageSize = 6, projectId?: number | null): Promise<MediaSearchHit[]> {
     if (!q.trim()) return []
@@ -166,7 +189,7 @@ export function useGlobalSearch() {
     return data.items || []
   }
 
-  return { searchEntities, searchTools, searchMediaByPrompt, searchMediaVisual }
+  return { searchEntities, searchTools, searchOpenToolInstances, searchMediaByPrompt, searchMediaVisual }
 }
 
 // --- Navigation ---
@@ -187,16 +210,28 @@ export function openSearchResult(
   kind: SearchResultKind,
   result: { id?: number | string; tool_id?: string | null; full_tool_id?: string },
   projectId?: number | null,
+  opts?: { forceNewInstance?: boolean },
 ) {
   const projectQuery = projectId != null ? { project_id: String(projectId) } : {}
   switch (kind) {
-    case 'tool':
+    case 'tool': {
+      const fullToolId = String(result.full_tool_id ?? result.id)
+      if (opts?.forceNewInstance) {
+        // Explicit open-fresh gesture (a catalog row in the omnibox results):
+        // mint a new instance instead of letting the router guard focus the
+        // most-recent open one.
+        const { resolveToolInstance } = useWorkspaceTabs()
+        const { instanceId } = resolveToolInstance(fullToolId, projectId ?? null, { forceNew: true })
+        router.push(toolInstanceRoute(fullToolId, projectId ?? null, instanceId))
+        break
+      }
       router.push({
         name: 'tool',
-        params: { fullToolId: String(result.full_tool_id ?? result.id) },
+        params: { fullToolId },
         query: { ...projectQuery },
       })
       break
+    }
     case 'chat':
       router.push({ name: 'chat', params: { id: String(result.id) } })
       break

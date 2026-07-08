@@ -29,6 +29,37 @@
       </div>
     </div>
 
+    <!-- Open instances: eligible open tool tabs, targeted exactly. Shown at
+         the top level and while filtering; gated behind showOpenInstances so
+         settings-style pickers don't grow workspace rows. -->
+    <template v-if="showOpenInstances && !selectedTaskType && filteredOpenInstances.length > 0">
+      <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+        Open
+      </div>
+      <button
+        v-for="row in filteredOpenInstances"
+        :key="`instance-${row.tab.id}`"
+        @click="handleInstanceClick(row)"
+        class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+      >
+        <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(row.tool) ? '' : 'text-content-tertiary'">
+          <ToolIcon :tool="row.tool" size="xs" :bare="true" :ring="false" />
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="truncate">{{ row.tab.customName || row.tab.displayName }}</div>
+          <div class="truncate text-[10px] leading-tight text-content-muted">
+            <template v-if="row.tab.customName">{{ row.tab.displayName }} · </template><span :class="isStimmaCloudTool(row.tool) ? 'stimma-gradient-text' : ''">{{ row.tool.provider_name }}</span>
+          </div>
+        </div>
+        <span
+          v-if="row.tab.projectName"
+          class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"
+        >{{ row.tab.projectName }}</span>
+        <span class="flex-shrink-0 rounded-full bg-blue-500/15 border border-blue-500/50 text-blue-400 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide leading-none">Open</span>
+      </button>
+      <div class="border-t border-edge-subtle my-1"></div>
+    </template>
+
     <div v-if="loading" class="px-3 py-2 text-xs text-content-tertiary">
       Loading tools...
     </div>
@@ -141,6 +172,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import type { ProviderTool } from '../composables/useProvidersApi'
+import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 import ToolIcon from './tools/ToolIcon.vue'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { makeStorageKey } from '../utils/storageKeys'
@@ -161,16 +193,20 @@ interface Props {
   mediaType?: MediaType | null
   loading?: boolean
   gradientId?: string
+  /** List eligible open tool-instance tabs first (send-to-tool surfaces). */
+  showOpenInstances?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   mediaType: null,
   loading: false,
-  gradientId: 'stimma-gradient-tools'
+  gradientId: 'stimma-gradient-tools',
+  showOpenInstances: false
 })
 
 const emit = defineEmits<{
   (e: 'select', tool: ProviderTool, taskType: string): void
+  (e: 'select-instance', tab: WorkspaceTab, tool: ProviderTool, taskType: string): void
 }>()
 
 const searchQuery = ref('')
@@ -266,6 +302,33 @@ const allToolsForSelectedTaskType = computed(() => {
   const recentIds = new Set(recentToolsForSelectedTaskType.value.map(t => t.full_tool_id))
   return tools.filter(tool => !recentIds.has(tool.full_tool_id))
 })
+
+// Eligible open tool-instance tabs, most-recently-active first. Eligibility
+// is the tool's (instances inherit their tool's schema).
+const { tabs: workspaceTabs } = useWorkspaceTabs()
+const eligibleOpenInstances = computed(() => {
+  if (!props.showOpenInstances) return []
+  const toolById = new Map(eligibleTools.value.map(t => [t.full_tool_id, t]))
+  return (workspaceTabs.value as WorkspaceTab[])
+    .filter(t => t.type === 'tool' && !!t.instanceId && toolById.has(t.entityId))
+    .sort((a, b) => (b.lastActivatedAt ?? 0) - (a.lastActivatedAt ?? 0))
+    .slice(0, 5)
+    .map(tab => ({ tab, tool: toolById.get(tab.entityId)! }))
+})
+
+const filteredOpenInstances = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return eligibleOpenInstances.value
+  return eligibleOpenInstances.value.filter(({ tab, tool }) =>
+    (tab.customName || '').toLowerCase().includes(query) ||
+    tab.displayName.toLowerCase().includes(query) ||
+    tool.provider_name.toLowerCase().includes(query)
+  )
+})
+
+function handleInstanceClick(row: { tab: WorkspaceTab; tool: ProviderTool }) {
+  emit('select-instance', row.tab, row.tool, getToolPrimaryTaskType(row.tool))
+}
 
 // Get the first eligible task type for a tool (used in flat search results)
 function getToolPrimaryTaskType(tool: ProviderTool): string {

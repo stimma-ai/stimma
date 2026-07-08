@@ -114,7 +114,7 @@
               <div
                 class="w-6 h-6 flex-shrink-0 flex items-center justify-center"
                 :class="isEscapeKind(item.kind) ? 'text-blue-400'
-                  : (item.kind === 'tool' && item.provider?.cloud) ? ''
+                  : ((item.kind === 'tool' || item.kind === 'tool-instance') && item.provider?.cloud) ? ''
                   : 'text-content-secondary'"
               >
                 <div v-if="item.kind === 'chat' && item.data?.thumbnail" class="w-6 h-6 rounded-full overflow-hidden">
@@ -145,7 +145,7 @@
                     />
                   </div>
                 </div>
-                <div v-else-if="item.kind === 'tool'" class="w-4 h-4">
+                <div v-else-if="item.kind === 'tool' || item.kind === 'tool-instance'" class="w-4 h-4">
                   <ToolIcon :tool="toolForIcon(item)" bare :ring="false" />
                 </div>
                 <svg v-else-if="item.kind === 'board'" class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -168,7 +168,20 @@
                     </template>
                     <template v-else>{{ item.label }}</template>
                   </div>
-                  <!-- Project tag: under scope, tool/preset rows open the project flavor -->
+                  <!-- Open-instance badge: enter switches to this tab -->
+                  <span
+                    v-if="item.kind === 'tool-instance'"
+                    class="flex-shrink-0 rounded-full bg-blue-500/15 border border-blue-500/50 text-blue-400 px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wide leading-none"
+                  >Open · switch</span>
+                  <!-- Project tag: instance rows show their own project; under
+                       scope, tool/preset rows open the project flavor -->
+                  <span
+                    v-if="item.kind === 'tool-instance' && item.data?.projectName"
+                    class="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-overlay-subtle px-1.5 py-0.5 text-[10px] font-medium text-content-secondary"
+                  >
+                    <ArchiveBoxIcon class="w-3 h-3 flex-shrink-0" />
+                    <span class="truncate max-w-[100px]">{{ item.data.projectName }}</span>
+                  </span>
                   <span
                     v-if="(item.kind === 'tool' || item.kind === 'preset') && scopeProject"
                     class="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-overlay-subtle px-1.5 py-0.5 text-[10px] font-medium text-content-secondary"
@@ -179,10 +192,12 @@
                 </div>
                 <div v-if="item.sub" class="text-[11.5px] text-content-tertiary truncate">{{ item.sub }}</div>
               </div>
-              <span v-if="item.provider || item.meta" class="flex-shrink-0 text-[11.5px] pl-3">
+              <span v-if="item.provider || item.meta || item.plus" class="flex-shrink-0 text-[11.5px] pl-3 inline-flex items-center gap-2">
                 <span v-if="item.provider" :class="item.provider.cloud ? 'stimma-gradient-text' : 'text-content-muted'">{{ item.provider.name }}</span>
-                <span v-if="item.provider && item.meta" class="text-content-muted"> · </span>
+                <span v-if="item.provider && item.meta" class="text-content-muted">·</span>
                 <span v-if="item.meta" class="text-content-muted">{{ item.meta }}</span>
+                <!-- Quiet ＋: instances of this tool are open; this row opens fresh -->
+                <span v-if="item.plus" class="text-content-muted" title="Opens a new tab of this tool">＋</span>
               </span>
             </button>
           </template>
@@ -224,6 +239,7 @@ import {
   type SearchResultKind,
 } from '../../composables/useGlobalSearch'
 import { recentEntities, type RecentEntity } from '../../composables/useRecentEntities'
+import { toolTabRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
 import { supported as voiceSupported } from '../../composables/useVoiceInput'
 import { useTelemetry } from '../../composables/useTelemetry'
@@ -232,7 +248,7 @@ import { formatRelativeTime } from '../../utils/timeFormat'
 
 interface SelectableItem {
   key: string
-  kind: SearchResultKind | 'asset' | 'browse-prompt' | 'browse-visual'
+  kind: SearchResultKind | 'tool-instance' | 'asset' | 'browse-prompt' | 'browse-visual'
   label: string
   sub?: string
   meta?: string
@@ -240,6 +256,8 @@ interface SelectableItem {
   provider?: { name: string; cloud: boolean }
   /** Which asset flavor this thumbnail belongs to (assets only). */
   set?: 'prompt' | 'visual'
+  /** Catalog tool rows that are the open-fresh gesture (instances are open). */
+  plus?: boolean
   highlight?: boolean
   data: any
   index: number
@@ -264,7 +282,7 @@ const DEBOUNCE_MS = 150
 
 const router = useRouter()
 const route = useRoute()
-const { searchEntities, searchTools, searchMediaByPrompt, searchMediaVisual } = useGlobalSearch()
+const { searchEntities, searchTools, searchOpenToolInstances, searchMediaByPrompt, searchMediaVisual } = useGlobalSearch()
 const { fetchProvidersAndTools } = useProvidersApi()
 const { getProject } = useMediaApi()
 const { track } = useTelemetry()
@@ -300,6 +318,7 @@ const scopeProject = ref<{ id: number; name: string } | null>(null)
 
 const entityResults = ref<EntitySearchResults | null>(null)
 const toolResults = ref<ProviderTool[]>([])
+const openInstanceResults = ref<WorkspaceTab[]>([])
 const promptMediaResults = ref<MediaSearchHit[]>([])
 const visualMediaResults = ref<MediaSearchHit[]>([])
 const toolById = ref<Map<string, ProviderTool>>(new Map())
@@ -352,17 +371,39 @@ const sections = computed<Section[]>(() => {
   }
 
   const e = entityResults.value
-  if (toolResults.value.length > 0) {
+  if (toolResults.value.length > 0 || openInstanceResults.value.length > 0) {
+    // Open instances rank first: enter on them SWITCHES. Catalog rows below
+    // are the open-fresh gesture (marked with a quiet ＋ when instances of
+    // that tool are already open) — enter on those never surprises by
+    // stealing an existing tab.
+    const openByTool = new Set(openInstanceResults.value.map(t => t.entityId))
     result.push({
       title: 'Tools',
-      items: toolResults.value.map(t => next({
-        key: `tool:${t.full_tool_id}`,
-        kind: 'tool',
-        label: t.name,
-        provider: { name: t.provider_name, cloud: isStimmaCloudTool(t) },
-        highlight: true,
-        data: t,
-      })),
+      items: [
+        ...openInstanceResults.value.map(tab => {
+          const catalogTool = toolById.value.get(tab.entityId)
+          return next({
+            key: `tool-instance:${tab.id}`,
+            kind: 'tool-instance',
+            label: tab.customName || tab.displayName,
+            sub: tab.customName ? tab.displayName : undefined,
+            provider: catalogTool
+              ? { name: catalogTool.provider_name, cloud: isStimmaCloudTool(catalogTool) }
+              : undefined,
+            highlight: true,
+            data: tab,
+          })
+        }),
+        ...toolResults.value.map(t => next({
+          key: `tool:${t.full_tool_id}`,
+          kind: 'tool',
+          label: t.name,
+          provider: { name: t.provider_name, cloud: isStimmaCloudTool(t) },
+          plus: openByTool.has(t.full_tool_id),
+          highlight: true,
+          data: t,
+        })),
+      ],
     })
   }
   const entitySections: Array<[string, SearchResultKind, keyof EntitySearchResults]> = [
@@ -455,6 +496,7 @@ async function runSearch() {
   if (!q) {
     entityResults.value = null
     toolResults.value = []
+    openInstanceResults.value = []
     promptMediaResults.value = []
     visualMediaResults.value = []
     selectedIndex.value = 0
@@ -472,8 +514,10 @@ async function runSearch() {
     if (seq !== searchSeq) return
     entityResults.value = entities
     toolResults.value = tools
+    openInstanceResults.value = searchOpenToolInstances(q, 5, projectId)
     selectedIndex.value = 0
     if (entities && entities.presets.length > 0) void ensureToolCatalog()
+    if (openInstanceResults.value.length > 0) void ensureToolCatalog()
     searchMediaByPrompt(q, DROPDOWN_MEDIA_LIMIT, projectId).then(items => {
       if (seq === searchSeq) promptMediaResults.value = items
     }).catch(() => {})
@@ -495,7 +539,7 @@ async function ensureToolCatalog() {
 
 /** Resolve the full catalog tool for ToolIcon; sidebar-style fallback shape. */
 function toolForIcon(item: SelectableItem): any {
-  const id = item.data?.full_tool_id
+  const id = item.kind === 'tool-instance' ? item.data?.entityId : item.data?.full_tool_id
   const catalogTool = id ? toolById.value.get(id) : undefined
   if (catalogTool) return catalogTool
   if (item.data?.provider_id) return item.data // search results carry the full ProviderTool
@@ -662,6 +706,13 @@ function activateItem(item: SelectableItem) {
     })
     return
   }
+  if (item.kind === 'tool-instance') {
+    // Switch to the open instance — enter never spawns.
+    closeDropdown()
+    inputRef.value?.blur()
+    router.push(toolTabRoute(item.data as WorkspaceTab))
+    return
+  }
   closeDropdown()
   inputRef.value?.blur()
   if (isEscapeKind(item.kind)) {
@@ -675,7 +726,11 @@ function activateItem(item: SelectableItem) {
     router.push({ name: 'browse', query: browseQuery })
     return
   }
-  openSearchResult(router, item.kind as SearchResultKind, item.data, scopeProject.value?.id ?? null)
+  // Catalog tool rows in query results are the open-fresh gesture; recents
+  // and everything else route normally (the router guard focuses the
+  // most-recent open instance).
+  const forceNewInstance = item.kind === 'tool' && item.key.startsWith('tool:')
+  openSearchResult(router, item.kind as SearchResultKind, item.data, scopeProject.value?.id ?? null, { forceNewInstance })
 }
 
 // --- Plain stroke glyphs, matching the sidebar's nav icons exactly ---
