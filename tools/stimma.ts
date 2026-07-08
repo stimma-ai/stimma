@@ -713,14 +713,21 @@ async function commandTag(args: string[]): Promise<void> {
         Deno.exit(1);
       }
       core = parsed;
-    } else if (latestBeta) {
-      core = { major: latestBeta.major, minor: latestBeta.minor, patch: latestBeta.patch };
-    } else if (latestAlpha) {
-      core = { major: latestAlpha.major, minor: latestAlpha.minor, patch: latestAlpha.patch };
-    } else if (latestProduction) {
-      core = bumpPatch(latestProduction);
     } else {
-      core = { major: 0, minor: 1, patch: 0 };
+      // Promote the latest pre-release train — but never at or below the
+      // latest production version. A stale beta train (e.g. beta at 0.1.41
+      // after production shipped 1.0.0) must not produce a production tag
+      // the updater would consider a downgrade.
+      let candidate: SemverCore | null = null;
+      if (latestBeta) {
+        candidate = { major: latestBeta.major, minor: latestBeta.minor, patch: latestBeta.patch };
+      } else if (latestAlpha) {
+        candidate = { major: latestAlpha.major, minor: latestAlpha.minor, patch: latestAlpha.patch };
+      }
+      if (latestProduction && (!candidate || compareCore(candidate, latestProduction) <= 0)) {
+        candidate = bumpPatch(latestProduction);
+      }
+      core = candidate ?? { major: 0, minor: 1, patch: 0 };
     }
     if (!explicit) {
       core = nextAvailablePatch(core, new Set(tags));
