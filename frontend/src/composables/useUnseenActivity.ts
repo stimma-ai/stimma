@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { useWebSocket } from './useWebSocket'
 import { useAgentActivity } from './useAgentActivity'
-import { useWorkspaceTabs } from './useWorkspaceTabs'
+import { useWorkspaceTabs, toolRouteTabId } from './useWorkspaceTabs'
 import { instanceMatchesTool } from './useGenerationStatus'
 import router from '../router'
 
@@ -27,12 +27,10 @@ let initialized = false
 
 function activeTabKey(): string | null {
   const route = router.currentRoute.value
-  if (route.name === 'tool' && route.params.fullToolId) {
-    const raw = route.query.project_id
-    const projectId = raw ? parseInt(String(Array.isArray(raw) ? raw[0] : raw), 10) : null
-    const suffix = projectId && Number.isFinite(projectId) ? `:project:${projectId}` : ''
-    return `tool:${route.params.fullToolId}${suffix}`
-  }
+  // Dots are keyed by workspace tab id (tool:{id}[:project:{p}]:i:{K}), so the
+  // "am I looking at this tab" key must include the instance suffix too —
+  // toolRouteTabId is the same builder the sidebar uses for tab.id.
+  if (route.name === 'tool') return toolRouteTabId(route)
   if (route.name === 'chat' && route.params.id) return `chat:${route.params.id}`
   return null
 }
