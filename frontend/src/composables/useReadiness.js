@@ -13,6 +13,7 @@
  */
 import { ref, computed, readonly } from 'vue'
 import { useSettingsApi } from './useSettingsApi'
+import { fetchCloudAccount } from './useCloudAccount'
 import { makeProfileKey } from '../utils/storageKeys'
 import { addToast, removeToast } from './useToasts'
 
@@ -78,6 +79,26 @@ async function refreshReadiness() {
   return readiness.value
 }
 
+/**
+ * Pull the fresh tier/balance from the cloud BEFORE reading readiness.
+ *
+ * /api/settings computes readiness from the backend's *cached* auth tier
+ * (settings.py `_has_active_subscription`), which stays 'free' after an
+ * in-session purchase until GET /api/auth/account refreshes it. Without this,
+ * the purchase-wait polls readiness forever, never sees the new subscription,
+ * and degrades to "Checkout didn't finish" even though checkout succeeded.
+ * Refreshing the account here also connects the cloud tool provider on the
+ * free->paid transition (see backend /auth/account).
+ */
+async function refreshAccountThenReadiness() {
+  try {
+    await fetchCloudAccount()
+  } catch (e) {
+    // Not signed in / cloud unreachable — fall back to cached readiness.
+  }
+  return refreshReadiness()
+}
+
 function stopPurchaseWait() {
   purchaseWaiting.value = false
   purchaseFocusCount = 0
@@ -97,7 +118,7 @@ function stopPurchaseWait() {
 
 async function onPurchaseWaitFocus() {
   if (!purchaseWaiting.value) return
-  await refreshReadiness()
+  await refreshAccountThenReadiness()
   if (readiness.value?.ready) {
     stopPurchaseWait()
     return
@@ -129,10 +150,10 @@ async function handleLoginChoice(choice) {
       window.addEventListener('focus', onPurchaseWaitFocus)
     }
     purchaseWaitTimer = setInterval(async () => {
-      await refreshReadiness()
+      await refreshAccountThenReadiness()
       if (readiness.value?.ready) stopPurchaseWait()
     }, PURCHASE_POLL_MS)
-    await refreshReadiness()
+    await refreshAccountThenReadiness()
     if (readiness.value?.ready) stopPurchaseWait()
     return
   }

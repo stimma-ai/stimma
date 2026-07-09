@@ -137,8 +137,13 @@ export async function signInWithBrowser() {
 
 /**
  * Poll the backend for auth result.
+ *
+ * The 30-minute ceiling matches the backend callback-server lifetime
+ * (routes/auth.py). An unsubscribed account can spend minutes on the
+ * plan-chooser interstitial before the login completes, so this must not
+ * expire mid-deliberation.
  */
-async function pollForAuthResult(sessionId, timeoutMs = 300000) {
+async function pollForAuthResult(sessionId, timeoutMs = 1800000) {
   const start = Date.now()
   const pollInterval = 1000
 

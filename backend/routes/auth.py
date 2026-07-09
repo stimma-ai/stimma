@@ -342,8 +342,12 @@ async def start_auth() -> StartAuthResponse:
         'runner': runner,
     }
 
-    # Set timeout to clean up after 5 minutes
-    asyncio.create_task(_cleanup_session_after_timeout(session_id, 300))
+    # Keep the callback server alive long enough for the whole desktop-login
+    # interaction, including the unsubscribed-account plan chooser where the
+    # user may deliberate for several minutes before choosing a plan or Skip.
+    # The 302 handoff (see handle_callback) shuts the server down 1s after the
+    # choice is made, so this ceiling only bounds an abandoned login.
+    asyncio.create_task(_cleanup_session_after_timeout(session_id, 1800))
 
     # Build login URL
     login_url = f"{_get_cloud_base_url()}/auth/desktop-login?port={port}&state={state}"
@@ -485,6 +489,7 @@ async def get_account_info():
 
     try:
         # Fetch fresh account info from stimma.cloud
+        effective_token = id_token
         try:
             account = await fetch_user_account(id_token)
         except httpx.HTTPStatusError as e:
@@ -496,12 +501,42 @@ async def get_account_info():
             if not fresh_token:
                 raise AuthSessionExpiredError("No valid token after force refresh") from e
             account = await fetch_user_account(fresh_token)
+            effective_token = fresh_token
 
         # Update cached values
-        auth_state['tier'] = account.get('tier', 'free')
+        new_tier = account.get('tier', 'free')
+        auth_state['tier'] = new_tier
         auth_state['credits'] = account.get('credits', 0)
         auth_state['createdAt'] = account.get('createdAt')
         save_auth_state(auth_state)
+
+        # Connect the cloud tool provider once the account is on a paid tier.
+        # Login (handle_callback) and startup (core/app.py) only connect when
+        # the tier is ALREADY non-free, so a subscription purchased after a
+        # free desktop login (the OOBE purchase flow) has no trigger to attach
+        # the cloud tools until the next app restart — the agent LLM comes back
+        # on the refreshed tier but the tools stay dark. Connect here, guarded
+        # the same way startup is (privacy lockdown, config-disabled) and only
+        # when not already connected so repeated refreshes are a no-op and a
+        # failed connect is retried on the next refresh.
+        if new_tier != 'free' and not is_privacy_lockdown_enabled():
+            try:
+                from providers import ProviderRegistry
+                from routes.cloud import connect_cloud_internal, STIMMA_CLOUD_PROVIDER_ID
+
+                cloud_cfg = next(
+                    (p for p in get_settings().tool_providers if p.id == STIMMA_CLOUD_PROVIDER_ID),
+                    None,
+                )
+                disabled_in_config = cloud_cfg is not None and not cloud_cfg.enabled
+                already_connected = (
+                    ProviderRegistry.get_instance().get_provider(STIMMA_CLOUD_PROVIDER_ID) is not None
+                )
+                if not disabled_in_config and not already_connected:
+                    log.info("paid tier without cloud tools connected, connecting", tier=new_tier)
+                    asyncio.create_task(connect_cloud_internal(effective_token))
+            except Exception as e:
+                log.warning("failed to connect cloud tools after account refresh", error=str(e))
 
         # Return the full account data from stimma.cloud
         return {
