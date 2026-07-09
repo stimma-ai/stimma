@@ -53,7 +53,9 @@ async def test_run_code_tool_registered_and_prompt_documented():
     assert tool is not None
     assert any(t["function"]["name"] == "run_code" for t in get_tools_schema())
     assert "run_code" in get_system_prompt()
-    assert "run_code" in GATED_TOOLS
+    # run_code is intentionally NOT gated: it's confined to its workspace + Stimma APIs,
+    # so the approval prompt added only friction. Shell is the sole gated capability.
+    assert "run_code" not in GATED_TOOLS
 
 
 @pytest.mark.asyncio

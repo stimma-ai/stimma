@@ -237,7 +237,7 @@ async function saveAnalyticsPref(enabled) {
 async function handleCreateAccount() {
   loading.value = true
   try {
-    await signInWithBrowser()
+    await signInWithBrowser('create')
     markComplete()
     router.push({ name: 'home' })
   } catch {
@@ -248,7 +248,7 @@ async function handleCreateAccount() {
 async function handleSignIn() {
   loading.value = true
   try {
-    await signInWithBrowser()
+    await signInWithBrowser('sign-in')
     markComplete()
     router.push({ name: 'home' })
   } catch {

@@ -14,33 +14,50 @@ from database import Chat, Project
 
 log = get_logger(__name__)
 
-# Tools that require permission prompts before execution
+# Tools that require permission prompts before execution.
+# Shell (bash) is the only gated capability: it's the one tool that can reach outside the
+# workspace sandbox to bring files in or push them out. run_code and browse_web are ungated
+# — run_code is confined to its workspace + Stimma APIs (in-app effects are what the agent is
+# for), and web browsing is read-only info gathering.
 # Note: call_tool is NOT here — it uses per-STP-tool-id gating via check_stp_permission
-GATED_TOOLS = {"bash", "browse_web", "run_code"}
+GATED_TOOLS = {"bash"}
 
 # Legacy aliases — old permission keys that map to current tool names
 PERMISSION_ALIASES = {}
 
 PermissionDecision = Literal["allow", "deny", "ask"]
 
+# Shell commands that are auto-approved (no prompt) when every argument stays inside the
+# workspace and there are no shell metacharacters. Read-only discovery plus the in-workspace
+# mutating trio (cp/mv/rm) — destruction is fine as long as it's provably inside the box; the
+# workspace-relative path check below is what enforces "inside the box".
 _AUTO_APPROVED_BASH_COMMANDS = {
     "cat",
+    "cp",
     "egrep",
     "fgrep",
     "file",
     "find",
     "grep",
     "head",
+    "echo",
     "ls",
+    "mv",
     "pwd",
     "rg",
+    "rm",
     "sed",
     "stat",
     "tail",
     "wc",
 }
 
-_BLOCKED_SHELL_CHARS = re.compile(r"[;&|<>`$()\{\}\n\r]")
+# Constructs that enable arbitrary code execution or expansion — never auto-approved.
+_UNSAFE_SHELL_CHARS = re.compile(r"[`$(){}\n\r]")
+# Redirections to the null device (or fd duplications) are harmless; stripped before analysis.
+_NULL_REDIRECT = re.compile(r"(?:&|\d+)?>\s*/dev/null|\d*>&\d+")
+# Pipeline / sequence separators — each segment is analysed independently.
+_SEGMENT_SEP = re.compile(r"\|\||&&|[|;]")
 _WINDOWS_ABSOLUTE_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 _MUTATING_FIND_ACTIONS = {
     "-delete",
@@ -153,8 +170,9 @@ async def check_permission_for_call(
 ) -> bool:
     """Check if a concrete v2 tool call is permitted.
 
-    A small class of read-only shell discovery commands is allowed without a
-    prompt because it mirrors the already-ungated workspace file tools.
+    A small class of shell commands that provably stay inside the workspace is
+    allowed without a prompt because it mirrors the already-ungated workspace
+    file tools.
     """
     decision = await get_permission_decision(tool_name, chat, session)
     if decision == "allow":
@@ -168,13 +186,13 @@ def is_auto_approved_tool_call(
     tool_name: str,
     tool_args: str | Mapping[str, Any] | None,
 ) -> bool:
-    """Return True for harmless discovery calls that should not prompt."""
+    """Return True for trivially-safe in-workspace calls that should not prompt."""
     if tool_name != "bash":
         return False
 
     args = _coerce_tool_args(tool_args)
     command = str(args.get("command", "")).strip()
-    return _is_read_only_workspace_discovery_command(command)
+    return _is_safe_workspace_command(command)
 
 
 def _coerce_tool_args(tool_args: str | Mapping[str, Any] | None) -> dict[str, Any]:
@@ -189,12 +207,40 @@ def _coerce_tool_args(tool_args: str | Mapping[str, Any] | None) -> dict[str, An
     return {}
 
 
-def _is_read_only_workspace_discovery_command(command: str) -> bool:
-    if not command or _BLOCKED_SHELL_CHARS.search(command):
+def _is_safe_workspace_command(command: str) -> bool:
+    """True for shell that provably stays inside the workspace and cannot run
+    arbitrary code.
+
+    Allows read-only discovery plus in-workspace mutation, composed into safe
+    pipelines/sequences (``|`` ``||`` ``&&`` ``;``) with redirects to /dev/null —
+    the shapes the agent actually uses to browse the tool catalog, e.g.
+    ``ls .stimma/tools/text-to-image/ 2>/dev/null || echo "no dir"``. Anything with
+    command substitution, expansion, or a redirect to a real path falls through
+    to a prompt.
+    """
+    if not command or _UNSAFE_SHELL_CHARS.search(command):
         return False
 
+    # Drop harmless null-device redirects, then reject any redirect that remains
+    # (it targets a real path we can't prove stays in-workspace).
+    stripped = _NULL_REDIRECT.sub(" ", command)
+    if "<" in stripped or ">" in stripped:
+        return False
+
+    # A lone ``&`` (background) is not part of ``&&`` sequencing — reject it.
+    if "&" in stripped.replace("&&", ""):
+        return False
+
+    segments = [seg.strip() for seg in _SEGMENT_SEP.split(stripped) if seg.strip()]
+    if not segments:
+        return False
+
+    return all(_is_safe_command_segment(seg) for seg in segments)
+
+
+def _is_safe_command_segment(segment: str) -> bool:
     try:
-        tokens = shlex.split(command, posix=True)
+        tokens = shlex.split(segment, posix=True)
     except ValueError:
         return False
 
@@ -204,6 +250,10 @@ def _is_read_only_workspace_discovery_command(command: str) -> bool:
     executable = tokens[0].split("/")[-1]
     if executable not in _AUTO_APPROVED_BASH_COMMANDS:
         return False
+
+    # echo only emits its literal arguments (expansion is already rejected above).
+    if executable == "echo":
+        return True
 
     if executable == "find" and any(token in _MUTATING_FIND_ACTIONS for token in tokens[1:]):
         return False
@@ -276,31 +326,28 @@ async def check_stp_permission(
 async def apply_permission(
     tool_name: str, scope: str, approved: bool, chat: Chat
 ) -> None:
-    """Persist a permission decision based on scope.
+    """Persist a shell permission decision based on scope.
 
-    scope: 'once' | 'chat' | 'always'
+    scope: 'once' (no-op) | 'chat'. The chat is the broadest scope — there is no
+    global/profile grant for shell, so permission never leaks past the chat where
+    it was granted. A legacy 'always' from a stale client is treated as 'chat'.
     """
-    tool_name = _canonical_tool_name(tool_name)
-    value = "allow" if approved else "deny"
-
     if scope == "once":
         return  # no-op
 
-    if scope == "chat":
-        config = {}
-        if chat.agent_tool_config:
-            try:
-                config = json.loads(chat.agent_tool_config)
-            except json.JSONDecodeError:
-                pass
-        v2 = config.setdefault("v2_permissions", {})
-        v2[tool_name] = value
-        chat.agent_tool_config = json.dumps(config)
-        log.info(f"Set chat v2_permissions.{tool_name}={value}")
+    tool_name = _canonical_tool_name(tool_name)
+    value = "allow" if approved else "deny"
 
-    elif scope == "always":
-        await _add_to_global_v2_permissions(tool_name, value)
-        log.info(f"Set global v2_permissions.{tool_name}={value}")
+    config = {}
+    if chat.agent_tool_config:
+        try:
+            config = json.loads(chat.agent_tool_config)
+        except json.JSONDecodeError:
+            pass
+    v2 = config.setdefault("v2_permissions", {})
+    v2[tool_name] = value
+    chat.agent_tool_config = json.dumps(config)
+    log.info(f"Set chat v2_permissions.{tool_name}={value}")
 
 
 async def apply_stp_permission(
@@ -342,32 +389,6 @@ async def apply_stp_permission(
     elif scope == "always":
         await _add_to_global_stp_permission(stp_tool_id, approved)
         log.info(f"Set global {list_key} += {stp_tool_id}")
-
-
-async def _add_to_global_v2_permissions(tool_name: str, value: str) -> None:
-    """Write a v2 permission to profile-level config.yaml."""
-    from config import get_settings, reload_settings
-    from config_writer import patch_profile_section
-    from core.profile_context import get_current_profile
-
-    settings = get_settings()
-    profile_id = get_current_profile()
-    agent_config = settings.get_agent_for_profile(profile_id)
-
-    current_v2 = dict(agent_config.tool_config.v2_permissions)
-    current_v2[tool_name] = value
-
-    agent_data = {
-        "additional_instructions": agent_config.additional_instructions,
-        "tool_config": {
-            "allowed_tools": agent_config.tool_config.allowed_tools,
-            "denied_tools": agent_config.tool_config.denied_tools,
-                        "v2_permissions": current_v2,
-        },
-    }
-
-    patch_profile_section(profile_id, "agent", agent_data)
-    reload_settings()
 
 
 async def _add_to_global_stp_permission(stp_tool_id: str, approved: bool) -> None:

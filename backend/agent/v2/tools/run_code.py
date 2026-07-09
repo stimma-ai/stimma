@@ -21,6 +21,15 @@ from ..tools_registry import tool, ToolParameter
     ),
     parameters=[
         ToolParameter(name="code", type="string", description="Python code to execute"),
+        ToolParameter(
+            name="label",
+            type="string",
+            description=(
+                "A few words in present-progressive naming what this code does, shown to the "
+                'user while it runs (e.g. "Generating image", "Upscaling", "Building grid").'
+            ),
+            required=False,
+        ),
     ],
 )
 async def run_code(code: str, **kwargs) -> str:

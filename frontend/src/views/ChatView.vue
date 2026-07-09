@@ -1882,7 +1882,7 @@ function getToolCallStatusLabel(toolCallItem) {
 // Friendly display names for agent tools (avoid developer jargon)
 const TOOL_DISPLAY_NAMES = {
   call_tool: null,       // Special: uses tool_args._display_name or tool_id
-  run_code: 'Running Script',
+  run_code: 'Working…',  // Special: uses tool_args._display_name (agent-supplied label)
   bash: 'Running Command',
   ask_user: 'Asking You',
   browse_web: 'Browsing Web',
@@ -1959,6 +1959,12 @@ function getToolCallDisplayName(toolCallItem) {
     const toolId = args.tool_id
     if (toolId) return formatToolId(String(toolId))
     return 'Tool'
+  }
+  if (toolCallItem.tool_name === 'run_code') {
+    // Agent supplies a present-progressive label ("Generating image"); fall back to a
+    // neutral verb rather than exposing the "Running Script" implementation detail.
+    if (args._display_name) return String(args._display_name)
+    return 'Working…'
   }
   if (toolCallItem.tool_name === 'skill' || toolCallItem.tool_name === 'stimpack') {
     // Fallback shows only the leaf of a pack-qualified name ("pack/skill")

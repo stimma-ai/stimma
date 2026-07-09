@@ -157,15 +157,21 @@ async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<voi
     if (downloadedVersion.value && downloadedVersion.value === update.version) {
       return
     }
-    // Already downloaded + installed this version; just waiting on a relaunch.
+    // A newer build superseded whatever we had staged — discard it and re-stage
+    // the new one (frees the old resource on Windows; re-installs over it on
+    // mac/linux).
+    if (stagedVersion.value && stagedVersion.value !== update.version) {
+      await resetStaged()
+    }
+    // This exact version is already staged and waiting on a restart.
     if (stagedVersion.value === update.version) {
       return
     }
 
     availableUpdate.value = update
 
-    // Automatic mode: pull the update in the background now. stageUpdate never
-    // tears down a running session — see its per-platform notes.
+    // Automatic mode: stage the update. stageUpdate never tears down a running
+    // session and never holds an installer in memory — see its per-platform notes.
     if (policy.value === 'automatic') {
       void stageUpdate()
     }
@@ -176,40 +182,58 @@ async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<voi
   }
 }
 
-// Automatic mode: pull the update in the background without ever tearing down a
-// running session. Downloading is safe on every platform; how we apply differs:
+// Automatic mode: stage an available update without tearing down the running
+// session. How we stage differs by platform, because the plugin buffers the
+// whole package in process memory and can only install within the same process:
 //   - macOS / Linux-AppImage: install() swaps the bundle in place and the
-//     running process keeps old code until relaunch, so we install now and
-//     apply on the next launch ("Restart to finish").
-//   - Windows: the NSIS installer must run with the app closed, so we hold the
-//     downloaded package and only run install() when the user restarts.
+//     running process keeps old code until relaunch. We download + install now
+//     (memory freed immediately) and apply on the next launch. Any relaunch
+//     picks it up — see restartToApply / "Restart to finish".
+//   - Windows: the NSIS installer must run with the app closed, and we refuse
+//     to hold a ~hundreds-of-MB installer in RAM waiting for a restart. So we
+//     do NOT pre-download; we just surface a one-click "Restart to update" and
+//     download + install at that moment (see restartToApply). This also means
+//     no repeated background downloads across launches.
 async function stageUpdate(): Promise<void> {
   if (!availableUpdate.value || isDownloading.value || stagedVersion.value) return
 
   const update = availableUpdate.value
   const version = update.version
+
+  if (isWindowsPlatform()) {
+    // Nothing downloaded yet — keep the Update handle so restartToApply can
+    // download + install it on demand.
+    stagedVersion.value = version
+    pendingApply.value = 'install'
+    track('update_staged', { version, mode: 'automatic' })
+    return
+  }
+
   isDownloading.value = true
   try {
-    // Download in the background — non-disruptive everywhere.
     await update.download()
-
-    if (isWindowsPlatform()) {
-      // Keep the Update object alive: install() replays the bytes it holds.
-      stagedVersion.value = version
-      pendingApply.value = 'install'
-      track('update_staged', { version, mode: 'automatic' })
-    } else {
-      await update.install()
-      stagedVersion.value = version
-      pendingApply.value = 'relaunch'
-      availableUpdate.value = null
-      track('update_installed', { version, mode: 'automatic' })
-    }
+    await update.install()
+    stagedVersion.value = version
+    pendingApply.value = 'relaunch'
+    availableUpdate.value = null
+    track('update_installed', { version, mode: 'automatic' })
+    // Free the Rust-side resource; we no longer need the buffered package.
+    try { await update.close() } catch { /* best-effort */ }
   } catch (error) {
     console.error('[updater] Background staging failed:', error)
   } finally {
     isDownloading.value = false
   }
+}
+
+// Drop a staged update (superseded or being replaced) and free its resource.
+async function resetStaged(): Promise<void> {
+  if (availableUpdate.value) {
+    try { await availableUpdate.value.close() } catch { /* best-effort */ }
+  }
+  availableUpdate.value = null
+  stagedVersion.value = null
+  pendingApply.value = null
 }
 
 async function downloadAndInstallUpdate(): Promise<void> {
@@ -227,10 +251,10 @@ async function downloadAndInstallUpdate(): Promise<void> {
   }
 }
 
-// Apply an update that was staged in the background. On Windows this is the
-// point where the installer runs (the app closes, the passive installer swaps
-// files and relaunches). On mac/linux the package is already installed, so we
-// just relaunch into it.
+// Apply a staged update. On Windows this is where the installer actually runs:
+// we download + install now (bytes live only for the seconds of install), the
+// app closes, and the passive installer swaps files and relaunches. On mac/linux
+// the package is already installed, so we just relaunch into it.
 async function restartToApply(): Promise<void> {
   if (!stagedVersion.value || isDownloading.value) return
 
@@ -238,15 +262,16 @@ async function restartToApply(): Promise<void> {
     const version = stagedVersion.value
     isDownloading.value = true
     try {
-      await availableUpdate.value.install()
+      await availableUpdate.value.downloadAndInstall()
       track('update_installed', { version, mode: 'automatic' })
     } catch (error) {
-      console.error('[updater] Install failed:', error)
+      // Leave the staged state intact so the button stays actionable.
+      console.error('[updater] Download/install failed:', error)
       isDownloading.value = false
       return
     }
     // The passive installer relaunches; relaunch() is a fallback for the rare
-    // path where install() returns without exiting.
+    // path where downloadAndInstall() returns without exiting.
     await relaunchApp()
     return
   }
@@ -284,6 +309,7 @@ export function useAppUpdater() {
     hasUpdate,
     stagedVersion,
     pendingRestart,
+    pendingApply,
     loadPreferences,
     setUpdatePolicy,
     checkForUpdates,

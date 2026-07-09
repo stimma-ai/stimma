@@ -27,6 +27,16 @@ def get_shell_runtime_name() -> str:
     ),
     parameters=[
         ToolParameter(name="command", type="string", description="The shell command to run"),
+        ToolParameter(
+            name="purpose",
+            type="string",
+            description=(
+                "A short plain-language description of what this command does, shown to the "
+                'user if approval is needed (e.g. "Download the reference image", "Move '
+                'results into the project folder").'
+            ),
+            required=False,
+        ),
         ToolParameter(name="timeout", type="integer", description="Timeout in seconds (default 120, max 600)", required=False),
     ],
 )

@@ -174,6 +174,9 @@ async def backfill_structured_media_raw_metadata(profile_id: str) -> int:
                     frontmatter = parse_markdown_frontmatter(file_path)
                     if frontmatter:
                         raw_metadata = json.dumps({'frontmatter': frontmatter})
+                elif ext == '.stimmalayout':
+                    # Layout bundles are directories (index.html + assets), not flat JSON files
+                    pass
                 else:
                     # JSON-based: store full parsed content
                     parsed = parse_structured_media(file_path)

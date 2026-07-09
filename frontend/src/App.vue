@@ -2,9 +2,6 @@
   <!-- Toast notifications (global, always visible) -->
   <ToastContainer />
 
-  <!-- FFmpeg warning modal (global) -->
-  <FFmpegWarningModal />
-
   <!-- Image/generation details popup (global, opened via useMediaDetailsModal) -->
   <MediaDetailsModal />
 
@@ -170,7 +167,6 @@ import NavigationSidebar from './components/NavigationSidebar.vue'
 import ProjectScopeBar from './components/ProjectScopeBar.vue'
 import TopBar from './components/TopBar.vue'
 import ToastContainer from './components/ToastContainer.vue'
-import FFmpegWarningModal from './components/FFmpegWarningModal.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
 import ReadinessPanel from './components/ReadinessPanel.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
@@ -199,7 +195,8 @@ import { initFeatureFlags } from './composables/useFeatureFlags'
 import { useWebSocket } from './composables/useWebSocket'
 import { useUnseenActivity } from './composables/useUnseenActivity'
 import { runStartupCleanup } from './utils/storageCleanup'
-import { setCloudBaseUrl } from './composables/useCloudAccount'
+import { setCloudBaseUrl, fetchCloudAccount } from './composables/useCloudAccount'
+import { refreshAvailableModels } from './composables/useAvailableModels'
 import { useRouteRestore } from './composables/useRouteRestore'
 import { useTabNavigation } from './composables/useTabNavigation'
 import { useTheme } from './composables/useTheme'
@@ -433,6 +430,29 @@ function handleResize() {
   if (!isMobile.value) {
     sidebarOpen.value = false
   }
+}
+
+// Re-sync cloud state whenever the app regains focus. This is the general case
+// of returning from an external browser flow — most importantly completing a
+// Stripe subscription, after which the set of available cloud models changes
+// but nothing else would refetch (the user was already signed in, so no auth
+// transition fires). Throttled so rapid focus toggling doesn't spam requests.
+let lastFocusSyncAt = 0
+const FOCUS_SYNC_THROTTLE_MS = 4000
+
+function handleWindowFocusSync() {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+  const now = Date.now()
+  if (now - lastFocusSyncAt < FOCUS_SYNC_THROTTLE_MS) return
+  lastFocusSyncAt = now
+  // Model availability drives the chat composer's lock, so always resync it.
+  refreshAvailableModels()
+  // Tier/credits only matter (and 401s only fire) when signed in.
+  if (isAuthenticated.value) fetchCloudAccount()
+}
+
+function handleVisibilitySync() {
+  if (document.visibilityState === 'visible') handleWindowFocusSync()
 }
 
 function getActiveTabId() {
@@ -707,7 +727,7 @@ async function checkStartupPin() {
     console.warn('[App] Failed to load app identity from settings:', e)
   }
 
-  void syncMarketplaceStimpacks()
+  await syncMarketplaceStimpacks()
 
   // Start persisting route changes
   setupPersistence()
@@ -876,6 +896,8 @@ onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('pin-auto-locked', handleAutoLock)
   window.addEventListener('open-settings', handleOpenSettings)
+  window.addEventListener('focus', handleWindowFocusSync)
+  document.addEventListener('visibilitychange', handleVisibilitySync)
 
   // Register the WS handler that lets the backend ask us to render
   // .stimmalayout HTML to PNG bytes via the real browser engine.
@@ -895,6 +917,8 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('pin-auto-locked', handleAutoLock)
   window.removeEventListener('open-settings', handleOpenSettings)
+  window.removeEventListener('focus', handleWindowFocusSync)
+  document.removeEventListener('visibilitychange', handleVisibilitySync)
   if (updateIntervalId) {
     window.clearInterval(updateIntervalId)
     updateIntervalId = null

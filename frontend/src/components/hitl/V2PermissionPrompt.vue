@@ -85,7 +85,7 @@
       </button>
       <div class="relative flex" ref="allowMenuRef">
         <button
-          @click="handleAllow('always')"
+          @click="handleAllow(defaultScope)"
           class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-l-lg transition-colors"
         >
           Allow
@@ -110,11 +110,14 @@
           </button>
           <button
             @click="handleAllow('chat')"
-            class="w-full px-3 py-2 text-left text-sm text-content hover:bg-overlay-light transition-colors"
+            class="w-full px-3 py-2 text-left text-sm text-content transition-colors flex items-center justify-between"
+            :class="defaultScope === 'chat' ? 'bg-blue-600/20 hover:bg-blue-600/30' : 'hover:bg-overlay-light'"
           >
             For this Chat
+            <span v-if="defaultScope === 'chat'" class="text-[10px] text-blue-500">Default</span>
           </button>
           <button
+            v-if="allowGlobal"
             @click="handleAllow('always')"
             class="w-full px-3 py-2 text-left text-sm text-content bg-blue-600/20 hover:bg-blue-600/30 transition-colors flex items-center justify-between"
           >
@@ -206,6 +209,12 @@ const args = computed(() => props.action.v2_tool_args || {})
 
 const isCallTool = computed(() => !!args.value.tool_id)
 
+// "Always Allow" (a global/profile grant) only applies to per-tool trust for call_tool.
+// Shell (bash) tops out at chat scope — there is no persistent global shell grant — so its
+// default and broadest option is "For this Chat".
+const allowGlobal = computed(() => isCallTool.value)
+const defaultScope = computed<PermissionScope>(() => (isCallTool.value ? 'always' : 'chat'))
+
 const v2ToolLabels: Record<string, string> = {
   bash: 'Running Command',
   run_code: 'Running Script',
@@ -217,6 +226,11 @@ const displayName = computed(() => {
   if (args.value._display_name) return args.value._display_name
   if (args.value.tool_id) return args.value.tool_id
   const toolName = args.value._v2_tool_name
+  // Shell: the agent-supplied purpose is the subject ("Download the reference image"),
+  // replacing the generic "Running Command". The raw command stays visible below.
+  if (toolName === 'bash' && typeof args.value.purpose === 'string' && args.value.purpose.trim()) {
+    return args.value.purpose.trim()
+  }
   if (toolName && v2ToolLabels[toolName]) return v2ToolLabels[toolName]
   if (toolName) return toolName
   return 'Tool'

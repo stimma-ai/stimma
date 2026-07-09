@@ -13,6 +13,10 @@ const cloudMessage = ref('')
 const error = ref(null)
 const loading = ref(false)
 const lastFetchTime = ref(0)
+// The project scope of the most recent fetch, so a background refresh (e.g. on
+// window focus) can re-fetch the same scope instead of clobbering it with the
+// global list.
+const lastProjectId = ref(null)
 
 const CACHE_TTL_MS = 60_000 // 1 minute cache
 
@@ -26,6 +30,7 @@ async function fetchModels(projectId = null, force = false) {
     return
   }
 
+  lastProjectId.value = projectId
   loading.value = true
   try {
     const params = {}
@@ -43,6 +48,16 @@ async function fetchModels(projectId = null, force = false) {
   } finally {
     loading.value = false
   }
+}
+
+/**
+ * Force a re-fetch of model availability at the last-used project scope.
+ * Used to re-sync after returning from an external flow (e.g. Stripe checkout),
+ * where a new subscription changes which cloud models are available but nothing
+ * else would refetch. Safe to call frequently — it's a single lightweight GET.
+ */
+export function refreshAvailableModels() {
+  return fetchModels(lastProjectId.value, true)
 }
 
 /**

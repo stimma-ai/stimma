@@ -44,30 +44,6 @@
       </div>
 
       <template v-else>
-        <!-- Agent Tools -->
-        <div class="mb-6">
-          <h4 class="text-sm font-medium text-content-secondary mb-3">Agent Tools</h4>
-          <div class="bg-surface-raised border border-edge rounded-lg overflow-hidden">
-            <div
-              v-for="(tool, idx) in V2_TOOLS"
-              :key="tool.name"
-              class="flex items-center justify-between px-3 py-2"
-              :class="idx < V2_TOOLS.length - 1 ? 'border-b border-edge' : ''"
-            >
-              <span class="text-[13px] text-content">{{ tool.label }}</span>
-              <select
-                :value="getV2Permission(tool.name)"
-                @change="setV2Permission(tool.name, ($event.target as HTMLSelectElement).value)"
-                class="text-xs bg-base text-content border border-edge rounded-md px-2 py-1 focus:outline-none focus:border-blue-500 cursor-pointer"
-              >
-                <option value="ask">Ask</option>
-                <option value="allow">Allow</option>
-                <option value="deny">Deny</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
         <!-- Generation Tools -->
         <div class="mb-6">
           <div class="flex items-center justify-between mb-3">
@@ -175,28 +151,6 @@ const configuredToolIds = computed(() => {
 const configuredTools = computed(() => {
   return allTools.value.filter(tool => configuredToolIds.value.has(tool.full_tool_id))
 })
-
-// V2 agent tools — always shown
-const V2_TOOLS = [
-  { name: 'bash', label: 'Shell' },
-  { name: 'run_code', label: 'Run Code' },
-  { name: 'browse_web', label: 'Browsing Web' },
-]
-
-function getV2Permission(toolName: string): string {
-  return localToolConfig.value?.v2_permissions?.[toolName] || 'ask'
-}
-
-async function setV2Permission(toolName: string, value: string) {
-  const v2 = { ...(localToolConfig.value.v2_permissions || {}) }
-  if (value === 'ask') {
-    delete v2[toolName]
-  } else {
-    v2[toolName] = value
-  }
-  const newConfig = { ...localToolConfig.value, v2_permissions: v2 }
-  await handleToolConfigUpdate(newConfig)
-}
 
 // Computed: tools NOT in the configured list (for the add dropdown)
 const unconfiguredTools = computed(() => {

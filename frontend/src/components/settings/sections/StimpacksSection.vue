@@ -457,7 +457,7 @@ function marketplaceAuthor(stimpack: Stimpack): string {
 function marketplaceAvatarKey(stimpack: Stimpack): string {
   const freshKey = marketplaceByName.value.get(stimpack.name)?.authorAvatarKey
   if (freshKey) return freshKey
-  return catalogLoaded.value ? (stimpack.marketplace_author_avatar_key || '') : ''
+  return stimpack.marketplace_author_avatar_key || ''
 }
 
 function handleAvatarError(key: string) {

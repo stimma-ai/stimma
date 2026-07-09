@@ -450,6 +450,9 @@ def extract_metadata(file_path: Path) -> dict:
             frontmatter = parse_markdown_frontmatter(file_path)
             if frontmatter:
                 raw_metadata = json.dumps({'frontmatter': frontmatter})
+        elif is_layout:
+            # Layout bundles are directories (index.html + assets), not flat JSON files
+            pass
         else:
             # JSON-based structured types (.stimmaset.json, .stimmagrid.json)
             parsed = parse_structured_media(file_path)

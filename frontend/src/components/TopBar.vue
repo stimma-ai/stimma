@@ -95,10 +95,19 @@
                 <span class="text-sm font-semibold text-yellow-500">System Warnings</span>
               </div>
               <div v-for="warning in systemWarnings" :key="warning.type" class="text-xs text-content-secondary mb-2">
-                <div class="font-medium">{{ warning.title }}</div>
+                <div class="flex items-start justify-between gap-2">
+                  <div class="font-medium">{{ warning.title }}</div>
+                  <button
+                    class="text-content-tertiary hover:text-content-secondary shrink-0"
+                    title="Dismiss"
+                    @click.stop="dismissSystemWarning(warning.type)"
+                  >
+                    ×
+                  </button>
+                </div>
                 <div class="text-content-tertiary">{{ warning.message }}</div>
                 <a :href="warning.action_url" target="_blank" class="text-blue-500 hover:underline">
-                  Installation instructions →
+                  {{ warning.action_label || 'Installation instructions' }} →
                 </a>
               </div>
             </div>
@@ -244,6 +253,37 @@
         </transition>
       </div>
 
+      <!-- Update affordance: prominent, not buried in a menu -->
+      <div
+        v-if="isDownloading"
+        class="flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-blue-500/15 border border-blue-500/50 text-blue-400 text-xs font-medium select-none"
+      >
+        <div class="w-3.5 h-3.5 border-2 border-blue-400/40 border-t-blue-400 rounded-full animate-spin"></div>
+        <span>Updating…</span>
+      </div>
+      <button
+        v-else-if="pendingRestart"
+        @click="requestUpdateAction('restart')"
+        class="flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25 text-xs font-medium transition-colors"
+        title="Restart to update"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+        </svg>
+        <span>Restart to update</span>
+      </button>
+      <button
+        v-else-if="hasUpdate"
+        @click="requestUpdateAction('install')"
+        class="flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25 text-xs font-medium transition-colors"
+        title="Install update"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        </svg>
+        <span>Update available</span>
+      </button>
+
       <!-- Logo menu -->
       <div class="relative logo-menu">
         <button
@@ -381,45 +421,21 @@
                 <span>Settings</span>
               </button>
             </div>
-
-            <!-- Update available -->
-            <template v-if="hasUpdate || pendingRestart">
-              <div class="border-t border-edge-subtle"></div>
-              <div class="py-1">
-                <template v-if="isDownloading">
-                  <div class="w-full px-3 py-2 text-left text-sm text-content-tertiary flex items-center gap-2.5">
-                    <div class="w-4 h-4 border-2 border-content-muted border-t-blue-500 rounded-full animate-spin"></div>
-                    <span>Installing update...</span>
-                  </div>
-                </template>
-                <template v-else-if="pendingRestart">
-                  <button
-                    @click="handleRestartUpdate"
-                    class="w-full px-3 py-2 text-left text-sm text-blue-500 hover:bg-overlay-subtle flex items-center gap-2.5 transition-colors"
-                  >
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                    </svg>
-                    <span>Restart to update{{ stagedVersion ? ` (${stagedVersion})` : '' }}</span>
-                  </button>
-                </template>
-                <template v-else>
-                  <button
-                    @click="handleInstallUpdate"
-                    class="w-full px-3 py-2 text-left text-sm text-blue-500 hover:bg-overlay-subtle flex items-center gap-2.5 transition-colors"
-                  >
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                    </svg>
-                    <span>Update available</span>
-                  </button>
-                </template>
-              </div>
-            </template>
           </div>
         </transition>
       </div>
     </div>
+
+    <!-- Restart-to-update confirmation when work is in progress -->
+    <ConfirmModal
+      :show="showUpdateConfirm"
+      title="Update now?"
+      message="Work in progress will be interrupted."
+      confirmText="Update"
+      cancelText="Not now"
+      @confirm="confirmUpdateAction"
+      @cancel="cancelUpdateAction"
+    />
 
     <!-- Failed Items Modal -->
     <Teleport to="body">
@@ -519,12 +535,14 @@ import { useWebSocket } from '../composables/useWebSocket'
 import { useProfile } from '../composables/useProfile'
 import { useMediaApi } from '../composables/useMediaApi'
 import { clearCachedPin, hasCachedPin } from '../composables/usePinLock'
+import { makeGlobalKey } from '../utils/storageKeys'
 import { useTheme } from '../composables/useTheme'
 import { useSettingsApi } from '../composables/useSettingsApi'
 import { useAppUpdater } from '../composables/useAppUpdater'
 import { captioningEnabledRef } from '../appConfig'
 import LogoFeedbackMenu from '@stimma/logo-feedback-menu'
 import GlobalSearchBox from './search/GlobalSearchBox.vue'
+import ConfirmModal from './ConfirmModal.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -586,7 +604,9 @@ const { themePreference: currentTheme, setTheme } = useTheme()
 const { updateTheme } = useSettingsApi()
 
 // Updates
-const { hasUpdate, pendingRestart, stagedVersion, isDownloading, downloadAndInstallUpdate, restartToApply } = useAppUpdater()
+const { hasUpdate, pendingRestart, isDownloading, downloadAndInstallUpdate, restartToApply } = useAppUpdater()
+const showUpdateConfirm = ref(false)
+const pendingUpdateAction = ref(null) // 'restart' | 'install'
 
 // Logo menu
 const logoMenuOpen = ref(false)
@@ -651,16 +671,34 @@ function openProfilesSettings() {
   emit('open-settings', 'profiles')
 }
 
-function handleInstallUpdate() {
+// Applying an update closes/relaunches the app; confirm first if work is in
+// flight so a click can't silently kill an in-progress generation.
+function requestUpdateAction(action) {
   logoMenuOpen.value = false
   document.removeEventListener('click', handleLogoClickOutside)
-  downloadAndInstallUpdate()
+  if (hasActiveWork.value) {
+    pendingUpdateAction.value = action
+    showUpdateConfirm.value = true
+    return
+  }
+  runUpdateAction(action)
 }
 
-function handleRestartUpdate() {
-  logoMenuOpen.value = false
-  document.removeEventListener('click', handleLogoClickOutside)
-  restartToApply()
+function runUpdateAction(action) {
+  if (action === 'restart') restartToApply()
+  else downloadAndInstallUpdate()
+}
+
+function confirmUpdateAction() {
+  showUpdateConfirm.value = false
+  const action = pendingUpdateAction.value
+  pendingUpdateAction.value = null
+  if (action) runUpdateAction(action)
+}
+
+function cancelUpdateAction() {
+  showUpdateConfirm.value = false
+  pendingUpdateAction.value = null
 }
 
 function lockProfile(profileId) {
@@ -987,12 +1025,22 @@ async function fetchPauseStatus() {
   }
 }
 
+function isSystemWarningDismissed(type) {
+  return localStorage.getItem(makeGlobalKey('dismissed_warning', type)) === 'true'
+}
+
+function dismissSystemWarning(type) {
+  localStorage.setItem(makeGlobalKey('dismissed_warning', type), 'true')
+  systemWarnings.value = systemWarnings.value.filter(w => w.type !== type)
+}
+
 async function fetchSystemWarnings() {
   // Broadcasts are missed if the websocket reconnects at the wrong moment,
   // so also check current state directly on mount.
   try {
     const response = await axios.get(`${API_URL}/api/processing/warnings`)
     for (const warning of response.data?.warnings || []) {
+      if (isSystemWarningDismissed(warning.type)) continue
       const exists = systemWarnings.value.some(w => w.type === warning.type)
       if (!exists) {
         systemWarnings.value.push(warning)
@@ -1037,7 +1085,8 @@ onMounted(() => {
 
   // Subscribe to system warnings
   unsubscribeSystemWarning = wsOn('system_warning', (data) => {
-    // Add warning if not already present
+    // Add warning if not already present and not dismissed forever
+    if (isSystemWarningDismissed(data.type)) return
     const exists = systemWarnings.value.some(w => w.type === data.type)
     if (!exists) {
       systemWarnings.value.push({

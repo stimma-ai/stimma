@@ -424,9 +424,22 @@
                     >{{ getBoardProjectName(tab.entityId) }}</span>
                   </div>
 
-                  <div v-else-if="tab.type === 'project'" class="flex-1 min-w-0 flex flex-col">
+                  <div v-else-if="tab.type === 'project' && tab.displayName" class="flex-1 min-w-0 flex flex-col">
                     <span class="truncate text-[13px] text-content">
-                      {{ tab.displayName || 'Untitled Project' }}
+                      {{ tab.displayName }}
+                    </span>
+                    <span class="truncate text-[11px] text-content-muted">
+                      Project
+                    </span>
+                  </div>
+
+                  <!-- Project without name -->
+                  <div v-else-if="tab.type === 'project'" class="flex-1 min-w-0 flex flex-col">
+                    <span
+                      @click.stop="startInlineRename(tab)"
+                      class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                    >
+                      Name this project...
                     </span>
                     <span class="truncate text-[11px] text-content-muted">
                       Project
@@ -722,9 +735,22 @@
                     >{{ getBoardProjectName(tab.entityId) }}</span>
                   </div>
 
-                  <div v-else-if="tab.type === 'project'" class="flex-1 min-w-0 flex flex-col">
+                  <div v-else-if="tab.type === 'project' && tab.displayName" class="flex-1 min-w-0 flex flex-col">
                     <span class="truncate text-[13px] text-content">
-                      {{ tab.displayName || 'Untitled Project' }}
+                      {{ tab.displayName }}
+                    </span>
+                    <span class="truncate text-[11px] text-content-muted">
+                      Project
+                    </span>
+                  </div>
+
+                  <!-- Project without name -->
+                  <div v-else-if="tab.type === 'project'" class="flex-1 min-w-0 flex flex-col">
+                    <span
+                      @click.stop="startInlineRename(tab)"
+                      class="truncate text-[13px] text-content-muted italic cursor-pointer hover:text-content-secondary"
+                    >
+                      Name this project...
                     </span>
                     <span class="truncate text-[11px] text-content-muted">
                       Project
@@ -960,7 +986,7 @@ useFlowCounts()
 const { draggedMediaInfo, draggedMediaType, isDraggingGrid } = useDragStore()
 
 // APIs
-const { getSavedViews, getBoard, getProject, createBoard: apiCreateBoard, createProject: apiCreateProject, updateBoard } = useMediaApi()
+const { getSavedViews, getBoard, getProject, createBoard: apiCreateBoard, createProject: apiCreateProject, updateBoard, updateProject } = useMediaApi()
 const { listPinnedTools, fetchProvidersAndTools, subscribeToProviderChanges } = useProvidersApi()
 
 // ==================== State ====================
@@ -1813,7 +1839,7 @@ function handleRenameTabFromContextMenu(tabId: string) {
 }
 
 function startInlineRename(tab: WorkspaceTab) {
-  if (tab.type !== 'chat' && tab.type !== 'board' && tab.type !== 'flow' && tab.type !== 'tool') return
+  if (tab.type !== 'chat' && tab.type !== 'board' && tab.type !== 'flow' && tab.type !== 'tool' && tab.type !== 'project') return
   editingItem.value = { tabId: tab.id, tabType: tab.type, entityId: tab.entityId }
   // Tool instances: edit the custom name (window title), starting empty when
   // the tab still shows the plain tool name.
@@ -1849,6 +1875,8 @@ async function saveRename() {
   try {
     if (tabType === 'board') {
       await updateBoard(parseInt(entityId, 10), { name: newName })
+    } else if (tabType === 'project') {
+      await updateProject(entityId, { name: newName })
     } else if (tabType === 'chat') {
       await fetch(`/api/chats/${entityId}`, {
         method: 'PATCH',

@@ -71,7 +71,7 @@ export async function initAuth() {
  * Sign in via system browser.
  * Opens browser to stimma.cloud login page, polls for result.
  */
-export async function signInWithBrowser() {
+export async function signInWithBrowser(mode) {
   authError.value = null
 
   if (isPrivacyLockdownActive()) {
@@ -93,13 +93,20 @@ export async function signInWithBrowser() {
 
     const { session_id, login_url } = await startResponse.json()
 
+    // Carry the chosen action (Sign in vs Create account) to the web login page
+    // so it opens on the matching tab instead of a fixed default.
+    let openUrl = login_url
+    if (mode === 'sign-in' || mode === 'create') {
+      openUrl += (openUrl.includes('?') ? '&' : '?') + 'mode=' + mode
+    }
+
     // 2. Open system browser to login page
     if (isTauri()) {
       const { open } = await import('@tauri-apps/plugin-shell')
-      await open(login_url)
+      await open(openUrl)
     } else {
       // Web fallback - open in new tab
-      window.open(login_url, '_blank')
+      window.open(openUrl, '_blank')
     }
 
     // 3. Poll for result

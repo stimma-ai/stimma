@@ -295,6 +295,11 @@ def _enrich_tool_args(fn_name: str, fn_arguments: str) -> str:
         if display:
             args["_display_name"] = display
 
+    if fn_name == "run_code" and isinstance(args.get("label"), str):
+        label = args["label"].strip()
+        if label:
+            args["_display_name"] = label
+
     if args.get("_display_name"):
         return json.dumps(args)
     return fn_arguments
@@ -574,6 +579,9 @@ async def _execute_tool_call(
 def _build_tool_prompt(fn_name: str, kwargs: dict) -> str:
     """Build a human-readable permission prompt for a tool call."""
     if fn_name == "bash":
+        purpose = str(kwargs.get("purpose", "")).strip()
+        if purpose:
+            return purpose
         cmd = kwargs.get("command", "")
         return f"Run {get_shell_runtime_name()} command: {cmd}"
     elif fn_name == "run_code":

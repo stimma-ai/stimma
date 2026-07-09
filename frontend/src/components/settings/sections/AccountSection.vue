@@ -59,13 +59,13 @@
         </button>
         <p class="text-xs text-content-muted mt-2.5">No setup required · Sign in or create an account in your browser</p>
         <div class="mt-8 pt-5 border-t border-edge w-full max-w-sm">
-          <div class="text-[11px] font-semibold uppercase tracking-wider text-content-muted mb-2.5">Bringing your own AI?</div>
+          <div class="text-[11px] font-semibold uppercase tracking-wider text-content-muted mb-2.5">Or, bring your own AI</div>
           <div class="flex flex-col items-center gap-1.5 text-xs">
             <button @click="emit('navigate', 'tools')" class="text-content-tertiary hover:text-content transition-colors">
-              Connect ComfyUI or another tool provider in <span class="font-medium text-content-secondary">Tools</span> →
+              Connect generation tools →
             </button>
             <button @click="emit('navigate', 'ai-services')" class="text-content-tertiary hover:text-content transition-colors">
-              Point the agent at a local LLM in <span class="font-medium text-content-secondary">Advanced</span> →
+              Point the agent at a local LLM →
             </button>
           </div>
         </div>

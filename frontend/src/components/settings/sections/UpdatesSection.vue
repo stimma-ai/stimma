@@ -33,13 +33,14 @@
 
       <div v-else-if="pendingRestart" class="flex items-center justify-between">
         <div class="text-sm text-content">
-          Version {{ stagedVersion }} installed. Restart to finish.
+          <template v-if="pendingApply === 'install'">Version {{ stagedVersion }} is ready. Restart to install.</template>
+          <template v-else>Version {{ stagedVersion }} installed. Restart to finish.</template>
         </div>
         <button
           @click="restartToApply()"
           class="px-3 py-1.5 bg-blue-500 hover:bg-blue-400 text-white rounded-lg text-sm font-medium transition-colors"
         >
-          Restart Now
+          {{ pendingApply === 'install' ? 'Restart & Install' : 'Restart Now' }}
         </button>
       </div>
 
@@ -110,6 +111,7 @@ const {
   availableUpdate,
   stagedVersion,
   pendingRestart,
+  pendingApply,
   loadPreferences,
   setUpdatePolicy,
   checkForUpdates,

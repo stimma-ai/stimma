@@ -36,30 +36,6 @@
           Loading tools...
         </div>
         <template v-else>
-          <!-- V2 Agent Tools section -->
-          <div>
-            <h4 class="text-[11px] font-medium text-content-muted uppercase tracking-wider mb-1.5">Agent Tools</h4>
-            <div class="bg-surface rounded-lg border border-edge overflow-hidden">
-              <div
-                v-for="(tool, idx) in V2_TOOLS"
-                :key="tool.name"
-                class="flex items-center justify-between px-3 py-2"
-                :class="idx < V2_TOOLS.length - 1 ? 'border-b border-edge' : ''"
-              >
-                <span class="text-[13px] text-content">{{ tool.label }}</span>
-                <select
-                  :value="getV2Permission(tool.name)"
-                  @change="setV2Permission(tool.name, ($event.target as HTMLSelectElement).value)"
-                  class="text-xs bg-base text-content border border-edge rounded-md px-2 py-1 focus:outline-none focus:border-blue-500 cursor-pointer"
-                >
-                  <option value="ask">Ask</option>
-                  <option value="allow">Allow</option>
-                  <option value="deny">Deny</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
           <!-- Generation Tools section -->
           <div>
             <div class="flex items-center justify-between mb-1.5">
@@ -187,36 +163,6 @@ const configuredToolIds = computed(() => {
 const configuredTools = computed(() => {
   return allTools.value.filter(tool => configuredToolIds.value.has(tool.full_tool_id))
 })
-
-// V2 agent tools — always shown
-const V2_TOOLS = [
-  { name: 'bash', label: 'Shell' },
-  { name: 'run_code', label: 'Run Code' },
-  { name: 'browse_web', label: 'Browsing Web' },
-]
-
-function getV2Permission(toolName: string): string {
-  return localToolConfig.value?.v2_permissions?.[toolName] || 'ask'
-}
-
-async function setV2Permission(toolName: string, value: string) {
-  if (!localToolConfig.value) return
-  const v2 = { ...(localToolConfig.value.v2_permissions || {}) }
-  if (value === 'ask') {
-    delete v2[toolName]
-  } else {
-    v2[toolName] = value
-  }
-  const newConfig = { ...localToolConfig.value, v2_permissions: v2 }
-  localToolConfig.value = newConfig
-  try {
-    settings.value = await updateChatAgentSettings(props.chatId, {
-      tool_config: newConfig,
-    })
-  } catch (err) {
-    console.error('Failed to update v2 permission:', err)
-  }
-}
 
 // Tools available to add (not currently configured)
 const addableTools = computed(() => {

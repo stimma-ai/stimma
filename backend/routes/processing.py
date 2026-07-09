@@ -1505,18 +1505,12 @@ async def get_system_warnings():
     ffmpeg_available, ffprobe_available = checker.check_availability()
 
     if not ffmpeg_available or not ffprobe_available:
-        missing_tools = []
-        if not ffmpeg_available:
-            missing_tools.append("ffmpeg")
-        if not ffprobe_available:
-            missing_tools.append("ffprobe")
-
         warnings.append({
             "type": "ffmpeg_missing",
-            "title": "FFmpeg Required",
-            "message": f"FFmpeg is not installed on your system. Missing: {', '.join(missing_tools)}",
+            "title": "Video tools unavailable",
+            "message": "A required video component isn't installed, so video import and export won't work.",
             "action_url": "https://stimma.ai/link/ffmpeg",
-            "action_label": "Installation Instructions"
+            "action_label": "Install"
         })
 
     return {"warnings": warnings}
@@ -1550,8 +1544,8 @@ async def recheck_ffmpeg():
 
         await ws_manager.broadcast('system_warning', {
             'type': 'ffmpeg_missing',
-            'title': 'FFmpeg Required',
-            'message': f'FFmpeg is not installed on your system. Missing: {", ".join(missing_tools)}',
+            'title': 'Video tools unavailable',
+            'message': "A required video component isn't installed, so video import and export won't work.",
             'action_url': 'https://stimma.ai/link/ffmpeg'
         }, include_profile=False)
 
