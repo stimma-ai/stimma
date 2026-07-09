@@ -14,7 +14,7 @@
     <div class="p-4 rounded-lg border border-edge mb-3">
       <div class="flex items-center justify-between gap-4">
         <div class="flex-1 min-w-0">
-          <h4 class="text-sm font-medium text-content">Default Chat Model</h4>
+          <h4 class="text-sm font-medium text-content">Default Agent LLM</h4>
           <p class="text-xs text-content-tertiary mt-0.5">Used for new chats unless overridden per-chat or per-project</p>
         </div>
         <select
@@ -43,7 +43,7 @@
     <div class="p-4 rounded-lg border border-edge mb-3">
       <div class="flex items-center justify-between gap-4">
         <div class="flex-1 min-w-0">
-          <h4 class="text-sm font-medium text-content">Quick Tasks</h4>
+          <h4 class="text-sm font-medium text-content">LLM for Quick Tasks</h4>
           <p class="text-xs text-content-tertiary mt-0.5">Used for prompt enhancement, the tool assistant, chat naming, and other quick tasks</p>
         </div>
         <select
@@ -69,7 +69,6 @@
         <div class="flex-1 min-w-0">
           <h4 class="text-sm font-medium text-content">Voice Input</h4>
           <p class="text-xs text-content-tertiary mt-0.5">Audio is processed entirely on your device</p>
-          <p class="text-xs text-content-muted mt-1">{{ selectedVoiceModel.description }}</p>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           <svg
@@ -359,9 +358,6 @@ const emit = defineEmits(['update'])
 
 // --- Voice input model (on-device Whisper) ---
 const voiceModelReady = ref(false)
-const selectedVoiceModel = computed(() => {
-  return VOICE_MODELS.find(model => model.id === voiceModel.value) || VOICE_MODELS[0]
-})
 async function refreshVoiceModelReady() {
   voiceModelReady.value = await isModelReady(voiceModel.value)
 }
@@ -378,7 +374,7 @@ const availableModelsList = computed(() => {
     name: 'Set up AI models',
     source: 'auto',
     available: false,
-    description: 'Sign in to Stimma Cloud or configure a local endpoint in Settings > Advanced.',
+    description: 'Sign in to Stimma Cloud or configure a local endpoint.',
   }]
 })
 const autoDefaultModel = computed(() => availableModelsList.value.find(m => m.slug === 'auto'))
@@ -475,7 +471,7 @@ const utilityModelStatus = computed(() => {
   if (utilityModelSource.value === 'auto') {
     if (hasCloudAvailable.value) return { available: true, message: 'Auto uses a fast Stimma Cloud model.' }
     if (hasLocalEndpoint.value) return { available: true, message: 'Auto uses your local endpoint.' }
-    return { available: false, message: 'No quick-task model is available. Sign in to Stimma Cloud or configure a local endpoint.' }
+    return { available: false, message: 'Sign in to Stimma Cloud or configure a local endpoint.' }
   }
   return null
 })

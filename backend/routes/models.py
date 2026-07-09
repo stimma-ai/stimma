@@ -139,7 +139,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         "slug": "auto",
         "source": "auto",
         "name": "Set up AI models",
-        "description": "Sign in to Stimma Cloud or configure a local endpoint in Settings > Advanced.",
+        "description": "Sign in to Stimma Cloud or configure a local endpoint.",
         "available": False,
         "status": "llm_not_configured",
         "resolved_slug": None,

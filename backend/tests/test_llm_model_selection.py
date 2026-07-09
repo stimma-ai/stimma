@@ -96,7 +96,7 @@ async def test_available_models_setup_state_is_not_a_hidden_model_list(monkeypat
 
     assert auto_model["available"] is False
     assert auto_model["name"] == "Set up AI models"
-    assert auto_model["description"] == "Sign in to Stimma Cloud or configure a local endpoint in Settings > Advanced."
+    assert auto_model["description"] == "Sign in to Stimma Cloud or configure a local endpoint."
     assert {"agent-max", "default", "local", "auto"} == slugs
 
 

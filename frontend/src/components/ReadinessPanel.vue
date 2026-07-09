@@ -4,68 +4,66 @@
       <div
         v-if="shouldShowPanel"
         data-testid="readiness-panel"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        class="fixed inset-0 z-[10005] flex items-center justify-center bg-black/50 backdrop-blur-sm"
         @click.self="handleDismiss"
       >
-        <div class="bg-surface border border-edge rounded-lg shadow-2xl max-w-lg w-full mx-4">
-          <!-- Header -->
-          <div class="px-6 py-4 border-b border-edge flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-content">{{ headline }}</h3>
+        <div class="bg-surface border border-edge rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden relative">
+          <!-- Close -->
+          <button
+            @click="handleDismiss"
+            class="absolute top-3.5 right-3.5 z-10 p-1 rounded text-content-tertiary hover:text-content hover:bg-overlay-hover transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          <!-- Stimma Cloud hero -->
+          <div class="readiness-hero px-6 pt-8 pb-6 border-b border-edge text-center">
+            <h3 class="text-lg font-semibold text-content tracking-tight">{{ headline }}</h3>
+            <p class="mt-1.5 mx-auto max-w-[350px] text-sm text-content-secondary leading-relaxed">
+              {{ heroText }}
+            </p>
             <button
-              @click="handleDismiss"
-              class="p-1 rounded text-content-tertiary hover:text-content hover:bg-surface-hover transition-colors"
+              @click="handleCloudCta"
+              :disabled="connecting"
+              class="mt-4 px-5 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded-lg text-sm font-semibold transition-all disabled:opacity-60"
             >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              {{ finishCheckoutNeeded ? 'Finish checkout' : (connecting ? 'Connecting…' : 'Connect Stimma Cloud') }}
             </button>
+            <p v-if="!finishCheckoutNeeded" class="mt-2.5 text-xs text-content-muted">Nothing to install or configure.</p>
+            <p v-if="connectError" class="text-xs text-red-500 mt-2">{{ connectError }}</p>
           </div>
 
-          <!-- Body -->
-          <div class="px-6 py-5 flex flex-col gap-4">
-            <p v-if="finishCheckoutNeeded" class="text-sm text-content-secondary">
-              Checkout wasn't completed.
-            </p>
-
-            <!-- Stimma Cloud path -->
-            <div class="rounded-lg border border-edge-strong bg-surface-raised p-4">
-              <h4 class="text-sm font-semibold text-content mb-1.5">
-                <span class="stimma-cloud-text">Stimma Cloud</span>
-              </h4>
-              <p class="text-sm text-content-tertiary leading-relaxed mb-3">
-                One sign-in for {{ cloudCoversText }}.
-              </p>
-              <button
-                @click="handleCloudCta"
-                :disabled="connecting"
-                class="px-4 py-2 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded-lg text-sm font-medium transition-all disabled:opacity-60"
-              >
-                {{ finishCheckoutNeeded ? 'Finish checkout' : (connecting ? 'Connecting…' : 'Connect Stimma Cloud') }}
-              </button>
-              <p v-if="connectError" class="text-xs text-red-500 mt-2">{{ connectError }}</p>
-            </div>
-
-            <!-- Bring your own AI path -->
-            <div class="rounded-lg border border-edge bg-surface-raised p-4">
-              <h4 class="text-sm font-semibold text-content mb-1.5">Bring your own AI</h4>
-              <p class="text-sm text-content-tertiary leading-relaxed mb-3">
-                {{ byoaiIntroText }}
-              </p>
-              <div class="flex flex-col gap-1.5 text-sm">
+          <!-- Bring your own AI -->
+          <div class="px-6 pt-4 pb-4">
+            <h4 class="text-center text-[13px] font-semibold text-content-secondary">Or, bring your own AI</h4>
+            <div class="mt-2.5 flex flex-col">
+              <div class="flex items-center gap-3 py-2.5 px-2 -mx-2">
+                <span
+                  class="w-5 h-5 flex-none rounded-full border flex items-center justify-center text-[11px] font-semibold"
+                  :class="missingAgentLlm ? 'border-edge-strong text-content-tertiary' : 'border-green-500/40 text-green-400'"
+                >{{ missingAgentLlm ? '1' : '✓' }}</span>
+                <span class="flex-1 text-sm font-medium" :class="missingAgentLlm ? 'text-content' : 'text-content-tertiary'">Connect a local LLM</span>
                 <button
                   v-if="missingAgentLlm"
                   @click="openSettingsSection('ai-services')"
-                  class="text-left text-content-secondary hover:text-content transition-colors"
-                >
-                  Configure a local LLM in <span class="font-medium">Settings → Advanced</span> →
-                </button>
+                  class="text-[12.5px] text-content-tertiary hover:text-content transition-colors whitespace-nowrap"
+                >Settings → Advanced</button>
+                <span v-else class="text-xs text-green-400">Connected</span>
+              </div>
+              <div class="flex items-center gap-3 py-2.5 px-2 -mx-2">
+                <span
+                  class="w-5 h-5 flex-none rounded-full border flex items-center justify-center text-[11px] font-semibold"
+                  :class="missingGeneration ? 'border-edge-strong text-content-tertiary' : 'border-green-500/40 text-green-400'"
+                >{{ missingGeneration ? (missingAgentLlm ? '2' : '1') : '✓' }}</span>
+                <span class="flex-1 text-sm font-medium" :class="missingGeneration ? 'text-content' : 'text-content-tertiary'">Connect generation tools</span>
                 <button
                   v-if="missingGeneration"
                   @click="openSettingsSection('tools')"
-                  class="text-left text-content-secondary hover:text-content transition-colors"
-                >
-                  Connect ComfyUI or another tool provider in <span class="font-medium">Settings → Tools</span> →
-                </button>
+                  class="text-[12.5px] text-content-tertiary hover:text-content transition-colors whitespace-nowrap"
+                >Settings → Tools</button>
+                <span v-else class="text-xs text-green-400">Connected</span>
               </div>
             </div>
           </div>
@@ -109,21 +107,15 @@ const missingGeneration = computed(() => !!readiness.value?.missing?.includes('g
 
 const headline = computed(() => {
   if (finishCheckoutNeeded.value) return "Checkout didn't finish"
-  if (missingAgentLlm.value && missingGeneration.value) return "Stimma needs an agent model and generation tools"
-  if (missingAgentLlm.value) return "Stimma needs an agent model"
-  return "Stimma needs generation tools"
+  if (missingAgentLlm.value && missingGeneration.value) return 'Connect AI to start creating'
+  return 'One step left'
 })
 
-const cloudCoversText = computed(() => {
-  if (missingAgentLlm.value && missingGeneration.value) return 'a hosted agent model and generation tools'
-  if (missingAgentLlm.value) return 'a hosted agent model'
-  return 'hosted generation tools'
-})
-
-const byoaiIntroText = computed(() => {
-  if (missingAgentLlm.value && missingGeneration.value) return 'Configure a local LLM and connect your own generation tools.'
-  if (missingAgentLlm.value) return 'Configure a local LLM for the agent.'
-  return 'Connect a generation tool of your own.'
+const heroText = computed(() => {
+  if (finishCheckoutNeeded.value) return "Checkout wasn't completed."
+  if (missingAgentLlm.value && missingGeneration.value) return 'One sign-in sets up everything — the agent and generation tools, hosted.'
+  if (missingAgentLlm.value) return 'One sign-in gives the agent a hosted model.'
+  return 'One sign-in adds hosted generation tools.'
 })
 
 function handleDismiss() {
@@ -135,7 +127,6 @@ function handleDontShowToggle(e) {
 }
 
 function openSettingsSection(section) {
-  dismissPanel()
   window.dispatchEvent(new CustomEvent('open-settings', { detail: section }))
 }
 
@@ -169,6 +160,13 @@ async function handleCloudCta() {
 </script>
 
 <style scoped>
+/* Radial washes aren't expressible with Tailwind utilities. */
+.readiness-hero {
+  background:
+    radial-gradient(ellipse at 50% -40%, rgba(6, 182, 212, 0.18), transparent 65%),
+    radial-gradient(ellipse at 100% 0%, rgba(99, 102, 241, 0.12), transparent 55%);
+}
+
 .modal-enter-active,
 .modal-leave-active {
   transition: opacity 0.15s ease;

@@ -258,7 +258,7 @@
             :class="{ 'logo-disconnected': !wsConnected }"
           />
           <span
-            v-if="hasUpdate"
+            v-if="hasUpdate || pendingRestart"
             class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-base"
           />
         </button>
@@ -383,7 +383,7 @@
             </div>
 
             <!-- Update available -->
-            <template v-if="hasUpdate">
+            <template v-if="hasUpdate || pendingRestart">
               <div class="border-t border-edge-subtle"></div>
               <div class="py-1">
                 <template v-if="isDownloading">
@@ -391,6 +391,17 @@
                     <div class="w-4 h-4 border-2 border-content-muted border-t-blue-500 rounded-full animate-spin"></div>
                     <span>Installing update...</span>
                   </div>
+                </template>
+                <template v-else-if="pendingRestart">
+                  <button
+                    @click="handleRestartUpdate"
+                    class="w-full px-3 py-2 text-left text-sm text-blue-500 hover:bg-overlay-subtle flex items-center gap-2.5 transition-colors"
+                  >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                    </svg>
+                    <span>Restart to update{{ stagedVersion ? ` (${stagedVersion})` : '' }}</span>
+                  </button>
                 </template>
                 <template v-else>
                   <button
@@ -575,7 +586,7 @@ const { themePreference: currentTheme, setTheme } = useTheme()
 const { updateTheme } = useSettingsApi()
 
 // Updates
-const { hasUpdate, isDownloading, downloadAndInstallUpdate } = useAppUpdater()
+const { hasUpdate, pendingRestart, stagedVersion, isDownloading, downloadAndInstallUpdate, restartToApply } = useAppUpdater()
 
 // Logo menu
 const logoMenuOpen = ref(false)
@@ -644,6 +655,12 @@ function handleInstallUpdate() {
   logoMenuOpen.value = false
   document.removeEventListener('click', handleLogoClickOutside)
   downloadAndInstallUpdate()
+}
+
+function handleRestartUpdate() {
+  logoMenuOpen.value = false
+  document.removeEventListener('click', handleLogoClickOutside)
+  restartToApply()
 }
 
 function lockProfile(profileId) {

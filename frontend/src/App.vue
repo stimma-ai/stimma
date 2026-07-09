@@ -129,7 +129,7 @@
     <SettingsModal
       :show="settingsOpen"
       :initial-section="settingsSection"
-      @close="settingsOpen = false"
+      @close="closeSettings"
     />
 
     <!-- Main area (header + content) -->
@@ -218,7 +218,7 @@ const router = useRouter()
 const { getBoard, getProject } = useMediaApi()
 const { currentProfileId, profiles, loadProfiles, setCurrentProfileId } = useProfile()
 const { isAuthenticated, initAuth } = useAuth()
-const { checkStartupReadiness } = useReadiness()
+const { checkStartupReadiness, refreshReadiness } = useReadiness()
 const { fetchSettings, updateDeveloperMode } = useSettingsApi()
 const { runAutoInstall, checkUpdates: checkStimpackUpdates, updateFromMarketplace } = useStimpacksApi()
 import { setWildcards, setSegments } from './composables/useWildcards'
@@ -233,6 +233,7 @@ const { getLastProjectRoute } = useProjectRoute()
 const { addToast } = useToasts()
 const {
   updatesEnabled,
+  policy: updatePolicy,
   loadPreferences: loadUpdatePreferences,
   checkForUpdates,
 } = useAppUpdater()
@@ -243,6 +244,13 @@ const settingsSection = ref('folders')
 function openSettings(section = 'folders') {
   settingsSection.value = section
   settingsOpen.value = true
+}
+
+function closeSettings() {
+  settingsOpen.value = false
+  // The readiness panel stays open behind settings so the user can work
+  // through both BYOAI steps — recheck what they configured in there.
+  void refreshReadiness()
 }
 const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
 
@@ -842,9 +850,13 @@ async function startUpdaterLoop(privacyLockdownActive) {
   if (!updatesEnabled.value) return
   if (privacyLockdownActive) return
   if (updaterLoopStarted) return
-  updaterLoopStarted = true
 
   await loadUpdatePreferences()
+  // Manual mode: no scheduled checks. Leave the loop unstarted so that
+  // switching to automatic/notify later can start it without a restart.
+  if (updatePolicy.value === 'manual') return
+
+  updaterLoopStarted = true
   await checkForUpdates('auto')
 
   if (updateIntervalId) {
