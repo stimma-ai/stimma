@@ -183,7 +183,8 @@ class TestProjectsApi:
             assert "Use the shared project workspace." in resolved.additional_instructions
 
             assert await check_permission("bash", chat, session) is True
-            assert await check_permission("run_code", chat, session) is False
+            # run_code is workspace-sandboxed and no longer uses persisted HITL gates.
+            assert await check_permission("run_code", chat, session) is True
             assert await check_stp_permission("provider:project-tool", chat, session) is True
 
             chat_workspace = get_workspace_dir(chat.id, chat.project_id)
