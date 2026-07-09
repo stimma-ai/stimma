@@ -42,6 +42,12 @@ export function instanceMatchesTool(instanceId, toolId, projectId = null) {
   return !!legacyMatch
 }
 
+export function instanceMatchesFeedScope(instanceId, feedScope) {
+  if (!instanceId || !feedScope) return false
+  const prefix = `tool-${feedScope}`
+  return instanceId === prefix || instanceId.startsWith(`${prefix}@@`)
+}
+
 /**
  * Composable for tracking active generation jobs
  * Returns reactive state that shows if generation is in progress
@@ -196,9 +202,7 @@ export function useGenerationStatus() {
   // __i_K suffixes). Prefix match is exact-or-@@-delimited, so a legacy
   // (unsuffixed) scope never matches an instance-suffixed generator id.
   const isFeedScopeActive = (feedScope) => {
-    const prefix = `tool-${feedScope}`
-    const matches = ([instanceId, count]) =>
-      count > 0 && (instanceId === prefix || instanceId.startsWith(`${prefix}@@`))
+    const matches = ([instanceId, count]) => count > 0 && instanceMatchesFeedScope(instanceId, feedScope)
     return Object.entries(activeJobsByInstanceId.value).some(matches) ||
       Object.entries(pendingWorkByInstanceId.value).some(matches)
   }

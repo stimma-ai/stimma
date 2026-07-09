@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { useWebSocket } from './useWebSocket'
 import { useAgentActivity } from './useAgentActivity'
 import { useWorkspaceTabs, toolRouteTabId } from './useWorkspaceTabs'
-import { instanceMatchesTool } from './useGenerationStatus'
+import { instanceMatchesFeedScope, instanceMatchesTool } from './useGenerationStatus'
 import router from '../router'
 
 // Singleton: "finished while you weren't looking" markers per workspace tab.
@@ -58,7 +58,11 @@ function clearActiveIfSeen() {
 function matchingToolTabIds(instanceId: string): string[] {
   const { tabs } = useWorkspaceTabs()
   return tabs.value
-    .filter(t => t.type === 'tool' && instanceMatchesTool(instanceId, t.entityId, t.projectId ?? null))
+    .filter(t => t.type === 'tool' && (
+      t.feedScope
+        ? instanceMatchesFeedScope(instanceId, t.feedScope)
+        : instanceMatchesTool(instanceId, t.entityId, t.projectId ?? null)
+    ))
     .map(t => t.id)
 }
 
