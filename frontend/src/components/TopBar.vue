@@ -263,7 +263,7 @@
       </div>
       <button
         v-else-if="pendingRestart"
-        @click="requestUpdateAction('restart')"
+        @click="restartToApply()"
         class="flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25 text-xs font-medium transition-colors"
         title="Restart to update"
       >
@@ -274,7 +274,7 @@
       </button>
       <button
         v-else-if="hasUpdate"
-        @click="requestUpdateAction('install')"
+        @click="downloadAndInstallUpdate()"
         class="flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25 text-xs font-medium transition-colors"
         title="Install update"
       >
@@ -426,17 +426,6 @@
       </div>
     </div>
 
-    <!-- Restart-to-update confirmation when work is in progress -->
-    <ConfirmModal
-      :show="showUpdateConfirm"
-      title="Update now?"
-      message="Work in progress will be interrupted."
-      confirmText="Update"
-      cancelText="Not now"
-      @confirm="confirmUpdateAction"
-      @cancel="cancelUpdateAction"
-    />
-
     <!-- Failed Items Modal -->
     <Teleport to="body">
       <div v-if="showModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[20000]" @click="closeModal">
@@ -542,7 +531,6 @@ import { useAppUpdater } from '../composables/useAppUpdater'
 import { captioningEnabledRef } from '../appConfig'
 import LogoFeedbackMenu from '@stimma/logo-feedback-menu'
 import GlobalSearchBox from './search/GlobalSearchBox.vue'
-import ConfirmModal from './ConfirmModal.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -605,8 +593,6 @@ const { updateTheme } = useSettingsApi()
 
 // Updates
 const { hasUpdate, pendingRestart, isDownloading, downloadAndInstallUpdate, restartToApply } = useAppUpdater()
-const showUpdateConfirm = ref(false)
-const pendingUpdateAction = ref(null) // 'restart' | 'install'
 
 // Logo menu
 const logoMenuOpen = ref(false)
@@ -669,36 +655,6 @@ function openProfilesSettings() {
   logoMenuOpen.value = false
   document.removeEventListener('click', handleLogoClickOutside)
   emit('open-settings', 'profiles')
-}
-
-// Applying an update closes/relaunches the app; confirm first if work is in
-// flight so a click can't silently kill an in-progress generation.
-function requestUpdateAction(action) {
-  logoMenuOpen.value = false
-  document.removeEventListener('click', handleLogoClickOutside)
-  if (hasActiveWork.value) {
-    pendingUpdateAction.value = action
-    showUpdateConfirm.value = true
-    return
-  }
-  runUpdateAction(action)
-}
-
-function runUpdateAction(action) {
-  if (action === 'restart') restartToApply()
-  else downloadAndInstallUpdate()
-}
-
-function confirmUpdateAction() {
-  showUpdateConfirm.value = false
-  const action = pendingUpdateAction.value
-  pendingUpdateAction.value = null
-  if (action) runUpdateAction(action)
-}
-
-function cancelUpdateAction() {
-  showUpdateConfirm.value = false
-  pendingUpdateAction.value = null
 }
 
 function lockProfile(profileId) {
