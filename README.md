@@ -172,4 +172,4 @@ Set `STIMMA_DEV=1` to use the external backend on port 9191 instead of the bundl
 
 ## License
 
-Proprietary. All rights reserved.
+[GNU Affero General Public License v3.0](LICENSE).
