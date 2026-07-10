@@ -674,7 +674,7 @@ async def get_settings_all():
             endpoint=endpoint_response,
         ))
 
-    readiness = _compute_readiness(settings, registry)
+    readiness = _compute_readiness(settings)
 
     return SettingsResponse(
         profiles=profiles,
@@ -735,15 +735,19 @@ def _has_local_agent_llm_configured(settings) -> bool:
     return bool(role_config.endpoint.url and role_config.endpoint.model)
 
 
-def _has_local_generation_provider_configured(registry) -> bool:
-    """Any enabled STP/ComfyUI provider other than the stimma-cloud pseudo-
-    provider. Enabled-in-config counts; live connection status does not.
+def _has_local_generation_provider_configured(settings) -> bool:
+    """Any enabled external STP provider (stdio/websocket transport).
+    Excludes the always-registered 'builtin' (in-process filter tools) and
+    'user-tools' pseudo-providers, which aren't generation capable.
+    Enabled-in-config counts; live connection status does not.
     """
-    local_ids = registry.get_enabled_provider_ids() - {STIMMA_CLOUD_PROVIDER_ID}
-    return bool(local_ids)
+    return any(
+        tp.enabled and tp.type in ('stdio', 'websocket')
+        for tp in settings.tool_providers
+    )
 
 
-def _compute_readiness(settings, registry) -> ReadinessResponse:
+def _compute_readiness(settings) -> ReadinessResponse:
     """App-entry readiness gate.
 
     Agent LLM = active subscription OR local LLM endpoint configured.
@@ -756,7 +760,7 @@ def _compute_readiness(settings, registry) -> ReadinessResponse:
     has_generation = (
         has_active_subscription
         or _has_cloud_balance()
-        or _has_local_generation_provider_configured(registry)
+        or _has_local_generation_provider_configured(settings)
     )
 
     missing = []
