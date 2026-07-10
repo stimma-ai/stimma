@@ -47,6 +47,33 @@
           </div>
         </div>
 
+        <!-- Active tool instances: eligible open tool tabs (incl. renamed
+             stations), targeted exactly. Mirrors Send to Tool's section. -->
+        <template v-if="filteredOpenInstances.length > 0">
+          <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+            Active Tools
+          </div>
+          <button
+            v-for="row in filteredOpenInstances"
+            :key="`instance-${row.tab.id}`"
+            @click="sendToToolInstance(row)"
+            class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+          >
+            <svg class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(row.tool) ? '' : 'text-content-tertiary'" fill="none" viewBox="0 0 24 24" stroke-width="2" :stroke="isStimmaCloudTool(row.tool) ? 'url(#stimma-gradient-remix)' : 'currentColor'" overflow="visible">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+            </svg>
+            <div class="flex-1 min-w-0">
+              <div class="truncate">{{ row.tab.customName || row.tab.displayName }}</div>
+              <div class="truncate text-[10px] text-content-muted leading-tight">{{ row.tool.provider_name }}</div>
+            </div>
+            <span
+              v-if="row.tab.projectName"
+              class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"
+            >{{ row.tab.projectName }}</span>
+          </button>
+          <div class="border-t border-edge-subtle my-1"></div>
+        </template>
+
         <div v-if="loadingTools" class="px-3 py-2 text-xs text-content-tertiary">
           Loading tools...
         </div>
@@ -147,6 +174,7 @@ import axios from 'axios'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { makeStorageKey } from '../utils/storageKeys'
 import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
+import { useWorkspaceTabs, toolTabRoute, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 
 interface RemixTool {
   full_tool_id: string
@@ -224,6 +252,30 @@ const recentTools = computed(() => {
     .filter((t): t is RemixTool => !!t)
 })
 
+// Eligible open tool-instance tabs (incl. renamed stations), most-recently-
+// active first. Eligibility = the tool appears in the remix tool list; each
+// row targets its exact tab, which is the only way remix reaches named
+// instances (instance resolution skips them by design).
+const { tabs: workspaceTabs } = useWorkspaceTabs()
+const openInstances = computed(() => {
+  const toolById = new Map(tools.value.map(t => [t.full_tool_id, t]))
+  return (workspaceTabs.value as WorkspaceTab[])
+    .filter(t => t.type === 'tool' && !!t.instanceId && toolById.has(t.entityId))
+    .sort((a, b) => (b.lastActivatedAt ?? 0) - (a.lastActivatedAt ?? 0))
+    .slice(0, 5)
+    .map(tab => ({ tab, tool: toolById.get(tab.entityId)! }))
+})
+
+const filteredOpenInstances = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return openInstances.value
+  return openInstances.value.filter(({ tab, tool }) =>
+    (tab.customName || '').toLowerCase().includes(query) ||
+    tab.displayName.toLowerCase().includes(query) ||
+    tool.provider_name.toLowerCase().includes(query)
+  )
+})
+
 // Filtered tools (search across all tools)
 const filteredTools = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
@@ -279,6 +331,17 @@ function sendToTool(tool: RemixTool) {
       _ts: Date.now().toString()  // Force route change detection for KeepAlive'd components
     }
   })
+  emit('sent')
+}
+
+function sendToToolInstance(row: { tab: WorkspaceTab; tool: RemixTool }) {
+  showMenu.value = false
+
+  // Instance rows target that exact tab (its project scope rides along).
+  router.push(toolTabRoute(row.tab, {
+    remixFrom: props.mediaId.toString(),
+    _ts: Date.now().toString()
+  }))
   emit('sent')
 }
 

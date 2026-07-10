@@ -398,6 +398,30 @@
             </div>
 
             <div class="overflow-y-auto flex-1">
+              <!-- Active tool instances: eligible open tool tabs (incl. renamed
+                   stations), targeted exactly. Mirrors Send to Tool's section. -->
+              <template v-if="filteredRemixOpenInstances.length > 0">
+                <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+                  Active Tools
+                </div>
+                <button
+                  v-for="row in filteredRemixOpenInstances"
+                  :key="`instance-${row.tab.id}`"
+                  @click="sendToGenerateToolInstance(row)"
+                  class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
+                >
+                  <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(row.tool) ? '' : 'text-content-tertiary'">
+                    <ToolIcon :tool="row.tool" size="xs" :bare="true" :ring="false" />
+                  </div>
+                  <span class="flex-1 min-w-0 truncate">{{ row.tab.customName || row.tab.displayName }}</span>
+                  <span
+                    v-if="row.tab.projectName"
+                    class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"
+                  >{{ row.tab.projectName }}</span>
+                  <ToolProviderLabel :cloud="isStimmaCloudTool(row.tool)" :provider-name="row.tool.provider_name" class="pl-3" />
+                </button>
+                <div class="border-t border-edge-subtle my-1"></div>
+              </template>
               <div v-if="loadingGenerateTools" class="px-3.5 py-2 text-xs text-content-tertiary">Loading tools...</div>
               <div v-else-if="generateMoreTools.length === 0" class="px-3.5 py-2 text-xs text-content-tertiary">No tools available</div>
               <template v-else-if="generateSearchQuery.trim()">
@@ -708,7 +732,7 @@ import { sanitizeSvg } from '../../utils/sanitizeHtml'
 import { isToolCompatibleWithMediaType } from '../../utils/taskTypeIcons'
 import { isImage as isImageType, getMediaType, MediaType } from '../../utils/mediaTypes'
 import axios from 'axios'
-import { useWorkspaceTabs, toolInstanceRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
+import { useWorkspaceTabs, toolInstanceRoute, toolTabRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
 import { usePrint } from '../../composables/usePrint'
 import { useTelemetry } from '../../composables/useTelemetry'
 
@@ -739,7 +763,7 @@ interface GenerateMoreTool {
 }
 
 const router = useRouter()
-const { nextEditorId } = useWorkspaceTabs()
+const { nextEditorId, tabs: workspaceTabs } = useWorkspaceTabs()
 const contextMenu = useMediaContextMenu()
 const { printAssetDetail, printContactSheet } = usePrint()
 const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject } = useMediaApi()
@@ -824,6 +848,29 @@ const generateMoreTools = ref<GenerateMoreTool[]>([])
 // Split generate tools into original and others
 const originalTool = computed(() => generateMoreTools.value.find(t => t.is_original))
 const otherGenerateTools = computed(() => generateMoreTools.value.filter(t => !t.is_original))
+
+// Eligible open tool-instance tabs (incl. renamed stations), most-recently-
+// active first. Eligibility = the tool appears in the remix tool list.
+// resolveToolInstance skips named instances on purpose, so these rows are the
+// only way remix can reach them; each row targets its exact tab.
+const remixOpenInstances = computed(() => {
+  const toolById = new Map(generateMoreTools.value.map(t => [t.full_tool_id, t]))
+  return (workspaceTabs.value as WorkspaceTab[])
+    .filter(t => t.type === 'tool' && !!t.instanceId && toolById.has(t.entityId))
+    .sort((a, b) => (b.lastActivatedAt ?? 0) - (a.lastActivatedAt ?? 0))
+    .slice(0, 5)
+    .map(tab => ({ tab, tool: toolById.get(tab.entityId)! }))
+})
+
+const filteredRemixOpenInstances = computed(() => {
+  const query = generateSearchQuery.value.trim().toLowerCase()
+  if (!query) return remixOpenInstances.value
+  return remixOpenInstances.value.filter(({ tab, tool }) =>
+    (tab.customName || '').toLowerCase().includes(query) ||
+    tab.displayName.toLowerCase().includes(query) ||
+    tool.provider_name.toLowerCase().includes(query)
+  )
+})
 
 
 // Chats data
@@ -1502,6 +1549,19 @@ function sendToGenerateTool(tool: GenerateMoreTool) {
   const { resolveToolInstance } = useWorkspaceTabs()
   const { instanceId } = resolveToolInstance(tool.full_tool_id, projectId)
   router.push(toolInstanceRoute(tool.full_tool_id, projectId, instanceId, {
+    remixFrom: mediaId.toString(),
+    _ts: Date.now().toString()
+  }))
+}
+
+function sendToGenerateToolInstance(row: { tab: WorkspaceTab; tool: GenerateMoreTool }) {
+  const mediaId = contextMenu.state.value.mediaId
+  contextMenu.hide()
+  if (!mediaId) return
+
+  trackTelemetry('remix_used')
+  // Instance rows target that exact tab (its project scope rides along).
+  router.push(toolTabRoute(row.tab, {
     remixFrom: mediaId.toString(),
     _ts: Date.now().toString()
   }))
