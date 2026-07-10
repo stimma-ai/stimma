@@ -43,6 +43,7 @@ sherpa-onnx = "1.13.3"
 # raw to stderr — see install_whisper_log_trampoline() in lib.rs.
 [target.'cfg(target_os = "macos")'.dependencies]
 whisper-rs = { version = "0.12", features = ["metal", "whisper-cpp-log"] }
+uuid = { version = "=1.19.0", features = ["v4"] }
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
 whisper-rs = { version = "0.12", features = ["whisper-cpp-log"] }

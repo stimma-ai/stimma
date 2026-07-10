@@ -1578,7 +1578,7 @@ function tauriTargetDir(sandbox: string): string | undefined {
   return join(repoRoot, "target-tauri", sandboxSafeSegment(sandbox));
 }
 
-function tauriDevEnv(ports: { server: number; frontend: number }, sandbox: string, runtimeEnv: Record<string, string>): Record<string, string> {
+function tauriDevEnv(bundleId: string, ports: { server: number; frontend: number }, sandbox: string, runtimeEnv: Record<string, string>): Record<string, string> {
   const targetDir = tauriTargetDir(sandbox);
   const env: Record<string, string> = {
     ...runtimeEnv,
@@ -1586,6 +1586,8 @@ function tauriDevEnv(ports: { server: number; frontend: number }, sandbox: strin
     STIMMA_BACKEND_PORT: String(ports.server),
     STIMMA_FRONTEND_PORT: String(ports.frontend),
     STIMMA_SANDBOX: sandbox,
+    STIMMA_DATA_DIR: getDataDir(bundleId, sandbox),
+    STIMMA_CACHE_DIR: getCacheDir(bundleId, sandbox),
   };
   if (targetDir) env.CARGO_TARGET_DIR = targetDir;
   return env;
@@ -1668,7 +1670,7 @@ async function commandDevAll(bundleId: string, sandbox: string, runtimeEnv: Reco
     console.log("[dev all] Backend and frontend are ready; launching Tauri app.");
     processes.push(spawnDevProcess("app", "cargo", ["tauri", "dev", "--config", tauriConfig], {
       cwd: repoRoot,
-      env: tauriDevEnv(ports, sandbox, runtimeEnv),
+      env: tauriDevEnv(bundleId, ports, sandbox, runtimeEnv),
     }));
     console.log("[dev all] App process started. Press Ctrl-C to stop the full stack.");
 
@@ -1792,7 +1794,7 @@ async function main(): Promise<void> {
         }
         await run("cargo", ["tauri", "dev", "--config", tauriDevConfig(bundleId, sandbox, ports)], {
           cwd: repoRoot,
-          env: tauriDevEnv(ports, sandbox, runtimeEnv),
+          env: tauriDevEnv(bundleId, ports, sandbox, runtimeEnv),
         });
       } else if (sub === "all") {
         await commandDevAll(bundleId, sandbox, runtimeEnv);

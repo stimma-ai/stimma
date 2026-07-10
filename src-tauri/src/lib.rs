@@ -1,8 +1,10 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::process::Stdio;
 use std::io::{BufRead, BufReader};
+#[cfg(target_os = "macos")]
+use std::path::Path;
 use std::path::PathBuf;
+use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::Arc;
 use tauri::Manager;
 use tokio::sync::RwLock;
 
@@ -84,10 +86,13 @@ fn parse_backend_port(line: &str) -> Option<u16> {
 
 /// Derive the data and cache directories from the bundle identifier.
 ///
-/// The bundle ID (e.g., "ai.stimma.stimma.debug") is used directly as the
-/// folder name. Packaged apps default to the "default" sandbox; dev launches
-/// can override it with STIMMA_SANDBOX.
+/// Explicit directory environment variables take precedence. Otherwise, the
+/// bundle ID (e.g., "ai.stimma.stimma.debug") is used directly as the folder
+/// name. Packaged apps default to the "default" sandbox; dev launches can
+/// override it with STIMMA_SANDBOX.
 pub(crate) fn get_app_dirs(bundle_id: &str) -> (PathBuf, PathBuf) {
+    let explicit_data_dir = std::env::var_os("STIMMA_DATA_DIR").map(PathBuf::from);
+    let explicit_cache_dir = std::env::var_os("STIMMA_CACHE_DIR").map(PathBuf::from);
     let sandbox = std::env::var("STIMMA_SANDBOX")
         .ok()
         .filter(|s| !s.trim().is_empty())
@@ -106,7 +111,10 @@ pub(crate) fn get_app_dirs(bundle_id: &str) -> (PathBuf, PathBuf) {
             .join("Caches")
             .join(bundle_id)
             .join(&sandbox);
-        (data_dir, cache_dir)
+        (
+            explicit_data_dir.unwrap_or(data_dir),
+            explicit_cache_dir.unwrap_or(cache_dir),
+        )
     }
 
     #[cfg(target_os = "windows")]
@@ -118,7 +126,10 @@ pub(crate) fn get_app_dirs(bundle_id: &str) -> (PathBuf, PathBuf) {
             });
         let data_dir = PathBuf::from(&local_app_data).join(bundle_id).join(&sandbox);
         let cache_dir = data_dir.clone();
-        (data_dir, cache_dir)
+        (
+            explicit_data_dir.unwrap_or(data_dir),
+            explicit_cache_dir.unwrap_or(cache_dir),
+        )
     }
 
     #[cfg(target_os = "linux")]
@@ -130,7 +141,95 @@ pub(crate) fn get_app_dirs(bundle_id: &str) -> (PathBuf, PathBuf) {
             .unwrap_or_else(|_| format!("{}/.cache", home));
         let data_dir = PathBuf::from(&xdg_data).join(bundle_id).join(&sandbox);
         let cache_dir = PathBuf::from(&xdg_cache).join(bundle_id).join(&sandbox);
-        (data_dir, cache_dir)
+        (
+            explicit_data_dir.unwrap_or(data_dir),
+            explicit_cache_dir.unwrap_or(cache_dir),
+        )
+    }
+}
+
+/// Load the WKWebView profile identifier owned by this Stimma sandbox.
+///
+/// WKWebView does not support a caller-selected data directory on macOS. On
+/// macOS 14+ it does support named persistent data stores, so keeping a random
+/// identifier inside the sandbox gives the browser profile the same lifecycle
+/// as the rest of the sandbox: remove the sandbox and the next launch gets an
+/// empty profile instead of reconnecting to stale data in ~/Library/WebKit.
+#[cfg(target_os = "macos")]
+fn get_or_create_webview_data_store_id(browser_dir: &Path) -> std::io::Result<[u8; 16]> {
+    use std::io::Write;
+
+    std::fs::create_dir_all(browser_dir)?;
+    let id_path = browser_dir.join("data-store-id");
+
+    let existing_bytes = std::fs::read(&id_path);
+    if let Ok(bytes) = &existing_bytes {
+        if let Ok(identifier) = <[u8; 16]>::try_from(bytes.as_slice()) {
+            return Ok(identifier);
+        }
+    }
+
+    let identifier = *uuid::Uuid::new_v4().as_bytes();
+    let temporary_path = browser_dir.join(format!(".data-store-id.{}", std::process::id()));
+    let mut temporary = std::fs::File::create(&temporary_path)?;
+    temporary.write_all(&identifier)?;
+    temporary.sync_all()?;
+    drop(temporary);
+
+    let selected_identifier = if existing_bytes.is_ok() {
+        // Repair a corrupt/partial marker left by an interrupted old launch.
+        std::fs::rename(&temporary_path, &id_path)?;
+        identifier
+    } else {
+        // `hard_link` is an atomic create-if-absent. If two app processes race
+        // before the single-instance plugin selects the winner, both use the
+        // identifier that actually won on disk.
+        match std::fs::hard_link(&temporary_path, &id_path) {
+            Ok(()) => identifier,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                let bytes = std::fs::read(&id_path)?;
+                <[u8; 16]>::try_from(bytes.as_slice()).map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "browser data-store identifier is corrupt",
+                    )
+                })?
+            }
+            Err(error) => return Err(error),
+        }
+    };
+
+    let _ = std::fs::remove_file(temporary_path);
+    Ok(selected_identifier)
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod webview_data_store_tests {
+    use super::get_or_create_webview_data_store_id;
+
+    #[test]
+    fn browser_profile_follows_the_sandbox_lifecycle() {
+        let sandbox = std::env::temp_dir().join(format!(
+            "stimma-webview-profile-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let browser_dir = sandbox.join("browser");
+
+        let first = get_or_create_webview_data_store_id(&browser_dir).unwrap();
+        let reopened = get_or_create_webview_data_store_id(&browser_dir).unwrap();
+        assert_eq!(
+            first, reopened,
+            "an existing sandbox must retain its profile"
+        );
+
+        std::fs::remove_dir_all(&sandbox).unwrap();
+        let recreated = get_or_create_webview_data_store_id(&browser_dir).unwrap();
+        assert_ne!(
+            first, recreated,
+            "a recreated sandbox must not reconnect to stale browser state"
+        );
+
+        std::fs::remove_dir_all(sandbox).unwrap();
     }
 }
 
@@ -149,9 +248,38 @@ pub fn run() {
         .unwrap_or(9191);
 
     let backend_state = Arc::new(BackendState {
-        port: RwLock::new(if dev_mode { Some(dev_backend_port) } else { None }),
+        port: RwLock::new(if dev_mode {
+            Some(dev_backend_port)
+        } else {
+            None
+        }),
         watchdog_pid: AtomicU32::new(0),
     });
+
+    // Tauri normally creates configured windows before `setup`, which leaves
+    // their WebView storage at the OS default. Take ownership of the main
+    // window config so we can attach a sandbox-specific browser profile before
+    // the WebView is constructed.
+    let mut context = tauri::generate_context!();
+    let main_window_index = context
+        .config()
+        .app
+        .windows
+        .iter()
+        .position(|window| window.label == "main")
+        .expect("main window missing from Tauri config");
+    let main_window_config = context.config_mut().app.windows.remove(main_window_index);
+    let bundle_id = context.config().identifier.clone();
+    let (app_data_dir, app_cache_dir) = get_app_dirs(&bundle_id);
+    let browser_data_dir = app_data_dir.join("browser");
+
+    std::fs::create_dir_all(&app_data_dir).expect("failed to create Stimma data directory");
+    std::fs::create_dir_all(&app_cache_dir).expect("failed to create Stimma cache directory");
+    std::fs::create_dir_all(&browser_data_dir).expect("failed to create browser data directory");
+
+    #[cfg(target_os = "macos")]
+    let browser_data_store_id = get_or_create_webview_data_store_id(&browser_data_dir)
+        .expect("failed to initialize sandbox browser profile");
 
     tauri::Builder::default()
         // Must be the first plugin registered. If the user relaunches Stimma
@@ -202,6 +330,18 @@ pub fn run() {
             }
         })
         .setup(move |app| {
+            let main_window_builder =
+                tauri::WebviewWindowBuilder::from_config(app.handle(), &main_window_config)?
+                    .data_directory(browser_data_dir.clone());
+
+            #[cfg(target_os = "macos")]
+            let main_window_builder =
+                main_window_builder.data_store_identifier(browser_data_store_id);
+
+            main_window_builder.build()?;
+
+            log::info!("[stimma] Browser data dir: {:?}", browser_data_dir);
+
             // macOS keeps the app in the Dock with no windows (like Music.app);
             // the default app menu already binds Quit to Cmd-Q. Windows/Linux
             // have no Dock equivalent, so a hidden window needs a tray icon to
@@ -242,7 +382,10 @@ pub fn run() {
             }
 
             if dev_mode {
-                log::info!("[stimma] Dev mode: using external backend on port {}", dev_backend_port);
+                log::info!(
+                    "[stimma] Dev mode: using external backend on port {}",
+                    dev_backend_port
+                );
             } else {
                 // Production: spawn the watchdog which supervises the backend
                 // Watchdog uses getppid() polling to detect when we die
@@ -363,7 +506,7 @@ pub fn run() {
 
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building tauri application")
         .run(|_app, _event| {
             // Clicking the Dock icon with no visible windows re-shows the

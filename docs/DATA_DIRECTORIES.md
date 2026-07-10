@@ -53,6 +53,16 @@ The fork is a full copy of the default sandbox — database, settings, auth toke
 
 Fork ports are stored in `<sandbox>/.fork.json` and loaded automatically by the CLI.
 
+## Browser Profiles
+
+The Tauri WebView profile follows the same sandbox lifecycle. On Windows and
+Linux its files live at `<data-dir>/browser/`. macOS does not allow WKWebView
+apps to select the physical website-data directory, so Stimma stores a random
+WebKit data-store identifier at `<data-dir>/browser/data-store-id` and uses it
+to select an isolated persistent profile. Deleting or recreating the Stimma
+sandbox therefore produces a blank WebView profile even though macOS manages
+the profile's physical files under `~/Library/WebKit`.
+
 ## Platform Paths
 
 ### macOS (desktop)
