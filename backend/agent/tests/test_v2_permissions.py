@@ -42,6 +42,21 @@ class _FakeSettings:
         "ls .stimma/tools && echo done",
         "ls .stimma/tools | head -20",
         "find .stimma/tools -type f 2>/dev/null | wc -l",
+        # `cd` is a normal read-only discovery verb as long as it lands in-workspace and
+        # the shell is a fresh one-shot subprocess per bash call (no cross-call cwd leak).
+        "cd .stimma/tools/text-to-image && ls",
+        "cd .stimma/tools && ls text-to-image",
+        "cd .stimma/tools/text-to-image && cat flux_klein_9b.py",
+        "cd .stimma/enums && ls",
+        "cd .stimma && ls tools",
+        "cd .stimma/tools/text-to-image; cat flux_klein_9b.py; wc -l flux_klein_9b.py",
+        "cd .stimma/tools/text-to-image && grep -n 'async def' flux_klein_9b.py",
+        "pwd && cd .stimma/tools && pwd",
+        "cd .stimma && cd tools && cd text-to-image && ls",
+        "cd .stimma/tools/text-to-image && find . -maxdepth 1",
+        "cd . && ls",
+        "cd .stimma/tools/text-to-image/ && cat flux_klein_9b.py 2>/dev/null || echo missing",
+        "cd .stimma/tools/image-to-video && head -40 wan22_i2v.py",
     ],
 )
 def test_bash_safe_workspace_commands_are_auto_approved(command):
@@ -66,6 +81,18 @@ def test_bash_safe_workspace_commands_are_auto_approved(command):
         "find . -delete",
         "find . -exec rm {} ;",
         "python -c 'print(1)'",
+        # `cd` with no argument (-> $HOME) or `-` (-> $OLDPWD) escapes the workspace
+        # without touching a path token the workspace-relative check would catch.
+        "cd",
+        "cd -",
+        "cd - && ls",
+        "cd / && ls",
+        "cd .. && ls",
+        "cd ~ && ls",
+        "cd ../../.. && ls",
+        "cd /tmp; ls",
+        "cd .stimma/tools; cd /; ls",
+        "cd .stimma/tools && cd .. && cd .. && ls",
     ],
 )
 def test_bash_safe_workspace_auto_approval_rejects_risky_commands(command):

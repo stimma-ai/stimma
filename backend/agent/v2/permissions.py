@@ -28,11 +28,13 @@ PERMISSION_ALIASES = {}
 PermissionDecision = Literal["allow", "deny", "ask"]
 
 # Shell commands that are auto-approved (no prompt) when every argument stays inside the
-# workspace and there are no shell metacharacters. Read-only discovery plus the in-workspace
+# workspace and there are no shell metacharacters. Read-only discovery (including `cd`, which
+# only changes the shell's cwd within the one-shot subprocess it runs in) plus the in-workspace
 # mutating trio (cp/mv/rm) — destruction is fine as long as it's provably inside the box; the
 # workspace-relative path check below is what enforces "inside the box".
 _AUTO_APPROVED_BASH_COMMANDS = {
     "cat",
+    "cd",
     "cp",
     "egrep",
     "fgrep",
@@ -257,6 +259,13 @@ def _is_safe_command_segment(segment: str) -> bool:
 
     if executable == "find" and any(token in _MUTATING_FIND_ACTIONS for token in tokens[1:]):
         return False
+
+    # cd with no argument goes to $HOME, and `cd -` goes to the previous directory —
+    # both escape the workspace without tripping the path-token checks below. Require
+    # exactly one real (non `-`) argument so the same workspace-relative check applies.
+    if executable == "cd":
+        if len(tokens) != 2 or tokens[1] == "-":
+            return False
 
     return all(_is_workspace_relative_token(token) for token in tokens[1:])
 
