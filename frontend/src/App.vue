@@ -1,15 +1,22 @@
 <template>
-  <!-- Toast notifications (global, always visible) -->
-  <ToastContainer />
+  <!-- Keep the native startup screen in place until startup routing is resolved. -->
+  <div v-if="startupPending" class="startup-screen">
+    <div class="startup-drag-region" data-tauri-drag-region />
+    <img class="startup-logo" src="/logo.png" alt="Stimma" />
+  </div>
 
-  <!-- Image/generation details popup (global, opened via useMediaDetailsModal) -->
-  <MediaDetailsModal />
+  <template v-else>
+    <!-- Toast notifications (global, always visible) -->
+    <ToastContainer />
 
-  <ReadinessPanel />
+    <!-- Image/generation details popup (global, opened via useMediaDetailsModal) -->
+    <MediaDetailsModal />
 
-  <SubscriptionCelebrationModal />
+    <ReadinessPanel />
 
-  <FeedbackRoot />
+    <SubscriptionCelebrationModal />
+
+    <FeedbackRoot />
 
   <!-- Full-screen lock screen when PIN is required -->
   <div v-if="isLocked" class="fixed inset-0 z-[10050] bg-surface-overlay">
@@ -158,6 +165,7 @@
       </div>
     </div>
   </div>
+  </template>
 </template>
 
 <script setup>
@@ -241,6 +249,7 @@ const {
 const sidebarOpen = ref(false)
 const settingsOpen = ref(false)
 const settingsSection = ref('folders')
+const startupPending = ref(true)
 
 function openSettings(section = 'folders') {
   settingsSection.value = section
@@ -719,42 +728,51 @@ async function loadAppSettings() {
 }
 
 async function checkStartupPin() {
-  // Fire-and-forget auth init (login is optional, not blocking)
-  initAuth()
-
-  await loadProfiles()
-
-  // Load settings to get bundle_id/sandbox for localStorage key namespacing.
-  // If the current profile is PIN-locked this is rejected ("PIN required");
-  // loadAppSettings() is retried after unlock in submitLockScreenPin().
   try {
-    await loadAppSettings()
-  } catch (e) {
-    console.warn('[App] Failed to load app identity from settings:', e)
-  }
+    // Fire-and-forget auth init (login is optional, not blocking)
+    initAuth()
 
-  await syncMarketplaceStimpacks()
+    await loadProfiles()
 
-  // Start persisting route changes
-  setupPersistence()
-
-  const profileId = currentProfileId.value
-  const requiresPin = await profileRequiresPin(profileId)
-  if (requiresPin && !hasCachedPin(profileId)) {
-    isLocked.value = true
-    await nextTick()
-    lockScreenPinInput.value?.focus()
-  } else {
-    // Show onboarding on first launch
-    if (!localStorage.getItem(makeGlobalKey('onboarding_completed'))) {
-      router.push({ name: 'onboarding' })
-      return
+    // Load settings to get bundle_id/sandbox for localStorage key namespacing.
+    // If the current profile is PIN-locked this is rejected ("PIN required");
+    // loadAppSettings() is retried after unlock in submitLockScreenPin().
+    try {
+      await loadAppSettings()
+    } catch (e) {
+      console.warn('[App] Failed to load app identity from settings:', e)
     }
-    // Restore saved route if not locked
-    restoreRoute()
-    // Onboarding already finished in some prior launch — check the
-    // app-entry readiness gate (ReadinessPanel shows itself when unready).
-    void checkStartupReadiness()
+
+    await syncMarketplaceStimpacks()
+
+    // Start persisting route changes
+    setupPersistence()
+
+    const profileId = currentProfileId.value
+    const requiresPin = await profileRequiresPin(profileId)
+    if (requiresPin && !hasCachedPin(profileId)) {
+      isLocked.value = true
+    } else {
+      // Resolve onboarding before exposing the application shell. Otherwise
+      // /home gets one paint before this asynchronous startup check redirects.
+      if (!localStorage.getItem(makeGlobalKey('onboarding_completed'))) {
+        await router.replace({ name: 'onboarding' })
+        return
+      }
+      // Restore saved route if not locked
+      restoreRoute()
+      // Onboarding already finished in some prior launch — check the
+      // app-entry readiness gate (ReadinessPanel shows itself when unready).
+      void checkStartupReadiness()
+    }
+  } catch (error) {
+    console.error('[App] Failed to resolve startup state:', error)
+  } finally {
+    startupPending.value = false
+    if (isLocked.value) {
+      await nextTick()
+      lockScreenPinInput.value?.focus()
+    }
   }
 }
 

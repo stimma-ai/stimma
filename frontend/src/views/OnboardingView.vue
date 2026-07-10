@@ -50,7 +50,7 @@
       <div class="flex flex-col items-center gap-3.5 mb-[52px]">
         <img src="/logo.png" alt="Stimma" class="w-14 h-14">
         <span class="text-content" style="font-size: 1.7rem; font-weight: 500; letter-spacing: 0.12em; line-height: 1;">stimma</span>
-        <span class="text-content-tertiary" style="font-size: 13px;">Make images, videos, and designs with AI.</span>
+        <span class="text-[13px] text-content-tertiary">The power to create belongs to everyone</span>
       </div>
 
       <!-- Primary CTA -->
