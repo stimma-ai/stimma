@@ -1211,6 +1211,16 @@ async def lifespan(app: FastAPI):
                 except Exception as e:
                     log.warning("failed to auto-connect to stimma cloud", error=str(e))
 
+                # Open the account-events push channel for any signed-in user
+                # (any tier). Its on-connect refresh also discovers a
+                # subscription bought while the app was closed — including the
+                # cached-free case the auto-connect block above skips.
+                try:
+                    from cloud_events import get_cloud_events_client
+                    get_cloud_events_client().start()
+                except Exception as e:
+                    log.warning("failed to start account-events client", error=str(e))
+
                 log.info("deferred init complete")
 
             except Exception as e:
@@ -1273,6 +1283,13 @@ async def lifespan(app: FastAPI):
     try:
         import update_check
         await update_check.stop()
+    except Exception:
+        pass
+
+    # Close the account-events channel
+    try:
+        from cloud_events import get_cloud_events_client
+        await get_cloud_events_client().stop()
     except Exception:
         pass
 

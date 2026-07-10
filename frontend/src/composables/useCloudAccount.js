@@ -90,6 +90,19 @@ export function setCloudBaseUrl(url) {
 }
 
 /**
+ * Apply an account payload pushed by the backend (account_updated websocket
+ * event) to the shared cloudUser state. Same shape as /api/auth/account.
+ */
+export function applyCloudAccount(data) {
+  if (!data || typeof data !== 'object') return
+  cloudUser.value = {
+    ...data,
+    credits: data.credits ?? data.balanceCents ?? 0,
+  }
+  cloudError.value = null
+}
+
+/**
  * Fetch user info via backend proxy which calls stimma.cloud.
  */
 export async function fetchCloudAccount() {

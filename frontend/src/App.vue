@@ -7,6 +7,8 @@
 
   <ReadinessPanel />
 
+  <SubscriptionCelebrationModal />
+
   <FeedbackRoot />
 
   <!-- Full-screen lock screen when PIN is required -->
@@ -169,6 +171,7 @@ import TopBar from './components/TopBar.vue'
 import ToastContainer from './components/ToastContainer.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
 import ReadinessPanel from './components/ReadinessPanel.vue'
+import SubscriptionCelebrationModal from './components/SubscriptionCelebrationModal.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
 import FeedbackRoot from '@stimma/feedback-root'
 import { useProfile } from './composables/useProfile'
@@ -193,6 +196,7 @@ import {
 } from './appConfig'
 import { initFeatureFlags } from './composables/useFeatureFlags'
 import { useWebSocket } from './composables/useWebSocket'
+import { initAccountEvents } from './composables/useAccountEvents'
 import { useUnseenActivity } from './composables/useUnseenActivity'
 import { runStartupCleanup } from './utils/storageCleanup'
 import { setCloudBaseUrl, fetchCloudAccount } from './composables/useCloudAccount'
@@ -691,6 +695,8 @@ async function loadAppSettings() {
   const privacyLockdown = settings.privacy_lockdown_active === true
   setPrivacyLockdownActive(privacyLockdown)
   initFeatureFlags(useWebSocket().on)
+  // Account push events (tier/subscription/balance) -> quiet data refreshes.
+  initAccountEvents()
   // Sidebar "finished while away" dots must track even when the sidebar
   // itself is unmounted (mobile, closed), so the singleton starts here.
   useUnseenActivity()

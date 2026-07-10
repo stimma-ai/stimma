@@ -3177,7 +3177,10 @@ const showNoModelSetupHero = computed(() => noUsableChatModels.value && !loadErr
 // the messaging — the amber banner above the composer would just repeat it.
 const showingConnectCloudCta = computed(() => {
   const last = items.value[items.value.length - 1]
-  return last?.item_type === 'error' && isLLMSetupError(last)
+  if (!(last?.item_type === 'error' && isLLMSetupError(last))) return false
+  // State-driven dismissal: once a usable model exists again (subscription
+  // landed mid-session via account_updated), the CTA's premise is gone.
+  return isChatModelUnavailable.value || noUsableChatModels.value
 })
 
 const selectedChatModel = computed(() => {

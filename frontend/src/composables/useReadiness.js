@@ -76,6 +76,12 @@ async function refreshReadiness() {
   } catch (e) {
     console.error('[useReadiness] failed to refresh readiness:', e)
   }
+  // Readiness arriving from any path (poll, focus, account_updated push)
+  // resolves the purchase-wait and any stale finish-checkout state.
+  if (readiness.value?.ready) {
+    if (purchaseWaiting.value) stopPurchaseWait()
+    finishCheckoutNeeded.value = false
+  }
   return readiness.value
 }
 

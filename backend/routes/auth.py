@@ -247,15 +247,22 @@ async def start_auth() -> StartAuthResponse:
                                 # Don't await - let it connect in the background
                                 asyncio.create_task(connect_cloud_internal(tokens['id_token']))
 
-                            # 5. Track sign-in telemetry
+                            # 5. Open the account-events push channel (any tier)
+                            try:
+                                from cloud_events import get_cloud_events_client
+                                get_cloud_events_client().start()
+                            except Exception as e:
+                                log.warning("failed to start account-events client", error=str(e))
+
+                            # 6. Track sign-in telemetry
                             from telemetry import get_telemetry_client
                             get_telemetry_client().track("cloud_signed_in", {"tier": tier}, category="account")
 
-                            # 6. Re-fetch feature flags with the new identity
+                            # 7. Re-fetch feature flags with the new identity
                             from feature_flags import get_feature_flags
                             get_feature_flags().refresh()
 
-                            # 7. Return user info to frontend (NOT tokens - backend owns those)
+                            # 8. Return user info to frontend (NOT tokens - backend owns those)
                             session['result'] = {
                                 'user': user,
                                 'tier': tier,
@@ -503,51 +510,11 @@ async def get_account_info():
             account = await fetch_user_account(fresh_token)
             effective_token = fresh_token
 
-        # Update cached values
-        new_tier = account.get('tier', 'free')
-        auth_state['tier'] = new_tier
-        auth_state['credits'] = account.get('credits', 0)
-        auth_state['createdAt'] = account.get('createdAt')
-        save_auth_state(auth_state)
-
-        # Connect the cloud tool provider once the account is on a paid tier.
-        # Login (handle_callback) and startup (core/app.py) only connect when
-        # the tier is ALREADY non-free, so a subscription purchased after a
-        # free desktop login (the OOBE purchase flow) has no trigger to attach
-        # the cloud tools until the next app restart — the agent LLM comes back
-        # on the refreshed tier but the tools stay dark. Connect here, guarded
-        # the same way startup is (privacy lockdown, config-disabled) and only
-        # when not already connected so repeated refreshes are a no-op and a
-        # failed connect is retried on the next refresh.
-        if new_tier != 'free' and not is_privacy_lockdown_enabled():
-            try:
-                from providers import ProviderRegistry
-                from routes.cloud import connect_cloud_internal, STIMMA_CLOUD_PROVIDER_ID
-
-                cloud_cfg = next(
-                    (p for p in get_settings().tool_providers if p.id == STIMMA_CLOUD_PROVIDER_ID),
-                    None,
-                )
-                disabled_in_config = cloud_cfg is not None and not cloud_cfg.enabled
-                already_connected = (
-                    ProviderRegistry.get_instance().get_provider(STIMMA_CLOUD_PROVIDER_ID) is not None
-                )
-                if not disabled_in_config and not already_connected:
-                    log.info("paid tier without cloud tools connected, connecting", tier=new_tier)
-                    asyncio.create_task(connect_cloud_internal(effective_token))
-            except Exception as e:
-                log.warning("failed to connect cloud tools after account refresh", error=str(e))
-
-        # Return the full account data from stimma.cloud
-        return {
-            "tier": account.get('tier', 'free'),
-            "tierDisplayName": account.get('tierDisplayName'),
-            "credits": account.get('credits', 0),
-            "createdAt": account.get('createdAt'),
-            "usageWindows": account.get('usageWindows'),
-            "usage": account.get('usage'),
-            "subscription": account.get('subscription'),
-        }
+        # Persist the fresh state, apply tier transitions (cloud tool provider
+        # connect/disconnect), and broadcast to the frontend — shared with the
+        # account-events push path so pull and push behave identically.
+        from account_sync import apply_account_update
+        return await apply_account_update(account, effective_token)
     except AuthSessionExpiredError:
         raise HTTPException(
             status_code=401,
@@ -637,6 +604,13 @@ async def logout():
             await revoke_remote_session_if_supported(id_token)
         except Exception as e:
             log.warning("remote logout revoke failed; continuing local logout", error=str(e))
+
+    # Close the account-events push channel
+    try:
+        from cloud_events import get_cloud_events_client
+        await get_cloud_events_client().stop()
+    except Exception as e:
+        log.warning("failed to stop account-events client", error=str(e))
 
     # Disconnect from cloud first (if connected)
     await disconnect_cloud_internal()
