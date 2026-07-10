@@ -16,6 +16,7 @@ from project_service import get_project_or_404
 from utils.websocket import ws_manager
 from config import get_settings
 from llm_resolver import get_effective_llm_config, LLMNotConfiguredError, LLMSubscriptionRequiredError
+from llm_correlation import llm_correlation_context
 
 log = get_logger(__name__)
 
@@ -361,12 +362,13 @@ Title:"""
             log.info(f"Chat {chat_id}: Calling LLM with model={llm_config.get_model()}, api_base={api_base}")
             log.info(f"Chat {chat_id}: Messages: {messages}")
 
-            new_name = await llm_complete_text(
-                config=llm_config,
-                messages=messages,
-                max_tokens=48,
-                temperature=0.2,
-            )
+            with llm_correlation_context("title", chat_id=chat_id):
+                new_name = await llm_complete_text(
+                    config=llm_config,
+                    messages=messages,
+                    max_tokens=48,
+                    temperature=0.2,
+                )
 
             log.info(f"Chat {chat_id}: Raw LLM response: '{new_name[:200] if new_name else '(empty)'}'")
             # complete() already strips thinking tags

@@ -4,7 +4,7 @@ Mechanical headers that let Stimma Cloud group requests server-side:
 
     X-Stimma-Chat-Id        conversation (when a chat is in scope)
     X-Stimma-Run-Id         one agent-loop execution
-    X-Stimma-Agent-Context  main | flow | prompt-agent | delegate
+    X-Stimma-Agent-Context  main | flow | prompt-agent | delegate | title
 
 (`X-Stimma-Session` already flows separately via llm_http's ``session_id``
 parameter and is unchanged.)
@@ -21,7 +21,7 @@ import contextvars
 import uuid
 from typing import Dict, Iterator, Optional, Union
 
-AGENT_CONTEXTS = ("main", "flow", "prompt-agent", "delegate")
+AGENT_CONTEXTS = ("main", "flow", "prompt-agent", "delegate", "title")
 
 _agent_context: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "llm_agent_context", default=None
