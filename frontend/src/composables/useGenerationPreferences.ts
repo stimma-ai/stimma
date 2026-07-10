@@ -461,6 +461,7 @@ export function useGenerationPreferences(options: UseGenerationPreferencesOption
     saveGlobalPrefs,
     saveModelParams,
     saveUIState,
+    flushPendingSaves,
     loadUIState,
     loadModelParams
   }

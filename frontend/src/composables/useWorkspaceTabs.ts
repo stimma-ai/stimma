@@ -116,6 +116,34 @@ function nextToolInstanceId(): string {
 // profile-scoped parts are handled inline below, and the startup sweep in
 // utils/storageCleanup.ts matches the __i_{K} token instead of a part list).
 const INSTANCE_DB_KEY_PARTS = ['video_images', 'remix'] as const
+const INSTANCE_PROFILE_KEY_PARTS = ['state', 'active_preset', 'collapsed_groups', 'ai_prompt_expanded', 'global', 'ui'] as const
+
+function copyLocalStorageKey(sourceKey: string, targetKey: string) {
+  try {
+    const value = localStorage.getItem(sourceKey)
+    if (value !== null) localStorage.setItem(targetKey, value)
+  } catch {}
+}
+
+async function copyInstanceBlobs(sourceScopedId: string, targetScopedId: string) {
+  try {
+    const sourceMaskKey = makeToolDbKey(sourceScopedId, 'mask')
+    const mask = await getBlob(sourceMaskKey)
+    if (mask !== null) await putBlob(makeToolDbKey(targetScopedId, 'mask'), mask)
+
+    const sourcePaintPrefix = makeToolDbKey(sourceScopedId, 'paint')
+    const targetPaintPrefix = makeToolDbKey(targetScopedId, 'paint')
+    const paintKeys = await listBlobKeys(sourcePaintPrefix)
+    for (const sourceKey of paintKeys) {
+      const suffix = sourceKey.slice(sourcePaintPrefix.length)
+      if (!/^_\d+$/.test(suffix)) continue
+      const paint = await getBlob(sourceKey)
+      if (paint !== null) await putBlob(targetPaintPrefix + suffix, paint)
+    }
+  } catch (err) {
+    console.warn('[useWorkspaceTabs] Failed to copy tool-instance paint data:', err)
+  }
+}
 
 /**
  * One-time migration: pre-instance tool tabs (no instanceId) become instances.
@@ -496,6 +524,44 @@ export function useWorkspaceTabs() {
   }
 
   /**
+   * Duplicate an open tool tab and its instance-scoped working state.
+   * Pending handoff/generation commands and job history intentionally do not
+   * copy: the new tab gets the same settings, not the source tab's work queue.
+   */
+  async function duplicateToolTab(tabId: string): Promise<WorkspaceTab | null> {
+    const source = tabs.value.find(t => t.id === tabId && t.type === 'tool' && !!t.instanceId)
+    if (!source?.instanceId) return null
+
+    const instanceId = nextToolInstanceId()
+    const sourceScopedId = toolInstanceScopedId(source.entityId, source.projectId, source.instanceId)
+    const targetScopedId = toolInstanceScopedId(source.entityId, source.projectId, instanceId)
+
+    for (const part of INSTANCE_PROFILE_KEY_PARTS) {
+      copyLocalStorageKey(makeToolProfileKey(sourceScopedId, part), makeToolProfileKey(targetScopedId, part))
+    }
+    for (const part of INSTANCE_DB_KEY_PARTS) {
+      copyLocalStorageKey(makeToolDbKey(sourceScopedId, part), makeToolDbKey(targetScopedId, part))
+    }
+    copyLocalStorageKey(
+      makeProfileKey('lorapool', sourceScopedId),
+      makeProfileKey('lorapool', targetScopedId)
+    )
+    await copyInstanceBlobs(sourceScopedId, targetScopedId)
+
+    const duplicate = addTab(
+      'tool',
+      source.entityId,
+      source.displayName,
+      source.projectId,
+      source.projectName,
+      instanceId
+    )
+    if (source.customName) duplicate.customName = `${source.customName} Copy`
+    tabs.value = [...tabs.value]
+    return duplicate
+  }
+
+  /**
    * Stamp a tab as just-activated (drives most-recent instance resolution).
    */
   function markTabActivated(tabId: string) {
@@ -871,6 +937,7 @@ export function useWorkspaceTabs() {
     nextEditorId,
     resolveToolInstance,
     getToolInstanceTab,
+    duplicateToolTab,
     markTabActivated,
     updateTabCustomName,
     findNextTab,

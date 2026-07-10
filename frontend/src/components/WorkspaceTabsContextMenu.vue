@@ -3,7 +3,7 @@
     <div
       v-if="contextMenu.state.value.visible"
       ref="menuRef"
-      class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[9999] py-1 min-w-[160px]"
+      class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[9999] py-1 min-w-[210px]"
       :style="menuStyle"
     >
       <!-- Pin / Unpin -->
@@ -60,17 +60,33 @@
         <span>Close All Unpinned</span>
       </button>
 
-      <!-- New Tab (tools): open a fresh instance of this tool -->
+      <!-- New / Duplicate Tab (tools) -->
       <template v-if="contextMenu.state.value.tabType === 'tool'">
         <div class="border-t border-edge-subtle my-1"></div>
         <button
           @click="handleNewToolTab"
-          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-start gap-2"
         >
-          <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          <span>New Tab</span>
+          <span class="flex flex-col">
+            <span>New Tab</span>
+            <span class="text-[10px] leading-4 text-content-muted">Copy with default settings</span>
+          </span>
+        </button>
+        <button
+          @click="handleDuplicateToolTab"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-start gap-2"
+        >
+          <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+            <rect x="8" y="8" width="11" height="11" rx="1.5" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 8V6.5A1.5 1.5 0 0 0 14.5 5h-9A1.5 1.5 0 0 0 4 6.5v9A1.5 1.5 0 0 0 5.5 17H8" />
+          </svg>
+          <span class="flex flex-col">
+            <span>Duplicate Tab</span>
+            <span class="text-[10px] leading-4 text-content-muted">Copy this tab's settings</span>
+          </span>
         </button>
       </template>
 
@@ -297,6 +313,22 @@ function handleNewToolTab() {
   const { resolveToolInstance } = useWorkspaceTabs()
   const { instanceId } = resolveToolInstance(entityId, projectId ?? null, { forceNew: true })
   router.push(toolInstanceRoute(entityId, projectId ?? null, instanceId))
+}
+
+async function handleDuplicateToolTab() {
+  const { tabType, tabId } = contextMenu.state.value
+  contextMenu.hide()
+  if (tabType !== 'tool' || !tabId) return
+
+  // ToolView handles this synchronously for the matching instance so the
+  // duplicate includes edits that are still inside the save debounce window.
+  window.dispatchEvent(new CustomEvent('stimma:flush-tool-instance-state', {
+    detail: { tabId }
+  }))
+
+  const { duplicateToolTab } = useWorkspaceTabs()
+  const duplicate = await duplicateToolTab(tabId)
+  if (duplicate) router.push(toolTabRoute(duplicate))
 }
 
 async function handleDelete() {

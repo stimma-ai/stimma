@@ -45,7 +45,7 @@
         <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(row.tool) ? '' : 'text-content-tertiary'">
           <ToolIcon :tool="row.tool" size="xs" :bare="true" :ring="false" />
         </div>
-        <span class="flex-1 min-w-0 truncate">{{ row.tab.customName || row.tab.displayName }}<span v-if="row.tab.customName" class="text-content-muted"> · {{ row.tab.displayName }}</span></span>
+        <span class="flex-1 min-w-0 truncate">{{ row.tab.customName || row.tab.displayName }}</span>
         <span
           v-if="row.tab.projectName"
           class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"

@@ -1875,6 +1875,7 @@ const {
   onModelChanged,
   saveModelParams,
   loadUIState,
+  flushPendingSaves: flushGenerationPreferenceSaves,
 } = useGenerationPreferences({
   taskType: 'text-to-image',  // Just for defaults structure - we manage our own state persistence
   // Instance-scoped: prompt/inputs (_global) and layout/batch (_ui) belong to
@@ -5885,6 +5886,13 @@ function handleProfileWillChange() {
   flushPendingSaves()  // save pending changes to OLD profile's storage
 }
 
+function handleFlushToolInstanceState(event: Event) {
+  const tabId = (event as CustomEvent<{ tabId?: string }>).detail?.tabId
+  if (!ownTab.value || tabId !== ownTab.value.id) return
+  flushPendingSaves()
+  flushGenerationPreferenceSaves()
+}
+
 async function handleProfileChanged() {
   stopWatching()  // stop watchers to prevent stale saves during reinit
   await loadTool(true)  // force reload from API + reinitialize state + restart watchers
@@ -5898,6 +5906,7 @@ onMounted(async () => {
   // Listen for profile changes
   window.addEventListener('profile-will-change', handleProfileWillChange)
   window.addEventListener('profile-changed', handleProfileChanged)
+  window.addEventListener('stimma:flush-tool-instance-state', handleFlushToolInstanceState)
 
   // Register WebSocket event handlers. The handler registry is a module-level
   // singleton that survives HMR, so we must hold the unsubscribers and tear
@@ -5973,6 +5982,7 @@ onUnmounted(async () => {
   // Clean up profile change listeners
   window.removeEventListener('profile-will-change', handleProfileWillChange)
   window.removeEventListener('profile-changed', handleProfileChanged)
+  window.removeEventListener('stimma:flush-tool-instance-state', handleFlushToolInstanceState)
   stopWatching()
 
   jobsManager?.cleanup()
