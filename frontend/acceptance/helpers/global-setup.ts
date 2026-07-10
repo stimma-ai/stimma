@@ -21,6 +21,10 @@ export default async function globalSetup(config: FullConfig) {
     const prefix = bundleId ? `stimma_${bundleId}_${sandbox}` : 'stimma';
     localStorage.setItem(`${prefix}_global_onboarding_completed`, '1');
     localStorage.setItem(`${prefix}_${profileId}_last_route`, '/browse');
+    // The acceptance provider supplies deterministic generation without a
+    // user-configured provider, so keep the readiness reminder out of the
+    // browser state used for product-flow tests.
+    localStorage.setItem(`${prefix}_${profileId}_readiness_panel_dont_show`, '1');
   });
   await page.goto(`${baseURL}/browse`);
   await page.waitForURL(/\/browse/, { timeout: 10000 });
