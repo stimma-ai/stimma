@@ -12,12 +12,12 @@ Each release channel has its own bundle identifier, set in `tauri.conf.json` and
 
 | Channel | Bundle ID | When Used |
 |---------|-----------|-----------|
-| **Stable** | `ai.stimma.stimma` | Production release |
+| **Production** | `ai.stimma.stimma` | Production release |
 | **Beta** | `ai.stimma.stimma.beta` | Beta testing |
-| **Alpha** | `ai.stimma.stimma.alpha` | Alpha builds (`-alpha.N` tags) |
+| **Canary** | `ai.stimma.stimma.canary` | Canary builds (auto-built on every push to `main`) |
 | **Debug** | `ai.stimma.stimma.debug` | Local development (default in `tauri.conf.json` and CLI) |
 
-Channels are fully isolated — each has its own database, settings, and cache. You can run stable and alpha side-by-side without conflicts. See `docs/RELEASE_CHANNELS.md` for how each channel is built and updated.
+Channels are fully isolated — each has its own database, settings, and cache. You can run production and canary side-by-side without conflicts. See `docs/RELEASE_CHANNELS.md` for how each channel is built and updated.
 
 ## Sandboxes
 
@@ -47,9 +47,9 @@ The fork is a full copy of the default sandbox — database, settings, auth toke
 | Instance | Server | Frontend |
 |----------|--------|----------|
 | Default | 9191 | 9192 |
-| First fork | 9300 | 9301 |
-| Second fork | 9302 | 9303 |
-| ... | up to 9398 | up to 9399 |
+| First fork | 9400 | 9401 |
+| Second fork | 9402 | 9403 |
+| ... | up to 9498 | up to 9499 |
 
 Fork ports are stored in `<sandbox>/.fork.json` and loaded automatically by the CLI.
 
@@ -119,7 +119,7 @@ Cache: /data/data/<bundle-id>/cache/<sandbox>/
 ├── stimma.db               # SQLite database (library, metadata)
 ├── stimma.db-wal           # SQLite write-ahead log
 ├── stimma.db-shm           # SQLite shared memory
-├── settings.yaml         # User config (auth, folders, preferences)
+├── config.yaml            # User config (auth, folders, preferences)
 ├── .fork.json            # Port assignments (sandboxes only)
 └── Logs/
     ├── server.jsonl      # Current server log (JSON lines)
@@ -131,7 +131,7 @@ Cache: /data/data/<bundle-id>/cache/<sandbox>/
 ```
 
 **Key rules:**
-- `settings.yaml` holds user preferences, auth tokens, folder config — never library content.
+- `config.yaml` holds user preferences, auth tokens, folder config — never library content.
 - `stimma.db` holds library content and indexed data — never user preferences.
 - Logs rotate on startup: `server.jsonl` → `server.01.jsonl` → ... → `server.20.jsonl` (oldest deleted).
 

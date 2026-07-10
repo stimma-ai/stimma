@@ -11,7 +11,7 @@ Stimma is a desktop application that combines intelligent media library manageme
 Stimma sits at the intersection of a media library and an AI-powered creative tool. Instead of switching between apps and manually orchestrating complex workflows, you describe what you want and Stimma figures out how to do it.
 
 **Ask it things like:**
-- "Upscale all the images in my favorites collection"
+- "Upscale all the images in my favorites board"
 - "Generate 5 variations of this image with different lighting"
 - "Find all portraits and tag them automatically"
 - "Remove the background from this photo and extend it to 16:9"
@@ -23,7 +23,7 @@ The AI assistant breaks down your request into a plan, executes the steps (in pa
 
 ### Media Library
 - Browse and organize images and videos
-- Collections, tags, and custom markers
+- Boards, tags, and custom markers
 - Semantic search powered by CLIP embeddings ("find images similar to sunset over water")
 - Automatic captioning and keyword extraction
 - Face detection and grouping
@@ -66,7 +66,7 @@ These tools run inside Stimma and are always available:
 | **Extraction** | remove background, crop to face, smart crop |
 | **Analysis** | score image, interrogate, detect objects, extract keywords |
 | **Video** | text-to-video, image-to-video, video-to-video, video upscale |
-| **Library** | add/remove tags, create collection, set marker, move to trash |
+| **Library** | add/remove tags, create board, set marker, move to trash |
 | **Prompting** | enhance prompt, craft prompt, style transfer |
 | **Utility** | resize, convert format, composite images |
 
@@ -114,7 +114,7 @@ See the [Stimma Tools Protocol spec](https://github.com/stimma-ai/stimma-tools-p
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    Tauri Shell                       │
-│                   (macOS app)                        │
+│              (macOS / Windows / Linux)               │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │   ┌─────────────┐           ┌─────────────────┐    │

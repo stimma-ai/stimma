@@ -30,6 +30,6 @@ When these variables are present:
 - the Tauri dev shell, frontend, and backend all receive the same local env
   when launched through `stimma dev all`.
 
-The local env file is intentionally not used for release CI. Official alpha,
+The local env file is intentionally not used for release CI. Official canary,
 beta, and production builds continue to use the normal production cloud target
 unless their persisted user config says otherwise.

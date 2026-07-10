@@ -108,30 +108,57 @@ Stimma Development CLI
 Usage: stimma [FLAGS] <command> <subcommand>
 
 Flags:
-  --prod              Shorthand for --channel=stable
-  --channel=CHANNEL   Release channel: debug (default), canary, beta, stable
+  --prod              Shorthand for --channel=production
+  --channel=CHANNEL   Release channel: debug (default), sandbox, canary, beta, production
   --sandbox=NAME      Sandbox name (default: "default")
+  --official          dev/run only: set STIMMA_DISTRIBUTION=official in the child
+                      process so telemetry, consent UI, thumbs, and crash reports
+                      behave like an official build (events go to the configured
+                      cloud; app_branch stays 'dev' on the debug channel)
 
 Commands:
-  dev frontend    Run Vite dev server with HMR (port 9192)
-  dev backend     Run backend with nodemon (port 9191)
+  dev frontend    Run Vite dev server with HMR (default port 9192)
+  dev backend     Run Python backend with nodemon (default port 9191)
+  dev backend2    Run Rust backend (default port 9191)
   dev app         Run Tauri in dev mode
+  dev all         Run backend + frontend + Tauri together with merged logs
   run backend     Run backend without file watching
   run frontend    Build and serve frontend (no HMR)
   run app         Run Tauri app (release, no watching)
   tail backend    Tail backend logs
   tail app        Tail Tauri app logs
-  app build       Build packaged app (fast, no DMG polish)
-  app build --release  Build with polished DMG
+  app build       Build packaged app with portable backend
+  app build --release  Build with polished DMG (macOS)
   app run         Run built app
-  app install     Install built app to /Applications
+  app install     Install built app
   config edit     Open config.yaml in $EDITOR
+  stimpacks dev [path]   Use a stimpacks dir as the live authority for built-in stimpacks
+                      (default: sibling stimma-skills repo). Shadows installed copies.
+  stimpacks dev --off    Clear the dev stimpacks override
+  stimpacks validate PATH...  Validate stimpack directories with the real loader
+                      (skills, environments, lib modules; non-zero exit on errors)
   backup          Create timestamped backup of data directory
-  dir             Print data directory path
-  fork            List all sandboxes with sizes and ports
-  fork create NAME  Copy default sandbox to a new named sandbox
-  fork destroy NAME Delete a named sandbox (data + cache)
+  lint backend    Run ruff over the backend (undefined names, syntax errors)
+  lint frontend-dead-code
+                  Run Knip's conservative unused frontend file check
   test backend    Run backend pytest tests
+  test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
+  test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
+  test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
+  tag beta [X.Y.Z]    Tag HEAD as the next beta (train = next production version)
+                      (canary builds are automatic on push to main — not tag-driven)
+  promote production  Promote the latest beta's commit to a production release
+                      [--ref REF] hotfix override: promote an explicit git ref
+                      [--yes] skip the confirmation prompt
+  dir               Print data directory path
+  fork              List all sandboxes with sizes and ports
+  fork create NAME  Copy default sandbox to a new named sandbox
+  fork create NAME --empty  Create a FRESH first-run sandbox (empty except
+                      .fork.json with assigned ports) — backend boots it
+                      as a new install: config auto-init, consent undetermined
+  fork destroy NAME [--yes]  Delete a named sandbox (data + cache); --yes skips
+                      the confirmation prompt (required for non-interactive use)
+  bd [args...]    Passthrough to beads CLI
 
 ## Backend Tests
 
@@ -147,7 +174,7 @@ uv run pytest -k "test_filter"         # Run tests matching pattern
 **Test files:**
 - `test_media.py` - Media listing, filtering, search, WebSocket events
 - `test_markers.py` - Marker CRUD, assignment, bulk operations
-- `test_collections.py` - Collection CRUD, membership, cover images
+- `test_boards.py` - Board CRUD, membership, cover images
 - `test_tags.py` - Tag CRUD, assignment, bulk operations
 - `test_trash.py` - Soft delete, restore, permanent delete, empty trash
 - `test_browse_filters.py` - Media type, resolution, folder, date, generated filters
@@ -186,6 +213,6 @@ Most of the config file surface area is mirrored in the settings UI. The correct
 - **Tool**: A tool provided by Stimma Tools Protocol. Tools can be internal (built-in) or external (third-party). Tools perform operations on media items
 - **Task**: What a tool does. A tool can implement multiple tasks. Each task comes with a set of required inputs + outputs, like an interface. Examples include 'text-to-image', 'image-to-image', etc.
 - **Ingestion**: A separate process that handles processing and importing media in the background. Performs tasks like AI captioning, visual indexing (CLIP encoding), metadata extraction, etc.
-- **Browser Screens**: This includes the 'all assets (aka all media)' screen, the saved views, the collection screen, and the trash screen. All of these screens share substantial infrastructure, treatment, functionality, and behavior, and should be kept in sync
+- **Browser Screens**: This includes the 'all assets (aka all media)' screen, the saved views, the board screen, and the trash screen. All of these screens share substantial infrastructure, treatment, functionality, and behavior, and should be kept in sync
 - **Selection Bar**: The controls that appear at the bottom of the browser screen when the user selects an asset
 - <If you encounter new terms, add them here.>
