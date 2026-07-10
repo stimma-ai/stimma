@@ -32,57 +32,26 @@
           </p>
         </div>
 
-        <div v-if="loadingTools" class="py-8 text-center text-content-muted text-sm">
-          Loading tools...
-        </div>
-        <template v-else>
-          <!-- Generation Tools section -->
-          <div>
-            <div class="flex items-center justify-between mb-1.5">
-              <h4 class="text-[11px] font-medium text-content-muted uppercase tracking-wider">Generation Tools</h4>
-              <button
-                ref="addToolButtonRef"
-                @click="toggleAddToolDropdown"
-                class="text-[11px] text-blue-400 hover:text-blue-300 transition-colors font-medium"
-              >
-                + Add
-              </button>
-            </div>
-            <div v-if="configuredTools.length > 0" class="bg-surface rounded-lg border border-edge overflow-hidden">
-              <ToolConfigRow
-                v-for="(tool, idx) in configuredTools"
-                :key="tool.full_tool_id"
-                :tool="tool"
-                :config="localToolConfig"
-                :show-neutral="false"
-                :show-border="idx < configuredTools.length - 1"
-                @update:config="handleToolConfigUpdate"
-                @remove="handleRemoveTool(tool.full_tool_id)"
-              />
-            </div>
-            <p v-else class="text-[11px] text-content-muted mt-1">No generation tools configured.</p>
+        <!-- Tool permissions scoped to THIS chat. Hidden when none — the default
+             approval is "always" (global), so chat-scoped entries are the exception;
+             an empty section here would be pure noise. -->
+        <div v-if="configuredTools.length > 0">
+          <h4 class="text-[11px] font-medium text-content-muted uppercase tracking-wider mb-1.5">Tool Permissions for this Chat</h4>
+          <div class="bg-surface rounded-lg border border-edge overflow-hidden">
+            <ToolConfigRow
+              v-for="(tool, idx) in configuredTools"
+              :key="tool.full_tool_id"
+              :tool="tool"
+              :config="localToolConfig"
+              :show-neutral="false"
+              :show-border="idx < configuredTools.length - 1"
+              @update:config="handleToolConfigUpdate"
+              @remove="handleRemoveTool(tool.full_tool_id)"
+            />
           </div>
-        </template>
+        </div>
       </div>
     </div>
-
-    <!-- Add Tool Dropdown -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div
-          v-if="showAddToolDropdown"
-          ref="addToolDropdownRef"
-          class="fixed w-72 max-h-80 bg-surface border border-edge-subtle rounded-xl shadow-xl z-[1000] overflow-hidden"
-          :style="addToolDropdownStyle"
-        >
-          <TaskTypeToolList
-            ref="addToolListRef"
-            :tools="addableTools"
-            @select="(tool) => handleAddTool(tool.full_tool_id)"
-          />
-        </div>
-      </Transition>
-    </Teleport>
 
     <!-- Stimpack Editor Modal -->
     <StimpackEditorModal
@@ -109,7 +78,6 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import ToolConfigRow from './ToolConfigRow.vue'
 import TextEditorModal from './TextEditorModal.vue'
-import TaskTypeToolList from '../TaskTypeToolList.vue'
 import { useAgentPresetsApi, type AgentSettings, type ToolConfig } from '../../composables/useAgentPresetsApi'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
 import { useWebSocket } from '../../composables/useWebSocket'
@@ -142,14 +110,6 @@ const localInstructions = ref('')
 const localToolConfig = ref<ToolConfig | null>(null)
 const showInstructionsModal = ref(false)
 
-// Add tool dropdown state
-const showAddToolDropdown = ref(false)
-const addToolButtonRef = ref<HTMLButtonElement | null>(null)
-const addToolDropdownRef = ref<HTMLDivElement | null>(null)
-const addToolDropdownPosition = ref({ top: 0, left: 0 })
-const addToolListRef = ref<InstanceType<typeof TaskTypeToolList> | null>(null)
-
-
 // WebSocket unsubscribe functions
 const wsUnsubscribes: (() => void)[] = []
 
@@ -163,16 +123,6 @@ const configuredToolIds = computed(() => {
 const configuredTools = computed(() => {
   return allTools.value.filter(tool => configuredToolIds.value.has(tool.full_tool_id))
 })
-
-// Tools available to add (not currently configured)
-const addableTools = computed(() => {
-  return allTools.value.filter(tool => !configuredToolIds.value.has(tool.full_tool_id))
-})
-
-const addToolDropdownStyle = computed(() => ({
-  top: `${addToolDropdownPosition.value.top}px`,
-  left: `${addToolDropdownPosition.value.left}px`,
-}))
 
 // Methods
 async function loadSettings() {
@@ -226,58 +176,12 @@ async function handleToolConfigUpdate(config: ToolConfig) {
   }
 }
 
-
-// Add tool dropdown methods
-function updateAddToolDropdownPosition() {
-  if (addToolButtonRef.value) {
-    const rect = addToolButtonRef.value.getBoundingClientRect()
-    addToolDropdownPosition.value = {
-      top: rect.bottom + 4,
-      left: Math.max(8, Math.min(rect.right - 288, window.innerWidth - 296)),
-    }
-  }
-}
-
-function toggleAddToolDropdown() {
-  showAddToolDropdown.value = !showAddToolDropdown.value
-  if (showAddToolDropdown.value) {
-    updateAddToolDropdownPosition()
-    requestAnimationFrame(() => {
-      addToolListRef.value?.reset()
-    })
-  }
-}
-
-function handleClickOutsideAddTool(event: MouseEvent) {
+function handleClickOutsideStimpackMenu(event: MouseEvent) {
   const target = event.target as Element
-  const isInsideButton = addToolButtonRef.value?.contains(target)
-  const isInsideDropdown = addToolDropdownRef.value?.contains(target)
-  if (!isInsideButton && !isInsideDropdown) {
-    showAddToolDropdown.value = false
-  }
-
-
   // Close stimpack menu if clicking outside
-  if (openStimpackMenu.value && !(target as Element).closest?.('[data-stimpack-menu]')) {
+  if (openStimpackMenu.value && !target.closest?.('[data-stimpack-menu]')) {
     openStimpackMenu.value = null
   }
-}
-
-async function handleAddTool(toolId: string) {
-  // Add tool to allowed_tools by default - create new object for reactivity
-  const current = localToolConfig.value
-  const currentAllowed = current?.allowed_tools || []
-
-  const newConfig = {
-    allowed_tools: currentAllowed.includes(toolId)
-      ? [...currentAllowed]
-      : [...currentAllowed, toolId],
-    denied_tools: [...(current?.denied_tools || [])],
-    v2_permissions: { ...(current?.v2_permissions || {}) },
-  }
-
-  await handleToolConfigUpdate(newConfig)
-  showAddToolDropdown.value = false
 }
 
 async function handleRemoveTool(toolId: string) {
@@ -361,26 +265,11 @@ watch(() => props.chatId, () => {
 onMounted(() => {
   loadTools()
   setupWebSocketSubscriptions()
-  // Use mousedown instead of click: when clicking a category inside TaskTypeToolList,
-  // the component re-renders and removes the clicked element from the DOM before the
-  // click event bubbles. At that point contains() returns false, closing the menu prematurely.
-  document.addEventListener('mousedown', handleClickOutsideAddTool)
+  document.addEventListener('mousedown', handleClickOutsideStimpackMenu)
 })
 
 onUnmounted(() => {
   cleanupWebSocketSubscriptions()
-  document.removeEventListener('mousedown', handleClickOutsideAddTool)
+  document.removeEventListener('mousedown', handleClickOutsideStimpackMenu)
 })
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

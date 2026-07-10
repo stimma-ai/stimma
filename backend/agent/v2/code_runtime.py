@@ -565,6 +565,9 @@ class StimmaSDK:
         self._session_media_ids: list[int] = session_media_ids if session_media_ids is not None else []
         self._shown_media_ids: list[int] = []
         self._progress_trackers: list[ProgressTracker] = []
+        # Per-run STP tool permission decisions (tool_id -> allowed). Populated by
+        # the in-run permission gate so repeat calls in this run don't re-prompt.
+        self._tool_perm_cache: dict[str, bool] = {}
         # Accumulated LLM token usage from ctx.llm() and ctx.delegate() calls
         self._llm_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "reasoning_tokens": 0, "calls": 0, "elapsed_seconds": 0.0}
 
@@ -688,6 +691,23 @@ class StimmaSDK:
             nested_params = kwargs.pop("parameters")
             for k, v in nested_params.items():
                 kwargs.setdefault(k, v)
+
+        # Permission gate: on first use of a tool in this chat, block on the user's
+        # approval card before doing any work; a persisted/cached deny raises here.
+        # In-process block (no turn replay) — see tool_permission_gate for why.
+        # Sessions for the gate come from this run's own engine, never the global
+        # profile registry: gather branches gate concurrently and must not share
+        # self.session, and the registry doesn't exist in every environment.
+        from sqlalchemy.ext.asyncio import async_sessionmaker as _async_sessionmaker
+        from .tool_permission_gate import ensure_tool_permission
+        await ensure_tool_permission(
+            chat_id=self.chat_id,
+            tool_id=tool_id,
+            kwargs=kwargs,
+            task_type=_task_type,
+            run_cache=self._tool_perm_cache,
+            session_maker=_async_sessionmaker(self.session.bind, expire_on_commit=False),
+        )
 
         # `params_from`: seed this call from a prior library item's recorded
         # generation parameters, then let anything the caller passed win.

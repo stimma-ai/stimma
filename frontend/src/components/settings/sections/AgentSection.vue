@@ -44,21 +44,10 @@
       </div>
 
       <template v-else>
-        <!-- Generation Tools -->
+        <!-- Tool Permissions -->
         <div class="mb-6">
-          <div class="flex items-center justify-between mb-3">
-            <h4 class="text-sm font-medium text-content-secondary">Generation Tools</h4>
-            <button
-              ref="addToolButtonRef"
-              @click="toggleAddToolDropdown"
-              class="flex items-center gap-1.5 px-3 py-1.5 text-xs text-content-secondary hover:text-content bg-surface hover:bg-surface-raised border border-edge rounded-lg transition-colors"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              Add Tool
-            </button>
-          </div>
+          <h4 class="text-sm font-medium text-content-secondary mb-1">Tool Permissions</h4>
+          <p class="text-xs text-content-tertiary mb-3">The agent asks the first time it uses a tool. Tools you allow or block appear here.</p>
           <div v-if="configuredTools.length > 0" class="bg-surface-raised border border-edge rounded-lg overflow-hidden">
             <ToolConfigRow
               v-for="(tool, idx) in configuredTools"
@@ -71,39 +60,17 @@
               @remove="handleRemoveTool(tool.full_tool_id)"
             />
           </div>
-          <p v-else class="text-xs text-content-muted mt-2">No generation tools configured. Click Add Tool to configure one.</p>
         </div>
       </template>
     </template>
-
-    <!-- Add Tool Dropdown -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div
-          v-if="showAddToolDropdown"
-          ref="addToolDropdownRef"
-          class="fixed w-56 max-h-[28rem] bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10020] flex flex-col overflow-y-auto"
-          :style="addToolDropdownStyle"
-        >
-          <TaskTypeToolList
-            ref="addToolListRef"
-            :tools="unconfiguredTools"
-            :loading="loadingTools"
-            gradient-id="stimma-gradient-permissions"
-            @select="handleAddToolFromList"
-          />
-        </div>
-      </Transition>
-    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
 import ToolConfigRow from '../../chat/ToolConfigRow.vue'
-import TaskTypeToolList from '../../TaskTypeToolList.vue'
 import type { ToolConfig } from '../../../composables/useAgentPresetsApi'
 import { useProvidersApi, type ProviderTool } from '../../../composables/useProvidersApi'
 import { useProfile } from '../../../composables/useProfile'
@@ -122,16 +89,6 @@ const loading = ref(false)
 const loadingTools = ref(false)
 const settings = ref<ProfileAgentSettings | null>(null)
 const allTools = ref<ProviderTool[]>([])
-
-
-
-// Add tool dropdown state
-const showAddToolDropdown = ref(false)
-const addToolButtonRef = ref<HTMLElement | null>(null)
-const addToolDropdownRef = ref<HTMLElement | null>(null)
-const addToolListRef = ref<InstanceType<typeof TaskTypeToolList> | null>(null)
-const addToolDropdownPosition = ref({ top: 0, left: 0 })
-
 
 // Local editing state
 const localInstructions = ref('')
@@ -152,58 +109,6 @@ const configuredTools = computed(() => {
   return allTools.value.filter(tool => configuredToolIds.value.has(tool.full_tool_id))
 })
 
-// Computed: tools NOT in the configured list (for the add dropdown)
-const unconfiguredTools = computed(() => {
-  return allTools.value.filter(tool => !configuredToolIds.value.has(tool.full_tool_id))
-})
-
-const addToolDropdownStyle = computed(() => ({
-  top: `${addToolDropdownPosition.value.top}px`,
-  left: `${addToolDropdownPosition.value.left}px`,
-}))
-
-// Add tool dropdown methods
-function updateAddToolDropdownPosition() {
-  if (addToolButtonRef.value) {
-    const rect = addToolButtonRef.value.getBoundingClientRect()
-    // Position below the button, aligned to the right
-    addToolDropdownPosition.value = {
-      top: rect.bottom + 4,
-      left: Math.max(16, Math.min(rect.right - 224, window.innerWidth - 240)),
-    }
-  }
-}
-
-function toggleAddToolDropdown() {
-  showAddToolDropdown.value = !showAddToolDropdown.value
-  if (showAddToolDropdown.value) {
-    updateAddToolDropdownPosition()
-    // Reset task type tool list when opening
-    setTimeout(() => addToolListRef.value?.reset(), 0)
-  }
-}
-
-async function handleAddToolFromList(tool: ProviderTool, _taskType: string) {
-  await handleAddTool(tool.full_tool_id)
-}
-
-async function handleAddTool(toolId: string) {
-  // Add tool to allowed_tools by default
-  const current = localToolConfig.value
-  const currentAllowed = current?.allowed_tools || []
-
-  const newConfig = {
-    allowed_tools: currentAllowed.includes(toolId)
-      ? [...currentAllowed]
-      : [...currentAllowed, toolId],
-    denied_tools: [...(current?.denied_tools || [])],
-    v2_permissions: { ...(current?.v2_permissions || {}) },
-  }
-
-  await handleToolConfigUpdate(newConfig)
-  showAddToolDropdown.value = false
-}
-
 async function handleRemoveTool(toolId: string) {
   // Remove from both allowed and denied lists
   const current = localToolConfig.value
@@ -215,20 +120,6 @@ async function handleRemoveTool(toolId: string) {
   }
 
   await handleToolConfigUpdate(newConfig)
-}
-
-function handleClickOutside(e: MouseEvent) {
-  const target = e.target as Node
-
-  // Close add tool dropdown if clicking outside
-  if (showAddToolDropdown.value) {
-    const isInsideButton = addToolButtonRef.value?.contains(target)
-    const isInsideDropdown = addToolDropdownRef.value?.contains(target)
-    if (!isInsideButton && !isInsideDropdown) {
-      showAddToolDropdown.value = false
-    }
-  }
-
 }
 
 // Methods
@@ -300,14 +191,6 @@ async function handleToolConfigUpdate(config: ToolConfig) {
 onMounted(() => {
   loadSettings()
   loadTools()
-  // Use mousedown instead of click: when clicking a category inside TaskTypeToolList,
-  // the component re-renders and removes the clicked element from the DOM before the
-  // click event bubbles. At that point contains() returns false, closing the menu prematurely.
-  document.addEventListener('mousedown', handleClickOutside)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('mousedown', handleClickOutside)
 })
 
 // Reload when profile changes
@@ -315,16 +198,3 @@ watch(currentProfileId, () => {
   loadSettings()
 })
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-</style>

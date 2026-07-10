@@ -215,6 +215,11 @@ async def test_run_code_sdk_call_tool_and_save_preserves_lineage(session, test_c
     monkeypatch.setattr("agent.v2.tools.library._get_default_folder", lambda _=None: str(output_dir))
     _patch_mock_registry(monkeypatch, task_types=("image-to-image",))
 
+    # Pre-allow the mock tool at chat level so the in-run permission gate doesn't
+    # raise a card and park waiting for a user that doesn't exist in tests.
+    test_chat.agent_tool_config = json.dumps({"allowed_tools": ["mock:gen"]})
+    await session.commit()
+
     async def _noop_validate(*args, **kwargs):
         return []
     monkeypatch.setattr("agent.v2.code_lint.validate_hardcoded_refs", _noop_validate)
@@ -287,6 +292,11 @@ async def test_run_code_show_tool_result_prefers_media_id(session, test_chat, tm
     monkeypatch.setattr("agent.v2.code_runtime.execute_call_tool", _fake_execute_call_tool)
     monkeypatch.setattr("utils.websocket.ws_manager", _FakeWsManager())
     _patch_mock_registry(monkeypatch, task_types=("text-to-image",))
+
+    # Pre-allow the mock tool at chat level so the in-run permission gate doesn't
+    # raise a card and park waiting for a user that doesn't exist in tests.
+    test_chat.agent_tool_config = json.dumps({"allowed_tools": ["mock:gen"]})
+    await session.commit()
 
     async def _noop_validate(*args, **kwargs):
         return []

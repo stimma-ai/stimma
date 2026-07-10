@@ -280,32 +280,34 @@ def _is_workspace_relative_token(token: str) -> bool:
     return True
 
 
-async def check_stp_permission(
+async def get_stp_permission_decision(
     stp_tool_id: str,
     chat: Chat,
     session: AsyncSession | None = None,
-) -> bool:
-    """Check if a specific STP tool is permitted for call_tool.
+) -> PermissionDecision:
+    """Resolve the configured permission for a specific STP tool.
 
-    Uses allowed_tools/denied_tools (same as V1) so the sidebar
-    tool permissions section shows them.
+    Uses allowed_tools/denied_tools (same as V1) so the settings "Generation
+    Tools" list shows them. Resolution order: chat → project → global profile,
+    else "ask" (first use of an unconfigured tool). Empty tool id → "allow"
+    (nothing to gate).
     """
     if not stp_tool_id:
-        return True
+        return "allow"
 
     # Check chat-level first
     chat_config = _load_json_config(chat.agent_tool_config)
     if stp_tool_id in chat_config.get("allowed_tools", []):
-        return True
+        return "allow"
     if stp_tool_id in chat_config.get("denied_tools", []):
-        return False
+        return "deny"
 
     # Then check project-level
     project_config = await _get_project_config(session, chat)
     if stp_tool_id in project_config.get("allowed_tools", []):
-        return True
+        return "allow"
     if stp_tool_id in project_config.get("denied_tools", []):
-        return False
+        return "deny"
 
     # Check global profile-level
     from config import get_settings
@@ -315,12 +317,27 @@ async def check_stp_permission(
     profile_id = get_current_profile()
     agent_config = settings.get_agent_for_profile(profile_id)
     if stp_tool_id in (agent_config.tool_config.allowed_tools or []):
-        return True
+        return "allow"
     if stp_tool_id in (agent_config.tool_config.denied_tools or []):
-        return False
+        return "deny"
 
     # Not found — needs prompt
-    return False
+    return "ask"
+
+
+async def check_stp_permission(
+    stp_tool_id: str,
+    chat: Chat,
+    session: AsyncSession | None = None,
+) -> bool:
+    """Check if a specific STP tool is permitted for call_tool.
+
+    Thin ``== "allow"`` wrapper over :func:`get_stp_permission_decision`. Legacy
+    callers that only distinguish permitted/not-permitted (the top-level
+    ``call_tool`` gate) use this; the in-``run_code`` gate uses the 3-state form
+    so it can tell "deny" (raise) from "ask" (prompt).
+    """
+    return await get_stp_permission_decision(stp_tool_id, chat, session) == "allow"
 
 
 async def apply_permission(

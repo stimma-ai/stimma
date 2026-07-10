@@ -147,7 +147,12 @@ async def test_run_code_gather_concurrent_generations_no_session_conflict(
     # stays in its pristine, never-yet-provisioned state going into the
     # concurrent gather() below (see module docstring).
     async with session_factory() as setup_session:
-        chat = Chat(name="Concurrency Test Chat")
+        # Pre-allow the mock tool at chat level so the in-run permission gate
+        # doesn't raise a card and park waiting for a user that doesn't exist.
+        chat = Chat(
+            name="Concurrency Test Chat",
+            agent_tool_config=json.dumps({"allowed_tools": [tool_id]}),
+        )
         setup_session.add(chat)
         await setup_session.commit()
         await setup_session.refresh(chat)

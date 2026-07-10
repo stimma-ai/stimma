@@ -41,22 +41,12 @@
         />
       </div>
 
-      <!-- Generation Tools -->
-      <div class="mb-6">
-        <div class="flex items-center justify-between mb-3">
-          <h4 class="text-sm font-medium text-content-secondary">Generation Tools</h4>
-          <button
-            ref="addToolButtonRef"
-            @click="toggleAddToolDropdown"
-            class="flex items-center gap-1.5 px-3 py-1.5 text-xs text-content-secondary hover:text-content bg-surface hover:bg-surface-raised border border-edge rounded-lg transition-colors"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            Add Tool
-          </button>
-        </div>
-        <div v-if="configuredTools.length > 0" class="bg-surface-overlay border border-edge rounded-lg overflow-hidden">
+      <!-- Tool permissions scoped to THIS project. Hidden when none (same reasoning
+           as the chat panel — the default approval is global, so project-scoped
+           entries are the exception, not the norm). -->
+      <div v-if="configuredTools.length > 0" class="mb-6">
+        <h4 class="text-sm font-medium text-content-secondary mb-2">Tool Permissions for this Project</h4>
+        <div class="bg-surface-overlay border border-edge rounded-lg overflow-hidden">
           <ToolConfigRow
             v-for="(tool, idx) in configuredTools"
             :key="tool.full_tool_id"
@@ -68,7 +58,6 @@
             @remove="handleRemoveTool(tool.full_tool_id)"
           />
         </div>
-        <p v-else class="text-xs text-content-muted mt-2">No generation tools configured. Click Add Tool to configure one.</p>
       </div>
 
       <!-- Delete Project -->
@@ -87,26 +76,6 @@
         </button>
       </div>
 
-      <!-- Add Tool Dropdown -->
-      <Teleport to="body">
-        <Transition name="fade">
-          <div
-            v-if="showAddToolDropdown"
-            ref="addToolDropdownRef"
-            class="fixed w-56 max-h-[28rem] bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10020] flex flex-col overflow-y-auto"
-            :style="addToolDropdownStyle"
-          >
-            <TaskTypeToolList
-              ref="addToolListRef"
-              :tools="unconfiguredTools"
-              :loading="loadingTools"
-              gradient-id="stimma-gradient-project-permissions"
-              @select="handleAddToolFromList"
-            />
-          </div>
-        </Transition>
-      </Teleport>
-
     </div>
 
     <ConfirmModal
@@ -122,11 +91,10 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import ToolConfigRow from '../components/chat/ToolConfigRow.vue'
-import TaskTypeToolList from '../components/TaskTypeToolList.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useProvidersApi } from '../composables/useProvidersApi'
 
@@ -158,13 +126,6 @@ const localToolConfig = ref({
 const allTools = ref([])
 const loadingTools = ref(false)
 
-// Add tool dropdown state
-const showAddToolDropdown = ref(false)
-const addToolButtonRef = ref(null)
-const addToolDropdownRef = ref(null)
-const addToolListRef = ref(null)
-const addToolDropdownPosition = ref({ top: 0, left: 0 })
-
 const deleteConfirmMessage = computed(() => {
   const projectName = props.project?.name?.trim()
   if (projectName) {
@@ -183,15 +144,6 @@ const configuredToolIds = computed(() => {
 const configuredTools = computed(() => {
   return allTools.value.filter(tool => configuredToolIds.value.has(tool.full_tool_id))
 })
-
-const unconfiguredTools = computed(() => {
-  return allTools.value.filter(tool => !configuredToolIds.value.has(tool.full_tool_id))
-})
-
-const addToolDropdownStyle = computed(() => ({
-  top: `${addToolDropdownPosition.value.top}px`,
-  left: `${addToolDropdownPosition.value.left}px`,
-}))
 
 function normalizeToolConfig(config = {}) {
   return {
@@ -218,26 +170,6 @@ async function handleToolConfigUpdate(config) {
   await saveAgentConfig()
 }
 
-async function handleAddToolFromList(tool) {
-  await handleAddTool(tool.full_tool_id)
-}
-
-async function handleAddTool(toolId) {
-  const current = localToolConfig.value
-  const currentAllowed = current?.allowed_tools || []
-
-  const newConfig = {
-    allowed_tools: currentAllowed.includes(toolId)
-      ? [...currentAllowed]
-      : [...currentAllowed, toolId],
-    denied_tools: [...(current?.denied_tools || [])],
-    v2_permissions: { ...(current?.v2_permissions || {}) },
-  }
-
-  await handleToolConfigUpdate(newConfig)
-  showAddToolDropdown.value = false
-}
-
 async function handleRemoveTool(toolId) {
   const current = localToolConfig.value
 
@@ -248,37 +180,6 @@ async function handleRemoveTool(toolId) {
   }
 
   await handleToolConfigUpdate(newConfig)
-}
-
-// Add tool dropdown methods
-function updateAddToolDropdownPosition() {
-  if (addToolButtonRef.value) {
-    const rect = addToolButtonRef.value.getBoundingClientRect()
-    addToolDropdownPosition.value = {
-      top: rect.bottom + 4,
-      left: Math.max(16, Math.min(rect.right - 224, window.innerWidth - 240)),
-    }
-  }
-}
-
-function toggleAddToolDropdown() {
-  showAddToolDropdown.value = !showAddToolDropdown.value
-  if (showAddToolDropdown.value) {
-    updateAddToolDropdownPosition()
-    setTimeout(() => addToolListRef.value?.reset(), 0)
-  }
-}
-
-function handleClickOutside(e) {
-  const target = e.target
-
-  if (showAddToolDropdown.value) {
-    const isInsideButton = addToolButtonRef.value?.contains(target)
-    const isInsideDropdown = addToolDropdownRef.value?.contains(target)
-    if (!isInsideButton && !isInsideDropdown) {
-      showAddToolDropdown.value = false
-    }
-  }
 }
 
 // Save methods
@@ -341,22 +242,5 @@ async function confirmDeleteProject() {
 
 onMounted(() => {
   loadTools()
-  document.addEventListener('mousedown', handleClickOutside)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('mousedown', handleClickOutside)
 })
 </script>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

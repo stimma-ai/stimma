@@ -1888,6 +1888,38 @@ async def submit_human_response(
     if request.scope is not None:
         response_data["scope"] = request.scope
 
+    # In-process permission gate (STP tool call made from inside run_code): the turn
+    # is parked on a future, NOT unwound. Resolve the future in place instead of
+    # replaying the turn (replay would re-run every tool call before the gated one).
+    v2_args = pending_action.get("v2_tool_args", {}) if isinstance(pending_action, dict) else {}
+    inprocess_id = v2_args.get("_inprocess_request_id")
+    if inprocess_id:
+        from agent.v2.tool_permission_gate import is_pending_permission, resolve_pending_permission
+        if is_pending_permission(inprocess_id):
+            scope = request.scope or "once"
+            approved = bool(request.approved)
+            # Persist chat/always grants using this request's session (the parked
+            # coroutine never holds a write txn across the wait).
+            tool_id = v2_args.get("tool_id")
+            if tool_id and scope in ("chat", "always"):
+                from agent.v2.permissions import apply_stp_permission
+                await apply_stp_permission(tool_id, scope, approved, chat)
+                await session.commit()
+            resolve_pending_permission(inprocess_id, {"approved": approved, "scope": scope})
+            # Record the response so the card renders as resolved (not still actionable).
+            resp_item = ChatItem(
+                chat_id=chat_id,
+                item_type="hitl_response",
+                item_metadata=json.dumps({"approved": approved, "scope": scope}),
+            )
+            session.add(resp_item)
+            await session.commit()
+            await ws_manager.broadcast("chat_item_created", {
+                "chat_id": chat_id,
+                "item": resp_item.to_dict(),
+            })
+            return {"success": True}
+
     # Resume agent with the response
     log.debug(f"Calling resume_agent_after_hitl with response_data: {response_data}")
     from agent import resume_agent_after_hitl
