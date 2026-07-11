@@ -18,27 +18,31 @@
             </svg>
           </button>
 
-          <!-- Stimma Cloud hero -->
-          <div class="readiness-hero px-6 pt-8 pb-6 border-b border-edge text-center">
+          <!-- Readiness hero -->
+          <div
+            class="px-6 pt-8 text-center"
+            :class="privacyLockdownActive ? 'pb-2' : 'pb-6 border-b border-edge readiness-hero'"
+          >
             <h3 class="text-lg font-semibold text-content tracking-tight">{{ headline }}</h3>
-            <p class="mt-1.5 mx-auto max-w-[350px] text-sm text-content-secondary leading-relaxed">
+            <p v-if="!privacyLockdownActive" class="mt-1.5 mx-auto max-w-[350px] text-sm text-content-secondary leading-relaxed">
               {{ heroText }}
             </p>
             <button
+              v-if="!privacyLockdownActive"
               @click="handleCloudCta"
               :disabled="connecting"
               class="mt-4 px-5 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded-lg text-sm font-semibold transition-all disabled:opacity-60"
             >
               {{ finishCheckoutNeeded ? 'Finish checkout' : (connecting ? 'Connecting…' : 'Connect Stimma Cloud') }}
             </button>
-            <p v-if="!finishCheckoutNeeded" class="mt-2.5 text-xs text-content-muted">Nothing to install or configure.</p>
-            <p v-if="connectError" class="text-xs text-red-500 mt-2">{{ connectError }}</p>
+            <p v-if="!privacyLockdownActive && !finishCheckoutNeeded" class="mt-2.5 text-xs text-content-muted">Nothing to install or configure.</p>
+            <p v-if="!privacyLockdownActive && connectError" class="text-xs text-red-500 mt-2">{{ connectError }}</p>
           </div>
 
           <!-- Bring your own AI -->
           <div class="px-6 pt-4 pb-4">
-            <h4 class="text-center text-[13px] font-semibold text-content-secondary">Or, bring your own AI</h4>
-            <div class="mt-2.5 flex flex-col">
+            <h4 v-if="!privacyLockdownActive" class="text-center text-[13px] font-semibold text-content-secondary">Or, bring your own AI</h4>
+            <div class="flex flex-col" :class="{ 'mt-2.5': !privacyLockdownActive }">
               <div class="flex items-center gap-3 py-2.5 px-2 -mx-2">
                 <span
                   class="w-5 h-5 flex-none rounded-full border flex items-center justify-center text-[11px] font-semibold"
@@ -93,11 +97,13 @@ import { ref, computed } from 'vue'
 import { useReadiness } from '../composables/useReadiness'
 import { useAuth } from '../composables/useAuth'
 import { useCloudAccount } from '../composables/useCloudAccount'
+import { usePrivacyLockdown } from '../composables/usePrivacyLockdown'
 import { isTauri } from '../apiConfig'
 
 const { readiness, shouldShowPanel, finishCheckoutNeeded, dontShowAgain, dismissPanel, setDontShowAgain } = useReadiness()
 const { user, signInWithBrowser } = useAuth()
 const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
+const { privacyLockdownActive } = usePrivacyLockdown()
 
 const connecting = ref(false)
 const connectError = ref('')
@@ -106,7 +112,8 @@ const missingAgentLlm = computed(() => !!readiness.value?.missing?.includes('age
 const missingGeneration = computed(() => !!readiness.value?.missing?.includes('generation'))
 
 const headline = computed(() => {
-  if (finishCheckoutNeeded.value) return "Checkout didn't finish"
+  if (privacyLockdownActive.value) return 'Bring your own AI'
+  if (!privacyLockdownActive.value && finishCheckoutNeeded.value) return "Checkout didn't finish"
   if (missingAgentLlm.value && missingGeneration.value) return 'Connect AI to start creating'
   return 'One step left'
 })

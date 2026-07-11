@@ -375,14 +375,18 @@ watch(voiceModel, refreshVoiceModelReady)
 // --- Available models (for chat dropdown) ---
 const { models: availableModelsRaw, globalDefault, fetchModels, invalidateCache } = useAvailableModels()
 const defaultModelSlug = ref('auto')
+const unavailableSetupMessage = computed(() => privacyLockdownActive.value
+  ? 'Configure a local endpoint.'
+  : 'Sign in to Stimma Cloud or configure a local endpoint.')
 const availableModelsList = computed(() => {
   if (availableModelsRaw.value.length > 0) return availableModelsRaw.value
   return [{
     slug: 'auto',
-    name: 'Set up AI models',
+    name: privacyLockdownActive.value ? 'Set up a local AI model' : 'Set up AI models',
     source: 'auto',
     available: false,
-    description: 'Sign in to Stimma Cloud or configure a local endpoint.',
+    status: 'llm_not_configured',
+    description: unavailableSetupMessage.value,
   }]
 })
 const autoDefaultModel = computed(() => availableModelsList.value.find(m => m.slug === 'auto'))
@@ -406,9 +410,12 @@ const selectedDefaultModel = computed(() => {
 const defaultModelStatus = computed(() => {
   if (!selectedDefaultModel.value) return null
   if (selectedDefaultModel.value.available === false) {
+    const isSetupRequired = ['llm_not_configured', 'not_logged_in'].includes(selectedDefaultModel.value.status)
     return {
       available: false,
-      message: selectedDefaultModel.value.description || 'The saved default model is not available right now.',
+      message: isSetupRequired
+        ? unavailableSetupMessage.value
+        : selectedDefaultModel.value.description || 'The saved default model is not available right now.',
     }
   }
   return null
@@ -479,7 +486,7 @@ const utilityModelStatus = computed(() => {
   if (utilityModelSource.value === 'auto') {
     if (hasCloudAvailable.value) return { available: true, message: 'Auto uses a fast Stimma Cloud model.' }
     if (hasLocalEndpoint.value) return { available: true, message: 'Auto uses your local endpoint.' }
-    return { available: false, message: 'Sign in to Stimma Cloud or configure a local endpoint.' }
+    return { available: false, message: unavailableSetupMessage.value }
   }
   return null
 })

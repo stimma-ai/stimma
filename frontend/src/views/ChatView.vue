@@ -34,46 +34,7 @@
       </div>
 
       <template v-else>
-        <div v-if="showNoModelSetupHero" class="max-w-xl mx-auto mt-8 rounded-xl border border-edge bg-surface-elevated">
-          <div class="p-5">
-            <div class="flex items-start gap-3 mb-4">
-              <div class="p-2 rounded-lg bg-teal-600/15 flex-shrink-0">
-                <SparklesIcon class="w-5 h-5 text-teal-400" />
-              </div>
-              <div class="min-w-0 text-left">
-                <h3 class="text-base font-semibold text-content">Choose a model for this chat</h3>
-                <p class="text-sm text-content-tertiary mt-1 leading-relaxed">
-                  Sign in to Stimma Cloud for hosted agent models, or connect a local OpenAI-compatible endpoint.
-                </p>
-              </div>
-            </div>
-            <div class="space-y-2">
-              <button
-                type="button"
-                @click="handleCloudSignIn"
-                :disabled="cloudSigningIn"
-                class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 text-sm font-medium text-white hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 disabled:opacity-60 disabled:cursor-wait transition-colors"
-              >
-                <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
-                </svg>
-                {{ cloudSigningIn ? 'Opening sign in...' : 'Sign in to Stimma Cloud' }}
-              </button>
-              <button
-                type="button"
-                @click="openAISettings"
-                class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-edge text-sm text-content-secondary hover:text-content hover:bg-surface-raised transition-colors"
-              >
-                <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3" />
-                </svg>
-                Configure local endpoint
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="items.length === 0 && !showNoModelSetupHero" class="text-content-tertiary text-center mt-8">
+        <div v-if="items.length === 0" class="text-content-tertiary text-center mt-8">
           Start a conversation...
         </div>
 
@@ -629,6 +590,9 @@
               </div>
             </ChatItemWrapper>
           </div>
+
+          <!-- Privacy Lockdown already explains local model setup at the composer. -->
+          <template v-else-if="item.item_type === 'error' && isLLMSetupError(item) && privacyLockdownActive"></template>
 
           <!-- Error: left-aligned -->
           <!-- LLM not configured (OOBE setup prompt) -->
@@ -1255,7 +1219,7 @@
         </button>
       </div>
       <div
-        v-if="modelUnavailableMessage && !showNoModelSetupHero && !showingConnectCloudCta"
+        v-if="modelUnavailableMessage && !privacyLockdownActive && !noUsableChatModels && !showingConnectCloudCta"
         class="mb-2 text-xs text-amber-500"
       >
         {{ modelUnavailableMessage }}
@@ -1266,6 +1230,7 @@
         :attachments="inputAttachments"
         :voice-surface="chat?.flow_id ? 'flow_chat' : 'main_chat'"
         :disabled="sending"
+        :agent-unavailable="noUsableChatModels"
         @update:attachments="inputAttachments = $event"
         @submit="handleEnterKey"
         @keydown="handleKeyDown"
@@ -1422,6 +1387,7 @@ import { useMediaDetailsModal } from '../composables/useMediaDetailsModal'
 import ChatModelPicker from '../components/chat/ChatModelPicker.vue'
 import { getApiBase, isTauri } from '../apiConfig'
 import { useCloudAccount } from '../composables/useCloudAccount'
+import { usePrivacyLockdown } from '../composables/usePrivacyLockdown'
 import { getCachedPin } from '../composables/usePinLock'
 // Component name for KeepAlive
 defineOptions({
@@ -1494,8 +1460,9 @@ const router = useRouter()
 const { getMediaItem, getThumbnailUrl } = useMediaApi()
 const { listSkills: listSkillsApi } = useStimpacksApi()
 const { cloudBaseUrl } = useCloudAccount()
+const { privacyLockdownActive } = usePrivacyLockdown()
 const { isAuthenticated } = useAuth()
-const { models: availableModels, globalDefault, loading: modelsLoading, invalidateCache: invalidateModelCache, fetchModels: fetchAvailableModels, getResolvedModel } = useAvailableModels()
+const { models: availableModels, globalDefault, loading: modelsLoading, hasFetched: modelsFetched, invalidateCache: invalidateModelCache, fetchModels: fetchAvailableModels, getResolvedModel } = useAvailableModels()
 const { slideshowState, enterSlideshow, exitSlideshow } = useSlideshow()
 const mediaDetailsModal = useMediaDetailsModal()
 const { compareState, enterCompare, exitCompare, swapImages: swapCompareImages } = useCompare()
@@ -3166,11 +3133,9 @@ const showModelPicker = computed(() => {
 })
 
 const noUsableChatModels = computed(() => {
-  if (modelsLoading.value) return false
-  return availableModels.value.length > 0 && !availableModels.value.some(model => model.available !== false)
+  if (modelsLoading.value || !modelsFetched.value) return false
+  return !availableModels.value.some(model => model.available !== false)
 })
-
-const showNoModelSetupHero = computed(() => noUsableChatModels.value && !loadError.value && !loading.value)
 
 // The "Almost There" Connect-Stimma-Cloud CTA card renders as the trailing
 // chat item after a failed turn (isLLMSetupError). When it's showing, it IS
@@ -3205,6 +3170,13 @@ const modelUnavailableMessage = computed(() => {
 
 // Send a message (from input or from queue)
 async function sendMessage(queuedMessage = null) {
+  if (noUsableChatModels.value) {
+    // The composer already presents the appropriate setup path. Keep queued
+    // messages intact without surfacing a provider-specific error or toast.
+    if (queuedMessage) messageQueue.value.unshift(queuedMessage)
+    return
+  }
+
   if (isChatModelUnavailable.value) {
     addToast({ type: 'error', message: modelUnavailableMessage.value })
     // A dequeued message must survive the early return — put it back.

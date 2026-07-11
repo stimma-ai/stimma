@@ -23,6 +23,7 @@
               :attachments="inputAttachments"
               :rows="3"
               :disabled="submitting"
+              :agent-unavailable="agentModelUnavailable"
               @update:attachments="inputAttachments = $event"
               @submit="submitMessage"
             />
@@ -197,6 +198,7 @@ import { useSlideshow } from '../composables/useSlideshow'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useFlowsApi } from '../composables/useFlowsApi'
 import { getDroppedMediaIds } from '../composables/useDragPreview'
+import { useAgentModelAvailability } from '../composables/useAgentModelAvailability'
 
 const props = defineProps({
   project: {
@@ -209,6 +211,7 @@ const router = useRouter()
 const { getMediaItem, getBoards, getBoard, addMediaToBoard } = useMediaApi()
 const { listFlows } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
+const { agentModelUnavailable, checkAgentModels } = useAgentModelAvailability()
 
 const chatInputBoxRef = ref(null)
 const contentRef = ref(null)
@@ -349,6 +352,7 @@ async function openMediaSlideshow(index) {
 }
 
 async function submitMessage() {
+  if (agentModelUnavailable.value) return
   const text = inputText.value.trim()
   const hasAttachments = inputAttachments.value.length > 0
   if (!text && !hasAttachments) return
@@ -466,6 +470,7 @@ async function loadAll() {
 
 watch(() => props.project.id, () => {
   loadAll()
+  checkAgentModels(props.project.id)
 }, { immediate: true })
 
 onMounted(() => {
@@ -480,6 +485,7 @@ onUnmounted(() => {
 onActivated(() => {
   setupResizeObserver()
   loadAll()
+  checkAgentModels(props.project.id)
   chatInputBoxRef.value?.focus()
 })
 </script>

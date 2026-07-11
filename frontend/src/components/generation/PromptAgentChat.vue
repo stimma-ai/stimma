@@ -238,8 +238,10 @@
       </div>
     </div>
 
+    <AgentUnavailableInput v-if="agentModelUnavailable" />
+
     <!-- Feedback input box (mirrors ChatView's input: text on top, toolbar row) -->
-    <div class="bg-surface border border-edge rounded-2xl overflow-hidden">
+    <div v-else class="bg-surface border border-edge rounded-2xl overflow-hidden">
       <input v-no-autocorrect
         ref="feedbackInput"
         v-model="feedbackText"
@@ -304,7 +306,7 @@
       </div>
     </div>
 
-    <div v-if="error" class="mt-2 flex items-center gap-2">
+    <div v-if="error && !agentModelUnavailable" class="mt-2 flex items-center gap-2">
       <p class="text-xs text-red-500">{{ error }}</p>
       <button
         v-if="errorCode === 'subscription_required'"
@@ -491,9 +493,11 @@ import { extractVerbatim, restoreVerbatim, verifyVerbatimPreserved } from '../..
 import SuggestionSubmenu from './SuggestionSubmenu.vue'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
 import SkillsMenuButton from '../chat/SkillsMenuButton.vue'
+import AgentUnavailableInput from '../chat/AgentUnavailableInput.vue'
 import { devModeRef } from '../../appConfig'
 import PromptAgentThumbButtons from '@stimma/prompt-agent-thumb-buttons'
 import { signInWithBrowser } from '../../composables/useAuth'
+import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -552,6 +556,8 @@ const instructionsText = computed({
 // Settings drawer (wrench toggle) holds Instructions.
 // Collapsed by default — an occasional field.
 const showSettings = ref(false)
+const { agentModelUnavailable, checkAgentModels } = useAgentModelAvailability()
+void checkAgentModels()
 
 // Injected page-wide mini-agent. Present → full-agent mode (drives the whole
 // screen via tool calls); absent → prompt-only mode (single-shot /enhance).
@@ -897,6 +903,7 @@ function pushToUndoStack() {
 // box drives the tool-calling agent that operates the whole screen. Otherwise
 // (prompt-only), fall back to the single-shot /enhance queue.
 function enhance() {
+  if (agentModelUnavailable.value) return
   const text = feedbackText.value.trim()
   if (!text) {
     error.value = 'Enter what you want to change'

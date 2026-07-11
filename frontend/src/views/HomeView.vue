@@ -26,6 +26,7 @@
               :attachments="inputAttachments"
               :rows="3"
               :disabled="submitting"
+              :agent-unavailable="agentModelUnavailable"
               @update:attachments="inputAttachments = $event"
               @submit="submitMessage"
             />
@@ -216,6 +217,7 @@ import { useEntityContextMenu } from '../composables/useEntityContextMenu'
 import { useToasts } from '../composables/useToasts'
 import { getDroppedMediaIds } from '../composables/useDragPreview'
 import { pendingMedia, consumePendingMedia } from '../composables/usePendingMedia'
+import { useAgentModelAvailability } from '../composables/useAgentModelAvailability'
 
 const router = useRouter()
 const { getMediaItem, getBoards, getBoard, addMediaToBoard, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
@@ -223,6 +225,7 @@ const { listFlows, updateFlow, deleteFlow, restoreFlow } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 const entityContextMenu = useEntityContextMenu()
 const { addToast } = useToasts()
+const { agentModelUnavailable, checkAgentModels } = useAgentModelAvailability()
 
 const chatInputBoxRef = ref(null)
 const contentRef = ref(null)
@@ -345,6 +348,7 @@ async function openMediaSlideshow(index) {
 // ==================== Submit ====================
 
 async function submitMessage() {
+  if (agentModelUnavailable.value) return
   const text = inputText.value.trim()
   const hasAttachments = inputAttachments.value.length > 0
   if (!text && !hasAttachments) return
@@ -655,6 +659,7 @@ async function loadAll() {
 onMounted(() => {
   setupResizeObserver()
   loadAll()
+  checkAgentModels()
   checkPendingMedia()
   chatInputBoxRef.value?.focus()
 })
@@ -666,6 +671,7 @@ onUnmounted(() => {
 onActivated(() => {
   setupResizeObserver()
   loadAll()
+  checkAgentModels()
   checkPendingMedia()
   chatInputBoxRef.value?.focus()
 })

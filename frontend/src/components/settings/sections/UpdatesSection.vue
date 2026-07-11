@@ -21,7 +21,7 @@
         v-if="updatesBlockedByPrivacyLockdown"
         class="rounded-lg border border-blue-500/50 bg-blue-500/15 px-3 py-2.5 text-sm text-content-secondary"
       >
-        Update checking is disabled while Privacy Lockdown is enabled.
+        Privacy Lockdown is on. Stimma will not check for or download updates.
       </div>
 
       <div v-else-if="!updatesEnabled" class="text-sm text-content-tertiary">
@@ -74,7 +74,7 @@
       </div>
 
       <!-- Update behavior -->
-      <div>
+      <div v-if="updatesEnabled">
         <div class="text-sm text-content mb-2">Update behavior</div>
         <div class="space-y-1.5">
           <button

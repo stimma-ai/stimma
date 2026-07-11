@@ -299,9 +299,11 @@ async function relaunchApp(): Promise<void> {
 const channel = computed(() => (import.meta.env.VITE_STIMMA_RELEASE_CHANNEL || 'sandbox').toLowerCase())
 const updateEndpoint = computed(() => import.meta.env.VITE_STIMMA_UPDATE_ENDPOINT || '')
 const updatesEnabled = computed(() => isTauri() && Boolean(updateEndpoint.value))
-const updatesBlockedByPrivacyLockdown = computed(
-  () => updatesEnabled.value && privacyLockdownActive.value
-)
+// Privacy Lockdown is the user-facing reason update activity is disabled even
+// when this build also lacks an update endpoint (for example, development
+// builds). Keep this independent of updatesEnabled so the UI can affirm the
+// privacy guarantee instead of falling through to the build-availability copy.
+const updatesBlockedByPrivacyLockdown = computed(() => privacyLockdownActive.value)
 const hasUpdate = computed(() => availableUpdate.value !== null)
 const pendingRestart = computed(() => stagedVersion.value !== null)
 

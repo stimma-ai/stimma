@@ -2,9 +2,10 @@
  * Composable for fetching and caching available LLM models.
  * Used by the chat model picker and settings default model selector.
  */
-import { ref, readonly } from 'vue'
+import { computed, ref, readonly } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
+import { isPrivacyLockdownActive } from './usePrivacyLockdown'
 
 const models = ref([])
 const globalDefault = ref('auto')
@@ -19,6 +20,45 @@ const lastFetchTime = ref(0)
 const lastProjectId = ref(null)
 
 const CACHE_TTL_MS = 60_000 // 1 minute cache
+const hasFetched = computed(() => lastFetchTime.value > 0)
+const visibleModels = computed(() => {
+  if (!isPrivacyLockdownActive()) return models.value
+
+  const nonCloudModels = models.value.filter(
+    model => model.source !== 'stimma_cloud' && model.source !== 'auto'
+  )
+  const cachedAuto = models.value.find(model => model.source === 'auto')
+  if (!cachedAuto) return nonCloudModels
+  if (cachedAuto.resolved_slug === 'auto') return [cachedAuto, ...nonCloudModels]
+
+  const localModel = nonCloudModels.find(
+    model => model.source === 'endpoint' && model.available !== false
+  )
+  const localAuto = localModel
+    ? {
+        ...cachedAuto,
+        name: 'Auto: Local Endpoint',
+        description: 'Uses your configured local endpoint.',
+        available: true,
+        status: 'available',
+        resolved_slug: localModel.slug,
+        max_context_tokens: localModel.max_context_tokens,
+      }
+    : {
+        ...cachedAuto,
+        name: 'Set up a local AI model',
+        description: 'Configure a local endpoint in Settings > Advanced.',
+        available: false,
+        status: 'llm_not_configured',
+        resolved_slug: null,
+      }
+
+  return [localAuto, ...nonCloudModels]
+})
+const effectiveGlobalDefault = computed(() => {
+  if (!isPrivacyLockdownActive()) return globalDefault.value
+  return [null, 'auto', 'local'].includes(globalDefault.value) ? globalDefault.value : 'auto'
+})
 
 /**
  * Fetch available models from the backend.
@@ -26,11 +66,17 @@ const CACHE_TTL_MS = 60_000 // 1 minute cache
  */
 async function fetchModels(projectId = null, force = false) {
   const now = Date.now()
-  if (!force && models.value.length > 0 && now - lastFetchTime.value < CACHE_TTL_MS) {
+  const requestedProjectId = projectId ?? null
+  if (
+    !force
+    && models.value.length > 0
+    && lastProjectId.value === requestedProjectId
+    && now - lastFetchTime.value < CACHE_TTL_MS
+  ) {
     return
   }
 
-  lastProjectId.value = projectId
+  lastProjectId.value = requestedProjectId
   loading.value = true
   try {
     const params = {}
@@ -65,13 +111,13 @@ export function refreshAvailableModels() {
  * Falls back to the slug itself if not found.
  */
 function getModelDisplayName(slug) {
-  if (!slug) return getModelDisplayName(globalDefault.value)
-  const model = models.value.find(m => m.slug === slug)
+  if (!slug) return getModelDisplayName(effectiveGlobalDefault.value)
+  const model = visibleModels.value.find(m => m.slug === slug)
   if (model?.slug === 'auto' && model.resolved_slug) {
-    const resolved = models.value.find(m => m.slug === model.resolved_slug)
+    const resolved = visibleModels.value.find(m => m.slug === model.resolved_slug)
     if (resolved?.available !== false) return resolved.name
   }
-  if (!model) return models.value.length > 0 ? `${slug} · unavailable` : slug
+  if (!model) return visibleModels.value.length > 0 ? `${slug} · unavailable` : slug
   if (model.slug === 'auto' && model.available === false) return model.name
   return model.available === false ? `${model.name} · unavailable` : model.name
 }
@@ -81,9 +127,9 @@ function getModelDisplayName(slug) {
  * Stimma Agent Max, Local Endpoint, or no usable model depending on availability.
  */
 function getResolvedModel(slug) {
-  const model = models.value.find(m => m.slug === slug)
+  const model = visibleModels.value.find(m => m.slug === slug)
   if (model?.slug === 'auto' && model.resolved_slug) {
-    return models.value.find(m => m.slug === model.resolved_slug) || model
+    return visibleModels.value.find(m => m.slug === model.resolved_slug) || model
   }
   return model
 }
@@ -97,12 +143,13 @@ function invalidateCache() {
 
 export function useAvailableModels() {
   return {
-    models: readonly(models),
-    globalDefault: readonly(globalDefault),
+    models: readonly(visibleModels),
+    globalDefault: readonly(effectiveGlobalDefault),
     cloudStatus: readonly(cloudStatus),
     cloudMessage: readonly(cloudMessage),
     error: readonly(error),
     loading: readonly(loading),
+    hasFetched: readonly(hasFetched),
     fetchModels,
     getModelDisplayName,
     getResolvedModel,

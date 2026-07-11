@@ -38,11 +38,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     settings = get_settings()
     lockdown = is_privacy_lockdown_enabled()
     cloud_status = "privacy_lockdown" if lockdown else "not_logged_in"
-    cloud_message = (
-        "Stimma Cloud is unavailable in Privacy Lockdown."
-        if lockdown
-        else "Sign in to Stimma Cloud to use hosted models."
-    )
+    cloud_message = "" if lockdown else "Sign in to Stimma Cloud to use hosted models."
     cloud_entries = []
 
     # 1. Fetch cloud catalog if authenticated
@@ -84,7 +80,10 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     except Exception as e:
         log.warning("failed to fetch cloud model catalog", error=str(e))
 
-    if not cloud_entries:
+    # The fallback names are compiled into the app; they do not come from a
+    # network request. Even so, Cloud models should be absent—not advertised as
+    # unavailable—while Privacy Lockdown is active.
+    if not cloud_entries and not lockdown:
         for slug in PUBLIC_CLOUD_FALLBACK_MODELS:
             models.append({
                 "slug": slug,
@@ -138,8 +137,12 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     auto_model = {
         "slug": "auto",
         "source": "auto",
-        "name": "Set up AI models",
-        "description": "Sign in to Stimma Cloud or configure a local endpoint.",
+        "name": "Set up a local AI model" if lockdown else "Set up AI models",
+        "description": (
+            "Configure a local endpoint in Settings > Advanced."
+            if lockdown
+            else "Sign in to Stimma Cloud or configure a local endpoint."
+        ),
         "available": False,
         "status": "llm_not_configured",
         "resolved_slug": None,
@@ -206,8 +209,16 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         except Exception as e:
             log.warning("failed to fetch project default model", error=str(e))
 
+    effective_global_default = settings.default_model
+    effective_project_default = project_default
+    if lockdown:
+        if effective_global_default not in {None, "auto", "local"}:
+            effective_global_default = "auto"
+        if effective_project_default not in {None, "auto", "local"}:
+            effective_project_default = "auto"
+
     saved_slugs = {
-        s for s in (settings.default_model, project_default)
+        s for s in (effective_global_default, effective_project_default)
         if s and s not in {m["slug"] for m in models}
     }
     for slug in saved_slugs:
@@ -223,8 +234,8 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
 
     return {
         "models": models,
-        "global_default": settings.default_model,
-        "project_default": project_default,
+        "global_default": effective_global_default,
+        "project_default": effective_project_default,
         "cloud_status": cloud_status,
         "cloud_message": cloud_message,
     }

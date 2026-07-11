@@ -142,6 +142,72 @@ async def test_available_models_setup_state_is_not_a_hidden_model_list(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_available_models_lockdown_exposes_only_local_models(monkeypatch):
+    from routes import models as models_route
+    import firebase_auth
+
+    endpoint = LLMEndpointConfig(
+        url="http://localhost:8000/v1",
+        model="local-model",
+        max_context_tokens=64_000,
+    )
+    settings = SimpleNamespace(
+        cloud=SimpleNamespace(base_url="https://cloud.example"),
+        default_model="agent-max",
+        llms={
+            "agent": LLMRoleConfig(source="auto", endpoint=endpoint),
+            "agent-fast": LLMRoleConfig(source="auto", endpoint=endpoint),
+        },
+    )
+
+    async def cloud_auth_must_not_run():
+        raise AssertionError("cloud auth was accessed during Privacy Lockdown")
+
+    monkeypatch.setattr(models_route, "get_settings", lambda: settings)
+    monkeypatch.setattr(models_route, "is_privacy_lockdown_enabled", lambda: True)
+    monkeypatch.setattr(firebase_auth, "get_valid_id_token", cloud_auth_must_not_run)
+
+    payload = await models_route.get_available_models()
+
+    assert {model["slug"] for model in payload["models"]} == {"auto", "local"}
+    assert all(model["source"] != "stimma_cloud" for model in payload["models"])
+    assert payload["models"][0]["resolved_slug"] == "local"
+    assert payload["global_default"] == "auto"
+    assert payload["cloud_status"] == "privacy_lockdown"
+    assert payload["cloud_message"] == ""
+
+
+@pytest.mark.asyncio
+async def test_available_models_lockdown_setup_copy_is_local_only(monkeypatch):
+    from routes import models as models_route
+    import firebase_auth
+
+    settings = SimpleNamespace(
+        cloud=SimpleNamespace(base_url="https://cloud.example"),
+        default_model="auto",
+        llms={
+            "agent": LLMRoleConfig(source="auto"),
+            "agent-fast": LLMRoleConfig(source="auto"),
+        },
+    )
+
+    async def cloud_auth_must_not_run():
+        raise AssertionError("cloud auth was accessed during Privacy Lockdown")
+
+    monkeypatch.setattr(models_route, "get_settings", lambda: settings)
+    monkeypatch.setattr(models_route, "is_privacy_lockdown_enabled", lambda: True)
+    monkeypatch.setattr(firebase_auth, "get_valid_id_token", cloud_auth_must_not_run)
+
+    payload = await models_route.get_available_models()
+    auto_model = payload["models"][0]
+
+    assert auto_model["available"] is False
+    assert auto_model["name"] == "Set up a local AI model"
+    assert auto_model["description"] == "Configure a local endpoint in Settings > Advanced."
+    assert {model["slug"] for model in payload["models"]} == {"auto", "local"}
+
+
+@pytest.mark.asyncio
 async def test_available_models_acceptance_provider_advertises_auto(monkeypatch):
     """The acceptance lane serves a deterministic in-process LLM for every
     role, so the picker must report `auto` as available. Otherwise the chat
