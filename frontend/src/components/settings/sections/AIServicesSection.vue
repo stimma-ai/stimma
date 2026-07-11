@@ -94,7 +94,13 @@
           </select>
         </div>
       </div>
-      <p v-if="!voiceModelReady" class="mt-3 text-xs text-content-tertiary">
+      <p
+        v-if="!voiceModelReady && privacyLockdownActive"
+        class="mt-3 text-xs text-content-secondary"
+      >
+        Voice model downloads are disabled while Privacy Lockdown is enabled. Already downloaded models remain available.
+      </p>
+      <p v-else-if="!voiceModelReady" class="mt-3 text-xs text-content-tertiary">
         Downloads automatically the first time you use voice input.
       </p>
     </div>
@@ -346,6 +352,7 @@ import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
 import { useAvailableModels } from '../../../composables/useAvailableModels'
 import { VOICE_MODELS, voiceModel, isModelReady, supported as voiceSupported } from '../../../composables/useVoiceInput'
+import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 
 const props = defineProps({
   llmSettings: {
@@ -355,6 +362,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update'])
+const { privacyLockdownActive } = usePrivacyLockdown()
 
 // --- Voice input model (on-device Whisper) ---
 const voiceModelReady = ref(false)

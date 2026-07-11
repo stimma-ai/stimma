@@ -255,14 +255,14 @@
 
       <!-- Update affordance: prominent, not buried in a menu -->
       <div
-        v-if="isDownloading"
+        v-if="isDownloading && !updatesBlockedByPrivacyLockdown"
         class="flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-blue-500/15 border border-blue-500/50 text-blue-400 text-xs font-medium select-none"
       >
         <div class="w-3.5 h-3.5 border-2 border-blue-400/40 border-t-blue-400 rounded-full animate-spin"></div>
         <span>Updating…</span>
       </div>
       <button
-        v-else-if="pendingRestart"
+        v-else-if="pendingRestart && !updatesBlockedByPrivacyLockdown"
         @click="restartToApply()"
         class="flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25 text-xs font-medium transition-colors"
         title="Restart to update"
@@ -273,7 +273,7 @@
         <span>Restart to update</span>
       </button>
       <button
-        v-else-if="hasUpdate"
+        v-else-if="hasUpdate && !updatesBlockedByPrivacyLockdown"
         @click="downloadAndInstallUpdate()"
         class="flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25 text-xs font-medium transition-colors"
         title="Install update"
@@ -298,7 +298,7 @@
             :class="{ 'logo-disconnected': !wsConnected }"
           />
           <span
-            v-if="hasUpdate || pendingRestart"
+            v-if="(hasUpdate || pendingRestart) && !updatesBlockedByPrivacyLockdown"
             class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-base"
           />
         </button>
@@ -592,7 +592,14 @@ const { themePreference: currentTheme, setTheme } = useTheme()
 const { updateTheme } = useSettingsApi()
 
 // Updates
-const { hasUpdate, pendingRestart, isDownloading, downloadAndInstallUpdate, restartToApply } = useAppUpdater()
+const {
+  hasUpdate,
+  pendingRestart,
+  isDownloading,
+  updatesBlockedByPrivacyLockdown,
+  downloadAndInstallUpdate,
+  restartToApply,
+} = useAppUpdater()
 
 // Logo menu
 const logoMenuOpen = ref(false)

@@ -3,8 +3,10 @@ import { computed, ref, shallowRef } from 'vue'
 import { getVersion } from '@tauri-apps/api/app'
 import { isTauri, getApiBase } from '../apiConfig'
 import { useTelemetry } from './useTelemetry'
+import { isPrivacyLockdownActive, usePrivacyLockdown } from './usePrivacyLockdown'
 
 const { track } = useTelemetry()
+const { privacyLockdownActive } = usePrivacyLockdown()
 
 type LegacyUpdatePolicy = 'auto_minor_prompt_major' | 'auto_all'
 // automatic: download + install in the background, apply on next launch.
@@ -135,9 +137,9 @@ async function saveLastCheckedAt(): Promise<void> {
 }
 
 async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<void> {
-  if (!isTauri()) return
+  if (!isTauri() || isPrivacyLockdownActive()) return
   await loadPreferences()
-  if (isChecking.value) return
+  if (isChecking.value || isPrivacyLockdownActive()) return
 
   isChecking.value = true
   try {
@@ -195,7 +197,12 @@ async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<voi
 //     download + install at that moment (see restartToApply). This also means
 //     no repeated background downloads across launches.
 async function stageUpdate(): Promise<void> {
-  if (!availableUpdate.value || isDownloading.value || stagedVersion.value) return
+  if (
+    isPrivacyLockdownActive()
+    || !availableUpdate.value
+    || isDownloading.value
+    || stagedVersion.value
+  ) return
 
   const update = availableUpdate.value
   const version = update.version
@@ -237,7 +244,7 @@ async function resetStaged(): Promise<void> {
 }
 
 async function downloadAndInstallUpdate(): Promise<void> {
-  if (!availableUpdate.value || isDownloading.value) return
+  if (isPrivacyLockdownActive() || !availableUpdate.value || isDownloading.value) return
 
   const version = availableUpdate.value.version
   isDownloading.value = true
@@ -259,6 +266,7 @@ async function restartToApply(): Promise<void> {
   if (!stagedVersion.value || isDownloading.value) return
 
   if (pendingApply.value === 'install' && availableUpdate.value) {
+    if (isPrivacyLockdownActive()) return
     const version = stagedVersion.value
     isDownloading.value = true
     try {
@@ -291,6 +299,9 @@ async function relaunchApp(): Promise<void> {
 const channel = computed(() => (import.meta.env.VITE_STIMMA_RELEASE_CHANNEL || 'sandbox').toLowerCase())
 const updateEndpoint = computed(() => import.meta.env.VITE_STIMMA_UPDATE_ENDPOINT || '')
 const updatesEnabled = computed(() => isTauri() && Boolean(updateEndpoint.value))
+const updatesBlockedByPrivacyLockdown = computed(
+  () => updatesEnabled.value && privacyLockdownActive.value
+)
 const hasUpdate = computed(() => availableUpdate.value !== null)
 const pendingRestart = computed(() => stagedVersion.value !== null)
 
@@ -300,6 +311,7 @@ export function useAppUpdater() {
     channel,
     updateEndpoint,
     updatesEnabled,
+    updatesBlockedByPrivacyLockdown,
     loadedPrefs,
     isChecking,
     isDownloading,

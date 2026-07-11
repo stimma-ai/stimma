@@ -13,6 +13,11 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { isTauri as checkIsTauri, initApiConfig } from '../apiConfig'
 import { useTelemetry } from './useTelemetry'
+import { isPrivacyLockdownActive } from './usePrivacyLockdown'
+import { addToast } from './useToasts'
+
+export const VOICE_DOWNLOAD_LOCKDOWN_MESSAGE =
+  'Voice model downloads are disabled while Privacy Lockdown is enabled. Disable Privacy Lockdown to download this model.'
 
 export const VOICE_MODELS = [
   {
@@ -158,6 +163,13 @@ export function useVoiceInput(opts: VoiceInputOptions) {
   }
 
   async function downloadModel(model: VoiceModel) {
+    if (isPrivacyLockdownActive()) {
+      error.value = VOICE_DOWNLOAD_LOCKDOWN_MESSAGE
+      state.value = 'error'
+      addToast(VOICE_DOWNLOAD_LOCKDOWN_MESSAGE, 'info', 6500)
+      return
+    }
+
     state.value = 'downloading'
     error.value = null
     downloaded.value = 0

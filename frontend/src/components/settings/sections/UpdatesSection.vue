@@ -17,7 +17,14 @@
       </div>
 
       <!-- Update status -->
-      <div v-if="!updatesEnabled" class="text-sm text-content-tertiary">
+      <div
+        v-if="updatesBlockedByPrivacyLockdown"
+        class="rounded-lg border border-blue-500/50 bg-blue-500/15 px-3 py-2.5 text-sm text-content-secondary"
+      >
+        Update checking is disabled while Privacy Lockdown is enabled.
+      </div>
+
+      <div v-else-if="!updatesEnabled" class="text-sm text-content-tertiary">
         Updates are not available in this build.
       </div>
 
@@ -74,10 +81,14 @@
             v-for="option in policyOptions"
             :key="option.value"
             @click="setUpdatePolicy(option.value)"
+            :disabled="updatesBlockedByPrivacyLockdown"
             class="w-full flex items-start gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors"
-            :class="policy === option.value
-              ? 'border-blue-500/50 bg-blue-500/15'
-              : 'border-edge bg-surface hover:bg-overlay-subtle'"
+            :class="[
+              policy === option.value
+                ? 'border-blue-500/50 bg-blue-500/15'
+                : 'border-edge bg-surface hover:bg-overlay-subtle',
+              updatesBlockedByPrivacyLockdown ? 'cursor-not-allowed opacity-60' : '',
+            ]"
           >
             <div
               class="mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0"
@@ -105,6 +116,7 @@ const {
   channel,
   policy,
   updatesEnabled,
+  updatesBlockedByPrivacyLockdown,
   isChecking,
   isDownloading,
   lastCheckedAt,
@@ -170,6 +182,6 @@ onMounted(async () => {
     appVersion.value = 'unknown'
   }
   // Auto-check when visiting this section
-  checkForUpdates('manual')
+  if (!updatesBlockedByPrivacyLockdown.value) checkForUpdates('manual')
 })
 </script>
