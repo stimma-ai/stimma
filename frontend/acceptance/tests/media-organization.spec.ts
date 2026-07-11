@@ -167,7 +167,7 @@ test.describe('media organization acceptance', () => {
     expect(results.some((item) => item.id === media.id)).toBe(false);
   });
 
-  test('image type and small resolution filters include fake generated media', async ({ page }) => {
+  test('image type and medium resolution filters include fake generated media', async ({ page }) => {
     const prompt = `acceptance image resolution filter ${Date.now()}`;
     const media = await generateMedia(page, prompt);
 
@@ -179,13 +179,13 @@ test.describe('media organization acceptance', () => {
     });
     expect(imageResults.some((item) => item.id === media.id)).toBe(true);
 
-    const smallResults = await listMedia(page, {
+    const mediumResults = await listMedia(page, {
       page: 1,
       page_size: 20,
       prompt_query: prompt,
-      resolutions: 'small',
+      resolutions: 'medium',
     });
-    expect(smallResults.some((item) => item.id === media.id)).toBe(true);
+    expect(mediumResults.some((item) => item.id === media.id)).toBe(true);
   });
 
   test('newest sort returns newer generated media first', async ({ page }) => {

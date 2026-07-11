@@ -315,6 +315,7 @@ export async function seedPendingToolInput(
       ? { mode: 'batch', field: field || 'input_images', items }
       : { inputImages: items, appendImages: true };
     sessionStorage.setItem(key, JSON.stringify(value));
+    sessionStorage.setItem(`__acceptance_pending_input_key_${safeToolId}`, key);
   }, {
     toolId,
     projectId: options.projectId ?? null,
@@ -334,7 +335,36 @@ export async function loadProfilesIntoPage(page: Page) {
 
 export async function openToolWithPendingInput(page: Page, toolId: string, projectId?: number) {
   await loadProfilesIntoPage(page);
-  await openToolById(page, toolId, projectId, { loadInput: String(Date.now()) });
+  // Generic tool routes are resolved to a concrete workspace instance by the
+  // router. Seed helpers deliberately start with the legacy uninstanced key
+  // because they run before that route exists, so move the payload onto the
+  // resolved instance before asking ToolView to consume it.
+  await openToolById(page, toolId, projectId);
+  const instanceId = new URL(page.url()).searchParams.get('instance');
+  if (!instanceId) {
+    throw new Error(`Tool route did not resolve an instance for ${toolId}`);
+  }
+  await page.evaluate(({ toolId, projectId, instanceId }) => {
+    const projectSuffix = projectId ? `__project_${projectId}` : '';
+    const safeToolId = `${toolId}${projectSuffix}`.replace(/:/g, '_');
+    const markerKey = `__acceptance_pending_input_key_${safeToolId}`;
+    const sourceKey = sessionStorage.getItem(markerKey);
+    if (!sourceKey) {
+      throw new Error(`No seeded pending-input key found for ${toolId}`);
+    }
+    const targetKey = sourceKey.replace(/_pending_input$/, `__i_${instanceId}_pending_input`);
+    const pendingInput = sessionStorage.getItem(sourceKey);
+    if (!pendingInput) {
+      throw new Error(`No seeded pending input found for ${toolId}`);
+    }
+    sessionStorage.setItem(targetKey, pendingInput);
+    sessionStorage.removeItem(sourceKey);
+    sessionStorage.removeItem(markerKey);
+  }, { toolId, projectId: projectId ?? null, instanceId });
+  await openToolById(page, toolId, projectId, {
+    instance: instanceId,
+    loadInput: String(Date.now()),
+  });
   await expect(page.locator('[data-drop-zone="media-picker-image"] img').first()).toBeVisible({ timeout: 30000 });
 }
 
