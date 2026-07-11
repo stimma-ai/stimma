@@ -1,175 +1,98 @@
 # Stimma
 
-![CI](https://github.com/stimma-ai/stimma/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/stimma-ai/stimma/actions/workflows/ci.yml/badge.svg)](https://github.com/stimma-ai/stimma/actions/workflows/ci.yml)
+[![Canary](https://github.com/stimma-ai/stimma/actions/workflows/canary.yml/badge.svg)](https://github.com/stimma-ai/stimma/actions/workflows/canary.yml)
 
-**AI-powered visual media copilot**
+Stimma is a desktop app for making images, videos, and designs with AI, and a durable home for the work you produce along the way. It pairs a local media library — semantic search, boards, full generation lineage, repeatable flows — with an agent that can drive every tool in the app, from a single generation to a multi-step pipeline.
 
-Stimma is a desktop application that combines intelligent media library management with an AI assistant that understands your creative workflow. Organize, search, edit, and generate visual content through natural conversation.
+Generation tools plug in over the [Stimma Tools Protocol (STP)](https://github.com/stimma-ai/stimma-tools-protocol), an open JSON-RPC protocol. Your ComfyUI workflows, a provider you write yourself, and Stimma Cloud are all peers on the same protocol: the app discovers whatever tools your providers expose and builds its UI and agent capabilities from their schemas.
 
-## What It Does
+This repo is the app itself — every release builds from here. [AGPL-3.0](LICENSE).
 
-Stimma sits at the intersection of a media library and an AI-powered creative tool. Instead of switching between apps and manually orchestrating complex workflows, you describe what you want and Stimma figures out how to do it.
+## How it fits together
 
-**Ask it things like:**
-- "Upscale all the images in my favorites board"
-- "Generate 5 variations of this image with different lighting"
-- "Find all portraits and tag them automatically"
-- "Remove the background from this photo and extend it to 16:9"
-- "Create a video from this image"
+```
+Tauri shell (macOS / Windows / Linux)
+ ├─ Vue 3 frontend
+ └─ FastAPI backend ── SQLite (per profile) + your media folders
+      ├─ local ML: CLIP search, face detection, segmentation (ONNX)
+      ├─ agent: chat, flows, stimpacks (skills)
+      └─ STP client ──► tool providers
+            ├─ ComfyUI  (ComfyUI-Stimma plugin, WebSocket)
+            ├─ your own provider  (stdio or WebSocket)
+            └─ Stimma Cloud  (optional hosted tools + LLMs)
+```
 
-The AI assistant breaks down your request into a plan, executes the steps (in parallel when possible), and shows you results along the way. You can pause, adjust, and guide the process at any point.
+Your library is ordinary files on disk plus a per-profile SQLite database. Search, face grouping, filters, and lineage tracking run locally (ONNX weights are fetched on first use and cached). Generation runs on whichever providers you connect. The agent and captioning need an LLM — any OpenAI-compatible endpoint (vLLM, LM Studio, Ollama, ...) or Stimma Cloud.
 
-## Key Features
+No account is required. Source builds send no telemetry and do not check for updates. Aside from providers you choose to connect, their only automatic network contact is downloading local model weights on first use; `STIMMA_PRIVACY_LOCKDOWN=1` disables all contact with Stimma services.
 
-### Media Library
-- Browse and organize images and videos
-- Boards, tags, and custom markers
-- Semantic search powered by CLIP embeddings ("find images similar to sunset over water")
-- Automatic captioning and keyword extraction
-- Face detection and grouping
-- Trash with restore capability
+## Running from source
 
-### AI Assistant
-- Natural language interface for media operations
-- 35+ built-in tools for generation, editing, analysis, and organization
-- Plan-based execution with parallel processing
-- Human-in-the-loop—pause for feedback, adjust mid-flight
-- Extensible via the Stimma Tools Protocol
+You need **Node.js 20+**, **Python 3.11+** with [uv](https://docs.astral.sh/uv/), **Rust** (for the desktop shell), and **FFmpeg** on `PATH`. Everything goes through the dev CLI at `tools/stimma` (it self-installs Deno on first run; run it with no args for full help):
 
-### Generation & Editing
-- Text-to-image generation
-- Image and video upscaling
-- Inpainting and outpainting
-- Background removal and subject extraction
-- Image-to-video conversion
-- Prompt enhancement and crafting
+```bash
+tools/stimma dev all        # backend + frontend + Tauri shell, merged logs
+```
 
-### Organization
-- Profiles for separate workspaces
-- Saved views with custom filters
-- Generation metadata tracking (prompts, models, settings)
-- Auto-deletion scheduling for temporary content
+or run the pieces separately:
 
-## Tools
+```bash
+tools/stimma dev backend    # FastAPI on :9191, auto-reload
+tools/stimma dev frontend   # Vite on :9192, HMR
+tools/stimma dev app        # Tauri shell
+```
 
-Stimma's power comes from its tool system. Tools are discrete operations the AI assistant can invoke—everything from "generate an image" to "add a tag" to "crop to a face."
+Dependencies install on first run. Development uses its own data directory and config, separate from any packaged install — see [docs/DATA_DIRECTORIES.md](docs/DATA_DIRECTORIES.md).
 
-### Built-in Agent Tools
+```bash
+tools/stimma test backend       # backend pytest suite
+tools/stimma test acceptance    # end-to-end lane against a fresh sandbox
+tools/stimma app build          # packaged app with portable backend
+```
 
-These tools run inside Stimma and are always available:
+Prebuilt signed binaries are at [stimma.ai/downloads](https://stimma.ai/downloads).
 
-| Category | Tools |
-|----------|-------|
-| **Generation** | text-to-image, image-to-image, generate variations |
-| **Upscaling** | upscale image, upscale video, batch upscale |
-| **Editing** | inpaint, outpaint, uncrop, extend canvas |
-| **Extraction** | remove background, crop to face, smart crop |
-| **Analysis** | score image, interrogate, detect objects, extract keywords |
-| **Video** | text-to-video, image-to-video, video-to-video, video upscale |
-| **Library** | add/remove tags, create board, set marker, move to trash |
-| **Prompting** | enhance prompt, craft prompt, style transfer |
-| **Utility** | resize, convert format, composite images |
+## Connecting tools
 
-### External Tool Providers
+Stimma ships with no bundled generation backend; you connect one or more providers and the tool catalog is whatever they declare.
 
-For GPU-intensive work like image generation, Stimma connects to external **tool providers** via the **Stimma Tools Protocol (STP)**. This lets you:
+**ComfyUI.** Install [ComfyUI-Stimma](https://github.com/stimma-ai/ComfyUI-Stimma) into `custom_nodes`. Drop Stimma nodes into any workflow to declare its inputs and outputs, save it, and it becomes a tool Stimma can call — the plugin serves STP over WebSocket at `/stp-v1`. Your workflows stay ordinary ComfyUI workflows; the nodes only mark what to expose.
 
-- Run ComfyUI workflows as Stimma tools
-- Connect to remote GPU servers
-- Use multiple providers simultaneously (route different tasks to different machines)
-- Build custom providers for any backend
+**Your own provider.** Anything that speaks STP works, as a subprocess or a WebSocket service. The [spec](https://github.com/stimma-ai/stimma-tools-protocol) covers discovery, execution, progress, cancellation, and asset transfer; there are [Python](https://github.com/stimma-ai/stimma-tools-protocol-python) and [TypeScript](https://github.com/stimma-ai/stimma-tools-protocol-ts) SDKs that handle the plumbing, and an [`stp` CLI](https://github.com/stimma-ai/stimma-tools-protocol-cli) for poking at any provider from the command line.
 
-Providers can be local processes (stdio) or remote services (WebSocket). Each provider registers its available tools, and Stimma aggregates them into a unified interface the AI can use.
+**Stimma Cloud.** Hosted generation tools and LLMs over the same protocol, for when local hardware isn't enough or you want closed models. Optional; connect by signing in from the app.
 
-### Stimma Tools Protocol (STP)
-
-STP is a JSON-RPC 2.0 based protocol for tool providers. Key features:
-
-- **Tool discovery**: Providers declare their tools with JSON Schema for parameters and I/O
-- **Queue management**: Providers manage their own queues; Stimma tracks status for features like "generate forever"
-- **Asset transfer**: Images/videos transferred via HTTP (WebSocket) or filesystem (stdio)
-- **Progress & cancellation**: Real-time progress updates and job cancellation
-
-Example provider configuration in `config.yaml`:
+Providers are configured in `config.yaml` (`tools/stimma config edit`; template in [config.default.yaml](config.default.yaml)):
 
 ```yaml
 tool_providers:
-  # Local ComfyUI via stdio
-  - id: local-comfyui
-    type: stdio
-    command: python
-    args: ["-m", "comfyui_provider"]
-
-  # Remote GPU server via WebSocket
-  - id: gpu-server
+  - id: comfyui
     type: websocket
-    url: wss://gpu.example.com/stp-v1
-    auth_token: ${GPU_TOKEN}
+    url: ws://127.0.0.1:8188/stp-v1
+
+  - id: my-provider
+    type: stdio
+    command: /path/to/provider
+    args: ["--serve"]
 ```
 
-See the [Stimma Tools Protocol spec](https://github.com/stimma-ai/stimma-tools-protocol) for the full specification.
+Multiple providers connect at once; tasks route to whichever provider offers the tool.
 
-## Architecture
+## Extending the agent
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    Tauri Shell                       │
-│              (macOS / Windows / Linux)               │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│   ┌─────────────┐           ┌─────────────────┐    │
-│   │   Vue.js    │◄─────────►│  FastAPI        │    │
-│   │   Frontend  │  WebSocket │  Backend        │    │
-│   │             │  + REST    │                 │    │
-│   └─────────────┘           ├─────────────────┤    │
-│                             │  Agent System   │    │
-│                             │  ┌───────────┐  │    │
-│                             │  │  Planner  │  │    │
-│                             │  │  Executor │  │    │
-│                             │  │  35+ Tools│  │    │
-│                             │  └───────────┘  │    │
-│                             └────────┬────────┘    │
-│                                      │             │
-│                             ┌────────▼────────┐    │
-│                             │    Providers    │    │
-│                             │  Gemini, ComfyUI│    │
-│                             │  Local models   │    │
-│                             └─────────────────┘    │
-└─────────────────────────────────────────────────────┘
-```
+The agent's skills come from **stimpacks** — packages of markdown skill definitions with optional bundled Python, loaded per profile. [docs/STIMPACK_AUTHORING.md](docs/STIMPACK_AUTHORING.md) covers the format; the stock set lives in [stimma-skills](https://github.com/stimma-ai/stimma-skills) and doubles as a set of worked examples. `tools/stimma stimpacks dev` points the app at a local checkout so edits load live, and `stimpacks validate` runs the real loader against your directories.
 
-## Tech Stack
+## Repository map
 
-| Component | Technology |
-|-----------|------------|
-| Desktop shell | Tauri 2 (Rust) |
-| Frontend | Vue 3, Tailwind CSS |
-| Backend | FastAPI, Python 3.11+ |
-| Database | SQLite |
-| ML/AI | ONNX Runtime, CLIP, LiteLLM |
-| Media processing | Pillow, FFmpeg |
+| Repo | Contents |
+|------|----------|
+| **stimma** (this repo) | The desktop app: `frontend/` (Vue 3), `backend/` (FastAPI), `src-tauri/` (shell), `tools/stimma` (dev CLI), `docs/` |
+| [stimma-tools-protocol](https://github.com/stimma-ai/stimma-tools-protocol) | The STP specification |
+| [stimma-tools-protocol-cli](https://github.com/stimma-ai/stimma-tools-protocol-cli) | `stp` — command-line STP client |
+| [stimma-tools-protocol-python](https://github.com/stimma-ai/stimma-tools-protocol-python) | Python SDK for building providers |
+| [stimma-tools-protocol-ts](https://github.com/stimma-ai/stimma-tools-protocol-ts) | TypeScript SDK for building providers |
+| [ComfyUI-Stimma](https://github.com/stimma-ai/ComfyUI-Stimma) | ComfyUI plugin: saved workflows as STP tools |
+| [stimma-skills](https://github.com/stimma-ai/stimma-skills) | Stock stimpacks |
 
-## Development
-
-**Prerequisites:** Node.js 18+, Python 3.11+, Rust, uv
-
-```bash
-# Install dependencies
-./setup.sh
-
-# Run in development mode
-# Terminal 1: Backend
-tools/stimma dev backend
-
-# Terminal 2: Frontend
-tools/stimma dev frontend
-
-# Terminal 3: Tauri shell (optional, for native features)
-tools/stimma dev app
-```
-
-Set `STIMMA_DEV=1` to use the external backend on port 9191 instead of the bundled one.
-
-## License
-
-[GNU Affero General Public License v3.0](LICENSE).
+Design and reference docs are in [docs/](docs/) — data directories, release channels, stimpack authoring, agent design principles, delete behavior, and more. CI runs the quality gate (backend tests, lint, acceptance smoke) on every push to `main` and every pull request.
