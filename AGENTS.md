@@ -5,17 +5,14 @@
 - ALWAYS USE TAILWINDCSS. No custom CSS unless absolutely necessary.
 - **This is a uv project.** Always use `uv run` to execute Python commands in the backend (e.g., `uv run python`, `uv run pytest`). Never try to activate the venv manually.
 - This project has a comprehensive CLI at tools/stimma which abstracts devex tasks. See below for help info.
-- I am already running the backend and frontend in other terminal windows with nodemon/etc. You don't need to restart it, start it, etc. If you need something from me, just ask.
+- Do not start or restart development servers automatically. Assume the developer manages long-running frontend and backend processes; ask before restarting them.
 - Always implement soft-delete for new database tables.
 - Use trash icons for delete actions, not X icons - this is the project convention.
-- Stimma includes an agent system like claude code with stimpacks. 99% of the time when I talk about the agent or stimpacks, I mean Stimma's system, not Claude Code's. Don't get confused!
 - **Built-in stimpack SOURCE lives in a sibling repo, not here:** `../stimma-skills` (i.e. `~/stimma/stimma-skills`), one directory per stimpack. They are *not* loaded from this repo — at runtime the app loads stimpacks from the profile dir (after cloud marketplace install). For dev, point the app at the sibling repo with `stimma stimpacks dev` (writes `dev_stimpacks_dir` to config.yaml); those stimpacks then shadow the profile-installed copies live, so editing `../stimma-skills` needs no publish/install. See backend `agent/v2/stimpacks.py` (`_dev_stimpacks_dir` / `_iter_effective_stimpack_dirs`).
 
 ## Database Guidelines
-- Database migrations are handled using alembic
-- DO NOT modify schemas outside of this context. DO NOT run sqlite commands to modify schemas. DO NOT write other code that modifies schemas
-- Database migrations run automatically at startup.
-- **Database migrations run automatically at backend startup** - no manual migration commands needed. Just restart the backend. DO NOT MANUALLY MODIFY THE DATABASE. INSTEAD STOP AND ASK FOR HELP.
+
+Database migrations are handled using alembi and run automatically at startup. Do not modify the database schema any other way. 
 
 ## Data Directories
 
