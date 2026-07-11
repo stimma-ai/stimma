@@ -170,8 +170,19 @@ def resolve_chat_model_slug(
     project_default_slug: Optional[str],
     global_default: Optional[str],
 ) -> str:
-    """Three-level default resolution: chat -> project -> global."""
-    return chat_model_slug or project_default_slug or global_default or 'default'
+    """Three-level default resolution: chat -> project -> global.
+
+    Privacy Lockdown excludes hosted models, so a saved cloud slug must behave
+    like ``auto``.  ``auto`` still respects the normal resolver order and uses
+    the configured local endpoint without contacting Stimma Cloud.
+    """
+    slug = chat_model_slug or project_default_slug or global_default or 'default'
+
+    from privacy_lockdown import is_privacy_lockdown_enabled
+
+    if is_privacy_lockdown_enabled() and slug not in {'auto', 'local'}:
+        return 'auto'
+    return slug
 
 
 # Client-side cap on context window, applied regardless of what the cloud

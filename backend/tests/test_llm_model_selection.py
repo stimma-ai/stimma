@@ -5,6 +5,47 @@ import pytest
 from config import LLMEndpointConfig, LLMRoleConfig
 
 
+def test_chat_cloud_default_becomes_auto_in_privacy_lockdown(monkeypatch):
+    import llm_resolver
+
+    monkeypatch.setattr(
+        "privacy_lockdown.is_privacy_lockdown_enabled",
+        lambda: True,
+    )
+
+    assert llm_resolver.resolve_chat_model_slug(None, None, "agent-max") == "auto"
+    assert llm_resolver.resolve_chat_model_slug("agent-max", None, "local") == "auto"
+    assert llm_resolver.resolve_chat_model_slug(None, None, "local") == "local"
+
+
+@pytest.mark.asyncio
+async def test_chat_lockdown_cloud_default_resolves_to_local_endpoint(monkeypatch):
+    import llm_resolver
+
+    endpoint = LLMEndpointConfig(
+        url="http://localhost:8000/v1",
+        model="local-model",
+    )
+    settings = SimpleNamespace(
+        get_llm_role_config=lambda _role: LLMRoleConfig(
+            source="auto",
+            endpoint=endpoint,
+        ),
+    )
+
+    monkeypatch.setattr(
+        "privacy_lockdown.is_privacy_lockdown_enabled",
+        lambda: True,
+    )
+    monkeypatch.setattr(llm_resolver, "get_settings", lambda: settings)
+
+    slug = llm_resolver.resolve_chat_model_slug(None, None, "agent-max")
+    cfg = await llm_resolver.get_chat_llm_config(slug, role="agent")
+
+    assert slug == "auto"
+    assert cfg is endpoint
+
+
 @pytest.mark.asyncio
 async def test_chat_auto_uses_agent_max_when_cloud_available(monkeypatch):
     import llm_resolver
