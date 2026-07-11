@@ -37,7 +37,6 @@
         v-if="videoActive"
         ref="videoEl"
         :class="['absolute inset-0 w-full h-full', imageMode === 'fit' ? 'object-contain' : 'object-cover']"
-        loop
         muted
         playsinline
         preload="none"
@@ -114,6 +113,7 @@ import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
+import { MseLoopPlayback } from '../../utils/mseLoopPlayback'
 
 interface Job {
   id: number
@@ -158,10 +158,9 @@ const emit = defineEmits<{
   (e: 'media-load-error', mediaId: number): void
 }>()
 
-const { getMediaFileUrl, getThumbnailUrl } = useMediaApi()
+const { getThumbnailUrl, getMseLoopUrls } = useMediaApi()
 const contextMenu = useMediaContextMenu()
 
-function getMediaUrl(hash: string) { return getMediaFileUrl(hash) }
 function getMediaHash(mediaId?: number): string { return (mediaId && props.mediaHashes[mediaId]) || '' }
 
 // Hover-gated video playback. A live <video> per completed tile would pile up
@@ -172,6 +171,7 @@ function getMediaHash(mediaId?: number): string { return (mediaId && props.media
 const videoEl = ref<HTMLVideoElement | null>(null)
 const videoActive = ref(false)
 let hoverTimer: ReturnType<typeof setTimeout> | null = null
+let msePlayback: MseLoopPlayback | null = null
 
 async function activateVideo() {
   if (hoverTimer) clearTimeout(hoverTimer)
@@ -183,22 +183,21 @@ async function activateVideo() {
     await nextTick()
     const v = videoEl.value
     if (!v || !videoActive.value) return // left during mount
-    if (!v.src) v.src = getMediaUrl(hash)
-    v.currentTime = 0
-    v.play().catch(() => {})
+    msePlayback = new MseLoopPlayback(v, getMseLoopUrls(hash), {
+      initialLoops: 3,
+      appendLoops: 2,
+      bufferAheadLoops: 1,
+      retainBehindLoops: 1,
+      onError: () => emit('media-load-error', props.job.result_media_id!),
+    })
+    void msePlayback.start().catch(() => {})
   }, 200)
 }
 
 function releaseVideo() {
   if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null }
-  const v = videoEl.value
-  if (v) {
-    // Drop the decoder/network resource before unmounting so the surface is
-    // reclaimed immediately rather than lingering until GC.
-    v.pause()
-    v.removeAttribute('src')
-    v.load()
-  }
+  msePlayback?.destroy()
+  msePlayback = null
   videoActive.value = false             // unmount the <video>
 }
 

@@ -120,6 +120,26 @@ export function useMediaApi() {
     return `${getAPIBase()}/media/by-hash/${fileHashOrMediaId}/file?profile=${profileId}`
   }
 
+  function getMseLoopUrls(fileHash) {
+    const dbGuid = getCurrentDbGuid()
+    if (dbGuid) {
+      const base = `${getAPIBase()}/db/${dbGuid}/media/by-hash/${fileHash}/mse-loop`
+      return {
+        manifest: base,
+        init: `${base}/init`,
+        segment: `${base}/segment`,
+      }
+    }
+    const profileId = getCurrentProfileId()
+    const base = `${getAPIBase()}/media/by-hash/${fileHash}/mse-loop`
+    const query = `?profile=${encodeURIComponent(profileId)}`
+    return {
+      manifest: `${base}${query}`,
+      init: `${base}/init${query}`,
+      segment: `${base}/segment${query}`,
+    }
+  }
+
   function getProgressStream() {
     return new EventSource(`${getAPIBase()}/progress`)
   }
@@ -522,6 +542,7 @@ export function useMediaApi() {
     getFilterCounts,
     getThumbnailUrl,
     getMediaFileUrl,
+    getMseLoopUrls,
     getProgressStream,
     // Markers
     getMarkers,

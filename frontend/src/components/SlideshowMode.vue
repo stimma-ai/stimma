@@ -417,17 +417,16 @@
         />
 
         <!-- Video -->
-        <!-- :loop is released (false) only when an auto-advance is armed, so the
-             current playthrough finishes and fires @ended → onVideoEnded performs
-             the queued advance. Otherwise it loops natively (seamless). -->
+        <!-- MSE presents repeated A/V fragments on one forward-moving timeline,
+             so loop boundaries never trigger a media-element seek. -->
         <video
           v-else-if="isVideo"
           :key="`video-${displayItem?.id}-${refreshKey}`"
-          :src="getMediaFileUrl(displayItem.file_hash)"
+          :poster="getThumbnailUrl(displayItem.file_hash, 1024, { mode: 'fit' })"
           :muted="isMuted"
           @contextmenu="handleContextMenu($event, displayItem.id, displayItem.file_hash)"
           autoplay
-          :loop="!videoAdvanceArmed"
+          playsinline
           :class="[
             'w-full h-full object-contain select-none',
             zoomScale > 1 ? 'cursor-grabbing' : 'cursor-zoom-in'
@@ -441,7 +440,6 @@
           @dragstart="handleDragStart"
           @dragend="handleDragEnd"
           @loadedmetadata="handleMediaLoad"
-          @ended="onVideoEnded"
         >
         </video>
 
@@ -1213,6 +1211,7 @@ import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
 import { getMediaType, isVideo as isVideoType, isAudio as isAudioType, isStructured as isStructuredType, isLayout as isLayoutType } from '../utils/mediaTypes'
 import { AudioPlayer, MarkdownViewer, GridViewer, SetOverview, LayoutViewer } from './viewers'
 import { makeProfileKey, makeToolDbKey } from '../utils/storageKeys'
+import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../composables/useWorkspaceTabs'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { getCachedPin } from '../composables/usePinLock'
@@ -1299,7 +1298,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'filterByKeyword', 'findSimilar', 'update:index', 'update:currentMediaId', 'update:randomized', 'update:randomSeed', 'navigate-to-media', 'compare-with-source', 'approve', 'reject', 'unapprove'])
 
-const { getThumbnailUrl, getMediaFileUrl, getMediaItem, fetchMedia, deleteMedia, findMediaIndex, restoreFromTrash, permanentlyDeleteMedia, getMediaFaces, downloadMedia: downloadMediaApi, getProjects, addMediaToProject, removeMediaFromProject } = useMediaApi()
+const { getThumbnailUrl, getMediaFileUrl, getMseLoopUrls, getMediaItem, fetchMedia, deleteMedia, findMediaIndex, restoreFromTrash, permanentlyDeleteMedia, getMediaFaces, downloadMedia: downloadMediaApi, getProjects, addMediaToProject, removeMediaFromProject } = useMediaApi()
 const { on: onWebSocketEvent } = useWebSocket()
 const { cachedTools, fetchProvidersAndTools } = useProvidersApi()
 const { isTauri, handleDragStart: tauriDragStart, prewarmDragSnapshot } = useTauriDrag()
@@ -1351,9 +1350,8 @@ let currentShownAt = 0
 let dwellTimer = null
 let stepInFlight = false
 let liveAdvanceEpoch = 0
-// When true, the <video> stops looping (:loop="!videoAdvanceArmed") so its next
-// natural end fires `ended`, which performs the queued advance. False = seamless
-// native loop (idle, or before the dwell floor has elapsed).
+// When true, the next logical MSE loop boundary performs the queued advance.
+// False keeps the continuous A/V timeline looping in place.
 const videoAdvanceArmed = ref(false)
 const liveAdvanceQueue = ref([])
 
@@ -1515,6 +1513,7 @@ const currentDurationIndex = ref(savedSettings.durationIndex ?? 3) // Default to
 const slideshowTimer = ref(null)
 
 const videoElement = ref(null)
+let msePlayback = null
 // Registry wiring: pause on KeepAlive deactivate, tear down on unmount/keyed
 // swap (a removed element otherwise keeps playing its audio per spec).
 useManagedMediaElement(videoElement)
@@ -1536,6 +1535,45 @@ try {
   transportDisplayMode.value =
     localStorage.getItem(makeProfileKey('frame-mode', TRANSPORT_FRAME_MODE_KEY)) === 'frames' ? 'frames' : 'time'
 } catch { /* default to time */ }
+
+function destroyMsePlayback() {
+  msePlayback?.destroy()
+  msePlayback = null
+}
+
+watch(
+  [videoElement, () => (displayItem.value && isVideoType(displayItem.value) ? displayItem.value.file_hash : null)],
+  ([element, fileHash]) => {
+    destroyMsePlayback()
+    if (!element || !fileHash) return
+
+    element.muted = isMuted.value
+    element.volume = volume.value
+    const playback = new MseLoopPlayback(element, getMseLoopUrls(fileHash), {
+      onBoundary: () => {
+        if (videoAdvanceArmed.value) onVideoEnded()
+      },
+      onReady: (readyPlayback) => {
+        if (msePlayback !== readyPlayback) return
+        videoDuration.value = readyPlayback.duration
+        mediaLoaded.value = true
+      },
+      onError: (error) => {
+        if (msePlayback !== playback) return
+        console.error('[SlideshowMode] Seamless video playback failed:', error)
+        addToast('Could not prepare this video for seamless playback', 'error')
+      },
+      onMaintenanceError: (error) => {
+        if (msePlayback === playback) {
+          console.warn('[SlideshowMode] Seamless playback buffer maintenance deferred:', error)
+        }
+      },
+    })
+    msePlayback = playback
+    void playback.start().catch(() => {})
+  },
+  { flush: 'post' },
+)
 const controlBar = ref(null)
 const overlay = ref(null)
 const gridViewerRef = ref(null)
@@ -3360,8 +3398,11 @@ function stepVideoFrame(dir) {
   const step = videoFps.value > 0 ? 1 / videoFps.value : 0.04
   // Land one frame short of the end — seeking exactly to duration can show black.
   const maxT = Math.max(0, videoDuration.value - step)
-  v.currentTime = Math.min(maxT, Math.max(0, v.currentTime + dir * step))
-  videoCurrentTime.value = v.currentTime
+  const currentTime = msePlayback?.logicalCurrentTime ?? v.currentTime
+  const target = Math.min(maxT, Math.max(0, currentTime + dir * step))
+  if (msePlayback) msePlayback.seekLogical(target)
+  else v.currentTime = target
+  videoCurrentTime.value = target
 }
 
 function transportSeekFromPointer(e) {
@@ -3370,8 +3411,10 @@ function transportSeekFromPointer(e) {
   const frac = r.width > 0 ? Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) : 0
   const v = videoElement.value
   if (!v || videoDuration.value <= 0) return
-  v.currentTime = frac * videoDuration.value
-  videoCurrentTime.value = v.currentTime
+  const target = frac * videoDuration.value
+  if (msePlayback) msePlayback.seekLogical(target)
+  else v.currentTime = target
+  videoCurrentTime.value = target
 }
 
 function onTransportPointerDown(e) {
@@ -3408,8 +3451,9 @@ let transportRaf = null
 function transportTick() {
   const v = videoElement.value
   if (v) {
-    if (!transportScrubbing.value) videoCurrentTime.value = v.currentTime || 0
-    if (Number.isFinite(v.duration) && v.duration > 0) videoDuration.value = v.duration
+    if (!transportScrubbing.value) videoCurrentTime.value = msePlayback?.logicalCurrentTime ?? v.currentTime ?? 0
+    if (msePlayback?.duration > 0) videoDuration.value = msePlayback.duration
+    else if (Number.isFinite(v.duration) && v.duration > 0) videoDuration.value = v.duration
     videoPaused.value = v.paused
   }
   transportRaf = requestAnimationFrame(transportTick)
@@ -4851,9 +4895,8 @@ function scheduleAdvance() {
   const remaining = Math.max(0, floorMs - elapsed)
 
   if (isVideo.value) {
-    // Video: advance at the NEXT natural end, but never before the floor. Below the
-    // floor we keep native looping (videoAdvanceArmed false => :loop=true, seamless);
-    // once the floor passes we arm so the current cycle's `ended` fires the action.
+    // Video: advance at the next logical MSE loop boundary, but never before the
+    // floor. Below the floor the continuous timeline keeps looping in place.
     if (remaining <= 0) {
       videoAdvanceArmed.value = true
       ensureVideoPlaying()
@@ -4872,10 +4915,7 @@ function scheduleAdvance() {
   }
 }
 
-// When a video is armed to advance at its natural end, it must actually be playing
-// to ever fire `ended`. If a prior cycle already ended (paused on the last frame,
-// e.g. an aborted advance or a single-clip Play loop), restart it so another end —
-// and thus the advance — can occur. No-op for a video that is already playing.
+// An armed video must be playing to reach the next logical MSE boundary.
 function ensureVideoPlaying() {
   const el = videoElement.value
   if (!el) return
@@ -4885,9 +4925,8 @@ function ensureVideoPlaying() {
   } catch (e) { /* ignore */ }
 }
 
-// Fired by the <video> element's natural end. Only reaches here when armed (loop is
-// disabled), so perform the queued advance if it is still valid; otherwise resume
-// looping and re-arm.
+// Fired by the MSE controller at a logical loop boundary while armed. Perform the
+// queued advance if it is still valid; otherwise continue looping and re-arm.
 function onVideoEnded() {
   videoAdvanceArmed.value = false
   if (shouldStillAdvance(performFollowStep)) {
@@ -4896,7 +4935,12 @@ function onVideoEnded() {
     performPlayNext()
   } else {
     const el = videoElement.value
-    if (el) { try { el.currentTime = 0; void el.play() } catch (e) { /* ignore */ } }
+    if (el) {
+      try {
+        if (!msePlayback) el.currentTime = 0
+        void el.play()
+      } catch (e) { /* ignore */ }
+    }
     scheduleAdvance()
   }
 }
@@ -5212,6 +5256,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  destroyMsePlayback()
   // Clean up WebSocket handlers to prevent leaked handlers from accumulating
   for (const unsub of wsUnsubscribers) {
     unsub()

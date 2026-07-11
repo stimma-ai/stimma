@@ -75,7 +75,6 @@
                   :ref="el => setVideoRef(rowItem.id, el)"
                   class="absolute inset-0 w-full h-full object-cover hidden"
                   muted
-                  loop
                   playsinline
                   preload="none"
                 >
@@ -212,6 +211,7 @@ import { formatRemainingTime } from '../utils/timeFormat'
 import { createDragPreview, preloadDragPreview, handleDragEnd as dragPreviewHandleDragEnd } from '../composables/useDragPreview'
 import { getMediaType, isVideo as isVideoType, isAudio, getBadgeConfig, formatDuration as formatMediaDuration } from '../utils/mediaTypes'
 import { makeProfileKey } from '../utils/storageKeys'
+import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 
 const props = defineProps({
   /**
@@ -310,12 +310,13 @@ let autoMarkersSyncedHandler = null
 
 const emit = defineEmits(['item-click', 'item-find-similar', 'toggle-selection', 'shift-click-range', 'context-menu-action', 'empty-space-action', 'items-removed'])
 
-const { getThumbnailUrl, getMediaFileUrl } = useMediaApi()
+const { getThumbnailUrl, getMseLoopUrls } = useMediaApi()
 const mediaContextMenu = useMediaContextMenu()
 
 // Refs
 const scroller = ref(null)
 const videoRefs = ref(new Map())
+const videoPlaybacks = new Map()
 const initialLoading = ref(true)
 const savedScrollPosition = ref(0)
 
@@ -759,14 +760,21 @@ function handleMouseEnter(event, item) {
       videoHoverTimers.delete(item.id)
       const video = videoRefs.value.get(item.id)
       if (video) {
-        if (!video.src) {
-          video.src = getMediaFileUrl(item.file_hash)
-        }
+        videoPlaybacks.get(item.id)?.destroy()
         video.classList.remove('hidden')
-        video.currentTime = 0
-        video.play().catch(err => {
-          console.warn('Video autoplay failed:', err)
+        const playback = new MseLoopPlayback(video, getMseLoopUrls(item.file_hash), {
+          initialLoops: 3,
+          appendLoops: 2,
+          bufferAheadLoops: 1,
+          retainBehindLoops: 1,
+          onError: (error) => {
+            if (videoPlaybacks.get(item.id) === playback) {
+              console.warn('Video hover preview failed:', error)
+            }
+          },
         })
+        videoPlaybacks.set(item.id, playback)
+        void playback.start().catch(() => {})
       }
     }, 250)
     videoHoverTimers.set(item.id, timerId)
@@ -807,8 +815,8 @@ function handleMouseLeave(event, item) {
     }
     const video = videoRefs.value.get(item.id)
     if (video) {
-      video.pause()
-      video.currentTime = 0
+      videoPlaybacks.get(item.id)?.destroy()
+      videoPlaybacks.delete(item.id)
       video.classList.add('hidden')
     }
   }
@@ -1669,6 +1677,8 @@ onUnmounted(() => {
     window.removeEventListener('auto-markers-synced', autoMarkersSyncedHandler)
   }
   // Clean up video refs - pause any playing videos and clear the map
+  for (const playback of videoPlaybacks.values()) playback.destroy()
+  videoPlaybacks.clear()
   for (const video of videoRefs.value.values()) {
     if (video) {
       video.pause()

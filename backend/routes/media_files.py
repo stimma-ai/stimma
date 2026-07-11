@@ -1147,6 +1147,64 @@ def _generate_thumbnail_sync(
 # IMPORTANT: Static path routes must come BEFORE parameterized routes
 # Otherwise /media/by-hash/... would match /media/{media_id}/...
 
+async def _find_loop_media(session: AsyncSession, file_hash: str) -> MediaItem:
+    result = await session.execute(
+        select(MediaItem)
+        .where(MediaItem.file_hash == file_hash, MediaItem.ephemeral_run_id.is_(None))
+        .order_by(
+            MediaItem.deleted_at.asc().nulls_first(),
+            MediaItem.file_unavailable.asc().nulls_first(),
+        )
+        .limit(1)
+    )
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    if item.file_format.lower() not in {'mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'}:
+        raise HTTPException(status_code=400, detail="Asset is not a video")
+    if not Path(item.file_path).is_file():
+        raise HTTPException(status_code=404, detail="Asset file not found on disk")
+    return item
+
+
+async def _prepare_loop_media(item: MediaItem, session: AsyncSession) -> tuple[dict, Path]:
+    from utils.mse_loop import prepare_mse_loop
+
+    try:
+        manifest, cache_dir = await prepare_mse_loop(Path(item.file_path), item.file_hash)
+        for filename in ("manifest.json", "init.mp4", "segment.m4s"):
+            await _record_thumbnail_cache(session, item.id, cache_dir / filename)
+        return manifest, cache_dir
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (RuntimeError, OSError) as exc:
+        log.error("MSE loop preparation failed", media_id=item.id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to prepare video for seamless looping") from exc
+
+
+@router.get("/media/by-hash/{file_hash}/mse-loop")
+async def get_mse_loop_manifest(
+    file_hash: str,
+    session: AsyncSession = Depends(get_db_session),
+):
+    item = await _find_loop_media(session, file_hash)
+    manifest, _ = await _prepare_loop_media(item, session)
+    return manifest
+
+
+@router.get("/media/by-hash/{file_hash}/mse-loop/{part}")
+async def get_mse_loop_part(
+    file_hash: str,
+    part: str,
+    session: AsyncSession = Depends(get_db_session),
+):
+    if part not in {"init", "segment"}:
+        raise HTTPException(status_code=404, detail="MSE loop part not found")
+    item = await _find_loop_media(session, file_hash)
+    _, cache_dir = await _prepare_loop_media(item, session)
+    path = cache_dir / ("init.mp4" if part == "init" else "segment.m4s")
+    return FileResponse(path, media_type="video/mp4", headers=CACHE_HEADERS)
+
 @router.get("/media/by-hash/{file_hash}/file")
 async def get_media_file(
     file_hash: str,
@@ -2290,6 +2348,32 @@ async def get_thumbnail_by_db_guid(
     await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)
     await _record_thumbnail_cache(session, media_id, cache_path)
     return FileResponse(cache_path, media_type=media_type, headers=CACHE_HEADERS)
+
+
+@router.get("/db/{db_guid}/media/by-hash/{file_hash}/mse-loop")
+async def get_mse_loop_manifest_by_db_guid(
+    db_guid: str,
+    file_hash: str,
+    session: AsyncSession = Depends(get_db_session_by_guid),
+):
+    item = await _find_loop_media(session, file_hash)
+    manifest, _ = await _prepare_loop_media(item, session)
+    return manifest
+
+
+@router.get("/db/{db_guid}/media/by-hash/{file_hash}/mse-loop/{part}")
+async def get_mse_loop_part_by_db_guid(
+    db_guid: str,
+    file_hash: str,
+    part: str,
+    session: AsyncSession = Depends(get_db_session_by_guid),
+):
+    if part not in {"init", "segment"}:
+        raise HTTPException(status_code=404, detail="MSE loop part not found")
+    item = await _find_loop_media(session, file_hash)
+    _, cache_dir = await _prepare_loop_media(item, session)
+    path = cache_dir / ("init.mp4" if part == "init" else "segment.m4s")
+    return FileResponse(path, media_type="video/mp4", headers=CACHE_HEADERS)
 
 
 @router.get("/db/{db_guid}/media/by-hash/{file_hash}/file")
