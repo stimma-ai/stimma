@@ -784,7 +784,7 @@
       </div>
     </div>
 
-    <!-- Control Bar (bottom center) -->
+    <!-- Control Bar (default: vertical, upper-left; user-draggable) -->
     <div
       ref="controlBar"
       :class="[
@@ -1409,7 +1409,7 @@ const showVolumeSlider = ref(false)
 const volumeSliderRef = ref(null)
 const volumeButtonRef = ref(null)
 const showSidebar = ref(true)
-const controlBarOrientation = ref(savedSettings.controlBarOrientation ?? 'horizontal')
+const controlBarOrientation = ref(savedSettings.controlBarOrientation ?? 'vertical')
 
 // Image strip state (shows items from current dataset)
 const showImageStrip = ref(savedSettings.showImageStrip ?? true)
@@ -1585,11 +1585,15 @@ const CURSOR_HIDE_DELAY = 3000 // 3 seconds
 // Control bar dragging state
 const isDragging = ref(false)
 const isHovered = ref(false)
+// Default position: upper-left, below the top chrome row (Back/Exit pills,
+// title, close button sit at top-4 and are 48px tall → row ends at y=64).
+const CONTROL_BAR_DEFAULT_LEFT = 24
+const CONTROL_BAR_DEFAULT_TOP = 80
 const controlBarEdgeAnchors = ref({
-  horizontal: savedSettings.controlBarHorizontalEdge ?? null, // 'left' or 'right'
-  vertical: savedSettings.controlBarVerticalEdge ?? null, // 'top' or 'bottom'
-  horizontalDistance: savedSettings.controlBarHorizontalDistance ?? null,
-  verticalDistance: savedSettings.controlBarVerticalDistance ?? null
+  horizontal: savedSettings.controlBarHorizontalEdge ?? 'left', // 'left' or 'right'
+  vertical: savedSettings.controlBarVerticalEdge ?? 'top', // 'top' or 'bottom'
+  horizontalDistance: savedSettings.controlBarHorizontalDistance ?? CONTROL_BAR_DEFAULT_LEFT,
+  verticalDistance: savedSettings.controlBarVerticalDistance ?? CONTROL_BAR_DEFAULT_TOP
 })
 const dragStart = ref({ x: 0, y: 0 })
 const dragDistance = ref(0)
