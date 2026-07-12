@@ -365,6 +365,10 @@ async def execute_call_tool(
     # 5. Capture input media IDs for lineage parity with ToolView payloads
     input_images = final_params.get("input_images", [])
     input_media_ids = final_params.get("input_media_ids")
+    metadata_only = (
+        getattr(provider, "provider_type", None) == "builtin"
+        and (getattr(tool_descriptor, "metadata", None) or {}).get("metadata_only")
+    )
     if isinstance(input_images, list) and not input_media_ids:
         derived_ids = []
         resolved_inputs = []
@@ -406,6 +410,13 @@ async def execute_call_tool(
                     candidate = os.path.join(str(workspace_dir), candidate)
                 if os.path.isfile(candidate):
                     abs_candidate = os.path.abspath(candidate)
+                    if metadata_only:
+                        # Data-only tools have no generated asset whose lineage
+                        # needs a durable source. Keep temporary/workspace files
+                        # as paths instead of mutating the user's library merely
+                        # to inspect them.
+                        resolved_inputs.append(abs_candidate)
+                        continue
                     imported_id = None
                     try:
                         from database_registry import get_database_registry
@@ -466,7 +477,7 @@ async def execute_call_tool(
     #     the generation queue is image-shaped end to end (output file, ingest,
     #     result_media_id), so route them around it and execute in-process,
     #     returning the provider's metadata (detections, image_size, ...) directly.
-    if getattr(provider, "provider_type", None) == "builtin" and (getattr(tool_descriptor, "metadata", None) or {}).get("metadata_only"):
+    if metadata_only:
         return await _execute_metadata_only_tool(
             provider, tool_descriptor, tool_id, task_type, final_params, started_at,
         )

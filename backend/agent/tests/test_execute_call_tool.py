@@ -9,7 +9,7 @@ reach the provider intact — and are NOT clobbered by the tool's schema default
 from dataclasses import dataclass, field
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import agent.v2.tools.call_tool as ct
 
@@ -50,6 +50,16 @@ class _Reg:
 
     def get_tool(self, tool_id):
         return (_Prov(), _Desc())
+
+
+class _AsyncSessionContext:
+    """Minimal async session context for deterministic import-boundary tests."""
+
+    async def __aenter__(self):
+        return object()
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
 
 
 @pytest.mark.asyncio
@@ -218,10 +228,12 @@ async def test_unresolvable_input_image_raises_naming_the_value():
 
 
 @pytest.mark.asyncio
-async def test_workspace_file_input_passes_through_without_library(tmp_path):
-    """A file the agent just wrote to the workspace is a valid input as-is —
-    no library.save roundtrip required. The entry is rewritten to an absolute
-    path and carries no lineage media id."""
+async def test_workspace_file_input_is_imported_for_durable_lineage(tmp_path):
+    """A workspace file is imported and submitted by media id.
+
+    Mock the import boundary explicitly so this test cannot change behavior
+    based on whether another test initialized the process-wide DB registry.
+    """
     crop = tmp_path / "middle_crop.png"
     crop.write_bytes(b"\x89PNG fake")
     captured = {}
@@ -234,9 +246,15 @@ async def test_workspace_file_input_passes_through_without_library(tmp_path):
         async def cancel_job(self, *a, **k):
             pass
 
+    import_input = AsyncMock(return_value=731)
+    db = type("_DB", (), {"async_session_maker": lambda self: _AsyncSessionContext()})()
+    registry = type("_Registry", (), {"get_database": lambda self, _profile: db})()
+
     with patch.object(ct, "ProviderRegistry", _I2IReg), \
          patch.object(ct, "get_generation_queue", lambda: _Queue()), \
-         patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"):
+         patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"), \
+         patch("database_registry.get_database_registry", return_value=registry), \
+         patch("agent.v2.tools.library.resolve_or_import_input_file", import_input):
         with pytest.raises(RuntimeError, match="__stop__"):
             await ct.execute_call_tool(
                 tool_id="comfyui:mock-edit",
@@ -247,13 +265,16 @@ async def test_workspace_file_input_passes_through_without_library(tmp_path):
             )
 
     p = captured["params"]
-    assert p["input_images"] == [str(crop)]
-    assert "input_media_ids" not in p
+    assert p["input_images"] == [731]
+    assert p["input_media_ids"] == [731]
+    assert import_input.await_count == 1
+    assert import_input.await_args.args[1] == str(crop)
+    assert import_input.await_args.args[2] == tmp_path
 
 
 @pytest.mark.asyncio
-async def test_absolute_path_input_passes_through(tmp_path):
-    """An absolute path to an existing file is accepted directly."""
+async def test_absolute_path_input_is_imported_for_durable_lineage(tmp_path):
+    """An absolute input path uses the same deterministic import path."""
     crop = tmp_path / "crop_abs.png"
     crop.write_bytes(b"\x89PNG fake")
     captured = {}
@@ -266,9 +287,15 @@ async def test_absolute_path_input_passes_through(tmp_path):
         async def cancel_job(self, *a, **k):
             pass
 
+    import_input = AsyncMock(return_value=732)
+    db = type("_DB", (), {"async_session_maker": lambda self: _AsyncSessionContext()})()
+    registry = type("_Registry", (), {"get_database": lambda self, _profile: db})()
+
     with patch.object(ct, "ProviderRegistry", _I2IReg), \
          patch.object(ct, "get_generation_queue", lambda: _Queue()), \
-         patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"):
+         patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"), \
+         patch("database_registry.get_database_registry", return_value=registry), \
+         patch("agent.v2.tools.library.resolve_or_import_input_file", import_input):
         with pytest.raises(RuntimeError, match="__stop__"):
             await ct.execute_call_tool(
                 tool_id="comfyui:mock-edit",
@@ -277,7 +304,12 @@ async def test_absolute_path_input_passes_through(tmp_path):
                 session=object(),
             )
 
-    assert captured["params"]["input_images"] == [str(crop)]
+    p = captured["params"]
+    assert p["input_images"] == [732]
+    assert p["input_media_ids"] == [732]
+    assert import_input.await_count == 1
+    assert import_input.await_args.args[1] == str(crop)
+    assert import_input.await_args.args[2] is None
 
 
 @pytest.mark.asyncio
@@ -336,7 +368,10 @@ async def test_metadata_only_builtin_tool_executes_in_process(tmp_path):
 
     with patch.object(ct, "ProviderRegistry", _DetectReg), \
          patch.object(ct, "get_generation_queue", lambda: _NeverQueue()), \
-         patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"):
+         patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"), \
+         patch("database_registry.get_database_registry", side_effect=AssertionError(
+             "metadata-only path inputs must not touch the library"
+         )):
         result = await ct.execute_call_tool(
             tool_id="builtin:detect-objects",
             parameters={"subject": "person", "input_images": [str(img_file)]},
