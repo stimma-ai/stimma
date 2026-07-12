@@ -3,8 +3,8 @@ name = "stimma"
 version = "0.1.0"
 description = "Stimma - AI-powered visual media copilot"
 authors = ["stimmant <stimmant@stimma.ai>"]
-license = "MIT"
-repository = ""
+license = "AGPL-3.0-only"
+repository = "https://github.com/stimma-ai/stimma"
 edition = "2021"
 rust-version = "1.77.2"
 

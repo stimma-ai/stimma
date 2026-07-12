@@ -2,6 +2,8 @@
 name = "stimma-backend"
 version = "0.1.0"
 description = "Stimma backend - AI-powered visual media copilot"
+license = { text = "AGPL-3.0-only" }
+authors = [{ name = "Stimma", email = "stimmant@stimma.ai" }]
 requires-python = ">=3.11"
 dependencies = [
     # Web framework
