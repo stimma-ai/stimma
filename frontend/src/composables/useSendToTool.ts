@@ -260,13 +260,20 @@ export function useSendToTool() {
     } else if (effectiveTaskType === 'image-to-video' && (hasStartImageSlot || hasVideoFramePicker)) {
       sessionStorage.setItem(storageKey, JSON.stringify({ startImage: mediaEntries[0] }))
     } else if (multiInputInfo?.supportsMultiInput) {
-      // Schema-driven: tool explicitly accepts arrays
+      // Schema-driven: tool explicitly accepts arrays. The array shape is the
+      // STP canonical form for ALL media slots — capacity lives in
+      // x-max-items — so cap the payload at the slot's declared capacity and
+      // replace instead of append when the slot holds a single item (append
+      // would over-stuff a 1-slot picker across repeated sends).
+      const slotMax = multiInputInfo.maxItems
+      const entries = Number.isFinite(slotMax) ? mediaEntries.slice(0, slotMax) : mediaEntries
+      const append = slotMax > 1
       if (multiInputInfo.inputType === 'videos') {
-        sessionStorage.setItem(storageKey, JSON.stringify({ inputVideos: mediaEntries, appendVideos: true }))
+        sessionStorage.setItem(storageKey, JSON.stringify({ inputVideos: entries, appendVideos: append }))
       } else if (multiInputInfo.inputType === 'audios') {
-        sessionStorage.setItem(storageKey, JSON.stringify({ inputAudios: mediaEntries, appendAudios: true }))
+        sessionStorage.setItem(storageKey, JSON.stringify({ inputAudios: entries, appendAudios: append }))
       } else {
-        sessionStorage.setItem(storageKey, JSON.stringify({ inputImages: mediaEntries, appendImages: true }))
+        sessionStorage.setItem(storageKey, JSON.stringify({ inputImages: entries, appendImages: append }))
       }
     } else {
       // Fall back to task_type based logic for single-input tools

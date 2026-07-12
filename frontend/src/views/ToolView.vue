@@ -3365,11 +3365,21 @@ function loadPendingInput() {
         width: vid.width,
         height: vid.height
       }))
-      if (config.appendVideos) {
-        // Append to existing videos (for video-stitch)
-        globalPrefs.value.inputVideos = [...globalPrefs.value.inputVideos, ...newVideos]
+      // Clamp to the video slot's declared capacity (x-max-items) so no entry
+      // point can over-stuff a single-video tool — MediaPicker renders whatever
+      // it is handed and only gates additions made through the picker itself.
+      const videoMax = mediaInputConfig.value?.paramKey === 'input_videos'
+        ? mediaInputConfig.value.max
+        : Infinity
+      if (config.appendVideos && videoMax > 1) {
+        // Append to existing videos (for video-stitch), replacing from the end
+        // to make room when full — same policy as the image path above.
+        const existing = globalPrefs.value.inputVideos
+        const clampedNew = newVideos.slice(0, videoMax)
+        const keepCount = Math.max(0, Math.min(existing.length, videoMax - clampedNew.length))
+        globalPrefs.value.inputVideos = [...existing.slice(0, keepCount), ...clampedNew]
       } else {
-        globalPrefs.value.inputVideos = newVideos
+        globalPrefs.value.inputVideos = newVideos.slice(0, videoMax)
       }
     }
 
