@@ -273,7 +273,9 @@
               </div>
 
               <div v-else class="text-center py-12 text-sm text-content-muted">
-                {{ catalogSearch ? 'No stimpacks matching your search.' : 'No community stimpacks available yet.' }}
+                {{ privacyLockdownActive
+                  ? 'Browsing community stimpacks is disabled while Privacy Lockdown is on.'
+                  : catalogSearch ? 'No stimpacks matching your search.' : 'No community stimpacks available yet.' }}
               </div>
             </div>
           </div>
@@ -348,6 +350,7 @@ import { useStimpacksApi, type Stimpack, type MarketplaceStimpack } from '../../
 import { getApiBase, isTauri } from '../../../apiConfig'
 import { getCurrentProfileId } from '../../../composables/useProfile'
 import { addToast } from '../../../composables/useToasts'
+import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import ConfirmModal from '../../ConfirmModal.vue'
 
 // Avatars proxy through the local backend, which attaches the Cloudflare
@@ -372,6 +375,8 @@ const {
   validateStimpack,
   publishToMarketplace,
 } = useStimpacksApi()
+
+const { privacyLockdownActive } = usePrivacyLockdown()
 
 // --- Local development affordances -----------------------------------------
 
