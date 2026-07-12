@@ -170,6 +170,6 @@ onUnmounted(stopCountdown)
 function onDragStart(event: DragEvent) {
   if (!event.dataTransfer) return
   event.dataTransfer.setData('application/x-media-id', String(props.mediaId))
-  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.effectAllowed = 'copyMove'
 }
 </script>

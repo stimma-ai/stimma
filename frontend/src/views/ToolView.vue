@@ -3318,22 +3318,14 @@ function loadPendingInput() {
         setItemCount: img.setItemCount,
         setId: img.setId
       }))
-      if (config.appendImages && mediaInputConfig.value.max > 1) {
-        // Append to existing images, replacing last slot(s) if full
-        const max = mediaInputConfig.value.max
-        const existing = globalPrefs.value.inputImages
-        const slotsAvailable = max - existing.length
-
-        if (slotsAvailable >= newImages.length) {
-          // Room to append all
-          globalPrefs.value.inputImages = [...existing, ...newImages]
-        } else {
-          // Replace from the end to make room
-          const keepCount = max - newImages.length
-          globalPrefs.value.inputImages = [...existing.slice(0, keepCount), ...newImages]
-        }
+      // Untargeted sends (sidebar drop, send-to-tool) replace by default —
+      // "this is the input now". Shift carries the add intent; adding keeps
+      // what's there and drops overflow past the slot's capacity.
+      const max = mediaInputConfig.value.max
+      if (config.append && max > 1) {
+        globalPrefs.value.inputImages = [...globalPrefs.value.inputImages, ...newImages].slice(0, max)
       } else {
-        globalPrefs.value.inputImages = newImages
+        globalPrefs.value.inputImages = newImages.slice(0, max)
       }
     }
 
@@ -3348,11 +3340,19 @@ function loadPendingInput() {
         width: config.startImage.width,
         height: config.startImage.height,
       }
-      // Drop into the first empty slot; if both filled, replace start
-      if (videoImages.startImage && !videoImages.endImage) {
-        videoImages.endImage = newFrame
+      if (config.append) {
+        // Add intent: fill the first empty frame slot; if both are filled,
+        // replace the end frame (the "appended" position).
+        if (!videoImages.startImage) {
+          videoImages.startImage = newFrame
+        } else {
+          videoImages.endImage = newFrame
+        }
       } else {
+        // Replace intent: this image IS the animation source. A leftover end
+        // frame would be stale relative to the new start, so clear it too.
         videoImages.startImage = newFrame
+        videoImages.endImage = null
       }
     }
 
@@ -3371,13 +3371,10 @@ function loadPendingInput() {
       const videoMax = mediaInputConfig.value?.paramKey === 'input_videos'
         ? mediaInputConfig.value.max
         : Infinity
-      if (config.appendVideos && videoMax > 1) {
-        // Append to existing videos (for video-stitch), replacing from the end
-        // to make room when full — same policy as the image path above.
-        const existing = globalPrefs.value.inputVideos
-        const clampedNew = newVideos.slice(0, videoMax)
-        const keepCount = Math.max(0, Math.min(existing.length, videoMax - clampedNew.length))
-        globalPrefs.value.inputVideos = [...existing.slice(0, keepCount), ...clampedNew]
+      if (config.append && videoMax > 1) {
+        // Add to existing videos (for video-stitch), dropping overflow past
+        // capacity — same policy as the image path above.
+        globalPrefs.value.inputVideos = [...globalPrefs.value.inputVideos, ...newVideos].slice(0, videoMax)
       } else {
         globalPrefs.value.inputVideos = newVideos.slice(0, videoMax)
       }
@@ -3392,7 +3389,7 @@ function loadPendingInput() {
         mediaId: aud.mediaId,
       }))
       const max = audioInputConfig.value?.max ?? 1
-      if (config.appendAudios && max > 1) {
+      if (config.append && max > 1) {
         globalPrefs.value.inputAudios = [...globalPrefs.value.inputAudios, ...newAudios].slice(0, max)
       } else {
         globalPrefs.value.inputAudios = newAudios.slice(0, max)

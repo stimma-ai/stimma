@@ -128,7 +128,9 @@ export function createDragPreview(
       isVideo: isVideo || false
     })
   }
-  event.dataTransfer.effectAllowed = 'copy'
+  // copyMove so drop targets can pick the cursor: tool tabs show a naked
+  // pointer for replace ('move') and the green + only when shift = add ('copy').
+  event.dataTransfer.effectAllowed = 'copyMove'
 
   // Add or remove count badge for multi-drag
   const existingBadge = dragPreviewElement.querySelector('.drag-count-badge')

@@ -45,6 +45,29 @@ async fn print_webview(webview: tauri::Webview) -> Result<(), String> {
     webview.print().map_err(|e| e.to_string())
 }
 
+// Current shift-key state, readable mid-drag. WKWebView does not populate
+// modifier keys on DOM drag events, so the frontend polls this during
+// drag-over to distinguish replace (plain drop) from add (shift-drop). On
+// other platforms the webview's own DragEvent.shiftKey works; return false
+// and let the frontend use that.
+#[tauri::command]
+fn shift_key_down() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        #[link(name = "CoreGraphics", kind = "framework")]
+        extern "C" {
+            fn CGEventSourceFlagsState(state_id: i32) -> u64;
+        }
+        const COMBINED_SESSION_STATE: i32 = 0;
+        const SHIFT_MASK: u64 = 1 << 17; // kCGEventFlagMaskShift
+        unsafe { CGEventSourceFlagsState(COMBINED_SESSION_STATE) & SHIFT_MASK != 0 }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
 // Tauri command to receive console logs from the webview.
 #[tauri::command]
 fn log_from_webview(level: String, message: String) {
@@ -311,6 +334,7 @@ pub fn run() {
             get_backend_port,
             print_webview,
             log_from_webview,
+            shift_key_down,
             embed::embed_metadata,
             voice::voice_model_status,
             voice::voice_download_model,

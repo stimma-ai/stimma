@@ -543,8 +543,8 @@
               :tools="sendToTools"
               :media-type="currentMediaType"
               :loading="loadingTools"
-             
               show-open-instances
+              shift-adds
               @select="handleToolSelect"
               @select-instance="handleToolInstanceSelect"
             />
@@ -1567,7 +1567,9 @@ function sendToGenerateToolInstance(row: { tab: WorkspaceTab; tool: GenerateMore
   }))
 }
 
-function handleToolSelect(tool: ProviderTool, targetTaskType: string) {
+// Shift-click adds to the tool's existing inputs; plain click replaces them
+// (mirrors shift-drop on the sidebar).
+function handleToolSelect(tool: ProviderTool, targetTaskType: string, event?: MouseEvent) {
   contextMenu.hide()
   activeSubmenu.value = null
 
@@ -1578,10 +1580,10 @@ function handleToolSelect(tool: ProviderTool, targetTaskType: string) {
   trackTelemetry('send_to_tool_used')
   // Use the shared composable - supports both single and multiple items
   // Pass the target task type so tools with multiple task types use the correct input handling
-  sendToToolComposable(items, tool, targetTaskType)
+  sendToToolComposable(items, tool, targetTaskType, undefined, undefined, { add: event?.shiftKey === true })
 }
 
-function handleToolInstanceSelect(tab: WorkspaceTab, tool: ProviderTool, targetTaskType: string) {
+function handleToolInstanceSelect(tab: WorkspaceTab, tool: ProviderTool, targetTaskType: string, event?: MouseEvent) {
   contextMenu.hide()
   activeSubmenu.value = null
 
@@ -1590,7 +1592,7 @@ function handleToolInstanceSelect(tab: WorkspaceTab, tool: ProviderTool, targetT
 
   trackTelemetry('send_to_tool_used')
   // Instance rows target that exact tab (its project scope rides along).
-  sendToToolComposable(items, tool, targetTaskType, tab.projectId ?? null, tab.instanceId ?? null)
+  sendToToolComposable(items, tool, targetTaskType, tab.projectId ?? null, tab.instanceId ?? null, { add: event?.shiftKey === true })
 }
 
 async function sendToNewChat() {

@@ -943,7 +943,9 @@ function onItemDragStart(section, item, event) {
   const allDragIds = isMultiDrag ? [...selectedItemIds.value] : null
 
   dragState.item = { mediaId: item.id, fromSectionId: section.id, allMediaIds: allDragIds }
-  event.dataTransfer.effectAllowed = 'move'
+  // Board tiles reorder within the board ('move') but can also be dropped on
+  // sidebar tool tabs, which need 'copy' available for the shift = add cursor.
+  event.dataTransfer.effectAllowed = 'copyMove'
   event.dataTransfer.setData('application/x-media-id', String(item.id))
   event.dataTransfer.setData('application/x-board-drag', JSON.stringify({
     mediaId: item.id,

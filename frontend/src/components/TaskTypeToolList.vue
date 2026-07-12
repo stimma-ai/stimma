@@ -39,13 +39,13 @@
       <button
         v-for="row in filteredOpenInstances"
         :key="`instance-${row.tab.id}`"
-        @click="handleInstanceClick(row)"
-        class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
+        @click="handleInstanceClick(row, $event)"
+        class="group w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
       >
         <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(row.tool) ? '' : 'text-content-tertiary'">
           <ToolIcon :tool="row.tool" size="xs" :bare="true" :ring="false" />
         </div>
-        <span class="flex-1 min-w-0 truncate">{{ row.tab.customName || row.tab.displayName }}</span>
+        <span class="flex-1 min-w-0 truncate">{{ row.tab.customName || row.tab.displayName }}<svg v-if="shiftAdds && shiftHeld" class="inline-block w-3.5 h-3.5 ml-1.5 align-[-2px] text-green-400 opacity-0 group-hover:opacity-100" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/></svg></span>
         <span
           v-if="row.tab.projectName"
           class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"
@@ -72,13 +72,13 @@
       <button
         v-for="tool in filteredTools"
         :key="tool.full_tool_id"
-        @click="handleToolClick(tool, getToolPrimaryTaskType(tool))"
-        class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
+        @click="handleToolClick(tool, getToolPrimaryTaskType(tool), $event)"
+        class="group w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
       >
         <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
           <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
         </div>
-        <span class="flex-1 min-w-0 truncate">{{ tool.name }}</span>
+        <span class="flex-1 min-w-0 truncate">{{ tool.name }}<svg v-if="shiftAdds && shiftHeld" class="inline-block w-3.5 h-3.5 ml-1.5 align-[-2px] text-green-400 opacity-0 group-hover:opacity-100" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/></svg></span>
         <ToolProviderLabel :cloud="isStimmaCloudTool(tool)" :provider-name="tool.provider_name" class="pl-3" />
       </button>
     </template>
@@ -127,13 +127,13 @@
         <button
           v-for="tool in recentToolsForSelectedTaskType"
           :key="`recent-${selectedTaskType}-${tool.full_tool_id}`"
-          @click="handleToolClick(tool, selectedTaskType)"
-          class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
+          @click="handleToolClick(tool, selectedTaskType, $event)"
+          class="group w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
         >
           <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
             <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
           </div>
-          <span class="flex-1 min-w-0 truncate">{{ tool.name }}</span>
+          <span class="flex-1 min-w-0 truncate">{{ tool.name }}<svg v-if="shiftAdds && shiftHeld" class="inline-block w-3.5 h-3.5 ml-1.5 align-[-2px] text-green-400 opacity-0 group-hover:opacity-100" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/></svg></span>
           <ToolProviderLabel :cloud="isStimmaCloudTool(tool)" :provider-name="tool.provider_name" class="pl-3" />
         </button>
         <div class="border-t border-edge-subtle my-1"></div>
@@ -149,13 +149,13 @@
       <button
         v-for="tool in allToolsForSelectedTaskType"
         :key="`${selectedTaskType}-${tool.full_tool_id}`"
-        @click="handleToolClick(tool, selectedTaskType)"
-        class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
+        @click="handleToolClick(tool, selectedTaskType, $event)"
+        class="group w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
       >
         <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
           <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
         </div>
-        <span class="flex-1 min-w-0 truncate">{{ tool.name }}</span>
+        <span class="flex-1 min-w-0 truncate">{{ tool.name }}<svg v-if="shiftAdds && shiftHeld" class="inline-block w-3.5 h-3.5 ml-1.5 align-[-2px] text-green-400 opacity-0 group-hover:opacity-100" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/></svg></span>
         <ToolProviderLabel :cloud="isStimmaCloudTool(tool)" :provider-name="tool.provider_name" class="pl-3" />
       </button>
     </template>
@@ -163,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import type { ProviderTool } from '../composables/useProvidersApi'
 import { useWorkspaceTabs, type WorkspaceTab } from '../composables/useWorkspaceTabs'
 import ToolIcon from './tools/ToolIcon.vue'
@@ -189,23 +189,49 @@ interface Props {
   gradientId?: string
   /** List eligible open tool-instance tabs first (send-to-tool surfaces). */
   showOpenInstances?: boolean
+  /** Shift-click adds to the tool's inputs instead of replacing; shows a green
+      + on the hovered row while shift is held (send-to-tool surfaces). */
+  shiftAdds?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   mediaType: null,
   loading: false,
   gradientId: 'stimma-gradient-tools',
-  showOpenInstances: false
+  showOpenInstances: false,
+  shiftAdds: false
 })
 
 const emit = defineEmits<{
-  (e: 'select', tool: ProviderTool, taskType: string): void
-  (e: 'select-instance', tab: WorkspaceTab, tool: ProviderTool, taskType: string): void
+  (e: 'select', tool: ProviderTool, taskType: string, event?: MouseEvent): void
+  (e: 'select-instance', tab: WorkspaceTab, tool: ProviderTool, taskType: string, event?: MouseEvent): void
 }>()
 
 const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const selectedTaskType = ref<string | null>(null)
+
+// Live shift state: while held, hovered rows show a green + (shift-click adds
+// to the tool's inputs instead of replacing them). Mirrors shift-drag on the
+// sidebar. Reset on window blur so a stale "held" state can't stick.
+const shiftHeld = ref(false)
+function onShiftKey(e: KeyboardEvent) {
+  if (e.key === 'Shift') shiftHeld.value = e.type === 'keydown'
+}
+function onWindowBlur() {
+  shiftHeld.value = false
+}
+onMounted(() => {
+  if (!props.shiftAdds) return
+  window.addEventListener('keydown', onShiftKey)
+  window.addEventListener('keyup', onShiftKey)
+  window.addEventListener('blur', onWindowBlur)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onShiftKey)
+  window.removeEventListener('keyup', onShiftKey)
+  window.removeEventListener('blur', onWindowBlur)
+})
 
 // Filter tools based on media type (null = show all tools), hiding unavailable tools.
 // Eligibility honors per-tool x-accept-media overrides (e.g. a video-only filter).
@@ -326,8 +352,8 @@ const showAllToolsHeader = computed(() =>
   props.showOpenInstances && !selectedTaskType.value && filteredOpenInstances.value.length > 0
 )
 
-function handleInstanceClick(row: { tab: WorkspaceTab; tool: ProviderTool }) {
-  emit('select-instance', row.tab, row.tool, getToolPrimaryTaskType(row.tool))
+function handleInstanceClick(row: { tab: WorkspaceTab; tool: ProviderTool }, event?: MouseEvent) {
+  emit('select-instance', row.tab, row.tool, getToolPrimaryTaskType(row.tool), event)
 }
 
 // Get the first eligible task type for a tool (used in flat search results)
@@ -342,11 +368,11 @@ function selectTaskType(taskType: string) {
   selectedTaskType.value = taskType
 }
 
-function handleToolClick(tool: ProviderTool, taskType: string) {
+function handleToolClick(tool: ProviderTool, taskType: string, event?: MouseEvent) {
   if (taskType) {
     addRecentToolForTaskType(taskType, tool.full_tool_id)
   }
-  emit('select', tool, taskType)
+  emit('select', tool, taskType, event)
 }
 
 // Public method: reset state and focus search

@@ -241,7 +241,7 @@ export function useTauriDrag() {
       // Set internal data for in-app drag-drop as fallback
       event.dataTransfer?.setData('application/x-media-id', String(mediaId))
       if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = 'copy'
+        event.dataTransfer.effectAllowed = 'copyMove'
       }
 
       try {
@@ -260,7 +260,7 @@ export function useTauriDrag() {
     // Browser mode - use dataTransfer for in-app drag-drop
     event.dataTransfer?.setData('application/x-media-id', String(mediaId))
     if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = 'copy'
+      event.dataTransfer.effectAllowed = 'copyMove'
     }
   }
 
@@ -307,7 +307,7 @@ export function useTauriDrag() {
     // Browser mode or Tauri without pre-fetched paths - use dataTransfer
     event.dataTransfer?.setData('application/x-media-ids', JSON.stringify(mediaIds))
     if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = 'copy'
+      event.dataTransfer.effectAllowed = 'copyMove'
     }
 
     // In Tauri without paths, try to get them async (browser drag already started)

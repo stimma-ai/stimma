@@ -266,14 +266,14 @@
               <button
                 @click="navigateToTab(tab)"
                 @contextmenu="showTabContextMenu(tab, $event)"
-                @dragover="handleDragOver"
+                @dragover="handleTabDragOver(tab, $event)"
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
                 class="flex items-center gap-2.5 px-3 py-2 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
                 :class="[
                   isTabActive(tab) ? '!bg-overlay-hover !text-content' : '',
-                  dragHoverTabId === tab.id ? '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50' : '',
+                  dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
                 ]"
@@ -576,14 +576,14 @@
               <button
                 @click="navigateToTab(tab)"
                 @contextmenu="showTabContextMenu(tab, $event)"
-                @dragover="handleDragOver"
+                @dragover="handleTabDragOver(tab, $event)"
                 @dragenter="handleTabDragEnter(tab, $event)"
                 @dragleave="handleTabDragLeave(tab, $event)"
                 @drop="handleTabMediaDrop(tab, $event)"
                 class="flex items-center gap-3 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
                 :class="[
                   isTabActive(tab) ? '!bg-overlay-hover !text-content' : '',
-                  dragHoverTabId === tab.id ? '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50' : '',
+                  dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : '',
                   tab.type === 'tool' ? 'py-1.5' : 'py-2'
@@ -879,6 +879,20 @@
 
         </nav>
 
+        <!-- Drop-intent hint while media is dragged over a tool tab. Absolute
+             overlay (not flow) so appearing mid-drag can't shift tabs under
+             the cursor and flicker the hover state. -->
+        <div
+          v-if="dragHoverToolTab"
+          class="pointer-events-none absolute bottom-0 left-0 right-0 z-20 border-t border-edge-subtle bg-surface/95 px-3 py-2 text-[11px]"
+        >
+          <span v-if="dragAddModifier" class="text-green-400 font-medium">Add to inputs</span>
+          <template v-else>
+            <span class="text-content font-medium">Replace inputs</span>
+            <span class="text-content-muted"> · hold ⇧ to add</span>
+          </template>
+        </div>
+
         <!-- Resize handle (desktop only) -->
         <div
           v-if="!isMobile"
@@ -1033,6 +1047,15 @@ const projectNames = ref<Map<string, string>>(new Map())
 
 // Drag-drop state
 const dragHoverTabId = ref<string | null>(null)
+// Live shift state while dragging over a tool tab: shift flips the drop from
+// replace-inputs to add-to-inputs; cursor, ring color, and hint bar track it.
+const dragAddModifier = ref(false)
+// Whether the currently drag-hovered tab is a tool tab (drives the hint bar).
+const dragHoverToolTab = computed(() => {
+  const id = dragHoverTabId.value
+  if (!id) return false
+  return [...pinnedTabs.value, ...openTabs.value].some(t => t.id === id && t.type === 'tool')
+})
 const dragHoverNewBoard = ref(false)
 const dragHoverNewChat = ref(false)
 const dragHoverNewFlow = ref(false)
@@ -1465,9 +1488,43 @@ function handleDragOver(e: DragEvent) {
   }
 }
 
+// WKWebView does not populate modifier keys on DOM drag events (click events
+// are fine — that's why shift-click in menus works). In Tauri, poll the OS
+// shift state through the shift_key_down command during drag-over; browser
+// builds use the drag event's own shiftKey.
+const IS_TAURI = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+let lastShiftPoll = 0
+function pollNativeShift() {
+  const now = performance.now()
+  if (now - lastShiftPoll < 100) return
+  lastShiftPoll = now
+  import('@tauri-apps/api/core')
+    .then(({ invoke }) => invoke<boolean>('shift_key_down'))
+    .then((down) => { dragAddModifier.value = down })
+    .catch(() => {})
+}
+
+// Tool tabs get intent-aware cursor feedback: a naked pointer for the default
+// replace ('move'), the OS copy badge (green +) only while shift = add.
+// dragover fires continuously, so pressing/releasing shift mid-hover updates
+// the cursor, ring color, and hint bar live (via the poll above in Tauri —
+// the dropEffect set here uses the last polled value, ≤100ms stale).
+function handleTabDragOver(tab: WorkspaceTab, e: DragEvent) {
+  if (e.dataTransfer?.types.includes('application/x-media-id')) {
+    e.preventDefault()
+    if (IS_TAURI) {
+      pollNativeShift()
+    } else {
+      dragAddModifier.value = e.shiftKey
+    }
+    e.dataTransfer.dropEffect = tab.type === 'tool' && !dragAddModifier.value ? 'move' : 'copy'
+  }
+}
+
 function handleTabDragEnter(tab: WorkspaceTab, e: DragEvent) {
   if (e.dataTransfer?.types.includes('application/x-media-id')) {
     e.preventDefault()
+    dragAddModifier.value = e.shiftKey
     const count = (tabDragCounters.value.get(tab.id) || 0) + 1
     tabDragCounters.value.set(tab.id, count)
     if (tab.type === 'lineage') return // No drag-drop onto lineage tabs
@@ -1482,6 +1539,7 @@ function handleTabDragLeave(tab: WorkspaceTab, e: DragEvent) {
   tabDragCounters.value.set(tab.id, Math.max(0, count))
   if (count <= 0 && dragHoverTabId.value === tab.id) {
     dragHoverTabId.value = null
+    dragAddModifier.value = false
   }
 }
 
@@ -1497,6 +1555,9 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
   e.stopPropagation()
   dragHoverTabId.value = null
   tabDragCounters.value.delete(tab.id)
+  // e.shiftKey is unpopulated in WKWebView; the polled value covers Tauri.
+  const add = e.shiftKey || dragAddModifier.value
+  dragAddModifier.value = false
 
   // Lineage tabs don't accept media drops
   if (tab.type === 'lineage') return
@@ -1516,7 +1577,8 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
       const targetTaskType = toolTaskTypes.find((tt: string) => eligibleTaskTypes.includes(tt)) || tool.task_type
       // Pass all dropped ids (multi-select drag) so they batch instead of only the first.
       // Target THIS row's instance, not just the tool+project.
-      await sendToTool(mediaIds.length > 1 ? mediaIds : mediaId, { full_tool_id: tool.full_tool_id, task_type: tool.task_type, parameter_schema: tool.parameter_schema }, targetTaskType, tab.projectId ?? null, tab.instanceId ?? null)
+      // Shift-drop adds to the tool's existing inputs; plain drop replaces them.
+      await sendToTool(mediaIds.length > 1 ? mediaIds : mediaId, { full_tool_id: tool.full_tool_id, task_type: tool.task_type, parameter_schema: tool.parameter_schema }, targetTaskType, tab.projectId ?? null, tab.instanceId ?? null, { add })
       if (props.isMobile) emit('close')
     } catch (error) {
       console.error('Failed to send media to tool:', error)

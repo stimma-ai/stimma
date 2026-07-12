@@ -28,6 +28,7 @@
           :loading="loading"
           gradient-id="stimma-gradient-sendtool"
           show-open-instances
+          shift-adds
           @select="handleSelect"
           @select-instance="handleSelectInstance"
         />
@@ -110,16 +111,18 @@ async function toggleMenu() {
   }
 }
 
-async function handleSelect(tool: ProviderTool, taskType: string) {
+// Shift-click adds to the tool's existing inputs; plain click replaces them
+// (mirrors shift-drop on the sidebar).
+async function handleSelect(tool: ProviderTool, taskType: string, event?: MouseEvent) {
   showMenu.value = false
-  await sendToTool(props.mediaItem as any, tool, taskType)
+  await sendToTool(props.mediaItem as any, tool, taskType, undefined, undefined, { add: event?.shiftKey === true })
   emit('sent')
 }
 
 // Instance rows target that exact tab (its project scope rides along).
-async function handleSelectInstance(tab: WorkspaceTab, tool: ProviderTool, taskType: string) {
+async function handleSelectInstance(tab: WorkspaceTab, tool: ProviderTool, taskType: string, event?: MouseEvent) {
   showMenu.value = false
-  await sendToTool(props.mediaItem as any, tool, taskType, tab.projectId ?? null, tab.instanceId ?? null)
+  await sendToTool(props.mediaItem as any, tool, taskType, tab.projectId ?? null, tab.instanceId ?? null, { add: event?.shiftKey === true })
   emit('sent')
 }
 
