@@ -1309,6 +1309,12 @@ generators: []
 
 default_model: auto
 
+cloud:
+  # Unroutable on purpose: the lane must be hermetic. Marketplace
+  # auto-install/check-updates/update fail fast instead of reaching
+  # stimma.ai — a slow real download can wedge the backend mid-test.
+  base_url: "http://127.0.0.1:1"
+
 llms:
   # A configured (not live) endpoint keeps the app-entry readiness gate
   # satisfied — the lane's fake tool provider covers generation, and no
