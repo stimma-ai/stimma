@@ -196,6 +196,8 @@
               @toggle-marker="$emit('toggle-marker', $event)"
               @show-job-info="$emit('show-job-info', $event)"
               @media-load-error="$emit('media-load-error', $event)"
+              @trash-media="$emit('trash-media', $event)"
+              @remix-media="$emit('remix-media', $event)"
             />
           </div>
         </template>
@@ -361,6 +363,8 @@ const emit = defineEmits<{
   (e: 'media-load-error', mediaId: number): void
   (e: 'retry-chain', chainRunId: number): void
   (e: 'dismiss-chain', chainRunId: number): void
+  (e: 'trash-media', mediaId: number): void
+  (e: 'remix-media', mediaId: number): void
 }>()
 
 
