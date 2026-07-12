@@ -622,6 +622,11 @@ class TestToolProvider(ToolProvider):
         # simulation).
         prompt_text = str(parameters.get("prompt") or "").lower()
         rules = list(self._marker_rules.get(tool_id, []))
+        # Built-in always-armed marker: any prompt containing "simfail" fails
+        # while the provider stays connected. Lets a human (or a driven UI
+        # session) flip a running tool from succeeding to failing by editing
+        # the prompt — e.g. to exercise generate-forever's failure handling.
+        rules.append(("simfail", None, "Simulated provider failure (simfail marker)"))
         if config.fail_if_prompt_contains:
             rules.append((config.fail_if_prompt_contains, config.fail_count, config.fail_message))
         # fail_count scope: the caller's output folder when available (one
@@ -629,6 +634,15 @@ class TestToolProvider(ToolProvider):
         # falling back to the exact prompt text.
         import os as _os
         count_scope = _os.path.dirname(output_path) if output_path else str(parameters.get("prompt") or "")
+        # Built-in "simdisconnect" marker: raise a disconnect-flavored error
+        # once per consumer, driving the queue's requeue path (the job gets a
+        # second generation_job_queued broadcast, then runs again and
+        # succeeds). Exercises requeue handling end to end from the UI.
+        if re.search(r"\bsimdisconnect\b", prompt_text):
+            key = (tool_id, "simdisconnect", count_scope)
+            if self._marker_fail_counts.get(key, 0) < 1:
+                self._marker_fail_counts[key] = 1
+                raise RuntimeError("Simulated provider disconnected mid-generation (simdisconnect marker)")
         for marker, fail_count, message in rules:
             # Word-boundary match: a "crow" rule must not fire on "crowned".
             # Rules from unrelated concurrent consumers share this provider,

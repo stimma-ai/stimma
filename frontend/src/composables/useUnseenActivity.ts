@@ -18,8 +18,11 @@ const unseen = ref<Map<string, UnseenKind>>(new Map())
 
 // Per-tool-tab in-flight job tracking (keyed by tab.id). Counted here
 // independently of useGenerationStatus so the falling edge and the
-// saw-failure flag don't depend on WS handler registration order.
-const toolRuns = new Map<string, { count: number, sawFailure: boolean }>()
+// saw-failure flag don't depend on WS handler registration order. Tracked by
+// job id, not a bare count: the backend re-broadcasts 'generation_job_queued'
+// when it requeues a job after a provider disconnect, and double-counting one
+// job would keep the run open (and the dot suppressed) forever.
+const toolRuns = new Map<string, { jobIds: Set<number>, sawFailure: boolean }>()
 
 const windowFocused = ref(typeof document !== 'undefined' ? document.hasFocus() : true)
 
@@ -79,28 +82,30 @@ function init() {
 
   on('generation_job_queued', (data: any) => {
     const instanceId = instanceIdOf(data)
-    if (!instanceId) return
+    const jobId = data?.job?.id
+    if (!instanceId || jobId == null) return
     for (const tabId of matchingToolTabIds(instanceId)) {
       const run = toolRuns.get(tabId)
-      if (!run || run.count <= 0) {
+      if (!run || run.jobIds.size === 0) {
         // Fresh batch: previous dot is superseded by the live spinner.
-        toolRuns.set(tabId, { count: 1, sawFailure: false })
+        toolRuns.set(tabId, { jobIds: new Set([jobId]), sawFailure: false })
         clearUnseen(tabId)
       } else {
-        run.count++
+        run.jobIds.add(jobId)
       }
     }
   })
 
   const onJobDone = (failed: boolean) => (data: any) => {
     const instanceId = instanceIdOf(data)
-    if (!instanceId) return
+    const jobId = data?.job?.id
+    if (!instanceId || jobId == null) return
     for (const tabId of matchingToolTabIds(instanceId)) {
       const run = toolRuns.get(tabId)
-      if (!run || run.count <= 0) continue
-      run.count--
+      if (!run || !run.jobIds.has(jobId)) continue
+      run.jobIds.delete(jobId)
       if (failed) run.sawFailure = true
-      if (run.count === 0) {
+      if (run.jobIds.size === 0) {
         toolRuns.delete(tabId)
         setUnseen(tabId, run.sawFailure ? 'error' : 'done')
       }

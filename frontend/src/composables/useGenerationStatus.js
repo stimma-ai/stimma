@@ -5,6 +5,12 @@ import { useWebSocket } from './useWebSocket'
 const activeJobsByTaskType = ref({})
 const activeJobsByInstanceId = ref({})
 const pendingWorkByInstanceId = ref({})
+// Job ids currently counted in the maps above. The backend re-broadcasts
+// 'generation_job_queued' when it requeues a job (provider disconnect), so
+// counting raw events would inflate a count by one per requeue and leave the
+// sidebar spinner stuck after the job settles. Keyed by job id, storing where
+// the job was counted so the settle event decrements the same bucket.
+const countedJobs = new Map()
 let initialized = false
 let pendingWorkEpoch = 0
 
@@ -61,10 +67,17 @@ export function useGenerationStatus() {
 
     // Listen for job queue/start events (increment)
     onWebSocketEvent('generation_job_queued', (data) => {
+      const jobId = data?.job?.id
       const taskType = data?.job?.task_type || 'text-to-image'
       // Use job's generator_instance_id, falling back to top-level (both are sent by backend)
       const instanceId = data?.job?.generator_instance_id || data?.generator_instance_id
       const isToolJob = instanceId && instanceId.startsWith('tool-')
+
+      // Requeue re-broadcast for a job we already counted - not new work.
+      if (jobId != null && countedJobs.has(jobId)) return
+      if (jobId != null) {
+        countedJobs.set(jobId, isToolJob ? { instanceId } : { taskType })
+      }
 
       // Track by instance ID (for tools) - takes precedence
       if (isToolJob) {
@@ -83,65 +96,45 @@ export function useGenerationStatus() {
       // Already counted when queued, no need to increment
     })
 
-    // Listen for job completion/failure events (decrement)
-    onWebSocketEvent('generation_job_completed', (data) => {
+    // Listen for job settle events (decrement). Only jobs we actually counted
+    // may decrement, and they decrement the bucket they were counted in - a
+    // settle event for a job whose queue event we never saw (queued before
+    // connect, or dropped) must not eat another job's count.
+    const onJobSettled = (label) => (data) => {
+      const jobId = data?.job?.id
       const taskType = data?.job?.task_type || 'text-to-image'
       // Use job's generator_instance_id, falling back to top-level (both are sent by backend)
       const instanceId = data?.job?.generator_instance_id || data?.generator_instance_id
       const isToolJob = instanceId && instanceId.startsWith('tool-')
 
-      if (isToolJob) {
-        const prevCount = activeJobsByInstanceId.value[instanceId] || 0
+      let counted = null
+      if (jobId != null) {
+        counted = countedJobs.get(jobId)
+        if (!counted) {
+          console.warn(`[useGenerationStatus] Job ${label} but job was never counted: jobId=${jobId}, instanceId=${instanceId}`)
+          return
+        }
+        countedJobs.delete(jobId)
+      }
+
+      if (counted ? counted.instanceId : isToolJob) {
+        const countedInstanceId = counted?.instanceId || instanceId
+        const prevCount = activeJobsByInstanceId.value[countedInstanceId] || 0
         if (prevCount > 0) {
-          decrementInstanceCount(activeJobsByInstanceId, instanceId)
-          console.log(`[useGenerationStatus] Job completed: instanceId=${instanceId}, count=${prevCount}->${activeJobsByInstanceId.value[instanceId]}`)
+          decrementInstanceCount(activeJobsByInstanceId, countedInstanceId)
+          console.log(`[useGenerationStatus] Job ${label}: instanceId=${countedInstanceId}, count=${prevCount}->${activeJobsByInstanceId.value[countedInstanceId]}`)
         }
       } else {
-        if (activeJobsByTaskType.value[taskType]) {
-          activeJobsByTaskType.value[taskType] = Math.max(0, activeJobsByTaskType.value[taskType] - 1)
+        const countedTaskType = counted?.taskType || taskType
+        if (activeJobsByTaskType.value[countedTaskType]) {
+          activeJobsByTaskType.value[countedTaskType] = Math.max(0, activeJobsByTaskType.value[countedTaskType] - 1)
         }
       }
-    })
+    }
 
-    onWebSocketEvent('generation_job_failed', (data) => {
-      const taskType = data?.job?.task_type || 'text-to-image'
-      // Use job's generator_instance_id, falling back to top-level (both are sent by backend)
-      const instanceId = data?.job?.generator_instance_id || data?.generator_instance_id
-      const isToolJob = instanceId && instanceId.startsWith('tool-')
-
-      if (isToolJob) {
-        const prevCount = activeJobsByInstanceId.value[instanceId] || 0
-        if (prevCount > 0) {
-          decrementInstanceCount(activeJobsByInstanceId, instanceId)
-          console.log(`[useGenerationStatus] Job failed: instanceId=${instanceId}, count=${prevCount}->${activeJobsByInstanceId.value[instanceId]}`)
-        } else {
-          console.warn(`[useGenerationStatus] Job failed but no count to decrement: instanceId=${instanceId}`)
-        }
-      } else {
-        if (activeJobsByTaskType.value[taskType]) {
-          activeJobsByTaskType.value[taskType] = Math.max(0, activeJobsByTaskType.value[taskType] - 1)
-        }
-      }
-    })
-
-    onWebSocketEvent('generation_job_cancelled', (data) => {
-      const taskType = data?.job?.task_type || 'text-to-image'
-      // Use job's generator_instance_id, falling back to top-level (both are sent by backend)
-      const instanceId = data?.job?.generator_instance_id || data?.generator_instance_id
-      const isToolJob = instanceId && instanceId.startsWith('tool-')
-
-      if (isToolJob) {
-        const prevCount = activeJobsByInstanceId.value[instanceId] || 0
-        if (prevCount > 0) {
-          decrementInstanceCount(activeJobsByInstanceId, instanceId)
-          console.log(`[useGenerationStatus] Job cancelled: instanceId=${instanceId}, count=${prevCount}->${activeJobsByInstanceId.value[instanceId]}`)
-        }
-      } else {
-        if (activeJobsByTaskType.value[taskType]) {
-          activeJobsByTaskType.value[taskType] = Math.max(0, activeJobsByTaskType.value[taskType] - 1)
-        }
-      }
-    })
+    onWebSocketEvent('generation_job_completed', onJobSettled('completed'))
+    onWebSocketEvent('generation_job_failed', onJobSettled('failed'))
+    onWebSocketEvent('generation_job_cancelled', onJobSettled('cancelled'))
 
     // Clear all counts on disconnect - jobs are dead
     onWebSocketEvent('websocket_disconnected', () => {
@@ -149,6 +142,7 @@ export function useGenerationStatus() {
       activeJobsByTaskType.value = {}
       activeJobsByInstanceId.value = {}
       pendingWorkByInstanceId.value = {}
+      countedJobs.clear()
       pendingWorkEpoch++
     })
   }
