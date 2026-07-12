@@ -21,7 +21,9 @@ import copy
 import csv
 import dataclasses as _dataclasses_mod
 import datetime
+import fnmatch
 import functools
+import glob as _glob_mod
 import io as _io_mod
 import itertools
 import pathlib
@@ -93,6 +95,7 @@ ALLOWED_MODULES: dict[str, Any] = {
     "csv": csv,
     "dataclasses": _dataclasses_mod,
     "datetime": datetime,
+    "fnmatch": fnmatch,
     "functools": functools,
     "io": _io_mod,
     "itertools": itertools,
@@ -122,17 +125,144 @@ ALLOWED_MODULES: dict[str, Any] = {
 # of truth for what it can import in sandboxed Python.
 ALLOWED_MODULES_PROMPT_DESCRIPTION = (
     "Allowed imports: asyncio, base64, collections, colorsys, copy, csv, "
-    "dataclasses, datetime, functools, io, itertools, json, math, numpy, "
-    "os.path, pathlib, PIL (all submodules: Image, ImageDraw, ImageFilter, "
-    "ImageFont, ImageOps, ImageEnhance), random, re, statistics, string, "
-    "struct, textwrap, urllib / urllib.parse / urllib.request, aiohttp. "
+    "dataclasses, datetime, fnmatch, functools, glob (workspace-scoped: glob, "
+    "iglob, escape), io, itertools, json, math, numpy, "
+    "os (workspace-scoped: getcwd, listdir, walk, makedirs, mkdir, remove, "
+    "rename, stat + full os.path), pathlib, PIL (all submodules: Image, "
+    "ImageDraw, ImageFilter, ImageFont, ImageOps, ImageEnhance), random, re, "
+    "statistics, string, struct, textwrap, urllib / urllib.parse / "
+    "urllib.request, aiohttp. "
     "tqdm is also importable (sandbox-patched for progress display)."
 )
+
+
+def _make_workspace_resolver(workspace_dir: Path, project_workspace_dir: Path | None = None):
+    """Resolve a path against the workspace and enforce the workspace jail.
+
+    Shared by the sandbox's ``open()`` and ``os`` surfaces so filesystem
+    access has exactly one containment rule.
+    """
+    workspace_root = workspace_dir.resolve()
+    project_workspace_root = project_workspace_dir.resolve() if project_workspace_dir else None
+
+    def _resolve(file: str | os.PathLike[str]) -> Path:
+        candidate = Path(file)
+        if not candidate.is_absolute():
+            candidate = workspace_root / candidate
+        resolved = candidate.resolve()
+        allowed_roots = [workspace_root]
+        if project_workspace_root is not None:
+            allowed_roots.append(project_workspace_root)
+        if not any(root == resolved or root in resolved.parents for root in allowed_roots):
+            raise PermissionError(
+                "run_code filesystem access is restricted to the chat workspace "
+                "and shared project workspace"
+            )
+        return resolved
+
+    return _resolve
+
+
+class _SafeOS:
+    """Workspace-jailed ``os`` for run_code.
+
+    The sandbox historically exposed ``os`` as a bare ``path``-only namespace;
+    every other attribute failed with an unexplained AttributeError, which
+    reads as a bug rather than a boundary and costs the agent a round-trip per
+    discovery. This provides the common filesystem operations (contained to
+    the workspace, same rule as the sandbox ``open()``) and names the boundary
+    explicitly for everything else.
+    """
+
+    def __init__(self, workspace_dir: Path, project_workspace_dir: Path | None = None):
+        self._resolve = _make_workspace_resolver(workspace_dir, project_workspace_dir)
+        self._workspace_root = workspace_dir.resolve()
+        self.path = os.path
+        self.sep = os.sep
+        self.linesep = os.linesep
+
+    def getcwd(self) -> str:
+        return str(self._workspace_root)
+
+    def listdir(self, path: str | os.PathLike[str] = ".") -> list[str]:
+        return os.listdir(self._resolve(path))
+
+    def walk(self, top: str | os.PathLike[str] = ".", **kwargs):
+        # followlinks stays False (the default) so a symlink can't walk out
+        # of the jail.
+        kwargs.pop("followlinks", None)
+        return os.walk(self._resolve(top), **kwargs)
+
+    def stat(self, path: str | os.PathLike[str]):
+        return os.stat(self._resolve(path))
+
+    def makedirs(self, path: str | os.PathLike[str], exist_ok: bool = False) -> None:
+        os.makedirs(self._resolve(path), exist_ok=exist_ok)
+
+    def mkdir(self, path: str | os.PathLike[str]) -> None:
+        os.mkdir(self._resolve(path))
+
+    def remove(self, path: str | os.PathLike[str]) -> None:
+        os.remove(self._resolve(path))
+
+    def unlink(self, path: str | os.PathLike[str]) -> None:
+        os.unlink(self._resolve(path))
+
+    def rmdir(self, path: str | os.PathLike[str]) -> None:
+        os.rmdir(self._resolve(path))
+
+    def rename(self, src: str | os.PathLike[str], dst: str | os.PathLike[str]) -> None:
+        os.rename(self._resolve(src), self._resolve(dst))
+
+    def replace(self, src: str | os.PathLike[str], dst: str | os.PathLike[str]) -> None:
+        os.replace(self._resolve(src), self._resolve(dst))
+
+    def __getattr__(self, name: str):
+        raise AttributeError(
+            f"os.{name} is not available in run_code. Available (workspace-scoped): "
+            "getcwd, listdir, walk, stat, makedirs, mkdir, remove, unlink, rmdir, "
+            "rename, replace, and all of os.path. Use pathlib for anything else."
+        )
+
+
+class _SafeGlob:
+    """Workspace-jailed ``glob`` for run_code.
+
+    Wildcards can't match ``.`` / ``..`` directory entries (scandir never
+    yields them), so containment only has to check the pattern string itself
+    — literal ``..`` or absolute escapes resolve outside the jail and raise,
+    same rule as the sandbox ``open()`` and ``os``. Relative patterns match
+    against the workspace root and return relative paths, matching stdlib
+    glob semantics with the workspace as cwd.
+    """
+
+    def __init__(self, workspace_dir: Path, project_workspace_dir: Path | None = None):
+        self._resolve = _make_workspace_resolver(workspace_dir, project_workspace_dir)
+        self._workspace_root = workspace_dir.resolve()
+        self.escape = _glob_mod.escape
+
+    def glob(self, pathname: str | os.PathLike[str], *, recursive: bool = False) -> list[str]:
+        pathname = os.fspath(pathname)
+        self._resolve(pathname)
+        if os.path.isabs(pathname):
+            return _glob_mod.glob(pathname, recursive=recursive)
+        return _glob_mod.glob(pathname, root_dir=self._workspace_root, recursive=recursive)
+
+    def iglob(self, pathname: str | os.PathLike[str], *, recursive: bool = False):
+        return iter(self.glob(pathname, recursive=recursive))
+
+    def __getattr__(self, name: str):
+        raise AttributeError(
+            f"glob.{name} is not available in run_code. Available (workspace-scoped): "
+            "glob, iglob, escape."
+        )
 
 
 def _make_safe_import(
     stimpack_modules: dict[str, Path] | None = None,
     extra_modules: dict[str, Any] | None = None,
+    safe_os: "_SafeOS | None" = None,
+    safe_glob: "_SafeGlob | None" = None,
 ):
     """Build a safe __import__ that allows whitelisted modules + stimpack lib modules.
 
@@ -183,7 +313,9 @@ def _make_safe_import(
         if top_level in ALLOWED_MODULES and top_level in ("numpy", "PIL", "urllib", "aiohttp", "asyncio", "collections", "datetime", "json"):
             return _importlib.import_module(name)
         if name == "os":
-            return SimpleNamespace(path=os.path)
+            return safe_os if safe_os is not None else SimpleNamespace(path=os.path)
+        if name == "glob" and safe_glob is not None:
+            return safe_glob
         # Check stimpack modules
         if stimpack_modules:
             top_level = name.split(".")[0]
@@ -195,22 +327,10 @@ def _make_safe_import(
 
 
 def _make_safe_open(workspace_dir: Path, project_workspace_dir: Path | None = None):
-    workspace_root = workspace_dir.resolve()
-    project_workspace_root = project_workspace_dir.resolve() if project_workspace_dir else None
+    resolve = _make_workspace_resolver(workspace_dir, project_workspace_dir)
 
     def _safe_open(file: str | os.PathLike[str], mode: str = "r", *args, **kwargs):
-        candidate = Path(file)
-        if not candidate.is_absolute():
-            candidate = workspace_root / candidate
-        resolved = candidate.resolve()
-        allowed_roots = [workspace_root]
-        if project_workspace_root is not None:
-            allowed_roots.append(project_workspace_root)
-        if not any(root == resolved or root in resolved.parents for root in allowed_roots):
-            raise PermissionError(
-                "run_code open() is restricted to the chat workspace and shared project workspace"
-            )
-        return py_builtins.open(resolved, mode, *args, **kwargs)
+        return py_builtins.open(resolve(file), mode, *args, **kwargs)
 
     return _safe_open
 
@@ -222,38 +342,98 @@ def build_safe_builtins(
     project_workspace_dir: Path | None = None,
     extra_modules: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    safe_os = _SafeOS(workspace_dir, project_workspace_dir)
+    safe_glob = _SafeGlob(workspace_dir, project_workspace_dir)
     return {
-        "__import__": _make_safe_import(stimpack_modules, extra_modules),
+        "__import__": _make_safe_import(stimpack_modules, extra_modules, safe_os, safe_glob),
+        # `class` statements compile to a __build_class__ call — without it the
+        # sandbox can't define classes at all.
+        "__build_class__": py_builtins.__build_class__,
+        "__name__": "run_code",
         "abs": abs,
         "all": all,
         "any": any,
         "bool": bool,
+        "bytearray": bytearray,
+        "bytes": bytes,
+        "callable": callable,
+        "chr": chr,
+        "complex": complex,
         "dict": dict,
+        "dir": dir,
         "divmod": divmod,
         "enumerate": enumerate,
-        "Exception": Exception,
         "filter": filter,
         "float": float,
+        "format": format,
+        "frozenset": frozenset,
         "getattr": getattr,
         "hasattr": hasattr,
+        "hash": hash,
+        "hex": hex,
+        "id": id,
         "int": int,
         "isinstance": isinstance,
+        "issubclass": issubclass,
+        "iter": iter,
         "len": len,
         "list": list,
         "map": map,
         "max": max,
         "min": min,
+        "next": next,
+        "object": object,
+        "oct": oct,
         "open": _make_safe_open(workspace_dir, project_workspace_dir),
+        "ord": ord,
+        "pow": pow,
         "print": printer,
         "range": range,
+        "repr": repr,
         "reversed": reversed,
         "round": round,
         "set": set,
+        "setattr": setattr,
+        "slice": slice,
         "sorted": sorted,
         "str": str,
         "sum": sum,
+        "super": super,
         "tuple": tuple,
+        "type": type,
+        "vars": vars,
         "zip": zip,
+        # Exceptions: user code legitimately raises and catches these; a bare
+        # `except ValueError:` must not itself NameError.
+        "ArithmeticError": ArithmeticError,
+        "AssertionError": AssertionError,
+        "AttributeError": AttributeError,
+        "BaseException": BaseException,
+        "Exception": Exception,
+        "FileExistsError": FileExistsError,
+        "FileNotFoundError": FileNotFoundError,
+        "IOError": IOError,
+        "IndexError": IndexError,
+        "IsADirectoryError": IsADirectoryError,
+        "KeyError": KeyError,
+        "LookupError": LookupError,
+        "NameError": NameError,
+        "NotADirectoryError": NotADirectoryError,
+        "NotImplementedError": NotImplementedError,
+        "OSError": OSError,
+        "OverflowError": OverflowError,
+        "PermissionError": PermissionError,
+        "RecursionError": RecursionError,
+        "RuntimeError": RuntimeError,
+        "StopAsyncIteration": StopAsyncIteration,
+        "StopIteration": StopIteration,
+        "TimeoutError": TimeoutError,
+        "TypeError": TypeError,
+        "UnicodeDecodeError": UnicodeDecodeError,
+        "UnicodeEncodeError": UnicodeEncodeError,
+        "UnicodeError": UnicodeError,
+        "ValueError": ValueError,
+        "ZeroDivisionError": ZeroDivisionError,
     }
 
 
@@ -405,6 +585,23 @@ class ProgressTracker:
             self._pending_update["display_data"]["status"] = status
 
 
+class MediaRecord(dict):
+    """Library result: a dict that also supports attribute access.
+
+    Tool calls return ToolResults with ``.path`` / ``.media_id``; agents
+    naturally write ``info.path`` on library results too. Support both
+    spellings instead of failing the intuitive one.
+    """
+
+    def __getattr__(self, name: str):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(
+                f"{name!r} — available fields: {', '.join(sorted(self.keys()))}"
+            ) from None
+
+
 class StimmaLibraryAPI:
     def __init__(self, sdk: "StimmaSDK"):
         self._sdk = sdk
@@ -421,7 +618,7 @@ class StimmaLibraryAPI:
             self._sdk.session, query=query, search_fields=None, limit=limit,
             project_id=self._sdk.project_id,
         )
-        return [] if raw == "No results found." else json.loads(raw)
+        return [] if raw == "No results found." else [MediaRecord(i) for i in json.loads(raw)]
 
     async def browse(
         self,
@@ -436,15 +633,16 @@ class StimmaLibraryAPI:
             project_id=self._sdk.project_id,
         )
         parsed = json.loads(raw)
-        return parsed.get("items", []) if isinstance(parsed, dict) else parsed
+        items = parsed.get("items", []) if isinstance(parsed, dict) else parsed
+        return [MediaRecord(i) if isinstance(i, dict) else i for i in items]
 
-    async def get(self, media_id: int) -> dict[str, Any]:
+    async def get(self, media_id: int) -> "MediaRecord":
         raw = await get_media_for_workspace(
             session=self._sdk.session,
             media_id=media_id,
             workspace_dir=self._sdk.workspace_dir,
         )
-        return json.loads(raw)
+        return MediaRecord(json.loads(raw))
 
     async def lineage(self, media_id: int) -> dict[str, Any]:
         from .tools.library import _lineage
@@ -486,14 +684,28 @@ class StimmaLibraryAPI:
 
     async def save(
         self,
-        item: ToolResult | str | Path,
+        item: "ToolResult | Image.Image | str | Path | None" = None,
         tags: list[str] | None = None,
         inspired_by: int | Sequence[int] | None = None,
         sources: int | Sequence[int] | None = None,
+        path: "str | Path | None" = None,
     ) -> dict[str, Any]:
-        """Save to the library. For images composed/edited in code (a path,
-        not a ToolResult), pass sources=[media ids] so the derivation is
-        recorded — otherwise code-path edits are invisible to lineage."""
+        """Save to the library. Accepts a ToolResult, a PIL Image, or a
+        workspace path (``path=`` is an alias for a path item). For images
+        composed/edited in code (an Image or path, not a ToolResult), pass
+        sources=[media ids] so the derivation is recorded — otherwise
+        code-path edits are invisible to lineage."""
+        if item is None:
+            item = path
+        if item is None:
+            raise TypeError("library.save() needs an item: a ToolResult, PIL Image, or workspace path")
+        if isinstance(item, Image.Image):
+            # A PIL Image composed in code: write it to the workspace first.
+            digest = hashlib.sha1(item.tobytes()).hexdigest()[:10]
+            fname = f"composed_{digest}.png"
+            img_path = self._sdk.workspace_dir / fname
+            item.save(img_path, format="PNG")
+            item = str(img_path)
         provenance = None
         if isinstance(item, ToolResult):
             provenance = {
@@ -770,6 +982,10 @@ class StimmaSDK:
                 "error": f"{type(e).__name__}: {e}",
             })
             raise
+        if result.get("metadata_only"):
+            # Data tool (e.g. detect-objects): no media output — hand the raw
+            # result dict (detections, image_size, ...) straight back.
+            return {k: v for k, v in result.items() if k != "metadata_only"}
         tool_result = ToolResult(
             path=Path(result["path"]),
             width=result.get("width"),

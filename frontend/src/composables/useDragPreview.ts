@@ -125,7 +125,8 @@ export function createDragPreview(
     setDraggedMedia({
       mediaId,
       fileFormat: fileFormat || '',
-      isVideo: isVideo || false
+      isVideo: isVideo || false,
+      mediaIds: allMediaIds?.length ? allMediaIds : [mediaId],
     })
   }
   // copyMove so drop targets can pick the cursor: tool tabs show a naked

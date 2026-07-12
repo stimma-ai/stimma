@@ -122,7 +122,7 @@ class LightweightProvider(ToolProvider):
                 "properties": {
                     "subject": {
                         "type": "string",
-                        "description": "What to find in the image (e.g., 'cat', 'person', 'face')",
+                        "description": "What to find, as a short noun phrase ('cat', 'child', 'red car'). SAM3 matches object categories, not scene descriptions — a long descriptive sentence returns zero detections. On zero results, broaden the noun ('girl' → 'child' → 'person'); each call is a full ~10s CPU inference, so refine one phrasing at a time rather than sweeping many.",
                         "x-label": "Subject",
                     },
                     "index": {
@@ -159,12 +159,23 @@ class LightweightProvider(ToolProvider):
                 "properties": {
                     "detections": {
                         "type": "array",
-                        "description": "Array of detected objects with bboxes and scores",
+                        "description": "Detected objects, sorted by score: {label, bbox: {x, y, width, height} (pixels in the original image), score, area_percent}",
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "Number of detections",
+                    },
+                    "image_size": {
+                        "type": "object",
+                        "description": "Original image dimensions: {width, height} in pixels — bbox coordinates are in this frame",
                     },
                 },
             },
             execute_fn=self._execute_detect_objects,
-            metadata={"agent_only": True},
+            # metadata_only: returns data (detections), not media — the agent
+            # executes it in-process instead of through the generation queue,
+            # which assumes every job produces an output file to ingest.
+            metadata={"agent_only": True, "metadata_only": True},
         ))
 
         self._register_filter_tools()

@@ -542,6 +542,8 @@
               ref="toolListRef"
               :tools="sendToTools"
               :media-type="currentMediaType"
+              :media-types="currentSelectionMediaTypes"
+              :selection-count="isSet ? 1 : targetCount"
               :loading="loadingTools"
               show-open-instances
               shift-adds
@@ -725,11 +727,10 @@ import ShareDialog from '../ShareDialog.vue'
 import TaskTypeToolList from '../TaskTypeToolList.vue'
 import ToolIcon from '../tools/ToolIcon.vue'
 import ToolProviderLabel from '../tools/ToolProviderLabel.vue'
-import { isSelectionValidForTool } from '../../utils/toolSchemaUtils'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { makeStorageKey } from '../../utils/storageKeys'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
-import { isToolCompatibleWithMediaType } from '../../utils/taskTypeIcons'
+import { planToolHandoff } from '../../utils/toolHandoff'
 import { isImage as isImageType, getMediaType, MediaType } from '../../utils/mediaTypes'
 import axios from 'axios'
 import { useWorkspaceTabs, toolInstanceRoute, toolTabRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
@@ -1030,23 +1031,19 @@ const currentMediaType = computed((): MediaType => {
   return 'image'
 })
 
+const currentSelectionMediaTypes = computed((): MediaType[] => {
+  if (selectedItems.value.length <= 1) return [currentMediaType.value]
+  return Array.from(new Set(selectedItems.value.map(item => getMediaType(item))))
+})
+
 // Filter tools for "Send to Tool" (image/video input tools)
 // Also filters by selection count validity for multi-selection
 // A tool is eligible if ANY of its task_types match the eligible types
 const sendToTools = computed(() => {
-  const mediaType = currentMediaType.value
   const count = isSet.value ? 1 : targetCount.value  // Sets count as 1 input (will be expanded by backend)
 
   return tools.value.filter(t => {
-    // Hide unavailable tools (disconnected/unconfigured)
-    if (t.availability !== 'available') return false
-
-    // Eligibility honors per-tool x-accept-media overrides (e.g. a video-only filter)
-    if (!isToolCompatibleWithMediaType(t, mediaType).compatible) return false
-
-    // Check if selection count is valid for this tool
-    const validation = isSelectionValidForTool(t, count, mediaType)
-    return validation.valid
+    return planToolHandoff({ tool: t, mediaTypes: currentSelectionMediaTypes.value, count }).eligible
   })
 })
 
@@ -1574,25 +1571,31 @@ function handleToolSelect(tool: ProviderTool, targetTaskType: string, event?: Mo
   activeSubmenu.value = null
 
   // Use selectedItems for multi-selection, fall back to mediaItem for single
-  const items = selectedItems.value.length > 0 ? selectedItems.value : (mediaItem.value ? [mediaItem.value] : [])
+  const items = selectedItems.value.length === targetIds.value.length && selectedItems.value.length > 0
+    ? selectedItems.value
+    : targetIds.value
   if (items.length === 0) return
 
   trackTelemetry('send_to_tool_used')
   // Use the shared composable - supports both single and multiple items
   // Pass the target task type so tools with multiple task types use the correct input handling
-  sendToToolComposable(items, tool, targetTaskType, undefined, undefined, { add: event?.shiftKey === true })
+  void sendToToolComposable(items, tool, targetTaskType, undefined, undefined, { add: event?.shiftKey === true })
+    .catch(error => addToast(error instanceof Error ? error.message : 'Failed to send assets to tool', 'warning'))
 }
 
 function handleToolInstanceSelect(tab: WorkspaceTab, tool: ProviderTool, targetTaskType: string, event?: MouseEvent) {
   contextMenu.hide()
   activeSubmenu.value = null
 
-  const items = selectedItems.value.length > 0 ? selectedItems.value : (mediaItem.value ? [mediaItem.value] : [])
+  const items = selectedItems.value.length === targetIds.value.length && selectedItems.value.length > 0
+    ? selectedItems.value
+    : targetIds.value
   if (items.length === 0) return
 
   trackTelemetry('send_to_tool_used')
   // Instance rows target that exact tab (its project scope rides along).
-  sendToToolComposable(items, tool, targetTaskType, tab.projectId ?? null, tab.instanceId ?? null, { add: event?.shiftKey === true })
+  void sendToToolComposable(items, tool, targetTaskType, tab.projectId ?? null, tab.instanceId ?? null, { add: event?.shiftKey === true })
+    .catch(error => addToast(error instanceof Error ? error.message : 'Failed to send assets to tool', 'warning'))
 }
 
 async function sendToNewChat() {

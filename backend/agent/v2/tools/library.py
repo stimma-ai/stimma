@@ -1268,6 +1268,7 @@ async def save_workspace_file(
     provenance: Optional[Dict[str, Any]] = None,
     inspired_by: Optional[int | List[int]] = None,
     project_id: Optional[int] = None,
+    metadata_source: str = "agent_v2_run_code",
 ) -> str:
     if not path:
         return "Error: path is required for save action"
@@ -1349,7 +1350,7 @@ async def save_workspace_file(
             seed = provenance.get("seed")
         generation_metadata = dump_generation_metadata(
             task_type=provenance.get("task_type") or "code",
-            source="agent_v2_run_code",
+            source=metadata_source,
             tool_id=provenance.get("tool_id"),
             parameters=build_parameters(
                 provenance_params,
@@ -1363,7 +1364,7 @@ async def save_workspace_file(
     else:
         generation_metadata = dump_generation_metadata(
             task_type="code",
-            source="agent_v2_run_code",
+            source=metadata_source,
         )
     from config_version import get_config_version_manager
     media_item = MediaItem(
@@ -1467,6 +1468,60 @@ async def save_workspace_file(
             log.warning(f"[library] Failed to signal ingestion worker: {e}")
 
     return json.dumps({"media_id": media_item.id, "filename": os.path.basename(dest)})
+
+
+async def resolve_or_import_input_file(
+    session: AsyncSession,
+    abs_path: str,
+    workspace_dir: Optional[Path],
+    project_id: Optional[int] = None,
+) -> Optional[int]:
+    """Resolve an on-disk generation input to a library media id, importing if needed.
+
+    A workspace/temp file passed as a tool input must end up referenced by a
+    durable library item — an ephemeral workspace path recorded in
+    source_inputs renders as "Unavailable" in lineage and disappears from the
+    lineage tree. Dedupes by exact path, then content hash, so repeated use of
+    the same file (or a file already saved via library.save) reuses one item.
+
+    Returns the media id, or None if the import failed.
+    """
+    row = (await session.execute(
+        select(MediaItem.id).where(
+            MediaItem.file_path == abs_path,
+            MediaItem.deleted_at.is_(None),
+        ).order_by(MediaItem.id.desc()).limit(1)
+    )).first()
+    if row:
+        return row[0]
+
+    file_hash = _compute_file_hash(Path(abs_path))
+    row = (await session.execute(
+        select(MediaItem.id).where(
+            MediaItem.file_hash == file_hash,
+            MediaItem.deleted_at.is_(None),
+        ).order_by(MediaItem.id.desc()).limit(1)
+    )).first()
+    if row:
+        return row[0]
+
+    result = await save_workspace_file(
+        session,
+        abs_path,
+        workspace_dir,
+        save_tags=None,
+        provenance={"task_type": "imported"},
+        project_id=project_id,
+        metadata_source="agent_v2_tool_input",
+    )
+    try:
+        media_id = json.loads(result).get("media_id")
+    except (json.JSONDecodeError, AttributeError):
+        media_id = None
+    if not media_id:
+        log.warning(f"[library] Implicit import of tool input '{abs_path}' failed: {result}")
+        return None
+    return media_id
 
 
 async def _get(

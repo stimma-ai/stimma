@@ -230,8 +230,14 @@ export function getEligibleTaskTypesForMediaType(mediaType: MediaType | null): s
 // narrow/override this per slot with `x-accept-media: ['image'|'video'|'audio', ...]`.
 const MEDIA_INPUT_SLOT_DEFAULTS: Record<string, 'image' | 'video' | 'audio'> = {
   input_images: 'image',
+  input_image: 'image',
+  start_image: 'image',
+  source_image: 'image',
+  image: 'image',
   input_videos: 'video',
+  input_video: 'video',
   input_audios: 'audio',
+  input_audio: 'audio',
 }
 
 const MEDIA_VALUES = new Set(['image', 'video', 'audio'])

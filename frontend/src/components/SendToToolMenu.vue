@@ -45,6 +45,7 @@ import type { WorkspaceTab } from '../composables/useWorkspaceTabs'
 import { useAnchoredMenuPosition } from '../composables/useContextMenuPosition'
 import type { MediaType } from '../utils/mediaTypes'
 import TaskTypeToolList from './TaskTypeToolList.vue'
+import { addToast } from '../composables/useToasts'
 
 interface Props {
   mediaItem: {
@@ -115,15 +116,23 @@ async function toggleMenu() {
 // (mirrors shift-drop on the sidebar).
 async function handleSelect(tool: ProviderTool, taskType: string, event?: MouseEvent) {
   showMenu.value = false
-  await sendToTool(props.mediaItem as any, tool, taskType, undefined, undefined, { add: event?.shiftKey === true })
-  emit('sent')
+  try {
+    await sendToTool(props.mediaItem as any, tool, taskType, undefined, undefined, { add: event?.shiftKey === true })
+    emit('sent')
+  } catch (error) {
+    addToast(error instanceof Error ? error.message : 'Failed to send asset to tool', 'warning')
+  }
 }
 
 // Instance rows target that exact tab (its project scope rides along).
 async function handleSelectInstance(tab: WorkspaceTab, tool: ProviderTool, taskType: string, event?: MouseEvent) {
   showMenu.value = false
-  await sendToTool(props.mediaItem as any, tool, taskType, tab.projectId ?? null, tab.instanceId ?? null, { add: event?.shiftKey === true })
-  emit('sent')
+  try {
+    await sendToTool(props.mediaItem as any, tool, taskType, tab.projectId ?? null, tab.instanceId ?? null, { add: event?.shiftKey === true })
+    emit('sent')
+  } catch (error) {
+    addToast(error instanceof Error ? error.message : 'Failed to send asset to tool', 'warning')
+  }
 }
 
 // Close menu when clicking outside

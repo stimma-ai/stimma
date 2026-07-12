@@ -4,6 +4,7 @@
  */
 
 import type { ProviderTool } from '../composables/useProvidersApi'
+import type { MediaType } from './mediaTypes'
 
 export interface MultiInputInfo {
   supportsMultiInput: boolean
@@ -115,7 +116,7 @@ export function getSingleInputMediaType(tool: ProviderTool): 'image' | 'video' |
 export function isSelectionValidForTool(
   tool: ProviderTool,
   selectedCount: number,
-  mediaType: 'image' | 'video'
+  mediaType: MediaType
 ): { valid: boolean; reason?: string } {
   const info = analyzeToolMultiInputCapability(tool)
 

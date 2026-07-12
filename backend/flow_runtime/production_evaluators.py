@@ -569,6 +569,18 @@ class ToolCallEvaluator:
                 tool_id, inputs, seed=request.seed,
                 project_id=request.project_id,
             )
+            if result.get("metadata_only"):
+                # Data tool (detect-objects, ...): no media output — the value
+                # is the result data itself (detections, image_size, ...).
+                payload = {
+                    k: v for k, v in result.items()
+                    if k not in ("metadata_only", "tool_name", "duration_ms")
+                }
+                return EvaluationResult(
+                    value=payload,
+                    media_ids=[],
+                    compute_duration_ms=result.get("duration_ms"),
+                )
             media_ids = [result["media_id"]]
             value: Any = result["media_id"]
         except EvaluatorError:

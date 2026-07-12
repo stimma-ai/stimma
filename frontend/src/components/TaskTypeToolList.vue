@@ -174,10 +174,9 @@ import {
   getTaskTypeIconPath,
   formatTaskTypeLabel,
   TASK_TYPE_ORDER,
-  getEligibleTaskTypesForMediaType,
-  isToolCompatibleWithMediaType
 } from '../utils/taskTypeIcons'
 import type { MediaType } from '../utils/mediaTypes'
+import { planToolHandoff } from '../utils/toolHandoff'
 
 const RECENT_STORAGE_KEY = 'send-to-tool' as const
 const MAX_RECENT = 5
@@ -185,6 +184,8 @@ const MAX_RECENT = 5
 interface Props {
   tools: ProviderTool[]
   mediaType?: MediaType | null
+  mediaTypes?: MediaType[]
+  selectionCount?: number
   loading?: boolean
   gradientId?: string
   /** List eligible open tool-instance tabs first (send-to-tool surfaces). */
@@ -196,6 +197,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   mediaType: null,
+  selectionCount: 1,
   loading: false,
   gradientId: 'stimma-gradient-tools',
   showOpenInstances: false,
@@ -210,6 +212,9 @@ const emit = defineEmits<{
 const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const selectedTaskType = ref<string | null>(null)
+const effectiveMediaTypes = computed(() =>
+  props.mediaTypes?.length ? props.mediaTypes : (props.mediaType != null ? [props.mediaType] : [])
+)
 
 // Live shift state: while held, hovered rows show a green + (shift-click adds
 // to the tool's inputs instead of replacing them). Mirrors shift-drag on the
@@ -237,8 +242,12 @@ onUnmounted(() => {
 // Eligibility honors per-tool x-accept-media overrides (e.g. a video-only filter).
 const eligibleTools = computed(() => {
   const available = props.tools.filter(t => t.availability === 'available')
-  if (props.mediaType == null) return available
-  return available.filter(t => isToolCompatibleWithMediaType(t, props.mediaType).compatible)
+  if (effectiveMediaTypes.value.length === 0) return available
+  return available.filter(t => planToolHandoff({
+    tool: t,
+    mediaTypes: effectiveMediaTypes.value,
+    count: props.selectionCount,
+  }).eligible)
 })
 
 // Group tools by task type, sorted within each group
@@ -251,11 +260,15 @@ const groupedTools = computed(() => {
     if (aPinned !== bPinned) return bPinned - aPinned
     return a.name.localeCompare(b.name)
   })
-  const eligibleTaskTypes = props.mediaType != null ? getEligibleTaskTypesForMediaType(props.mediaType) : null
   for (const tool of sorted) {
     const toolTaskTypes = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
     for (const taskType of toolTaskTypes) {
-      if (eligibleTaskTypes && !eligibleTaskTypes.includes(taskType)) continue
+      if (effectiveMediaTypes.value.length > 0 && !planToolHandoff({
+        tool,
+        mediaTypes: effectiveMediaTypes.value,
+        count: props.selectionCount,
+        requestedTaskType: taskType,
+      }).eligible) continue
       if (!groups[taskType]) groups[taskType] = []
       groups[taskType].push(tool)
     }
@@ -359,9 +372,12 @@ function handleInstanceClick(row: { tab: WorkspaceTab; tool: ProviderTool }, eve
 // Get the first eligible task type for a tool (used in flat search results)
 function getToolPrimaryTaskType(tool: ProviderTool): string {
   const toolTaskTypes = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
-  if (props.mediaType == null) return toolTaskTypes[0] || tool.task_type || ''
-  const eligibleTaskTypes = getEligibleTaskTypesForMediaType(props.mediaType)
-  return toolTaskTypes.find(tt => eligibleTaskTypes.includes(tt)) || tool.task_type || ''
+  if (effectiveMediaTypes.value.length === 0) return toolTaskTypes[0] || tool.task_type || ''
+  return planToolHandoff({
+    tool,
+    mediaTypes: effectiveMediaTypes.value,
+    count: props.selectionCount,
+  }).taskType || tool.task_type || ''
 }
 
 function selectTaskType(taskType: string) {

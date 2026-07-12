@@ -33,6 +33,7 @@
         class="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border border-edge-subtle hover:border-purple-400/60 transition-colors cursor-pointer"
         draggable="true"
         @dragstart="onDragStart"
+        @dragend="handleDragEnd"
         @click="$emit('view-source')"
         title="View source image — drag to reference images"
       >
@@ -105,6 +106,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
+import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
 
 const props = defineProps<{
   thumbnailUrl: string
@@ -168,8 +170,6 @@ watch(() => props.dismissed, (val) => {
 onUnmounted(stopCountdown)
 
 function onDragStart(event: DragEvent) {
-  if (!event.dataTransfer) return
-  event.dataTransfer.setData('application/x-media-id', String(props.mediaId))
-  event.dataTransfer.effectAllowed = 'copyMove'
+  createDragPreview(event, props.thumbnailUrl, props.mediaId)
 }
 </script>

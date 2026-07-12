@@ -266,6 +266,10 @@ def _build_view_image_result(tool_call_id: str, marker: dict) -> dict:
         from utils.image_ops import open_oriented
         img = open_oriented(resolved)
         w, h = img.size
+        # Markers written by current view_image point at a pre-rendered
+        # snapshot and carry the source's native size. Older markers point at
+        # the source file itself, so its pre-resize size IS the native size.
+        native_w, native_h = marker.get("native_size") or (w, h)
         if max(w, h) > max_side:
             scale = max_side / max(w, h)
             w, h = int(w * scale), int(h * scale)
@@ -286,7 +290,15 @@ def _build_view_image_result(tool_call_id: str, marker: dict) -> dict:
             "content": f"Error loading image {file_path}: {e}",
         }
 
-    text = f"Image loaded ({w}x{h}px). Analyze what you see."
+    if (native_w, native_h) != (w, h):
+        text = (
+            f"Image loaded: native size {native_w}x{native_h}px, displayed downscaled "
+            f"at {w}x{h}px. Express pixel coordinates in the native {native_w}x{native_h} "
+            f"frame (estimate positions as fractions of the displayed image, then scale). "
+            f"Analyze what you see."
+        )
+    else:
+        text = f"Image loaded ({w}x{h}px). Analyze what you see."
 
     faces = marker.get("faces")
     if faces:

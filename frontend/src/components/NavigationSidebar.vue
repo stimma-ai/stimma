@@ -916,7 +916,9 @@ import { useWebSocket } from '../composables/useWebSocket'
 import { setPendingMedia } from '../composables/usePendingMedia'
 import { makeProfileKey } from '../utils/storageKeys'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
-import { createTaskTypeIconComponent, isToolCompatibleWithMediaType, getEligibleTaskTypesForMediaType } from '../utils/taskTypeIcons'
+import { createTaskTypeIconComponent } from '../utils/taskTypeIcons'
+import { planToolHandoff } from '../utils/toolHandoff'
+import { addToast } from '../composables/useToasts'
 import { useGenerationStatus } from '../composables/useGenerationStatus'
 import { useUnseenActivity } from '../composables/useUnseenActivity'
 import { useAgentActivity } from '../composables/useAgentActivity'
@@ -997,7 +999,7 @@ const tabsContextMenu = useWorkspaceTabsContextMenu()
 useFlowCounts()
 
 // Drag store
-const { draggedMediaInfo, draggedMediaType, isDraggingGrid } = useDragStore()
+const { draggedMediaInfo, draggedMediaItems, draggedMediaCount } = useDragStore()
 
 // APIs
 const { getSavedViews, getBoard, getProject, createBoard: apiCreateBoard, createProject: apiCreateProject, updateBoard, updateProject } = useMediaApi()
@@ -1100,11 +1102,14 @@ const toolCompatibility = computed(() => {
   const dragged = draggedMediaInfo.value
   if (!dragged) return map
 
-  const mediaType = draggedMediaType.value
   const checkTool = (tool: any) => {
-    const result = isToolCompatibleWithMediaType(tool, mediaType)
-    if (!result.compatible) {
-      map.set(tool.full_tool_id, result)
+    const result = planToolHandoff({
+      tool,
+      items: draggedMediaItems.value,
+      count: draggedMediaCount.value,
+    })
+    if (!result.eligible) {
+      map.set(tool.full_tool_id, { compatible: false, reason: result.reason })
     }
   }
 
@@ -1565,23 +1570,19 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
   const mediaId = mediaIds[0]
 
   if (tab.type === 'tool') {
-    if (isDraggingGrid.value) return
-    if (!isToolCompatible(tab.entityId)) return
     const tool = allToolsMap.value.get(tab.entityId)
     if (!tool) return
 
     emit('media-dropped-on-tool', { fullToolId: tab.entityId, mediaId, instanceId: tab.instanceId })
     try {
-      const toolTaskTypes = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
-      const eligibleTaskTypes = getEligibleTaskTypesForMediaType(draggedMediaType.value)
-      const targetTaskType = toolTaskTypes.find((tt: string) => eligibleTaskTypes.includes(tt)) || tool.task_type
       // Pass all dropped ids (multi-select drag) so they batch instead of only the first.
       // Target THIS row's instance, not just the tool+project.
       // Shift-drop adds to the tool's existing inputs; plain drop replaces them.
-      await sendToTool(mediaIds.length > 1 ? mediaIds : mediaId, { full_tool_id: tool.full_tool_id, task_type: tool.task_type, parameter_schema: tool.parameter_schema }, targetTaskType, tab.projectId ?? null, tab.instanceId ?? null, { add })
+      await sendToTool(mediaIds.length > 1 ? mediaIds : mediaId, tool, undefined, tab.projectId ?? null, tab.instanceId ?? null, { add })
       if (props.isMobile) emit('close')
     } catch (error) {
       console.error('Failed to send media to tool:', error)
+      addToast(error instanceof Error ? error.message : 'Failed to send assets to tool', 'warning')
     }
   } else if (tab.type === 'chat') {
     emit('media-dropped-on-chat', { chatId: parseInt(tab.entityId, 10), mediaId })

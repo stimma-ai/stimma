@@ -4702,7 +4702,9 @@ async function handleDragStart(event) {
   // application/x-media-id payload (read by the chat/tool/picker drop zones)
   // and a compact drag image, all synchronously within the dragstart gesture.
   const thumbnailUrl = getThumbnailUrl(currentItem.value.file_hash, 128)
-  createDragPreview(event, thumbnailUrl, currentItem.value.id)
+  const fileFormat = currentItem.value.file_format || ''
+  const itemIsVideo = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'].includes(fileFormat.toLowerCase())
+  createDragPreview(event, thumbnailUrl, currentItem.value.id, fileFormat, itemIsVideo)
 }
 
 // Drag handle on the control strip: an explicit "drag the file out" affordance

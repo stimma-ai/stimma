@@ -8,6 +8,7 @@ import {
 } from '../utils/toolSchemaUtils'
 import { makeToolDbKey } from '../utils/storageKeys'
 import { getMediaType } from '../utils/mediaTypes'
+import { planToolHandoff, ToolHandoffError } from '../utils/toolHandoff'
 import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from './useWorkspaceTabs'
 
 interface MediaEntry {
@@ -62,7 +63,7 @@ export function useSendToTool() {
    */
   async function sendToTool(
     mediaIdOrItems: number | MediaItem | Array<number | MediaItem>,
-    tool: Pick<Tool, 'full_tool_id' | 'task_type'> & { parameter_schema?: Record<string, any> },
+    tool: Pick<Tool, 'full_tool_id' | 'task_type'> & Partial<Tool>,
     targetTaskType?: string,
     projectId?: number | null,
     instanceId?: string | null,
@@ -70,10 +71,12 @@ export function useSendToTool() {
   ) {
     const add = opts?.add === true
     // Use the target task type if provided, otherwise fall back to tool's primary task type
-    const effectiveTaskType = targetTaskType || tool.task_type
+    let effectiveTaskType = targetTaskType || tool.task_type
     // Normalize to an array of full MediaItem records (fetching any bare IDs).
     const fetchItem = async (v: number | MediaItem): Promise<MediaItem> =>
-      typeof v === 'number' ? (await axios.get(`/api/media/${v}`)).data : v
+      typeof v === 'number' || !v.file_format
+        ? (await axios.get(`/api/media/${typeof v === 'number' ? v : v.id}`)).data
+        : v
     let mediaItems: MediaItem[]
     if (Array.isArray(mediaIdOrItems)) {
       mediaItems = await Promise.all(mediaIdOrItems.map(fetchItem))
@@ -94,6 +97,55 @@ export function useSendToTool() {
         console.warn('Failed to fetch tool schema for send-to-tool:', e)
       }
     }
+
+    // Resolve structured members for accurate type planning. A video set must
+    // target video tools in every UI, while the set itself still counts as one
+    // transfer for the existing set/batch semantics below.
+    const structuredMembers = new Map<number, MediaItem[]>()
+    const planningItems: MediaItem[] = []
+    for (const item of mediaItems) {
+      const fmt = item.file_format
+      if (fmt === 'stimmagrid.json') {
+        throw new ToolHandoffError('Grids cannot be sent to tools')
+      }
+      if (fmt !== 'stimmaset.json' && fmt !== 'stimmagrid.json') {
+        planningItems.push(item)
+        continue
+      }
+      try {
+        const { data } = await axios.get(`/api/media/${item.id}/content`)
+        const members = fmt === 'stimmaset.json' ? (data.items || []) : (data.cells || [])
+        const resolvedItems = members
+          .filter((member: any) => member.resolved?.media_id || member.resolved?.id)
+          .map((member: any) => ({
+            ...member.resolved,
+            id: member.resolved.media_id ?? member.resolved.id,
+            file_path: member.resolved.file_path ?? member.path,
+            file_hash: member.resolved.file_hash,
+            file_format: member.resolved.file_format,
+            is_video: member.resolved.is_video,
+            is_audio: member.resolved.is_audio,
+            width: member.resolved.width,
+            height: member.resolved.height,
+          }))
+        structuredMembers.set(item.id, resolvedItems)
+        planningItems.push(...(resolvedItems.length > 0 ? resolvedItems : [item]))
+      } catch (e) {
+        console.warn('Failed to inspect structured media for handoff:', e)
+        planningItems.push(item)
+      }
+    }
+
+    const plan = planToolHandoff({
+      tool,
+      items: planningItems,
+      count: mediaItems.length,
+      requestedTaskType: targetTaskType,
+    })
+    if (!plan.eligible || !plan.taskType) {
+      throw new ToolHandoffError(plan.reason || 'These assets cannot be sent to this tool')
+    }
+    effectiveTaskType = plan.taskType
 
     // Batch detection: per the plan, N items in ONE media slot = a batch (run the
     // tool once per item). This holds whether the slot is single-valued or an
@@ -123,26 +175,7 @@ export function useSendToTool() {
       for (const item of mediaItems) {
         const fmt = item.file_format
         if (fmt === 'stimmaset.json' || fmt === 'stimmagrid.json') {
-          try {
-            const { data } = await axios.get(`/api/media/${item.id}/content`)
-            const members = fmt === 'stimmaset.json' ? (data.items || []) : (data.cells || [])
-            for (const member of members) {
-              const resolved = member.resolved
-              if (resolved?.media_id || resolved?.id) {
-                expanded.push({
-                  id: resolved.media_id ?? resolved.id,
-                  file_path: resolved.file_path ?? member.path,
-                  file_hash: resolved.file_hash,
-                  file_format: resolved.file_format,
-                  is_video: resolved.is_video,
-                  width: resolved.width,
-                  height: resolved.height,
-                })
-              }
-            }
-          } catch (e) {
-            console.warn('Failed to expand structured media for batch:', e)
-          }
+          expanded.push(...(structuredMembers.get(item.id) || []))
         } else {
           expanded.push(item)
         }

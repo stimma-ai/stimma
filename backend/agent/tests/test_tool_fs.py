@@ -176,6 +176,48 @@ def test_non_generative_stub_has_no_params_from():
     assert "params_from" not in text
 
 
+def test_metadata_only_stub_documents_dict_return():
+    """A metadata-only data tool (detect-objects) must not promise a ToolResult —
+    it returns a plain dict, and the stub says so with the output keys."""
+
+    @dataclass
+    class MetaDescriptor(FakeDescriptor):
+        metadata: dict = field(default_factory=lambda: {"metadata_only": True})
+        output_schema: dict = field(default_factory=lambda: {
+            "type": "object",
+            "properties": {
+                "detections": {"type": "array"},
+                "count": {"type": "integer"},
+                "image_size": {"type": "object"},
+            },
+        })
+
+    binding = tool_fs.ToolBinding(
+        func_name="detect_objects",
+        module="detect_objects",
+        task_type="detect-objects",
+        tool_id="builtin:detect-objects",
+        descriptor=MetaDescriptor(
+            name="Detect Objects",
+            description="Find objects.",
+            task_types=["detect-objects"],
+            parameter_schema={
+                "type": "object",
+                "properties": {
+                    "subject": {"type": "string", "description": "What to find."},
+                    "input_images": {"type": "array"},
+                },
+                "required": ["subject", "input_images"],
+            },
+        ),
+    )
+    text, _ = tool_fs.render_tool_stub(binding)
+    ast.parse(text)
+    assert ") -> dict:" in text
+    assert "ToolResult" not in text
+    assert "detections" in text and "image_size" in text
+
+
 def test_large_enum_spills_to_file_not_signature():
     m = tool_fs.build_manifest(_registry())
     binding = m.by_module["text_to_image"]["big_lora_model"]

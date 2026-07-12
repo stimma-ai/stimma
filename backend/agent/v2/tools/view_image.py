@@ -168,8 +168,18 @@ async def view_image(path: str = None, media_id: int = None, detail: str = "low"
     try:
         from utils.image_ops import open_oriented
         img = open_oriented(resolved)
+        native_w, native_h = img.size
         img = _downscale(img, max_side)
         w, h = img.size
+        # Snapshot the rendered pixels to a temp file and point the marker at
+        # the snapshot, not the source. The conversation builder re-reads the
+        # marker path at every message build, so pointing at the live file
+        # means an overwrite silently rewrites what earlier views appear to
+        # show — the agent then sees "the same image" and invents cache bugs.
+        if img.mode not in ("RGB", "RGBA", "L", "LA", "P", "1"):
+            img = img.convert("RGB")
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        img.save(tmp.name, format="PNG")
     except Exception as e:
         return f"Error opening image: {e}"
 
@@ -177,8 +187,10 @@ async def view_image(path: str = None, media_id: int = None, detail: str = "low"
     # and inject it as multimodal content at message-build time.
     result_data = {
         "__view_image__": True,
-        "path": str(resolved),
+        "path": tmp.name,
+        "source_path": str(resolved),
         "size": [w, h],
+        "native_size": [native_w, native_h],
         "detail": detail,
     }
 

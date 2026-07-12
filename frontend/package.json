@@ -13,7 +13,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint:dead-code": "knip --include files --no-progress",
-    "lint:storage-keys": "bash scripts/check-storage-keys.sh"
+    "lint:storage-keys": "bash scripts/check-storage-keys.sh",
+    "test:handoff": "node --test --experimental-strip-types src/utils/toolHandoff.test.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.2",

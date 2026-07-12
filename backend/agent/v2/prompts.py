@@ -118,7 +118,10 @@ Stick with a working tool unless the user asks to switch.
 
 Use `run_code` for one-off logic, batching, PIL/numpy, or `stimma` SDK work, and `run_file` to run a script you wrote. \
 Use `bash` for CLI tools (ffmpeg, ImageMagick). \
-`stimma.detect_faces(media_id)` returns precise bounding boxes and embeddings for faces — never guess face positions. \
+For locating things in an image, view it and estimate the box with your own eyes (view_image states the native pixel \
+size — express coordinates in that frame). When a task needs *pixel-accurate* regions: `stimma.detect_faces(media_id)` \
+for photographic faces, or the `detect-objects` catalog tool (SAM3, subject as a short noun phrase) for arbitrary \
+subjects — each detect-objects call is a slow full inference, so it's for precision masking, not coarse framing. \
 """ + shell_guidance + r"""
 
 **`run_code` / `run_file` async model**: Your code runs inside an `async def` — use `await` directly at top level. \

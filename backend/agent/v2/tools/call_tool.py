@@ -216,6 +216,76 @@ def _check_failure_block(
         )
 
 
+async def _execute_metadata_only_tool(
+    provider,
+    tool_descriptor,
+    tool_id: str,
+    task_type: str,
+    final_params: Dict[str, Any],
+    started_at: float,
+) -> Dict[str, Any]:
+    """Execute a builtin metadata-only tool (detect-objects, ...) in-process.
+
+    These tools return data (bounding boxes, scores), not media, so the
+    generation queue — whose whole pipeline assumes an output file to ingest —
+    is the wrong transport. Execute directly and hand the provider's result
+    metadata back as the tool result.
+    """
+    from providers.base import ExecutionResult
+
+    parameters = {
+        k: v for k, v in final_params.items()
+        if not k.startswith("_") and k != "input_media_ids"
+    }
+
+    # The provider needs real file paths; resolve any library media ids.
+    input_images = parameters.get("input_images")
+    if isinstance(input_images, list):
+        resolved_paths = []
+        for img in input_images:
+            media_id = None
+            if isinstance(img, int) and not isinstance(img, bool):
+                media_id = img
+            elif isinstance(img, str) and img.isdigit():
+                media_id = int(img)
+            if media_id is None:
+                resolved_paths.append(img)
+                continue
+            from database_registry import get_database_registry
+            db = get_database_registry().get_database(get_current_profile())
+            async with db.async_session_maker() as resolve_session:
+                result = await resolve_session.execute(
+                    select(MediaItem.file_path).where(MediaItem.id == media_id)
+                )
+                file_path = result.scalar_one_or_none()
+            if not file_path:
+                raise ValueError(f"Media {media_id} not found in library")
+            resolved_paths.append(file_path)
+        parameters["input_images"] = resolved_paths
+
+    exec_result = None
+    async for progress_or_result in provider.execute(
+        tool_id=tool_descriptor.id,
+        parameters=parameters,
+    ):
+        if isinstance(progress_or_result, ExecutionResult):
+            exec_result = progress_or_result
+
+    if exec_result is None:
+        raise RuntimeError(f"Tool '{tool_id}' did not return a result")
+    if not exec_result.success:
+        raise RuntimeError(exec_result.error or f"Tool '{tool_id}' failed")
+
+    return {
+        "metadata_only": True,
+        "tool_id": tool_id,
+        "tool_name": tool_descriptor.name,
+        "task_type": task_type,
+        "duration_ms": int((time.perf_counter() - started_at) * 1000),
+        **(exec_result.metadata or {}),
+    }
+
+
 async def execute_call_tool(
     tool_id: str,
     parameters: Optional[Dict[str, Any]] = None,
@@ -297,11 +367,14 @@ async def execute_call_tool(
     input_media_ids = final_params.get("input_media_ids")
     if isinstance(input_images, list) and not input_media_ids:
         derived_ids = []
+        resolved_inputs = []
         for img in input_images:
             if isinstance(img, int):
                 derived_ids.append(img)
+                resolved_inputs.append(img)
             elif isinstance(img, str) and img.isdigit():
                 derived_ids.append(int(img))
+                resolved_inputs.append(img)
             elif isinstance(img, str):
                 # Tolerate a `media:<id>` / `media_<id>` reference — the agent
                 # reasonably reaches for it, and silently dropping it surfaces
@@ -311,6 +384,7 @@ async def execute_call_tool(
                     ref = prefix_match.group(1)
                     if ref.isdigit():
                         derived_ids.append(int(ref))
+                        resolved_inputs.append(int(ref))
                         continue
                     # A media-prefixed ref with a non-numeric id is malformed —
                     # fail fast and name it rather than treating it as a path.
@@ -318,7 +392,46 @@ async def execute_call_tool(
                         f"Invalid media reference {img!r}: expected 'media:<id>' "
                         "with a numeric library media id."
                     )
-                # Workspace path — resolve to media_id by matching filename
+                # A file that exists on disk (workspace-relative or absolute) is
+                # a valid input in its own right — files the agent just wrote
+                # with PIL are not in the library yet, and requiring a
+                # library.save roundtrip first is an artificial boundary.
+                # Implicitly import it into the library (deduped by path and
+                # content hash) so the generated asset's lineage references a
+                # durable media id — a raw workspace path in source_inputs
+                # outlives the workspace and renders as "Unavailable".
+                workspace_dir = kwargs.get("workspace_dir")
+                candidate = img
+                if not os.path.isabs(candidate) and workspace_dir:
+                    candidate = os.path.join(str(workspace_dir), candidate)
+                if os.path.isfile(candidate):
+                    abs_candidate = os.path.abspath(candidate)
+                    imported_id = None
+                    try:
+                        from database_registry import get_database_registry
+                        from pathlib import Path as _Path
+                        from .library import resolve_or_import_input_file
+                        import_db = get_database_registry().get_database(get_current_profile())
+                        async with import_db.async_session_maker() as import_session:
+                            imported_id = await resolve_or_import_input_file(
+                                import_session,
+                                abs_candidate,
+                                _Path(str(workspace_dir)) if workspace_dir else None,
+                                project_id=kwargs.get("project_id"),
+                            )
+                    except Exception as e:
+                        log.warning(f"[call_tool_v2] Could not import input file '{img}' into library: {e}")
+                    if imported_id:
+                        derived_ids.append(imported_id)
+                        resolved_inputs.append(imported_id)
+                        log.info(f"[call_tool_v2] Imported on-disk input '{img}' as media_id {imported_id}")
+                    else:
+                        # Import failed — fall back to the raw path so the
+                        # generation itself still runs.
+                        resolved_inputs.append(abs_candidate)
+                        log.info(f"[call_tool_v2] Using on-disk input file '{img}'")
+                    continue
+                # Not on disk — resolve to a library media_id by matching filename
                 basename = os.path.basename(img)
                 from database_registry import get_database_registry
                 db_for_resolve = get_database_registry().get_database(get_current_profile())
@@ -331,18 +444,32 @@ async def execute_call_tool(
                     row = result.first()
                     if row:
                         derived_ids.append(row[0])
+                        resolved_inputs.append(img)
                         log.info(f"[call_tool_v2] Resolved workspace path '{basename}' to media_id {row[0]}")
                     else:
                         # Don't drop it silently — an unresolved entry becomes an
                         # empty input list and the provider reports the misleading
                         # "No input media provided". Fail loudly, naming the value.
                         raise ValueError(
-                            f"Could not resolve input image {img!r} to a library media. "
-                            "Pass a library media id (int), a digit string, or an existing "
-                            "workspace filename — not a 'media:<id>'-style ref with a non-numeric id."
+                            f"Could not resolve input image {img!r}: not an existing "
+                            "file (checked relative to the workspace) and no library "
+                            "media has that filename. Pass a library media id (int), "
+                            "a digit string, or a path to a file that exists."
                         )
+            else:
+                resolved_inputs.append(img)
+        final_params["input_images"] = resolved_inputs
         if derived_ids:
             final_params["input_media_ids"] = derived_ids
+
+    # 5a. Metadata-only builtin tools (e.g. detect-objects) don't produce media —
+    #     the generation queue is image-shaped end to end (output file, ingest,
+    #     result_media_id), so route them around it and execute in-process,
+    #     returning the provider's metadata (detections, image_size, ...) directly.
+    if getattr(provider, "provider_type", None) == "builtin" and (getattr(tool_descriptor, "metadata", None) or {}).get("metadata_only"):
+        return await _execute_metadata_only_tool(
+            provider, tool_descriptor, tool_id, task_type, final_params, started_at,
+        )
 
     # 5b. Inline controlnet preprocessing when the agent passed controlnet=
     if cn_preprocessor:
@@ -670,6 +797,12 @@ async def call_tool(
         )
     except Exception as e:
         return f"Error: {e}"
+
+    if result.get("metadata_only"):
+        # Data tool (detect-objects, ...): no media output — return the result
+        # data (detections, image_size, ...) directly.
+        payload = {k: v for k, v in result.items() if k not in ("metadata_only", "tool_name")}
+        return json.dumps(payload)
 
     media_id = result["media_id"]
     workspace_filename = os.path.basename(result["path"]) if result.get("path") else None

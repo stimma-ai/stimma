@@ -410,3 +410,165 @@ async def test_run_code_llm_uses_sdk_helper(session, test_chat, tmp_path, monkey
     )
 
     assert result == "LLM output"
+
+
+@pytest.mark.asyncio
+async def test_run_code_common_builtins_available(session, test_chat, tmp_path):
+    """The introspection builtins and exception classes agents reach for
+    reflexively (type, dir, repr, except ValueError, class definitions) must
+    work — each missing name costs the agent a failed round-trip that reads
+    as a bug, not a boundary."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    result = await run_code(
+        code=(
+            "print(type([]).__name__)\n"
+            "print('upper' in dir(''))\n"
+            "print(repr('x'))\n"
+            "try:\n"
+            "    int('nope')\n"
+            "except ValueError:\n"
+            "    print('caught')\n"
+            "class Point:\n"
+            "    def __init__(self, x):\n"
+            "        self.x = x\n"
+            "print(Point(7).x)\n"
+        ),
+        session=session,
+        chat_id=test_chat.id,
+        workspace_dir=workspace,
+    )
+
+    assert result.splitlines() == ["list", "True", "'x'", "caught", "7"]
+
+
+@pytest.mark.asyncio
+async def test_run_code_os_is_workspace_scoped(session, test_chat, tmp_path):
+    """``os`` provides the common filesystem ops jailed to the workspace, and
+    names the boundary clearly for anything it doesn't provide."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "a.txt").write_text("hello")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("secret")
+
+    result = await run_code(
+        code=(
+            "import os\n"
+            "print(os.getcwd() == str(__import__('pathlib').Path.cwd()))\n"
+            "print(sorted(os.listdir('.')))\n"
+            "print(os.path.exists('a.txt'))\n"
+            "os.remove('a.txt')\n"
+            "print(os.path.exists('a.txt'))\n"
+            "print([f for _, _, files in os.walk('.') for f in files])\n"
+        ),
+        session=session,
+        chat_id=test_chat.id,
+        workspace_dir=workspace,
+    )
+    lines = result.splitlines()
+    assert lines[1] == "['a.txt']"
+    assert lines[2] == "True"
+    assert lines[3] == "False"
+    assert lines[4] == "[]"
+
+    denied = await run_code(
+        code=f"import os\nos.remove({str(outside)!r})\n",
+        session=session,
+        chat_id=test_chat.id,
+        workspace_dir=workspace,
+    )
+    assert "PermissionError" in denied
+    assert outside.exists()
+
+    unavailable = await run_code(
+        code="import os\nos.system('true')\n",
+        session=session,
+        chat_id=test_chat.id,
+        workspace_dir=workspace,
+    )
+    assert "os.system is not available in run_code" in unavailable
+
+
+@pytest.mark.asyncio
+async def test_run_code_glob_is_workspace_scoped(session, test_chat, tmp_path):
+    """``glob`` matches inside the workspace (relative patterns, recursive
+    ``**``) and refuses patterns whose base escapes the jail."""
+    workspace = tmp_path / "workspace"
+    (workspace / "sub").mkdir(parents=True)
+    (workspace / "a.png").touch()
+    (workspace / "b.txt").touch()
+    (workspace / "sub" / "c.png").touch()
+    (tmp_path / "outside.png").touch()
+
+    result = await run_code(
+        code=(
+            "import glob\n"
+            "from glob import glob as g\n"
+            "print(sorted(glob.glob('*.png')))\n"
+            "print(sorted(g('**/*.png', recursive=True)))\n"
+            "print(sorted(glob.iglob('*.txt')))\n"
+        ),
+        session=session,
+        chat_id=test_chat.id,
+        workspace_dir=workspace,
+    )
+    assert result.splitlines() == [
+        "['a.png']",
+        "['a.png', 'sub/c.png']",
+        "['b.txt']",
+    ]
+
+    denied = await run_code(
+        code="import glob\nglob.glob('../*')\n",
+        session=session,
+        chat_id=test_chat.id,
+        workspace_dir=workspace,
+    )
+    assert "PermissionError" in denied
+
+    unavailable = await run_code(
+        code="import glob\nglob.glob0('.', 'x')\n",
+        session=session,
+        chat_id=test_chat.id,
+        workspace_dir=workspace,
+    )
+    assert "glob.glob0 is not available in run_code" in unavailable
+
+
+@pytest.mark.asyncio
+async def test_library_sdk_ergonomics(session, test_chat, tmp_path, monkeypatch):
+    """The library SDK accepts the shapes agents naturally produce: save() takes
+    a PIL Image or path= alias, and get() results support attribute access
+    (info.path) alongside dict access — mirroring ToolResult."""
+    workspace = tmp_path / "workspace"
+    output_dir = tmp_path / "output"
+    workspace.mkdir()
+    output_dir.mkdir()
+
+    class _FakeWsManager:
+        async def broadcast(self, event, payload):
+            pass
+
+    monkeypatch.setattr("utils.websocket.ws_manager", _FakeWsManager())
+    monkeypatch.setattr("agent.v2.tools.library._get_default_folder", lambda _=None: str(output_dir))
+
+    result = await run_code(
+        code=(
+            "canvas = Image.new('RGB', (20, 20), (255, 255, 255))\n"
+            "saved = await stimma.library.save(item=canvas, tags=['composite'])\n"
+            "info = await stimma.library.get(saved['media_id'])\n"
+            "print(info.media_id == saved['media_id'])\n"
+            "print(info['media_id'] == saved['media_id'])\n"
+            "img2 = Image.new('RGB', (10, 10), (0, 0, 0))\n"
+            "img2.save('via_path.png')\n"
+            "saved2 = await stimma.library.save(path='via_path.png')\n"
+            "print(saved2['media_id'] > 0)\n"
+        ),
+        session=session,
+        chat_id=test_chat.id,
+        workspace_dir=workspace,
+    )
+
+    assert result.splitlines() == ["True", "True", "True"], result

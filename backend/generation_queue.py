@@ -2678,6 +2678,16 @@ class GenerationQueue:
             elif exec_result.metadata.get("output_path"):
                 actual_output_path = exec_result.metadata.get("output_path")
 
+            # A successful execution with no output file cannot be finalized —
+            # post-processing would fail on ingest with a bare ENOENT. This is
+            # the shape of a metadata-only tool (e.g. detect-objects) routed
+            # through the queue; those run in-process via the agent instead.
+            if not os.path.exists(actual_output_path):
+                raise ValueError(
+                    f"Tool produced no media output (expected {os.path.basename(actual_output_path)}). "
+                    "Metadata-only tools cannot run through the generation queue."
+                )
+
             # Legacy compatibility: create a result-like object for post-processing
             class ResultCompat:
                 pass

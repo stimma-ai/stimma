@@ -109,7 +109,8 @@ library filters rather than a semantic query.""",
         summary="Load metadata for one media item.",
         details="""\
 Use get when you already know the media ID and need its metadata or workspace
-file path.""",
+file path. The result supports both dict and attribute access: info["path"]
+or info.path.""",
         group="library",
         is_async=True,
     ),
@@ -120,7 +121,8 @@ file path.""",
         details="""\
 Library save is explicit. Generated results shown with stimma.show() may be
 displayed to the user, but save when the user asks to keep a durable asset.
-When saving an image you composed or edited in code (a path rather than a
+`item` accepts a ToolResult, a PIL Image, or a workspace path. When saving an
+image you composed or edited in code (an Image or path rather than a
 ToolResult), pass sources=[media_id, ...] for the images it was made from so
 the derivation shows up in lineage. ToolResults carry their own provenance.""",
         group="library",

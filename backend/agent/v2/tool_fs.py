@@ -374,6 +374,9 @@ def render_tool_stub(
     # result's recorded parameters. Synthesized like `controlnet` — not in the
     # provider schema, resolved at dispatch.
     supports_params_from = "prompt" in (schema.get("properties") or {})
+    # Data tools (detect-objects, ...) return a plain dict of results, not media.
+    metadata_only = bool((getattr(descriptor, "metadata", None) or {}).get("metadata_only"))
+    output_keys = list(((getattr(descriptor, "output_schema", None) or {}).get("properties") or {}).keys())
 
     lines: list[str] = []
     lines.append('"""AUTO-GENERATED — read-only. Regenerated when providers change."""')
@@ -382,7 +385,11 @@ def render_tool_stub(
     lines.append("")
     lines.append("# Annotations are illustrative; pass keyword arguments.")
     lines.append("#   media params accept a library media id (int) or a workspace path (str)")
-    lines.append("#   the returned ToolResult has: .media_id .path .seed .width .height")
+    if metadata_only:
+        keys_note = f" ({', '.join(output_keys)})" if output_keys else ""
+        lines.append(f"#   returns a plain dict of results{keys_note} — no media is generated")
+    else:
+        lines.append("#   the returned ToolResult has: .media_id .path .seed .width .height")
     lines.append("")
 
     # Signature
@@ -398,7 +405,7 @@ def render_tool_stub(
         lines.append(f"    controlnet: Literal[{cn_lit}] | None = None,")
     if supports_params_from:
         lines.append("    params_from: int | None = None,")
-    lines.append(") -> ToolResult:")
+    lines.append(") -> dict:" if metadata_only else ") -> ToolResult:")
 
     # Docstring
     doc: list[str] = []
@@ -419,6 +426,11 @@ def render_tool_stub(
     doc.append(f"    r = await {binding.func_name}(...)")
     doc.append("In a flow program.py:")
     doc.append(f'    tool("{binding.tool_id}", task_type="{binding.task_type}", ...)')
+
+    if metadata_only:
+        doc.append("")
+        keys_note = f" with keys: {', '.join(output_keys)}" if output_keys else ""
+        doc.append(f"Returns a plain dict{keys_note}. No media is generated.")
 
     documented = [p for p in params if p.doc and not p.is_auto_default]
     if documented:
