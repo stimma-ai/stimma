@@ -956,6 +956,7 @@ import { useTelemetry } from '../composables/useTelemetry'
 import { makeGlobalKey, makeToolDbKey } from '../utils/storageKeys'
 import { snapDimsToGrid as snapDimsToSchemaGrid } from '../utils/resolutionControls'
 import { getBlob, putBlob, deleteBlob } from '../utils/blobStorage'
+import { convertMaskDataUrl } from '../utils/maskFormat'
 import { getToolDefaults } from '../utils/generationDefaults'
 import { parseGenerationConfig, type GenerationConfigUpdate } from '../utils/parseGenerationConfig'
 import type { PromptMetadata } from '../types/generationMetadata'
@@ -2164,6 +2165,7 @@ const maskStorageKey = computed(() => tool.value ? makeToolDbKey(scopedToolId(to
 // Track if we've ever had a mask in this session (to avoid clearing on initial load)
 const hadMaskInSession = ref(false)
 let maskPersistTimeout: ReturnType<typeof setTimeout> | null = null
+let pendingHoppedMask: { mask: string; imagePath: string } | null = null
 
 // Watch maskDataUrl changes and persist (debounced)
 watch([maskDataUrl, inpaintSourceImage], ([newMask, newImage], [oldMask]) => {
@@ -2190,6 +2192,12 @@ watch([maskDataUrl, inpaintSourceImage], ([newMask, newImage], [oldMask]) => {
 // Load persisted mask when tool changes (only if image path matches)
 watch([() => tool.value?.full_tool_id, inpaintSourceImage], async ([newFullToolId, currentImage]) => {
   if (!newFullToolId) return
+  if (pendingHoppedMask?.imagePath === currentImage?.path) {
+    hadMaskInSession.value = true
+    maskDataUrl.value = pendingHoppedMask.mask
+    pendingHoppedMask = null
+    return
+  }
   const key = makeToolDbKey(scopedToolId(newFullToolId), 'mask')
   const stored = await getBlob<{ mask: string; imagePath: string }>(key).catch(() => null)
   // Bail if tool switched under us while the async load was in flight
@@ -3619,6 +3627,13 @@ async function loadPendingGeneration() {
   try {
     const data = JSON.parse(pendingConfig)
     sessionStorage.removeItem(storageKey)
+    const pendingMaskKey = makeToolDbKey(scopedToolId(tool.value.full_tool_id), 'pending_generation_mask')
+    const hoppedMask = data._hasMask
+      ? await getBlob<{ mask: string; format: typeof maskFormat.value }>(pendingMaskKey).catch(() => null)
+      : null
+    if (data._hasMask) {
+      await deleteBlob(pendingMaskKey).catch(() => { /* best-effort handoff cleanup */ })
+    }
 
     // Parse config into structured updates
     const update = parseGenerationConfig(data, {
@@ -3689,6 +3704,23 @@ async function loadPendingGeneration() {
           }
         }
         if (restored.length > 0) {
+          if (hoppedMask && hasMask.value) {
+            try {
+              const transferredMask = await convertMaskDataUrl(
+                hoppedMask.mask,
+                hoppedMask.format,
+                maskFormat.value,
+              )
+              const imagePath = restored[0].path
+              const key = maskStorageKey.value
+              if (key) await putBlob(key, { mask: transferredMask, imagePath })
+              pendingHoppedMask = { mask: transferredMask, imagePath }
+              hadMaskInSession.value = true
+              maskDataUrl.value = transferredMask
+            } catch (err) {
+              console.warn('Failed to restore mask from tool hop:', err)
+            }
+          }
           globalPrefs.value.inputImages = restored
         }
       }
@@ -3910,6 +3942,8 @@ async function handleHopToTool(targetTool: { full_tool_id: string; name: string 
       weight: l.weight,
       enabled: l.enabled
     }))
+    const currentMask = maskDataUrl.value
+    const currentMaskFormat = maskFormat.value
 
     // Collect input images: regular input images + video frames
     const allInputImages: any[] = [...(globalPrefs.value.inputImages || [])]
@@ -3939,7 +3973,8 @@ async function handleHopToTool(targetTool: { full_tool_id: string; name: string 
     const hopProjectId = targetTab ? (targetTab.projectId ?? null) : ownProjectScopeId
     const hopInstanceId = targetTab?.instanceId
       ?? resolveToolInstance(targetTool.full_tool_id, hopProjectId).instanceId
-    const storageKey = makeToolDbKey(toolInstanceScopedId(targetTool.full_tool_id, hopProjectId, hopInstanceId), 'pending_generation')
+    const targetScopedId = toolInstanceScopedId(targetTool.full_tool_id, hopProjectId, hopInstanceId)
+    const storageKey = makeToolDbKey(targetScopedId, 'pending_generation')
     const payload: Record<string, any> = {
       prompt: hopConfig.prompt,
       negative_prompt: hopConfig.negative_prompt,
@@ -3965,6 +4000,17 @@ async function handleHopToTool(targetTool: { full_tool_id: string; name: string 
     // Carry forward inspiration source if set
     if (remixSource.value) {
       payload._remixSource = remixSource.value
+    }
+
+    // Masks are too large for sessionStorage. Stage them in IndexedDB beside
+    // the pending handoff, then bind them to the target's copied image path
+    // when that ToolView consumes the hop.
+    const pendingMaskKey = makeToolDbKey(targetScopedId, 'pending_generation_mask')
+    if (currentMask && inpaintSourceImage.value?.path) {
+      await putBlob(pendingMaskKey, { mask: currentMask, format: currentMaskFormat })
+      payload._hasMask = true
+    } else {
+      await deleteBlob(pendingMaskKey).catch(() => { /* clear a superseded handoff */ })
     }
 
     sessionStorage.setItem(storageKey, JSON.stringify(payload))

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { planToolHandoff } from './toolHandoff.ts'
+import { convertMaskPixels } from './maskFormat.ts'
 
 function tool(overrides: Record<string, unknown> = {}) {
   return {
@@ -104,4 +105,29 @@ test('chooses the compatible facet of a multi-task tool', () => {
 
 test('keeps grids prohibited at the shared boundary', () => {
   assert.equal(planToolHandoff({ tool: tool(), mediaTypes: ['grid'], count: 1 }).eligible, false)
+})
+
+test('converts hopped masks between provider mask formats', () => {
+  const whiteBlack = new Uint8ClampedArray([
+    255, 255, 255, 255, // inpaint
+    0, 0, 0, 255,       // preserve
+  ])
+
+  assert.deepEqual(
+    [...convertMaskPixels(whiteBlack, 'white-black', 'alpha')],
+    [255, 255, 255, 0, 0, 0, 0, 255],
+  )
+  assert.deepEqual(
+    [...convertMaskPixels(whiteBlack, 'white-black', 'black-white')],
+    [0, 0, 0, 255, 255, 255, 255, 255],
+  )
+
+  const alpha = new Uint8ClampedArray([
+    255, 255, 255, 0, // inpaint
+    0, 0, 0, 255,     // preserve
+  ])
+  assert.deepEqual(
+    [...convertMaskPixels(alpha, 'alpha', 'white-black')],
+    [...whiteBlack],
+  )
 })
