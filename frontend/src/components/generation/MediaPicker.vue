@@ -848,6 +848,7 @@ import PaintEditorModal from './PaintEditorModal.vue'
 import CropEditorModal from './CropEditorModal.vue'
 import MediaPickerPopover from './MediaPickerPopover.vue'
 import { recordMediaInputUse, removeRecentMediaInput, type RecentInputKind } from '../../composables/useRecentMediaInputs'
+import { removeRecentMediaPick } from '../../composables/useRecentMediaPicks'
 import { getMediaType } from '../../utils/mediaTypes'
 
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl } = useMediaApi()
@@ -1620,9 +1621,10 @@ async function addFromMediaId(mediaId: number, replaceIndex?: number) {
     }
   } catch (error) {
     console.error('Failed to add from media library:', error)
-    // The item no longer exists — stop offering it in the Recent tab.
+    // The item no longer exists — stop offering it in the popover feeds.
     if (axios.isAxiosError(error) && error.response?.status === 404) {
       removeRecentMediaInput(mediaId)
+      removeRecentMediaPick(mediaId)
     }
   } finally {
     isUploading.value = false

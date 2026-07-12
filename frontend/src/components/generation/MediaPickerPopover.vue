@@ -35,7 +35,7 @@
           <button
             v-for="tile in visibleTiles"
             :key="tile.mediaId"
-            @click="$emit('pick', tile.mediaId)"
+            @click="onPick(tile)"
             class="relative aspect-square rounded-lg overflow-hidden border border-edge-subtle hover:border-edge-strong transition-all cursor-pointer"
             :title="tile.fileFormat.toUpperCase()"
           >
@@ -87,17 +87,21 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import MediaImage from '../media/MediaImage.vue'
 import MarkerBadges from '../MarkerBadges.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { recentMediaInputs, type RecentInputKind } from '../../composables/useRecentMediaInputs'
+import { recordMediaPick, recentMediaPicks } from '../../composables/useRecentMediaPicks'
 import { getMediaType } from '../../utils/mediaTypes'
+import { makeProfileKey } from '../../utils/storageKeys'
 
 /**
  * Anchored popover for filling a MediaPicker slot from library media instead
- * of the OS file dialog. Tabs are feeds the app already has (frecency-recent
- * inputs, generated, added, marked); picking emits the mediaId and the parent
- * runs it through the same addFromMediaId path as a library drag-drop.
+ * of the OS file dialog. Tabs are feeds the app already has (picks made here,
+ * frecency-recent inputs, generated, added, marked); picking emits the mediaId
+ * and the parent runs it through the same addFromMediaId path as a library
+ * drag-drop.
  */
 
 interface Props {
@@ -133,9 +137,10 @@ interface Tile {
   markers: TileMarker[]
 }
 
-type TabKey = 'recent' | 'generated' | 'added' | 'marked'
+type TabKey = 'recents' | 'recent' | 'generated' | 'added' | 'marked'
 
 const TABS: Array<{ key: TabKey; label: string; emptyHint: string }> = [
+  { key: 'recents', label: 'Recents', emptyHint: 'Nothing picked yet' },
   { key: 'recent', label: 'All', emptyHint: 'Nothing here yet' },
   { key: 'generated', label: 'Generated', emptyHint: 'Nothing generated yet' },
   { key: 'added', label: 'Imported', emptyHint: 'Nothing imported yet' },
@@ -146,16 +151,39 @@ const PAGE_SIZE = 30
 
 const { fetchMedia, getMarkers } = useMediaApi()
 
-const activeTab = ref<TabKey>('recent')
-const activeTabDef = computed(() => TABS.find(t => t.key === activeTab.value)!)
-const tiles = ref<Record<TabKey, Tile[] | null>>({ recent: null, generated: null, added: null, marked: null })
-const loading = ref<Record<TabKey, boolean>>({ recent: false, generated: false, added: false, marked: false })
+// Recents is scoped to the surrounding project (same convention as ToolView's
+// projectScopeId) — tool id and instance deliberately don't factor in.
+const route = useRoute()
+const projectId = computed<number | null>(() => {
+  const raw = route.query.project_id
+  if (raw == null) return null
+  const parsed = parseInt(String(Array.isArray(raw) ? raw[0] : raw), 10)
+  return Number.isFinite(parsed) ? parsed : null
+})
 
 // Image slots accept videos too (a frame is grabbed on pick) — mirror the
 // drop-zone rule so the feeds show everything the slot can take.
 const acceptedKinds = computed<RecentInputKind[]>(() =>
   props.accept === 'image' ? ['image', 'video'] : [props.accept]
 )
+
+// One key for all pickers: the popover remembers the last tab globally.
+const TAB_STORAGE_KEY = makeProfileKey('media_picker_popover', 'tab')
+
+function initialTab(): TabKey {
+  const stored = localStorage.getItem(TAB_STORAGE_KEY)
+  const storedTab = TABS.some(t => t.key === stored) ? (stored as TabKey) : null
+  const hasRecents = recentMediaPicks(acceptedKinds.value, projectId.value, 1).length > 0
+  // The remembered tab wins, except landing on an empty Recents tab — fall
+  // through to the default: Recents when it has something, otherwise All.
+  if (storedTab && (storedTab !== 'recents' || hasRecents)) return storedTab
+  return hasRecents ? 'recents' : 'recent'
+}
+
+const activeTab = ref<TabKey>(initialTab())
+const activeTabDef = computed(() => TABS.find(t => t.key === activeTab.value)!)
+const tiles = ref<Record<TabKey, Tile[] | null>>({ recents: null, recent: null, generated: null, added: null, marked: null })
+const loading = ref<Record<TabKey, boolean>>({ recents: false, recent: false, generated: false, added: false, marked: false })
 const mediaTypesParam = computed(() =>
   props.accept === 'image' ? 'images,videos' : props.accept === 'video' ? 'videos' : 'audio'
 )
@@ -188,6 +216,23 @@ async function loadTab(tab: TabKey) {
   loading.value[tab] = true
   try {
     switch (tab) {
+      case 'recents': {
+        // Picks made through this popover, straight from the local store — no
+        // fetch. Marker badges ride along only when a cached feed already
+        // holds the same item.
+        const markersById = new Map(
+          [...(tiles.value.generated ?? []), ...(tiles.value.added ?? [])].map(t => [t.mediaId, t.markers])
+        )
+        tiles.value.recents = recentMediaPicks(acceptedKinds.value, projectId.value, PAGE_SIZE).map(e => ({
+          mediaId: e.mediaId,
+          fileHash: e.fileHash,
+          fileFormat: e.fileFormat,
+          kind: e.kind,
+          ts: e.pickedAt,
+          markers: markersById.get(e.mediaId) ?? [],
+        }))
+        break
+      }
       case 'generated':
         tiles.value.generated = await fetchFeed({ is_generated: true, sort_by: 'created_desc' })
         break
@@ -239,7 +284,18 @@ async function loadTab(tab: TabKey) {
   }
 }
 
-watch(activeTab, tab => loadTab(tab), { immediate: true })
+watch(activeTab, tab => {
+  loadTab(tab)
+  localStorage.setItem(TAB_STORAGE_KEY, tab)
+}, { immediate: true })
+
+function onPick(tile: Tile) {
+  recordMediaPick(
+    { mediaId: tile.mediaId, fileHash: tile.fileHash, fileFormat: tile.fileFormat, kind: tile.kind },
+    projectId.value,
+  )
+  emit('pick', tile.mediaId)
+}
 
 // --- Positioning: below the anchor, clamped to the viewport; above if roomier ---
 const panel = ref<HTMLElement | null>(null)
