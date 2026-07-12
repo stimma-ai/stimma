@@ -133,6 +133,18 @@ fn model_info(model_id: &str) -> Option<ModelInfo> {
     }
 }
 
+// Mirrors backend/privacy_lockdown.py: truthy values of STIMMA_PRIVACY_LOCKDOWN.
+fn privacy_lockdown_enabled() -> bool {
+    std::env::var("STIMMA_PRIVACY_LOCKDOWN")
+        .map(|v| {
+            matches!(
+                v.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
+}
+
 fn models_dir(app: &tauri::AppHandle) -> PathBuf {
     let bundle_id = app.config().identifier.clone();
     let (_data, cache) = crate::get_app_dirs(&bundle_id);
@@ -335,6 +347,12 @@ async fn download_model_inner(
     if model_is_downloaded(app, model_id)? {
         let _ = on_event.send(DownloadEvent::Done);
         return Ok(());
+    }
+
+    // Already-downloaded models resolve above; only new downloads are blocked,
+    // mirroring the backend's model_cache lockdown behavior.
+    if privacy_lockdown_enabled() {
+        return Err("Privacy Lockdown is on; voice model downloads are disabled".to_string());
     }
 
     let known_total = info
