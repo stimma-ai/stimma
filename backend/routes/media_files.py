@@ -966,6 +966,70 @@ def _atomic_save(img: Image.Image, cache_path: Path, format: str, **kwargs):
             raise
 
 
+def _compute_face_crop_region(
+    orig_width: int,
+    orig_height: int,
+    faces_data: list | None,
+) -> tuple[int, int, int, int] | None:
+    """Square crop panned to the face centroid, clamped to the frame.
+
+    This is the single source of truth for face-aware thumbnail framing.
+    The MSE loop manifest exposes the same region (as an object-position)
+    so hover video previews line up with the cropped thumbnail.
+
+    Args:
+        orig_width/orig_height: Source dimensions in pixels.
+        faces_data: List of {bbox: {x, y, width, height}} in normalized coords.
+
+    Returns (x1, y1, x2, y2) in pixels, or None when there are no faces.
+    """
+    if not faces_data or not orig_width or not orig_height:
+        return None
+
+    total_x, total_y = 0, 0
+    for face in faces_data:
+        bbox = face['bbox']
+        total_x += (bbox['x'] + bbox['width'] / 2) * orig_width
+        total_y += (bbox['y'] + bbox['height'] / 2) * orig_height
+
+    faces_center_x = total_x / len(faces_data)
+    faces_center_y = total_y / len(faces_data)
+
+    crop_size = min(orig_width, orig_height)
+    crop_x1 = faces_center_x - crop_size / 2
+    crop_y1 = faces_center_y - crop_size / 2
+
+    if crop_x1 < 0:
+        crop_x1 = 0
+    if crop_y1 < 0:
+        crop_y1 = 0
+    if crop_x1 + crop_size > orig_width:
+        crop_x1 = orig_width - crop_size
+    if crop_y1 + crop_size > orig_height:
+        crop_y1 = orig_height - crop_size
+
+    return (int(crop_x1), int(crop_y1), int(crop_x1 + crop_size), int(crop_y1 + crop_size))
+
+
+def _face_crop_object_position(item: MediaItem, faces_data: list | None) -> dict | None:
+    """CSS object-position (percentages) matching the face-cropped thumbnail.
+
+    With object-fit: cover in a square container, `P%` aligns the point P% across
+    the source with P% across the container — so the visible region's left/top
+    edge lands at P% of the source overflow, exactly like the thumbnail crop.
+    """
+    region = _compute_face_crop_region(item.width, item.height, faces_data)
+    if not region:
+        return None
+    x1, y1, x2, y2 = region
+    overflow_x = item.width - (x2 - x1)
+    overflow_y = item.height - (y2 - y1)
+    return {
+        "x": round(x1 / overflow_x * 100, 2) if overflow_x > 0 else 50.0,
+        "y": round(y1 / overflow_y * 100, 2) if overflow_y > 0 else 50.0,
+    }
+
+
 def _generate_thumbnail_sync(
     file_path: str,
     file_format: str,
@@ -1067,39 +1131,7 @@ def _generate_thumbnail_sync(
             new_height = max(1, int(height * scale))
         else:
             # Smart crop calculation - pan to center on faces without zooming
-            crop_region = None
-            if faces_data and len(faces_data) > 0:
-                total_x, total_y = 0, 0
-                for face in faces_data:
-                    bbox = face['bbox']
-                    face_center_x = (bbox['x'] + bbox['width'] / 2) * orig_width
-                    face_center_y = (bbox['y'] + bbox['height'] / 2) * orig_height
-                    total_x += face_center_x
-                    total_y += face_center_y
-
-                faces_center_x = total_x / len(faces_data)
-                faces_center_y = total_y / len(faces_data)
-
-                if orig_width < orig_height:
-                    crop_width = orig_width
-                    crop_height = orig_width
-                else:
-                    crop_height = orig_height
-                    crop_width = orig_height
-
-                crop_x1 = faces_center_x - crop_width / 2
-                crop_y1 = faces_center_y - crop_height / 2
-
-                if crop_x1 < 0:
-                    crop_x1 = 0
-                if crop_y1 < 0:
-                    crop_y1 = 0
-                if crop_x1 + crop_width > orig_width:
-                    crop_x1 = orig_width - crop_width
-                if crop_y1 + crop_height > orig_height:
-                    crop_y1 = orig_height - crop_height
-
-                crop_region = (int(crop_x1), int(crop_y1), int(crop_x1 + crop_width), int(crop_y1 + crop_height))
+            crop_region = _compute_face_crop_region(orig_width, orig_height, faces_data)
 
             if crop_region:
                 img = img.crop(crop_region)
@@ -1189,6 +1221,21 @@ async def get_mse_loop_manifest(
 ):
     item = await _find_loop_media(session, file_hash)
     manifest, _ = await _prepare_loop_media(item, session)
+    return await _manifest_with_face_position(manifest, item, session)
+
+
+async def _manifest_with_face_position(
+    manifest: dict, item: MediaItem, session: AsyncSession
+) -> dict:
+    """Attach the thumbnail's face-crop framing to a loop manifest response.
+
+    Computed per-request (not baked into the disk cache) because face data can
+    arrive after the loop assets were prepared.
+    """
+    faces_data = await _get_faces_data(session, item.id)
+    position = _face_crop_object_position(item, faces_data)
+    if position:
+        manifest = {**manifest, "face_object_position": position}
     return manifest
 
 
@@ -2358,7 +2405,7 @@ async def get_mse_loop_manifest_by_db_guid(
 ):
     item = await _find_loop_media(session, file_hash)
     manifest, _ = await _prepare_loop_media(item, session)
-    return manifest
+    return await _manifest_with_face_position(manifest, item, session)
 
 
 @router.get("/db/{db_guid}/media/by-hash/{file_hash}/mse-loop/{part}")

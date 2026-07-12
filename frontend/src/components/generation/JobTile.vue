@@ -184,6 +184,7 @@ async function activateVideo() {
     const v = videoEl.value
     if (!v || !videoActive.value) return // left during mount
     msePlayback = new MseLoopPlayback(v, getMseLoopUrls(hash), {
+      applyFaceCrop: props.imageMode !== 'fit',
       initialLoops: 3,
       appendLoops: 2,
       bufferAheadLoops: 1,
@@ -191,7 +192,7 @@ async function activateVideo() {
       onError: () => emit('media-load-error', props.job.result_media_id!),
     })
     void msePlayback.start().catch(() => {})
-  }, 200)
+  }, 150)
 }
 
 function releaseVideo() {

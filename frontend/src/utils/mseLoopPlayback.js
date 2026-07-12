@@ -71,6 +71,14 @@ export class MseLoopPlayback {
     this.onReady = options.onReady || null
     this.onError = options.onError || null
     this.onMaintenanceError = options.onMaintenanceError || null
+    // Align an object-fit: cover video with its face-cropped thumbnail. Only
+    // correct for square containers; leave off for contain/full-frame players.
+    // Also keeps the video invisible until a frame has actually been presented:
+    // the compositor can paint the first frame before a just-set object-position
+    // reaches the video layer, which reads as a one-frame position jump.
+    this.applyFaceCrop = options.applyFaceCrop || false
+    this.appliedObjectPosition = false
+    this.hidOpacity = false
     this.initialLoops = options.initialLoops || DEFAULT_INITIAL_LOOPS
     this.appendLoops = options.appendLoops || DEFAULT_APPEND_LOOPS
     this.bufferAheadLoops = options.bufferAheadLoops || DEFAULT_BUFFER_AHEAD_LOOPS
@@ -117,6 +125,18 @@ export class MseLoopPlayback {
       this.duration = Number(manifest.duration)
       if (!(this.duration > 0)) throw new Error('MSE manifest has no valid duration')
 
+      if (this.applyFaceCrop && manifest.face_object_position) {
+        const { x, y } = manifest.face_object_position
+        this.video.style.objectPosition = `${x}% ${y}%`
+        this.appliedObjectPosition = true
+      }
+      if (this.applyFaceCrop) {
+        // Opacity (not display) so decode and frame presentation still run;
+        // the matching thumbnail stays visible underneath until we reveal.
+        this.video.style.opacity = '0'
+        this.hidOpacity = true
+      }
+
       const [initResponse, segmentResponse] = await Promise.all([
         fetch(this.urls.init),
         fetch(this.urls.segment),
@@ -144,10 +164,29 @@ export class MseLoopPlayback {
       this.lastObservedLoop = Math.floor(this.video.currentTime / this.duration)
       this._tick()
       this.onReady?.(this)
+      if (this.hidOpacity) this._revealOnFirstFrame()
       await this.video.play().catch(() => {})
     } catch (error) {
       if (!this.destroyed) this.onError?.(error)
       if (!this.destroyed) throw error
+    }
+  }
+
+  _revealOnFirstFrame() {
+    const reveal = () => {
+      if (this.destroyed || !this.hidOpacity) return
+      this.video.style.opacity = ''
+      this.hidOpacity = false
+    }
+    if (typeof this.video.requestVideoFrameCallback === 'function') {
+      this.video.requestVideoFrameCallback(() => reveal())
+      // Backstop in case frame callbacks are throttled — the thumbnail
+      // matches the video framing, so a late reveal is invisible anyway.
+      setTimeout(reveal, 500)
+    } else if (this.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      reveal()
+    } else {
+      this.video.addEventListener('loadeddata', reveal, { once: true })
     }
   }
 
@@ -218,6 +257,17 @@ export class MseLoopPlayback {
         this.mediaSource.removeSourceBuffer(this.sourceBuffer)
       }
     } catch { /* teardown is best-effort */ }
+
+    // Recycled tiles reuse the same <video> element for other items — clear
+    // any per-item framing or reveal state we applied.
+    if (this.appliedObjectPosition) {
+      this.video.style.objectPosition = ''
+      this.appliedObjectPosition = false
+    }
+    if (this.hidOpacity) {
+      this.video.style.opacity = ''
+      this.hidOpacity = false
+    }
 
     this.video.removeAttribute('src')
     this.video.load()

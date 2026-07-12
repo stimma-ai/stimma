@@ -7,6 +7,7 @@ import subprocess
 import pytest
 from httpx import AsyncClient
 
+from database import Face
 from tests.helpers.media import create_media_item, generate_test_image
 
 
@@ -16,11 +17,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _make_av_loop(path) -> str:
+def _make_av_loop(path, size="128x128") -> str:
     subprocess.run(
         [
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-            "-f", "lavfi", "-i", "testsrc2=duration=1.2:size=128x128:rate=25",
+            "-f", "lavfi", "-i", f"testsrc2=duration=1.2:size={size}:rate=25",
             "-f", "lavfi", "-i", "sine=frequency=440:duration=1.22:sample_rate=48000",
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-shortest",
@@ -61,6 +62,7 @@ class TestMseLoopPlayback:
         assert manifest["has_audio"] is True
         assert "avc1." in manifest["mime_type"]
         assert "mp4a.40.2" in manifest["mime_type"]
+        assert "face_object_position" not in manifest
 
         init_response = await client.get(
             f"/api/media/by-hash/{file_hash}/mse-loop/init",
@@ -76,6 +78,45 @@ class TestMseLoopPlayback:
         assert b"moov" in init_response.content
         assert b"moof" not in init_response.content
         assert b"moof" in segment_response.content
+
+    async def test_manifest_carries_face_crop_position(
+        self,
+        client: AsyncClient,
+        db_session,
+        tmp_path,
+    ):
+        video_path = tmp_path / "face-loop.mp4"
+        file_hash = _make_av_loop(video_path, size="256x128")
+        async with db_session() as session:
+            item = await create_media_item(
+                session,
+                file_path=video_path,
+                file_hash=file_hash,
+                file_format="mp4",
+                width=256,
+                height=128,
+                duration=1.2,
+            )
+            # Face centered at x=0.625: square crop x1 = 160-64 = 96 of a
+            # 128px overflow -> object-position x = 75%.
+            session.add(Face(
+                media_id=item.id,
+                bbox_x=0.6,
+                bbox_y=0.45,
+                bbox_width=0.05,
+                bbox_height=0.1,
+                confidence=0.99,
+            ))
+            await session.commit()
+
+        response = await client.get(
+            f"/api/media/by-hash/{file_hash}/mse-loop",
+            params={"profile": "default"},
+        )
+        assert response.status_code == 200
+        position = response.json()["face_object_position"]
+        assert position["x"] == pytest.approx(75.0)
+        assert position["y"] == pytest.approx(50.0)
 
     async def test_rejects_non_video_assets(self, client: AsyncClient, db_session, tmp_path):
         image_path = tmp_path / "image.png"

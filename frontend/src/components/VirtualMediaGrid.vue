@@ -763,6 +763,7 @@ function handleMouseEnter(event, item) {
         videoPlaybacks.get(item.id)?.destroy()
         video.classList.remove('hidden')
         const playback = new MseLoopPlayback(video, getMseLoopUrls(item.file_hash), {
+          applyFaceCrop: true,
           initialLoops: 3,
           appendLoops: 2,
           bufferAheadLoops: 1,
@@ -776,7 +777,7 @@ function handleMouseEnter(event, item) {
         videoPlaybacks.set(item.id, playback)
         void playback.start().catch(() => {})
       }
-    }, 250)
+    }, 150)
     videoHoverTimers.set(item.id, timerId)
   }
 }
