@@ -658,17 +658,27 @@
           @click="openSlideshow(stageCurrentJob)"
           title="Open in slideshow"
         >
+          <!-- Video hero. Looping runs through MseLoopPlayback (same as the
+               slideshow / queue tiles): repeated A/V fragments on one forward-
+               moving timeline, so loop boundaries never seek. The controller
+               owns src, so none is bound here; the poster carries the resting
+               state until the first fragment plays. draggable + contextmenu
+               live on the <video> itself — the element swallows the gesture
+               before a wrapper's handler sees it. -->
           <div
             v-if="outputsVideo && stageCurrentHash"
             class="absolute inset-0"
-            draggable="true"
-            @dragstart.stop="onHeroDragStart($event)"
-            @dragend="handleHeroDragEnd"
           >
             <video
-              :src="getMediaFileUrl(stageCurrentHash)"
+              ref="stageVideoRef"
+              :poster="getThumbnailUrl(stageCurrentHash, 1024, { mode: 'fit' })"
               class="w-full h-full object-contain"
-              autoplay loop muted playsinline
+              :muted="videoMuted"
+              autoplay playsinline
+              draggable="true"
+              @dragstart.stop="onHeroDragStart($event)"
+              @dragend="handleHeroDragEnd"
+              @contextmenu="handleStageContextMenu"
             />
           </div>
           <!-- Audio result: inline player. Stop click propagation so transport
@@ -748,8 +758,9 @@
           </div>
         </template>
 
-        <!-- Trash + remix actions for the hero image (bottom right). -->
+        <!-- Volume + trash + remix actions for the hero image (bottom right). -->
         <div v-if="stageCurrentJob && stageCurrentMediaId != null" class="absolute bottom-4 right-4 z-10 flex gap-1">
+          <VideoVolumeControl v-if="outputsVideo" scope="toolview" @click.stop />
           <button
             @click.stop="handleRemixMedia(stageCurrentMediaId)"
             class="w-8 h-8 rounded-lg flex items-center justify-center bg-black/40 hover:bg-blue-500/80 text-white/50 hover:text-white transition-all"
@@ -963,7 +974,10 @@ import ForeverModeButton from '../components/ForeverModeButton.vue'
 import BatchRunButton from '../components/BatchRunButton.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import { MediaContextMenu, MediaImage } from '../components/media'
-import { AudioPlayer } from '../components/viewers'
+import { AudioPlayer, VideoVolumeControl } from '../components/viewers'
+import { useScopedVideoPlayback, useManagedMediaElement } from '../composables/useMediaPlayback'
+import { useMediaContextMenu } from '../composables/useMediaContextMenu'
+import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import {
   AIMaskAssistant,
   AIPromptEditor,
@@ -1033,6 +1047,17 @@ const queueThumbnailSize = computed(() => layoutMode.value === 'stage' ? 512 : 1
 // by clicking a thumbnail in the queue strip). null pin = follow newest.
 const stagePinnedMediaId = ref<number | null>(null)
 const stageMenuOpen = ref(false)
+
+// Stage hero video sound: its own persisted channel (profile + 'toolview'
+// scoped), independent of the slideshow's video channel. Registering the
+// element gives it audible-exclusivity and ghost prevention; volume is a DOM
+// property so it's applied via watcher.
+const stageVideoRef = ref<HTMLVideoElement | null>(null)
+const { muted: videoMuted, volume: videoVolume } = useScopedVideoPlayback('toolview')
+useManagedMediaElement(stageVideoRef)
+watch([stageVideoRef, videoVolume], ([el, vol]) => {
+  if (el) el.volume = vol as number
+}, { immediate: true })
 
 // Width of the Stage controls sidebar, draggable via the seam. Default is ~20%
 // wider than the old fixed 380px. Session-local (not persisted yet).
@@ -1160,6 +1185,61 @@ function onHeroDragStart(event: DragEvent) {
   if (mediaId == null) return
   createDragPreview(event, getThumbnailUrl(mediaId, 128), mediaId, undefined, true)
 }
+
+// Seamless looping via MSE, mirroring the slideshow. The controller owns the
+// element's src; if preparation fails (unsupported codec, fetch error), fall
+// back to plain src playback with the element's native loop.
+let stageMsePlayback: MseLoopPlayback | null = null
+function destroyStageMsePlayback() {
+  stageMsePlayback?.destroy()
+  stageMsePlayback = null
+}
+// Registered in onMounted, not setup: watch() evaluates its sources eagerly,
+// and stageCurrentHash's computed chain reads jobsManager, which is declared
+// further down — evaluating it during setup is a TDZ ReferenceError.
+onMounted(() => {
+  watch([stageVideoRef, stageCurrentHash], ([element, fileHash]) => {
+    destroyStageMsePlayback()
+    if (!element || !fileHash) return
+    element.muted = videoMuted.value
+    element.volume = videoVolume.value
+    const playback = new MseLoopPlayback(element, getMseLoopUrls(fileHash), {
+      onError: (error: unknown) => {
+        if (stageMsePlayback !== playback) return
+        console.warn('[ToolView] Seamless video playback failed, falling back to native loop:', error)
+        element.src = getMediaFileUrl(fileHash)
+        element.loop = true
+        void element.play().catch(() => {})
+      },
+    })
+    stageMsePlayback = playback
+    void playback.start().catch(() => {}).finally(() => {
+      // A new generation can arrive while the slideshow covers the stage —
+      // don't let the fresh pipeline play underneath it.
+      if (slideshowState.active && stageMsePlayback === playback) element.pause()
+    })
+  }, { immediate: true, flush: 'post' })
+
+  // The slideshow renders over the stage; pause the hero while it's up so the
+  // two players never run (or sound) at once, and resume the loop on close.
+  watch(() => slideshowState.active, (active) => {
+    const el = stageVideoRef.value
+    if (!el) return
+    if (active) el.pause()
+    else void el.play().catch(() => {})
+  })
+})
+onUnmounted(destroyStageMsePlayback)
+
+const stageContextMenu = useMediaContextMenu()
+function handleStageContextMenu(event: MouseEvent) {
+  if (stageCurrentMediaId.value == null) return
+  stageContextMenu.show({
+    event,
+    mediaId: stageCurrentMediaId.value,
+    fileHash: stageCurrentHash.value ?? undefined,
+  })
+}
 const stageGenerationTime = computed<number | null>(() => {
   if (stageCurrentMediaId.value == null) return null
   const time = jobsManager?.mediaGenerationTimes.value?.[stageCurrentMediaId.value]
@@ -1230,7 +1310,7 @@ const { getProviderTool, getToolState, saveToolState, refreshProviderTools, subs
 // WebSocket subscription for provider status changes
 let unsubscribeFromProviderChanges: (() => void) | null = null
 let foreverModeUnsubscribers: Array<() => void> = []
-const { getMediaItem, getMediaFileUrl, getThumbnailUrl, getProject, deleteMedia } = useMediaApi()
+const { getMediaItem, getMediaFileUrl, getThumbnailUrl, getMseLoopUrls, getProject, deleteMedia } = useMediaApi()
 const { compareState, enterCompare, exitCompare, swapImages: swapCompareImages } = useCompare()
 
 // Tool data - now a provider tool with state
@@ -6014,6 +6094,8 @@ onMounted(async () => {
 onActivated(() => {
   console.log('[ToolView onActivated] Component reactivated, route.query:', JSON.stringify(route.query))
   window.addEventListener('keydown', handleKeyDown)
+  // useManagedMediaElement paused the hero video on deactivate; resume the loop.
+  stageVideoRef.value?.play().catch(() => {})
 })
 
 onDeactivated(() => {

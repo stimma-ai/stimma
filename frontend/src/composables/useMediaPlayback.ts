@@ -5,6 +5,8 @@
  * flag and volume level (profile-scoped). Mute is stored separately from
  * volume so unmuting restores the previous level, and so muting in one place
  * (e.g. the slideshow) sticks across close/reopen and across surfaces.
+ * Surfaces whose listening context differs from the slideshow's can carve out
+ * their own persisted channel via useScopedVideoPlayback(scope).
  *
  * This module also owns the playback registry that prevents ghost playback.
  * Per the HTML spec, a media element removed from the document keeps playing
@@ -106,6 +108,66 @@ function toggleAudioMute() {
   } else {
     audioMuted.value = true
   }
+}
+
+// ---------------------------------------------------------------------------
+// Scoped video channels
+// ---------------------------------------------------------------------------
+
+export interface VideoPlaybackChannel {
+  muted: Ref<boolean>
+  volume: Ref<number>
+  toggleMute: () => void
+}
+
+const scopedVideoChannels = new Map<string, VideoPlaybackChannel>()
+
+/**
+ * A persisted mute/volume channel independent of the default video channel.
+ * Surfaces with different listening contexts (e.g. ToolView's ambient stage
+ * hero vs. the slideshow's deliberate viewing) keep separate settings; each
+ * scope persists to its own profile-scoped key.
+ */
+export function useScopedVideoPlayback(scope: string): VideoPlaybackChannel {
+  const existing = scopedVideoChannels.get(scope)
+  if (existing) return existing
+
+  const muted = ref(true)
+  const volume = ref(0.5)
+  // Computed per call, not captured: profile isn't loaded yet at import time.
+  const key = () => makeProfileKey('media_playback', scope)
+  try {
+    const raw = localStorage.getItem(key())
+    if (raw) {
+      const s = JSON.parse(raw)
+      if (typeof s.muted === 'boolean') muted.value = s.muted
+      if (typeof s.volume === 'number') volume.value = clamp01(s.volume)
+    }
+  } catch (e) {
+    console.error(`Failed to load ${scope} playback settings:`, e)
+  }
+  watch([muted, volume], () => {
+    try {
+      localStorage.setItem(key(), JSON.stringify({ muted: muted.value, volume: volume.value }))
+    } catch (e) {
+      console.error(`Failed to save ${scope} playback settings:`, e)
+    }
+  })
+
+  const channel: VideoPlaybackChannel = {
+    muted,
+    volume,
+    toggleMute() {
+      if (muted.value) {
+        muted.value = false
+        if (volume.value === 0) volume.value = 0.5
+      } else {
+        muted.value = true
+      }
+    },
+  }
+  scopedVideoChannels.set(scope, channel)
+  return channel
 }
 
 // ---------------------------------------------------------------------------
