@@ -228,7 +228,8 @@
             @click.stop
           >
             <ProjectPickerSubmenu
-              :media-ids="targetIds"
+              :media-ids="targetMediaIds"
+              :asset-ids="targetAssetIds"
               mode="assign"
               @added="handleProjectAdded"
               @close="contextMenu.hide(); activeSubmenu = null"
@@ -689,7 +690,8 @@
     <!-- Tag Editor Modal -->
     <BulkTagEditor
       :visible="showTagEditor"
-      :media-ids="targetIds"
+      :media-ids="targetMediaIds"
+      :asset-ids="targetAssetIds"
       :current-tag-counts="currentTagCounts"
       :selected-items="mediaItem ? [mediaItem] : []"
       @close="showTagEditor = false"
@@ -720,6 +722,7 @@ import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { setPendingMedia } from '../../composables/usePendingMedia'
 import { useContextMenuPosition, computeSubmenuX, computeBridgeStyle, computeSubmenuStyle, measureMenu } from '../../composables/useContextMenuPosition'
 import { useMediaApi } from '../../composables/useMediaApi'
+import { useAssetApi } from '../../composables/useAssetApi'
 import { addToast } from '../../composables/useToasts'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
 import { useSendToTool } from '../../composables/useSendToTool'
@@ -740,6 +743,7 @@ import axios from 'axios'
 import { useWorkspaceTabs, toolInstanceRoute, toolTabRoute, type WorkspaceTab } from '../../composables/useWorkspaceTabs'
 import { usePrint } from '../../composables/usePrint'
 import { useTelemetry } from '../../composables/useTelemetry'
+import { mediaIdOf } from '../../utils/assetIdentity'
 
 const { track: trackTelemetry } = useTelemetry()
 
@@ -773,6 +777,21 @@ const { nextEditorId, tabs: workspaceTabs } = useWorkspaceTabs()
 const contextMenu = useMediaContextMenu()
 const { printAssetDetail, printContactSheet } = usePrint()
 const { deleteMedia, restoreFromTrash, permanentlyDeleteMedia, getMediaFileUrl, getMediaItem, getMediaFaces, getMarkers, addMarkerToMedia, removeMarkerFromMedia, downloadMedia, bulkDeleteMedia, bulkRestoreFromTrash, bulkPermanentlyDelete, bulkMarkerOperation, createSetFromMedia, getThumbnailUrl, getBoards, createBoard, addMediaToBoard, removeMediaFromProject } = useMediaApi()
+const {
+  getAssetBrowserItem,
+  addMarker: addMarkerToAsset,
+  removeMarker: removeMarkerFromAsset,
+  bulkMarker: bulkAssetMarkerOperation,
+  addToBoard: addAssetsToBoard,
+  removeFromBoardSection,
+  removeFromProject: removeAssetFromProject,
+  trash: trashAsset,
+  trashMany: trashAssets,
+  restore: restoreAsset,
+  restoreMany: restoreAssets,
+  permanentlyDelete: permanentlyDeleteAsset,
+  permanentlyDeleteMany: permanentlyDeleteAssets,
+} = useAssetApi()
 const { listAllTools } = useProvidersApi()
 const { sendToTool: sendToToolComposable } = useSendToTool()
 
@@ -922,7 +941,13 @@ const emit = defineEmits<{
 }>()
 
 // Multi-selection computed properties
-const targetIds = computed(() => contextMenu.state.value.mediaIds || [contextMenu.state.value.mediaId].filter(Boolean))
+const targetAssetIds = computed<number[]>(() => (
+  contextMenu.state.value.assetIds || [contextMenu.state.value.assetId].filter((id): id is number => id != null)
+))
+const targetMediaIds = computed<number[]>(() => (
+  contextMenu.state.value.mediaIds || [contextMenu.state.value.mediaId].filter((id): id is number => id != null)
+))
+const targetIds = computed(() => targetAssetIds.value.length > 0 ? targetAssetIds.value : targetMediaIds.value)
 const selectedItems = computed(() => contextMenu.state.value.selectedItems || [])
 const isMultiple = computed(() => targetIds.value.length > 1)
 const targetCount = computed(() => targetIds.value.length)
@@ -1167,14 +1192,17 @@ onUnmounted(() => {
 
 // Fetch media item when menu opens
 async function fetchMediaItem() {
+  const assetId = contextMenu.state.value.assetId
   const mediaId = contextMenu.state.value.mediaId
-  if (!mediaId) return
+  if (!assetId && !mediaId) return
 
   // Always refetch - item state (e.g. deleted_at) may have changed since last open
   loadingItem.value = true
   try {
     // Include trashed items so we can show appropriate options
-    mediaItem.value = await getMediaItem(mediaId, { includeTrashed: true })
+    mediaItem.value = assetId
+      ? await getAssetBrowserItem(assetId, true)
+      : await getMediaItem(mediaId!, { includeTrashed: true })
   } catch (err) {
     console.error('Failed to load media item:', err)
     mediaItem.value = null
@@ -1402,7 +1430,7 @@ watch(() => contextMenu.state.value.visible, (visible) => {
 
 // Action handlers
 function handleFindSimilar() {
-  const ids = targetIds.value
+  const ids = targetMediaIds.value
   contextMenu.hide()
   if (ids.length > 0) {
     trackTelemetry('find_similar_used')
@@ -1421,7 +1449,7 @@ function handleFindSimilarFaces() {
 }
 
 function handleCompare() {
-  const ids = targetIds.value
+  const ids = targetMediaIds.value
   contextMenu.hide()
   if (ids.length === 2) {
     trackTelemetry('compare_used')
@@ -1451,12 +1479,17 @@ function handleEditImage() {
 
 // Create Set handler
 async function handleCreateSet() {
-  const ids = targetIds.value
+  const ids = targetMediaIds.value
   if (ids.length < 2) return
 
   creatingSet.value = true
   try {
-    const result = await createSetFromMedia(ids, null, currentProjectId.value || null)
+    await createSetFromMedia(
+      ids,
+      null,
+      currentProjectId.value || null,
+      targetAssetIds.value.length > 0 ? targetAssetIds.value : null,
+    )
     contextMenu.hide()
     // Emit refresh so the grid reloads with the new set
     emit('refresh')
@@ -1485,7 +1518,15 @@ async function handleToggleMarker(marker: Marker) {
 
   // API call - use bulk API for multiple items
   try {
-    if (ids.length > 1) {
+    if (targetAssetIds.value.length > 0) {
+      if (ids.length > 1) {
+        await bulkAssetMarkerOperation(ids, marker.id, !hasIt)
+      } else if (hasIt) {
+        await removeMarkerFromAsset(ids[0], marker.id)
+      } else {
+        await addMarkerToAsset(ids[0], marker.id)
+      }
+    } else if (ids.length > 1) {
       await bulkMarkerOperation(ids, marker.id, !hasIt)
     } else {
       if (hasIt) {
@@ -1522,7 +1563,11 @@ async function handleQuickAddToBoard(boardId: number) {
   if (savingBoardQuickAddId.value != null) return
   savingBoardQuickAddId.value = boardId
   try {
-    await addMediaToBoard(boardId, targetIds.value as number[])
+    if (targetAssetIds.value.length > 0) {
+      await addAssetsToBoard(boardId, targetAssetIds.value)
+    } else {
+      await addMediaToBoard(boardId, targetMediaIds.value)
+    }
     contextMenu.hide()
     emit('refresh')
   } catch (err) {
@@ -1537,7 +1582,11 @@ async function handleCreateBoardQuickAdd() {
   creatingBoardQuickAdd.value = true
   try {
     const board = await createBoard('', currentProjectId.value)
-    await addMediaToBoard(board.id, targetIds.value as number[])
+    if (targetAssetIds.value.length > 0) {
+      await addAssetsToBoard(board.id, targetAssetIds.value)
+    } else {
+      await addMediaToBoard(board.id, targetMediaIds.value)
+    }
     await loadBoardsList(true)
     contextMenu.hide()
     emit('refresh')
@@ -1592,9 +1641,9 @@ function handleToolSelect(tool: ProviderTool, targetTaskType: string, event?: Mo
   activeSubmenu.value = null
 
   // Use selectedItems for multi-selection, fall back to mediaItem for single
-  const items = selectedItems.value.length === targetIds.value.length && selectedItems.value.length > 0
-    ? selectedItems.value
-    : targetIds.value
+  const items = selectedItems.value.length === targetMediaIds.value.length && selectedItems.value.length > 0
+    ? selectedItems.value.map(item => ({ ...item, id: mediaIdOf(item) }))
+    : targetMediaIds.value
   if (items.length === 0) return
 
   trackTelemetry('send_to_tool_used')
@@ -1608,9 +1657,9 @@ function handleToolInstanceSelect(tab: WorkspaceTab, tool: ProviderTool, targetT
   contextMenu.hide()
   activeSubmenu.value = null
 
-  const items = selectedItems.value.length === targetIds.value.length && selectedItems.value.length > 0
-    ? selectedItems.value
-    : targetIds.value
+  const items = selectedItems.value.length === targetMediaIds.value.length && selectedItems.value.length > 0
+    ? selectedItems.value.map(item => ({ ...item, id: mediaIdOf(item) }))
+    : targetMediaIds.value
   if (items.length === 0) return
 
   trackTelemetry('send_to_tool_used')
@@ -1620,7 +1669,7 @@ function handleToolInstanceSelect(tab: WorkspaceTab, tool: ProviderTool, targetT
 }
 
 async function sendToNewChat() {
-  const ids = targetIds.value
+  const ids = targetMediaIds.value
   contextMenu.hide()
   if (ids.length === 0) return
 
@@ -1646,7 +1695,7 @@ async function sendToNewChat() {
 }
 
 function sendToChat(chat: Chat) {
-  const ids = targetIds.value
+  const ids = targetMediaIds.value
   contextMenu.hide()
   if (ids.length === 0) return
 
@@ -1656,7 +1705,7 @@ function sendToChat(chat: Chat) {
 }
 
 async function handleShareToCloud() {
-  const id = targetIds.value[0]
+  const id = targetMediaIds.value[0]
   contextMenu.hide()
   if (!id) return
 
@@ -1670,7 +1719,7 @@ async function handleShareToCloud() {
 }
 
 async function handleExplode() {
-  const id = targetIds.value[0]
+  const id = targetMediaIds.value[0]
   contextMenu.hide()
   if (!id) return
 
@@ -1688,7 +1737,10 @@ async function handleMoveToTrash() {
   if (ids.length === 0) return
 
   try {
-    if (ids.length > 1) {
+    if (targetAssetIds.value.length > 0) {
+      if (ids.length > 1) await trashAssets(ids)
+      else await trashAsset(ids[0])
+    } else if (ids.length > 1) {
       await bulkDeleteMedia(ids)
     } else {
       await deleteMedia(ids[0])
@@ -1705,7 +1757,10 @@ async function handleRestore() {
   if (ids.length === 0) return
 
   try {
-    if (ids.length > 1) {
+    if (targetAssetIds.value.length > 0) {
+      if (ids.length > 1) await restoreAssets(ids)
+      else await restoreAsset(ids[0])
+    } else if (ids.length > 1) {
       await bulkRestoreFromTrash(ids)
     } else {
       await restoreFromTrash(ids[0])
@@ -1723,7 +1778,11 @@ async function handlePermanentDelete() {
 
   try {
     let response
-    if (ids.length > 1) {
+    if (targetAssetIds.value.length > 0) {
+      response = ids.length > 1
+        ? await permanentlyDeleteAssets(ids)
+        : await permanentlyDeleteAsset(ids[0])
+    } else if (ids.length > 1) {
       response = await bulkPermanentlyDelete(ids)
     } else {
       response = await permanentlyDeleteMedia(ids[0])
@@ -1739,8 +1798,10 @@ async function handlePermanentDelete() {
 }
 
 function handleDownload() {
-  const ids = targetIds.value
-  const items = selectedItems.value.length > 0 ? selectedItems.value : (mediaItem.value ? [mediaItem.value] : [])
+  const ids = targetMediaIds.value
+  const items = selectedItems.value.length > 0
+    ? selectedItems.value.map(item => ({ ...item, id: mediaIdOf(item) }))
+    : (mediaItem.value ? [{ ...mediaItem.value, id: mediaIdOf(mediaItem.value) }] : [])
   contextMenu.hide()
 
   if (ids.length > 0) {
@@ -1752,8 +1813,8 @@ function handleDownload() {
 }
 
 function handlePrint() {
-  const items = contextMenu.state.value.selectedItems || []
-  const item = mediaItem.value
+  const items = (contextMenu.state.value.selectedItems || []).map(item => ({ ...item, id: mediaIdOf(item) }))
+  const item = mediaItem.value ? { ...mediaItem.value, id: mediaIdOf(mediaItem.value) } : null
   contextMenu.hide()
 
   trackTelemetry('print_used')
@@ -1775,7 +1836,11 @@ async function handleRemoveFromBoard() {
   if (ids.length === 0 || !sectionId) return
 
   try {
-    await Promise.all(ids.map((id) => axios.delete(`/api/boards/sections/${sectionId}/items/${id}`)))
+    if (targetAssetIds.value.length > 0) {
+      await Promise.all(ids.map((id) => removeFromBoardSection(sectionId, id)))
+    } else {
+      await Promise.all(ids.map((id) => axios.delete(`/api/boards/sections/${sectionId}/items/${id}`)))
+    }
     emit('refresh')
   } catch (err) {
     console.error('Failed to remove from board:', err)
@@ -1795,7 +1860,11 @@ async function handleRemoveFromProject() {
   if (ids.length === 0 || !projectId) return
 
   try {
-    await Promise.all(ids.map((id) => removeMediaFromProject(projectId, id)))
+    if (targetAssetIds.value.length > 0) {
+      await Promise.all(ids.map((id) => removeAssetFromProject(id, projectId)))
+    } else {
+      await Promise.all(ids.map((id) => removeMediaFromProject(projectId, id)))
+    }
     emit('refresh')
   } catch (err) {
     console.error('Failed to remove from project:', err)

@@ -1,6 +1,6 @@
 """
-Tests for set/grid ownership: supersede on create, browse filtering,
-cascade delete, explode, and duplicate-membership prevention.
+Tests for set/grid references: linked membership, independent deletion,
+explode, project context, and multiple membership.
 
 Uses generation_client / generation_db_session because set creation
 requires a configured generation folder to write .stimmaset.json files.
@@ -48,15 +48,15 @@ async def get_media_project_ids(db_session, media_id):
         return {row[0] for row in result.all()}
 
 
-# ── supersede on set creation ────────────────────────────────────────────
+# ── independent membership on set creation ──────────────────────────────
 
-class TestSupersedeOnCreate:
-    """Creating a set should supersede all member items."""
+class TestIndependentMembershipOnCreate:
+    """Creating a set must not hide, move, or replace member items."""
 
-    async def test_members_get_superseded_by(
+    async def test_members_are_not_superseded(
         self, generation_client, generation_db_session
     ):
-        """All member items should have superseded_by = set.id."""
+        """The legacy superseded_by field stays inert for new sets."""
         set_id, member_ids = await create_set(
             generation_client, generation_db_session
         )
@@ -69,9 +69,7 @@ class TestSupersedeOnCreate:
                     select(MediaItem).where(MediaItem.id == mid)
                 )
                 item = result.scalar_one()
-                assert item.superseded_by == set_id, (
-                    f"Member {mid} should be superseded by set {set_id}"
-                )
+                assert item.superseded_by is None
 
     async def test_set_file_format(
         self, generation_client, generation_db_session
@@ -94,12 +92,12 @@ class TestSupersedeOnCreate:
 # ── browse filtering ────────────────────────────────────────────────────
 
 class TestBrowseFiltering:
-    """Superseded items should not appear in browse listings."""
+    """Adding an Asset to a set does not remove it from browsers."""
 
-    async def test_superseded_items_hidden_from_browse(
+    async def test_set_members_remain_visible_in_browse(
         self, generation_client, generation_db_session
     ):
-        """GET /api/media should not return superseded items."""
+        """Legacy Media browse also reflects the non-owning behavior."""
         set_id, member_ids = await create_set(
             generation_client, generation_db_session
         )
@@ -109,15 +107,9 @@ class TestBrowseFiltering:
 
         returned_ids = {item["id"] for item in response.json()["items"]}
 
-        # Members should NOT be in browse results
+        # Members remain independent roots.
         for mid in member_ids:
-            assert mid not in returned_ids, (
-                f"Superseded member {mid} should not appear in browse"
-            )
-
-        # The set itself SHOULD appear (it has metadata_status=completed from ingestion)
-        # Note: the set may not appear if metadata_status != 'completed' yet,
-        # so we just verify members are hidden.
+            assert mid in returned_ids
 
     async def test_non_superseded_items_visible(
         self, generation_client, generation_db_session
@@ -190,6 +182,47 @@ class TestMultipleMembership:
             })
 
         assert response.status_code == 200
+
+    async def test_asset_request_links_exact_selected_assets(
+        self, generation_client, generation_db_session
+    ):
+        from asset_service import create_asset_from_media
+        from database import AssetRevision, ContainerMember, MediaItem
+
+        async with generation_db_session() as session:
+            media = [
+                await create_media_item(session, file_format="png") for _ in range(2)
+            ]
+            assets = [
+                await create_asset_from_media(session, media_id=item.id) for item in media
+            ]
+            await session.commit()
+
+        with patch("routes.media.ws_manager", MockWebSocketManager()):
+            response = await generation_client.post("/api/media/sets", json={
+                "asset_ids": [asset.id for asset in assets],
+                "title": "Asset-linked Set",
+            })
+
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["asset_id"] not in {asset.id for asset in assets}
+        async with generation_db_session() as session:
+            revision = await session.scalar(
+                select(AssetRevision).where(
+                    AssetRevision.asset_id == payload["asset_id"]
+                )
+            )
+            linked_ids = list(await session.scalars(
+                select(ContainerMember.linked_asset_id)
+                .where(ContainerMember.container_revision_id == revision.id)
+                .order_by(ContainerMember.member_order)
+            ))
+            assert linked_ids == [asset.id for asset in assets]
+            members = list(await session.scalars(
+                select(MediaItem).where(MediaItem.id.in_([item.id for item in media]))
+            ))
+            assert all(item.superseded_by is None for item in members)
 
     async def test_linked_member_content_follows_current_asset_revision(
         self, generation_client, generation_db_session
@@ -316,11 +349,11 @@ class TestExplodeSetOrGrid:
             title="Set To Explode 2",
         )
 
-        # Confirm members are hidden from browse
+        # Members are visible before explode because the container only links them.
         resp = await generation_client.get("/api/media")
         returned_ids = {item["id"] for item in resp.json()["items"]}
         for mid in member_ids:
-            assert mid not in returned_ids
+            assert mid in returned_ids
 
         # Explode
         with patch("routes.media.ws_manager", MockWebSocketManager()):

@@ -1,6 +1,7 @@
 """Asset-first and contextual-Media API integration tests."""
 
 import asyncio
+from datetime import datetime, timedelta
 
 import numpy as np
 import pytest
@@ -12,7 +13,7 @@ from asset_service import (
     create_asset_snapshot,
     create_working_document,
 )
-from database import Asset, AssetMarker, AssetSnapshot, Marker, MediaItem
+from database import Asset, AssetMarker, AssetSnapshot, AssetTag, Marker, MediaItem, Tag
 from tests.helpers.media import create_media_item
 
 
@@ -116,6 +117,16 @@ async def test_asset_browser_similarity_returns_asset_identity(client, db_sessio
         match_asset.id,
     }
     assert {item["media_id"] for item in items} == {reference.id, match.id}
+    ids_response = await client.get(
+        "/api/assets/browse/ids",
+        params={
+            "similar_to": str(reference.id),
+            "similarity_threshold": 0.9,
+            "sort_by": "similarity",
+        },
+    )
+    assert ids_response.status_code == 200, ids_response.text
+    assert set(ids_response.json()["ids"]) == {reference_asset.id, match_asset.id}
 
 @pytest.mark.asyncio
 async def test_asset_trash_restore_preserves_revision_and_clears_expiration(
@@ -213,3 +224,74 @@ async def test_source_asset_delete_preserves_dependent_snapshot_media(client, db
         assert retained.media_id == source_media_id
         assert retained.source_asset_id is None
         assert retained.source_revision_id is None
+
+
+@pytest.mark.asyncio
+async def test_asset_organization_reads_and_expiration_are_asset_scoped(client, db_session):
+    async with db_session() as session:
+        media = await create_media_item(session)
+        asset = await create_asset_from_media(session, media_id=media.id)
+        asset.expires_at = datetime.utcnow() + timedelta(days=1)
+        tag = Tag(tag_text="asset-only")
+        session.add(tag)
+        await session.flush()
+        session.add(AssetTag(asset_id=asset.id, tag_id=tag.id))
+        asset_id = asset.id
+        await session.commit()
+
+    project = await client.post("/api/projects", json={"name": "Asset Project"})
+    project_id = project.json()["id"]
+    assert (
+        await client.post(
+            f"/api/assets/batch/projects/{project_id}",
+            json={"asset_ids": [asset_id]},
+        )
+    ).status_code == 200
+
+    board = await client.post("/api/boards", json={"name": "Asset Board"})
+    board_id = board.json()["id"]
+    assert (
+        await client.post(
+            f"/api/boards/{board_id}/items",
+            json={"asset_ids": [asset_id]},
+        )
+    ).status_code == 200
+
+    projects = await client.get(f"/api/assets/item/{asset_id}/projects")
+    boards = await client.get(f"/api/assets/item/{asset_id}/boards")
+    assert [entry["id"] for entry in projects.json()] == [project_id]
+    assert [entry["id"] for entry in boards.json()] == [board_id]
+
+    tags = await client.get("/api/assets/tags", params={"with_counts": True})
+    counted = next(entry for entry in tags.json() if entry["id"] == tag.id)
+    assert counted["usage_count"] == 1
+
+    cleared = await client.delete(f"/api/assets/item/{asset_id}/expiration")
+    assert cleared.status_code == 200
+    async with db_session() as session:
+        assert (await session.get(Asset, asset_id)).expires_at is None
+
+
+@pytest.mark.asyncio
+async def test_empty_asset_trash_permanently_deletes_all_roots(client, db_session):
+    async with db_session() as session:
+        roots = []
+        for _ in range(2):
+            media = await create_media_item(session)
+            roots.append(await create_asset_from_media(session, media_id=media.id))
+        asset_ids = [asset.id for asset in roots]
+        await session.commit()
+
+    assert (
+        await client.post("/api/assets/batch/trash", json={"asset_ids": asset_ids})
+    ).status_code == 200
+    response = await client.delete("/api/assets")
+    assert response.status_code == 202
+    assert response.json()["accepted"] == 2
+    for operation in response.json()["operations"]:
+        result = await _wait_for_delete(client, operation["id"])
+        assert result["status"] == "completed"
+
+    async with db_session() as session:
+        for asset_id in asset_ids:
+            assert await session.get(Asset, asset_id) is None

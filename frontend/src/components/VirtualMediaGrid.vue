@@ -1205,10 +1205,13 @@ function showContextMenuForItem(itemId) {
       // Operating on multiple selected items
       const targetIds = [...props.selectedItemIds]
       const selectedItems = getItemsByIds(targetIds)
+      const mediaIds = selectedItems.map(mediaIdOf).filter(Boolean)
       mediaContextMenu.show({
         event: syntheticEvent,
-        mediaId: itemId,
-        mediaIds: targetIds,
+        assetId: itemId,
+        assetIds: targetIds,
+        mediaId: mediaIds[0],
+        mediaIds,
         selectedItems,
         inBoard: props.inBoard,
         boardSectionId: props.boardSectionId,
@@ -1218,10 +1221,13 @@ function showContextMenuForItem(itemId) {
     } else {
       // Operating on single item
       const item = getItemsByIds([itemId])[0]
+      const mediaId = item ? mediaIdOf(item) : null
       mediaContextMenu.show({
         event: syntheticEvent,
-        mediaId: itemId,
-        mediaIds: [itemId],
+        assetId: itemId,
+        assetIds: [itemId],
+        mediaId,
+        mediaIds: mediaId ? [mediaId] : [],
         selectedItems: item ? [item] : [],
         inBoard: props.inBoard,
         boardSectionId: props.boardSectionId,
@@ -1388,23 +1394,24 @@ watch(() => props.totalCount, async (newCount) => {
 
 // Handle bulk auto-marker sync (from folder settings change)
 async function handleAutoMarkersSynced() {
-  // Get all loaded media IDs
-  const mediaIds = []
+  // Get all loaded Asset IDs. Browser organization follows the Asset even
+  // when its current Media revision changes.
+  const assetIds = []
   for (const [_, item] of itemsCache.value.entries()) {
     const identity = assetIdOf(item)
     if (identity) {
-      mediaIds.push(identity)
+      assetIds.push(identity)
     }
   }
 
-  if (mediaIds.length === 0) return
+  if (assetIds.length === 0) return
 
   try {
     // Batch-fetch markers for all loaded items
-    const response = await fetch('/api/media/markers/batch-get', {
+    const response = await fetch('/api/assets/batch/markers/get', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(mediaIds)
+      body: JSON.stringify({ asset_ids: assetIds })
     })
 
     if (response.ok) {

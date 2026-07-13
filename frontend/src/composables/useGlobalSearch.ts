@@ -167,7 +167,7 @@ export function useGlobalSearch() {
       sort_by: 'created_desc',
     })
     if (projectId != null) params.set('project_id', String(projectId))
-    const response = await fetch(`/api/media?${params}`)
+    const response = await fetch(`/api/assets/browse?${params}`)
     if (!response.ok) return []
     const data = await response.json()
     return data.items || []
@@ -183,7 +183,7 @@ export function useGlobalSearch() {
       page_size: String(pageSize),
     })
     if (projectId != null) params.set('project_id', String(projectId))
-    const response = await fetch(`/api/media?${params}`)
+    const response = await fetch(`/api/assets/browse?${params}`)
     if (!response.ok) return []
     const data = await response.json()
     return data.items || []

@@ -145,6 +145,7 @@
         <InlineTagEditor
           v-if="!isTrashView && !isCurrentItemTrashed && editingTags"
           :media-id="currentItem.id"
+          :asset-id="currentItem.asset_id"
           :tags="currentItem?.tags || []"
           @close="editingTags = false"
           @tags-changed="handleInlineTagsChanged"
@@ -901,8 +902,10 @@ function openContextMenu(event) {
     x: rect.left,
     y: rect.bottom + 4,
     mediaId: props.currentItem.id,
+    assetId: props.currentItem.asset_id || undefined,
     fileHash: props.currentItem.file_hash,
     mediaIds: [props.currentItem.id],
+    assetIds: props.currentItem.asset_id ? [props.currentItem.asset_id] : [],
     selectedItems: [props.currentItem]
   })
 }
@@ -1142,7 +1145,12 @@ async function removeAutoDelete() {
   if (!props.currentItem) return
 
   try {
-    await axios.delete(`/api/media/${props.currentItem.id}/auto-delete`)
+    if (props.currentItem.asset_id) {
+      await axios.delete(`/api/assets/item/${props.currentItem.asset_id}/expiration`)
+      props.currentItem.expires_at = null
+    } else {
+      await axios.delete(`/api/media/${props.currentItem.id}/auto-delete`)
+    }
     props.currentItem.auto_delete_at = null
   } catch (error) {
     console.error('Failed to remove auto-delete:', error)

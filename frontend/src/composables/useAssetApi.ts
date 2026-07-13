@@ -39,6 +39,25 @@ export function useAssetApi() {
     return (await axios.get(`${api()}/assets/${assetId}`)).data
   }
 
+  async function getAssetBrowserItem(assetId: number, includeTrashed = false): Promise<AssetBrowserItem> {
+    return (await axios.get(`${api()}/assets/item/${assetId}/browser`, {
+      params: { include_trashed: includeTrashed || undefined },
+    })).data
+  }
+
+  async function getTags(withCounts = false) {
+    return (await axios.get(`${api()}/assets/tags`, {
+      params: { with_counts: withCounts },
+    })).data
+  }
+
+  async function findAssetIndex(assetId: number, params: Record<string, unknown> = {}) {
+    const { ids } = await fetchAssetIds(params)
+    const index = ids.indexOf(assetId)
+    if (index < 0) throw new Error(`Asset ${assetId} is not in this view`)
+    return { asset_id: assetId, index, total: ids.length }
+  }
+
   async function addMarker(assetId: number, markerId: number) {
     return (await axios.post(`${api()}/assets/item/${assetId}/markers/${markerId}`)).data
   }
@@ -81,6 +100,14 @@ export function useAssetApi() {
     return (await axios.delete(`${api()}/assets/item/${assetId}/projects/${projectId}`)).data
   }
 
+  async function getProjects(assetId: number) {
+    return (await axios.get(`${api()}/assets/item/${assetId}/projects`)).data
+  }
+
+  async function getBoards(assetId: number) {
+    return (await axios.get(`${api()}/assets/item/${assetId}/boards`)).data
+  }
+
   async function trash(assetId: number) {
     return (await axios.delete(`${api()}/assets/${assetId}`)).data
   }
@@ -101,10 +128,61 @@ export function useAssetApi() {
     return (await axios.delete(`${api()}/assets/${assetId}/permanent`)).data
   }
 
+  async function permanentlyDeleteMany(assetIds: number[]) {
+    const results = await Promise.all(assetIds.map(permanentlyDelete))
+    return { accepted: results.length, results }
+  }
+
+  async function emptyTrash() {
+    return (await axios.delete(`${api()}/assets`)).data
+  }
+
+  async function addToBoard(boardId: number, assetIds: number[], sectionId: number | null = null) {
+    return (await axios.post(`${api()}/boards/${boardId}/items`, {
+      asset_ids: assetIds,
+      section_id: sectionId,
+    })).data
+  }
+
+  async function removeFromBoardSection(sectionId: number, assetId: number) {
+    return (await axios.delete(`${api()}/boards/sections/${sectionId}/asset-items/${assetId}`)).data
+  }
+
+  async function bulkRemoveFromBoard(boardId: number, assetIds: number[]) {
+    return (await axios.post(`${api()}/boards/${boardId}/items/bulk-remove`, {
+      asset_ids: assetIds,
+    })).data
+  }
+
+  async function moveBoardItem(
+    boardId: number,
+    assetId: number,
+    fromSectionId: number,
+    toSectionId: number,
+    targetIndex: number,
+  ) {
+    return (await axios.post(`${api()}/boards/${boardId}/asset-items/move`, {
+      asset_id: assetId,
+      from_section_id: fromSectionId,
+      to_section_id: toSectionId,
+      target_index: targetIndex,
+    })).data
+  }
+
+  async function bulkMoveBoardItems(boardId: number, assetIds: number[], toSectionId: number) {
+    return (await axios.post(`${api()}/boards/${boardId}/items/bulk-move`, {
+      asset_ids: assetIds,
+      to_section_id: toSectionId,
+    })).data
+  }
+
   return {
     fetchAssets,
     fetchAssetIds,
     getAsset,
+    getAssetBrowserItem,
+    getTags,
+    findAssetIndex,
     addMarker,
     removeMarker,
     bulkMarker,
@@ -113,10 +191,19 @@ export function useAssetApi() {
     bulkTags,
     addToProject,
     removeFromProject,
+    getProjects,
+    getBoards,
     trash,
     trashMany,
     restore,
     restoreMany,
     permanentlyDelete,
+    permanentlyDeleteMany,
+    emptyTrash,
+    addToBoard,
+    removeFromBoardSection,
+    bulkRemoveFromBoard,
+    moveBoardItem,
+    bulkMoveBoardItems,
   }
 }

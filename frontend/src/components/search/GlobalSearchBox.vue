@@ -85,7 +85,7 @@
               @click="activateItem(item)"
             >
               <MediaImage
-                :media-id="item.data.id"
+                :media-id="item.data.media_id || item.data.id"
                 :file-hash="item.data.file_hash"
                 :thumbnail="true"
                 :thumbnail-size="128"

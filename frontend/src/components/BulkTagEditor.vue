@@ -6,7 +6,7 @@
           <!-- Header -->
           <div class="flex items-center justify-between px-5 py-4 border-b border-edge-subtle">
             <h3 class="text-content text-lg font-semibold">Manage Tags</h3>
-            <span class="text-content-tertiary text-sm">{{ mediaIds.length }} item{{ mediaIds.length !== 1 ? 's' : '' }}</span>
+            <span class="text-content-tertiary text-sm">{{ targetIds.length }} item{{ targetIds.length !== 1 ? 's' : '' }}</span>
           </div>
 
           <!-- Body -->
@@ -113,6 +113,8 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
+import { assetIdOf } from '../utils/assetIdentity'
 
 const props = defineProps({
   visible: {
@@ -120,6 +122,10 @@ const props = defineProps({
     default: false
   },
   mediaIds: {
+    type: Array,
+    default: () => []
+  },
+  assetIds: {
     type: Array,
     default: () => []
   },
@@ -138,6 +144,8 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved'])
 
 const { getTags, createTag, bulkTagOperation } = useMediaApi()
+const { bulkTags: bulkAssetTags, getTags: getAssetTags } = useAssetApi()
+const targetIds = computed(() => props.assetIds.length > 0 ? props.assetIds : props.mediaIds)
 
 const availableTags = ref([])
 const tagStates = ref({}) // tag_id -> 'all' | 'some' | 'none'
@@ -180,7 +188,7 @@ const filteredTags = computed(() => {
 })
 
 // Compute tag states based on current counts
-watch(() => [props.visible, props.currentTagCounts, props.mediaIds.length], () => {
+watch(() => [props.visible, props.currentTagCounts, targetIds.value.length], () => {
   if (props.visible) {
     computeTagStates()
   }
@@ -188,7 +196,7 @@ watch(() => [props.visible, props.currentTagCounts, props.mediaIds.length], () =
 
 function computeTagStates() {
   const states = {}
-  const totalItems = props.mediaIds.length
+  const totalItems = targetIds.value.length
 
   for (const tag of availableTags.value) {
     const count = props.currentTagCounts[tag.id] || 0
@@ -223,7 +231,9 @@ watch(() => props.visible, async (newVisible) => {
 
 async function loadTags() {
   try {
-    availableTags.value = await getTags(true) // Get with usage counts
+    availableTags.value = props.assetIds.length > 0
+      ? await getAssetTags(true)
+      : await getTags(true)
     computeTagStates()
   } catch (err) {
     console.error('Failed to load tags:', err)
@@ -334,13 +344,18 @@ async function save() {
         // Find media IDs that DON'T already have this tag
         const mediaIdsToAdd = props.selectedItems
           .filter(item => !item.tags || !item.tags.some(t => t.id === tagId))
-          .map(item => item.id)
+          .map(item => props.assetIds.length > 0 ? assetIdOf(item) : item.id)
+          .filter(Boolean)
 
         if (mediaIdsToAdd.length > 0) {
           const tag = availableTags.value.find(t => t.id === tagId)
           if (tag) {
             console.log(`Adding tag "${tag.tag}" to ${mediaIdsToAdd.length} items (skipping ${props.selectedItems.length - mediaIdsToAdd.length} that already have it)`)
-            await bulkTagOperation(mediaIdsToAdd, [tag.tag], [])
+            if (props.assetIds.length > 0) {
+              await bulkAssetTags(mediaIdsToAdd, [tag.tag], [])
+            } else {
+              await bulkTagOperation(mediaIdsToAdd, [tag.tag], [])
+            }
           }
         } else {
           console.log(`Tag ${tagId} already on all items, skipping add`)
@@ -349,11 +364,16 @@ async function save() {
         // Find media IDs that DO have this tag
         const mediaIdsToRemove = props.selectedItems
           .filter(item => item.tags && item.tags.some(t => t.id === tagId))
-          .map(item => item.id)
+          .map(item => props.assetIds.length > 0 ? assetIdOf(item) : item.id)
+          .filter(Boolean)
 
         if (mediaIdsToRemove.length > 0) {
           console.log(`Removing tag ${tagId} from ${mediaIdsToRemove.length} items (skipping ${props.selectedItems.length - mediaIdsToRemove.length} that don't have it)`)
-          await bulkTagOperation(mediaIdsToRemove, [], [tagId])
+          if (props.assetIds.length > 0) {
+            await bulkAssetTags(mediaIdsToRemove, [], [tagId])
+          } else {
+            await bulkTagOperation(mediaIdsToRemove, [], [tagId])
+          }
         } else {
           console.log(`Tag ${tagId} not on any items, skipping remove`)
         }

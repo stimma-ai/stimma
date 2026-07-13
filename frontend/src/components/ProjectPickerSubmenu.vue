@@ -76,9 +76,14 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
 
 const props = defineProps({
   mediaIds: {
+    type: Array,
+    default: () => []
+  },
+  assetIds: {
     type: Array,
     default: () => []
   },
@@ -95,6 +100,7 @@ const props = defineProps({
 const emit = defineEmits(['select', 'added', 'close'])
 
 const { getProjects, createProject, addMediaToProject } = useMediaApi()
+const { addToProject: addAssetsToProject } = useAssetApi()
 
 const searchInput = ref(null)
 const searchQuery = ref('')
@@ -130,7 +136,11 @@ async function handleProjectClick(project) {
   if (addingToProjectId.value != null) return
   addingToProjectId.value = project.id
   try {
-    await addMediaToProject(project.id, props.mediaIds)
+    if (props.assetIds.length > 0) {
+      await addAssetsToProject(project.id, props.assetIds)
+    } else {
+      await addMediaToProject(project.id, props.mediaIds)
+    }
     emit('added', project.id)
     emit('close')
   } catch (err) {

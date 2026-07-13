@@ -20,12 +20,16 @@ from database import (
     AssetMarker,
     AssetRevision,
     AssetTag,
+    Board,
+    BoardAssetItem,
+    BoardSection,
     Marker,
     MediaItem,
     MediaOwner,
     StorageObject,
     Tag,
     Project,
+    ProjectAsset,
 )
 from core.dependencies import get_db_session
 from utils.query_builder import build_filtered_query
@@ -107,6 +111,8 @@ async def _browser_projections(session: AsyncSession, rows) -> list[dict]:
                 "revision_number": revision.revision_number,
                 "asset_state": asset.state,
                 "asset_title": asset.title,
+                "media_deleted_at": item.get("deleted_at"),
+                "deleted_at": asset.deleted_at.isoformat() if asset.deleted_at else None,
                 "expires_at": asset.expires_at.isoformat() if asset.expires_at else None,
                 "markers": markers[asset.id],
                 "tags": tags[asset.id],
@@ -245,7 +251,7 @@ async def browse_assets(
     max_mp: float | None = None,
     sort_by: str = Query(
         "created_desc",
-        pattern="^(created_desc|created_asc|indexed_desc|indexed_asc|random|similarity)$",
+        pattern="^(created_desc|created_asc|indexed_desc|indexed_asc|deleted_desc|deleted_asc|random|similarity)$",
     ),
     random_seed: int | None = None,
     session: AsyncSession = Depends(get_db_session),
@@ -412,6 +418,10 @@ async def browse_assets(
         query = query.order_by(MediaItem.indexed_date.desc(), Asset.id.desc())
     elif sort_by == "indexed_asc":
         query = query.order_by(MediaItem.indexed_date.asc(), Asset.id.asc())
+    elif sort_by == "deleted_desc":
+        query = query.order_by(Asset.deleted_at.desc(), Asset.id.desc())
+    elif sort_by == "deleted_asc":
+        query = query.order_by(Asset.deleted_at.asc(), Asset.id.asc())
     elif sort_by == "random":
         multiplier = literal((random_seed if random_seed is not None else 42) | 1)
         product = MediaItem.random_sort_value * multiplier
@@ -443,6 +453,11 @@ async def browse_asset_ids(
     excluded_keywords: str | None = None,
     folders: str | None = None,
     excluded_folders: str | None = None,
+    similar_to: str | None = None,
+    similar_face_to: str | None = None,
+    similar_to_text: str | None = None,
+    similarity_threshold: float | None = None,
+    similarity_cutoff: str | None = Query(None, pattern="^(auto)$"),
     is_generated: bool | None = None,
     marker_ids: str | None = None,
     excluded_marker_ids: str | None = None,
@@ -460,10 +475,61 @@ async def browse_asset_ids(
     created_before: str | None = None,
     show_expiring: bool | None = None,
     exclude_expiring: bool | None = None,
+    min_mp: float | None = None,
+    max_mp: float | None = None,
     sort_by: str = Query("created_desc"),
+    random_seed: int | None = None,
     session: AsyncSession = Depends(get_db_session),
 ):
     """Ordered Asset IDs for select-all; deliberately never returns Media IDs."""
+    if any(value is not None for value in (similar_to, similar_face_to, similar_to_text)):
+        # Keep select-all semantics exactly aligned with the projected browser.
+        # This is an internal call, so the large page bypasses the HTTP page-size
+        # guard and computes/ranks similarity only once.
+        result = await browse_assets(
+            page=1,
+            page_size=10_000_000,
+            state=state,
+            caption_query=caption_query,
+            prompt_query=prompt_query,
+            media_types=media_types,
+            excluded_media_types=excluded_media_types,
+            resolutions=resolutions,
+            excluded_resolutions=excluded_resolutions,
+            keywords=keywords,
+            excluded_keywords=excluded_keywords,
+            folders=folders,
+            excluded_folders=excluded_folders,
+            similar_to=similar_to,
+            similar_face_to=similar_face_to,
+            similar_to_text=similar_to_text,
+            similarity_threshold=similarity_threshold,
+            similarity_cutoff=similarity_cutoff,
+            is_generated=is_generated,
+            marker_ids=marker_ids,
+            excluded_marker_ids=excluded_marker_ids,
+            tag_ids=tag_ids,
+            excluded_tag_ids=excluded_tag_ids,
+            project_id=project_id,
+            project_ids=project_ids,
+            excluded_project_ids=excluded_project_ids,
+            has_project=has_project,
+            tool_ids=tool_ids,
+            excluded_tool_ids=excluded_tool_ids,
+            tool_id=tool_id,
+            preset_id=preset_id,
+            created_after=created_after,
+            created_before=created_before,
+            show_expiring=show_expiring,
+            exclude_expiring=exclude_expiring,
+            min_mp=min_mp,
+            max_mp=max_mp,
+            sort_by=sort_by,
+            random_seed=random_seed,
+            session=session,
+        )
+        return {"ids": [item["asset_id"] for item in result["items"]]}
+
     effective_projects = ",".join(
         part for part in (project_ids, str(project_id) if project_id is not None else None) if part
     ) or None
@@ -506,6 +572,10 @@ async def browse_asset_ids(
         query = query.order_by(MediaItem.indexed_date.desc(), Asset.id.desc())
     elif sort_by == "indexed_asc":
         query = query.order_by(MediaItem.indexed_date.asc(), Asset.id.asc())
+    elif sort_by == "deleted_desc":
+        query = query.order_by(Asset.deleted_at.desc(), Asset.id.desc())
+    elif sort_by == "deleted_asc":
+        query = query.order_by(Asset.deleted_at.asc(), Asset.id.asc())
     else:
         query = query.order_by(MediaItem.created_date.desc().nulls_last(), Asset.id.desc())
     return {"ids": list(await session.scalars(query))}
@@ -537,6 +607,31 @@ async def _asset_markers(session: AsyncSession, asset_id: int) -> list[dict]:
 async def get_asset_markers(asset_id: int, session: AsyncSession = Depends(get_db_session)):
     await _live_asset_or_404(session, asset_id)
     return await _asset_markers(session, asset_id)
+
+
+@router.get("/tags")
+async def get_asset_tags(
+    with_counts: bool = Query(False),
+    session: AsyncSession = Depends(get_db_session),
+):
+    if not with_counts:
+        tags = list(await session.scalars(select(Tag).order_by(Tag.tag_text.asc())))
+        return [tag.to_dict() for tag in tags]
+    rows = (
+        await session.execute(
+            select(Tag, func.count(AssetTag.asset_id).label("usage_count"))
+            .outerjoin(
+                AssetTag,
+                (AssetTag.tag_id == Tag.id) & AssetTag.deleted_at.is_(None),
+            )
+            .group_by(Tag.id)
+            .order_by(func.count(AssetTag.asset_id).desc(), Tag.tag_text.asc())
+        )
+    ).all()
+    return [
+        {**tag.to_dict(), "usage_count": count}
+        for tag, count in rows
+    ]
 
 
 @router.post("/batch/markers/get")
@@ -578,7 +673,7 @@ async def add_asset_marker(
     markers = await _asset_markers(session, asset_id)
     if changed:
         await ws_manager.broadcast(
-            "asset_updated", {"asset_id": asset_id, "fields": ["markers"]}
+            "assets_updated", {"asset_ids": [asset_id], "fields": ["markers"]}
         )
     return {"status": "success", "markers": markers}
 
@@ -596,7 +691,7 @@ async def remove_asset_marker(
     await session.commit()
     markers = await _asset_markers(session, asset_id)
     await ws_manager.broadcast(
-        "asset_updated", {"asset_id": asset_id, "fields": ["markers"]}
+        "assets_updated", {"asset_ids": [asset_id], "fields": ["markers"]}
     )
     return {"status": "success", "markers": markers}
 
@@ -665,7 +760,7 @@ async def add_asset_tags(
     await session.commit()
     if added:
         await ws_manager.broadcast(
-            "asset_updated", {"asset_id": asset_id, "fields": ["tags"]}
+            "assets_updated", {"asset_ids": [asset_id], "fields": ["tags"]}
         )
     return {"status": "success", "added": added}
 
@@ -679,7 +774,7 @@ async def remove_asset_tag(
         raise HTTPException(status_code=404, detail="Tag not found on Asset")
     await session.commit()
     await ws_manager.broadcast(
-        "asset_updated", {"asset_id": asset_id, "fields": ["tags"]}
+        "assets_updated", {"asset_ids": [asset_id], "fields": ["tags"]}
     )
     return {"status": "success"}
 
@@ -780,6 +875,33 @@ async def restore_assets(
     return {"status": "success", "asset_ids": changed}
 
 
+@router.delete("", status_code=202)
+async def empty_asset_trash(session: AsyncSession = Depends(get_db_session)):
+    from asset_deletion_service import permanently_delete_asset
+    from delete_operations import ensure_delete_worker_started
+
+    asset_ids = list(
+        await session.scalars(
+            select(Asset.id).where(
+                Asset.state == "trashed", Asset.deleted_at.is_not(None)
+            )
+        )
+    )
+    operations = []
+    for asset_id in asset_ids:
+        operation = await permanently_delete_asset(
+            session,
+            asset_id=asset_id,
+            profile_id=get_current_profile(),
+        )
+        if operation is not None:
+            operations.append(operation.to_dict())
+    if operations:
+        await ensure_delete_worker_started()
+    await ws_manager.broadcast("assets_permanently_deleted", {"asset_ids": asset_ids})
+    return {"status": "accepted", "accepted": len(asset_ids), "operations": operations}
+
+
 @router.delete("/item/{asset_id}/projects/{project_id}")
 async def remove_asset_from_project(
     asset_id: int,
@@ -792,6 +914,71 @@ async def remove_asset_from_project(
     if not removed:
         raise HTTPException(status_code=404, detail="Asset not in project")
     return {"status": "success"}
+
+
+@router.get("/item/{asset_id}/projects")
+async def get_asset_projects(
+    asset_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    await _live_asset_or_404(session, asset_id)
+    projects = list(
+        await session.scalars(
+            select(Project)
+            .join(ProjectAsset, ProjectAsset.project_id == Project.id)
+            .where(
+                ProjectAsset.asset_id == asset_id,
+                ProjectAsset.deleted_at.is_(None),
+                Project.deleted_at.is_(None),
+            )
+            .order_by(Project.name.asc())
+        )
+    )
+    return [{"id": project.id, "name": project.name} for project in projects]
+
+
+@router.delete("/item/{asset_id}/expiration")
+async def clear_asset_expiration(
+    asset_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    asset = await _live_asset_or_404(session, asset_id)
+    asset.expires_at = None
+    await session.commit()
+    await ws_manager.broadcast(
+        "assets_updated", {"asset_ids": [asset_id], "fields": ["expires_at"]}
+    )
+    return {"status": "success"}
+
+
+@router.get("/item/{asset_id}/boards")
+async def get_asset_boards(
+    asset_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    await _live_asset_or_404(session, asset_id)
+    boards = list(
+        await session.scalars(
+            select(Board)
+            .join(
+                BoardSection,
+                (BoardSection.board_id == Board.id)
+                & BoardSection.deleted_at.is_(None),
+            )
+            .join(
+                BoardAssetItem,
+                (BoardAssetItem.board_section_id == BoardSection.id)
+                & BoardAssetItem.deleted_at.is_(None),
+            )
+            .where(
+                BoardAssetItem.asset_id == asset_id,
+                Board.deleted_at.is_(None),
+            )
+            .order_by(Board.name.asc())
+            .distinct()
+        )
+    )
+    return [board.to_dict() for board in boards]
 
 
 @router.get("/contextual-media")
@@ -829,6 +1016,30 @@ async def list_contextual_media(
         ],
         "count": len(rows),
     }
+
+
+@router.get("/item/{asset_id}/browser")
+async def get_asset_browser_item(
+    asset_id: int,
+    include_trashed: bool = False,
+    session: AsyncSession = Depends(get_db_session),
+):
+    row = (
+        await session.execute(
+            select(Asset, AssetRevision, MediaItem)
+            .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+            .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
+            .where(
+                Asset.id == asset_id,
+                AssetRevision.deleted_at.is_(None),
+                MediaItem.deleted_at.is_(None),
+                *([] if include_trashed else [Asset.state == "active", Asset.deleted_at.is_(None)]),
+            )
+        )
+    ).one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return (await _browser_projections(session, [row]))[0]
 
 
 @router.get("/{asset_id}")

@@ -725,6 +725,7 @@ import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { MagnifyingGlassCircleIcon } from '@heroicons/vue/24/solid'
 import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../utils/stimmaCloud'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
@@ -816,6 +817,7 @@ const emit = defineEmits([
 ])
 
 const { getTopKeywords, getTags, getProjects, getConfig, getFilterCounts, getTrashFilterCounts, fetchMedia, getTrash } = useMediaApi()
+const { getTags: getAssetTags } = useAssetApi()
 
 const localCaptionQuery = ref(props.captionQuery || '')
 const localPromptQuery = ref(props.promptQuery || '')
@@ -2020,7 +2022,7 @@ function openKeywordModal() {
 // Load tags from API
 async function loadTags() {
   try {
-    const response = await getTags(true)
+    const response = await getAssetTags(true)
     tags.value = response
     console.log('Loaded tags:', tags.value.length)
   } catch (error) {

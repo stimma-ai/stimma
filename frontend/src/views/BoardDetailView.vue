@@ -145,7 +145,7 @@
                     class="h-full w-full"
                   >
                     <MediaImage
-                      :media-id="item.id"
+                      :media-id="mediaIdOf(item)"
                       :file-hash="item.file_hash"
                       :file-path="item.file_path"
                       :file-format="item.file_format"
@@ -302,14 +302,16 @@
 
     <BoardPicker
       :visible="showBoardPicker"
-      :media-ids="selectedItemIds"
+      :media-ids="selectedMediaIds"
+      :asset-ids="selectedItemIds"
       @close="showBoardPicker = false"
       @saved="handleBoardsAdded"
     />
 
     <BulkTagEditor
       :visible="showTagEditor"
-      :media-ids="selectedItemIds"
+      :media-ids="selectedMediaIds"
+      :asset-ids="selectedItemIds"
       :current-tag-counts="currentTagCounts"
       :selected-items="selectedItems"
       @close="showTagEditor = false"
@@ -318,8 +320,8 @@
 
     <ExportModal
       :show="showExportModal"
-      :media-ids="selectedItemIds"
-      :media-items="selectedItems"
+      :media-ids="selectedMediaIds"
+      :media-items="selectedPayloadItems"
       @close="showExportModal = false"
     />
   </div>
@@ -338,11 +340,13 @@ import SlideshowMode from '../components/SlideshowMode.vue'
 import { useBoardMultiSelect } from '../composables/useBoardMultiSelect'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
 import { useToasts } from '../composables/useToasts'
 import { createDragPreview, createSectionDragPreview, cleanupSectionDragPreview, handleDragEnd as handleDragPreviewEnd } from '../composables/useDragPreview'
 import { useSlideshow } from '../composables/useSlideshow'
 import { useTheme } from '../composables/useTheme'
 import { useWebSocket } from '../composables/useWebSocket'
+import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
 
 const { on } = useWebSocket()
 const route = useRoute()
@@ -350,24 +354,26 @@ const router = useRouter()
 const { resolvedTheme } = useTheme()
 const mediaContextMenu = useMediaContextMenu()
 const {
-  bulkDeleteMedia,
-  bulkMarkerOperation,
-  bulkMoveBoardItems,
-  bulkRemoveFromBoard,
   createBoardSection,
   deleteBoard,
   restoreBoard,
   deleteBoardSection,
   getBoard,
   getMarkers,
-  getMediaItem,
   getThumbnailUrl,
-  moveBoardItem,
-  removeMediaFromBoardSection,
   reorderBoardSections,
   updateBoard,
   updateBoardSection
 } = useMediaApi()
+const {
+  getAssetBrowserItem,
+  trashMany: bulkDeleteMedia,
+  bulkMarker: bulkMarkerOperation,
+  bulkMoveBoardItems,
+  bulkRemoveFromBoard,
+  moveBoardItem,
+  removeFromBoardSection: removeMediaFromBoardSection,
+} = useAssetApi()
 const { addToast } = useToasts()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 
@@ -583,6 +589,11 @@ const draggedSectionIsDefault = computed(() => {
 })
 
 const totalAssetCount = computed(() => (board.value?.sections || []).reduce((sum, section) => sum + (section.item_count || section.items.length || 0), 0))
+const selectedMediaIds = computed(() => selectedItems.value.map(mediaIdOf).filter(Boolean))
+const selectedPayloadItems = computed(() => selectedItems.value.map((item) => ({
+  ...item,
+  id: mediaIdOf(item),
+})))
 const slideshowItems = computed(() => (
   displaySections.value.flatMap((section) => (section.items || []).map((item) => ({
     ...item,
@@ -691,14 +702,15 @@ function updateAutoScroll(event) {
 }
 
 async function loadSlideshowItem(item) {
-  if (!item?.id) return item
-  if (slideshowItemCache.has(item.id)) {
-    return slideshowItemCache.get(item.id)
+  const assetId = assetIdOf(item)
+  if (!assetId) return item
+  if (slideshowItemCache.has(assetId)) {
+    return slideshowItemCache.get(assetId)
   }
 
   try {
-    const fullItem = await getMediaItem(item.id)
-    slideshowItemCache.set(item.id, fullItem)
+    const fullItem = await getAssetBrowserItem(assetId)
+    slideshowItemCache.set(assetId, fullItem)
     return fullItem
   } catch (error) {
     console.error('Failed to load board slideshow item:', error)
@@ -751,10 +763,13 @@ function handleItemContextMenu(section, item, event) {
     ? [...selectedItemIds.value]
     : [item.id]
   const items = ids.length > 1 ? selectedItems.value : []
+  const mediaIds = (items.length > 0 ? items : [item]).map(mediaIdOf).filter(Boolean)
   mediaContextMenu.show({
     event,
-    mediaId: item.id,
-    mediaIds: ids,
+    assetId: assetIdOf(item),
+    assetIds: ids,
+    mediaId: mediaIdOf(item),
+    mediaIds,
     selectedItems: items,
     fileHash: item.file_hash,
     inBoard: true,
@@ -941,20 +956,29 @@ function onItemDragStart(section, item, event) {
   // Determine if this is a multi-drag
   const isMultiDrag = multiSelectMode.value && selectedItemIds.value.includes(item.id) && selectedItemIds.value.length > 1
   const allDragIds = isMultiDrag ? [...selectedItemIds.value] : null
+  const mediaId = mediaIdOf(item)
+  const allMediaIds = isMultiDrag ? selectedMediaIds.value : null
 
   dragState.item = { mediaId: item.id, fromSectionId: section.id, allMediaIds: allDragIds }
   // Board tiles reorder within the board ('move') but can also be dropped on
   // sidebar tool tabs, which need 'copy' available for the shift = add cursor.
   event.dataTransfer.effectAllowed = 'copyMove'
-  event.dataTransfer.setData('application/x-media-id', String(item.id))
+  if (mediaId) event.dataTransfer.setData('application/x-media-id', String(mediaId))
   event.dataTransfer.setData('application/x-board-drag', JSON.stringify({
     mediaId: item.id,
     fromSectionId: section.id,
     allMediaIds: allDragIds
   }))
-  if (allDragIds) {
-    event.dataTransfer.setData('application/x-media-ids', JSON.stringify(allDragIds))
+  if (allMediaIds) {
+    event.dataTransfer.setData('application/x-media-ids', JSON.stringify(allMediaIds))
   }
+  event.dataTransfer.setData('application/x-stimma-assets', JSON.stringify({
+    items: (isMultiDrag ? selectedItems.value : [item]).map((entry) => ({
+      asset_id: assetIdOf(entry),
+      revision_id: entry.revision_id ?? null,
+      media_id: mediaIdOf(entry),
+    })),
+  }))
   if (item?.file_hash) {
     event.dataTransfer.setData('application/x-file-hash', item.file_hash)
   }
@@ -972,7 +996,7 @@ function onItemDragStart(section, item, event) {
     multiDrag: isMultiDrag,
     allMediaIds: allDragIds
   })
-  createDragPreview(event, thumbnailUrl, item.id, fileFormat, itemIsVideo, allDragIds)
+  if (mediaId) createDragPreview(event, thumbnailUrl, mediaId, fileFormat, itemIsVideo, allMediaIds)
 }
 
 function getDraggedBoardPayload(event) {
@@ -1818,18 +1842,11 @@ const unsubBoardChanged = on('board_items_changed', (data) => {
   if (data.board_id === board.value?.id) loadBoard()
 })
 
-const unsubMediaUpdated = on('media_updated', (data) => {
-  const { media_id, fields, media } = data
-  if (!board.value || !media_id || !media) return
+const unsubMediaUpdated = on('assets_updated', (data) => {
+  const { asset_ids, fields } = data
+  if (!board.value || !asset_ids?.length) return
   if (!fields.includes('markers') && !fields.includes('tags')) return
-  for (const section of board.value.sections || []) {
-    for (const item of section.items || []) {
-      if (item.id === media_id) {
-        if (fields.includes('markers')) item.markers = media.markers || []
-        if (fields.includes('tags')) item.tags = media.tags || []
-      }
-    }
-  }
+  loadBoard()
 })
 
 onMounted(async () => {

@@ -518,8 +518,8 @@ export function useMediaApi() {
    * @param {number} [projectId] - Project context the set is created in; the set is attached to it
    * @returns {Promise<{file_path: string, title: string, item_count: number}>}
    */
-  async function createSetFromMedia(mediaIds, title = null, projectId = null) {
-    const payload = { media_ids: mediaIds }
+  async function createSetFromMedia(mediaIds, title = null, projectId = null, assetIds = null) {
+    const payload = assetIds?.length ? { asset_ids: assetIds } : { media_ids: mediaIds }
     if (title) {
       payload.title = title
     }

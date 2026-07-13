@@ -202,7 +202,7 @@
                 @click="openAssetFromGrid(assetSection.key, index)"
               >
                 <MediaImage
-                  :media-id="media.id"
+                  :media-id="mediaIdOf(media)"
                   :file-hash="media.file_hash"
                   :thumbnail="true"
                   :thumbnail-size="256"
@@ -237,6 +237,7 @@ import SlideshowMode from '../components/SlideshowMode.vue'
 import ToolIcon from '../components/tools/ToolIcon.vue'
 import { useSlideshow } from '../composables/useSlideshow'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
 import { useFlowsApi } from '../composables/useFlowsApi'
 import { useEntityContextMenu, type EntityType } from '../composables/useEntityContextMenu'
 import { useToasts } from '../composables/useToasts'
@@ -253,6 +254,7 @@ import { useProvidersApi, type ProviderTool } from '../composables/useProvidersA
 import { useTelemetry } from '../composables/useTelemetry'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
 import { formatRelativeTime } from '../utils/timeFormat'
+import { mediaIdOf } from '../utils/assetIdentity'
 
 const PAGE_ENTITY_LIMIT = 24
 const PAGE_TOOL_LIMIT = 12
@@ -266,7 +268,8 @@ const route = useRoute()
 const router = useRouter()
 const { searchEntities, searchTools, searchMediaByPrompt, searchMediaVisual } = useGlobalSearch()
 const { fetchProvidersAndTools } = useProvidersApi()
-const { getMediaItem, getProject, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
+const { getProject, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
+const { getAssetBrowserItem } = useAssetApi()
 const { updateFlow, deleteFlow, restoreFlow } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 const { track } = useTelemetry()
@@ -662,7 +665,7 @@ async function handleContextMenuDelete(entityType: string, entityId: number) {
 async function openMediaSlideshow(set: 'prompt' | 'visual', index: number) {
   const list = set === 'visual' ? visualResults.value : promptResults.value
   try {
-    const items = await Promise.all(list.map(m => getMediaItem(m.id)))
+    const items = [...list]
     enterSlideshow({
       totalCount: items.length,
       startIndex: index,
@@ -676,9 +679,9 @@ async function openMediaSlideshow(set: 'prompt' | 'visual', index: number) {
   }
 }
 
-async function openSingleItemSlideshow(mediaId: number) {
+async function openSingleItemSlideshow(assetId: number) {
   try {
-    const item = await getMediaItem(mediaId)
+    const item = await getAssetBrowserItem(assetId)
     if (!item) return
     enterSlideshow({
       totalCount: 1,

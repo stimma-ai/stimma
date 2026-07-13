@@ -17,7 +17,7 @@
     <SlideshowInfoPanel
       v-if="showSidebar"
       ref="infoPanelRef"
-      :current-item="currentItem"
+      :current-item="currentPayloadItem"
       :is-trash-view="isTrashView"
       :is-current-item-trashed="isCurrentItemTrashed"
       :available-markers="availableMarkers"
@@ -356,7 +356,7 @@
         v-else-if="isGrid && !isViewingGrid"
         ref="gridViewerRef"
         :key="`grid-${displayItem?.id}-${refreshKey}`"
-        :media-id="displayItem.id"
+        :media-id="mediaIdOf(displayItem)"
         :multi-select-mode="gridMultiSelectMode"
         @back="close"
         @select-cell="handleGridCellSelect"
@@ -385,7 +385,7 @@
           v-if="isAudio"
           :key="`audio-${displayItem?.id}-${refreshKey}`"
           :src="getMediaFileUrl(displayItem.file_hash)"
-          :media-id="displayItem.id"
+          :media-id="mediaIdOf(displayItem)"
           :title="displayItem.vlm_caption"
           :duration="displayItem.duration"
           autoplay
@@ -395,14 +395,14 @@
         <MarkdownViewer
           v-else-if="isText"
           :key="`markdown-${displayItem?.id}-${refreshKey}`"
-          :media-id="displayItem.id"
+          :media-id="mediaIdOf(displayItem)"
         />
 
         <!-- Set overview: show all items in a wrap panel (only when not already viewing a set) -->
         <SetOverview
           v-else-if="isSet && !isViewingSet"
           :key="`set-overview-${displayItem?.id}-${refreshKey}`"
-          :media-id="displayItem.id"
+          :media-id="mediaIdOf(displayItem)"
           @select-item="handleSetItemSelect"
           @loaded="handleSetOverviewLoaded"
           class="absolute inset-0 z-[1]"
@@ -412,7 +412,7 @@
         <LayoutViewer
           v-else-if="isLayout"
           :key="`layout-${displayItem?.id}-${refreshKey}`"
-          :media-id="displayItem.id"
+          :media-id="mediaIdOf(displayItem)"
           class="absolute inset-0 z-[1]"
         />
 
@@ -424,7 +424,7 @@
           :key="`video-${displayItem?.id}-${refreshKey}`"
           :poster="getThumbnailUrl(displayItem.file_hash, 1024, { mode: 'fit' })"
           :muted="isMuted"
-          @contextmenu="handleContextMenu($event, displayItem.id, displayItem.file_hash)"
+          @contextmenu="handleContextMenu($event, displayItem)"
           autoplay
           playsinline
           :class="[
@@ -451,7 +451,7 @@
             zoomScale > 1 ? 'cursor-grabbing' : 'cursor-zoom-in'
           ]"
           :style="checkerOverlayStyle"
-          @contextmenu="handleContextMenu($event, displayItem.id, displayItem.file_hash)"
+          @contextmenu="handleContextMenu($event, displayItem)"
         >
           <img
             :key="`img-${displayItem?.id}-${refreshKey}`"
@@ -525,7 +525,7 @@
       <button
         v-if="!focusMode && !isViewingSource && canGoPrevious"
         @click.stop="userPrevious"
-        @contextmenu="handleContextMenu($event, displayItem?.id, displayItem?.file_hash)"
+        @contextmenu="handleContextMenu($event, displayItem)"
         :class="[
           'absolute left-0 flex items-center justify-start cursor-pointer z-[9999] group bg-transparent border-none',
           isGrid ? 'w-12 h-24 top-1/2 -translate-y-1/2' : 'w-48 top-20 bottom-0'
@@ -543,7 +543,7 @@
       <button
         v-if="!focusMode && !isViewingSource && canGoNext"
         @click.stop="userNext"
-        @contextmenu="handleContextMenu($event, displayItem?.id, displayItem?.file_hash)"
+        @contextmenu="handleContextMenu($event, displayItem)"
         :class="[
           'absolute right-0 flex items-center justify-end cursor-pointer z-[9999] group bg-transparent border-none',
           isGrid ? 'w-12 h-24 top-1/2 -translate-y-1/2' : 'w-48 top-20 bottom-0'
@@ -587,11 +587,11 @@
           class="flex items-center justify-center relative"
           :title="currentItem.vlm_caption || 'Source image'"
           style="height: 104px;"
-          @contextmenu="handleContextMenu($event, currentItem.id, currentItem.file_hash)"
+          @contextmenu="handleContextMenu($event, currentItem)"
         >
           <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] bg-black rounded overflow-hidden border border-edge ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-elevated">
             <MediaImage
-              :media-id="currentItem.id"
+              :media-id="mediaIdOf(currentItem)"
               :file-hash="currentItem.file_hash"
               :file-path="currentItem.file_path"
               :file-format="currentItem.file_format"
@@ -630,7 +630,7 @@
             :class="index === setViewIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-blue-400 hover:brightness-110'"
           >
             <MediaImage
-              :media-id="item.id"
+              :media-id="mediaIdOf(item)"
               :file-hash="item.file_hash"
               :file-path="item.file_path"
               :file-format="item.file_format"
@@ -674,7 +674,7 @@
         <template v-slot="{ item, index }">
           <div
             @click="!item._isPlaceholder && goToIndex(index)"
-            @contextmenu="!item._isPlaceholder && handleContextMenu($event, item.id, item.file_hash)"
+            @contextmenu="!item._isPlaceholder && handleContextMenu($event, item)"
             class="flex items-center justify-center transition-all relative"
             :class="item._isPlaceholder ? 'cursor-default' : 'cursor-pointer'"
             :title="item._isPlaceholder ? 'Loading...' : (item.vlm_caption || `Image ${index + 1}`)"
@@ -692,7 +692,7 @@
               :class="index === currentIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-blue-400 hover:brightness-110'"
             >
               <MediaImage
-                :media-id="item.id"
+                :media-id="mediaIdOf(item)"
                 :file-hash="item.file_hash"
                 :file-path="item.file_path"
                 :file-format="item.file_format"
@@ -1148,7 +1148,8 @@
     <!-- Board Picker Modal -->
     <BoardPicker
       :visible="showBoardPicker"
-      :media-ids="currentItem ? [currentItem.id] : []"
+      :media-ids="currentPayloadId ? [currentPayloadId] : []"
+      :asset-ids="currentAssetId ? [currentAssetId] : []"
       @close="showBoardPicker = false"
       @saved="handleBoardAdded"
     />
@@ -1156,15 +1157,15 @@
     <!-- Export Modal -->
     <ExportModal
       :show="showExportModal"
-      :media-ids="currentItem ? [currentItem.id] : []"
-      :media-items="currentItem ? [currentItem] : []"
+      :media-ids="currentPayloadId ? [currentPayloadId] : []"
+      :media-items="currentPayloadItem ? [currentPayloadItem] : []"
       @close="showExportModal = false"
     />
 
     <!-- Share Dialog -->
     <ShareDialog
       v-model="showShareDialog"
-      :media-item="currentItem"
+      :media-item="currentPayloadItem"
     />
 
     <!-- Context Menu (teleports to body) -->
@@ -1176,6 +1177,7 @@
 import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
 import { useTelemetry } from '../composables/useTelemetry'
 import { addToast } from '../composables/useToasts'
 import { useProvidersApi } from '../composables/useProvidersApi'
@@ -1216,6 +1218,7 @@ import { useWorkspaceTabs, toolInstanceScopedId, toolInstanceRoute } from '../co
 import { getCurrentProfileId } from '../composables/useProfile'
 import { getCachedPin } from '../composables/usePinLock'
 import { getApiBase } from '../apiConfig'
+import { assetIdOf, mediaIdOf, hasAssetIdentity } from '../utils/assetIdentity'
 import {
   diffInsertedLiveIds,
   orderLiveAdvanceCandidates,
@@ -1299,6 +1302,18 @@ const props = defineProps({
 const emit = defineEmits(['close', 'filterByKeyword', 'findSimilar', 'update:index', 'update:currentMediaId', 'update:randomized', 'update:randomSeed', 'navigate-to-media', 'compare-with-source', 'approve', 'reject', 'unapprove'])
 
 const { getThumbnailUrl, getMediaFileUrl, getMseLoopUrls, getMediaItem, fetchMedia, deleteMedia, findMediaIndex, restoreFromTrash, permanentlyDeleteMedia, getMediaFaces, downloadMedia: downloadMediaApi, getProjects, addMediaToProject, removeMediaFromProject } = useMediaApi()
+const {
+  trash: trashAsset,
+  restore: restoreAsset,
+  permanentlyDelete: permanentlyDeleteAsset,
+  addMarker: addMarkerToAsset,
+  removeMarker: removeMarkerFromAsset,
+  addToProject: addAssetsToProject,
+  removeFromProject: removeAssetFromProject,
+  removeFromBoardSection: removeAssetFromBoardSection,
+  getProjects: getAssetProjects,
+  getBoards: getAssetBoards,
+} = useAssetApi()
 const { on: onWebSocketEvent } = useWebSocket()
 const { cachedTools, fetchProvidersAndTools } = useProvidersApi()
 const { isTauri, handleDragStart: tauriDragStart, prewarmDragSnapshot } = useTauriDrag()
@@ -1700,7 +1715,7 @@ const baseCurrentItem = computed(() => {
       const item = props.mediaList.getItem(actualIndex)
       if (!item) return null
 
-      if (!removedIds.has(item.id)) {
+      if (!removedIds.has(itemIdentity(item))) {
         if (validCount === targetIndex) {
           return item
         }
@@ -1728,7 +1743,7 @@ const baseCurrentItem = computed(() => {
 
   while (actualIndex <= maxCacheIndex + removedIds.size) {
     const item = itemsCache.value.get(actualIndex)
-    if (item && !removedIds.has(item.id)) {
+    if (item && !removedIds.has(itemIdentity(item))) {
       if (validCount === targetIndex) {
         return item
       }
@@ -1762,6 +1777,29 @@ const currentItem = computed(() => {
   }
   return baseCurrentItem.value
 })
+const currentAssetId = computed(() => (
+  currentItem.value && hasAssetIdentity(currentItem.value)
+    ? assetIdOf(currentItem.value)
+    : null
+))
+const currentPayloadId = computed(() => mediaIdOf(currentItem.value || {}))
+const currentPayloadItem = computed(() => (
+  currentItem.value && currentPayloadId.value
+    ? {
+        ...currentItem.value,
+        id: currentPayloadId.value,
+        auto_delete_at: currentItem.value.expires_at || currentItem.value.auto_delete_at || null,
+      }
+    : null
+))
+
+function itemIdentity(item) {
+  return item ? assetIdOf(item) : null
+}
+
+function itemPayloadId(item) {
+  return item ? mediaIdOf(item) : null
+}
 const isCurrentItemTrashed = computed(() => {
   return currentItem.value?.deleted_at != null
 })
@@ -1855,7 +1893,7 @@ const generationHistory = computed(() => {
   // For imported items with no generation_metadata, show a single "imported" entry
   if (!generationMetadata.value) {
     return [{
-      media_id: currentItem.value.id,
+      media_id: currentPayloadId.value,
       task_type: null,  // Will display as "imported" via fallback
       is_imported: true,
       model: null,
@@ -1880,7 +1918,7 @@ const generationHistory = computed(() => {
 
     // Build step from generation metadata
     const step = {
-      media_id: currentItem.value?.id,
+      media_id: currentPayloadId.value,
       task_type: meta.task_type,
       model: meta.model,
       generator: meta.generator,
@@ -1954,8 +1992,9 @@ const hasRawMetadata = computed(() => {
 // synchronously from cache. Embedding inline during dragstart awaits a
 // round-trip that outlives the mouse gesture and crashes the macOS drag plugin.
 watch(currentItem, (newItem) => {
-  if (isTauri.value && newItem?.id != null && newItem.file_path) {
-    prewarmDragSnapshot(newItem.id)
+  const mediaId = itemPayloadId(newItem)
+  if (isTauri.value && mediaId != null && newItem.file_path) {
+    prewarmDragSnapshot(mediaId)
   }
 }, { immediate: true })
 
@@ -1982,7 +2021,7 @@ watch(currentItem, (newItem) => {
     props.autoAdvanceOnNew &&
     !(followStream.value && currentIndex.value === 0) &&
     currentMediaId.value != null &&
-    newItem?.id !== currentMediaId.value
+    itemIdentity(newItem) !== currentMediaId.value
   ) {
     console.log(`[SlideshowDebug] display_item_locked itemId=${newItem?.id} pinned=${currentMediaId.value}`)
     return
@@ -1995,7 +2034,7 @@ watch(currentItem, (newItem) => {
   if (
     props.autoAdvanceOnNew &&
     newItem && displayItem.value &&
-    newItem.id === displayItem.value.id &&
+    itemIdentity(newItem) === itemIdentity(displayItem.value) &&
     newItem.file_hash === displayItem.value.file_hash
   ) {
     return
@@ -2021,7 +2060,7 @@ function applyDisplayItem(newItem) {
   if (!newItem || (!newItem.file_hash && !newItem._placeholder && !newItem.id)) return
   if (
     displayItem.value &&
-    newItem.id === displayItem.value.id &&
+    itemIdentity(newItem) === itemIdentity(displayItem.value) &&
     newItem.file_hash === displayItem.value.file_hash
   ) return
   mediaLoaded.value = false
@@ -2035,7 +2074,7 @@ function applyMediaPatchToLocalState(mediaId, updates) {
   let cacheChanged = false
   const newCache = new Map(itemsCache.value)
   for (const [index, item] of itemsCache.value.entries()) {
-    if (item?.id === mediaId) {
+    if (itemPayloadId(item) === mediaId) {
       newCache.set(index, { ...item, ...updates })
       cacheChanged = true
     }
@@ -2045,15 +2084,18 @@ function applyMediaPatchToLocalState(mediaId, updates) {
   }
 
   if (props.mediaList?.updateItem) {
-    props.mediaList.updateItem(mediaId, updates)
+    const identity = currentItem.value && itemPayloadId(currentItem.value) === mediaId
+      ? itemIdentity(currentItem.value)
+      : mediaId
+    props.mediaList.updateItem(identity, updates)
   }
 
-  if (displayItem.value?.id === mediaId) {
+  if (itemPayloadId(displayItem.value) === mediaId) {
     displayItem.value = { ...displayItem.value, ...updates }
   }
 
   for (const stackEntry of sourceViewStack.value) {
-    if (stackEntry.item?.id === mediaId) {
+    if (itemPayloadId(stackEntry.item) === mediaId) {
       stackEntry.item = { ...stackEntry.item, ...updates }
     }
   }
@@ -2081,7 +2123,7 @@ function mediaUpdatePatch(fields = [], media = {}) {
 // was shown, reset zoom for the new image, and (re)arm the advance scheduler for
 // the new item. Pins (arrival-driven currentIndex++) do NOT change displayItem's
 // id, so they never reset zoom or restart the dwell clock here.
-watch(() => displayItem.value?.id, (newId, oldId) => {
+watch(() => itemIdentity(displayItem.value), (newId, oldId) => {
   if (newId == null || newId === oldId) return
   currentShownAt = performance.now()
   resetZoom()
@@ -2197,7 +2239,8 @@ watch(currentIndex, (newIndex) => {
 // Track currentMediaId from baseCurrentItem - updates when we navigate or item loads
 // Also detects index drift (when items shift due to prepend/remove) and corrects it
 watch(baseCurrentItem, (newItem) => {
-  if (newItem?.id) {
+  const newIdentity = itemIdentity(newItem)
+  if (newIdentity) {
     // If user is navigating, always accept the new item
     if (isUserNavigating.value) {
       isUserNavigating.value = false
@@ -2207,9 +2250,9 @@ watch(baseCurrentItem, (newItem) => {
       // nav functions, from an explicit user landing on the newest item. Async
       // drift must never be able to turn auto-advance back on.
       if (currentIndex.value !== 0) followStream.value = false
-      console.log(`[SlideshowMode] User navigation: setting currentMediaId = ${newItem.id} followStream=${followStream.value}`)
-      currentMediaId.value = newItem.id
-      emit('update:currentMediaId', newItem.id)
+      console.log(`[SlideshowMode] User navigation: setting currentMediaId = ${newIdentity} followStream=${followStream.value}`)
+      currentMediaId.value = newIdentity
+      emit('update:currentMediaId', newIdentity)
       // The currentItem watcher locks unblessed changes, so land the navigation
       // on the screen explicitly.
       applyDisplayItem(newItem)
@@ -2218,23 +2261,23 @@ watch(baseCurrentItem, (newItem) => {
 
     // If we have a tracked ID and the new item doesn't match, indices have shifted (drift)
     // Recalculate the correct index instead of accepting the wrong item.
-    if (currentMediaId.value && newItem.id !== currentMediaId.value) {
+    if (currentMediaId.value && newIdentity !== currentMediaId.value) {
       if (props.mediaList) {
         // mediaList path (browse / flow views) - original behavior, unchanged.
         // Special case: if we're at index 0 (viewing newest), accept the new item
         // This lets users "follow" the newest image as new ones are generated
         if (currentIndex.value === 0) {
-          console.log(`[SlideshowMode] At index 0, accepting new newest item ${newItem.id} (was tracking ${currentMediaId.value})`)
+          console.log(`[SlideshowMode] At index 0, accepting new newest item ${newIdentity} (was tracking ${currentMediaId.value})`)
           // Fall through to accept the new item
         } else {
           const correctIndex = props.mediaList.findIndex(currentMediaId.value)
           if (correctIndex >= 0 && correctIndex !== currentIndex.value) {
-            console.log(`[SlideshowMode] Index drift detected! Item at index ${currentIndex.value} is ${newItem.id}, but we want ${currentMediaId.value} which is now at ${correctIndex}`)
+            console.log(`[SlideshowMode] Index drift detected! Item at index ${currentIndex.value} is ${newIdentity}, but we want ${currentMediaId.value} which is now at ${correctIndex}`)
             currentIndex.value = correctIndex
             return // Don't update currentMediaId - we corrected the index instead
           }
           // If we couldn't find our tracked item, it was probably deleted - accept the new item
-          console.log(`[SlideshowMode] Tracked item ${currentMediaId.value} not found in list, accepting new item ${newItem.id}`)
+          console.log(`[SlideshowMode] Tracked item ${currentMediaId.value} not found in list, accepting new item ${newIdentity}`)
         }
       } else if (props.autoAdvanceOnNew) {
         // pageProvider generate-forever path (ToolView): no mediaList, so locate the
@@ -2248,12 +2291,12 @@ watch(baseCurrentItem, (newItem) => {
         // to keep tracking it; otherwise drift would yank us to the newest. The
         // stepper updates currentMediaId itself, so its decrements never reach here.
         if (followStream.value && currentIndex.value === 0 && liveAdvanceQueue.value.length === 0) {
-          console.log(`[SlideshowMode] Caught up at index 0, accepting new newest item ${newItem.id} (was tracking ${currentMediaId.value})`)
+          console.log(`[SlideshowMode] Caught up at index 0, accepting new newest item ${newIdentity} (was tracking ${currentMediaId.value})`)
           // Fall through to accept the new item
         } else {
           let correctIndex = -1
           for (const [index, item] of itemsCache.value.entries()) {
-            if (item && item.id === currentMediaId.value) {
+            if (item && itemIdentity(item) === currentMediaId.value) {
               correctIndex = index
               break
             }
@@ -2266,7 +2309,7 @@ watch(baseCurrentItem, (newItem) => {
           if (correctIndex < 0) {
             // Not in cache yet. Keep the display pinned by ID (the displayItem lock
             // handles the screen); do not accept the wrong item.
-            console.log(`[SlideshowMode] Tracked item ${currentMediaId.value} not in cache; keeping pinned, ignoring ${newItem.id}`)
+            console.log(`[SlideshowMode] Tracked item ${currentMediaId.value} not in cache; keeping pinned, ignoring ${newIdentity}`)
             return
           }
         }
@@ -2275,9 +2318,9 @@ watch(baseCurrentItem, (newItem) => {
     }
 
     // Normal case: update currentMediaId to match current item
-    console.log(`[SlideshowMode] Setting currentMediaId = ${newItem.id} (was ${currentMediaId.value})`)
-    currentMediaId.value = newItem.id
-    emit('update:currentMediaId', newItem.id)
+    console.log(`[SlideshowMode] Setting currentMediaId = ${newIdentity} (was ${currentMediaId.value})`)
+    currentMediaId.value = newIdentity
+    emit('update:currentMediaId', newIdentity)
     if (props.autoAdvanceOnNew && followStream.value && currentIndex.value === 0 && liveAdvanceQueue.value.length === 0) {
       applyDisplayItem(newItem)
     }
@@ -2409,7 +2452,7 @@ const stripItemGetter = computed(() => {
         const item = props.mediaList.getItem(actualIndex)
         if (!item) return null // Past loaded items
 
-        if (!removedIds.has(item.id)) {
+        if (!removedIds.has(itemIdentity(item))) {
           if (validCount === targetIndex) {
             return item
           }
@@ -2437,7 +2480,7 @@ const stripItemGetter = computed(() => {
 
     while (actualIndex <= maxCacheIndex + removedIds.size) {
       const item = itemsCache.value.get(actualIndex)
-      if (item && !removedIds.has(item.id)) {
+      if (item && !removedIds.has(itemIdentity(item))) {
         if (validCount === targetIndex) {
           return item
         }
@@ -2557,7 +2600,7 @@ function displayAnchorIndex() {
   if (props.items || props.mediaList || isRandomized.value) return currentIndex.value
   if (currentMediaId.value == null || localRemovedIds.value.size > 0) return currentIndex.value
   for (const [index, item] of itemsCache.value.entries()) {
-    if (item && item.id === currentMediaId.value) return index
+    if (item && itemIdentity(item) === currentMediaId.value) return index
   }
   return currentIndex.value
 }
@@ -2576,8 +2619,9 @@ function stepFromAnchor(delta) {
     // accept the cached item directly and apply the user-nav side effects here.
     const item = baseCurrentItem.value
     if (item?.id) {
-      currentMediaId.value = item.id
-      emit('update:currentMediaId', item.id)
+      const identity = itemIdentity(item)
+      currentMediaId.value = identity
+      emit('update:currentMediaId', identity)
       applyDisplayItem(item)
       if (gridMultiSelectMode.value) {
         gridMultiSelectMode.value = false
@@ -2740,7 +2784,7 @@ function handleSetItemSelect(event) {
   // Enter the set view at the clicked item's index
   // We need to use displayItem.id to get the set's mediaId
   if (displayItem.value) {
-    enterSetView(displayItem.value.id, index)
+    enterSetView(itemPayloadId(displayItem.value), index)
   }
 }
 
@@ -2812,7 +2856,7 @@ async function saveSetOverviewTitle() {
   if (!isEditingSetOverviewTitle.value) return
 
   const newTitle = editingSetOverviewTitle.value.trim()
-  const setMediaId = displayItem.value?.id
+  const setMediaId = itemPayloadId(displayItem.value)
 
   if (setMediaId) {
     try {
@@ -2859,7 +2903,7 @@ async function saveGridOverviewTitle() {
   if (!isEditingGridOverviewTitle.value) return
 
   const newTitle = editingGridOverviewTitle.value.trim()
-  const gridMediaId = displayItem.value?.id
+  const gridMediaId = itemPayloadId(displayItem.value)
 
   if (gridMediaId) {
     try {
@@ -3051,7 +3095,7 @@ function getGridCellContent(row, col) {
 // Handle cell selection from GridViewer
 function handleGridCellSelect({ row, col, cell, gridData }) {
   // Pass the current displayItem.id as the gridMediaId
-  enterGridView(gridData, row, col, displayItem.value?.id)
+  enterGridView(gridData, row, col, itemPayloadId(displayItem.value))
 }
 
 // Handle GridViewer loaded event to get title for the pill display
@@ -4211,7 +4255,7 @@ function removeMediaIdsFromCache(removedIds) {
   let cacheChanged = false
   const newCache = new Map(itemsCache.value)
   for (const [index, item] of itemsCache.value.entries()) {
-    if (item && removedIds.has(item.id)) {
+    if (item && removedIds.has(itemIdentity(item))) {
       newCache.delete(index)
       cacheChanged = true
     }
@@ -4226,7 +4270,7 @@ function pruneLiveQueueForRemovedMediaIds(removedIds) {
 
   const removedKeys = new Set()
   const collectRemovedKey = (item) => {
-    if (!item || !removedIds.has(item.id)) return
+    if (!item || !removedIds.has(itemIdentity(item))) return
     const key = getLiveItemKey(item)
     if (key != null) removedKeys.add(key)
   }
@@ -4246,7 +4290,7 @@ function pruneLiveQueueForRemovedMediaIds(removedIds) {
 }
 
 async function replaceDisplayedItemAfterRemoval(removedIds) {
-  if (!displayItem.value || !removedIds.has(displayItem.value.id)) {
+  if (!displayItem.value || !removedIds.has(itemIdentity(displayItem.value))) {
     scheduleAdvance()
     return
   }
@@ -4265,10 +4309,11 @@ async function replaceDisplayedItemAfterRemoval(removedIds) {
   await ensureItemLoaded(getActualIndex(nextIndex))
 
   const replacement = baseCurrentItem.value
-  if (replacement?.id) {
+  if (itemIdentity(replacement)) {
     dropLiveQueueKey(getLiveItemKey(replacement))
-    currentMediaId.value = replacement.id
-    emit('update:currentMediaId', replacement.id)
+    const identity = itemIdentity(replacement)
+    currentMediaId.value = identity
+    emit('update:currentMediaId', identity)
     applyDisplayItem(replacement)
   }
   scheduleAdvance()
@@ -4283,7 +4328,7 @@ function handleRemovedMediaIdsLocally(removedIds) {
 async function handleDeleteCurrentItem() {
   if (!currentItem.value) return
 
-  const deletedId = currentItem.value.id
+  const deletedId = itemIdentity(currentItem.value)
   const removedIds = new Set([deletedId])
 
   try {
@@ -4291,7 +4336,8 @@ async function handleDeleteCurrentItem() {
     deletingItemIds.value.add(deletedId)
 
     // Delete the item via API
-    await deleteMedia(deletedId)
+    if (currentAssetId.value) await trashAsset(currentAssetId.value)
+    else await deleteMedia(currentPayloadId.value)
 
     // Mark as locally removed so strip skips it
     localRemovedIds.value = new Set([...localRemovedIds.value, deletedId])
@@ -4319,14 +4365,14 @@ async function handleDeleteCurrentItem() {
 }
 
 function downloadMedia() {
-  if (!currentItem.value?.id) return
+  if (!currentPayloadId.value) return
   showExportModal.value = true
 }
 
 async function downloadMediaOriginal() {
-  if (!currentItem.value?.id) return
+  if (!currentPayloadId.value) return
   try {
-    await downloadMediaApi([currentItem.value.id])
+    await downloadMediaApi([currentPayloadId.value])
   } catch (error) {
     console.error('Failed to download media:', error)
   }
@@ -4336,9 +4382,9 @@ function handlePrint() {
   if (!currentItem.value) return
   const item = currentItem.value
   const imageUrl = isImageFormat(item.file_format)
-    ? getMediaFileUrl(item.id)
-    : getThumbnailUrl(item.file_hash || item.id, 512)
-  printAssetDetail(item, imageUrl)
+    ? getMediaFileUrl(currentPayloadId.value)
+    : getThumbnailUrl(item.file_hash || currentPayloadId.value, 512)
+  printAssetDetail(currentPayloadItem.value, imageUrl)
 }
 
 function isImageFormat(format) {
@@ -4348,26 +4394,27 @@ function isImageFormat(format) {
 }
 
 function handleEditImage() {
-  if (!currentItem.value?.id) return
-  router.push({ name: 'edit-image', params: { editorId: nextEditorId(), mediaId: currentItem.value.id } })
+  if (!currentPayloadId.value) return
+  router.push({ name: 'edit-image', params: { editorId: nextEditorId(), mediaId: currentPayloadId.value } })
 }
 
 function handleViewLineage() {
-  if (!currentItem.value?.id) return
-  router.push({ name: 'lineage', params: { mediaId: currentItem.value.id } })
+  if (!currentPayloadId.value) return
+  router.push({ name: 'lineage', params: { mediaId: currentPayloadId.value } })
 }
 
 async function handleRestoreCurrentItem() {
   if (!currentItem.value) return
 
-  const restoredId = currentItem.value.id
+  const restoredId = itemIdentity(currentItem.value)
 
   try {
     // Mark as being handled by us so websocket handler skips it
     deletingItemIds.value.add(restoredId)
 
     // Restore the item via API
-    await restoreFromTrash(restoredId)
+    if (currentAssetId.value) await restoreAsset(currentAssetId.value)
+    else await restoreFromTrash(currentPayloadId.value)
 
     // Mark as locally removed so strip skips it (it's leaving trash view)
     localRemovedIds.value = new Set([...localRemovedIds.value, restoredId])
@@ -4394,10 +4441,11 @@ async function handleRestoreCurrentItem() {
 async function handlePermanentDeleteCurrentItem() {
   if (!currentItem.value) return
 
-  const deletedId = currentItem.value.id
+  const deletedId = itemIdentity(currentItem.value)
 
   try {
-    await permanentlyDeleteMedia(deletedId)
+    if (currentAssetId.value) await permanentlyDeleteAsset(currentAssetId.value)
+    else await permanentlyDeleteMedia(currentPayloadId.value)
     addToast('Deleted 1 item permanently', 'info')
 
   } catch (error) {
@@ -4422,7 +4470,7 @@ function findSimilar() {
   if (!currentItem.value) return
 
   // Set global filter state with current item for display
-  setSimilarFilter(currentItem.value.id, currentItem.value)
+  setSimilarFilter(currentPayloadId.value, currentPayloadItem.value)
 
   // If already on Browse, close slideshow; otherwise navigate (which will unmount it)
   if (router.currentRoute.value.name === 'browse') {
@@ -4513,16 +4561,19 @@ async function toggleProjectMembership(projectId, checked) {
   projectPickerBusy.value.add(projectId)
   try {
     if (checked) {
-      await addMediaToProject(projectId, [currentItem.value.id])
+      if (currentAssetId.value) await addAssetsToProject(projectId, [currentAssetId.value])
+      else await addMediaToProject(projectId, [currentPayloadId.value])
       projectPickerMembership.value.add(projectId)
     } else {
-      await removeMediaFromProject(projectId, currentItem.value.id)
+      if (currentAssetId.value) await removeAssetFromProject(currentAssetId.value, projectId)
+      else await removeMediaFromProject(projectId, currentPayloadId.value)
       projectPickerMembership.value.delete(projectId)
     }
     // Refresh the info panel list
-    metadataCache.value.delete(currentItem.value.id)
-    const response = await axios.get(`/api/media/${currentItem.value.id}/projects`)
-    mediaProjects.value = response.data
+    metadataCache.value.delete(itemIdentity(currentItem.value))
+    mediaProjects.value = currentAssetId.value
+      ? await getAssetProjects(currentAssetId.value)
+      : (await axios.get(`/api/media/${currentPayloadId.value}/projects`)).data
   } catch (err) {
     console.error('Failed to toggle project membership:', err)
     // Revert checkbox
@@ -4548,10 +4599,12 @@ function navigateToProject(projectId) {
 async function removeFromProject(projectId) {
   if (!currentItem.value) return
   try {
-    await removeMediaFromProject(projectId, currentItem.value.id)
-    metadataCache.value.delete(currentItem.value.id)
-    const response = await axios.get(`/api/media/${currentItem.value.id}/projects`)
-    mediaProjects.value = response.data
+    if (currentAssetId.value) await removeAssetFromProject(currentAssetId.value, projectId)
+    else await removeMediaFromProject(projectId, currentPayloadId.value)
+    metadataCache.value.delete(itemIdentity(currentItem.value))
+    mediaProjects.value = currentAssetId.value
+      ? await getAssetProjects(currentAssetId.value)
+      : (await axios.get(`/api/media/${currentPayloadId.value}/projects`)).data
   } catch (err) {
     console.error('Failed to remove from project:', err)
   }
@@ -4565,14 +4618,16 @@ async function removeFromBoard(boardId) {
     const sections = boardData.data?.sections || []
     for (const section of sections) {
       const items = section.items || []
-      if (items.some(item => item.media_id === currentItem.value.id)) {
-        await axios.delete(`/api/boards/sections/${section.id}/items/${currentItem.value.id}`)
+      if (items.some(item => assetIdOf(item) === itemIdentity(currentItem.value))) {
+        if (currentAssetId.value) await removeAssetFromBoardSection(section.id, currentAssetId.value)
+        else await axios.delete(`/api/boards/sections/${section.id}/items/${currentPayloadId.value}`)
         break
       }
     }
-    metadataCache.value.delete(currentItem.value.id)
-    const response = await axios.get(`/api/media/${currentItem.value.id}/boards`)
-    mediaBoards.value = response.data
+    metadataCache.value.delete(itemIdentity(currentItem.value))
+    mediaBoards.value = currentAssetId.value
+      ? await getAssetBoards(currentAssetId.value)
+      : (await axios.get(`/api/media/${currentPayloadId.value}/boards`)).data
   } catch (err) {
     console.error('Failed to remove from board:', err)
   }
@@ -4588,8 +4643,9 @@ async function handleBoardAdded() {
   // Reload boards to show the newly added board
   if (currentItem.value) {
     // Invalidate cache for this item so fresh data is fetched
-    metadataCache.value.delete(currentItem.value.id)
-    await fetchMediaBoards(currentItem.value.id)
+    metadataCache.value.delete(itemIdentity(currentItem.value))
+    if (currentAssetId.value) mediaBoards.value = await getAssetBoards(currentAssetId.value)
+    else await fetchMediaBoards(currentPayloadId.value)
   }
 }
 
@@ -4645,10 +4701,10 @@ function handleCompareWithSource(sourceMediaId) {
     console.log('[SlideshowMode] currentItem is null, returning early')
     return
   }
-  console.log('[SlideshowMode] emitting compare-with-source with:', { leftMediaId: sourceMediaId, rightMediaId: currentItem.value.id })
+  console.log('[SlideshowMode] emitting compare-with-source with:', { leftMediaId: sourceMediaId, rightMediaId: currentPayloadId.value })
   emit('compare-with-source', {
     leftMediaId: sourceMediaId,
-    rightMediaId: currentItem.value.id
+    rightMediaId: currentPayloadId.value
   })
 }
 
@@ -4683,7 +4739,18 @@ function handleStripDragStart(event, item) {
   const thumbnailUrl = getThumbnailUrl(item.file_hash, 128)
   const fileFormat = item.file_format || ''
   const itemIsVideo = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'].includes(fileFormat.toLowerCase())
-  createDragPreview(event, thumbnailUrl, item.id, fileFormat, itemIsVideo)
+  const mediaId = itemPayloadId(item)
+  if (!mediaId) return
+  createDragPreview(event, thumbnailUrl, mediaId, fileFormat, itemIsVideo)
+  if (hasAssetIdentity(item)) {
+    event.dataTransfer?.setData('application/x-stimma-assets', JSON.stringify({
+      items: [{
+        asset_id: itemIdentity(item),
+        revision_id: item.revision_id ?? null,
+        media_id: mediaId,
+      }],
+    }))
+  }
 }
 
 // Drag and drop handler.
@@ -4698,7 +4765,7 @@ async function handleDragStart(event) {
   if (!currentItem.value) return
 
   if (isTauri.value && event.altKey && currentItem.value.file_path) {
-    await tauriDragStart(event, currentItem.value.id, currentItem.value.file_path)
+    await tauriDragStart(event, currentPayloadId.value, currentItem.value.file_path)
     return
   }
 
@@ -4708,7 +4775,16 @@ async function handleDragStart(event) {
   const thumbnailUrl = getThumbnailUrl(currentItem.value.file_hash, 128)
   const fileFormat = currentItem.value.file_format || ''
   const itemIsVideo = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'].includes(fileFormat.toLowerCase())
-  createDragPreview(event, thumbnailUrl, currentItem.value.id, fileFormat, itemIsVideo)
+  createDragPreview(event, thumbnailUrl, currentPayloadId.value, fileFormat, itemIsVideo)
+  if (currentAssetId.value) {
+    event.dataTransfer?.setData('application/x-stimma-assets', JSON.stringify({
+      items: [{
+        asset_id: currentAssetId.value,
+        revision_id: currentItem.value.revision_id ?? null,
+        media_id: currentPayloadId.value,
+      }],
+    }))
+  }
 }
 
 // Drag handle on the control strip: an explicit "drag the file out" affordance
@@ -4716,7 +4792,7 @@ async function handleDragStart(event) {
 // drag) — that's the whole point of the handle.
 async function handleExportDragStart(event) {
   if (!currentItem.value || !currentItem.value.file_path) return
-  await tauriDragStart(event, currentItem.value.id, currentItem.value.file_path)
+  await tauriDragStart(event, currentPayloadId.value, currentItem.value.file_path)
 }
 
 // === Auto-advance engine (generate-forever) ================================
@@ -4967,7 +5043,7 @@ function preloadImage(url) {
 // Push cached metadata for `item` into the info-panel refs (extracted from the old
 // atomic transition).
 function applyMetadataFromCache(item) {
-  const metadata = metadataCache.value.get(item?.id)
+  const metadata = metadataCache.value.get(itemIdentity(item))
   if (!metadata) return
   faces.value = metadata.faces
   mediaProjects.value = metadata.projects || []
@@ -5049,8 +5125,9 @@ async function performFollowStep() {
     currentIndex.value = targetDisplayIndex
     displayItem.value = swapItem
     // Keep the drift tracker in sync so the baseCurrentItem watcher doesn't fight us.
-    currentMediaId.value = swapItem.id
-    emit('update:currentMediaId', swapItem.id)
+    const identity = itemIdentity(swapItem)
+    currentMediaId.value = identity
+    emit('update:currentMediaId', identity)
     dropLiveQueueHead(targetKey)
     applyMetadataFromCache(swapItem)
     visibleFaceOverlays.value.clear()
@@ -5145,6 +5222,16 @@ function handleMediaBulkDeletedWs(data) {
   handleRemovedMediaIdsLocally(idsToRemove)
 }
 
+function handleAssetsRemovedWs(data) {
+  const ids = data.asset_ids || [data.asset_id || data.asset?.id].filter(Boolean)
+  const externalIds = ids.filter((id) => !deletingItemIds.value.has(id))
+  if (externalIds.length === 0) return
+  localRemovedIds.value = new Set([...localRemovedIds.value, ...externalIds])
+  if (props.mediaList) props.mediaList.removeItems(externalIds)
+  applyRemovalToCount(externalIds.length)
+  handleRemovedMediaIdsLocally(new Set(externalIds))
+}
+
 // WebSocket handler: auto_delete_removed
 function handleAutoDeleteRemovedWs(data) {
   const { media_id } = data
@@ -5177,6 +5264,13 @@ onMounted(async () => {
   // event — the provider list is the source of truth for insert positions.)
   wsUnsubscribers.push(onWebSocketEvent('media_deleted', handleMediaDeletedWs))
   wsUnsubscribers.push(onWebSocketEvent('media_bulk_deleted', handleMediaBulkDeletedWs))
+  wsUnsubscribers.push(onWebSocketEvent('asset_deleted', handleAssetsRemovedWs))
+  wsUnsubscribers.push(onWebSocketEvent('assets_trashed', handleAssetsRemovedWs))
+  wsUnsubscribers.push(onWebSocketEvent('asset_permanently_deleted', handleAssetsRemovedWs))
+  if (props.isTrashView) {
+    wsUnsubscribers.push(onWebSocketEvent('asset_restored', handleAssetsRemovedWs))
+    wsUnsubscribers.push(onWebSocketEvent('assets_restored', handleAssetsRemovedWs))
+  }
 
   // Add capture-phase Escape handler
   window.addEventListener('keydown', handleEscapeCapture, true)
@@ -5397,9 +5491,9 @@ function parseLandmarks(landmarksStr) {
 // already moved on to a different item by the time decode() settles.
 function handleMediaLoad(event) {
   const img = event?.target
-  const itemId = displayItem.value?.id
+  const itemId = itemIdentity(displayItem.value)
   const finish = () => {
-    if (displayItem.value?.id !== itemId) return
+    if (itemIdentity(displayItem.value) !== itemId) return
     mediaLoaded.value = true
     // Apply saved volume to newly loaded video
     if (videoElement.value) {
@@ -5414,12 +5508,18 @@ function handleMediaLoad(event) {
 }
 
 // Handle context menu on main image or thumbnails
-function handleContextMenu(event, mediaId, fileHash) {
-  if (!mediaId) return
+function handleContextMenu(event, item) {
+  const mediaId = itemPayloadId(item)
+  const assetId = hasAssetIdentity(item || {}) ? itemIdentity(item) : null
+  if (!mediaId && !assetId) return
   contextMenu.show({
     event,
     mediaId,
-    fileHash
+    mediaIds: mediaId ? [mediaId] : [],
+    assetId,
+    assetIds: assetId ? [assetId] : [],
+    selectedItems: item ? [item] : [],
+    fileHash: item?.file_hash,
   })
 }
 
@@ -5558,28 +5658,31 @@ watch(isMuted, (newValue) => {
 
 // Fetch and cache all metadata for an item (used for preloading in infinity mode)
 async function fetchAndCacheMetadata(item) {
-  if (!item?.id) return null
+  const identity = itemIdentity(item)
+  const mediaId = itemPayloadId(item)
+  const assetId = hasAssetIdentity(item) ? identity : null
+  if (!identity || !mediaId) return null
 
   // Check cache first
-  const cached = metadataCache.value.get(item.id)
+  const cached = metadataCache.value.get(identity)
   if (cached) return cached
 
   try {
     // Fetch all metadata in parallel
     const [facesResult, boardsResult, projectsResult, jobResult, chatResult, lineageResult] = await Promise.all([
-      getMediaFaces(item.id).catch(err => {
+      getMediaFaces(mediaId).catch(err => {
         console.error('Failed to load faces:', err)
         return { faces: [] }
       }),
-      axios.get(`/api/media/${item.id}/boards`).then(r => r.data).catch(err => {
+      (assetId ? getAssetBoards(assetId) : axios.get(`/api/media/${mediaId}/boards`).then(r => r.data)).catch(err => {
         console.error('Failed to fetch media boards:', err)
         return []
       }),
-      axios.get(`/api/media/${item.id}/projects`).then(r => r.data).catch(err => {
+      (assetId ? getAssetProjects(assetId) : axios.get(`/api/media/${mediaId}/projects`).then(r => r.data)).catch(err => {
         console.error('Failed to fetch media projects:', err)
         return []
       }),
-      axios.get(`/api/media/${item.id}/generation-job`).then(r => r.data).catch(() => null),
+      axios.get(`/api/media/${mediaId}/generation-job`).then(r => r.data).catch(() => null),
       item.chat_item_id
         ? axios.get(`/api/chats/by-item/${item.chat_item_id}`).then(r => r.data).catch(err => {
             if (err.response?.status === 410) return { error: 'deleted' }
@@ -5587,7 +5690,7 @@ async function fetchAndCacheMetadata(item) {
             return null
           })
         : Promise.resolve(null),
-      axios.get(`/api/media/${item.id}/lineage?include_descendants=true`).then(r => r.data).catch(err => {
+      axios.get(`/api/media/${mediaId}/lineage?include_descendants=true`).then(r => r.data).catch(err => {
         console.error('Failed to fetch lineage:', err)
         return { derivatives: [], descendants: [] }
       })
@@ -5619,7 +5722,7 @@ async function fetchAndCacheMetadata(item) {
       descendants: derivedDescendants,
       inspiredDescendants: inspiredDescendants
     }
-    metadataCache.value.set(item.id, metadata)
+    metadataCache.value.set(identity, metadata)
 
     return metadata
   } catch (err) {
@@ -5659,7 +5762,7 @@ watch(currentItem, async (newItem) => {
   }
 
   // Check cache first - if cached, update synchronously (no blink)
-  const cached = metadataCache.value.get(newItem.id)
+  const cached = metadataCache.value.get(itemIdentity(newItem))
   if (cached) {
     faces.value = cached.faces
     mediaProjects.value = cached.projects || []
@@ -5775,11 +5878,16 @@ async function toggleMarker(markerId) {
   if (!currentItem.value) return
 
   const isActive = isMarkerActive(markerId)
-  const mediaId = currentItem.value.id
+  const mediaId = currentPayloadId.value
+  const assetId = currentAssetId.value
 
   try {
     let response
-    if (isActive) {
+    if (assetId && isActive) {
+      response = await removeMarkerFromAsset(assetId, markerId)
+    } else if (assetId) {
+      response = await addMarkerToAsset(assetId, markerId)
+    } else if (isActive) {
       // Remove marker
       response = await axios.delete(`/api/media/${mediaId}/markers/${markerId}`)
     } else {
@@ -5788,7 +5896,11 @@ async function toggleMarker(markerId) {
     }
 
     // Use markers from toggle response (avoids a separate GET request)
-    const updatedMarkers = response.data.markers
+    const updatedMarkers = response?.data?.markers || response?.markers || (
+      isActive
+        ? (currentItem.value.markers || []).filter((marker) => marker.id !== markerId)
+        : [...(currentItem.value.markers || []), availableMarkers.value.find((marker) => marker.id === markerId)].filter(Boolean)
+    )
 
     applyMediaPatchToLocalState(mediaId, { markers: updatedMarkers })
 

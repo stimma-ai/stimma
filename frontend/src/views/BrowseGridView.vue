@@ -199,7 +199,7 @@
     <!-- Board Picker Modal -->
     <BoardPicker
       :visible="showBoardPicker"
-      :media-ids="selectedItemIds"
+      :asset-ids="selectedItemIds"
       @close="showBoardPicker = false"
       @saved="handleBoardsAdded"
     />
@@ -215,7 +215,7 @@
     <!-- Tag Editor Modal -->
     <BulkTagEditor
       :visible="showTagEditor"
-      :media-ids="selectedItemIds"
+      :asset-ids="selectedItemIds"
       :current-tag-counts="currentTagCounts"
       :selected-items="selectedItems"
       @close="showTagEditor = false"
@@ -287,6 +287,7 @@ import ConnectionError from '../components/ConnectionError.vue'
 import DeleteConfirmModal from '../components/DeleteConfirmModal.vue'
 import EmptyState from '../components/EmptyState.vue'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
 import { useCompare } from '../composables/useCompare'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
@@ -305,6 +306,7 @@ import { useMediaList } from '../composables/useMediaList'
 import { isSettingsLoaded } from '../appConfig'
 import { useWorkspaceTabs } from '../composables/useWorkspaceTabs'
 import { cloneDefaultBrowseFilters, normalizeBrowseFilters } from '../constants/browseFilters'
+import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
 
 // Props
 const props = defineProps({
@@ -378,24 +380,28 @@ const router = useRouter()
 const { nextEditorId } = useWorkspaceTabs()
 const { decodeFiltersFromUrl } = useUrlState()
 const {
-  fetchMedia,
-  fetchMediaIds,
-  getMediaItem,
-  findMediaIndex,
+  getMediaItem: getPayloadMediaItem,
   getMarkers,
-  bulkMarkerOperation,
-  deleteMedia,
-  bulkDeleteMedia,
   downloadMedia,
-  // Trash-specific APIs
-  getTrash,
-  restoreFromTrash,
-  permanentlyDeleteMedia,
-  emptyTrash: apiEmptyTrash,
-  bulkRestoreFromTrash,
-  bulkPermanentlyDelete,
   getThumbnailUrl
 } = useMediaApi()
+const {
+  fetchAssets: fetchMedia,
+  fetchAssetIds: fetchMediaIds,
+  getAssetBrowserItem,
+  findAssetIndex: findMediaIndex,
+  bulkMarker: bulkMarkerOperation,
+  trashMany: bulkDeleteMedia,
+  restore: restoreFromTrash,
+  restoreMany: bulkRestoreFromTrash,
+  permanentlyDelete: permanentlyDeleteMedia,
+  permanentlyDeleteMany: bulkPermanentlyDelete,
+  emptyTrash: apiEmptyTrash,
+} = useAssetApi()
+
+const getMediaItem = (assetId, options = {}) => (
+  getAssetBrowserItem(assetId, options.includeTrashed === true)
+)
 
 // Determine if we're using external filter state (for SavedViewPage) or global state
 // This is determined once at setup time - external filters won't toggle during component lifetime
@@ -449,7 +455,7 @@ function setSimilarFaceSearch(ids) {
 async function setSimilarFilter(mediaId) {
   if (useExternalFilters) {
     // For external filters, just set the filter directly
-    const item = await getMediaItem(mediaId)
+    const item = await getPayloadMediaItem(mediaId)
     filters.similarTo = [mediaId]
     filters.similarFaceTo = []
     filters.similarToText = ''
@@ -466,7 +472,7 @@ async function setSimilarFilter(mediaId) {
 
 async function setSimilarFaceFilter(mediaId) {
   if (useExternalFilters) {
-    const item = await getMediaItem(mediaId)
+    const item = await getPayloadMediaItem(mediaId)
     filters.similarFaceTo = [mediaId]
     filters.similarTo = []
     filters.similarToText = ''
@@ -693,7 +699,8 @@ const {
   createKeyboardHandler
 } = useMultiSelect({
   fetchAllIds: async () => {
-    const params = buildFilterParams()
+    const params = props.isTrashMode ? buildTrashFilterParams() : buildFilterParams()
+    params.state = props.isTrashMode ? 'trashed' : 'active'
     const response = await fetchMediaIds(params)
     return response.ids || []
   },
@@ -839,13 +846,10 @@ function buildFilterParams() {
 
 // Wrapper function that calls the appropriate API based on mode
 async function fetchMediaForMode(params) {
-  if (props.isTrashMode) {
-    // Trash mode uses getTrash API with filters
-    return await getTrash(params)
-  } else {
-    // Normal mode uses fetchMedia with filters
-    return await fetchMedia(params)
-  }
+  return await fetchMedia({
+    ...params,
+    state: props.isTrashMode ? 'trashed' : 'active'
+  })
 }
 
 // Build filter params for trash mode - mirrors buildFilterParams() for applicable filters
@@ -949,8 +953,9 @@ mediaList = useMediaList({
 async function fetchPageItems(pageNumber, pageSize) {
   if (props.isTrashMode) {
     const params = buildTrashFilterParams()
-    const response = await getTrash({
+    const response = await fetchMedia({
       ...params,
+      state: 'trashed',
       page: pageNumber + 1,
       page_size: pageSize
     })
@@ -1058,18 +1063,18 @@ async function softReloadMedia() {
 
 async function searchSimilar(mediaIds) {
   try {
-    const ids = Array.isArray(mediaIds) ? mediaIds : [mediaIds]
-    if (ids.length === 0 || ids.length > 3) {
-      console.error('Invalid number of reference IDs (must be 1-3):', ids.length)
+    const assetIds = Array.isArray(mediaIds) ? mediaIds : [mediaIds]
+    if (assetIds.length === 0 || assetIds.length > 3) {
+      console.error('Invalid number of reference IDs (must be 1-3):', assetIds.length)
       return
     }
+    const items = await Promise.all(assetIds.map(id => getMediaItem(id)))
+    const ids = items.map(mediaIdOf).filter(Boolean)
 
     // For single item, use the global setSimilarFilter
     if (ids.length === 1) {
       await setSimilarFilter(ids[0])
     } else {
-      // For multiple items, fetch them and set up similar search
-      const items = await Promise.all(ids.map(id => getMediaItem(id)))
       similarSearchSourceItems.value = items
       similarSearchSourceItem.value = items[0]
       setSimilarSearch(ids)
@@ -1086,16 +1091,17 @@ async function searchSimilar(mediaIds) {
 
 async function searchSimilarFaces(mediaIds) {
   try {
-    const ids = Array.isArray(mediaIds) ? mediaIds : [mediaIds]
-    if (ids.length === 0 || ids.length > 3) {
-      console.error('Invalid number of reference IDs (must be 1-3):', ids.length)
+    const assetIds = Array.isArray(mediaIds) ? mediaIds : [mediaIds]
+    if (assetIds.length === 0 || assetIds.length > 3) {
+      console.error('Invalid number of reference IDs (must be 1-3):', assetIds.length)
       return
     }
+    const items = await Promise.all(assetIds.map(id => getMediaItem(id)))
+    const ids = items.map(mediaIdOf).filter(Boolean)
 
     if (ids.length === 1) {
       await setSimilarFaceFilter(ids[0])
     } else {
-      const items = await Promise.all(ids.map(id => getMediaItem(id)))
       similarSearchSourceItems.value = items
       similarSearchSourceItem.value = items[0]
       setSimilarFaceSearch(ids)
@@ -1254,15 +1260,15 @@ function handlePrint() {
 
 // Download selected items
 function handleDownload(ids = null) {
-  const mediaIds = ids || selectedItemIds.value
-  if (mediaIds.length === 0) return
+  const assetIds = ids || selectedItemIds.value
+  if (assetIds.length === 0) return
 
   // If specific IDs passed, find matching items from selectedItems or use IDs only
   const items = ids
-    ? selectedItems.value.filter(item => ids.includes(item.id))
+    ? selectedItems.value.filter(item => ids.includes(assetIdOf(item)))
     : [...selectedItems.value]
 
-  exportMediaIds.value = [...mediaIds]
+  exportMediaIds.value = items.map(mediaIdOf).filter(Boolean)
   exportMediaItems.value = items
   showExportModal.value = true
 }
@@ -1810,15 +1816,15 @@ onMounted(async () => {
 
   // Handle slideshowMedia query param (e.g., after image editor save)
   // Do this BEFORE loadMedia to open slideshow instantly
-  const slideshowMediaId = route.query.slideshowMedia
-  if (slideshowMediaId) {
+  const slideshowAssetId = route.query.slideshowAsset
+  if (slideshowAssetId) {
     // Clear the query param immediately
     const newQuery = { ...route.query }
-    delete newQuery.slideshowMedia
+    delete newQuery.slideshowAsset
     router.replace({ query: newQuery })
 
     // Open slideshow directly using findMediaIndex API (faster than waiting for full loadMedia)
-    const id = parseInt(slideshowMediaId, 10)
+    const id = parseInt(slideshowAssetId, 10)
     if (!isNaN(id)) {
       try {
         const snapshotParams = buildFilterParams()
@@ -1848,12 +1854,12 @@ onMounted(async () => {
   console.log('[BrowseGridView] similarSearchSourceItems:', similarSearchSourceItems.value)
 
   // Setup WebSocket event listeners
-  wsUnsubscribers.push(wsOn('media_added', async (data) => {
-    const count = data.count || 0
+  wsUnsubscribers.push(wsOn('asset_created', async (data) => {
+    const count = data.count || 1
     if (count > 0) {
       // Check if we can do a soft update (prepend items in place)
       // Use a conservative strategy for filtered and saved views.
-      const hasSpecificIds = data.media_ids && data.media_ids.length > 0
+      const hasSpecificIds = Boolean(data.asset_id || data.asset_ids?.length)
       const hasActiveFilterCriteria =
         !!filters.captionQuery ||
         !!filters.promptQuery ||
@@ -1917,30 +1923,34 @@ onMounted(async () => {
     }
   }))
 
-  wsUnsubscribers.push(wsOn('media_deleted', (data) => {
-    const { media_id } = data
-    if (media_id && mediaList) {
-      removeFromSelection([media_id])
-      reconcileRemoval([media_id])
+  wsUnsubscribers.push(wsOn('asset_deleted', (data) => {
+    const { asset_id } = data
+    if (props.isTrashMode) {
+      softReloadMedia()
+    } else if (asset_id && mediaList) {
+      removeFromSelection([asset_id])
+      reconcileRemoval([asset_id])
     }
   }))
 
-  wsUnsubscribers.push(wsOn('media_bulk_deleted', (data) => {
-    const { media_ids } = data
-    if (media_ids?.length && mediaList) {
-      removeFromSelection(media_ids)
-      reconcileRemoval(media_ids)
+  wsUnsubscribers.push(wsOn('assets_trashed', (data) => {
+    const { asset_ids } = data
+    if (props.isTrashMode) {
+      softReloadMedia()
+    } else if (asset_ids?.length && mediaList) {
+      removeFromSelection(asset_ids)
+      reconcileRemoval(asset_ids)
     }
   }))
 
   // Handle media restored events (for trash view)
-  wsUnsubscribers.push(wsOn('media_restored', (data) => {
-    const { media_id } = data
+  wsUnsubscribers.push(wsOn('asset_restored', (data) => {
+    const asset_id = data.asset?.id || data.asset_id
     if (props.isTrashMode) {
       // Trash view: remove restored item from grid
-      if (media_id && mediaList) {
-        removeFromSelection([media_id])
-        reconcileRemoval([media_id])
+      if (asset_id && mediaList) {
+        removeFromSelection([asset_id])
+        reconcileRemoval([asset_id])
       }
     } else {
       // Browse view: restored items should appear
@@ -1948,13 +1958,13 @@ onMounted(async () => {
     }
   }))
 
-  wsUnsubscribers.push(wsOn('media_bulk_restored', (data) => {
-    const { media_ids } = data
+  wsUnsubscribers.push(wsOn('assets_restored', (data) => {
+    const { asset_ids } = data
     if (props.isTrashMode) {
       // Trash view: remove restored items from grid
-      if (media_ids?.length && mediaList) {
-        removeFromSelection(media_ids)
-        reconcileRemoval(media_ids)
+      if (asset_ids?.length && mediaList) {
+        removeFromSelection(asset_ids)
+        reconcileRemoval(asset_ids)
       }
     } else {
       // Browse view: restored items should appear
@@ -1963,23 +1973,31 @@ onMounted(async () => {
   }))
 
   // Handle permanent deletion events (bulk permanent delete with known IDs)
-  wsUnsubscribers.push(wsOn('media_permanently_deleted', (data) => {
+  wsUnsubscribers.push(wsOn('asset_permanently_deleted', (data) => {
     if (!props.isTrashMode) return  // Only relevant for trash view
-    const { media_ids } = data
-    if (media_ids?.length && mediaList) {
-      removeFromSelection(media_ids)
-      reconcileRemoval(media_ids)
+    const { asset_id } = data
+    if (asset_id && mediaList) {
+      removeFromSelection([asset_id])
+      reconcileRemoval([asset_id])
     }
   }))
 
   // Handle trash emptied event (large bulk deletes where IDs aren't sent)
-  wsUnsubscribers.push(wsOn('trash_emptied', () => {
+  wsUnsubscribers.push(wsOn('assets_permanently_deleted', () => {
     if (!props.isTrashMode) return
     // Full reload — all items are gone
     totalCount.value = 0
     selectedItemIds.value = []
     multiSelectMode.value = false
     filterKey.value++
+  }))
+
+  wsUnsubscribers.push(wsOn('asset_current_revision_changed', () => {
+    softReloadMedia()
+  }))
+
+  wsUnsubscribers.push(wsOn('assets_updated', () => {
+    softReloadMedia()
   }))
 
   // Listen for profile changes

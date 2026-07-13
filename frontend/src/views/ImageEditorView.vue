@@ -841,7 +841,7 @@ async function handleSave(saveAsNew = false) {
     // Navigate to the new media item in browse view, opening slideshow directly
     router.push({
       name: 'browse',
-      query: { slideshowMedia: newMediaId }
+      query: { slideshowAsset: savedAssetId }
     })
   } catch (e) {
     console.error('Failed to save edited image:', e)

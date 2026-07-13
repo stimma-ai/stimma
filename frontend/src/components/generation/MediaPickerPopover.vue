@@ -91,10 +91,12 @@ import { useRoute } from 'vue-router'
 import MediaImage from '../media/MediaImage.vue'
 import MarkerBadges from '../MarkerBadges.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
+import { useAssetApi } from '../../composables/useAssetApi'
 import { recentMediaInputs, type RecentInputKind } from '../../composables/useRecentMediaInputs'
 import { recordMediaPick, recentMediaPicks } from '../../composables/useRecentMediaPicks'
 import { getMediaType } from '../../utils/mediaTypes'
 import { makeProfileKey } from '../../utils/storageKeys'
+import { mediaIdOf } from '../../utils/assetIdentity'
 
 /**
  * Anchored popover for filling a MediaPicker slot from library media instead
@@ -149,7 +151,8 @@ const TABS: Array<{ key: TabKey; label: string; emptyHint: string }> = [
 
 const PAGE_SIZE = 30
 
-const { fetchMedia, getMarkers } = useMediaApi()
+const { getMarkers } = useMediaApi()
+const { fetchAssets } = useAssetApi()
 
 // Recents is scoped to the surrounding project (same convention as ToolView's
 // projectScopeId) — tool id and instance deliberately don't factor in.
@@ -199,11 +202,11 @@ const visibleTiles = computed(() => {
 function toTile(item: any, tsField: 'created_date' | 'indexed_date'): Tile {
   const kind = getMediaType(item) as RecentInputKind
   const ts = Date.parse(item[tsField] || item.indexed_date || '') || 0
-  return { mediaId: item.id, fileHash: item.file_hash, fileFormat: item.file_format, kind, ts, markers: item.markers ?? [] }
+  return { mediaId: mediaIdOf(item)!, fileHash: item.file_hash, fileFormat: item.file_format, kind, ts, markers: item.markers ?? [] }
 }
 
 async function fetchFeed(params: Record<string, unknown>, tsField: 'created_date' | 'indexed_date' = 'created_date'): Promise<Tile[]> {
-  const response = await fetchMedia({
+  const response = await fetchAssets({
     page_size: PAGE_SIZE,
     media_types: mediaTypesParam.value,
     ...params,

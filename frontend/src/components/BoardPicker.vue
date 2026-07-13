@@ -94,14 +94,17 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
-  mediaIds: { type: Array, default: () => [] }
+  mediaIds: { type: Array, default: () => [] },
+  assetIds: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits(['close', 'saved'])
 const { addMediaToBoard, createBoard, getBoards } = useMediaApi()
+const { addToBoard: addAssetsToBoard } = useAssetApi()
 
 const boards = ref([])
 const loading = ref(false)
@@ -137,7 +140,11 @@ async function saveChanges() {
   if (!selectedBoardId.value) return
   saving.value = true
   try {
-    await addMediaToBoard(selectedBoardId.value, props.mediaIds)
+    if (props.assetIds.length > 0) {
+      await addAssetsToBoard(selectedBoardId.value, props.assetIds)
+    } else {
+      await addMediaToBoard(selectedBoardId.value, props.mediaIds)
+    }
     emit('saved', selectedBoardId.value)
     close()
   } finally {

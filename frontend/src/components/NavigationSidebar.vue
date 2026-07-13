@@ -932,7 +932,7 @@ import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsCont
 import { useFlowCounts } from '../composables/useFlowCounts'
 import FlowStatusPill from './flow/FlowStatusPill.vue'
 import { useDragStore } from '../stores/dragStore'
-import { getDroppedMediaIds } from '../composables/useDragPreview'
+import { getDroppedAssetRefs, getDroppedMediaIds } from '../composables/useDragPreview'
 import { isTauri } from '../apiConfig'
 import { MediaImage } from './media'
 import ToolIcon from './tools/ToolIcon.vue'
@@ -1550,6 +1550,7 @@ function handleTabDragLeave(tab: WorkspaceTab, e: DragEvent) {
 
 async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
   const mediaIds = getDroppedMediaIds(e.dataTransfer)
+  const assetIds = getDroppedAssetRefs(e.dataTransfer).map((item) => item.asset_id)
   if (mediaIds.length === 0) {
     // Not a media drop, let it bubble up for tab reordering
     return
@@ -1602,7 +1603,7 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
       await fetch(`/api/boards/${tab.entityId}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ media_ids: mediaIds })
+        body: JSON.stringify(assetIds.length > 0 ? { asset_ids: assetIds } : { media_ids: mediaIds })
       })
       if (props.isMobile) emit('close')
     } catch (error) {
@@ -1637,13 +1638,14 @@ async function handleNewBoardDrop(e: DragEvent) {
   newBoardDragCounter.value = 0
 
   const mediaIds = getDroppedMediaIds(e.dataTransfer)
+  const assetIds = getDroppedAssetRefs(e.dataTransfer).map((item) => item.asset_id)
   if (mediaIds.length > 0) {
     try {
       const newBoard = await apiCreateBoard('')
       await fetch(`/api/boards/${newBoard.id}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ media_ids: mediaIds })
+        body: JSON.stringify(assetIds.length > 0 ? { asset_ids: assetIds } : { media_ids: mediaIds })
       })
       router.push({ name: 'board-detail', params: { id: newBoard.id } })
       if (props.isMobile) emit('close')

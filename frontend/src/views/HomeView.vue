@@ -52,7 +52,7 @@
                 @click="openMediaSlideshow(index)"
               >
                 <MediaImage
-                  :media-id="media.id"
+                  :media-id="mediaIdOf(media)"
                   :file-hash="media.file_hash"
                   :thumbnail="true"
                   :thumbnail-size="256"
@@ -88,7 +88,7 @@
                     <MediaImage
                       v-for="item in getBoardPreviewItems(board).slice(0, 4)"
                       :key="`${board.id}-${item.id}`"
-                      :media-id="item.id"
+                      :media-id="mediaIdOf(item)"
                       :file-hash="item.file_hash"
                       :thumbnail="true"
                       :thumbnail-size="64"
@@ -212,15 +212,18 @@ import SlideshowMode from '../components/SlideshowMode.vue'
 import FlowStatusPill from '../components/flow/FlowStatusPill.vue'
 import { useSlideshow } from '../composables/useSlideshow'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
 import { useFlowsApi } from '../composables/useFlowsApi'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
 import { useToasts } from '../composables/useToasts'
-import { getDroppedMediaIds } from '../composables/useDragPreview'
+import { getDroppedAssetRefs, getDroppedMediaIds } from '../composables/useDragPreview'
 import { pendingMedia, consumePendingMedia } from '../composables/usePendingMedia'
 import { useAgentModelAvailability } from '../composables/useAgentModelAvailability'
+import { mediaIdOf } from '../utils/assetIdentity'
 
 const router = useRouter()
-const { getMediaItem, getBoards, getBoard, addMediaToBoard, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
+const { getBoards, getBoard, addMediaToBoard, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
+const { fetchAssets, addToBoard: addAssetsToBoard } = useAssetApi()
 const { listFlows, updateFlow, deleteFlow, restoreFlow } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 const entityContextMenu = useEntityContextMenu()
@@ -306,21 +309,8 @@ async function loadRecentFlows() {
 
 async function loadRecentMedia() {
   try {
-    // Try marked media first
-    const markedResponse = await fetch('/api/markers/recently-marked-media?page_size=16')
-    if (markedResponse.ok) {
-      const markedData = await markedResponse.json()
-      if (markedData.items && markedData.items.length > 0) {
-        recentMedia.value = markedData.items
-        return
-      }
-    }
-    // Fallback: recent generated assets
-    const genResponse = await fetch('/api/media?is_generated=true&sort_by=created_desc&page=1&page_size=16')
-    if (genResponse.ok) {
-      const genData = await genResponse.json()
-      recentMedia.value = genData.items || []
-    }
+    const response = await fetchAssets({ sort_by: 'created_desc', page: 1, page_size: 16 })
+    recentMedia.value = response.items || []
   } catch (err) {
     console.error('Failed to load recent media:', err)
   }
@@ -328,9 +318,7 @@ async function loadRecentMedia() {
 
 async function openMediaSlideshow(index) {
   try {
-    const items = await Promise.all(
-      recentMedia.value.map(m => getMediaItem(m.id))
-    )
+    const items = [...recentMedia.value]
     const pageProvider = async (pageNumber, pageSize) => {
       const start = pageNumber * pageSize
       return items.slice(start, start + pageSize)
@@ -595,9 +583,11 @@ async function deleteChatEntry(id) {
 async function handleBoardDrop(boardId, event) {
   dragOverBoardId.value = null
   const mediaIds = getDroppedMediaIds(event.dataTransfer)
+  const assetIds = getDroppedAssetRefs(event.dataTransfer).map((item) => item.asset_id)
   if (mediaIds.length === 0) return
   try {
-    await addMediaToBoard(boardId, mediaIds)
+    if (assetIds.length > 0) await addAssetsToBoard(boardId, assetIds)
+    else await addMediaToBoard(boardId, mediaIds)
     await loadRecentBoards()
   } catch (err) {
     console.error('Failed to add media to board:', err)

@@ -56,11 +56,16 @@
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
 
 const props = defineProps({
   mediaId: {
     type: Number,
     required: true
+  },
+  assetId: {
+    type: Number,
+    default: null
   },
   tags: {
     type: Array,
@@ -71,6 +76,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'tags-changed'])
 
 const { getTags, addTagsToMedia, removeTagFromMedia, getMediaItem } = useMediaApi()
+const { addTags: addTagsToAsset, removeTag: removeTagFromAsset, getAssetBrowserItem, getTags: getAssetTags } = useAssetApi()
 
 const inputRef = ref(null)
 const inputValue = ref('')
@@ -87,7 +93,7 @@ onMounted(async () => {
   inputRef.value?.focus()
 
   try {
-    allTags.value = await getTags(true)
+    allTags.value = props.assetId ? await getAssetTags(true) : await getTags(true)
   } catch (error) {
     console.error('Failed to load tags:', error)
   }
@@ -203,8 +209,11 @@ async function commitAndSync(tagText) {
   const myOp = ++opCounter.value
 
   try {
-    await addTagsToMedia(props.mediaId, [tagText])
-    const media = await getMediaItem(props.mediaId)
+    if (props.assetId) await addTagsToAsset(props.assetId, [tagText])
+    else await addTagsToMedia(props.mediaId, [tagText])
+    const media = props.assetId
+      ? await getAssetBrowserItem(props.assetId)
+      : await getMediaItem(props.mediaId)
 
     // Only apply if this is still the most recent operation
     if (opCounter.value === myOp) {
@@ -229,7 +238,8 @@ async function removeAndSync(tag) {
   const myOp = ++opCounter.value
 
   try {
-    await removeTagFromMedia(props.mediaId, tag.id)
+    if (props.assetId) await removeTagFromAsset(props.assetId, tag.id)
+    else await removeTagFromMedia(props.mediaId, tag.id)
     // Emit updated tags
     if (opCounter.value === myOp) {
       emit('tags-changed', [...localTags.value])

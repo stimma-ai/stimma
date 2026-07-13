@@ -60,6 +60,32 @@ export function getDroppedMediaIds(dataTransfer: DataTransfer | null): number[] 
   return []
 }
 
+export interface DroppedAssetRef {
+  asset_id: number
+  revision_id: number | null
+  media_id: number
+}
+
+/** Stable Asset identities accompanying a browser drag, when available. */
+export function getDroppedAssetRefs(dataTransfer: DataTransfer | null): DroppedAssetRef[] {
+  if (!dataTransfer) return []
+  const raw = dataTransfer.getData('application/x-stimma-assets')
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed?.items)) return []
+    return parsed.items
+      .map((item: any) => ({
+        asset_id: Number(item.asset_id),
+        revision_id: item.revision_id == null ? null : Number(item.revision_id),
+        media_id: Number(item.media_id),
+      }))
+      .filter((item: DroppedAssetRef) => Number.isFinite(item.asset_id) && Number.isFinite(item.media_id))
+  } catch {
+    return []
+  }
+}
+
 export function createDragPreview(
   event: DragEvent,
   thumbnailUrl: string,

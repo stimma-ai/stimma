@@ -47,7 +47,7 @@
                 @click="openMediaSlideshow(index)"
               >
                 <MediaImage
-                  :media-id="media.id"
+                  :media-id="mediaIdOf(media)"
                   :file-hash="media.file_hash"
                   :thumbnail="true"
                   :thumbnail-size="256"
@@ -82,7 +82,7 @@
                     <MediaImage
                       v-for="item in getBoardPreviewItems(board).slice(0, 4)"
                       :key="`${board.id}-${item.id}`"
-                      :media-id="item.id"
+                      :media-id="mediaIdOf(item)"
                       :file-hash="item.file_hash"
                       :thumbnail="true"
                       :thumbnail-size="64"
@@ -196,9 +196,11 @@ import SlideshowMode from '../components/SlideshowMode.vue'
 import FlowStatusPill from '../components/flow/FlowStatusPill.vue'
 import { useSlideshow } from '../composables/useSlideshow'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
 import { useFlowsApi } from '../composables/useFlowsApi'
-import { getDroppedMediaIds } from '../composables/useDragPreview'
+import { getDroppedAssetRefs, getDroppedMediaIds } from '../composables/useDragPreview'
 import { useAgentModelAvailability } from '../composables/useAgentModelAvailability'
+import { mediaIdOf } from '../utils/assetIdentity'
 
 const props = defineProps({
   project: {
@@ -208,7 +210,8 @@ const props = defineProps({
 })
 
 const router = useRouter()
-const { getMediaItem, getBoards, getBoard, addMediaToBoard } = useMediaApi()
+const { getBoards, getBoard, addMediaToBoard } = useMediaApi()
+const { fetchAssets, addToBoard: addAssetsToBoard } = useAssetApi()
 const { listFlows } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 const { agentModelUnavailable, checkAgentModels } = useAgentModelAvailability()
@@ -285,16 +288,13 @@ async function loadRecentChats() {
 
 async function loadRecentMedia() {
   try {
-    const params = new URLSearchParams({
-      project_id: String(props.project.id),
-      sort_by: 'added_desc',
-      page: '1',
-      page_size: '16'
+    const response = await fetchAssets({
+      project_id: props.project.id,
+      sort_by: 'created_desc',
+      page: 1,
+      page_size: 16,
     })
-    const response = await fetch(`/api/media?${params.toString()}`)
-    if (!response.ok) return
-    const data = await response.json()
-    recentMedia.value = data.items || []
+    recentMedia.value = response.items || []
   } catch (err) {
     console.error('Failed to load project media:', err)
   }
@@ -334,9 +334,7 @@ async function loadRecentBoards() {
 
 async function openMediaSlideshow(index) {
   try {
-    const items = await Promise.all(
-      recentMedia.value.map(m => getMediaItem(m.id))
-    )
+    const items = [...recentMedia.value]
     const pageProvider = async (pageNumber, pageSize) => {
       const start = pageNumber * pageSize
       return items.slice(start, start + pageSize)
@@ -422,9 +420,11 @@ function openProjectAssets() {
 async function handleBoardDrop(boardId, event) {
   dragOverBoardId.value = null
   const mediaIds = getDroppedMediaIds(event.dataTransfer)
+  const assetIds = getDroppedAssetRefs(event.dataTransfer).map((item) => item.asset_id)
   if (mediaIds.length === 0) return
   try {
-    await addMediaToBoard(boardId, mediaIds)
+    if (assetIds.length > 0) await addAssetsToBoard(boardId, assetIds)
+    else await addMediaToBoard(boardId, mediaIds)
     await loadRecentBoards()
   } catch (err) {
     console.error('Failed to add media to board:', err)

@@ -200,6 +200,7 @@
 import { ref, computed } from 'vue'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
+import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
 
 const contextMenu = useMediaContextMenu()
 
@@ -288,14 +289,18 @@ function showContextMenu() {
   const bottomY = rect.top - 8  // 8px gap between menu and action bar
 
   // Get the first selected item's ID
-  const mediaId = props.firstSelectedItem?.id
-  const mediaIds = props.selectedItems.map(item => item.id)
+  const assetId = props.firstSelectedItem ? assetIdOf(props.firstSelectedItem) : null
+  const assetIds = props.selectedItems.map(assetIdOf).filter(Boolean)
+  const mediaId = props.firstSelectedItem ? mediaIdOf(props.firstSelectedItem) : null
+  const mediaIds = props.selectedItems.map(mediaIdOf).filter(Boolean)
 
   contextMenu.showAt({
     x,
     bottomY,
     mediaId,
     mediaIds,
+    assetId,
+    assetIds,
     selectedItems: props.selectedItems,
     inBoard: props.inBoard,
     boardSectionId: props.boardSectionId

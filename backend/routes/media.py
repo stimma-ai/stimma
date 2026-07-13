@@ -3,12 +3,12 @@ from core.logging import get_logger
 from typing import Optional, List
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query, HTTPException, Form, UploadFile, Body
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select, or_, and_, func, literal, Integer, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from database import AssetRevision, Board, BoardItem, BoardSection, MediaItem, Keyword, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage, Face, Project, ProjectMedia
+from database import Asset, AssetRevision, Board, BoardItem, BoardSection, MediaItem, Keyword, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage, Face, Project, ProjectAsset, ProjectMedia
 from core.dependencies import get_db_session
 from models.api_models import BoardSummaryResponse, MediaListResponse, MediaItemResponse, MediaIndexResponse, SimilaritySearchRequest, TagResponse, MediaMarkerInfo, StructuredContentUpdateRequest
 from config import get_settings
@@ -1410,7 +1410,8 @@ async def search_similar(
 
 class CreateSetRequest(BaseModel):
     """Request body for creating a set from media items."""
-    media_ids: List[int]
+    media_ids: List[int] = Field(default_factory=list)
+    asset_ids: List[int] = Field(default_factory=list)
     title: Optional[str] = None
     project_id: Optional[int] = None
 
@@ -1418,6 +1419,7 @@ class CreateSetRequest(BaseModel):
 class CreateSetResponse(BaseModel):
     """Response when creating a set."""
     media_id: int
+    asset_id: int
     file_path: str
     title: str
     item_count: int
@@ -1442,31 +1444,51 @@ async def create_set_from_media(
     from pathlib import Path
     from datetime import datetime as dt
 
-    if not request.media_ids:
-        raise HTTPException(status_code=400, detail="At least one asset ID is required")
-
-    # Get the media items
-    result = await session.execute(
-        select(MediaItem).where(
-            MediaItem.id.in_(request.media_ids),
-            MediaItem.deleted_at.is_(None),
-            MediaItem.ephemeral_run_id.is_(None),
+    if bool(request.media_ids) == bool(request.asset_ids):
+        raise HTTPException(
+            status_code=400,
+            detail="Provide exactly one of media_ids or asset_ids",
         )
-    )
-    items = result.scalars().all()
 
-    if not items:
-        raise HTTPException(status_code=404, detail="No valid assets found")
-
-    # Build a map to preserve the order from request
-    items_by_id = {item.id: item for item in items}
-    ordered_items = [items_by_id[mid] for mid in request.media_ids if mid in items_by_id]
-
-    if not ordered_items:
-        raise HTTPException(status_code=404, detail="No valid assets found")
+    member_assets = []
+    if request.asset_ids:
+        rows = (
+            await session.execute(
+                select(Asset, AssetRevision, MediaItem)
+                .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+                .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
+                .where(
+                    Asset.id.in_(request.asset_ids),
+                    Asset.state == "active",
+                    Asset.deleted_at.is_(None),
+                    AssetRevision.deleted_at.is_(None),
+                    MediaItem.deleted_at.is_(None),
+                    MediaItem.ephemeral_run_id.is_(None),
+                )
+            )
+        ).all()
+        rows_by_id = {asset.id: (asset, media) for asset, _, media in rows}
+        if any(asset_id not in rows_by_id for asset_id in request.asset_ids):
+            raise HTTPException(status_code=404, detail="One or more assets are unavailable")
+        ordered_pairs = [rows_by_id[asset_id] for asset_id in request.asset_ids]
+        member_assets = [pair[0] for pair in ordered_pairs]
+        ordered_items = [pair[1] for pair in ordered_pairs]
+    else:
+        result = await session.execute(
+            select(MediaItem).where(
+                MediaItem.id.in_(request.media_ids),
+                MediaItem.deleted_at.is_(None),
+                MediaItem.ephemeral_run_id.is_(None),
+            )
+        )
+        items = result.scalars().all()
+        items_by_id = {item.id: item for item in items}
+        ordered_items = [items_by_id[mid] for mid in request.media_ids if mid in items_by_id]
+        if len(ordered_items) != len(request.media_ids):
+            raise HTTPException(status_code=404, detail="One or more media items are unavailable")
 
     # Validate that all items are atomic types (not sets or grids)
-    for item in ordered_items:
+    for index, item in enumerate(ordered_items):
         if item.file_format in ('stimmaset.json', 'stimmagrid.json'):
             raise HTTPException(
                 status_code=400,
@@ -1522,7 +1544,10 @@ async def create_set_from_media(
                 # Different folder tree - use absolute path
                 path_str = str(item_path)
 
-        set_items.append({"path": path_str})
+        set_items.append({
+            "asset_id": member_assets[index].id if member_assets else None,
+            "path": path_str,
+        })
 
     # Build the set JSON
     set_data = {
@@ -1592,18 +1617,8 @@ async def create_set_from_media(
     await record_lineage(session, set_media_item.id, source_ids, "set-creation")
     await propagate_tool_lineage(session, set_media_item.id, source_ids)
 
-    # Supersede member items by the new set (hides them from browse views)
-    # Also reset is_hidden to NULL so superseded_by takes effect (overrides any previous "show" action)
-    from sqlalchemy import update as sql_update
-    await session.execute(
-        sql_update(MediaItem)
-        .where(MediaItem.id.in_(source_ids), MediaItem.superseded_by.is_(None))
-        .values(superseded_by=set_media_item.id, is_hidden=None)
-    )
-
-    # The set replaces its members, so it must appear in every project view
-    # where they appeared — attach it to the union of the members' projects
-    # plus the project context the request was made from.
+    # A set is an additional root, not an owner or replacement for its members.
+    # Give it the union of member project memberships plus the explicit context.
     from project_service import attach_media_to_project
     project_result = await session.execute(
         select(ProjectMedia.project_id)
@@ -1611,6 +1626,16 @@ async def create_set_from_media(
         .distinct()
     )
     set_project_ids = {row[0] for row in project_result.all()}
+    if member_assets:
+        asset_project_result = await session.execute(
+            select(ProjectAsset.project_id)
+            .where(
+                ProjectAsset.asset_id.in_([asset.id for asset in member_assets]),
+                ProjectAsset.deleted_at.is_(None),
+            )
+            .distinct()
+        )
+        set_project_ids.update(row[0] for row in asset_project_result.all())
     if request.project_id is not None:
         set_project_ids.add(request.project_id)
     for pid in sorted(set_project_ids):
@@ -1620,10 +1645,11 @@ async def create_set_from_media(
     # this set. This is what enables genuine multiple membership.
     from asset_service import create_asset_from_media
     from container_service import create_container_asset_from_media
-    member_assets = [
-        await create_asset_from_media(session, media_id=item.id)
-        for item in ordered_items
-    ]
+    if not member_assets:
+        member_assets = [
+            await create_asset_from_media(session, media_id=item.id)
+            for item in ordered_items
+        ]
     set_asset = await create_container_asset_from_media(
         session,
         media_id=set_media_item.id,
@@ -1638,33 +1664,28 @@ async def create_set_from_media(
     )
     await session.commit()
 
-    # Broadcast superseded_by changes for member items
-    from utils.websocket import broadcast_media_updated
-    result = await session.execute(
-        select(MediaItem)
-        .where(MediaItem.id.in_(source_ids))
-        .execution_options(populate_existing=True)
-    )
-    member_items = list(result.scalars().all())
-    if member_items:
-        await broadcast_media_updated(member_items, ["superseded_by", "is_hidden"], session)
-
     # Broadcast media_added for the new set
     await ws_manager.broadcast('media_added', {
         'media_id': set_media_item.id,
         'count': 1
     })
+    await ws_manager.broadcast('asset_created', {
+        'asset_id': set_asset.id,
+        'media_id': set_media_item.id,
+        'revision_id': set_asset.current_revision_id,
+    })
 
-    log.info(f"Set {set_media_item.id} created at {set_file_path}, members superseded: {source_ids}")
+    log.info(f"Set Asset {set_asset.id} created at {set_file_path} with linked members: {source_ids}")
 
     from telemetry import get_telemetry_client
     get_telemetry_client().track("set_created", {
-        "count": len(request.media_ids),
+        "count": len(ordered_items),
         "actor": "user",
     }, category="library")
 
     return CreateSetResponse(
         media_id=set_media_item.id,
+        asset_id=set_asset.id,
         file_path=str(set_file_path),
         title=request.title or "Untitled Set",
         item_count=len(ordered_items)
