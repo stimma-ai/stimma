@@ -1,11 +1,10 @@
 <template>
   <div class="media-display bg-surface rounded-lg p-3" :class="rootWidthClass">
     <!-- Header with title (always show if present) -->
-    <div v-if="displayData.title || showRole === 'intermediate'" class="mb-3 flex items-center gap-2">
+    <div v-if="displayData.title" class="mb-3 flex items-center gap-2">
       <span class="text-sm text-content-secondary font-medium">
         {{ displayData.title }}
       </span>
-      <span v-if="showRole === 'intermediate'" class="rounded border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-content-muted">Intermediate</span>
       <span v-if="!allComplete" class="text-sm text-content-tertiary ml-2">
         {{ statusText }}
       </span>
@@ -40,7 +39,7 @@
     <!-- Footer: retry button and actions slot -->
     <div class="mt-3 flex items-center justify-between">
       <!-- Retry all failed button (left side) -->
-      <div>
+      <div class="flex items-center gap-2.5">
         <button
           v-if="failedCount > 1"
           @click="retryAllFailed"
@@ -48,14 +47,23 @@
         >
           Retry All Failed ({{ failedCount }})
         </button>
+        <span
+          v-if="showRole === 'intermediate'"
+          class="text-[11px] text-content-muted"
+          title="Kept with this chat, but not added to All Assets"
+        >Working result</span>
       </div>
       <button
         v-if="showRole === 'intermediate' && promotableMediaIds.length"
-        class="rounded border border-blue-500/50 bg-blue-500/15 px-3 py-1.5 text-xs text-blue-400 transition-colors hover:bg-blue-500/25 disabled:opacity-50"
+        class="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-content-muted transition-colors hover:bg-white/[0.05] hover:text-content-secondary disabled:opacity-50"
         :disabled="savingIntermediates"
+        title="Keep in All Assets"
         @click="saveIntermediates"
       >
-        {{ savingIntermediates ? 'Saving…' : `Save ${promotableMediaIds.length === 1 ? 'as asset' : `${promotableMediaIds.length} as assets`}` }}
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+          <path fill-rule="evenodd" d="M4.25 3A2.25 2.25 0 002 5.25v11.69c0 .839.968 1.306 1.624.782L10 12.62l6.376 5.102A1 1 0 0018 16.94V5.25A2.25 2.25 0 0015.75 3H4.25z" clip-rule="evenodd" />
+        </svg>
+        {{ savingIntermediates ? 'Keeping…' : 'Keep' }}
       </button>
       <!-- Actions slot (right side) -->
       <slot name="actions"></slot>
@@ -124,9 +132,9 @@ async function saveIntermediates() {
       await promoteContextualMedia(mediaId)
       savedMediaIds.value = new Set([...savedMediaIds.value, mediaId])
     }
-    addToast('Saved to All Assets', 'success')
+    addToast('Kept in All Assets', 'success')
   } catch (error) {
-    addToast(error.response?.data?.detail || 'Could not save intermediate result', 'error')
+    addToast(error.response?.data?.detail || 'Could not keep result', 'error')
   } finally {
     savingIntermediates.value = false
   }

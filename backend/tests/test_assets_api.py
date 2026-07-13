@@ -172,6 +172,53 @@ async def test_contextual_media_search_and_explicit_promotion(client, db_session
 
 
 @pytest.mark.asyncio
+async def test_contextual_media_search_includes_visual_matches(
+    client, db_session, monkeypatch
+):
+    from clip_service import CLIP_EMBEDDING_DIM
+
+    class FakeClipService:
+        def encode_text(self, _text):
+            embedding = np.zeros(CLIP_EMBEDDING_DIM, dtype=np.float32)
+            embedding[0] = 1.0
+            return embedding
+
+        def compute_similarity(self, first, second):
+            return float(np.dot(first, second))
+
+    monkeypatch.setattr(
+        "clip_service.get_clip_service", lambda: FakeClipService()
+    )
+
+    async with db_session() as session:
+        raccoon = await create_media_item(session)
+        raccoon_embedding = np.zeros(CLIP_EMBEDDING_DIM, dtype=np.float32)
+        raccoon_embedding[0] = 1.0
+        raccoon.set_embedding(raccoon_embedding)
+        other = await create_media_item(session)
+        other_embedding = np.zeros(CLIP_EMBEDDING_DIM, dtype=np.float32)
+        other_embedding[1] = 1.0
+        other.set_embedding(other_embedding)
+        for media in (raccoon, other):
+            await acquire_media_owner(
+                session,
+                media_id=media.id,
+                root_kind="chat",
+                root_id="457",
+                role="intermediate",
+            )
+        raccoon_id = raccoon.id
+        await session.commit()
+
+    search = await client.get(
+        "/api/assets/contextual-media", params={"q": "raccoon"}
+    )
+    assert search.status_code == 200, search.text
+    assert search.json()["count"] == 1
+    assert search.json()["groups"][0]["items"][0]["id"] == raccoon_id
+
+
+@pytest.mark.asyncio
 async def test_container_membership_and_promotion_are_asset_first(client, db_session):
     async with db_session() as session:
         linked_media = await create_media_item(session)

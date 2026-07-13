@@ -96,7 +96,6 @@
                       thumbnail
                       :thumbnail-size="256"
                       :draggable="false"
-                      :enable-context-menu="false"
                       container-class="w-full h-full"
                       img-class="w-full h-full object-cover"
                     />

@@ -22,6 +22,7 @@ from asset_association_service import (
     set_asset_tag,
 )
 from core.profile_context import get_current_profile
+from core.logging import get_logger
 from database import (
     Asset,
     AssetMarker,
@@ -30,6 +31,7 @@ from database import (
     Board,
     BoardAssetItem,
     BoardSection,
+    Chat,
     ContainerMember,
     Marker,
     MediaItem,
@@ -59,6 +61,7 @@ from utils.websocket import ws_manager
 
 
 router = APIRouter(prefix="/api/assets", tags=["assets"])
+log = get_logger(__name__)
 
 
 class AssetIdsRequest(BaseModel):
@@ -1537,7 +1540,11 @@ async def list_contextual_media(
     limit: int = Query(500, ge=1, le=2000),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Forensic discovery for retained non-Asset Media, grouped by root."""
+    """Discover retained non-Asset Media, grouped by its retaining content.
+
+    A query matches both literal metadata and CLIP visual similarity. Working
+    results therefore remain findable without becoming top-level Assets.
+    """
     query = (
         select(MediaOwner, MediaItem)
             .join(MediaItem, MediaItem.id == MediaOwner.media_id)
@@ -1553,22 +1560,107 @@ async def list_contextual_media(
                 AssetRevision.id.is_(None),
             )
         .order_by(MediaOwner.root_kind, MediaOwner.root_id, MediaOwner.id)
-        .limit(limit)
     )
-    if q:
-        pattern = f"%{q.strip()}%"
-        query = query.where(
-            or_(
-                MediaItem.original_filename.ilike(pattern),
-                MediaItem.extracted_prompt.ilike(pattern),
-                MediaItem.vlm_caption.ilike(pattern),
-                MediaItem.keywords.ilike(pattern),
+    rows = (await session.execute(query)).all()
+
+    # Deleted chats are restorable and retain their Media, but they are no
+    # longer live search surfaces.
+    chat_root_ids = {
+        int(owner.root_id)
+        for owner, _media in rows
+        if owner.root_kind == "chat" and owner.root_id.isdigit()
+    }
+    deleted_chat_ids = (
+        set(
+            await session.scalars(
+                select(Chat.id).where(
+                    Chat.id.in_(chat_root_ids), Chat.deleted_at.is_not(None)
+                )
             )
         )
-    rows = (await session.execute(query)).all()
+        if chat_root_ids
+        else set()
+    )
+    rows = [
+        (owner, media)
+        for owner, media in rows
+        if owner.root_kind != "chat"
+        or not owner.root_id.isdigit()
+        or int(owner.root_id) not in deleted_chat_ids
+    ]
+
+    scores: dict[int, float] = {}
+    if q:
+        search_text = q.strip()
+        pattern = f"%{search_text}%"
+        candidate_media = {media.id: media for _owner, media in rows}
+        literal_ids = (
+            set(
+                await session.scalars(
+                    select(MediaItem.id).where(
+                        MediaItem.id.in_(candidate_media),
+                        or_(
+                            MediaItem.original_filename.ilike(pattern),
+                            MediaItem.extracted_prompt.ilike(pattern),
+                            MediaItem.vlm_caption.ilike(pattern),
+                            MediaItem.keywords.ilike(pattern),
+                            MediaItem.id.in_(
+                                select(MediaKeyword.media_id)
+                                .join(Keyword, Keyword.id == MediaKeyword.keyword_id)
+                                .where(Keyword.keyword_text.ilike(pattern))
+                            ),
+                        ),
+                    )
+                )
+            )
+            if candidate_media
+            else set()
+        )
+
+        visual_ids: set[int] = set()
+        try:
+            from clip_service import CLIP_EMBEDDING_DIM, get_clip_service
+            from config import get_settings
+            from utils.similarity import compute_relevance_cutoff
+
+            clip = get_clip_service()
+            query_embedding = clip.encode_text(search_text)
+            for media in candidate_media.values():
+                embedding = media.get_embedding()
+                if embedding is None or embedding.shape[0] != CLIP_EMBEDDING_DIM:
+                    continue
+                scores[media.id] = float(
+                    clip.compute_similarity(query_embedding, embedding)
+                )
+            cutoff = compute_relevance_cutoff(
+                list(scores.values()),
+                absolute_floor=get_settings().clip_text_similarity_threshold,
+            )
+            visual_ids = {
+                media_id for media_id, score in scores.items() if score >= cutoff
+            }
+        except Exception as exc:
+            # Literal search remains useful when the local visual-search model
+            # is unavailable or not configured.
+            log.warning("Contextual visual search unavailable: %s", exc)
+
+        matching_ids = literal_ids | visual_ids
+        rows = [row for row in rows if row[1].id in matching_ids]
+        rows.sort(
+            key=lambda row: (
+                row[1].id not in literal_ids,
+                -scores.get(row[1].id, -1.0),
+                row[0].id,
+            )
+        )
+
+    rows = rows[:limit]
     grouped: dict[tuple[str, str], list[dict]] = defaultdict(list)
     for owner, media in rows:
-        grouped[(owner.root_kind, owner.root_id)].append(media.to_dict())
+        item = media.to_dict()
+        if media.id in scores:
+            item["similarity_score"] = scores[media.id]
+        grouped[(owner.root_kind, owner.root_id)].append(item)
     return {
         "groups": [
             {"root_kind": kind, "root_id": root_id, "items": items}

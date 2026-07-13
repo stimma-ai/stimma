@@ -182,7 +182,7 @@
             </div>
           </section>
 
-          <!-- Retained chat/run results are discoverable here without becoming Assets. -->
+          <!-- Working chat/run results stay discoverable without filling All Assets. -->
           <section v-if="contextualGroups.length > 0">
             <div class="mb-3 flex items-baseline gap-2.5">
               <h2 class="text-xs font-medium uppercase tracking-wider text-content-muted">In chats and runs</h2>
@@ -194,10 +194,14 @@
                   <button class="truncate bg-transparent text-left text-xs font-medium text-content-secondary hover:text-content" @click="openContextualRoot(group)">
                     {{ contextualRootLabel(group) }}
                   </button>
-                  <span class="flex-shrink-0 text-[10px] uppercase tracking-wide text-content-muted">Contextual media</span>
                 </div>
                 <div class="grid grid-cols-4 gap-1.5 md:grid-cols-6 lg:grid-cols-8">
-                  <div v-for="media in group.items" :key="media.id" class="group relative aspect-square overflow-hidden rounded-lg bg-black/20">
+                  <div
+                    v-for="media in group.items"
+                    :key="media.id"
+                    class="group relative aspect-square cursor-pointer overflow-hidden rounded-lg bg-black/20"
+                    @click="openContextualRoot(group)"
+                  >
                     <MediaImage
                       :media-id="media.id"
                       :file-hash="media.file_hash"
@@ -207,10 +211,19 @@
                       class="h-full w-full object-cover"
                     />
                     <button
-                      class="absolute inset-x-1 bottom-1 rounded border border-blue-500/50 bg-zinc-950/90 px-1.5 py-1 text-[10px] text-blue-400 opacity-0 transition-opacity group-hover:opacity-100 disabled:opacity-100"
+                      class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded bg-zinc-950/80 text-content-muted opacity-0 transition-all hover:text-content group-hover:opacity-100 disabled:opacity-100"
                       :disabled="savedContextualIds.has(media.id)"
+                      :title="savedContextualIds.has(media.id) ? 'Kept in All Assets' : 'Keep in All Assets'"
+                      :aria-label="savedContextualIds.has(media.id) ? 'Kept in All Assets' : 'Keep in All Assets'"
                       @click.stop="saveContextual(media.id)"
-                    >{{ savedContextualIds.has(media.id) ? 'Saved' : 'Save as asset' }}</button>
+                    >
+                      <svg v-if="savedContextualIds.has(media.id)" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+                        <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.051l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.816a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                      </svg>
+                      <svg v-else viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+                        <path fill-rule="evenodd" d="M4.25 3A2.25 2.25 0 002 5.25v11.69c0 .839.968 1.306 1.624.782L10 12.62l6.376 5.102A1 1 0 0018 16.94V5.25A2.25 2.25 0 0015.75 3H4.25z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -514,9 +527,9 @@ async function saveContextual(mediaId: number) {
   try {
     await promoteContextualMedia(mediaId)
     savedContextualIds.value = new Set([...savedContextualIds.value, mediaId])
-    addToast('Saved to All Assets', 'success')
+    addToast('Kept in All Assets', 'success')
   } catch (error: any) {
-    addToast(error.response?.data?.detail || 'Could not save contextual media', 'error')
+    addToast(error.response?.data?.detail || 'Could not keep result', 'error')
   }
 }
 

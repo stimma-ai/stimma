@@ -74,6 +74,20 @@
 
       <!-- Normal View Actions -->
       <template v-else>
+        <!-- Bare Media (for example a grid cell or chat working result) can be kept explicitly. -->
+        <button
+          v-if="targetAssetIds.length === 0 && targetMediaIds.length > 0"
+          @click="handleKeepInAllAssets"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
+            <path fill-rule="evenodd" d="M4.25 3A2.25 2.25 0 002 5.25v11.69c0 .839.968 1.306 1.624.782L10 12.62l6.376 5.102A1 1 0 0018 16.94V5.25A2.25 2.25 0 0015.75 3H4.25z" clip-rule="evenodd" />
+          </svg>
+          <span>{{ targetMediaIds.length === 1 ? 'Keep in All Assets' : `Keep ${targetMediaIds.length} in All Assets` }}</span>
+        </button>
+
+        <div v-if="targetAssetIds.length === 0 && targetMediaIds.length > 0" class="border-t border-edge-subtle my-1"></div>
+
         <!-- Marker toggles row -->
         <div v-if="markers.length > 0" class="flex items-center gap-1 px-2 py-1.5 border-b border-edge-subtle">
           <button
@@ -791,6 +805,7 @@ const {
   restoreMany: restoreAssets,
   permanentlyDelete: permanentlyDeleteAsset,
   permanentlyDeleteMany: permanentlyDeleteAssets,
+  promoteContextualMedia,
 } = useAssetApi()
 const { listAllTools } = useProvidersApi()
 const { sendToTool: sendToToolComposable } = useSendToTool()
@@ -942,7 +957,10 @@ const emit = defineEmits<{
 
 // Multi-selection computed properties
 const targetAssetIds = computed<number[]>(() => (
-  contextMenu.state.value.assetIds || [contextMenu.state.value.assetId].filter((id): id is number => id != null)
+  contextMenu.state.value.assetIds?.length
+    ? contextMenu.state.value.assetIds
+    : [contextMenu.state.value.assetId ?? mediaItem.value?.asset_id]
+        .filter((id): id is number => id != null)
 ))
 const targetMediaIds = computed<number[]>(() => (
   contextMenu.state.value.mediaIds || [contextMenu.state.value.mediaId].filter((id): id is number => id != null)
@@ -1733,6 +1751,23 @@ async function handleExplode() {
     emit('refresh')
   } catch (err) {
     console.error('Failed to ungroup set/grid:', err)
+  }
+}
+
+async function handleKeepInAllAssets() {
+  const ids = targetMediaIds.value
+  contextMenu.hide()
+  if (ids.length === 0) return
+
+  try {
+    for (const id of ids) await promoteContextualMedia(id)
+    addToast(
+      ids.length === 1 ? 'Kept in All Assets' : `Kept ${ids.length} in All Assets`,
+      'success',
+    )
+    emit('refresh')
+  } catch (err: any) {
+    addToast(err?.response?.data?.detail || 'Could not keep media', 'error')
   }
 }
 

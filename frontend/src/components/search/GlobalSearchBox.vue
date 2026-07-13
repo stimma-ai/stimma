@@ -224,6 +224,7 @@ import ToolProviderLabel from '../tools/ToolProviderLabel.vue'
 import { MediaImage } from '../media'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
 import { useMediaApi } from '../../composables/useMediaApi'
+import { useAssetApi } from '../../composables/useAssetApi'
 import {
   useGlobalSearch,
   useGlobalSearchFocusSignal,
@@ -243,7 +244,7 @@ import { formatRelativeTime } from '../../utils/timeFormat'
 
 interface SelectableItem {
   key: string
-  kind: SearchResultKind | 'tool-instance' | 'asset' | 'browse-prompt' | 'browse-visual'
+  kind: SearchResultKind | 'tool-instance' | 'asset' | 'contextual' | 'browse-prompt' | 'browse-visual'
   label: string
   sub?: string
   meta?: string
@@ -276,6 +277,7 @@ const DEBOUNCE_MS = 150
 const router = useRouter()
 const route = useRoute()
 const { searchEntities, searchTools, searchOpenToolInstances, searchMediaByPrompt, searchMediaVisual } = useGlobalSearch()
+const { getContextualMedia } = useAssetApi()
 const { fetchProvidersAndTools } = useProvidersApi()
 const { getProject } = useMediaApi()
 const { track } = useTelemetry()
@@ -314,6 +316,7 @@ const toolResults = ref<ProviderTool[]>([])
 const openInstanceResults = ref<WorkspaceTab[]>([])
 const promptMediaResults = ref<MediaSearchHit[]>([])
 const visualMediaResults = ref<MediaSearchHit[]>([])
+const contextualMediaResults = ref<Array<MediaSearchHit & { root_kind: string; root_id: string }>>([])
 const toolById = ref<Map<string, ProviderTool>>(new Map())
 const recents = ref<RecentEntity[]>([])
 
@@ -467,6 +470,18 @@ const sections = computed<Section[]>(() => {
       })),
     })
   }
+  if (contextualMediaResults.value.length > 0) {
+    result.push({
+      title: 'In chats and runs',
+      strip: true,
+      items: contextualMediaResults.value.map(m => next({
+        key: `contextual:${m.root_kind}:${m.root_id}:${m.id}`,
+        kind: 'contextual',
+        label: '',
+        data: m,
+      })),
+    })
+  }
   return result
 })
 
@@ -493,6 +508,7 @@ async function runSearch() {
     openInstanceResults.value = []
     promptMediaResults.value = []
     visualMediaResults.value = []
+    contextualMediaResults.value = []
     selectedIndex.value = 0
     return
   }
@@ -518,6 +534,25 @@ async function runSearch() {
     searchMediaVisual(q, DROPDOWN_MEDIA_LIMIT, projectId).then(items => {
       if (seq === searchSeq) visualMediaResults.value = items
     }).catch(() => {})
+    if (projectId == null) {
+      getContextualMedia({ q, limit: DROPDOWN_MEDIA_LIMIT * 3 }).then(payload => {
+        if (seq !== searchSeq) return
+        const seen = new Set<number>()
+        contextualMediaResults.value = (payload.groups || []).flatMap((group: any) =>
+          (group.items || []).map((media: MediaSearchHit) => ({
+            ...media,
+            root_kind: group.root_kind,
+            root_id: group.root_id,
+          })),
+        ).filter((media: MediaSearchHit) => {
+          if (seen.has(media.id)) return false
+          seen.add(media.id)
+          return true
+        }).slice(0, DROPDOWN_MEDIA_LIMIT)
+      }).catch(() => {})
+    } else {
+      contextualMediaResults.value = []
+    }
   } finally {
     if (seq === searchSeq) loading.value = false
   }
@@ -698,6 +733,18 @@ function activateItem(item: SelectableItem) {
       name: 'search',
       query: { q, slideshow: String(item.data.id), sset: item.set || 'prompt', ...scopeQuery() },
     })
+    return
+  }
+  if (item.kind === 'contextual') {
+    closeDropdown()
+    inputRef.value?.blur()
+    if (item.data.root_kind === 'chat') {
+      router.push({ name: 'chat', params: { id: item.data.root_id } })
+    } else if (item.data.root_kind === 'flow_run') {
+      router.push({ name: 'flow', params: { id: item.data.root_id } })
+    } else {
+      router.push({ name: 'search', query: { q: query.value.trim() } })
+    }
     return
   }
   if (item.kind === 'tool-instance') {
