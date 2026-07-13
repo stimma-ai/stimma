@@ -806,9 +806,17 @@ class MediaIngestion:
         async with db.async_session_maker() as session:
             # Get all existing files in this profile's DB
             result = await session.execute(
-                select(MediaItem.file_path, MediaItem.modified_date)
+                select(MediaItem.id, MediaItem.file_path, MediaItem.modified_date)
+                .where(
+                    MediaItem.deleted_at.is_(None),
+                    or_(
+                        MediaItem.file_unavailable.is_(False),
+                        MediaItem.file_unavailable.is_(None),
+                    ),
+                )
+                .order_by(MediaItem.id)
             )
-            existing_files = {row[0]: row[1] for row in result.fetchall()}
+            existing_files = {row[1]: (row[0], row[2]) for row in result.fetchall()}
             log.debug(f"FAST DISCOVERY [{profile_id}]: Found {len(existing_files)} existing files in DB")
 
             # Step 3: Diff in RAM
@@ -837,12 +845,12 @@ class MediaIngestion:
                 else:
                     # Check if modified - use 1 second tolerance to avoid floating-point/microsecond precision issues
                     # SQLite may truncate or round microseconds, causing false positives on each scan
-                    db_mtime = existing_files[file_path]
+                    existing_id, db_mtime = existing_files[file_path]
                     file_mtime = file_info['modified_date']
                     if db_mtime is not None and file_mtime is not None:
                         time_diff = (file_mtime - db_mtime).total_seconds()
                         if time_diff > 1.0:  # More than 1 second newer = actually modified
-                            modified_files.append((file_path, file_mtime))
+                            modified_files.append((existing_id, file_info))
 
             log.debug(f"FAST DISCOVERY [{profile_id}]: {len(new_files)} new, {len(modified_files)} modified")
 
@@ -865,21 +873,35 @@ class MediaIngestion:
             # Step 5: Reset modified files
             if modified_files:
                 log.info(f"FAST DISCOVERY [{profile_id}]: Marking {len(modified_files)} modified files for re-processing...")
-                for file_path, file_mtime in modified_files:
-                    result = await session.execute(
-                        select(MediaItem).where(MediaItem.file_path == file_path)
-                    )
-                    item = result.scalar_one_or_none()
-                    if item:
-                        item.modified_date = file_mtime
-                        item.metadata_status = 'pending'
-                        item.clip_status = 'pending'
-                        item.vlm_caption_status = 'pending'
-                        item.clip_embedding = None
-                        item.vlm_caption = None
-                        item.keywords = None
-                        item.raw_metadata = None
-                        item.extracted_prompt = None
+                from database import StorageObject
+                for existing_id, file_info in modified_files:
+                    item = await session.get(MediaItem, existing_id)
+                    if item is None:
+                        continue
+                    # External bytes changed in place. Preserve the old Media
+                    # identity as unavailable history and ingest the new bytes
+                    # into a distinct Media; metadata completion advances the
+                    # existing watched-file Asset to a new Revision.
+                    item.file_unavailable = True
+                    item.file_unavailable_since = datetime.utcnow()
+                    if item.storage_object_id is not None:
+                        storage = await session.get(StorageObject, item.storage_object_id)
+                        if storage is not None:
+                            storage.state = "missing"
+                    session.add(MediaItem(
+                        file_path=file_info['file_path'],
+                        file_hash='',
+                        file_size=file_info['file_size'],
+                        file_format=file_info['file_format'],
+                        created_date=file_info['created_date'],
+                        modified_date=file_info['modified_date'],
+                        indexed_date=datetime.utcnow(),
+                        metadata_status='pending',
+                        width=0,
+                        height=0,
+                        megapixels=0.0,
+                        random_sort_value=random.random(),
+                    ))
 
             # Step 6: Mark missing files as unavailable (SOFT - preserves user data)
             # This protects against data loss if a folder is temporarily unavailable
@@ -894,7 +916,13 @@ class MediaIngestion:
                 log.info(f"FAST DISCOVERY [{profile_id}]: Marking {len(files_now_missing)} files as unavailable...")
                 for file_path in files_now_missing:
                     result = await session.execute(
-                        select(MediaItem).where(MediaItem.file_path == file_path)
+                        select(MediaItem).where(
+                            MediaItem.file_path == file_path,
+                            or_(
+                                MediaItem.file_unavailable.is_(False),
+                                MediaItem.file_unavailable.is_(None),
+                            ),
+                        ).order_by(MediaItem.id.desc()).limit(1)
                     )
                     item = result.scalar_one_or_none()
                     if item and not item.file_unavailable:
@@ -903,22 +931,10 @@ class MediaIngestion:
                         unavailable_count += 1
                         log.info(f"UNAVAILABLE: {file_path}")
 
-            # Step 7: Restore files that were unavailable but now exist
-            # Get all unavailable items in scanned folders
+            # A reappearing path is inserted as new Media and reconciled to the
+            # existing Asset after its hash is known. Never mutate an old exact
+            # Media revision back to "available" merely because its path exists.
             restored_count = 0
-            result = await session.execute(
-                select(MediaItem).where(MediaItem.file_unavailable == True)
-            )
-            unavailable_items = result.scalars().all()
-
-            for item in unavailable_items:
-                # Only check items in folders we scanned
-                if any(item.file_path.startswith(folder_path) for folder_path in folder_paths):
-                    if item.file_path in scanned_paths:
-                        item.file_unavailable = False
-                        item.file_unavailable_since = None
-                        restored_count += 1
-                        log.info(f"RESTORED: {item.file_path}")
 
             # Step 8: Sync auto-markers for all existing files (handles config changes)
             # Only sync if any folder has markers configured
@@ -1237,8 +1253,8 @@ class MediaIngestion:
                     # Folder-scanned files remain user-owned external sources.
                     # The expected hash makes later in-place changes create a
                     # new Media identity instead of mutating old history.
-                    from storage_service import register_external_media
-                    await register_external_media(session, media=item)
+                    from storage_service import register_external_asset
+                    await register_external_asset(session, media=item)
 
                     await session.commit()
                     log.debug(f"METADATA: Extracted for {file_path_str}")

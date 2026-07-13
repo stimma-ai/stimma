@@ -335,6 +335,7 @@ class UploadService:
                     await session.rollback()
                     result = await session.execute(
                         select(MediaItem).where(MediaItem.file_path == str(dest_path))
+                        .order_by(MediaItem.id.desc()).limit(1)
                     )
                     media_item = result.scalar_one_or_none()
                     if media_item is None:

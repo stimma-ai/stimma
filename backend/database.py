@@ -31,7 +31,9 @@ class MediaItem(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # File information
-    file_path = Column(String, unique=True, nullable=False, index=True)
+    # A source locator is not Media identity: watched files can change in place,
+    # producing multiple immutable Media revisions at the same external path.
+    file_path = Column(String, nullable=False, index=True)
     file_hash = Column(String, nullable=False, index=True)
     file_size = Column(Integer, nullable=False)  # bytes
     file_format = Column(String, nullable=False, index=True)  # jpg, png, mp4, etc.

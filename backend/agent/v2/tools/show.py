@@ -393,6 +393,12 @@ async def _create_display_item(
         "chat_id": chat_id,
         "item": display_item.to_dict(),
     })
+    if role == "final":
+        for index, asset_id in enumerate(asset_ids):
+            await ws_manager.broadcast("asset_created", {
+                "asset_id": asset_id,
+                "media_id": media_ids[index] if index < len(media_ids) else None,
+            })
 
     if len(rows) == 1:
         return "Displayed 1 item to user."

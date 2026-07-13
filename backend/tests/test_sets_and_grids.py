@@ -191,6 +191,35 @@ class TestMultipleMembership:
 
         assert response.status_code == 200
 
+    async def test_linked_member_content_follows_current_asset_revision(
+        self, generation_client, generation_db_session
+    ):
+        set_id, member_ids = await create_set(
+            generation_client, generation_db_session, count=1
+        )
+        from asset_service import commit_revision
+        from database import AssetRevision
+        async with generation_db_session() as session:
+            original_revision = await session.scalar(
+                select(AssetRevision).where(
+                    AssetRevision.primary_media_id == member_ids[0]
+                )
+            )
+            replacement = await create_media_item(session, file_format="png")
+            replacement_id = replacement.id
+            asset_id = original_revision.asset_id
+            new_revision = await commit_revision(
+                session, asset_id=asset_id, media_id=replacement_id
+            )
+            await session.commit()
+
+        response = await generation_client.get(f"/api/media/{set_id}/content")
+        assert response.status_code == 200, response.text
+        resolved = response.json()["items"][0]["resolved"]
+        assert resolved["asset_id"] == asset_id
+        assert resolved["media_id"] == replacement_id
+        assert resolved["revision_id"] == new_revision.id
+
 
 # ── independent Asset deletion ─────────────────────────────────────────
 

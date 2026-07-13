@@ -1527,6 +1527,7 @@ async def resolve_or_import_input_file(
         select(MediaItem.id).where(
             MediaItem.file_path == abs_path,
             MediaItem.deleted_at.is_(None),
+            (MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None)),
         ).order_by(MediaItem.id.desc()).limit(1)
     )).first()
     if row:

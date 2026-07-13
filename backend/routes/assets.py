@@ -136,6 +136,41 @@ def _asset_browser_base(state: str):
     )
 
 
+def _apply_asset_filters(query, **filters):
+    return build_filtered_query(
+        query,
+        caption_query=filters.get("caption_query"),
+        prompt_query=filters.get("prompt_query"),
+        media_types=filters.get("media_types"),
+        excluded_media_types=filters.get("excluded_media_types"),
+        resolutions=filters.get("resolutions"),
+        excluded_resolutions=filters.get("excluded_resolutions"),
+        keywords=filters.get("keywords"),
+        excluded_keywords=filters.get("excluded_keywords"),
+        folders=filters.get("folders"),
+        excluded_folders=filters.get("excluded_folders"),
+        is_generated=filters.get("is_generated"),
+        marker_ids=filters.get("marker_ids"),
+        excluded_marker_ids=filters.get("excluded_marker_ids"),
+        tag_ids=filters.get("tag_ids"),
+        excluded_tag_ids=filters.get("excluded_tag_ids"),
+        project_ids=filters.get("project_ids"),
+        excluded_project_ids=filters.get("excluded_project_ids"),
+        has_project=filters.get("has_project"),
+        tool_ids=filters.get("tool_ids"),
+        excluded_tool_ids=filters.get("excluded_tool_ids"),
+        tool_id=filters.get("tool_id"),
+        preset_id=filters.get("preset_id"),
+        created_after=filters.get("created_after"),
+        created_before=filters.get("created_before"),
+        show_expiring=filters.get("show_expiring"),
+        exclude_expiring=filters.get("exclude_expiring"),
+        min_mp=filters.get("min_mp"),
+        max_mp=filters.get("max_mp"),
+        include_superseded=True,
+        exclude_expired=filters.get("state", "active") == "active",
+        asset_id_column=Asset.id,
+    )
 @router.get("")
 async def list_assets(
     limit: int = Query(100, ge=1, le=500),
@@ -184,6 +219,11 @@ async def browse_assets(
     excluded_keywords: str | None = None,
     folders: str | None = None,
     excluded_folders: str | None = None,
+    similar_to: str | None = None,
+    similar_face_to: str | None = None,
+    similar_to_text: str | None = None,
+    similarity_threshold: float | None = None,
+    similarity_cutoff: str | None = Query(None, pattern="^(auto)$"),
     is_generated: bool | None = None,
     marker_ids: str | None = None,
     excluded_marker_ids: str | None = None,
@@ -205,7 +245,7 @@ async def browse_assets(
     max_mp: float | None = None,
     sort_by: str = Query(
         "created_desc",
-        pattern="^(created_desc|created_asc|indexed_desc|indexed_asc|random)$",
+        pattern="^(created_desc|created_asc|indexed_desc|indexed_asc|random|similarity)$",
     ),
     random_seed: int | None = None,
     session: AsyncSession = Depends(get_db_session),
@@ -216,7 +256,7 @@ async def browse_assets(
         effective_projects = ",".join(
             part for part in (project_ids, str(project_id)) if part
         )
-    query = build_filtered_query(
+    query = _apply_asset_filters(
         _asset_browser_base(state),
         caption_query=caption_query,
         prompt_query=prompt_query,
@@ -246,12 +286,124 @@ async def browse_assets(
         exclude_expiring=exclude_expiring,
         min_mp=min_mp,
         max_mp=max_mp,
-        include_superseded=True,
-        exclude_expired=state == "active",
-        asset_id_column=Asset.id,
+        state=state,
     )
     if folders:
         query = query.where(StorageObject.kind == "external")
+
+    similarity_modes = sum(
+        value is not None for value in (similar_to, similar_face_to, similar_to_text)
+    )
+    if similarity_modes > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot combine similarity search modes",
+        )
+
+    if similarity_modes:
+        from config import get_settings
+        from utils.similarity import (
+            compute_relevance_cutoff,
+            filter_items_by_face_similarity,
+            parse_similarity_ids,
+        )
+
+        rows = (await session.execute(query)).all()
+        media_items = [row[2] for row in rows]
+        scores: dict[int, float] = {}
+        reference_ids: list[int] = []
+        if similar_face_to is not None:
+            reference_ids = parse_similarity_ids(similar_face_to, "similar_face_to")
+            matched, scores = await filter_items_by_face_similarity(
+                session, media_items, reference_ids, similarity_threshold
+            )
+            matched_ids = {media.id for media in matched}
+            rows = [row for row in rows if row[2].id in matched_ids]
+        else:
+            from clip_service import CLIP_EMBEDDING_DIM, get_clip_service
+            import numpy as np
+
+            clip = get_clip_service()
+            if similar_to_text is not None:
+                if not similar_to_text.strip():
+                    raise HTTPException(
+                        status_code=400, detail="similar_to_text cannot be empty"
+                    )
+                query_embedding = clip.encode_text(similar_to_text.strip())
+                floor = get_settings().clip_text_similarity_threshold
+            else:
+                reference_ids = parse_similarity_ids(similar_to or "", "similar_to")
+                references = list(
+                    await session.scalars(
+                        select(MediaItem).where(MediaItem.id.in_(reference_ids))
+                    )
+                )
+                if len(references) != len(reference_ids):
+                    raise HTTPException(
+                        status_code=404, detail="One or more reference assets not found"
+                    )
+                embeddings = []
+                for reference in references:
+                    embedding = reference.get_embedding()
+                    if embedding is None or embedding.shape[0] != CLIP_EMBEDDING_DIM:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Reference asset {reference.id} has no current CLIP embedding",
+                        )
+                    embeddings.append(embedding)
+                query_embedding = np.mean(embeddings, axis=0)
+                query_embedding = query_embedding / np.linalg.norm(query_embedding)
+                floor = get_settings().clip_similarity_threshold
+
+            valid_rows = []
+            raw_scores = []
+            for row in rows:
+                media = row[2]
+                embedding = media.get_embedding()
+                if embedding is None or embedding.shape[0] != CLIP_EMBEDDING_DIM:
+                    continue
+                score = float(clip.compute_similarity(query_embedding, embedding))
+                scores[media.id] = score
+                raw_scores.append(score)
+                valid_rows.append(row)
+            threshold = similarity_threshold if similarity_threshold is not None else floor
+            if (
+                similar_to_text is not None
+                and similarity_cutoff == "auto"
+                and similarity_threshold is None
+            ):
+                threshold = compute_relevance_cutoff(
+                    raw_scores, absolute_floor=threshold
+                )
+            rows = [
+                row
+                for row in valid_rows
+                if row[2].id in reference_ids or scores[row[2].id] >= threshold
+            ]
+
+        if sort_by == "created_asc":
+            rows.sort(key=lambda row: row[2].created_date or row[2].indexed_date)
+        elif sort_by == "created_desc":
+            rows.sort(
+                key=lambda row: row[2].created_date or row[2].indexed_date,
+                reverse=True,
+            )
+        else:
+            rows.sort(key=lambda row: scores.get(row[2].id, -1), reverse=True)
+        total = len(rows)
+        offset = (page - 1) * page_size
+        page_rows = rows[offset:offset + page_size]
+        items = await _browser_projections(session, page_rows)
+        for item in items:
+            if item["media_id"] in scores:
+                item["similarity_score"] = scores[item["media_id"]]
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "reference_ids": reference_ids or None,
+        }
 
     total = await session.scalar(select(func.count()).select_from(query.subquery())) or 0
     if sort_by == "created_asc":
@@ -281,23 +433,81 @@ async def browse_assets(
 @router.get("/browse/ids")
 async def browse_asset_ids(
     state: str = Query("active", pattern="^(active|trashed)$"),
+    caption_query: str | None = None,
+    prompt_query: str | None = None,
+    media_types: str | None = None,
+    excluded_media_types: str | None = None,
+    resolutions: str | None = None,
+    excluded_resolutions: str | None = None,
+    keywords: str | None = None,
+    excluded_keywords: str | None = None,
+    folders: str | None = None,
+    excluded_folders: str | None = None,
+    is_generated: bool | None = None,
     marker_ids: str | None = None,
+    excluded_marker_ids: str | None = None,
     tag_ids: str | None = None,
+    excluded_tag_ids: str | None = None,
     project_id: int | None = None,
+    project_ids: str | None = None,
+    excluded_project_ids: str | None = None,
     has_project: bool | None = None,
+    tool_ids: str | None = None,
+    excluded_tool_ids: str | None = None,
+    tool_id: str | None = None,
+    preset_id: int | None = None,
+    created_after: str | None = None,
+    created_before: str | None = None,
+    show_expiring: bool | None = None,
+    exclude_expiring: bool | None = None,
+    sort_by: str = Query("created_desc"),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Ordered Asset IDs for select-all; deliberately never returns Media IDs."""
-    query = build_filtered_query(
+    effective_projects = ",".join(
+        part for part in (project_ids, str(project_id) if project_id is not None else None) if part
+    ) or None
+    query = _apply_asset_filters(
         _asset_browser_base(state),
+        caption_query=caption_query,
+        prompt_query=prompt_query,
+        media_types=media_types,
+        excluded_media_types=excluded_media_types,
+        resolutions=resolutions,
+        excluded_resolutions=excluded_resolutions,
+        keywords=keywords,
+        excluded_keywords=excluded_keywords,
+        folders=folders,
+        excluded_folders=excluded_folders,
+        is_generated=is_generated,
         marker_ids=marker_ids,
+        excluded_marker_ids=excluded_marker_ids,
         tag_ids=tag_ids,
-        project_ids=str(project_id) if project_id is not None else None,
+        excluded_tag_ids=excluded_tag_ids,
+        project_ids=effective_projects,
+        excluded_project_ids=excluded_project_ids,
         has_project=has_project,
-        include_superseded=True,
-        exclude_expired=state == "active",
-        asset_id_column=Asset.id,
-    ).with_only_columns(Asset.id).order_by(Asset.updated_at.desc(), Asset.id.desc())
+        tool_ids=tool_ids,
+        excluded_tool_ids=excluded_tool_ids,
+        tool_id=tool_id,
+        preset_id=preset_id,
+        created_after=created_after,
+        created_before=created_before,
+        show_expiring=show_expiring,
+        exclude_expiring=exclude_expiring,
+        state=state,
+    )
+    if folders:
+        query = query.where(StorageObject.kind == "external")
+    query = query.with_only_columns(Asset.id)
+    if sort_by == "created_asc":
+        query = query.order_by(MediaItem.created_date.asc().nulls_last(), Asset.id.asc())
+    elif sort_by == "indexed_desc":
+        query = query.order_by(MediaItem.indexed_date.desc(), Asset.id.desc())
+    elif sort_by == "indexed_asc":
+        query = query.order_by(MediaItem.indexed_date.asc(), Asset.id.asc())
+    else:
+        query = query.order_by(MediaItem.created_date.desc().nulls_last(), Asset.id.desc())
     return {"ids": list(await session.scalars(query))}
 
 
@@ -327,6 +537,31 @@ async def _asset_markers(session: AsyncSession, asset_id: int) -> list[dict]:
 async def get_asset_markers(asset_id: int, session: AsyncSession = Depends(get_db_session)):
     await _live_asset_or_404(session, asset_id)
     return await _asset_markers(session, asset_id)
+
+
+@router.post("/batch/markers/get")
+async def batch_get_asset_markers(
+    request: AssetIdsRequest, session: AsyncSession = Depends(get_db_session)
+):
+    result = {asset_id: [] for asset_id in request.asset_ids}
+    if not request.asset_ids:
+        return result
+    rows = (
+        await session.execute(
+            select(AssetMarker, Marker)
+            .join(Marker, Marker.id == AssetMarker.marker_id)
+            .where(
+                AssetMarker.asset_id.in_(request.asset_ids),
+                AssetMarker.deleted_at.is_(None),
+                AssetMarker.source != "suppressed",
+            )
+        )
+    ).all()
+    for association, marker in rows:
+        result[association.asset_id].append(
+            {**marker.to_dict(), "source": association.source}
+        )
+    return result
 
 
 @router.post("/item/{asset_id}/markers/{marker_id}")

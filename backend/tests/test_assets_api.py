@@ -2,6 +2,7 @@
 
 import asyncio
 
+import numpy as np
 import pytest
 
 from asset_service import (
@@ -81,6 +82,40 @@ async def test_asset_browser_identity_and_curation_survive_current_revision_chan
     assert item["media_id"] == second.id
     assert [entry["name"] for entry in item["markers"]] == ["Winner"]
 
+
+@pytest.mark.asyncio
+async def test_asset_browser_similarity_returns_asset_identity(client, db_session):
+    async with db_session() as session:
+        reference = await create_media_item(session)
+        match = await create_media_item(session)
+        miss = await create_media_item(session)
+        reference.set_embedding(np.ones(512, dtype=np.float32))
+        match.set_embedding(np.ones(512, dtype=np.float32))
+        miss.set_embedding(
+            np.concatenate(
+                [np.ones(256, dtype=np.float32), -np.ones(256, dtype=np.float32)]
+            )
+        )
+        reference_asset = await create_asset_from_media(session, media_id=reference.id)
+        match_asset = await create_asset_from_media(session, media_id=match.id)
+        await create_asset_from_media(session, media_id=miss.id)
+        await session.commit()
+
+    response = await client.get(
+        "/api/assets/browse",
+        params={
+            "similar_to": str(reference.id),
+            "similarity_threshold": 0.9,
+            "sort_by": "similarity",
+        },
+    )
+    assert response.status_code == 200, response.text
+    items = response.json()["items"]
+    assert {item["asset_id"] for item in items} == {
+        reference_asset.id,
+        match_asset.id,
+    }
+    assert {item["media_id"] for item in items} == {reference.id, match.id}
 
 @pytest.mark.asyncio
 async def test_asset_trash_restore_preserves_revision_and_clears_expiration(

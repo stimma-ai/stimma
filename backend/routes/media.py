@@ -941,8 +941,16 @@ async def get_media_content(
             detail=f"Content endpoint not available for media type: {item.file_format}"
         )
 
-    # Get and resolve the content
-    content = await get_structured_content(session, item)
+    # Normalized containers resolve linked Assets through their current heads;
+    # legacy manifests remain the compatibility fallback during migration.
+    content = None
+    if item.file_format.lower() in {"stimmaset.json", "stimmagrid.json"}:
+        from container_service import get_normalized_container_content
+        content = await get_normalized_container_content(
+            session, container_media=item
+        )
+    if content is None:
+        content = await get_structured_content(session, item)
 
     if content is None:
         log.error(f"Failed to get structured content for media {media_id} (format={item.file_format}, raw_metadata_len={len(item.raw_metadata) if item.raw_metadata else 0})")
@@ -1929,6 +1937,15 @@ async def save_edited_image(
         if isinstance(e, HTTPException):
             raise
         raise HTTPException(status_code=500, detail="Failed to commit edited Revision") from e
+
+    await ws_manager.broadcast(
+        "asset_created" if save_as_new else "asset_current_revision_changed",
+        {
+            "asset_id": target_asset.id,
+            "revision_id": committed_revision.id,
+            "media_id": media_item.id,
+        },
+    )
 
     return SaveEditResponse(
         media_id=media_item.id,

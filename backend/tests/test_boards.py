@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy import select
 
+from asset_service import create_asset_from_media
 from database import BoardItem, BoardSection
 from tests.helpers.media import create_test_media
 from tests.helpers.ws import MockWebSocketManager
@@ -81,6 +82,34 @@ class TestBoardsApi:
 
         updated = (await client.get(f"/api/boards/{board_id}")).json()
         assert not any(item["id"] == section["id"] for item in updated["sections"])
+
+    async def test_asset_membership_projects_current_media(self, client, db_session, seeded_media):
+        async with db_session() as session:
+            asset = await create_asset_from_media(
+                session, media_id=seeded_media[0].id
+            )
+            asset_id = asset.id
+            await session.commit()
+
+        board = (await client.post("/api/boards", json={"name": "Assets"})).json()
+        section_id = board["sections"][0]["id"]
+        added = await client.post(
+            f"/api/boards/{board['id']}/items",
+            json={"asset_ids": [asset_id]},
+        )
+        assert added.status_code == 200, added.text
+        assert added.json()["added"] == 1
+
+        payload = (await client.get(f"/api/boards/{board['id']}")).json()
+        item = payload["sections"][0]["items"][0]
+        assert item["id"] == asset_id
+        assert item["asset_id"] == asset_id
+        assert item["media_id"] == seeded_media[0].id
+
+        removed = await client.delete(
+            f"/api/boards/sections/{section_id}/asset-items/{asset_id}"
+        )
+        assert removed.status_code == 200
 
     async def test_move_item_into_section_where_it_already_exists_reorders_without_duplicate(self, client, seeded_media):
         board = (await client.post("/api/boards", json={"name": "Working Set"})).json()

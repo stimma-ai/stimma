@@ -6,8 +6,10 @@ export interface MediaContextMenuState {
   y: number
   bottomY?: number        // If set, anchor menu bottom to this y-coordinate instead of top
   mediaId?: number
+  assetId?: number
   fileHash?: string
   mediaIds?: number[]     // All target IDs (for multi-selection)
+  assetIds?: number[]     // Stable browser/organization identities
   selectedItems?: any[]   // Full item objects (for Send to Tool)
   inBoard?: boolean       // Whether viewing a board section
   boardSectionId?: number // The current board section ID if viewing a board section
@@ -30,15 +32,17 @@ export function useMediaContextMenu() {
   function show(options: {
     event: MouseEvent
     mediaId?: number
+    assetId?: number
     fileHash?: string
     mediaIds?: number[]
+    assetIds?: number[]
     selectedItems?: any[]
     inBoard?: boolean
     boardSectionId?: number
     inProject?: boolean
     projectId?: number
   }) {
-    const { event, mediaId, fileHash, mediaIds, selectedItems, inBoard, boardSectionId, inProject, projectId } = options
+    const { event, mediaId, assetId, fileHash, mediaIds, assetIds, selectedItems, inBoard, boardSectionId, inProject, projectId } = options
 
     // Prevent default browser context menu
     event.preventDefault()
@@ -53,8 +57,10 @@ export function useMediaContextMenu() {
       x,
       y,
       mediaId,
+      assetId,
       fileHash,
       mediaIds: mediaIds || (mediaId ? [mediaId] : []),
+      assetIds: assetIds || (assetId ? [assetId] : []),
       selectedItems: selectedItems || [],
       inBoard: inBoard || false,
       boardSectionId,
@@ -82,15 +88,17 @@ export function useMediaContextMenu() {
     y?: number
     bottomY?: number
     mediaId?: number
+    assetId?: number
     fileHash?: string
     mediaIds?: number[]
+    assetIds?: number[]
     selectedItems?: any[]
     inBoard?: boolean
     boardSectionId?: number
     inProject?: boolean
     projectId?: number
   }) {
-    const { x, y, bottomY, mediaId, fileHash, mediaIds, selectedItems, inBoard, boardSectionId, inProject, projectId } = options
+    const { x, y, bottomY, mediaId, assetId, fileHash, mediaIds, assetIds, selectedItems, inBoard, boardSectionId, inProject, projectId } = options
 
     state.value = {
       visible: true,
@@ -98,8 +106,10 @@ export function useMediaContextMenu() {
       y: y || 0,
       bottomY,
       mediaId,
+      assetId,
       fileHash,
       mediaIds: mediaIds || (mediaId ? [mediaId] : []),
+      assetIds: assetIds || (assetId ? [assetId] : []),
       selectedItems: selectedItems || [],
       inBoard: inBoard || false,
       boardSectionId,

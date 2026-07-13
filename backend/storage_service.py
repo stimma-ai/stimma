@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app_dirs
@@ -196,6 +196,55 @@ async def register_external_media(
     return storage
 
 
+async def register_external_asset(
+    session: AsyncSession,
+    *,
+    media: MediaItem,
+):
+    """Register watched bytes and give the user-addressable item Asset identity."""
+    storage = await register_external_media(session, media=media)
+    from sqlalchemy.orm import aliased
+    from asset_association_service import mirror_media_associations_to_asset
+    from asset_service import commit_revision, create_asset_from_media
+    from database import Asset, AssetRevision
+
+    prior_media = aliased(MediaItem)
+    existing_asset = await session.scalar(
+        select(Asset)
+        .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+        .join(prior_media, prior_media.id == AssetRevision.primary_media_id)
+        .where(
+            Asset.state == "active",
+            Asset.deleted_at.is_(None),
+            prior_media.file_path == media.file_path,
+            prior_media.id != media.id,
+        )
+        .order_by(Asset.updated_at.desc())
+        .limit(1)
+    )
+    if existing_asset is None:
+        asset = await create_asset_from_media(
+            session,
+            media_id=media.id,
+            origin_type="watched_file",
+            origin_id=media.file_path,
+            idempotency_key=f"watched-file:{media.id}",
+        )
+    else:
+        await commit_revision(
+            session,
+            asset_id=existing_asset.id,
+            media_id=media.id,
+            note="Watched file changed",
+            idempotency_key=f"watched-file:{media.id}:revision",
+        )
+        asset = existing_asset
+    await mirror_media_associations_to_asset(
+        session, media_id=media.id, asset_id=asset.id
+    )
+    return storage, asset
+
+
 async def cleanup_staged_source(
     session: AsyncSession,
     *,
@@ -288,3 +337,149 @@ async def ensure_durable_snapshot_media(
         remove_source=True,
     )
     return clone
+
+
+def _under_any_root(path: Path, roots: list[Path]) -> bool:
+    try:
+        resolved = path.resolve()
+    except OSError:
+        return False
+    return any(resolved.is_relative_to(root.resolve()) for root in roots)
+
+
+async def migrate_legacy_managed_media(
+    session: AsyncSession,
+    *,
+    profile_id: str,
+    managed_roots: list[Path],
+    limit: int = 100,
+) -> dict:
+    """Incrementally move explicitly scoped legacy files into object storage.
+
+    Callers must supply roots owned by Stimma (never watch/user folders). Each
+    Media transition commits before its old source is removed, so interruption
+    is recoverable and rerunning is idempotent.
+    """
+    candidates = list(
+        await session.scalars(
+            select(MediaItem)
+            .where(
+                MediaItem.storage_object_id.is_(None),
+                MediaItem.deleted_at.is_(None),
+            )
+            .order_by(MediaItem.id)
+            .limit(limit * 4)
+        )
+    )
+    report = {"migrated": 0, "missing": 0, "skipped_external": 0, "errors": []}
+    for media in candidates:
+        if report["migrated"] >= limit:
+            break
+        source = Path(media.file_path)
+        if not _under_any_root(source, managed_roots):
+            report["skipped_external"] += 1
+            continue
+        if not source.is_file():
+            media.file_unavailable = True
+            report["missing"] += 1
+            await session.commit()
+            continue
+        try:
+            await stage_managed_media(
+                session,
+                media=media,
+                profile_id=profile_id,
+                remove_source=True,
+            )
+            media.file_unavailable = False
+            await session.commit()
+            await cleanup_staged_source(session, media_id=media.id)
+            report["migrated"] += 1
+        except Exception as exc:  # one bad legacy file must not stop rehearsal
+            await session.rollback()
+            report["errors"].append(
+                {"media_id": media.id, "error": type(exc).__name__}
+            )
+    return report
+
+
+async def reconcile_storage(
+    session: AsyncSession,
+    *,
+    profile_id: str,
+    verify_hashes: bool = False,
+    repair_states: bool = False,
+) -> dict:
+    """Compare Media locators, StorageObjects, and disk without inferring ownership."""
+    report = {
+        "dangling_media": [],
+        "missing_managed": [],
+        "corrupt_managed": [],
+        "missing_external": [],
+        "orphan_storage_objects": [],
+    }
+    media_rows = list(
+        await session.scalars(
+            select(MediaItem).where(
+                MediaItem.storage_object_id.is_not(None),
+                MediaItem.deleted_at.is_(None),
+            )
+        )
+    )
+    storage_by_id = {
+        row.id: row
+        for row in await session.scalars(
+            select(StorageObject).where(StorageObject.deleted_at.is_(None))
+        )
+    }
+    referenced_ids = set()
+    for media in media_rows:
+        storage = storage_by_id.get(media.storage_object_id)
+        if storage is None:
+            report["dangling_media"].append(media.id)
+            continue
+        referenced_ids.add(storage.id)
+        locator = (
+            object_path(profile_id, storage.object_key)
+            if storage.kind == "managed"
+            else Path(storage.external_path)
+        )
+        if not locator.is_file():
+            key = "missing_managed" if storage.kind == "managed" else "missing_external"
+            report[key].append(media.id)
+            if repair_states:
+                storage.state = "missing"
+                media.file_unavailable = True
+            continue
+        if storage.kind == "managed" and verify_hashes:
+            actual = await asyncio.to_thread(_hash_file, locator)
+            if actual != storage.expected_hash:
+                report["corrupt_managed"].append(media.id)
+                if repair_states:
+                    storage.state = "missing"
+                    media.file_unavailable = True
+                continue
+        if repair_states:
+            storage.state = "available"
+            storage.verified_at = datetime.utcnow()
+            media.file_unavailable = False
+    report["orphan_storage_objects"] = sorted(set(storage_by_id) - referenced_ids)
+    report["counts"] = {
+        "media_with_storage": len(media_rows),
+        "live_storage_objects": len(storage_by_id),
+        "shared_storage_objects": await session.scalar(
+            select(func.count()).select_from(
+                select(MediaItem.storage_object_id)
+                .where(
+                    MediaItem.storage_object_id.is_not(None),
+                    MediaItem.deleted_at.is_(None),
+                )
+                .group_by(MediaItem.storage_object_id)
+                .having(func.count(MediaItem.id) > 1)
+                .subquery()
+            )
+        ) or 0,
+    }
+    if repair_states:
+        await session.commit()
+    return report

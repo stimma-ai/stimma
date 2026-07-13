@@ -11,10 +11,16 @@ import { reactive, ref, computed, shallowRef } from 'vue'
  * @returns Shared media list state and methods
  */
 export interface MediaItem {
-  id: number
+  id?: number
+  asset_id?: number
+  media_id?: number
   file_hash: string
   file_format: string
   [key: string]: any
+}
+
+function browserIdentity(item: MediaItem | null | undefined): number | undefined {
+  return item?.asset_id ?? item?.id
 }
 
 export interface FetchMediaParams {
@@ -250,7 +256,7 @@ export function useMediaList(options: UseMediaListOptions) {
    */
   function findIndex(id: number): number {
     for (const [index, item] of itemsCache.value.entries()) {
-      if (item && item.id === id) {
+      if (browserIdentity(item) === id) {
         return index
       }
     }
@@ -281,7 +287,7 @@ export function useMediaList(options: UseMediaListOptions) {
     for (let i = 0; i <= maxIndex; i++) {
       const item = oldCache.get(i)
       if (!item) continue
-      if (idsToRemove.has(item.id)) {
+      if (idsToRemove.has(browserIdentity(item)!)) {
         removedCount++
       } else {
         newCache.set(newIndex++, item)
@@ -333,9 +339,13 @@ export function useMediaList(options: UseMediaListOptions) {
     // Deduplicate
     const existingIds = new Set<number>()
     for (const item of itemsCache.value.values()) {
-      if (item?.id) existingIds.add(item.id)
+      const identity = browserIdentity(item)
+      if (identity) existingIds.add(identity)
     }
-    const uniqueItems = items.filter(item => item?.id && !existingIds.has(item.id))
+    const uniqueItems = items.filter(item => {
+      const identity = browserIdentity(item)
+      return identity && !existingIds.has(identity)
+    })
 
     if (uniqueItems.length === 0) return
 
@@ -371,7 +381,7 @@ export function useMediaList(options: UseMediaListOptions) {
   function updateItem(id: number, updates: Partial<MediaItem>): void {
     const newCache = new Map(itemsCache.value)
     for (const [index, item] of newCache.entries()) {
-      if (item && item.id === id) {
+      if (browserIdentity(item) === id) {
         newCache.set(index, { ...item, ...updates })
         break
       }
@@ -434,7 +444,7 @@ export function useMediaList(options: UseMediaListOptions) {
         const firstCachedItem = itemsCache.value.get(0)
         const firstNewItem = firstPageResponse.items[0]
 
-        if (firstCachedItem && firstNewItem && firstCachedItem.id !== firstNewItem.id) {
+        if (firstCachedItem && firstNewItem && browserIdentity(firstCachedItem) !== browserIdentity(firstNewItem)) {
           // First item is different - data has changed, clear cache
           loadedPages.value = new Set()
           notifyCacheChanged()

@@ -42,19 +42,19 @@
           <div class="grid min-w-0" :style="gridStyle">
             <div
               v-for="rowItem in item.items"
-              :key="rowItem.id"
-              :data-testid="`media-grid-item-${rowItem.id}`"
+              :key="assetIdOf(rowItem)"
+              :data-testid="`media-grid-item-${assetIdOf(rowItem)}`"
               :class="[
                 'group grid-cell relative aspect-square bg-surface-raised rounded-lg cursor-pointer border border-edge',
-                { 'multi-select-mode': multiSelectMode, 'selected ring-[3px] ring-blue-500 ring-inset': isSelected(rowItem.id) },
-                { 'context-target ring-2 ring-blue-500/40': contextTargetId === rowItem.id && !isSelected(rowItem.id) }
+                { 'multi-select-mode': multiSelectMode, 'selected ring-[3px] ring-blue-500 ring-inset': isSelected(assetIdOf(rowItem)) },
+                { 'context-target ring-2 ring-blue-500/40': contextTargetId === assetIdOf(rowItem) && !isSelected(assetIdOf(rowItem)) }
               ]"
               draggable="true"
-              @click.stop="handleItemClick(rowItem.id, rowItem._gridIndex, $event)"
+              @click.stop="handleItemClick(assetIdOf(rowItem), rowItem._gridIndex, $event)"
               @contextmenu.stop.prevent="handleRightClick(rowItem, $event)"
-              @mousedown="handleMouseDown(rowItem.id, rowItem._gridIndex)"
+              @mousedown="handleMouseDown(assetIdOf(rowItem), rowItem._gridIndex)"
               @mouseup="handleMouseUp"
-              @touchstart="handleTouchStart(rowItem.id, rowItem._gridIndex)"
+              @touchstart="handleTouchStart(assetIdOf(rowItem), rowItem._gridIndex)"
               @touchend="handleTouchEnd"
               @mouseenter="handleMouseEnter($event, rowItem)"
               @mouseleave="handleMouseLeave($event, rowItem)"
@@ -72,7 +72,7 @@
                 />
                 <video
                   v-if="isVideo(rowItem)"
-                  :ref="el => setVideoRef(rowItem.id, el)"
+                  :ref="el => setVideoRef(assetIdOf(rowItem), el)"
                   class="absolute inset-0 w-full h-full object-cover hidden"
                   muted
                   playsinline
@@ -85,15 +85,15 @@
               <div
                 :class="[
                   'absolute top-2 left-2 z-10 transition-opacity',
-                  isSelected(rowItem.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  isSelected(assetIdOf(rowItem)) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                 ]"
-                @click.stop="handleCheckboxClick(rowItem.id, rowItem._gridIndex, $event)"
+                @click.stop="handleCheckboxClick(assetIdOf(rowItem), rowItem._gridIndex, $event)"
               >
                 <div :class="[
                   'w-6 h-6 bg-black/60 backdrop-blur-md border-2 rounded-md flex items-center justify-center transition-all cursor-pointer',
-                  isSelected(rowItem.id) ? 'bg-blue-500 border-blue-500' : 'border-edge-strong hover:border-edge-strong'
+                  isSelected(assetIdOf(rowItem)) ? 'bg-blue-500 border-blue-500' : 'border-edge-strong hover:border-edge-strong'
                 ]">
-                  <svg v-if="isSelected(rowItem.id)" class="w-4 h-4 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
+                  <svg v-if="isSelected(assetIdOf(rowItem))" class="w-4 h-4 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                 </div>
@@ -212,6 +212,7 @@ import { createDragPreview, preloadDragPreview, handleDragEnd as dragPreviewHand
 import { getMediaType, isVideo as isVideoType, isAudio, getBadgeConfig, formatDuration as formatMediaDuration } from '../utils/mediaTypes'
 import { makeProfileKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
+import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
 
 const props = defineProps({
   /**
@@ -755,12 +756,13 @@ function handleMouseEnter(event, item) {
 
   // Only play video on hover for actual video files (not audio or structured types)
   if (isVideo(item) && getMediaType(item) === 'video') {
+    const assetId = assetIdOf(item)
     // Delay video loading to avoid firing on rapid mouse movement
     const timerId = setTimeout(() => {
-      videoHoverTimers.delete(item.id)
-      const video = videoRefs.value.get(item.id)
+      videoHoverTimers.delete(assetId)
+      const video = videoRefs.value.get(assetId)
       if (video) {
-        videoPlaybacks.get(item.id)?.destroy()
+        videoPlaybacks.get(assetId)?.destroy()
         video.classList.remove('hidden')
         const playback = new MseLoopPlayback(video, getMseLoopUrls(item.file_hash), {
           applyFaceCrop: true,
@@ -769,16 +771,16 @@ function handleMouseEnter(event, item) {
           bufferAheadLoops: 1,
           retainBehindLoops: 1,
           onError: (error) => {
-            if (videoPlaybacks.get(item.id) === playback) {
+            if (videoPlaybacks.get(assetId) === playback) {
               console.warn('Video hover preview failed:', error)
             }
           },
         })
-        videoPlaybacks.set(item.id, playback)
+        videoPlaybacks.set(assetId, playback)
         void playback.start().catch(() => {})
       }
     }, 150)
-    videoHoverTimers.set(item.id, timerId)
+    videoHoverTimers.set(assetId, timerId)
   }
 }
 
@@ -790,15 +792,27 @@ function handleDragStart(event, item) {
   }
 
   // Create drag preview with media info for sidebar tool compatibility
-  if (item?.id && item?.file_hash) {
+  const assetId = assetIdOf(item)
+  const mediaId = mediaIdOf(item)
+  if (mediaId && item?.file_hash) {
     const thumbnailUrl = getThumbnailUrl(item.file_hash, 128)
     const fileFormat = item.file_format || ''
     const itemIsVideo = isVideo(item)
     // If the dragged item is part of a multi-selection, include all selected IDs
-    const allIds = props.selectedItemIds.includes(item.id) && props.selectedItemIds.length > 1
-      ? [...props.selectedItemIds]
+    const allIds = assetId && props.selectedItemIds.includes(assetId) && props.selectedItemIds.length > 1
+      ? getItemsByIds(props.selectedItemIds).map(mediaIdOf).filter(Boolean)
       : undefined
-    createDragPreview(event, thumbnailUrl, item.id, fileFormat, itemIsVideo, allIds)
+    createDragPreview(event, thumbnailUrl, mediaId, fileFormat, itemIsVideo, allIds)
+    event.dataTransfer?.setData('application/x-stimma-assets', JSON.stringify({
+      items: (assetId && props.selectedItemIds.includes(assetId) && props.selectedItemIds.length > 1
+        ? getItemsByIds(props.selectedItemIds)
+        : [item]
+      ).map(entry => ({
+        asset_id: assetIdOf(entry),
+        revision_id: entry.revision_id ?? null,
+        media_id: mediaIdOf(entry),
+      })),
+    }))
   }
 }
 
@@ -808,16 +822,17 @@ function handleGridDragEnd() {
 
 function handleMouseLeave(event, item) {
   if (isVideo(item)) {
+    const assetId = assetIdOf(item)
     // Cancel pending hover timer if mouse leaves before delay
-    const timerId = videoHoverTimers.get(item.id)
+    const timerId = videoHoverTimers.get(assetId)
     if (timerId) {
       clearTimeout(timerId)
-      videoHoverTimers.delete(item.id)
+      videoHoverTimers.delete(assetId)
     }
-    const video = videoRefs.value.get(item.id)
+    const video = videoRefs.value.get(assetId)
     if (video) {
-      videoPlaybacks.get(item.id)?.destroy()
-      videoPlaybacks.delete(item.id)
+      videoPlaybacks.get(assetId)?.destroy()
+      videoPlaybacks.delete(assetId)
       video.classList.add('hidden')
     }
   }
@@ -874,10 +889,12 @@ function handleCheckboxClick(itemId, index, event) {
 function handleRightClick(item, event) {
   // Show context menu only - right-click should never change selection
   if (item) {
-    contextTargetId.value = item.id  // Track which item is being targeted
+    const assetId = assetIdOf(item)
+    const mediaId = mediaIdOf(item)
+    contextTargetId.value = assetId  // Track which Asset is being targeted
 
     // Check if clicked item is in the current selection
-    const inSelection = props.selectedItemIds.includes(item.id)
+    const inSelection = props.selectedItemIds.includes(assetId)
 
     if (inSelection && props.selectedItemIds.length > 1) {
       // Operating on multiple selected items
@@ -885,8 +902,10 @@ function handleRightClick(item, event) {
       const selectedItems = getItemsByIds(targetIds)
       mediaContextMenu.show({
         event,
-        mediaId: item.id,  // Primary item for display
-        mediaIds: targetIds,
+        assetId,
+        assetIds: targetIds,
+        mediaId,
+        mediaIds: selectedItems.map(mediaIdOf).filter(Boolean),
         selectedItems,
         inBoard: props.inBoard,
         boardSectionId: props.boardSectionId,
@@ -897,8 +916,10 @@ function handleRightClick(item, event) {
       // Operating on single item (clicked item, regardless of selection)
       mediaContextMenu.show({
         event,
-        mediaId: item.id,
-        mediaIds: [item.id],
+        assetId,
+        assetIds: assetId ? [assetId] : [],
+        mediaId,
+        mediaIds: mediaId ? [mediaId] : [],
         selectedItems: [item],
         inBoard: props.inBoard,
         boardSectionId: props.boardSectionId,
@@ -946,8 +967,9 @@ function handleRangeSelection(endIndex) {
   const idsToSelect = []
   for (let i = start; i <= end; i++) {
     const item = itemsCache.value.get(i)
-    if (item && item.id) {
-      idsToSelect.push(item.id)
+    const identity = assetIdOf(item)
+    if (identity) {
+      idsToSelect.push(identity)
     }
   }
 
@@ -995,8 +1017,9 @@ function handleTouchEnd() {
 function getAllVisibleIds() {
   const ids = []
   for (const [index, item] of itemsCache.value.entries()) {
-    if (item && item.id) {
-      ids.push(item.id)
+    const identity = assetIdOf(item)
+    if (identity) {
+      ids.push(identity)
     }
   }
   return ids
@@ -1011,7 +1034,7 @@ function getItemsByIds(ids) {
   const idSet = new Set(ids)
   const items = []
   for (const [index, item] of itemsCache.value.entries()) {
-    if (item && idSet.has(item.id)) {
+    if (item && idSet.has(assetIdOf(item))) {
       items.push(item)
     }
   }
@@ -1035,9 +1058,13 @@ async function prependItems(newItems, newTotalCount) {
     // Deduplicate: only add items that aren't already in the cache
     const existingIds = new Set()
     for (const item of itemsCache.value.values()) {
-      if (item?.id) existingIds.add(item.id)
+      const identity = assetIdOf(item)
+      if (identity) existingIds.add(identity)
     }
-    const uniqueNewItems = newItems.filter(item => item?.id && !existingIds.has(item.id))
+    const uniqueNewItems = newItems.filter(item => {
+      const identity = assetIdOf(item)
+      return identity && !existingIds.has(identity)
+    })
 
     if (uniqueNewItems.length === 0) return
 
@@ -1060,9 +1087,13 @@ async function prependItems(newItems, newTotalCount) {
   // Deduplicate: only add items that aren't already in the cache
   const existingIds = new Set()
   for (const item of localItemsCache.value.values()) {
-    if (item?.id) existingIds.add(item.id)
+    const identity = assetIdOf(item)
+    if (identity) existingIds.add(identity)
   }
-  const uniqueNewItems = newItems.filter(item => item?.id && !existingIds.has(item.id))
+  const uniqueNewItems = newItems.filter(item => {
+    const identity = assetIdOf(item)
+    return identity && !existingIds.has(identity)
+  })
 
   if (uniqueNewItems.length === 0) {
     // All items were duplicates, nothing to prepend
@@ -1360,8 +1391,9 @@ async function handleAutoMarkersSynced() {
   // Get all loaded media IDs
   const mediaIds = []
   for (const [_, item] of itemsCache.value.entries()) {
-    if (item && item.id) {
-      mediaIds.push(item.id)
+    const identity = assetIdOf(item)
+    if (identity) {
+      mediaIds.push(identity)
     }
   }
 
@@ -1380,8 +1412,9 @@ async function handleAutoMarkersSynced() {
 
       // Update each item's markers
       for (const item of itemsCache.value) {
-        if (item && item.id && markersByMedia[item.id] !== undefined) {
-          item.markers = markersByMedia[item.id]
+        const identity = assetIdOf(item)
+        if (item && identity && markersByMedia[identity] !== undefined) {
+          item.markers = markersByMedia[identity]
         }
       }
 
@@ -1427,11 +1460,13 @@ function handleMediaUpdated(data) {
 
   // Use the shared mediaList's updateItem if available (triggers proper reactivity)
   if (props.mediaList) {
-    props.mediaList.updateItem(media_id, updates)
+    const projected = [...itemsCache.value.values()].find(item => mediaIdOf(item) === media_id)
+    const identity = assetIdOf(projected || {})
+    if (identity) props.mediaList.updateItem(identity, updates)
   } else {
     // For local cache, find and update the item, then trigger reactivity
     for (const [index, item] of localItemsCache.value.entries()) {
-      if (item && item.id === media_id) {
+      if (item && mediaIdOf(item) === media_id) {
         const newCache = new Map(localItemsCache.value)
         newCache.set(index, { ...item, ...updates })
         localItemsCache.value = newCache
@@ -1495,7 +1530,7 @@ function removeItems(mediaIds) {
   for (let i = 0; i <= maxIndex; i++) {
     const item = oldCache.get(i)
     if (!item) continue
-    if (!idsToRemove.has(item.id)) {
+    if (!idsToRemove.has(assetIdOf(item))) {
       newCache.set(newIndex++, item)
     }
   }
@@ -1512,12 +1547,14 @@ function handleAutoDeleteRemoved(data) {
 
   // Use updateItem for proper reactivity (shallowRef requires new references)
   if (props.mediaList) {
-    props.mediaList.updateItem(media_id, { auto_delete_at: null })
+    const projected = [...itemsCache.value.values()].find(item => mediaIdOf(item) === media_id)
+    const identity = assetIdOf(projected || {})
+    if (identity) props.mediaList.updateItem(identity, { auto_delete_at: null })
   } else {
     // Local cache: create new Map entry to trigger reactivity
     const newCache = new Map(itemsCache.value)
     for (const [index, item] of newCache.entries()) {
-      if (item && item.id === media_id) {
+      if (item && mediaIdOf(item) === media_id) {
         newCache.set(index, { ...item, auto_delete_at: null })
         break
       }

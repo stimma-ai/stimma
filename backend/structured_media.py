@@ -269,7 +269,7 @@ async def resolve_set_references(
             MediaItem.file_path == str(full_path),
             MediaItem.deleted_at.is_(None),
             not_due_for_autodelete(),
-        )
+        ).order_by(MediaItem.id.desc()).limit(1)
         db_result = await session.execute(query)
         media_item = db_result.scalar_one_or_none()
 
@@ -338,7 +338,7 @@ async def resolve_grid_references(
             MediaItem.file_path == str(full_path),
             MediaItem.deleted_at.is_(None),
             not_due_for_autodelete(),
-        )
+        ).order_by(MediaItem.id.desc()).limit(1)
         db_result = await session.execute(query)
         media_item = db_result.scalar_one_or_none()
 
@@ -433,7 +433,7 @@ async def resolve_markdown_references(
             MediaItem.file_path == str(full_path),
             MediaItem.deleted_at.is_(None),
             not_due_for_autodelete(),
-        )
+        ).order_by(MediaItem.id.desc()).limit(1)
         db_result = await session.execute(query)
         media_item = db_result.scalar_one_or_none()
 
@@ -868,7 +868,7 @@ async def get_set_item_ids(
         query = select(MediaItem.id).where(
             MediaItem.file_path == str(full_path),
             MediaItem.deleted_at.is_(None)
-        )
+        ).order_by(MediaItem.id.desc()).limit(1)
         db_result = await session.execute(query)
         media_id = db_result.scalar_one_or_none()
 

@@ -4,12 +4,16 @@ import asyncio
 import hashlib
 
 import pytest
+from sqlalchemy import func, select
 
 from asset_service import create_asset_from_media
-from database import MediaItem, StorageObject
+from database import Asset, AssetRevision, MediaItem, StorageObject
 from storage_service import (
     cleanup_staged_source,
+    migrate_legacy_managed_media,
     object_path,
+    reconcile_storage,
+    register_external_asset,
     register_external_media,
     stage_managed_media,
 )
@@ -108,3 +112,121 @@ async def test_external_media_delete_never_deletes_user_owned_file(
     async with db_session() as session:
         assert await session.get(MediaItem, media_id) is None
         assert await session.get(StorageObject, storage_id) is None
+
+
+@pytest.mark.asyncio
+async def test_watched_file_registration_materializes_one_asset(db_session, tmp_path):
+    source = tmp_path / "watched-asset.png"
+    source.write_bytes(b"watched")
+    digest = hashlib.sha256(b"watched").hexdigest()
+    async with db_session() as session:
+        media = await create_media_item(
+            session, file_path=source, file_hash=digest, file_size=7
+        )
+        storage, asset = await register_external_asset(session, media=media)
+        repeated_storage, repeated_asset = await register_external_asset(
+            session, media=media
+        )
+        await session.commit()
+
+        assert storage.kind == "external"
+        assert repeated_storage.id == storage.id
+        assert repeated_asset.id == asset.id
+        assert await session.scalar(select(func.count()).select_from(Asset)) == 1
+
+
+@pytest.mark.asyncio
+async def test_changed_watched_file_advances_same_asset(db_session, tmp_path):
+    source = tmp_path / "mutable-watch.png"
+    source.write_bytes(b"first")
+    async with db_session() as session:
+        first = await create_media_item(
+            session,
+            file_path=source,
+            file_hash=hashlib.sha256(b"first").hexdigest(),
+            file_size=5,
+        )
+        _, asset = await register_external_asset(session, media=first)
+        first_revision_id = asset.current_revision_id
+        await session.commit()
+
+        source.write_bytes(b"second")
+        second = await create_media_item(
+            session,
+            file_path=source,
+            file_hash=hashlib.sha256(b"second").hexdigest(),
+            file_size=6,
+        )
+        _, repeated_asset = await register_external_asset(session, media=second)
+        await session.commit()
+
+        assert repeated_asset.id == asset.id
+        assert repeated_asset.current_revision_id != first_revision_id
+        revision = await session.get(AssetRevision, repeated_asset.current_revision_id)
+        assert revision.primary_media_id == second.id
+        assert revision.parent_revision_id == first_revision_id
+
+
+@pytest.mark.asyncio
+async def test_legacy_migration_only_moves_explicit_managed_roots(db_session, tmp_path):
+    managed_root = tmp_path / "legacy-output"
+    managed_root.mkdir()
+    managed_source = managed_root / "generated.png"
+    external_source = tmp_path / "watched.png"
+    managed_source.write_bytes(b"generated")
+    external_source.write_bytes(b"external")
+
+    async with db_session() as session:
+        managed = await create_media_item(
+            session,
+            file_path=managed_source,
+            file_hash=hashlib.sha256(b"generated").hexdigest(),
+            file_size=9,
+        )
+        external = await create_media_item(
+            session,
+            file_path=external_source,
+            file_hash=hashlib.sha256(b"external").hexdigest(),
+            file_size=8,
+        )
+        await session.commit()
+        report = await migrate_legacy_managed_media(
+            session,
+            profile_id="default",
+            managed_roots=[managed_root],
+        )
+        await session.refresh(managed)
+        await session.refresh(external)
+
+        assert report["migrated"] == 1
+        assert report["skipped_external"] == 1
+        assert managed.storage_object_id is not None
+        assert external.storage_object_id is None
+        assert not managed_source.exists()
+        assert external_source.exists()
+
+
+@pytest.mark.asyncio
+async def test_storage_reconciliation_reports_missing_managed_object(db_session, tmp_path):
+    source = tmp_path / "managed.png"
+    source.write_bytes(b"managed")
+    digest = hashlib.sha256(b"managed").hexdigest()
+    async with db_session() as session:
+        media = await create_media_item(
+            session, file_path=source, file_hash=digest, file_size=7
+        )
+        storage = await stage_managed_media(
+            session, media=media, profile_id="default"
+        )
+        await session.commit()
+        await cleanup_staged_source(session, media_id=media.id)
+        object_path("default", storage.object_key).unlink()
+
+        report = await reconcile_storage(
+            session, profile_id="default", repair_states=True
+        )
+        await session.refresh(media)
+        await session.refresh(storage)
+        assert report["missing_managed"] == [media.id]
+        assert media.file_unavailable is True
+        assert storage.state == "missing"

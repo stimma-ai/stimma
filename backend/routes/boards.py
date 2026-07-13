@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from board_service import serialize_board
 from core.dependencies import get_db_session
 from core.logging import get_logger
-from database import Board, BoardItem, BoardSection, MediaItem, MediaMarker
+from database import Asset, Board, BoardAssetItem, BoardItem, BoardSection, MediaItem, MediaMarker
 from models.api_models import (
     BoardAddItemsRequest,
     BoardBulkMoveRequest,
@@ -117,6 +117,19 @@ async def _compact_item_orders(section_id: int, session: AsyncSession) -> None:
         item.display_order = index
 
 
+async def _compact_asset_item_orders(section_id: int, session: AsyncSession) -> None:
+    result = await session.execute(
+        select(BoardAssetItem)
+        .where(
+            BoardAssetItem.board_section_id == section_id,
+            BoardAssetItem.deleted_at.is_(None),
+        )
+        .order_by(BoardAssetItem.display_order.asc(), BoardAssetItem.added_at.asc())
+    )
+    for index, item in enumerate(result.scalars().all()):
+        item.display_order = index
+
+
 async def _delete_section_if_empty(section: BoardSection, session: AsyncSession) -> None:
     if section.is_default:
         return
@@ -124,7 +137,13 @@ async def _delete_section_if_empty(section: BoardSection, session: AsyncSession)
     item_count = await session.scalar(
         select(func.count()).select_from(BoardItem).where(BoardItem.board_section_id == section.id)
     )
-    if item_count:
+    asset_item_count = await session.scalar(
+        select(func.count()).select_from(BoardAssetItem).where(
+            BoardAssetItem.board_section_id == section.id,
+            BoardAssetItem.deleted_at.is_(None),
+        )
+    )
+    if item_count or asset_item_count:
         return
 
     section.deleted_at = datetime.utcnow()
@@ -143,10 +162,23 @@ async def get_boards(
     session: AsyncSession = Depends(get_db_session),
 ):
     query = (
-        select(Board, func.count(MediaItem.id))
+        select(
+            Board,
+            (
+                func.count(func.distinct(MediaItem.id))
+                + func.count(func.distinct(BoardAssetItem.id))
+            ).label("asset_count"),
+        )
         .outerjoin(BoardSection, and_(BoardSection.board_id == Board.id, BoardSection.deleted_at.is_(None)))
         .outerjoin(BoardItem, BoardItem.board_section_id == BoardSection.id)
         .outerjoin(MediaItem, and_(MediaItem.id == BoardItem.media_id, MediaItem.deleted_at.is_(None)))
+        .outerjoin(
+            BoardAssetItem,
+            and_(
+                BoardAssetItem.board_section_id == BoardSection.id,
+                BoardAssetItem.deleted_at.is_(None),
+            ),
+        )
         .where(Board.deleted_at.is_(None))
         .group_by(Board.id)
         .order_by(Board.updated_at.desc())
@@ -303,6 +335,9 @@ async def delete_board_section(section_id: int, session: AsyncSession = Depends(
     board = await _get_board_or_404(section.board_id, session)
     was_default = section.is_default
     await session.execute(delete(BoardItem).where(BoardItem.board_section_id == section.id))
+    await session.execute(
+        delete(BoardAssetItem).where(BoardAssetItem.board_section_id == section.id)
+    )
     section.deleted_at = datetime.utcnow()
     section.updated_at = datetime.utcnow()
     section.is_default = False
@@ -372,8 +407,47 @@ async def add_board_items(
     max_order = await session.scalar(
         select(func.coalesce(func.max(BoardItem.display_order), -1)).where(BoardItem.board_section_id == section.id)
     )
-    next_order = (max_order or -1) + 1
+    max_asset_order = await session.scalar(
+        select(func.coalesce(func.max(BoardAssetItem.display_order), -1)).where(
+            BoardAssetItem.board_section_id == section.id,
+            BoardAssetItem.deleted_at.is_(None),
+        )
+    )
+    next_order = max(max_order or -1, max_asset_order or -1) + 1
     added = 0
+    valid_asset_ids = set(
+        await session.scalars(
+            select(Asset.id).where(
+                Asset.id.in_(request.asset_ids),
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+            )
+        )
+    )
+    from asset_association_service import attach_asset_to_project
+    for asset_id in request.asset_ids:
+        if asset_id not in valid_asset_ids:
+            continue
+        existing = await session.scalar(
+            select(BoardAssetItem).where(
+                BoardAssetItem.board_section_id == section.id,
+                BoardAssetItem.asset_id == asset_id,
+                BoardAssetItem.deleted_at.is_(None),
+            )
+        )
+        if existing is not None:
+            continue
+        session.add(
+            BoardAssetItem(
+                board_section_id=section.id,
+                asset_id=asset_id,
+                display_order=next_order,
+            )
+        )
+        if board.project_id is not None:
+            await attach_asset_to_project(session, board.project_id, asset_id)
+        next_order += 1
+        added += 1
     for media_id in request.media_ids:
         existing = await session.execute(
             select(BoardItem).where(BoardItem.board_section_id == section.id, BoardItem.media_id == media_id)
@@ -389,7 +463,8 @@ async def add_board_items(
     board.updated_at = datetime.utcnow()
     await session.commit()
     if added > 0:
-        await clear_auto_delete_for_media(session, request.media_ids, ws_manager)
+        if request.media_ids:
+            await clear_auto_delete_for_media(session, request.media_ids, ws_manager)
         _track_board_event("board_items_added", board.id, {"count": added})
     payload = await _serialize_board(board, session)
     await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": payload.model_dump()})
@@ -416,6 +491,35 @@ async def remove_board_item(
     payload = await _serialize_board(board, session)
     await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": payload.model_dump()})
     await ws_manager.broadcast("board_updated", {"board": payload.model_dump()})
+    return {"status": "success"}
+
+
+@router.delete("/sections/{section_id}/asset-items/{asset_id}")
+async def remove_board_asset_item(
+    section_id: int,
+    asset_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    section = await _get_section_or_404(section_id, session)
+    board = await _get_board_or_404(section.board_id, session)
+    row = await session.scalar(
+        select(BoardAssetItem).where(
+            BoardAssetItem.board_section_id == section.id,
+            BoardAssetItem.asset_id == asset_id,
+            BoardAssetItem.deleted_at.is_(None),
+        )
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Board Asset not found")
+    row.deleted_at = datetime.utcnow()
+    await _compact_asset_item_orders(section.id, session)
+    await _delete_section_if_empty(section, session)
+    board.updated_at = datetime.utcnow()
+    await session.commit()
+    payload = await _serialize_board(board, session)
+    await ws_manager.broadcast(
+        "board_items_changed", {"board_id": board.id, "board": payload.model_dump()}
+    )
     return {"status": "success"}
 
 
@@ -488,6 +592,70 @@ async def move_board_item(
     return {"status": "success"}
 
 
+@router.post("/{board_id}/asset-items/move")
+async def move_board_asset_item(
+    board_id: int,
+    request: BoardMoveItemRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
+    if request.asset_id is None:
+        raise HTTPException(status_code=400, detail="asset_id is required")
+    board = await _get_board_or_404(board_id, session)
+    source_section = await _get_section_or_404(request.from_section_id, session)
+    target_section = await _get_section_or_404(request.to_section_id, session)
+    if source_section.board_id != board.id or target_section.board_id != board.id:
+        raise HTTPException(status_code=400, detail="Sections do not belong to board")
+    board_item = await session.scalar(
+        select(BoardAssetItem).where(
+            BoardAssetItem.board_section_id == source_section.id,
+            BoardAssetItem.asset_id == request.asset_id,
+            BoardAssetItem.deleted_at.is_(None),
+        )
+    )
+    if board_item is None:
+        raise HTTPException(status_code=404, detail="Board Asset not found")
+    target_items = list(
+        await session.scalars(
+            select(BoardAssetItem)
+            .where(
+                BoardAssetItem.board_section_id == target_section.id,
+                BoardAssetItem.deleted_at.is_(None),
+            )
+            .order_by(BoardAssetItem.display_order, BoardAssetItem.added_at)
+        )
+    )
+    target_items = [item for item in target_items if item.asset_id != request.asset_id]
+    if source_section.id != target_section.id:
+        duplicate = await session.scalar(
+            select(BoardAssetItem).where(
+                BoardAssetItem.board_section_id == target_section.id,
+                BoardAssetItem.asset_id == request.asset_id,
+                BoardAssetItem.deleted_at.is_(None),
+            )
+        )
+        if duplicate is not None:
+            board_item.deleted_at = datetime.utcnow()
+            moved_item = duplicate
+        else:
+            board_item.board_section_id = target_section.id
+            moved_item = board_item
+        await _compact_asset_item_orders(source_section.id, session)
+        await _delete_section_if_empty(source_section, session)
+    else:
+        moved_item = board_item
+    target_index = max(0, min(request.target_index, len(target_items)))
+    target_items.insert(target_index, moved_item)
+    for index, item in enumerate(target_items):
+        item.display_order = index
+    board.updated_at = datetime.utcnow()
+    await session.commit()
+    payload = await _serialize_board(board, session)
+    await ws_manager.broadcast(
+        "board_items_changed", {"board_id": board.id, "board": payload.model_dump()}
+    )
+    return {"status": "success"}
+
+
 @router.post("/{board_id}/items/bulk-remove")
 async def bulk_remove_board_items(
     board_id: int,
@@ -496,6 +664,7 @@ async def bulk_remove_board_items(
 ):
     board = await _get_board_or_404(board_id, session)
     media_ids_set = set(request.media_ids)
+    asset_ids_set = set(request.asset_ids)
 
     sections_result = await session.execute(
         select(BoardSection).where(
@@ -512,12 +681,28 @@ async def bulk_remove_board_items(
                 BoardItem.media_id.in_(media_ids_set),
             )
         )
+        if asset_ids_set:
+            rows = list(
+                await session.scalars(
+                    select(BoardAssetItem).where(
+                        BoardAssetItem.board_section_id == section.id,
+                        BoardAssetItem.asset_id.in_(asset_ids_set),
+                        BoardAssetItem.deleted_at.is_(None),
+                    )
+                )
+            )
+            for row in rows:
+                row.deleted_at = datetime.utcnow()
         await _compact_item_orders(section.id, session)
+        await _compact_asset_item_orders(section.id, session)
         await _delete_section_if_empty(section, session)
 
     board.updated_at = datetime.utcnow()
     await session.commit()
-    _track_board_event("board_items_removed", board.id, {"count": len(media_ids_set)})
+    _track_board_event(
+        "board_items_removed", board.id,
+        {"count": len(media_ids_set) + len(asset_ids_set)},
+    )
     payload = await _serialize_board(board, session)
     await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": payload.model_dump()})
     await ws_manager.broadcast("board_updated", {"board": payload.model_dump()})
@@ -536,6 +721,7 @@ async def bulk_move_board_items(
         raise HTTPException(status_code=400, detail="Section does not belong to board")
 
     media_ids_set = set(request.media_ids)
+    asset_ids_set = set(request.asset_ids)
 
     sections_result = await session.execute(
         select(BoardSection).where(
@@ -555,6 +741,19 @@ async def bulk_move_board_items(
             )
         )
         await _compact_item_orders(section.id, session)
+        if asset_ids_set:
+            asset_rows = list(
+                await session.scalars(
+                    select(BoardAssetItem).where(
+                        BoardAssetItem.board_section_id == section.id,
+                        BoardAssetItem.asset_id.in_(asset_ids_set),
+                        BoardAssetItem.deleted_at.is_(None),
+                    )
+                )
+            )
+            for row in asset_rows:
+                row.deleted_at = datetime.utcnow()
+            await _compact_asset_item_orders(section.id, session)
         await _delete_section_if_empty(section, session)
 
     max_order = await session.scalar(
@@ -578,9 +777,40 @@ async def bulk_move_board_items(
         session.add(BoardItem(board_section_id=target_section.id, media_id=media_id, display_order=next_order))
         next_order += 1
 
+    max_asset_order = await session.scalar(
+        select(func.coalesce(func.max(BoardAssetItem.display_order), -1)).where(
+            BoardAssetItem.board_section_id == target_section.id,
+            BoardAssetItem.deleted_at.is_(None),
+        )
+    )
+    next_asset_order = (max_asset_order or -1) + 1
+    existing_asset_ids = set(
+        await session.scalars(
+            select(BoardAssetItem.asset_id).where(
+                BoardAssetItem.board_section_id == target_section.id,
+                BoardAssetItem.asset_id.in_(asset_ids_set),
+                BoardAssetItem.deleted_at.is_(None),
+            )
+        )
+    )
+    for asset_id in request.asset_ids:
+        if asset_id in existing_asset_ids:
+            continue
+        session.add(
+            BoardAssetItem(
+                board_section_id=target_section.id,
+                asset_id=asset_id,
+                display_order=next_asset_order,
+            )
+        )
+        next_asset_order += 1
+
     board.updated_at = datetime.utcnow()
     await session.commit()
-    _track_board_event("board_items_moved", board.id, {"count": len(media_ids_set)})
+    _track_board_event(
+        "board_items_moved", board.id,
+        {"count": len(media_ids_set) + len(asset_ids_set)},
+    )
     payload = await _serialize_board(board, session)
     await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": payload.model_dump()})
     await ws_manager.broadcast("board_updated", {"board": payload.model_dump()})

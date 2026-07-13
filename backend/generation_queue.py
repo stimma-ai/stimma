@@ -986,6 +986,7 @@ class GenerationQueue:
         # Exact path match first
         result = await session.execute(
             select(MediaItem.id).where(MediaItem.file_path == file_path)
+            .order_by(MediaItem.id.desc()).limit(1)
         )
         row = result.first()
         if row:
@@ -2098,6 +2099,7 @@ class GenerationQueue:
         # Check if the file was already inserted by the ingestion worker (race condition)
         existing_result = await session.execute(
             select(MediaItem).where(MediaItem.file_path == output_path)
+            .order_by(MediaItem.id.desc()).limit(1)
         )
         media_item = existing_result.scalar_one_or_none()
 
@@ -3258,6 +3260,12 @@ class GenerationQueue:
                     'generator_instance_id': job.generator_instance_id,
     
                 })
+
+                if job_dict.get('result_asset_id'):
+                    await self._websocket_manager.broadcast('asset_created', {
+                        'asset_id': job_dict['result_asset_id'],
+                        'media_id': media_item.id,
+                    })
 
                 # Also broadcast media_added event so browse view refreshes
                 await self._websocket_manager.broadcast('media_added', {

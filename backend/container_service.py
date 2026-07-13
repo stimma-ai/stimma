@@ -223,6 +223,7 @@ async def resolve_container_members(
     resolved: list[dict[str, Any]] = []
     for member in members:
         media_id = member.embedded_media_id
+        resolved_revision_id = None
         unavailable = member.missing_linked_asset
         if member.linked_asset_id is not None:
             linked_asset = await session.get(Asset, member.linked_asset_id)
@@ -235,11 +236,13 @@ async def resolve_container_members(
                 current = await session.get(AssetRevision, linked_asset.current_revision_id)
                 unavailable = current is None or current.deleted_at is not None
                 media_id = None if unavailable else current.primary_media_id
+                resolved_revision_id = None if unavailable else current.id
         resolved.append(
             {
                 "member_id": member.id,
                 "linked_asset_id": member.linked_asset_id,
                 "media_id": media_id,
+                "revision_id": resolved_revision_id,
                 "unavailable": unavailable,
                 "member_order": member.member_order,
                 "row_index": member.row_index,
@@ -249,6 +252,95 @@ async def resolve_container_members(
             }
         )
     return resolved
+
+
+async def get_normalized_container_content(
+    session: AsyncSession,
+    *,
+    container_media: MediaItem,
+) -> dict[str, Any] | None:
+    """Project normalized membership into the legacy set/grid content shape."""
+    if container_media.file_format not in {"stimmaset.json", "stimmagrid.json"}:
+        return None
+    revision = await session.scalar(
+        select(AssetRevision).where(
+            AssetRevision.primary_media_id == container_media.id,
+            AssetRevision.deleted_at.is_(None),
+        )
+    )
+    if revision is None:
+        return None
+    member_count = await session.scalar(
+        select(ContainerMember.id).where(
+            ContainerMember.container_revision_id == revision.id,
+            ContainerMember.deleted_at.is_(None),
+        ).limit(1)
+    )
+    if member_count is None:
+        return None
+    try:
+        base = json.loads(container_media.raw_metadata or "{}")
+    except (json.JSONDecodeError, TypeError):
+        base = {}
+    members = await resolve_container_members(session, revision_id=revision.id)
+    media_ids = [entry["media_id"] for entry in members if entry["media_id"] is not None]
+    media_by_id = {
+        media.id: media
+        for media in await session.scalars(
+            select(MediaItem).where(MediaItem.id.in_(media_ids))
+        )
+    }
+
+    def resolved_payload(entry: dict[str, Any]) -> dict[str, Any] | None:
+        media = media_by_id.get(entry["media_id"])
+        if media is None or media.deleted_at is not None or entry["unavailable"]:
+            return None
+        return {
+            "id": media.id,
+            "media_id": media.id,
+            "asset_id": entry["linked_asset_id"],
+            "revision_id": entry["revision_id"],
+            "file_hash": media.file_hash,
+            "file_path": media.file_path,
+            "file_format": media.file_format,
+            "width": media.width,
+            "height": media.height,
+            "duration": media.duration,
+            "vlm_caption": media.vlm_caption,
+            "generation_metadata": media.generation_metadata,
+            "markers": [],
+            "tags": [],
+        }
+
+    result = {key: value for key, value in base.items() if key not in {"items", "cells"}}
+    result.setdefault("version", 1)
+    if container_media.file_format == "stimmaset.json":
+        result["items"] = [
+            {
+                "path": media_by_id[entry["media_id"]].file_path
+                if entry["media_id"] in media_by_id
+                else None,
+                "title": entry["title"],
+                "caption": entry["caption"],
+                "resolved": resolved_payload(entry),
+            }
+            for entry in members
+        ]
+    else:
+        result["cells"] = [
+            {
+                "row": entry["row_index"],
+                "col": entry["column_index"],
+                "path": media_by_id[entry["media_id"]].file_path
+                if entry["media_id"] in media_by_id
+                else None,
+                "title": entry["title"],
+                "caption": entry["caption"],
+                "resolved": resolved_payload(entry),
+            }
+            for entry in members
+        ]
+    return result
 
 
 async def explode_container(

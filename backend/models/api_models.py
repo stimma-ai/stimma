@@ -24,6 +24,7 @@ class MediaItemResponse(BaseModel):
     id: int
     # Stable browser identity when this Media is a committed Asset Revision.
     asset_id: Optional[int] = None
+    media_id: Optional[int] = None
     revision_id: Optional[int] = None
     file_hash: str
     file_path: str
@@ -388,7 +389,8 @@ class BulkTagRequest(BaseModel):
 
 
 class BoardAddItemsRequest(BaseModel):
-    media_ids: List[int]
+    media_ids: List[int] = Field(default_factory=list)
+    asset_ids: List[int] = Field(default_factory=list)
     section_id: Optional[int] = None
 
 
@@ -397,18 +399,21 @@ class BoardSectionReorderRequest(BaseModel):
 
 
 class BoardMoveItemRequest(BaseModel):
-    media_id: int
+    media_id: Optional[int] = None
+    asset_id: Optional[int] = None
     from_section_id: int
     to_section_id: int
     target_index: int
 
 
 class BoardBulkRemoveRequest(BaseModel):
-    media_ids: List[int]
+    media_ids: List[int] = Field(default_factory=list)
+    asset_ids: List[int] = Field(default_factory=list)
 
 
 class BoardBulkMoveRequest(BaseModel):
-    media_ids: List[int]
+    media_ids: List[int] = Field(default_factory=list)
+    asset_ids: List[int] = Field(default_factory=list)
     to_section_id: int
 
 
