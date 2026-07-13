@@ -88,6 +88,15 @@ class UploadService:
 
         return dest_dir / filename, str(subfolder)
 
+    def get_managed_staging_destination(self, original_filename: str) -> Tuple[Path, str]:
+        """Return an app-owned staging path that watched-folder ingestion cannot see."""
+        from storage_service import managed_object_root
+
+        dest_dir = managed_object_root(self.profile_id) / ".upload-staging"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        ext = Path(original_filename).suffix.lower()
+        return dest_dir / f"{uuid.uuid4().hex}{ext}", ".upload-staging"
+
     def validate_file(self, filename: str) -> str:
         """Validate file extension and return the normalized extension.
 
@@ -150,6 +159,7 @@ class UploadService:
         original_filename: str,
         project_id: Optional[int] = None,
         materialize_asset: bool = True,
+        managed_staging: bool = False,
     ) -> Tuple[MediaItem, str]:
         """
         Upload a file to the library and create a database record.
@@ -181,8 +191,15 @@ class UploadService:
         # distinct provenance-bearing Media identities.
         file_hash = self._compute_content_hash(file_content)
 
-        # Get destination path
-        dest_path, subfolder = self.get_upload_destination(original_filename, project_id=project_id)
+        # Editor/version outputs must never briefly appear in a watched folder:
+        # the scanner could otherwise import the provisional file as a second
+        # Asset before object-store staging moves it away.
+        if managed_staging:
+            dest_path, subfolder = self.get_managed_staging_destination(original_filename)
+        else:
+            dest_path, subfolder = self.get_upload_destination(
+                original_filename, project_id=project_id
+            )
 
         try:
             # Write file to disk

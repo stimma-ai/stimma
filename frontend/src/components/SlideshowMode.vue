@@ -56,6 +56,8 @@
       @tags-updated="handleTagsUpdated"
       @compare-with-source="handleCompareWithSource"
       @edit-image="handleEditImage"
+      @download-version="downloadVersion"
+      @download-versions="downloadVersions"
       @view-lineage="handleViewLineage"
       @share-to-cloud="showShareDialog = true"
     />
@@ -4393,9 +4395,28 @@ function isImageFormat(format) {
   return imageFormats.includes(format.toLowerCase())
 }
 
-function handleEditImage() {
-  if (!currentPayloadId.value) return
-  router.push({ name: 'edit-image', params: { editorId: nextEditorId(), mediaId: currentPayloadId.value } })
+function handleEditImage(mediaId = null) {
+  const targetMediaId = mediaId || currentPayloadId.value
+  if (!targetMediaId) return
+  router.push({ name: 'edit-image', params: { editorId: nextEditorId(), mediaId: targetMediaId } })
+}
+
+async function downloadVersion(mediaId) {
+  if (!mediaId) return
+  try {
+    await downloadMediaApi([mediaId])
+  } catch (error) {
+    console.error('Failed to download asset version:', error)
+  }
+}
+
+async function downloadVersions(mediaIds) {
+  if (!mediaIds?.length) return
+  try {
+    await downloadMediaApi(mediaIds)
+  } catch (error) {
+    console.error('Failed to download asset versions:', error)
+  }
 }
 
 function handleViewLineage() {

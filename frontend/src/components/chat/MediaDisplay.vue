@@ -1,10 +1,11 @@
 <template>
   <div class="media-display bg-surface rounded-lg p-3" :class="rootWidthClass">
     <!-- Header with title (always show if present) -->
-    <div v-if="displayData.title" class="mb-3">
+    <div v-if="displayData.title || showRole === 'intermediate'" class="mb-3 flex items-center gap-2">
       <span class="text-sm text-content-secondary font-medium">
         {{ displayData.title }}
       </span>
+      <span v-if="showRole === 'intermediate'" class="rounded border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-content-muted">Intermediate</span>
       <span v-if="!allComplete" class="text-sm text-content-tertiary ml-2">
         {{ statusText }}
       </span>
@@ -48,6 +49,14 @@
           Retry All Failed ({{ failedCount }})
         </button>
       </div>
+      <button
+        v-if="showRole === 'intermediate' && promotableMediaIds.length"
+        class="rounded border border-blue-500/50 bg-blue-500/15 px-3 py-1.5 text-xs text-blue-400 transition-colors hover:bg-blue-500/25 disabled:opacity-50"
+        :disabled="savingIntermediates"
+        @click="saveIntermediates"
+      >
+        {{ savingIntermediates ? 'Saving…' : `Save ${promotableMediaIds.length === 1 ? 'as asset' : `${promotableMediaIds.length} as assets`}` }}
+      </button>
       <!-- Actions slot (right side) -->
       <slot name="actions"></slot>
     </div>
@@ -58,6 +67,8 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import MediaDisplayRow from './MediaDisplayRow.vue'
 import { getCurrentProfileId } from '../../composables/useProfile'
+import { useAssetApi } from '../../composables/useAssetApi'
+import { addToast } from '../../composables/useToasts'
 
 const props = defineProps({
   displayData: {
@@ -73,7 +84,8 @@ const props = defineProps({
   chatItemId: {
     type: Number,
     default: null
-  }
+  },
+  showRole: { type: String, default: null }
 })
 
 const emit = defineEmits(['view-image', 'update', 'show-job-info'])
@@ -84,6 +96,9 @@ const pollInterval = ref(null)
 
 // Compact mode state (default: true for trimmer default appearance)
 const isCompact = ref(true)
+const savingIntermediates = ref(false)
+const savedMediaIds = ref(new Set())
+const { promoteContextualMedia } = useAssetApi()
 
 const DEFAULT_ITEMS_PER_LOAD = 18
 const GALLERY_ITEMS_PER_LOAD = 9
@@ -96,6 +111,26 @@ watch(() => props.displayData.rows, (newRows) => {
 
 // Computed status - use localRows but fall back to props for initial render
 const rows = computed(() => localRows.value.length > 0 ? localRows.value : (props.displayData.rows || []))
+const promotableMediaIds = computed(() => [...new Set(
+  rows.value
+    .map(row => row.output?.media_id)
+    .filter(mediaId => mediaId && !savedMediaIds.value.has(mediaId))
+)])
+
+async function saveIntermediates() {
+  savingIntermediates.value = true
+  try {
+    for (const mediaId of promotableMediaIds.value) {
+      await promoteContextualMedia(mediaId)
+      savedMediaIds.value = new Set([...savedMediaIds.value, mediaId])
+    }
+    addToast('Saved to All Assets', 'success')
+  } catch (error) {
+    addToast(error.response?.data?.detail || 'Could not save intermediate result', 'error')
+  } finally {
+    savingIntermediates.value = false
+  }
+}
 const generatingCount = computed(() =>
   rows.value.filter(r => r.output?.status === 'generating' || r.output?.status === 'pending').length
 )

@@ -926,6 +926,7 @@
               <MediaDisplay
                 :display-data="parseMediaDisplayData(item)"
                 :chat-item-id="item.id"
+                :show-role="item.show_role"
                 @view-image="openSlideshow"
                 @show-job-info="showJobInfoById"
               />

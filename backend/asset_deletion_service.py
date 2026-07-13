@@ -39,6 +39,98 @@ class AssetDeletionResult:
     retained_media_ids: list[int]
 
 
+@dataclass
+class AssetDeletionPreview:
+    revision_count: int
+    candidate_media_ids: list[int]
+    collectible_media_ids: list[int]
+    retained_media_ids: list[int]
+    retained_by_kind: dict[str, int]
+
+
+async def preview_asset_deletion(
+    session: AsyncSession,
+    *,
+    asset_id: int,
+) -> AssetDeletionPreview:
+    """Describe permanent deletion without changing identity or retention edges."""
+    asset = await session.get(Asset, asset_id)
+    if asset is None:
+        raise AssetServiceError("Asset not found")
+    revisions = list(
+        await session.scalars(select(AssetRevision).where(AssetRevision.asset_id == asset_id))
+    )
+    revision_ids = [revision.id for revision in revisions]
+    documents = list(
+        await session.scalars(select(WorkingDocument).where(WorkingDocument.asset_id == asset_id))
+    )
+    document_ids = [document.id for document in documents]
+    snapshots = list(
+        await session.scalars(
+            select(AssetSnapshot).where(
+                (
+                    (AssetSnapshot.owner_kind == "revision")
+                    & AssetSnapshot.owner_id.in_([str(value) for value in revision_ids])
+                )
+                | (
+                    (AssetSnapshot.owner_kind == "working_document")
+                    & AssetSnapshot.owner_id.in_([str(value) for value in document_ids])
+                )
+            )
+        )
+    )
+    snapshot_ids = [snapshot.id for snapshot in snapshots]
+    candidate_ids = {revision.primary_media_id for revision in revisions}
+    candidate_ids.update(snapshot.media_id for snapshot in snapshots)
+    if revision_ids:
+        candidate_ids.update(
+            value
+            for value in await session.scalars(
+                select(ContainerMember.embedded_media_id).where(
+                    ContainerMember.container_revision_id.in_(revision_ids),
+                    ContainerMember.embedded_media_id.is_not(None),
+                )
+            )
+            if value is not None
+        )
+
+    removed_roots = {
+        *(("asset_revision", str(value)) for value in revision_ids),
+        *(("container_revision", str(value)) for value in revision_ids),
+        *(("working_document", str(value)) for value in document_ids),
+        *(("asset_snapshot", str(value)) for value in snapshot_ids),
+    }
+    collectible: list[int] = []
+    retained: list[int] = []
+    retained_by_kind: dict[str, int] = {}
+    for media_id in sorted(candidate_ids):
+        owners = list(
+            await session.scalars(
+                select(MediaOwner).where(
+                    MediaOwner.media_id == media_id,
+                    MediaOwner.deleted_at.is_(None),
+                )
+            )
+        )
+        surviving = [
+            owner for owner in owners
+            if (owner.root_kind, owner.root_id) not in removed_roots
+        ]
+        if surviving:
+            retained.append(media_id)
+            for kind in {owner.root_kind for owner in surviving}:
+                retained_by_kind[kind] = retained_by_kind.get(kind, 0) + 1
+        else:
+            collectible.append(media_id)
+    return AssetDeletionPreview(
+        revision_count=len(revisions),
+        candidate_media_ids=sorted(candidate_ids),
+        collectible_media_ids=collectible,
+        retained_media_ids=retained,
+        retained_by_kind=retained_by_kind,
+    )
+
+
 def _scrub_asset_refs(value: Any, asset_id: int) -> bool:
     changed = False
     if isinstance(value, dict):

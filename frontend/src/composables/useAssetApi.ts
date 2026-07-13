@@ -50,6 +50,26 @@ export function useAssetApi() {
     })).data
   }
 
+  async function getRevisions(assetId: number) {
+    return (await axios.get(`${api()}/assets/${assetId}/revisions`)).data
+  }
+
+  async function restoreRevision(assetId: number, revisionId: number) {
+    return (await axios.post(`${api()}/assets/${assetId}/revisions/${revisionId}/restore`)).data
+  }
+
+  async function getDeletionPreview(assetId: number) {
+    return (await axios.get(`${api()}/assets/${assetId}/deletion-preview`)).data
+  }
+
+  async function getContextualMedia(params: Record<string, unknown> = {}) {
+    return (await axios.get(`${api()}/assets/contextual-media`, { params })).data
+  }
+
+  async function promoteContextualMedia(mediaId: number) {
+    return (await axios.post(`${api()}/assets/contextual-media/${mediaId}/promote`)).data
+  }
+
   async function getTags(withCounts = false) {
     return (await axios.get(`${api()}/assets/tags`, {
       params: { with_counts: withCounts },
@@ -119,6 +139,14 @@ export function useAssetApi() {
 
   async function getBoards(assetId: number) {
     return (await axios.get(`${api()}/assets/item/${assetId}/boards`)).data
+  }
+
+  async function getContainers(assetId: number) {
+    return (await axios.get(`${api()}/assets/item/${assetId}/containers`)).data
+  }
+
+  async function promoteContainerMembers(assetId: number) {
+    return (await axios.post(`${api()}/assets/item/${assetId}/container-members/promote`)).data
   }
 
   async function trash(assetId: number) {
@@ -220,6 +248,11 @@ export function useAssetApi() {
     fetchAssetIds,
     getAsset,
     getAssetBrowserItem,
+    getRevisions,
+    restoreRevision,
+    getDeletionPreview,
+    getContextualMedia,
+    promoteContextualMedia,
     getTags,
     getTopKeywords,
     getFilterCounts,
@@ -234,6 +267,8 @@ export function useAssetApi() {
     removeFromProject,
     getProjects,
     getBoards,
+    getContainers,
+    promoteContainerMembers,
     trash,
     trashMany,
     restore,

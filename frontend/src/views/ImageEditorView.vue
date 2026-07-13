@@ -38,6 +38,16 @@
 
     <!-- Editor Container - full height, no header -->
     <div v-show="mediaId || imageUrl" class="flex-1 min-h-0 relative">
+      <div
+        v-if="targetAssetId && (isEditingOlderVersion || newerVersionArrived)"
+        class="absolute left-1/2 top-3 z-20 flex max-w-[680px] -translate-x-1/2 items-center gap-3 rounded-lg border border-amber-500/50 bg-zinc-950/95 px-4 py-2 text-xs text-amber-200 shadow-xl"
+      >
+        <span>
+          {{ newerVersionArrived
+            ? 'A newer version was saved elsewhere. Your work is safe; Save will create a new latest version from the version you opened.'
+            : `You opened version ${baseVersionNumber}. Save will branch from it and make the result latest; newer versions remain in history.` }}
+        </span>
+      </div>
       <div v-show="loading" class="absolute inset-0 flex items-center justify-center z-10">
         <div class="text-content-tertiary">Loading editor...</div>
       </div>
@@ -72,6 +82,7 @@
               :markers="availableMarkers"
               v-model="editorAutoMarkerIds"
             />
+            <span v-if="hasChanges" class="px-2 text-xs text-content-muted">{{ draftStatus }}</span>
             <div class="stimma-toolbar__divider"></div>
             <!-- Save button - creates new edited version -->
             <button
@@ -105,7 +116,7 @@
               :disabled="saving || !hasChanges"
               @click="handleSave(true)"
             >
-              Save As New
+              Save as new item
             </button>
           </div>
         </template>
@@ -160,6 +171,7 @@ import AutoMarkPicker from '../components/generation/AutoMarkPicker.vue'
 import axios from 'axios'
 import { useTelemetry } from '../composables/useTelemetry'
 import { addToast } from '../composables/useToasts'
+import { useWebSocket } from '../composables/useWebSocket'
 
 const { track: trackTelemetry } = useTelemetry()
 
@@ -265,7 +277,8 @@ async function migrateIDBIfNeeded() {
 const route = useRoute()
 const router = useRouter()
 const { getMediaItem, getMediaFileUrl, addMarkerToMedia } = useMediaApi()
-const { addMarker: addMarkerToAsset } = useAssetApi()
+const { addMarker: addMarkerToAsset, getAsset, getRevisions } = useAssetApi()
+const { on: onWebSocketEvent } = useWebSocket()
 const { resolvedTheme } = useTheme()
 const { availableMarkers, init: initMarkers } = useMarkers()
 
@@ -294,6 +307,11 @@ const editorReady = ref(false)
 const actualSourceMediaId = ref(null)  // The original source image ID (for re-editing saved edits)
 const targetAssetId = ref(null)
 const baseRevisionId = ref(null)
+const latestRevisionId = ref(null)
+const headRevisionAtOpen = ref(null)
+const baseVersionNumber = ref(null)
+const newerVersionArrived = ref(false)
+const draftStatus = ref('Draft saved locally')
 const projectFromLocalStorage = ref(false)  // Track if project came from localStorage (unsaved local edits)
 const editorMounted = ref(false)  // When to mount the StimmaEditor
 const restoringProject = ref(false)
@@ -328,6 +346,27 @@ const SAVE_DEBOUNCE_MS = 500
 
 // Computed
 const mediaIdNum = computed(() => props.mediaId ? parseInt(props.mediaId, 10) : null)
+const isEditingOlderVersion = computed(() => (
+  !!baseRevisionId.value
+  && !!headRevisionAtOpen.value
+  && baseRevisionId.value !== headRevisionAtOpen.value
+))
+
+async function refreshAssetVersionState({ initial = false } = {}) {
+  if (!targetAssetId.value) return
+  try {
+    const [assetResult, revisionResult] = await Promise.all([
+      getAsset(targetAssetId.value),
+      getRevisions(targetAssetId.value),
+    ])
+    latestRevisionId.value = assetResult.asset.current_revision_id
+    if (initial) headRevisionAtOpen.value = latestRevisionId.value
+    const base = (revisionResult.items || []).find(item => item.id === baseRevisionId.value)
+    baseVersionNumber.value = base?.revision_number || null
+  } catch (error) {
+    console.error('Failed to load editor version state:', error)
+  }
+}
 
 // Storage prefix for editor settings (follows Stimma conventions: stimma_{modifier}_{accountId}_{profileId}_)
 const editorStoragePrefix = computed(() => {
@@ -391,6 +430,7 @@ async function loadImage() {
     sourceItem.value = item
     targetAssetId.value = item.asset_id || null
     baseRevisionId.value = item.revision_id || null
+    await refreshAssetVersionState({ initial: true })
 
     // Determine which image to load as the source
     let imageToLoadId = mediaIdNum.value
@@ -550,6 +590,7 @@ function handleUpdate() {
   }
 
   hasChanges.value = true
+  draftStatus.value = 'Saving draft…'
 
   // Capture the current mediaId NOW, not when debounce fires
   const currentMediaId = mediaIdNum.value
@@ -610,12 +651,14 @@ function handleUpdate() {
       await saveProjectToIDB(currentStorageKey, project)
       savedProject.value = project
       projectFromLocalStorage.value = true
+      draftStatus.value = 'Draft saved locally'
       console.log('[ImageEditor] Saved project to IndexedDB for mediaId:', currentMediaId)
       debugLog('autosave:done', {
         autosaveSession,
         hasRetouch: !!project.state?.retouchLayerData,
       })
     } catch (e) {
+      draftStatus.value = 'Draft save failed'
       console.warn('[ImageEditor] Failed to serialize/save project:', e)
       debugLog('autosave:error', {
         autosaveSession,
@@ -885,11 +928,21 @@ onMounted(async () => {
   window.addEventListener('beforeunload', handleBeforeUnload)
 })
 
+const unsubscribeAssetVersions = onWebSocketEvent('asset_current_revision_changed', (data) => {
+  if (!targetAssetId.value || Number(data?.asset_id) !== Number(targetAssetId.value)) return
+  const incomingRevisionId = data?.revision_id || data?.asset?.revision_id
+  if (incomingRevisionId && incomingRevisionId !== latestRevisionId.value) {
+    latestRevisionId.value = incomingRevisionId
+    newerVersionArrived.value = true
+  }
+})
+
 onBeforeUnmount(() => {
   if (saveDebounceTimer) {
     clearTimeout(saveDebounceTimer)
   }
   window.removeEventListener('beforeunload', handleBeforeUnload)
+  unsubscribeAssetVersions()
 })
 
 // Save state when deactivated (navigating away with KeepAlive)

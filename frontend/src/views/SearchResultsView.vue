@@ -182,6 +182,41 @@
             </div>
           </section>
 
+          <!-- Retained chat/run results are discoverable here without becoming Assets. -->
+          <section v-if="contextualGroups.length > 0">
+            <div class="mb-3 flex items-baseline gap-2.5">
+              <h2 class="text-xs font-medium uppercase tracking-wider text-content-muted">In chats and runs</h2>
+              <span class="text-[11px] text-content-muted/70">{{ contextualCount }}</span>
+            </div>
+            <div class="space-y-3">
+              <div v-for="group in contextualGroups" :key="`${group.root_kind}:${group.root_id}`" class="rounded-xl border border-white/10 bg-white/[0.05] p-3">
+                <div class="mb-2 flex items-center justify-between gap-3">
+                  <button class="truncate bg-transparent text-left text-xs font-medium text-content-secondary hover:text-content" @click="openContextualRoot(group)">
+                    {{ contextualRootLabel(group) }}
+                  </button>
+                  <span class="flex-shrink-0 text-[10px] uppercase tracking-wide text-content-muted">Contextual media</span>
+                </div>
+                <div class="grid grid-cols-4 gap-1.5 md:grid-cols-6 lg:grid-cols-8">
+                  <div v-for="media in group.items" :key="media.id" class="group relative aspect-square overflow-hidden rounded-lg bg-black/20">
+                    <MediaImage
+                      :media-id="media.id"
+                      :file-hash="media.file_hash"
+                      :thumbnail="true"
+                      :thumbnail-size="256"
+                      container-class="h-full w-full"
+                      class="h-full w-full object-cover"
+                    />
+                    <button
+                      class="absolute inset-x-1 bottom-1 rounded border border-blue-500/50 bg-zinc-950/90 px-1.5 py-1 text-[10px] text-blue-400 opacity-0 transition-opacity group-hover:opacity-100 disabled:opacity-100"
+                      :disabled="savedContextualIds.has(media.id)"
+                      @click.stop="saveContextual(media.id)"
+                    >{{ savedContextualIds.has(media.id) ? 'Saved' : 'Save as asset' }}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <!-- Assets: the app's duality — prompt text matches vs CLIP visual
                matches. Empty flavors are hidden entirely (like the home
                screen's sections), never shown as dead bands. -->
@@ -269,7 +304,7 @@ const router = useRouter()
 const { searchEntities, searchTools, searchMediaByPrompt, searchMediaVisual } = useGlobalSearch()
 const { fetchProvidersAndTools } = useProvidersApi()
 const { getProject, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
-const { getAssetBrowserItem } = useAssetApi()
+const { getAssetBrowserItem, getContextualMedia, promoteContextualMedia } = useAssetApi()
 const { updateFlow, deleteFlow, restoreFlow } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 const { track } = useTelemetry()
@@ -299,6 +334,10 @@ const entityResults = ref<EntitySearchResults | null>(null)
 const toolResults = ref<ProviderTool[]>([])
 const promptResults = ref<MediaSearchHit[]>([])
 const visualResults = ref<MediaSearchHit[]>([])
+interface ContextualGroup { root_kind: string; root_id: string; items: MediaSearchHit[] }
+const contextualGroups = ref<ContextualGroup[]>([])
+const savedContextualIds = ref<Set<number>>(new Set())
+const contextualCount = computed(() => contextualGroups.value.reduce((sum, group) => sum + group.items.length, 0))
 const toolNameById = ref<Map<string, string>>(new Map())
 
 // Inline highlight renderer honoring the loose token matcher.
@@ -398,7 +437,7 @@ const totalCount = computed(() => {
   const entityTotal = e
     ? e.chats.length + e.flows.length + e.boards.length + e.projects.length + e.presets.length
     : 0
-  return entityTotal + toolResults.value.length + promptResults.value.length + visualResults.value.length
+  return entityTotal + toolResults.value.length + promptResults.value.length + visualResults.value.length + contextualCount.value
 })
 
 const matchedKindsLabel = computed(() => {
@@ -406,6 +445,7 @@ const matchedKindsLabel = computed(() => {
   if (toolResults.value.length) kinds.push('tools')
   for (const s of entitySections.value) kinds.push(s.title.toLowerCase())
   if (promptResults.value.length || visualResults.value.length) kinds.push('assets')
+  if (contextualCount.value) kinds.push('chat and run media')
   if (kinds.length <= 1) return kinds[0] || ''
   return kinds.slice(0, -1).join(', ') + ' and ' + kinds[kinds.length - 1]
 })
@@ -420,6 +460,7 @@ async function runSearch() {
     toolResults.value = []
     promptResults.value = []
     visualResults.value = []
+    contextualGroups.value = []
     return
   }
   loading.value = true
@@ -430,25 +471,52 @@ async function runSearch() {
     toolResults.value = []
     promptResults.value = []
     visualResults.value = []
+    contextualGroups.value = []
   }
   try {
     const projectId = scopeProjectId.value
-    const [entities, tools, prompt, visual] = await Promise.all([
+    const [entities, tools, prompt, visual, contextual] = await Promise.all([
       searchEntities(current, PAGE_ENTITY_LIMIT, projectId).catch(() => null),
       searchTools(current, PAGE_TOOL_LIMIT).catch(() => []),
       searchMediaByPrompt(current, PAGE_MEDIA_LIMIT, projectId).catch(() => []),
       searchMediaVisual(current, PAGE_MEDIA_LIMIT, projectId).catch(() => []),
+      projectId == null
+        ? getContextualMedia({ q: current, limit: PAGE_MEDIA_LIMIT * 3 }).catch(() => ({ groups: [] }))
+        : Promise.resolve({ groups: [] }),
     ])
     if (seq !== searchSeq) return
     entityResults.value = entities
     toolResults.value = tools
     promptResults.value = prompt
     visualResults.value = visual
+    contextualGroups.value = contextual.groups || []
     if (entities && entities.presets.length > 0) void ensureToolNames()
     lastLoadedQuery.value = current
     consumeSlideshowParam()
   } finally {
     if (seq === searchSeq) loading.value = false
+  }
+}
+
+function contextualRootLabel(group: ContextualGroup) {
+  if (group.root_kind === 'chat') return `Chat ${group.root_id}`
+  if (group.root_kind === 'flow_run') return `Flow run ${group.root_id}`
+  if (group.root_kind === 'generation_job') return `Generation ${group.root_id}`
+  return `${group.root_kind.replaceAll('_', ' ')} ${group.root_id}`
+}
+
+function openContextualRoot(group: ContextualGroup) {
+  if (group.root_kind === 'chat') router.push({ name: 'chat', params: { id: group.root_id } })
+  else if (group.root_kind === 'flow_run') router.push({ name: 'flow', params: { id: group.root_id } })
+}
+
+async function saveContextual(mediaId: number) {
+  try {
+    await promoteContextualMedia(mediaId)
+    savedContextualIds.value = new Set([...savedContextualIds.value, mediaId])
+    addToast('Saved to All Assets', 'success')
+  } catch (error: any) {
+    addToast(error.response?.data?.detail || 'Could not save contextual media', 'error')
   }
 }
 

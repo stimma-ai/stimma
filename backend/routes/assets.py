@@ -8,7 +8,13 @@ from pydantic import BaseModel
 from sqlalchemy import Integer, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from asset_service import AssetServiceError, restore_asset, trash_asset
+from asset_service import (
+    AssetServiceError,
+    create_asset_from_media,
+    restore_asset,
+    restore_revision_as_latest,
+    trash_asset,
+)
 from asset_association_service import (
     attach_asset_to_project,
     detach_asset_from_project,
@@ -24,6 +30,7 @@ from database import (
     Board,
     BoardAssetItem,
     BoardSection,
+    ContainerMember,
     Marker,
     MediaItem,
     MediaOwner,
@@ -85,7 +92,20 @@ async def _browser_projections(session: AsyncSession, rows) -> list[dict]:
     asset_ids = [asset.id for asset, _, _ in rows]
     markers: dict[int, list[dict]] = defaultdict(list)
     tags: dict[int, list[dict]] = defaultdict(list)
+    revision_counts: dict[int, int] = {}
     if asset_ids:
+        revision_counts = dict(
+            (
+                await session.execute(
+                    select(AssetRevision.asset_id, func.count(AssetRevision.id))
+                    .where(
+                        AssetRevision.asset_id.in_(asset_ids),
+                        AssetRevision.deleted_at.is_(None),
+                    )
+                    .group_by(AssetRevision.asset_id)
+                )
+            ).all()
+        )
         marker_rows = (
             await session.execute(
                 select(AssetMarker, Marker)
@@ -124,8 +144,11 @@ async def _browser_projections(session: AsyncSession, rows) -> list[dict]:
                 "media_id": media.id,
                 "revision_id": revision.id,
                 "revision_number": revision.revision_number,
+                "revision_count": revision_counts.get(asset.id, 1),
                 "asset_state": asset.state,
                 "asset_title": asset.title,
+                "asset_created_at": asset.created_at.isoformat(),
+                "asset_updated_at": asset.updated_at.isoformat(),
                 "media_deleted_at": item.get("deleted_at"),
                 "deleted_at": asset.deleted_at.isoformat() if asset.deleted_at else None,
                 "expires_at": asset.expires_at.isoformat() if asset.expires_at else None,
@@ -1448,15 +1471,75 @@ async def get_asset_boards(
     return [board.to_dict() for board in boards]
 
 
+@router.get("/item/{asset_id}/containers")
+async def get_asset_containers(
+    asset_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """List current containers that link to this Asset (multiple membership)."""
+    await _live_asset_or_404(session, asset_id)
+    rows = (
+        await session.execute(
+            select(Asset, AssetRevision, MediaItem, ContainerMember)
+            .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+            .join(
+                ContainerMember,
+                ContainerMember.container_revision_id == AssetRevision.id,
+            )
+            .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
+            .where(
+                ContainerMember.linked_asset_id == asset_id,
+                ContainerMember.deleted_at.is_(None),
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+            )
+            .order_by(Asset.updated_at.desc(), ContainerMember.member_order)
+        )
+    ).all()
+    return [
+        {
+            "asset_id": container.id,
+            "media_id": media.id,
+            "asset_type": container.asset_type,
+            "title": container.title or media.to_dict().get("title"),
+            "member_order": member.member_order,
+            "row_index": member.row_index,
+            "column_index": member.column_index,
+        }
+        for container, _revision, media, member in rows
+    ]
+
+
+@router.post("/item/{asset_id}/container-members/promote")
+async def promote_container_members(
+    asset_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from container_service import save_container_members_as_assets
+
+    try:
+        promoted_ids = await save_container_members_as_assets(
+            session, asset_id=asset_id
+        )
+    except AssetServiceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    await ws_manager.broadcast(
+        "assets_created",
+        {"asset_ids": promoted_ids, "source_container_asset_id": asset_id},
+    )
+    return {"asset_ids": promoted_ids, "count": len(promoted_ids)}
+
+
 @router.get("/contextual-media")
 async def list_contextual_media(
+    q: str | None = Query(None, min_length=1, max_length=300),
     limit: int = Query(500, ge=1, le=2000),
     session: AsyncSession = Depends(get_db_session),
 ):
     """Forensic discovery for retained non-Asset Media, grouped by root."""
-    rows = (
-        await session.execute(
-            select(MediaOwner, MediaItem)
+    query = (
+        select(MediaOwner, MediaItem)
             .join(MediaItem, MediaItem.id == MediaOwner.media_id)
             .outerjoin(
                 AssetRevision,
@@ -1469,10 +1552,20 @@ async def list_contextual_media(
                 MediaItem.deleted_at.is_(None),
                 AssetRevision.id.is_(None),
             )
-            .order_by(MediaOwner.root_kind, MediaOwner.root_id, MediaOwner.id)
-            .limit(limit)
+        .order_by(MediaOwner.root_kind, MediaOwner.root_id, MediaOwner.id)
+        .limit(limit)
+    )
+    if q:
+        pattern = f"%{q.strip()}%"
+        query = query.where(
+            or_(
+                MediaItem.original_filename.ilike(pattern),
+                MediaItem.extracted_prompt.ilike(pattern),
+                MediaItem.vlm_caption.ilike(pattern),
+                MediaItem.keywords.ilike(pattern),
+            )
         )
-    ).all()
+    rows = (await session.execute(query)).all()
     grouped: dict[tuple[str, str], list[dict]] = defaultdict(list)
     for owner, media in rows:
         grouped[(owner.root_kind, owner.root_id)].append(media.to_dict())
@@ -1483,6 +1576,27 @@ async def list_contextual_media(
         ],
         "count": len(rows),
     }
+
+
+@router.post("/contextual-media/{media_id}/promote")
+async def promote_contextual_media(
+    media_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Explicitly save a contextual/intermediate Media result as an Asset."""
+    try:
+        asset = await create_asset_from_media(
+            session,
+            media_id=media_id,
+            origin_type="contextual_promotion",
+            origin_id=str(media_id),
+        )
+    except AssetServiceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    item = await get_asset_browser_item(asset.id, session=session)
+    await ws_manager.broadcast("asset_created", {"asset": item})
+    return {"asset": item}
 
 
 @router.get("/trash-deletion-manifest")
@@ -1551,16 +1665,67 @@ async def get_asset(asset_id: int, session: AsyncSession = Depends(get_db_sessio
 async def list_asset_revisions(
     asset_id: int, session: AsyncSession = Depends(get_db_session)
 ):
-    if await session.get(Asset, asset_id) is None:
+    asset = await session.get(Asset, asset_id)
+    if asset is None:
         raise HTTPException(status_code=404, detail="Asset not found")
-    revisions = list(
-        await session.scalars(
-            select(AssetRevision)
+    rows = (
+        await session.execute(
+            select(AssetRevision, MediaItem)
+            .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
             .where(AssetRevision.asset_id == asset_id, AssetRevision.deleted_at.is_(None))
             .order_by(AssetRevision.revision_number.desc())
         )
+    ).all()
+    return {
+        "current_revision_id": asset.current_revision_id,
+        "items": [
+            {**revision.to_dict(), "media": media.to_dict()}
+            for revision, media in rows
+        ]
+    }
+
+
+@router.post("/{asset_id}/revisions/{revision_id}/restore")
+async def restore_asset_revision_route(
+    asset_id: int,
+    revision_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        revision = await restore_revision_as_latest(
+            session,
+            asset_id=asset_id,
+            revision_id=revision_id,
+        )
+    except AssetServiceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    item = await get_asset_browser_item(asset_id, session=session)
+    await ws_manager.broadcast(
+        "asset_current_revision_changed",
+        {"asset_id": asset_id, "revision_id": revision.id, "asset": item},
     )
-    return {"items": [revision.to_dict() for revision in revisions]}
+    return {"revision": revision.to_dict(), "asset": item}
+
+
+@router.get("/{asset_id}/deletion-preview")
+async def get_asset_deletion_preview(
+    asset_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from asset_deletion_service import preview_asset_deletion
+
+    try:
+        preview = await preview_asset_deletion(session, asset_id=asset_id)
+    except AssetServiceError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        "revision_count": preview.revision_count,
+        "candidate_media_ids": preview.candidate_media_ids,
+        "collectible_media_ids": preview.collectible_media_ids,
+        "retained_media_ids": preview.retained_media_ids,
+        "retained_by_kind": preview.retained_by_kind,
+    }
 
 
 @router.delete("/{asset_id}")

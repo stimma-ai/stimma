@@ -33,7 +33,7 @@ async def _save_edit(client, source_media_id, *, project, **fields):
 
 @pytest.mark.asyncio
 async def test_editor_save_commits_revision_and_old_revision_save_branches(
-    generation_client, generation_db_session, tmp_path
+    generation_client, generation_db_session, generation_temp_appdata_dir, tmp_path
 ):
     async with generation_db_session() as session:
         source_path = tmp_path / "source.png"
@@ -67,6 +67,7 @@ async def test_editor_save_commits_revision_and_old_revision_save_branches(
     assert second.status_code == 200, second.text
     second_payload = second.json()
     assert second_payload["asset_id"] == asset_id
+    assert not list((generation_temp_appdata_dir / "output").rglob("upload_*"))
 
     async with generation_db_session() as session:
         first_revision = await session.get(AssetRevision, first_payload["revision_id"])

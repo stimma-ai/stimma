@@ -163,6 +163,14 @@
                 {{ formatSimilarity(rowItem.similarity_score) }}
               </div>
 
+              <div
+                v-if="rowItem.revision_count > 1"
+                class="absolute bottom-2 left-2 z-[6] rounded-md bg-black/70 px-1.5 py-1 text-[11px] font-medium text-white opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100"
+                :class="rowItem.similarity_score !== null && rowItem.similarity_score !== undefined ? 'bottom-9' : ''"
+              >
+                {{ rowItem.revision_count }} versions
+              </div>
+
               <!-- Set/Grid name pill (hover only) -->
               <div
                 v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid') && rowItem.title"

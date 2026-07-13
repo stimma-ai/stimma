@@ -634,7 +634,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
             <path d="M10 1a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 1zM5.05 3.05a.75.75 0 011.06 0l1.062 1.06A.75.75 0 116.11 5.173L5.05 4.11a.75.75 0 010-1.06zm9.9 0a.75.75 0 010 1.06l-1.06 1.062a.75.75 0 01-1.062-1.061l1.061-1.06a.75.75 0 011.06 0zM3 10a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 013 10zm11 0a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 0114 10zm-6.828 2.828a.75.75 0 010 1.061l-1.06 1.06a.75.75 0 01-1.061-1.06l1.06-1.06a.75.75 0 011.061 0zm5.656 0a.75.75 0 011.06 0l1.06 1.06a.75.75 0 01-1.06 1.061l-1.06-1.06a.75.75 0 010-1.061zM10 14a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 14z" />
           </svg>
-          <span>Explode {{ isSet ? 'Set' : 'Grid' }}</span>
+          <span>Save {{ isSet ? 'members' : 'cells' }} as assets…</span>
         </button>
 
         <!-- Share (single item only) -->
@@ -1720,11 +1720,16 @@ async function handleShareToCloud() {
 
 async function handleExplode() {
   const id = targetMediaIds.value[0]
+  const assetId = targetAssetIds.value[0]
   contextMenu.hide()
   if (!id) return
 
   try {
-    await axios.post(`/api/media/${id}/explode`)
+    if (assetId) {
+      await axios.post(`/api/assets/item/${assetId}/container-members/promote`)
+    } else {
+      await axios.post(`/api/media/${id}/explode`)
+    }
     emit('refresh')
   } catch (err) {
     console.error('Failed to ungroup set/grid:', err)

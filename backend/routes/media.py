@@ -1756,6 +1756,7 @@ async def save_edited_image(
             file_content,
             file.filename or f"edited_{source_media_id}.png",
             materialize_asset=False,
+            managed_staging=True,
         )
     except NoUploadsFolderError as e:
         log.error(f"No uploads folder configured: {e}")

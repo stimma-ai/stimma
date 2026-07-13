@@ -8,6 +8,7 @@ from container_service import (
     create_container_asset_from_media,
     explode_container,
     resolve_container_members,
+    save_container_members_as_assets,
 )
 from database import Asset, MediaOwner
 from tests.helpers.media import create_media_item
@@ -49,6 +50,32 @@ async def test_grid_cells_are_media_until_explode(db_session):
         assert grid.state == "trashed"
         # Trash preserves grid history, so its exact embedded payloads remain owned.
         assert all(owner.deleted_at is None for owner in owners)
+
+
+@pytest.mark.asyncio
+async def test_save_grid_cells_as_assets_preserves_the_grid(db_session):
+    async with db_session() as session:
+        before_count = await session.scalar(select(func.count()).select_from(Asset))
+        grid_media = await create_media_item(session, file_format="stimmagrid.json")
+        cell = await create_media_item(session, file_format="png")
+        grid = await create_container_asset_from_media(
+            session,
+            media_id=grid_media.id,
+            container_type="grid",
+            members=[{"embedded_media_id": cell.id, "row_index": 0, "column_index": 0}],
+        )
+        promoted = await save_container_members_as_assets(session, asset_id=grid.id)
+        await session.commit()
+
+        assert len(promoted) == 1
+        assert grid.state == "active"
+        assert grid.deleted_at is None
+        assert await session.scalar(select(func.count()).select_from(Asset)) == before_count + 2
+
+        retried = await save_container_members_as_assets(session, asset_id=grid.id)
+        await session.commit()
+        assert retried == promoted
+        assert await session.scalar(select(func.count()).select_from(Asset)) == before_count + 2
 
 
 @pytest.mark.asyncio

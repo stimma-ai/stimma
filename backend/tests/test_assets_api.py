@@ -28,6 +28,7 @@ from database import (
     MediaKeyword,
     Tag,
 )
+from container_service import create_container_asset_from_media
 from tests.helpers.media import create_media_item
 
 
@@ -79,6 +80,7 @@ async def test_asset_browser_identity_and_curation_survive_current_revision_chan
         session.add(AssetMarker(asset_id=asset.id, marker_id=marker.id, source="manual"))
         asset_id = asset.id
         first_media_id = first.id
+        second_media_id = second.id
         await session.commit()
 
     before = (await client.get("/api/assets/browse")).json()["items"]
@@ -86,17 +88,164 @@ async def test_asset_browser_identity_and_curation_survive_current_revision_chan
     assert item["id"] == asset_id
     assert item["media_id"] == first_media_id
     assert [entry["name"] for entry in item["markers"]] == ["Winner"]
+    assert item["revision_count"] == 1
 
     async with db_session() as session:
-        await commit_revision(session, asset_id=asset_id, media_id=second.id)
+        await commit_revision(session, asset_id=asset_id, media_id=second_media_id)
         await session.commit()
 
     after = (await client.get("/api/assets/browse")).json()["items"]
     item = next(item for item in after if item["asset_id"] == asset_id)
     assert item["id"] == asset_id
-    assert item["media_id"] == second.id
+    assert item["media_id"] == second_media_id
+    assert item["revision_count"] == 2
     assert [entry["name"] for entry in item["markers"]] == ["Winner"]
 
+
+@pytest.mark.asyncio
+async def test_revision_history_can_restore_an_old_version_as_a_new_latest_version(
+    client, db_session
+):
+    async with db_session() as session:
+        first = await create_media_item(session, file_hash="first-version")
+        second = await create_media_item(session, file_hash="second-version")
+        asset = await create_asset_from_media(session, media_id=first.id)
+        first_revision_id = asset.current_revision_id
+        second_revision = await commit_revision(session, asset_id=asset.id, media_id=second.id)
+        asset_id = asset.id
+        await session.commit()
+
+    history = await client.get(f"/api/assets/{asset_id}/revisions")
+    assert history.status_code == 200, history.text
+    items = history.json()["items"]
+    assert history.json()["current_revision_id"] == second_revision.id
+    assert [item["revision_number"] for item in items] == [2, 1]
+    assert items[1]["media"]["file_hash"] == "first-version"
+
+    restored = await client.post(
+        f"/api/assets/{asset_id}/revisions/{first_revision_id}/restore"
+    )
+    assert restored.status_code == 200, restored.text
+    payload = restored.json()
+    assert payload["revision"]["revision_number"] == 3
+    assert payload["revision"]["parent_revision_id"] == first_revision_id
+    assert payload["revision"]["primary_media_id"] not in {
+        first.id,
+        second_revision.primary_media_id,
+    }
+    assert payload["asset"]["file_hash"] == "first-version"
+    assert payload["asset"]["revision_count"] == 3
+
+
+@pytest.mark.asyncio
+async def test_contextual_media_search_and_explicit_promotion(client, db_session):
+    async with db_session() as session:
+        matching = await create_media_item(session, extracted_prompt="a copper lighthouse")
+        other = await create_media_item(session, extracted_prompt="a blue bicycle")
+        for media in (matching, other):
+            await acquire_media_owner(
+                session,
+                media_id=media.id,
+                root_kind="chat",
+                root_id="456",
+                role="intermediate",
+            )
+        matching_id = matching.id
+        await session.commit()
+
+    search = await client.get(
+        "/api/assets/contextual-media", params={"q": "lighthouse"}
+    )
+    assert search.status_code == 200, search.text
+    assert search.json()["count"] == 1
+    assert search.json()["groups"][0]["items"][0]["id"] == matching_id
+
+    promoted = await client.post(
+        f"/api/assets/contextual-media/{matching_id}/promote"
+    )
+    assert promoted.status_code == 200, promoted.text
+    assert promoted.json()["asset"]["media_id"] == matching_id
+    after = await client.get(
+        "/api/assets/contextual-media", params={"q": "lighthouse"}
+    )
+    assert after.json()["count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_container_membership_and_promotion_are_asset_first(client, db_session):
+    async with db_session() as session:
+        linked_media = await create_media_item(session)
+        linked = await create_asset_from_media(session, media_id=linked_media.id)
+        linked_id = linked.id
+        for index in range(2):
+            container_media = await create_media_item(
+                session, file_format="stimmaset.json"
+            )
+            await create_container_asset_from_media(
+                session,
+                media_id=container_media.id,
+                container_type="set",
+                title=f"Collection {index + 1}",
+                members=[{"linked_asset_id": linked_id}],
+            )
+        grid_media = await create_media_item(session, file_format="stimmagrid.json")
+        cell = await create_media_item(session)
+        grid = await create_container_asset_from_media(
+            session,
+            media_id=grid_media.id,
+            container_type="grid",
+            members=[{"embedded_media_id": cell.id, "row_index": 0, "column_index": 0}],
+        )
+        grid_id = grid.id
+        await session.commit()
+
+    containers = await client.get(f"/api/assets/item/{linked_id}/containers")
+    assert containers.status_code == 200, containers.text
+    assert {item["title"] for item in containers.json()} == {
+        "Collection 1",
+        "Collection 2",
+    }
+
+    promoted = await client.post(
+        f"/api/assets/item/{grid_id}/container-members/promote"
+    )
+    assert promoted.status_code == 200, promoted.text
+    assert promoted.json()["count"] == 1
+    async with db_session() as session:
+        assert (await session.get(Asset, grid_id)).state == "active"
+
+
+@pytest.mark.asyncio
+async def test_deletion_preview_distinguishes_collectible_and_retained_media(
+    client, db_session
+):
+    async with db_session() as session:
+        first = await create_media_item(session)
+        second = await create_media_item(session)
+        asset = await create_asset_from_media(session, media_id=first.id)
+        await commit_revision(session, asset_id=asset.id, media_id=second.id)
+        await acquire_media_owner(
+            session,
+            media_id=first.id,
+            root_kind="chat",
+            root_id="retained-preview",
+            role="intermediate",
+        )
+        asset_id = asset.id
+        first_id = first.id
+        second_id = second.id
+        await session.commit()
+
+    assert (await client.delete(f"/api/assets/{asset_id}")).status_code == 200
+    preview = await client.get(f"/api/assets/{asset_id}/deletion-preview")
+    assert preview.status_code == 200, preview.text
+    payload = preview.json()
+    assert payload["revision_count"] == 2
+    assert payload["candidate_media_ids"] == [first_id, second_id]
+    assert payload["retained_media_ids"] == [first_id]
+    assert payload["collectible_media_ids"] == [second_id]
+    assert payload["retained_by_kind"] == {"chat": 1}
+    assert (await client.post(f"/api/assets/{asset_id}/restore")).status_code == 200
 
 @pytest.mark.asyncio
 async def test_asset_browser_similarity_returns_asset_identity(client, db_session):

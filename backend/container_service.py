@@ -361,12 +361,12 @@ async def get_normalized_container_content(
     return result
 
 
-async def explode_container(
+async def save_container_members_as_assets(
     session: AsyncSession,
     *,
     asset_id: int,
 ) -> list[int]:
-    """Promote embedded cells, preserve links, then move the container to Trash."""
+    """Promote embedded cells while preserving the container and linked Assets."""
     asset = await session.get(Asset, asset_id)
     if (
         asset is None
@@ -395,6 +395,18 @@ async def explode_container(
                 origin_id=str(asset_id),
             )
             promoted_ids.append(promoted.id)
+    await session.flush()
+    return promoted_ids
+
+
+async def explode_container(
+    session: AsyncSession,
+    *,
+    asset_id: int,
+) -> list[int]:
+    """Compatibility operation: save members, then move the container to Trash."""
+    asset = await session.get(Asset, asset_id)
+    promoted_ids = await save_container_members_as_assets(session, asset_id=asset_id)
     asset.state = "trashed"
     asset.deleted_at = datetime.utcnow()
     asset.updated_at = datetime.utcnow()

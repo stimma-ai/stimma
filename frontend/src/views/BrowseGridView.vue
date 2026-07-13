@@ -234,7 +234,7 @@
     <DeleteConfirmModal
       :visible="showDeleteConfirm"
       title="Permanently Delete?"
-      :message="itemToDelete?.length > 1 ? `This will permanently delete ${itemToDelete.length} items. This action cannot be undone.` : 'This will permanently delete the item. This action cannot be undone.'"
+      :message="permanentDeleteMessage"
       confirm-text="Delete Permanently"
       @close="showDeleteConfirm = false"
       @confirm="permanentDelete"
@@ -397,6 +397,7 @@ const {
   permanentlyDelete: permanentlyDeleteMedia,
   permanentlyDeleteMany: bulkPermanentlyDelete,
   emptyTrash: apiEmptyTrash,
+  getDeletionPreview,
 } = useAssetApi()
 
 const getMediaItem = (assetId, options = {}) => (
@@ -578,6 +579,25 @@ const showSaveViewModal = ref(false)
 const showDeleteConfirm = ref(false)
 const showEmptyTrashConfirm = ref(false)
 const itemToDelete = ref(null)
+const deletionPreviews = ref([])
+const deletionPreviewLoading = ref(false)
+const permanentDeleteMessage = computed(() => {
+  const count = itemToDelete.value?.length || 0
+  if (deletionPreviewLoading.value) return 'Checking versions and other content that still uses this media…'
+  if (!deletionPreviews.value.length) {
+    return count > 1
+      ? `This will permanently delete ${count} assets and their version history. This action cannot be undone.`
+      : 'This will permanently delete this asset and its version history. This action cannot be undone.'
+  }
+  const versions = deletionPreviews.value.reduce((sum, item) => sum + item.revision_count, 0)
+  const collectible = deletionPreviews.value.reduce((sum, item) => sum + item.collectible_media_ids.length, 0)
+  const retained = deletionPreviews.value.reduce((sum, item) => sum + item.retained_media_ids.length, 0)
+  const subject = count === 1 ? 'this asset' : `${count} assets`
+  const retainedText = retained
+    ? ` ${retained} media ${retained === 1 ? 'payload is' : 'payloads are'} also used by other content and will remain.`
+    : ''
+  return `This permanently removes ${subject} and ${versions} saved ${versions === 1 ? 'version' : 'versions'}. ${collectible} unreferenced media ${collectible === 1 ? 'payload' : 'payloads'} will be securely deleted.${retainedText} This action cannot be undone.`
+})
 
 // Get profile-specific localStorage key for filters
 function getFiltersStorageKey() {
@@ -1385,9 +1405,22 @@ async function handleBulkRestore() {
 }
 
 // Confirm permanent deletion of single item
+async function loadDeletionPreviews(assetIds) {
+  deletionPreviews.value = []
+  deletionPreviewLoading.value = true
+  try {
+    deletionPreviews.value = await Promise.all(assetIds.map(getDeletionPreview))
+  } catch (error) {
+    console.error('Failed to preview permanent deletion:', error)
+  } finally {
+    deletionPreviewLoading.value = false
+  }
+}
+
 function confirmPermanentDelete(mediaId) {
   itemToDelete.value = [mediaId]  // Store as array for consistency
   showDeleteConfirm.value = true
+  void loadDeletionPreviews(itemToDelete.value)
 }
 
 // Confirm permanent deletion of multiple items (context menu)
@@ -1395,6 +1428,7 @@ function confirmPermanentDeleteMultiple(targetIds) {
   if (!targetIds || targetIds.length === 0) return
   itemToDelete.value = [...targetIds]  // Store as array
   showDeleteConfirm.value = true
+  void loadDeletionPreviews(itemToDelete.value)
 }
 
 // Execute permanent deletion (handles both single and multiple)

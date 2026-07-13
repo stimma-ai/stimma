@@ -25,6 +25,68 @@
     </div>
 
     <div v-if="currentItem" class="p-3 overflow-y-auto overflow-x-hidden">
+      <!-- Versions are saved states of this Asset; Media remains implementation detail. -->
+      <div v-if="currentItem.asset_id && versions.length > 1" class="mb-6">
+        <button
+          class="flex w-full items-center justify-between bg-transparent p-0 text-left"
+          @click="versionsExpanded = !versionsExpanded"
+        >
+          <h4 class="m-0 text-xs font-semibold uppercase tracking-wider text-content-tertiary">
+            Versions <span class="normal-case tracking-normal text-content-muted">{{ versions.length }}</span>
+          </h4>
+          <span class="text-xs text-content-muted">{{ versionsExpanded ? 'Hide' : 'Show' }}</span>
+        </button>
+        <div v-if="versionsExpanded" class="mt-2 space-y-2">
+          <div
+            v-for="version in versions"
+            :key="version.id"
+            class="rounded-lg border p-2"
+            :class="version.id === currentRevisionId ? 'border-blue-500/50 bg-blue-500/15' : 'border-white/10 bg-white/[0.05]'"
+          >
+            <div class="flex gap-2">
+              <button
+                class="h-14 w-14 flex-shrink-0 overflow-hidden rounded border border-white/10 bg-black/20 p-0"
+                title="View this version"
+                @click="$emit('navigate-to-source-media', version.media.id)"
+              >
+                <MediaImage
+                  :media-id="version.media.id"
+                  :file-hash="version.media.file_hash"
+                  :thumbnail-size="128"
+                  :contain="true"
+                  container-class="h-full w-full"
+                />
+              </button>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2 text-xs">
+                  <span class="font-medium text-content">Version {{ version.revision_number }}</span>
+                  <span v-if="version.id === currentRevisionId" class="text-blue-400">Current</span>
+                </div>
+                <div class="mt-0.5 truncate text-[11px] text-content-muted">
+                  {{ formatVersionDate(version.created_at) }}
+                  <span v-if="version.parent_revision_id && version.parent_revision_id !== previousRevisionId(version)"> · branched</span>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-1">
+                  <button class="rounded bg-white/[0.05] px-2 py-1 text-[11px] text-content-secondary hover:bg-white/10" @click="$emit('navigate-to-source-media', version.media.id)">View</button>
+                  <button v-if="isImageType(version.media)" class="rounded bg-white/[0.05] px-2 py-1 text-[11px] text-content-secondary hover:bg-white/10" @click="$emit('edit-image', version.media.id)">Edit from</button>
+                  <button class="rounded bg-white/[0.05] px-2 py-1 text-[11px] text-content-secondary hover:bg-white/10" @click="$emit('download-version', version.media.id)">Export</button>
+                  <button
+                    v-if="version.id !== currentRevisionId"
+                    class="rounded px-2 py-1 text-[11px]"
+                    :class="confirmRestoreId === version.id ? 'bg-blue-500 text-white' : 'bg-white/[0.05] text-content-secondary hover:bg-white/10'"
+                    @click="requestRestore(version)"
+                  >{{ confirmRestoreId === version.id ? 'Confirm restore' : 'Restore as latest' }}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button
+            class="w-full rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-xs text-content-secondary hover:bg-white/10 hover:text-content"
+            @click="$emit('download-versions', versions.map(version => version.media.id))"
+          >Export all versions</button>
+        </div>
+      </div>
+
       <!-- Actions -->
       <h4 class="m-0 mb-2 text-xs uppercase tracking-wider text-content-tertiary font-semibold">Actions</h4>
       <div class="flex flex-col gap-1.5 mb-6">
@@ -127,6 +189,17 @@
             @click.prevent="$emit('navigate-to-board', board.id)"
             class="inline-flex items-center gap-1 px-2 py-0.5 bg-overlay-subtle border border-edge-subtle rounded text-content-secondary hover:bg-overlay-light hover:text-content transition-colors cursor-pointer no-underline"
           ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted"><path fill-rule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v11.5A2.25 2.25 0 004.25 18h11.5A2.25 2.25 0 0018 15.75V4.25A2.25 2.25 0 0015.75 2H4.25zM3.5 4.25a.75.75 0 01.75-.75h5v6.5h-5.75V4.25zm0 7.25v4.25c0 .414.336.75.75.75h5v-5h-5.75zm7.25-7.75v6.5h5.75V4.25a.75.75 0 00-.75-.75h-5zm5.75 8h-5.75v5h5a.75.75 0 00.75-.75v-4.25z" clip-rule="evenodd" /></svg>{{ board.name || 'Untitled' }}</a>
+          <button
+            v-for="container in assetContainers"
+            :key="`c-${container.asset_id}-${container.member_order}`"
+            class="inline-flex items-center gap-1 rounded border border-white/10 bg-white/[0.05] px-2 py-0.5 text-xs text-content-secondary transition-colors hover:bg-white/10 hover:text-content"
+            @click="$emit('navigate-to-source-media', container.media_id)"
+          >
+            <span class="grid h-3 w-3 grid-cols-2 gap-px">
+              <span v-for="cell in 4" :key="cell" class="rounded-[1px] bg-content-muted"></span>
+            </span>
+            Used in {{ container.title || `Untitled ${container.asset_type}` }}
+          </button>
           <template v-if="!editingTags">
             <a
               v-for="tag in (currentItem?.tags || [])"
@@ -778,6 +851,7 @@ import { addToast } from '../composables/useToasts'
 import { getFilterDisplayLabel } from '@stimma/image-editor'
 import { isImage as isImageType, hasVisualContent, getMediaType } from '../utils/mediaTypes'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
+import { useAssetApi } from '../composables/useAssetApi'
 
 const props = defineProps({
   currentItem: {
@@ -874,19 +948,70 @@ const emit = defineEmits([
   'remove-from-project',
   'remove-from-board',
   'manage-tags',
-  'tags-updated'
+  'tags-updated',
+  'edit-image',
+  'download-version',
+  'download-versions'
 ])
 
 const { cachedTools } = useProvidersApi()
 const contextMenu = useMediaContextMenu()
+const { getRevisions, restoreRevision, getContainers } = useAssetApi()
 
 const moreButtonRef = ref(null)
 const editingTags = ref(false)
+const versions = ref([])
+const versionsExpanded = ref(false)
+const confirmRestoreId = ref(null)
+const currentRevisionId = ref(null)
+const assetContainers = ref([])
+
+async function loadVersions() {
+  versions.value = []
+  currentRevisionId.value = null
+  assetContainers.value = []
+  confirmRestoreId.value = null
+  if (!props.currentItem?.asset_id) return
+  try {
+    const result = await getRevisions(props.currentItem.asset_id)
+    versions.value = result.items || []
+    currentRevisionId.value = result.current_revision_id || props.currentItem.revision_id
+    assetContainers.value = await getContainers(props.currentItem.asset_id)
+  } catch (error) {
+    console.error('Failed to load asset versions:', error)
+  }
+}
+
+function formatVersionDate(value) {
+  if (!value) return ''
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+}
+
+function previousRevisionId(version) {
+  const previous = versions.value.find(item => item.revision_number === version.revision_number - 1)
+  return previous?.id || null
+}
+
+async function requestRestore(version) {
+  if (confirmRestoreId.value !== version.id) {
+    confirmRestoreId.value = version.id
+    return
+  }
+  try {
+    await restoreRevision(props.currentItem.asset_id, version.id)
+    confirmRestoreId.value = null
+    await loadVersions()
+    addToast(`Version ${version.revision_number} restored as the latest version`, 'success')
+  } catch (error) {
+    addToast(error.response?.data?.detail || 'Could not restore version', 'error')
+  }
+}
 
 // Reset tag editor when switching slides
-watch(() => props.currentItem?.id, () => {
+watch(() => [props.currentItem?.asset_id, props.currentItem?.revision_id], () => {
   editingTags.value = false
-})
+  loadVersions()
+}, { immediate: true })
 
 function handleInlineTagsChanged(updatedTags) {
   emit('tags-updated', props.currentItem.id, updatedTags)

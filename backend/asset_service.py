@@ -237,6 +237,60 @@ async def commit_revision(
     return revision
 
 
+async def restore_revision_as_latest(
+    session: AsyncSession,
+    *,
+    asset_id: int,
+    revision_id: int,
+) -> AssetRevision:
+    """Restore an old saved state by committing a new immutable revision.
+
+    A revision's primary Media can only belong to that revision, so restoring
+    creates a new Media identity over the same immutable storage object. This
+    preserves history and makes the restore itself undoable.
+    """
+    asset = await session.get(Asset, asset_id)
+    if asset is None or asset.deleted_at is not None or asset.state != "active":
+        raise AssetServiceError("Asset is unavailable")
+    source_revision = await session.get(AssetRevision, revision_id)
+    if (
+        source_revision is None
+        or source_revision.deleted_at is not None
+        or source_revision.asset_id != asset_id
+    ):
+        raise AssetServiceError("Revision does not belong to this Asset")
+    if source_revision.id == asset.current_revision_id:
+        return source_revision
+
+    source_media = await _live_media(session, source_revision.primary_media_id)
+    excluded = {
+        "id",
+        "indexed_date",
+        "deleted_at",
+        "deletion_pending_at",
+        "superseded_by",
+        "is_hidden",
+        "ephemeral_run_id",
+        "random_sort_value",
+        "auto_delete_at",
+    }
+    values = {
+        column.name: getattr(source_media, column.name)
+        for column in MediaItem.__table__.columns
+        if column.name not in excluded
+    }
+    restored_media = MediaItem(**values)
+    session.add(restored_media)
+    await session.flush()
+    return await commit_revision(
+        session,
+        asset_id=asset_id,
+        media_id=restored_media.id,
+        parent_revision_id=source_revision.id,
+        note=f"Restored version {source_revision.revision_number}",
+    )
+
+
 async def create_working_document(
     session: AsyncSession,
     *,
