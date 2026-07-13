@@ -8,6 +8,8 @@ from sqlalchemy import delete, or_, select, text, update
 
 from core.logging import get_logger
 from database import (
+    AssetRevision,
+    AssetSnapshot,
     BoardItem,
     ChatItem,
     DeleteOperation,
@@ -18,6 +20,7 @@ from database import (
     MediaKeyword,
     MediaLineage,
     MediaMarker,
+    MediaOwner,
     MediaTag,
     MediaThumbnailCache,
     MediaToolLineage,
@@ -37,6 +40,14 @@ WORKER_BUSY_SECONDS = 0.1
 
 _worker_task: asyncio.Task | None = None
 _worker_lock = asyncio.Lock()
+
+
+class DependentEditorSnapshotError(RuntimeError):
+    """Legacy editor state still embeds Media selected for deletion."""
+
+
+class RetainedMediaError(RuntimeError):
+    """Media is still strongly retained by a new-model root."""
 
 
 def _utcnow() -> datetime:
@@ -234,7 +245,12 @@ async def _process_profile(profile_id: str) -> bool:
                         await _scrub_references(fallback_session, media_id)
                         await fallback_session.commit()
                 except Exception as exc2:
-                    log.error("DELETE OPS: scrub failed", media_id=media_id, error=str(exc2), exc_info=True)
+                    log.error(
+                        "DELETE OPS: scrub failed",
+                        media_id=media_id,
+                        error_type=type(exc2).__name__,
+                        exc_info=True,
+                    )
                     failed_ids.append(media_id)
         await session.commit()
 
@@ -269,42 +285,52 @@ async def _process_profile(profile_id: str) -> bool:
                     continue
                 file_paths.append((media_id, item.file_path, thumbs_by_media.get(media_id, [])))
 
-            # Batch delete all thumbnail cache rows
-            await session.execute(delete(MediaThumbnailCache).where(MediaThumbnailCache.media_id.in_(active_media_ids)))
         await session.commit()
 
     # Delete files in a thread to avoid blocking the event loop
     trash_service = TrashService()
 
-    def _delete_files():
+    def _delete_files() -> dict[int, str]:
+        failures: dict[int, str] = {}
         for media_id, file_path, thumbnail_paths in file_paths:
-            for thumb_path in thumbnail_paths:
-                try:
+            try:
+                for thumb_path in thumbnail_paths:
                     thumb_path.unlink(missing_ok=True)
-                except Exception:
-                    pass
-            if file_path:
-                try:
+                if file_path:
                     trash_service.permanently_delete(file_path)
-                except (FileNotFoundError, ValueError):
-                    pass
+            except Exception as exc:
+                failures[media_id] = type(exc).__name__
+                log.error(
+                    "DELETE OPS: managed artifact deletion failed",
+                    media_id=media_id,
+                    error_type=type(exc).__name__,
+                )
+        return failures
 
-    await asyncio.to_thread(_delete_files)
+    file_failures = await asyncio.to_thread(_delete_files)
+    failed_ids.extend(mid for mid in file_failures if mid not in failed_ids)
 
     # Phase 3: Batch delete DB rows
-    successful_media_ids = [mid for mid, _, _ in file_paths]
+    failed_id_set = set(failed_ids)
+    successful_media_ids = [mid for mid, _, _ in file_paths if mid not in failed_id_set]
     if successful_media_ids:
         async with db.async_session_maker() as session:
+            await session.execute(
+                delete(MediaThumbnailCache).where(
+                    MediaThumbnailCache.media_id.in_(successful_media_ids)
+                )
+            )
             await session.execute(delete(MediaLineage).where(MediaLineage.media_id.in_(successful_media_ids)))
             await session.execute(delete(MediaItem).where(MediaItem.id.in_(successful_media_ids)))
-            # Mark operation items as done
+            # Successful per-resource rows contain paths, hashes, and deleted
+            # IDs. The aggregate operation retains progress; the sensitive work
+            # manifest must not survive terminal success.
             await session.execute(
-                update(DeleteOperationItem)
+                delete(DeleteOperationItem)
                 .where(
                     DeleteOperationItem.operation_id == operation.id,
                     DeleteOperationItem.media_id.in_(successful_media_ids),
                 )
-                .values(state="done", lease_expires_at=None, updated_at=_utcnow())
             )
             # Update operation counters
             op = await session.get(DeleteOperation, operation.id)
@@ -324,7 +350,12 @@ async def _process_profile(profile_id: str) -> bool:
                     DeleteOperationItem.operation_id == operation.id,
                     DeleteOperationItem.media_id.in_(failed_ids),
                 )
-                .values(state="failed", lease_expires_at=None, updated_at=_utcnow())
+                .values(
+                    state="failed",
+                    lease_expires_at=None,
+                    last_error="permanent deletion failed",
+                    updated_at=_utcnow(),
+                )
             )
             op = await session.get(DeleteOperation, operation.id)
             if op:
@@ -350,6 +381,9 @@ async def _process_profile(profile_id: str) -> bool:
 
 async def _batch_scrub_references(session, media_ids: list[int]) -> None:
     """Scrub references for multiple media IDs using batch IN clauses."""
+    await _assert_no_live_media_owners(session, media_ids)
+    await _assert_no_surviving_legacy_editor_snapshots(session, media_ids)
+
     # Tombstone lineage data FIRST — before we sever the MediaLineage links
     await _tombstone_descendant_lineage(session, media_ids)
 
@@ -386,6 +420,9 @@ async def _batch_scrub_references(session, media_ids: list[int]) -> None:
 
 
 async def _scrub_references(session, media_id: int) -> None:
+    await _assert_no_live_media_owners(session, [media_id])
+    await _assert_no_surviving_legacy_editor_snapshots(session, [media_id])
+
     # Tombstone lineage data FIRST — before we sever the MediaLineage links
     await _tombstone_descendant_lineage(session, [media_id])
 
@@ -413,6 +450,78 @@ async def _scrub_references(session, media_id: int) -> None:
 
     # See _batch_scrub_references — strip ChatItem JSON blobs in place too.
     await _scrub_chat_item_references(session, [media_id])
+
+
+async def _assert_no_live_media_owners(session, media_ids: list[int]) -> None:
+    """Apply the deletion barrier before any locators or files are removed.
+
+    The ownership ledger is the normal authority. Direct Revision/Snapshot
+    checks make a ledger discrepancy fail closed, before filesystem deletion.
+    Asset-level permanent deletion will release these roots transactionally
+    before scheduling Media collection.
+    """
+    if not media_ids:
+        return
+    live_owner = await session.scalar(
+        select(MediaOwner.id).where(
+            MediaOwner.media_id.in_(media_ids),
+            MediaOwner.deleted_at.is_(None),
+        ).limit(1)
+    )
+    revision_ref = await session.scalar(
+        select(AssetRevision.id).where(
+            AssetRevision.primary_media_id.in_(media_ids),
+            AssetRevision.deleted_at.is_(None),
+        ).limit(1)
+    )
+    snapshot_ref = await session.scalar(
+        select(AssetSnapshot.id).where(
+            AssetSnapshot.media_id.in_(media_ids),
+            AssetSnapshot.deleted_at.is_(None),
+        ).limit(1)
+    )
+    if any(value is not None for value in (live_owner, revision_ref, snapshot_ref)):
+        raise RetainedMediaError("Selected Media is retained by a live root")
+
+
+async def _assert_no_surviving_legacy_editor_snapshots(
+    session, media_ids: list[int]
+) -> None:
+    """Refuse deletion that would strand current sidecar-based editor state.
+
+    Legacy ``.stimmaedit.json`` files embed the source pixels while also storing
+    ``source_media_id``. Deleting that source currently makes the surviving edit
+    unreopenable and leaves an untracked copy of the source behind. Until Asset
+    snapshots make that dependency explicit, fail safely instead of reporting a
+    privacy-complete deletion.
+    """
+    if not media_ids:
+        return
+
+    deleted_set = set(media_ids)
+    result = await session.execute(
+        select(MediaItem.id, MediaItem.file_path).where(
+            MediaItem.has_editor_sidecar.is_(True),
+            MediaItem.id.not_in(deleted_set),
+        )
+    )
+
+    dependent_count = 0
+    for _media_id, file_path in result.all():
+        sidecar_path = Path(f"{file_path}.stimmaedit.json")
+        if not sidecar_path.exists():
+            continue
+        try:
+            sidecar_data = json.loads(sidecar_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, TypeError):
+            continue
+        if sidecar_data.get("source_media_id") in deleted_set:
+            dependent_count += 1
+
+    if dependent_count:
+        raise DependentEditorSnapshotError(
+            f"{dependent_count} surviving editor snapshot(s) depend on selected Media"
+        )
 
 
 
@@ -557,7 +666,6 @@ async def _tombstone_descendant_lineage(session, deleted_media_ids: list[int]) -
             for entry in meta["lineage_trace"]:
                 if isinstance(entry, dict) and entry.get("media_id") in deleted_set:
                     new_trace.append({
-                        "media_id": entry["media_id"],
                         "deleted": True,
                         "task_type": entry.get("task_type"),
                     })
@@ -572,7 +680,6 @@ async def _tombstone_descendant_lineage(session, deleted_media_ids: list[int]) -
             for inp in meta["source_inputs"]:
                 if isinstance(inp, dict) and inp.get("media_id") in deleted_set:
                     new_inputs.append({
-                        "media_id": inp["media_id"],
                         "deleted": True,
                         "role": inp.get("role"),
                     })
@@ -584,7 +691,7 @@ async def _tombstone_descendant_lineage(session, deleted_media_ids: list[int]) -
         # Tombstone inspired_by
         inspired = meta.get("inspired_by")
         if isinstance(inspired, dict) and inspired.get("media_id") in deleted_set:
-            meta["inspired_by"] = {"media_id": inspired["media_id"], "deleted": True}
+            meta["inspired_by"] = {"deleted": True}
             changed = True
 
         if changed:

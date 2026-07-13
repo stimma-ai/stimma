@@ -18,25 +18,20 @@ class TrashService:
         Args:
             file_path: Path to the file to delete
 
-        Raises:
-            FileNotFoundError: If the file doesn't exist
+        Missing files are already-deleted success. Other filesystem failures are
+        propagated so the durable delete operation remains retryable.
         """
         file_path = Path(file_path)
 
-        if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
-
-        if not file_path.is_file():
+        if file_path.exists() and not file_path.is_file():
             raise ValueError(f"Not a file: {file_path}")
 
-        # Delete the file
-        file_path.unlink()
-
-        # Also delete the editor sidecar file if it exists
+        # Delete the editor sidecar first. If this fails, leave the primary file
+        # in place so the operation can retry without orphaning sensitive editor
+        # state behind an already-missing primary file.
         sidecar_path = Path(str(file_path) + '.stimmaedit.json')
         if sidecar_path.exists():
-            try:
-                sidecar_path.unlink()
-            except Exception:
-                # Silently ignore errors deleting the sidecar
-                pass
+            sidecar_path.unlink()
+
+        if file_path.exists():
+            file_path.unlink()

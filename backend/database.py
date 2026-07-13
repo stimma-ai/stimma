@@ -1,7 +1,22 @@
 import random
 from datetime import datetime
 from typing import Optional, List
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, LargeBinary, Boolean, Index, text, ForeignKey, Text, event
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    event,
+    text,
+    create_engine,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
@@ -71,6 +86,10 @@ class MediaItem(Base):
     # Tool/preset provenance - which tool and preset created this media
     tool_id = Column(String, nullable=True, index=True)  # Full tool ID (provider:tool_id) that created this media
     preset_id = Column(Integer, ForeignKey('presets.id', ondelete='SET NULL'), nullable=True, index=True)  # Preset active during generation
+
+    # Physical storage indirection. NULL means legacy path-backed Media until
+    # the object-store migration classifies it.
+    storage_object_id = Column(Integer, ForeignKey('storage_objects.id', ondelete='RESTRICT'), nullable=True, index=True)
 
     # Random sort value (stable, set once on creation). The default fires on every
     # ORM insert path (generation, upload, sets/grids, layouts, agent tools, ingestion)
@@ -272,6 +291,301 @@ class MediaItem(Base):
                             result["title"] = content.get('title')
 
         return result
+
+
+class Asset(Base):
+    """Stable user-facing identity whose saved states are AssetRevisions."""
+    __tablename__ = "assets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_type = Column(String, nullable=False, index=True)
+    title = Column(String, nullable=True)
+    # Deliberately service-validated instead of a circular FK to asset_revisions.
+    current_revision_id = Column(Integer, nullable=True, index=True)
+    state = Column(String, nullable=False, default="active", index=True)
+    expires_at = Column(DateTime, nullable=True, index=True)
+    origin_type = Column(String, nullable=True, index=True)
+    origin_id = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        CheckConstraint("state IN ('active', 'trashed', 'deleting')", name="ck_assets_state"),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class AssetRevision(Base):
+    """Immutable saved state of an Asset."""
+    __tablename__ = "asset_revisions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    parent_revision_id = Column(Integer, ForeignKey('asset_revisions.id', ondelete='SET NULL'), nullable=True, index=True)
+    primary_media_id = Column(Integer, ForeignKey('media_items.id', ondelete='RESTRICT'), nullable=False, index=True)
+    revision_number = Column(Integer, nullable=False)
+    note = Column(String, nullable=True)
+    missing_parent = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        Index('idx_asset_revisions_asset_number', 'asset_id', 'revision_number', unique=True),
+        Index('idx_asset_revisions_primary_media', 'primary_media_id', unique=True),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class StorageObject(Base):
+    """Physical managed bytes or a verified external source locator."""
+    __tablename__ = "storage_objects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kind = Column(String, nullable=False, index=True)  # managed | external
+    object_key = Column(String, nullable=True, unique=True)
+    external_path = Column(String, nullable=True)
+    expected_hash = Column(String, nullable=False, index=True)
+    file_size = Column(Integer, nullable=True)
+    mime_type = Column(String, nullable=True)
+    state = Column(String, nullable=False, default="available", index=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    verified_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('managed', 'external')", name="ck_storage_objects_kind"),
+        CheckConstraint("state IN ('available', 'missing', 'deleting')", name="ck_storage_objects_state"),
+        CheckConstraint(
+            "(kind = 'managed' AND object_key IS NOT NULL AND external_path IS NULL) OR "
+            "(kind = 'external' AND external_path IS NOT NULL AND object_key IS NULL)",
+            name="ck_storage_objects_locator",
+        ),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class MediaOwner(Base):
+    """Typed strong-retention edge from a live root to Media."""
+    __tablename__ = "media_owners"
+
+    id = Column(Integer, primary_key=True, index=True)
+    media_id = Column(Integer, ForeignKey('media_items.id', ondelete='CASCADE'), nullable=False, index=True)
+    root_kind = Column(String, nullable=False, index=True)
+    root_id = Column(String, nullable=False, index=True)
+    role = Column(String, nullable=False)
+    idempotency_key = Column(String, nullable=True, index=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        Index('idx_media_owners_root', 'root_kind', 'root_id', 'deleted_at'),
+        Index('idx_media_owners_media_live', 'media_id', 'deleted_at'),
+        Index(
+            'idx_media_owners_live_edge',
+            'media_id', 'root_kind', 'root_id', 'role',
+            unique=True,
+            sqlite_where=text('deleted_at IS NULL'),
+        ),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class WorkingDocument(Base):
+    """Mutable autosaved editor state for an Asset branch."""
+    __tablename__ = "working_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    editor_type = Column(String, nullable=False, index=True)
+    branch_key = Column(String, nullable=False, default="main")
+    base_revision_id = Column(Integer, ForeignKey('asset_revisions.id', ondelete='SET NULL'), nullable=True, index=True)
+    state_locator = Column(String, nullable=True)
+    generation = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        Index('idx_working_documents_asset_branch', 'asset_id', 'editor_type', 'branch_key'),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class AssetSnapshot(Base):
+    """Exact Media snapshot plus weak semantic binding to a source Asset."""
+    __tablename__ = "asset_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_kind = Column(String, nullable=False, index=True)  # revision | working_document
+    owner_id = Column(String, nullable=False, index=True)
+    media_id = Column(Integer, ForeignKey('media_items.id', ondelete='RESTRICT'), nullable=False, index=True)
+    source_asset_id = Column(Integer, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True, index=True)
+    source_revision_id = Column(Integer, ForeignKey('asset_revisions.id', ondelete='SET NULL'), nullable=True, index=True)
+    role = Column(String, nullable=False)
+    position = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        CheckConstraint("owner_kind IN ('revision', 'working_document')", name="ck_asset_snapshots_owner_kind"),
+        Index('idx_asset_snapshots_owner', 'owner_kind', 'owner_id', 'deleted_at'),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class ContainerMember(Base):
+    """One live-Asset link or exact direct-Media member in a container Revision."""
+    __tablename__ = "container_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    container_revision_id = Column(Integer, ForeignKey('asset_revisions.id', ondelete='CASCADE'), nullable=False, index=True)
+    linked_asset_id = Column(Integer, ForeignKey('assets.id', ondelete='RESTRICT'), nullable=True, index=True)
+    embedded_media_id = Column(Integer, ForeignKey('media_items.id', ondelete='RESTRICT'), nullable=True, index=True)
+    # Privacy deletion can erase the linked Asset identity while preserving the
+    # container's structural slot as an unavailable placeholder.
+    missing_linked_asset = Column(Boolean, nullable=False, default=False)
+    member_order = Column(Integer, nullable=False, default=0)
+    row_index = Column(Integer, nullable=True)
+    column_index = Column(Integer, nullable=True)
+    caption = Column(String, nullable=True)
+    title = Column(String, nullable=True)
+    member_metadata = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "(linked_asset_id IS NOT NULL AND embedded_media_id IS NULL AND missing_linked_asset = 0) OR "
+            "(linked_asset_id IS NULL AND embedded_media_id IS NOT NULL AND missing_linked_asset = 0) OR "
+            "(linked_asset_id IS NULL AND embedded_media_id IS NULL AND missing_linked_asset = 1)",
+            name="ck_container_members_target",
+        ),
+        Index('idx_container_members_revision_order', 'container_revision_id', 'member_order'),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class AssetMigrationMap(Base):
+    """Recoverable explanation of how one legacy MediaItem was classified."""
+    __tablename__ = "asset_migration_map"
+
+    id = Column(Integer, primary_key=True, index=True)
+    legacy_media_id = Column(Integer, nullable=False, index=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True, index=True)
+    classification = Column(String, nullable=False, index=True)
+    reason = Column(Text, nullable=False)
+    evidence = Column(Text, nullable=True)
+    migration_version = Column(Integer, nullable=False, default=1)
+    status = Column(String, nullable=False, default="classified", index=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        Index('idx_asset_migration_media_version', 'legacy_media_id', 'migration_version'),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class ManagedArtifact(Base):
+    """Indexed implementation resource that must participate in deletion."""
+    __tablename__ = "managed_artifacts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_kind = Column(String, nullable=False, index=True)
+    owner_id = Column(String, nullable=False, index=True)
+    media_id = Column(Integer, ForeignKey('media_items.id', ondelete='CASCADE'), nullable=True, index=True)
+    artifact_kind = Column(String, nullable=False, index=True)
+    locator = Column(String, nullable=False)
+    state = Column(String, nullable=False, default="available", index=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        CheckConstraint("state IN ('available', 'deleting', 'missing')", name="ck_managed_artifacts_state"),
+        Index('idx_managed_artifacts_owner', 'owner_kind', 'owner_id', 'deleted_at'),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class AssetMarker(Base):
+    """Asset-level marker assignment; replaces MediaMarker after cutover."""
+    __tablename__ = "asset_markers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    marker_id = Column(Integer, ForeignKey('markers.id', ondelete='CASCADE'), nullable=False, index=True)
+    source = Column(String, nullable=False, default='manual')
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        Index(
+            'idx_asset_markers_live', 'asset_id', 'marker_id',
+            unique=True, sqlite_where=text('deleted_at IS NULL'),
+        ),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class AssetTag(Base):
+    """Asset-level tag assignment; replaces MediaTag after cutover."""
+    __tablename__ = "asset_tags"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    tag_id = Column(Integer, ForeignKey('tags.id', ondelete='CASCADE'), nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        Index(
+            'idx_asset_tags_live', 'asset_id', 'tag_id',
+            unique=True, sqlite_where=text('deleted_at IS NULL'),
+        ),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class ProjectAsset(Base):
+    """Many-to-many organizational membership for Assets and Projects."""
+    __tablename__ = "project_assets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey('projects.id', ondelete='CASCADE'), nullable=False, index=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    added_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        Index(
+            'idx_project_assets_live', 'project_id', 'asset_id',
+            unique=True, sqlite_where=text('deleted_at IS NULL'),
+        ),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class BoardAssetItem(Base):
+    """Ordered Asset membership in a board section."""
+    __tablename__ = "board_asset_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    board_section_id = Column(Integer, ForeignKey('board_sections.id', ondelete='CASCADE'), nullable=False, index=True)
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='CASCADE'), nullable=False, index=True)
+    display_order = Column(Integer, nullable=False, default=0)
+    added_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        Index('idx_board_asset_items_order', 'board_section_id', 'display_order'),
+        Index(
+            'idx_board_asset_items_live', 'board_section_id', 'asset_id',
+            unique=True, sqlite_where=text('deleted_at IS NULL'),
+        ),
+        {'sqlite_autoincrement': True},
+    )
 
 
 class Face(Base):

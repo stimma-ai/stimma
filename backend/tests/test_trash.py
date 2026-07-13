@@ -17,7 +17,16 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from unittest.mock import patch
 
-from database import Chat, ChatItem, GenerationJob, MediaItem, MediaLineage, Tool
+from database import (
+    Chat,
+    ChatItem,
+    DeleteOperationItem,
+    GenerationJob,
+    MediaItem,
+    MediaLineage,
+    MediaThumbnailCache,
+    Tool,
+)
 from tests.helpers.media import create_test_media, create_media_item
 from tests.helpers.ws import MockWebSocketManager
 
@@ -277,6 +286,142 @@ class TestPermanentDelete:
         # Verify can't fetch directly
         get_response = await client.get(f"/api/media/{media_id}")
         assert get_response.status_code == 404
+
+    async def test_successful_delete_scrubs_work_manifest(
+        self, client: AsyncClient, db_session, seeded_media
+    ):
+        """Completed operations retain aggregate progress, not deleted locators."""
+        media_id = seeded_media[0].id
+        await client.delete(f"/api/media/{media_id}")
+        response = await client.delete(f"/api/trash/{media_id}")
+        operation_id = response.json()["operation"]["id"]
+        operation = await wait_for_delete_operation(client, operation_id)
+        assert operation["status"] == "completed"
+
+        async with db_session() as session:
+            rows = (
+                await session.execute(
+                    select(DeleteOperationItem).where(
+                        DeleteOperationItem.operation_id == operation_id
+                    )
+                )
+            ).scalars().all()
+            assert rows == []
+
+    async def test_artifact_delete_failure_remains_failed_and_retryable(
+        self, client: AsyncClient, db_session, seeded_media
+    ):
+        media_id = seeded_media[0].id
+        await client.delete(f"/api/media/{media_id}")
+
+        with patch(
+            "delete_operations.TrashService.permanently_delete",
+            side_effect=PermissionError("sensitive path must not enter operation error"),
+        ):
+            response = await client.delete(f"/api/trash/{media_id}")
+            operation_id = response.json()["operation"]["id"]
+            operation = await wait_for_delete_operation(client, operation_id)
+
+        assert operation["status"] == "failed"
+        assert operation["deleted_items"] == 0
+        assert operation["failed_items"] == 1
+
+        async with db_session() as session:
+            assert await session.get(MediaItem, media_id) is not None
+            row = await session.get(DeleteOperationItem, (operation_id, media_id))
+            assert row is not None
+            assert row.state == "failed"
+            assert row.last_error == "permanent deletion failed"
+            assert "sensitive path" not in row.last_error
+
+    async def test_thumbnail_failure_preserves_cache_locator_for_retry(
+        self, client: AsyncClient, db_session, seeded_media, tmp_path
+    ):
+        media_id = seeded_media[0].id
+        thumbnail = tmp_path / "thumb.webp"
+        thumbnail.write_bytes(b"thumb")
+        async with db_session() as session:
+            session.add(MediaThumbnailCache(media_id=media_id, cache_path=str(thumbnail)))
+            await session.commit()
+
+        await client.delete(f"/api/media/{media_id}")
+        with patch("delete_operations.Path.unlink", side_effect=PermissionError("denied")):
+            response = await client.delete(f"/api/trash/{media_id}")
+            operation = await wait_for_delete_operation(
+                client, response.json()["operation"]["id"]
+            )
+
+        assert operation["status"] == "failed"
+        async with db_session() as session:
+            cache_row = await session.get(MediaThumbnailCache, (media_id, str(thumbnail)))
+            assert cache_row is not None
+            assert await session.get(MediaItem, media_id) is not None
+
+    async def test_legacy_editor_dependency_blocks_source_deletion(
+        self, client: AsyncClient, db_session, tmp_path
+    ):
+        async with db_session() as session:
+            source = await create_media_item(session, file_path=tmp_path / "source.png")
+            edited = await create_media_item(session, file_path=tmp_path / "edited.png")
+            edited.has_editor_sidecar = True
+            sidecar = tmp_path / "edited.png.stimmaedit.json"
+            sidecar.write_text(
+                json.dumps({
+                    "version": 1,
+                    "source_media_id": source.id,
+                    "project": {"imageDataUrl": "data:image/png;base64,c2VjcmV0"},
+                }),
+                encoding="utf-8",
+            )
+            await session.commit()
+            source_id = source.id
+
+        await client.delete(f"/api/media/{source_id}")
+        response = await client.delete(f"/api/trash/{source_id}")
+        operation = await wait_for_delete_operation(
+            client, response.json()["operation"]["id"]
+        )
+
+        assert operation["status"] == "failed"
+        async with db_session() as session:
+            assert await session.get(MediaItem, source_id) is not None
+        assert sidecar.exists()
+
+        # Module-scoped DB fixtures intentionally persist across this file; put
+        # the blocked source back so later empty-trash/count tests stay isolated.
+        restore = await client.post(f"/api/trash/{source_id}/restore")
+        assert restore.status_code == 200
+
+    async def test_deleting_source_and_dependent_edit_together_succeeds(
+        self, client: AsyncClient, db_session, tmp_path
+    ):
+        async with db_session() as session:
+            source = await create_media_item(session, file_path=tmp_path / "source-all.png")
+            edited = await create_media_item(session, file_path=tmp_path / "edited-all.png")
+            edited.has_editor_sidecar = True
+            sidecar = tmp_path / "edited-all.png.stimmaedit.json"
+            sidecar.write_text(
+                json.dumps({
+                    "version": 1,
+                    "source_media_id": source.id,
+                    "project": {"imageDataUrl": "data:image/png;base64,c2VjcmV0"},
+                }),
+                encoding="utf-8",
+            )
+            await session.commit()
+            media_ids = [source.id, edited.id]
+
+        await client.post("/api/media/batch/delete", json={"media_ids": media_ids})
+        response = await client.post(
+            "/api/trash/batch/delete", json={"media_ids": media_ids}
+        )
+        operation = await wait_for_delete_operation(
+            client, response.json()["operation"]["id"]
+        )
+
+        assert operation["status"] == "completed"
+        assert operation["deleted_items"] == 2
+        assert not sidecar.exists()
 
     async def test_permanent_delete_not_in_trash(self, client: AsyncClient, seeded_media):
         """Test permanently deleting an item not in trash fails."""
@@ -570,13 +715,13 @@ class TestTrashWebSocketEvents:
 
             src_input = metadata["source_inputs"][0]
             assert src_input["deleted"] is True
-            assert src_input["media_id"] == source.id
+            assert "media_id" not in src_input
             assert src_input["role"] == "source_image"
             assert "prompt" not in src_input  # sensitive data stripped
 
             trace_entry = metadata["lineage_trace"][0]
             assert trace_entry["deleted"] is True
-            assert trace_entry["media_id"] == source.id
+            assert "media_id" not in trace_entry
             assert trace_entry["task_type"] == "image-to-image"
             assert "model" not in trace_entry  # sensitive data stripped
             assert "prompt" not in trace_entry  # sensitive data stripped
@@ -697,7 +842,7 @@ class TestLineageTombstoning:
         async with db_session() as session:
             meta = json.loads((await session.get(type(inspired), inspired.id)).generation_metadata)
             assert meta["inspired_by"]["deleted"] is True
-            assert meta["inspired_by"]["media_id"] == source.id
+            assert "media_id" not in meta["inspired_by"]
             # Own prompt should be untouched
             assert meta["prompt"] == "my own prompt"
 
