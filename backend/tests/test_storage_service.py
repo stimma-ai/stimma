@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -102,6 +103,48 @@ async def test_identical_media_share_object_until_last_asset_is_deleted(
     assert not object_file.exists()
     async with db_session() as session:
         assert await session.get(StorageObject, second_storage.id) is None
+
+
+@pytest.mark.asyncio
+async def test_structured_directory_is_managed_as_one_verified_payload(
+    client, db_session, tmp_path
+):
+    source = tmp_path / "scene.stimmalayout"
+    source.mkdir()
+    (source / "index.html").write_text("<main>scene</main>")
+    resources = source / "resources"
+    resources.mkdir()
+    (resources / "texture.bin").write_bytes(b"texture")
+
+    async with db_session() as session:
+        media = await create_media_item(
+            session,
+            file_path=source,
+            file_format="stimmalayout",
+            file_hash=hashlib.sha256(b"legacy-index-only").hexdigest(),
+        )
+        storage = await stage_managed_media(
+            session, media=media, profile_id="default"
+        )
+        asset = await create_asset_from_media(session, media_id=media.id)
+        canonical = object_path("default", storage.object_key)
+        media_path = media.file_path
+        await session.commit()
+        await cleanup_staged_source(session, media_id=media.id)
+
+        assert canonical.is_dir()
+        assert (canonical / "index.html").read_text() == "<main>scene</main>"
+        assert (canonical / "resources" / "texture.bin").read_bytes() == b"texture"
+        assert not source.exists()
+        assert Path(media_path).is_dir()
+
+        report = await reconcile_storage(
+            session, profile_id="default", verify_hashes=True
+        )
+        assert report["corrupt_managed"] == []
+
+    await _delete_asset(client, asset.id)
+    assert not canonical.exists()
 
 
 @pytest.mark.asyncio

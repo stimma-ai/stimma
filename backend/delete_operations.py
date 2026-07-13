@@ -836,15 +836,6 @@ async def _batch_scrub_references(session, media_ids: list[int]) -> None:
     await session.execute(
         update(MediaLineage).where(MediaLineage.source_media_id.in_(media_ids)).values(source_media_id=None, source_file_path=None)
     )
-    # Historical supersession is an inert weak reference during the Asset
-    # migration, but it still has a legacy self-FK and must not preserve a
-    # deleted Media identity.
-    await session.execute(
-        update(MediaItem)
-        .where(MediaItem.superseded_by.in_(media_ids))
-        .values(superseded_by=None)
-    )
-
     for model in (Face, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage, ProjectMedia, BoardItem):
         await session.execute(delete(model).where(model.media_id.in_(media_ids)))
 
@@ -881,12 +872,6 @@ async def _scrub_references(session, media_id: int) -> None:
     await session.execute(
         update(MediaLineage).where(MediaLineage.source_media_id == media_id).values(source_media_id=None, source_file_path=None)
     )
-    await session.execute(
-        update(MediaItem)
-        .where(MediaItem.superseded_by == media_id)
-        .values(superseded_by=None)
-    )
-
     for model in (Face, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage, ProjectMedia, BoardItem):
         await session.execute(delete(model).where(model.media_id == media_id))
 

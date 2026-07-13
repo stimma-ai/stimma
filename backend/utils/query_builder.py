@@ -160,7 +160,6 @@ def build_filtered_query(
     exclude_expiring: Optional[bool] = None,
     min_mp: Optional[float] = None,
     max_mp: Optional[float] = None,
-    include_superseded: bool = False,
     exclude_expired: bool = True,
     include_ephemeral: bool = False,
     exclude_category: Optional[str] = None,
@@ -183,7 +182,6 @@ def build_filtered_query(
             False = in no project (the "library only" case), None = no constraint. Memberships that
             point at a soft-deleted project don't count, so deleting a project releases its media
             back into "not in any project".
-        include_superseded: When True, include items owned by sets/grids (used by Trash so users see everything being trashed)
         exclude_expired: When True (default), hide items the auto-delete worker is due to remove so
             expired generations disappear at their deadline even before the worker runs. Trash opts
             out (exclude_expired=False) since it intentionally surfaces already-removed items.
@@ -203,10 +201,6 @@ def build_filtered_query(
     # This sits beside the deleted_at filter the callers apply so no browse/search/trash view leaks them.
     if not include_ephemeral:
         query = query.where(MediaItem.ephemeral_run_id.is_(None))
-
-    # Filter out items owned by sets/grids unless caller opts in (Trash needs to show them)
-    if not include_superseded:
-        query = query.where(MediaItem.superseded_by.is_(None))
 
     # Hide items whose auto-delete deadline has passed, before the background worker
     # physically removes them — see not_due_for_autodelete. Trash opts out.

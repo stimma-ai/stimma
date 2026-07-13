@@ -206,6 +206,14 @@ async def create_parameter_sweep(
 
     session.add(grid_media_item)
     await session.flush()
+    from storage_service import stage_managed_media
+
+    await stage_managed_media(
+        session,
+        media=grid_media_item,
+        profile_id=profile_id,
+        remove_source=True,
+    )
 
     output_context_kind = kwargs.get("output_context_kind")
     output_context_id = kwargs.get("output_context_id")
@@ -244,6 +252,9 @@ async def create_parameter_sweep(
 
     await session.commit()
     await session.refresh(grid_media_item)
+    from storage_service import cleanup_staged_source
+
+    await cleanup_staged_source(session, media_id=grid_media_item.id)
 
     # Record Media lineage. Final promotion normalizes membership without
     # changing the identity or visibility of any independently rooted member.

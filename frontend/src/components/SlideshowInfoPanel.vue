@@ -1499,7 +1499,6 @@ const excludedStepParams = new Set([
   'width', 'height', 'input_width', 'input_height', 'output_width', 'output_height',
   'output_size', 'bbox',
   'checkpoint',  // Already shown via step.model
-  'supersede_source',  // Internal parameter (unused)
 ])
 
 const stepLabelOverrides = {

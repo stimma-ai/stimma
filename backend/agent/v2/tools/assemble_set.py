@@ -166,6 +166,14 @@ async def assemble_set(
 
     session.add(set_media_item)
     await session.flush()
+    from storage_service import stage_managed_media
+
+    await stage_managed_media(
+        session,
+        media=set_media_item,
+        profile_id=profile_id,
+        remove_source=True,
+    )
 
     output_context_kind = kwargs.get("output_context_kind")
     output_context_id = kwargs.get("output_context_id")
@@ -204,6 +212,9 @@ async def assemble_set(
 
     await session.commit()
     await session.refresh(set_media_item)
+    from storage_service import cleanup_staged_source
+
+    await cleanup_staged_source(session, media_id=set_media_item.id)
 
     # Record Media lineage. Container membership is normalized when show(role="final")
     # promotes the assembled result; members are never hidden or replaced.

@@ -35,7 +35,7 @@ async def _sources_for(
 
     generation_metadata.source_inputs carries roles (first_frame, source_image,
     …); MediaLineage rows fill in parents recorded without one, plus external
-    file sources and upscale-superseded originals.
+    file sources.
     """
     sources: List[Dict[str, Any]] = []
     seen: set = set()
@@ -60,13 +60,6 @@ async def _sources_for(
         elif not link.source_media_id and link.source_file_path:
             sources.append({"external_file": link.source_file_path, "role": None})
 
-    superseded = await session.execute(
-        select(MediaItem.id).where(MediaItem.superseded_by == item.id)
-    )
-    for (sid,) in superseded.fetchall():
-        if sid not in seen:
-            sources.append({"media_id": sid, "role": "superseded_source"})
-            seen.add(sid)
     return sources
 
 

@@ -105,6 +105,18 @@
                       </svg>
                     </div>
 
+                    <button
+                      v-if="isEmbeddedCell(getCellContent(rowIdx - 1, colIdx - 1))"
+                      class="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-950/80 text-content-muted opacity-0 transition-all hover:text-content group-hover:opacity-100 disabled:opacity-100"
+                      :disabled="savingMediaIds.has(mediaIdOf(getCellContent(rowIdx - 1, colIdx - 1).resolved))"
+                      title="Keep in All Assets"
+                      @click.stop="keepCell(getCellContent(rowIdx - 1, colIdx - 1))"
+                    >
+                      <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+                        <path fill-rule="evenodd" d="M4.25 3A2.25 2.25 0 002 5.25v11.69c0 .839.968 1.306 1.624.782L10 12.62l6.376 5.102A1 1 0 0018 16.94V5.25A2.25 2.25 0 0015.75 3H4.25z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+
                     <!-- Selection checkbox - always visible in multi-select mode -->
                     <div
                       v-if="multiSelectMode && getCellContent(rowIdx - 1, colIdx - 1)?.resolved"
@@ -134,6 +146,8 @@
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { MediaImage } from '../media'
 import axios from 'axios'
+import { useAssetApi } from '../../composables/useAssetApi'
+import { addToast } from '../../composables/useToasts'
 
 const props = defineProps({
   mediaId: {
@@ -169,6 +183,8 @@ const cols = ref(0)
 const rowHeaders = ref([])
 const colHeaders = ref([])
 const cells = ref([])
+const savingMediaIds = ref(new Set())
+const { promoteContextualMedia } = useAssetApi()
 
 // Track expanded headers (all rows or all cols together)
 const rowHeadersExpanded = ref(false)
@@ -304,6 +320,27 @@ function getCellContent(row, col) {
 
 function mediaIdOf(media) {
   return media?.id ?? media?.media_id ?? undefined
+}
+
+function isEmbeddedCell(cell) {
+  return !!cell?.resolved && !cell.resolved.asset_id && !cell.resolved.saved_asset_id
+}
+
+async function keepCell(cell) {
+  const mediaId = mediaIdOf(cell?.resolved)
+  if (!mediaId || savingMediaIds.value.has(mediaId)) return
+  savingMediaIds.value = new Set([...savingMediaIds.value, mediaId])
+  try {
+    const result = await promoteContextualMedia(mediaId)
+    cell.resolved.saved_asset_id = result.asset.asset_id
+    addToast('Kept in All Assets', 'success')
+  } catch (error) {
+    addToast(error?.response?.data?.detail || 'Could not keep cell', 'error')
+  } finally {
+    const next = new Set(savingMediaIds.value)
+    next.delete(mediaId)
+    savingMediaIds.value = next
+  }
 }
 
 function isSelectedCell(row, col) {

@@ -300,6 +300,9 @@ async def get_normalized_container_content(
         base = json.loads(container_media.raw_metadata or "{}")
     except (json.JSONDecodeError, TypeError):
         base = {}
+    asset = await session.get(Asset, revision.asset_id)
+    if asset is not None:
+        base["title"] = asset.title
     members = await resolve_container_members(session, revision_id=revision.id)
     media_ids = [entry["media_id"] for entry in members if entry["media_id"] is not None]
     media_by_id = {
@@ -308,6 +311,19 @@ async def get_normalized_container_content(
             select(MediaItem).where(MediaItem.id.in_(media_ids))
         )
     }
+    saved_asset_by_media = {
+        saved_revision.primary_media_id: saved_revision.asset_id
+        for saved_revision in await session.scalars(
+            select(AssetRevision)
+            .join(Asset, Asset.id == AssetRevision.asset_id)
+            .where(
+                AssetRevision.primary_media_id.in_(media_ids),
+                AssetRevision.deleted_at.is_(None),
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+            )
+        )
+    } if media_ids else {}
 
     def resolved_payload(entry: dict[str, Any]) -> dict[str, Any] | None:
         media = media_by_id.get(entry["media_id"])
@@ -317,6 +333,7 @@ async def get_normalized_container_content(
             "id": media.id,
             "media_id": media.id,
             "asset_id": entry["linked_asset_id"],
+            "saved_asset_id": saved_asset_by_media.get(media.id),
             "revision_id": entry["revision_id"],
             "file_hash": media.file_hash,
             "file_path": media.file_path,
@@ -365,8 +382,73 @@ async def save_container_members_as_assets(
     session: AsyncSession,
     *,
     asset_id: int,
+    allow_trashed: bool = False,
 ) -> list[int]:
     """Promote embedded cells while preserving the container and linked Assets."""
+    asset = await session.get(Asset, asset_id)
+    if (
+        asset is None
+        or (asset.deleted_at is not None and not allow_trashed)
+        or asset.asset_type not in {"set", "grid"}
+        or asset.current_revision_id is None
+    ):
+        raise AssetServiceError("Container Asset is unavailable")
+    members = list(
+        await session.scalars(
+            select(ContainerMember).where(
+                ContainerMember.container_revision_id == asset.current_revision_id,
+                ContainerMember.deleted_at.is_(None),
+            )
+        )
+    )
+    promoted_ids: list[int] = []
+    seen_asset_ids: set[int] = set()
+    for member in members:
+        if member.linked_asset_id is not None:
+            promoted_id = member.linked_asset_id
+        elif member.embedded_media_id is not None:
+            promoted = await create_asset_from_media(
+                session,
+                media_id=member.embedded_media_id,
+                origin_type="container_explode",
+                origin_id=str(asset_id),
+            )
+            promoted_id = promoted.id
+        else:
+            continue
+        if promoted_id not in seen_asset_ids:
+            seen_asset_ids.add(promoted_id)
+            promoted_ids.append(promoted_id)
+    await session.flush()
+    return promoted_ids
+
+
+async def explode_container(
+    session: AsyncSession,
+    *,
+    asset_id: int,
+) -> list[int]:
+    """Compatibility operation: save members, then move the container to Trash."""
+    asset = await session.get(Asset, asset_id)
+    if asset is None or asset.asset_type not in {"set", "grid"}:
+        raise AssetServiceError("Container Asset is unavailable")
+    promoted_ids = await save_container_members_as_assets(
+        session, asset_id=asset_id, allow_trashed=True
+    )
+    if asset.deleted_at is None:
+        asset.state = "trashed"
+        asset.deleted_at = datetime.utcnow()
+        asset.updated_at = datetime.utcnow()
+    await session.flush()
+    return promoted_ids
+
+
+async def get_container_member_summary(
+    session: AsyncSession,
+    *,
+    asset_id: int,
+) -> dict[str, int | str | None]:
+    """Return exact current-head counts for the explode confirmation."""
     asset = await session.get(Asset, asset_id)
     if (
         asset is None
@@ -383,35 +465,43 @@ async def save_container_members_as_assets(
             )
         )
     )
-    promoted_ids: list[int] = []
-    for member in members:
-        if member.linked_asset_id is not None:
-            promoted_ids.append(member.linked_asset_id)
-        elif member.embedded_media_id is not None:
-            promoted = await create_asset_from_media(
-                session,
-                media_id=member.embedded_media_id,
-                origin_type="container_explode",
-                origin_id=str(asset_id),
+    embedded_ids = [
+        member.embedded_media_id
+        for member in members
+        if member.embedded_media_id is not None
+    ]
+    unique_embedded_ids = set(embedded_ids)
+    saved_media_ids: set[int] = set()
+    if unique_embedded_ids:
+        saved_media_ids = set(
+            await session.scalars(
+                select(AssetRevision.primary_media_id)
+                .join(Asset, Asset.id == AssetRevision.asset_id)
+                .where(
+                    AssetRevision.primary_media_id.in_(unique_embedded_ids),
+                    AssetRevision.deleted_at.is_(None),
+                    Asset.state == "active",
+                    Asset.deleted_at.is_(None),
+                )
             )
-            promoted_ids.append(promoted.id)
-    await session.flush()
-    return promoted_ids
-
-
-async def explode_container(
-    session: AsyncSession,
-    *,
-    asset_id: int,
-) -> list[int]:
-    """Compatibility operation: save members, then move the container to Trash."""
-    asset = await session.get(Asset, asset_id)
-    promoted_ids = await save_container_members_as_assets(session, asset_id=asset_id)
-    asset.state = "trashed"
-    asset.deleted_at = datetime.utcnow()
-    asset.updated_at = datetime.utcnow()
-    await session.flush()
-    return promoted_ids
+        )
+    embedded = len(embedded_ids)
+    linked_asset_ids = {
+        member.linked_asset_id
+        for member in members
+        if member.linked_asset_id is not None
+    }
+    return {
+        "asset_id": asset.id,
+        "asset_type": asset.asset_type,
+        "title": asset.title,
+        "total": len(members),
+        "embedded": embedded,
+        "to_create": len(unique_embedded_ids - saved_media_ids),
+        "already_saved": len(saved_media_ids),
+        "linked": len(linked_asset_ids),
+        "unavailable": sum(member.missing_linked_asset for member in members),
+    }
 
 
 async def tombstone_linked_asset_references(

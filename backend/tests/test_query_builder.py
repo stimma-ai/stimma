@@ -130,10 +130,10 @@ class TestBuildFilteredQuery:
         return select(MediaItem)
 
     def test_no_filters(self):
-        """No filters: returns query with just superseded_by IS NULL."""
+        """No filters do not add legacy visibility predicates."""
         query = build_filtered_query(self._base_query())
         compiled = str(query.compile(compile_kwargs={"literal_binds": True}))
-        assert "superseded_by" in compiled.lower()
+        assert "superseded_by" not in compiled.lower()
 
     def test_media_types_filter(self):
         """media_types filter adds format conditions."""

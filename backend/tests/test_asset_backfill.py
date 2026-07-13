@@ -47,7 +47,6 @@ async def test_backfill_is_idempotent_and_preserves_embedded_and_trashed_semanti
                 "cells": [{"row": 0, "col": 0, "path": "cell.png"}],
             }),
         )
-        embedded.superseded_by = container.id
         trashed = await create_media_item(session, file_path=tmp_path / "trashed.png")
         trashed.deleted_at = datetime.utcnow()
         tagged = await create_media_item(session, file_path=tmp_path / "tagged.png")
@@ -65,7 +64,7 @@ async def test_backfill_is_idempotent_and_preserves_embedded_and_trashed_semanti
         await session.commit()
 
         assert first == second
-        assert first["phase"] == "dual_write"
+        assert first["phase"] == "contracted"
         assert await session.scalar(select(func.count()).select_from(AssetMigrationMap)) == len(report["records"])
         state = await session.scalar(select(AssetMigrationState))
         assert state.report_digest == report["digest"]

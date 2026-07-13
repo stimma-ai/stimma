@@ -48,6 +48,17 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
             </svg>
           </div>
+          <button
+            v-if="item.resolved && !item.resolved.asset_id && !item.resolved.saved_asset_id"
+            class="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-md bg-zinc-950/80 text-content-muted opacity-0 transition-all hover:text-content group-hover:opacity-100 disabled:opacity-100"
+            :disabled="savingMediaIds.has(mediaIdOf(item.resolved))"
+            title="Keep in All Assets"
+            @click.stop="keepItem(item)"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+              <path fill-rule="evenodd" d="M4.25 3A2.25 2.25 0 002 5.25v11.69c0 .839.968 1.306 1.624.782L10 12.62l6.376 5.102A1 1 0 0018 16.94V5.25A2.25 2.25 0 0015.75 3H4.25z" clip-rule="evenodd" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -60,6 +71,8 @@ import { useMediaApi } from '../../composables/useMediaApi'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
 import { MediaImage } from '../media'
 import axios from 'axios'
+import { useAssetApi } from '../../composables/useAssetApi'
+import { addToast } from '../../composables/useToasts'
 
 const props = defineProps({
   mediaId: {
@@ -79,6 +92,25 @@ const error = ref(null)
 const title = ref('')
 const description = ref('')
 const items = ref([])
+const savingMediaIds = ref(new Set())
+const { promoteContextualMedia } = useAssetApi()
+
+async function keepItem(item) {
+  const mediaId = mediaIdOf(item?.resolved)
+  if (!mediaId || savingMediaIds.value.has(mediaId)) return
+  savingMediaIds.value = new Set([...savingMediaIds.value, mediaId])
+  try {
+    const result = await promoteContextualMedia(mediaId)
+    item.resolved.saved_asset_id = result.asset.asset_id
+    addToast('Kept in All Assets', 'success')
+  } catch (error) {
+    addToast(error?.response?.data?.detail || 'Could not keep member', 'error')
+  } finally {
+    const next = new Set(savingMediaIds.value)
+    next.delete(mediaId)
+    savingMediaIds.value = next
+  }
+}
 
 async function loadContent() {
   loading.value = true

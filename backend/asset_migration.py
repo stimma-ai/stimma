@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 from collections import Counter, defaultdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -81,7 +82,6 @@ async def classify_legacy_media(
 ) -> dict[str, Any]:
     """Return a deterministic migration rehearsal report without writing data."""
     media_items = list(await session.scalars(select(MediaItem).order_by(MediaItem.id)))
-    by_id = {item.id: item for item in media_items}
     existing_revisions = {
         revision.primary_media_id: revision
         for revision in await session.scalars(select(AssetRevision))
@@ -144,12 +144,6 @@ async def classify_legacy_media(
         evidence: list[str] = []
         conflicts: list[str] = []
         structured_containers = structured_memberships.get(item.id, set())
-        superseding = by_id.get(item.superseded_by) if item.superseded_by else None
-        proven_container_ids = (
-            {item.superseded_by}
-            if item.superseded_by is not None and item.superseded_by in structured_containers
-            else set()
-        )
 
         if item.file_format in {"stimmaset.json", "stimmagrid.json"}:
             try:
@@ -200,24 +194,14 @@ async def classify_legacy_media(
         elif item.ephemeral_run_id:
             classification = "context_media"
             evidence.append("ephemeral_run_owner")
-        elif proven_container_ids:
+        elif structured_containers:
             classification = "embedded_media"
-            evidence.append(f"structured_container:{min(proven_container_ids)}")
-            evidence.append(f"legacy_superseded_by:{item.superseded_by}")
+            evidence.append(f"structured_container:{min(structured_containers)}")
         else:
             classification = "asset"
             evidence.append("ambiguous_defaults_to_asset")
 
-        if item.superseded_by is not None:
-            if superseding is None:
-                conflicts.append("dangling_superseded_by")
-            elif superseding.file_format not in {"stimmaset.json", "stimmagrid.json"}:
-                conflicts.append("superseded_by_non_container")
-            elif item.superseded_by not in structured_containers:
-                conflicts.append("container_manifest_disagrees_with_superseded_by")
-        if structured_containers and item.superseded_by not in structured_containers:
-            conflicts.append("structured_membership_without_matching_superseded_by")
-        if classification == "asset" and proven_container_ids:
+        if classification == "asset" and structured_containers:
             conflicts.append("independent_use_overrides_container_ownership")
 
         file_missing = check_files and not Path(item.file_path).exists()
@@ -381,8 +365,6 @@ async def apply_asset_backfill(
     The caller must provide the digest from a separately reviewed rehearsal.
     A changed profile fails before any row is written.
     """
-    from datetime import datetime
-
     state = await session.scalar(
         select(AssetMigrationState).where(
             AssetMigrationState.migration_key == "asset_media_v1"
@@ -552,7 +534,7 @@ async def apply_asset_backfill(
             status="applied",
         ))
 
-    state.phase = "dual_write"
+    state.phase = "contracted"
     state.report_digest = approved_digest
     state.completed_at = datetime.utcnow()
     state.updated_at = datetime.utcnow()
@@ -568,17 +550,27 @@ async def apply_asset_backfill(
 async def ensure_asset_backfill(session: AsyncSession) -> dict[str, Any]:
     """Complete the one-time conservative backfill before Asset reads start.
 
-    The rehearsal and apply run in the same database transaction, so the
-    digest gate still detects any accidental classifier drift while startup
-    is preparing the profile. Once the durable migration state is complete,
-    later startups are a constant-time no-op.
+    Classification and materialization run automatically in one transaction.
+    Ambiguous historical rows become Assets, so startup never hides previously
+    user-visible content while waiting for human migration work.
     """
     state = await session.scalar(
         select(AssetMigrationState).where(
             AssetMigrationState.migration_key == "asset_media_v1",
         )
     )
+    if state is not None and state.phase == "contracted":
+        return {
+            "digest": state.report_digest,
+            "assets": 0,
+            "records": 0,
+            "phase": state.phase,
+            "already_complete": True,
+        }
     if state is not None and _phase_at_least(state.phase, "dual_write"):
+        state.phase = "contracted"
+        state.updated_at = datetime.utcnow()
+        await session.commit()
         return {
             "digest": state.report_digest,
             "assets": 0,

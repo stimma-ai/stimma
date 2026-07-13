@@ -230,6 +230,14 @@ async def _save_to_library(
     )
     session.add(media_item)
     await session.flush()
+    from storage_service import stage_managed_media
+
+    await stage_managed_media(
+        session,
+        media=media_item,
+        profile_id=profile_id,
+        remove_source=True,
+    )
 
     # Record lineage from source media
     for idx, source_media_id in enumerate(source_ids):
@@ -248,6 +256,9 @@ async def _save_to_library(
         log.info(f"[create_layout] Attached media {media_item.id} to project {project_id}")
 
     await session.commit()
+    from storage_service import cleanup_staged_source
+
+    await cleanup_staged_source(session, media_id=media_item.id)
 
     # Broadcast so the UI picks it up
     try:

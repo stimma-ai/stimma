@@ -108,9 +108,6 @@ async def get_media(
     # Exclude soft-deleted items by default
     query = query.where(MediaItem.deleted_at.is_(None))
 
-    # Filter out items owned by sets/grids (superseded_by is set)
-    query = query.where(MediaItem.superseded_by.is_(None))
-
     # Only show items with completed metadata (have file_hash for thumbnails)
     query = query.where(MediaItem.metadata_status == 'completed')
 
@@ -202,8 +199,6 @@ async def get_media(
         created_before=created_before,
         show_expiring=show_expiring,
         exclude_expiring=exclude_expiring,
-        # Helper handles superseded_by IS NULL; we already added that pre-filter above
-        # but it's idempotent.
     )
 
     # Handle similarity search
@@ -658,7 +653,7 @@ async def get_media_ids(
             if max_mp is not None:
                 query = query.where(MediaItem.megapixels <= max_mp)
 
-    # All shared filter semantics (incl. superseded_by IS NULL) come from the helper
+    # All shared filter semantics come from the helper.
     query = build_filtered_query(
         query,
         caption_query=caption_query,
@@ -968,17 +963,7 @@ async def update_media_content(
     update_data: StructuredContentUpdateRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """
-    Update metadata for structured media types (sets, grids).
-
-    Currently supports updating the title field.
-    Uses centralized helpers with locking to ensure atomic disk/DB updates.
-    """
-    from structured_media import (
-        read_composite_content,
-        write_composite_content,
-        _get_modification_lock,
-    )
+    """Update stable container metadata without mutating Revision payloads."""
 
     # Fetch the media item
     result = await session.execute(
@@ -1001,41 +986,37 @@ async def update_media_content(
             detail=f"Content update not supported for media type: {item.file_format}"
         )
 
-    # Use locking to prevent concurrent modification race conditions
-    async with _get_modification_lock(media_id):
-        # Read existing content with cache validation
-        content = await read_composite_content(session, item)
-        if not content:
-            log.error(f"Failed to read structured content for media {media_id}")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to read structured content"
-            )
+    from database import AssetRevision
 
-        # Update title if provided
-        if update_data.title is not None:
-            content['title'] = update_data.title if update_data.title else None
-
-        # Write back atomically (updates disk + DB cache including file_hash)
-        try:
-            await write_composite_content(session, item, content)
-        except Exception as e:
-            log.error(f"Failed to write structured content for media {media_id}: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to save structured content to disk"
-            )
+    revision = await session.scalar(
+        select(AssetRevision).where(
+            AssetRevision.primary_media_id == media_id,
+            AssetRevision.deleted_at.is_(None),
+        )
+    )
+    if revision is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Container Media has not been materialized as an Asset",
+        )
+    asset = await session.get(Asset, revision.asset_id)
+    if asset is None or asset.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Container Asset not found")
+    if update_data.title is not None:
+        asset.title = update_data.title or None
+        asset.updated_at = datetime.utcnow()
 
     await session.commit()
 
     # Broadcast update with full media object
     await ws_manager.broadcast('media_updated', {
         'media_id': media_id,
+        'asset_id': asset.id,
         'fields': ['title'],
-        'media': item.to_dict()
+        'media': {**item.to_dict(), 'asset_id': asset.id, 'title': asset.title}
     })
 
-    return {"status": "success", "title": content.get('title')}
+    return {"status": "success", "asset_id": asset.id, "title": asset.title}
 
 
 @router.delete("/api/media/{media_id}/auto-delete")
@@ -1610,6 +1591,16 @@ async def create_set_from_media(
     )
 
     session.add(set_media_item)
+    await session.flush()
+    from core.profile_context import get_current_profile
+    from storage_service import stage_managed_media
+
+    await stage_managed_media(
+        session,
+        media=set_media_item,
+        profile_id=get_current_profile(),
+        remove_source=True,
+    )
     await session.commit()
     await session.refresh(set_media_item)
 
@@ -1663,6 +1654,9 @@ async def create_set_from_media(
         session, media_id=set_media_item.id, asset_id=set_asset.id
     )
     await session.commit()
+    from storage_service import cleanup_staged_source
+
+    await cleanup_staged_source(session, media_id=set_media_item.id)
 
     # Broadcast media_added for the new set
     await ws_manager.broadcast('media_added', {
@@ -1675,7 +1669,7 @@ async def create_set_from_media(
         'revision_id': set_asset.current_revision_id,
     })
 
-    log.info(f"Set Asset {set_asset.id} created at {set_file_path} with linked members: {source_ids}")
+    log.info(f"Set Asset {set_asset.id} created with linked members: {source_ids}")
 
     from telemetry import get_telemetry_client
     get_telemetry_client().track("set_created", {
@@ -1686,7 +1680,7 @@ async def create_set_from_media(
     return CreateSetResponse(
         media_id=set_media_item.id,
         asset_id=set_asset.id,
-        file_path=str(set_file_path),
+        file_path=set_media_item.file_path,
         title=request.title or "Untitled Set",
         item_count=len(ordered_items)
     )
@@ -2081,149 +2075,39 @@ async def explode_set_or_grid(
     media_id: int,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """
-    Explode a set or grid: remove superseded_by from all members and delete the set/grid itself.
-    This makes all member items visible again in the library.
-    """
-    from utils.websocket import broadcast_media_updated
-    import os
-
-    result = await session.execute(
-        select(MediaItem).where(
-            MediaItem.id == media_id,
-            MediaItem.deleted_at.is_(None),
-            MediaItem.ephemeral_run_id.is_(None),
-        )
-    )
-    media = result.scalar_one_or_none()
-
-    if not media:
-        raise HTTPException(status_code=404, detail="Asset not found")
-
-    if media.file_format not in ('stimmaset.json', 'stimmagrid.json'):
-        raise HTTPException(status_code=400, detail="Can only explode sets or grids")
-
-    # New-model containers explode transactionally: linked Assets remain roots,
-    # embedded Media is promoted, and the container moves to Trash.
+    """Compatibility alias for exploding a uniquely mapped container Asset."""
     from database import AssetRevision
-    container_revision = await session.scalar(
+
+    revision = await session.scalar(
         select(AssetRevision).where(
             AssetRevision.primary_media_id == media_id,
             AssetRevision.deleted_at.is_(None),
         )
     )
-    if container_revision is not None:
-        from container_service import explode_container
-        promoted_asset_ids = await explode_container(
-            session, asset_id=container_revision.asset_id
+    if revision is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Media is not uniquely mapped to a container Asset",
         )
-        promoted_revisions = list(await session.scalars(
-            select(AssetRevision).where(
-                AssetRevision.asset_id.in_(promoted_asset_ids),
-                AssetRevision.deleted_at.is_(None),
-            )
-        ))
-        current_by_asset = {}
-        from database import Asset
-        promoted_assets = list(await session.scalars(
-            select(Asset).where(Asset.id.in_(promoted_asset_ids))
-        ))
-        revision_by_id = {revision.id: revision for revision in promoted_revisions}
-        for promoted_asset in promoted_assets:
-            revision = revision_by_id.get(promoted_asset.current_revision_id)
-            if revision is not None:
-                current_by_asset[promoted_asset.id] = revision.primary_media_id
-        member_ids = [current_by_asset[asset_id] for asset_id in promoted_asset_ids if asset_id in current_by_asset]
+    from container_service import explode_container
 
-        await session.execute(
-            update(MediaItem)
-            .where(MediaItem.superseded_by == media_id)
-            .values(superseded_by=None)
-        )
-        media.deleted_at = datetime.utcnow()
-        media.auto_delete_at = None
-
-        from project_service import attach_media_to_project
-        project_result = await session.execute(
-            select(ProjectMedia.project_id).where(ProjectMedia.media_id == media_id)
-        )
-        for pid in [row[0] for row in project_result.all()]:
-            for member_id in member_ids:
-                await attach_media_to_project(session, pid, member_id)
-        await session.execute(
-            delete(ProjectMedia).where(ProjectMedia.media_id == media_id)
-        )
-        await session.commit()
-
-        await ws_manager.broadcast("media_deleted", {"media_id": media_id})
-        if member_ids:
-            await ws_manager.broadcast('media_added', {
-                'count': len(member_ids), 'media_ids': member_ids
-            })
-        return {"success": True, "exploded_count": len(member_ids)}
-
-    # Legacy fallback: find all items superseded by this set/grid.
-    result = await session.execute(
-        select(MediaItem).where(MediaItem.superseded_by == media_id)
+    promoted_asset_ids = await explode_container(
+        session, asset_id=revision.asset_id
     )
-    members = result.scalars().all()
-    member_ids = [m.id for m in members]
-
-    if members:
-        # Clear superseded_by on all members
-        await session.execute(
-            update(MediaItem)
-            .where(MediaItem.superseded_by == media_id)
-            .values(superseded_by=None)
-        )
-
-    # Freed members take over the set/grid's project memberships so they
-    # stay visible in the projects where the set lived.
-    from project_service import attach_media_to_project
-    project_result = await session.execute(
-        select(ProjectMedia.project_id).where(ProjectMedia.media_id == media_id)
-    )
-    set_project_ids = [row[0] for row in project_result.all()]
-    for pid in set_project_ids:
-        for mid in member_ids:
-            await attach_media_to_project(session, pid, mid)
-    await session.execute(
-        delete(ProjectMedia).where(ProjectMedia.media_id == media_id)
-    )
-
-    # Delete the set/grid file from disk
-    try:
-        if os.path.exists(media.file_path):
-            os.remove(media.file_path)
-            log.info(f"Deleted set/grid file: {media.file_path}")
-    except Exception as e:
-        log.warning(f"Failed to delete set/grid file {media.file_path}: {e}")
-
-    # Delete the set/grid MediaItem from database
-    await session.delete(media)
     await session.commit()
-
-    # Broadcast deletion of the set/grid first
-    await ws_manager.broadcast("media_deleted", {"media_id": media_id})
-
-    # Broadcast media_added for the freed members so they appear in the grid
-    # (media_updated won't work because the items weren't in the grid cache when hidden)
-    if member_ids:
-        await ws_manager.broadcast('media_added', {
-            'count': len(member_ids),
-            'media_ids': member_ids
-        })
-
-    from telemetry import get_telemetry_client
-    event_name = "set_exploded" if media.file_format == 'stimmaset.json' else "grid_exploded"
-    count_key = "count" if event_name == "set_exploded" else "cellCount"
-    get_telemetry_client().track(event_name, {
-        count_key: len(member_ids),
-        "actor": "user",
-    }, category="library")
-
-    log.info(f"Exploded set/grid {media_id}, freed {len(member_ids)} members")
-    return {"success": True, "exploded_count": len(member_ids)}
+    await ws_manager.broadcast(
+        "asset_trashed", {"asset_id": revision.asset_id}
+    )
+    if promoted_asset_ids:
+        await ws_manager.broadcast(
+            "assets_created", {"asset_ids": promoted_asset_ids}
+        )
+    return {
+        "success": True,
+        "asset_id": revision.asset_id,
+        "asset_ids": promoted_asset_ids,
+        "exploded_count": len(promoted_asset_ids),
+    }
 
 
 # ============================================================================

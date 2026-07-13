@@ -71,7 +71,6 @@ async def get_recently_marked_media(
         select(MediaItem)
         .join(latest_mark, MediaItem.id == latest_mark.c.media_id)
         .where(MediaItem.deleted_at.is_(None))
-        .where(MediaItem.superseded_by.is_(None))
         .where(MediaItem.file_hash.isnot(None))
         .order_by(latest_mark.c.latest_marked_at.desc())
         .limit(page_size)
@@ -315,4 +314,3 @@ async def bulk_marker_operation(
 
 
 # ===== TAGS =====
-

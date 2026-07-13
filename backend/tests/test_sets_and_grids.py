@@ -53,23 +53,22 @@ async def get_media_project_ids(db_session, media_id):
 class TestIndependentMembershipOnCreate:
     """Creating a set must not hide, move, or replace member items."""
 
-    async def test_members_are_not_superseded(
+    async def test_members_remain_independent_assets(
         self, generation_client, generation_db_session
     ):
-        """The legacy superseded_by field stays inert for new sets."""
+        """Grouping does not remove member Asset identity."""
         set_id, member_ids = await create_set(
             generation_client, generation_db_session
         )
 
-        from database import MediaItem
+        from database import AssetRevision
         from sqlalchemy import select
         async with generation_db_session() as session:
             for mid in member_ids:
-                result = await session.execute(
-                    select(MediaItem).where(MediaItem.id == mid)
+                revision = await session.scalar(
+                    select(AssetRevision).where(AssetRevision.primary_media_id == mid)
                 )
-                item = result.scalar_one()
-                assert item.superseded_by is None
+                assert revision is not None
 
     async def test_set_file_format(
         self, generation_client, generation_db_session
@@ -111,10 +110,10 @@ class TestBrowseFiltering:
         for mid in member_ids:
             assert mid in returned_ids
 
-    async def test_non_superseded_items_visible(
+    async def test_standalone_items_visible(
         self, generation_client, generation_db_session
     ):
-        """Standalone images (no superseded_by) should appear in browse."""
+        """Standalone images should appear in browse."""
         async with generation_db_session() as session:
             images = []
             for _ in range(3):
@@ -222,7 +221,7 @@ class TestMultipleMembership:
             members = list(await session.scalars(
                 select(MediaItem).where(MediaItem.id.in_([item.id for item in media]))
             ))
-            assert all(item.superseded_by is None for item in members)
+            assert len(members) == len(media)
 
     async def test_linked_member_content_follows_current_asset_revision(
         self, generation_client, generation_db_session
@@ -309,7 +308,7 @@ class TestExplodeSetOrGrid:
     async def test_explode_frees_members(
         self, generation_client, generation_db_session
     ):
-        """Exploding a set should clear superseded_by on members."""
+        """Exploding preserves members and trashes only the container."""
         set_id, member_ids = await create_set(
             generation_client, generation_db_session, title="Set To Explode"
         )
@@ -320,25 +319,22 @@ class TestExplodeSetOrGrid:
         assert resp.status_code == 200
         assert resp.json()["exploded_count"] == 3
 
-        # Verify members are freed
-        from database import MediaItem
+        # Verify members remain independent Assets.
+        from database import AssetRevision, MediaItem
         from sqlalchemy import select
         async with generation_db_session() as session:
             for mid in member_ids:
-                result = await session.execute(
-                    select(MediaItem).where(MediaItem.id == mid)
+                revision = await session.scalar(
+                    select(AssetRevision).where(AssetRevision.primary_media_id == mid)
                 )
-                item = result.scalar_one()
-                assert item.superseded_by is None, (
-                    f"Member {mid} should have superseded_by=None after explode"
-                )
+                assert revision is not None
 
-            # Compatibility Media remains as the trashed container payload.
+            # The container revision retains its Media while the Asset is in Trash.
             result = await session.execute(
                 select(MediaItem).where(MediaItem.id == set_id)
             )
             set_media = result.scalar_one()
-            assert set_media.deleted_at is not None
+            assert set_media.deleted_at is None
 
     async def test_exploded_members_appear_in_browse(
         self, generation_client, generation_db_session
@@ -376,8 +372,8 @@ class TestExplodeSetOrGrid:
 
         with patch("routes.media.ws_manager", MockWebSocketManager()):
             resp = await generation_client.post(f"/api/media/{image.id}/explode")
-        assert resp.status_code == 400
-        assert "only explode sets or grids" in resp.json()["detail"].lower()
+        assert resp.status_code == 409
+        assert "container asset" in resp.json()["detail"].lower()
 
     async def test_explode_then_create_new_set(
         self, generation_client, generation_db_session
@@ -406,7 +402,7 @@ class TestExplodeSetOrGrid:
 # ── project context ─────────────────────────────────────────────────────
 
 class TestSetProjectContext:
-    """Sets created in a project land in it; exploding hands membership back."""
+    """Sets created in a project land in it without owning member placement."""
 
     async def _create_project(self, client, name):
         resp = await client.post("/api/projects", json={"name": name})
@@ -472,10 +468,10 @@ class TestSetProjectContext:
             })
         assert resp.status_code == 404
 
-    async def test_explode_moves_membership_to_members(
+    async def test_explode_does_not_move_project_membership_to_members(
         self, generation_client, generation_db_session
     ):
-        """Exploding a set in a project leaves the members in that project."""
+        """Exploding does not infer project placement for independent members."""
         project_id = await self._create_project(generation_client, "Explode Context")
 
         set_id, member_ids = await create_set(
@@ -488,16 +484,20 @@ class TestSetProjectContext:
         assert resp.status_code == 200
 
         for mid in member_ids:
-            assert project_id in await get_media_project_ids(generation_db_session, mid)
+            assert project_id not in await get_media_project_ids(
+                generation_db_session, mid
+            )
 
-        # No orphaned membership rows for the deleted set
-        assert await get_media_project_ids(generation_db_session, set_id) == set()
+        # Trash preserves the container's own project placement for restore.
+        assert await get_media_project_ids(generation_db_session, set_id) == {
+            project_id
+        }
 
-        # Members are visible when browsing the project
+        # Trashing the only project member leaves the project view empty.
         resp = await generation_client.get(f"/api/media?project_id={project_id}")
         returned_ids = {item["id"] for item in resp.json()["items"]}
         for mid in member_ids:
-            assert mid in returned_ids
+            assert mid not in returned_ids
 
     async def test_explode_outside_project_attaches_nothing(
         self, generation_client, generation_db_session

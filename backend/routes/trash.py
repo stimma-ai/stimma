@@ -48,11 +48,7 @@ async def delete_media(
     media_id: int,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Soft delete a media item (mark as trashed, file stays in place).
-
-    For sets and grids, cascade delete all members (items superseded by this set/grid).
-    For regular images superseding other images (e.g., upscale), members are NOT cascade deleted.
-    """
+    """Compatibility soft-delete for a payload or its uniquely mapped Asset."""
     result = await session.execute(select(MediaItem).where(MediaItem.id == media_id))
     media = result.scalar_one_or_none()
 
@@ -68,27 +64,6 @@ async def delete_media(
     if asset_revision is not None:
         from asset_service import trash_asset
         await trash_asset(session, asset_id=asset_revision.asset_id)
-
-    # If trashing a set or grid, cascade delete all members
-    if asset_revision is None and media.file_format in ('stimmaset.json', 'stimmagrid.json'):
-        result = await session.execute(
-            select(MediaItem).where(
-                MediaItem.superseded_by == media_id,
-                MediaItem.deleted_at.is_(None)
-            )
-        )
-        members = list(result.scalars().all())
-
-        if members:
-            member_ids = [m.id for m in members]
-            deleted_ids.extend(member_ids)
-            # Cascade soft delete all members
-            await session.execute(
-                update(MediaItem)
-                .where(MediaItem.id.in_(member_ids))
-                .values(deleted_at=datetime.utcnow(), auto_delete_at=None)
-            )
-            log.info(f"Cascade deleted {len(members)} members of set/grid {media_id}")
 
     # Soft delete the main item
     media.deleted_at = datetime.utcnow()
@@ -109,11 +84,7 @@ async def bulk_delete_media(
     request: BulkDeleteRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Bulk soft delete media items.
-
-    For sets and grids, cascade delete all members (items superseded by the set/grid).
-    Processes in batches to avoid SQLite's variable limit.
-    """
+    """Compatibility bulk soft-delete without implicit containment cascades."""
     all_deleted_ids = []
     errors = []
     BATCH_SIZE = 500
@@ -142,24 +113,6 @@ async def bulk_delete_media(
         if asset_revision is not None:
             from asset_service import trash_asset
             await trash_asset(session, asset_id=asset_revision.asset_id)
-
-        # If trashing a set or grid, cascade delete its members
-        if asset_revision is None and media.file_format in ('stimmaset.json', 'stimmagrid.json'):
-            result = await session.execute(
-                select(MediaItem.id).where(
-                    MediaItem.superseded_by == media_id,
-                    MediaItem.deleted_at.is_(None)
-                )
-            )
-            member_ids = [row[0] for row in result.fetchall()]
-            if member_ids:
-                await session.execute(
-                    update(MediaItem)
-                    .where(MediaItem.id.in_(member_ids))
-                    .values(deleted_at=datetime.utcnow(), auto_delete_at=None)
-                )
-                all_deleted_ids.extend(member_ids)
-                log.info(f"Cascade deleted {len(member_ids)} members of set/grid {media_id}")
 
         # Soft delete - just set the timestamp
         media.deleted_at = datetime.utcnow()
@@ -242,7 +195,6 @@ async def get_trash(
         excluded_tool_ids=excluded_tool_ids,
         created_after=created_after,
         created_before=created_before,
-        include_superseded=True,
         exclude_expired=False,
     )
 
@@ -436,7 +388,6 @@ async def get_trash_filter_counts(
             tag_ids=tag_ids,
             excluded_tag_ids=excluded_tag_ids,
             exclude_category='media_types',
-            include_superseded=True,
             exclude_expired=False,
         )
         type_query = type_query.where(MediaItem.file_format.in_(formats))
@@ -461,7 +412,6 @@ async def get_trash_filter_counts(
         tag_ids=tag_ids,
         excluded_tag_ids=excluded_tag_ids,
         exclude_category='resolutions',
-        include_superseded=True,
         exclude_expired=False,
     )
     small_query = small_query.where(MediaItem.megapixels < 0.8)
@@ -485,7 +435,6 @@ async def get_trash_filter_counts(
         tag_ids=tag_ids,
         excluded_tag_ids=excluded_tag_ids,
         exclude_category='resolutions',
-        include_superseded=True,
         exclude_expired=False,
     )
     medium_query = medium_query.where(and_(
@@ -512,7 +461,6 @@ async def get_trash_filter_counts(
         tag_ids=tag_ids,
         excluded_tag_ids=excluded_tag_ids,
         exclude_category='resolutions',
-        include_superseded=True,
         exclude_expired=False,
     )
     large_query = large_query.where(MediaItem.megapixels >= 1.5)
@@ -539,7 +487,6 @@ async def get_trash_filter_counts(
             tag_ids=tag_ids,
             excluded_tag_ids=excluded_tag_ids,
             exclude_category='folders',
-            include_superseded=True,
             exclude_expired=False,
         )
         # Ensure folder path ends with / to avoid partial matches
@@ -581,7 +528,6 @@ async def get_trash_filter_counts(
         tag_ids=tag_ids,
         excluded_tag_ids=excluded_tag_ids,
         exclude_category='keywords',
-        include_superseded=True,
         exclude_expired=False,
     )
 
@@ -630,7 +576,6 @@ async def get_trash_filter_counts(
         marker_ids=marker_ids,
         excluded_marker_ids=excluded_marker_ids,
         exclude_category='tags',
-        include_superseded=True,
         exclude_expired=False,
     )
 
@@ -685,7 +630,6 @@ async def get_trash_filter_counts(
             tag_ids=tag_ids,
             excluded_tag_ids=excluded_tag_ids,
             exclude_category='date_ranges',
-            include_superseded=True,
             exclude_expired=False,
         )
         # Add created date filter (file creation date)

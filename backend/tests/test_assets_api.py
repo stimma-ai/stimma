@@ -258,8 +258,24 @@ async def test_container_membership_and_promotion_are_asset_first(client, db_ses
     )
     assert promoted.status_code == 200, promoted.text
     assert promoted.json()["count"] == 1
+    summary = await client.get(
+        f"/api/assets/item/{grid_id}/container-members/summary"
+    )
+    assert summary.status_code == 200, summary.text
+    assert summary.json()["to_create"] == 0
+    assert summary.json()["already_saved"] == 1
     async with db_session() as session:
         assert (await session.get(Asset, grid_id)).state == "active"
+
+    exploded = await client.post(f"/api/assets/item/{grid_id}/explode")
+    assert exploded.status_code == 200, exploded.text
+    assert exploded.json()["created_count"] == 0
+    assert exploded.json()["reused_count"] == 1
+    assert exploded.json()["moved_to_trash"] is True
+    async with db_session() as session:
+        assert (await session.get(Asset, grid_id)).state == "trashed"
+    restored = await client.post(f"/api/assets/{grid_id}/restore")
+    assert restored.status_code == 200, restored.text
 
 
 @pytest.mark.asyncio

@@ -2273,6 +2273,14 @@ async def _save_pil_image_media(
         )
         session.add(media)
         await session.flush()
+        from storage_service import cleanup_staged_source, stage_managed_media
+
+        await stage_managed_media(
+            session,
+            media=media,
+            profile_id=profile_id,
+            remove_source=True,
+        )
         media_id = media.id
         if source_media_ids:
             await record_lineage(
@@ -2619,6 +2627,14 @@ async def _save_layout_media(
         )
         session.add(media)
         await session.flush()
+        from storage_service import cleanup_staged_source, stage_managed_media
+
+        await stage_managed_media(
+            session,
+            media=media,
+            profile_id=profile_id,
+            remove_source=True,
+        )
         media_id = media.id
         if source_media_ids:
             await record_lineage(
@@ -2634,6 +2650,7 @@ async def _save_layout_media(
             idempotency_key=f"flow:{flow_id}:{equation_key}:media:{media_id}",
         )
         await session.commit()
+        await cleanup_staged_source(session, media_id=media_id)
 
     try:
         await ws_manager.broadcast("media_added", {

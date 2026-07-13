@@ -5,7 +5,6 @@
  */
 const INTERNAL_KEYS = new Set([
   'generation_time',
-  'supersede_source',
   'inspired_by_media_id',
   'prompt_metadata',
   'auto_marker_ids',

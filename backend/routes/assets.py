@@ -219,7 +219,6 @@ def _apply_asset_filters(query, **filters):
         exclude_expiring=filters.get("exclude_expiring"),
         min_mp=filters.get("min_mp"),
         max_mp=filters.get("max_mp"),
-        include_superseded=True,
         exclude_expired=False,
         exclude_category=filters.get("exclude_category"),
         asset_id_column=Asset.id,
@@ -1532,6 +1531,48 @@ async def promote_container_members(
         {"asset_ids": promoted_ids, "source_container_asset_id": asset_id},
     )
     return {"asset_ids": promoted_ids, "count": len(promoted_ids)}
+
+
+@router.get("/item/{asset_id}/container-members/summary")
+async def container_member_summary(
+    asset_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from container_service import get_container_member_summary
+
+    try:
+        return await get_container_member_summary(session, asset_id=asset_id)
+    except AssetServiceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/item/{asset_id}/explode")
+async def explode_container_asset(
+    asset_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from container_service import explode_container, get_container_member_summary
+
+    try:
+        summary = await get_container_member_summary(session, asset_id=asset_id)
+        promoted_ids = await explode_container(session, asset_id=asset_id)
+    except AssetServiceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    await ws_manager.broadcast("asset_trashed", {"asset_id": asset_id})
+    if promoted_ids:
+        await ws_manager.broadcast(
+            "assets_created",
+            {"asset_ids": promoted_ids, "source_container_asset_id": asset_id},
+        )
+    return {
+        "asset_id": asset_id,
+        "asset_ids": promoted_ids,
+        "count": len(promoted_ids),
+        "created_count": summary["to_create"],
+        "reused_count": summary["linked"] + summary["already_saved"],
+        "moved_to_trash": True,
+    }
 
 
 @router.get("/contextual-media")

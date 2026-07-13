@@ -48,9 +48,44 @@ def _hash_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _directory_files(path: Path) -> list[Path]:
+    files = []
+    for candidate in path.rglob("*"):
+        if candidate.is_symlink():
+            raise StorageServiceError("Managed directory payload cannot contain symlinks")
+        if candidate.is_file():
+            files.append(candidate)
+    return sorted(files, key=lambda candidate: candidate.relative_to(path).as_posix())
+
+
+def _hash_payload(path: Path) -> str:
+    if path.is_file():
+        return _hash_file(path)
+    if not path.is_dir():
+        raise StorageServiceError("Managed source payload is unavailable")
+    digest = hashlib.sha256()
+    # Domain-separate directory bundles from ordinary file hashes. An empty
+    # directory must not alias an empty file in the content-addressed store.
+    digest.update(b"stimma-directory-v1\0")
+    for candidate in _directory_files(path):
+        relative = candidate.relative_to(path).as_posix().encode("utf-8")
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        with candidate.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _payload_size(path: Path) -> int:
+    if path.is_file():
+        return path.stat().st_size
+    return sum(candidate.stat().st_size for candidate in _directory_files(path))
+
+
 def _install_verified(source: Path, destination: Path, expected_hash: str) -> None:
     if destination.exists():
-        if _hash_file(destination) != expected_hash:
+        if _hash_payload(destination) != expected_hash:
             raise StorageServiceError("Managed object hash mismatch")
         return
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -58,21 +93,36 @@ def _install_verified(source: Path, destination: Path, expected_hash: str) -> No
     temp_root.mkdir(parents=True, exist_ok=True)
     temp = temp_root / uuid.uuid4().hex
     try:
-        with source.open("rb") as src, temp.open("xb") as dst:
-            shutil.copyfileobj(src, dst, length=1024 * 1024)
-            dst.flush()
-            os.fsync(dst.fileno())
-        if _hash_file(temp) != expected_hash:
+        if source.is_dir():
+            shutil.copytree(source, temp)
+            for copied in _directory_files(temp):
+                with copied.open("rb") as handle:
+                    os.fsync(handle.fileno())
+        else:
+            with source.open("rb") as src, temp.open("xb") as dst:
+                shutil.copyfileobj(src, dst, length=1024 * 1024)
+                dst.flush()
+                os.fsync(dst.fileno())
+        if _hash_payload(temp) != expected_hash:
             raise StorageServiceError("Source changed during managed-object ingest")
         os.replace(temp, destination)
     finally:
-        temp.unlink(missing_ok=True)
+        if temp.is_dir() and not temp.is_symlink():
+            shutil.rmtree(temp, ignore_errors=True)
+        else:
+            temp.unlink(missing_ok=True)
 
 
 def _install_media_link(destination: Path, compatibility_path: Path) -> None:
     compatibility_path.parent.mkdir(parents=True, exist_ok=True)
     if compatibility_path.exists() or compatibility_path.is_symlink():
-        compatibility_path.unlink()
+        if compatibility_path.is_dir() and not compatibility_path.is_symlink():
+            shutil.rmtree(compatibility_path)
+        else:
+            compatibility_path.unlink()
+    if destination.is_dir():
+        compatibility_path.symlink_to(destination, target_is_directory=True)
+        return
     try:
         os.link(destination, compatibility_path)
     except OSError:
@@ -131,13 +181,16 @@ async def stage_managed_media(
         if other_ref is None:
             await session.delete(storage)
             await session.flush()
-    if media.file_format in {"stimmaset.json", "stimmagrid.json", "stimmalayout"}:
-        raise StorageServiceError("Structured compatibility payload is not object-store ready")
     source = Path(media.file_path)
-    if not source.is_file():
+    if not source.is_file() and not source.is_dir():
         raise StorageServiceError("Managed source file is unavailable")
-    actual_hash = await asyncio.to_thread(_hash_file, source)
-    if actual_hash != media.file_hash:
+    actual_hash = await asyncio.to_thread(_hash_payload, source)
+    if source.is_dir():
+        # Historical layout rows hashed index.html only. Managed identity covers
+        # the complete self-contained bundle, including referenced resources.
+        media.file_hash = actual_hash
+        media.file_size = await asyncio.to_thread(_payload_size, source)
+    elif actual_hash != media.file_hash:
         raise StorageServiceError("Media hash does not match source bytes")
     key = object_key_for_hash(actual_hash)
     storage = await session.scalar(
@@ -372,6 +425,7 @@ async def migrate_legacy_managed_media(
     *,
     profile_id: str,
     managed_roots: list[Path],
+    formats: set[str] | None = None,
     limit: int = 100,
 ) -> dict:
     """Incrementally move explicitly scoped legacy files into object storage.
@@ -380,18 +434,17 @@ async def migrate_legacy_managed_media(
     Media transition commits before its old source is removed, so interruption
     is recoverable and rerunning is idempotent.
     """
-    candidates = list(
-        await session.scalars(
-            select(MediaItem)
-            .where(
-                MediaItem.storage_object_id.is_(None),
-                MediaItem.deleted_at.is_(None),
-                MediaItem.deletion_pending_at.is_(None),
-            )
-            .order_by(MediaItem.id)
-            .limit(limit * 4)
-        )
+    query = select(MediaItem).where(
+        MediaItem.storage_object_id.is_(None),
+        MediaItem.deleted_at.is_(None),
+        MediaItem.deletion_pending_at.is_(None),
     )
+    if formats:
+        query = query.where(MediaItem.file_format.in_(formats))
+    query = query.order_by(MediaItem.id)
+    if not formats:
+        query = query.limit(limit * 4)
+    candidates = list(await session.scalars(query))
     report = {"migrated": 0, "missing": 0, "skipped_external": 0, "errors": []}
     for media in candidates:
         if report["migrated"] >= limit:
@@ -400,7 +453,7 @@ async def migrate_legacy_managed_media(
         if not _under_any_root(source, managed_roots):
             report["skipped_external"] += 1
             continue
-        if not source.is_file():
+        if not source.is_file() and not source.is_dir():
             media.file_unavailable = True
             report["missing"] += 1
             await session.commit()
@@ -465,7 +518,7 @@ async def reconcile_storage(
             if storage.kind == "managed"
             else Path(storage.external_path)
         )
-        if not locator.is_file():
+        if not locator.is_file() and not locator.is_dir():
             key = "missing_managed" if storage.kind == "managed" else "missing_external"
             report[key].append(media.id)
             if repair_states:
@@ -473,7 +526,7 @@ async def reconcile_storage(
                 media.file_unavailable = True
             continue
         if storage.kind == "managed" and verify_hashes:
-            actual = await asyncio.to_thread(_hash_file, locator)
+            actual = await asyncio.to_thread(_hash_payload, locator)
             if actual != storage.expected_hash:
                 report["corrupt_managed"].append(media.id)
                 if repair_states:

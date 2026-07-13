@@ -29,8 +29,6 @@ async def test_classifier_is_conservative_explainable_and_read_only(db_session, 
                 {"version": 1, "items": [{"path": embedded_path.name}, {"path": curated_path.name}]}
             ),
         )
-        embedded.superseded_by = container.id
-        curated.superseded_by = container.id
         marker = await session.scalar(select(Marker).where(Marker.name == "favorite"))
         session.add(MediaMarker(media_id=curated.id, marker_id=marker.id, source="manual"))
         await session.commit()
@@ -51,16 +49,11 @@ async def test_classifier_is_conservative_explainable_and_read_only(db_session, 
 
 
 @pytest.mark.asyncio
-async def test_classifier_reports_disagreement_and_missing_files(db_session, tmp_path):
+async def test_classifier_reports_missing_files_without_legacy_visibility_state(
+    db_session, tmp_path
+):
     async with db_session() as session:
         missing = await create_media_item(session, file_path=tmp_path / "missing.png")
-        unrelated_container = await create_media_item(
-            session,
-            file_path=tmp_path / "empty.stimmagrid.json",
-            file_format="stimmagrid.json",
-            raw_metadata=json.dumps({"version": 1, "cells": []}),
-        )
-        missing.superseded_by = unrelated_container.id
         await session.commit()
 
         report = await classify_legacy_media(session, check_files=True)
@@ -68,4 +61,4 @@ async def test_classifier_reports_disagreement_and_missing_files(db_session, tmp
 
         assert record["classification"] == "asset"
         assert record["file_missing"] is True
-        assert "container_manifest_disagrees_with_superseded_by" in record["conflicts"]
+        assert record["conflicts"] == []

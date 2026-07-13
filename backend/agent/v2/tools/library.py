@@ -310,7 +310,6 @@ async def _build_browse_query(
         excluded_tag_ids=_as_csv(tag_exclude),
         tool_ids=_as_csv(filters.get("tools", {}).get("include", [])),
         excluded_tool_ids=_as_csv(filters.get("tools", {}).get("exclude", [])),
-        include_superseded=True,
         exclude_expired=False,
         asset_id_column=Asset.id,
         expiration_column=Asset.expires_at,
@@ -900,19 +899,6 @@ async def _load_lineage_data(session: AsyncSession, media_id: int) -> Dict[str, 
             entry["file_path"] = source.source_file_path
         source_data.append(entry)
 
-    supersede_source_result = await session.execute(
-        select(MediaItem).where(MediaItem.superseded_by == media_id)
-    )
-    for source_media in supersede_source_result.scalars().all():
-        if source_media and not source_media.deleted_at and source_media.id not in source_ids:
-            source_data.append({
-                "order": 0,
-                "task_type": "upscale",
-                "type": "internal",
-                "media": source_media.to_dict(),
-            })
-            source_ids.add(source_media.id)
-
     derivative_data = []
     derivative_ids = set()
     for derivative in derivatives:
@@ -928,22 +914,6 @@ async def _load_lineage_data(session: AsyncSession, media_id: int) -> Dict[str, 
                 "created_at": derivative.created_at.isoformat() if derivative.created_at else None,
             })
             derivative_ids.add(media.id)
-
-    current_media_result = await session.execute(
-        select(MediaItem).where(MediaItem.id == media_id)
-    )
-    current_media = current_media_result.scalar_one_or_none()
-    if current_media and current_media.superseded_by:
-        superseded_result = await session.execute(
-            select(MediaItem).where(MediaItem.id == current_media.superseded_by)
-        )
-        superseded_media = superseded_result.scalar_one_or_none()
-        if superseded_media and not superseded_media.deleted_at and superseded_media.id not in derivative_ids:
-            derivative_data.append({
-                "media": superseded_media.to_dict(),
-                "task_type": "upscale",
-                "created_at": superseded_media.created_date.isoformat() if superseded_media.created_date else None,
-            })
 
     return {
         "sources": source_data,
@@ -1523,15 +1493,14 @@ async def save_workspace_file(
         own_tool_id=provenance.get("tool_id") if provenance else None,
     )
 
-    if media_item.file_format not in {'stimmaset.json', 'stimmagrid.json', 'stimmalayout'}:
-        from core.profile_context import get_current_profile
-        from storage_service import stage_managed_media
-        await stage_managed_media(
-            session,
-            media=media_item,
-            profile_id=get_current_profile(),
-            remove_source=True,
-        )
+    from core.profile_context import get_current_profile
+    from storage_service import stage_managed_media
+    await stage_managed_media(
+        session,
+        media=media_item,
+        profile_id=get_current_profile(),
+        remove_source=True,
+    )
 
     asset_id = None
     revision_id = None

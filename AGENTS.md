@@ -202,11 +202,12 @@ Most of the config file surface area is mirrored in the settings UI. The correct
 
 - **Filter Cart**: The 'shopping cart' strip on the browse views at the top that shows selected criteria
 - **STP**: Stimma Tools Protocol - JSONRPC protocol for tool communication
-- **Media Item**: An image, video, audio, or document file stored in the Stimma library. Also known as ASSET. Media Item types include image, video, audio, document, set, and grid
+- **Asset**: A stable, user-meaningful item shown in ordinary browsers. Assets are durable roots with immutable revisions; they are not owned or garbage-collected by chats, projects, or containers.
+- **Asset Revision**: One immutable saved state of an Asset. Its primary Media payload supplies the current browser projection.
+- **Media Item**: An immutable payload/provenance record retained by an Asset revision or another explicit owner. Bare Media does not appear in ordinary Asset browsers.
 - **Atomic Media**: Standalone media files that don't contain other media: images, videos, audio, documents. These can be transformed by tools.
 - **Composite Media**: Container media that holds references to other media items: sets (.stimmaset.json), grids (.stimmagrid.json). These are grouping operations, not transformations. See `utils/query_builder.py` for `ATOMIC_FORMATS`, `COMPOSITE_FORMATS`, `is_composite_media()`, `is_atomic_media()`.
-- **Hidden Media**: Media items that are hidden from normal library views. This includes both superseded media and media marked as hidden by the user
-- **Superseded Media**: A type of hidden media. These media items have been replaced by newer versions (e.g., after editing, being grouped into sets/grids, upscaling)
+- **Container Member**: A set/grid member that either weakly links an independent Asset (following its current revision) or embeds exact Media retained by the container revision. Membership is non-exclusive.
 - **Tool**: A tool provided by Stimma Tools Protocol. Tools can be internal (built-in) or external (third-party). Tools perform operations on media items
 - **Task**: What a tool does. A tool can implement multiple tasks. Each task comes with a set of required inputs + outputs, like an interface. Examples include 'text-to-image', 'image-to-image', etc.
 - **Ingestion**: A separate process that handles processing and importing media in the background. Performs tasks like AI captioning, visual indexing (CLIP encoding), metadata extraction, etc.

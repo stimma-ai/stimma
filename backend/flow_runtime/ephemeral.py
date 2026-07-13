@@ -80,8 +80,7 @@ async def purge_ephemeral_run(session: AsyncSession, run_id: str) -> int:
     by the crash sweeper. Hard delete, not soft delete — ephemeral media never go
     to trash. Returns the number of rows deleted.
 
-    Self-referential ``superseded_by`` links *within the run* are broken first so
-    the row deletes don't trip a foreign-key constraint regardless of delete order.
+    The run cohort is deleted as one bounded, non-user-visible unit.
     """
     rows = (
         await session.execute(
@@ -90,12 +89,6 @@ async def purge_ephemeral_run(session: AsyncSession, run_id: str) -> int:
     ).scalars().all()
     if not rows:
         return 0
-
-    ids = {m.id for m in rows}
-    for m in rows:
-        if m.superseded_by in ids:
-            m.superseded_by = None
-    await session.flush()
 
     for m in rows:
         path = m.file_path

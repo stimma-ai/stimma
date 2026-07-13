@@ -2695,7 +2695,7 @@ class GenerationQueue:
             # Build the single parameters dict sent to the provider from the
             # stored flat job params. Filter out Stimma-internal parameters that
             # should never be sent to providers.
-            internal_params = {'supersede_source', 'inspired_by_media_id'}
+            internal_params = {'inspired_by_media_id'}
             exec_params = {k: v for k, v in params.items() if k not in internal_params}
 
             # Add tool_id for metadata embedding
@@ -3092,9 +3092,7 @@ class GenerationQueue:
             log.debug(f"Job {job.id}: TIMING - _insert_generated_file: {(_time.time() - _t0)*1000:.0f}ms")
             log.debug(f"Job {job.id}: Inserted media item {media_item.id} directly (chat_item_id={chat_item_id}, profile_id={profile_id})")
 
-            if not ephemeral_run_id and media_item.file_format not in {
-                'stimmaset.json', 'stimmagrid.json', 'stimmalayout'
-            }:
+            if not ephemeral_run_id:
                 from storage_service import stage_managed_media
                 await stage_managed_media(
                     session,

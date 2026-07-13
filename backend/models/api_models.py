@@ -68,10 +68,6 @@ class MediaItemResponse(BaseModel):
     # Structured media (sets/grids) member count and title
     member_count: Optional[int] = None
     title: Optional[str] = None
-    # Visibility fields
-    superseded_by: Optional[int] = None
-    is_hidden: Optional[bool] = None
-
     class Config:
         from_attributes = True
 

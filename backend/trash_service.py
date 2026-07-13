@@ -6,6 +6,7 @@ emptying the trash.
 """
 
 from pathlib import Path
+import shutil
 
 
 class TrashService:
@@ -23,9 +24,6 @@ class TrashService:
         """
         file_path = Path(file_path)
 
-        if file_path.exists() and not file_path.is_file():
-            raise ValueError(f"Not a file: {file_path}")
-
         # Delete the editor sidecar first. If this fails, leave the primary file
         # in place so the operation can retry without orphaning sensitive editor
         # state behind an already-missing primary file.
@@ -33,5 +31,7 @@ class TrashService:
         if sidecar_path.exists():
             sidecar_path.unlink()
 
-        if file_path.exists():
+        if file_path.is_dir() and not file_path.is_symlink():
+            shutil.rmtree(file_path)
+        elif file_path.exists() or file_path.is_symlink():
             file_path.unlink()

@@ -41,8 +41,6 @@ async def test_startup_backfill_is_conservative_recoverable_and_constant_time(
                 "cells": [{"row": 0, "col": 0, "path": "member.png"}]
             }),
         )
-        member.superseded_by = container.id
-
         malformed = await create_media_item(
             session,
             file_path=tmp_path / "bad.stimmaset.json",
@@ -255,4 +253,4 @@ async def test_startup_backfill_recognizes_every_post_cutover_phase(
         result = await ensure_asset_backfill(session)
 
         assert result["already_complete"] is True
-        assert result["phase"] == phase
+        assert result["phase"] == "contracted"

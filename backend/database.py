@@ -74,14 +74,6 @@ class MediaItem(Base):
     # Chat reference (if generated via chat system)
     chat_item_id = Column(Integer, nullable=True, index=True)  # FK to chat_items.id
 
-    # Superseding: When an item is replaced by another (e.g., edited image, set members)
-    # Items with superseded_by set are hidden from browse views by default
-    superseded_by = Column(Integer, ForeignKey('media_items.id'), nullable=True, index=True)
-
-    # Visibility override: True=hidden, False=visible, None=inherit from superseded_by
-    # Effective visibility: is_hidden ?? (superseded_by IS NOT NULL)
-    is_hidden = Column(Boolean, nullable=True, default=None, index=True)
-
     # Ephemeral one-shot-run media: created while running a flow behind the tool
     # abstraction (flow-as-tool). These are NEVER part of the user's library — they
     # are tagged with the run id, excluded from every user-facing query / ingestion /
@@ -238,9 +230,6 @@ class MediaItem(Base):
             "has_clip_embedding": self.clip_embedding is not None,
             "has_vlm_caption": self.vlm_caption is not None,
             "vlm_error": self.vlm_caption_error,
-            # Visibility
-            "superseded_by": self.superseded_by,
-            "is_hidden": self.is_hidden,
             # Processing statuses
             "metadata_status": self.metadata_status,
             "clip_status": self.clip_status,

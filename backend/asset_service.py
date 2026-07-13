@@ -268,8 +268,6 @@ async def restore_revision_as_latest(
         "indexed_date",
         "deleted_at",
         "deletion_pending_at",
-        "superseded_by",
-        "is_hidden",
         "ephemeral_run_id",
         "random_sort_value",
         "auto_delete_at",

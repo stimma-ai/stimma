@@ -701,6 +701,38 @@
       </template>
     </div>
 
+    <div
+      v-if="showExplodeConfirm"
+      class="fixed inset-0 z-[10040] flex items-center justify-center bg-black/70 p-4"
+      @click.self="closeExplodeConfirm"
+    >
+      <div class="w-full max-w-md rounded-xl border border-white/10 bg-surface p-5 shadow-2xl">
+        <h3 class="mb-2 text-base font-semibold text-content">
+          Save {{ explodeSummary?.asset_type === 'set' ? 'members' : 'cells' }} as assets?
+        </h3>
+        <p class="mb-5 text-sm leading-relaxed text-content-secondary">
+          Create {{ explodeSummary?.to_create || 0 }} new
+          {{ explodeSummary?.to_create === 1 ? 'asset' : 'assets' }} from embedded
+          {{ explodeSummary?.asset_type === 'set' ? 'members' : 'cells' }}.
+          {{ (explodeSummary?.linked || 0) + (explodeSummary?.already_saved || 0) }} existing
+          {{ ((explodeSummary?.linked || 0) + (explodeSummary?.already_saved || 0)) === 1 ? 'asset will' : 'assets will' }} be reused.
+          When complete, this {{ explodeSummary?.asset_type || 'container' }} will move to Trash so the operation can be undone.
+        </p>
+        <div class="flex justify-end gap-2">
+          <button
+            class="rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-content-secondary hover:bg-white/10 hover:text-content"
+            :disabled="explodingContainer"
+            @click="closeExplodeConfirm"
+          >Cancel</button>
+          <button
+            class="rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50"
+            :disabled="explodingContainer"
+            @click="confirmExplode"
+          >{{ explodingContainer ? 'Saving…' : 'Save as assets' }}</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Tag Editor Modal -->
     <BulkTagEditor
       :visible="showTagEditor"
@@ -948,6 +980,10 @@ const showExportModal = ref(false)
 const exportMediaIds = ref<number[]>([])
 const exportMediaItems = ref<any[]>([])
 const showShareDialog = ref(false)
+const showExplodeConfirm = ref(false)
+const explodingContainer = ref(false)
+const explodeAssetId = ref<number | null>(null)
+const explodeSummary = ref<any>(null)
 const shareMediaItem = ref<any>(null)
 
 const emit = defineEmits<{
@@ -1737,20 +1773,50 @@ async function handleShareToCloud() {
 }
 
 async function handleExplode() {
-  const id = targetMediaIds.value[0]
   const assetId = targetAssetIds.value[0]
   contextMenu.hide()
-  if (!id) return
+  if (!assetId) {
+    addToast('This container has not been migrated to an asset', 'error')
+    return
+  }
 
   try {
-    if (assetId) {
-      await axios.post(`/api/assets/item/${assetId}/container-members/promote`)
-    } else {
-      await axios.post(`/api/media/${id}/explode`)
-    }
+    explodeSummary.value = (
+      await axios.get(`/api/assets/item/${assetId}/container-members/summary`)
+    ).data
+    explodeAssetId.value = assetId
+    showExplodeConfirm.value = true
+  } catch (err: any) {
+    addToast(err?.response?.data?.detail || 'Could not inspect container', 'error')
+  }
+}
+
+function closeExplodeConfirm() {
+  if (explodingContainer.value) return
+  showExplodeConfirm.value = false
+  explodeAssetId.value = null
+  explodeSummary.value = null
+}
+
+async function confirmExplode() {
+  if (!explodeAssetId.value) return
+  explodingContainer.value = true
+  try {
+    const result = (
+      await axios.post(`/api/assets/item/${explodeAssetId.value}/explode`)
+    ).data
+    addToast(
+      `Created ${result.created_count} ${result.created_count === 1 ? 'asset' : 'assets'}; container moved to Trash`,
+      'success',
+    )
+    showExplodeConfirm.value = false
+    explodeAssetId.value = null
+    explodeSummary.value = null
     emit('refresh')
-  } catch (err) {
-    console.error('Failed to ungroup set/grid:', err)
+  } catch (err: any) {
+    addToast(err?.response?.data?.detail || 'Could not save container members', 'error')
+  } finally {
+    explodingContainer.value = false
   }
 }
 

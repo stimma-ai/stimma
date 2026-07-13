@@ -1,8 +1,7 @@
 """Tests for the ephemeral media scope used by one-shot flow-as-tool runs.
 
-``purge_ephemeral_run`` must hard-delete a run's media (rows + files), leave
-normal library media untouched, and not trip on self-referential
-``superseded_by`` links within the run.
+``purge_ephemeral_run`` must hard-delete a run's media (rows + files) and leave
+normal library media untouched.
 """
 
 from datetime import datetime, timedelta
@@ -39,7 +38,6 @@ def _make_media(file_path, file_hash, *, ephemeral_run_id=None, indexed_date=Non
         height=1,
         megapixels=0.0,
         ephemeral_run_id=ephemeral_run_id,
-        is_hidden=True if ephemeral_run_id else None,
     )
     if indexed_date is not None:
         kwargs["indexed_date"] = indexed_date
@@ -60,9 +58,6 @@ async def test_purge_ephemeral_run_hard_deletes_only_the_run(db_session, tmp_pat
         eph1 = _make_media(eph_paths[1], "he1", ephemeral_run_id=run_id)
         keep = _make_media(keep_path, "hek")  # normal library media — must survive
         session.add_all([eph0, eph1, keep])
-        await session.flush()
-        # self-referential supersede link *within the run* — must not block delete
-        eph0.superseded_by = eph1.id
         await session.commit()
         keep_id = keep.id
 

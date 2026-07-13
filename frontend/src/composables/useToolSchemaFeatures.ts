@@ -17,7 +17,6 @@ const SPECIAL_PARAM_NAMES = new Set([
   // Audio: lyrics is prompt-like — rendered right under the main prompt, not as a generic setting
   'lyrics',
   // Deprecated/removed features
-  'supersede_source',
 ])
 
 export interface MediaInputConfig {

@@ -1,12 +1,43 @@
 """Tests for media file and thumbnail serving."""
 
 from datetime import datetime
+import json
+from unittest.mock import patch
 
 from httpx import AsyncClient
+from PIL import Image
 
 from delete_operations import create_delete_operation
 from database_registry import get_database_registry
 from tests.helpers.media import create_media_item, generate_test_image
+
+
+def test_set_preview_prefers_normalized_member_paths_after_manifest_move(tmp_path):
+    from routes.media_files import _generate_set_preview
+
+    member = tmp_path / "member.png"
+    generate_test_image(member)
+    moved_manifest = tmp_path / "managed" / "set.stimmaset.json"
+    moved_manifest.parent.mkdir()
+    moved_manifest.write_text(json.dumps({"items": [{"path": "../old/member.png"}]}))
+    normalized = {
+        "items": [
+            {"resolved": {"file_path": str(member)}}
+        ]
+    }
+    expected = Image.new("RGB", (32, 32))
+    with patch(
+        "routes.media_files._create_stacked_cards",
+        return_value=expected,
+    ) as stacked:
+        result = _generate_set_preview(
+            str(moved_manifest),
+            32,
+            normalized_content=normalized,
+        )
+
+    assert result is expected
+    assert stacked.call_args.args[0] == [str(member)]
 
 
 class TestThumbnailDeletionRaces:

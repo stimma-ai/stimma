@@ -475,7 +475,12 @@ def _generate_placeholder_thumbnail(size: int, icon_type: str = 'default', palet
     return img
 
 
-def _generate_set_preview(file_path: str, size: int, palette=None) -> Image.Image:
+def _generate_set_preview(
+    file_path: str,
+    size: int,
+    palette=None,
+    normalized_content: dict | None = None,
+) -> Image.Image:
     """Generate a stacked card preview for a set from its contained media items."""
     import json
     from pathlib import Path as PathLib
@@ -486,13 +491,14 @@ def _generate_set_preview(file_path: str, size: int, palette=None) -> Image.Imag
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        items = data.get('items', [])
+        items = (normalized_content or data).get('items', [])
         base_path = PathLib(file_path).parent
 
         # Collect valid image paths (up to 3 for stacked cards)
         image_paths = []
         for item in items[:3]:
-            ref_path = item.get('path')
+            resolved = item.get('resolved') or {}
+            ref_path = resolved.get('file_path') or item.get('path')
             if not ref_path:
                 continue
 
@@ -519,7 +525,12 @@ def _generate_set_preview(file_path: str, size: int, palette=None) -> Image.Imag
         return _generate_placeholder_thumbnail(size, 'set', palette=palette)
 
 
-def _generate_grid_preview(file_path: str, size: int, palette=None) -> Image.Image:
+def _generate_grid_preview(
+    file_path: str,
+    size: int,
+    palette=None,
+    normalized_content: dict | None = None,
+) -> Image.Image:
     """Generate a grid preview that reflects the actual grid dimensions."""
     import json
     from pathlib import Path as PathLib
@@ -530,9 +541,10 @@ def _generate_grid_preview(file_path: str, size: int, palette=None) -> Image.Ima
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        cells = data.get('cells', [])
-        actual_rows = data.get('rows', 2)
-        actual_cols = data.get('cols', 3)
+        content = normalized_content or data
+        cells = content.get('cells', [])
+        actual_rows = content.get('rows', 2)
+        actual_cols = content.get('cols', 3)
         base_path = PathLib(file_path).parent
 
         # Build a cell lookup by (row, col) position
@@ -562,7 +574,8 @@ def _generate_grid_preview(file_path: str, size: int, palette=None) -> Image.Ima
             cell = cell_lookup.get((row, col))
             if not cell:
                 return None
-            ref_path = cell.get('path')
+            resolved = cell.get('resolved') or {}
+            ref_path = resolved.get('file_path') or cell.get('path')
             if not ref_path:
                 return None
             ref = PathLib(ref_path)
@@ -1030,6 +1043,18 @@ def _face_crop_object_position(item: MediaItem, faces_data: list | None) -> dict
     }
 
 
+async def _normalized_thumbnail_content(session, item: MediaItem) -> dict | None:
+    """Resolve container members before thumbnail work leaves the DB thread."""
+    if item.file_format not in {"stimmaset.json", "stimmagrid.json"}:
+        return None
+    from container_service import get_normalized_container_content
+
+    return await get_normalized_container_content(
+        session,
+        container_media=item,
+    )
+
+
 def _generate_thumbnail_sync(
     file_path: str,
     file_format: str,
@@ -1038,6 +1063,7 @@ def _generate_thumbnail_sync(
     faces_data: list = None,
     palette: dict = None,
     mode: str = "crop",
+    normalized_content: dict | None = None,
 ):
     """
     Synchronous thumbnail generation (runs in thread pool).
@@ -1072,12 +1098,22 @@ def _generate_thumbnail_sync(
             return True
 
         if format_lower == 'stimmaset.json':
-            img = _generate_set_preview(file_path, size, palette=palette)
+            img = _generate_set_preview(
+                file_path,
+                size,
+                palette=palette,
+                normalized_content=normalized_content,
+            )
             _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
             return True
 
         if format_lower == 'stimmagrid.json':
-            img = _generate_grid_preview(file_path, size, palette=palette)
+            img = _generate_grid_preview(
+                file_path,
+                size,
+                palette=palette,
+                normalized_content=normalized_content,
+            )
             _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
             return True
 
@@ -1771,6 +1807,7 @@ async def get_thumbnail(
     layout_status = None
     if not _source_path_exists(file_path, file_format):
         raise HTTPException(status_code=404, detail="Asset file not found on disk")
+    normalized_content = await _normalized_thumbnail_content(session, item)
     await session.rollback()
     if file_format.lower() == 'stimmalayout':
         layout_status = await _generate_layout_thumbnail_to_cache(
@@ -1790,6 +1827,7 @@ async def get_thumbnail(
             faces_data,
             palette,
             mode,
+            normalized_content,
         )
 
     if not success:
@@ -1878,22 +1916,6 @@ async def get_media_lineage(
             item["file_path"] = s.source_file_path
         source_data.append(item)
 
-    # LEGACY: Find sources via deprecated superseded_by field (for pre-lineage data only)
-    # This field is no longer written to - new lineage uses the media_lineage table
-    supersede_source_result = await session.execute(
-        select(MediaItem).where(MediaItem.superseded_by == media_id)
-    )
-    supersede_sources = supersede_source_result.scalars().all()
-    for source_media in supersede_sources:
-        if source_media and not source_media.deleted_at and source_media.id not in source_ids:
-            source_data.append({
-                "order": 0,
-                "task_type": "upscale",
-                "type": "internal",
-                "media": source_media.to_dict()
-            })
-            source_ids.add(source_media.id)
-
     derivative_data = []
     derivative_ids = set()  # Track IDs we've already added
 
@@ -1910,26 +1932,6 @@ async def get_media_lineage(
                 "created_at": d.created_at.isoformat()
             })
             derivative_ids.add(media.id)
-
-    # LEGACY: Find derivatives via deprecated superseded_by field (for pre-lineage data only)
-    # This field is no longer written to - new lineage uses the media_lineage table
-    current_media_result = await session.execute(
-        select(MediaItem).where(MediaItem.id == media_id)
-    )
-    current_media = current_media_result.scalar_one_or_none()
-
-    if current_media and current_media.superseded_by:
-        superseded_result = await session.execute(
-            select(MediaItem).where(MediaItem.id == current_media.superseded_by)
-        )
-        superseded_media = superseded_result.scalar_one_or_none()
-        if superseded_media and not superseded_media.deleted_at and superseded_media.id not in derivative_ids:
-            derivative_data.append({
-                "media": superseded_media.to_dict(),
-                "task_type": "upscale",
-                "created_at": superseded_media.created_date.isoformat() if superseded_media.created_date else None
-            })
-            derivative_ids.add(superseded_media.id)
 
     result = {
         "media_id": media_id,
@@ -2135,26 +2137,8 @@ async def get_media_lineage_tree(
 
         frontier = new_frontier
 
-    # LEGACY: Include superseded_by edges for nodes we've found
-    # Check if any visited node has superseded_by pointing outside the set
-    if visited:
-        legacy_result = await session.execute(
-            select(MediaItem).where(
-                MediaItem.superseded_by.in_(list(visited)),
-                MediaItem.deleted_at.is_(None)
-            )
-        )
-        for source_media in legacy_result.scalars().all():
-            key = (source_media.id, source_media.superseded_by)
-            if key not in seen_edge_keys:
-                seen_edge_keys.add(key)
-                all_edges.append((source_media.superseded_by, source_media.id,
-                                  "upscale", "derived", 0))
-                visited.add(source_media.id)
-
     # Final sweep: find ALL edges between visited nodes that BFS may have missed.
-    # This catches edges where both endpoints were discovered from different directions,
-    # or edges between nodes that were found via superseded_by.
+    # This catches edges where both endpoints were discovered from different directions.
     if visited:
         sweep_result = await session.execute(
             select(MediaLineage).where(
@@ -2169,20 +2153,6 @@ async def get_media_lineage_tree(
                 all_edges.append((ml.media_id, ml.source_media_id, ml.task_type,
                                   getattr(ml, 'relationship_type', 'derived') or 'derived',
                                   ml.source_order or 0))
-
-        # Also check superseded_by edges between visited nodes
-        supersede_result = await session.execute(
-            select(MediaItem).where(
-                MediaItem.id.in_(list(visited)),
-                MediaItem.superseded_by.in_(list(visited)),
-                MediaItem.deleted_at.is_(None)
-            )
-        )
-        for m in supersede_result.scalars().all():
-            key = (m.id, m.superseded_by)
-            if key not in seen_edge_keys:
-                seen_edge_keys.add(key)
-                all_edges.append((m.superseded_by, m.id, "upscale", "derived", 0))
 
     # Compute depth via BFS from focus node using the edge adjacency
     # Build adjacency: parent -> [children], child -> [parents]
@@ -2351,6 +2321,7 @@ async def get_thumbnail_by_db_guid(
     layout_status = None
     if not _source_path_exists(file_path, file_format):
         raise HTTPException(status_code=404, detail="Asset file not found on disk")
+    normalized_content = await _normalized_thumbnail_content(session, item)
     await session.rollback()
     if file_format.lower() == 'stimmalayout':
         layout_status = await _generate_layout_thumbnail_to_cache(
@@ -2370,6 +2341,7 @@ async def get_thumbnail_by_db_guid(
             faces_data,
             palette,
             mode,
+            normalized_content,
         )
 
     if not success:
@@ -2665,6 +2637,7 @@ async def get_thumbnail_path_by_media_id(
 
     if not _source_path_exists(file_path, file_format):
         raise HTTPException(status_code=404, detail="Asset file not found on disk")
+    normalized_content = await _normalized_thumbnail_content(session, item)
     await session.rollback()
     if file_format.lower() == 'stimmalayout':
         success = await _generate_layout_thumbnail_to_cache(
@@ -2683,6 +2656,7 @@ async def get_thumbnail_path_by_media_id(
             faces_data,
             palette,
             mode,
+            normalized_content,
         )
 
     if not success:

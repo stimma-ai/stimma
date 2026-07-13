@@ -878,6 +878,11 @@ async def lifespan(app: FastAPI):
         await registry.init_all_databases()
         log.info("databases initialized", count=len(settings.profiles))
 
+        # Structured manifests must be readable before automatic Asset
+        # classification determines linked versus embedded membership.
+        for profile in settings.profiles:
+            await backfill_structured_media_raw_metadata(profile.id)
+
         # Asset browsers are authoritative in this release. Conservatively
         # materialize roots for historical Media before accepting requests;
         # ambiguous historical rows become Assets, so this migration cannot
@@ -896,13 +901,47 @@ async def lifespan(app: FastAPI):
                     digest=migration["digest"],
                 )
 
+        # Stimma-native structured outputs historically lived in the writable
+        # generation folder. Adopt those app-managed manifests/bundles into the
+        # object store after membership has been normalized. External watched
+        # copies outside the generation root remain external sources.
+        from pathlib import Path
+        from storage_service import migrate_legacy_managed_media
+        for profile in settings.profiles:
+            managed_roots = [
+                Path(folder.path)
+                for folder in profile.folders
+                if folder.allow_generate
+            ]
+            if not managed_roots:
+                continue
+            db = registry.get_database(profile.id)
+            while True:
+                async with db.async_session_maker() as session:
+                    report = await migrate_legacy_managed_media(
+                        session,
+                        profile_id=profile.id,
+                        managed_roots=managed_roots,
+                        formats={
+                            "stimmaset.json",
+                            "stimmagrid.json",
+                            "stimmalayout",
+                        },
+                        limit=100,
+                    )
+                if report["errors"]:
+                    log.warning(
+                        "structured managed-storage migration deferred",
+                        profile=profile.id,
+                        errors=len(report["errors"]),
+                    )
+                    break
+                if report["migrated"] < 100:
+                    break
+
         # Check for and reset stale CLIP embeddings (from old model with different dimensions)
         for profile in settings.profiles:
             await check_and_reset_stale_clip_embeddings(profile.id)
-
-        # Backfill raw_metadata for older structured media (sets/grids/markdown)
-        for profile in settings.profiles:
-            await backfill_structured_media_raw_metadata(profile.id)
 
         # Fix items created by agent with metadata already computed but stuck as 'pending'
         for profile in settings.profiles:
