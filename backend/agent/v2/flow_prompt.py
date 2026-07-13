@@ -739,9 +739,9 @@ want the auto-generated list to start cleanly: prefer
 
 **create_set(items, *, title="", description="")** — group a list of media ids
 into a ``.stimmaset.json`` library asset. Resolves to a single media id (the
-set). Member images are superseded — hidden from normal browse, visible inside
-the set. Use when the user wants the flow's outputs bundled as one browsable
-collection rather than loose siblings.
+set). Membership does not hide or replace independently rooted Assets; bare
+intermediate Media can remain embedded in the set. Use when the user wants the
+flow's outputs bundled as one browsable collection rather than loose siblings.
 
 **create_grid(items, *, rows, cols, row_headers=[...], col_headers=[...], title="", description="")**
 — assemble a list of media ids into a ``.stimmagrid.json`` library asset

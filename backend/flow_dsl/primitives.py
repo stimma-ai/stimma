@@ -1552,8 +1552,8 @@ def create_set(
     """Group media items into a ``.stimmaset.json`` library asset.
 
     ``items`` is either a collection NodeRef resolving to ``list[media]`` or
-    a plain Python list of media NodeRefs. Member media are superseded on
-    save (hidden from browse, visible inside the set).
+    a plain Python list of media NodeRefs. Assembly records membership without
+    changing the visibility or identity of independently rooted members.
     """
     if not isinstance(title, str):
         raise DSLMisuseError(

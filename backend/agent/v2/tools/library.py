@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, and_, delete, func, Integer, literal
+from sqlalchemy import select, or_, and_, delete, func, Integer, literal, update
 
 from ..tools_registry import tool, ToolParameter
 
@@ -20,6 +20,7 @@ from core.profile_context import get_current_profile
 from project_service import attach_media_to_project, infer_project_id_from_workspace_path
 from providers.registry import ProviderRegistry
 from database import (
+    Asset, AssetMarker, AssetRevision, AssetTag, BoardAssetItem, ProjectAsset,
     MediaItem, MediaLineage, Tag, MediaTag,
     Board, BoardItem, BoardSection, Marker, MediaMarker,
     Keyword, MediaKeyword, MediaToolLineage, Face,
@@ -58,9 +59,10 @@ def _get_default_folder(workspace_dir: Optional[Path] = None) -> str:
         return "./output"
 
 
-def _media_summary(item: MediaItem) -> Dict[str, Any]:
+def _media_summary(item: MediaItem, asset_id: int | None = None) -> Dict[str, Any]:
     """Compact summary of a media item for search/browse results."""
     return {
+        "asset_id": asset_id,
         "media_id": item.id,
         "filename": os.path.basename(item.file_path) if item.file_path else None,
         "prompt": _best_prompt(item),
@@ -70,6 +72,25 @@ def _media_summary(item: MediaItem) -> Dict[str, Any]:
         "tool_id": item.tool_id,
         "created_at": item.created_date.isoformat() if item.created_date else None,
     }
+
+
+async def _asset_ids_for_media(
+    session: AsyncSession, media_ids: list[int]
+) -> dict[int, int]:
+    if not media_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(AssetRevision.primary_media_id, Asset.id)
+            .join(Asset, Asset.current_revision_id == AssetRevision.id)
+            .where(
+                AssetRevision.primary_media_id.in_(media_ids),
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    return {media_id: asset_id for media_id, asset_id in rows}
 
 
 def _safe_parse_json(value: Any) -> Any:
@@ -242,12 +263,19 @@ async def _build_browse_query(
 ):
     from utils.query_builder import build_filtered_query
 
-    stmt = select(MediaItem).where(
+    stmt = (
+        select(MediaItem)
+        .join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
+        .join(Asset, Asset.current_revision_id == AssetRevision.id)
+        .where(
+        Asset.state == "active",
+        Asset.deleted_at.is_(None),
+        AssetRevision.deleted_at.is_(None),
         MediaItem.deleted_at.is_(None),
-        MediaItem.superseded_by.is_(None),
         MediaItem.metadata_status == "completed",
         (MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None)),
-    )
+        or_(Asset.expires_at.is_(None), Asset.expires_at > datetime.utcnow()),
+    ))
 
     query_value = filters.get("query")
     if query_value:
@@ -282,6 +310,10 @@ async def _build_browse_query(
         excluded_tag_ids=_as_csv(tag_exclude),
         tool_ids=_as_csv(filters.get("tools", {}).get("include", [])),
         excluded_tool_ids=_as_csv(filters.get("tools", {}).get("exclude", [])),
+        include_superseded=True,
+        exclude_expired=False,
+        asset_id_column=Asset.id,
+        expiration_column=Asset.expires_at,
     )
     stmt = _apply_created_at_filters(stmt, filters.get("created_at"))
 
@@ -446,7 +478,10 @@ async def _browse_options_dynamic(
     offset: int,
 ) -> Tuple[List[Dict[str, Any]], Optional[str], Optional[int]]:
     base_stmt = await _build_browse_query(session, _copy_filters_without_facet(filters, facet), "created_desc", None)
-    media_ids = base_stmt.with_only_columns(MediaItem.id).subquery()
+    asset_media_ids = base_stmt.with_only_columns(
+        MediaItem.id.label("media_id"),
+        Asset.id.label("asset_id"),
+    ).subquery()
     search = f"%{query.lower()}%" if query else None
 
     if facet == "tags":
@@ -454,29 +489,39 @@ async def _browse_options_dynamic(
             select(
                 Tag.id.label("id"),
                 Tag.tag_text.label("label"),
-                func.count(func.distinct(MediaTag.media_id)).label("count"),
+                func.count(func.distinct(AssetTag.asset_id)).label("count"),
             )
-            .join(MediaTag, MediaTag.tag_id == Tag.id)
-            .join(media_ids, media_ids.c.id == MediaTag.media_id)
+            .join(
+                AssetTag,
+                (AssetTag.tag_id == Tag.id) & AssetTag.deleted_at.is_(None),
+            )
+            .join(asset_media_ids, asset_media_ids.c.asset_id == AssetTag.asset_id)
             .group_by(Tag.id, Tag.tag_text)
         )
         if search:
             stmt = stmt.where(func.lower(Tag.tag_text).ilike(search))
-        stmt = stmt.order_by(func.count(func.distinct(MediaTag.media_id)).desc(), Tag.tag_text.asc())
+        stmt = stmt.order_by(func.count(func.distinct(AssetTag.asset_id)).desc(), Tag.tag_text.asc())
     elif facet == "markers":
         stmt = (
             select(
                 Marker.id.label("id"),
                 Marker.name.label("label"),
-                func.count(func.distinct(MediaMarker.media_id)).label("count"),
+                func.count(func.distinct(AssetMarker.asset_id)).label("count"),
             )
-            .join(MediaMarker, and_(MediaMarker.marker_id == Marker.id, MediaMarker.source != "suppressed"))
-            .join(media_ids, media_ids.c.id == MediaMarker.media_id)
+            .join(
+                AssetMarker,
+                and_(
+                    AssetMarker.marker_id == Marker.id,
+                    AssetMarker.source != "suppressed",
+                    AssetMarker.deleted_at.is_(None),
+                ),
+            )
+            .join(asset_media_ids, asset_media_ids.c.asset_id == AssetMarker.asset_id)
             .group_by(Marker.id, Marker.name)
         )
         if search:
             stmt = stmt.where(func.lower(Marker.name).ilike(search))
-        stmt = stmt.order_by(func.count(func.distinct(MediaMarker.media_id)).desc(), Marker.name.asc())
+        stmt = stmt.order_by(func.count(func.distinct(AssetMarker.asset_id)).desc(), Marker.name.asc())
     elif facet == "keywords":
         stmt = (
             select(
@@ -485,7 +530,7 @@ async def _browse_options_dynamic(
                 func.count(func.distinct(MediaKeyword.media_id)).label("count"),
             )
             .join(MediaKeyword, MediaKeyword.keyword_id == Keyword.id)
-            .join(media_ids, media_ids.c.id == MediaKeyword.media_id)
+            .join(asset_media_ids, asset_media_ids.c.media_id == MediaKeyword.media_id)
             .group_by(Keyword.id, Keyword.keyword_text)
         )
         if search:
@@ -498,7 +543,7 @@ async def _browse_options_dynamic(
                 MediaToolLineage.full_tool_id.label("label"),
                 func.count(func.distinct(MediaToolLineage.media_id)).label("count"),
             )
-            .join(media_ids, media_ids.c.id == MediaToolLineage.media_id)
+            .join(asset_media_ids, asset_media_ids.c.media_id == MediaToolLineage.media_id)
             .group_by(MediaToolLineage.full_tool_id)
         )
         if search:
@@ -506,7 +551,9 @@ async def _browse_options_dynamic(
         stmt = stmt.order_by(func.count(func.distinct(MediaToolLineage.media_id)).desc(), MediaToolLineage.full_tool_id.asc())
     elif facet == "folders":
         file_paths = (await session.execute(
-            select(MediaItem.file_path).where(MediaItem.id.in_(select(media_ids.c.id)))
+            select(MediaItem.file_path).where(
+                MediaItem.id.in_(select(asset_media_ids.c.media_id))
+            )
         )).scalars().all()
         counts: Dict[str, int] = {}
         for file_path in file_paths:
@@ -908,7 +955,8 @@ async def _load_lineage_data(session: AsyncSession, media_id: int) -> Dict[str, 
     name="library",
     description=(
         "Search, retrieve, save, and browse the media library. "
-        "Manage tags, markers, and boards on media items. "
+        "Manage tags, markers, and boards on Assets. Browse/search results return "
+        "both asset_id (organization) and media_id (exact payload). "
         "Use browse_schema and browse_options for progressive disclosure of browse facets. Inspect lineage. "
         "Use generation_params to get a call_tool-ready flow for reproducing an existing image (tweak one field, then call_tool)."
     ),
@@ -916,8 +964,10 @@ async def _load_lineage_data(session: AsyncSession, media_id: int) -> Dict[str, 
         ToolParameter("action", "string", "search | get | generation_params | browse | browse_schema | browse_options | save | lineage | tag | marker | board"),
         ToolParameter("query", "string", "Text query. Search matches against generation prompts by default (best signal). Use search_fields to broaden.", required=False),
         ToolParameter("search_fields", "string", "prompt (default) | caption | keywords | all — which fields to search. Only broaden when prompt search returns nothing useful.", required=False),
-        ToolParameter("media_id", "integer", "Media ID (get/lineage/tag/marker)", required=False),
-        ToolParameter("media_ids", "array", "List of media IDs (tag/marker/board bulk ops)", required=False, items={"type": "integer"}),
+        ToolParameter("media_id", "integer", "Exact Media payload ID for get or lineage", required=False),
+        ToolParameter("media_ids", "array", "Exact Media payload IDs for payload operations", required=False, items={"type": "integer"}),
+        ToolParameter("asset_id", "integer", "Asset ID required for tag, marker, and board organization actions", required=False),
+        ToolParameter("asset_ids", "array", "Asset IDs required for bulk tag, marker, and board organization actions", required=False, items={"type": "integer"}),
         ToolParameter("tags", "array", "Filter by tag names (browse) or tag names to add/remove (tag action)", required=False, items={"type": "string"}),
         ToolParameter("limit", "integer", "Max results, default 20", required=False),
         ToolParameter("offset", "integer", "Browse result offset, default 0", required=False),
@@ -942,6 +992,8 @@ async def library(
     search_fields: Optional[str] = None,
     media_id: Optional[int] = None,
     media_ids: Optional[List[int]] = None,
+    asset_id: Optional[int] = None,
+    asset_ids: Optional[List[int]] = None,
     tags: Optional[List[str]] = None,
     limit: Optional[int] = None,
     offset: Optional[int] = None,
@@ -988,12 +1040,28 @@ async def library(
     elif action == "lineage":
         return await _lineage(session, media_id)
     elif action == "tag":
-        return await _tag(session, media_id, media_ids, tags, op)
+        return await _tag(
+            session, asset_id, asset_ids, media_id, media_ids, tags, op
+        )
     elif action == "marker":
-        return await _marker(session, media_id, media_ids, marker_name, op)
+        return await _marker(
+            session, asset_id, asset_ids, media_id, media_ids, marker_name, op
+        )
     elif action == "board":
         project_id = kwargs.get("project_id")
-        return await _board(session, media_id, media_ids, board_name, board_id, section_name, section_id, op, project_id=project_id)
+        return await _board(
+            session,
+            asset_id,
+            asset_ids,
+            media_id,
+            media_ids,
+            board_name,
+            board_id,
+            section_name,
+            section_id,
+            op,
+            project_id=project_id,
+        )
     else:
         return (
             "Error: Unknown action "
@@ -1017,8 +1085,6 @@ async def _search(
     if fields not in valid_fields:
         return f"Error: search_fields must be one of: {', '.join(sorted(valid_fields))}"
 
-    from utils.query_builder import not_due_for_autodelete
-
     conditions = []
     if fields in ("prompt", "all"):
         conditions.append(MediaItem.extracted_prompt.ilike(f"%{query}%"))
@@ -1027,17 +1093,27 @@ async def _search(
     if fields in ("keywords", "all"):
         conditions.append(MediaItem.keywords.ilike(f"%{query}%"))
 
-    stmt = select(MediaItem).where(
-        MediaItem.deleted_at.is_(None),
-        MediaItem.superseded_by.is_(None),
-        not_due_for_autodelete(),
-        or_(*conditions),
+    stmt = (
+        select(MediaItem)
+        .join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
+        .join(Asset, Asset.current_revision_id == AssetRevision.id)
+        .where(
+            Asset.state == "active",
+            Asset.deleted_at.is_(None),
+            AssetRevision.deleted_at.is_(None),
+            MediaItem.deleted_at.is_(None),
+            or_(Asset.expires_at.is_(None), Asset.expires_at > datetime.utcnow()),
+            or_(*conditions),
+        )
     )
     # Scope to project when in project context
     if project_id is not None:
-        from database import ProjectMedia
-        stmt = stmt.join(ProjectMedia, ProjectMedia.media_id == MediaItem.id).where(
-            ProjectMedia.project_id == project_id
+        stmt = stmt.join(
+            ProjectAsset,
+            (ProjectAsset.asset_id == Asset.id)
+            & ProjectAsset.deleted_at.is_(None),
+        ).where(
+            ProjectAsset.project_id == project_id
         )
     stmt = stmt.order_by(MediaItem.created_date.desc()).limit(limit)
 
@@ -1047,7 +1123,8 @@ async def _search(
     if not items:
         return "No results found."
 
-    summaries = [_media_summary(item) for item in items]
+    asset_ids = await _asset_ids_for_media(session, [item.id for item in items])
+    summaries = [_media_summary(item, asset_ids.get(item.id)) for item in items]
     return json.dumps(summaries, default=str)
 
 
@@ -1079,9 +1156,12 @@ async def _browse(
     )
     # Scope to project when in project context
     if project_id is not None:
-        from database import ProjectMedia
-        stmt = stmt.join(ProjectMedia, ProjectMedia.media_id == MediaItem.id).where(
-            ProjectMedia.project_id == project_id
+        stmt = stmt.join(
+            ProjectAsset,
+            (ProjectAsset.asset_id == Asset.id)
+            & ProjectAsset.deleted_at.is_(None),
+        ).where(
+            ProjectAsset.project_id == project_id
         )
     total_stmt = select(func.count()).select_from(stmt.order_by(None).subquery())
     total = (await session.execute(total_stmt)).scalar() or 0
@@ -1099,7 +1179,8 @@ async def _browse(
             "sort": sort_spec,
         }, default=str)
 
-    summaries = [_media_summary(item) for item in items]
+    asset_ids = await _asset_ids_for_media(session, [item.id for item in items])
+    summaries = [_media_summary(item, asset_ids.get(item.id)) for item in items]
     return json.dumps({
         "items": summaries,
         "total": total,
@@ -1453,6 +1534,7 @@ async def save_workspace_file(
         )
 
     asset_id = None
+    revision_id = None
     if materialize_asset:
         from asset_association_service import mirror_media_associations_to_asset
         from asset_service import create_asset_from_media
@@ -1466,6 +1548,7 @@ async def save_workspace_file(
             session, media_id=media_item.id, asset_id=asset.id
         )
         asset_id = asset.id
+        revision_id = asset.current_revision_id
 
     await session.commit()
 
@@ -1478,8 +1561,14 @@ async def save_workspace_file(
 
     # Broadcast update
     try:
-        from utils.websocket import broadcast_media_updated
+        from utils.websocket import broadcast_media_updated, ws_manager
         await broadcast_media_updated(media_item, ["created"], session)
+        if asset_id is not None:
+            await ws_manager.broadcast("asset_created", {
+                "asset_id": asset_id,
+                "media_id": media_item.id,
+                "revision_id": revision_id,
+            })
     except Exception as e:
         log.warning(f"[library] Failed to broadcast media update: {e}")
 
@@ -1634,12 +1723,15 @@ async def _lineage(session: AsyncSession, media_id: Optional[int]) -> str:
 
 async def _tag(
     session: AsyncSession,
+    asset_id: Optional[int],
+    asset_ids: Optional[List[int]],
     media_id: Optional[int],
     media_ids: Optional[List[int]],
     tags: Optional[List[str]],
     operation: str,
 ) -> str:
-    from utils.websocket import broadcast_media_updated
+    from asset_association_service import set_asset_tag
+    from utils.websocket import ws_manager
 
     if operation == "list":
         # List all available tags
@@ -1650,50 +1742,42 @@ async def _tag(
     if not tags:
         return "Error: tags list is required for tag action"
 
-    # Resolve target media IDs
-    ids = _collect_media_ids(media_id, media_ids)
+    ids, resolution_error = await _resolve_org_asset_ids(
+        session, asset_id, asset_ids, media_id, media_ids
+    )
+    if resolution_error:
+        return resolution_error
     if not ids:
-        return "Error: media_id or media_ids is required for tag action"
+        return "Error: asset_id or asset_ids is required for tag action"
 
     tag_ids = await _resolve_or_create_tags(session, tags)
 
     if operation == "add":
         added = 0
-        for mid in ids:
+        for aid in ids:
             for tid in tag_ids:
-                existing = await session.execute(
-                    select(MediaTag).where(
-                        and_(MediaTag.media_id == mid, MediaTag.tag_id == tid)
-                    )
-                )
-                if not existing.scalar_one_or_none():
-                    session.add(MediaTag(media_id=mid, tag_id=tid))
+                if await set_asset_tag(
+                    session, asset_id=aid, tag_id=tid, add=True
+                ):
                     added += 1
         await session.commit()
-
-        # Broadcast updates
-        media_result = await session.execute(
-            select(MediaItem).where(MediaItem.id.in_(ids))
+        await ws_manager.broadcast(
+            "assets_updated", {"asset_ids": ids, "fields": ["tags"]}
         )
-        await broadcast_media_updated(media_result.scalars().all(), ["tags"], session)
         return json.dumps({"status": "ok", "added": added, "tags": tags})
 
     elif operation == "remove":
         removed = 0
-        for mid in ids:
+        for aid in ids:
             for tid in tag_ids:
-                result = await session.execute(
-                    delete(MediaTag).where(
-                        and_(MediaTag.media_id == mid, MediaTag.tag_id == tid)
-                    )
-                )
-                removed += result.rowcount
+                if await set_asset_tag(
+                    session, asset_id=aid, tag_id=tid, add=False
+                ):
+                    removed += 1
         await session.commit()
-
-        media_result = await session.execute(
-            select(MediaItem).where(MediaItem.id.in_(ids))
+        await ws_manager.broadcast(
+            "assets_updated", {"asset_ids": ids, "fields": ["tags"]}
         )
-        await broadcast_media_updated(media_result.scalars().all(), ["tags"], session)
         return json.dumps({"status": "ok", "removed": removed, "tags": tags})
 
     return f"Error: Unknown operation '{operation}'. Use: add, remove, list"
@@ -1701,12 +1785,15 @@ async def _tag(
 
 async def _marker(
     session: AsyncSession,
+    asset_id: Optional[int],
+    asset_ids: Optional[List[int]],
     media_id: Optional[int],
     media_ids: Optional[List[int]],
     marker_name: Optional[str],
     operation: str,
 ) -> str:
-    from utils.websocket import broadcast_media_updated
+    from asset_association_service import set_asset_marker
+    from utils.websocket import ws_manager
 
     if operation == "list":
         # List all available markers
@@ -1731,48 +1818,38 @@ async def _marker(
     if not marker:
         return f"Error: Marker '{marker_name}' not found. Use operation='list' to see available markers."
 
-    ids = _collect_media_ids(media_id, media_ids)
+    ids, resolution_error = await _resolve_org_asset_ids(
+        session, asset_id, asset_ids, media_id, media_ids
+    )
+    if resolution_error:
+        return resolution_error
     if not ids:
-        return "Error: media_id or media_ids is required for marker action"
+        return "Error: asset_id or asset_ids is required for marker action"
 
     if operation == "add":
         added = 0
-        for mid in ids:
-            existing = await session.execute(
-                select(MediaMarker).where(
-                    and_(MediaMarker.media_id == mid, MediaMarker.marker_id == marker.id)
-                )
-            )
-            row = existing.scalar_one_or_none()
-            if row:
-                if row.source != "manual":
-                    row.source = "manual"
-            else:
-                session.add(MediaMarker(media_id=mid, marker_id=marker.id, source="manual"))
+        for aid in ids:
+            if await set_asset_marker(
+                session, asset_id=aid, marker_id=marker.id, add=True
+            ):
                 added += 1
         await session.commit()
-
-        media_result = await session.execute(
-            select(MediaItem).where(MediaItem.id.in_(ids))
+        await ws_manager.broadcast(
+            "assets_updated", {"asset_ids": ids, "fields": ["markers"]}
         )
-        await broadcast_media_updated(media_result.scalars().all(), ["markers"], session)
         return json.dumps({"status": "ok", "added": added, "marker": marker_name})
 
     elif operation == "remove":
         removed = 0
-        for mid in ids:
-            result = await session.execute(
-                delete(MediaMarker).where(
-                    and_(MediaMarker.media_id == mid, MediaMarker.marker_id == marker.id)
-                )
-            )
-            removed += result.rowcount
+        for aid in ids:
+            if await set_asset_marker(
+                session, asset_id=aid, marker_id=marker.id, add=False
+            ):
+                removed += 1
         await session.commit()
-
-        media_result = await session.execute(
-            select(MediaItem).where(MediaItem.id.in_(ids))
+        await ws_manager.broadcast(
+            "assets_updated", {"asset_ids": ids, "fields": ["markers"]}
         )
-        await broadcast_media_updated(media_result.scalars().all(), ["markers"], session)
         return json.dumps({"status": "ok", "removed": removed, "marker": marker_name})
 
     return f"Error: Unknown operation '{operation}'. Use: add, remove, list"
@@ -1780,6 +1857,8 @@ async def _marker(
 
 async def _board(
     session: AsyncSession,
+    asset_id: Optional[int],
+    asset_ids: Optional[List[int]],
     media_id: Optional[int],
     media_ids: Optional[List[int]],
     board_name: Optional[str],
@@ -1821,14 +1900,26 @@ async def _board(
             )
         )
         board = result.scalar_one_or_none()
+        if (
+            board is not None
+            and project_id is not None
+            and board.project_id != project_id
+        ):
+            return "Error: Board does not belong to the current project"
     elif board_name:
-        result = await session.execute(
-            select(Board).where(
+        board_query = select(Board).where(
                 Board.name == board_name,
                 Board.deleted_at.is_(None),
             )
+        board_query = board_query.where(
+            Board.project_id == project_id
+            if project_id is not None
+            else Board.project_id.is_(None)
         )
-        board = result.scalar_one_or_none()
+        matches = list(await session.scalars(board_query.limit(2)))
+        if len(matches) > 1:
+            return "Error: Board name is ambiguous; use board_id"
+        board = matches[0] if matches else None
 
     if not board and board_name and operation == "add":
         # Auto-create board on add when board_name is given but doesn't exist
@@ -1913,23 +2004,30 @@ async def _board(
 
     if operation == "contents":
         result = await session.execute(
-            select(MediaItem, BoardSection.name)
-            .join(BoardItem, BoardItem.media_id == MediaItem.id)
-            .join(BoardSection, BoardSection.id == BoardItem.board_section_id)
+            select(Asset, MediaItem, BoardSection.name)
+            .join(BoardAssetItem, BoardAssetItem.asset_id == Asset.id)
+            .join(BoardSection, BoardSection.id == BoardAssetItem.board_section_id)
+            .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+            .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
             .where(
                 BoardSection.board_id == board.id,
                 BoardSection.deleted_at.is_(None),
+                BoardAssetItem.deleted_at.is_(None),
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
                 MediaItem.deleted_at.is_(None),
             )
-            .order_by(BoardSection.display_order.asc(), BoardItem.display_order.asc())
+            .order_by(
+                BoardSection.display_order.asc(),
+                BoardAssetItem.display_order.asc(),
+            )
         )
         rows = result.all()
-        items = [row[0] for row in rows]
-        if not items:
+        if not rows:
             return json.dumps({"board": board.name, "items": [], "count": 0})
         summaries = []
-        for item, resolved_section_name in rows:
-            summary = _media_summary(item)
+        for asset, item, resolved_section_name in rows:
+            summary = _media_summary(item, asset.id)
             summary["section_name"] = resolved_section_name
             summaries.append(summary)
         return json.dumps({"board": board.name, "items": summaries, "count": len(summaries)})
@@ -1947,6 +2045,14 @@ async def _board(
             return "Error: Section not found or cannot delete default section"
         section.deleted_at = datetime.utcnow()
         await session.execute(delete(BoardItem).where(BoardItem.board_section_id == section.id))
+        await session.execute(
+            update(BoardAssetItem)
+            .where(
+                BoardAssetItem.board_section_id == section.id,
+                BoardAssetItem.deleted_at.is_(None),
+            )
+            .values(deleted_at=datetime.utcnow())
+        )
         await session.commit()
         board_payload = (await serialize_board(board, session)).model_dump()
         await ws_manager.broadcast("board_items_changed", {"board_id": board.id, "board": board_payload})
@@ -1961,9 +2067,13 @@ async def _board(
         await session.commit()
         return json.dumps({"status": "ok", "section": section.to_dict()})
 
-    ids = _collect_media_ids(media_id, media_ids)
+    ids, resolution_error = await _resolve_org_asset_ids(
+        session, asset_id, asset_ids, media_id, media_ids
+    )
+    if resolution_error:
+        return resolution_error
     if not ids:
-        return "Error: media_id or media_ids is required for board add/remove/move"
+        return "Error: asset_id or asset_ids is required for board add/remove/move"
 
     if operation == "move":
         if not section:
@@ -1977,19 +2087,32 @@ async def _board(
             )
         )
         all_section_ids = [row[0] for row in all_section_ids_result.all()]
-        for mid in ids:
+        for aid in ids:
             await session.execute(
-                delete(BoardItem).where(
-                    and_(BoardItem.media_id == mid, BoardItem.board_section_id.in_(all_section_ids))
-                )
+                update(BoardAssetItem).where(
+                    BoardAssetItem.asset_id == aid,
+                    BoardAssetItem.board_section_id.in_(all_section_ids),
+                    BoardAssetItem.deleted_at.is_(None),
+                ).values(deleted_at=datetime.utcnow())
             )
         max_order = await session.scalar(
-            select(func.coalesce(func.max(BoardItem.display_order), -1)).where(BoardItem.board_section_id == target_section.id)
+            select(func.coalesce(func.max(BoardAssetItem.display_order), -1)).where(
+                BoardAssetItem.board_section_id == target_section.id,
+                BoardAssetItem.deleted_at.is_(None),
+            )
         )
         next_order = (max_order or -1) + 1
-        for mid in ids:
-            session.add(BoardItem(board_section_id=target_section.id, media_id=mid, display_order=next_order))
-            next_order += 1
+        from asset_association_service import attach_asset_to_board_section
+        for aid in ids:
+            _, was_added = await attach_asset_to_board_section(
+                session,
+                board=board,
+                section_id=target_section.id,
+                asset_id=aid,
+                display_order=next_order,
+            )
+            if was_added:
+                next_order += 1
         board.updated_at = datetime.utcnow()
         await session.commit()
         board_payload = (await serialize_board(board, session)).model_dump()
@@ -2001,17 +2124,22 @@ async def _board(
         added = 0
         target_section = section or default_section
         max_order = await session.scalar(
-            select(func.coalesce(func.max(BoardItem.display_order), -1)).where(BoardItem.board_section_id == target_section.id)
+            select(func.coalesce(func.max(BoardAssetItem.display_order), -1)).where(
+                BoardAssetItem.board_section_id == target_section.id,
+                BoardAssetItem.deleted_at.is_(None),
+            )
         )
         next_order = (max_order or -1) + 1
-        for mid in ids:
-            existing = await session.execute(
-                select(BoardItem).where(
-                    and_(BoardItem.media_id == mid, BoardItem.board_section_id == target_section.id)
-                )
+        from asset_association_service import attach_asset_to_board_section
+        for aid in ids:
+            _, was_added = await attach_asset_to_board_section(
+                session,
+                board=board,
+                section_id=target_section.id,
+                asset_id=aid,
+                display_order=next_order,
             )
-            if not existing.scalar_one_or_none():
-                session.add(BoardItem(board_section_id=target_section.id, media_id=mid, display_order=next_order))
+            if was_added:
                 added += 1
                 next_order += 1
 
@@ -2025,16 +2153,28 @@ async def _board(
     elif operation == "remove":
         removed = 0
         target_section = section
-        for mid in ids:
+        for aid in ids:
             if target_section:
                 result = await session.execute(
-                    delete(BoardItem).where(
-                        and_(BoardItem.media_id == mid, BoardItem.board_section_id == target_section.id)
-                    )
+                    update(BoardAssetItem).where(
+                        BoardAssetItem.asset_id == aid,
+                        BoardAssetItem.board_section_id == target_section.id,
+                        BoardAssetItem.deleted_at.is_(None),
+                    ).values(deleted_at=datetime.utcnow())
                 )
                 removed += result.rowcount
             else:
-                result = await session.execute(delete(BoardItem).where(BoardItem.media_id == mid))
+                result = await session.execute(
+                    update(BoardAssetItem).where(
+                        BoardAssetItem.asset_id == aid,
+                        BoardAssetItem.deleted_at.is_(None),
+                        BoardAssetItem.board_section_id.in_(
+                            select(BoardSection.id).where(
+                                BoardSection.board_id == board.id
+                            )
+                        ),
+                    ).values(deleted_at=datetime.utcnow())
+                )
                 removed += result.rowcount
 
         board.updated_at = datetime.utcnow()
@@ -2058,6 +2198,52 @@ def _collect_media_ids(
     if media_ids:
         ids.extend(media_ids)
     return list(dict.fromkeys(ids))  # dedupe preserving order
+
+
+async def _resolve_org_asset_ids(
+    session: AsyncSession,
+    asset_id: Optional[int],
+    asset_ids: Optional[List[int]],
+    media_id: Optional[int],
+    media_ids: Optional[List[int]],
+) -> tuple[List[int], str | None]:
+    """Resolve organization targets to Asset roots, with bounded legacy fallback."""
+    requested_assets = _collect_media_ids(asset_id, asset_ids)
+    requested_media = _collect_media_ids(media_id, media_ids)
+    if requested_assets and requested_media:
+        return [], "Error: Do not mix Asset IDs and Media IDs in one organization action"
+    if requested_assets:
+        live = set(await session.scalars(
+            select(Asset.id).where(
+                Asset.id.in_(requested_assets),
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+            )
+        ))
+        missing = [value for value in requested_assets if value not in live]
+        if missing:
+            return [], f"Error: Asset IDs are unavailable or trashed: {missing}"
+        return requested_assets, None
+
+    if not requested_media:
+        return [], None
+    rows = (
+        await session.execute(
+            select(AssetRevision.primary_media_id, Asset.id)
+            .join(Asset, Asset.id == AssetRevision.asset_id)
+            .where(
+                AssetRevision.primary_media_id.in_(requested_media),
+                AssetRevision.deleted_at.is_(None),
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    by_media = {mid: aid for mid, aid in rows}
+    missing = [value for value in requested_media if value not in by_media]
+    if missing:
+        return [], f"Error: Media IDs do not resolve to live Assets: {missing}"
+    return [by_media[mid] for mid in requested_media], None
 
 
 async def _resolve_tag_ids(session: AsyncSession, tag_names: List[str]) -> List[int]:

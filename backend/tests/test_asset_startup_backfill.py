@@ -1,0 +1,227 @@
+"""Startup cutover guarantees historical Media receives safe Asset identity."""
+
+import json
+import asyncio
+from datetime import datetime
+
+import pytest
+from sqlalchemy import select
+
+from asset_migration import ensure_asset_backfill
+from delete_operations import _process_profile, create_delete_operation
+from database import (
+    Asset,
+    AssetMigrationMap,
+    AssetMigrationState,
+    AssetRevision,
+    ContainerMember,
+    DeleteOperation,
+    MediaItem,
+)
+from tests.helpers.media import create_media_item, generate_test_image
+
+
+@pytest.mark.asyncio
+async def test_startup_backfill_is_conservative_recoverable_and_constant_time(
+    client, db_session, tmp_path
+):
+    async with db_session() as session:
+        ordinary = await create_media_item(session, file_path=tmp_path / "ordinary.png")
+        trashed = await create_media_item(session, file_path=tmp_path / "trashed.png")
+        trashed.deleted_at = datetime.utcnow()
+
+        member = await create_media_item(session, file_path=tmp_path / "member.png")
+        member.deleted_at = datetime.utcnow()
+        container = await create_media_item(
+            session,
+            file_path=tmp_path / "grid.stimmagrid.json",
+            file_format="stimmagrid.json",
+            raw_metadata=json.dumps({
+                "cells": [{"row": 0, "col": 0, "path": "member.png"}]
+            }),
+        )
+        member.superseded_by = container.id
+
+        malformed = await create_media_item(
+            session,
+            file_path=tmp_path / "bad.stimmaset.json",
+            file_format="stimmaset.json",
+            raw_metadata="{not-json",
+        )
+        absent_members = await create_media_item(
+            session,
+            file_path=tmp_path / "empty.stimmaset.json",
+            file_format="stimmaset.json",
+            raw_metadata=json.dumps({"version": 1}),
+        )
+
+        duplicate_a = await create_media_item(session, file_path=tmp_path / "same.png")
+        await create_media_item(session, file_path=tmp_path / "same.png")
+        duplicate_grid = await create_media_item(
+            session,
+            file_path=tmp_path / "duplicates.stimmagrid.json",
+            file_format="stimmagrid.json",
+            raw_metadata=json.dumps({
+                "cells": [
+                    {"row": 0, "col": 0, "path": "same.png"},
+                    {"row": 0, "col": 1, "path": "same.png"},
+                    {"row": 0, "col": 2, "path": "missing.png"},
+                    "invalid",
+                ]
+            }),
+        )
+        deleting_path = tmp_path / "queued-delete.png"
+        deleting_hash = generate_test_image(deleting_path)
+        deleting = await create_media_item(
+            session,
+            file_path=deleting_path,
+            file_hash=deleting_hash,
+        )
+        deleting.deleted_at = datetime.utcnow()
+        await session.flush()
+        delete_operation = await create_delete_operation(
+            session,
+            profile_id="default",
+            kind="single",
+            media_items=[deleting],
+        )
+        await session.commit()
+
+        first = await ensure_asset_backfill(session)
+        second = await ensure_asset_backfill(session)
+
+        assert first["already_complete"] is False
+        assert second["already_complete"] is True
+        assert second["assets"] == 0
+        ordinary_revision = await session.scalar(
+            select(AssetRevision).where(
+                AssetRevision.primary_media_id == ordinary.id
+            )
+        )
+        assert ordinary_revision is not None
+
+        trashed_revision = await session.scalar(
+            select(AssetRevision).where(
+                AssetRevision.primary_media_id == trashed.id
+            )
+        )
+        trashed_asset = await session.get(Asset, trashed_revision.asset_id)
+        assert trashed_asset.state == "trashed"
+        assert (await session.get(MediaItem, trashed.id)).deleted_at is None
+
+        container_revision = await session.scalar(
+            select(AssetRevision).where(
+                AssetRevision.primary_media_id == container.id
+            )
+        )
+        container_member = await session.scalar(
+            select(ContainerMember).where(
+                ContainerMember.container_revision_id == container_revision.id
+            )
+        )
+        assert container_member.embedded_media_id == member.id
+
+        for invalid_container in (malformed, absent_members):
+            revision = await session.scalar(
+                select(AssetRevision).where(
+                    AssetRevision.primary_media_id == invalid_container.id
+                )
+            )
+            assert revision is not None
+            migration = await session.scalar(
+                select(AssetMigrationMap).where(
+                    AssetMigrationMap.legacy_media_id == invalid_container.id
+                )
+            )
+            assert migration.evidence is not None
+            assert json.loads(migration.evidence)["conflicts"]
+
+        duplicate_revision = await session.scalar(
+            select(AssetRevision).where(
+                AssetRevision.primary_media_id == duplicate_grid.id
+            )
+        )
+        placeholders = list(await session.scalars(
+            select(ContainerMember)
+            .where(ContainerMember.container_revision_id == duplicate_revision.id)
+            .order_by(ContainerMember.member_order)
+        ))
+        assert len(placeholders) == 4
+        assert all(item.missing_linked_asset for item in placeholders)
+        duplicate_map = await session.scalar(
+            select(AssetMigrationMap).where(
+                AssetMigrationMap.legacy_media_id == duplicate_grid.id
+            )
+        )
+        assert "duplicate_member_path:0" in json.loads(duplicate_map.evidence)[
+            "conflicts"
+        ]
+        assert duplicate_a.id is not None
+
+        assert await session.scalar(
+            select(AssetRevision).where(
+                AssetRevision.primary_media_id == deleting.id
+            )
+        ) is None
+        assert (await session.get(MediaItem, deleting.id)).deleted_at is not None
+        assert deleting_path.exists()
+
+        trashed_asset_id = trashed_asset.id
+        deleting_id = deleting.id
+        delete_operation_id = delete_operation.id
+
+    trash = await client.get("/api/assets", params={"state": "trashed"})
+    assert trash.status_code == 200
+    assert trashed_asset_id in {
+        item["asset"]["id"] for item in trash.json()["items"]
+    }
+    restored = await client.post(f"/api/assets/{trashed_asset_id}/restore")
+    assert restored.status_code == 200
+    active = await client.get(f"/api/assets/{trashed_asset_id}")
+    assert active.status_code == 200
+    assert active.json()["media"]["id"] == trashed.id
+
+    assert (await client.delete(f"/api/assets/{trashed_asset_id}")).status_code == 200
+    permanent = await client.delete(f"/api/assets/{trashed_asset_id}/permanent")
+    assert permanent.status_code == 202
+    operation = permanent.json()["operation"]
+    if operation is not None:
+        for _ in range(100):
+            status = (
+                await client.get(f"/api/delete-operations/{operation['id']}")
+            ).json()
+            if status["status"] in {"completed", "failed"}:
+                break
+            await asyncio.sleep(0.02)
+        assert status["status"] == "completed"
+    async with db_session() as session:
+        assert await session.get(Asset, trashed_asset_id) is None
+        assert await session.get(MediaItem, trashed.id) is None
+
+    for _ in range(20):
+        await _process_profile("default")
+        async with db_session() as session:
+            queued = await session.get(DeleteOperation, delete_operation_id)
+            if queued.status in {"completed", "failed"}:
+                break
+    assert queued.status == "completed"
+    assert not deleting_path.exists()
+    async with db_session() as session:
+        assert await session.get(MediaItem, deleting_id) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("phase", ["dual_write", "asset_reads", "object_store", "contracted"])
+async def test_startup_backfill_recognizes_every_post_cutover_phase(
+    db_session, phase
+):
+    async with db_session() as session:
+        state = await session.scalar(select(AssetMigrationState))
+        state.phase = phase
+        state.deleted_at = datetime.utcnow()
+        await session.commit()
+
+        result = await ensure_asset_backfill(session)
+
+        assert result["already_complete"] is True
+        assert result["phase"] == phase

@@ -52,12 +52,22 @@ async def _assert_no_link_cycle(
         pending.extend(child_ids)
 
 
-def _member_target(member: dict[str, Any]) -> tuple[int | None, int | None]:
+def _member_target(
+    member: dict[str, Any],
+) -> tuple[int | None, int | None, bool]:
     linked_asset_id = member.get("linked_asset_id")
     embedded_media_id = member.get("embedded_media_id")
-    if (linked_asset_id is None) == (embedded_media_id is None):
+    missing_linked_asset = bool(member.get("missing_linked_asset", False))
+    target_count = sum(
+        (
+            linked_asset_id is not None,
+            embedded_media_id is not None,
+            missing_linked_asset,
+        )
+    )
+    if target_count != 1:
         raise AssetServiceError("Container member requires exactly one target")
-    return linked_asset_id, embedded_media_id
+    return linked_asset_id, embedded_media_id, missing_linked_asset
 
 
 async def _populate_revision_members(
@@ -80,7 +90,12 @@ async def _populate_revision_members(
     )
     if existing:
         existing_targets = [
-            (member.linked_asset_id, member.embedded_media_id, member.member_order)
+            (
+                member.linked_asset_id,
+                member.embedded_media_id,
+                member.missing_linked_asset,
+                member.member_order,
+            )
             for member in existing
         ]
         desired_targets = [(*_member_target(member), index) for index, member in enumerate(desired)]
@@ -90,7 +105,9 @@ async def _populate_revision_members(
 
     created: list[ContainerMember] = []
     for index, member_data in enumerate(desired):
-        linked_asset_id, embedded_media_id = _member_target(member_data)
+        linked_asset_id, embedded_media_id, missing_linked_asset = _member_target(
+            member_data
+        )
         if linked_asset_id is not None:
             await _assert_no_link_cycle(
                 session,
@@ -101,6 +118,7 @@ async def _populate_revision_members(
             container_revision_id=revision_id,
             linked_asset_id=linked_asset_id,
             embedded_media_id=embedded_media_id,
+            missing_linked_asset=missing_linked_asset,
             member_order=index,
             row_index=member_data.get("row_index"),
             column_index=member_data.get("column_index"),

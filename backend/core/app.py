@@ -878,6 +878,24 @@ async def lifespan(app: FastAPI):
         await registry.init_all_databases()
         log.info("databases initialized", count=len(settings.profiles))
 
+        # Asset browsers are authoritative in this release. Conservatively
+        # materialize roots for historical Media before accepting requests;
+        # ambiguous historical rows become Assets, so this migration cannot
+        # make prior user-visible content disappear.
+        from asset_migration import ensure_asset_backfill
+        for profile in settings.profiles:
+            db = registry.get_database(profile.id)
+            async with db.async_session_maker() as session:
+                migration = await ensure_asset_backfill(session)
+            if not migration["already_complete"]:
+                log.info(
+                    "asset media backfill completed",
+                    profile=profile.id,
+                    assets=migration["assets"],
+                    records=migration["records"],
+                    digest=migration["digest"],
+                )
+
         # Check for and reset stale CLIP embeddings (from old model with different dimensions)
         for profile in settings.profiles:
             await check_and_reset_stale_clip_embeddings(profile.id)

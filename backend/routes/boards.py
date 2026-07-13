@@ -424,30 +424,20 @@ async def add_board_items(
             )
         )
     )
-    from asset_association_service import attach_asset_to_project
+    from asset_association_service import attach_asset_to_board_section
     for asset_id in request.asset_ids:
         if asset_id not in valid_asset_ids:
             continue
-        existing = await session.scalar(
-            select(BoardAssetItem).where(
-                BoardAssetItem.board_section_id == section.id,
-                BoardAssetItem.asset_id == asset_id,
-                BoardAssetItem.deleted_at.is_(None),
-            )
+        _, was_added = await attach_asset_to_board_section(
+            session,
+            board=board,
+            section_id=section.id,
+            asset_id=asset_id,
+            display_order=next_order,
         )
-        if existing is not None:
-            continue
-        session.add(
-            BoardAssetItem(
-                board_section_id=section.id,
-                asset_id=asset_id,
-                display_order=next_order,
-            )
-        )
-        if board.project_id is not None:
-            await attach_asset_to_project(session, board.project_id, asset_id)
-        next_order += 1
-        added += 1
+        if was_added:
+            next_order += 1
+            added += 1
     for media_id in request.media_ids:
         existing = await session.execute(
             select(BoardItem).where(BoardItem.board_section_id == section.id, BoardItem.media_id == media_id)

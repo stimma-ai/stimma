@@ -1438,12 +1438,6 @@ function handleMediaUpdated(data) {
   const { media_id, fields, media } = data
   if (!media_id || !media) return
 
-  // If item became superseded (owned by a set/grid), remove it from grid
-  if (fields.includes('superseded_by') && media.superseded_by != null) {
-    removeItems([media_id])
-    return
-  }
-
   // Build the updates object
   const updates = {}
   if (fields.includes('markers')) {
@@ -1451,9 +1445,6 @@ function handleMediaUpdated(data) {
   }
   if (fields.includes('tags')) {
     updates.tags = media.tags || []
-  }
-  if (fields.includes('superseded_by')) {
-    updates.superseded_by = media.superseded_by
   }
   if (fields.includes('caption') || fields.includes('prompt') || fields.includes('metadata')) {
     Object.assign(updates, media)

@@ -9,6 +9,7 @@ from database import (
     Asset,
     AssetMarker,
     AssetTag,
+    Board,
     BoardAssetItem,
     BoardItem,
     MediaMarker,
@@ -59,6 +60,41 @@ async def detach_asset_from_project(session: AsyncSession, project_id: int, asse
     row.deleted_at = datetime.utcnow()
     await session.flush()
     return True
+
+
+async def attach_asset_to_board_section(
+    session: AsyncSession,
+    *,
+    board: Board,
+    section_id: int,
+    asset_id: int,
+    display_order: int,
+) -> tuple[BoardAssetItem | None, bool]:
+    """Add one live Asset to a board and apply board retention semantics."""
+    asset = await session.get(Asset, asset_id)
+    if asset is None or asset.state != "active" or asset.deleted_at is not None:
+        return None, False
+    existing = await session.scalar(
+        select(BoardAssetItem).where(
+            BoardAssetItem.board_section_id == section_id,
+            BoardAssetItem.asset_id == asset_id,
+            BoardAssetItem.deleted_at.is_(None),
+        )
+    )
+    asset.expires_at = None
+    if board.project_id is not None:
+        await attach_asset_to_project(session, board.project_id, asset_id)
+    if existing is not None:
+        await session.flush()
+        return existing, False
+    row = BoardAssetItem(
+        board_section_id=section_id,
+        asset_id=asset_id,
+        display_order=display_order,
+    )
+    session.add(row)
+    await session.flush()
+    return row, True
 
 
 async def set_asset_marker(
@@ -149,7 +185,12 @@ async def mirror_media_associations_to_asset(
             },
         )
 
-    for tag_id in await session.scalars(select(MediaTag.tag_id).where(MediaTag.media_id == media_id)):
+    tag_ids = list(
+        await session.scalars(
+            select(MediaTag.tag_id).where(MediaTag.media_id == media_id)
+        )
+    )
+    for tag_id in tag_ids:
         await _add_live(
             session,
             AssetTag,
@@ -178,7 +219,7 @@ async def mirror_media_associations_to_asset(
             },
         )
 
-    if marker_rows or board_items:
+    if marker_rows or tag_ids or board_items:
         asset = await session.get(Asset, asset_id)
         if asset is not None:
             asset.expires_at = None

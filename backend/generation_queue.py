@@ -2129,7 +2129,6 @@ class GenerationQueue:
                 media_item.generation_metadata = generation_metadata
             if ephemeral_run_id:
                 media_item.ephemeral_run_id = ephemeral_run_id
-                media_item.is_hidden = True
                 media_item.clip_status = 'skipped'
                 media_item.vlm_caption_status = 'skipped'
                 media_item.face_detection_status = 'skipped'
@@ -2164,9 +2163,8 @@ class GenerationQueue:
                 chat_item_id=chat_item_id,
                 # For videos, we pass the generation metadata directly since it can't be embedded
                 generation_metadata=generation_metadata,
-                # One-shot flow-as-tool: born ephemeral — hidden, un-ingested, hard-deleted at run end.
+                # One-shot flow-as-tool: born ephemeral, un-ingested, hard-deleted at run end.
                 ephemeral_run_id=ephemeral_run_id,
-                is_hidden=True if ephemeral_run_id else None,
                 clip_status='skipped' if ephemeral_run_id else 'pending',
                 vlm_caption_status='skipped' if ephemeral_run_id else 'pending',
                 face_detection_status='skipped' if ephemeral_run_id else 'pending',

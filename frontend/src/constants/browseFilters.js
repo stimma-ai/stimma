@@ -21,7 +21,6 @@ export const DEFAULT_BROWSE_FILTERS = {
   excludedMarkers: [],
   showExpiring: false,
   excludeExpiring: false,
-  includeHidden: false,
   similarTo: [],
   similarFaceTo: [],
   similarToText: '',
