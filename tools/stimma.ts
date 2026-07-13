@@ -547,6 +547,8 @@ Commands:
   test acceptance Run the release acceptance lane (fresh sandbox + fake tools)
   test acceptance --headed --slow-mo=250  Watch Chromium run the lane slowly
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
+  doctor assets     Read-only Asset/Media integrity audit
+  doctor assets --verify-hashes  Also hash every managed payload
   tag beta [X.Y.Z]    Tag HEAD as the next beta (train = next production version)
                       (canary builds are automatic on push to main — not tag-driven)
   promote production  Promote the latest beta's commit to a production release
@@ -1940,6 +1942,26 @@ async function main(): Promise<void> {
 
     case "dir": {
       console.log(getDataDir(bundleId, sandbox));
+      break;
+    }
+
+    case "doctor": {
+      if (sub !== "assets") {
+        printUsage();
+      }
+      await run(
+        "uv",
+        [
+          "run",
+          "python",
+          "-m",
+          "asset_doctor",
+          "--data-dir",
+          getDataDir(bundleId, sandbox),
+          ...rest,
+        ],
+        { cwd: join(repoRoot, "backend") },
+      );
       break;
     }
 

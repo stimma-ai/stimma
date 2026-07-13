@@ -48,6 +48,7 @@ Dependencies install on first run. Development uses its own data directory and c
 ```bash
 tools/stimma test backend       # backend pytest suite
 tools/stimma test acceptance    # end-to-end lane against a fresh sandbox
+tools/stimma doctor assets      # read-only Asset/Media integrity audit
 tools/stimma app build          # packaged app with portable backend
 ```
 
