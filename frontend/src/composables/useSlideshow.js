@@ -8,7 +8,7 @@ import { makeProfileKey } from '../utils/storageKeys'
  * Provides:
  * - Reactive slideshow state
  * - Enter/exit slideshow functions
- * - Integration with browser history (via useTabNavigation)
+ * - Shared slideshow visibility (via useTabNavigation)
  * - Context persistence across navigation (saves/restores current media ID)
  * - Automatic cleanup
  *
@@ -126,7 +126,7 @@ export function useSlideshow(options = {}) {
     slideshowState.randomized = params.randomized || false
     slideshowState.randomSeed = params.randomSeed || null
 
-    // Notify navigation system for browser history (if integrated)
+    // Notify the shared app chrome state (if integrated)
     if (navigation) {
       navigation.enterSlideshowMode()
     }
@@ -154,7 +154,7 @@ export function useSlideshow(options = {}) {
     slideshowState.randomized = false
     slideshowState.randomSeed = null
 
-    // Notify navigation system for browser history (if integrated)
+    // Notify the shared app chrome state (if integrated)
     if (navigation) {
       navigation.exitSlideshowMode()
     }
