@@ -83,10 +83,9 @@ async def check_and_reset_stale_clip_embeddings(profile_id: str) -> int:
 
     Returns the number of items reset.
     """
-    from sqlalchemy import select, update, func
+    from sqlalchemy import func, select, update
     from database import MediaItem
     from clip_service import CLIP_EMBEDDING_DIM
-    import numpy as np
 
     registry = get_database_registry()
     db = registry.get_database(profile_id)
@@ -94,18 +93,17 @@ async def check_and_reset_stale_clip_embeddings(profile_id: str) -> int:
     reset_count = 0
 
     async with db.async_session_maker() as session:
-        # Query items with embeddings to check their dimensions
+        # Float32 embeddings use four bytes per dimension. Let SQLite inspect
+        # the BLOB length so startup does not load and NumPy-decode every
+        # embedding in a large profile.
+        expected_bytes = CLIP_EMBEDDING_DIM * 4
         result = await session.execute(
-            select(MediaItem.id, MediaItem.clip_embedding)
-            .where(MediaItem.clip_embedding.isnot(None))
+            select(MediaItem.id).where(
+                MediaItem.clip_embedding.isnot(None),
+                func.length(MediaItem.clip_embedding) != expected_bytes,
+            )
         )
-        items_to_reset = []
-
-        for item_id, clip_embedding in result:
-            if clip_embedding is not None:
-                embedding = np.frombuffer(clip_embedding, dtype=np.float32)
-                if embedding.shape[0] != CLIP_EMBEDDING_DIM:
-                    items_to_reset.append(item_id)
+        items_to_reset = list(result.scalars())
 
         if items_to_reset:
             log.warning(
@@ -881,7 +879,15 @@ async def lifespan(app: FastAPI):
         # Structured manifests must be readable before automatic Asset
         # classification determines linked versus embedded membership.
         for profile in settings.profiles:
-            await backfill_structured_media_raw_metadata(profile.id)
+            started = time.monotonic()
+            log.info("structured metadata backfill checking", profile=profile.id)
+            backfilled = await backfill_structured_media_raw_metadata(profile.id)
+            log.info(
+                "structured metadata backfill checked",
+                profile=profile.id,
+                backfilled=backfilled,
+                elapsed_seconds=round(time.monotonic() - started, 1),
+            )
 
         # Asset browsers are authoritative in this release. Conservatively
         # materialize roots for historical Media before accepting requests;
@@ -890,8 +896,29 @@ async def lifespan(app: FastAPI):
         from asset_migration import ensure_asset_backfill
         for profile in settings.profiles:
             db = registry.get_database(profile.id)
-            async with db.async_session_maker() as session:
-                migration = await ensure_asset_backfill(session)
+            for attempt in range(1, 4):
+                try:
+                    async with db.async_session_maker() as session:
+                        migration = await ensure_asset_backfill(
+                            session,
+                            profile_id=profile.id,
+                        )
+                    break
+                except Exception as exc:
+                    is_locked = (
+                        "database is locked" in str(exc).lower()
+                        and attempt < 3
+                    )
+                    if not is_locked:
+                        raise
+                    delay = 2 ** (attempt - 1)
+                    log.warning(
+                        "asset media backfill database busy; retrying",
+                        profile=profile.id,
+                        attempt=attempt,
+                        delay_seconds=delay,
+                    )
+                    await asyncio.sleep(delay)
             if not migration["already_complete"]:
                 log.info(
                     "asset media backfill completed",
@@ -952,11 +979,27 @@ async def lifespan(app: FastAPI):
 
         # Check for and reset stale CLIP embeddings (from old model with different dimensions)
         for profile in settings.profiles:
-            await check_and_reset_stale_clip_embeddings(profile.id)
+            started = time.monotonic()
+            log.info("CLIP embedding compatibility check started", profile=profile.id)
+            reset_count = await check_and_reset_stale_clip_embeddings(profile.id)
+            log.info(
+                "CLIP embedding compatibility check completed",
+                profile=profile.id,
+                reset=reset_count,
+                elapsed_seconds=round(time.monotonic() - started, 1),
+            )
 
         # Fix items created by agent with metadata already computed but stuck as 'pending'
         for profile in settings.profiles:
-            await fix_pending_items_with_metadata(profile.id)
+            started = time.monotonic()
+            log.info("pending metadata repair started", profile=profile.id)
+            fixed_count = await fix_pending_items_with_metadata(profile.id)
+            log.info(
+                "pending metadata repair completed",
+                profile=profile.id,
+                fixed=fixed_count,
+                elapsed_seconds=round(time.monotonic() - started, 1),
+            )
 
 
         # Sync markers from config to each profile's database

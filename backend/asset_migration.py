@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +18,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.logging import get_logger
 from database import (
     Asset,
     AssetMigrationMap,
@@ -32,6 +34,9 @@ from database import (
     MediaTag,
     ProjectMedia,
 )
+
+
+log = get_logger(__name__)
 
 
 _MIGRATION_PHASES = (
@@ -79,8 +84,12 @@ async def classify_legacy_media(
     session: AsyncSession,
     *,
     check_files: bool = False,
+    profile_id: str | None = None,
 ) -> dict[str, Any]:
     """Return a deterministic migration rehearsal report without writing data."""
+    started = time.monotonic()
+    if profile_id:
+        log.info("asset media backfill classification started", profile=profile_id)
     media_items = list(await session.scalars(select(MediaItem).order_by(MediaItem.id)))
     existing_revisions = {
         revision.primary_media_id: revision
@@ -221,7 +230,7 @@ async def classify_legacy_media(
 
     counts = dict(sorted(Counter(record["classification"] for record in records).items()))
     digest_payload = json.dumps(records, sort_keys=True, separators=(",", ":"))
-    return {
+    report = {
         "migration_version": 1,
         "media_count": len(records),
         "classification_counts": counts,
@@ -230,6 +239,17 @@ async def classify_legacy_media(
         "records": records,
         "digest": hashlib.sha256(digest_payload.encode("utf-8")).hexdigest(),
     }
+    if profile_id:
+        log.info(
+            "asset media backfill classification completed",
+            profile=profile_id,
+            media=report["media_count"],
+            assets=counts.get("asset", 0) + counts.get("trashed", 0),
+            embedded=counts.get("embedded_media", 0),
+            context=counts.get("context_media", 0),
+            elapsed_seconds=round(time.monotonic() - started, 1),
+        )
+    return report
 
 
 async def _materialize_migrated_asset(
@@ -237,12 +257,14 @@ async def _materialize_migrated_asset(
     *,
     media: MediaItem,
     trashed: bool,
+    check_existing: bool = True,
 ) -> Asset:
-    existing_revision = await session.scalar(
-        select(AssetRevision).where(AssetRevision.primary_media_id == media.id)
-    )
-    if existing_revision is not None:
-        return await session.get(Asset, existing_revision.asset_id)
+    if check_existing:
+        existing_revision = await session.scalar(
+            select(AssetRevision).where(AssetRevision.primary_media_id == media.id)
+        )
+        if existing_revision is not None:
+            return await session.get(Asset, existing_revision.asset_id)
 
     from asset_service import acquire_media_owner, infer_asset_type
 
@@ -302,13 +324,10 @@ async def _migration_container_specs(
     container: MediaItem,
     assets_by_media: dict[int, Asset],
     records_by_media: dict[int, dict[str, Any]],
-    media_items: list[MediaItem],
+    media_by_path: dict[str, list[MediaItem]],
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Preserve every legacy manifest slot without guessing duplicate paths."""
     records = _container_records(container)
-    by_path: dict[str, list[MediaItem]] = defaultdict(list)
-    for media in media_items:
-        by_path[_normalized_path(media.file_path)].append(media)
 
     specs: list[dict[str, Any]] = []
     conflicts: list[str] = []
@@ -328,7 +347,7 @@ async def _migration_container_specs(
         normalized = _normalized_path(
             record["path"], relative_to=container.file_path
         )
-        candidates = by_path.get(normalized, [])
+        candidates = media_by_path.get(normalized, [])
         if not candidates:
             conflicts.append(f"missing_member_path:{index}")
             specs.append({**base, "missing_linked_asset": True})
@@ -359,6 +378,8 @@ async def apply_asset_backfill(
     session: AsyncSession,
     *,
     approved_digest: str,
+    report: dict[str, Any] | None = None,
+    profile_id: str | None = None,
 ) -> dict[str, Any]:
     """Apply a rehearsed classifier result transactionally and idempotently.
 
@@ -388,11 +409,14 @@ async def apply_asset_backfill(
             "phase": state.phase,
         }
 
-    report = await classify_legacy_media(session)
+    if report is None:
+        report = await classify_legacy_media(session, profile_id=profile_id)
     if report["digest"] != approved_digest:
         raise ValueError("Historical Media changed after rehearsal; generate a new report")
 
     if state is None:
+        if profile_id:
+            log.info("asset media backfill acquiring write lock", profile=profile_id)
         state = AssetMigrationState(
             migration_key="asset_media_v1",
             phase="shadow",
@@ -402,6 +426,8 @@ async def apply_asset_backfill(
         )
         session.add(state)
         await session.flush()
+        if profile_id:
+            log.info("asset media backfill write lock acquired", profile=profile_id)
     elif state.report_digest and state.report_digest != approved_digest:
         raise ValueError("Migration state belongs to a different rehearsal digest")
     else:
@@ -410,7 +436,25 @@ async def apply_asset_backfill(
     assets_by_media: dict[int, Asset] = {}
     records_by_media = {record["media_id"]: record for record in report["records"]}
     media_items = list(await session.scalars(select(MediaItem).order_by(MediaItem.id)))
-    for media in media_items:
+    media_by_id = {media.id: media for media in media_items}
+    association_media_ids = set(
+        await session.scalars(
+            select(MediaMarker.media_id).where(MediaMarker.source != "suppressed")
+        )
+    )
+    association_media_ids.update(await session.scalars(select(MediaTag.media_id)))
+    association_media_ids.update(await session.scalars(select(ProjectMedia.media_id)))
+    association_media_ids.update(await session.scalars(select(BoardItem.media_id)))
+    total_media = len(media_items)
+    phase_started = time.monotonic()
+    last_progress = phase_started
+    if profile_id:
+        log.info(
+            "asset media backfill materialization started",
+            profile=profile_id,
+            total=total_media,
+        )
+    for index, media in enumerate(media_items, start=1):
         record = records_by_media[media.id]
         classification = record["classification"]
         if classification in {"asset", "trashed"}:
@@ -418,12 +462,14 @@ async def apply_asset_backfill(
                 session,
                 media=media,
                 trashed=classification == "trashed",
+                check_existing=False,
             )
             assets_by_media[media.id] = asset
-            from asset_association_service import mirror_media_associations_to_asset
-            await mirror_media_associations_to_asset(
-                session, media_id=media.id, asset_id=asset.id
-            )
+            if media.id in association_media_ids:
+                from asset_association_service import mirror_media_associations_to_asset
+                await mirror_media_associations_to_asset(
+                    session, media_id=media.id, asset_id=asset.id
+                )
         elif classification == "existing_asset_revision":
             revision = await session.scalar(
                 select(AssetRevision).where(
@@ -434,10 +480,11 @@ async def apply_asset_backfill(
                 asset = await session.get(Asset, revision.asset_id)
                 if asset is not None:
                     assets_by_media[media.id] = asset
-                    from asset_association_service import mirror_media_associations_to_asset
-                    await mirror_media_associations_to_asset(
-                        session, media_id=media.id, asset_id=asset.id
-                    )
+                    if media.id in association_media_ids:
+                        from asset_association_service import mirror_media_associations_to_asset
+                        await mirror_media_associations_to_asset(
+                            session, media_id=media.id, asset_id=asset.id
+                        )
         elif (
             classification == "context_media"
             and media.ephemeral_run_id
@@ -451,6 +498,28 @@ async def apply_asset_backfill(
                 role="intermediate",
                 idempotency_key=f"legacy-ephemeral:{media.id}",
             )
+
+        now = time.monotonic()
+        if profile_id and now - last_progress >= 5:
+            log.info(
+                "asset media backfill materialization progress",
+                profile=profile_id,
+                completed=index,
+                total=total_media,
+                percent=round(index * 100 / max(total_media, 1), 1),
+                assets=len(assets_by_media),
+                elapsed_seconds=round(now - phase_started, 1),
+            )
+            last_progress = now
+
+    if profile_id:
+        log.info(
+            "asset media backfill materialization completed",
+            profile=profile_id,
+            completed=total_media,
+            assets=len(assets_by_media),
+            elapsed_seconds=round(time.monotonic() - phase_started, 1),
+        )
 
     # A pre-upgrade failed Media deletion is no longer retryable after its
     # trashed Media has become an Asset root. Preserve the audit record but
@@ -482,8 +551,11 @@ async def apply_asset_backfill(
     # Populate container structure only after every independent member has its
     # Asset, so the resolver can choose linked versus embedded deterministically.
     from container_service import populate_container_revision_members
+    media_by_path: dict[str, list[MediaItem]] = defaultdict(list)
+    for media in media_items:
+        media_by_path[_normalized_path(media.file_path)].append(media)
     for media_id, asset in assets_by_media.items():
-        media = next(item for item in media_items if item.id == media_id)
+        media = media_by_id[media_id]
         if media.file_format not in {"stimmaset.json", "stimmagrid.json"}:
             continue
         if records_by_media[media_id]["classification"] == "existing_asset_revision":
@@ -494,7 +566,7 @@ async def apply_asset_backfill(
                 container=media,
                 assets_by_media=assets_by_media,
                 records_by_media=records_by_media,
-                media_items=media_items,
+                media_by_path=media_by_path,
             )
         except ValueError as exc:
             records_by_media[media_id]["conflicts"].append(str(exc))
@@ -510,15 +582,19 @@ async def apply_asset_backfill(
             members=specs,
         )
 
-    for record in report["records"]:
-        existing_map = await session.scalar(
-            select(AssetMigrationMap).where(
-                AssetMigrationMap.legacy_media_id == record["media_id"],
+    existing_mapped_ids = set(
+        await session.scalars(
+            select(AssetMigrationMap.legacy_media_id).where(
                 AssetMigrationMap.migration_version == 1,
                 AssetMigrationMap.deleted_at.is_(None),
             )
         )
-        if existing_map is not None:
+    )
+    mapping_started = time.monotonic()
+    last_progress = mapping_started
+    total_records = len(report["records"])
+    for index, record in enumerate(report["records"], start=1):
+        if record["media_id"] in existing_mapped_ids:
             continue
         asset = assets_by_media.get(record["media_id"])
         session.add(AssetMigrationMap(
@@ -533,12 +609,30 @@ async def apply_asset_backfill(
             migration_version=1,
             status="applied",
         ))
+        now = time.monotonic()
+        if profile_id and now - last_progress >= 5:
+            log.info(
+                "asset media backfill mapping progress",
+                profile=profile_id,
+                completed=index,
+                total=total_records,
+                percent=round(index * 100 / max(total_records, 1), 1),
+                elapsed_seconds=round(now - mapping_started, 1),
+            )
+            last_progress = now
 
     state.phase = "contracted"
     state.report_digest = approved_digest
     state.completed_at = datetime.utcnow()
     state.updated_at = datetime.utcnow()
     await session.flush()
+    if profile_id:
+        log.info(
+            "asset media backfill transaction ready to commit",
+            profile=profile_id,
+            assets=len(assets_by_media),
+            records=total_records,
+        )
     return {
         "digest": approved_digest,
         "assets": len(assets_by_media),
@@ -547,19 +641,27 @@ async def apply_asset_backfill(
     }
 
 
-async def ensure_asset_backfill(session: AsyncSession) -> dict[str, Any]:
+async def ensure_asset_backfill(
+    session: AsyncSession,
+    *,
+    profile_id: str | None = None,
+) -> dict[str, Any]:
     """Complete the one-time conservative backfill before Asset reads start.
 
     Classification and materialization run automatically in one transaction.
     Ambiguous historical rows become Assets, so startup never hides previously
     user-visible content while waiting for human migration work.
     """
+    if profile_id:
+        log.info("asset media backfill checking", profile=profile_id)
     state = await session.scalar(
         select(AssetMigrationState).where(
             AssetMigrationState.migration_key == "asset_media_v1",
         )
     )
     if state is not None and state.phase == "contracted":
+        if profile_id:
+            log.info("asset media backfill already complete", profile=profile_id)
         return {
             "digest": state.report_digest,
             "assets": 0,
@@ -571,6 +673,8 @@ async def ensure_asset_backfill(session: AsyncSession) -> dict[str, Any]:
         state.phase = "contracted"
         state.updated_at = datetime.utcnow()
         await session.commit()
+        if profile_id:
+            log.info("asset media backfill finalized existing cutover", profile=profile_id)
         return {
             "digest": state.report_digest,
             "assets": 0,
@@ -578,10 +682,19 @@ async def ensure_asset_backfill(session: AsyncSession) -> dict[str, Any]:
             "phase": state.phase,
             "already_complete": True,
         }
-    report = await classify_legacy_media(session)
+    report = await classify_legacy_media(session, profile_id=profile_id)
     result = await apply_asset_backfill(
         session,
         approved_digest=report["digest"],
+        report=report,
+        profile_id=profile_id,
     )
     await session.commit()
+    if profile_id:
+        log.info(
+            "asset media backfill committed",
+            profile=profile_id,
+            assets=result["assets"],
+            records=result["records"],
+        )
     return {**result, "already_complete": False}

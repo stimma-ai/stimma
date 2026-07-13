@@ -234,7 +234,7 @@ async function terminateDevProcesses(processes: DevProcess[]): Promise<void> {
 }
 
 async function isTcpPortOpen(hostname: string, port: number, timeoutMs = 500): Promise<boolean> {
-  let timer = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const connect = Deno.connect({ hostname, port });
     const timeout = new Promise<null>((resolve) => {
@@ -247,7 +247,7 @@ async function isTcpPortOpen(hostname: string, port: number, timeoutMs = 500): P
   } catch {
     return false;
   } finally {
-    if (timer) clearTimeout(timer);
+    if (timer !== undefined) clearTimeout(timer);
   }
 }
 
@@ -1668,8 +1668,9 @@ async function commandDevAll(bundleId: string, sandbox: string, runtimeEnv: Reco
     processes.push(spawnDevProcess("backend", "npx", backendArgs, { cwd: backendDir, env: runtimeEnv }));
     processes.push(spawnDevProcess("frontend", "npm", VITE_DEV_ARGS, { cwd: frontendDir, env: { ...runtimeEnv, ...portEnv } }));
 
+    console.log("[dev all] Waiting up to 10 minutes for backend startup; one-time profile migrations report progress below.");
     await waitForReadyOrExit(processes, Promise.all([
-      waitForTcpPort(ports.server, "backend", 60000, [DEV_HOST]),
+      waitForTcpPort(ports.server, "backend", 10 * 60 * 1000, [DEV_HOST]),
       waitForTcpPort(ports.frontend, "frontend", 60000, [DEV_HOST]),
     ]).then(() => undefined));
 

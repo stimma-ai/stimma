@@ -3,11 +3,13 @@
 import json
 import asyncio
 from datetime import datetime
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import select
 
-from asset_migration import ensure_asset_backfill
+from asset_migration import classify_legacy_media, ensure_asset_backfill
+from core.app import check_and_reset_stale_clip_embeddings
 from delete_operations import _process_profile, create_delete_operation
 from database import (
     Asset,
@@ -105,7 +107,19 @@ async def test_startup_backfill_is_conservative_recoverable_and_constant_time(
         failed.deletion_pending_at = None
         await session.commit()
 
-        first = await ensure_asset_backfill(session)
+        with (
+            patch(
+                "asset_migration.classify_legacy_media",
+                wraps=classify_legacy_media,
+            ) as classifier,
+            patch("asset_migration.log.info") as progress_log,
+        ):
+            first = await ensure_asset_backfill(session, profile_id="default")
+        assert classifier.await_count == 1
+        progress_events = [call.args[0] for call in progress_log.call_args_list]
+        assert "asset media backfill classification started" in progress_events
+        assert "asset media backfill materialization completed" in progress_events
+        assert "asset media backfill committed" in progress_events
         second = await ensure_asset_backfill(session)
 
         assert first["already_complete"] is False
@@ -254,3 +268,29 @@ async def test_startup_backfill_recognizes_every_post_cutover_phase(
 
         assert result["already_complete"] is True
         assert result["phase"] == "contracted"
+
+
+@pytest.mark.asyncio
+async def test_clip_compatibility_check_resets_only_wrong_sized_blobs(
+    client, db_session
+):
+    from clip_service import CLIP_EMBEDDING_DIM
+
+    async with db_session() as session:
+        compatible = await create_media_item(session, clip_status="completed")
+        stale = await create_media_item(session, clip_status="completed")
+        compatible.clip_embedding = bytes(CLIP_EMBEDDING_DIM * 4)
+        stale.clip_embedding = bytes((CLIP_EMBEDDING_DIM - 1) * 4)
+        await session.commit()
+        compatible_id = compatible.id
+        stale_id = stale.id
+
+    assert await check_and_reset_stale_clip_embeddings("default") == 1
+
+    async with db_session() as session:
+        compatible = await session.get(MediaItem, compatible_id)
+        stale = await session.get(MediaItem, stale_id)
+        assert compatible.clip_embedding is not None
+        assert compatible.clip_status == "completed"
+        assert stale.clip_embedding is None
+        assert stale.clip_status == "pending"
