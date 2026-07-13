@@ -45,12 +45,7 @@ def _get_builtin_default_config() -> dict:
             'id': generate_profile_id(),
             'name': 'Default',
             # Note: database is not specified - it's always stimma_v1.db in the profile folder
-            'folders': [{
-                'path': '',  # Filled in by ensure_config_exists
-                'allow_generate': True,
-                'is_uploads_folder': True,
-                'uploads_subfolder': 'uploads',
-            }],
+            'folders': [],
             'markers': [
                 {
                     'name': 'favorite',
@@ -103,9 +98,6 @@ def ensure_config_exists() -> Path:
     data_dir = app_dirs.get_data_dir()
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    docs_dir = app_dirs.get_documents_dir()
-    docs_dir.mkdir(parents=True, exist_ok=True)
-
     cache_dir = app_dirs.get_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -120,10 +112,6 @@ def ensure_config_exists() -> Path:
     if template_path.exists():
         # Read template as text to preserve comments
         config_text = template_path.read_text()
-        # Substitute the empty path placeholder with the Documents folder
-        # The template has: path: ""
-        # We replace the first occurrence (default profile's folder path)
-        config_text = config_text.replace('path: ""', f'path: "{docs_dir}"', 1)
         # Replace profile ID placeholder with generated profile ID.
         # Prefer explicit token, with backward-compatible fallback for older templates.
         config_text, replaced = re.subn(
@@ -158,16 +146,12 @@ def ensure_config_exists() -> Path:
             # by falling back to builtin config generation.
             default_config = _get_builtin_default_config()
             default_config['profiles'][0]['id'] = profile_id
-            if default_config.get('profiles') and default_config['profiles'][0].get('folders'):
-                default_config['profiles'][0]['folders'][0]['path'] = str(docs_dir)
             config_path.write_text(yaml.dump(default_config, default_flow_style=False, sort_keys=False))
     else:
         # Fall back to builtin (no comments, but functional)
         default_config = _get_builtin_default_config()
         # Override with the same profile_id we used for the directory
         default_config['profiles'][0]['id'] = profile_id
-        if default_config.get('profiles') and default_config['profiles'][0].get('folders'):
-            default_config['profiles'][0]['folders'][0]['path'] = str(docs_dir)
         config_path.write_text(yaml.dump(default_config, default_flow_style=False, sort_keys=False))
 
     return config_path
@@ -363,10 +347,6 @@ class MarkerConfig(BaseModel):
 
 class FolderConfig(BaseModel):
     path: str
-    readonly: bool = False
-    allow_generate: bool = False
-    is_uploads_folder: bool = False  # Mark as the destination for library uploads
-    uploads_subfolder: str = "uploads"  # Subfolder within this folder for uploads
     refresh_interval_seconds: Optional[int] = 300
     markers: List[str] = []  # Auto-apply these markers to items in this folder
 
@@ -377,6 +357,9 @@ class ProfileConfig(BaseModel):
     name: str
     database: str  # Database filename (e.g., "stimma.db")
     folders: List[FolderConfig] = []
+    # Hidden compatibility roots captured from historical folder roles. They
+    # are used only by managed-storage migration, never as write destinations.
+    legacy_managed_roots: List[str] = []
     markers: List[MarkerConfig] = []
     lora_allowlist: List[str] = []  # Glob patterns - if set, only these are allowed
     lora_denylist: List[str] = []   # Glob patterns - these are denied (allowlist can override)
@@ -551,6 +534,67 @@ class ToolProviderConfig(BaseModel):
     reconnect_delay: float = 5.0  # Base delay in seconds for reconnection
 
 
+def _migrate_source_folder_config(config_file: Path) -> bool:
+    """Contract historical folder roles into temporary migration roots.
+
+    The rewrite preserves comments and removes obsolete destination/readonly
+    keys. Roots remain only long enough for startup to adopt legacy structured
+    payloads into managed storage.
+    """
+    from ruamel.yaml import YAML
+    import shutil
+    import tempfile
+
+    parser = YAML()
+    parser.preserve_quotes = True
+    parser.width = 120
+    with config_file.open("r") as handle:
+        data = parser.load(handle) or {}
+
+    changed = False
+    obsolete_keys = (
+        "allow_generate",
+        "is_uploads_folder",
+        "uploads_subfolder",
+        "readonly",
+    )
+
+    def contract(owner: dict) -> None:
+        nonlocal changed
+        roots = list(owner.get("legacy_managed_roots", []) or [])
+        for folder in owner.get("folders", []) or []:
+            if folder.get("allow_generate") or folder.get("is_uploads_folder"):
+                path = folder.get("path")
+                if path and path not in roots:
+                    roots.append(path)
+            for key in obsolete_keys:
+                if key in folder:
+                    folder.pop(key)
+                    changed = True
+        if roots and roots != list(owner.get("legacy_managed_roots", []) or []):
+            owner["legacy_managed_roots"] = roots
+            changed = True
+
+    contract(data)
+    for profile in data.get("profiles", []) or []:
+        contract(profile)
+
+    if not changed:
+        return False
+
+    fd, temp_path = tempfile.mkstemp(suffix=".yaml", dir=config_file.parent)
+    try:
+        with os.fdopen(fd, "w") as handle:
+            parser.dump(data, handle)
+        shutil.copy2(config_file, config_file.with_suffix(".yaml.bak"))
+        os.replace(temp_path, config_file)
+    except Exception:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        raise
+    return True
+
+
 class Settings(BaseSettings):
     # Profile-based configuration (new structure)
     profiles: List[ProfileConfig] = []
@@ -688,32 +732,6 @@ class Settings(BaseSettings):
             tool_config=self.agent.tool_config,
         )
 
-    def get_generation_folders_for_profile(self, profile_id: str) -> List[FolderConfig]:
-        """Get folders that allow generation for a specific profile."""
-        folders = self.get_folders_for_profile(profile_id)
-        return [folder for folder in folders if folder.allow_generate]
-
-    def get_generation_folder_for_profile(self, profile_id: str) -> FolderConfig:
-        """Get the single generation folder for a profile.
-
-        Each profile must have exactly one folder with allow_generate=true.
-        Raises ValueError if zero or multiple folders are configured.
-        """
-        folders = self.get_generation_folders_for_profile(profile_id)
-        if len(folders) == 0:
-            raise ValueError(f"Profile '{profile_id}' has no folder with allow_generate=true configured")
-        if len(folders) > 1:
-            raise ValueError(f"Profile '{profile_id}' has {len(folders)} folders with allow_generate=true - only one is allowed")
-        return folders[0]
-
-    def get_uploads_folder_for_profile(self, profile_id: str) -> Optional[FolderConfig]:
-        """Get the uploads folder for a profile, or None if not configured."""
-        folders = self.get_folders_for_profile(profile_id)
-        uploads_folders = [f for f in folders if f.is_uploads_folder]
-        if len(uploads_folders) > 1:
-            raise ValueError(f"Profile '{profile_id}' has multiple uploads folders configured - only one is allowed")
-        return uploads_folders[0] if uploads_folders else None
-
     @classmethod
     def load_config(cls, config_path: Optional[str] = None) -> "Settings":
         """Load configuration from YAML file.
@@ -727,6 +745,7 @@ class Settings(BaseSettings):
         else:
             config_file = ensure_config_exists()
 
+        _migrate_source_folder_config(config_file)
         with open(config_file, 'r') as f:
             config_data = yaml.safe_load(f)
 
@@ -842,17 +861,20 @@ class Settings(BaseSettings):
             else:
                 config_data['cloud'] = CloudConfig(base_url=cloud_base_override)
 
-        # Handle folders (new format) or media_paths (old format)
+        # Handle folders (new format) or media_paths (old format). Historical
+        # destination roles are captured separately for one-way object-store
+        # migration and are not retained on source FolderConfig objects.
+        legacy_managed_roots = [
+            os.path.expanduser(path)
+            for path in (config_data.pop('legacy_managed_roots', []) or [])
+        ]
         if 'folders' in config_data:
             folders_list = []
             media_paths_list = []
             for folder in config_data['folders']:
+                expanded_path = os.path.expanduser(folder['path'])
                 folder_obj = FolderConfig(
-                    path=os.path.expanduser(folder['path']),
-                    readonly=folder.get('readonly', False),
-                    allow_generate=folder.get('allow_generate', False),
-                    is_uploads_folder=folder.get('is_uploads_folder', False),
-                    uploads_subfolder=folder.get('uploads_subfolder', 'uploads'),
+                    path=expanded_path,
                     refresh_interval_seconds=folder.get('refresh_interval_seconds', 300),
                     markers=folder.get('markers', [])
                 )
@@ -867,7 +889,7 @@ class Settings(BaseSettings):
                 os.path.expanduser(path) for path in config_data['media_paths']
             ]
             config_data['folders'] = [
-                FolderConfig(path=path, readonly=False, allow_generate=False, refresh_interval_seconds=300)
+                FolderConfig(path=path, refresh_interval_seconds=300)
                 for path in config_data['media_paths']
             ]
 
@@ -964,16 +986,14 @@ class Settings(BaseSettings):
             for profile in config_data['profiles']:
                 # Parse profile folders
                 profile_folders = []
+                profile_legacy_roots = [
+                    os.path.expanduser(path)
+                    for path in (profile.get('legacy_managed_roots', []) or [])
+                ]
                 for folder in profile.get('folders', []):
-                    is_uploads = folder.get('is_uploads_folder', False)
-                    # Uploads folder implies allow_generate (if not explicitly set)
-                    allow_gen = folder.get('allow_generate', is_uploads)
+                    expanded_path = os.path.expanduser(folder['path'])
                     profile_folders.append(FolderConfig(
-                        path=os.path.expanduser(folder['path']),
-                        readonly=folder.get('readonly', False),
-                        allow_generate=allow_gen,
-                        is_uploads_folder=is_uploads,
-                        uploads_subfolder=folder.get('uploads_subfolder', 'uploads'),
+                        path=expanded_path,
                         refresh_interval_seconds=folder.get('refresh_interval_seconds', 300),
                         markers=folder.get('markers', [])
                     ))
@@ -1027,6 +1047,7 @@ class Settings(BaseSettings):
                     name=profile['name'],
                     database=db_path,
                     folders=profile_folders,
+                    legacy_managed_roots=list(dict.fromkeys(profile_legacy_roots)),
                     markers=profile_markers,
                     wildcards=profile_wildcards,
                     prompt_segments=profile_prompt_segments,
@@ -1052,6 +1073,7 @@ class Settings(BaseSettings):
                     name='Default',
                     database=default_db_path,
                     folders=legacy_folders if isinstance(legacy_folders, list) and legacy_folders and isinstance(legacy_folders[0], FolderConfig) else [],
+                    legacy_managed_roots=list(dict.fromkeys(legacy_managed_roots)),
                     markers=legacy_markers if isinstance(legacy_markers, list) and legacy_markers and isinstance(legacy_markers[0], MarkerConfig) else [],
                 )
             ]
@@ -1065,11 +1087,6 @@ class Settings(BaseSettings):
         config_data['media_paths'] = all_media_paths
 
         return cls(**config_data)
-
-    def get_generation_folders(self) -> List[FolderConfig]:
-        """Get folders that allow generation."""
-        return [folder for folder in self.folders if folder.allow_generate]
-
 
 # Global settings instance
 settings: Settings = None

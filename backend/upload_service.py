@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Optional, Tuple, List
 from PIL import Image
 
-from config import get_settings, FolderConfig
+import app_dirs
 from config_version import get_config_version_manager
 from database import MediaItem
 from database_registry import get_database_registry
@@ -32,11 +32,6 @@ class UploadError(Exception):
     pass
 
 
-class NoUploadsFolderError(UploadError):
-    """No uploads folder configured for the profile."""
-    pass
-
-
 class UploadService:
     """Service for uploading files to the library."""
 
@@ -48,54 +43,13 @@ class UploadService:
 
     def __init__(self, profile_id: str = None):
         self.profile_id = profile_id or get_current_profile()
-        self.settings = get_settings()
 
-    def get_uploads_folder(self) -> FolderConfig:
-        """Get the uploads folder for the current profile.
-
-        Raises:
-            NoUploadsFolderError: If no uploads folder is configured.
-        """
-        folder = self.settings.get_uploads_folder_for_profile(self.profile_id)
-        if folder is None:
-            raise NoUploadsFolderError(
-                f"No uploads folder configured for profile '{self.profile_id}'. "
-                f"Add 'is_uploads_folder: true' to one of your folders in config.yaml."
-            )
-        return folder
-
-    def get_upload_destination(self, original_filename: str, project_id: Optional[int] = None) -> Tuple[Path, str]:
-        """Get the destination path for an uploaded file.
-
-        Returns:
-            Tuple of (full_path, relative_subfolder)
-        """
-        folder = self.get_uploads_folder()
-
-        # Build subfolder path: uploads_subfolder/YYYY/MM
-        now = datetime.now()
-        subfolder = Path(folder.uploads_subfolder) / str(now.year) / f"{now.month:02d}"
-
-        # Build destination directory
-        dest_dir = Path(folder.path) / subfolder
-        dest_dir.mkdir(parents=True, exist_ok=True)
-
-        # Generate unique filename
-        ext = Path(original_filename).suffix.lower()
-        timestamp = now.strftime("%Y%m%d_%H%M%S")
-        unique_id = uuid.uuid4().hex[:8]
-        filename = f"upload_{timestamp}_{unique_id}{ext}"
-
-        return dest_dir / filename, str(subfolder)
-
-    def get_managed_staging_destination(self, original_filename: str) -> Tuple[Path, str]:
+    def get_managed_staging_destination(self, original_filename: str) -> Path:
         """Return an app-owned staging path that watched-folder ingestion cannot see."""
-        from storage_service import managed_object_root
-
-        dest_dir = managed_object_root(self.profile_id) / ".upload-staging"
+        dest_dir = app_dirs.get_managed_staging_dir(self.profile_id, "uploads")
         dest_dir.mkdir(parents=True, exist_ok=True)
         ext = Path(original_filename).suffix.lower()
-        return dest_dir / f"{uuid.uuid4().hex}{ext}", ".upload-staging"
+        return dest_dir / f"{uuid.uuid4().hex}{ext}"
 
     def validate_file(self, filename: str) -> str:
         """Validate file extension and return the normalized extension.
@@ -159,7 +113,6 @@ class UploadService:
         original_filename: str,
         project_id: Optional[int] = None,
         materialize_asset: bool = True,
-        managed_staging: bool = False,
     ) -> Tuple[MediaItem, str]:
         """
         Upload a file to the library and create a database record.
@@ -167,7 +120,7 @@ class UploadService:
         This method:
         1. Validates the file type
         2. Checks if file already exists by hash (deduplication)
-        3. Saves to the uploads folder with date organization
+        3. Writes to private app staging before managed ingest
         4. Computes dimensions synchronously
         5. Creates MediaItem database record
         6. Signals ingestion worker for background processing
@@ -180,7 +133,6 @@ class UploadService:
             Tuple of (MediaItem, file_path as string)
 
         Raises:
-            NoUploadsFolderError: If no uploads folder configured
             UploadError: If file validation or save fails
         """
         # Validate file type
@@ -191,15 +143,9 @@ class UploadService:
         # distinct provenance-bearing Media identities.
         file_hash = self._compute_content_hash(file_content)
 
-        # Editor/version outputs must never briefly appear in a watched folder:
-        # the scanner could otherwise import the provisional file as a second
-        # Asset before object-store staging moves it away.
-        if managed_staging:
-            dest_path, subfolder = self.get_managed_staging_destination(original_filename)
-        else:
-            dest_path, subfolder = self.get_upload_destination(
-                original_filename, project_id=project_id
-            )
+        # Uploads never pass through a watched source. The scanner could import
+        # that provisional file as a second Asset before managed ingest wins.
+        dest_path = self.get_managed_staging_destination(original_filename)
 
         try:
             # Write file to disk
@@ -382,7 +328,7 @@ class UploadService:
         source_path: str,
     ) -> Tuple[MediaItem, str]:
         """
-        Copy an existing file into the uploads library folder.
+        Copy an existing file into managed storage.
 
         Used when "sending" an existing library image to a generation task -
         creates a separate copy so the original is preserved.

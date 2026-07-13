@@ -9,7 +9,7 @@
         <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[500px] max-w-[90vw] overflow-hidden">
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-edge">
-            <h2 class="text-lg font-semibold text-content">Folder Settings</h2>
+            <h2 class="text-lg font-semibold text-content">Source Settings</h2>
             <button
               @click="cancel"
               class="w-8 h-8 flex items-center justify-center text-content-tertiary hover:text-content hover:bg-surface-raised rounded-lg transition-colors"
@@ -171,7 +171,7 @@ async function browsePath() {
     const selected = await open({
       directory: true,
       multiple: false,
-      title: 'Select Folder',
+      title: 'Select Source Folder',
       defaultPath: localPath.value || undefined
     })
     if (selected) {

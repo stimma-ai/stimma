@@ -14,7 +14,7 @@ from sqlalchemy import select
 
 from ..tools_registry import tool, ToolParameter
 
-from config import get_settings
+import app_dirs
 from core.logging import get_logger
 from core.profile_context import get_current_profile
 from database import MediaItem
@@ -114,17 +114,11 @@ def _resolve_effective_task_type(tool_descriptor, params: Dict[str, Any]) -> str
 
 
 def _get_default_folder(workspace_dir: Optional[str] = None) -> str:
-    """Get default generation folder for the current profile."""
-    settings = get_settings()
+    """Get private managed staging for generated tool payloads."""
     profile_id = get_current_profile()
-    try:
-        folder = settings.get_generation_folder_for_profile(profile_id)
-        return folder.path
-    except ValueError:
-        for folder in settings.folders:
-            if folder.allow_generate:
-                return folder.path
-        return "./output"
+    folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
+    folder.mkdir(parents=True, exist_ok=True)
+    return str(folder)
 
 
 # Consecutive-failure streaks per (workspace, tool) AND per (workspace,

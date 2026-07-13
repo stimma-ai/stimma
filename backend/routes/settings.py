@@ -63,10 +63,6 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 class FolderResponse(BaseModel):
     """Folder configuration response."""
     path: str
-    readonly: bool = False
-    allow_generate: bool = False
-    is_uploads_folder: bool = False
-    uploads_subfolder: str = "uploads"
     refresh_interval_seconds: Optional[int] = 300
     markers: List[str] = []
     media_count: int = 0
@@ -302,10 +298,6 @@ class SettingsResponse(BaseModel):
 class FolderUpdate(BaseModel):
     """Folder update request."""
     path: str
-    readonly: bool = False
-    allow_generate: bool = False
-    is_uploads_folder: bool = False
-    uploads_subfolder: str = "uploads"
     refresh_interval_seconds: Optional[int] = 300
     markers: List[str] = []
 
@@ -497,10 +489,6 @@ async def get_settings_all():
 
                 folders.append(FolderResponse(
                     path=f.path,
-                    readonly=f.readonly,
-                    allow_generate=f.allow_generate,
-                    is_uploads_folder=f.is_uploads_folder,
-                    uploads_subfolder=f.uploads_subfolder,
                     refresh_interval_seconds=f.refresh_interval_seconds,
                     markers=f.markers,
                     media_count=media_count,
@@ -510,10 +498,6 @@ async def get_settings_all():
         folders = [
             FolderResponse(
                 path=f.path,
-                readonly=f.readonly,
-                allow_generate=f.allow_generate,
-                is_uploads_folder=f.is_uploads_folder,
-                uploads_subfolder=f.uploads_subfolder,
                 refresh_interval_seconds=f.refresh_interval_seconds,
                 markers=f.markers,
                 media_count=0,
@@ -895,19 +879,17 @@ async def update_folders(request: UpdateFoldersRequest):
     # Capture old folder paths for telemetry comparison
     settings = get_settings()
     old_folder_paths = set()
+    legacy_managed_roots = []
     for p in settings.profiles:
         if p.id == current_profile_id:
             old_folder_paths = {f.path for f in p.folders}
+            legacy_managed_roots = p.legacy_managed_roots
             break
 
     # Convert to dict format for config writer
     folders_data = [
         {
             "path": f.path,
-            "readonly": f.readonly,
-            "allow_generate": f.allow_generate,
-            "is_uploads_folder": f.is_uploads_folder,
-            "uploads_subfolder": f.uploads_subfolder,
             "refresh_interval_seconds": f.refresh_interval_seconds,
             "markers": f.markers,
         }
@@ -921,6 +903,12 @@ async def update_folders(request: UpdateFoldersRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
     try:
+        if legacy_managed_roots:
+            patch_profile_section(
+                current_profile_id,
+                "legacy_managed_roots",
+                legacy_managed_roots,
+            )
         patch_profile_section(current_profile_id, "folders", folders_data)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

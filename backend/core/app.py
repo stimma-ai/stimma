@@ -901,21 +901,20 @@ async def lifespan(app: FastAPI):
                     digest=migration["digest"],
                 )
 
-        # Stimma-native structured outputs historically lived in the writable
-        # generation folder. Adopt those app-managed manifests/bundles into the
-        # object store after membership has been normalized. External watched
-        # copies outside the generation root remain external sources.
+        # Adopt Stimma-native manifests/bundles from historical writable roots
+        # after membership has been normalized. Other watched paths remain
+        # external Sources.
         from pathlib import Path
         from storage_service import migrate_legacy_managed_media
         for profile in settings.profiles:
             managed_roots = [
-                Path(folder.path)
-                for folder in profile.folders
-                if folder.allow_generate
+                Path(path)
+                for path in profile.legacy_managed_roots
             ]
             if not managed_roots:
                 continue
             db = registry.get_database(profile.id)
+            migration_complete = False
             while True:
                 async with db.async_session_maker() as session:
                     report = await migrate_legacy_managed_media(
@@ -936,8 +935,20 @@ async def lifespan(app: FastAPI):
                         errors=len(report["errors"]),
                     )
                     break
-                if report["migrated"] < 100:
+                if report["missing"]:
+                    log.warning(
+                        "structured managed-storage migration waiting on files",
+                        profile=profile.id,
+                        missing=report["missing"],
+                    )
                     break
+                if report["migrated"] < 100:
+                    migration_complete = True
+                    break
+            if migration_complete:
+                from config_writer import remove_profile_section
+                if remove_profile_section(profile.id, "legacy_managed_roots"):
+                    profile.legacy_managed_roots = []
 
         # Check for and reset stale CLIP embeddings (from old model with different dimensions)
         for profile in settings.profiles:

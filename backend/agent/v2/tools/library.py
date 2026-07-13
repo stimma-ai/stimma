@@ -14,7 +14,7 @@ from sqlalchemy import select, or_, and_, delete, func, Integer, literal, update
 from ..tools_registry import tool, ToolParameter
 
 from board_service import serialize_board
-from config import get_settings
+import app_dirs
 from core.logging import get_logger
 from core.profile_context import get_current_profile
 from project_service import attach_media_to_project, infer_project_id_from_workspace_path
@@ -46,17 +46,11 @@ FACET_TO_FILTER_KEY = {
 
 
 def _get_default_folder(workspace_dir: Optional[Path] = None) -> str:
-    """Get default generation folder for the current profile."""
-    settings = get_settings()
+    """Get private managed staging for generated library payloads."""
     profile_id = get_current_profile()
-    try:
-        folder = settings.get_generation_folder_for_profile(profile_id)
-        return folder.path
-    except ValueError:
-        for folder in settings.folders:
-            if folder.allow_generate:
-                return folder.path
-        return "./output"
+    folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
+    folder.mkdir(parents=True, exist_ok=True)
+    return str(folder)
 
 
 def _media_summary(item: MediaItem, asset_id: int | None = None) -> Dict[str, Any]:

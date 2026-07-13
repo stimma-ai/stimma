@@ -2,8 +2,8 @@
 Tests for set/grid references: linked membership, independent deletion,
 explode, project context, and multiple membership.
 
-Uses generation_client / generation_db_session because set creation
-requires a configured generation folder to write .stimmaset.json files.
+Uses generation_client / generation_db_session because set creation writes
+managed .stimmaset.json payloads and persists container revisions.
 """
 
 import json

@@ -277,7 +277,7 @@ def event_loop():
 # Generation Test Fixtures
 # =============================================================================
 
-# Config template with generation folder
+# Historical destination-role config, retained as a compatibility fixture.
 GENERATION_CONFIG_TEMPLATE = """
 server:
   port: 0

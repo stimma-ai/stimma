@@ -232,7 +232,7 @@ const WildcardIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'strok
 ])
 
 const profileSections = [
-  { id: 'folders', label: 'Folders', icon: FolderIcon },
+  { id: 'folders', label: 'Sources', icon: FolderIcon },
   { id: 'markers', label: 'Markers', icon: TagIcon },
   { id: 'wildcards', label: 'Prompt Variables', icon: WildcardIcon },
   { id: 'agent', label: 'Agent', icon: SparklesIcon },

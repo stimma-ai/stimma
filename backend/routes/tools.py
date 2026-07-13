@@ -14,6 +14,8 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import app_dirs
+from core.profile_context import get_current_profile
 from database import GenerationJob, PinnedTool, ToolState, MediaItem
 from core.dependencies import get_db_session
 from core.logging import get_logger
@@ -103,7 +105,8 @@ class ExecuteToolRequest(BaseModel):
     """Request to execute a lightweight tool."""
     parameters: Dict = {}
     inputs: Dict = {}  # e.g., {"image": "/path/to/image.png"}
-    output_folder: str  # Where to save results
+    # Accepted only for wire compatibility. Output placement is server-owned.
+    output_folder: Optional[str] = None
 
 
 class TestConnectionRequest(BaseModel):
@@ -1145,8 +1148,11 @@ async def execute_tool(
                 error=result.error,
             )
 
-        # Move output files to the requested output folder
-        output_folder = Path(request.output_folder)
+        # Keep lightweight outputs out of external Sources. Older clients may
+        # still send output_folder, but it is intentionally ignored.
+        output_folder = app_dirs.get_managed_staging_dir(
+            get_current_profile(), "generated"
+        )
         output_folder.mkdir(parents=True, exist_ok=True)
 
         final_outputs = {}

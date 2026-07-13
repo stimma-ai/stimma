@@ -41,15 +41,19 @@ already-saved Assets, and moves the container to Trash.
 ## Managed and external storage
 
 New generated payloads, including set/grid manifests and layout bundles, are
-ingested into Stimma-managed content-addressed storage. Structured directories
-are hashed, verified, retained, and deleted as one payload. Legacy structured
-outputs under Stimma's writable generation root are adopted automatically and
-incrementally at startup.
+written to private per-profile staging and immediately ingested into
+Stimma-managed content-addressed storage. Uploads use the same private staging
+path. Structured directories are hashed, verified, retained, and deleted as one
+payload. The staging location is server-owned and cannot be selected by clients.
+Legacy structured outputs under historical writable roots are adopted
+automatically and incrementally at startup.
 
-Watched folders are external sources. Stimma records and verifies their paths
-but does not own or delete source files during ordinary Asset deletion. Managed
-storage paths are implementation details; user serviceability should come from
-source access for external files and explicit export/backup for managed content.
+Settings calls watched folders **Sources**. Sources are optional, external, and
+read-only from Stimma's perspective: it records and verifies their paths but
+does not write to or delete source files during ordinary Asset deletion. New
+profiles have no Sources by default. Managed storage paths are implementation
+details; user serviceability should come from source access for external files
+and explicit export/backup for managed content.
 
 ## Historical migration
 

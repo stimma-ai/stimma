@@ -6,6 +6,8 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+import app_dirs
+
 from ..tools_registry import tool, ToolParameter
 
 from config_version import get_config_version_manager
@@ -158,13 +160,11 @@ async def _save_to_library(
 
     from sqlalchemy import select
 
-    from config import get_settings
     from core.profile_context import get_current_profile
     from database import MediaItem, MediaLineage
 
-    settings = get_settings()
     profile_id = get_current_profile()
-    output_folder = settings.get_generation_folder_for_profile(profile_id).path
+    output_folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
     os.makedirs(output_folder, exist_ok=True)
 
     dest = os.path.join(output_folder, bundle_path.name)

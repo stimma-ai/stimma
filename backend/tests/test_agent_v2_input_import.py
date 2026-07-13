@@ -17,7 +17,7 @@ from database import MediaItem, StorageObject
 
 @pytest.fixture
 def output_folder(tmp_path, monkeypatch):
-    """Point the library's default generation folder at a temp dir."""
+    """Point the library's managed staging helper at a temp dir."""
     folder = tmp_path / "output"
     folder.mkdir()
     monkeypatch.setattr(

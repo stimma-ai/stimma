@@ -123,6 +123,20 @@ def patch_profile_section(profile_id: str, section: str, value: Any) -> None:
     _atomic_write_config(data, yaml)
 
 
+def remove_profile_section(profile_id: str, section: str) -> bool:
+    """Remove an internal profile section after its migration is complete."""
+    data, yaml = _load_config_yaml()
+    profile_idx = _find_profile_index(data, profile_id)
+    if profile_idx is None:
+        return False
+    profile = data['profiles'][profile_idx]
+    if section not in profile:
+        return False
+    profile.pop(section)
+    _atomic_write_config(data, yaml)
+    return True
+
+
 def patch_global_section(section: str, value: Any) -> None:
     """Update a global (non-profile) section of the config.
 
@@ -233,22 +247,12 @@ def create_profile(profile_id: str, name: str) -> None:
     if _find_profile_index(data, profile_id) is not None:
         raise ValueError(f"Profile '{profile_id}' already exists")
 
-    # Create default generation folder for the new profile
-    docs_dir = app_dirs.get_documents_dir()
-    profile_folder = docs_dir / name
-    profile_folder.mkdir(parents=True, exist_ok=True)
-
     # Create new profile with defaults
     import uuid
     new_profile = {
         'id': profile_id,
         'name': name,
-        'folders': [{
-            'path': str(profile_folder),
-            'allow_generate': True,
-            'is_uploads_folder': True,
-            'uploads_subfolder': 'uploads',
-        }],
+        'folders': [],
         'markers': [
             {'id': f"favorite-{str(uuid.uuid4())[:8]}", 'name': 'favorite', 'icon_svg': 'heroicons:heart', 'color': '#ef4444'},
             {'id': f"library-{str(uuid.uuid4())[:8]}", 'name': 'library', 'icon_svg': 'heroicons:bookmark', 'color': '#3b82f6'},

@@ -137,16 +137,19 @@ class TestProfileFolders:
 
 
 class TestGenerationFolders:
-    """Tests for GET /api/profiles/{profile_id}/generation-folders endpoint."""
+    """Tests the legacy client compatibility endpoint."""
 
     async def test_get_generation_folders(self, client: AsyncClient):
-        """Test getting generation folders for a profile."""
+        """Old clients receive private staging, not a configurable Source."""
         response = await client.get("/api/profiles/default/generation-folders")
         assert response.status_code == 200
 
         data = response.json()
-        assert "folders" in data
-        assert isinstance(data["folders"], list)
+        assert len(data["folders"]) == 1
+        folder = data["folders"][0]
+        assert folder["path"].endswith("/staging/generated")
+        assert "allow_generate" not in folder
+        assert "is_uploads_folder" not in folder
 
 
 class TestPinStatus:

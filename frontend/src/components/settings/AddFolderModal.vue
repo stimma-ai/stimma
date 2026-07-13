@@ -9,7 +9,7 @@
         <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[500px] max-w-[90vw] overflow-hidden">
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-edge">
-            <h2 class="text-lg font-semibold text-content">Add Folder</h2>
+            <h2 class="text-lg font-semibold text-content">Add Source</h2>
             <button
               @click="cancel"
               class="w-8 h-8 flex items-center justify-center text-content-tertiary hover:text-content hover:bg-surface-raised rounded-lg transition-colors"
@@ -23,12 +23,12 @@
           <!-- Content -->
           <div class="p-6 space-y-4">
             <p class="text-sm text-content-tertiary">
-              Enter the path to a folder on the machine where the Stimma backend is running.
-              This may be different from your current computer if you're accessing Stimma remotely.
+              Enter a folder Stimma may scan for external media. Stimma will not write to or delete files in it.
+              The path is on the machine running the Stimma backend, which may be remote.
             </p>
 
             <div>
-              <label class="block text-sm font-medium text-content-secondary mb-2">Folder Path</label>
+              <label class="block text-sm font-medium text-content-secondary mb-2">Source Path</label>
               <input
                 ref="inputRef"
                 v-model="folderPath"
@@ -54,7 +54,7 @@
               :disabled="!folderPath.trim()"
               class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 disabled:bg-surface-raised disabled:text-content-muted text-white rounded-lg transition-colors"
             >
-              Add Folder
+              Add Source
             </button>
           </div>
         </div>

@@ -211,6 +211,8 @@ Most of the config file surface area is mirrored in the settings UI. The correct
 - **Tool**: A tool provided by Stimma Tools Protocol. Tools can be internal (built-in) or external (third-party). Tools perform operations on media items
 - **Task**: What a tool does. A tool can implement multiple tasks. Each task comes with a set of required inputs + outputs, like an interface. Examples include 'text-to-image', 'image-to-image', etc.
 - **Ingestion**: A separate process that handles processing and importing media in the background. Performs tasks like AI captioning, visual indexing (CLIP encoding), metadata extraction, etc.
-- **Browser Screens**: This includes the 'all assets (aka all media)' screen, the saved views, the board screen, and the trash screen. All of these screens share substantial infrastructure, treatment, functionality, and behavior, and should be kept in sync
+- **Source**: An optional external folder Stimma scans for media. Sources are read-only from Stimma's perspective and are never generation or upload destinations.
+- **Managed Storage**: Private per-profile content-addressed storage owned by Stimma. Generated and uploaded payloads pass through private staging before ingestion; clients do not select its location.
+- **Browser Screens**: This includes All Assets, saved views, board screens, and Trash. These are Asset browsers and never list bare Media. They share substantial infrastructure, treatment, functionality, and behavior, and should be kept in sync.
 - **Selection Bar**: The controls that appear at the bottom of the browser screen when the user selects an asset
 - <If you encounter new terms, add them here.>

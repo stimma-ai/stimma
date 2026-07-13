@@ -743,7 +743,8 @@ class GenerationJob(Base):
     generator_name = Column(String, nullable=False)  # Name from config (DEPRECATED - use backend_name)
     model_name = Column(String, nullable=False)  # Model being used
     parameters = Column(String, nullable=False)  # JSON string of generation parameters
-    folder_path = Column(String, nullable=False)  # Output folder
+    # Private staging path. The name is retained for database compatibility.
+    folder_path = Column(String, nullable=False)
 
     # Generator tracking (new architecture)
     generator_instance_id = Column(String, nullable=True, index=True)  # Which generator owns this job (UUID for clients, ID for server-side)
@@ -1512,7 +1513,7 @@ class Tool(Base):
     # Legacy columns - kept for migration, will be removed later
     parameters = Column(String, nullable=True)  # JSON: {width, height, cfg, steps, ...}
     loras = Column(String, nullable=True)  # JSON array
-    output_folder = Column(String, nullable=True)
+    output_folder = Column(String, nullable=True)  # Legacy inert setting
 
     # Sidebar state
     pinned = Column(Boolean, default=False, index=True)

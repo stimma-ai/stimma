@@ -350,19 +350,15 @@ async def get_generation_folder(
     project_id: Optional[int] = Query(None),
     session: AsyncSession = Depends(get_db_session),
 ):
-    """Get the single output folder for generation for the current profile.
+    """Compatibility endpoint returning server-owned generation staging."""
+    import app_dirs
 
-    Each profile must have exactly one folder with allow_generate=true configured.
-    """
-    settings = get_settings()
     profile_id = get_current_profile()
-    try:
-        if project_id is not None:
-            await get_project_or_404(session, project_id)
-        folder = settings.get_generation_folder_for_profile(profile_id)
-        return {"path": folder.path}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    if project_id is not None:
+        await get_project_or_404(session, project_id)
+    folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
+    folder.mkdir(parents=True, exist_ok=True)
+    return {"path": str(folder)}
 
 
 @router.post("/upload-reference")
@@ -375,7 +371,7 @@ async def upload_reference_image(file: UploadFile = File(...)):
 
     Returns the path and metadata of the uploaded file.
     """
-    from upload_service import get_upload_service, NoUploadsFolderError, UploadError
+    from upload_service import get_upload_service, UploadError
 
     try:
         upload_service = get_upload_service()
@@ -390,8 +386,6 @@ async def upload_reference_image(file: UploadFile = File(...)):
             "width": media_item.width,
             "height": media_item.height,
         }
-    except NoUploadsFolderError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except UploadError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -402,7 +396,7 @@ async def upload_reference_image(file: UploadFile = File(...)):
 @router.post("/copy-to-reference")
 async def copy_to_reference_image(source_path: str):
     """
-    Copy an existing image file into the library uploads folder.
+    Copy an existing image into managed storage for use as a reference.
 
     This creates a library copy that won't be affected if the original
     is deleted or trashed. Used when sending images to the edit tab.
@@ -413,7 +407,7 @@ async def copy_to_reference_image(source_path: str):
     Returns:
         The path, filename, and metadata of the copied file
     """
-    from upload_service import get_upload_service, NoUploadsFolderError, UploadError
+    from upload_service import get_upload_service, UploadError
 
     try:
         upload_service = get_upload_service()
@@ -427,8 +421,6 @@ async def copy_to_reference_image(source_path: str):
             "width": media_item.width,
             "height": media_item.height,
         }
-    except NoUploadsFolderError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except UploadError as e:
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=str(e))
@@ -441,7 +433,7 @@ async def copy_to_reference_image(source_path: str):
 @router.post("/copy-video-to-reference")
 async def copy_video_to_reference(source_path: str):
     """
-    Copy an existing video file into the library uploads folder.
+    Copy an existing video into managed storage for use as a reference.
 
     This creates a library copy that won't be affected if the original
     is deleted or trashed. Used when sending videos to the upscale tab.
@@ -452,7 +444,7 @@ async def copy_video_to_reference(source_path: str):
     Returns:
         The path, filename, and metadata of the copied file
     """
-    from upload_service import get_upload_service, NoUploadsFolderError, UploadError
+    from upload_service import get_upload_service, UploadError
 
     try:
         upload_service = get_upload_service()
@@ -466,8 +458,6 @@ async def copy_video_to_reference(source_path: str):
             "width": media_item.width,
             "height": media_item.height,
         }
-    except NoUploadsFolderError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except UploadError as e:
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=str(e))
@@ -524,6 +514,14 @@ async def get_reference_file(path: str):
             break
         except ValueError:
             continue
+
+    if not allowed:
+        from storage_service import managed_object_root
+        try:
+            file_path.relative_to(managed_object_root(profile_id).resolve())
+            allowed = True
+        except ValueError:
+            pass
 
     # Also allow controlnet cache, reference prep cache, and upload directories
     if not allowed:
@@ -588,6 +586,14 @@ async def get_reference_video_file(path: str):
             continue
 
     if not allowed:
+        from storage_service import managed_object_root
+        try:
+            file_path.relative_to(managed_object_root(profile_id).resolve())
+            allowed = True
+        except ValueError:
+            pass
+
+    if not allowed:
         raise HTTPException(status_code=403, detail="Access denied")
 
     if not file_path.exists():
@@ -617,7 +623,7 @@ async def upload_reference_video(file: UploadFile = File(...)):
 
     Returns the path and metadata of the uploaded file.
     """
-    from upload_service import get_upload_service, NoUploadsFolderError, UploadError
+    from upload_service import get_upload_service, UploadError
 
     try:
         upload_service = get_upload_service()
@@ -632,8 +638,6 @@ async def upload_reference_video(file: UploadFile = File(...)):
             "width": media_item.width,
             "height": media_item.height,
         }
-    except NoUploadsFolderError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except UploadError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -663,6 +667,14 @@ async def get_reference_audio_file(path: str):
             break
         except ValueError:
             continue
+
+    if not allowed:
+        from storage_service import managed_object_root
+        try:
+            file_path.relative_to(managed_object_root(profile_id).resolve())
+            allowed = True
+        except ValueError:
+            pass
 
     if not allowed:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -696,7 +708,7 @@ async def upload_reference_audio(file: UploadFile = File(...)):
 
     Returns the path and metadata of the uploaded file.
     """
-    from upload_service import get_upload_service, NoUploadsFolderError, UploadError
+    from upload_service import get_upload_service, UploadError
 
     try:
         upload_service = get_upload_service()
@@ -711,8 +723,6 @@ async def upload_reference_audio(file: UploadFile = File(...)):
             "width": media_item.width,
             "height": media_item.height,
         }
-    except NoUploadsFolderError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except UploadError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -723,7 +733,7 @@ async def upload_reference_audio(file: UploadFile = File(...)):
 @router.post("/copy-audio-to-reference")
 async def copy_audio_to_reference(source_path: str):
     """
-    Copy an existing audio file into the library uploads folder.
+    Copy an existing audio file into managed storage for use as a reference.
 
     This creates a library copy that won't be affected if the original
     is deleted or trashed. Used when sending audio to an audio-input tool.
@@ -734,7 +744,7 @@ async def copy_audio_to_reference(source_path: str):
     Returns:
         The path, filename, and metadata of the copied file
     """
-    from upload_service import get_upload_service, NoUploadsFolderError, UploadError
+    from upload_service import get_upload_service, UploadError
 
     try:
         upload_service = get_upload_service()
@@ -748,8 +758,6 @@ async def copy_audio_to_reference(source_path: str):
             "width": media_item.width,
             "height": media_item.height,
         }
-    except NoUploadsFolderError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except UploadError as e:
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail=str(e))
@@ -864,6 +872,13 @@ def _validate_media_source_path(path: str) -> Path:
             break
         except ValueError:
             continue
+    if not allowed:
+        from storage_service import managed_object_root
+        try:
+            file_path.relative_to(managed_object_root(profile_id).resolve())
+            allowed = True
+        except ValueError:
+            pass
     if not allowed:
         for cache_name in ("controlnet-cache", "reference-prep-cache"):
             try:
@@ -1289,7 +1304,7 @@ async def upload_bulk(
         files: List of files to upload
         marker_ids: Comma-separated list of marker IDs to apply to uploaded media
     """
-    from upload_service import get_upload_service, NoUploadsFolderError, UploadError
+    from upload_service import get_upload_service, UploadError
     from database import MediaMarker, Marker
     from sqlalchemy import select
 

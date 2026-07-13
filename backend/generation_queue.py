@@ -21,7 +21,7 @@ from core.profile_context import get_current_profile, set_current_profile, set_t
 from core.logging import get_logger
 from providers import ProviderRegistry
 from generation_scheduler import get_scheduler
-from config import get_settings
+import app_dirs
 from config_version import get_config_version_manager
 from pathlib import Path
 from PIL import Image
@@ -1357,12 +1357,11 @@ class GenerationQueue:
             backend_name, generator_type = self._resolve_backend_info(tool_id, backend_name, generator_name)
             profile_id = get_current_profile()
 
-            # Verify folder allows generation (profile-aware)
-            settings = get_settings()
-            valid_folders = settings.get_generation_folders_for_profile(profile_id)
-            is_valid_generation_folder = any(f.path == folder_path for f in valid_folders)
-            if not is_valid_generation_folder:
-                raise ValueError(f"Folder does not allow generation: {folder_path}")
+            # Output placement is server-owned. ``folder_path`` remains in the
+            # request/job schema only for compatibility with older clients.
+            staging_dir = app_dirs.get_managed_staging_dir(profile_id, "generated")
+            staging_dir.mkdir(parents=True, exist_ok=True)
+            folder_path = str(staging_dir)
 
             # Store batch metadata in the flat params for use during completion (first job only)
             parameters = dict(parameters)

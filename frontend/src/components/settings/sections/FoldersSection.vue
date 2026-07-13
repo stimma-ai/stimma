@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="flex items-center justify-between mb-4">
-      <h3 class="text-base font-medium text-content">Folders</h3>
+      <h3 class="text-base font-medium text-content">Sources</h3>
       <!-- Database cleanup link -->
       <button
         @click="showCleanupModal = true"
@@ -11,7 +11,7 @@
       </button>
     </div>
     <p class="text-sm text-content-tertiary mb-6">
-      Configure which folders Stimma should scan for media files.
+      Add folders Stimma may scan for external media. Stimma never writes to or deletes files in these folders.
     </p>
 
     <!-- Folder list -->
@@ -72,7 +72,7 @@
 
     <!-- Empty state -->
     <div v-if="folders.length === 0" class="text-center py-8 text-content-tertiary">
-      No folders configured
+      No external sources configured
     </div>
 
     <!-- Add folder button -->
@@ -85,7 +85,7 @@
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
         </svg>
-        Add Folder
+        Add Source
       </button>
     </div>
 
@@ -94,45 +94,11 @@
       Saving...
     </div>
 
-    <!-- Folder Options section -->
-    <div v-if="folders.length > 0" class="mt-10">
-      <h3 class="text-base font-medium text-content mb-4">Folder Options</h3>
-      <div class="space-y-3">
-        <!-- Generation folder -->
-        <div class="flex items-center justify-between gap-4">
-          <label class="text-sm text-content-secondary">Save generated assets to</label>
-          <select
-            :value="generationFolderIndex"
-            @change="setGenerationFolder(Number($event.target.value))"
-            class="flex-1 max-w-md px-3 py-1.5 bg-surface-raised border border-edge rounded-lg text-sm text-content focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option v-for="(folder, index) in folders" :key="index" :value="index">
-              {{ folder.path }}
-            </option>
-          </select>
-        </div>
-
-        <!-- Uploads folder -->
-        <div class="flex items-center justify-between gap-4">
-          <label class="text-sm text-content-secondary">Save uploaded assets to</label>
-          <select
-            :value="uploadsFolderIndex"
-            @change="setUploadsFolder(Number($event.target.value))"
-            class="flex-1 max-w-md px-3 py-1.5 bg-surface-raised border border-edge rounded-lg text-sm text-content focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option v-for="(folder, index) in folders" :key="index" :value="index">
-              {{ folder.path }}
-            </option>
-          </select>
-        </div>
-      </div>
-    </div>
-
     <!-- Remove folder confirmation -->
     <ConfirmModal
       :show="showRemoveConfirm"
-      title="Remove Folder?"
-      message="Stimma will forget about all assets in this folder. Your files on disk will not be deleted, but any metadata, markers, and other information stored in Stimma will be lost."
+      title="Remove Source?"
+      message="Stimma will stop scanning this folder. Files on disk will not be deleted."
       confirm-text="Remove"
       @confirm="confirmRemoveFolder"
       @cancel="cancelRemoveFolder"
@@ -203,7 +169,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { isTauri } from '../../../apiConfig'
 import { useMarkers } from '../../../composables/useMarkers'
 import ConfirmModal from '../../ConfirmModal.vue'
@@ -246,17 +212,6 @@ const showFolderSettings = ref(false)
 const folderToEdit = ref(null)
 const folderToEditIndex = ref(null)
 let saveTimer = null
-
-// Computed properties for preference dropdowns
-const generationFolderIndex = computed(() => {
-  const idx = props.folders.findIndex(f => f.allow_generate)
-  return idx >= 0 ? idx : 0
-})
-
-const uploadsFolderIndex = computed(() => {
-  const idx = props.folders.findIndex(f => f.is_uploads_folder)
-  return idx >= 0 ? idx : 0
-})
 
 // Get display name for folder (last path segment)
 function getFolderDisplayName(path) {
@@ -373,19 +328,6 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleEscapeKey)
 })
 
-// Debounced save for settings changes
-function debouncedSave(folders) {
-  clearTimeout(saveTimer)
-  saveTimer = setTimeout(async () => {
-    saving.value = true
-    try {
-      emit('update', folders)
-    } finally {
-      saving.value = false
-    }
-  }, 300)
-}
-
 // Immediate save for add/remove operations (no debounce)
 async function immediateSave(folders) {
   clearTimeout(saveTimer)
@@ -411,24 +353,6 @@ async function rescanFolder(index) {
       rescanning.value = null
     }, 1000)
   }
-}
-
-// Set a folder as the generation folder (mutually exclusive)
-function setGenerationFolder(selectedIndex) {
-  const updatedFolders = props.folders.map((folder, index) => ({
-    ...folder,
-    allow_generate: index === selectedIndex
-  }))
-  debouncedSave(updatedFolders)
-}
-
-// Set uploads folder (mutually exclusive)
-function setUploadsFolder(selectedIndex) {
-  const updatedFolders = props.folders.map((folder, index) => ({
-    ...folder,
-    is_uploads_folder: index === selectedIndex
-  }))
-  debouncedSave(updatedFolders)
 }
 
 function removeFolder(index) {
@@ -458,7 +382,7 @@ async function addFolder() {
       const selected = await open({
         directory: true,
         multiple: false,
-        title: 'Select Folder'
+        title: 'Select Source Folder'
       })
       if (selected) {
         await addFolderPath(selected)
@@ -480,10 +404,6 @@ async function addFolderPath(path) {
     ...props.folders,
     {
       path,
-      readonly: false,
-      allow_generate: props.folders.length === 0, // First folder becomes generation folder
-      is_uploads_folder: false,
-      uploads_subfolder: 'uploads',
       refresh_interval_seconds: 300,
       markers: []
     }

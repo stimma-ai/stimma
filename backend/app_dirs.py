@@ -82,15 +82,6 @@ def get_bundle_cache_root() -> Path:
     return _os_cache_root() / get_bundle_id()
 
 
-def get_documents_dir() -> Path:
-    """Return user-facing documents directory for generated content.
-
-    All platforms: ~/Documents/Stimma/
-    Not channel-specific — user content is shared.
-    """
-    return Path.home() / "Documents" / "Stimma"
-
-
 def get_config_path() -> Path:
     """Return path to config.yaml inside data directory."""
     return get_data_dir() / "config.yaml"
@@ -108,6 +99,16 @@ def get_database_path(profile_id: Optional[str] = None) -> Path:
     if not profile_id:
         raise ValueError("profile_id is required")
     return get_profile_dir(profile_id) / "stimma_v1.db"
+
+
+def get_managed_staging_dir(
+    profile_id: Optional[str] = None,
+    category: str = "generated",
+) -> Path:
+    """Return an app-owned transient directory outside watched sources."""
+    if category not in {"generated", "uploads"}:
+        raise ValueError(f"Unsupported staging category: {category}")
+    return get_profile_dir(profile_id) / "staging" / category
 
 
 def get_thumbnail_cache_dir() -> Path:

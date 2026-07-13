@@ -217,22 +217,33 @@ class TestJobSubmission:
         assert response.status_code == 400
         assert "not found" in response.json()["detail"].lower()
 
-    async def test_submit_to_non_generation_folder_returns_400(
-        self, generation_client: httpx.AsyncClient
+    async def test_submit_ignores_client_selected_output_folder(
+        self,
+        generation_client: httpx.AsyncClient,
+        generation_db_session,
+        generation_queue,
     ):
-        """Submitting to a folder without allow_generate returns 400."""
+        """Output placement is private and cannot be redirected by a client."""
+        requested_folder = "/nonexistent/user-selected-folder"
         response = await generation_client.post(
             "/api/generate/submit",
             json={
                 "tool_id": "test:text-to-image:test-model",
-                "folder_path": "/nonexistent/folder",
+                "folder_path": requested_folder,
                 "task_type": "text-to-image",
                 "parameters": {"prompt": "test"},
             },
         )
 
-        assert response.status_code == 400
-        assert "generation" in response.json()["detail"].lower()
+        assert response.status_code == 200
+        job_id = response.json()["job_id"]
+        async with generation_db_session() as session:
+            job = await session.get(GenerationJob, job_id)
+            assert job is not None
+            assert job.folder_path != requested_folder
+            assert Path(job.folder_path).parts[-2:] == ("staging", "generated")
+
+        await generation_queue.cancel_job(job_id)
 
     async def test_submit_runs_prompt_pipeline_server_side(
         self,

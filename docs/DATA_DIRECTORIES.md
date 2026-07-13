@@ -116,11 +116,16 @@ Cache: /data/data/<bundle-id>/cache/<sandbox>/
 
 ```
 <sandbox>/
-├── stimma.db               # SQLite database (library, metadata)
-├── stimma.db-wal           # SQLite write-ahead log
-├── stimma.db-shm           # SQLite shared memory
-├── config.yaml            # User config (auth, folders, preferences)
-├── .fork.json            # Port assignments (sandboxes only)
+├── config.yaml             # User config (auth, Sources, preferences)
+├── .fork.json              # Port assignments (sandboxes only)
+├── <profile-id>/
+│   ├── stimma_v1.db        # SQLite database (Assets, Media, metadata)
+│   ├── objects/
+│   │   ├── sha256/         # Canonical content-addressed managed payloads
+│   │   └── media/          # Stable per-Media compatibility links
+│   └── staging/
+│       ├── generated/      # Private transient generation staging
+│       └── uploads/        # Private transient upload staging
 └── Logs/
     ├── server.jsonl      # Current server log (JSON lines)
     ├── server.01.jsonl   # Previous session
@@ -131,8 +136,10 @@ Cache: /data/data/<bundle-id>/cache/<sandbox>/
 ```
 
 **Key rules:**
-- `config.yaml` holds user preferences, auth tokens, folder config — never library content.
-- `stimma.db` holds library content and indexed data — never user preferences.
+- `config.yaml` holds user preferences, auth tokens, and optional external Source paths — never library content.
+- Each profile database holds Asset/Media identity and indexed data; managed bytes live beside it under `objects/`.
+- Generated and uploaded payloads never use a Source as an output destination.
+- `staging/` is private and transient. Durable managed identity is the content-addressed object under `objects/sha256/`.
 - Logs rotate on startup: `server.jsonl` → `server.01.jsonl` → ... → `server.20.jsonl` (oldest deleted).
 
 ## Environment Variable Overrides

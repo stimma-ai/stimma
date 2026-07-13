@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..tools_registry import tool, ToolParameter
 
-from config import get_settings
+import app_dirs
 from config_version import get_config_version_manager
 from core.logging import get_logger
 from core.profile_context import get_current_profile
@@ -93,10 +93,8 @@ async def assemble_set(
             return f"Error: Cannot add structured media to a set (item {mid} is a {item.file_format})"
 
     # Build set file path
-    settings = get_settings()
     profile_id = get_current_profile()
-    base_folder = settings.get_generation_folder_for_profile(profile_id)
-    output_folder = Path(base_folder.path)
+    output_folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
     output_folder.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -20,6 +20,17 @@ from utils.websocket import ws_manager
 log = get_logger(__name__)
 
 
+def _managed_output_folder() -> str:
+    """Return server-owned staging; source folders are never write targets."""
+    import app_dirs
+
+    folder = app_dirs.get_managed_staging_dir(
+        get_current_profile(), "generated"
+    )
+    folder.mkdir(parents=True, exist_ok=True)
+    return str(folder)
+
+
 def compute_size_from_image(image_path: str, megapixels: float, step: int = 64) -> Tuple[int, int]:
     """Compute output size from input image aspect ratio and target megapixels.
 
@@ -285,8 +296,6 @@ def get_settings_from_provider_tool(tool_selection: Dict[str, Any]) -> Dict[str,
     if not model:
         model = provider_tool.name  # Use tool name as model identifier
 
-    output_folder = state.get("folder_path")
-
     # Build parameters from state
     merged_params = {
         "width": state.get("width"),
@@ -333,7 +342,6 @@ def get_settings_from_provider_tool(tool_selection: Dict[str, Any]) -> Dict[str,
         "model": model,
         "parameters": merged_params,
         "loras": loras,
-        "output_folder": output_folder,
         "full_tool_id": full_tool_id,
         "tool_name": provider_tool.name,
         "provider_name": tool_selection.get("providerName"),
@@ -349,7 +357,7 @@ async def get_generation_settings_for_task(session, chat: Chat, task_type: str) 
     This is the unified entry point for getting generation settings.
     Uses the provider-based toolSelections approach.
 
-    Returns: Dict with generator, model, parameters, loras, output_folder, etc.
+    Returns: Dict with generator, model, parameters, loras, and tool identity.
              or None if no suitable tool found.
     """
     tool_selection = await get_tool_selection_for_task(session, chat, task_type)
@@ -471,14 +479,7 @@ async def generate(
             params["width"], params["height"] = resolution_override
             log.info(f"Using chat resolution override: {params['width']}x{params['height']}")
 
-        # Get output folder - prefer from settings, fall back to first generation folder
-        output_folder = gen_settings.get("output_folder")
-        if not output_folder:
-            generation_folders = settings.get_generation_folders_for_profile(get_current_profile())
-            if not generation_folders:
-                log.error("No generation folders configured")
-                return {"error": "No generation folders configured", "success": False}
-            output_folder = generation_folders[0].path
+        output_folder = _managed_output_folder()
 
         # Get generator and model from settings
         generator_name = gen_settings.get("generator")
@@ -734,14 +735,7 @@ async def edit_image(
         params = gen_settings["parameters"]
         final_loras = gen_settings.get("loras", [])
 
-        # Get output folder
-        output_folder = gen_settings.get("output_folder")
-        if not output_folder:
-            generation_folders = settings.get_generation_folders_for_profile(get_current_profile())
-            if not generation_folders:
-                log.error("No generation folders configured")
-                return {"error": "No generation folders configured", "success": False}
-            output_folder = generation_folders[0].path
+        output_folder = _managed_output_folder()
 
         # Get generator and model from settings
         generator_name = gen_settings.get("generator")
@@ -945,14 +939,7 @@ async def image_to_video(
 
         params = gen_settings["parameters"]
 
-        # Get output folder
-        output_folder = gen_settings.get("output_folder")
-        if not output_folder:
-            generation_folders = settings.get_generation_folders_for_profile(get_current_profile())
-            if not generation_folders:
-                log.error("No generation folders configured")
-                return {"error": "No generation folders configured", "success": False}
-            output_folder = generation_folders[0].path
+        output_folder = _managed_output_folder()
 
         # Get generator and model from settings
         generator_name = gen_settings.get("generator")
@@ -1136,14 +1123,7 @@ async def upscale_image(
         params = gen_settings["parameters"]
         log.info(f"upscale_image: gen_settings params = {params}")
 
-        # Get output folder
-        output_folder = gen_settings.get("output_folder")
-        if not output_folder:
-            generation_folders = settings.get_generation_folders_for_profile(get_current_profile())
-            if not generation_folders:
-                log.error("No generation folders configured")
-                return {"error": "No generation folders configured", "success": False}
-            output_folder = generation_folders[0].path
+        output_folder = _managed_output_folder()
 
         # Get generator and model from settings
         generator_name = gen_settings.get("generator")
@@ -1332,14 +1312,7 @@ async def upscale_video(
         params = gen_settings["parameters"]
         log.info(f"upscale_video: gen_settings params = {params}")
 
-        # Get output folder
-        output_folder = gen_settings.get("output_folder")
-        if not output_folder:
-            generation_folders = settings.get_generation_folders_for_profile(get_current_profile())
-            if not generation_folders:
-                log.error("No generation folders configured")
-                return {"error": "No generation folders configured", "success": False}
-            output_folder = generation_folders[0].path
+        output_folder = _managed_output_folder()
 
         # Get generator and model from settings
         generator_name = gen_settings.get("generator")
@@ -1990,8 +1963,6 @@ async def get_filter_options(
                 folders.append({
                     "path": folder.path,
                     "count": count,
-                    "readonly": folder.readonly,
-                    "allow_generate": folder.allow_generate
                 })
             result_data["folders"] = folders
 

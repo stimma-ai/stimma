@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..tools_registry import tool, ToolParameter
 
-from config import get_settings
+import app_dirs
 from config_version import get_config_version_manager
 from core.logging import get_logger
 from core.profile_context import get_current_profile
@@ -136,12 +136,11 @@ async def create_parameter_sweep(
         return f"Error: Media items not found: {missing}"
 
     # Build grid directory
-    settings = get_settings()
     profile_id = get_current_profile()
-    base_folder = settings.get_generation_folder_for_profile(profile_id)
+    base_folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
     now = datetime.now()
     grid_slug = _slugify(title)
-    grid_dir = Path(base_folder.path) / "grids" / str(now.year) / f"{now.month:02d}" / f"{grid_slug}-{uuid.uuid4().hex[:8]}"
+    grid_dir = base_folder / "grids" / str(now.year) / f"{now.month:02d}" / f"{grid_slug}-{uuid.uuid4().hex[:8]}"
     grid_dir.mkdir(parents=True, exist_ok=True)
 
     # Build grid JSON

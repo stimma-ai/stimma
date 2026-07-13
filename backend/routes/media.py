@@ -1414,7 +1414,7 @@ async def create_set_from_media(
     """
     Create a .stimmaset.json file from selected media items.
 
-    The set file will be created in the profile's generation folder.
+    The set manifest is staged privately and ingested into managed storage.
     Paths are relative when items are in the same folder as the set file,
     otherwise absolute paths are used.
 
@@ -1481,15 +1481,11 @@ async def create_set_from_media(
         from project_service import get_project_or_404
         await get_project_or_404(session, request.project_id)
 
-    # Get the generation folder for the current profile
+    # Structured output is staged privately before managed ingest.
+    import app_dirs
     from core.profile_context import get_current_profile
-    settings = get_settings()
     profile_id = get_current_profile()
-    try:
-        folder_config = settings.get_generation_folder_for_profile(profile_id)
-        output_folder = Path(folder_config.path)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"No generation folder configured: {e}")
+    output_folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
 
     # Ensure output folder exists
     output_folder.mkdir(parents=True, exist_ok=True)
@@ -1717,7 +1713,7 @@ async def save_edited_image(
     3. Records lineage with task_type="image-to-image"
     4. Returns the new media item ID and file hash
     """
-    from upload_service import UploadService, UploadError, NoUploadsFolderError
+    from upload_service import UploadService, UploadError
     from utils.lineage import record_lineage, propagate_tool_lineage
     import json
 
@@ -1750,13 +1746,6 @@ async def save_edited_image(
             file_content,
             file.filename or f"edited_{source_media_id}.png",
             materialize_asset=False,
-            managed_staging=True,
-        )
-    except NoUploadsFolderError as e:
-        log.error(f"No uploads folder configured: {e}")
-        raise HTTPException(
-            status_code=400,
-            detail="No uploads folder configured. Add 'is_uploads_folder: true' to a folder in config.yaml."
         )
     except UploadError as e:
         log.error(f"Upload error: {e}")

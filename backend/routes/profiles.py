@@ -107,7 +107,7 @@ async def get_profile(profile_id: str):
         "name": config.name,
         "database": config.database,
         "db_guid": db_guid,
-        "folders": [{"path": f.path, "readonly": f.readonly, "allow_generate": f.allow_generate} for f in config.folders],
+        "folders": [{"path": f.path} for f in config.folders],
         "markers": [{"name": m.name, "color": m.color} for m in config.markers],
     }
 
@@ -123,8 +123,6 @@ async def get_profile_folders(profile_id: str):
         "folders": [
             {
                 "path": f.path,
-                "readonly": f.readonly,
-                "allow_generate": f.allow_generate,
                 "refresh_interval_seconds": f.refresh_interval_seconds,
             }
             for f in folders
@@ -134,20 +132,15 @@ async def get_profile_folders(profile_id: str):
 
 @router.get("/{profile_id}/generation-folders")
 async def get_profile_generation_folders(profile_id: str):
-    """
-    Get the folders that allow generation for a specific profile.
-    """
-    settings = get_settings()
-    folders = settings.get_generation_folders_for_profile(profile_id)
+    """Compatibility response for clients that still request an output path."""
+    import app_dirs
+
+    if get_settings().get_profile(profile_id) is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
+    folder.mkdir(parents=True, exist_ok=True)
     return {
-        "folders": [
-            {
-                "path": f.path,
-                "readonly": f.readonly,
-                "allow_generate": f.allow_generate,
-            }
-            for f in folders
-        ]
+        "folders": [{"path": str(folder)}]
     }
 
 

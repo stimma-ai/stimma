@@ -1811,7 +1811,7 @@ class CreateDocumentEvaluator:
     """Evaluate a ``create_document()`` equation.
 
     Writes rendered text to a ``.md`` file under the current profile's
-    generation folder, registers a MediaItem for it, broadcasts
+    private managed staging, registers a MediaItem for it, broadcasts
     ``media_added``, and triggers the rescan flag. No supersession
     semantics — documents stand alone.
     """
@@ -1880,7 +1880,7 @@ async def _save_document_media(
     import hashlib as _hashlib
     from datetime import datetime
 
-    from config import get_settings
+    import app_dirs
     from config_version import get_config_version_manager
     from core.profile_context import get_current_profile
     from database import MediaItem
@@ -1892,17 +1892,8 @@ async def _save_document_media(
             category=TOOL_ERROR,
         )
 
-    settings = get_settings()
     profile_id = get_current_profile()
-    try:
-        base_folder = settings.get_generation_folder_for_profile(profile_id)
-    except ValueError as exc:
-        raise EvaluatorError(
-            f"create_document: no writable generation folder: {exc}",
-            category=RESOURCE_ERROR,
-        ) from exc
-
-    output_folder = Path(base_folder.path)
+    output_folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
     output_folder.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -2187,7 +2178,7 @@ async def _save_pil_image_media(
 
     from PIL import Image  # noqa: F401 — imported for type context
 
-    from config import get_settings
+    import app_dirs
     from config_version import get_config_version_manager
     from core.profile_context import get_current_profile
     from database import MediaItem
@@ -2202,17 +2193,8 @@ async def _save_pil_image_media(
         )
     ext = ext_map[fmt]
 
-    settings = get_settings()
     profile_id = get_current_profile()
-    try:
-        base_folder = settings.get_generation_folder_for_profile(profile_id)
-    except ValueError as exc:
-        raise EvaluatorError(
-            f"create_image: no writable generation folder: {exc}",
-            category=RESOURCE_ERROR,
-        ) from exc
-
-    output_folder = Path(base_folder.path)
+    output_folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
     output_folder.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -2557,24 +2539,15 @@ async def _save_layout_media(
     import shutil as _shutil
     from datetime import datetime
 
-    from config import get_settings
+    import app_dirs
     from config_version import get_config_version_manager
     from core.profile_context import get_current_profile
     from database import MediaItem
     from utils.lineage import record_lineage
     from utils.websocket import ws_manager
 
-    settings = get_settings()
     profile_id = get_current_profile()
-    try:
-        base_folder = settings.get_generation_folder_for_profile(profile_id)
-    except ValueError as exc:
-        raise EvaluatorError(
-            f"create_layout: no writable generation folder: {exc}",
-            category=RESOURCE_ERROR,
-        ) from exc
-
-    output_folder = Path(base_folder.path)
+    output_folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
     output_folder.mkdir(parents=True, exist_ok=True)
 
     base_name = (title or "layout").replace(" ", "_").replace("/", "-")[:50] or "layout"
@@ -3303,23 +3276,14 @@ async def _save_fetched_media(
 
     from PIL import Image
 
-    from config import get_settings
+    import app_dirs
     from config_version import get_config_version_manager
     from core.profile_context import get_current_profile
     from database import MediaItem
     from utils.websocket import ws_manager
 
-    settings = get_settings()
     profile_id = get_current_profile()
-    try:
-        base_folder = settings.get_generation_folder_for_profile(profile_id)
-    except ValueError as exc:
-        raise EvaluatorError(
-            f"fetch_media: no writable generation folder: {exc}",
-            category=RESOURCE_ERROR,
-        ) from exc
-
-    output_folder = Path(base_folder.path)
+    output_folder = app_dirs.get_managed_staging_dir(profile_id, "generated")
     output_folder.mkdir(parents=True, exist_ok=True)
 
     ext = "jpg" if fmt == "jpeg" else fmt

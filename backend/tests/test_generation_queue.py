@@ -8,6 +8,7 @@ These complement test_generation.py (which tests via HTTP API).
 
 import asyncio
 import time
+from pathlib import Path
 
 import pytest
 from unittest.mock import AsyncMock, patch
@@ -77,10 +78,10 @@ class TestPendingCounterManagement:
         assert len(generation_queue._pending_work_requests.get(backend, [])) == 0
         assert len(generation_queue._pending_work_requests_per_client.get(client, [])) == 0
 
-    async def test_submit_job_failure_still_decrements_pending(
-        self, generation_queue, output_folder
+    async def test_submit_job_ignores_client_folder_and_decrements_pending(
+        self, generation_queue, generation_db_session
     ):
-        """BUG-3: Even when submit_job raises (bad folder), pending counters decrement."""
+        """A worker reservation is consumed while placement stays server-owned."""
         _reset_queue_state(generation_queue)
 
         backend = "test"
@@ -90,20 +91,25 @@ class TestPendingCounterManagement:
         generation_queue._pending_work_requests[backend] = _make_timestamps(2)
         generation_queue._pending_work_requests_per_client[client] = _make_timestamps(2)
 
-        with pytest.raises(ValueError, match="does not allow generation"):
-            await generation_queue.submit_job(
-                generator_name="test",
-                model_name="test-model",
-                folder_path="/nonexistent/folder/that/fails/validation",
-                parameters={"prompt": "fail test", "steps": 5, "seed": 1},
-                generator_instance_id=client,
-                backend_name=backend,
-                tool_id="test:text-to-image:test-model",
-            )
+        requested_folder = "/nonexistent/folder/that/must/not/be/used"
+        job_id = await generation_queue.submit_job(
+            generator_name="test",
+            model_name="test-model",
+            folder_path=requested_folder,
+            parameters={"prompt": "placement test", "steps": 5, "seed": 1},
+            generator_instance_id=client,
+            backend_name=backend,
+            tool_id="test:text-to-image:test-model",
+        )
 
-        # Counters should have decremented despite the exception
+        async with generation_db_session() as session:
+            job = await session.get(GenerationJob, job_id)
+            assert job.folder_path != requested_folder
+            assert Path(job.folder_path).parts[-2:] == ("staging", "generated")
+
         assert len(generation_queue._pending_work_requests[backend]) == 1
         assert len(generation_queue._pending_work_requests_per_client[client]) == 1
+        await generation_queue.cancel_job(job_id)
 
     async def test_submit_job_tool_resolution_failure_still_decrements_pending(
         self, generation_queue, output_folder
@@ -155,10 +161,10 @@ class TestPendingCounterManagement:
         assert len(generation_queue._pending_work_requests[backend]) == 1
         assert len(generation_queue._pending_work_requests_per_client[client]) == 1
 
-    async def test_submit_batch_job_failure_still_decrements_pending(
-        self, generation_queue, output_folder
+    async def test_submit_batch_job_ignores_client_folder_and_decrements_pending(
+        self, generation_queue, generation_db_session
     ):
-        """BUG-3: submit_batch_job failure also decrements pending counters."""
+        """Batch output placement is private and consumes its reservation."""
         _reset_queue_state(generation_queue)
 
         backend = "test"
@@ -167,21 +173,27 @@ class TestPendingCounterManagement:
         generation_queue._pending_work_requests[backend] = _make_timestamps(1)
         generation_queue._pending_work_requests_per_client[client] = _make_timestamps(1)
 
-        with pytest.raises(ValueError, match="does not allow generation"):
-            await generation_queue.submit_batch_job(
-                generator_name="test",
-                model_name="test-model",
-                folder_path="/bad/folder",
-                parameters={"prompt": "fail batch", "steps": 5, "seed": 1},
-                batch_id="test-batch-1",
-                batch_total=3,
-                generator_instance_id=client,
-                backend_name=backend,
-                tool_id="test:text-to-image:test-model",
-            )
+        requested_folder = "/bad/client-selected/folder"
+        job_id = await generation_queue.submit_batch_job(
+            generator_name="test",
+            model_name="test-model",
+            folder_path=requested_folder,
+            parameters={"prompt": "batch placement", "steps": 5, "seed": 1},
+            batch_id="test-batch-1",
+            batch_total=3,
+            generator_instance_id=client,
+            backend_name=backend,
+            tool_id="test:text-to-image:test-model",
+        )
+
+        async with generation_db_session() as session:
+            job = await session.get(GenerationJob, job_id)
+            assert job.folder_path != requested_folder
+            assert Path(job.folder_path).parts[-2:] == ("staging", "generated")
 
         assert len(generation_queue._pending_work_requests[backend]) == 0
         assert len(generation_queue._pending_work_requests_per_client[client]) == 0
+        await generation_queue.cancel_job(job_id)
 
     async def test_cleanup_disconnected_client_releases_all_pending(
         self, generation_queue

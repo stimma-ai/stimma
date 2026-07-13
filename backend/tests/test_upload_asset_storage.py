@@ -12,7 +12,7 @@ from upload_service import UploadService
 
 @pytest.mark.asyncio
 async def test_upload_creates_asset_and_managed_storage(
-    generation_app, generation_db_session
+    test_app, db_session
 ):
     buffer = io.BytesIO()
     Image.new("RGB", (12, 8), (20, 40, 60)).save(buffer, format="PNG")
@@ -24,7 +24,7 @@ async def test_upload_creates_asset_and_managed_storage(
     assert returned_path == media.file_path
     assert media.original_filename == "human-name.png"
     assert media.storage_object_id is not None
-    async with generation_db_session() as session:
+    async with db_session() as session:
         storage = await session.get(StorageObject, media.storage_object_id)
         revision = await session.scalar(
             select(AssetRevision).where(AssetRevision.primary_media_id == media.id)

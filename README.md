@@ -14,7 +14,7 @@ This repo is the app itself — every release builds from here. [AGPL-3.0](LICEN
 ```
 Tauri shell (macOS / Windows / Linux)
  ├─ Vue 3 frontend
- └─ FastAPI backend ── SQLite (per profile) + your media folders
+ └─ FastAPI backend ── SQLite + managed media storage + external Sources
       ├─ local ML: CLIP search, face detection, segmentation (ONNX)
       ├─ agent: chat, flows, stimpacks (skills)
       └─ STP client ──► tool providers
