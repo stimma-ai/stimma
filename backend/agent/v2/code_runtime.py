@@ -79,7 +79,7 @@ from core.logging import get_logger
 
 from project_service import infer_project_id_from_workspace_path
 from .code_lint import lint_code, format_lint_errors
-from .tools.call_tool import execute_call_tool
+from .tools.call_tool import execute_call_tool, _json_safe_pathlikes
 from .tools.delegate import _run_delegate_loop
 from .tools.library import get_media_for_workspace, save_workspace_file
 from .tools.show import show as show_tool
@@ -904,6 +904,12 @@ class StimmaSDK:
             nested_params = kwargs.pop("parameters")
             for k, v in nested_params.items():
                 kwargs.setdefault(k, v)
+
+        # ToolResult.path and pathlib-generated workspace paths are natural
+        # media references. Normalize them before the permission and STP JSON
+        # boundaries; execute_call_tool's existing path resolver will resolve or
+        # import them to library media IDs just like ordinary string paths.
+        kwargs = _json_safe_pathlikes(kwargs)
 
         # Permission gate: on first use of a tool in this chat, block on the user's
         # approval card before doing any work; a persisted/cached deny raises here.

@@ -254,6 +254,55 @@ async def test_run_code_sdk_call_tool_and_save_preserves_lineage(session, test_c
 
 
 @pytest.mark.asyncio
+async def test_run_code_tool_result_path_can_feed_next_tool(session, test_chat, tmp_path, monkeypatch):
+    """ToolResult.path is a Path, but chained STP calls cross JSON boundaries."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    calls = []
+
+    async def _fake_execute_call_tool(*, tool_id, parameters=None, **kwargs):
+        calls.append(parameters or {})
+        index = len(calls)
+        return {
+            "media_id": 900 + index,
+            "path": str(workspace / f"result-{index}.png"),
+            "width": 64,
+            "height": 64,
+            "seed": index,
+            "tool_id": tool_id,
+            "tool_name": "Mock Tool",
+            "task_type": "image-to-image",
+            "parameters": parameters or {},
+            "input_media_ids": [],
+            "duration_ms": 1,
+        }
+
+    monkeypatch.setattr("agent.v2.code_runtime.execute_call_tool", _fake_execute_call_tool)
+    _patch_mock_registry(monkeypatch, task_types=("image-to-image",))
+    test_chat.agent_tool_config = json.dumps({"allowed_tools": ["mock:gen"]})
+    await session.commit()
+
+    async def _noop_validate(*args, **kwargs):
+        return []
+    monkeypatch.setattr("agent.v2.code_lint.validate_hardcoded_refs", _noop_validate)
+
+    result = await run_code(
+        code=(
+            "from stimma.tools.image_to_image import gen\n"
+            "first = await gen(prompt='first')\n"
+            "second = await gen(prompt='second', input_images=[first.path])\n"
+            "print(second.media_id)\n"
+        ),
+        session=session,
+        chat_id=test_chat.id,
+        workspace_dir=workspace,
+    )
+
+    assert result.split("\n\n<system-reminder>", 1)[0].strip() == "902"
+    assert calls[1]["input_images"] == [str(workspace / "result-1.png")]
+
+
+@pytest.mark.asyncio
 async def test_run_code_show_tool_result_prefers_media_id(session, test_chat, tmp_path, monkeypatch):
     workspace = tmp_path / "workspace"
     source_dir = tmp_path / "source"

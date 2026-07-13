@@ -38,6 +38,25 @@ _CONTROLNET_TYPE_KEYS = {"x-controlnet", "controlnet", "controlnet_type",
 _CONTROLNET_STRIP_KEYS = {"controlnet_strength", "cn_strength"}
 
 
+def _json_safe_pathlikes(value: Any) -> Any:
+    """Recursively normalize PathLike tool arguments before JSON transport.
+
+    ``ToolResult.path`` is intentionally a ``Path``, and agent code commonly
+    feeds it straight into a later media parameter. Once normalized, the media
+    resolver treats it like an agent-written string path and imports it for
+    durable lineage where appropriate.
+    """
+    if isinstance(value, os.PathLike):
+        return os.fsdecode(os.fspath(value))
+    if isinstance(value, dict):
+        return {key: _json_safe_pathlikes(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe_pathlikes(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_json_safe_pathlikes(item) for item in value)
+    return value
+
+
 def _coerce_dict_arg(value: Any) -> Any:
     """If ``value`` is a JSON-encoded dict, decode it; otherwise return unchanged.
 
@@ -289,7 +308,7 @@ async def execute_call_tool(
     # STP tools have a SINGLE parameter namespace: prompt, input_images, mask,
     # width/height, seed, loras and every tool-specific knob live together in one
     # dict keyed by name (matching the tool's parameter_schema).
-    params: Dict[str, Any] = dict(parameters or {})
+    params: Dict[str, Any] = _json_safe_pathlikes(dict(parameters or {}))
 
     # Extract controlnet config if the agent passed it inline
     cn_preprocessor, cn_params = _extract_controlnet_config(params)

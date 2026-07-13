@@ -7,6 +7,7 @@ reach the provider intact — and are NOT clobbered by the tool's schema default
 """
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import pytest
 from unittest.mock import AsyncMock, patch
@@ -310,6 +311,45 @@ async def test_absolute_path_input_is_imported_for_durable_lineage(tmp_path):
     assert import_input.await_count == 1
     assert import_input.await_args.args[1] == str(crop)
     assert import_input.await_args.args[2] is None
+
+
+@pytest.mark.asyncio
+async def test_pathlike_input_is_imported_and_resolved_to_media_id(tmp_path):
+    """A pathlib path follows the same durable-lineage resolver as a string path."""
+    crop = tmp_path / "crop_pathlib.png"
+    crop.write_bytes(b"\x89PNG fake")
+    captured = {}
+
+    class _Queue:
+        async def submit_job(self, **kw):
+            captured["params"] = kw["parameters"]
+            raise RuntimeError("__stop__")
+
+        async def cancel_job(self, *a, **k):
+            pass
+
+    import_input = AsyncMock(return_value=733)
+    db = type("_DB", (), {"async_session_maker": lambda self: _AsyncSessionContext()})()
+    registry = type("_Registry", (), {"get_database": lambda self, _profile: db})()
+
+    with patch.object(ct, "ProviderRegistry", _I2IReg), \
+         patch.object(ct, "get_generation_queue", lambda: _Queue()), \
+         patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"), \
+         patch("database_registry.get_database_registry", return_value=registry), \
+         patch("agent.v2.tools.library.resolve_or_import_input_file", import_input):
+        with pytest.raises(RuntimeError, match="__stop__"):
+            await ct.execute_call_tool(
+                tool_id="comfyui:mock-edit",
+                parameters={"prompt": "warm", "input_images": [Path(crop)]},
+                task_type_override="image-to-image",
+                session=object(),
+                workspace_dir=str(tmp_path),
+            )
+
+    p = captured["params"]
+    assert p["input_images"] == [733]
+    assert p["input_media_ids"] == [733]
+    assert import_input.await_args.args[1] == str(crop)
 
 
 @pytest.mark.asyncio
