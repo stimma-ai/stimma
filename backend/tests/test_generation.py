@@ -546,6 +546,7 @@ class TestGenerateMore:
                 "tool_id": "test:text-to-image:test-model",
                 "folder_path": output_folder,
                 "task_type": "text-to-image",
+                "generator_instance_id": "tool-test_text-to-image_test-model__i_17@@browser-guid",
                 "parameters": {"prompt": "generate more test", "width": 64, "height": 64, "steps": 5, "seed": 9999},
             },
         )
@@ -566,6 +567,28 @@ class TestGenerateMore:
         # Find the test tool in the response
         test_tools = [t for t in data if "test" in t["full_tool_id"]]
         assert len(test_tools) > 0
+        original = next(t for t in test_tools if t["is_original"])
+        assert original["original_generator_instance_id"] == (
+            "tool-test_text-to-image_test-model__i_17@@browser-guid"
+        )
+
+    async def test_original_tool_has_no_instance_when_generation_job_is_gone(
+        self,
+        generation_client: httpx.AsyncClient,
+        generation_db_session,
+    ):
+        """Old media keeps the base-tool fallback when instance provenance is unavailable."""
+        async with generation_db_session() as session:
+            media = await create_media_with_generation_metadata(session)
+            await session.commit()
+            media_id = media.id
+
+        response = await generation_client.get(f"/api/tools/remix-tools/{media_id}")
+        assert response.status_code == 200
+
+        original = next(tool for tool in response.json() if tool["is_original"])
+        assert original["full_tool_id"] == "test:text-to-image:test-model"
+        assert original["original_generator_instance_id"] is None
 
 
 # =============================================================================

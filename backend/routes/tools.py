@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import PinnedTool, ToolState, MediaItem
+from database import GenerationJob, PinnedTool, ToolState, MediaItem
 from core.dependencies import get_db_session
 from core.logging import get_logger
 from utils.websocket import ws_manager
@@ -1194,6 +1194,7 @@ class GenerateMoreToolResponse(BaseModel):
     metadata: Dict = {}
     subtitle: Optional[str] = None
     is_original: bool = False  # True if this is the tool that created the original image
+    original_generator_instance_id: Optional[str] = None
 
 
 @router.get("/stats/{full_tool_id:path}", response_model=ToolStatsResponse)
@@ -1269,6 +1270,7 @@ async def get_generate_more_tools(
 
     # Find the original tool and detect source task type from lineage
     original_tool_id = None
+    original_generator_instance_id = None
     source_task_type = None
 
     if media_item.generation_metadata:
@@ -1312,6 +1314,19 @@ async def get_generate_more_tools(
         except json.JSONDecodeError:
             log.error(f"Failed to parse generation_metadata for media {media_id}")
 
+    # Generation jobs retain the exact ephemeral tool-instance feed that
+    # produced their result. The frontend can match this to an open workspace
+    # tab; if that tab has since been closed, it simply falls back to the base
+    # original tool as before.
+    if original_tool_id:
+        job_result = await session.execute(
+            select(GenerationJob.generator_instance_id)
+            .where(GenerationJob.result_media_id == media_id)
+            .order_by(GenerationJob.id.desc())
+            .limit(1)
+        )
+        original_generator_instance_id = job_result.scalar_one_or_none()
+
     # Fall back to text-to-image if we couldn't detect source task type
     if not source_task_type:
         source_task_type = "text-to-image"
@@ -1332,6 +1347,11 @@ async def get_generate_more_tools(
                     metadata=tool.metadata or {},
                     subtitle=tool.subtitle,
                     is_original=f"{pid}:{tool.id}" == original_tool_id,
+                    original_generator_instance_id=(
+                        original_generator_instance_id
+                        if f"{pid}:{tool.id}" == original_tool_id
+                        else None
+                    ),
                 ))
 
     # If no tools found for source task type, fall back to text-to-image
@@ -1350,6 +1370,11 @@ async def get_generate_more_tools(
                         metadata=tool.metadata or {},
                         subtitle=tool.subtitle,
                         is_original=f"{pid}:{tool.id}" == original_tool_id,
+                        original_generator_instance_id=(
+                            original_generator_instance_id
+                            if f"{pid}:{tool.id}" == original_tool_id
+                            else None
+                        ),
                     ))
 
     # Sort: original tool first (if found), then alphabetically by name

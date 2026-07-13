@@ -447,13 +447,17 @@
                     Original
                   </div>
                   <button
-                    @click="sendToGenerateTool(originalTool)"
+                    @click="originalToolInstance ? sendToGenerateToolInstance({ tab: originalToolInstance, tool: originalTool }) : sendToGenerateTool(originalTool)"
                     class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
                   >
                     <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(originalTool) ? '' : 'text-content-tertiary'">
                       <ToolIcon :tool="originalTool" size="xs" :bare="true" :ring="false" />
                     </div>
-                    <span class="flex-1 min-w-0 truncate">{{ originalTool.name }}</span>
+                    <span class="flex-1 min-w-0 truncate">{{ originalToolInstance ? (originalToolInstance.customName || originalToolInstance.displayName) : originalTool.name }}</span>
+                    <span
+                      v-if="originalToolInstance?.projectName"
+                      class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"
+                    >{{ originalToolInstance.projectName }}</span>
                     <ToolProviderLabel :cloud="isStimmaCloudTool(originalTool)" :provider-name="originalTool.provider_name" class="pl-3" />
                   </button>
                 </template>
@@ -761,6 +765,7 @@ interface GenerateMoreTool {
   metadata: Record<string, any>
   subtitle?: string
   is_original: boolean
+  original_generator_instance_id?: string | null
 }
 
 const router = useRouter()
@@ -849,6 +854,22 @@ const generateMoreTools = ref<GenerateMoreTool[]>([])
 // Split generate tools into original and others
 const originalTool = computed(() => generateMoreTools.value.find(t => t.is_original))
 const otherGenerateTools = computed(() => generateMoreTools.value.filter(t => !t.is_original))
+
+// Prefer the exact instance that produced this media while its tab still
+// exists. generator_instance_id ends in a browser GUID, while feedScope is the
+// stable tab-specific prefix before that suffix.
+const originalToolInstance = computed(() => {
+  const tool = originalTool.value
+  const generatorId = tool?.original_generator_instance_id
+  if (!tool || !generatorId) return undefined
+  return (workspaceTabs.value as WorkspaceTab[]).find(tab =>
+    tab.type === 'tool' &&
+    tab.entityId === tool.full_tool_id &&
+    !!tab.instanceId &&
+    !!tab.feedScope &&
+    (generatorId === `tool-${tab.feedScope}` || generatorId.startsWith(`tool-${tab.feedScope}@@`))
+  )
+})
 
 // Eligible open tool-instance tabs (incl. renamed stations), most-recently-
 // active first. Eligibility = the tool appears in the remix tool list.
