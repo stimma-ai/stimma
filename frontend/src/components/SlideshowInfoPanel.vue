@@ -25,68 +25,6 @@
     </div>
 
     <div v-if="currentItem" class="p-3 overflow-y-auto overflow-x-hidden">
-      <!-- Versions are saved states of this Asset; Media remains implementation detail. -->
-      <div v-if="currentItem.asset_id && versions.length > 1" class="mb-6">
-        <button
-          class="flex w-full items-center justify-between bg-transparent p-0 text-left"
-          @click="versionsExpanded = !versionsExpanded"
-        >
-          <h4 class="m-0 text-xs font-semibold uppercase tracking-wider text-content-tertiary">
-            Versions <span class="normal-case tracking-normal text-content-muted">{{ versions.length }}</span>
-          </h4>
-          <span class="text-xs text-content-muted">{{ versionsExpanded ? 'Hide' : 'Show' }}</span>
-        </button>
-        <div v-if="versionsExpanded" class="mt-2 space-y-2">
-          <div
-            v-for="version in versions"
-            :key="version.id"
-            class="rounded-lg border p-2"
-            :class="version.id === currentRevisionId ? 'border-blue-500/50 bg-blue-500/15' : 'border-white/10 bg-white/[0.05]'"
-          >
-            <div class="flex gap-2">
-              <button
-                class="h-14 w-14 flex-shrink-0 overflow-hidden rounded border border-white/10 bg-black/20 p-0"
-                title="View this version"
-                @click="$emit('navigate-to-source-media', version.media.id)"
-              >
-                <MediaImage
-                  :media-id="version.media.id"
-                  :file-hash="version.media.file_hash"
-                  :thumbnail-size="128"
-                  :contain="true"
-                  container-class="h-full w-full"
-                />
-              </button>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center justify-between gap-2 text-xs">
-                  <span class="font-medium text-content">Version {{ version.revision_number }}</span>
-                  <span v-if="version.id === currentRevisionId" class="text-blue-400">Current</span>
-                </div>
-                <div class="mt-0.5 truncate text-[11px] text-content-muted">
-                  {{ formatVersionDate(version.created_at) }}
-                  <span v-if="version.parent_revision_id && version.parent_revision_id !== previousRevisionId(version)"> · branched</span>
-                </div>
-                <div class="mt-2 flex flex-wrap gap-1">
-                  <button class="rounded bg-white/[0.05] px-2 py-1 text-[11px] text-content-secondary hover:bg-white/10" @click="$emit('navigate-to-source-media', version.media.id)">View</button>
-                  <button v-if="isImageType(version.media)" class="rounded bg-white/[0.05] px-2 py-1 text-[11px] text-content-secondary hover:bg-white/10" @click="$emit('edit-image', version.media.id)">Edit from</button>
-                  <button class="rounded bg-white/[0.05] px-2 py-1 text-[11px] text-content-secondary hover:bg-white/10" @click="$emit('download-version', version.media.id)">Export</button>
-                  <button
-                    v-if="version.id !== currentRevisionId"
-                    class="rounded px-2 py-1 text-[11px]"
-                    :class="confirmRestoreId === version.id ? 'bg-blue-500 text-white' : 'bg-white/[0.05] text-content-secondary hover:bg-white/10'"
-                    @click="requestRestore(version)"
-                  >{{ confirmRestoreId === version.id ? 'Confirm restore' : 'Restore as latest' }}</button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <button
-            class="w-full rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-xs text-content-secondary hover:bg-white/10 hover:text-content"
-            @click="$emit('download-versions', versions.map(version => version.media.id))"
-          >Export all versions</button>
-        </div>
-      </div>
-
       <!-- Actions -->
       <h4 class="m-0 mb-2 text-xs uppercase tracking-wider text-content-tertiary font-semibold">Actions</h4>
       <div class="flex flex-col gap-1.5 mb-6">
@@ -532,6 +470,68 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Versions are saved states of this Asset; Media remains implementation detail. -->
+      <div v-if="currentItem.asset_id && versions.length > 1" class="mb-6">
+        <button
+          class="flex w-full items-center justify-between bg-transparent p-0 text-left"
+          @click="versionsExpanded = !versionsExpanded"
+        >
+          <h4 class="m-0 text-xs font-semibold uppercase tracking-wider text-content-tertiary">
+            Versions <span class="normal-case tracking-normal text-content-muted">{{ versions.length }}</span>
+          </h4>
+          <span class="text-xs text-content-muted">{{ versionsExpanded ? 'Hide' : 'Show' }}</span>
+        </button>
+        <div v-if="versionsExpanded" class="mt-2 space-y-2">
+          <div
+            v-for="version in versions"
+            :key="version.id"
+            class="rounded-lg border p-2"
+            :class="version.id === currentRevisionId ? 'border-blue-500/50 bg-blue-500/15' : 'border-white/10 bg-white/[0.05]'"
+          >
+            <div class="flex gap-2">
+              <button
+                class="h-14 w-14 flex-shrink-0 overflow-hidden rounded border border-white/10 bg-black/20 p-0"
+                title="View this version"
+                @click="$emit('navigate-to-source-media', version.media.id)"
+              >
+                <MediaImage
+                  :media-id="version.media.id"
+                  :file-hash="version.media.file_hash"
+                  :thumbnail-size="128"
+                  :contain="true"
+                  container-class="h-full w-full"
+                />
+              </button>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2 text-xs">
+                  <span class="font-medium text-content">Version {{ version.revision_number }}</span>
+                  <span v-if="version.id === currentRevisionId" class="text-blue-400">Current</span>
+                </div>
+                <div class="mt-0.5 truncate text-[11px] text-content-muted">
+                  {{ formatVersionDate(version.created_at) }}
+                  <span v-if="version.parent_revision_id && version.parent_revision_id !== previousRevisionId(version)"> · branched</span>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-1">
+                  <button class="rounded bg-white/[0.05] px-2 py-1 text-[11px] text-content-secondary hover:bg-white/10" @click="$emit('navigate-to-source-media', version.media.id)">View</button>
+                  <button v-if="isImageType(version.media)" class="rounded bg-white/[0.05] px-2 py-1 text-[11px] text-content-secondary hover:bg-white/10" @click="$emit('edit-image', version.media.id)">Edit from</button>
+                  <button class="rounded bg-white/[0.05] px-2 py-1 text-[11px] text-content-secondary hover:bg-white/10" @click="$emit('download-version', version.media.id)">Export</button>
+                  <button
+                    v-if="version.id !== currentRevisionId"
+                    class="rounded px-2 py-1 text-[11px]"
+                    :class="confirmRestoreId === version.id ? 'bg-blue-500 text-white' : 'bg-white/[0.05] text-content-secondary hover:bg-white/10'"
+                    @click="requestRestore(version)"
+                  >{{ confirmRestoreId === version.id ? 'Confirm restore' : 'Restore as latest' }}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button
+            class="w-full rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-xs text-content-secondary hover:bg-white/10 hover:text-content"
+            @click="$emit('download-versions', versions.map(version => version.media.id))"
+          >Export all versions</button>
         </div>
       </div>
 
