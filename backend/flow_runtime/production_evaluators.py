@@ -302,6 +302,7 @@ async def restore_trashed_media_silently(media_ids: list[int]) -> None:
                 select(MediaItem.id).where(
                     MediaItem.id.in_(media_ids),
                     MediaItem.deleted_at.is_not(None),
+                    MediaItem.deletion_pending_at.is_(None),
                 )
             )
             restored_ids = [row[0] for row in result.all()]

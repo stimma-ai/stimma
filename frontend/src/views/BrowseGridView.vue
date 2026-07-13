@@ -1417,7 +1417,19 @@ async function permanentDelete() {
     itemToDelete.value = null
     showDeleteConfirm.value = false
     const accepted = response?.accepted ?? idsToDelete.length
-    addToast(`Deleted ${accepted} ${accepted === 1 ? 'item' : 'items'} permanently`, 'info')
+    const results = response?.results || [response]
+    const retainedCount = results.reduce(
+      (count, result) => count + (result?.retained_media_ids?.length || 0),
+      0,
+    )
+    if (retainedCount > 0) {
+      addToast(
+        `Removed ${accepted} ${accepted === 1 ? 'asset' : 'assets'}; ${retainedCount} media ${retainedCount === 1 ? 'revision is' : 'revisions are'} still retained by other content`,
+        'info',
+      )
+    } else {
+      addToast(`Permanent deletion started for ${accepted} ${accepted === 1 ? 'item' : 'items'}`, 'info')
+    }
   } catch (error) {
     console.error('Failed to permanently delete:', error)
     addToast('Failed to permanently delete item(s)', 'error')
@@ -1973,7 +1985,7 @@ onMounted(async () => {
   }))
 
   // Handle permanent deletion events (bulk permanent delete with known IDs)
-  wsUnsubscribers.push(wsOn('asset_permanently_deleted', (data) => {
+  wsUnsubscribers.push(wsOn('asset_identity_deleted', (data) => {
     if (!props.isTrashMode) return  // Only relevant for trash view
     const { asset_id } = data
     if (asset_id && mediaList) {
@@ -1983,7 +1995,7 @@ onMounted(async () => {
   }))
 
   // Handle trash emptied event (large bulk deletes where IDs aren't sent)
-  wsUnsubscribers.push(wsOn('assets_permanently_deleted', () => {
+  wsUnsubscribers.push(wsOn('asset_identities_deleted', () => {
     if (!props.isTrashMode) return
     // Full reload — all items are gone
     totalCount.value = 0

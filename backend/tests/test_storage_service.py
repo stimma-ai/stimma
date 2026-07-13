@@ -2,13 +2,29 @@
 
 import asyncio
 import hashlib
+from datetime import datetime
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 
-from asset_service import create_asset_from_media
-from database import Asset, AssetRevision, MediaItem, StorageObject
+from asset_service import create_asset_from_media, create_asset_snapshot
+from asset_deletion_service import permanently_delete_asset
+from asset_service import trash_asset
+from database import (
+    Asset,
+    AssetRevision,
+    DeleteOperation,
+    DeleteOperationItem,
+    ManagedArtifact,
+    MediaItem,
+    MediaOwner,
+    StorageObject,
+)
+from delete_operations import _process_profile, retry_delete_operation
 from storage_service import (
+    StorageServiceError,
     cleanup_staged_source,
     migrate_legacy_managed_media,
     object_path,
@@ -112,6 +128,359 @@ async def test_external_media_delete_never_deletes_user_owned_file(
     async with db_session() as session:
         assert await session.get(MediaItem, media_id) is None
         assert await session.get(StorageObject, storage_id) is None
+
+
+@pytest.mark.asyncio
+async def test_managed_bytes_unlink_only_after_logical_delete_commit(
+    db_session, tmp_path
+):
+    source = tmp_path / "crash-boundary.png"
+    content = b"durable deletion boundary"
+    source.write_bytes(content)
+    digest = hashlib.sha256(content).hexdigest()
+    async with db_session() as session:
+        media = await create_media_item(
+            session,
+            file_path=source,
+            file_hash=digest,
+            file_size=len(content),
+        )
+        storage = await stage_managed_media(
+            session, media=media, profile_id="default"
+        )
+        asset = await create_asset_from_media(session, media_id=media.id)
+        object_file = object_path("default", storage.object_key)
+        asset_id = asset.id
+        media_id = media.id
+        storage_id = storage.id
+        await session.commit()
+
+        await trash_asset(session, asset_id=asset_id)
+        result = await permanently_delete_asset(
+            session,
+            asset_id=asset_id,
+            profile_id="default",
+        )
+        operation_id = result.operation.id
+
+    # First worker pass commits logical deletion and its durable manifest. A
+    # process crash here leaves bytes present and a resumable deleting object.
+    assert await _process_profile("default") is True
+    assert object_file.exists()
+    async with db_session() as session:
+        assert await session.get(MediaItem, media_id) is None
+        staged = await session.get(
+            DeleteOperationItem, (operation_id, media_id)
+        )
+        assert staged.state == "media_deleted"
+        storage = await session.get(StorageObject, storage_id)
+        assert storage.state == "deleting"
+
+    # Deduplicating ingest must not reattach the canonical object while the
+    # finalizer owns its last-reference deletion reservation.
+    replacement_source = tmp_path / "replacement.png"
+    replacement_source.write_bytes(content)
+    async with db_session() as session:
+        replacement = await create_media_item(
+            session,
+            file_path=replacement_source,
+            file_hash=digest,
+            file_size=len(content),
+        )
+        replacement_id = replacement.id
+        with pytest.raises(StorageServiceError, match="deletion is in progress"):
+            await stage_managed_media(
+                session,
+                media=replacement,
+                profile_id="default",
+            )
+        await session.rollback()
+        replacement = await session.get(MediaItem, replacement_id)
+        await session.delete(replacement)
+        await session.commit()
+    assert object_file.exists()
+
+    # A later process resumes the idempotent unlink and finalizes metadata.
+    assert await _process_profile("default") is True
+    assert not object_file.exists()
+    async with db_session() as session:
+        assert await session.get(StorageObject, storage_id) is None
+        assert await session.get(
+            DeleteOperationItem, (operation_id, media_id)
+        ) is None
+
+    assert await _process_profile("default") is True
+    async with db_session() as session:
+        operation = await session.get(DeleteOperation, operation_id)
+        assert operation.status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_object_store_rejects_deletion_pending_media(db_session, tmp_path):
+    source = tmp_path / "pending-object-migration.png"
+    source.write_bytes(b"pending")
+    async with db_session() as session:
+        media = await create_media_item(
+            session,
+            file_path=source,
+            file_hash=hashlib.sha256(b"pending").hexdigest(),
+            file_size=7,
+        )
+        media.deletion_pending_at = datetime.utcnow()
+        await session.commit()
+
+        with pytest.raises(StorageServiceError, match="Media deletion is in progress"):
+            await stage_managed_media(
+                session,
+                media=media,
+                profile_id="default",
+            )
+
+
+@pytest.mark.asyncio
+async def test_stale_object_store_reader_fails_before_filesystem_install(
+    db_session, tmp_path
+):
+    source = tmp_path / "stale-object-migration.png"
+    content = b"stale reservation"
+    source.write_bytes(content)
+    digest = hashlib.sha256(content).hexdigest()
+    destination = object_path(
+        "default",
+        f"sha256/{digest[:2]}/{digest[2:4]}/{digest}",
+    )
+
+    async with db_session() as stale_session:
+        media = await create_media_item(
+            stale_session,
+            file_path=source,
+            file_hash=digest,
+            file_size=len(content),
+        )
+        media_id = media.id
+        # Establish a WAL read snapshot before the deletion barrier commits.
+        await stale_session.scalar(
+            select(MediaItem.id).where(MediaItem.id == media_id)
+        )
+
+        async with db_session() as deleting_session:
+            deleting = await deleting_session.get(MediaItem, media_id)
+            deleting.deletion_pending_at = datetime.utcnow()
+            await deleting_session.commit()
+
+        with pytest.raises((OperationalError, StorageServiceError)):
+            await stage_managed_media(
+                stale_session,
+                media=media,
+                profile_id="default",
+            )
+        await stale_session.rollback()
+
+    assert not destination.exists()
+    async with db_session() as session:
+        media = await session.get(MediaItem, media_id)
+        await session.delete(media)
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_legacy_duplicate_path_survives_single_media_deletion(
+    client, db_session, tmp_path
+):
+    shared_path = tmp_path / "legacy-shared.png"
+    shared_path.write_bytes(b"shared legacy bytes")
+    async with db_session() as session:
+        first = await create_media_item(session, file_path=shared_path)
+        second = await create_media_item(session, file_path=shared_path)
+        first_id = first.id
+        second_id = second.id
+        await session.commit()
+
+    await client.delete(f"/api/media/{first_id}")
+    response = await client.delete(f"/api/trash/{first_id}")
+    result = await _wait_for_delete(client, response.json()["operation"]["id"])
+    assert result["status"] == "completed"
+    assert shared_path.exists()
+    async with db_session() as session:
+        assert await session.get(MediaItem, first_id) is None
+        assert await session.get(MediaItem, second_id) is not None
+    await client.delete(f"/api/media/{second_id}")
+    response = await client.delete(f"/api/trash/{second_id}")
+    await _wait_for_delete(client, response.json()["operation"]["id"])
+
+
+@pytest.mark.asyncio
+async def test_concurrent_delete_workers_claim_each_media_once(db_session, tmp_path):
+    source = tmp_path / "concurrent-delete.png"
+    source.write_bytes(b"concurrent")
+    async with db_session() as session:
+        media = await create_media_item(session, file_path=source)
+        asset = await create_asset_from_media(session, media_id=media.id)
+        await session.commit()
+        await trash_asset(session, asset_id=asset.id)
+        result = await permanently_delete_asset(
+            session,
+            asset_id=asset.id,
+            profile_id="default",
+        )
+        operation_id = result.operation.id
+
+    await asyncio.gather(
+        _process_profile("default"),
+        _process_profile("default"),
+    )
+    for _ in range(4):
+        await _process_profile("default")
+
+    async with db_session() as session:
+        operation = await session.get(DeleteOperation, operation_id)
+        assert operation.status == "completed"
+        assert operation.total_items == 1
+        assert operation.claimed_items == 1
+        assert operation.processed_items == 1
+        assert operation.deleted_items == 1
+        assert operation.failed_items == 0
+
+
+@pytest.mark.asyncio
+async def test_asset_editor_artifacts_retry_without_resurrecting_deleted_root(
+    db_session, tmp_path
+):
+    source_path = tmp_path / "source.png"
+    dependent_path = tmp_path / "dependent.png"
+    source_path.write_bytes(b"source")
+    dependent_path.write_bytes(b"dependent")
+    project_path = tmp_path / "source.stimmaedit.json"
+    preview_path = tmp_path / "source-preview.webp"
+    project_path.write_bytes(b"project")
+    preview_path.write_bytes(b"preview")
+
+    async with db_session() as session:
+        source_media = await create_media_item(session, file_path=source_path)
+        dependent_media = await create_media_item(session, file_path=dependent_path)
+        source = await create_asset_from_media(session, media_id=source_media.id)
+        dependent = await create_asset_from_media(
+            session, media_id=dependent_media.id
+        )
+        dependent_revision_id = dependent.current_revision_id
+        snapshot = await create_asset_snapshot(
+            session,
+            owner_kind="revision",
+            owner_id=dependent_revision_id,
+            media_id=source_media.id,
+            source_asset_id=source.id,
+            source_revision_id=source.current_revision_id,
+            role="source",
+        )
+        session.add_all(
+            [
+                ManagedArtifact(
+                    owner_kind="asset",
+                    owner_id=str(source.id),
+                    artifact_kind="editor_project",
+                    locator=str(project_path),
+                ),
+                ManagedArtifact(
+                    owner_kind="revision",
+                    owner_id=str(source.current_revision_id),
+                    artifact_kind="editor_preview",
+                    locator=str(preview_path),
+                ),
+            ]
+        )
+        await session.commit()
+        source_id = source.id
+        source_media_id = source_media.id
+        dependent_id = dependent.id
+        snapshot_id = snapshot.id
+
+        await trash_asset(session, asset_id=source_id)
+        result = await permanently_delete_asset(
+            session,
+            asset_id=source_id,
+            profile_id="default",
+        )
+        operation_id = result.operation.id
+
+    # Asset identity deletion commits before its private editor artifacts are
+    # unlinked. B's snapshot is a strong Media root and only its weak semantic
+    # binding back to A is cleared.
+    async with db_session() as session:
+        assert await session.get(Asset, source_id) is None
+        assert await session.get(MediaItem, source_media_id) is not None
+        dependent = await session.get(Asset, dependent_id)
+        assert dependent.current_revision_id == dependent_revision_id
+        snapshot = await session.get(type(snapshot), snapshot_id)
+        assert snapshot.media_id == source_media_id
+        assert snapshot.source_asset_id is None
+        assert snapshot.source_revision_id is None
+        owner = await session.scalar(
+            select(MediaOwner).where(
+                MediaOwner.root_kind == "asset_snapshot",
+                MediaOwner.root_id == str(snapshot_id),
+                MediaOwner.deleted_at.is_(None),
+            )
+        )
+        assert owner.media_id == source_media_id
+
+    deleted_once = False
+
+    def fail_after_first_unlink(path):
+        nonlocal deleted_once
+        if not deleted_once:
+            deleted_once = True
+            path_obj = path if hasattr(path, "unlink") else type(project_path)(path)
+            path_obj.unlink(missing_ok=True)
+            return
+        raise PermissionError("simulated editor artifact failure")
+
+    with patch(
+        "delete_operations.TrashService.permanently_delete",
+        side_effect=fail_after_first_unlink,
+    ):
+        assert await _process_profile("default") is True
+
+    async with db_session() as session:
+        operation = await session.get(DeleteOperation, operation_id)
+        assert operation.status == "failed"
+        assert await session.get(Asset, source_id) is None
+        assert await session.get(MediaItem, source_media_id) is not None
+        remaining = list(
+            await session.scalars(
+                select(ManagedArtifact).where(
+                    ManagedArtifact.owner_kind == "delete_operation",
+                    ManagedArtifact.owner_id == str(operation_id),
+                )
+            )
+        )
+        assert len(remaining) == 2
+        await retry_delete_operation(session, operation_id)
+
+    assert await _process_profile("default") is True
+    assert await _process_profile("default") is True
+    assert not project_path.exists()
+    assert not preview_path.exists()
+    async with db_session() as session:
+        operation = await session.get(DeleteOperation, operation_id)
+        assert operation.status == "completed"
+        assert await session.get(Asset, source_id) is None
+        assert await session.get(MediaItem, source_media_id) is not None
+
+        # Module-scoped storage tests share a database. Remove the surviving B
+        # root after proving its integrity so later count-based tests remain
+        # isolated.
+        await trash_asset(session, asset_id=dependent_id)
+        cleanup_result = await permanently_delete_asset(
+            session,
+            asset_id=dependent_id,
+            profile_id="default",
+        )
+
+    for _ in range(4):
+        await _process_profile("default")
+    async with db_session() as session:
+        cleanup = await session.get(DeleteOperation, cleanup_result.operation.id)
+        assert cleanup.status == "completed"
 
 
 @pytest.mark.asyncio

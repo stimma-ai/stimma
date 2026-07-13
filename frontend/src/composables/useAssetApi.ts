@@ -1,5 +1,10 @@
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
+import {
+  confirmAssetProjectDeletion,
+  prepareAssetProjectDeletion,
+  scrubDeletedAssetProjects,
+} from '../utils/editorProjectPrivacy'
 
 export interface AssetBrowserItem {
   asset_id: number
@@ -133,7 +138,15 @@ export function useAssetApi() {
   }
 
   async function permanentlyDelete(assetId: number) {
-    return (await axios.delete(`${api()}/assets/${assetId}/permanent`)).data
+    const revisions = (await axios.get(`${api()}/assets/${assetId}/revisions`)).data
+    prepareAssetProjectDeletion(
+      assetId,
+      (revisions.items || []).map((revision: { primary_media_id: number }) => revision.primary_media_id),
+    )
+    const result = (await axios.delete(`${api()}/assets/${assetId}/permanent`)).data
+    await confirmAssetProjectDeletion(assetId)
+    await scrubDeletedAssetProjects(result.media_ids || [])
+    return result
   }
 
   async function permanentlyDeleteMany(assetIds: number[]) {
@@ -142,7 +155,25 @@ export function useAssetApi() {
   }
 
   async function emptyTrash() {
-    return (await axios.delete(`${api()}/assets`)).data
+    const manifest = (await axios.get(`${api()}/assets/trash-deletion-manifest`)).data
+    const results = []
+    for (const item of manifest.items || []) {
+      prepareAssetProjectDeletion(item.asset_id, item.media_ids || [])
+      const result = (
+        await axios.delete(`${api()}/assets/${item.asset_id}/permanent`)
+      ).data
+      await confirmAssetProjectDeletion(item.asset_id)
+      await scrubDeletedAssetProjects(result.media_ids || [])
+      results.push(result)
+    }
+    return {
+      status: 'accepted',
+      accepted: results.length,
+      results,
+      media_ids: (manifest.items || []).flatMap(
+        (item: { media_ids?: number[] }) => item.media_ids || [],
+      ),
+    }
   }
 
   async function addToBoard(boardId: number, assetIds: number[], sectionId: number | null = null) {

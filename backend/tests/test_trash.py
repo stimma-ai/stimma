@@ -14,14 +14,16 @@ import json
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from unittest.mock import patch
 
 from database import (
     Chat,
     ChatItem,
+    DeleteOperation,
     DeleteOperationItem,
     GenerationJob,
+    ManagedArtifact,
     MediaItem,
     MediaLineage,
     MediaThumbnailCache,
@@ -287,6 +289,19 @@ class TestPermanentDelete:
         get_response = await client.get(f"/api/media/{media_id}")
         assert get_response.status_code == 404
 
+    async def test_media_deletion_status_endpoint(
+        self, client: AsyncClient, seeded_media
+    ):
+        media_id = seeded_media[0].id
+        live = await client.get(f"/api/deletion-status/media/{media_id}")
+        assert live.json()["status"] == "live"
+
+        await client.delete(f"/api/media/{media_id}")
+        trashed = await client.get(f"/api/deletion-status/media/{media_id}")
+        assert trashed.json()["status"] == "trashed"
+
+        await client.post(f"/api/trash/{media_id}/restore")
+
     async def test_successful_delete_scrubs_work_manifest(
         self, client: AsyncClient, db_session, seeded_media
     ):
@@ -327,12 +342,21 @@ class TestPermanentDelete:
         assert operation["failed_items"] == 1
 
         async with db_session() as session:
-            assert await session.get(MediaItem, media_id) is not None
+            # Logical deletion committed before unlink, so a rollback/crash can
+            # never resurrect a live row pointing at missing bytes.
+            assert await session.get(MediaItem, media_id) is None
             row = await session.get(DeleteOperationItem, (operation_id, media_id))
             assert row is not None
             assert row.state == "failed"
             assert row.last_error == "permanent deletion failed"
             assert "sensitive path" not in row.last_error
+
+        retried = await client.post(
+            f"/api/delete-operations/{operation_id}/retry"
+        )
+        assert retried.status_code == 202
+        completed = await wait_for_delete_operation(client, operation_id)
+        assert completed["status"] == "completed"
 
     async def test_thumbnail_failure_preserves_cache_locator_for_retry(
         self, client: AsyncClient, db_session, seeded_media, tmp_path
@@ -353,9 +377,20 @@ class TestPermanentDelete:
 
         assert operation["status"] == "failed"
         async with db_session() as session:
-            cache_row = await session.get(MediaThumbnailCache, (media_id, str(thumbnail)))
-            assert cache_row is not None
-            assert await session.get(MediaItem, media_id) is not None
+            assert await session.get(MediaThumbnailCache, (media_id, str(thumbnail))) is None
+            assert await session.get(MediaItem, media_id) is None
+            manifest = await session.get(
+                DeleteOperationItem, (operation["id"], media_id)
+            )
+            assert str(thumbnail) in json.loads(manifest.thumbnail_paths)
+
+        retried = await client.post(
+            f"/api/delete-operations/{operation['id']}/retry"
+        )
+        assert retried.status_code == 202
+        completed = await wait_for_delete_operation(client, operation["id"])
+        assert completed["status"] == "completed"
+        assert not thumbnail.exists()
 
     async def test_legacy_editor_dependency_blocks_source_deletion(
         self, client: AsyncClient, db_session, tmp_path
@@ -373,6 +408,17 @@ class TestPermanentDelete:
                 }),
                 encoding="utf-8",
             )
+            source_artifact = tmp_path / "source-proxy.webp"
+            source_artifact.write_bytes(b"proxy")
+            session.add(
+                ManagedArtifact(
+                    owner_kind="media",
+                    owner_id=str(source.id),
+                    media_id=source.id,
+                    artifact_kind="proxy",
+                    locator=str(source_artifact),
+                )
+            )
             await session.commit()
             source_id = source.id
 
@@ -386,9 +432,32 @@ class TestPermanentDelete:
         async with db_session() as session:
             assert await session.get(MediaItem, source_id) is not None
         assert sidecar.exists()
+        assert source_artifact.exists()
+        async with db_session() as session:
+            artifact = await session.scalar(
+                select(ManagedArtifact).where(
+                    ManagedArtifact.media_id == source_id
+                )
+            )
+            assert artifact.owner_kind == "media"
 
         # Module-scoped DB fixtures intentionally persist across this file; put
         # the blocked source back so later empty-trash/count tests stay isolated.
+        # Restore correctly refuses while a durable deletion remains active;
+        # cancel the synthetic failed operation directly for fixture cleanup.
+        restore = await client.post(f"/api/trash/{source_id}/restore")
+        assert restore.status_code == 409
+        async with db_session() as session:
+            source = await session.get(MediaItem, source_id)
+            source.deletion_pending_at = None
+            await session.execute(
+                delete(DeleteOperationItem).where(
+                    DeleteOperationItem.operation_id == operation["id"]
+                )
+            )
+            failed_operation = await session.get(DeleteOperation, operation["id"])
+            await session.delete(failed_operation)
+            await session.commit()
         restore = await client.post(f"/api/trash/{source_id}/restore")
         assert restore.status_code == 200
 
@@ -881,9 +950,17 @@ class TestLineageTombstoning:
             media = await create_media_item(session, file_path=tmp_path / "m.png")
             ci = ChatItem(chat_id=chat.id, item_type="assistant_message", media_id=media.id)
             session.add(ci)
+            malformed = ChatItem(
+                chat_id=chat.id,
+                item_type="tool_result",
+                tool_args=f'{{"media_id": {media.id}, "secret": "unterminated',
+            )
+            session.add(malformed)
             await session.commit()
             await session.refresh(ci)
+            await session.refresh(malformed)
             ci_id = ci.id
+            malformed_id = malformed.id
 
         await client.delete(f"/api/media/{media.id}")
         resp = await client.delete(f"/api/trash/{media.id}")
@@ -892,6 +969,7 @@ class TestLineageTombstoning:
         async with db_session() as session:
             refreshed = await session.get(ChatItem, ci_id)
             assert refreshed.media_id is None
+            assert (await session.get(ChatItem, malformed_id)).tool_args is None
 
     async def test_chat_item_json_scrubbed_on_permanent_delete(self, client: AsyncClient, db_session, tmp_path):
         """ChatItem JSON blobs must be rewritten in place when their referenced

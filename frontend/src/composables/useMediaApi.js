@@ -3,6 +3,7 @@ import { getCurrentProfileId, getCurrentDbGuid } from './useProfile'
 import { getApiBase } from '../apiConfig'
 import { useTauriDownload } from './useTauriDownload'
 import { useTheme } from './useTheme'
+import { prepareMediaProjectDeletion } from '../utils/editorProjectPrivacy'
 
 // Use dynamic API base - will be '/api' in dev, 'http://127.0.0.1:PORT/api' in Tauri
 function getAPIBase() {
@@ -387,12 +388,29 @@ export function useMediaApi() {
   }
 
   async function permanentlyDeleteMedia(mediaId) {
+    prepareMediaProjectDeletion([Number(mediaId)])
     const response = await axios.delete(`${getAPIBase()}/trash/${mediaId}`)
     return response.data
   }
 
   async function emptyTrash() {
-    const response = await axios.delete(`${getAPIBase()}/trash`)
+    const mediaIds = []
+    let page = 1
+    while (true) {
+      const trash = await axios.get(`${getAPIBase()}/trash`, {
+        params: { page, page_size: 200 },
+      })
+      mediaIds.push(...(trash.data.items || []).map(item => Number(item.id)))
+      if (mediaIds.length >= (trash.data.total || 0)) break
+      page += 1
+    }
+    prepareMediaProjectDeletion(mediaIds)
+    if (!mediaIds.length) {
+      return { status: 'accepted', operation: null, accepted: 0 }
+    }
+    const response = await axios.post(`${getAPIBase()}/trash/batch/delete`, {
+      media_ids: mediaIds,
+    })
     return response.data
   }
 
@@ -406,6 +424,11 @@ export function useMediaApi() {
     return response.data
   }
 
+  async function retryDeleteOperation(operationId) {
+    const response = await axios.post(`${getAPIBase()}/delete-operations/${operationId}/retry`)
+    return response.data
+  }
+
   async function bulkRestoreFromTrash(mediaIds) {
     const response = await axios.post(`${getAPIBase()}/trash/batch/restore`, {
       media_ids: mediaIds.map(id => parseInt(id))
@@ -414,6 +437,7 @@ export function useMediaApi() {
   }
 
   async function bulkPermanentlyDelete(mediaIds) {
+    prepareMediaProjectDeletion(mediaIds)
     const response = await axios.post(`${getAPIBase()}/trash/batch/delete`, {
       media_ids: mediaIds.map(id => parseInt(id))
     })
@@ -593,6 +617,7 @@ export function useMediaApi() {
     emptyTrash,
     getActiveDeleteOperation,
     getDeleteOperation,
+    retryDeleteOperation,
     bulkRestoreFromTrash,
     bulkPermanentlyDelete,
     // Face Detection

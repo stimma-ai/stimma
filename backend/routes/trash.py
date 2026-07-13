@@ -14,7 +14,13 @@ from sqlalchemy.orm import selectinload
 from core.profile_context import get_current_profile
 from database import AssetRevision, DeleteOperation, MediaItem, MediaMarker, MediaKeyword, Keyword, MediaTag, Tag
 from core.dependencies import get_db_session
-from delete_operations import create_delete_operation, ensure_delete_worker_started, get_active_delete_operation, get_delete_operation
+from delete_operations import (
+    create_delete_operation,
+    ensure_delete_worker_started,
+    get_active_delete_operation,
+    get_delete_operation,
+    retry_delete_operation,
+)
 from models.api_models import BulkDeleteRequest, MediaListResponse, MediaItemResponse, BulkTrashRequest
 from utils.query_builder import (
     build_filtered_query,
@@ -729,6 +735,9 @@ async def bulk_restore_from_trash(
         if media.deleted_at is None:
             errors.append({"media_id": media_id, "error": "Not in trash"})
             continue
+        if media.deletion_pending_at is not None:
+            errors.append({"media_id": media_id, "error": "Deletion is in progress"})
+            continue
 
         # Restore - just clear the timestamp
         media.deleted_at = None
@@ -787,6 +796,9 @@ async def bulk_permanently_delete(
             if media.deleted_at is None:
                 errors.append({"media_id": media_id, "error": "Not in trash"})
                 continue
+            if media.deletion_pending_at is not None:
+                errors.append({"media_id": media_id, "error": "Deletion is already in progress"})
+                continue
             items_to_delete.append(media)
 
     if not items_to_delete:
@@ -829,6 +841,8 @@ async def restore_from_trash(
 
     if media.deleted_at is None:
         raise HTTPException(status_code=400, detail="Asset is not deleted")
+    if media.deletion_pending_at is not None:
+        raise HTTPException(status_code=409, detail="Asset deletion is in progress")
 
     # Restore - just clear the timestamp
     media.deleted_at = None
@@ -858,6 +872,8 @@ async def permanently_delete_media(
 
     if media.deleted_at is None:
         raise HTTPException(status_code=400, detail="Asset is not in trash")
+    if media.deletion_pending_at is not None:
+        raise HTTPException(status_code=409, detail="Asset deletion is already in progress")
 
     operation = await create_delete_operation(
         session,
@@ -876,7 +892,10 @@ async def empty_trash(
 ):
     """Queue permanent deletion for all items currently in trash."""
     count_result = await session.execute(
-        select(func.count()).select_from(MediaItem).where(MediaItem.deleted_at.isnot(None))
+        select(func.count()).select_from(MediaItem).where(
+            MediaItem.deleted_at.isnot(None),
+            MediaItem.deletion_pending_at.is_(None),
+        )
     )
     total_count = count_result.scalar()
 
@@ -884,7 +903,12 @@ async def empty_trash(
         return {"status": "accepted", "operation": None, "accepted": 0, "message": "Trash is already empty"}
 
     result = await session.execute(
-        select(MediaItem).where(MediaItem.deleted_at.isnot(None)).order_by(MediaItem.id.asc())
+        select(MediaItem)
+        .where(
+            MediaItem.deleted_at.isnot(None),
+            MediaItem.deletion_pending_at.is_(None),
+        )
+        .order_by(MediaItem.id.asc())
     )
     items_to_delete = list(result.scalars().all())
     operation = await create_delete_operation(
@@ -900,7 +924,7 @@ async def empty_trash(
         "operation": operation.to_dict(),
         "accepted": len(items_to_delete),
         "total": total_count,
-        "message": f"Deleted {len(items_to_delete)} items permanently"
+        "message": f"Permanent deletion started for {len(items_to_delete)} items"
     }
 
 
@@ -912,6 +936,21 @@ async def get_active_delete_operation_route(
     return {"operation": operation.to_dict() if operation else None}
 
 
+@router.get("/deletion-status/media/{media_id}")
+async def get_media_deletion_status(
+    media_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    media = await session.get(MediaItem, media_id)
+    if media is None:
+        return {"status": "deleted"}
+    if media.deletion_pending_at is not None:
+        return {"status": "pending"}
+    if media.deleted_at is not None:
+        return {"status": "trashed"}
+    return {"status": "live"}
+
+
 @router.get("/delete-operations/{operation_id}")
 async def get_delete_operation_route(
     operation_id: int,
@@ -921,3 +960,19 @@ async def get_delete_operation_route(
     if not operation or operation.profile_id != get_current_profile():
         raise HTTPException(status_code=404, detail="Delete operation not found")
     return operation.to_dict()
+
+
+@router.post("/delete-operations/{operation_id}/retry", status_code=202)
+async def retry_delete_operation_route(
+    operation_id: int,
+    session: AsyncSession = Depends(get_db_session),
+):
+    operation = await get_delete_operation(session, operation_id)
+    if not operation or operation.profile_id != get_current_profile():
+        raise HTTPException(status_code=404, detail="Delete operation not found")
+    try:
+        operation = await retry_delete_operation(session, operation_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await ensure_delete_worker_started()
+    return {"status": "accepted", "operation": operation.to_dict()}

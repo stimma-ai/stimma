@@ -16,6 +16,7 @@ from database import (
     AssetRevision,
     ContainerMember,
     DeleteOperation,
+    DeleteOperationItem,
     MediaItem,
 )
 from tests.helpers.media import create_media_item, generate_test_image
@@ -85,6 +86,25 @@ async def test_startup_backfill_is_conservative_recoverable_and_constant_time(
             kind="single",
             media_items=[deleting],
         )
+        failed = await create_media_item(
+            session,
+            file_path=tmp_path / "historical-failed.png",
+        )
+        failed.deleted_at = datetime.utcnow()
+        await session.flush()
+        failed_operation = await create_delete_operation(
+            session,
+            profile_id="default",
+            kind="single",
+            media_items=[failed],
+        )
+        failed_item = await session.get(
+            DeleteOperationItem,
+            (failed_operation.id, failed.id),
+        )
+        failed_operation.status = "failed"
+        failed_item.state = "failed"
+        failed.deletion_pending_at = None
         await session.commit()
 
         first = await ensure_asset_backfill(session)
@@ -165,6 +185,17 @@ async def test_startup_backfill_is_conservative_recoverable_and_constant_time(
         ) is None
         assert (await session.get(MediaItem, deleting.id)).deleted_at is not None
         assert deleting_path.exists()
+
+        failed_revision = await session.scalar(
+            select(AssetRevision).where(
+                AssetRevision.primary_media_id == failed.id
+            )
+        )
+        assert failed_revision is not None
+        assert (await session.get(Asset, failed_revision.asset_id)).state == "trashed"
+        await session.refresh(failed_operation)
+        assert failed_operation.status == "superseded"
+        assert failed_operation.current_phase == "assetized"
 
         trashed_asset_id = trashed_asset.id
         deleting_id = deleting.id

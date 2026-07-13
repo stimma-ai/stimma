@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app_dirs
@@ -94,11 +94,29 @@ async def stage_managed_media(
     calls ``cleanup_staged_source``. A crash leaves an indexed artifact rather
     than an invisible duplicate.
     """
+    if media.deletion_pending_at is not None:
+        raise StorageServiceError("Media deletion is in progress")
+    # Acquire SQLite's write reservation and re-check the barrier in the
+    # database before touching disk. A stale WAL reader now fails before
+    # installing an object or compatibility link.
+    reservation = await session.execute(
+        update(MediaItem)
+        .where(
+            MediaItem.id == media.id,
+            MediaItem.deletion_pending_at.is_(None),
+        )
+        .values(indexed_date=MediaItem.indexed_date)
+        .returning(MediaItem.id)
+    )
+    if reservation.scalar_one_or_none() is None:
+        raise StorageServiceError("Media deletion is in progress")
     if media.storage_object_id is not None:
         storage = await session.get(StorageObject, media.storage_object_id)
         if storage is None:
             raise StorageServiceError("Media has a dangling StorageObject")
         if storage.kind == "managed":
+            if storage.state == "deleting":
+                raise StorageServiceError("Managed object deletion is in progress")
             return storage
         # Generation may win a race with folder ingestion, which initially
         # classified the just-written output as external. Convert explicitly.
@@ -122,15 +140,17 @@ async def stage_managed_media(
     if actual_hash != media.file_hash:
         raise StorageServiceError("Media hash does not match source bytes")
     key = object_key_for_hash(actual_hash)
-    destination = object_path(profile_id, key)
-    await asyncio.to_thread(_install_verified, source, destination, actual_hash)
-
     storage = await session.scalar(
         select(StorageObject).where(
             StorageObject.kind == "managed",
             StorageObject.object_key == key,
         )
     )
+    if storage is not None and storage.state == "deleting":
+        raise StorageServiceError("Managed object deletion is in progress")
+
+    destination = object_path(profile_id, key)
+    await asyncio.to_thread(_install_verified, source, destination, actual_hash)
     if storage is None:
         storage = StorageObject(
             kind="managed",
@@ -366,6 +386,7 @@ async def migrate_legacy_managed_media(
             .where(
                 MediaItem.storage_object_id.is_(None),
                 MediaItem.deleted_at.is_(None),
+                MediaItem.deletion_pending_at.is_(None),
             )
             .order_by(MediaItem.id)
             .limit(limit * 4)

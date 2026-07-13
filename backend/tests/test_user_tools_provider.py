@@ -35,10 +35,16 @@ _PROGRAM_TEXT = "# frozen flow program\noutput = 1\n"
 
 
 async def _seed_user_tool(session, **overrides) -> UserTool:
+    flow_id = overrides.get("flow_id")
+    if "flow_id" not in overrides:
+        flow = Flow(name=f"{overrides.get('name', 'Frozen')} source")
+        session.add(flow)
+        await session.flush()
+        flow_id = flow.id
     row = UserTool(
         name=overrides.get("name", "My Frozen Tool"),
         description=overrides.get("description", "a frozen flow"),
-        flow_id=overrides.get("flow_id", 123),
+        flow_id=flow_id,
         program_text=overrides.get("program_text", _PROGRAM_TEXT),
         task_types=json.dumps(overrides.get("task_types", ["text-to-image"])),
         parameter_schema=json.dumps(overrides.get("parameter_schema", _T2I_PARAM_SCHEMA)),
@@ -77,7 +83,7 @@ async def test_provider_builds_descriptors_from_rows(db_session):
     assert desc.task_types == ["text-to-image"]
     assert desc.parameter_schema == _T2I_PARAM_SCHEMA
     assert desc.output_schema == _ASSETS_OUTPUT_SCHEMA
-    assert desc.metadata["flow_id"] == 123
+    assert desc.metadata["flow_id"] == row.flow_id
     assert desc.metadata["user_tool_id"] == row.id
     assert desc.metadata["provenance"] == "user-flow"
 

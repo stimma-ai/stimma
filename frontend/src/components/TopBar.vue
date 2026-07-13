@@ -84,6 +84,14 @@
                 <span>{{ deleteOperationLabel }}</span>
                 <span v-if="activeDeleteOperation.eta_seconds">ETA {{ formatEta(activeDeleteOperation.eta_seconds) }}</span>
               </div>
+              <button
+                v-if="activeDeleteOperation.status === 'failed'"
+                class="mt-3 px-3 py-1.5 rounded border border-blue-500/50 bg-blue-500/15 text-xs text-blue-400 hover:bg-blue-500/25 disabled:opacity-50"
+                :disabled="retryingDeletion"
+                @click="retryDeletion"
+              >
+                {{ retryingDeletion ? 'Retrying…' : 'Retry deletion' }}
+              </button>
             </div>
 
             <!-- System Warnings Section -->
@@ -573,7 +581,23 @@ router.afterEach((to) => {
 
 // WebSocket connection
 const { connected: wsConnected, on: wsOn } = useWebSocket()
-const { activeDeleteOperation, hasActiveDeleteOperation, deleteProgressPercent, refreshActiveDeleteOperation } = useDeleteOperations()
+const {
+  activeDeleteOperation,
+  hasActiveDeleteOperation,
+  deleteProgressPercent,
+  refreshActiveDeleteOperation,
+  retryFailedDeleteOperation,
+} = useDeleteOperations()
+const retryingDeletion = ref(false)
+
+async function retryDeletion() {
+  retryingDeletion.value = true
+  try {
+    await retryFailedDeleteOperation()
+  } finally {
+    retryingDeletion.value = false
+  }
+}
 
 // Media API for thumbnails
 const { getThumbnailUrl } = useMediaApi()

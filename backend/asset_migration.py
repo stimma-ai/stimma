@@ -470,6 +470,33 @@ async def apply_asset_backfill(
                 idempotency_key=f"legacy-ephemeral:{media.id}",
             )
 
+    # A pre-upgrade failed Media deletion is no longer retryable after its
+    # trashed Media has become an Asset root. Preserve the audit record but
+    # retire the obsolete operation; the user can permanently delete the new
+    # Asset identity through the Asset trash workflow.
+    if assets_by_media:
+        superseded_operations = list(
+            await session.scalars(
+                select(DeleteOperation)
+                .join(
+                    DeleteOperationItem,
+                    DeleteOperationItem.operation_id == DeleteOperation.id,
+                )
+                .where(
+                    DeleteOperation.status == "failed",
+                    DeleteOperationItem.media_id.in_(assets_by_media),
+                )
+                .distinct()
+            )
+        )
+        for operation in superseded_operations:
+            operation.status = "superseded"
+            operation.current_phase = "assetized"
+            operation.last_error = (
+                "Historical deletion was replaced by Asset trash state"
+            )
+            operation.updated_at = datetime.utcnow()
+
     # Populate container structure only after every independent member has its
     # Asset, so the resolver can choose linked versus embedded deterministically.
     from container_service import populate_container_revision_members

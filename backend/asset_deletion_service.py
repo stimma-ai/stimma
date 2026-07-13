@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import asyncio
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -22,6 +22,7 @@ from database import (
     BoardAssetItem,
     ChatItem,
     ContainerMember,
+    DeleteOperation,
     GenerationJob,
     ManagedArtifact,
     MediaItem,
@@ -32,19 +33,34 @@ from database import (
 from delete_operations import create_delete_operation
 
 
+@dataclass
+class AssetDeletionResult:
+    operation: DeleteOperation | None
+    retained_media_ids: list[int]
+
+
 def _scrub_asset_refs(value: Any, asset_id: int) -> bool:
     changed = False
     if isinstance(value, dict):
-        if value.get("asset_id") == asset_id:
-            value.pop("asset_id", None)
+        matching_keys = [
+            key
+            for key, child in value.items()
+            if (key == "asset_id" or key.endswith("_asset_id"))
+            and child == asset_id
+        ]
+        if matching_keys:
+            for key in matching_keys:
+                value.pop(key, None)
             value["asset_unavailable"] = True
             changed = True
-        asset_ids = value.get("asset_ids")
-        if isinstance(asset_ids, list):
-            filtered = [item for item in asset_ids if item != asset_id]
-            if filtered != asset_ids:
-                value["asset_ids"] = filtered
-                changed = True
+        for key, asset_ids in list(value.items()):
+            if key != "asset_ids" and not key.endswith("_asset_ids"):
+                continue
+            if isinstance(asset_ids, list):
+                filtered = [item for item in asset_ids if item != asset_id]
+                if filtered != asset_ids:
+                    value[key] = filtered
+                    changed = True
         for child in value.values():
             changed = _scrub_asset_refs(child, asset_id) or changed
     elif isinstance(value, list):
@@ -60,6 +76,9 @@ async def _scrub_chat_asset_references(session: AsyncSession, asset_id: int) -> 
                 (ChatItem.asset_id == asset_id)
                 | ChatItem.asset_ids.is_not(None)
                 | ChatItem.item_metadata.is_not(None)
+                | ChatItem.tool_args.is_not(None)
+                | ChatItem.tool_result.is_not(None)
+                | ChatItem.grid_layout.is_not(None)
             )
         )
     )
@@ -70,16 +89,24 @@ async def _scrub_chat_asset_references(session: AsyncSession, asset_id: int) -> 
             try:
                 ids = json.loads(item.asset_ids)
             except (json.JSONDecodeError, TypeError):
-                ids = []
+                item.asset_ids = "[]"
+                ids = None
             if isinstance(ids, list):
                 item.asset_ids = json.dumps([value for value in ids if value != asset_id])
-        if item.item_metadata:
+        for field in ("item_metadata", "tool_args", "tool_result", "grid_layout"):
+            raw = getattr(item, field)
+            if not raw:
+                continue
             try:
-                metadata = json.loads(item.item_metadata)
+                metadata = json.loads(raw)
             except (json.JSONDecodeError, TypeError):
+                # Opaque malformed state cannot be proven free of the deleted
+                # identity, so discard the blob instead of reporting a
+                # privacy-complete deletion while retaining it.
+                setattr(item, field, None)
                 metadata = None
             if metadata is not None and _scrub_asset_refs(metadata, asset_id):
-                item.item_metadata = json.dumps(metadata)
+                setattr(item, field, json.dumps(metadata))
 
 
 async def permanently_delete_asset(
@@ -117,19 +144,6 @@ async def permanently_delete_asset(
             ),
         )
     ))
-    if artifacts:
-        from trash_service import TrashService
-        for artifact in artifacts:
-            try:
-                await asyncio.to_thread(
-                    TrashService().permanently_delete, artifact.locator
-                )
-            except Exception as exc:
-                raise AssetServiceError(
-                    "Managed editor artifact deletion failed"
-                ) from exc
-            await session.delete(artifact)
-
     snapshots = list(
         await session.scalars(
             select(AssetSnapshot).where(
@@ -159,6 +173,14 @@ async def permanently_delete_asset(
     await clear_snapshot_source_bindings(session, source_asset_id=asset_id)
     await tombstone_linked_asset_references(session, asset_id=asset_id)
     await _scrub_chat_asset_references(session, asset_id)
+    await session.execute(
+        update(Asset)
+        .where(
+            Asset.origin_type.in_(("editor_save_as_new", "container_explode")),
+            Asset.origin_id == str(asset_id),
+        )
+        .values(origin_id=None)
+    )
     await session.execute(
         update(GenerationJob)
         .where(GenerationJob.result_asset_id == asset_id)
@@ -222,12 +244,22 @@ async def permanently_delete_asset(
             if media is not None:
                 collectible.append(media)
 
-    if collectible:
-        return await create_delete_operation(
+    collectible_ids = {media.id for media in collectible}
+    retained_media_ids = sorted(candidate_media_ids - collectible_ids)
+    if collectible or artifacts:
+        operation = await create_delete_operation(
             session,
             profile_id=profile_id,
             kind="asset",
             media_items=collectible,
+            managed_artifacts=artifacts,
+        )
+        return AssetDeletionResult(
+            operation=operation,
+            retained_media_ids=retained_media_ids,
         )
     await session.commit()
-    return None
+    return AssetDeletionResult(
+        operation=None,
+        retained_media_ids=retained_media_ids,
+    )

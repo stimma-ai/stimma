@@ -1,6 +1,7 @@
 """Asset-first and contextual-Media API integration tests."""
 
 import asyncio
+import json
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -18,6 +19,9 @@ from database import (
     AssetMarker,
     AssetSnapshot,
     AssetTag,
+    Chat,
+    ChatItem,
+    ContainerMember,
     Keyword,
     Marker,
     MediaItem,
@@ -157,6 +161,11 @@ async def test_asset_trash_restore_preserves_revision_and_clears_expiration(
     assert asset_id not in {item["asset"]["id"] for item in active.json()["items"]}
     trash = await client.get("/api/assets", params={"state": "trashed"})
     assert asset_id in {item["asset"]["id"] for item in trash.json()["items"]}
+    manifest = await client.get("/api/assets/trash-deletion-manifest")
+    entry = next(
+        item for item in manifest.json()["items"] if item["asset_id"] == asset_id
+    )
+    assert entry["media_ids"] == [media.id]
 
     restored = await client.post(f"/api/assets/{asset_id}/restore")
     assert restored.status_code == 200
@@ -187,6 +196,8 @@ async def test_permanent_asset_delete_collects_newly_unowned_media(client, db_se
     assert (await client.delete(f"/api/assets/{asset_id}")).status_code == 200
     response = await client.delete(f"/api/assets/{asset_id}/permanent")
     assert response.status_code == 202
+    assert response.json()["identity_status"] == "completed"
+    assert response.json()["privacy_status"] == "pending"
     operation = await _wait_for_delete(client, response.json()["operation"]["id"])
     assert operation["status"] == "completed"
 
@@ -224,6 +235,8 @@ async def test_source_asset_delete_preserves_dependent_snapshot_media(client, db
     response = await client.delete(f"/api/assets/{source_id}/permanent")
     assert response.status_code == 202
     assert response.json()["status"] == "completed"
+    assert response.json()["identity_status"] == "completed"
+    assert response.json()["privacy_status"] == "retained"
     assert response.json()["operation"] is None
 
     async with db_session() as session:
@@ -234,6 +247,159 @@ async def test_source_asset_delete_preserves_dependent_snapshot_media(client, db
         assert retained.media_id == source_media_id
         assert retained.source_asset_id is None
         assert retained.source_revision_id is None
+
+
+@pytest.mark.asyncio
+async def test_failed_asset_delete_can_retry_after_legacy_blocker_is_removed(
+    client, db_session, tmp_path
+):
+    async with db_session() as session:
+        source_media = await create_media_item(
+            session, file_path=tmp_path / "asset-source.png"
+        )
+        source = await create_asset_from_media(session, media_id=source_media.id)
+        edited_path = tmp_path / "legacy-edit.png"
+        edited = await create_media_item(session, file_path=edited_path)
+        edited.has_editor_sidecar = True
+        sidecar = tmp_path / "legacy-edit.png.stimmaedit.json"
+        sidecar.write_text(
+            json.dumps({"source_media_id": source_media.id, "project": {}}),
+            encoding="utf-8",
+        )
+        await session.commit()
+        source_id = source.id
+        source_media_id = source_media.id
+
+    await client.delete(f"/api/assets/{source_id}")
+    response = await client.delete(f"/api/assets/{source_id}/permanent")
+    operation_id = response.json()["operation"]["id"]
+    failed = await _wait_for_delete(client, operation_id)
+    assert failed["status"] == "failed"
+    async with db_session() as session:
+        assert await session.get(Asset, source_id) is None
+        surviving = await session.get(MediaItem, source_media_id)
+        assert surviving.deleted_at is None
+        assert surviving.deletion_pending_at is not None
+
+    sidecar.unlink()
+    retry = await client.post(f"/api/delete-operations/{operation_id}/retry")
+    assert retry.status_code == 202
+    completed = await _wait_for_delete(client, operation_id)
+    assert completed["status"] == "completed"
+    async with db_session() as session:
+        assert await session.get(MediaItem, source_media_id) is None
+
+
+@pytest.mark.asyncio
+async def test_permanent_asset_delete_scrubs_all_weak_identity_references(
+    client, db_session
+):
+    async with db_session() as session:
+        source_media = await create_media_item(session)
+        dependent_media = await create_media_item(session)
+        source = await create_asset_from_media(session, media_id=source_media.id)
+        dependent = await create_asset_from_media(
+            session,
+            media_id=dependent_media.id,
+            origin_type="editor_save_as_new",
+            origin_id=str(source.id),
+        )
+        exploded_media = await create_media_item(session)
+        exploded = await create_asset_from_media(
+            session,
+            media_id=exploded_media.id,
+            origin_type="container_explode",
+            origin_id=str(source.id),
+        )
+        member = ContainerMember(
+            container_revision_id=dependent.current_revision_id,
+            linked_asset_id=source.id,
+            missing_linked_asset=False,
+            member_order=0,
+            member_metadata=json.dumps(
+                {"asset_id": source.id, "private_label": "source name"}
+            ),
+            deleted_at=datetime.utcnow(),
+        )
+        chat = Chat(name="Weak reference scrub")
+        session.add_all([member, chat])
+        await session.flush()
+        chat_item = ChatItem(
+            chat_id=chat.id,
+            item_type="tool_result",
+            asset_id=source.id,
+            asset_ids=json.dumps([source.id, dependent.id]),
+            item_metadata=json.dumps({"asset_id": source.id}),
+            tool_args=json.dumps({"input": {"asset_id": source.id}}),
+            tool_result=json.dumps({"asset_ids": [source.id]}),
+            grid_layout=json.dumps({"cells": [{"asset_id": source.id}]}),
+        )
+        session.add(chat_item)
+        await session.commit()
+        source_id = source.id
+        dependent_id = dependent.id
+        exploded_id = exploded.id
+        member_id = member.id
+        chat_item_id = chat_item.id
+
+    await client.delete(f"/api/assets/{source_id}")
+    response = await client.delete(f"/api/assets/{source_id}/permanent")
+    assert response.status_code == 202
+    operation = await _wait_for_delete(client, response.json()["operation"]["id"])
+    assert operation["status"] == "completed"
+
+    async with db_session() as session:
+        dependent = await session.get(Asset, dependent_id)
+        assert dependent.origin_id is None
+        assert (await session.get(Asset, exploded_id)).origin_id is None
+        member = await session.get(ContainerMember, member_id)
+        assert member.deleted_at is not None
+        assert member.linked_asset_id is None
+        assert member.missing_linked_asset is True
+        assert member.member_metadata is None
+
+        item = await session.get(ChatItem, chat_item_id)
+        assert item.asset_id is None
+        assert json.loads(item.asset_ids) == [dependent_id]
+        for field in (
+            item.item_metadata,
+            item.tool_args,
+            item.tool_result,
+            item.grid_layout,
+        ):
+            assert str(source_id) not in field
+            assert json.loads(field)
+
+
+@pytest.mark.asyncio
+async def test_media_delete_removes_soft_deleted_embedded_container_reference(
+    client, db_session
+):
+    async with db_session() as session:
+        target = await create_media_item(session)
+        container_media = await create_media_item(session)
+        container = await create_asset_from_media(
+            session, media_id=container_media.id
+        )
+        member = ContainerMember(
+            container_revision_id=container.current_revision_id,
+            embedded_media_id=target.id,
+            missing_linked_asset=False,
+            member_order=0,
+            deleted_at=datetime.utcnow(),
+        )
+        session.add(member)
+        await session.commit()
+        target_id = target.id
+        member_id = member.id
+
+    await client.delete(f"/api/media/{target_id}")
+    response = await client.delete(f"/api/trash/{target_id}")
+    operation = await _wait_for_delete(client, response.json()["operation"]["id"])
+    assert operation["status"] == "completed"
+    async with db_session() as session:
+        assert await session.get(MediaItem, target_id) is None
+        assert await session.get(ContainerMember, member_id) is None
 
 
 @pytest.mark.asyncio

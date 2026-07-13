@@ -45,7 +45,11 @@ async def _live_media(
     session: AsyncSession, media_id: int, *, allow_deleted: bool = False
 ) -> MediaItem:
     media = await session.get(MediaItem, media_id)
-    if media is None or (media.deleted_at is not None and not allow_deleted):
+    if (
+        media is None
+        or media.deletion_pending_at is not None
+        or (media.deleted_at is not None and not allow_deleted)
+    ):
         raise AssetServiceError("Media is unavailable")
     return media
 
@@ -354,7 +358,6 @@ async def clear_snapshot_source_bindings(
         await session.scalars(
             select(AssetSnapshot).where(
                 AssetSnapshot.source_asset_id == source_asset_id,
-                AssetSnapshot.deleted_at.is_(None),
             )
         )
     )

@@ -62,6 +62,9 @@ class MediaItem(Base):
     modified_date = Column(DateTime, nullable=True, index=True)
     indexed_date = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
     deleted_at = Column(DateTime, nullable=True, index=True)  # Soft delete timestamp (user-initiated)
+    # Durable privacy-deletion barrier. Once set, no new root may acquire this
+    # Media even though the worker has not yet removed its bytes and row.
+    deletion_pending_at = Column(DateTime, nullable=True, index=True)
     auto_delete_at = Column(DateTime, nullable=True, index=True)  # Scheduled auto-deletion time
 
     # File availability tracking (system-detected missing files)
@@ -313,7 +316,6 @@ class Asset(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True, index=True)
-
     __table_args__ = (
         CheckConstraint("state IN ('active', 'trashed', 'deleting')", name="ck_assets_state"),
         {'sqlite_autoincrement': True},
@@ -1230,7 +1232,7 @@ class DeleteOperation(Base):
     id = Column(Integer, primary_key=True, index=True)
     kind = Column(String, nullable=False)  # single | batch | empty_trash
     profile_id = Column(String, nullable=False, index=True)
-    status = Column(String, nullable=False, default='queued', index=True)  # queued | running | completed | failed
+    status = Column(String, nullable=False, default='queued', index=True)  # queued | running | completed | failed | superseded
     current_phase = Column(String, nullable=True)
     total_items = Column(Integer, nullable=False, default=0)
     claimed_items = Column(Integer, nullable=False, default=0)
@@ -1271,6 +1273,10 @@ class DeleteOperationItem(Base):
     media_id = Column(Integer, nullable=False, primary_key=True, index=True)
     file_path = Column(String, nullable=True)
     file_hash = Column(String, nullable=True)
+    storage_object_id = Column(Integer, nullable=True)
+    storage_object_key = Column(String, nullable=True)
+    storage_kind = Column(String, nullable=True)
+    thumbnail_paths = Column(Text, nullable=True)
     state = Column(String, nullable=False, default='pending', index=True)
     lease_expires_at = Column(DateTime, nullable=True, index=True)
     attempt_count = Column(Integer, nullable=False, default=0)
@@ -1866,6 +1872,7 @@ class Database:
         def _set_sqlite_pragmas(dbapi_conn, _):
             cursor = dbapi_conn.cursor()
             cursor.execute("PRAGMA secure_delete = ON")
+            cursor.execute("PRAGMA foreign_keys = ON")
             cursor.close()
         self.async_session_maker = async_sessionmaker(
             self.async_engine,

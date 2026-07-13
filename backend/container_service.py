@@ -412,13 +412,13 @@ async def tombstone_linked_asset_references(
         await session.scalars(
             select(ContainerMember).where(
                 ContainerMember.linked_asset_id == asset_id,
-                ContainerMember.deleted_at.is_(None),
             )
         )
     )
     for member in members:
         member.linked_asset_id = None
         member.missing_linked_asset = True
+        member.member_metadata = None
     await session.flush()
     return len(members)
 

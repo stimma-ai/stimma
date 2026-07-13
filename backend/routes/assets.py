@@ -1329,19 +1329,44 @@ async def empty_asset_trash(session: AsyncSession = Depends(get_db_session)):
             )
         )
     )
+    revision_media_ids = list(
+        await session.scalars(
+            select(AssetRevision.primary_media_id).where(
+                AssetRevision.asset_id.in_(asset_ids)
+            )
+        )
+    ) if asset_ids else []
     operations = []
+    retained_media_ids: list[int] = []
     for asset_id in asset_ids:
-        operation = await permanently_delete_asset(
+        result = await permanently_delete_asset(
             session,
             asset_id=asset_id,
             profile_id=get_current_profile(),
         )
-        if operation is not None:
-            operations.append(operation.to_dict())
+        if result.operation is not None:
+            operations.append(result.operation.to_dict())
+        retained_media_ids.extend(result.retained_media_ids)
     if operations:
         await ensure_delete_worker_started()
-    await ws_manager.broadcast("assets_permanently_deleted", {"asset_ids": asset_ids})
-    return {"status": "accepted", "accepted": len(asset_ids), "operations": operations}
+    await ws_manager.broadcast(
+        "asset_identities_deleted",
+        {"asset_ids": asset_ids, "media_ids": revision_media_ids},
+    )
+    await ws_manager.broadcast(
+        "assets_permanently_deleted",
+        {"asset_ids": asset_ids, "media_ids": revision_media_ids},
+    )
+    return {
+        "status": "accepted",
+        "identity_status": "completed",
+        "cleanup_status": "pending" if operations else "completed",
+        "privacy_status": "retained" if retained_media_ids else ("pending" if operations else "completed"),
+        "retained_media_ids": sorted(set(retained_media_ids)),
+        "media_ids": revision_media_ids,
+        "accepted": len(asset_ids),
+        "operations": operations,
+    }
 
 
 @router.delete("/item/{asset_id}/projects/{project_id}")
@@ -1460,6 +1485,29 @@ async def list_contextual_media(
     }
 
 
+@router.get("/trash-deletion-manifest")
+async def get_asset_trash_deletion_manifest(
+    session: AsyncSession = Depends(get_db_session),
+):
+    rows = (
+        await session.execute(
+            select(AssetRevision.asset_id, AssetRevision.primary_media_id)
+            .join(Asset, Asset.id == AssetRevision.asset_id)
+            .where(Asset.state == "trashed", Asset.deleted_at.is_not(None))
+            .order_by(AssetRevision.asset_id, AssetRevision.id)
+        )
+    ).all()
+    grouped: dict[int, list[int]] = defaultdict(list)
+    for asset_id, media_id in rows:
+        grouped[asset_id].append(media_id)
+    return {
+        "items": [
+            {"asset_id": asset_id, "media_ids": media_ids}
+            for asset_id, media_ids in grouped.items()
+        ]
+    }
+
+
 @router.get("/item/{asset_id}/browser")
 async def get_asset_browser_item(
     asset_id: int,
@@ -1545,18 +1593,42 @@ async def permanently_delete_asset_route(
 ):
     from asset_deletion_service import permanently_delete_asset
     from delete_operations import ensure_delete_worker_started
+    revision_media_ids = list(
+        await session.scalars(
+            select(AssetRevision.primary_media_id).where(
+                AssetRevision.asset_id == asset_id
+            )
+        )
+    )
     try:
-        operation = await permanently_delete_asset(
+        result = await permanently_delete_asset(
             session,
             asset_id=asset_id,
             profile_id=get_current_profile(),
         )
     except AssetServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    operation = result.operation
     if operation is not None:
         await ensure_delete_worker_started()
-    await ws_manager.broadcast("asset_permanently_deleted", {"asset_id": asset_id})
+    await ws_manager.broadcast(
+        "asset_identity_deleted",
+        {"asset_id": asset_id, "media_ids": revision_media_ids},
+    )
+    await ws_manager.broadcast(
+        "asset_permanently_deleted",
+        {"asset_id": asset_id, "media_ids": revision_media_ids},
+    )
     return {
         "status": "accepted" if operation is not None else "completed",
+        "identity_status": "completed",
+        "cleanup_status": "pending" if operation is not None else "completed",
+        "privacy_status": (
+            "retained"
+            if result.retained_media_ids
+            else ("pending" if operation is not None else "completed")
+        ),
+        "retained_media_ids": result.retained_media_ids,
+        "media_ids": revision_media_ids,
         "operation": operation.to_dict() if operation is not None else None,
     }

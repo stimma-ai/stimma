@@ -220,6 +220,7 @@ import { useAppUpdater } from './composables/useAppUpdater'
 import { useStimpacksApi } from './composables/useStimpacksApi'
 import { setupLayoutRenderer } from './composables/useLayoutRenderer'
 import { makeGlobalKey } from './utils/storageKeys'
+import { initEditorProjectPrivacyCleanup } from './utils/editorProjectPrivacy'
 import { setPrivacyLockdownActive, isPrivacyLockdownActive } from './composables/usePrivacyLockdown'
 
 const route = useRoute()
@@ -704,6 +705,7 @@ async function loadAppSettings() {
   const privacyLockdown = settings.privacy_lockdown_active === true
   setPrivacyLockdownActive(privacyLockdown)
   initFeatureFlags(useWebSocket().on)
+  initEditorProjectPrivacyCleanup(useWebSocket().on)
   // Account push events (tier/subscription/balance) -> quiet data refreshes.
   initAccountEvents()
   // Sidebar "finished while away" dots must track even when the sidebar

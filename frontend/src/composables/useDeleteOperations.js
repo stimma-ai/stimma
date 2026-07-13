@@ -8,7 +8,7 @@ let initialized = false
 let clearTimer = null
 
 export function useDeleteOperations() {
-  const { getActiveDeleteOperation } = useMediaApi()
+  const { getActiveDeleteOperation, retryDeleteOperation } = useMediaApi()
   const { on } = useWebSocket()
 
   async function refreshActiveDeleteOperation() {
@@ -41,12 +41,12 @@ export function useDeleteOperations() {
     on('delete_operation_progress', (data) => applyOperationUpdate(data))
     on('delete_operation_completed', (data) => {
       applyOperationUpdate(data)
-      // Keep showing for a few seconds so user sees completion
-      clearTimer = setTimeout(() => { activeDeleteOperation.value = null }, 5000)
+      // Keep showing briefly, then reveal another durable failed operation if
+      // one remains instead of making it inaccessible.
+      clearTimer = setTimeout(() => { refreshActiveDeleteOperation() }, 5000)
     })
     on('delete_operation_failed', (data) => {
       applyOperationUpdate(data)
-      clearTimer = setTimeout(() => { activeDeleteOperation.value = null }, 10000)
     })
     on('websocket_reconnected', () => {
       // Re-fetch server state in case we missed events while disconnected
@@ -65,11 +65,19 @@ export function useDeleteOperations() {
     return Math.round(((op.processed_items || 0) / op.total_items) * 100)
   })
 
+  async function retryFailedDeleteOperation() {
+    const operation = activeDeleteOperation.value
+    if (!operation || operation.status !== 'failed') return
+    const response = await retryDeleteOperation(operation.id)
+    applyOperationUpdate(response.operation)
+  }
+
   return {
     activeDeleteOperation,
     deleteOperationError,
     hasActiveDeleteOperation,
     deleteProgressPercent,
     refreshActiveDeleteOperation,
+    retryFailedDeleteOperation,
   }
 }

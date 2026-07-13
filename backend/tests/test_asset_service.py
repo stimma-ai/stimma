@@ -1,19 +1,63 @@
 """Integration tests for the additive Asset/Revision/Media foundation."""
 
+from datetime import datetime
+
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select, text
 
 from asset_service import (
     AssetServiceError,
+    acquire_media_owner,
     clear_snapshot_source_bindings,
     commit_revision,
     create_asset_from_media,
     create_asset_snapshot,
     create_working_document,
 )
-from database import AssetRevision, AssetSnapshot, MediaOwner
-from delete_operations import RetainedMediaError, _batch_scrub_references
+from database import (
+    AssetRevision,
+    AssetSnapshot,
+    DeleteOperation,
+    DeleteOperationItem,
+    MediaOwner,
+)
+from delete_operations import (
+    DependentEditorSnapshotError,
+    RetainedMediaError,
+    _assert_no_surviving_legacy_editor_snapshots,
+    _batch_scrub_references,
+    create_delete_operation,
+    retry_delete_operation,
+)
 from tests.helpers.media import create_media_item
+
+
+@pytest.mark.asyncio
+async def test_runtime_connections_enforce_foreign_keys(db_session):
+    async with db_session() as session:
+        assert await session.scalar(text("PRAGMA foreign_keys")) == 1
+
+
+@pytest.mark.asyncio
+async def test_corrupt_legacy_editor_sidecar_fails_privacy_delete_closed(
+    db_session, tmp_path
+):
+    async with db_session() as session:
+        source = await create_media_item(session, file_path=tmp_path / "source.png")
+        edited_path = tmp_path / "edited.png"
+        edited = await create_media_item(session, file_path=edited_path)
+        edited.has_editor_sidecar = True
+        (tmp_path / "edited.png.stimmaedit.json").write_text(
+            '{"project":{"imageDataUrl":"data:image/png;base64,c2VjcmV0"}',
+            encoding="utf-8",
+        )
+        await session.commit()
+
+        with pytest.raises(DependentEditorSnapshotError):
+            await _assert_no_surviving_legacy_editor_snapshots(
+                session,
+                [source.id],
+            )
 
 
 @pytest.mark.asyncio
@@ -159,3 +203,68 @@ async def test_legacy_delete_worker_fails_closed_for_asset_owned_media(db_sessio
         with pytest.raises(RetainedMediaError, match="retained by a live root"):
             await _batch_scrub_references(session, [media.id])
         await session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_delete_queue_barrier_blocks_new_media_owner(db_session):
+    async with db_session() as session:
+        media = await create_media_item(session, file_format="png")
+        operation = await create_delete_operation(
+            session,
+            profile_id="default",
+            kind="single",
+            media_items=[media],
+        )
+        operation_id = operation.id
+        media_id = media.id
+
+        with pytest.raises(AssetServiceError, match="Media is unavailable"):
+            await acquire_media_owner(
+                session,
+                media_id=media.id,
+                root_kind="asset_snapshot",
+                root_id="late-owner",
+                role="snapshot",
+            )
+        await session.rollback()
+
+        # Keep the module-scoped test DB clean without running the background
+        # worker; the assertion above is the queue/owner serialization boundary.
+        media = await session.get(type(media), media_id)
+        media.deletion_pending_at = None
+        await session.execute(
+            delete(DeleteOperationItem).where(
+                DeleteOperationItem.operation_id == operation_id
+            )
+        )
+        operation = await session.get(DeleteOperation, operation_id)
+        await session.delete(operation)
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_retrying_historical_failed_operation_reinstates_barrier(db_session):
+    async with db_session() as session:
+        media = await create_media_item(session, file_format="png")
+        media.deleted_at = datetime.utcnow()
+        operation = await create_delete_operation(
+            session,
+            profile_id="default",
+            kind="single",
+            media_items=[media],
+        )
+        item = await session.get(DeleteOperationItem, (operation.id, media.id))
+        operation.status = "failed"
+        operation.failed_items = 1
+        item.state = "failed"
+        media.deletion_pending_at = None
+        await session.commit()
+
+        await retry_delete_operation(session, operation.id)
+        await session.refresh(media)
+        assert media.deletion_pending_at is not None
+
+        # Leave the shared module DB clean without running the worker.
+        media.deletion_pending_at = None
+        await session.delete(operation)
+        await session.commit()
