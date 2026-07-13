@@ -91,7 +91,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
 
 const props = defineProps({
   selectedKeywords: {
@@ -107,7 +107,7 @@ const props = defineProps({
 
 const emit = defineEmits(['toggle-keyword', 'close'])
 
-const { getTopKeywords } = useMediaApi()
+const { getTopKeywords } = useAssetApi()
 
 const keywords = ref([])
 const searchQuery = ref('')

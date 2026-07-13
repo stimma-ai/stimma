@@ -13,7 +13,17 @@ from asset_service import (
     create_asset_snapshot,
     create_working_document,
 )
-from database import Asset, AssetMarker, AssetSnapshot, AssetTag, Marker, MediaItem, Tag
+from database import (
+    Asset,
+    AssetMarker,
+    AssetSnapshot,
+    AssetTag,
+    Keyword,
+    Marker,
+    MediaItem,
+    MediaKeyword,
+    Tag,
+)
 from tests.helpers.media import create_media_item
 
 
@@ -270,6 +280,76 @@ async def test_asset_organization_reads_and_expiration_are_asset_scoped(client, 
     assert cleared.status_code == 200
     async with db_session() as session:
         assert (await session.get(Asset, asset_id)).expires_at is None
+
+
+@pytest.mark.asyncio
+async def test_asset_facets_ignore_contextual_and_old_revision_media(client, db_session):
+    before = (await client.get("/api/assets/filter-counts")).json()
+    async with db_session() as session:
+        old_media = await create_media_item(session, file_path="/tmp/old.png")
+        current_media = await create_media_item(session, file_path="/tmp/current.png")
+        contextual = await create_media_item(session, file_path="/tmp/intermediate.png")
+        asset = await create_asset_from_media(session, media_id=old_media.id)
+        await commit_revision(session, asset_id=asset.id, media_id=current_media.id)
+        await acquire_media_owner(
+            session,
+            media_id=contextual.id,
+            root_kind="chat",
+            root_id="facet-test",
+            role="intermediate",
+        )
+        old_keyword = Keyword(keyword_text="old-revision-only")
+        current_keyword = Keyword(keyword_text="current-only")
+        contextual_keyword = Keyword(keyword_text="intermediate-only")
+        tag = Tag(tag_text="winner")
+        session.add_all([old_keyword, current_keyword, contextual_keyword, tag])
+        await session.flush()
+        session.add_all([
+            MediaKeyword(media_id=old_media.id, keyword_id=old_keyword.id),
+            MediaKeyword(media_id=current_media.id, keyword_id=current_keyword.id),
+            MediaKeyword(media_id=contextual.id, keyword_id=contextual_keyword.id),
+            AssetTag(asset_id=asset.id, tag_id=tag.id),
+        ])
+        await session.commit()
+
+    counts = await client.get("/api/assets/filter-counts")
+    assert counts.status_code == 200, counts.text
+    payload = counts.json()
+    assert payload["media_type"]["images"] == before["media_type"]["images"] + 1
+    assert payload["keywords"]["current-only"] == 1
+    assert "old-revision-only" not in payload["keywords"]
+    assert "intermediate-only" not in payload["keywords"]
+    assert {entry["tag"]: entry["usage_count"] for entry in payload["tags"]}["winner"] == 1
+
+    keywords = await client.get("/api/assets/keywords/top")
+    assert keywords.status_code == 200, keywords.text
+    keyword_counts = {
+        entry["keyword"]: entry["count"] for entry in keywords.json()["keywords"]
+    }
+    assert keyword_counts["current-only"] == 1
+    assert "old-revision-only" not in keyword_counts
+    assert "intermediate-only" not in keyword_counts
+
+
+@pytest.mark.asyncio
+async def test_expired_asset_is_absent_from_browse_and_facets(client, db_session):
+    before = (await client.get("/api/assets/filter-counts")).json()
+    async with db_session() as session:
+        expired_media = await create_media_item(session, file_path="/tmp/expired.png")
+        live_media = await create_media_item(session, file_path="/tmp/live.png")
+        expired = await create_asset_from_media(session, media_id=expired_media.id)
+        live = await create_asset_from_media(session, media_id=live_media.id)
+        expired.expires_at = datetime.utcnow() - timedelta(seconds=1)
+        live.expires_at = datetime.utcnow() + timedelta(days=1)
+        await session.commit()
+
+    browse = (await client.get("/api/assets/browse")).json()
+    visible_ids = [item["asset_id"] for item in browse["items"]]
+    assert live.id in visible_ids
+    assert expired.id not in visible_ids
+    counts = (await client.get("/api/assets/filter-counts")).json()
+    assert counts["media_type"]["images"] == before["media_type"]["images"] + 1
+    assert counts["expiring"] == before["expiring"] + 1
 
 
 @pytest.mark.asyncio

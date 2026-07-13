@@ -1,6 +1,7 @@
 """Asset-first identity and contextual-Media APIs used during cutover."""
 
 from collections import defaultdict
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -28,11 +29,25 @@ from database import (
     MediaOwner,
     StorageObject,
     Tag,
+    Keyword,
+    MediaKeyword,
+    MediaToolLineage,
+    CachedProviderTool,
     Project,
     ProjectAsset,
 )
 from core.dependencies import get_db_session
-from utils.query_builder import build_filtered_query
+from utils.query_builder import (
+    AUDIO_FORMATS,
+    GRID_FORMATS,
+    IMAGE_FORMATS,
+    LAYOUT_FORMATS,
+    RESOLUTION_MAP,
+    SET_FORMATS,
+    TEXT_FORMATS,
+    VIDEO_FORMATS,
+    build_filtered_query,
+)
 from utils.websocket import ws_manager
 
 
@@ -126,7 +141,7 @@ def _asset_browser_base(state: str):
     deleted_condition = (
         Asset.deleted_at.is_(None) if state == "active" else Asset.deleted_at.is_not(None)
     )
-    return (
+    query = (
         select(Asset, AssetRevision, MediaItem)
         .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
         .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
@@ -140,6 +155,11 @@ def _asset_browser_base(state: str):
             or_(MediaItem.file_unavailable.is_(False), MediaItem.file_unavailable.is_(None)),
         )
     )
+    if state == "active":
+        query = query.where(
+            or_(Asset.expires_at.is_(None), Asset.expires_at > datetime.utcnow())
+        )
+    return query
 
 
 def _apply_asset_filters(query, **filters):
@@ -174,8 +194,10 @@ def _apply_asset_filters(query, **filters):
         min_mp=filters.get("min_mp"),
         max_mp=filters.get("max_mp"),
         include_superseded=True,
-        exclude_expired=filters.get("state", "active") == "active",
+        exclude_expired=False,
+        exclude_category=filters.get("exclude_category"),
         asset_id_column=Asset.id,
+        expiration_column=Asset.expires_at,
     )
 @router.get("")
 async def list_assets(
@@ -579,6 +601,426 @@ async def browse_asset_ids(
     else:
         query = query.order_by(MediaItem.created_date.desc().nulls_last(), Asset.id.desc())
     return {"ids": list(await session.scalars(query))}
+
+
+async def _similarity_media_ids_for_facets(
+    session: AsyncSession,
+    *,
+    state: str,
+    similar_to: str | None,
+    similar_face_to: str | None,
+    similar_to_text: str | None,
+    similarity_threshold: float | None,
+) -> list[int] | None:
+    if not any(value is not None for value in (similar_to, similar_face_to, similar_to_text)):
+        return None
+    result = await browse_assets(
+        page=1,
+        page_size=10_000_000,
+        state=state,
+        similar_to=similar_to,
+        similar_face_to=similar_face_to,
+        similar_to_text=similar_to_text,
+        similarity_threshold=similarity_threshold,
+        similarity_cutoff=None,
+        sort_by="created_desc",
+        session=session,
+    )
+    return [item["media_id"] for item in result["items"]]
+
+
+def _asset_facet_query(
+    *,
+    state: str,
+    filters: dict,
+    exclude_category: str | None = None,
+    similarity_media_ids: list[int] | None = None,
+):
+    query = _apply_asset_filters(
+        _asset_browser_base(state),
+        **filters,
+        state=state,
+        exclude_category=exclude_category,
+    )
+    if filters.get("folders") and exclude_category != "folders":
+        query = query.where(StorageObject.kind == "external")
+    if similarity_media_ids is not None:
+        query = query.where(MediaItem.id.in_(similarity_media_ids or [0]))
+    return query
+
+
+async def _count_assets(session: AsyncSession, query) -> int:
+    count_query = query.with_only_columns(
+        func.count(func.distinct(Asset.id))
+    ).order_by(None)
+    return await session.scalar(count_query) or 0
+
+
+def _facet_filters(**values) -> dict:
+    return {key: value for key, value in values.items() if value is not None}
+
+
+@router.get("/keywords/top")
+async def get_asset_top_keywords(
+    limit: int = Query(50, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    search: str | None = None,
+    state: str = Query("active", pattern="^(active|trashed)$"),
+    caption_query: str | None = None,
+    prompt_query: str | None = None,
+    media_types: str | None = None,
+    excluded_media_types: str | None = None,
+    resolutions: str | None = None,
+    excluded_resolutions: str | None = None,
+    folders: str | None = None,
+    excluded_folders: str | None = None,
+    is_generated: bool | None = None,
+    marker_ids: str | None = None,
+    excluded_marker_ids: str | None = None,
+    tag_ids: str | None = None,
+    excluded_tag_ids: str | None = None,
+    project_ids: str | None = None,
+    excluded_project_ids: str | None = None,
+    has_project: bool | None = None,
+    tool_ids: str | None = None,
+    excluded_tool_ids: str | None = None,
+    similar_to: str | None = None,
+    similar_face_to: str | None = None,
+    similar_to_text: str | None = None,
+    similarity_threshold: float | None = None,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Keyword vocabulary/counts over current Asset revisions only."""
+    filters = _facet_filters(
+        caption_query=caption_query,
+        prompt_query=prompt_query,
+        media_types=media_types,
+        excluded_media_types=excluded_media_types,
+        resolutions=resolutions,
+        excluded_resolutions=excluded_resolutions,
+        folders=folders,
+        excluded_folders=excluded_folders,
+        is_generated=is_generated,
+        marker_ids=marker_ids,
+        excluded_marker_ids=excluded_marker_ids,
+        tag_ids=tag_ids,
+        excluded_tag_ids=excluded_tag_ids,
+        project_ids=project_ids,
+        excluded_project_ids=excluded_project_ids,
+        has_project=has_project,
+        tool_ids=tool_ids,
+        excluded_tool_ids=excluded_tool_ids,
+    )
+    similarity_ids = await _similarity_media_ids_for_facets(
+        session,
+        state=state,
+        similar_to=similar_to,
+        similar_face_to=similar_face_to,
+        similar_to_text=similar_to_text,
+        similarity_threshold=similarity_threshold,
+    )
+    query = _asset_facet_query(
+        state=state,
+        filters=filters,
+        exclude_category="keywords",
+        similarity_media_ids=similarity_ids,
+    ).join(MediaKeyword, MediaKeyword.media_id == MediaItem.id).join(
+        Keyword, Keyword.id == MediaKeyword.keyword_id
+    )
+    if search:
+        query = query.where(Keyword.keyword_text.ilike(f"%{search}%"))
+    rows = (
+        await session.execute(
+            query.with_only_columns(
+                Keyword.keyword_text,
+                func.count(func.distinct(Asset.id)).label("count"),
+            )
+            .group_by(Keyword.keyword_text)
+            .order_by(func.count(func.distinct(Asset.id)).desc(), Keyword.keyword_text)
+            .offset(offset)
+            .limit(limit)
+        )
+    ).all()
+    total_query = query.with_only_columns(
+        func.count(func.distinct(Keyword.id))
+    ).order_by(None)
+    return {
+        "keywords": [
+            {"keyword": keyword_text, "count": count}
+            for keyword_text, count in rows
+        ],
+        "total_unique": await session.scalar(total_query) or 0,
+        "offset": offset,
+        "limit": limit,
+    }
+
+
+@router.get("/filter-counts")
+async def get_asset_filter_counts(
+    state: str = Query("active", pattern="^(active|trashed)$"),
+    caption_query: str | None = None,
+    prompt_query: str | None = None,
+    media_types: str | None = None,
+    excluded_media_types: str | None = None,
+    resolutions: str | None = None,
+    excluded_resolutions: str | None = None,
+    keywords: str | None = None,
+    excluded_keywords: str | None = None,
+    folders: str | None = None,
+    excluded_folders: str | None = None,
+    is_generated: bool | None = None,
+    marker_ids: str | None = None,
+    excluded_marker_ids: str | None = None,
+    tag_ids: str | None = None,
+    excluded_tag_ids: str | None = None,
+    project_ids: str | None = None,
+    excluded_project_ids: str | None = None,
+    has_project: bool | None = None,
+    tool_ids: str | None = None,
+    excluded_tool_ids: str | None = None,
+    created_after: str | None = None,
+    created_before: str | None = None,
+    show_expiring: bool | None = None,
+    exclude_expiring: bool | None = None,
+    similar_to: str | None = None,
+    similar_face_to: str | None = None,
+    similar_to_text: str | None = None,
+    similarity_threshold: float | None = None,
+    keyword_limit: int = Query(50, ge=1, le=200),
+    tag_limit: int = Query(50, ge=1, le=200),
+    tool_limit: int = Query(50, ge=1, le=200),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Facet preview counts over Asset identity and current Revision payloads."""
+    filters = _facet_filters(
+        caption_query=caption_query,
+        prompt_query=prompt_query,
+        media_types=media_types,
+        excluded_media_types=excluded_media_types,
+        resolutions=resolutions,
+        excluded_resolutions=excluded_resolutions,
+        keywords=keywords,
+        excluded_keywords=excluded_keywords,
+        folders=folders,
+        excluded_folders=excluded_folders,
+        is_generated=is_generated,
+        marker_ids=marker_ids,
+        excluded_marker_ids=excluded_marker_ids,
+        tag_ids=tag_ids,
+        excluded_tag_ids=excluded_tag_ids,
+        project_ids=project_ids,
+        excluded_project_ids=excluded_project_ids,
+        has_project=has_project,
+        tool_ids=tool_ids,
+        excluded_tool_ids=excluded_tool_ids,
+        created_after=created_after,
+        created_before=created_before,
+        show_expiring=show_expiring,
+        exclude_expiring=exclude_expiring,
+    )
+    similarity_ids = await _similarity_media_ids_for_facets(
+        session,
+        state=state,
+        similar_to=similar_to,
+        similar_face_to=similar_face_to,
+        similar_to_text=similar_to_text,
+        similarity_threshold=similarity_threshold,
+    )
+
+    def facet(category: str | None = None):
+        return _asset_facet_query(
+            state=state,
+            filters=filters,
+            exclude_category=category,
+            similarity_media_ids=similarity_ids,
+        )
+
+    type_formats = {
+        "images": IMAGE_FORMATS,
+        "videos": VIDEO_FORMATS,
+        "audio": AUDIO_FORMATS,
+        "text": TEXT_FORMATS,
+        "sets": SET_FORMATS,
+        "grids": GRID_FORMATS,
+        "layouts": LAYOUT_FORMATS,
+    }
+    media_type_counts = {
+        name: await _count_assets(
+            session,
+            facet("media_types").where(MediaItem.file_format.in_(formats)),
+        )
+        for name, formats in type_formats.items()
+    }
+    resolution_counts = {}
+    for name, (minimum, maximum) in RESOLUTION_MAP.items():
+        query = facet("resolutions")
+        if minimum is not None:
+            query = query.where(MediaItem.megapixels >= minimum)
+        if maximum is not None:
+            query = query.where(MediaItem.megapixels < maximum)
+        resolution_counts[name] = await _count_assets(session, query)
+
+    keyword_query = facet("keywords").join(
+        MediaKeyword, MediaKeyword.media_id == MediaItem.id
+    ).join(Keyword, Keyword.id == MediaKeyword.keyword_id)
+    keyword_rows = (
+        await session.execute(
+            keyword_query.with_only_columns(
+                Keyword.keyword_text,
+                func.count(func.distinct(Asset.id)),
+            )
+            .group_by(Keyword.keyword_text)
+            .order_by(func.count(func.distinct(Asset.id)).desc())
+            .limit(keyword_limit)
+        )
+    ).all()
+
+    tag_query = facet("tags").join(
+        AssetTag,
+        (AssetTag.asset_id == Asset.id) & AssetTag.deleted_at.is_(None),
+    ).join(Tag, Tag.id == AssetTag.tag_id)
+    tag_rows = (
+        await session.execute(
+            tag_query.with_only_columns(
+                Tag.id,
+                Tag.tag_text,
+                func.count(func.distinct(Asset.id)),
+            )
+            .group_by(Tag.id, Tag.tag_text)
+            .order_by(func.count(func.distinct(Asset.id)).desc())
+            .limit(tag_limit)
+        )
+    ).all()
+
+    tool_query = facet("tools").join(
+        MediaToolLineage, MediaToolLineage.media_id == MediaItem.id
+    )
+    tool_rows = (
+        await session.execute(
+            tool_query.with_only_columns(
+                MediaToolLineage.full_tool_id,
+                func.count(func.distinct(Asset.id)),
+            )
+            .group_by(MediaToolLineage.full_tool_id)
+            .order_by(func.count(func.distinct(Asset.id)).desc())
+            .limit(tool_limit)
+        )
+    ).all()
+    tool_metadata = {}
+    tool_ids_found = [full_tool_id for full_tool_id, _ in tool_rows]
+    if tool_ids_found:
+        metadata_rows = (
+            await session.execute(
+                select(
+                    CachedProviderTool.full_tool_id,
+                    CachedProviderTool.name,
+                    CachedProviderTool.provider_name,
+                    CachedProviderTool.provider_id,
+                ).where(
+                    CachedProviderTool.full_tool_id.in_(tool_ids_found),
+                    CachedProviderTool.deleted_at.is_(None),
+                )
+            )
+        ).all()
+        tool_metadata = {
+            full_id: {
+                "name": name,
+                "provider_name": provider_name,
+                "provider_id": provider_id,
+            }
+            for full_id, name, provider_name, provider_id in metadata_rows
+        }
+
+    project_query = facet("projects").join(
+        ProjectAsset,
+        (ProjectAsset.asset_id == Asset.id) & ProjectAsset.deleted_at.is_(None),
+    ).join(
+        Project,
+        (Project.id == ProjectAsset.project_id) & Project.deleted_at.is_(None),
+    )
+    project_rows = (
+        await session.execute(
+            project_query.with_only_columns(
+                ProjectAsset.project_id,
+                func.count(func.distinct(Asset.id)),
+            ).group_by(ProjectAsset.project_id)
+        )
+    ).all()
+    project_exists = (
+        select(1)
+        .select_from(ProjectAsset)
+        .join(Project, Project.id == ProjectAsset.project_id)
+        .where(
+            ProjectAsset.asset_id == Asset.id,
+            ProjectAsset.deleted_at.is_(None),
+            Project.deleted_at.is_(None),
+        )
+        .correlate(Asset)
+        .exists()
+    )
+
+    date_ranges = {
+        "2hrs": timedelta(hours=2),
+        "24hrs": timedelta(hours=24),
+        "72hrs": timedelta(hours=72),
+        "7d": timedelta(days=7),
+        "30d": timedelta(days=30),
+        "90d": timedelta(days=90),
+        "365d": timedelta(days=365),
+    }
+    now = datetime.utcnow()
+    date_counts = {
+        name: await _count_assets(
+            session,
+            facet("date_ranges").where(MediaItem.created_date >= now - delta),
+        )
+        for name, delta in date_ranges.items()
+    }
+
+    folder_counts = {}
+    from database_registry import get_database_registry
+    profile_config = get_database_registry().get_profile_config(get_current_profile())
+    folder_paths = [folder.path for folder in (profile_config.folders if profile_config else [])]
+    for folder in folder_paths:
+        prefix = folder.rstrip("/") + "/"
+        folder_counts[folder] = await _count_assets(
+            session,
+            facet("folders").where(
+                StorageObject.kind == "external",
+                MediaItem.file_path.startswith(prefix),
+            ),
+        )
+
+    return {
+        "media_type": media_type_counts,
+        "resolution": resolution_counts,
+        "folders": folder_counts,
+        "keywords": {text: count for text, count in keyword_rows},
+        "tags": [
+            {"id": tag_id, "tag": text, "usage_count": count}
+            for tag_id, text, count in tag_rows
+        ],
+        "tools": [
+            {
+                "full_tool_id": full_id,
+                "name": tool_metadata.get(full_id, {}).get("name", full_id),
+                "provider_name": tool_metadata.get(full_id, {}).get("provider_name", ""),
+                "provider_id": tool_metadata.get(full_id, {}).get("provider_id", ""),
+                "count": count,
+            }
+            for full_id, count in tool_rows
+        ],
+        "projects": {str(project_id): count for project_id, count in project_rows},
+        "project_membership": {
+            "any": await _count_assets(session, facet("projects").where(project_exists)),
+            "none": await _count_assets(session, facet("projects").where(~project_exists)),
+        },
+        "date_ranges": date_counts,
+        "expiring": await _count_assets(
+            session,
+            facet("expiring").where(Asset.expires_at.is_not(None)),
+        ),
+    }
 
 
 async def _live_asset_or_404(session: AsyncSession, asset_id: int) -> Asset:

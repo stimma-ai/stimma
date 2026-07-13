@@ -816,8 +816,13 @@ const emit = defineEmits([
   'move-down'
 ])
 
-const { getTopKeywords, getTags, getProjects, getConfig, getFilterCounts, getTrashFilterCounts, fetchMedia, getTrash } = useMediaApi()
-const { getTags: getAssetTags } = useAssetApi()
+const { getTopKeywords, getTags, getProjects, getConfig, getTrashFilterCounts, getTrash } = useMediaApi()
+const {
+  fetchAssets,
+  getTags: getAssetTags,
+  getTopKeywords: getAssetTopKeywords,
+  getFilterCounts: getAssetFilterCounts,
+} = useAssetApi()
 
 const localCaptionQuery = ref(props.captionQuery || '')
 const localPromptQuery = ref(props.promptQuery || '')
@@ -1163,6 +1168,17 @@ const modalFilterParams = computed(() => {
   if (props.selectedTags && props.selectedTags.length > 0) {
     params.tag_ids = props.selectedTags.join(',')
   }
+  if (props.excludedTags && props.excludedTags.length > 0) {
+    params.excluded_tag_ids = props.excludedTags.join(',')
+  }
+  if (props.selectedProjects && props.selectedProjects.length > 0) {
+    params.project_ids = props.selectedProjects.join(',')
+  }
+  if (props.excludedProjects && props.excludedProjects.length > 0) {
+    params.excluded_project_ids = props.excludedProjects.join(',')
+  }
+  if (props.projectMembership === 'any') params.has_project = true
+  else if (props.projectMembership === 'none') params.has_project = false
   if (props.selectedTools && props.selectedTools.length > 0) {
     params.tool_ids = props.selectedTools.join(',')
   }
@@ -1172,13 +1188,16 @@ const modalFilterParams = computed(() => {
   if (props.selectedMarkers && props.selectedMarkers.length > 0) {
     params.marker_ids = props.selectedMarkers.join(',')
   }
+  if (props.excludedMarkers && props.excludedMarkers.length > 0) {
+    params.excluded_marker_ids = props.excludedMarkers.join(',')
+  }
   if (props.similarSearchActive) {
     if (props.similarFaceTo && props.similarFaceTo.length > 0) {
       params.similar_face_to = props.similarFaceTo.join(',')
     } else if (props.similarTo && props.similarTo.length > 0) {
       params.similar_to = props.similarTo.join(',')
     } else if (props.similarSearchSourceItems && props.similarSearchSourceItems.length > 0) {
-      params.similar_to = props.similarSearchSourceItems.map(item => item.id).join(',')
+      params.similar_to = props.similarSearchSourceItems.map(item => item.media_id || item.id).join(',')
     }
   }
   return params
@@ -2006,7 +2025,9 @@ async function loadTopKeywords() {
       ...modalFilterParams.value,
       limit: 200
     }
-    const response = await getTopKeywords(params)
+    const response = props.isTrashMode
+      ? await getTopKeywords(params)
+      : await getAssetTopKeywords(params)
     topKeywords.value = response.keywords
     console.log('Loaded keywords:', topKeywords.value.length)
   } catch (error) {
@@ -2067,7 +2088,7 @@ async function loadUnfilteredCount() {
       const response = await getTrash(params)
       unfilteredTotalCount.value = response.total
     } else {
-      const response = await fetchMedia(params)
+      const response = await fetchAssets(params)
       unfilteredTotalCount.value = response.total
     }
   } catch (error) {
@@ -2135,6 +2156,10 @@ async function loadFilterCounts() {
     if (props.excludedMarkers && props.excludedMarkers.length > 0) {
       params.excluded_marker_ids = props.excludedMarkers.join(',')
     }
+    if (props.showExpiring) params.show_expiring = true
+    if (props.excludeExpiring) params.exclude_expiring = true
+    if (props.createdAfter) params.created_after = props.createdAfter
+    if (props.createdBefore) params.created_before = props.createdBefore
 
     // Include similarity filter if active (not applicable in trash mode)
     if (!props.isTrashMode && props.similarSearchActive) {
@@ -2143,14 +2168,14 @@ async function loadFilterCounts() {
       } else if (props.similarTo && props.similarTo.length > 0) {
         params.similar_to = props.similarTo.join(',')
       } else if (props.similarSearchSourceItems && props.similarSearchSourceItems.length > 0) {
-        params.similar_to = props.similarSearchSourceItems.map(item => item.id).join(',')
+        params.similar_to = props.similarSearchSourceItems.map(item => item.media_id || item.id).join(',')
       }
     }
 
     // Call appropriate endpoint based on mode
     const response = props.isTrashMode
       ? await getTrashFilterCounts(params)
-      : await getFilterCounts(params)
+      : await getAssetFilterCounts(params)
     filterCounts.value = response
     // Update tags from filter counts (includes filtered usage_count)
     if (response.tags) {

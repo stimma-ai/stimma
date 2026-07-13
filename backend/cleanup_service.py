@@ -11,7 +11,16 @@ from typing import Dict, Any
 from sqlalchemy import and_, select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import MediaItem
+from database import (
+    Asset,
+    AssetMarker,
+    AssetRevision,
+    AssetTag,
+    Board,
+    BoardAssetItem,
+    BoardSection,
+    MediaItem,
+)
 
 log = get_logger(__name__)
 
@@ -72,7 +81,9 @@ class CleanupService:
             )
         return total
 
-    async def cleanup_expired_images(self, db: AsyncSession, folder_configs: Dict[str, Any]) -> tuple[list[int], datetime | None]:
+    async def cleanup_expired_images(
+        self, db: AsyncSession, folder_configs: Dict[str, Any]
+    ) -> tuple[list[int], list[int], datetime | None]:
         """
         Find and mark expired generated images as deleted.
         Images with tags, boards, or markers are preserved.
@@ -82,10 +93,42 @@ class CleanupService:
             folder_configs: Dictionary mapping folder paths to their configurations (unused but kept for API compatibility)
 
         Returns:
-            Tuple of (list of deleted media IDs, next expiration datetime or None)
+            Tuple of (trashed Asset IDs, legacy deleted Media IDs, next expiration)
         """
         now = datetime.utcnow()
+        trashed_asset_ids: list[int] = []
         deleted_ids: list[int] = []
+
+        expired_assets = list(
+            await db.scalars(
+                select(Asset).where(
+                    Asset.state == "active",
+                    Asset.deleted_at.is_(None),
+                    Asset.expires_at.is_not(None),
+                    Asset.expires_at <= now,
+                )
+            )
+        )
+        for asset in expired_assets:
+            try:
+                if await self._should_keep_asset(db, asset.id):
+                    asset.expires_at = None
+                    await db.commit()
+                    continue
+                from asset_service import trash_asset
+
+                await trash_asset(db, asset_id=asset.id)
+                asset.expires_at = None
+                revision = await db.get(AssetRevision, asset.current_revision_id)
+                if revision is not None:
+                    current_media = await db.get(MediaItem, revision.primary_media_id)
+                    if current_media is not None:
+                        current_media.auto_delete_at = None
+                await db.commit()
+                trashed_asset_ids.append(asset.id)
+            except Exception:
+                log.exception("CLEANUP: failed to trash expired Asset %s", asset.id)
+                await db.rollback()
 
         # First, check how many items have auto_delete_at set (for debugging)
         pending_query = (
@@ -94,7 +137,8 @@ class CleanupService:
             .where(
                 and_(
                     MediaItem.auto_delete_at.isnot(None),
-                    MediaItem.deleted_at.is_(None)
+                    MediaItem.deleted_at.is_(None),
+                    MediaItem.id.not_in(select(AssetRevision.primary_media_id)),
                 )
             )
         )
@@ -108,7 +152,8 @@ class CleanupService:
                 and_(
                     MediaItem.auto_delete_at.isnot(None),
                     MediaItem.auto_delete_at <= now,
-                    MediaItem.deleted_at.is_(None)  # Not already deleted
+                    MediaItem.deleted_at.is_(None),  # Not already deleted
+                    MediaItem.id.not_in(select(AssetRevision.primary_media_id)),
                 )
             )
         )
@@ -205,7 +250,7 @@ class CleanupService:
         # Find the next expiration time for scheduling
         next_expiration = await self._get_next_expiration(db)
 
-        return deleted_ids, next_expiration
+        return trashed_asset_ids, deleted_ids, next_expiration
 
     async def _get_next_expiration(self, db: AsyncSession) -> datetime | None:
         """
@@ -217,20 +262,57 @@ class CleanupService:
         Returns:
             The next expiration datetime, or None if no pending expirations
         """
-        query = (
+        media_query = (
             select(func.min(MediaItem.auto_delete_at))
             .where(
                 and_(
                     MediaItem.auto_delete_at.isnot(None),
-                    MediaItem.deleted_at.is_(None)
+                    MediaItem.deleted_at.is_(None),
+                    MediaItem.id.not_in(select(AssetRevision.primary_media_id)),
                 )
             )
         )
+        asset_query = select(func.min(Asset.expires_at)).where(
+            Asset.state == "active",
+            Asset.deleted_at.is_(None),
+            Asset.expires_at.is_not(None),
+        )
+        media_expiration = await db.scalar(media_query)
+        asset_expiration = await db.scalar(asset_query)
+        candidates = [value for value in (media_expiration, asset_expiration) if value]
+        return min(candidates) if candidates else None
 
-        result = await db.execute(query)
-        next_expiration = result.scalar()
-
-        return next_expiration
+    async def _should_keep_asset(self, db: AsyncSession, asset_id: int) -> bool:
+        has_tag = await db.scalar(
+            select(AssetTag.id).where(
+                AssetTag.asset_id == asset_id,
+                AssetTag.deleted_at.is_(None),
+            ).limit(1)
+        )
+        if has_tag is not None:
+            return True
+        has_marker = await db.scalar(
+            select(AssetMarker.id).where(
+                AssetMarker.asset_id == asset_id,
+                AssetMarker.deleted_at.is_(None),
+                AssetMarker.source != "suppressed",
+            ).limit(1)
+        )
+        if has_marker is not None:
+            return True
+        has_board = await db.scalar(
+            select(BoardAssetItem.id)
+            .join(BoardSection, BoardSection.id == BoardAssetItem.board_section_id)
+            .join(Board, Board.id == BoardSection.board_id)
+            .where(
+                BoardAssetItem.asset_id == asset_id,
+                BoardAssetItem.deleted_at.is_(None),
+                BoardSection.deleted_at.is_(None),
+                Board.deleted_at.is_(None),
+            )
+            .limit(1)
+        )
+        return has_board is not None
 
     async def _should_keep_image(self, db: AsyncSession, media_id: int) -> bool:
         """

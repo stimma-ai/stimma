@@ -85,7 +85,8 @@ async def cleanup_expired_images(ws_manager):
             settings = get_settings()
             registry = get_database_registry()
 
-            all_deleted_ids: list[int] = []
+            expired_assets_by_profile: dict[str, list[int]] = {}
+            legacy_media_by_profile: dict[str, list[int]] = {}
             earliest_expiration = None
 
             for profile in settings.profiles:
@@ -99,8 +100,13 @@ async def cleanup_expired_images(ws_manager):
                 # Run cleanup on this profile's database
                 db = registry.get_database(profile.id)
                 async with db.async_session_maker() as session:
-                    deleted_ids, next_expiration = await cleanup_service.cleanup_expired_images(session, folder_configs)
-                    all_deleted_ids.extend(deleted_ids)
+                    asset_ids, media_ids, next_expiration = (
+                        await cleanup_service.cleanup_expired_images(session, folder_configs)
+                    )
+                    if asset_ids:
+                        expired_assets_by_profile[profile.id] = asset_ids
+                    if media_ids:
+                        legacy_media_by_profile[profile.id] = media_ids
 
                     # Track earliest expiration across all profiles
                     if next_expiration:
@@ -109,22 +115,33 @@ async def cleanup_expired_images(ws_manager):
 
             next_expiration = earliest_expiration
 
-            if all_deleted_ids:
-                # Broadcast events to update frontend UI
-                # Use bulk event for efficiency when there are many deletions
-                if len(all_deleted_ids) > 1:
-                    await ws_manager.broadcast('media_bulk_deleted', {
-                        'media_ids': all_deleted_ids,
-                        'reason': 'auto_delete_expired'
-                    }, include_profile=False)
-                else:
-                    # Single item - use individual event
-                    await ws_manager.broadcast('media_deleted', {
-                        'media_id': all_deleted_ids[0],
-                        'reason': 'auto_delete_expired'
-                    }, include_profile=False)
-
-                log.info(f"CLEANUP: Deleted {len(all_deleted_ids)} expired images and broadcast events")
+            for profile_id, asset_ids in expired_assets_by_profile.items():
+                for asset_id in asset_ids:
+                    await ws_manager.broadcast(
+                        "asset_deleted",
+                        {
+                            "asset_id": asset_id,
+                            "reason": "auto_delete_expired",
+                            "profile_id": profile_id,
+                        },
+                        include_profile=False,
+                    )
+            for profile_id, media_ids in legacy_media_by_profile.items():
+                event = "media_bulk_deleted" if len(media_ids) > 1 else "media_deleted"
+                payload = (
+                    {"media_ids": media_ids}
+                    if len(media_ids) > 1
+                    else {"media_id": media_ids[0]}
+                )
+                await ws_manager.broadcast(
+                    event,
+                    {
+                        **payload,
+                        "reason": "auto_delete_expired",
+                        "profile_id": profile_id,
+                    },
+                    include_profile=False,
+                )
 
             # Calculate next sleep duration
             if next_expiration:

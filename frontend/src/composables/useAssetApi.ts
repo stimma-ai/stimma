@@ -51,6 +51,14 @@ export function useAssetApi() {
     })).data
   }
 
+  async function getTopKeywords(params: Record<string, unknown> = {}) {
+    return (await axios.get(`${api()}/assets/keywords/top`, { params })).data
+  }
+
+  async function getFilterCounts(params: Record<string, unknown> = {}) {
+    return (await axios.get(`${api()}/assets/filter-counts`, { params })).data
+  }
+
   async function findAssetIndex(assetId: number, params: Record<string, unknown> = {}) {
     const { ids } = await fetchAssetIds(params)
     const index = ids.indexOf(assetId)
@@ -182,6 +190,8 @@ export function useAssetApi() {
     getAsset,
     getAssetBrowserItem,
     getTags,
+    getTopKeywords,
+    getFilterCounts,
     findAssetIndex,
     addMarker,
     removeMarker,

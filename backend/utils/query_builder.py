@@ -165,6 +165,7 @@ def build_filtered_query(
     include_ephemeral: bool = False,
     exclude_category: Optional[str] = None,
     asset_id_column=None,
+    expiration_column=None,
 ):
     """
     Apply filters to a query, optionally excluding a specific filter category.
@@ -531,25 +532,29 @@ def build_filtered_query(
         query = query.where(MediaItem.preset_id == preset_id)
 
     # Date filters (created_date)
-    if created_after:
-        try:
-            date = datetime.fromisoformat(created_after)
-            query = query.where(MediaItem.created_date >= date)
-        except ValueError:
-            pass
+    if exclude_category != "date_ranges":
+        if created_after:
+            try:
+                date = datetime.fromisoformat(created_after)
+                query = query.where(MediaItem.created_date >= date)
+            except ValueError:
+                pass
 
-    if created_before:
-        try:
-            date = datetime.fromisoformat(created_before)
-            query = query.where(MediaItem.created_date <= date)
-        except ValueError:
-            pass
+        if created_before:
+            try:
+                date = datetime.fromisoformat(created_before)
+                query = query.where(MediaItem.created_date <= date)
+            except ValueError:
+                pass
 
-    # Expiring (auto_delete_at) filters
-    if show_expiring:
-        query = query.where(MediaItem.auto_delete_at.isnot(None))
-    if exclude_expiring:
-        query = query.where(MediaItem.auto_delete_at.is_(None))
+    # Expiring filters use Asset lifecycle when an Asset projection supplies
+    # its expiration column; legacy Media callers retain auto_delete_at.
+    expires_at = expiration_column if expiration_column is not None else MediaItem.auto_delete_at
+    if exclude_category != "expiring":
+        if show_expiring:
+            query = query.where(expires_at.isnot(None))
+        if exclude_expiring:
+            query = query.where(expires_at.is_(None))
 
     # Direct megapixel range (legacy: only meaningful when `resolutions` is not used)
     if min_mp is not None:
