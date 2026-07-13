@@ -439,6 +439,18 @@ async def _process_profile(profile_id: str) -> bool:
     db = registry.get_database(profile_id)
     now = _utcnow()
 
+    # Chat deletion has a short Undo tombstone, then joins this same durable
+    # privacy-deletion pipeline. Running it here makes restart recovery free:
+    # any overdue tombstone is finalized on the next worker pass.
+    from chat_deletion_service import finalize_due_chat_deletions
+
+    async with db.async_session_maker() as chat_session:
+        chat_result = await finalize_due_chat_deletions(
+            chat_session,
+            profile_id=profile_id,
+            now=now,
+        )
+
     async with db.async_session_maker() as session:
         await session.execute(
             update(DeleteOperationItem)
@@ -471,7 +483,7 @@ async def _process_profile(profile_id: str) -> bool:
         )
         operation = result.scalars().first()
         if not operation:
-            return False
+            return chat_result.finalized_chats > 0
 
         if operation.status == "queued":
             operation.status = "running"

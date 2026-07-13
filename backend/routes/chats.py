@@ -4,11 +4,11 @@ from core.logging import get_logger
 from datetime import datetime
 from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func, or_, and_, desc, delete
+from sqlalchemy import select, func, or_, and_, desc, delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
 
-from database import Chat, ChatItem, LLMTrace, UserPreference, MediaItem
+from database import Chat, ChatItem, GenerationJob, LLMTrace, UserPreference, MediaItem
 from core.dependencies import get_db_session
 from models.api_models import BaseModel
 from pydantic import BaseModel as PydanticBaseModel
@@ -851,6 +851,38 @@ async def update_chat(
     return ChatResponse(**chat.to_dict())
 
 
+async def _cancel_chat_work(
+    session: AsyncSession,
+    chat_ids: list[int],
+    cancelled_at: datetime,
+) -> None:
+    """Stop chat-scoped work from creating new owners after deletion."""
+    if not chat_ids:
+        return
+
+    from agent.v2.service import get_active_task
+
+    current_task = asyncio.current_task()
+    for chat_id in chat_ids:
+        task = get_active_task(chat_id)
+        if task is not None and task is not current_task and not task.done():
+            task.cancel()
+
+    await session.execute(
+        update(GenerationJob)
+        .where(
+            GenerationJob.output_context_kind == "chat",
+            GenerationJob.output_context_id.in_([str(value) for value in chat_ids]),
+            GenerationJob.status.in_(("queued", "assigned", "processing")),
+        )
+        .values(
+            status="cancelled",
+            error="Cancelled because the chat was deleted",
+            completed_at=cancelled_at,
+        )
+    )
+
+
 @router.delete("/{chat_id}")
 async def delete_chat(
     chat_id: int,
@@ -865,7 +897,12 @@ async def delete_chat(
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    chat.deleted_at = datetime.utcnow()
+    if chat.deleted_at is not None:
+        return {"success": True}
+
+    deleted_at = datetime.utcnow()
+    chat.deleted_at = deleted_at
+    await _cancel_chat_work(session, [chat_id], deleted_at)
     await session.commit()
 
     # Broadcast chat deletion via WebSocket
@@ -896,8 +933,15 @@ async def batch_delete_chats(
     )
     chats_to_delete = result.scalars().all()
 
+    deleted_at = datetime.utcnow()
     for chat in chats_to_delete:
-        chat.deleted_at = datetime.utcnow()
+        chat.deleted_at = deleted_at
+
+    await _cancel_chat_work(
+        session,
+        [chat.id for chat in chats_to_delete],
+        deleted_at,
+    )
 
     await session.commit()
 

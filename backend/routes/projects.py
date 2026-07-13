@@ -150,6 +150,9 @@ async def delete_project(project_id: int, session: AsyncSession = Depends(get_db
             .where(Chat.id.in_(deleted_chat_ids))
             .values(deleted_at=deleted_at)
         )
+        from routes.chats import _cancel_chat_work
+
+        await _cancel_chat_work(session, deleted_chat_ids, deleted_at)
 
     board_result = await session.execute(
         select(Board.id).where(Board.project_id == project_id, Board.deleted_at.is_(None))
