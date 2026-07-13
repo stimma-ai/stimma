@@ -2416,14 +2416,7 @@ class GenerationQueue:
                         new_item_path=media_item.file_path,
                     )
 
-                # Mark the result item as superseded by the output set (hides it from library)
-                await media_session.execute(
-                    update(MediaItem)
-                    .where(MediaItem.id == media_item.id)
-                    .values(superseded_by=output_set_id, is_hidden=None)
-                )
                 await media_session.commit()
-                log.debug(f"Batch {batch_id}: Marked media {media_item.id} as superseded by set {output_set_id}")
 
             # Broadcast batch progress
             if self._websocket_manager:

@@ -223,6 +223,7 @@ def _build_runtime(flow: Flow) -> FlowRuntime:
         store=get_equation_store(),
         broadcast=_broadcast,
         project_id=flow.project_id,
+        persist_media_results=True,
     )
 
 

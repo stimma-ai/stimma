@@ -175,10 +175,12 @@ class TestFetchMediaEvaluator:
         async def fake_fetch(url, *, max_size_mb):
             return _TINY_PNG, "image/png"
 
-        async def fake_save(*, data, fmt, source_url, project_id):
+        async def fake_save(*, data, fmt, source_url, flow_id, equation_key):
             assert data == _TINY_PNG
             assert fmt == "png"
             assert source_url == "http://example.com/x.png"
+            assert flow_id == 1
+            assert equation_key == "r/fetch_media$0"
             return 42
 
         async def fake_tag(media_ids, *, flow_id, equation_key, phase_path):
@@ -202,11 +204,12 @@ class TestFetchMediaEvaluator:
             assert max_size_mb == 10
             return _TINY_PNG, "image/png"
 
-        async def fake_save(*, data, fmt, source_url, project_id):
+        async def fake_save(*, data, fmt, source_url, flow_id, equation_key):
             assert data == _TINY_PNG
             assert fmt == "png"
             assert source_url == "http://example.com/selected.png"
-            assert project_id == 7
+            assert flow_id == 1
+            assert equation_key == "r/hitl.select$0"
             return 42
 
         async def fake_tag(media_ids, *, flow_id, equation_key, phase_path):
@@ -257,7 +260,7 @@ class TestFetchMediaEvaluator:
             await asyncio.wait_for(release.wait(), timeout=1)
             return _TINY_PNG, "image/png"
 
-        async def fake_save(*, data, fmt, source_url, project_id):
+        async def fake_save(*, data, fmt, source_url, flow_id, equation_key):
             return 101 if source_url.endswith("a.png") else 202
 
         async def fake_tag(media_ids, *, flow_id, equation_key, phase_path):

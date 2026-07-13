@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..tools_registry import tool, ToolParameter
@@ -27,8 +27,8 @@ log = get_logger(__name__)
     name="assemble_set",
     description=(
         "Group previously generated images into a set. Creates a .stimmaset.json "
-        "MediaItem in the library. Member images are superseded (hidden from browse, visible "
-        "in set context)."
+        "MediaItem for display. Members remain independent; final show() promotion "
+        "records linked Assets or exact embedded Media."
     ),
     parameters=[
         ToolParameter(
@@ -167,6 +167,23 @@ async def assemble_set(
     session.add(set_media_item)
     await session.flush()
 
+    output_context_kind = kwargs.get("output_context_kind")
+    output_context_id = kwargs.get("output_context_id")
+    if output_context_kind and output_context_id:
+        from asset_service import acquire_media_owner
+        await acquire_media_owner(
+            session,
+            media_id=set_media_item.id,
+            root_kind=output_context_kind,
+            root_id=output_context_id,
+            role="result",
+            idempotency_key=(
+                f"flow:{output_context_id}:media:{set_media_item.id}"
+                if output_context_kind == "flow_equation"
+                else f"{output_context_kind}:{output_context_id}:assembled-set:{set_media_item.id}"
+            ),
+        )
+
     chat_id = kwargs.get("chat_id")
     if chat_id is not None:
         from asset_service import acquire_media_owner
@@ -188,26 +205,14 @@ async def assemble_set(
     await session.commit()
     await session.refresh(set_media_item)
 
-    # Record lineage + supersede members
+    # Record Media lineage. Container membership is normalized when show(role="final")
+    # promotes the assembled result; members are never hidden or replaced.
     source_ids = [mid for mid in media_ids if mid in media_items_by_id]
     if source_ids:
         await record_lineage(session, set_media_item.id, source_ids, "set-creation")
         await propagate_tool_lineage(session, set_media_item.id, source_ids)
 
-        await session.execute(
-            update(MediaItem)
-            .where(MediaItem.id.in_(source_ids), MediaItem.superseded_by.is_(None))
-            .values(superseded_by=set_media_item.id, is_hidden=None)
-        )
         await session.commit()
-
-        from utils.websocket import broadcast_media_updated
-        result = await session.execute(
-            select(MediaItem).where(MediaItem.id.in_(source_ids))
-        )
-        member_items = list(result.scalars().all())
-        if member_items:
-            await broadcast_media_updated(member_items, ["superseded_by", "is_hidden"], session)
 
     from telemetry import get_telemetry_client
     get_telemetry_client().track("set_created", {
@@ -247,5 +252,5 @@ async def assemble_set(
     return (
         f"<result media_id={set_media_item.id} />"
         f"Set '{title or 'Untitled'}' created ({len(media_ids)} images). "
-        f"Media ID: {set_media_item.id}. Member images are now superseded by the set."
+        f"Media ID: {set_media_item.id}. Member images remain independent."
     )

@@ -68,8 +68,7 @@ async def acquire_media_owner(
         existing_by_key = await session.scalar(
             select(MediaOwner).where(
                 MediaOwner.idempotency_key == idempotency_key,
-                MediaOwner.deleted_at.is_(None),
-            )
+            ).order_by(MediaOwner.id.desc())
         )
         if existing_by_key is not None:
             expected = (media_id, root_kind, root_id_string, role)
@@ -81,6 +80,9 @@ async def acquire_media_owner(
             )
             if actual != expected:
                 raise AssetServiceError("Idempotency key was already used for another owner")
+            if existing_by_key.deleted_at is not None:
+                existing_by_key.deleted_at = None
+                await session.flush()
             return existing_by_key
 
     existing = await session.scalar(

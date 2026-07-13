@@ -226,6 +226,160 @@ class TestStatusTransitions:
             assert can_transition(s, s)
 
 
+@pytest.mark.asyncio
+async def test_media_finalization_covers_foreach_wrapper(isolated_store_and_db):
+    db_path, store = isolated_store_and_db
+
+    @flow(name="media_foreach", outputs={"out": dsl_output(type="list[media]")})
+    def media_foreach():
+        with phase("Generate"):
+            return foreach(
+                ["a", "b"],
+                lambda value: tool("mock", task_type="text-to-image", prompt=value),
+            )
+
+    registry = EvaluatorRegistry()
+
+    async def tool_eval(request: EvaluationRequest) -> EvaluationResult:
+        media_id = 101 if ":a/" in request.equation_key else 102
+        return EvaluationResult(value=media_id, media_ids=[media_id])
+
+    registry.register("tool_call", tool_eval)
+    runtime = FlowRuntime(
+        8801,
+        db_path,
+        flow_callable=media_foreach,
+        evaluators=registry,
+        store=store,
+    )
+    graph = runtime.build_initial_graph()
+    finalized: list[tuple[str, list[int], str]] = []
+
+    async def finalize(key: str, media_ids: list[int], disposition: str) -> None:
+        finalized.append((key, media_ids, disposition))
+
+    run = FlowRun(
+        graph,
+        FlowRunConfig(
+            flow_id=8801,
+            state_db_path=db_path,
+            finalize_media_results=finalize,
+        ),
+        evaluators=registry,
+        store=store,
+    )
+    await run.start()
+    try:
+        await run.wait_quiescent(timeout=3)
+    finally:
+        await run.stop()
+
+    output_key = graph.output_keys[0]
+    assert (output_key, [101, 102], "independent") in finalized
+    # Each tool result and its per-iteration control wrapper are retained;
+    # the surfaced foreach wrapper then promotes the combined result.
+    assert len([row for row in finalized if row[2] == "internal"]) == 4
+
+
+@pytest.mark.asyncio
+async def test_media_finalization_covers_hitl_completion(isolated_store_and_db):
+    db_path, store = isolated_store_and_db
+
+    @flow(name="media_hitl", outputs={"out": dsl_output(type="media")})
+    def media_hitl():
+        with phase("Generate"):
+            candidates = foreach(
+                range(1),
+                lambda _: tool("mock", task_type="text-to-image", prompt="candidate"),
+            )
+            return hitl.select(candidates, instructions="pick", count=1)
+
+    registry = EvaluatorRegistry()
+
+    async def tool_eval(_request: EvaluationRequest) -> EvaluationResult:
+        return EvaluationResult(value=201, media_ids=[201])
+
+    registry.register("tool_call", tool_eval)
+    runtime = FlowRuntime(
+        8802,
+        db_path,
+        flow_callable=media_hitl,
+        evaluators=registry,
+        store=store,
+    )
+    graph = runtime.build_initial_graph()
+    finalized: list[tuple[str, list[int], str]] = []
+
+    async def finalize(key: str, media_ids: list[int], disposition: str) -> None:
+        finalized.append((key, media_ids, disposition))
+
+    run = FlowRun(
+        graph,
+        FlowRunConfig(
+            flow_id=8802,
+            state_db_path=db_path,
+            finalize_media_results=finalize,
+            hitl_auto_resolve=lambda _eq, _inputs: 201,
+        ),
+        evaluators=registry,
+        store=store,
+    )
+    await run.start()
+    try:
+        await run.wait_quiescent(timeout=3)
+    finally:
+        await run.stop()
+
+    assert (graph.output_keys[0], [201], "independent") in finalized
+
+
+@pytest.mark.asyncio
+async def test_media_finalizer_failure_becomes_equation_failure(isolated_store_and_db):
+    db_path, store = isolated_store_and_db
+
+    @flow(name="media_failure", outputs={"out": dsl_output(type="media")})
+    def media_failure():
+        with phase("Generate"):
+            return tool("mock", task_type="text-to-image", prompt="candidate")
+
+    registry = EvaluatorRegistry()
+
+    async def tool_eval(_request: EvaluationRequest) -> EvaluationResult:
+        return EvaluationResult(value=301, media_ids=[301])
+
+    async def fail_finalize(_key: str, _ids: list[int], _disposition: str) -> None:
+        raise RuntimeError("retention failed")
+
+    registry.register("tool_call", tool_eval)
+    runtime = FlowRuntime(
+        8803,
+        db_path,
+        flow_callable=media_failure,
+        evaluators=registry,
+        store=store,
+    )
+    graph = runtime.build_initial_graph()
+    run = FlowRun(
+        graph,
+        FlowRunConfig(
+            flow_id=8803,
+            state_db_path=db_path,
+            finalize_media_results=fail_finalize,
+        ),
+        evaluators=registry,
+        store=store,
+    )
+    await run.start()
+    try:
+        await run.wait_quiescent(timeout=3)
+    finally:
+        await run.stop()
+
+    output = graph.get(graph.output_keys[0])
+    assert output.status == EquationStatus.FAILED
+    assert "retention failed" in (output.error or "")
+
+
 # =============================================================================
 # Graph-build tests
 # =============================================================================

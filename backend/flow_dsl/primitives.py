@@ -124,6 +124,7 @@ class InputSpec:
 class OutputSpec:
     type: str
     description: str = ""
+    disposition: str = "independent"
 
 
 def input(  # noqa: A002 — shadowing `input` matches the docs' DSL surface
@@ -154,7 +155,11 @@ def input(  # noqa: A002 — shadowing `input` matches the docs' DSL surface
     )
 
 
-def output(type: str, description: str = "") -> OutputSpec:  # noqa: A002
+def output(
+    type: str,
+    description: str = "",
+    disposition: str = "independent",
+) -> OutputSpec:  # noqa: A002
     hint = validate_output_type(type)
     if hint is not None:
         # Surface the specific error class that the program loader catches
@@ -163,7 +168,17 @@ def output(type: str, description: str = "") -> OutputSpec:  # noqa: A002
             f"invalid output type {type!r}",
             suggestion=hint,
         )
-    return OutputSpec(type=type, description=description)
+    if disposition not in {"independent", "container", "internal", "ephemeral"}:
+        raise DSLMisuseError(
+            f"invalid output disposition {disposition!r}",
+            suggestion="Use independent, container, internal, or ephemeral.",
+        )
+    if disposition == "container" and type != "media":
+        raise DSLMisuseError(
+            "container output disposition requires type='media'",
+            suggestion="Return one set/grid Media item, or use independent for list[media].",
+        )
+    return OutputSpec(type=type, description=description, disposition=disposition)
 
 
 class FlowDecorated:

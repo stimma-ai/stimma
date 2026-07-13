@@ -73,6 +73,13 @@ All importable from `flow_dsl.primitives` (compat shim exists at
 
 `hitl` is a namespace object (`_Hitl()` in `primitives.py`), not a module.
 
+Media outputs also declare retention behavior with
+`output("media", disposition=...)`: `independent` (the default) creates an
+Asset, `container` requires one set/grid and creates one container Asset,
+`internal` keeps contextual Flow Media out of Asset browsers, and `ephemeral`
+marks short-lived contextual output. Intermediate equations are always
+contextual Media regardless of the surfaced output defaults.
+
 Source of truth: `backend/flow_dsl/primitives.py`.
 
 ### Media states in flow flows

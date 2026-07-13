@@ -72,11 +72,13 @@ class FlowRuntime:
         version_store: Optional[ProgramVersionStore] = None,
         broadcast: Optional[Callable[[str, dict], Awaitable[None]]] = None,
         project_id: Optional[int] = None,
+        persist_media_results: bool = False,
     ) -> None:
         if program_path is None and flow_callable is None:
             raise ValueError("program_path or flow_callable is required")
         self.flow_id = flow_id
         self.project_id = project_id
+        self.persist_media_results = persist_media_results
         self.state_db_path = state_db_path
         self.program_path = program_path
         self.flow_callable = flow_callable
@@ -425,6 +427,8 @@ class FlowRuntime:
                 for tid, rec in list(pending_hitl.items()):
                     if getattr(rec, "equation_key", None) in stale_keys:
                         pending_hitl.pop(tid, None)
+            if stale_keys:
+                self.run._schedule_media_release(sorted(stale_keys))
             self.run._wakeup.set()
 
         self.last_load_error = None
@@ -575,7 +579,59 @@ class FlowRuntime:
     async def start(self) -> None:
         if self.graph is None:
             self.build_initial_graph()
+        if self.persist_media_results:
+            from core.profile_context import get_current_profile
+            from database_registry import get_database_registry
+            from flow_result_service import reconcile_flow_media_results
+
+            db = get_database_registry().get_database(get_current_profile())
+            async with db.async_session_maker() as session:
+                await reconcile_flow_media_results(
+                    session,
+                    flow_id=self.flow_id,
+                    live_equation_keys=set(self.graph.keys()),
+                )
+                await session.commit()
         if self.run is None:
+            async def finalize_media_results(
+                equation_key: str,
+                media_ids: list[int],
+                disposition: str,
+            ) -> None:
+                from core.profile_context import get_current_profile
+                from database_registry import get_database_registry
+                from flow_result_service import finalize_flow_media_result
+
+                db = get_database_registry().get_database(get_current_profile())
+                async with db.async_session_maker() as session:
+                    await finalize_flow_media_result(
+                        session,
+                        flow_id=self.flow_id,
+                        equation_key=equation_key,
+                        media_ids=media_ids,
+                        disposition=disposition,
+                        project_id=self.project_id,
+                    )
+                    await session.commit()
+
+            async def release_media_results(
+                equation_keys: list[str],
+                ephemeral_only: bool,
+            ) -> None:
+                from core.profile_context import get_current_profile
+                from database_registry import get_database_registry
+                from flow_result_service import release_flow_media_results
+
+                db = get_database_registry().get_database(get_current_profile())
+                async with db.async_session_maker() as session:
+                    await release_flow_media_results(
+                        session,
+                        flow_id=self.flow_id,
+                        equation_keys=equation_keys or None,
+                        ephemeral_only=ephemeral_only,
+                    )
+                    await session.commit()
+
             self.run = FlowRun(
                 self.graph,
                 FlowRunConfig(
@@ -585,6 +641,12 @@ class FlowRuntime:
                     concurrency=self._concurrency,
                     retry_backoff_seconds=self._retry_backoff,
                     broadcast=self._broadcast,
+                    finalize_media_results=(
+                        finalize_media_results if self.persist_media_results else None
+                    ),
+                    release_media_results=(
+                        release_media_results if self.persist_media_results else None
+                    ),
                 ),
                 evaluators=self.evaluators,
                 store=self.store,

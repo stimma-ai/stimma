@@ -492,6 +492,8 @@ async def _run_single_tool_job(
     *,
     seed: Optional[int],
     project_id: Optional[int] = None,
+    output_context_kind: Optional[str] = None,
+    output_context_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Run one ``execute_call_tool`` invocation in a dedicated session.
 
@@ -509,7 +511,10 @@ async def _run_single_tool_job(
             tool_id=tool_id,
             parameters=parameters,
             session=session,
-            project_id=project_id,
+            project_id=None if output_context_kind == "flow_equation" else project_id,
+            output_disposition="context" if output_context_kind else None,
+            output_context_kind=output_context_kind,
+            output_context_id=output_context_id,
         )
 
 
@@ -565,10 +570,16 @@ class ToolCallEvaluator:
         _validate_tool_inputs(tool_id, inputs)
 
         try:
-            result = await self._run_tool(
-                tool_id, inputs, seed=request.seed,
-                project_id=request.project_id,
-            )
+            run_kwargs = {
+                "seed": request.seed,
+                "project_id": request.project_id,
+            }
+            if self._check_registry:
+                run_kwargs.update({
+                    "output_context_kind": "flow_equation",
+                    "output_context_id": f"{request.flow_id}:{request.equation_key}",
+                })
+            result = await self._run_tool(tool_id, inputs, **run_kwargs)
             if result.get("metadata_only"):
                 # Data tool (detect-objects, ...): no media output — the value
                 # is the result data itself (detections, image_size, ...).
@@ -1660,95 +1671,6 @@ def _coerce_items_list(binding: Any) -> list[int]:
     return [_coerce_media_id(v) for v in seq]
 
 
-async def _explode_previous_flow_assembly(
-    *,
-    flow_id: Optional[int],
-    equation_key: str,
-) -> None:
-    """Release members + delete any prior set/grid this flow-equation created.
-
-    The flow "owns" its create_set/create_grid output — on re-run (user
-    invalidation, input change, or a re-evaluation that misses the store)
-    we produce a fresh grid and the old one becomes orphaned. Its member
-    images still carry ``superseded_by = old_grid_id``, so the next
-    ``assemble_set`` / ``create_parameter_sweep`` call fails with "Items
-    already in a set or grid" when the store returns cached member IDs.
-
-    Find prior assemblies by the flow tag we stamp in
-    ``_tag_media_with_flow``, unsupersede their members, drop the file,
-    and soft-delete the row. No-op when flow_id is None (unit tests with
-    stub evaluators) or no prior assembly exists.
-    """
-    if flow_id is None:
-        return
-    from database import MediaItem
-    from utils.websocket import broadcast_media_updated
-
-    async with _open_session() as session:
-        result = await session.execute(
-            select(MediaItem).where(
-                MediaItem.file_format.in_(("stimmaset.json", "stimmagrid.json")),
-                MediaItem.deleted_at.is_(None),
-                func.json_extract(MediaItem.generation_metadata, "$.source") == "flow",
-                func.json_extract(MediaItem.generation_metadata, "$.flow_id") == flow_id,
-                func.json_extract(MediaItem.generation_metadata, "$.equation_key") == equation_key,
-            )
-        )
-        prior = list(result.scalars().all())
-        if not prior:
-            return
-
-        freed_member_ids: list[int] = []
-        deleted_assembly_ids: list[int] = []
-        for assembly in prior:
-            members = (await session.execute(
-                select(MediaItem).where(MediaItem.superseded_by == assembly.id)
-            )).scalars().all()
-            member_ids = [m.id for m in members]
-            if member_ids:
-                await session.execute(
-                    update(MediaItem)
-                    .where(MediaItem.superseded_by == assembly.id)
-                    .values(superseded_by=None, is_hidden=None)
-                )
-                freed_member_ids.extend(member_ids)
-
-            try:
-                if assembly.file_path and os.path.exists(assembly.file_path):
-                    os.remove(assembly.file_path)
-            except OSError:
-                log.warning(
-                    "explode prior assembly: failed to delete file %s",
-                    assembly.file_path,
-                )
-
-            deleted_assembly_ids.append(assembly.id)
-            await session.delete(assembly)
-
-        await session.commit()
-
-        if freed_member_ids:
-            refreshed = (await session.execute(
-                select(MediaItem).where(MediaItem.id.in_(freed_member_ids))
-            )).scalars().all()
-            if refreshed:
-                await broadcast_media_updated(
-                    list(refreshed), ["superseded_by", "is_hidden"], session,
-                )
-
-    from utils.websocket import ws_manager
-    for assembly_id in deleted_assembly_ids:
-        await ws_manager.broadcast("media_deleted", {"media_id": assembly_id})
-    log.info(
-        "flow %s eq %s: exploded %d prior assembl%s, freed %d members",
-        flow_id,
-        equation_key,
-        len(deleted_assembly_ids),
-        "y" if len(deleted_assembly_ids) == 1 else "ies",
-        len(freed_member_ids),
-    )
-
-
 class CreateSetEvaluator:
     """Evaluate a ``create_set()`` equation.
 
@@ -1774,10 +1696,6 @@ class CreateSetEvaluator:
         if not media_ids:
             raise EvaluatorError("create_set: items list is empty", category=TOOL_ERROR)
 
-        await _explode_previous_flow_assembly(
-            flow_id=request.flow_id,
-            equation_key=request.equation_key,
-        )
 
         try:
             async with _open_session() as session:
@@ -1786,7 +1704,9 @@ class CreateSetEvaluator:
                     title=title,
                     description=description,
                     session=session,
-                    project_id=request.project_id,
+                    project_id=None,
+                    output_context_kind="flow_equation",
+                    output_context_id=f"{request.flow_id}:{request.equation_key}",
                 )
         except EvaluatorError:
             raise
@@ -1817,11 +1737,8 @@ class CreateSetEvaluator:
 class CreateGridEvaluator:
     """Evaluate a ``create_grid()`` equation.
 
-    Delegates to ``create_parameter_sweep``. Same rationale as
-    ``CreateSetEvaluator`` — the flow owns its one grid; a re-run
-    explodes the prior grid first so the new one can claim the same cell
-    images (otherwise the assemble tool rejects items with non-null
-    ``superseded_by``).
+    Delegates to ``create_parameter_sweep``. Re-runs produce fresh containers;
+    prior declared output Assets remain independent roots.
     """
 
     async def __call__(self, request: EvaluationRequest) -> EvaluationResult:
@@ -1847,10 +1764,6 @@ class CreateGridEvaluator:
                 category=TOOL_ERROR,
             )
 
-        await _explode_previous_flow_assembly(
-            flow_id=request.flow_id,
-            equation_key=request.equation_key,
-        )
 
         try:
             async with _open_session() as session:
@@ -1863,7 +1776,9 @@ class CreateGridEvaluator:
                     title=title,
                     description=description,
                     session=session,
-                    project_id=request.project_id,
+                    project_id=None,
+                    output_context_kind="flow_equation",
+                    output_context_id=f"{request.flow_id}:{request.equation_key}",
                 )
         except EvaluatorError:
             raise
@@ -1921,7 +1836,8 @@ class CreateDocumentEvaluator:
                 title=title,
                 content=content,
                 fmt=fmt,
-                project_id=request.project_id,
+                flow_id=request.flow_id,
+                equation_key=request.equation_key,
             )
         except EvaluatorError:
             raise
@@ -1950,7 +1866,8 @@ async def _save_document_media(
     title: str,
     content: str,
     fmt: str,
-    project_id: Optional[int] = None,
+    flow_id: int,
+    equation_key: str,
 ) -> int:
     """Write a markdown document into the library and return its media id.
 
@@ -2025,10 +1942,21 @@ async def _save_document_media(
         session.add(media)
         await session.flush()
         media_id = media.id
-        if project_id is not None:
-            from project_service import attach_media_to_project
-            await attach_media_to_project(session, project_id, media_id)
+        from asset_service import acquire_media_owner
+        from storage_service import cleanup_staged_source, stage_managed_media
+        await stage_managed_media(
+            session, media=media, profile_id=profile_id, remove_source=True
+        )
+        await acquire_media_owner(
+            session,
+            media_id=media_id,
+            root_kind="flow_equation",
+            root_id=f"{flow_id}:{equation_key}",
+            role="result",
+            idempotency_key=f"flow:{flow_id}:{equation_key}:media:{media_id}",
+        )
         await session.commit()
+        await cleanup_staged_source(session, media_id=media_id)
 
     try:
         await ws_manager.broadcast("media_added", {
@@ -2239,7 +2167,8 @@ async def _save_pil_image_media(
     img: Any,
     title: str,
     fmt: str,
-    project_id: Optional[int] = None,
+    flow_id: int,
+    equation_key: str,
     source_media_ids: Optional[list[int]] = None,
 ) -> int:
     """Save a PIL.Image to the library and return its media id.
@@ -2349,10 +2278,21 @@ async def _save_pil_image_media(
                 session, media_id, source_media_ids, "image-composition",
             )
             await propagate_tool_lineage(session, media_id, source_media_ids)
-        if project_id is not None:
-            from project_service import attach_media_to_project
-            await attach_media_to_project(session, project_id, media_id)
+        from asset_service import acquire_media_owner
+        from storage_service import cleanup_staged_source, stage_managed_media
+        await stage_managed_media(
+            session, media=media, profile_id=profile_id, remove_source=True
+        )
+        await acquire_media_owner(
+            session,
+            media_id=media_id,
+            root_kind="flow_equation",
+            root_id=f"{flow_id}:{equation_key}",
+            role="result",
+            idempotency_key=f"flow:{flow_id}:{equation_key}:media:{media_id}",
+        )
         await session.commit()
+        await cleanup_staged_source(session, media_id=media_id)
 
     try:
         await ws_manager.broadcast("media_added", {
@@ -2443,7 +2383,8 @@ class CreateImageEvaluator:
                 img=value,
                 title=title,
                 fmt=fmt,
-                project_id=request.project_id,
+                flow_id=request.flow_id,
+                equation_key=request.equation_key,
                 source_media_ids=source_media_ids,
             )
         except EvaluatorError:
@@ -2590,7 +2531,8 @@ async def _save_layout_media(
     bundle_dir: Path,
     title: str,
     description: str,
-    project_id: Optional[int] = None,
+    flow_id: int,
+    equation_key: str,
     source_media_ids: Optional[list[int]] = None,
 ) -> int:
     """Copy a staged ``.stimmalayout`` bundle into the library and return its id.
@@ -2681,9 +2623,15 @@ async def _save_layout_media(
             await record_lineage(
                 session, media_id, source_media_ids, "layout-creation",
             )
-        if project_id is not None:
-            from project_service import attach_media_to_project
-            await attach_media_to_project(session, project_id, media_id)
+        from asset_service import acquire_media_owner
+        await acquire_media_owner(
+            session,
+            media_id=media_id,
+            root_kind="flow_equation",
+            root_id=f"{flow_id}:{equation_key}",
+            role="result",
+            idempotency_key=f"flow:{flow_id}:{equation_key}:media:{media_id}",
+        )
         await session.commit()
 
     try:
@@ -2873,7 +2821,8 @@ class CreateLayoutEvaluator:
                     bundle_dir=staging_dir,
                     title=title,
                     description=description,
-                    project_id=request.project_id,
+                    flow_id=request.flow_id,
+                    equation_key=request.equation_key,
                     source_media_ids=used_source_ids,
                 )
             except EvaluatorError:
@@ -2979,7 +2928,8 @@ class RasterizeLayoutEvaluator:
                 img=img,
                 title=out_title,
                 fmt="png",
-                project_id=request.project_id,
+                flow_id=request.flow_id,
+                equation_key=request.equation_key,
                 source_media_ids=[layout_media_id],
             )
         except EvaluatorError:
@@ -3169,7 +3119,8 @@ class FetchMediaEvaluator:
                 data=data,
                 fmt=fmt,
                 source_url=url,
-                project_id=request.project_id,
+                flow_id=request.flow_id,
+                equation_key=request.equation_key,
             )
         except EvaluatorError:
             raise
@@ -3302,7 +3253,8 @@ async def _promote_one_url_media(
         data=data,
         fmt=fmt,
         source_url=url,
-        project_id=project_id,
+        flow_id=int(flow_id or 0),
+        equation_key=equation_key,
     )
     await _tag_media_with_flow(
         [media_id],
@@ -3318,7 +3270,8 @@ async def _save_fetched_media(
     data: bytes,
     fmt: str,
     source_url: str,
-    project_id: Optional[int] = None,
+    flow_id: int,
+    equation_key: str,
 ) -> int:
     """Persist downloaded bytes as a library MediaItem and return its id.
 
@@ -3401,10 +3354,21 @@ async def _save_fetched_media(
         session.add(media)
         await session.flush()
         media_id = media.id
-        if project_id is not None:
-            from project_service import attach_media_to_project
-            await attach_media_to_project(session, project_id, media_id)
+        from asset_service import acquire_media_owner
+        from storage_service import cleanup_staged_source, stage_managed_media
+        await stage_managed_media(
+            session, media=media, profile_id=profile_id, remove_source=True
+        )
+        await acquire_media_owner(
+            session,
+            media_id=media_id,
+            root_kind="flow_equation",
+            root_id=f"{flow_id}:{equation_key}",
+            role="result",
+            idempotency_key=f"flow:{flow_id}:{equation_key}:media:{media_id}",
+        )
         await session.commit()
+        await cleanup_staged_source(session, media_id=media_id)
 
     try:
         await ws_manager.broadcast("media_added", {

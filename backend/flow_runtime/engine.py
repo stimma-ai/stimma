@@ -125,6 +125,12 @@ class FlowRunConfig:
     # flow_task_resolved / flow_equation_updated events. Defaults to a
     # no-op so tests that don't need WS events can skip wiring.
     broadcast: Optional[Callable[[str, dict[str, Any]], Awaitable[None]]] = None
+    finalize_media_results: Optional[
+        Callable[[str, list[int], str], Awaitable[None]]
+    ] = None
+    release_media_results: Optional[
+        Callable[[list[str], bool], Awaitable[None]]
+    ] = None
     # Optional non-production hook used by dry-run/preflight execution. When
     # present, HITL equations are completed with this resolver's synthetic
     # resolution instead of creating durable user tasks.
@@ -397,6 +403,19 @@ class FlowRun:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._task
         await self._drain_in_flight()
+        ephemeral_keys = [
+            key
+            for key in self.graph.output_keys
+            if (
+                self.graph.output_specs.get(self.graph.output_name_by_key.get(key, ""))
+                or {}
+            ).get("disposition")
+            == "ephemeral"
+        ]
+        for key in ephemeral_keys:
+            self._invalidate_equation(key, direct=True)
+        if self.config.release_media_results is not None:
+            await self.config.release_media_results([], True)
         self._stopped_event.set()
 
     async def wait_quiescent(self, timeout: Optional[float] = None) -> None:
@@ -564,13 +583,10 @@ class FlowRun:
                     )
                     if eq is not None and eq.status == EquationStatus.AWAITING_INPUT:
                         completion_value = self._hitl_completion_value(eq, resolution)
-                        eq.result = completion_value
-                        eq.transition_to(EquationStatus.COMPLETED)
-                        self._persist_status(
-                            eq.key,
-                            EquationStatus.COMPLETED,
+                        await self._complete_success(
+                            eq,
                             result=completion_value,
-                            mark_completed=True,
+                            media_ids=_extract_media_ids(completion_value),
                         )
             self._broadcast_task_resolved(task_id, task_row)
             self._ensure_scheduler_active()
@@ -616,11 +632,10 @@ class FlowRun:
                 resolution,
             )
             completion_value = self._hitl_completion_value(eq, resolution)
-            eq.result = completion_value
-            eq.transition_to(EquationStatus.COMPLETED)
-            self._persist_status(eq.key, EquationStatus.COMPLETED,
+            await self._complete_success(
+                eq,
                 result=completion_value,
-                mark_completed=True,
+                media_ids=_extract_media_ids(completion_value),
             )
 
         self._broadcast_task_resolved(task_id, task_row)
@@ -855,6 +870,10 @@ class FlowRun:
 
         # Swap the stored result + broadcast the update.
         mids = _extract_media_ids(new_resolution)
+        try:
+            await self._finalize_flow_media_result(eq, mids)
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"Unable to retain selected media: {exc}") from exc
         eq.result = new_resolution
         eq.result_media_ids = mids
         self._persist_status(
@@ -1119,6 +1138,8 @@ class FlowRun:
         if not keys:
             return
 
+        self._schedule_media_release(keys)
+
         tasks_to_notify: list[dict[str, Any]] = []
         for key in keys:
             task = self._in_flight.pop(key, None)
@@ -1173,6 +1194,8 @@ class FlowRun:
         Transient states (COMPUTING, AWAITING_INPUT) transition via
         INVALIDATED first to satisfy the state machine in graph.py.
         """
+        if eq.result_media_ids:
+            self._schedule_media_release([eq.key])
         old_status = eq.status
         if old_status == EquationStatus.COMPUTING:
             # The in-flight task will see the INVALIDATED state and discard
@@ -1249,7 +1272,42 @@ class FlowRun:
             eq.equation_type == EquationType.FLOW_INPUT
             and not eq.is_waiting_for_flow_input()
         ):
-            self._complete_control_equation(eq)
+            if eq.definition.get("is_collection", True):
+                values = eq.definition.get("values")
+                eq.result = list(values) if values is not None else []
+            else:
+                eq.result = eq.definition.get("value")
+            eq.result_media_ids = []
+            eq.transition_to(EquationStatus.COMPLETED)
+            self._persist_status(
+                eq.key,
+                EquationStatus.COMPLETED,
+                result=eq.result,
+                result_media_ids=[],
+                mark_completed=True,
+            )
+
+    def _schedule_media_release(
+        self,
+        equation_keys: list[str],
+        *,
+        ephemeral_only: bool = False,
+    ) -> None:
+        callback = self.config.release_media_results
+        if callback is None:
+            return
+
+        async def release() -> None:
+            try:
+                await callback(equation_keys, ephemeral_only)
+            except Exception:  # noqa: BLE001
+                log.exception(
+                    "flow %s: failed to release media owners for %s",
+                    self.config.flow_id,
+                    equation_keys,
+                )
+
+        asyncio.create_task(release())
 
     # ------------------------------------------------------------------
     # Scheduler loop
@@ -1317,7 +1375,7 @@ class FlowRun:
             # Move to COMPUTING before handing off. Control equations
             # (wrappers with no evaluator) complete immediately.
             if eq.equation_type == EquationType.CONTROL or eq.equation_type == EquationType.FLOW_INPUT:
-                self._complete_control_equation(eq)
+                await self._complete_control_equation(eq)
                 scheduled += 1
                 continue
 
@@ -1356,6 +1414,54 @@ class FlowRun:
                     self._in_flight.pop(eq.key, None)
                 self._wakeup.set()
 
+    async def _finalize_flow_media_result(
+        self,
+        eq: Equation,
+        media_ids: list[int],
+    ) -> None:
+        if not media_ids:
+            return
+        output_name = self.graph.output_name_by_key.get(eq.key)
+        if output_name is None:
+            disposition = "internal"
+        else:
+            spec = self.graph.output_specs.get(output_name) or {}
+            disposition = spec.get("disposition") or "independent"
+
+        if self.config.finalize_media_results is not None:
+            await self.config.finalize_media_results(
+                eq.key, media_ids, disposition
+            )
+
+    async def _complete_success(
+        self,
+        eq: Equation,
+        *,
+        result: Any,
+        media_ids: list[int],
+        **persist_kwargs: Any,
+    ) -> bool:
+        """Finalize Media ownership before exposing an equation as completed."""
+        if eq.status == EquationStatus.INVALIDATED:
+            return False
+        try:
+            await self._finalize_flow_media_result(eq, media_ids)
+        except Exception as exc:  # noqa: BLE001
+            self._finalize_failure(eq, str(exc), category=TOOL_ERROR)
+            return False
+        eq.result = result
+        eq.result_media_ids = list(media_ids)
+        eq.transition_to(EquationStatus.COMPLETED)
+        self._persist_status(
+            eq.key,
+            EquationStatus.COMPLETED,
+            result=result,
+            result_media_ids=list(media_ids),
+            mark_completed=True,
+            **persist_kwargs,
+        )
+        return True
+
     async def _evaluate_equation(self, eq: Equation) -> None:
         """Evaluate a single non-control equation. Handles store/HITL lookup."""
         try:
@@ -1379,16 +1485,11 @@ class FlowRun:
                 except Exception as exc:
                     self._finalize_failure(eq, str(exc), category=CODE_ERROR)
                     return
-                eq.result = completion_value
-                if eq.status == EquationStatus.INVALIDATED:
-                    return
-                eq.transition_to(EquationStatus.COMPLETED)
-                self._persist_status(
-                    eq.key,
-                    EquationStatus.COMPLETED,
+                await self._complete_success(
+                    eq,
                     result=completion_value,
+                    media_ids=_extract_media_ids(completion_value),
                     inputs_hash=inputs_hash,
-                    mark_completed=True,
                 )
                 return
             existing = graph_db.lookup_hitl_result(
@@ -1401,12 +1502,11 @@ class FlowRun:
                 )
             if existing is not None:
                 completion_value = self._hitl_completion_value(eq, existing)
-                eq.result = completion_value
-                if eq.status == EquationStatus.INVALIDATED:
-                    return
-                eq.transition_to(EquationStatus.COMPLETED)
-                self._persist_status(eq.key, EquationStatus.COMPLETED,
-                    result=completion_value, inputs_hash=inputs_hash, mark_completed=True,
+                await self._complete_success(
+                    eq,
+                    result=completion_value,
+                    media_ids=_extract_media_ids(completion_value),
+                    inputs_hash=inputs_hash,
                 )
                 return
             # Miss: create a task row + mark awaiting_input.
@@ -1436,6 +1536,11 @@ class FlowRun:
             )
             if cached is None and is_list_output:
                 hit = None
+            # Durable global caching of Media identities aliases ownership and
+            # provenance across flows. Persistent runtimes cache pure values,
+            # but recompute Media-producing equations in their own context.
+            if hit is not None and hit.get("result_media_ids") and self.config.finalize_media_results:
+                hit = None
         if hit is not None:
             self.store.touch(store_key)
             eq.result = hit.get("result_small")
@@ -1444,22 +1549,13 @@ class FlowRun:
             eq.compute_duration_ms = hit.get("compute_duration_ms")
             if eq.status == EquationStatus.INVALIDATED:
                 return
-            eq.transition_to(EquationStatus.COMPLETED)
-            # A store hit re-asserts these media as the equation's current
-            # output. If the user trashed any of them between runs, silently
-            # restore — the flow is using them again.
-            if eq.result_media_ids:
-                from .production_evaluators import (
-                    restore_trashed_media_silently,
-                )
-                await restore_trashed_media_silently(list(eq.result_media_ids))
-            self._persist_status(eq.key, EquationStatus.COMPLETED,
+            await self._complete_success(
+                eq,
                 result=eq.result,
-                result_media_ids=list(eq.result_media_ids),
+                media_ids=list(eq.result_media_ids),
                 execution_duration_ms=eq.execution_duration_ms,
                 compute_duration_ms=eq.compute_duration_ms,
                 inputs_hash=inputs_hash,
-                mark_completed=True,
             )
             return
 
@@ -1532,32 +1628,29 @@ class FlowRun:
         compute_duration_ms = result.compute_duration_ms
         # media_ids are small — keep them in result_small too.
         size_bytes = _approx_size(small_payload)
-        try:
-            self.store.insert(
-                store_key,
-                equation_type_str,
-                result_small=small_payload,
-                result_media_ids=list(result.media_ids),
-                execution_duration_ms=duration_ms,
-                compute_duration_ms=compute_duration_ms,
-                size_bytes=size_bytes,
-            )
-        except Exception:
-            log.exception("equation_store.insert failed for %s", eq.key)
+        if not (result.media_ids and self.config.finalize_media_results):
+            try:
+                self.store.insert(
+                    store_key,
+                    equation_type_str,
+                    result_small=small_payload,
+                    result_media_ids=list(result.media_ids),
+                    execution_duration_ms=duration_ms,
+                    compute_duration_ms=compute_duration_ms,
+                    size_bytes=size_bytes,
+                )
+            except Exception:
+                log.exception("equation_store.insert failed for %s", eq.key)
 
-        eq.result = small_payload
-        eq.result_media_ids = list(result.media_ids)
         eq.execution_duration_ms = duration_ms
         eq.compute_duration_ms = compute_duration_ms
-        eq.transition_to(EquationStatus.COMPLETED)
-        self._persist_status(eq.key,
-            EquationStatus.COMPLETED,
+        await self._complete_success(
+            eq,
             result=small_payload,
-            result_media_ids=list(result.media_ids),
+            media_ids=list(result.media_ids),
             execution_duration_ms=duration_ms,
             compute_duration_ms=compute_duration_ms,
             inputs_hash=inputs_hash,
-            mark_completed=True,
         )
 
     def _finalize_failure(self, eq: Equation, message: str, *, category: str) -> None:
@@ -1850,7 +1943,7 @@ class FlowRun:
     # ------------------------------------------------------------------
     # Control-equation completion
 
-    def _complete_control_equation(self, eq: Equation) -> None:
+    async def _complete_control_equation(self, eq: Equation) -> None:
         """Control equations (flow_input, literal_list, foreach wrapper,
         zip_nodes) have no evaluator. They complete with a
         derived value once their dependencies are completed.
@@ -1882,8 +1975,14 @@ class FlowRun:
                     eq.result = results[0] if results else None
                 else:
                     eq.result = results
+                eq.result_media_ids = self._collect_foreach_media_ids(eq)
             elif kind == "zip_nodes":
                 eq.result = self._collect_zip_result(eq)
+                eq.result_media_ids = list(dict.fromkeys(
+                    media_id
+                    for dependency in eq.dependencies
+                    for media_id in self.graph.get(dependency).result_media_ids
+                ))
             elif kind == "foreach_iteration" or kind == "slot":
                 # An iteration wrapper mirrors the last DSL call's result via
                 # `_result_from`. If _result_from is absent, the
@@ -1903,12 +2002,25 @@ class FlowRun:
             self._finalize_failure(eq, f"control equation {kind!r}: {exc}", category=CODE_ERROR)
             return
 
-        eq.transition_to(EquationStatus.COMPLETED)
-        self._persist_status(eq.key, EquationStatus.COMPLETED,
+        await self._complete_success(
+            eq,
             result=eq.result,
-            result_media_ids=eq.result_media_ids,
-            mark_completed=True,
+            media_ids=list(eq.result_media_ids),
         )
+
+    def _collect_foreach_media_ids(self, wrapper: Equation) -> list[int]:
+        prefix = f"{wrapper.key}/"
+        media_ids: list[int] = []
+        for child_key in self.graph.keys():
+            if not child_key.startswith(prefix):
+                continue
+            rest = child_key[len(prefix):]
+            if "/" in rest:
+                continue
+            child = self.graph.get(child_key)
+            if child.status == EquationStatus.COMPLETED:
+                media_ids.extend(child.result_media_ids)
+        return list(dict.fromkeys(media_ids))
 
     def _collect_foreach_result(self, wrapper: Equation) -> list[Any]:
         """For a completed foreach, gather results from child per-iteration wrappers.

@@ -624,7 +624,13 @@ async def execute_call_tool(
     queue = get_generation_queue()
     chat_id = kwargs.get("chat_id")
     disposition_kwargs = {}
-    if chat_id is not None:
+    if kwargs.get("output_disposition") is not None:
+        disposition_kwargs = {
+            "output_disposition": kwargs["output_disposition"],
+            "output_context_kind": kwargs.get("output_context_kind"),
+            "output_context_id": kwargs.get("output_context_id"),
+        }
+    elif chat_id is not None:
         disposition_kwargs = {
             "output_disposition": "context",
             "output_context_kind": "chat",

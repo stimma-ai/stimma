@@ -982,13 +982,13 @@ async def test_runtime_threads_project_id_into_tool_evaluator(
 
 
 # ---------------------------------------------------------------------------
-# Assembly evaluators propagate project_id to their agent-tool wrappers
+# Flow media producers retain results in equation context, not projects
 # ---------------------------------------------------------------------------
 
 
 class TestCreateSetEvaluator:
     @pytest.mark.asyncio
-    async def test_passes_project_id_to_assemble_set(self, monkeypatch):
+    async def test_passes_equation_context_to_assemble_set(self, monkeypatch):
         captured: dict = {}
 
         async def fake_assemble_set(**kwargs):
@@ -1018,13 +1018,15 @@ class TestCreateSetEvaluator:
         result = await CreateSetEvaluator()(req)
 
         assert result.value == 501
-        assert captured["project_id"] == 900
+        assert captured["project_id"] is None
+        assert captured["output_context_kind"] == "flow_equation"
+        assert captured["output_context_id"] == "None:r/create_set$0"
         assert captured["media_ids"] == [1, 2, 3]
 
 
 class TestCreateGridEvaluator:
     @pytest.mark.asyncio
-    async def test_passes_project_id_to_create_parameter_sweep(self, monkeypatch):
+    async def test_passes_equation_context_to_create_parameter_sweep(self, monkeypatch):
         captured: dict = {}
 
         async def fake_sweep(**kwargs):
@@ -1061,21 +1063,24 @@ class TestCreateGridEvaluator:
         result = await CreateGridEvaluator()(req)
 
         assert result.value == 601
-        assert captured["project_id"] == 901
+        assert captured["project_id"] is None
+        assert captured["output_context_kind"] == "flow_equation"
+        assert captured["output_context_id"] == "None:r/create_grid$0"
         assert captured["rows"] == 2
         assert captured["cols"] == 2
 
 
 class TestCreateDocumentEvaluator:
     @pytest.mark.asyncio
-    async def test_passes_project_id_to_save_document_media(self, monkeypatch):
+    async def test_passes_equation_context_to_save_document_media(self, monkeypatch):
         captured: dict = {}
 
-        async def fake_save(*, title, content, fmt, project_id=None):
+        async def fake_save(*, title, content, fmt, flow_id=None, equation_key=""):
             captured["title"] = title
             captured["content"] = content
             captured["fmt"] = fmt
-            captured["project_id"] = project_id
+            captured["flow_id"] = flow_id
+            captured["equation_key"] = equation_key
             return 702
 
         monkeypatch.setattr(
@@ -1103,7 +1108,8 @@ class TestCreateDocumentEvaluator:
         result = await CreateDocumentEvaluator()(req)
 
         assert result.value == 702
-        assert captured["project_id"] == 902
+        assert captured["flow_id"] is None
+        assert captured["equation_key"] == "r/create_document$0"
         assert captured["title"] == "notes"
         assert captured["content"] == "# hi"
         assert captured["fmt"] == "markdown"
@@ -1134,11 +1140,12 @@ class TestCreateImageEvaluator:
             captured.setdefault("looked_up", []).append(media_id)
             return ("png", file_paths[media_id])
 
-        async def fake_save(*, img, title, fmt, project_id=None, source_media_ids=None):
+        async def fake_save(*, img, title, fmt, flow_id=None, equation_key="", source_media_ids=None):
             captured["img_size"] = img.size
             captured["title"] = title
             captured["fmt"] = fmt
-            captured["project_id"] = project_id
+            captured["flow_id"] = flow_id
+            captured["equation_key"] = equation_key
             captured["source_media_ids"] = list(source_media_ids or [])
             return 801
 
@@ -1198,7 +1205,8 @@ class TestCreateImageEvaluator:
         assert captured["img_size"] == (8, 4)
         assert captured["title"] == "pane"
         assert captured["fmt"] == "png"
-        assert captured["project_id"] == 903
+        assert captured["flow_id"] is None
+        assert captured["equation_key"] == "r/create_image$0"
         assert captured["source_media_ids"] == [11, 22]
 
     @pytest.mark.asyncio
@@ -1330,7 +1338,7 @@ class TestCreateImageEvaluator:
             captured.setdefault("looked_up", []).append(media_id)
             return ("png", file_paths[media_id])
 
-        async def fake_save(*, img, title, fmt, project_id=None, source_media_ids=None):
+        async def fake_save(*, img, title, fmt, flow_id=None, equation_key="", source_media_ids=None):
             captured["img_count"] = len(img.getbands())
             captured["source_media_ids"] = list(source_media_ids or [])
             return 999
@@ -1432,12 +1440,13 @@ class TestCreateLayoutEvaluator:
             # Simulate the DB lookup in _resolve_media_inputs_to_filenames.
             return ("png", f"/fake/path/{media_id}.png")
 
-        async def fake_save(*, bundle_dir, title, description, project_id=None,
+        async def fake_save(*, bundle_dir, title, description, flow_id=None, equation_key="",
                             source_media_ids=None):
             captured["bundle_dir"] = bundle_dir
             captured["title"] = title
             captured["description"] = description
-            captured["project_id"] = project_id
+            captured["flow_id"] = flow_id
+            captured["equation_key"] = equation_key
             captured["source_media_ids"] = list(source_media_ids or [])
             captured["index_html"] = (bundle_dir / "index.html").read_text()
             captured["staged_files"] = sorted(p.name for p in bundle_dir.iterdir())
@@ -1521,7 +1530,8 @@ class TestCreateLayoutEvaluator:
 
         assert result.value == 5000
         assert captured["title"] == "Product card"
-        assert captured["project_id"] == 707
+        assert captured["flow_id"] is None
+        assert captured["equation_key"] == "r/create_layout$0"
         assert captured["source_media_ids"] == [42]
         assert "hero.png" in captured["staged_files"]
         assert "index.html" in captured["staged_files"]
@@ -1554,7 +1564,7 @@ class TestCreateLayoutEvaluator:
             async def execute(self, stmt):
                 return _FakeResult()
 
-        async def fake_save(*, bundle_dir, title, description, project_id=None,
+        async def fake_save(*, bundle_dir, title, description, flow_id=None, equation_key="",
                             source_media_ids=None):
             captured["source_media_ids"] = list(source_media_ids or [])
             return 6000
@@ -1622,7 +1632,7 @@ class TestCreateLayoutEvaluator:
 
         captured: dict = {}
 
-        async def fake_save(*, bundle_dir, title, description, project_id=None,
+        async def fake_save(*, bundle_dir, title, description, flow_id=None, equation_key="",
                             source_media_ids=None):
             captured["index_html"] = (bundle_dir / "index.html").read_text()
             return 7000
@@ -1889,7 +1899,7 @@ class TestCreateLayoutEvaluator:
         async def fake_lookup_info(media_id):
             return ("png", f"/fake/{media_id}.png")
 
-        async def fake_save(*, bundle_dir, title, description, project_id=None,
+        async def fake_save(*, bundle_dir, title, description, flow_id=None, equation_key="",
                             source_media_ids=None):
             captured["index_html"] = (bundle_dir / "index.html").read_text()
             captured["source_media_ids"] = list(source_media_ids or [])
@@ -1979,7 +1989,7 @@ class TestCreateLayoutEvaluator:
             async def execute(self, stmt):
                 return _FakeResult()
 
-        async def fake_save(*, bundle_dir, title, description, project_id=None,
+        async def fake_save(*, bundle_dir, title, description, flow_id=None, equation_key="",
                             source_media_ids=None):
             captured["source_media_ids"] = list(source_media_ids or [])
             return 5500
@@ -2068,11 +2078,12 @@ class TestRasterizeLayoutEvaluator:
             captured["size"] = size
             return _Image.new("RGB", (800, 600))
 
-        async def fake_save_pil(*, img, title, fmt, project_id=None, source_media_ids=None):
+        async def fake_save_pil(*, img, title, fmt, flow_id=None, equation_key="", source_media_ids=None):
             captured["img_size"] = img.size
             captured["title"] = title
             captured["fmt"] = fmt
-            captured["project_id"] = project_id
+            captured["flow_id"] = flow_id
+            captured["equation_key"] = equation_key
             captured["source_media_ids"] = list(source_media_ids or [])
             return 9999
 
@@ -2110,7 +2121,8 @@ class TestRasterizeLayoutEvaluator:
         assert captured["path"] == "/tmp/fake.stimmalayout"
         assert captured["size"] == 1200
         assert captured["fmt"] == "png"
-        assert captured["project_id"] == 808
+        assert captured["flow_id"] is None
+        assert captured["equation_key"] == "r/rasterize_layout$0"
         assert captured["source_media_ids"] == [111]
         assert captured["title"] == "Card"
 

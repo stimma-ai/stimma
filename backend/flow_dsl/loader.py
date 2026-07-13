@@ -551,6 +551,7 @@ def _serialize_output_specs(specs: dict[str, Any]) -> dict[str, dict[str, Any]]:
         if not isinstance(spec, OutputSpec):
             continue
         entry: dict[str, Any] = {"type": spec.type}
+        entry["disposition"] = spec.disposition
         if spec.description:
             entry["description"] = spec.description
         out[name] = entry
