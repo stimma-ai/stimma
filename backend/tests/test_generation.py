@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 from sqlalchemy import select
 
-from database import GenerationJob, MediaItem
+from database import Asset, AssetRevision, GenerationJob, MediaItem
 from providers.test_provider import TestToolConfig
 from tests.helpers import (
     create_media_with_generation_metadata,
@@ -340,6 +340,7 @@ class TestJobProcessing:
         job = job_response.json()
         assert job["status"] == "completed"
         assert job["result_media_id"] is not None
+        assert job["result_asset_id"] is not None
 
     async def test_completed_job_creates_media_item(
         self,
@@ -383,6 +384,10 @@ class TestJobProcessing:
 
             # Verify file was created
             assert Path(media.file_path).exists()
+            asset = await session.get(Asset, job["result_asset_id"])
+            assert asset is not None
+            revision = await session.get(AssetRevision, asset.current_revision_id)
+            assert revision.primary_media_id == media.id
 
     async def test_failed_job_records_error(
         self,

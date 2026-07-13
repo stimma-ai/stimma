@@ -1262,6 +1262,19 @@ class GenerationQueue:
                 # This prevents the impossible state of having both auto-delete AND markers
                 if self._websocket_manager:
                     await clear_auto_delete_for_media(session, [media_id], self._websocket_manager)
+                from database import AssetRevision
+                from asset_association_service import mirror_media_associations_to_asset
+                revision = await session.scalar(
+                    select(AssetRevision).where(
+                        AssetRevision.primary_media_id == media_id,
+                        AssetRevision.deleted_at.is_(None),
+                    )
+                )
+                if revision is not None:
+                    await mirror_media_associations_to_asset(
+                        session, media_id=media_id, asset_id=revision.asset_id
+                    )
+                    await session.commit()
             except IntegrityError as e:
                 log.warning(f"Failed to apply auto-markers to media {media_id}: {e}")
                 await session.rollback()
@@ -1323,6 +1336,9 @@ class GenerationQueue:
         batch_total: Optional[int] = None,
         batch_output_title: Optional[str] = None,
         batch_input_set_ids: Optional[List[int]] = None,
+        output_disposition: str = 'asset',
+        output_context_kind: Optional[str] = None,
+        output_context_id: Optional[str] = None,
         consume_pending_request: bool = True,
     ) -> int:
         """Shared implementation for creating and submitting a generation job.
@@ -1367,6 +1383,14 @@ class GenerationQueue:
             _eph_run = current_ephemeral_run_id()
             if _eph_run is not None:
                 parameters["_ephemeral_run_id"] = _eph_run
+                output_disposition = 'ephemeral'
+                output_context_kind = None
+                output_context_id = None
+
+            from result_disposition_service import validate_output_disposition
+            validate_output_disposition(
+                output_disposition, output_context_kind, output_context_id
+            )
 
             log.info(f"Creating job: backend_name={backend_name}, tool_id={tool_id}" +
                      (f", batch_id={batch_id}" if batch_id else ""))
@@ -1387,6 +1411,9 @@ class GenerationQueue:
                 project_id=project_id,
                 batch_id=batch_id,
                 batch_total=batch_total,
+                output_disposition=output_disposition,
+                output_context_kind=output_context_kind,
+                output_context_id=output_context_id,
             )
 
             async with self._get_db(profile_id).async_session_maker() as session:
@@ -1449,6 +1476,9 @@ class GenerationQueue:
         tool_id: Optional[str] = None,
         preset_id: Optional[int] = None,
         project_id: Optional[int] = None,
+        output_disposition: str = 'asset',
+        output_context_kind: Optional[str] = None,
+        output_context_id: Optional[str] = None,
         consume_pending_request: bool = True,
     ) -> int:
         """Submit a new generation job to the queue.
@@ -1467,6 +1497,9 @@ class GenerationQueue:
             backend_name=backend_name, task_type=task_type,
             tool_id=tool_id, preset_id=preset_id,
             project_id=project_id,
+            output_disposition=output_disposition,
+            output_context_kind=output_context_kind,
+            output_context_id=output_context_id,
             consume_pending_request=consume_pending_request,
         )
 
@@ -1487,6 +1520,9 @@ class GenerationQueue:
         tool_id: Optional[str] = None,
         preset_id: Optional[int] = None,
         project_id: Optional[int] = None,
+        output_disposition: str = 'asset',
+        output_context_kind: Optional[str] = None,
+        output_context_id: Optional[str] = None,
         consume_pending_request: bool = True,
     ) -> int:
         """Submit a generation job that is part of a batch.
@@ -1505,6 +1541,9 @@ class GenerationQueue:
             batch_id=batch_id, batch_total=batch_total,
             batch_output_title=batch_output_title,
             batch_input_set_ids=batch_input_set_ids,
+            output_disposition=output_disposition,
+            output_context_kind=output_context_kind,
+            output_context_id=output_context_id,
             consume_pending_request=consume_pending_request,
         )
 
@@ -2450,6 +2489,14 @@ class GenerationQueue:
                     except Exception as e:
                         log.error(f"Batch {batch_id}: Failed to reorder output set: {e}", exc_info=True)
 
+                if output_set_id and completed_count:
+                    await self._finalize_batch_container_asset(
+                        profile_id=profile_id,
+                        batch_id=batch_id,
+                        output_set_id=output_set_id,
+                        batch_jobs=batch_jobs,
+                    )
+
                 # Smart title is now generated upfront at job submission time
                 # (see routes/generation.py submit_batch_jobs)
 
@@ -2462,6 +2509,70 @@ class GenerationQueue:
                         'total': batch_total,
                         'status': batch_status,
                     })
+
+    async def _finalize_batch_container_asset(
+        self,
+        *,
+        profile_id: str,
+        batch_id: str,
+        output_set_id: int,
+        batch_jobs: list[GenerationJob],
+    ) -> int:
+        """Commit the completed compatibility set as one normalized Asset."""
+        ordered: list[tuple[int, int]] = []
+        for job in batch_jobs:
+            if job.status != 'completed' or not job.result_media_id:
+                continue
+            try:
+                params = json.loads(job.parameters or '{}')
+            except (json.JSONDecodeError, TypeError):
+                params = {}
+            ordered.append((params.get('_batch_index', job.id), job.result_media_id))
+        ordered.sort(key=lambda pair: pair[0])
+        member_ids = [media_id for _, media_id in ordered]
+
+        async with self._get_db(profile_id).async_session_maker() as session:
+            from asset_association_service import mirror_media_associations_to_asset
+            from container_service import create_container_asset_from_media
+            from database import MediaOwner
+
+            container_media = await session.get(MediaItem, output_set_id)
+            if container_media is None or container_media.deleted_at is not None:
+                raise RuntimeError(f"Batch {batch_id} output container is unavailable")
+            asset = await create_container_asset_from_media(
+                session,
+                media_id=output_set_id,
+                container_type='set',
+                members=[{'embedded_media_id': media_id} for media_id in member_ids],
+                origin_type='generation_batch',
+                origin_id=batch_id,
+                idempotency_key=f'generation-batch:{batch_id}:container',
+            )
+            await mirror_media_associations_to_asset(
+                session, media_id=output_set_id, asset_id=asset.id
+            )
+
+            # ContainerRevision ownership is now authoritative. The provisional
+            # batch root can be released without an ownerless gap.
+            owners = list(
+                await session.scalars(
+                    select(MediaOwner).where(
+                        MediaOwner.root_kind == 'batch',
+                        MediaOwner.root_id == batch_id,
+                        MediaOwner.deleted_at.is_(None),
+                    )
+                )
+            )
+            released_at = datetime.utcnow()
+            for owner in owners:
+                owner.deleted_at = released_at
+            await session.execute(
+                update(GenerationJob)
+                .where(GenerationJob.batch_id == batch_id)
+                .values(result_asset_id=asset.id)
+            )
+            await session.commit()
+            return asset.id
 
     async def _wait_for_metadata(self, media_id: int, profile_id: str = None, timeout: int = 30):
         """Wait for metadata processing to complete for a media item."""
@@ -2988,6 +3099,17 @@ class GenerationQueue:
             log.debug(f"Job {job.id}: TIMING - _insert_generated_file: {(_time.time() - _t0)*1000:.0f}ms")
             log.debug(f"Job {job.id}: Inserted media item {media_item.id} directly (chat_item_id={chat_item_id}, profile_id={profile_id})")
 
+            if not ephemeral_run_id and media_item.file_format not in {
+                'stimmaset.json', 'stimmagrid.json', 'stimmalayout'
+            }:
+                from storage_service import stage_managed_media
+                await stage_managed_media(
+                    session,
+                    media=media_item,
+                    profile_id=profile_id,
+                    remove_source=True,
+                )
+
             # Record lineage relationships to media_lineage table
             _t1 = _time.time()
             if not ephemeral_run_id:
@@ -3049,9 +3171,31 @@ class GenerationQueue:
                 await attach_media_to_project(session, job.project_id, media_item.id)
                 log.info(f"Job {job.id}: Attached media {media_item.id} to project {job.project_id}")
 
+            # The invocation, not the tool, decides whether this output is a
+            # durable Asset or provisional/context/container-owned Media.
+            persistent_job = await session.get(GenerationJob, job.id)
+            if persistent_job is None:
+                raise RuntimeError(f"Generation job {job.id} disappeared before finalization")
+            from result_disposition_service import finalize_generation_output
+            await finalize_generation_output(
+                session, job=persistent_job, media=media_item
+            )
+
             # ONE commit for all database operations
             await session.commit()
             log.info(f"Job {job.id}: Committed all post-generation DB operations for media {media_item.id}")
+
+        if not ephemeral_run_id and media_item.storage_object_id is not None:
+            try:
+                from storage_service import cleanup_staged_source
+                async with self._get_db(profile_id).async_session_maker() as cleanup_session:
+                    await cleanup_staged_source(cleanup_session, media_id=media_item.id)
+            except Exception as exc:
+                # The indexed ManagedArtifact is intentionally retained for
+                # startup reconciliation; the committed object is authoritative.
+                log.warning(
+                    f"Job {job.id}: deferred managed ingest-source cleanup: {type(exc).__name__}"
+                )
 
         log.debug(f"Job {job.id}: TIMING - total post-gen DB ops: {(_time.time() - _t0)*1000:.0f}ms")
 
@@ -3118,7 +3262,7 @@ class GenerationQueue:
                 # Also broadcast media_added event so browse view refreshes
                 await self._websocket_manager.broadcast('media_added', {
                     'media_id': media_item.id,
-                    'file_path': output_path
+                    'file_path': verified_media.file_path
                 })
 
             log.info(f"Job {job.id} completed successfully and broadcast to clients")

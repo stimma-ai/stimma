@@ -134,12 +134,6 @@ async def create_parameter_sweep(
     if missing:
         return f"Error: Media items not found: {missing}"
 
-    # Check for items already owned by a set/grid
-    already_owned = [m for m in media_items_by_id.values() if m.superseded_by is not None]
-    if already_owned:
-        owned_ids = [m.id for m in already_owned]
-        return f"Error: Items already in a set or grid: {owned_ids}. Explode the existing set/grid first."
-
     # Build grid directory
     settings = get_settings()
     profile_id = get_current_profile()
@@ -212,6 +206,18 @@ async def create_parameter_sweep(
     session.add(grid_media_item)
     await session.flush()
 
+    chat_id = kwargs.get("chat_id")
+    if chat_id is not None:
+        from asset_service import acquire_media_owner
+        await acquire_media_owner(
+            session,
+            media_id=grid_media_item.id,
+            root_kind="chat",
+            root_id=chat_id,
+            role="result",
+            idempotency_key=f"chat:{chat_id}:parameter-grid:{grid_media_item.id}",
+        )
+
     # Attach to project if in project context
     project_id = kwargs.get("project_id")
     if project_id is not None:
@@ -229,7 +235,7 @@ async def create_parameter_sweep(
 
         await session.execute(
             update(MediaItem)
-            .where(MediaItem.id.in_(cell_media_ids))
+            .where(MediaItem.id.in_(cell_media_ids), MediaItem.superseded_by.is_(None))
             .values(superseded_by=grid_media_item.id, is_hidden=None)
         )
         await session.commit()

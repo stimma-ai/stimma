@@ -1269,6 +1269,7 @@ async def save_workspace_file(
     inspired_by: Optional[int | List[int]] = None,
     project_id: Optional[int] = None,
     metadata_source: str = "agent_v2_run_code",
+    materialize_asset: bool = False,
 ) -> str:
     if not path:
         return "Error: path is required for save action"
@@ -1441,7 +1442,39 @@ async def save_workspace_file(
         own_tool_id=provenance.get("tool_id") if provenance else None,
     )
 
+    if media_item.file_format not in {'stimmaset.json', 'stimmagrid.json', 'stimmalayout'}:
+        from core.profile_context import get_current_profile
+        from storage_service import stage_managed_media
+        await stage_managed_media(
+            session,
+            media=media_item,
+            profile_id=get_current_profile(),
+            remove_source=True,
+        )
+
+    asset_id = None
+    if materialize_asset:
+        from asset_association_service import mirror_media_associations_to_asset
+        from asset_service import create_asset_from_media
+        asset = await create_asset_from_media(
+            session,
+            media_id=media_item.id,
+            origin_type="library_save",
+            idempotency_key=f"library-save:media:{media_item.id}",
+        )
+        await mirror_media_associations_to_asset(
+            session, media_id=media_item.id, asset_id=asset.id
+        )
+        asset_id = asset.id
+
     await session.commit()
+
+    if media_item.storage_object_id is not None:
+        try:
+            from storage_service import cleanup_staged_source
+            await cleanup_staged_source(session, media_id=media_item.id)
+        except Exception as exc:
+            log.warning(f"[library] Deferred managed source cleanup: {type(exc).__name__}")
 
     # Broadcast update
     try:
@@ -1467,7 +1500,11 @@ async def save_workspace_file(
         except Exception as e:
             log.warning(f"[library] Failed to signal ingestion worker: {e}")
 
-    return json.dumps({"media_id": media_item.id, "filename": os.path.basename(dest)})
+    return json.dumps({
+        "media_id": media_item.id,
+        "asset_id": asset_id,
+        "filename": os.path.basename(dest),
+    })
 
 
 async def resolve_or_import_input_file(
@@ -1539,7 +1576,14 @@ async def _save(
     save_tags: Optional[List[str]],
     project_id: Optional[int] = None,
 ) -> str:
-    return await save_workspace_file(session, path, workspace_dir, save_tags, project_id=project_id)
+    return await save_workspace_file(
+        session,
+        path,
+        workspace_dir,
+        save_tags,
+        project_id=project_id,
+        materialize_asset=True,
+    )
 
 
 async def _generation_params(session: AsyncSession, media_id: Optional[int]) -> str:

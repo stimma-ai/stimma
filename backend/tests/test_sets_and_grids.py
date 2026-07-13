@@ -9,6 +9,7 @@ requires a configured generation folder to write .stimmaset.json files.
 import json
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from unittest.mock import patch
 
 from tests.helpers.media import create_media_item
@@ -137,15 +138,15 @@ class TestBrowseFiltering:
             )
 
 
-# ── duplicate membership prevention ─────────────────────────────────────
+# ── multiple membership ─────────────────────────────────────────────────
 
-class TestDuplicateMembershipPrevention:
-    """Items already owned by a set/grid cannot be added to another."""
+class TestMultipleMembership:
+    """Assets may be linked from any number of sets/grids."""
 
-    async def test_create_set_rejects_already_owned_items(
+    async def test_create_set_accepts_items_linked_from_another_set(
         self, generation_client, generation_db_session
     ):
-        """Trying to put already-superseded items in a new set should fail."""
+        """Legacy superseded state does not block normalized membership."""
         _, member_ids = await create_set(
             generation_client, generation_db_session
         )
@@ -156,13 +157,25 @@ class TestDuplicateMembershipPrevention:
                 "title": "Duplicate Set"
             })
 
-        assert response.status_code == 400
-        assert "already in a set or grid" in response.json()["detail"].lower()
+        assert response.status_code == 200
+        second_set_id = response.json()["media_id"]
+        from database import AssetRevision, ContainerMember
+        async with generation_db_session() as session:
+            second_revision = await session.scalar(
+                select(AssetRevision).where(AssetRevision.primary_media_id == second_set_id)
+            )
+            members = list(await session.scalars(
+                select(ContainerMember).where(
+                    ContainerMember.container_revision_id == second_revision.id
+                )
+            ))
+            assert len(members) == len(member_ids)
+            assert all(member.linked_asset_id is not None for member in members)
 
-    async def test_create_set_rejects_mix_of_owned_and_free(
+    async def test_create_set_accepts_mix_of_existing_and_new_members(
         self, generation_client, generation_db_session
     ):
-        """A mix of owned and free items should also be rejected."""
+        """Grouping promotes a bare selected item and links all members."""
         _, member_ids = await create_set(
             generation_client, generation_db_session
         )
@@ -176,19 +189,18 @@ class TestDuplicateMembershipPrevention:
                 "title": "Mixed Set"
             })
 
-        assert response.status_code == 400
-        assert "already in a set or grid" in response.json()["detail"].lower()
+        assert response.status_code == 200
 
 
-# ── cascade delete ──────────────────────────────────────────────────────
+# ── independent Asset deletion ─────────────────────────────────────────
 
-class TestCascadeDelete:
-    """Deleting a set/grid should cascade-delete its members."""
+class TestIndependentAssetDeletion:
+    """Trashing a container never trashes linked member Assets."""
 
-    async def test_trash_set_cascades_to_members(
+    async def test_trash_set_preserves_members(
         self, generation_client, generation_db_session
     ):
-        """Trashing a set should also trash all its members."""
+        """The set does not own linked members."""
         set_id, member_ids = await create_set(
             generation_client, generation_db_session, title="Set To Delete"
         )
@@ -199,10 +211,9 @@ class TestCascadeDelete:
         assert resp.status_code == 200
 
         data = resp.json()
-        # Should report deleting set + 3 members = 4 items
-        assert data["deleted_count"] == 4
+        assert data["deleted_count"] == 1
 
-        # Verify members are trashed
+        # Verify members remain active
         from database import MediaItem
         from sqlalchemy import select
         async with generation_db_session() as session:
@@ -211,8 +222,8 @@ class TestCascadeDelete:
                     select(MediaItem).where(MediaItem.id == mid)
                 )
                 item = result.scalar_one()
-                assert item.deleted_at is not None, (
-                    f"Member {mid} should be trashed after set deletion"
+                assert item.deleted_at is None, (
+                    f"Member {mid} should survive set deletion"
                 )
 
     async def test_trash_regular_image_does_not_cascade(
@@ -231,7 +242,7 @@ class TestCascadeDelete:
 # ── explode ─────────────────────────────────────────────────────────────
 
 class TestExplodeSetOrGrid:
-    """Exploding a set/grid should free members and delete the container."""
+    """Exploding frees members and moves the container to Trash."""
 
     async def test_explode_frees_members(
         self, generation_client, generation_db_session
@@ -260,11 +271,12 @@ class TestExplodeSetOrGrid:
                     f"Member {mid} should have superseded_by=None after explode"
                 )
 
-            # Verify set is deleted from DB
+            # Compatibility Media remains as the trashed container payload.
             result = await session.execute(
                 select(MediaItem).where(MediaItem.id == set_id)
             )
-            assert result.scalar_one_or_none() is None, "Set should be deleted"
+            set_media = result.scalar_one()
+            assert set_media.deleted_at is not None
 
     async def test_exploded_members_appear_in_browse(
         self, generation_client, generation_db_session

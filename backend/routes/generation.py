@@ -1686,6 +1686,9 @@ async def submit_batch_jobs(
                 batch_total=total_jobs if idx == 0 else None,  # Only first job stores total
                 batch_output_title=output_title,
                 batch_input_set_ids=input_set_ids if idx == 0 else None,  # Kept for backwards compat
+                output_disposition="container_member",
+                output_context_kind="batch",
+                output_context_id=batch_id,
                 consume_pending_request=consume_reserved_work and idx == 0,
             )
             job_ids.append(job_id)

@@ -20,7 +20,7 @@ class TestInvalidAttributes:
         code = """
 from stimma.tools.text_to_image import gen
 result = await gen(prompt="cat")
-stimma.show(result)
+stimma.show(result, role="final")
 """
         warnings = lint_code(code)
         assert warnings == []
@@ -59,13 +59,13 @@ stimma.library.find("dog")
 
 class TestAwaitLinting:
     def test_await_on_sync_method(self):
-        warnings = lint_code("await stimma.show(result)")
+        warnings = lint_code("await stimma.show(result, role='final')")
         assert len(warnings) == 1
         assert "sync" in warnings[0].message
         assert "do not await" in warnings[0].message.lower()
 
     def test_await_on_sync_show_grid(self):
-        warnings = lint_code("await stimma.show_grid(results)")
+        warnings = lint_code("await stimma.show_grid(results, role='final')")
         assert len(warnings) == 1
         assert "sync" in warnings[0].message
 
@@ -105,7 +105,7 @@ class TestAntiPatterns:
         code = """
 async def main():
     result = await stimma.llm("describe a cat")
-    stimma.show(result)
+    stimma.show(result, role="final")
 """
         warnings = lint_code(code)
         assert len(warnings) == 1
@@ -168,7 +168,7 @@ class TestBareImports:
     def test_await_on_sync_bare_import(self):
         code = """
 from stimma import show
-await show(results)
+await show(results, role="final")
 """
         warnings = lint_code(code)
         assert len(warnings) == 1
@@ -189,7 +189,7 @@ result = llm("describe a cat")
         code = """
 from stimma import llm, show
 result = await llm("describe a cat")
-show(result)
+show(result, role="final")
 """
         warnings = lint_code(code)
         assert warnings == []
@@ -236,8 +236,8 @@ result = describe("a cat")
         """Both styles in the same code should both be linted."""
         code = """
 from stimma import show
-await show(result)
-await stimma.show(result2)
+await show(result, role="final")
+await stimma.show(result2, role="final")
 """
         warnings = lint_code(code)
         assert len(warnings) == 2

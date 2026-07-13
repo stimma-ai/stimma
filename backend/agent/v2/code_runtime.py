@@ -60,7 +60,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 def _disabled_image_show(self, *args, **kwargs):
     raise RuntimeError(
         "Image.show() opens a desktop image viewer on the user's machine and is disabled. "
-        "Use stimma.show(path_or_media_id) to display images to the user in chat."
+        "Use stimma.show(path_or_media_id, role='final' or 'intermediate') to display images to the user in chat."
     )
 
 
@@ -744,6 +744,7 @@ class StimmaLibraryAPI:
             provenance=provenance,
             inspired_by=inspired_by,
             project_id=self._sdk.project_id,
+            materialize_asset=True,
         )
         if isinstance(raw, str) and raw.startswith("Error:"):
             raise RuntimeError(raw[6:].strip())
@@ -1150,7 +1151,9 @@ class StimmaSDK:
         self._llm_usage["calls"] += 1
         return resp.content
 
-    def show(self, item: ToolResult | str | Path | int | Iterable[ToolResult | str | Path | int] | None = None, *, title: str | None = None, media_id: int | None = None, media_ids: list[int] | None = None, path: str | None = None, paths: list[str] | None = None):
+    def show(self, item: ToolResult | str | Path | int | Iterable[ToolResult | str | Path | int] | None = None, *, role: str, title: str | None = None, media_id: int | None = None, media_ids: list[int] | None = None, path: str | None = None, paths: list[str] | None = None):
+        if role not in {"intermediate", "final"}:
+            raise ValueError("show role must be 'intermediate' or 'final'")
         # Accept keyword-arg style (from tool-call API confusion)
         if item is None:
             items: list[ToolResult | str | Path | int] = []
@@ -1170,16 +1173,19 @@ class StimmaSDK:
             "media_ids": norm_media_ids or None,
             "paths": norm_paths or None,
             "title": title,
+            "role": role,
         })
 
     def show_grid(
         self,
         items: Iterable[ToolResult | str | Path | int],
         cols: int = 3,
+        *,
+        role: str,
         title: str | None = None,
     ):
         display_title = title or f"Grid ({cols} cols)"
-        self.show(list(items), title=display_title)
+        self.show(list(items), role=role, title=display_title)
 
     def progress(self, iterable_or_total=None, *, total=None, desc=None, title=None, message=None, **kwargs) -> ProgressTracker:
         """Create a progress tracker (tqdm-compatible, sync).
@@ -1432,6 +1438,7 @@ class StimmaSDK:
             all_media_ids = list(payload.get("media_ids") or []) + saved_media_ids
             self._shown_media_ids.extend(all_media_ids)
             await show_tool(
+                role=payload["role"],
                 media_ids=all_media_ids or None,
                 paths=None,
                 title=payload["title"],

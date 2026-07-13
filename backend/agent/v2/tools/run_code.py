@@ -14,7 +14,7 @@ from ..tools_registry import tool, ToolParameter
         "(ls/cat) to get the exact function name, then `from stimma.tools.<category> import <name_from_catalog>` "
         "and `r = await <name_from_catalog>(...)` — the awaited result is a ToolResult (.media_id, .path, .seed). "
         "When generating multiple images, ALWAYS use asyncio.gather() to run them in parallel — this enables the progress display and is significantly faster. "
-        "Batch: import the tool once, then `results = await asyncio.gather(*[<tool>(prompt=p) for p in prompts]); stimma.show(results)` "
+        "Batch: import the tool once, then `results = await asyncio.gather(*[<tool>(prompt=p) for p in prompts]); stimma.show(results, role='final')` "
         "If run_code already called stimma.show(), do NOT call the show tool again afterward — images are already visible. "
         + ALLOWED_MODULES_PROMPT_DESCRIPTION
         + " Invoked skills may provide additional importable modules — check the skills inventory."

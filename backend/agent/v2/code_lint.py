@@ -306,6 +306,23 @@ class _LintVisitor(ast.NodeVisitor):
                             message=f"{prefix}{name}() got unexpected keyword argument '{kw.arg}'.",
                             suggestion=f"Valid keyword arguments: {', '.join(sorted(valid))}",
                         ))
+            if not is_library and name in {"show", "show_grid"}:
+                role_keyword = next((kw for kw in node.keywords if kw.arg == "role"), None)
+                if role_keyword is None:
+                    self.warnings.append(LintWarning(
+                        line=node.lineno,
+                        message=f"stimma.{name}() requires an explicit result role.",
+                        suggestion="Add `role='final'` for a committed result or `role='intermediate'` for inspection.",
+                    ))
+                elif (
+                    isinstance(role_keyword.value, ast.Constant)
+                    and role_keyword.value.value not in {"intermediate", "final"}
+                ):
+                    self.warnings.append(LintWarning(
+                        line=node.lineno,
+                        message=f"stimma.{name}() role must be 'intermediate' or 'final'.",
+                        suggestion="Use `role='final'` or `role='intermediate'`.",
+                    ))
 
         # asyncio.gather() — only accepts return_exceptions
         if (

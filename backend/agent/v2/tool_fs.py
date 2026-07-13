@@ -501,7 +501,7 @@ filename / the `def` in the stub):
 
     from stimma.tools.text_to_image import <tool>   # <tool> = a real name from .stimma/tools/text-to-image/
     r = await <tool>(prompt="a cat", width=1024)
-    stimma.show(r)
+    stimma.show(r, role="final")
 
 `r` is a ToolResult: `.media_id`, `.path`, `.seed`, `.width`, `.height`,
 `.open()` -> PIL.Image. For batches, `asyncio.gather(...)` runs calls in

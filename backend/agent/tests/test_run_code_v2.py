@@ -114,7 +114,7 @@ async def test_run_code_show_and_library_save_create_records(session, test_chat,
         code=(
             "img = Image.new('RGB', (32, 24), color=(12, 34, 56))\n"
             "img.save('made.png')\n"
-            "stimma.show('made.png')\n"
+            "stimma.show('made.png', role='final')\n"
             "saved = await stimma.library.save('made.png', tags=['generated'])\n"
             "print(saved['media_id'])\n"
         ),
@@ -140,7 +140,8 @@ async def test_run_code_show_and_library_save_create_records(session, test_chat,
 
     saved_media = await session.get(MediaItem, saved_media_id)
     assert saved_media is not None
-    assert saved_media.file_path.startswith(str(output_dir))
+    assert saved_media.storage_object_id is not None
+    assert not saved_media.file_path.startswith(str(output_dir))
     assert saved_media.file_hash
     assert saved_media.width == 32
     assert saved_media.height == 24
@@ -306,7 +307,7 @@ async def test_run_code_show_tool_result_prefers_media_id(session, test_chat, tm
         code=(
             "from stimma.tools.text_to_image import gen\n"
             "generated = await gen(prompt='cat')\n"
-            "stimma.show(generated)\n"
+            "stimma.show(generated, role='final')\n"
         ),
         session=session,
         chat_id=test_chat.id,
@@ -347,7 +348,7 @@ async def test_run_code_show_auto_saves_external_paths_to_library(session, test_
     monkeypatch.setattr("agent.v2.tools.library._get_default_folder", lambda _=None: str(output_dir))
 
     await run_code(
-        code=f"stimma.show(r'{external}')",
+        code=f"stimma.show(r'{external}', role='final')",
         session=session,
         chat_id=test_chat.id,
         workspace_dir=workspace,

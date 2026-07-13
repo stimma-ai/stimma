@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from core.profile_context import get_current_profile
-from database import DeleteOperation, MediaItem, MediaMarker, MediaKeyword, Keyword, MediaTag, Tag
+from database import AssetRevision, DeleteOperation, MediaItem, MediaMarker, MediaKeyword, Keyword, MediaTag, Tag
 from core.dependencies import get_db_session
 from delete_operations import create_delete_operation, ensure_delete_worker_started, get_active_delete_operation, get_delete_operation
 from models.api_models import BulkDeleteRequest, MediaListResponse, MediaItemResponse, BulkTrashRequest
@@ -26,6 +26,15 @@ from utils.websocket import ws_manager
 
 router = APIRouter(prefix="/api", tags=["trash"])
 log = get_logger(__name__)
+
+
+async def _asset_revision_for_media(session: AsyncSession, media_id: int):
+    return await session.scalar(
+        select(AssetRevision).where(
+            AssetRevision.primary_media_id == media_id,
+            AssetRevision.deleted_at.is_(None),
+        )
+    )
 
 
 @router.delete("/media/{media_id}")
@@ -49,8 +58,13 @@ async def delete_media(
 
     deleted_ids = [media_id]
 
+    asset_revision = await _asset_revision_for_media(session, media_id)
+    if asset_revision is not None:
+        from asset_service import trash_asset
+        await trash_asset(session, asset_id=asset_revision.asset_id)
+
     # If trashing a set or grid, cascade delete all members
-    if media.file_format in ('stimmaset.json', 'stimmagrid.json'):
+    if asset_revision is None and media.file_format in ('stimmaset.json', 'stimmagrid.json'):
         result = await session.execute(
             select(MediaItem).where(
                 MediaItem.superseded_by == media_id,
@@ -118,8 +132,13 @@ async def bulk_delete_media(
 
         all_deleted_ids.append(media_id)
 
+        asset_revision = await _asset_revision_for_media(session, media_id)
+        if asset_revision is not None:
+            from asset_service import trash_asset
+            await trash_asset(session, asset_id=asset_revision.asset_id)
+
         # If trashing a set or grid, cascade delete its members
-        if media.file_format in ('stimmaset.json', 'stimmagrid.json'):
+        if asset_revision is None and media.file_format in ('stimmaset.json', 'stimmagrid.json'):
             result = await session.execute(
                 select(MediaItem.id).where(
                     MediaItem.superseded_by == media_id,
@@ -713,6 +732,10 @@ async def bulk_restore_from_trash(
 
         # Restore - just clear the timestamp
         media.deleted_at = None
+        asset_revision = await _asset_revision_for_media(session, media_id)
+        if asset_revision is not None:
+            from asset_service import restore_asset
+            await restore_asset(session, asset_id=asset_revision.asset_id)
         restored_count += 1
 
     await session.commit()
@@ -809,6 +832,10 @@ async def restore_from_trash(
 
     # Restore - just clear the timestamp
     media.deleted_at = None
+    asset_revision = await _asset_revision_for_media(session, media_id)
+    if asset_revision is not None:
+        from asset_service import restore_asset
+        await restore_asset(session, asset_id=asset_revision.asset_id)
     await session.commit()
 
     # Broadcast restore event

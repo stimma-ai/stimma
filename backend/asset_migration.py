@@ -16,7 +16,19 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import BoardItem, ChatItem, MediaItem, MediaMarker, MediaTag, ProjectMedia
+from database import (
+    Asset,
+    AssetMigrationMap,
+    AssetMigrationState,
+    AssetRevision,
+    BoardItem,
+    ChatItem,
+    MediaItem,
+    MediaMarker,
+    MediaOwner,
+    MediaTag,
+    ProjectMedia,
+)
 
 
 def _normalized_path(path: str, *, relative_to: str | None = None) -> str:
@@ -157,4 +169,166 @@ async def classify_legacy_media(
         "missing_file_count": missing_count,
         "records": records,
         "digest": hashlib.sha256(digest_payload.encode("utf-8")).hexdigest(),
+    }
+
+
+async def _materialize_migrated_asset(
+    session: AsyncSession,
+    *,
+    media: MediaItem,
+    trashed: bool,
+) -> Asset:
+    existing_revision = await session.scalar(
+        select(AssetRevision).where(AssetRevision.primary_media_id == media.id)
+    )
+    if existing_revision is not None:
+        return await session.get(Asset, existing_revision.asset_id)
+
+    from asset_service import acquire_media_owner, infer_asset_type
+
+    now = media.indexed_date
+    asset = Asset(
+        asset_type=infer_asset_type(media),
+        state="trashed" if trashed else "active",
+        expires_at=media.auto_delete_at,
+        origin_type="legacy_migration",
+        origin_id=str(media.id),
+        created_at=now,
+        updated_at=now,
+        deleted_at=media.deleted_at if trashed else None,
+    )
+    session.add(asset)
+    await session.flush()
+    revision = AssetRevision(
+        asset_id=asset.id,
+        primary_media_id=media.id,
+        revision_number=1,
+        created_at=now,
+    )
+    session.add(revision)
+    await session.flush()
+    asset.current_revision_id = revision.id
+    await acquire_media_owner(
+        session,
+        media_id=media.id,
+        root_kind="asset_revision",
+        root_id=revision.id,
+        role="primary",
+        idempotency_key=f"legacy-media:{media.id}:asset",
+        allow_deleted=trashed,
+    )
+    return asset
+
+
+async def apply_asset_backfill(
+    session: AsyncSession,
+    *,
+    approved_digest: str,
+) -> dict[str, Any]:
+    """Apply a rehearsed classifier result transactionally and idempotently.
+
+    The caller must provide the digest from a separately reviewed rehearsal.
+    A changed profile fails before any row is written.
+    """
+    report = await classify_legacy_media(session)
+    if report["digest"] != approved_digest:
+        raise ValueError("Historical Media changed after rehearsal; generate a new report")
+
+    from datetime import datetime
+
+    state = await session.scalar(
+        select(AssetMigrationState).where(
+            AssetMigrationState.migration_key == "asset_media_v1"
+        )
+    )
+    if state is None:
+        state = AssetMigrationState(
+            migration_key="asset_media_v1",
+            phase="shadow",
+            migration_version=1,
+            report_digest=approved_digest,
+            started_at=datetime.utcnow(),
+        )
+        session.add(state)
+        await session.flush()
+    elif state.report_digest and state.report_digest != approved_digest:
+        raise ValueError("Migration state belongs to a different rehearsal digest")
+
+    assets_by_media: dict[int, Asset] = {}
+    records_by_media = {record["media_id"]: record for record in report["records"]}
+    media_items = list(await session.scalars(select(MediaItem).order_by(MediaItem.id)))
+    for media in media_items:
+        record = records_by_media[media.id]
+        classification = record["classification"]
+        if classification in {"asset", "trashed"}:
+            asset = await _materialize_migrated_asset(
+                session,
+                media=media,
+                trashed=classification == "trashed",
+            )
+            assets_by_media[media.id] = asset
+            from asset_association_service import mirror_media_associations_to_asset
+            await mirror_media_associations_to_asset(
+                session, media_id=media.id, asset_id=asset.id
+            )
+        elif classification == "context_media" and media.ephemeral_run_id:
+            from asset_service import acquire_media_owner
+            await acquire_media_owner(
+                session,
+                media_id=media.id,
+                root_kind="ephemeral_run",
+                root_id=media.ephemeral_run_id,
+                role="intermediate",
+                idempotency_key=f"legacy-ephemeral:{media.id}",
+            )
+
+    # Populate container structure only after every independent member has its
+    # Asset, so the resolver can choose linked versus embedded deterministically.
+    from container_service import infer_structured_member_specs, populate_container_revision_members
+    for media_id, asset in assets_by_media.items():
+        media = next(item for item in media_items if item.id == media_id)
+        if media.file_format not in {"stimmaset.json", "stimmagrid.json"}:
+            continue
+        specs = await infer_structured_member_specs(session, container_media=media)
+        await populate_container_revision_members(
+            session,
+            container_asset_id=asset.id,
+            revision_id=asset.current_revision_id,
+            members=specs,
+        )
+
+    for record in report["records"]:
+        existing_map = await session.scalar(
+            select(AssetMigrationMap).where(
+                AssetMigrationMap.legacy_media_id == record["media_id"],
+                AssetMigrationMap.migration_version == 1,
+                AssetMigrationMap.deleted_at.is_(None),
+            )
+        )
+        if existing_map is not None:
+            continue
+        asset = assets_by_media.get(record["media_id"])
+        session.add(AssetMigrationMap(
+            legacy_media_id=record["media_id"],
+            asset_id=asset.id if asset else None,
+            classification=record["classification"],
+            reason=",".join(record["evidence"]),
+            evidence=json.dumps({
+                "conflicts": record["conflicts"],
+                "file_missing": record["file_missing"],
+            }, sort_keys=True),
+            migration_version=1,
+            status="applied",
+        ))
+
+    state.phase = "dual_write"
+    state.report_digest = approved_digest
+    state.completed_at = datetime.utcnow()
+    state.updated_at = datetime.utcnow()
+    await session.flush()
+    return {
+        "digest": approved_digest,
+        "assets": len(assets_by_media),
+        "records": len(report["records"]),
+        "phase": state.phase,
     }

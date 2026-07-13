@@ -35,6 +35,7 @@ class MediaItem(Base):
     file_hash = Column(String, nullable=False, index=True)
     file_size = Column(Integer, nullable=False)  # bytes
     file_format = Column(String, nullable=False, index=True)  # jpg, png, mp4, etc.
+    original_filename = Column(String, nullable=True)
 
     # Media properties
     width = Column(Integer, nullable=False)
@@ -203,6 +204,7 @@ class MediaItem(Base):
             "file_path": self.file_path,
             "file_size": self.file_size,
             "file_format": self.file_format,
+            "original_filename": self.original_filename,
             "width": self.width,
             "height": self.height,
             "has_alpha": self.has_alpha,
@@ -315,6 +317,21 @@ class Asset(Base):
         {'sqlite_autoincrement': True},
     )
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "asset_type": self.asset_type,
+            "title": self.title,
+            "current_revision_id": self.current_revision_id,
+            "state": self.state,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "origin_type": self.origin_type,
+            "origin_id": self.origin_id,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
+        }
+
 
 class AssetRevision(Base):
     """Immutable saved state of an Asset."""
@@ -335,6 +352,18 @@ class AssetRevision(Base):
         Index('idx_asset_revisions_primary_media', 'primary_media_id', unique=True),
         {'sqlite_autoincrement': True},
     )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "asset_id": self.asset_id,
+            "parent_revision_id": self.parent_revision_id,
+            "primary_media_id": self.primary_media_id,
+            "revision_number": self.revision_number,
+            "note": self.note,
+            "missing_parent": self.missing_parent,
+            "created_at": self.created_at.isoformat(),
+        }
 
 
 class StorageObject(Base):
@@ -484,6 +513,29 @@ class AssetMigrationMap(Base):
 
     __table_args__ = (
         Index('idx_asset_migration_media_version', 'legacy_media_id', 'migration_version'),
+        {'sqlite_autoincrement': True},
+    )
+
+
+class AssetMigrationState(Base):
+    """Single profile-local gate for expand/shadow/cutover/contract rollout."""
+    __tablename__ = "asset_migration_state"
+
+    id = Column(Integer, primary_key=True, index=True)
+    migration_key = Column(String, nullable=False, unique=True)
+    phase = Column(String, nullable=False, default="expanded", index=True)
+    migration_version = Column(Integer, nullable=False, default=1)
+    report_digest = Column(String, nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "phase IN ('expanded', 'shadow', 'dual_write', 'asset_reads', 'object_store', 'contracted')",
+            name="ck_asset_migration_state_phase",
+        ),
         {'sqlite_autoincrement': True},
     )
 
@@ -729,6 +781,13 @@ class GenerationJob(Base):
     batch_total = Column(Integer, nullable=True)  # Total jobs in batch (stored on first job only)
     batch_output_set_id = Column(Integer, nullable=True)  # Result set media ID (stored on first job only)
 
+    # Invocation-specific Asset disposition. This is explicit because the same
+    # STP tool produces an Asset in Tool View but provisional Media in a chat.
+    output_disposition = Column(String, nullable=False, default='asset', index=True)
+    output_context_kind = Column(String, nullable=True, index=True)
+    output_context_id = Column(String, nullable=True, index=True)
+    result_asset_id = Column(Integer, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True, index=True)
+
     __table_args__ = {'sqlite_autoincrement': True}  # Prevent ID reuse after deletion
 
     def to_dict(self):
@@ -759,6 +818,10 @@ class GenerationJob(Base):
             "batch_id": self.batch_id,
             "batch_total": self.batch_total,
             "batch_output_set_id": self.batch_output_set_id,
+            "output_disposition": self.output_disposition,
+            "output_context_kind": self.output_context_kind,
+            "output_context_id": self.output_context_id,
+            "result_asset_id": self.result_asset_id,
         }
 
 
@@ -1322,6 +1385,9 @@ class ChatItem(Base):
     # Media fields
     media_id = Column(Integer, ForeignKey('media_items.id', ondelete='SET NULL'), nullable=True, index=True)
     media_ids = Column(String, nullable=True)  # JSON array
+    asset_id = Column(Integer, ForeignKey('assets.id', ondelete='SET NULL'), nullable=True, index=True)
+    asset_ids = Column(String, nullable=True)  # JSON array; weak organizational references
+    show_role = Column(String, nullable=True, index=True)  # intermediate | final
     grid_layout = Column(String, nullable=True)  # JSON
 
     # Threading
@@ -1376,6 +1442,9 @@ class ChatItem(Base):
             "tool_result": self._parse_tool_result(),
             "tool_error": self.tool_error,
             "media_id": self.media_id,
+            "asset_id": self.asset_id,
+            "asset_ids": self._parse_json_field("asset_ids", []),
+            "show_role": self.show_role,
             "media_ids": self._parse_json_field("media_ids"),
             "grid_layout": self._parse_json_field("grid_layout"),
             "parent_item_id": self.parent_item_id,

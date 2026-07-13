@@ -25,6 +25,7 @@ from database import (
     MediaThumbnailCache,
     MediaToolLineage,
     ProjectMedia,
+    StorageObject,
     Tool,
 )
 from database_registry import get_database_registry
@@ -255,7 +256,7 @@ async def _process_profile(profile_id: str) -> bool:
         await session.commit()
 
     # Phase 2: Collect file paths and purge artifacts
-    file_paths: list[tuple[int, str | None, list[Path]]] = []
+    file_paths: list[tuple[int, str | None, list[Path], int | None, str | None]] = []
     active_media_ids = [mid for mid in media_ids if mid not in failed_ids]
     async with db.async_session_maker() as session:
         # Batch fetch all operation items
@@ -278,12 +279,38 @@ async def _process_profile(profile_id: str) -> bool:
             for mid, cache_path in thumb_result.all():
                 thumbs_by_media.setdefault(mid, []).append(Path(cache_path))
 
+            media_storage_rows = (
+                await session.execute(
+                    select(MediaItem.id, MediaItem.storage_object_id).where(
+                        MediaItem.id.in_(active_media_ids)
+                    )
+                )
+            ).all()
+            storage_id_by_media = {media_id: storage_id for media_id, storage_id in media_storage_rows}
+            storage_ids = {storage_id for storage_id in storage_id_by_media.values() if storage_id is not None}
+            storage_kind_by_id = {}
+            if storage_ids:
+                storage_kind_by_id = dict(
+                    (await session.execute(
+                        select(StorageObject.id, StorageObject.kind).where(
+                            StorageObject.id.in_(storage_ids)
+                        )
+                    )).all()
+                )
+
             for media_id in active_media_ids:
                 item = op_items.get(media_id)
                 if not item:
                     completed_ids.append(media_id)
                     continue
-                file_paths.append((media_id, item.file_path, thumbs_by_media.get(media_id, [])))
+                storage_id = storage_id_by_media.get(media_id)
+                file_paths.append((
+                    media_id,
+                    item.file_path,
+                    thumbs_by_media.get(media_id, []),
+                    storage_id,
+                    storage_kind_by_id.get(storage_id),
+                ))
 
         await session.commit()
 
@@ -292,11 +319,15 @@ async def _process_profile(profile_id: str) -> bool:
 
     def _delete_files() -> dict[int, str]:
         failures: dict[int, str] = {}
-        for media_id, file_path, thumbnail_paths in file_paths:
+        for media_id, file_path, thumbnail_paths, _storage_id, storage_kind in file_paths:
             try:
                 for thumb_path in thumbnail_paths:
                     thumb_path.unlink(missing_ok=True)
-                if file_path:
+                # Managed Media file_path is a per-Media compatibility link;
+                # deleting it never affects another Media sharing the object.
+                # External StorageObjects are user-owned and must never have
+                # their source file removed when Stimma forgets the Media.
+                if file_path and storage_kind != "external":
                     trash_service.permanently_delete(file_path)
             except Exception as exc:
                 failures[media_id] = type(exc).__name__
@@ -312,9 +343,14 @@ async def _process_profile(profile_id: str) -> bool:
 
     # Phase 3: Batch delete DB rows
     failed_id_set = set(failed_ids)
-    successful_media_ids = [mid for mid, _, _ in file_paths if mid not in failed_id_set]
+    successful_media_ids = [mid for mid, *_ in file_paths if mid not in failed_id_set]
     if successful_media_ids:
         async with db.async_session_maker() as session:
+            successful_storage_ids = {
+                storage_id
+                for media_id, _path, _thumbs, storage_id, _kind in file_paths
+                if media_id in successful_media_ids and storage_id is not None
+            }
             await session.execute(
                 delete(MediaThumbnailCache).where(
                     MediaThumbnailCache.media_id.in_(successful_media_ids)
@@ -322,6 +358,34 @@ async def _process_profile(profile_id: str) -> bool:
             )
             await session.execute(delete(MediaLineage).where(MediaLineage.media_id.in_(successful_media_ids)))
             await session.execute(delete(MediaItem).where(MediaItem.id.in_(successful_media_ids)))
+            await session.flush()
+
+            # Remove canonical managed bytes only after the final Media link is
+            # gone. External objects lose metadata, never user-owned bytes.
+            for storage_id in successful_storage_ids:
+                remaining_ref = await session.scalar(
+                    select(MediaItem.id).where(
+                        MediaItem.storage_object_id == storage_id
+                    ).limit(1)
+                )
+                if remaining_ref is not None:
+                    continue
+                storage = await session.get(StorageObject, storage_id)
+                if storage is None:
+                    continue
+                if storage.kind == "managed" and storage.object_key:
+                    from storage_service import object_path
+                    try:
+                        await asyncio.to_thread(
+                            trash_service.permanently_delete,
+                            str(object_path(profile_id, storage.object_key)),
+                        )
+                    except Exception:
+                        # DB deletion has not committed. Roll back Media rows so
+                        # the object deletion remains retryable and observable.
+                        await session.rollback()
+                        raise
+                await session.delete(storage)
             # Successful per-resource rows contain paths, hashes, and deleted
             # IDs. The aggregate operation retains progress; the sensitive work
             # manifest must not survive terminal success.

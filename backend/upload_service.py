@@ -149,6 +149,7 @@ class UploadService:
         file_content: bytes,
         original_filename: str,
         project_id: Optional[int] = None,
+        materialize_asset: bool = True,
     ) -> Tuple[MediaItem, str]:
         """
         Upload a file to the library and create a database record.
@@ -175,34 +176,10 @@ class UploadService:
         # Validate file type
         ext = self.validate_file(original_filename)
 
-        # Compute hash first for deduplication
+        # Media identity is per import/save operation. Byte deduplication happens
+        # below Media at StorageObject, so identical uploads still produce
+        # distinct provenance-bearing Media identities.
         file_hash = self._compute_content_hash(file_content)
-
-        # Check if file already exists by hash
-        db = get_database_registry().get_database(self.profile_id)
-        async with db.async_session_maker() as session:
-            from sqlalchemy import select
-
-            result = await session.execute(
-                select(MediaItem).where(MediaItem.file_hash == file_hash)
-            )
-            existing = result.scalars().first()
-            if existing:
-                log.info(f"Duplicate upload detected (hash={file_hash[:16]}...), returning existing media_id={existing.id}")
-                # Backfill generation_metadata if missing (e.g., item predates parser)
-                if existing.raw_metadata and not existing.generation_metadata:
-                    try:
-                        from exif_extractor import parse_external_metadata
-                        import json as _json
-                        parsed = parse_external_metadata(existing.raw_metadata)
-                        if parsed:
-                            existing.generation_metadata = _json.dumps(parsed)
-                            await session.commit()
-                            await session.refresh(existing)
-                            log.info(f"Backfilled generation_metadata for existing media_id={existing.id}")
-                    except Exception as e:
-                        log.debug(f"Failed to backfill generation_metadata: {e}")
-                return existing, existing.file_path
 
         # Get destination path
         dest_path, subfolder = self.get_upload_destination(original_filename, project_id=project_id)
@@ -289,6 +266,7 @@ class UploadService:
                     file_hash=file_hash,
                     file_size=stat_info.st_size,
                     file_format=file_format,
+                    original_filename=original_filename,
                     created_date=datetime.utcfromtimestamp(stat_info.st_ctime),
                     modified_date=datetime.utcfromtimestamp(stat_info.st_mtime),
                     indexed_date=datetime.utcnow(),
@@ -312,11 +290,45 @@ class UploadService:
 
                 session.add(media_item)
                 try:
+                    await session.flush()
+                    from asset_service import create_asset_from_media
+                    from storage_service import stage_managed_media
+                    await stage_managed_media(
+                        session,
+                        media=media_item,
+                        profile_id=self.profile_id,
+                        remove_source=True,
+                    )
+                    asset = None
+                    if materialize_asset:
+                        asset = await create_asset_from_media(
+                            session,
+                            media_id=media_item.id,
+                            origin_type="upload",
+                        )
+                    else:
+                        from asset_service import acquire_media_owner
+                        await acquire_media_owner(
+                            session,
+                            media_id=media_item.id,
+                            root_kind="upload",
+                            root_id=media_item.id,
+                            role="provisional",
+                            idempotency_key=f"upload:{media_item.id}:provisional",
+                        )
                     await session.commit()
                     await session.refresh(media_item)
                     if project_id is not None:
                         await attach_media_to_project(session, project_id, media_item.id)
+                        if asset is not None:
+                            from asset_association_service import attach_asset_to_project
+                            await attach_asset_to_project(session, project_id, asset.id)
                         await session.commit()
+                    try:
+                        from storage_service import cleanup_staged_source
+                        await cleanup_staged_source(session, media_id=media_item.id)
+                    except Exception as exc:
+                        log.warning(f"Deferred upload-source cleanup: {type(exc).__name__}")
                     log.info(f"Created media item {media_item.id} for upload: {dest_path}")
                 except IntegrityError:
                     # File already exists - fetch existing record
@@ -336,7 +348,7 @@ class UploadService:
                 if process_pending_event:
                     process_pending_event.set()
 
-                return media_item, str(dest_path)
+                return media_item, media_item.file_path
 
         except UploadError:
             raise

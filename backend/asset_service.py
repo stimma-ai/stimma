@@ -41,9 +41,11 @@ def infer_asset_type(media: MediaItem) -> str:
     return "image"
 
 
-async def _live_media(session: AsyncSession, media_id: int) -> MediaItem:
+async def _live_media(
+    session: AsyncSession, media_id: int, *, allow_deleted: bool = False
+) -> MediaItem:
     media = await session.get(MediaItem, media_id)
-    if media is None or media.deleted_at is not None:
+    if media is None or (media.deleted_at is not None and not allow_deleted):
         raise AssetServiceError("Media is unavailable")
     return media
 
@@ -56,9 +58,10 @@ async def acquire_media_owner(
     root_id: int | str,
     role: str,
     idempotency_key: Optional[str] = None,
+    allow_deleted: bool = False,
 ) -> MediaOwner:
     """Create an idempotent strong-retention edge to Media."""
-    await _live_media(session, media_id)
+    await _live_media(session, media_id, allow_deleted=allow_deleted)
     root_id_string = str(root_id)
 
     if idempotency_key:
@@ -358,3 +361,34 @@ async def clear_snapshot_source_bindings(
         snapshot.source_revision_id = None
     await session.flush()
     return len(snapshots)
+
+
+async def trash_asset(session: AsyncSession, *, asset_id: int) -> Asset:
+    """Move an Asset root to Trash without releasing any Media ownership."""
+    asset = await session.get(Asset, asset_id)
+    if asset is None:
+        raise AssetServiceError("Asset not found")
+    if asset.state == "deleting":
+        raise AssetServiceError("Asset deletion is already in progress")
+    if asset.state != "trashed":
+        now = datetime.utcnow()
+        asset.state = "trashed"
+        asset.deleted_at = now
+        asset.updated_at = now
+        await session.flush()
+    return asset
+
+
+async def restore_asset(session: AsyncSession, *, asset_id: int) -> Asset:
+    """Restore a trashed Asset and clear the expiration that put it there."""
+    asset = await session.get(Asset, asset_id)
+    if asset is None:
+        raise AssetServiceError("Asset not found")
+    if asset.state != "trashed":
+        raise AssetServiceError("Asset is not in Trash")
+    asset.state = "active"
+    asset.deleted_at = None
+    asset.expires_at = None
+    asset.updated_at = datetime.utcnow()
+    await session.flush()
+    return asset

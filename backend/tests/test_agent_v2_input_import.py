@@ -12,7 +12,7 @@ import pytest
 
 from tests.helpers.media import create_media_item, generate_test_image
 from agent.v2.tools.library import resolve_or_import_input_file
-from database import MediaItem
+from database import MediaItem, StorageObject
 
 
 @pytest.fixture
@@ -61,7 +61,11 @@ async def test_imports_new_workspace_file(db_session, tmp_path, output_folder):
 
         item = await session.get(MediaItem, media_id)
         assert item is not None
-        assert item.file_path.startswith(str(output_folder))
+        storage = await session.get(StorageObject, item.storage_object_id)
+        assert storage is not None
+        assert storage.kind == "managed"
+        assert storage.object_key
+        assert item.file_path.endswith("/fresh.png")
         meta = json.loads(item.generation_metadata)
         assert meta["source"] == "agent_v2_tool_input"
         assert meta["task_type"] == "imported"

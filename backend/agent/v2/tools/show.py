@@ -18,8 +18,15 @@ log = get_logger(__name__)
 
 @tool(
     name="show",
-    description="Display one or more images, videos, or layouts to the user in chat. Use media_id/media_ids for library items, or path/paths for workspace files (including .stimmalayout directories).",
+    description="Display media in chat and declare whether it is an intermediate for inspection or a final committed result. Viewing an intermediate never makes it an Asset; final results do.",
     parameters=[
+        ToolParameter(
+            name="role",
+            type="string",
+            description="intermediate for work-in-progress/inspection, final for a committed result",
+            enum=["intermediate", "final"],
+            required=True,
+        ),
         ToolParameter(
             name="media_id",
             type="integer",
@@ -56,6 +63,7 @@ log = get_logger(__name__)
     scope="both",
 )
 async def show(
+    role: str,
     media_id: int | None = None,
     media_ids: list[int] | None = None,
     path: str | None = None,
@@ -70,6 +78,8 @@ async def show(
 
     if not session:
         return "Error: No database session available"
+    if role not in {"intermediate", "final"}:
+        return "Error: role must be 'intermediate' or 'final'"
     normalized_media_ids = _normalize_media_ids(media_id, media_ids)
     normalized_paths = _normalize_paths(path, paths)
 
@@ -78,7 +88,7 @@ async def show(
 
     # Guard: skip media_ids that were already displayed this turn
     shown: set[int] | None = kwargs.get("_shown_media_ids")
-    if shown is not None and normalized_media_ids and not normalized_paths:
+    if role == "intermediate" and shown is not None and normalized_media_ids and not normalized_paths:
         new_ids = [mid for mid in normalized_media_ids if mid not in shown]
         if not new_ids:
             return "These items were already displayed to the user."
@@ -125,13 +135,124 @@ async def show(
     if shown is not None:
         shown.update(normalized_media_ids)
 
+    asset_ids = await _apply_show_disposition(
+        session=session,
+        chat_id=chat_id,
+        media_ids=normalized_media_ids,
+        role=role,
+    )
+    asset_by_media = dict(zip(normalized_media_ids, asset_ids))
+    for row in rows:
+        row_media_id = row.get("output", {}).get("media_id")
+        asset_id = asset_by_media.get(row_media_id)
+        if asset_id is not None:
+            row["output"]["asset_id"] = asset_id
+
     return await _create_display_item(
         session=session,
         chat_id=chat_id,
         rows=rows,
         title=title,
+        role=role,
+        media_ids=normalized_media_ids,
+        asset_ids=[asset_id for asset_id in asset_ids if asset_id is not None],
         ws_manager=ws_manager,
     )
+
+
+async def _apply_show_disposition(
+    *,
+    session: AsyncSession,
+    chat_id: int,
+    media_ids: list[int],
+    role: str,
+) -> list[int | None]:
+    """Retain intermediates or atomically promote finals for this chat."""
+    from datetime import datetime
+
+    from sqlalchemy import select
+
+    from asset_association_service import mirror_media_associations_to_asset
+    from asset_service import acquire_media_owner, create_asset_from_media
+    from database import AssetRevision, MediaItem, MediaOwner
+
+    results: list[int | None] = []
+    for media_id in media_ids:
+        media = await session.get(MediaItem, media_id)
+        if media is None or media.deleted_at is not None:
+            results.append(None)
+            continue
+        existing_revision = await session.scalar(
+            select(AssetRevision).where(
+                AssetRevision.primary_media_id == media_id,
+                AssetRevision.deleted_at.is_(None),
+            )
+        )
+        if role == "intermediate":
+            if existing_revision is None:
+                await acquire_media_owner(
+                    session,
+                    media_id=media_id,
+                    root_kind="chat",
+                    root_id=chat_id,
+                    role="intermediate",
+                    idempotency_key=f"chat:{chat_id}:media:{media_id}:intermediate",
+                )
+            results.append(existing_revision.asset_id if existing_revision else None)
+            continue
+
+        embedded_media_ids: list[int] = []
+        if media.file_format in {"stimmaset.json", "stimmagrid.json"}:
+            from container_service import (
+                create_container_asset_from_media,
+                infer_structured_member_specs,
+            )
+            member_specs = await infer_structured_member_specs(
+                session, container_media=media
+            )
+            embedded_media_ids = [
+                int(spec["embedded_media_id"])
+                for spec in member_specs
+                if spec.get("embedded_media_id") is not None
+            ]
+            asset = await create_container_asset_from_media(
+                session,
+                media_id=media_id,
+                container_type="set" if media.file_format == "stimmaset.json" else "grid",
+                members=member_specs,
+                origin_type="chat_final",
+                origin_id=str(chat_id),
+                idempotency_key=f"chat:{chat_id}:media:{media_id}:final",
+            )
+        else:
+            asset = await create_asset_from_media(
+                session,
+                media_id=media_id,
+                origin_type="chat_final",
+                origin_id=str(chat_id),
+                idempotency_key=f"chat:{chat_id}:media:{media_id}:final",
+            )
+        await mirror_media_associations_to_asset(
+            session, media_id=media_id, asset_id=asset.id
+        )
+        # The AssetRevision is now the strong root. Release every provisional
+        # ownership edge held by this chat for the exact Media.
+        owners = list(
+            await session.scalars(
+                select(MediaOwner).where(
+                    MediaOwner.media_id.in_([media_id, *embedded_media_ids]),
+                    MediaOwner.root_kind == "chat",
+                    MediaOwner.root_id == str(chat_id),
+                    MediaOwner.deleted_at.is_(None),
+                )
+            )
+        )
+        now = datetime.utcnow()
+        for owner in owners:
+            owner.deleted_at = now
+        results.append(asset.id)
+    await session.flush()
+    return results
 
 
 def _normalize_media_ids(media_id: int | None, media_ids: list[int] | None) -> list[int]:
@@ -243,7 +364,9 @@ async def _auto_save_path(
     return None
 
 
-async def _create_display_item(session, chat_id, rows, title, ws_manager):
+async def _create_display_item(
+    session, chat_id, rows, title, role, media_ids, asset_ids, ws_manager
+):
     from database import ChatItem
 
     display_title = title or (f"Showing {len(rows)} items" if len(rows) > 1 else None)
@@ -256,6 +379,11 @@ async def _create_display_item(session, chat_id, rows, title, ws_manager):
     display_item = ChatItem(
         chat_id=chat_id,
         item_type="media_display",
+        media_id=media_ids[0] if len(media_ids) == 1 else None,
+        media_ids=json.dumps(media_ids) if media_ids else None,
+        asset_id=asset_ids[0] if len(asset_ids) == 1 else None,
+        asset_ids=json.dumps(asset_ids) if asset_ids else None,
+        show_role=role,
         item_metadata=json.dumps({"display_data": display_data}),
     )
     session.add(display_item)

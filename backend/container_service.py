@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
+import os
+from pathlib import Path
 from typing import Any, Iterable
 
 from sqlalchemy import select
@@ -15,6 +18,7 @@ from asset_service import (
     create_asset_from_media,
 )
 from database import Asset, AssetRevision, ContainerMember, MediaOwner
+from database import MediaItem
 
 
 async def _assert_no_link_cycle(
@@ -117,6 +121,22 @@ async def _populate_revision_members(
         created.append(member)
     await session.flush()
     return created
+
+
+async def populate_container_revision_members(
+    session: AsyncSession,
+    *,
+    container_asset_id: int,
+    revision_id: int,
+    members: Iterable[dict[str, Any]],
+) -> list[ContainerMember]:
+    """Idempotently populate a newly created or migrated container Revision."""
+    return await _populate_revision_members(
+        session,
+        container_asset_id=container_asset_id,
+        revision_id=revision_id,
+        members=members,
+    )
 
 
 async def create_container_asset_from_media(
@@ -313,3 +333,65 @@ async def release_container_revision_owners(
         owner.deleted_at = now
     await session.flush()
     return len(owners)
+
+
+async def infer_structured_member_specs(
+    session: AsyncSession,
+    *,
+    container_media: MediaItem,
+) -> list[dict[str, Any]]:
+    """Resolve a legacy set/grid manifest into linked or embedded members.
+
+    Existing Assets become live links. Bare Media remains exact embedded
+    content, which is the expected shape for newly generated agent grids.
+    """
+    if container_media.file_format not in {'stimmaset.json', 'stimmagrid.json'}:
+        raise AssetServiceError("Media is not a set or grid")
+    try:
+        payload = json.loads(container_media.raw_metadata or '{}')
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise AssetServiceError("Container manifest is invalid") from exc
+    records = payload.get('items') if container_media.file_format == 'stimmaset.json' else payload.get('cells')
+    if not isinstance(records, list):
+        raise AssetServiceError("Container manifest has no members")
+
+    all_media = list(
+        await session.scalars(
+            select(MediaItem).where(
+                MediaItem.deleted_at.is_(None),
+                MediaItem.ephemeral_run_id.is_(None),
+            )
+        )
+    )
+    by_path = {
+        os.path.normcase(os.path.abspath(os.path.normpath(item.file_path))): item
+        for item in all_media
+    }
+    base_dir = Path(container_media.file_path).parent
+    specs: list[dict[str, Any]] = []
+    for index, record in enumerate(records):
+        if not isinstance(record, dict) or not isinstance(record.get('path'), str):
+            continue
+        candidate = Path(record['path'])
+        if not candidate.is_absolute():
+            candidate = base_dir / candidate
+        normalized = os.path.normcase(os.path.abspath(os.path.normpath(str(candidate))))
+        media = by_path.get(normalized)
+        if media is None:
+            continue
+        revision = await session.scalar(
+            select(AssetRevision).where(
+                AssetRevision.primary_media_id == media.id,
+                AssetRevision.deleted_at.is_(None),
+            )
+        )
+        spec: dict[str, Any]
+        if revision is not None:
+            spec = {'linked_asset_id': revision.asset_id}
+        else:
+            spec = {'embedded_media_id': media.id}
+        if container_media.file_format == 'stimmagrid.json':
+            spec['row_index'] = record.get('row', index)
+            spec['column_index'] = record.get('col', 0)
+        specs.append(spec)
+    return specs

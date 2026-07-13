@@ -8,7 +8,7 @@ from sqlalchemy import select, or_, and_, func, literal, Integer, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from database import Board, BoardItem, BoardSection, MediaItem, Keyword, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage, Face, Project, ProjectMedia
+from database import AssetRevision, Board, BoardItem, BoardSection, MediaItem, Keyword, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage, Face, Project, ProjectMedia
 from core.dependencies import get_db_session
 from models.api_models import BoardSummaryResponse, MediaListResponse, MediaItemResponse, MediaIndexResponse, SimilaritySearchRequest, TagResponse, MediaMarkerInfo, StructuredContentUpdateRequest
 from config import get_settings
@@ -888,7 +888,17 @@ async def get_media_item(
     if not item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    return MediaItemResponse(**item.to_dict())
+    item_dict = item.to_dict()
+    revision = await session.scalar(
+        select(AssetRevision).where(
+            AssetRevision.primary_media_id == item.id,
+            AssetRevision.deleted_at.is_(None),
+        )
+    )
+    if revision is not None:
+        item_dict["asset_id"] = revision.asset_id
+        item_dict["revision_id"] = revision.id
+    return MediaItemResponse(**item_dict)
 
 
 @router.get("/api/media/{media_id}/content")
@@ -1455,15 +1465,6 @@ async def create_set_from_media(
                 detail=f"Cannot create a set from structured media types (item {item.id} is a {item.file_format})"
             )
 
-    # Check for items already owned by a set/grid
-    already_owned = [item for item in ordered_items if item.superseded_by is not None]
-    if already_owned:
-        owned_ids = [item.id for item in already_owned]
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot add items already in a set or grid: {owned_ids}. Explode the existing set/grid first."
-        )
-
     # Validate the project before any file is written
     if request.project_id is not None:
         from project_service import get_project_or_404
@@ -1588,7 +1589,7 @@ async def create_set_from_media(
     from sqlalchemy import update as sql_update
     await session.execute(
         sql_update(MediaItem)
-        .where(MediaItem.id.in_(source_ids))
+        .where(MediaItem.id.in_(source_ids), MediaItem.superseded_by.is_(None))
         .values(superseded_by=set_media_item.id, is_hidden=None)
     )
 
@@ -1606,6 +1607,27 @@ async def create_set_from_media(
         set_project_ids.add(request.project_id)
     for pid in sorted(set_project_ids):
         await attach_media_to_project(session, pid, set_media_item.id)
+
+    # User-selected members stand on their own and are linked, never owned by
+    # this set. This is what enables genuine multiple membership.
+    from asset_service import create_asset_from_media
+    from container_service import create_container_asset_from_media
+    member_assets = [
+        await create_asset_from_media(session, media_id=item.id)
+        for item in ordered_items
+    ]
+    set_asset = await create_container_asset_from_media(
+        session,
+        media_id=set_media_item.id,
+        container_type='set',
+        members=[{'linked_asset_id': asset.id} for asset in member_assets],
+        title=request.title,
+        origin_type='manual_set',
+    )
+    from asset_association_service import mirror_media_associations_to_asset
+    await mirror_media_associations_to_asset(
+        session, media_id=set_media_item.id, asset_id=set_asset.id
+    )
     await session.commit()
 
     # Broadcast superseded_by changes for member items
@@ -1649,17 +1671,22 @@ class SaveEditResponse(BaseModel):
     """Response for saving an edited image."""
     media_id: int
     file_hash: str
+    asset_id: int
+    revision_id: int
 
 
 @router.post("/api/media/save-edit", response_model=SaveEditResponse)
 async def save_edited_image(
     file: UploadFile,
     source_media_id: int = Form(...),
+    asset_id: Optional[int] = Form(None),
     editor_project: Optional[str] = Form(None),
+    save_as_new: bool = Form(False),
+    base_revision_id: Optional[int] = Form(None),
     session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Save an edited image as a new media item with lineage to the source.
+    Commit an edited image as a Revision, or as a new Asset for Save As New.
 
     This endpoint:
     1. Validates the source media exists
@@ -1669,6 +1696,7 @@ async def save_edited_image(
     """
     from upload_service import UploadService, UploadError, NoUploadsFolderError
     from utils.lineage import record_lineage, propagate_tool_lineage
+    import json
 
     # Verify source media exists
     result = await session.execute(
@@ -1677,6 +1705,13 @@ async def save_edited_image(
     source_item = result.scalars().first()
     if not source_item:
         raise HTTPException(status_code=404, detail=f"Source asset {source_media_id} not found")
+
+    parsed_project = None
+    if editor_project:
+        try:
+            parsed_project = json.loads(editor_project)
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail="Invalid editor project JSON") from exc
 
     # Read file content
     try:
@@ -1690,7 +1725,8 @@ async def save_edited_image(
         upload_service = UploadService()
         media_item, file_path = await upload_service.upload_file(
             file_content,
-            file.filename or f"edited_{source_media_id}.png"
+            file.filename or f"edited_{source_media_id}.png",
+            materialize_asset=False,
         )
     except NoUploadsFolderError as e:
         log.error(f"No uploads folder configured: {e}")
@@ -1705,22 +1741,55 @@ async def save_edited_image(
         log.error(f"Unexpected upload error: {e}")
         raise HTTPException(status_code=500, detail="Failed to save edited image")
 
-    # Record lineage and set generation_metadata
-    # NOTE: media_item from UploadService is detached, so we must re-fetch it
+    # Record exact Media lineage, commit Asset versioning, and persist the
+    # non-destructive WorkingDocument. Any failure leaves the upload under its
+    # provisional owner for reconciliation rather than ownerless.
     try:
-        log.info(f"Processing save-edit: media_item.id={media_item.id}, file_path={file_path}")
-        log.info(f"editor_project provided: {editor_project is not None}, length: {len(editor_project) if editor_project else 0}")
-
-        # Re-fetch the media item in our session so we can update it
-        result = await session.execute(
-            select(MediaItem).where(MediaItem.id == media_item.id)
-        )
-        db_media_item = result.scalars().first()
+        db_media_item = await session.get(MediaItem, media_item.id)
         if not db_media_item:
-            log.error(f"Could not re-fetch media item {media_item.id} for metadata update")
-            raise Exception(f"Media item {media_item.id} not found after upload")
+            raise RuntimeError(f"Media item {media_item.id} not found after upload")
 
-        log.info(f"Re-fetched db_media_item.id={db_media_item.id}, file_path={db_media_item.file_path}")
+        from database import Asset, AssetRevision, AssetSnapshot, MediaOwner
+        source_asset = await session.get(Asset, asset_id) if asset_id is not None else None
+        source_revision = None
+        if source_asset is not None:
+            source_revision = await session.get(
+                AssetRevision, source_asset.current_revision_id
+            )
+        else:
+            source_revision = await session.scalar(
+                select(AssetRevision).where(
+                    AssetRevision.primary_media_id == source_media_id,
+                    AssetRevision.deleted_at.is_(None),
+                )
+            )
+        if asset_id is not None and source_asset is None:
+            raise HTTPException(status_code=404, detail="Target Asset not found")
+        if source_revision is None:
+            from asset_service import create_asset_from_media
+            source_asset = await create_asset_from_media(
+                session,
+                media_id=source_media_id,
+                origin_type="editor_legacy_source",
+            )
+            source_revision = await session.get(
+                AssetRevision, source_asset.current_revision_id
+            )
+        elif source_asset is None:
+            source_asset = await session.get(Asset, source_revision.asset_id)
+        if source_asset is None or source_asset.state != "active":
+            raise HTTPException(status_code=400, detail="Source Asset is unavailable")
+
+        parent_revision = source_revision
+        if base_revision_id is not None:
+            requested_parent = await session.get(AssetRevision, base_revision_id)
+            if (
+                requested_parent is None
+                or requested_parent.asset_id != source_asset.id
+                or requested_parent.deleted_at is not None
+            ):
+                raise HTTPException(status_code=400, detail="Invalid base Revision")
+            parent_revision = requested_parent
 
         await record_lineage(
             session=session,
@@ -1748,39 +1817,124 @@ async def save_edited_image(
             }],
         )
 
-        # Store editor project state as sidecar file (for non-destructive editing)
-        if editor_project:
-            import json as json_module
-            sidecar_path = db_media_item.file_path + '.stimmaedit.json'
-            log.info(f"Writing editor sidecar to: {sidecar_path}")
-            try:
-                sidecar_data = {
-                    "version": 1,
-                    "source_media_id": source_media_id,  # Reference to original image for re-editing
-                    "project": json_module.loads(editor_project)
-                }
-                with open(sidecar_path, 'w', encoding='utf-8') as f:
-                    json_module.dump(sidecar_data, f)
-                db_media_item.has_editor_sidecar = True
-                log.info(f"Wrote editor sidecar ({len(editor_project)} chars) to {sidecar_path}")
-            except Exception as sidecar_err:
-                log.error(f"Failed to write editor sidecar: {sidecar_err}", exc_info=True)
+        from asset_service import (
+            commit_revision,
+            create_asset_from_media,
+            create_asset_snapshot,
+            create_working_document,
+        )
+        if save_as_new:
+            target_asset = await create_asset_from_media(
+                session,
+                media_id=db_media_item.id,
+                origin_type="editor_save_as_new",
+                origin_id=str(source_asset.id),
+                idempotency_key=f"editor-output:{db_media_item.id}:new-asset",
+            )
+            committed_revision = await session.get(
+                AssetRevision, target_asset.current_revision_id
+            )
         else:
-            log.warning("No editor_project provided in save-edit request")
+            committed_revision = await commit_revision(
+                session,
+                asset_id=source_asset.id,
+                media_id=db_media_item.id,
+                parent_revision_id=parent_revision.id,
+                note="Image editor save",
+                idempotency_key=f"editor-output:{db_media_item.id}:revision",
+            )
+            target_asset = source_asset
 
-        log.info(f"Before commit: has_editor_sidecar={db_media_item.has_editor_sidecar}")
+        document = await create_working_document(
+            session,
+            asset_id=target_asset.id,
+            editor_type="image",
+            base_revision_id=committed_revision.id,
+            branch_key=f"revision-{parent_revision.id}",
+        )
+        if parsed_project is not None:
+            from core.profile_context import get_current_profile
+            from editor_service import save_working_document_state
+            await save_working_document_state(
+                session,
+                document=document,
+                profile_id=get_current_profile(),
+                project=parsed_project,
+            )
+        from core.profile_context import get_current_profile
+        existing_source_snapshot = await session.scalar(
+            select(AssetSnapshot).where(
+                AssetSnapshot.owner_kind == "working_document",
+                AssetSnapshot.owner_id == str(document.id),
+                AssetSnapshot.role == "source",
+                AssetSnapshot.deleted_at.is_(None),
+            )
+        )
+        snapshot_media_id = (
+            existing_source_snapshot.media_id if existing_source_snapshot else None
+        )
+        if snapshot_media_id is None:
+            from storage_service import ensure_durable_snapshot_media
+            durable_source = await ensure_durable_snapshot_media(
+                session,
+                media=source_item,
+                profile_id=get_current_profile(),
+            )
+            snapshot_media_id = durable_source.id
+
+        await create_asset_snapshot(
+            session,
+            owner_kind="working_document",
+            owner_id=document.id,
+            media_id=snapshot_media_id,
+            source_asset_id=source_asset.id,
+            source_revision_id=parent_revision.id,
+            role="source",
+        )
+        await create_asset_snapshot(
+            session,
+            owner_kind="revision",
+            owner_id=committed_revision.id,
+            media_id=snapshot_media_id,
+            source_asset_id=source_asset.id,
+            source_revision_id=parent_revision.id,
+            role="editor_source",
+        )
+        document.base_revision_id = committed_revision.id
+        db_media_item.has_editor_sidecar = False
+
+        provisional_owners = list(await session.scalars(
+            select(MediaOwner).where(
+                MediaOwner.media_id == db_media_item.id,
+                MediaOwner.root_kind == "upload",
+                MediaOwner.root_id == str(db_media_item.id),
+                MediaOwner.deleted_at.is_(None),
+            )
+        ))
+        for owner in provisional_owners:
+            await session.delete(owner)
         await session.commit()
-        log.info(f"After commit: has_editor_sidecar={db_media_item.has_editor_sidecar}")
-        log.info(f"Recorded lineage for edited image {db_media_item.id} from source {source_media_id}")
+        if snapshot_media_id != source_media_id:
+            try:
+                from storage_service import cleanup_staged_source
+                await cleanup_staged_source(session, media_id=snapshot_media_id)
+            except Exception as exc:
+                log.warning(
+                    f"Deferred editor snapshot-source cleanup: {type(exc).__name__}"
+                )
 
     except Exception as e:
-        log.error(f"Failed to record lineage: {e}")
-        # Don't fail the request - the image was saved successfully
-        # Lineage is nice-to-have, not critical
+        await session.rollback()
+        log.error(f"Failed to commit editor Revision: {e}", exc_info=True)
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(status_code=500, detail="Failed to commit edited Revision") from e
 
     return SaveEditResponse(
         media_id=media_item.id,
-        file_hash=media_item.file_hash
+        file_hash=media_item.file_hash,
+        asset_id=target_asset.id,
+        revision_id=committed_revision.id,
     )
 
 
@@ -1810,6 +1964,48 @@ async def get_editor_project(
 
     if not item:
         raise HTTPException(status_code=404, detail="Asset not found")
+
+    from database import AssetRevision, AssetSnapshot, WorkingDocument
+    revision = await session.scalar(
+        select(AssetRevision).where(
+            AssetRevision.primary_media_id == media_id,
+            AssetRevision.deleted_at.is_(None),
+        )
+    )
+    if revision is not None:
+        document = await session.scalar(
+            select(WorkingDocument)
+            .where(
+                WorkingDocument.asset_id == revision.asset_id,
+                WorkingDocument.editor_type == "image",
+                WorkingDocument.deleted_at.is_(None),
+            )
+            .order_by(WorkingDocument.updated_at.desc(), WorkingDocument.id.desc())
+        )
+        if document is not None and document.state_locator:
+            from editor_service import load_working_document_state
+            try:
+                project = await load_working_document_state(document)
+            except (OSError, json_module.JSONDecodeError) as exc:
+                raise HTTPException(
+                    status_code=500, detail="Editor working document is unavailable"
+                ) from exc
+            source_snapshot = await session.scalar(
+                select(AssetSnapshot).where(
+                    AssetSnapshot.owner_kind == "working_document",
+                    AssetSnapshot.owner_id == str(document.id),
+                    AssetSnapshot.role == "source",
+                    AssetSnapshot.deleted_at.is_(None),
+                )
+            )
+            return {
+                "version": 2,
+                "asset_id": revision.asset_id,
+                "revision_id": revision.id,
+                "working_document_id": document.id,
+                "source_media_id": source_snapshot.media_id if source_snapshot else None,
+                "project": project,
+            }
 
     if not item.has_editor_sidecar:
         raise HTTPException(status_code=404, detail="No editor project found for this asset")
@@ -1868,7 +2064,66 @@ async def explode_set_or_grid(
     if media.file_format not in ('stimmaset.json', 'stimmagrid.json'):
         raise HTTPException(status_code=400, detail="Can only explode sets or grids")
 
-    # Find all items superseded by this set/grid
+    # New-model containers explode transactionally: linked Assets remain roots,
+    # embedded Media is promoted, and the container moves to Trash.
+    from database import AssetRevision
+    container_revision = await session.scalar(
+        select(AssetRevision).where(
+            AssetRevision.primary_media_id == media_id,
+            AssetRevision.deleted_at.is_(None),
+        )
+    )
+    if container_revision is not None:
+        from container_service import explode_container
+        promoted_asset_ids = await explode_container(
+            session, asset_id=container_revision.asset_id
+        )
+        promoted_revisions = list(await session.scalars(
+            select(AssetRevision).where(
+                AssetRevision.asset_id.in_(promoted_asset_ids),
+                AssetRevision.deleted_at.is_(None),
+            )
+        ))
+        current_by_asset = {}
+        from database import Asset
+        promoted_assets = list(await session.scalars(
+            select(Asset).where(Asset.id.in_(promoted_asset_ids))
+        ))
+        revision_by_id = {revision.id: revision for revision in promoted_revisions}
+        for promoted_asset in promoted_assets:
+            revision = revision_by_id.get(promoted_asset.current_revision_id)
+            if revision is not None:
+                current_by_asset[promoted_asset.id] = revision.primary_media_id
+        member_ids = [current_by_asset[asset_id] for asset_id in promoted_asset_ids if asset_id in current_by_asset]
+
+        await session.execute(
+            update(MediaItem)
+            .where(MediaItem.superseded_by == media_id)
+            .values(superseded_by=None)
+        )
+        media.deleted_at = datetime.utcnow()
+        media.auto_delete_at = None
+
+        from project_service import attach_media_to_project
+        project_result = await session.execute(
+            select(ProjectMedia.project_id).where(ProjectMedia.media_id == media_id)
+        )
+        for pid in [row[0] for row in project_result.all()]:
+            for member_id in member_ids:
+                await attach_media_to_project(session, pid, member_id)
+        await session.execute(
+            delete(ProjectMedia).where(ProjectMedia.media_id == media_id)
+        )
+        await session.commit()
+
+        await ws_manager.broadcast("media_deleted", {"media_id": media_id})
+        if member_ids:
+            await ws_manager.broadcast('media_added', {
+                'count': len(member_ids), 'media_ids': member_ids
+            })
+        return {"success": True, "exploded_count": len(member_ids)}
+
+    # Legacy fallback: find all items superseded by this set/grid.
     result = await session.execute(
         select(MediaItem).where(MediaItem.superseded_by == media_id)
     )

@@ -49,7 +49,7 @@ library folder, so relative filenames resolve automatically. Call `show` on the 
 
 **Output count**: Generate exactly the number requested — no more, no fewer.
 
-**Presenting multiple outputs**: The default for several related results is one `show([...])` call that displays them individually — that's what the user expects to see, including when they'll compare or pick a favorite. A `set` is a library-organization choice, not a presentation choice: create one only when the user wants the results kept as a single collection (a pack or series they asked for as a unit). A parameter grid (`create_parameter_sweep`) is a distinct, deliberate artifact: a labeled side-by-side comparison the user explicitly asks for ("grid", "sweep", "compare X across Y"), not a way to tidy up loose generations. Grids are owned by the parameter-grid skill, which confirms the sweep axes with you before anything is generated — so when a grid or sweep is requested, load that skill first and let it drive the workflow.
+**Presenting multiple outputs**: The default for several related results is one `show([...], role="final")` call that displays them individually — that's what the user expects to see, including when they'll compare or pick a favorite. Use `role="intermediate"` only for work the user is inspecting rather than committing. A `set` is a library-organization choice, not a presentation choice: create one only when the user wants the results kept as a single collection (a pack or series they asked for as a unit). A parameter grid (`create_parameter_sweep`) is a distinct, deliberate artifact: a labeled side-by-side comparison the user explicitly asks for ("grid", "sweep", "compare X across Y"), not a way to tidy up loose generations. Grids are owned by the parameter-grid skill, which confirms the sweep axes with you before anything is generated — so when a grid or sweep is requested, load that skill first and let it drive the workflow.
 
 **Resolution**: Default to ~1MP unless the tool's schema dictates otherwise (some video and specialized models have fixed sizes). \
 Stick to standard aspect ratios — 1:1 (1024×1024), 4:3 (1152×896), 3:4 (896×1152), 16:9 (1344×768), 9:16 (768×1344). \
@@ -60,7 +60,7 @@ Don't invent off-standard sizes. Omit width/height entirely when the tool's defa
 
 **Batch generation (5+ images)**: Use `run_code` with `asyncio.gather()` for independent work \
 or a sequential `tqdm` loop when each step depends on the previous. \
-Always call `stimma.show(results)` at the end of `run_code` to display results — \
+Always call `stimma.show(results, role="final")` at the end of `run_code` to display committed results. Use `role="intermediate"` when showing work only for inspection; viewing it does not add it to Assets. \
 never defer display to a separate tool call afterward (media IDs are lost outside `run_code`).
 
 **Assets are immutable**: You can freely read, copy, and edit files in the workspace — it's your sandbox. In project chats, use the shared project workspace for durable processes and shared intermediate files, and keep the chat workspace as the task-local workbench. \
@@ -105,7 +105,7 @@ or `run_file` (a script you saved with `write_file` for substantial/reusable log
 
     from stimma.tools.text_to_image import <tool>   # category hyphens become underscores
     r = await <tool>(prompt="a cat in a garden", width=1024)
-    stimma.show(r)
+    stimma.show(r, role="final")
 
 `r` is a `ToolResult` with `.media_id`, `.path`, `.seed`, `.width`, `.height`, and `.open()` → PIL image. \
 The signature you read in `.stimma` **is** the function you call. Tool names are specific catalog \

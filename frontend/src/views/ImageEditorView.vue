@@ -100,6 +100,13 @@
               </svg>
               <span>{{ saving ? 'Saving...' : 'Save' }}</span>
             </button>
+            <button
+              class="flex items-center rounded-md border border-edge-strong bg-overlay-light px-3 py-2 text-sm font-medium text-content transition-colors hover:bg-overlay-strong disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="saving || !hasChanges"
+              @click="handleSave(true)"
+            >
+              Save As New
+            </button>
           </div>
         </template>
       </StimmaEditor>
@@ -144,6 +151,7 @@ import {
   nextEditorDebugSession,
 } from '../../../packages/image-editor/src/utils/editorDebug'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
 import { useMarkers } from '../composables/useMarkers'
 import { loadProfiles } from '../composables/useProfile'
 import { makeStorageKey, makeProfileKey } from '../utils/storageKeys'
@@ -257,6 +265,7 @@ async function migrateIDBIfNeeded() {
 const route = useRoute()
 const router = useRouter()
 const { getMediaItem, getMediaFileUrl, addMarkerToMedia } = useMediaApi()
+const { addMarker: addMarkerToAsset } = useAssetApi()
 const { resolvedTheme } = useTheme()
 const { availableMarkers, init: initMarkers } = useMarkers()
 
@@ -283,6 +292,8 @@ const savedProject = ref(null)
 const hasChanges = ref(false)
 const editorReady = ref(false)
 const actualSourceMediaId = ref(null)  // The original source image ID (for re-editing saved edits)
+const targetAssetId = ref(null)
+const baseRevisionId = ref(null)
 const projectFromLocalStorage = ref(false)  // Track if project came from localStorage (unsaved local edits)
 const editorMounted = ref(false)  // When to mount the StimmaEditor
 const restoringProject = ref(false)
@@ -378,6 +389,8 @@ async function loadImage() {
     }
 
     sourceItem.value = item
+    targetAssetId.value = item.asset_id || null
+    baseRevisionId.value = item.revision_id || null
 
     // Determine which image to load as the source
     let imageToLoadId = mediaIdNum.value
@@ -752,7 +765,7 @@ function handleLandingDrop(e) {
 }
 
 // Save edited image
-async function handleSave() {
+async function handleSave(saveAsNew = false) {
   if (!editorRef.value || saving.value) return
 
   saving.value = true
@@ -779,6 +792,13 @@ async function handleSave() {
     const formData = new FormData()
     formData.append('file', blob, `edited_${sourceId}.png`)
     formData.append('source_media_id', sourceId.toString())
+    if (targetAssetId.value) {
+      formData.append('asset_id', targetAssetId.value.toString())
+    }
+    if (baseRevisionId.value) {
+      formData.append('base_revision_id', baseRevisionId.value.toString())
+    }
+    formData.append('save_as_new', saveAsNew ? 'true' : 'false')
     if (project) {
       formData.append('editor_project', JSON.stringify(project))
     }
@@ -799,13 +819,18 @@ async function handleSave() {
     hasChanges.value = false
 
     const newMediaId = response.data.media_id
+    const savedAssetId = response.data.asset_id
     console.log('[ImageEditor] Navigating to new media:', newMediaId)
 
     // Apply auto-markers to the new media item
     if (editorAutoMarkerIds.value.length > 0) {
       try {
         await Promise.all(
-          editorAutoMarkerIds.value.map(markerId => addMarkerToMedia(newMediaId, markerId))
+          editorAutoMarkerIds.value.map(markerId => (
+            savedAssetId
+              ? addMarkerToAsset(savedAssetId, markerId)
+              : addMarkerToMedia(newMediaId, markerId)
+          ))
         )
         console.log('[ImageEditor] Applied auto-markers:', editorAutoMarkerIds.value)
       } catch (markerErr) {

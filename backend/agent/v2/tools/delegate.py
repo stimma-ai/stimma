@@ -58,7 +58,7 @@ def _get_delegate_tools_schema() -> list[dict]:
 
 @tool(
     name="delegate",
-    description="Spawn a subagent for bulk or isolated work. The subagent shares your workspace and tools (except delegate, ask_user, and show) and returns a summary when done. The subagent's response will contain media_ids — pass them to show(media_ids=[...]) to display results to the user.",
+    description="Spawn a subagent for bulk or isolated work. The subagent shares your workspace and tools (except delegate, ask_user, and show) and returns a summary when done. The subagent's response will contain media_ids — pass them to show(media_ids=[...], role='final' or 'intermediate') to classify and display them.",
     parameters=[
         ToolParameter(
             name="task",

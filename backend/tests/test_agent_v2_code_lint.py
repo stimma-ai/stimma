@@ -27,7 +27,7 @@ def test_assigned_but_never_used_warns():
 def test_assigned_then_attribute_access_warns():
     code = TOOL_IMPORT + (
         'r = flux_klein_9b(prompt="a cat")\n'
-        "stimma.show(r.media_id)\n"
+        "stimma.show(r.media_id, role='final')\n"
     )
     assert any("must await" in m for m in _messages(code))
 

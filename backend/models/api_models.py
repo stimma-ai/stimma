@@ -22,6 +22,9 @@ class TagResponse(BaseModel):
 
 class MediaItemResponse(BaseModel):
     id: int
+    # Stable browser identity when this Media is a committed Asset Revision.
+    asset_id: Optional[int] = None
+    revision_id: Optional[int] = None
     file_hash: str
     file_path: str
     file_size: int

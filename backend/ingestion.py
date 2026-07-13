@@ -1234,6 +1234,12 @@ class MediaIngestion:
                         if metadata.get('raw_metadata'):
                             item.raw_metadata = metadata['raw_metadata']
 
+                    # Folder-scanned files remain user-owned external sources.
+                    # The expected hash makes later in-place changes create a
+                    # new Media identity instead of mutating old history.
+                    from storage_service import register_external_media
+                    await register_external_media(session, media=item)
+
                     await session.commit()
                     log.debug(f"METADATA: Extracted for {file_path_str}")
 

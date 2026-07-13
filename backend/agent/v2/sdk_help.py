@@ -33,7 +33,7 @@ Example:
   from stimma.tools.text_to_image import flux_schnell
 
   result = await flux_schnell(prompt="a cat in a garden", width=1024, height=1024)
-  stimma.show(result)
+  stimma.show(result, role="final")
 
 Parallel execution:
   Use asyncio.gather() for independent batches such as prompt or seed sweeps.""",
@@ -57,27 +57,27 @@ Example:
     ),
     "show": SDKMethodHelp(
         name="show",
-        signature="stimma.show(items, *, title=None)",
+        signature="stimma.show(items, *, role='intermediate'|'final', title=None)",
         summary="Display media to the user. Sync; do not await.",
         details="""\
 Display one or more images/videos to the user. Items can be ToolResult objects,
 media IDs, workspace paths, or lists of those values.
 
 Example:
-  stimma.show(result, title="Final")
-  stimma.show([a, b, c], title="Variations")""",
+  stimma.show(result, role="final", title="Final")
+  stimma.show([a, b, c], role="intermediate", title="Work in progress")""",
         group="display",
         is_async=False,
     ),
     "show_grid": SDKMethodHelp(
         name="show_grid",
-        signature="stimma.show_grid(items, cols=3, *, title=None)",
+        signature="stimma.show_grid(items, cols=3, *, role='intermediate'|'final', title=None)",
         summary="Display media in a grid layout. Sync; do not await.",
         details="""\
 Use this for compact comparison sets.
 
 Example:
-  stimma.show_grid(results, cols=3, title="Prompt sweep")""",
+  stimma.show_grid(results, cols=3, role="final", title="Prompt sweep")""",
         group="display",
         is_async=False,
     ),
@@ -119,8 +119,9 @@ or info.path.""",
         signature="await stimma.library.save(item, tags=None, sources=None, inspired_by=None)",
         summary="Save workspace files or generated results to the media library.",
         details="""\
-Library save is explicit. Generated results shown with stimma.show() may be
-displayed to the user, but save when the user asks to keep a durable asset.
+Library save is explicit. `show(..., role="final")` also commits a durable
+Asset, while `role="intermediate"` only retains Media in the chat for inspection.
+Use save when the user asks to keep something without presenting it.
 `item` accepts a ToolResult, a PIL Image, or a workspace path. When saving an
 image you composed or edited in code (an Image or path rather than a
 ToolResult), pass sources=[media_id, ...] for the images it was made from so
@@ -281,6 +282,6 @@ stimma quick reference (inside run_code / run_file):
   First read .stimma/tools/<category>/ (ls/cat) to get the exact name, then:
     from stimma.tools.<category> import <name_from_catalog>
     r = await <name_from_catalog>(prompt="a cat", width=1024)   # r.media_id, r.path, r.seed
-  stimma.show(r) to display; asyncio.gather() for parallel batches.
+  stimma.show(r, role="final") to commit/display; asyncio.gather() for parallel batches.
   stimma.* also has: .library (search/get/save), .llm(), .show(), .detect_faces().
 NOT available in run_code (use as agent tools outside run_code): create_layout, bash, view_image, ask_user, browse_web, skill"""

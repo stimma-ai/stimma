@@ -137,6 +137,7 @@ log.info(f"TIMING: core.app imported at {time.time() - _startup_time:.2f}s")
 from routes import (
     admin,
     auth,
+    assets,
     boards,
     cloud,
     chats,
@@ -185,6 +186,7 @@ async def root():
 
 # Include all routers
 app.include_router(auth.router)
+app.include_router(assets.router)
 app.include_router(boards.router)
 app.include_router(cloud.router)
 app.include_router(media.router)

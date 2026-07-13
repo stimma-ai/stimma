@@ -622,6 +622,14 @@ async def execute_call_tool(
     _check_failure_block(kwargs.get("workspace_dir"), tool_id, task_type)
 
     queue = get_generation_queue()
+    chat_id = kwargs.get("chat_id")
+    disposition_kwargs = {}
+    if chat_id is not None:
+        disposition_kwargs = {
+            "output_disposition": "context",
+            "output_context_kind": "chat",
+            "output_context_id": str(chat_id),
+        }
     job_id = await queue.submit_job(
         generator_name=provider.provider_id,
         model_name=tool_descriptor.name,
@@ -631,6 +639,7 @@ async def execute_call_tool(
         task_type=task_type,
         generator_instance_id=kwargs.get("generator_instance_id") or "agent",
         project_id=kwargs.get("project_id"),
+        **disposition_kwargs,
     )
 
     # Resolve backend_name for logging and dispatch
@@ -821,7 +830,7 @@ async def call_tool(
     if workspace_filename:
         parts.append(f' workspace_file="{workspace_filename}"')
     parts.append(" />")
-    parts.append(f"Not yet shown to the user. Call show(media_id={media_id}) to display it, or use ![caption](media_id={media_id}) in your response to embed it inline. ")
+    parts.append(f"Not yet shown to the user. Call show(media_id={media_id}, role='final') for a committed result or role='intermediate' for inspection. ")
     parts.append(f"Use media_id {media_id} if you need to reference this output in a follow-up call_tool.")
     if workspace_filename:
         parts.append(f' For create_layout, use src="{workspace_filename}".')

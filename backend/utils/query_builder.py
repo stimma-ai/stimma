@@ -4,6 +4,7 @@ from typing import Optional, Union
 from sqlalchemy import select, or_, and_, func
 from database import (
     MediaItem, Keyword, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage,
+    AssetMarker, AssetTag, ProjectAsset,
     Board, BoardItem, BoardSection, Project, ProjectMedia,
 )
 
@@ -163,6 +164,7 @@ def build_filtered_query(
     exclude_expired: bool = True,
     include_ephemeral: bool = False,
     exclude_category: Optional[str] = None,
+    asset_id_column=None,
 ):
     """
     Apply filters to a query, optionally excluding a specific filter category.
@@ -187,6 +189,10 @@ def build_filtered_query(
         include_ephemeral: When False (default), hide ephemeral media (rows produced by one-shot
             flow-as-tool runs, tagged with ephemeral_run_id). These never belong in any user-facing
             view; this single filter covers /api/media, trash, find-index, and similar-search.
+        asset_id_column: When provided, organization predicates use Asset-level
+            marker/tag/project associations correlated to this Asset ID instead
+            of legacy Media-level associations. Technical predicates continue
+            to resolve against the current primary Media.
         Other args: Filter parameters matching /api/media endpoint
 
     Returns:
@@ -364,44 +370,78 @@ def build_filtered_query(
     if marker_ids:
         marker_id_list = [int(mid.strip()) for mid in marker_ids.split(',') if mid.strip()]
         if marker_id_list:
-            marker_subquery = select(MediaMarker.media_id).where(
-                and_(
-                    MediaMarker.marker_id.in_(marker_id_list),
-                    MediaMarker.source != 'suppressed'
-                )
-            ).distinct()
-            query = query.where(MediaItem.id.in_(marker_subquery))
+            if asset_id_column is not None:
+                marker_exists = select(1).select_from(AssetMarker).where(
+                    AssetMarker.asset_id == asset_id_column,
+                    AssetMarker.marker_id.in_(marker_id_list),
+                    AssetMarker.source != 'suppressed',
+                    AssetMarker.deleted_at.is_(None),
+                ).correlate_except(AssetMarker).exists()
+                query = query.where(marker_exists)
+            else:
+                marker_subquery = select(MediaMarker.media_id).where(
+                    and_(
+                        MediaMarker.marker_id.in_(marker_id_list),
+                        MediaMarker.source != 'suppressed'
+                    )
+                ).distinct()
+                query = query.where(MediaItem.id.in_(marker_subquery))
 
     # Excluded marker filter (item must NOT have any of the specified markers)
     # Only considers visible markers (not suppressed)
     if excluded_marker_ids:
         excluded_marker_id_list = [int(mid.strip()) for mid in excluded_marker_ids.split(',') if mid.strip()]
         if excluded_marker_id_list:
-            excluded_marker_subquery = select(MediaMarker.media_id).where(
-                and_(
-                    MediaMarker.marker_id.in_(excluded_marker_id_list),
-                    MediaMarker.source != 'suppressed'
-                )
-            ).distinct()
-            query = query.where(MediaItem.id.notin_(excluded_marker_subquery))
+            if asset_id_column is not None:
+                marker_exists = select(1).select_from(AssetMarker).where(
+                    AssetMarker.asset_id == asset_id_column,
+                    AssetMarker.marker_id.in_(excluded_marker_id_list),
+                    AssetMarker.source != 'suppressed',
+                    AssetMarker.deleted_at.is_(None),
+                ).correlate_except(AssetMarker).exists()
+                query = query.where(~marker_exists)
+            else:
+                excluded_marker_subquery = select(MediaMarker.media_id).where(
+                    and_(
+                        MediaMarker.marker_id.in_(excluded_marker_id_list),
+                        MediaMarker.source != 'suppressed'
+                    )
+                ).distinct()
+                query = query.where(MediaItem.id.notin_(excluded_marker_subquery))
 
     # Tag filter (OR logic - item must have at least one of the specified tags)
     if exclude_category != 'tags':
         if tag_ids:
             tag_id_list = [int(tid.strip()) for tid in tag_ids.split(',') if tid.strip()]
             if tag_id_list:
-                tag_subquery = select(MediaTag.media_id).where(
-                    MediaTag.tag_id.in_(tag_id_list)
-                ).distinct()
-                query = query.where(MediaItem.id.in_(tag_subquery))
+                if asset_id_column is not None:
+                    tag_exists = select(1).select_from(AssetTag).where(
+                        AssetTag.asset_id == asset_id_column,
+                        AssetTag.tag_id.in_(tag_id_list),
+                        AssetTag.deleted_at.is_(None),
+                    ).correlate_except(AssetTag).exists()
+                    query = query.where(tag_exists)
+                else:
+                    tag_subquery = select(MediaTag.media_id).where(
+                        MediaTag.tag_id.in_(tag_id_list)
+                    ).distinct()
+                    query = query.where(MediaItem.id.in_(tag_subquery))
 
         if excluded_tag_ids:
             excluded_tag_id_list = [int(tid.strip()) for tid in excluded_tag_ids.split(',') if tid.strip()]
             if excluded_tag_id_list:
-                excluded_tag_subquery = select(MediaTag.media_id).where(
-                    MediaTag.tag_id.in_(excluded_tag_id_list)
-                ).distinct()
-                query = query.where(MediaItem.id.notin_(excluded_tag_subquery))
+                if asset_id_column is not None:
+                    tag_exists = select(1).select_from(AssetTag).where(
+                        AssetTag.asset_id == asset_id_column,
+                        AssetTag.tag_id.in_(excluded_tag_id_list),
+                        AssetTag.deleted_at.is_(None),
+                    ).correlate_except(AssetTag).exists()
+                    query = query.where(~tag_exists)
+                else:
+                    excluded_tag_subquery = select(MediaTag.media_id).where(
+                        MediaTag.tag_id.in_(excluded_tag_id_list)
+                    ).distinct()
+                    query = query.where(MediaItem.id.notin_(excluded_tag_subquery))
 
     # Project membership filter. Specific project include/exclude work like tags; has_project is a
     # tri-state existence predicate (in any project / in no project). Soft-deleted projects never
@@ -410,40 +450,56 @@ def build_filtered_query(
         if project_ids:
             project_id_list = [int(pid.strip()) for pid in project_ids.split(',') if pid.strip()]
             if project_id_list:
-                project_subquery = select(ProjectMedia.media_id).join(
-                    Project, Project.id == ProjectMedia.project_id
+                membership_model = ProjectAsset if asset_id_column is not None else ProjectMedia
+                identity_column = membership_model.asset_id if asset_id_column is not None else membership_model.media_id
+                project_subquery = select(identity_column).join(
+                    Project, Project.id == membership_model.project_id
                 ).where(
-                    and_(
-                        ProjectMedia.project_id.in_(project_id_list),
-                        Project.deleted_at.is_(None),
-                    )
+                    membership_model.project_id.in_(project_id_list),
+                    Project.deleted_at.is_(None),
+                    *([membership_model.deleted_at.is_(None)] if asset_id_column is not None else []),
                 ).distinct()
-                query = query.where(MediaItem.id.in_(project_subquery))
+                query = query.where(
+                    asset_id_column.in_(project_subquery)
+                    if asset_id_column is not None
+                    else MediaItem.id.in_(project_subquery)
+                )
 
         if excluded_project_ids:
             excluded_project_id_list = [int(pid.strip()) for pid in excluded_project_ids.split(',') if pid.strip()]
             if excluded_project_id_list:
-                excluded_project_subquery = select(ProjectMedia.media_id).join(
-                    Project, Project.id == ProjectMedia.project_id
+                membership_model = ProjectAsset if asset_id_column is not None else ProjectMedia
+                identity_column = membership_model.asset_id if asset_id_column is not None else membership_model.media_id
+                excluded_project_subquery = select(identity_column).join(
+                    Project, Project.id == membership_model.project_id
                 ).where(
-                    and_(
-                        ProjectMedia.project_id.in_(excluded_project_id_list),
-                        Project.deleted_at.is_(None),
-                    )
+                    membership_model.project_id.in_(excluded_project_id_list),
+                    Project.deleted_at.is_(None),
+                    *([membership_model.deleted_at.is_(None)] if asset_id_column is not None else []),
                 ).distinct()
-                query = query.where(MediaItem.id.notin_(excluded_project_subquery))
+                query = query.where(
+                    asset_id_column.notin_(excluded_project_subquery)
+                    if asset_id_column is not None
+                    else MediaItem.id.notin_(excluded_project_subquery)
+                )
 
         if has_project is not None:
             # correlate(MediaItem) keeps this EXISTS pinned to the outer row even when the enclosing
             # query joins project_media itself (e.g. the filter-counts facet queries).
+            membership_model = ProjectAsset if asset_id_column is not None else ProjectMedia
             membership_exists = (
-                select(1).select_from(ProjectMedia)
-                .join(Project, Project.id == ProjectMedia.project_id)
+                select(1).select_from(membership_model)
+                .join(Project, Project.id == membership_model.project_id)
                 .where(
-                    ProjectMedia.media_id == MediaItem.id,
+                    (
+                        membership_model.asset_id == asset_id_column
+                        if asset_id_column is not None
+                        else membership_model.media_id == MediaItem.id
+                    ),
                     Project.deleted_at.is_(None),
+                    *([membership_model.deleted_at.is_(None)] if asset_id_column is not None else []),
                 )
-                .correlate(MediaItem)
+                .correlate_except(membership_model, Project)
                 .exists()
             )
             query = query.where(membership_exists if has_project else ~membership_exists)
