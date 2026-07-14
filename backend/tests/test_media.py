@@ -430,7 +430,7 @@ class TestMediaWebSocketEvents:
     """Tests for WebSocket events emitted on media changes."""
 
     async def test_delete_media_broadcasts_event(self, client: AsyncClient, seeded_media):
-        """Test that deleting media broadcasts media_deleted event."""
+        """Test that the compatibility route broadcasts canonical Asset state."""
         media_id = seeded_media[0].id
 
         mock_ws = MockWebSocketManager()
@@ -441,8 +441,7 @@ class TestMediaWebSocketEvents:
             response = await client.delete(f"/api/media/{media_id}")
             assert response.status_code == 200
 
-            # Check that media_deleted was broadcast
-            events = mock_ws.get_broadcasts("media_deleted")
+            events = mock_ws.get_broadcasts("asset_trashed")
             assert len(events) >= 1
 
     async def test_marker_change_broadcasts_media_updated(self, client: AsyncClient, seeded_media, marker_ids):
@@ -466,11 +465,15 @@ class TestMediaWebSocketEvents:
 
 @pytest.fixture
 async def seeded_media(db_session):
-    """Create test media items for this module."""
+    """Create Asset-backed payloads for this module."""
+    from asset_service import create_asset_from_media
     from tests.helpers.media import create_test_media
 
     async with db_session() as session:
         items = await create_test_media(session, count=5)
+        for item in items:
+            await create_asset_from_media(session, media_id=item.id)
+        await session.commit()
         yield items
 
 

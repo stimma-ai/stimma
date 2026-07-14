@@ -4,45 +4,59 @@ from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
-from database import AssetRevision, MediaMarker, Marker, MediaItem
+from database import Asset, AssetMarker, AssetRevision, Marker, MediaItem, MediaMarker
 from config import get_settings
 from core.dependencies import get_db_session
 from core.profile_context import get_current_profile
 from models.api_models import MarkerResponse, BulkMarkerRequest
-from utils.websocket import ws_manager, broadcast_media_updated
-from utils.background_tasks import clear_auto_delete_for_media
+from utils.websocket import ws_manager
+from asset_association_service import media_compatibility_projections
 
 
 async def _get_active_markers(session, media_id: int) -> list:
-    """Get active (non-suppressed) markers for a media item."""
-    result = await session.execute(
-        select(Marker)
-        .join(MediaMarker, MediaMarker.marker_id == Marker.id)
-        .where(MediaMarker.media_id == media_id)
-        .where(MediaMarker.source != 'suppressed')
-    )
-    return [MarkerResponse(**m.to_dict()).dict() for m in result.scalars().all()]
+    """Compatibility projection of canonical Asset markers by Media id."""
+    from asset_association_service import asset_for_media
+
+    asset = await asset_for_media(session, media_id)
+    if asset is None:
+        return []
+    rows = (
+        await session.execute(
+            select(AssetMarker, Marker)
+            .join(Marker, Marker.id == AssetMarker.marker_id)
+            .where(
+                AssetMarker.asset_id == asset.id,
+                AssetMarker.deleted_at.is_(None),
+                AssetMarker.source != "suppressed",
+            )
+        )
+    ).all()
+    return [
+        {**MarkerResponse(**marker.to_dict()).dict(), "source": association.source}
+        for association, marker in rows
+    ]
 
 router = APIRouter(prefix="/api", tags=["markers"])
 
 
-async def _mirror_markers_to_assets(session: AsyncSession, media_ids: list[int]) -> None:
-    from asset_association_service import mirror_media_associations_to_asset
-
-    rows = (
-        await session.execute(
-            select(AssetRevision).where(
-                AssetRevision.primary_media_id.in_(media_ids),
-                AssetRevision.deleted_at.is_(None),
-            )
+async def _broadcast_marker_update(
+    session: AsyncSession, media_id: int, asset_id: int, markers: list[dict]
+) -> None:
+    media = await session.get(MediaItem, media_id)
+    if media is not None:
+        projection = (await media_compatibility_projections(session, [media]))[0]
+        await ws_manager.broadcast(
+            "media_updated",
+            {
+                "media_id": media_id,
+                "asset_id": asset_id,
+                "fields": ["markers"],
+                "media": {**projection, "asset_id": asset_id, "markers": markers},
+            },
         )
-    ).scalars().all()
-    for revision in rows:
-        await mirror_media_associations_to_asset(
-            session, media_id=revision.primary_media_id, asset_id=revision.asset_id
-        )
-    if rows:
-        await session.commit()
+    await ws_manager.broadcast(
+        "assets_updated", {"asset_ids": [asset_id], "fields": ["markers"]}
+    )
 
 @router.get("/markers", response_model=List[MarkerResponse])
 async def get_markers(session: AsyncSession = Depends(get_db_session)):
@@ -74,31 +88,42 @@ async def get_recently_marked_media(
     """Get media items sorted by most recent marker assignment date."""
     from routes.media import MediaItemResponse
 
-    # Subquery: for each media item, get the most recent marker assignment time
+    # Subquery: for each Asset, get the most recent marker assignment time.
     latest_mark = (
         select(
-            MediaMarker.media_id,
-            func.max(MediaMarker.created_at).label('latest_marked_at')
+            AssetMarker.asset_id,
+            func.max(AssetMarker.created_at).label('latest_marked_at')
         )
-        .where(MediaMarker.source != 'suppressed')
-        .group_by(MediaMarker.media_id)
+        .where(
+            AssetMarker.deleted_at.is_(None),
+            AssetMarker.source != "suppressed",
+        )
+        .group_by(AssetMarker.asset_id)
         .subquery()
     )
 
-    # Join with MediaItem, exclude deleted/hidden, order by most recently marked
+    # Return current payloads while retaining explicit Asset identity.
     query = (
-        select(MediaItem)
-        .join(latest_mark, MediaItem.id == latest_mark.c.media_id)
-        .where(MediaItem.deleted_at.is_(None))
+        select(Asset, AssetRevision, MediaItem)
+        .join(latest_mark, Asset.id == latest_mark.c.asset_id)
+        .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+        .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
+        .where(
+            Asset.state == "active",
+            Asset.deleted_at.is_(None),
+            AssetRevision.deleted_at.is_(None),
+            MediaItem.deleted_at.is_(None),
+        )
         .where(MediaItem.file_hash.isnot(None))
         .order_by(latest_mark.c.latest_marked_at.desc())
         .limit(page_size)
     )
 
-    result = await session.execute(query)
-    items = result.scalars().all()
-
-    media_items = [MediaItemResponse(**item.to_dict()) for item in items]
+    rows = (await session.execute(query)).all()
+    projections = await media_compatibility_projections(
+        session, [media for _, _, media in rows]
+    )
+    media_items = [MediaItemResponse(**item) for item in projections]
     return {"items": media_items}
 
 
@@ -108,14 +133,7 @@ async def get_media_markers(
     session: AsyncSession = Depends(get_db_session)
 ):
     """Get all markers for a specific media item."""
-    result = await session.execute(
-        select(Marker)
-        .join(MediaMarker, MediaMarker.marker_id == Marker.id)
-        .where(MediaMarker.media_id == media_id)
-        .where(MediaMarker.source != 'suppressed')
-    )
-    markers = result.scalars().all()
-    return [MarkerResponse(**m.to_dict()) for m in markers]
+    return await _get_active_markers(session, media_id)
 
 
 @router.post("/media/markers/batch-get")
@@ -127,20 +145,10 @@ async def batch_get_media_markers(
     if not media_ids:
         return {}
 
-    result = await session.execute(
-        select(MediaMarker.media_id, Marker)
-        .join(Marker, MediaMarker.marker_id == Marker.id)
-        .where(MediaMarker.media_id.in_(media_ids))
-        .where(MediaMarker.source != 'suppressed')
-    )
-    rows = result.all()
-
-    # Group markers by media_id
-    markers_by_media = {mid: [] for mid in media_ids}
-    for media_id, marker in rows:
-        markers_by_media[media_id].append(MarkerResponse(**marker.to_dict()).dict())
-
-    return markers_by_media
+    return {
+        media_id: await _get_active_markers(session, media_id)
+        for media_id in media_ids
+    }
 
 
 @router.post("/media/{media_id}/markers/{marker_id}")
@@ -163,42 +171,32 @@ async def add_marker_to_media(
     if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
 
-    # Check if already exists
-    existing_result = await session.execute(
-        select(MediaMarker).where(
-            and_(MediaMarker.media_id == media_id, MediaMarker.marker_id == marker_id)
-        )
+    from asset_association_service import (
+        asset_for_media,
+        mirror_media_associations_to_asset,
+        set_asset_marker,
     )
-    existing = existing_result.scalar_one_or_none()
 
-    if existing:
-        if existing.source == 'manual':
-            await clear_auto_delete_for_media(session, [media_id], ws_manager)
-            await _mirror_markers_to_assets(session, [media_id])
-            markers = await _get_active_markers(session, media_id)
-            return {"status": "already_exists", "message": "Marker already added to media", "markers": markers}
-        # If suppressed or auto, upgrade to manual
-        existing.source = 'manual'
-        await session.commit()
-    else:
-        # Add marker with manual source
-        media_marker = MediaMarker(media_id=media_id, marker_id=marker_id, source='manual')
-        session.add(media_marker)
-        await session.commit()
-
-    # Clear auto-delete for marked item
-    await clear_auto_delete_for_media(session, [media_id], ws_manager)
-    await _mirror_markers_to_assets(session, [media_id])
-
-    # Broadcast media_updated event with full media object
-    media_result = await session.execute(select(MediaItem).where(MediaItem.id == media_id))
-    media = media_result.scalar_one_or_none()
-    if media:
-        await broadcast_media_updated(media, ["markers"], session)
-
-    # Return updated markers so frontend can skip a separate GET
+    asset = await asset_for_media(
+        session, media_id, promote=True, origin_type="marker_promotion"
+    )
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    await mirror_media_associations_to_asset(
+        session, media_id=media_id, asset_id=asset.id
+    )
+    changed = await set_asset_marker(
+        session, asset_id=asset.id, marker_id=marker_id, add=True
+    )
+    await session.commit()
     markers = await _get_active_markers(session, media_id)
-    return {"status": "success", "message": "Marker added to media", "markers": markers}
+    await _broadcast_marker_update(session, media_id, asset.id, markers)
+    return {
+        "status": "success" if changed else "already_exists",
+        "message": "Marker added to Asset",
+        "asset_id": asset.id,
+        "markers": markers,
+    }
 
 
 @router.delete("/media/{media_id}/markers/{marker_id}")
@@ -214,36 +212,37 @@ async def remove_marker_from_media(
     if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
 
-    result = await session.execute(
+    from asset_association_service import (
+        asset_for_media,
+        mirror_media_associations_to_asset,
+        set_asset_marker,
+    )
+
+    legacy_row = await session.scalar(
         select(MediaMarker).where(
-            and_(MediaMarker.media_id == media_id, MediaMarker.marker_id == marker_id)
+            MediaMarker.media_id == media_id,
+            MediaMarker.marker_id == marker_id,
         )
     )
-    media_marker = result.scalar_one_or_none()
-
-    if not media_marker:
-        raise HTTPException(status_code=404, detail="Marker not found on media")
-
-    if media_marker.source == 'auto':
-        # Auto-marker: suppress instead of delete
-        media_marker.source = 'suppressed'
-        await session.commit()
-    else:
-        # Manual or suppressed: delete entirely
-        await session.delete(media_marker)
-        await session.commit()
-
-    # Fetch the media item for the broadcast
-    media_result = await session.execute(select(MediaItem).where(MediaItem.id == media_id))
-    media = media_result.scalar_one_or_none()
-
-    # Broadcast media_updated event with full media object
-    if media:
-        await broadcast_media_updated(media, ["markers"], session)
-
-    # Return updated markers so frontend can skip a separate GET
+    asset = await asset_for_media(
+        session,
+        media_id,
+        promote=legacy_row is not None,
+        origin_type="marker_migration",
+    )
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Marker not found on Asset")
+    await mirror_media_associations_to_asset(
+        session, media_id=media_id, asset_id=asset.id
+    )
+    if not await set_asset_marker(
+        session, asset_id=asset.id, marker_id=marker_id, add=False
+    ):
+        raise HTTPException(status_code=404, detail="Marker not found on Asset")
+    await session.commit()
     markers = await _get_active_markers(session, media_id)
-    return {"status": "success", "message": "Marker removed from media", "markers": markers}
+    await _broadcast_marker_update(session, media_id, asset.id, markers)
+    return {"status": "success", "message": "Marker removed from Asset", "markers": markers}
 
 
 @router.post("/media/batch/markers")
@@ -258,81 +257,49 @@ async def bulk_marker_operation(
     if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
 
-    if request.add:
-        # Add markers
-        added = 0
-        for media_id in request.media_ids:
-            # Check if already exists
-            existing_result = await session.execute(
-                select(MediaMarker).where(
-                    and_(MediaMarker.media_id == media_id, MediaMarker.marker_id == request.marker_id)
-                )
-            )
-            existing = existing_result.scalar_one_or_none()
+    from asset_association_service import (
+        asset_ids_for_media_ids,
+        mirror_media_associations_to_asset,
+        set_asset_marker,
+    )
 
-            if existing:
-                if existing.source != 'manual':
-                    # Upgrade suppressed/auto to manual
-                    existing.source = 'manual'
-                    added += 1
-            else:
-                media_marker = MediaMarker(media_id=media_id, marker_id=request.marker_id, source='manual')
-                session.add(media_marker)
-                added += 1
-
-        await session.commit()
-
-        # The mark action is itself retention, including idempotent re-adds.
-        await clear_auto_delete_for_media(session, request.media_ids, ws_manager)
-        await _mirror_markers_to_assets(session, request.media_ids)
-
-        # Fetch all affected media items and broadcast updates
-        media_result = await session.execute(
-            select(MediaItem).where(MediaItem.id.in_(request.media_ids))
+    mapping = await asset_ids_for_media_ids(
+        session,
+        request.media_ids,
+        promote=request.add,
+        origin_type="marker_promotion",
+    )
+    changed = 0
+    for media_id, asset_id in mapping.items():
+        await mirror_media_associations_to_asset(
+            session, media_id=media_id, asset_id=asset_id
         )
-        media_items = media_result.scalars().all()
-        await broadcast_media_updated(media_items, ["markers"], session)
+        changed += int(
+            await set_asset_marker(
+                session,
+                asset_id=asset_id,
+                marker_id=request.marker_id,
+                add=request.add,
+            )
+        )
+    await session.commit()
+    for media_id, asset_id in mapping.items():
+        markers = await _get_active_markers(session, media_id)
+        await _broadcast_marker_update(session, media_id, asset_id, markers)
 
-        if added > 0:
+    if request.add:
+        if changed > 0:
             from telemetry import get_telemetry_client
             from telemetry_props import marker_name_for_telemetry
             get_telemetry_client().track("media_marked", {
-                "count": added,
+                "count": changed,
                 # Catalog fix #4: shipped default names pass literally,
                 # user-created/renamed markers egress as "custom".
                 "markerName": marker_name_for_telemetry(marker.name),
             })
 
-        return {"status": "success", "added": added, "total": len(request.media_ids)}
-    else:
-        # Remove markers
-        removed = 0
-        for media_id in request.media_ids:
-            result = await session.execute(
-                select(MediaMarker).where(
-                    and_(MediaMarker.media_id == media_id, MediaMarker.marker_id == request.marker_id)
-                )
-            )
-            media_marker = result.scalar_one_or_none()
-            if media_marker:
-                if media_marker.source == 'auto':
-                    # Auto-marker: suppress instead of delete
-                    media_marker.source = 'suppressed'
-                else:
-                    # Manual or suppressed: delete entirely
-                    await session.delete(media_marker)
-                removed += 1
-
-        await session.commit()
-
-        # Fetch all affected media items and broadcast updates
-        media_result = await session.execute(
-            select(MediaItem).where(MediaItem.id.in_(request.media_ids))
-        )
-        media_items = media_result.scalars().all()
-        await broadcast_media_updated(media_items, ["markers"], session)
-
-        return {"status": "success", "removed": removed, "total": len(request.media_ids)}
+        return {"status": "success", "added": changed, "total": len(mapping)}
+    return {"status": "success", "removed": changed, "total": len(mapping)}
 
 
 # ===== TAGS =====

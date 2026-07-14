@@ -47,6 +47,23 @@ async def wait_for_delete_operation(client: AsyncClient, operation_id: int, time
     raise AssertionError(f"Delete operation {operation_id} did not finish in time")
 
 
+async def wait_for_delete_operations(client: AsyncClient, payload: dict):
+    operations = payload.get("operations") or []
+    if not operations and payload.get("operation"):
+        operations = [payload["operation"]]
+    return [
+        await wait_for_delete_operation(client, operation["id"])
+        for operation in operations
+    ]
+
+
+async def create_trashable_media(session, **kwargs):
+    """Create Media with the Asset root required by the Trash lifecycle."""
+    media = await create_media_item(session, **kwargs)
+    await create_asset_from_media(session, media_id=media.id)
+    return media
+
+
 class TestSoftDelete:
     """Tests for soft delete (trash) operations."""
 
@@ -159,9 +176,7 @@ class TestTrashListing:
         """Test listing trash when empty."""
         # Empty trash first (may have items from previous tests)
         delete_response = await client.delete("/api/trash")
-        operation = delete_response.json().get("operation")
-        if operation:
-            await wait_for_delete_operation(client, operation["id"])
+        await wait_for_delete_operations(client, delete_response.json())
 
         response = await client.get("/api/trash")
         assert response.status_code == 200
@@ -421,8 +436,8 @@ class TestPermanentDelete:
         self, client: AsyncClient, db_session, tmp_path
     ):
         async with db_session() as session:
-            source = await create_media_item(session, file_path=tmp_path / "source.png")
-            edited = await create_media_item(session, file_path=tmp_path / "edited.png")
+            source = await create_trashable_media(session, file_path=tmp_path / "source.png")
+            edited = await create_trashable_media(session, file_path=tmp_path / "edited.png")
             edited.has_editor_sidecar = True
             sidecar = tmp_path / "edited.png.stimmaedit.json"
             sidecar.write_text(
@@ -466,10 +481,9 @@ class TestPermanentDelete:
             )
             assert artifact.owner_kind == "media"
 
-        # Module-scoped DB fixtures intentionally persist across this file; put
-        # the blocked source back so later empty-trash/count tests stay isolated.
-        # Restore correctly refuses while a durable deletion remains active;
-        # cancel the synthetic failed operation directly for fixture cleanup.
+        # Asset identity deletion is already final; the failed cleanup remains
+        # retryable, but there is no Asset root to restore. Cancel the synthetic
+        # failed operation so it does not pollute later module-scoped tests.
         restore = await client.post(f"/api/trash/{source_id}/restore")
         assert restore.status_code == 409
         async with db_session() as session:
@@ -484,14 +498,14 @@ class TestPermanentDelete:
             await session.delete(failed_operation)
             await session.commit()
         restore = await client.post(f"/api/trash/{source_id}/restore")
-        assert restore.status_code == 200
+        assert restore.status_code == 409
 
     async def test_deleting_source_and_dependent_edit_together_succeeds(
         self, client: AsyncClient, db_session, tmp_path
     ):
         async with db_session() as session:
-            source = await create_media_item(session, file_path=tmp_path / "source-all.png")
-            edited = await create_media_item(session, file_path=tmp_path / "edited-all.png")
+            source = await create_trashable_media(session, file_path=tmp_path / "source-all.png")
+            edited = await create_trashable_media(session, file_path=tmp_path / "edited-all.png")
             edited.has_editor_sidecar = True
             sidecar = tmp_path / "edited-all.png.stimmaedit.json"
             sidecar.write_text(
@@ -509,12 +523,18 @@ class TestPermanentDelete:
         response = await client.post(
             "/api/trash/batch/delete", json={"media_ids": media_ids}
         )
-        operation = await wait_for_delete_operation(
-            client, response.json()["operation"]["id"]
-        )
+        operations = await wait_for_delete_operations(client, response.json())
+        failed = [operation for operation in operations if operation["status"] == "failed"]
+        completed = [operation for operation in operations if operation["status"] == "completed"]
+        assert len(failed) == 1
+        assert sum(operation["deleted_items"] for operation in completed) == 1
 
-        assert operation["status"] == "completed"
-        assert operation["deleted_items"] == 2
+        # Once the dependent edit is gone, the retained source cleanup can be
+        # retried and completes.
+        retried = await client.post(f"/api/delete-operations/{failed[0]['id']}/retry")
+        assert retried.status_code == 202
+        source_cleanup = await wait_for_delete_operation(client, failed[0]["id"])
+        assert source_cleanup["status"] == "completed"
         assert not sidecar.exists()
 
     async def test_permanent_delete_not_in_trash(self, client: AsyncClient, seeded_media):
@@ -547,8 +567,8 @@ class TestPermanentDelete:
         data = response.json()
         assert data["status"] == "accepted"
         assert data["accepted"] == 3
-        operation = await wait_for_delete_operation(client, data["operation"]["id"])
-        assert operation["deleted_items"] == 3
+        operations = await wait_for_delete_operations(client, data)
+        assert sum(operation["deleted_items"] for operation in operations) == 3
 
         # Verify trash is empty of these items
         trash_response = await client.get("/api/trash")
@@ -573,8 +593,8 @@ class TestPermanentDelete:
 
         data = response.json()
         assert data["status"] == "accepted"
-        operation = await wait_for_delete_operation(client, data["operation"]["id"])
-        assert operation["deleted_items"] >= 3
+        operations = await wait_for_delete_operations(client, data)
+        assert sum(operation["deleted_items"] for operation in operations) >= 3
 
         # Verify trash is empty
         trash_after = await client.get("/api/trash")
@@ -598,8 +618,8 @@ class TestPermanentDelete:
         reference nulled out.
         """
         async with db_session() as session:
-            result_media = await create_media_item(session, file_path=tmp_path / "gen.png")
-            set_media = await create_media_item(session, file_path=tmp_path / "batch.stimmaset.json")
+            result_media = await create_trashable_media(session, file_path=tmp_path / "gen.png")
+            set_media = await create_trashable_media(session, file_path=tmp_path / "batch.stimmaset.json")
 
             session.add(GenerationJob(
                 status="completed",
@@ -637,8 +657,8 @@ class TestPermanentDelete:
             json={"media_ids": [result_media.id, set_media.id]},
         )
         assert op_response.status_code == 202
-        operation = await wait_for_delete_operation(client, op_response.json()["operation"]["id"])
-        assert operation["status"] == "completed"
+        operations = await wait_for_delete_operations(client, op_response.json())
+        assert all(operation["status"] == "completed" for operation in operations)
 
         async with db_session() as session:
             # Job row tied to the deleted result must be gone — params included.
@@ -658,8 +678,8 @@ class TestPermanentDelete:
 class TestTrashWebSocketEvents:
     """Tests for WebSocket events emitted during trash operations."""
 
-    async def test_soft_delete_broadcasts_media_deleted(self, client: AsyncClient, seeded_media):
-        """Test that soft delete broadcasts media_deleted event."""
+    async def test_soft_delete_broadcasts_asset_trashed(self, client: AsyncClient, seeded_media):
+        """Test that the compatibility route broadcasts canonical Asset state."""
         media_id = seeded_media[0].id
         mock_ws = MockWebSocketManager()
 
@@ -667,12 +687,12 @@ class TestTrashWebSocketEvents:
             response = await client.delete(f"/api/media/{media_id}")
             assert response.status_code == 200
 
-            events = mock_ws.get_broadcasts("media_deleted")
+            events = mock_ws.get_broadcasts("asset_trashed")
             assert len(events) >= 1
-            assert events[0][1]["media_id"] == media_id
+            assert "asset_id" in events[0][1]
 
-    async def test_bulk_delete_broadcasts_media_bulk_deleted(self, client: AsyncClient, seeded_media):
-        """Test that bulk soft delete broadcasts media_bulk_deleted event."""
+    async def test_bulk_delete_broadcasts_assets_trashed(self, client: AsyncClient, seeded_media):
+        """Test that bulk compatibility deletion broadcasts Asset identities."""
         media_ids = [m.id for m in seeded_media[:2]]
         mock_ws = MockWebSocketManager()
 
@@ -683,9 +703,9 @@ class TestTrashWebSocketEvents:
             )
             assert response.status_code == 200
 
-            events = mock_ws.get_broadcasts("media_bulk_deleted")
+            events = mock_ws.get_broadcasts("assets_trashed")
             assert len(events) >= 1
-            assert events[0][1]["count"] == 2
+            assert len(events[0][1]["asset_ids"]) == 2
 
     async def test_restore_broadcasts_media_restored(self, client: AsyncClient, seeded_media):
         """Test that restore broadcasts media_restored event."""
@@ -738,12 +758,11 @@ class TestTrashWebSocketEvents:
                 json={"media_ids": media_ids}
             )
             assert response.status_code == 202
-            operation = await wait_for_delete_operation(client, response.json()["operation"]["id"])
-            assert operation["status"] == "completed"
+            operations = await wait_for_delete_operations(client, response.json())
+            assert all(operation["status"] == "completed" for operation in operations)
 
             events = mock_ws.get_broadcasts("media_permanently_deleted")
-            assert len(events) >= 1
-            assert events[0][1]["count"] == 2
+            assert sum(event[1]["count"] for event in events) == 2
 
     async def test_empty_trash_broadcasts_event(self, client: AsyncClient, seeded_media):
         """Test that empty trash broadcasts trash_emptied event."""
@@ -754,15 +773,15 @@ class TestTrashWebSocketEvents:
 
         mock_ws = MockWebSocketManager()
 
-        with patch("delete_operations.ws_manager", mock_ws):
+        with patch("routes.assets.ws_manager", mock_ws):
             response = await client.delete("/api/trash")
             assert response.status_code == 202
-            operation = await wait_for_delete_operation(client, response.json()["operation"]["id"])
-            assert operation["status"] == "completed"
+            operations = await wait_for_delete_operations(client, response.json())
+            assert all(operation["status"] == "completed" for operation in operations)
 
-            events = mock_ws.get_broadcasts("trash_emptied")
+            events = mock_ws.get_broadcasts("assets_permanently_deleted")
             assert len(events) >= 1
-            assert events[0][1]["count"] >= 2
+            assert len(events[0][1]["asset_ids"]) >= 2
 
     async def test_permanent_delete_scrubs_chat_lineage_and_tool_refs(self, client: AsyncClient, db_session, tmp_path):
         """Permanent delete should rewrite surviving refs to tombstones/nulls."""
@@ -772,7 +791,7 @@ class TestTrashWebSocketEvents:
             await session.commit()
             await session.refresh(chat)
 
-            source = await create_media_item(session, file_path=tmp_path / "source.png")
+            source = await create_trashable_media(session, file_path=tmp_path / "source.png")
             child = await create_media_item(
                 session,
                 file_path=tmp_path / "child.png",
@@ -859,7 +878,7 @@ class TestLineageTombstoning:
     async def test_multi_hop_lineage_tombstone(self, client: AsyncClient, db_session, tmp_path):
         """Delete grandparent A: both child B and grandchild C should have A tombstoned."""
         async with db_session() as session:
-            a = await create_media_item(session, file_path=tmp_path / "a.png")
+            a = await create_trashable_media(session, file_path=tmp_path / "a.png")
             b = await create_media_item(
                 session,
                 file_path=tmp_path / "b.png",
@@ -912,7 +931,7 @@ class TestLineageTombstoning:
     async def test_inspired_by_tombstone(self, client: AsyncClient, db_session, tmp_path):
         """Delete inspiration source: inspired_by should be tombstoned."""
         async with db_session() as session:
-            source = await create_media_item(session, file_path=tmp_path / "inspiration.png")
+            source = await create_trashable_media(session, file_path=tmp_path / "inspiration.png")
             inspired = await create_media_item(
                 session,
                 file_path=tmp_path / "inspired.png",
@@ -943,7 +962,7 @@ class TestLineageTombstoning:
     async def test_delete_does_not_affect_unrelated_media(self, client: AsyncClient, db_session, tmp_path):
         """Deleting one item should not touch unrelated items' metadata."""
         async with db_session() as session:
-            target = await create_media_item(session, file_path=tmp_path / "target.png")
+            target = await create_trashable_media(session, file_path=tmp_path / "target.png")
             unrelated = await create_media_item(
                 session,
                 file_path=tmp_path / "unrelated.png",
@@ -972,7 +991,7 @@ class TestLineageTombstoning:
             await session.commit()
             await session.refresh(chat)
 
-            media = await create_media_item(session, file_path=tmp_path / "m.png")
+            media = await create_trashable_media(session, file_path=tmp_path / "m.png")
             ci = ChatItem(chat_id=chat.id, item_type="assistant_message", media_id=media.id)
             session.add(ci)
             malformed = ChatItem(
@@ -1008,7 +1027,7 @@ class TestLineageTombstoning:
             await session.commit()
             await session.refresh(chat)
 
-            media = await create_media_item(session, file_path=tmp_path / "m.png")
+            media = await create_trashable_media(session, file_path=tmp_path / "m.png")
             original_metadata = {
                 "attachments": [{"media_id": media.id, "filename": "m.png"}],
                 "display_data": {
@@ -1056,8 +1075,8 @@ class TestLineageTombstoning:
     async def test_bulk_delete_tombstones_all(self, client: AsyncClient, db_session, tmp_path):
         """Bulk deleting multiple parents should tombstone all in one pass."""
         async with db_session() as session:
-            a = await create_media_item(session, file_path=tmp_path / "a.png")
-            b = await create_media_item(session, file_path=tmp_path / "b.png")
+            a = await create_trashable_media(session, file_path=tmp_path / "a.png")
+            b = await create_trashable_media(session, file_path=tmp_path / "b.png")
             child = await create_media_item(
                 session,
                 file_path=tmp_path / "child.png",
@@ -1079,8 +1098,8 @@ class TestLineageTombstoning:
         # Trash both
         await client.post("/api/media/batch/delete", json={"media_ids": [a.id, b.id]})
         resp = await client.post("/api/trash/batch/delete", json={"media_ids": [a.id, b.id]})
-        op = await wait_for_delete_operation(client, resp.json()["operation"]["id"])
-        assert op["status"] == "completed"
+        operations = await wait_for_delete_operations(client, resp.json())
+        assert all(operation["status"] == "completed" for operation in operations)
 
         async with db_session() as session:
             meta = json.loads((await session.get(type(child), child.id)).generation_metadata)
@@ -1255,8 +1274,9 @@ class TestRestoreTrashedMediaSilently:
     """The flow runtime calls restore_trashed_media_silently from its
     store-hit path so a cache-hit on a trashed asset re-asserts it as live."""
 
-    async def test_clears_deleted_at_on_trashed_only(self, db_session, seeded_media):
-        from datetime import datetime
+    async def test_restores_trashed_assets_only(self, db_session, seeded_media):
+        from asset_service import trash_asset
+        from database import AssetRevision
         from flow_runtime.production_evaluators import (
             restore_trashed_media_silently,
         )
@@ -1265,30 +1285,36 @@ class TestRestoreTrashedMediaSilently:
         live_id = seeded_media[1].id
 
         async with db_session() as session:
-            item = await session.get(MediaItem, trashed_id)
-            item.deleted_at = datetime.utcnow()
+            revision = await session.scalar(
+                select(AssetRevision).where(AssetRevision.primary_media_id == trashed_id)
+            )
+            await trash_asset(session, asset_id=revision.asset_id)
+            trashed_asset_id = revision.asset_id
             await session.commit()
 
         await restore_trashed_media_silently([trashed_id, live_id, 999_999])
 
         async with db_session() as session:
-            t = await session.get(MediaItem, trashed_id)
-            l = await session.get(MediaItem, live_id)
-            assert t.deleted_at is None
-            assert l.deleted_at is None
+            assert (await session.get(Asset, trashed_asset_id)).state == "active"
+            assert (await session.get(MediaItem, trashed_id)).deleted_at is None
+            assert (await session.get(MediaItem, live_id)).deleted_at is None
 
     async def test_broadcasts_only_when_something_restored(
         self, db_session, seeded_media,
     ):
-        from datetime import datetime
+        from asset_service import trash_asset
+        from database import AssetRevision
         from flow_runtime import production_evaluators
 
         live_id = seeded_media[0].id
         trashed_id = seeded_media[1].id
 
         async with db_session() as session:
-            t = await session.get(MediaItem, trashed_id)
-            t.deleted_at = datetime.utcnow()
+            revision = await session.scalar(
+                select(AssetRevision).where(AssetRevision.primary_media_id == trashed_id)
+            )
+            await trash_asset(session, asset_id=revision.asset_id)
+            trashed_asset_id = revision.asset_id
             await session.commit()
 
         mock_ws = MockWebSocketManager()
@@ -1306,6 +1332,8 @@ class TestRestoreTrashedMediaSilently:
             payload = events[0][1]
             assert payload["media_ids"] == [trashed_id]
             assert payload["count"] == 1
+            asset_events = mock_ws.get_broadcasts("assets_restored")
+            assert asset_events[0][1]["asset_ids"] == [trashed_asset_id]
 
     async def test_empty_input_is_noop(self):
         from flow_runtime.production_evaluators import (
@@ -1319,9 +1347,12 @@ class TestRestoreTrashedMediaSilently:
 
 @pytest.fixture
 async def seeded_media(db_session):
-    """Create test media items for this module."""
+    """Create Asset-backed payloads for Trash lifecycle tests."""
     async with db_session() as session:
         items = await create_test_media(session, count=5)
+        for item in items:
+            await create_asset_from_media(session, media_id=item.id)
+        await session.commit()
         yield items
 
 
@@ -1384,6 +1415,10 @@ async def filtered_trash_media(db_session, client: AsyncClient):
             vlm_caption="Large image",
         )
         items.append(item4)
+
+        for item in items:
+            await create_asset_from_media(session, media_id=item.id)
+        await session.commit()
 
     # Trash the first 3 items (not item4)
     for item in items[:3]:

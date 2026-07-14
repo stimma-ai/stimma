@@ -262,9 +262,8 @@ class UploadService:
                         profile_id=self.profile_id,
                         remove_source=True,
                     )
-                    asset = None
                     if materialize_asset:
-                        asset = await create_asset_from_media(
+                        await create_asset_from_media(
                             session,
                             media_id=media_item.id,
                             origin_type="upload",
@@ -283,9 +282,6 @@ class UploadService:
                     await session.refresh(media_item)
                     if project_id is not None:
                         await attach_media_to_project(session, project_id, media_item.id)
-                        if asset is not None:
-                            from asset_association_service import attach_asset_to_project
-                            await attach_asset_to_project(session, project_id, asset.id)
                         await session.commit()
                     try:
                         from storage_service import cleanup_staged_source

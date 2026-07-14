@@ -26,11 +26,78 @@ from database import (
     Marker,
     MediaItem,
     MediaKeyword,
+    MediaMarker,
+    MediaTag,
     Tag,
 )
 from container_service import create_container_asset_from_media
 from cleanup_service import CleanupService
 from tests.helpers.media import create_media_item
+
+
+@pytest.mark.asyncio
+async def test_media_compatibility_reads_project_only_canonical_asset_state(
+    client, db_session
+):
+    async with db_session() as session:
+        media = await create_media_item(session, file_path="/tmp/canonical-projection.png")
+        asset = await create_asset_from_media(session, media_id=media.id)
+        canonical_marker = Marker(
+            name=f"canonical-marker-{media.id}", icon_svg="<svg/>", color="#111111"
+        )
+        stale_marker = Marker(
+            name=f"stale-marker-{media.id}", icon_svg="<svg/>", color="#222222"
+        )
+        canonical_tag = Tag(tag_text=f"canonical-tag-{media.id}")
+        stale_tag = Tag(tag_text=f"stale-tag-{media.id}")
+        session.add_all([canonical_marker, stale_marker, canonical_tag, stale_tag])
+        await session.flush()
+        session.add_all(
+            [
+                AssetMarker(
+                    asset_id=asset.id,
+                    marker_id=canonical_marker.id,
+                    source="manual",
+                ),
+                AssetTag(asset_id=asset.id, tag_id=canonical_tag.id),
+                MediaMarker(
+                    media_id=media.id,
+                    marker_id=stale_marker.id,
+                    source="manual",
+                ),
+                MediaTag(media_id=media.id, tag_id=stale_tag.id),
+            ]
+        )
+        deadline = datetime.utcnow() + timedelta(minutes=10)
+        asset.expires_at = deadline
+        media.auto_delete_at = deadline + timedelta(days=1)
+        media_id = media.id
+        asset_id = asset.id
+        canonical_marker_id = canonical_marker.id
+        stale_marker_id = stale_marker.id
+        canonical_tag_id = canonical_tag.id
+        stale_tag_id = stale_tag.id
+        await session.commit()
+
+    detail = await client.get(f"/api/media/{media_id}")
+    assert detail.status_code == 200
+    payload = detail.json()
+    assert payload["asset_id"] == asset_id
+    assert payload["asset_state"] == "active"
+    assert payload["expires_at"] == deadline.isoformat()
+    assert {marker["id"] for marker in payload["markers"]} == {canonical_marker_id}
+    assert {tag["id"] for tag in payload["tags"]} == {canonical_tag_id}
+
+    canonical_filter = await client.get(
+        "/api/media", params={"tag_ids": canonical_tag_id}
+    )
+    assert media_id in {item["id"] for item in canonical_filter.json()["items"]}
+    stale_filter = await client.get("/api/media", params={"tag_ids": stale_tag_id})
+    assert media_id not in {item["id"] for item in stale_filter.json()["items"]}
+    stale_marker_filter = await client.get(
+        "/api/media", params={"marker_ids": stale_marker_id}
+    )
+    assert media_id not in {item["id"] for item in stale_marker_filter.json()["items"]}
 
 
 @pytest.mark.asyncio
@@ -53,8 +120,8 @@ async def test_asset_browser_lists_only_assets_and_contextual_endpoint_finds_int
     response = await client.get("/api/assets")
     assert response.status_code == 200
     payload = response.json()
-    assert [item["asset"]["id"] for item in payload["items"]] == [asset.id]
-    assert payload["items"][0]["media"]["id"] == asset_media.id
+    assert asset.id in {item["asset"]["id"] for item in payload["items"]}
+    assert asset_media.id in {item["media"]["id"] for item in payload["items"]}
     assert intermediate.id not in {
         item["media"]["id"] for item in payload["items"]
     }
@@ -101,6 +168,11 @@ async def test_asset_browser_identity_and_curation_survive_current_revision_chan
     assert item["media_id"] == second_media_id
     assert item["revision_count"] == 2
     assert [entry["name"] for entry in item["markers"]] == ["Winner"]
+
+    legacy_items = (await client.get("/api/media")).json()["items"]
+    listed_media_ids = {entry["id"] for entry in legacy_items}
+    assert second_media_id in listed_media_ids
+    assert first_media_id not in listed_media_ids
 
 
 @pytest.mark.asyncio
@@ -684,7 +756,7 @@ async def test_permanent_asset_delete_scrubs_all_weak_identity_references(
 
 
 @pytest.mark.asyncio
-async def test_media_delete_removes_soft_deleted_embedded_container_reference(
+async def test_bare_media_cannot_enter_user_trash_with_only_stale_container_history(
     client, db_session
 ):
     async with db_session() as session:
@@ -705,13 +777,13 @@ async def test_media_delete_removes_soft_deleted_embedded_container_reference(
         target_id = target.id
         member_id = member.id
 
-    await client.delete(f"/api/media/{target_id}")
-    response = await client.delete(f"/api/trash/{target_id}")
-    operation = await _wait_for_delete(client, response.json()["operation"]["id"])
-    assert operation["status"] == "completed"
+    response = await client.delete(f"/api/media/{target_id}")
+    assert response.status_code == 409
+    permanent = await client.delete(f"/api/trash/{target_id}")
+    assert permanent.status_code == 409
     async with db_session() as session:
-        assert await session.get(MediaItem, target_id) is None
-        assert await session.get(ContainerMember, member_id) is None
+        assert await session.get(MediaItem, target_id) is not None
+        assert await session.get(ContainerMember, member_id) is not None
 
 
 @pytest.mark.asyncio

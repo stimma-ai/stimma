@@ -17,12 +17,12 @@ from board_service import serialize_board
 import app_dirs
 from core.logging import get_logger
 from core.profile_context import get_current_profile
-from project_service import attach_media_to_project, infer_project_id_from_workspace_path
+from project_service import infer_project_id_from_workspace_path
 from providers.registry import ProviderRegistry
 from database import (
     Asset, AssetMarker, AssetRevision, AssetTag, BoardAssetItem, ProjectAsset,
-    MediaItem, MediaLineage, Tag, MediaTag,
-    Board, BoardItem, BoardSection, Marker, MediaMarker,
+    MediaItem, MediaLineage, Tag,
+    Board, BoardItem, BoardSection, Marker,
     Keyword, MediaKeyword, MediaToolLineage, Face,
 )
 from generation_metadata import build_parameters, dump_generation_metadata
@@ -1436,14 +1436,6 @@ async def save_workspace_file(
     session.add(media_item)
     await session.flush()  # Get the ID
     effective_project_id = project_id or infer_project_id_from_workspace_path(workspace_dir)
-    if effective_project_id is not None:
-        await attach_media_to_project(session, effective_project_id, media_item.id)
-
-    # Apply tags if provided
-    if save_tags:
-        tag_ids = await _resolve_or_create_tags(session, save_tags)
-        for tag_id in tag_ids:
-            session.add(MediaTag(media_id=media_item.id, tag_id=tag_id))
 
     derived_source_ids = list(provenance.get("source_media_ids") or []) if provenance else []
     for idx, source_media_id in enumerate(derived_source_ids):
@@ -1499,7 +1491,10 @@ async def save_workspace_file(
     asset_id = None
     revision_id = None
     if materialize_asset:
-        from asset_association_service import mirror_media_associations_to_asset
+        from asset_association_service import (
+            attach_asset_to_project,
+            set_asset_tag,
+        )
         from asset_service import create_asset_from_media
         asset = await create_asset_from_media(
             session,
@@ -1507,9 +1502,13 @@ async def save_workspace_file(
             origin_type="library_save",
             idempotency_key=f"library-save:media:{media_item.id}",
         )
-        await mirror_media_associations_to_asset(
-            session, media_id=media_item.id, asset_id=asset.id
-        )
+        if effective_project_id is not None:
+            await attach_asset_to_project(session, effective_project_id, asset.id)
+        if save_tags:
+            for tag_id in await _resolve_or_create_tags(session, save_tags):
+                await set_asset_tag(
+                    session, asset_id=asset.id, tag_id=tag_id, add=True
+                )
         asset_id = asset.id
         revision_id = asset.current_revision_id
 

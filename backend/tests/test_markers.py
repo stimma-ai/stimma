@@ -170,7 +170,7 @@ class TestMarkerRemoval:
 
     async def test_auto_marker_suppression(self, client: AsyncClient, db_session, marker_ids):
         """Test that auto-markers are suppressed (not deleted) when removed."""
-        from database import MediaMarker
+        from database import AssetMarker, AssetRevision, MediaMarker
 
         # Create media item
         async with db_session() as session:
@@ -195,20 +195,27 @@ class TestMarkerRemoval:
         markers = markers_response.json()
         assert not any(m["id"] == marker_ids["favorite"] for m in markers)
 
-        # Verify source is 'suppressed' in DB
+        # Legacy staging is consumed; suppression is durable Asset state.
         async with db_session() as session:
-            from sqlalchemy import select, and_
-            result = await session.execute(
-                select(MediaMarker).where(
-                    and_(
-                        MediaMarker.media_id == media_id,
-                        MediaMarker.marker_id == marker_ids["favorite"]
-                    )
+            from sqlalchemy import select
+            revision = await session.scalar(
+                select(AssetRevision).where(
+                    AssetRevision.primary_media_id == media_id,
+                    AssetRevision.deleted_at.is_(None),
                 )
             )
-            mm = result.scalar_one_or_none()
-            assert mm is not None
-            assert mm.source == "suppressed"
+            marker = await session.scalar(
+                select(AssetMarker).where(
+                    AssetMarker.asset_id == revision.asset_id,
+                    AssetMarker.marker_id == marker_ids["favorite"],
+                    AssetMarker.deleted_at.is_(None),
+                )
+            )
+            assert marker is not None
+            assert marker.source == "suppressed"
+            assert await session.scalar(
+                select(MediaMarker).where(MediaMarker.media_id == media_id)
+            ) is None
 
 
 class TestBulkMarkerOperations:

@@ -294,7 +294,7 @@ class TelemetryClient:
         """
         try:
             from database_registry import get_database_registry
-            from database import Board, MediaItem, Marker, MediaMarker, Chat
+            from database import Asset, AssetMarker, AssetRevision, Board, MediaItem, Marker, Chat
             from utils.query_builder import (
                 IMAGE_FORMATS, VIDEO_FORMATS, AUDIO_FORMATS,
                 TEXT_FORMATS, SET_FORMATS, GRID_FORMATS,
@@ -320,7 +320,6 @@ class TelemetryClient:
             for profile_info in profiles:
                 db = registry.get_database(profile_info["id"])
                 async with db.async_session_maker() as session:
-                    alive = MediaItem.deleted_at.is_(None)
                     result = await session.execute(
                         select(
                             func.count().label("total"),
@@ -330,7 +329,16 @@ class TelemetryClient:
                             func.sum(case((MediaItem.file_format.in_(TEXT_FORMATS), 1), else_=0)).label("documents"),
                             func.sum(case((MediaItem.file_format.in_(SET_FORMATS), 1), else_=0)).label("sets"),
                             func.sum(case((MediaItem.file_format.in_(GRID_FORMATS), 1), else_=0)).label("grids"),
-                        ).where(alive)
+                        )
+                        .select_from(Asset)
+                        .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+                        .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
+                        .where(
+                            Asset.state == "active",
+                            Asset.deleted_at.is_(None),
+                            AssetRevision.deleted_at.is_(None),
+                            MediaItem.deleted_at.is_(None),
+                        )
                     )
                     row = result.one()
                     total_media += row.total or 0
@@ -352,10 +360,16 @@ class TelemetryClient:
                     total_chats += result.scalar() or 0
 
                     result = await session.execute(
-                        select(Marker.name, func.count(MediaMarker.media_id))
-                        .outerjoin(MediaMarker, and_(
-                            MediaMarker.marker_id == Marker.id,
-                            MediaMarker.source != 'suppressed',
+                        select(Marker.name, func.count(Asset.id))
+                        .outerjoin(AssetMarker, and_(
+                            AssetMarker.marker_id == Marker.id,
+                            AssetMarker.deleted_at.is_(None),
+                            AssetMarker.source != 'suppressed',
+                        ))
+                        .outerjoin(Asset, and_(
+                            Asset.id == AssetMarker.asset_id,
+                            Asset.state == "active",
+                            Asset.deleted_at.is_(None),
                         ))
                         .group_by(Marker.id, Marker.name)
                     )

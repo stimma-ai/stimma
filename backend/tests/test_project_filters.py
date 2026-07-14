@@ -18,7 +18,8 @@ from pathlib import Path
 import pytest
 from httpx import AsyncClient
 
-from database import Project, ProjectMedia
+from asset_service import create_asset_from_media
+from database import Project, ProjectAsset
 from tests.helpers.media import create_media_item
 
 
@@ -47,12 +48,17 @@ async def project_media(db_session):
         item_orphan = await create_media_item(session, file_path=Path(f"{folder}/orphan.png"))
         item_deleted = await create_media_item(session, file_path=Path(f"{folder}/deleted.png"))
 
+        assets = {
+            item.id: await create_asset_from_media(session, media_id=item.id)
+            for item in (item_a, item_b, item_ab, item_orphan, item_deleted)
+        }
+
         session.add_all([
-            ProjectMedia(project_id=proj_a.id, media_id=item_a.id),
-            ProjectMedia(project_id=proj_b.id, media_id=item_b.id),
-            ProjectMedia(project_id=proj_a.id, media_id=item_ab.id),
-            ProjectMedia(project_id=proj_b.id, media_id=item_ab.id),
-            ProjectMedia(project_id=proj_deleted.id, media_id=item_deleted.id),
+            ProjectAsset(project_id=proj_a.id, asset_id=assets[item_a.id].id),
+            ProjectAsset(project_id=proj_b.id, asset_id=assets[item_b.id].id),
+            ProjectAsset(project_id=proj_a.id, asset_id=assets[item_ab.id].id),
+            ProjectAsset(project_id=proj_b.id, asset_id=assets[item_ab.id].id),
+            ProjectAsset(project_id=proj_deleted.id, asset_id=assets[item_deleted.id].id),
         ])
         await session.commit()
 

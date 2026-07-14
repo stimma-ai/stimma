@@ -8,19 +8,14 @@ from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_db_session
-from database import Board, BoardSection, Chat, MediaItem, Project, ProjectMedia
+from database import Board, BoardSection, Chat, MediaItem, Project, ProjectAsset, ProjectMedia
 from models.api_models import (
     ProjectCreateRequest,
     ProjectResponse,
     ProjectSummaryResponse,
     ProjectUpdateRequest,
 )
-from project_service import (
-    attach_media_to_project,
-    get_project_or_404,
-    initialize_project_root,
-    remove_media_from_project,
-)
+from project_service import get_project_or_404, initialize_project_root
 from utils.websocket import ws_manager
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -40,7 +35,10 @@ async def _serialize_project(project: Project, session: AsyncSession) -> Project
         )
     )
     asset_count = await session.scalar(
-        select(func.count()).select_from(ProjectMedia).where(ProjectMedia.project_id == project.id)
+        select(func.count()).select_from(ProjectAsset).where(
+            ProjectAsset.project_id == project.id,
+            ProjectAsset.deleted_at.is_(None),
+        )
     )
     return ProjectResponse(
         **project.to_dict(),
@@ -57,11 +55,15 @@ async def list_projects(session: AsyncSession = Depends(get_db_session)):
             Project,
             func.count(func.distinct(Chat.id)).label("chat_count"),
             func.count(func.distinct(Board.id)).label("board_count"),
-            func.count(func.distinct(ProjectMedia.media_id)).label("asset_count"),
+            func.count(func.distinct(ProjectAsset.asset_id)).label("asset_count"),
         )
         .outerjoin(Chat, and_(Chat.project_id == Project.id, Chat.deleted_at.is_(None)))
         .outerjoin(Board, and_(Board.project_id == Project.id, Board.deleted_at.is_(None)))
-        .outerjoin(ProjectMedia, ProjectMedia.project_id == Project.id)
+        .outerjoin(
+            ProjectAsset,
+            (ProjectAsset.project_id == Project.id)
+            & ProjectAsset.deleted_at.is_(None),
+        )
         .where(Project.deleted_at.is_(None))
         .group_by(Project.id)
         .order_by(Project.updated_at.desc(), Project.id.desc())
@@ -170,7 +172,16 @@ async def delete_project(project_id: int, session: AsyncSession = Depends(get_db
             .values(deleted_at=deleted_at, updated_at=deleted_at, is_default=False)
         )
 
-    # Remove project_media edges (assets stay in library)
+    # Assets are independent roots. Soft-delete organizational membership.
+    await session.execute(
+        update(ProjectAsset)
+        .where(
+            ProjectAsset.project_id == project_id,
+            ProjectAsset.deleted_at.is_(None),
+        )
+        .values(deleted_at=deleted_at)
+    )
+    # Historical staging edges have no soft-delete column.
     await session.execute(
         delete(ProjectMedia).where(ProjectMedia.project_id == project_id)
     )
@@ -212,10 +223,22 @@ async def add_media_to_project(
         )
     )
     valid_ids = [row[0] for row in result.all()]
+    from asset_association_service import asset_for_media, attach_asset_to_project
+
+    added = 0
     for media_id in valid_ids:
-        await attach_media_to_project(session, project_id, media_id)
+        asset = await asset_for_media(
+            session,
+            media_id,
+            promote=True,
+            origin_type="project_promotion",
+        )
+        if asset is None:
+            continue
+        await attach_asset_to_project(session, project_id, asset.id)
+        added += 1
     await session.commit()
-    return {"status": "success", "added": len(valid_ids)}
+    return {"status": "success", "added": added}
 
 
 @router.delete("/{project_id}/assets/{media_id}")
@@ -225,7 +248,13 @@ async def remove_project_media(
     session: AsyncSession = Depends(get_db_session),
 ):
     await get_project_or_404(session, project_id)
-    removed = await remove_media_from_project(session, project_id, media_id)
+    from asset_association_service import asset_for_media, detach_asset_from_project
+
+    asset = await asset_for_media(session, media_id)
+    removed = bool(
+        asset
+        and await detach_asset_from_project(session, project_id, asset.id)
+    )
     await session.commit()
     if not removed:
         raise HTTPException(status_code=404, detail="Asset not in project")

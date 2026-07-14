@@ -246,10 +246,10 @@ async def classify_legacy_media(
         )
     )
 
+    # Suppression is durable curation too: it prevents a configured source
+    # marker from reappearing and must survive the Asset cutover.
     curated_ids: set[int] = set(
-        await session.scalars(
-            select(MediaMarker.media_id).where(MediaMarker.source != "suppressed")
-        )
+        await session.scalars(select(MediaMarker.media_id))
     )
     curated_ids.update(await session.scalars(select(MediaTag.media_id)))
     curated_ids.update(await session.scalars(select(ProjectMedia.media_id)))
@@ -567,9 +567,7 @@ async def apply_asset_backfill(
     media_items = list(await session.scalars(select(MediaItem).order_by(MediaItem.id)))
     media_by_id = {media.id: media for media in media_items}
     association_media_ids = set(
-        await session.scalars(
-            select(MediaMarker.media_id).where(MediaMarker.source != "suppressed")
-        )
+        await session.scalars(select(MediaMarker.media_id))
     )
     association_media_ids.update(await session.scalars(select(MediaTag.media_id)))
     association_media_ids.update(await session.scalars(select(ProjectMedia.media_id)))

@@ -12,14 +12,13 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select, update, func
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from PIL import Image, ImageOps
 import io
 import json
 import hashlib
 
 from pydantic import BaseModel
-from database import DeleteOperation, DeleteOperationItem, Face, MediaItem, MediaLineage, MediaMarker, MediaThumbnailCache
+from database import DeleteOperation, DeleteOperationItem, Face, MediaItem, MediaLineage, MediaThumbnailCache
 from core.dependencies import get_db_session
 from core.profile_context import get_current_profile, set_current_profile
 from database_registry import get_database_registry
@@ -2196,17 +2195,21 @@ async def get_media_lineage_tree(
             select(MediaItem).where(
                 MediaItem.id.in_(list(visited)),
                 MediaItem.deleted_at.is_(None)
-            ).options(
-                selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker)
             )
         )
-        media_items = {m.id: m for m in media_result.scalars().all()}
+        media_rows = list(media_result.scalars().all())
+        from asset_association_service import media_compatibility_projections
+
+        media_items = {
+            item["media_id"]: item
+            for item in await media_compatibility_projections(session, media_rows)
+        }
     else:
         media_items = {}
 
     valid_ids = set(media_items.keys())
     nodes = [
-        {"id": mid, "media": media_items[mid].to_dict(), "depth": depth_map.get(mid, 0)}
+        {"id": mid, "media": media_items[mid], "depth": depth_map.get(mid, 0)}
         for mid in valid_ids
     ]
 

@@ -5283,6 +5283,7 @@ onMounted(async () => {
   wsUnsubscribers.push(onWebSocketEvent('media_deleted', handleMediaDeletedWs))
   wsUnsubscribers.push(onWebSocketEvent('media_bulk_deleted', handleMediaBulkDeletedWs))
   wsUnsubscribers.push(onWebSocketEvent('asset_deleted', handleAssetsRemovedWs))
+  wsUnsubscribers.push(onWebSocketEvent('asset_trashed', handleAssetsRemovedWs))
   wsUnsubscribers.push(onWebSocketEvent('assets_trashed', handleAssetsRemovedWs))
   wsUnsubscribers.push(onWebSocketEvent('asset_identity_deleted', handleAssetsRemovedWs))
   if (props.isTrashView) {

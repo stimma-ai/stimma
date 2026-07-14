@@ -33,6 +33,8 @@ interface Tool {
 
 interface MediaItem {
   id: number
+  media_id?: number
+  asset_id?: number
   file_path: string
   file_hash: string
   file_format?: string
@@ -73,10 +75,16 @@ export function useSendToTool() {
     // Use the target task type if provided, otherwise fall back to tool's primary task type
     let effectiveTaskType = targetTaskType || tool.task_type
     // Normalize to an array of full MediaItem records (fetching any bare IDs).
-    const fetchItem = async (v: number | MediaItem): Promise<MediaItem> =>
-      typeof v === 'number' || !v.file_format
-        ? (await axios.get(`/api/media/${typeof v === 'number' ? v : v.id}`)).data
-        : v
+    const fetchItem = async (v: number | MediaItem): Promise<MediaItem> => {
+      const mediaId = typeof v === 'number' ? v : (v.media_id ?? v.id)
+      if (typeof v === 'number' || !v.file_format) {
+        return (await axios.get(`/api/media/${mediaId}`)).data
+      }
+      // Asset browser projections deliberately use id=asset_id. Everything in
+      // tool handoff is payload-level, so normalize id before any content or
+      // reference operation.
+      return { ...v, id: mediaId }
+    }
     let mediaItems: MediaItem[]
     if (Array.isArray(mediaIdOrItems)) {
       mediaItems = await Promise.all(mediaIdOrItems.map(fetchItem))

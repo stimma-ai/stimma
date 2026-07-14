@@ -15,7 +15,18 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import Board, BoardItem, BoardSection, Chat, Flow, MediaItem, Preset, Project
+from database import (
+    Asset,
+    AssetRevision,
+    Board,
+    BoardAssetItem,
+    BoardSection,
+    Chat,
+    Flow,
+    MediaItem,
+    Preset,
+    Project,
+)
 from core.dependencies import get_db_session
 from core.logging import get_logger
 
@@ -116,14 +127,20 @@ async def _board_previews(session: AsyncSession, board_ids: List[int]) -> dict:
         return {}
     query = (
         select(BoardSection.board_id, MediaItem.id, MediaItem.file_hash)
-        .join(BoardItem, BoardItem.board_section_id == BoardSection.id)
-        .join(MediaItem, MediaItem.id == BoardItem.media_id)
+        .join(BoardAssetItem, BoardAssetItem.board_section_id == BoardSection.id)
+        .join(Asset, Asset.id == BoardAssetItem.asset_id)
+        .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+        .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
         .where(
             BoardSection.board_id.in_(board_ids),
             BoardSection.deleted_at.is_(None),
+            BoardAssetItem.deleted_at.is_(None),
+            Asset.state == "active",
+            Asset.deleted_at.is_(None),
+            AssetRevision.deleted_at.is_(None),
             MediaItem.deleted_at.is_(None),
         )
-        .order_by(BoardSection.board_id, BoardItem.display_order)
+        .order_by(BoardSection.board_id, BoardAssetItem.display_order)
     )
     previews: dict = {}
     for board_id, media_id, file_hash in (await session.execute(query)).all():

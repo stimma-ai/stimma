@@ -1318,7 +1318,7 @@ async def upload_bulk(
         marker_ids: Comma-separated list of marker IDs to apply to uploaded media
     """
     from upload_service import get_upload_service, UploadError
-    from database import MediaMarker, Marker
+    from database import Marker
     from sqlalchemy import select
 
     try:
@@ -1357,21 +1357,23 @@ async def upload_bulk(
 
             # Apply markers if specified
             if valid_marker_ids:
+                from asset_association_service import asset_for_media, set_asset_marker
+
+                asset = await asset_for_media(
+                    session,
+                    media_item.id,
+                    promote=True,
+                    origin_type="upload",
+                )
+                if asset is None:
+                    raise RuntimeError("Uploaded Asset was not materialized")
                 for marker_id in valid_marker_ids:
-                    # Check if marker already exists for this media
-                    existing = await session.execute(
-                        select(MediaMarker).where(
-                            MediaMarker.media_id == media_item.id,
-                            MediaMarker.marker_id == marker_id
-                        )
+                    await set_asset_marker(
+                        session,
+                        asset_id=asset.id,
+                        marker_id=marker_id,
+                        add=True,
                     )
-                    if not existing.scalar_one_or_none():
-                        media_marker = MediaMarker(
-                            media_id=media_item.id,
-                            marker_id=marker_id,
-                            source='upload'
-                        )
-                        session.add(media_marker)
                 await session.commit()
 
             results.append({

@@ -3,17 +3,14 @@ from typing import List
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from database import (
     Asset,
     AssetRevision,
     Board,
     BoardAssetItem,
-    BoardItem,
     BoardSection,
     MediaItem,
-    MediaMarker,
 )
 from models.api_models import BoardResponse, BoardSectionResponse
 
@@ -46,7 +43,6 @@ async def serialize_board(board: Board, session: AsyncSession) -> BoardResponse:
         )
         asset_rows = asset_items_result.all()
         projected_items = []
-        projected_media_ids = set()
         for asset, revision, media, _ in asset_rows:
             item = media.to_dict()
             item.update({
@@ -56,26 +52,7 @@ async def serialize_board(board: Board, session: AsyncSession) -> BoardResponse:
                 "revision_id": revision.id,
             })
             projected_items.append(item)
-            projected_media_ids.add(media.id)
-
-        # Compatibility fallback for boards not yet backfilled. Do not duplicate
-        # a Media item that already has authoritative Asset membership.
-        items_result = await session.execute(
-            select(MediaItem, BoardItem.display_order)
-            .join(BoardItem, BoardItem.media_id == MediaItem.id)
-            .where(
-                BoardItem.board_section_id == section.id,
-                MediaItem.deleted_at.is_(None),
-            )
-            .options(
-                selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker),
-            )
-            .order_by(BoardItem.display_order.asc(), BoardItem.added_at.asc())
-        )
-        media_items = [
-            row[0] for row in items_result.all() if row[0].id not in projected_media_ids
-        ]
-        items = [*projected_items, *(item.to_dict() for item in media_items)]
+        items = projected_items
         total_asset_count += len(items)
         payload_sections.append(
             BoardSectionResponse(

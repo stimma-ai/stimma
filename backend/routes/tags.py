@@ -1,39 +1,58 @@
 """Tag management routes."""
 from core.logging import get_logger
-from datetime import datetime
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
-from sqlalchemy import select, func, delete as sql_delete, and_
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import AssetRevision, MediaItem, MediaTag, Tag
+from database import AssetTag, MediaItem, MediaTag, Tag
 from core.dependencies import get_db_session
 from models.api_models import TagResponse, TagCreateRequest, BulkTagRequest
-from utils.websocket import ws_manager, broadcast_media_updated
-from utils.background_tasks import clear_auto_delete_for_media
+from utils.websocket import ws_manager
+from asset_association_service import media_compatibility_projections
 
 router = APIRouter(prefix="/api", tags=["tags"])
 log = get_logger(__name__)
 
 
-async def _mirror_tags_to_assets(session: AsyncSession, media_ids: list[int]) -> None:
-    """Keep legacy Media tag writes coherent with canonical Asset tags."""
-    from asset_association_service import mirror_media_associations_to_asset
+async def _asset_tags_for_media(session: AsyncSession, media_id: int) -> list[dict]:
+    from asset_association_service import asset_for_media
 
-    rows = (
-        await session.execute(
-            select(AssetRevision).where(
-                AssetRevision.primary_media_id.in_(media_ids),
-                AssetRevision.deleted_at.is_(None),
+    asset = await asset_for_media(session, media_id)
+    if asset is None:
+        return []
+    tags = list(
+        await session.scalars(
+            select(Tag)
+            .join(AssetTag, AssetTag.tag_id == Tag.id)
+            .where(
+                AssetTag.asset_id == asset.id,
+                AssetTag.deleted_at.is_(None),
             )
+            .order_by(Tag.tag_text)
         )
-    ).scalars().all()
-    for revision in rows:
-        await mirror_media_associations_to_asset(
-            session, media_id=revision.primary_media_id, asset_id=revision.asset_id
+    )
+    return [tag.to_dict() for tag in tags]
+
+
+async def _broadcast_tag_update(
+    session: AsyncSession, media_id: int, asset_id: int, tags: list[dict]
+) -> None:
+    media = await session.get(MediaItem, media_id)
+    if media is not None:
+        projection = (await media_compatibility_projections(session, [media]))[0]
+        await ws_manager.broadcast(
+            "media_updated",
+            {
+                "media_id": media_id,
+                "asset_id": asset_id,
+                "fields": ["tags"],
+                "media": {**projection, "asset_id": asset_id, "tags": tags},
+            },
         )
-    if rows:
-        await session.commit()
+    await ws_manager.broadcast(
+        "assets_updated", {"asset_ids": [asset_id], "fields": ["tags"]}
+    )
 
 @router.get("/tags", response_model=List[TagResponse])
 async def get_tags(
@@ -43,12 +62,14 @@ async def get_tags(
     """Get all tags, optionally with usage counts."""
     if with_counts:
         # Get tags with usage counts
-        query = (
-            select(Tag, func.count(MediaTag.media_id).label('usage_count'))
-            .outerjoin(MediaTag, Tag.id == MediaTag.tag_id)
+        query = select(
+            Tag, func.count(AssetTag.asset_id).label("usage_count")
+        ).outerjoin(
+            AssetTag,
+            (AssetTag.tag_id == Tag.id) & AssetTag.deleted_at.is_(None),
         )
 
-        query = query.group_by(Tag.id).order_by(func.count(MediaTag.media_id).desc())
+        query = query.group_by(Tag.id).order_by(func.count(AssetTag.asset_id).desc())
 
         result = await session.execute(query)
         tags_with_counts = result.all()
@@ -94,64 +115,52 @@ async def bulk_tag_operation(
 ):
     """Bulk add or remove tags from multiple media items."""
     log.info(f"Bulk tag operation: {request.media_ids}, add={request.tag_texts}, remove={request.remove_tag_ids}")
-    added_count = 0
-    removed_count = 0
-
-    # Add tags
-    if request.tag_texts:
-        for tag_text in request.tag_texts:
-            tag_text = tag_text.strip().lower()
-            if not tag_text:
-                continue
-
-            # Get or create tag
-            result = await session.execute(select(Tag).where(Tag.tag_text == tag_text))
-            tag = result.scalar_one_or_none()
-
-            if not tag:
-                tag = Tag(tag_text=tag_text)
-                session.add(tag)
-                await session.flush()
-
-            # Add to all media items
-            for media_id in request.media_ids:
-                existing = await session.execute(
-                    select(MediaTag).where(
-                        and_(MediaTag.media_id == media_id, MediaTag.tag_id == tag.id)
-                    )
-                )
-                if not existing.scalar_one_or_none():
-                    media_tag = MediaTag(media_id=media_id, tag_id=tag.id)
-                    session.add(media_tag)
-                    added_count += 1
-
-    # Remove tags
-    if request.remove_tag_ids:
-        for tag_id in request.remove_tag_ids:
-            for media_id in request.media_ids:
-                result = await session.execute(
-                    select(MediaTag).where(
-                        and_(MediaTag.media_id == media_id, MediaTag.tag_id == tag_id)
-                    )
-                )
-                media_tag = result.scalar_one_or_none()
-                if media_tag:
-                    await session.delete(media_tag)
-                    removed_count += 1
-
-    await session.commit()
-
-    # The tag action is itself retention, including idempotent re-adds.
-    if request.tag_texts:
-        await clear_auto_delete_for_media(session, request.media_ids, ws_manager)
-        await _mirror_tags_to_assets(session, request.media_ids)
-
-    # Fetch all affected media items and broadcast updates
-    media_result = await session.execute(
-        select(MediaItem).where(MediaItem.id.in_(request.media_ids))
+    from asset_association_service import (
+        asset_ids_for_media_ids,
+        mirror_media_associations_to_asset,
+        set_asset_tag,
     )
-    media_items = media_result.scalars().all()
-    await broadcast_media_updated(media_items, ["tags"], session)
+
+    mapping = await asset_ids_for_media_ids(
+        session,
+        request.media_ids,
+        promote=bool(request.tag_texts),
+        origin_type="tag_promotion",
+    )
+    tags_to_add: list[Tag] = []
+    for tag_text in request.tag_texts:
+        normalized = tag_text.strip().lower()
+        if not normalized:
+            continue
+        tag = await session.scalar(select(Tag).where(Tag.tag_text == normalized))
+        if tag is None:
+            tag = Tag(tag_text=normalized)
+            session.add(tag)
+            await session.flush()
+        tags_to_add.append(tag)
+
+    added_count = removed_count = 0
+    for media_id, asset_id in mapping.items():
+        await mirror_media_associations_to_asset(
+            session, media_id=media_id, asset_id=asset_id
+        )
+        for tag in tags_to_add:
+            added_count += int(
+                await set_asset_tag(
+                    session, asset_id=asset_id, tag_id=tag.id, add=True
+                )
+            )
+        for tag_id in request.remove_tag_ids:
+            removed_count += int(
+                await set_asset_tag(
+                    session, asset_id=asset_id, tag_id=tag_id, add=False
+                )
+            )
+    await session.commit()
+    for media_id, asset_id in mapping.items():
+        await _broadcast_tag_update(
+            session, media_id, asset_id, await _asset_tags_for_media(session, media_id)
+        )
 
     if added_count > 0 or removed_count > 0:
         from telemetry import get_telemetry_client
@@ -164,7 +173,7 @@ async def bulk_tag_operation(
         "status": "success",
         "added": added_count,
         "removed": removed_count,
-        "media_count": len(request.media_ids)
+        "media_count": len(mapping)
     }
 
 
@@ -181,6 +190,20 @@ async def add_tags_to_media(
     if not media:
         raise HTTPException(status_code=404, detail="Asset not found")
 
+    from asset_association_service import (
+        asset_for_media,
+        mirror_media_associations_to_asset,
+        set_asset_tag,
+    )
+
+    asset = await asset_for_media(
+        session, media_id, promote=True, origin_type="tag_promotion"
+    )
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    await mirror_media_associations_to_asset(
+        session, media_id=media_id, asset_id=asset.id
+    )
     added_tags = []
     for tag_text in request.tags:
         tag_text = tag_text.strip().lower()
@@ -196,28 +219,21 @@ async def add_tags_to_media(
             session.add(tag)
             await session.flush()  # Get the tag ID
 
-        # Check if already associated
-        existing = await session.execute(
-            select(MediaTag).where(
-                and_(MediaTag.media_id == media_id, MediaTag.tag_id == tag.id)
-            )
-        )
-        if not existing.scalar_one_or_none():
-            media_tag = MediaTag(media_id=media_id, tag_id=tag.id)
-            session.add(media_tag)
+        if await set_asset_tag(
+            session, asset_id=asset.id, tag_id=tag.id, add=True
+        ):
             added_tags.append(tag_text)
 
     await session.commit()
-
-    # The tag action is itself retention, including idempotent re-adds.
-    if request.tags:
-        await clear_auto_delete_for_media(session, [media_id], ws_manager)
-        await _mirror_tags_to_assets(session, [media_id])
-
-    # Broadcast media_updated event
-    await broadcast_media_updated(media, ["tags"], session)
-
-    return {"status": "success", "added": added_tags, "total": len(request.tags)}
+    await _broadcast_tag_update(
+        session, media_id, asset.id, await _asset_tags_for_media(session, media_id)
+    )
+    return {
+        "status": "success",
+        "asset_id": asset.id,
+        "added": added_tags,
+        "total": len(request.tags),
+    }
 
 
 @router.delete("/media/{media_id}/tags/{tag_id}")
@@ -227,26 +243,38 @@ async def remove_tag_from_media(
     session: AsyncSession = Depends(get_db_session)
 ):
     """Remove a tag from a media item."""
-    result = await session.execute(
+    from asset_association_service import (
+        asset_for_media,
+        mirror_media_associations_to_asset,
+        set_asset_tag,
+    )
+
+    legacy_row = await session.scalar(
         select(MediaTag).where(
-            and_(MediaTag.media_id == media_id, MediaTag.tag_id == tag_id)
+            MediaTag.media_id == media_id,
+            MediaTag.tag_id == tag_id,
         )
     )
-    media_tag = result.scalar_one_or_none()
-
-    if not media_tag:
-        raise HTTPException(status_code=404, detail="Tag not found on media")
-
-    await session.delete(media_tag)
+    asset = await asset_for_media(
+        session,
+        media_id,
+        promote=legacy_row is not None,
+        origin_type="tag_migration",
+    )
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Tag not found on Asset")
+    await mirror_media_associations_to_asset(
+        session, media_id=media_id, asset_id=asset.id
+    )
+    if not await set_asset_tag(
+        session, asset_id=asset.id, tag_id=tag_id, add=False
+    ):
+        raise HTTPException(status_code=404, detail="Tag not found on Asset")
     await session.commit()
-
-    # Fetch the media item and broadcast update
-    media_result = await session.execute(select(MediaItem).where(MediaItem.id == media_id))
-    media = media_result.scalar_one_or_none()
-    if media:
-        await broadcast_media_updated(media, ["tags"], session)
-
-    return {"status": "success", "message": "Tag removed from media"}
+    await _broadcast_tag_update(
+        session, media_id, asset.id, await _asset_tags_for_media(session, media_id)
+    )
+    return {"status": "success", "message": "Tag removed from Asset"}
 
 
 @router.delete("/tags/{tag_id}")
@@ -257,7 +285,10 @@ async def delete_tag(
     """Delete a tag (only if not in use)."""
     # Check if tag is in use
     result = await session.execute(
-        select(func.count(MediaTag.media_id)).where(MediaTag.tag_id == tag_id)
+        select(func.count(AssetTag.asset_id)).where(
+            AssetTag.tag_id == tag_id,
+            AssetTag.deleted_at.is_(None),
+        )
     )
     usage_count = result.scalar()
 

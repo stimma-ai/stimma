@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import random
 import json
 
-from database import MediaItem, Keyword, MediaKeyword, Face, MediaMarker, Marker
+from database import AssetMarker, MediaItem, Keyword, MediaKeyword, Face, MediaMarker, Marker
 from database_registry import get_database_registry
 from media_scanner import (
     scan_directories, fast_scan_directories, extract_metadata,
@@ -131,6 +131,9 @@ async def sync_auto_markers_for_items(
     added_count = 0
     removed_count = 0
     for media_id, file_path in media_items:
+        from asset_association_service import asset_for_media
+
+        asset = await asset_for_media(session, media_id)
         # Find which folder this file is in
         target_markers = set()
         for folder_path, marker_names in folder_markers.items():
@@ -138,11 +141,21 @@ async def sync_auto_markers_for_items(
                 target_markers = marker_names
                 break
 
-        # Get existing markers for this media item
-        existing_result = await session.execute(
-            select(MediaMarker).where(MediaMarker.media_id == media_id)
-        )
-        existing_markers = {mm.marker_id: mm for mm in existing_result.scalars().all()}
+        # Asset markers are canonical once a watched file is materialized. A
+        # newly discovered Media may briefly stage legacy rows until
+        # register_external_asset consumes them during promotion.
+        if asset is not None:
+            existing_rows = await session.scalars(
+                select(AssetMarker).where(
+                    AssetMarker.asset_id == asset.id,
+                    AssetMarker.deleted_at.is_(None),
+                )
+            )
+        else:
+            existing_rows = await session.scalars(
+                select(MediaMarker).where(MediaMarker.media_id == media_id)
+            )
+        existing_markers = {row.marker_id: row for row in existing_rows}
 
         # Add auto-markers that should exist
         for marker_name in target_markers:
@@ -155,8 +168,22 @@ async def sync_auto_markers_for_items(
                 continue
 
             # Add new auto-marker
-            media_marker = MediaMarker(media_id=media_id, marker_id=marker_id, source='auto')
-            session.add(media_marker)
+            if asset is not None:
+                session.add(
+                    AssetMarker(
+                        asset_id=asset.id,
+                        marker_id=marker_id,
+                        source="auto",
+                    )
+                )
+            else:
+                session.add(
+                    MediaMarker(
+                        media_id=media_id,
+                        marker_id=marker_id,
+                        source="auto",
+                    )
+                )
             added_count += 1
 
         # Remove auto-markers that should no longer exist
@@ -164,7 +191,10 @@ async def sync_auto_markers_for_items(
         target_marker_ids = {markers_by_name.get(n) for n in target_markers if markers_by_name.get(n)}
         for marker_id, media_marker in existing_markers.items():
             if media_marker.source == 'auto' and marker_id not in target_marker_ids:
-                await session.delete(media_marker)
+                if asset is not None:
+                    media_marker.deleted_at = datetime.utcnow()
+                else:
+                    await session.delete(media_marker)
                 removed_count += 1
 
     log.info(f"AUTO-MARKERS: Added {added_count}, removed {removed_count} auto-markers")

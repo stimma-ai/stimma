@@ -978,6 +978,7 @@ export function useGenerationJobs(options = {}) {
     unsubscribers.push(onWebSocketEvent('media_updated', handleMediaUpdated))
     unsubscribers.push(onWebSocketEvent('auto_delete_removed', handleAutoDeleteRemoved))
     unsubscribers.push(onWebSocketEvent('asset_deleted', handleAssetsRemoved))
+    unsubscribers.push(onWebSocketEvent('asset_trashed', handleAssetsRemoved))
     unsubscribers.push(onWebSocketEvent('assets_trashed', handleAssetsRemoved))
     unsubscribers.push(onWebSocketEvent('asset_identity_deleted', handleAssetsRemoved))
     unsubscribers.push(onWebSocketEvent('media_deleted', handleMediaDeleted))

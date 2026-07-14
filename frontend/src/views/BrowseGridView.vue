@@ -1980,6 +1980,17 @@ onMounted(async () => {
     }
   }))
 
+  wsUnsubscribers.push(wsOn('asset_trashed', (data) => {
+    if (data.profile_id && data.profile_id !== getCurrentProfileId()) return
+    const { asset_id } = data
+    if (props.isTrashMode) {
+      softReloadMedia()
+    } else if (asset_id && mediaList) {
+      removeFromSelection([asset_id])
+      reconcileRemoval([asset_id])
+    }
+  }))
+
   wsUnsubscribers.push(wsOn('assets_trashed', (data) => {
     if (data.profile_id && data.profile_id !== getCurrentProfileId()) return
     const { asset_ids } = data

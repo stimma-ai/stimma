@@ -177,7 +177,6 @@ async def broadcast_media_updated(media_items, fields: list[str], session=None, 
             flow-as-tool run intermediates) are silently skipped so no media_updated event ever
             surfaces them. One guard here covers every caller.
     """
-    from sqlalchemy.orm import selectinload
     from sqlalchemy import select
 
     # Normalize to list
@@ -199,24 +198,28 @@ async def broadcast_media_updated(media_items, fields: list[str], session=None, 
 
     # If session provided, refresh items to get latest data with relationships
     if session:
-        from database import MediaItem, MediaMarker, MediaTag
+        from database import MediaItem
+        from asset_association_service import media_compatibility_projections
         media_ids = [item.id for item in media_items]
         # Use populate_existing=True to force refresh from DB, bypassing identity map cache
         result = await session.execute(
             select(MediaItem)
             .where(MediaItem.id.in_(media_ids))
-            .options(
-                selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker),
-                selectinload(MediaItem.tags)
-            )
             .execution_options(populate_existing=True)
         )
         media_items = result.scalars().all()
 
+    projections = (
+        await media_compatibility_projections(session, media_items)
+        if session
+        else [item.to_dict() for item in media_items]
+    )
+
     # Broadcast update for each item
-    for item in media_items:
+    for item in projections:
         await ws_manager.broadcast("media_updated", {
-            "media_id": item.id,
+            "media_id": item.get("media_id", item["id"]),
+            "asset_id": item.get("asset_id"),
             "fields": fields,
-            "media": item.to_dict()
+            "media": item,
         })

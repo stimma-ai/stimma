@@ -6,11 +6,11 @@ from fastapi import APIRouter, Depends, Query, HTTPException, Form, UploadFile, 
 from pydantic import BaseModel, Field
 from sqlalchemy import select, or_, and_, func, literal, Integer, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from database import Asset, AssetRevision, Board, BoardItem, BoardSection, MediaItem, Keyword, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage, Face, Project, ProjectAsset, ProjectMedia
+from database import Asset, AssetRevision, Board, BoardAssetItem, BoardSection, MediaItem, Keyword, MediaKeyword, MediaToolLineage, Face, Project, ProjectAsset, ProjectMedia
+from asset_association_service import media_compatibility_projections
 from core.dependencies import get_db_session
-from models.api_models import BoardSummaryResponse, MediaListResponse, MediaItemResponse, MediaIndexResponse, SimilaritySearchRequest, TagResponse, MediaMarkerInfo, StructuredContentUpdateRequest
+from models.api_models import BoardSummaryResponse, MediaListResponse, MediaItemResponse, MediaIndexResponse, SimilaritySearchRequest, StructuredContentUpdateRequest
 from config import get_settings
 from utils.query_builder import (
     build_filtered_query, not_due_for_autodelete, VIDEO_FORMATS, IMAGE_FORMATS, AUDIO_FORMATS,
@@ -26,6 +26,85 @@ from utils.websocket import ws_manager
 
 router = APIRouter(tags=["media"])
 log = get_logger(__name__)
+
+
+def _scope_media_query_to_project(query, project_id: int, sort_by: str):
+    """Apply canonical ProjectAsset membership to a Media-shaped query."""
+    if sort_by in ("added_desc", "added_asc"):
+        return (
+            query.join(
+                AssetRevision,
+                AssetRevision.primary_media_id == MediaItem.id,
+            )
+            .join(
+                Asset,
+                and_(
+                    Asset.id == AssetRevision.asset_id,
+                    Asset.current_revision_id == AssetRevision.id,
+                    Asset.state == "active",
+                    Asset.deleted_at.is_(None),
+                ),
+            )
+            .join(
+                ProjectAsset,
+                and_(
+                    ProjectAsset.asset_id == Asset.id,
+                    ProjectAsset.project_id == project_id,
+                    ProjectAsset.deleted_at.is_(None),
+                ),
+            )
+        )
+    project_media_ids = (
+        select(AssetRevision.primary_media_id)
+        .join(
+            Asset,
+            and_(
+                Asset.id == AssetRevision.asset_id,
+                Asset.current_revision_id == AssetRevision.id,
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+            ),
+        )
+        .join(
+            ProjectAsset,
+            and_(
+                ProjectAsset.asset_id == Asset.id,
+                ProjectAsset.project_id == project_id,
+                ProjectAsset.deleted_at.is_(None),
+            ),
+        )
+        .where(AssetRevision.deleted_at.is_(None))
+    )
+    return query.where(MediaItem.id.in_(project_media_ids))
+
+
+def _media_has_no_unavailable_asset():
+    """Bare Media is contextual; Asset-backed Media follows Asset lifecycle."""
+    revision_exists = (
+        select(1)
+        .select_from(AssetRevision)
+        .where(
+            AssetRevision.primary_media_id == MediaItem.id,
+            AssetRevision.deleted_at.is_(None),
+        )
+        .correlate(MediaItem)
+        .exists()
+    )
+    active_asset_exists = (
+        select(1)
+        .select_from(AssetRevision)
+        .join(Asset, Asset.id == AssetRevision.asset_id)
+        .where(
+            AssetRevision.primary_media_id == MediaItem.id,
+            AssetRevision.deleted_at.is_(None),
+            Asset.current_revision_id == AssetRevision.id,
+            Asset.state == "active",
+            Asset.deleted_at.is_(None),
+        )
+        .correlate(MediaItem)
+        .exists()
+    )
+    return or_(~revision_exists, active_asset_exists)
 
 
 async def _reset_stale_clip_embeddings(session: AsyncSession, item_ids: list[int]) -> None:
@@ -107,6 +186,7 @@ async def get_media(
 
     # Exclude soft-deleted items by default
     query = query.where(MediaItem.deleted_at.is_(None))
+    query = query.where(_media_has_no_unavailable_asset())
 
     # Only show items with completed metadata (have file_hash for thumbnails)
     query = query.where(MediaItem.metadata_status == 'completed')
@@ -117,12 +197,7 @@ async def get_media(
     )
 
     if project_id is not None:
-        if sort_by in ("added_desc", "added_asc"):
-            # Join with ProjectMedia so we can sort by added_at
-            query = query.join(ProjectMedia, (ProjectMedia.media_id == MediaItem.id) & (ProjectMedia.project_id == project_id))
-        else:
-            project_media_subquery = select(ProjectMedia.media_id).where(ProjectMedia.project_id == project_id)
-            query = query.where(MediaItem.id.in_(project_media_subquery))
+        query = _scope_media_query_to_project(query, project_id, sort_by)
 
     # Backward-compat shim: old text_query+search_in is rewritten into caption_query/prompt_query
     # so the helper can handle them uniformly.
@@ -298,13 +373,10 @@ async def get_media(
         offset = (page - 1) * page_size
         items = filtered_items[offset:offset + page_size]
 
-        # Reload paginated items with marker associations for display
+        # Reload paginated payloads while preserving similarity ordering.
         if items:
             item_ids = [item.id for item in items]
-            items_query = select(MediaItem).where(MediaItem.id.in_(item_ids)).options(
-                selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker),
-                selectinload(MediaItem.tags)
-            )
+            items_query = select(MediaItem).where(MediaItem.id.in_(item_ids))
             result = await session.execute(items_query)
             items_with_markers = {item.id: item for item in result.scalars().all()}
             # Preserve ordering from similarity search
@@ -329,13 +401,10 @@ async def get_media(
         offset = (page - 1) * page_size
         items = filtered_items[offset:offset + page_size]
 
-        # Reload paginated items with marker associations for display.
+        # Reload paginated payloads while preserving similarity ordering.
         if items:
             item_ids = [item.id for item in items]
-            items_query = select(MediaItem).where(MediaItem.id.in_(item_ids)).options(
-                selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker),
-                selectinload(MediaItem.tags)
-            )
+            items_query = select(MediaItem).where(MediaItem.id.in_(item_ids))
             result = await session.execute(items_query)
             items_with_markers = {item.id: item for item in result.scalars().all()}
             items = [items_with_markers[item_id] for item_id in item_ids if item_id in items_with_markers]
@@ -446,13 +515,10 @@ async def get_media(
         offset = (page - 1) * page_size
         items = filtered_items[offset:offset + page_size]
 
-        # Reload paginated items with marker associations for display
+        # Reload paginated payloads while preserving similarity ordering.
         if items:
             item_ids = [item.id for item in items]
-            items_query = select(MediaItem).where(MediaItem.id.in_(item_ids)).options(
-                selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker),
-                selectinload(MediaItem.tags)
-            )
+            items_query = select(MediaItem).where(MediaItem.id.in_(item_ids))
             result = await session.execute(items_query)
             items_with_markers = {item.id: item for item in result.scalars().all()}
             # Preserve ordering from similarity search
@@ -479,9 +545,9 @@ async def get_media(
         elif sort_by == "indexed_asc":
             query = query.order_by(MediaItem.indexed_date.asc(), MediaItem.id.asc())
         elif sort_by == "added_desc":
-            query = query.order_by(ProjectMedia.added_at.desc(), MediaItem.id.desc())
+            query = query.order_by(ProjectAsset.added_at.desc(), MediaItem.id.desc())
         elif sort_by == "added_asc":
-            query = query.order_by(ProjectMedia.added_at.asc(), MediaItem.id.asc())
+            query = query.order_by(ProjectAsset.added_at.asc(), MediaItem.id.asc())
         elif sort_by == "random":
             # Use stable random value with seed transformation
             # Each item has a fixed random_sort_value (0-1) set on creation
@@ -505,12 +571,6 @@ async def get_media(
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size)
 
-        # Eager load marker_associations (with source) and tags for display in the grid
-        query = query.options(
-            selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker),
-            selectinload(MediaItem.tags)
-        )
-
         # Execute query
         result = await session.execute(query)
         items = result.scalars().all()
@@ -526,11 +586,10 @@ async def get_media(
 
     # Convert to response model
     media_items = []
-    for item in items:
-        item_dict = item.to_dict()
+    for item_dict in await media_compatibility_projections(session, list(items)):
         # Add similarity score if available
-        if item.id in similarity_scores:
-            item_dict['similarity_score'] = similarity_scores[item.id]
+        if item_dict["media_id"] in similarity_scores:
+            item_dict['similarity_score'] = similarity_scores[item_dict["media_id"]]
         media_items.append(MediaItemResponse(**item_dict))
 
     return MediaListResponse(
@@ -593,6 +652,7 @@ async def get_media_ids(
 
     # Exclude soft-deleted items by default
     query = query.where(MediaItem.deleted_at.is_(None))
+    query = query.where(_media_has_no_unavailable_asset())
     # Never surface ephemeral one-shot-run intermediates
     query = query.where(MediaItem.ephemeral_run_id.is_(None))
 
@@ -605,11 +665,7 @@ async def get_media_ids(
     )
 
     if project_id is not None:
-        if sort_by in ("added_desc", "added_asc"):
-            query = query.join(ProjectMedia, (ProjectMedia.media_id == MediaItem.id) & (ProjectMedia.project_id == project_id))
-        else:
-            project_media_subquery = select(ProjectMedia.media_id).where(ProjectMedia.project_id == project_id)
-            query = query.where(MediaItem.id.in_(project_media_subquery))
+        query = _scope_media_query_to_project(query, project_id, sort_by)
 
     # text_query backwards compat (deprecated)
     if text_query and not caption_query and not prompt_query:
@@ -813,9 +869,9 @@ async def get_media_ids(
     elif sort_by == "indexed_asc":
         query = query.order_by(MediaItem.indexed_date.asc(), MediaItem.id.asc())
     elif sort_by == "added_desc":
-        query = query.order_by(ProjectMedia.added_at.desc(), MediaItem.id.desc())
+        query = query.order_by(ProjectAsset.added_at.desc(), MediaItem.id.desc())
     elif sort_by == "added_asc":
-        query = query.order_by(ProjectMedia.added_at.asc(), MediaItem.id.asc())
+        query = query.order_by(ProjectAsset.added_at.asc(), MediaItem.id.asc())
     elif sort_by == "random":
         if random_seed is not None:
             query = query.order_by(func.random())  # Note: This won't use seed properly, would need DB-specific handling
@@ -868,36 +924,19 @@ async def get_media_item(
     # Ephemeral one-shot-run intermediates never resolve, even with include_trashed.
     query = query.where(MediaItem.ephemeral_run_id.is_(None))
 
-    query = query.options(
-        selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker),
-        selectinload(MediaItem.tags)
-    )
-
     result = await session.execute(query)
     item = result.scalar_one_or_none()
 
     if not item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    item_dict = item.to_dict()
-    revision = await session.scalar(
-        select(AssetRevision).where(
-            AssetRevision.primary_media_id == item.id,
-            AssetRevision.deleted_at.is_(None),
-        )
-    )
-    if revision is not None:
-        item_dict["asset_id"] = revision.asset_id
-        item_dict["revision_id"] = revision.id
-        asset = await session.get(Asset, revision.asset_id)
-        if (
-            asset is not None
-            and asset.state == "active"
-            and asset.deleted_at is None
-            and asset.expires_at is not None
-        ):
-            # Compatibility projection only: the deadline remains Asset state.
-            item_dict["auto_delete_at"] = asset.expires_at.isoformat()
+    item_dict = (await media_compatibility_projections(session, [item]))[0]
+    if (
+        item_dict.get("asset_state") is not None
+        and item_dict["asset_state"] != "active"
+        and not include_trashed
+    ):
+        raise HTTPException(status_code=404, detail="Asset not found")
     return MediaItemResponse(**item_dict)
 
 
@@ -1061,12 +1100,24 @@ async def get_media_boards(
     if not media_item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    # Get all boards containing this media item
+    revision = await session.scalar(
+        select(AssetRevision).where(
+            AssetRevision.primary_media_id == media_id,
+            AssetRevision.deleted_at.is_(None),
+        )
+    )
+    if revision is None:
+        return []
+
+    # Organization belongs to the Asset, even through this Media-shaped route.
     result = await session.execute(
         select(Board)
         .join(BoardSection, and_(BoardSection.board_id == Board.id, BoardSection.deleted_at.is_(None)))
-        .join(BoardItem, BoardItem.board_section_id == BoardSection.id)
-        .where(BoardItem.media_id == media_id)
+        .join(BoardAssetItem, BoardAssetItem.board_section_id == BoardSection.id)
+        .where(
+            BoardAssetItem.asset_id == revision.asset_id,
+            BoardAssetItem.deleted_at.is_(None),
+        )
         .where(Board.deleted_at.is_(None))
         .order_by(Board.name)
     )
@@ -1092,11 +1143,21 @@ async def get_media_projects(
     if not media_item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
+    revision = await session.scalar(
+        select(AssetRevision).where(
+            AssetRevision.primary_media_id == media_id,
+            AssetRevision.deleted_at.is_(None),
+        )
+    )
+    if revision is None:
+        return []
+
     result = await session.execute(
         select(Project)
-        .join(ProjectMedia, ProjectMedia.project_id == Project.id)
+        .join(ProjectAsset, ProjectAsset.project_id == Project.id)
         .where(
-            ProjectMedia.media_id == media_id,
+            ProjectAsset.asset_id == revision.asset_id,
+            ProjectAsset.deleted_at.is_(None),
             Project.deleted_at.is_(None),
         )
         .order_by(Project.name.asc())
@@ -1202,6 +1263,7 @@ async def find_media_index(
 
     # Endpoint-specific pre-filters (mirror get_media)
     query = query.where(MediaItem.deleted_at.is_(None))
+    query = query.where(_media_has_no_unavailable_asset())
     query = query.where(MediaItem.ephemeral_run_id.is_(None))
     query = query.where(MediaItem.metadata_status == 'completed')
     query = query.where(
@@ -1210,14 +1272,7 @@ async def find_media_index(
 
     # Project membership: when sorting by added_at we need a join so the sort column is available
     if project_id is not None:
-        if sort_by in ("added_desc", "added_asc"):
-            query = query.join(
-                ProjectMedia,
-                (ProjectMedia.media_id == MediaItem.id) & (ProjectMedia.project_id == project_id),
-            )
-        else:
-            project_media_subquery = select(ProjectMedia.media_id).where(ProjectMedia.project_id == project_id)
-            query = query.where(MediaItem.id.in_(project_media_subquery))
+        query = _scope_media_query_to_project(query, project_id, sort_by)
 
     # All shared filters
     query = build_filtered_query(
@@ -1268,12 +1323,12 @@ async def find_media_index(
         query = query.order_by(MediaItem.indexed_date.asc(), MediaItem.id.asc())
     elif sort_by == "added_desc":
         if project_id is not None:
-            query = query.order_by(ProjectMedia.added_at.desc(), MediaItem.id.desc())
+            query = query.order_by(ProjectAsset.added_at.desc(), MediaItem.id.desc())
         else:
             query = query.order_by(MediaItem.created_date.desc().nulls_last(), MediaItem.id.desc())
     elif sort_by == "added_asc":
         if project_id is not None:
-            query = query.order_by(ProjectMedia.added_at.asc(), MediaItem.id.asc())
+            query = query.order_by(ProjectAsset.added_at.asc(), MediaItem.id.asc())
         else:
             query = query.order_by(MediaItem.created_date.asc().nulls_last(), MediaItem.id.asc())
     elif sort_by == "random":
@@ -1467,6 +1522,13 @@ async def create_set_from_media(
         ordered_items = [items_by_id[mid] for mid in request.media_ids if mid in items_by_id]
         if len(ordered_items) != len(request.media_ids):
             raise HTTPException(status_code=404, detail="One or more media items are unavailable")
+        from asset_association_service import asset_for_media
+
+        # Legacy callers still submit Media ids. Resolve any identities that
+        # already exist before inheriting organization from the members.
+        member_assets = [
+            await asset_for_media(session, item.id) for item in ordered_items
+        ]
 
     # Validate that all items are atomic types (not sets or grids)
     for index, item in enumerate(ordered_items):
@@ -1522,7 +1584,11 @@ async def create_set_from_media(
                 path_str = str(item_path)
 
         set_items.append({
-            "asset_id": member_assets[index].id if member_assets else None,
+            "asset_id": (
+                member_assets[index].id
+                if member_assets and member_assets[index] is not None
+                else None
+            ),
             "path": path_str,
         })
 
@@ -1613,11 +1679,12 @@ async def create_set_from_media(
         .distinct()
     )
     set_project_ids = {row[0] for row in project_result.all()}
-    if member_assets:
+    existing_member_assets = [asset for asset in member_assets if asset is not None]
+    if existing_member_assets:
         asset_project_result = await session.execute(
             select(ProjectAsset.project_id)
             .where(
-                ProjectAsset.asset_id.in_([asset.id for asset in member_assets]),
+                ProjectAsset.asset_id.in_([asset.id for asset in existing_member_assets]),
                 ProjectAsset.deleted_at.is_(None),
             )
             .distinct()
@@ -1632,11 +1699,10 @@ async def create_set_from_media(
     # this set. This is what enables genuine multiple membership.
     from asset_service import create_asset_from_media
     from container_service import create_container_asset_from_media
-    if not member_assets:
-        member_assets = [
-            await create_asset_from_media(session, media_id=item.id)
-            for item in ordered_items
-        ]
+    member_assets = [
+        asset or await create_asset_from_media(session, media_id=item.id)
+        for asset, item in zip(member_assets, ordered_items)
+    ]
     set_asset = await create_container_asset_from_media(
         session,
         media_id=set_media_item.id,

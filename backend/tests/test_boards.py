@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import select
 
 from asset_service import create_asset_from_media
-from database import BoardItem, BoardSection
+from database import BoardAssetItem, BoardSection
 from tests.helpers.media import create_test_media
 from tests.helpers.ws import MockWebSocketManager
 
@@ -72,8 +72,8 @@ class TestBoardsApi:
         payload = board_response.json()
         default_section = next(item for item in payload["sections"] if item["id"] == default_section_id)
         reference_section = next(item for item in payload["sections"] if item["id"] == section["id"])
-        assert [item["id"] for item in default_section["items"]] == [seeded_media[0].id]
-        assert [item["id"] for item in reference_section["items"]] == [seeded_media[1].id]
+        assert [item["media_id"] for item in default_section["items"]] == [seeded_media[0].id]
+        assert [item["media_id"] for item in reference_section["items"]] == [seeded_media[1].id]
 
         remove_response = await client.delete(
             f"/api/boards/sections/{section['id']}/items/{seeded_media[1].id}"
@@ -152,8 +152,8 @@ class TestBoardsApi:
         default_section = next(item for item in payload["sections"] if item["id"] == default_section_id)
         target_section = next(item for item in payload["sections"] if item["id"] == target_section_id)
 
-        assert [item["id"] for item in default_section["items"]] == [seeded_media[0].id]
-        assert [item["id"] for item in target_section["items"]] == [seeded_media[1].id, seeded_media[2].id]
+        assert [item["media_id"] for item in default_section["items"]] == [seeded_media[0].id]
+        assert [item["media_id"] for item in target_section["items"]] == [seeded_media[1].id, seeded_media[2].id]
 
     async def test_board_websocket_events(self, client):
         mock_ws = MockWebSocketManager()
@@ -176,7 +176,7 @@ class TestBoardTrashInteractions:
     """Tests for how boards interact with trashed/deleted media."""
 
     async def test_trashed_media_hidden_from_board(self, client, seeded_media):
-        """Trashing a media item should hide it from board views, but not remove the BoardItem row."""
+        """Trashing an Asset hides it without removing its board membership."""
         board = (await client.post("/api/boards", json={"name": "Trash Test"})).json()
         board_id = board["id"]
 
@@ -192,7 +192,7 @@ class TestBoardTrashInteractions:
         # Board should only show the non-trashed item
         board_data = (await client.get(f"/api/boards/{board_id}")).json()
         default_items = board_data["sections"][0]["items"]
-        item_ids = [item["id"] for item in default_items]
+        item_ids = [item["media_id"] for item in default_items]
         assert seeded_media[0].id not in item_ids
         assert seeded_media[1].id in item_ids
         assert board_data["asset_count"] == 1
@@ -214,13 +214,13 @@ class TestBoardTrashInteractions:
 
         # Both items should be visible again
         board_data = (await client.get(f"/api/boards/{board_id}")).json()
-        item_ids = [item["id"] for item in board_data["sections"][0]["items"]]
+        item_ids = [item["media_id"] for item in board_data["sections"][0]["items"]]
         assert seeded_media[0].id in item_ids
         assert seeded_media[1].id in item_ids
         assert board_data["asset_count"] == 2
 
     async def test_permanent_delete_removes_board_items(self, client, seeded_media):
-        """Permanently deleting media should CASCADE-remove BoardItem rows."""
+        """Permanently deleting an Asset removes its board membership."""
         board = (await client.post("/api/boards", json={"name": "Perm Delete Test"})).json()
         board_id = board["id"]
 
@@ -318,10 +318,13 @@ class TestBoardDeleteCascade:
             )
             assert stored_section is not None
             assert stored_section.deleted_at is not None
-            item_count = await session.scalar(
-                select(BoardItem).where(BoardItem.board_section_id == section["id"])
-            )
-            assert item_count is None
+            rows = list(await session.scalars(
+                select(BoardAssetItem).where(
+                    BoardAssetItem.board_section_id == section["id"]
+                )
+            ))
+            assert rows
+            assert all(row.deleted_at is not None for row in rows)
 
         # Media should still exist
         media_response = await client.get("/api/media")

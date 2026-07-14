@@ -816,7 +816,7 @@ const emit = defineEmits([
   'move-down'
 ])
 
-const { getTopKeywords, getTags, getProjects, getConfig, getTrashFilterCounts, getTrash } = useMediaApi()
+const { getTags, getProjects, getConfig } = useMediaApi()
 const {
   fetchAssets,
   getTags: getAssetTags,
@@ -2023,11 +2023,10 @@ async function loadTopKeywords() {
   try {
     const params = {
       ...modalFilterParams.value,
-      limit: 200
+      limit: 200,
+      state: props.isTrashMode ? 'trashed' : 'active'
     }
-    const response = props.isTrashMode
-      ? await getTopKeywords(params)
-      : await getAssetTopKeywords(params)
+    const response = await getAssetTopKeywords(params)
     topKeywords.value = response.keywords
     console.log('Loaded keywords:', topKeywords.value.length)
   } catch (error) {
@@ -2080,17 +2079,11 @@ async function loadUnfilteredCount() {
   try {
     const params = {
       page: 1,
-      page_size: 1
+      page_size: 1,
+      state: props.isTrashMode ? 'trashed' : 'active'
     }
-
-    // Use appropriate endpoint based on mode
-    if (props.isTrashMode) {
-      const response = await getTrash(params)
-      unfilteredTotalCount.value = response.total
-    } else {
-      const response = await fetchAssets(params)
-      unfilteredTotalCount.value = response.total
-    }
+    const response = await fetchAssets(params)
+    unfilteredTotalCount.value = response.total
   } catch (error) {
     console.error('Failed to load unfiltered count:', error)
   }
@@ -2100,7 +2093,8 @@ async function loadUnfilteredCount() {
 async function loadFilterCounts() {
   try {
     const params = {
-      keyword_limit: 50  // Get preview counts for top 50 keywords to ensure we cover the top 5 displayed
+      keyword_limit: 50,  // Get preview counts for top 50 keywords to ensure we cover the top 5 displayed
+      state: props.isTrashMode ? 'trashed' : 'active'
     }
 
     // Pass current filter state
@@ -2172,10 +2166,7 @@ async function loadFilterCounts() {
       }
     }
 
-    // Call appropriate endpoint based on mode
-    const response = props.isTrashMode
-      ? await getTrashFilterCounts(params)
-      : await getAssetFilterCounts(params)
+    const response = await getAssetFilterCounts(params)
     filterCounts.value = response
     // Update tags from filter counts (includes filtered usage_count)
     if (response.tags) {

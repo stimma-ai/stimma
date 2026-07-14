@@ -141,8 +141,14 @@ async def ensure_delete_worker_started() -> None:
     global _worker_task
 
     async with _worker_lock:
+        current_loop = asyncio.get_running_loop()
         if _worker_task and not _worker_task.done():
-            return
+            # Test clients and embedded hosts can replace their event loop while
+            # the process stays alive. A task owned by the old loop cannot make
+            # progress, even though ``done()`` may still be false.
+            if _worker_task.get_loop() is current_loop:
+                return
+            _worker_task.cancel()
         _worker_task = asyncio.create_task(_delete_worker_loop())
 
 

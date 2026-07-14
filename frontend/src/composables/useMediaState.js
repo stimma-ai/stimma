@@ -75,18 +75,26 @@ export function useMediaState() {
       })
     )
 
-    // Subscribe to media_updated event (could include auto_delete_at changes)
+    // Generic Media updates carry payload metadata. Only consume lifecycle
+    // values when the event explicitly says they changed; otherwise an inert
+    // Media auto_delete_at=null must not overwrite Asset.expires_at.
     wsUnsubscribers.push(
       onWebSocketEvent('media_updated', (data) => {
-        const { media_id, media } = data
+        const { media_id, media, fields = [] } = data
         if (!media_id || !media) return
 
+        const lifecycle = {}
+        if (fields.includes('expires_at') || fields.includes('auto_delete_at')) {
+          lifecycle.auto_delete_at = media.expires_at ?? media.auto_delete_at ?? null
+        }
+        if (fields.includes('deleted_at')) {
+          lifecycle.deleted_at = media.deleted_at ?? null
+        }
         mediaState.value = {
           ...mediaState.value,
           [media_id]: {
             ...mediaState.value[media_id],
-            auto_delete_at: media.auto_delete_at,
-            deleted_at: media.deleted_at,
+            ...lifecycle,
             asset_id: media.asset_id ?? mediaState.value[media_id]?.asset_id
           }
         }
@@ -110,7 +118,7 @@ export function useMediaState() {
       })
     )
 
-    const clearRemovedAssetDeadline = (data) => {
+    const updateAssetLifecycle = (data, patch) => {
       const currentProfile = getCurrentProfileId()
       if (data.profile_id && data.profile_id !== currentProfile) return
       const assetIds = new Set(
@@ -120,16 +128,20 @@ export function useMediaState() {
       const updates = {}
       for (const [mediaId, state] of Object.entries(mediaState.value)) {
         if (assetIds.has(state?.asset_id)) {
-          updates[mediaId] = { ...state, auto_delete_at: null }
+          updates[mediaId] = { ...state, ...patch }
         }
       }
       if (Object.keys(updates).length) {
         mediaState.value = { ...mediaState.value, ...updates }
       }
     }
-    wsUnsubscribers.push(onWebSocketEvent('asset_deleted', clearRemovedAssetDeadline))
-    wsUnsubscribers.push(onWebSocketEvent('assets_trashed', clearRemovedAssetDeadline))
-    wsUnsubscribers.push(onWebSocketEvent('asset_identity_deleted', clearRemovedAssetDeadline))
+    const trashedPatch = () => ({ auto_delete_at: null, deleted_at: new Date().toISOString() })
+    wsUnsubscribers.push(onWebSocketEvent('asset_trashed', data => updateAssetLifecycle(data, trashedPatch())))
+    wsUnsubscribers.push(onWebSocketEvent('asset_deleted', data => updateAssetLifecycle(data, trashedPatch())))
+    wsUnsubscribers.push(onWebSocketEvent('assets_trashed', data => updateAssetLifecycle(data, trashedPatch())))
+    wsUnsubscribers.push(onWebSocketEvent('asset_identity_deleted', data => updateAssetLifecycle(data, trashedPatch())))
+    wsUnsubscribers.push(onWebSocketEvent('asset_restored', data => updateAssetLifecycle(data, { deleted_at: null })))
+    wsUnsubscribers.push(onWebSocketEvent('assets_restored', data => updateAssetLifecycle(data, { deleted_at: null })))
   }
 
   // Load state for specific media IDs (batch)
@@ -147,7 +159,7 @@ export function useMediaState() {
         try {
           const media = await getMediaItem(mediaId, { includeTrashed: true })
           updates[mediaId] = {
-            auto_delete_at: media.auto_delete_at,
+            auto_delete_at: media.expires_at ?? media.auto_delete_at,
             deleted_at: media.deleted_at,
             file_format: media.file_format,
             asset_id: media.asset_id

@@ -36,7 +36,7 @@ import traceback
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 
 from generation_metadata import dump_generation_metadata
 
@@ -281,7 +281,7 @@ async def _tag_media_with_flow(
 
 
 async def restore_trashed_media_silently(media_ids: list[int]) -> None:
-    """Clear deleted_at on any of these media that are currently trashed.
+    """Restore Assets whose current payload is among ``media_ids``.
 
     Called from the flow engine's store-hit path: when an equation
     cache-hits and re-asserts a media_id as a current output, that asset
@@ -292,27 +292,30 @@ async def restore_trashed_media_silently(media_ids: list[int]) -> None:
     if not media_ids:
         return
     try:
-        from database import MediaItem  # late import — avoid circular at load
-    except Exception:
-        log.exception("restore_trashed_media: failed to import MediaItem")
-        return
-    try:
+        from asset_service import restore_asset
+        from database import Asset, AssetRevision
+
         async with _open_session() as session:
-            result = await session.execute(
-                select(MediaItem.id).where(
-                    MediaItem.id.in_(media_ids),
-                    MediaItem.deleted_at.is_not(None),
-                    MediaItem.deletion_pending_at.is_(None),
+            rows = (
+                await session.execute(
+                    select(Asset, AssetRevision.primary_media_id)
+                    .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+                    .where(
+                        AssetRevision.primary_media_id.in_(media_ids),
+                        AssetRevision.deleted_at.is_(None),
+                        Asset.state == "trashed",
+                        Asset.deleted_at.is_not(None),
+                    )
                 )
-            )
-            restored_ids = [row[0] for row in result.all()]
+            ).all()
+            restored_asset_ids = []
+            restored_ids = []
+            for asset, media_id in rows:
+                await restore_asset(session, asset_id=asset.id)
+                restored_asset_ids.append(asset.id)
+                restored_ids.append(media_id)
             if not restored_ids:
                 return
-            await session.execute(
-                update(MediaItem)
-                .where(MediaItem.id.in_(restored_ids))
-                .values(deleted_at=None)
-            )
             await session.commit()
     except Exception:
         log.exception(
@@ -322,6 +325,10 @@ async def restore_trashed_media_silently(media_ids: list[int]) -> None:
 
     try:
         from utils.websocket import ws_manager
+        await ws_manager.broadcast(
+            "assets_restored",
+            {"asset_ids": restored_asset_ids},
+        )
         await ws_manager.broadcast(
             "media_bulk_restored",
             {"count": len(restored_ids), "media_ids": restored_ids},

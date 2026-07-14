@@ -7,7 +7,19 @@ from pydantic import BaseModel
 from sqlalchemy import select, func, and_, or_, literal, Integer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import MediaItem, Keyword, MediaKeyword, Tag, MediaTag, MediaToolLineage, CachedProviderTool, Project, ProjectMedia
+from database import (
+    Asset,
+    AssetRevision,
+    AssetTag,
+    CachedProviderTool,
+    Keyword,
+    MediaItem,
+    MediaKeyword,
+    MediaToolLineage,
+    Project,
+    ProjectAsset,
+    Tag,
+)
 from core.dependencies import get_db_session
 from core.profile_context import get_current_profile
 from database_registry import get_database_registry
@@ -419,10 +431,10 @@ async def trash_failed_items(
     session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Move failed items for a specific processing phase to trash.
+    Move Assets with failed current payloads to trash.
     If item_ids is provided, trash only those specific items.
     If item_ids is None or empty, trash ALL failed items for the phase.
-    Uses the existing trash system (soft delete with deleted_at timestamp).
+    Contextual Media has no Trash lifecycle and is reported as skipped.
     """
     from ingestion import PHASES
 
@@ -453,19 +465,48 @@ async def trash_failed_items(
             "message": "No failed items found to trash"
         }
 
-    # Soft delete items by setting deleted_at timestamp
-    now = datetime.utcnow()
+    from asset_service import trash_asset
+
+    trashed_asset_ids = []
+    skipped_media_ids = []
     for item in items:
-        item.deleted_at = now
+        asset = await session.scalar(
+            select(Asset)
+            .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+            .where(
+                AssetRevision.primary_media_id == item.id,
+                AssetRevision.deleted_at.is_(None),
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+            )
+        )
+        if asset is None:
+            skipped_media_ids.append(item.id)
+            continue
+        await trash_asset(session, asset_id=asset.id)
+        trashed_asset_ids.append(asset.id)
 
     await session.commit()
 
-    log.info(f"TRASH: Moved {len(items)} failed {phase} items to trash")
+    if trashed_asset_ids:
+        from utils.websocket import ws_manager
+
+        await ws_manager.broadcast(
+            "assets_trashed", {"asset_ids": trashed_asset_ids}
+        )
+
+    log.info(
+        "TRASH: Moved %s failed %s Assets to trash; skipped %s contextual Media",
+        len(trashed_asset_ids),
+        phase,
+        len(skipped_media_ids),
+    )
 
     return {
         "phase": phase,
-        "trashed_count": len(items),
-        "message": f"Successfully moved {len(items)} items to trash"
+        "trashed_count": len(trashed_asset_ids),
+        "skipped_media_ids": skipped_media_ids,
+        "message": f"Successfully moved {len(trashed_asset_ids)} Assets to trash"
     }
 
 
@@ -1201,9 +1242,26 @@ async def get_filter_counts(
         Tag.tag_text,
         func.count(func.distinct(MediaItem.id)).label('count')
     ).select_from(Tag).join(
-        MediaTag, Tag.id == MediaTag.tag_id
+        AssetTag,
+        and_(
+            Tag.id == AssetTag.tag_id,
+            AssetTag.deleted_at.is_(None),
+        ),
     ).join(
-        MediaItem, MediaTag.media_id == MediaItem.id
+        Asset,
+        and_(
+            Asset.id == AssetTag.asset_id,
+            Asset.state == "active",
+            Asset.deleted_at.is_(None),
+        ),
+    ).join(
+        AssetRevision,
+        and_(
+            AssetRevision.id == Asset.current_revision_id,
+            AssetRevision.deleted_at.is_(None),
+        ),
+    ).join(
+        MediaItem, MediaItem.id == AssetRevision.primary_media_id
     )
 
     # Exclude trashed items
@@ -1410,14 +1468,28 @@ async def get_filter_counts(
 
     project_counts = {}
     project_query = select(
-        ProjectMedia.project_id,
+        ProjectAsset.project_id,
         func.count(func.distinct(MediaItem.id)).label('count')
-    ).select_from(ProjectMedia).join(
-        Project, Project.id == ProjectMedia.project_id
+    ).select_from(ProjectAsset).join(
+        Project, Project.id == ProjectAsset.project_id
     ).join(
-        MediaItem, ProjectMedia.media_id == MediaItem.id
+        Asset,
+        and_(
+            Asset.id == ProjectAsset.asset_id,
+            Asset.state == "active",
+            Asset.deleted_at.is_(None),
+        ),
+    ).join(
+        AssetRevision,
+        and_(
+            AssetRevision.id == Asset.current_revision_id,
+            AssetRevision.deleted_at.is_(None),
+        ),
+    ).join(
+        MediaItem, MediaItem.id == AssetRevision.primary_media_id
     ).where(
         Project.deleted_at.is_(None),
+        ProjectAsset.deleted_at.is_(None),
         MediaItem.deleted_at.is_(None),
         MediaItem.metadata_status == 'completed',
         (MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None)),
@@ -1425,15 +1497,24 @@ async def get_filter_counts(
     if base_item_ids is not None:
         project_query = project_query.where(MediaItem.id.in_(base_item_ids))
     project_query = build_filtered_query(project_query, **project_facet_filters)
-    project_query = project_query.group_by(ProjectMedia.project_id)
+    project_query = project_query.group_by(ProjectAsset.project_id)
     for pid, count in (await session.execute(project_query)).all():
         project_counts[str(pid)] = count
 
     # "In a project" / "Not in a project" membership totals (soft-deleted projects don't count)
     membership_exists = (
-        select(1).select_from(ProjectMedia)
-        .join(Project, Project.id == ProjectMedia.project_id)
-        .where(ProjectMedia.media_id == MediaItem.id, Project.deleted_at.is_(None))
+        select(1).select_from(ProjectAsset)
+        .join(Project, Project.id == ProjectAsset.project_id)
+        .join(Asset, Asset.id == ProjectAsset.asset_id)
+        .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+        .where(
+            AssetRevision.primary_media_id == MediaItem.id,
+            AssetRevision.deleted_at.is_(None),
+            Asset.state == "active",
+            Asset.deleted_at.is_(None),
+            ProjectAsset.deleted_at.is_(None),
+            Project.deleted_at.is_(None),
+        )
         .correlate(MediaItem)
         .exists()
     )

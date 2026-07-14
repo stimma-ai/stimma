@@ -416,7 +416,7 @@ async function loadImage() {
     const item = await getMediaItem(mediaIdNum.value)
     debugLog('load-image:media-item', {
       itemId: item?.id ?? null,
-      hasEditorSidecar: item?.has_editor_sidecar ?? false,
+      hasWorkingDocument: item?.has_working_document ?? false,
       isVideo: item?.is_video ?? false,
     })
     if (!item) {
@@ -441,27 +441,29 @@ async function loadImage() {
     let imageToLoadId = mediaIdNum.value
     actualSourceMediaId.value = mediaIdNum.value  // Default: we're editing this image directly
 
-    // Check for server-side editor project FIRST (for re-editing saved images)
-    if (item.has_editor_sidecar) {
-      try {
-        const response = await axios.get(`/api/media/${mediaIdNum.value}/editor-project`)
-        savedProject.value = response.data.project
-        hasChanges.value = false  // No unsaved changes yet when loading from server
-        projectFromLocalStorage.value = false
-        console.log('[ImageEditor] Restored project from server sidecar')
-        debugLog('load-image:server-project', {
-          sourceMediaId: response.data.source_media_id ?? null,
-          hasProject: !!response.data.project,
-          projectHasRetouch: !!response.data.project?.state?.retouchLayerData,
-        })
+    // WorkingDocument is Asset state and does not set the legacy Media sidecar
+    // flag. Always ask the server; a 404 simply means this Asset has no saved
+    // non-destructive editor state.
+    try {
+      const response = await axios.get(`/api/media/${mediaIdNum.value}/editor-project`)
+      savedProject.value = response.data.project
+      hasChanges.value = false  // No unsaved changes yet when loading from server
+      projectFromLocalStorage.value = false
+      console.log('[ImageEditor] Restored project from server sidecar')
+      debugLog('load-image:server-project', {
+        sourceMediaId: response.data.source_media_id ?? null,
+        hasProject: !!response.data.project,
+        projectHasRetouch: !!response.data.project?.state?.retouchLayerData,
+      })
 
-        // If sidecar has source_media_id, we need to load the ORIGINAL image, not the rasterized one
-        if (response.data.source_media_id) {
-          imageToLoadId = response.data.source_media_id
-          actualSourceMediaId.value = response.data.source_media_id  // Track the real source
-          console.log('[ImageEditor] Will load original source image:', imageToLoadId)
-        }
-      } catch (e) {
+      // If sidecar has source_media_id, load the original rather than the rasterized revision.
+      if (response.data.source_media_id) {
+        imageToLoadId = response.data.source_media_id
+        actualSourceMediaId.value = response.data.source_media_id
+        console.log('[ImageEditor] Will load original source image:', imageToLoadId)
+      }
+    } catch (e) {
+      if (e?.response?.status !== 404) {
         console.warn('Failed to fetch editor project from server:', e)
       }
     }

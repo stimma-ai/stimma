@@ -1,5 +1,6 @@
-"""Asset-level curation/organization compatibility writes."""
+"""Asset-level curation/organization compatibility projections and writes."""
 
+from collections import defaultdict
 from datetime import datetime
 
 from sqlalchemy import select
@@ -15,9 +16,180 @@ from database import (
     BoardItem,
     MediaMarker,
     MediaTag,
+    Marker,
     ProjectAsset,
     ProjectMedia,
+    Tag,
+    WorkingDocument,
 )
+
+
+async def media_compatibility_projections(
+    session: AsyncSession, media_items: list,
+) -> list[dict]:
+    """Project canonical Asset state onto legacy Media-shaped responses.
+
+    Technical payload fields still come from Media. Curation, organization,
+    retention, and trash state come only from the Asset that retains the
+    payload. Bare contextual Media deliberately has no such state.
+    """
+    if not media_items:
+        return []
+
+    media_ids = [item.id for item in media_items]
+    revision_rows = (
+        await session.execute(
+            select(AssetRevision, Asset)
+            .join(Asset, Asset.id == AssetRevision.asset_id)
+            .where(
+                AssetRevision.primary_media_id.in_(media_ids),
+                AssetRevision.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    revisions_by_media = {
+        revision.primary_media_id: (revision, asset)
+        for revision, asset in revision_rows
+    }
+    asset_ids = [asset.id for _, asset in revisions_by_media.values()]
+
+    markers: dict[int, list[dict]] = defaultdict(list)
+    tags: dict[int, list[dict]] = defaultdict(list)
+    working_document_assets: set[int] = set()
+    if asset_ids:
+        marker_rows = (
+            await session.execute(
+                select(AssetMarker, Marker)
+                .join(Marker, Marker.id == AssetMarker.marker_id)
+                .where(
+                    AssetMarker.asset_id.in_(asset_ids),
+                    AssetMarker.deleted_at.is_(None),
+                    AssetMarker.source != "suppressed",
+                )
+            )
+        ).all()
+        for association, marker in marker_rows:
+            markers[association.asset_id].append(
+                {**marker.to_dict(), "source": association.source}
+            )
+        tag_rows = (
+            await session.execute(
+                select(AssetTag, Tag)
+                .join(Tag, Tag.id == AssetTag.tag_id)
+                .where(
+                    AssetTag.asset_id.in_(asset_ids),
+                    AssetTag.deleted_at.is_(None),
+                )
+            )
+        ).all()
+        for association, tag in tag_rows:
+            tags[association.asset_id].append(tag.to_dict())
+        working_document_assets = set(
+            await session.scalars(
+                select(WorkingDocument.asset_id).where(
+                    WorkingDocument.asset_id.in_(asset_ids),
+                    WorkingDocument.deleted_at.is_(None),
+                )
+            )
+        )
+
+    projections: list[dict] = []
+    for media in media_items:
+        item = media.to_dict()
+        item["media_id"] = media.id
+        item["media_deleted_at"] = item.get("deleted_at")
+        item["auto_delete_at"] = None
+        item["expires_at"] = None
+        item["markers"] = []
+        item["tags"] = []
+        item["has_working_document"] = False
+
+        retained = revisions_by_media.get(media.id)
+        if retained is not None:
+            revision, asset = retained
+            item.update(
+                {
+                    "asset_id": asset.id,
+                    "revision_id": revision.id,
+                    "asset_state": asset.state,
+                    "deleted_at": (
+                        asset.deleted_at.isoformat() if asset.deleted_at else None
+                    ),
+                    "expires_at": (
+                        asset.expires_at.isoformat() if asset.expires_at else None
+                    ),
+                    "auto_delete_at": (
+                        asset.expires_at.isoformat()
+                        if asset.state == "active" and asset.expires_at
+                        else None
+                    ),
+                    "title": asset.title or item.get("title"),
+                    "markers": markers[asset.id],
+                    "tags": tags[asset.id],
+                    "has_working_document": asset.id in working_document_assets,
+                }
+            )
+        projections.append(item)
+    return projections
+
+
+async def asset_for_media(
+    session: AsyncSession,
+    media_id: int,
+    *,
+    promote: bool = False,
+    origin_type: str = "organization_action",
+) -> Asset | None:
+    """Resolve Media to its stable Asset, optionally promoting it.
+
+    Compatibility UI may still address a payload by Media id. Organization is
+    Asset-only, so an explicit curation action promotes contextual Media rather
+    than creating another Media-level source of truth.
+    """
+    revision = await session.scalar(
+        select(AssetRevision).where(
+            AssetRevision.primary_media_id == media_id,
+            AssetRevision.deleted_at.is_(None),
+        )
+    )
+    if revision is not None:
+        asset = await session.get(Asset, revision.asset_id)
+        if asset is None or asset.deleted_at is not None or asset.state != "active":
+            return None
+        return asset
+    if not promote:
+        return None
+
+    from asset_service import create_asset_from_media
+
+    return await create_asset_from_media(
+        session,
+        media_id=media_id,
+        origin_type=origin_type,
+        origin_id=str(media_id),
+        idempotency_key=f"{origin_type}:media:{media_id}",
+    )
+
+
+async def asset_ids_for_media_ids(
+    session: AsyncSession,
+    media_ids: list[int] | set[int],
+    *,
+    promote: bool = False,
+    origin_type: str = "organization_action",
+) -> dict[int, int]:
+    """Resolve a batch of Media ids to Asset ids, preserving input identity."""
+    resolved: dict[int, int] = {}
+    for media_id in dict.fromkeys(media_ids):
+        asset = await asset_for_media(
+            session,
+            media_id,
+            promote=promote,
+            origin_type=origin_type,
+        )
+        if asset is not None:
+            resolved[media_id] = asset.id
+    return resolved
 
 
 async def clear_asset_expiration(session: AsyncSession, asset_id: int) -> Asset | None:
@@ -208,27 +380,49 @@ async def mirror_media_associations_to_asset(
     media_id: int,
     asset_id: int,
 ) -> None:
-    """Dual-write existing Media curation onto its new Asset identity."""
+    """Consume historical Media organization into its stable Asset identity.
+
+    The legacy rows are staging/migration residue, not a second live model.
+    Once an Asset exists, move their meaning to canonical Asset associations
+    and remove the old edges so later Media reads cannot drift.
+    """
     marker_rows = list(
         await session.scalars(
-            select(MediaMarker).where(
-                MediaMarker.media_id == media_id,
-                MediaMarker.source != 'suppressed',
-            )
+            select(MediaMarker).where(MediaMarker.media_id == media_id)
         )
     )
     for marker in marker_rows:
-        await _add_live(
-            session,
-            AssetMarker,
-            {"asset_id": asset_id, "marker_id": marker.marker_id},
-            {
-                "asset_id": asset_id,
-                "marker_id": marker.marker_id,
-                "source": marker.source,
-                "created_at": marker.created_at or datetime.utcnow(),
-            },
+        existing = await session.scalar(
+            select(AssetMarker).where(
+                AssetMarker.asset_id == asset_id,
+                AssetMarker.marker_id == marker.marker_id,
+                AssetMarker.deleted_at.is_(None),
+            )
         )
+        if marker.source == "suppressed":
+            if existing is None:
+                session.add(
+                    AssetMarker(
+                        asset_id=asset_id,
+                        marker_id=marker.marker_id,
+                        source="suppressed",
+                        created_at=marker.created_at or datetime.utcnow(),
+                    )
+                )
+            else:
+                existing.source = "suppressed"
+        elif existing is None:
+            session.add(
+                AssetMarker(
+                    asset_id=asset_id,
+                    marker_id=marker.marker_id,
+                    source=marker.source,
+                    created_at=marker.created_at or datetime.utcnow(),
+                )
+            )
+        elif existing.source != "manual" or marker.source == "manual":
+            existing.source = marker.source
+        await session.delete(marker)
 
     tag_ids = list(
         await session.scalars(
@@ -242,11 +436,24 @@ async def mirror_media_associations_to_asset(
             {"asset_id": asset_id, "tag_id": tag_id},
             {"asset_id": asset_id, "tag_id": tag_id},
         )
+    if tag_ids:
+        tag_rows = list(
+            await session.scalars(
+                select(MediaTag).where(MediaTag.media_id == media_id)
+            )
+        )
+        for row in tag_rows:
+            await session.delete(row)
 
-    for project_id in await session.scalars(
-        select(ProjectMedia.project_id).where(ProjectMedia.media_id == media_id)
-    ):
+    project_rows = list(
+        await session.scalars(
+            select(ProjectMedia).where(ProjectMedia.media_id == media_id)
+        )
+    )
+    for project_row in project_rows:
+        project_id = project_row.project_id
         await attach_asset_to_project(session, project_id, asset_id)
+        await session.delete(project_row)
 
     board_items = list(
         await session.scalars(select(BoardItem).where(BoardItem.media_id == media_id))
@@ -263,6 +470,7 @@ async def mirror_media_associations_to_asset(
                 "added_at": board_item.added_at,
             },
         )
+        await session.delete(board_item)
 
     if marker_rows or tag_ids or board_items:
         await clear_asset_expiration(session, asset_id)

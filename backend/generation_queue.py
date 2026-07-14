@@ -1229,46 +1229,60 @@ class GenerationQueue:
         if not marker_ids:
             return
 
-        from database import MediaMarker
+        from database import AssetMarker, MediaMarker
 
         async with self._get_db(profile_id).async_session_maker() as session:
+            from asset_association_service import asset_for_media, clear_asset_expiration
+
+            asset = await asset_for_media(session, media_id)
             for marker_id in marker_ids:
-                # Check if marker already exists (shouldn't happen, but be safe)
-                existing = await session.execute(
-                    select(MediaMarker).where(
-                        MediaMarker.media_id == media_id,
-                        MediaMarker.marker_id == marker_id
+                if asset is not None:
+                    existing = await session.scalar(
+                        select(AssetMarker).where(
+                            AssetMarker.asset_id == asset.id,
+                            AssetMarker.marker_id == marker_id,
+                            AssetMarker.deleted_at.is_(None),
+                        )
                     )
-                )
-                if not existing.scalar_one_or_none():
-                    new_marker = MediaMarker(
-                        media_id=media_id,
-                        marker_id=marker_id,
-                        source='auto'  # Mark as auto-applied
+                    if existing is None:
+                        session.add(
+                            AssetMarker(
+                                asset_id=asset.id,
+                                marker_id=marker_id,
+                                source="auto",
+                            )
+                        )
+                else:
+                    # Pre-disposition staging only. Promotion consumes this row
+                    # into AssetMarker; bare Media never exposes it as curation.
+                    existing = await session.scalar(
+                        select(MediaMarker).where(
+                            MediaMarker.media_id == media_id,
+                            MediaMarker.marker_id == marker_id,
+                        )
                     )
-                    session.add(new_marker)
+                    if existing is None:
+                        session.add(
+                            MediaMarker(
+                                media_id=media_id,
+                                marker_id=marker_id,
+                                source="auto",
+                            )
+                        )
+
+            if asset is not None:
+                await clear_asset_expiration(session, asset.id)
 
             try:
                 await session.commit()
                 log.info(f"Applied {len(marker_ids)} auto-markers to media {media_id}")
 
-                # Clear auto-delete since the media is now marked
-                # This prevents the impossible state of having both auto-delete AND markers
-                if self._websocket_manager:
-                    await clear_auto_delete_for_media(session, [media_id], self._websocket_manager)
-                from database import AssetRevision
-                from asset_association_service import mirror_media_associations_to_asset
-                revision = await session.scalar(
-                    select(AssetRevision).where(
-                        AssetRevision.primary_media_id == media_id,
-                        AssetRevision.deleted_at.is_(None),
+                if asset is not None and self._websocket_manager:
+                    from asset_association_service import broadcast_assets_retained
+
+                    await broadcast_assets_retained(
+                        session, [asset.id], self._websocket_manager
                     )
-                )
-                if revision is not None:
-                    await mirror_media_associations_to_asset(
-                        session, media_id=media_id, asset_id=revision.asset_id
-                    )
-                    await session.commit()
             except IntegrityError as e:
                 log.warning(f"Failed to apply auto-markers to media {media_id}: {e}")
                 await session.rollback()

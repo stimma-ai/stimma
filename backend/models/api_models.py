@@ -26,6 +26,7 @@ class MediaItemResponse(BaseModel):
     asset_id: Optional[int] = None
     media_id: Optional[int] = None
     revision_id: Optional[int] = None
+    asset_state: Optional[str] = None
     file_hash: str
     file_path: str
     file_size: int
@@ -49,13 +50,16 @@ class MediaItemResponse(BaseModel):
     extracted_prompt: Optional[str]
     generation_metadata: Optional[str]
     has_editor_sidecar: bool = False
+    has_working_document: bool = False
     keywords: List[str]
     has_clip_embedding: bool
     has_vlm_caption: bool
     vlm_error: Optional[str]
     similarity_score: Optional[float] = None
     auto_delete_at: Optional[str] = None
+    expires_at: Optional[str] = None
     deleted_at: Optional[str] = None
+    media_deleted_at: Optional[str] = None
     markers: List[MediaMarkerInfo] = []
     tags: List[TagResponse] = []
     # Processing status fields for UI display

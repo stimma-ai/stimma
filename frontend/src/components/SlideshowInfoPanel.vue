@@ -51,7 +51,7 @@
         <template v-else>
           <InspireMenu
             v-if="currentItem"
-            :media-id="currentItem.id"
+            :media-id="mediaIdOf(currentItem)"
             @sent="$emit('menu-sent')"
             class="action-stack-wrap"
           />
@@ -155,7 +155,7 @@
         </div>
         <InlineTagEditor
           v-if="!isTrashView && !isCurrentItemTrashed && editingTags"
-          :media-id="currentItem.id"
+          :media-id="mediaIdOf(currentItem)"
           :asset-id="currentItem.asset_id"
           :tags="currentItem?.tags || []"
           @close="editingTags = false"
@@ -853,6 +853,7 @@ import { getFilterDisplayLabel } from '@stimma/image-editor'
 import { isImage as isImageType, hasVisualContent, getMediaType } from '../utils/mediaTypes'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { useAssetApi } from '../composables/useAssetApi'
+import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
 
 const { formatRemainingTime } = useExpirationClock()
 
@@ -1017,7 +1018,7 @@ watch(() => [props.currentItem?.asset_id, props.currentItem?.revision_id], () =>
 }, { immediate: true })
 
 function handleInlineTagsChanged(updatedTags) {
-  emit('tags-updated', props.currentItem.id, updatedTags)
+  emit('tags-updated', mediaIdOf(props.currentItem), updatedTags)
 }
 
 function openContextMenu(event) {
@@ -1029,11 +1030,11 @@ function openContextMenu(event) {
   contextMenu.showAt({
     x: rect.left,
     y: rect.bottom + 4,
-    mediaId: props.currentItem.id,
-    assetId: props.currentItem.asset_id || undefined,
+    mediaId: mediaIdOf(props.currentItem),
+    assetId: assetIdOf(props.currentItem) || undefined,
     fileHash: props.currentItem.file_hash,
-    mediaIds: [props.currentItem.id],
-    assetIds: props.currentItem.asset_id ? [props.currentItem.asset_id] : [],
+    mediaIds: [mediaIdOf(props.currentItem)].filter(Boolean),
+    assetIds: [assetIdOf(props.currentItem)].filter(Boolean),
     selectedItems: [props.currentItem]
   })
 }
@@ -1149,7 +1150,7 @@ const effectiveGenerationHistory = computed(() => {
   // For imported items with no generation_metadata, show a single "imported" entry
   if (!generationMetadata.value) {
     return [{
-      media_id: props.currentItem.id,
+      media_id: mediaIdOf(props.currentItem),
       task_type: null,
       is_imported: true,
       model: null,

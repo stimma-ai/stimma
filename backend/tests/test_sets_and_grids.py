@@ -38,12 +38,17 @@ async def create_set(client, db_session, *, count=3, title="Test Set", project_i
 
 
 async def get_media_project_ids(db_session, media_id):
-    """Helper: return the set of project ids a media item is attached to."""
-    from database import ProjectMedia
-    from sqlalchemy import select
+    """Return project ids for the Asset retaining this payload."""
+    from database import AssetRevision, ProjectAsset
     async with db_session() as session:
         result = await session.execute(
-            select(ProjectMedia.project_id).where(ProjectMedia.media_id == media_id)
+            select(ProjectAsset.project_id)
+            .join(AssetRevision, AssetRevision.asset_id == ProjectAsset.asset_id)
+            .where(
+                AssetRevision.primary_media_id == media_id,
+                AssetRevision.deleted_at.is_(None),
+                ProjectAsset.deleted_at.is_(None),
+            )
         )
         return {row[0] for row in result.all()}
 
@@ -293,6 +298,10 @@ class TestIndependentAssetDeletion:
         """Trashing a regular image should NOT cascade-delete anything."""
         async with generation_db_session() as session:
             image = await create_media_item(session, file_format="png")
+            from asset_service import create_asset_from_media
+
+            await create_asset_from_media(session, media_id=image.id)
+            await session.commit()
 
         with patch("routes.trash.ws_manager", MockWebSocketManager()):
             resp = await generation_client.delete(f"/api/media/{image.id}")

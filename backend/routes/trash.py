@@ -9,10 +9,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, or_, and_, literal, Integer, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from core.profile_context import get_current_profile
-from database import AssetRevision, DeleteOperation, MediaItem, MediaMarker, MediaKeyword, Keyword, MediaTag, Tag
+from database import Asset, AssetRevision, AssetTag, DeleteOperation, MediaItem, MediaKeyword, Keyword, Tag
+from asset_association_service import media_compatibility_projections
 from core.dependencies import get_db_session
 from delete_operations import (
     create_delete_operation,
@@ -60,6 +60,11 @@ async def delete_media(
 
     asset_revision = await _asset_revision_for_media(session, media_id)
     if asset_revision is not None:
+        asset = await session.get(Asset, asset_revision.asset_id)
+        if asset is None:
+            raise HTTPException(status_code=404, detail="Asset not found")
+        if asset.state == "trashed":
+            raise HTTPException(status_code=400, detail="Asset already deleted")
         from asset_service import AssetServiceError, trash_asset
         try:
             await trash_asset(session, asset_id=asset_revision.asset_id)
@@ -67,7 +72,7 @@ async def delete_media(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         await session.commit()
         await ws_manager.broadcast(
-            "asset_deleted", {"asset_id": asset_revision.asset_id}
+            "asset_trashed", {"asset_id": asset_revision.asset_id}
         )
         return {
             "status": "success",
@@ -75,15 +80,10 @@ async def delete_media(
             "deleted_count": 1,
         }
 
-    # Bare contextual Media has no Asset lifecycle. Preserve the compatibility
-    # behavior only for that case.
-    media.deleted_at = datetime.utcnow()
-    media.auto_delete_at = None  # Clear expiration time
-    await session.commit()
-
-    await ws_manager.broadcast("media_deleted", {"media_id": media_id})
-
-    return {"status": "success", "message": "Media moved to trash", "deleted_count": 1}
+    raise HTTPException(
+        status_code=409,
+        detail="Contextual Media has no Trash lifecycle; save it as an Asset first",
+    )
 
 
 @router.post("/media/batch/delete")
@@ -93,7 +93,6 @@ async def bulk_delete_media(
 ):
     """Compatibility bulk soft-delete without implicit containment cascades."""
     all_deleted_ids = []
-    bare_media_ids = []
     trashed_asset_ids = set()
     errors = []
     BATCH_SIZE = 500
@@ -121,6 +120,15 @@ async def bulk_delete_media(
         asset_revision = await _asset_revision_for_media(session, media_id)
         if asset_revision is not None:
             if asset_revision.asset_id not in trashed_asset_ids:
+                asset = await session.get(Asset, asset_revision.asset_id)
+                if asset is None:
+                    errors.append({"media_id": media_id, "error": "Asset not found"})
+                    all_deleted_ids.pop()
+                    continue
+                if asset.state == "trashed":
+                    errors.append({"media_id": media_id, "error": "Already deleted"})
+                    all_deleted_ids.pop()
+                    continue
                 from asset_service import AssetServiceError, trash_asset
                 try:
                     await trash_asset(session, asset_id=asset_revision.asset_id)
@@ -130,9 +138,11 @@ async def bulk_delete_media(
                     continue
                 trashed_asset_ids.add(asset_revision.asset_id)
         else:
-            media.deleted_at = datetime.utcnow()
-            media.auto_delete_at = None
-            bare_media_ids.append(media_id)
+            errors.append({
+                "media_id": media_id,
+                "error": "Contextual Media has no Trash lifecycle",
+            })
+            all_deleted_ids.pop()
 
     await session.commit()
 
@@ -140,12 +150,6 @@ async def bulk_delete_media(
         await ws_manager.broadcast(
             "assets_trashed", {"asset_ids": sorted(trashed_asset_ids)}
         )
-    if bare_media_ids:
-        await ws_manager.broadcast("media_bulk_deleted", {
-            "count": len(bare_media_ids),
-            "media_ids": bare_media_ids
-        })
-
     if all_deleted_ids:
         from telemetry import get_telemetry_client
         get_telemetry_client().track("media_deleted", {"count": len(all_deleted_ids)})
@@ -190,7 +194,23 @@ async def get_trash(
     """Get deleted media items (trash) with optional filters."""
     # Trash-specific pre-filter: only deleted items, and (per longstanding behavior) include
     # items that have been superseded by sets/grids so users can see everything in the bin.
-    query = select(MediaItem).where(MediaItem.deleted_at.isnot(None))
+    query = (
+        select(MediaItem)
+        .join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
+        .join(
+            Asset,
+            and_(
+                Asset.id == AssetRevision.asset_id,
+                Asset.current_revision_id == AssetRevision.id,
+            ),
+        )
+        .where(
+            Asset.state == "trashed",
+            Asset.deleted_at.is_not(None),
+            AssetRevision.deleted_at.is_(None),
+            MediaItem.deleted_at.is_(None),
+        )
+    )
 
     # All shared filter logic lives in the helper to keep semantics in lockstep with the
     # library list, find-index, and filter-counts endpoints.
@@ -216,6 +236,8 @@ async def get_trash(
         created_after=created_after,
         created_before=created_before,
         exclude_expired=False,
+        asset_id_column=Asset.id,
+        expiration_column=Asset.expires_at,
     )
 
     # Handle similarity search separately (requires in-memory processing)
@@ -229,12 +251,6 @@ async def get_trash(
 
         # Add filter to only include items with embeddings
         query = query.where(MediaItem.clip_embedding.isnot(None))
-
-        # Eager load associations before executing
-        query = query.options(
-            selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker),
-            selectinload(MediaItem.tags)
-        )
 
         # Execute query to get all filtered items
         result = await session.execute(query)
@@ -264,9 +280,9 @@ async def get_trash(
         if sort_by == "similarity":
             filtered_items.sort(key=lambda x: similarity_scores.get(x.id, 0), reverse=True)
         elif sort_by == "deleted_desc":
-            filtered_items.sort(key=lambda x: x.deleted_at if x.deleted_at else datetime.min, reverse=True)
+            filtered_items.sort(key=lambda x: x.id, reverse=True)
         elif sort_by == "deleted_asc":
-            filtered_items.sort(key=lambda x: x.deleted_at if x.deleted_at else datetime.min, reverse=False)
+            filtered_items.sort(key=lambda x: x.id)
         elif sort_by == "created_desc":
             filtered_items.sort(key=lambda x: x.created_date if x.created_date else datetime.min, reverse=True)
         elif sort_by == "created_asc":
@@ -281,7 +297,10 @@ async def get_trash(
         offset = (page - 1) * page_size
         items = filtered_items[offset:offset + page_size]
 
-        media_items = [MediaItemResponse(**item.to_dict()) for item in items]
+        media_items = [
+            MediaItemResponse(**item)
+            for item in await media_compatibility_projections(session, items)
+        ]
 
         return MediaListResponse(
             items=media_items,
@@ -298,9 +317,9 @@ async def get_trash(
 
     # Apply sorting
     if sort_by == "deleted_desc":
-        query = query.order_by(MediaItem.deleted_at.desc(), MediaItem.id.desc())
+        query = query.order_by(Asset.deleted_at.desc(), Asset.id.desc())
     elif sort_by == "deleted_asc":
-        query = query.order_by(MediaItem.deleted_at.asc(), MediaItem.id.asc())
+        query = query.order_by(Asset.deleted_at.asc(), Asset.id.asc())
     elif sort_by == "created_desc":
         query = query.order_by(MediaItem.created_date.desc().nulls_last(), MediaItem.id.desc())
     elif sort_by == "created_asc":
@@ -313,22 +332,19 @@ async def get_trash(
         query = query.order_by(transformed_value, MediaItem.id)
     elif sort_by == "similarity":
         # Without similar_to_text, fall back to deleted_desc
-        query = query.order_by(MediaItem.deleted_at.desc(), MediaItem.id.desc())
+        query = query.order_by(Asset.deleted_at.desc(), Asset.id.desc())
 
     # Apply pagination
     offset = (page - 1) * page_size
     query = query.offset(offset).limit(page_size)
 
-    # Eager load marker_associations and tags
-    query = query.options(
-        selectinload(MediaItem.marker_associations).selectinload(MediaMarker.marker),
-        selectinload(MediaItem.tags)
-    )
-
     result = await session.execute(query)
     items = result.scalars().all()
 
-    media_items = [MediaItemResponse(**item.to_dict()) for item in items]
+    media_items = [
+        MediaItemResponse(**item)
+        for item in await media_compatibility_projections(session, items)
+    ]
 
     return MediaListResponse(
         items=media_items,
@@ -373,9 +389,18 @@ async def get_trash_filter_counts(
     # Trash includes superseded items (matches get_trash behavior so badge counts agree
     # with what users actually see in the list).
     def get_base_query():
-        q = select(func.count(MediaItem.id)).select_from(MediaItem)
-        q = q.where(MediaItem.deleted_at.isnot(None))
-        return q
+        return (
+            select(func.count(Asset.id))
+            .select_from(Asset)
+            .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+            .join(MediaItem, MediaItem.id == AssetRevision.primary_media_id)
+            .where(
+                Asset.state == "trashed",
+                Asset.deleted_at.is_not(None),
+                AssetRevision.deleted_at.is_(None),
+                MediaItem.deleted_at.is_(None),
+            )
+        )
 
     # Compute "if I click this media type" preview count for every supported type.
     # Without all 8, badges silently disappear from the UI for newer types.
@@ -528,8 +553,20 @@ async def get_trash_filter_counts(
         MediaItem, MediaKeyword.media_id == MediaItem.id
     )
 
-    # Only count trashed items
-    keyword_query = keyword_query.where(MediaItem.deleted_at.isnot(None))
+    keyword_query = keyword_query.join(
+        AssetRevision, AssetRevision.primary_media_id == MediaItem.id
+    ).join(
+        Asset,
+        and_(
+            Asset.id == AssetRevision.asset_id,
+            Asset.current_revision_id == AssetRevision.id,
+        ),
+    ).where(
+        Asset.state == "trashed",
+        Asset.deleted_at.is_not(None),
+        AssetRevision.deleted_at.is_(None),
+        MediaItem.deleted_at.is_(None),
+    )
 
     # Apply all non-keyword filters to show preview counts
     keyword_query = build_filtered_query(
@@ -571,13 +608,29 @@ async def get_trash_filter_counts(
         Tag.tag_text,
         func.count(func.distinct(MediaItem.id)).label('count')
     ).select_from(Tag).join(
-        MediaTag, Tag.id == MediaTag.tag_id
+        AssetTag,
+        and_(
+            Tag.id == AssetTag.tag_id,
+            AssetTag.deleted_at.is_(None),
+        ),
     ).join(
-        MediaItem, MediaTag.media_id == MediaItem.id
+        Asset,
+        and_(
+            Asset.id == AssetTag.asset_id,
+            Asset.state == "trashed",
+            Asset.deleted_at.is_not(None),
+        ),
+    ).join(
+        AssetRevision,
+        and_(
+            AssetRevision.id == Asset.current_revision_id,
+            AssetRevision.deleted_at.is_(None),
+        ),
+    ).join(
+        MediaItem, MediaItem.id == AssetRevision.primary_media_id
     )
 
-    # Only count trashed items
-    tag_query = tag_query.where(MediaItem.deleted_at.isnot(None))
+    tag_query = tag_query.where(MediaItem.deleted_at.is_(None))
 
     # Apply all non-tag filters to show preview counts
     tag_query = build_filtered_query(
@@ -679,6 +732,7 @@ async def bulk_restore_from_trash(
 ):
     """Restore multiple items from trash."""
     restored_count = 0
+    restored_asset_ids: list[int] = []
     errors = []
     BATCH_SIZE = 500
 
@@ -696,26 +750,35 @@ async def bulk_restore_from_trash(
         if not media:
             errors.append({"media_id": media_id, "error": "Not found"})
             continue
-        if media.deleted_at is None:
-            errors.append({"media_id": media_id, "error": "Not in trash"})
-            continue
         if media.deletion_pending_at is not None:
             errors.append({"media_id": media_id, "error": "Deletion is in progress"})
             continue
 
-        # Restore - just clear the timestamp
-        media.deleted_at = None
         asset_revision = await _asset_revision_for_media(session, media_id)
-        if asset_revision is not None:
-            from asset_service import restore_asset
-            await restore_asset(session, asset_id=asset_revision.asset_id)
+        if asset_revision is None:
+            errors.append({
+                "media_id": media_id,
+                "error": "Contextual Media has no Trash lifecycle",
+            })
+            continue
+        from database import Asset
+        asset = await session.get(Asset, asset_revision.asset_id)
+        if asset is None or asset.state != "trashed":
+            errors.append({"media_id": media_id, "error": "Not in trash"})
+            continue
+        from asset_service import restore_asset
+        await restore_asset(session, asset_id=asset_revision.asset_id)
         restored_count += 1
+        restored_asset_ids.append(asset_revision.asset_id)
 
     await session.commit()
 
     # Broadcast bulk restore event
     restored_ids = [mid for mid in request.media_ids if mid not in [e["media_id"] for e in errors]]
     if restored_ids:
+        await ws_manager.broadcast(
+            "assets_restored", {"asset_ids": restored_asset_ids}
+        )
         await ws_manager.broadcast("media_bulk_restored", {
             "count": len(restored_ids),
             "media_ids": restored_ids
@@ -737,55 +800,43 @@ async def bulk_permanently_delete(
     request: BulkTrashRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Queue permanent deletion for multiple items from trash."""
-    BATCH_SIZE = 500
+    """Compatibility bulk delete routed through Asset identity deletion."""
     errors = []
-    items_to_delete = []
-    profile_id = get_current_profile()
+    operations = []
+    accepted_asset_ids: set[int] = set()
+    from asset_deletion_service import permanently_delete_asset
+    from database import Asset
 
-    for i in range(0, len(request.media_ids), BATCH_SIZE):
-        batch_ids = request.media_ids[i:i + BATCH_SIZE]
-
-        result = await session.execute(
-            select(MediaItem).where(MediaItem.id.in_(batch_ids))
+    for media_id in request.media_ids:
+        revision = await _asset_revision_for_media(session, media_id)
+        if revision is None:
+            errors.append({
+                "media_id": media_id,
+                "error": "Contextual Media has no Trash lifecycle",
+            })
+            continue
+        if revision.asset_id in accepted_asset_ids:
+            continue
+        asset = await session.get(Asset, revision.asset_id)
+        if asset is None or asset.state != "trashed":
+            errors.append({"media_id": media_id, "error": "Not in trash"})
+            continue
+        deletion = await permanently_delete_asset(
+            session,
+            asset_id=revision.asset_id,
+            profile_id=get_current_profile(),
         )
-        items_map = {m.id: m for m in result.scalars().all()}
-
-        batch_deleted_ids = []
-        for media_id in batch_ids:
-            media = items_map.get(media_id)
-            if not media:
-                errors.append({"media_id": media_id, "error": "Not found"})
-                continue
-            if media.deleted_at is None:
-                errors.append({"media_id": media_id, "error": "Not in trash"})
-                continue
-            if media.deletion_pending_at is not None:
-                errors.append({"media_id": media_id, "error": "Deletion is already in progress"})
-                continue
-            items_to_delete.append(media)
-
-    if not items_to_delete:
-        return {
-            "status": "accepted",
-            "operation": None,
-            "accepted": 0,
-            "total": len(request.media_ids),
-            "errors": errors
-        }
-
-    operation = await create_delete_operation(
-        session,
-        profile_id=profile_id,
-        kind="batch",
-        media_items=items_to_delete,
-    )
-    await ensure_delete_worker_started()
+        accepted_asset_ids.add(revision.asset_id)
+        if deletion.operation is not None:
+            operations.append(deletion.operation.to_dict())
+    if operations:
+        await ensure_delete_worker_started()
 
     return {
         "status": "accepted",
-        "operation": operation.to_dict(),
-        "accepted": len(items_to_delete),
+        "operation": operations[0] if len(operations) == 1 else None,
+        "operations": operations,
+        "accepted": len(accepted_asset_ids),
         "total": len(request.media_ids),
         "errors": errors
     }
@@ -803,20 +854,27 @@ async def restore_from_trash(
     if not media:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    if media.deleted_at is None:
-        raise HTTPException(status_code=400, detail="Asset is not deleted")
     if media.deletion_pending_at is not None:
         raise HTTPException(status_code=409, detail="Asset deletion is in progress")
 
-    # Restore - just clear the timestamp
-    media.deleted_at = None
     asset_revision = await _asset_revision_for_media(session, media_id)
-    if asset_revision is not None:
-        from asset_service import restore_asset
-        await restore_asset(session, asset_id=asset_revision.asset_id)
+    if asset_revision is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Contextual Media has no Trash lifecycle",
+        )
+    from database import Asset
+    asset = await session.get(Asset, asset_revision.asset_id)
+    if asset is None or asset.state != "trashed":
+        raise HTTPException(status_code=400, detail="Asset is not deleted")
+    from asset_service import restore_asset
+    await restore_asset(session, asset_id=asset_revision.asset_id)
     await session.commit()
 
     # Broadcast restore event
+    await ws_manager.broadcast(
+        "asset_restored", {"asset_id": asset_revision.asset_id}
+    )
     await ws_manager.broadcast("media_restored", {"media_id": media_id})
 
     return {"status": "success", "message": "Asset restored"}
@@ -834,62 +892,50 @@ async def permanently_delete_media(
     if not media:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    if media.deleted_at is None:
-        raise HTTPException(status_code=400, detail="Asset is not in trash")
     if media.deletion_pending_at is not None:
         raise HTTPException(status_code=409, detail="Asset deletion is already in progress")
 
-    operation = await create_delete_operation(
-        session,
-        profile_id=get_current_profile(),
-        kind="single",
-        media_items=[media],
-    )
-    await ensure_delete_worker_started()
+    asset_revision = await _asset_revision_for_media(session, media_id)
+    if asset_revision is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Contextual Media has no Trash lifecycle",
+        )
+    asset = await session.get(Asset, asset_revision.asset_id)
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    if asset.state != "trashed":
+        raise HTTPException(status_code=400, detail="Asset is not in trash")
+    from asset_deletion_service import permanently_delete_asset
 
-    return {"status": "accepted", "operation": operation.to_dict(), "message": "Permanent delete queued"}
+    deletion = await permanently_delete_asset(
+        session,
+        asset_id=asset_revision.asset_id,
+        profile_id=get_current_profile(),
+    )
+    if deletion.operation is not None:
+        await ensure_delete_worker_started()
+
+    return {
+        "status": "accepted",
+        "operation": deletion.operation.to_dict() if deletion.operation else None,
+        "message": "Permanent delete queued",
+    }
 
 
 @router.delete("/trash", status_code=202)
 async def empty_trash(
     session: AsyncSession = Depends(get_db_session)
 ):
-    """Queue permanent deletion for all items currently in trash."""
-    count_result = await session.execute(
-        select(func.count()).select_from(MediaItem).where(
-            MediaItem.deleted_at.isnot(None),
-            MediaItem.deletion_pending_at.is_(None),
-        )
-    )
-    total_count = count_result.scalar()
+    """Compatibility alias for canonical Asset Trash emptying."""
+    from routes.assets import empty_asset_trash
 
-    if total_count == 0:
-        return {"status": "accepted", "operation": None, "accepted": 0, "message": "Trash is already empty"}
-
-    result = await session.execute(
-        select(MediaItem)
-        .where(
-            MediaItem.deleted_at.isnot(None),
-            MediaItem.deletion_pending_at.is_(None),
-        )
-        .order_by(MediaItem.id.asc())
-    )
-    items_to_delete = list(result.scalars().all())
-    operation = await create_delete_operation(
-        session,
-        profile_id=get_current_profile(),
-        kind="empty_trash",
-        media_items=items_to_delete,
-    )
-    await ensure_delete_worker_started()
-
-    return {
-        "status": "accepted",
-        "operation": operation.to_dict(),
-        "accepted": len(items_to_delete),
-        "total": total_count,
-        "message": f"Permanent deletion started for {len(items_to_delete)} items"
-    }
+    result = await empty_asset_trash(session=session)
+    operations = result.get("operations") or []
+    result["operation"] = operations[0] if len(operations) == 1 else None
+    if result.get("accepted") == 0:
+        result["message"] = "Trash is already empty"
+    return result
 
 
 @router.get("/delete-operations/active")
@@ -910,8 +956,17 @@ async def get_media_deletion_status(
         return {"status": "deleted"}
     if media.deletion_pending_at is not None:
         return {"status": "pending"}
-    if media.deleted_at is not None:
-        return {"status": "trashed"}
+    revision = await _asset_revision_for_media(session, media_id)
+    if revision is not None:
+        asset = await session.get(Asset, revision.asset_id)
+        if asset is None:
+            return {"status": "deleted"}
+        if asset.state == "deleting":
+            return {"status": "pending"}
+        if asset.state == "trashed":
+            return {"status": "trashed"}
+    elif media.deleted_at is not None:
+        return {"status": "deleted"}
     return {"status": "live"}
 
 

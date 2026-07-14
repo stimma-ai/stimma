@@ -97,6 +97,7 @@ class _FakeSessionContext:
 
     async def __aenter__(self):
         session = MagicMock()
+        session.get = AsyncMock(return_value=None)
         result = MagicMock()
         result.one_or_none.return_value = (self._file_path, 1024, 1024)
         session.execute = AsyncMock(return_value=result)

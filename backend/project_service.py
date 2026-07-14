@@ -64,6 +64,27 @@ async def initialize_project_root(session: AsyncSession, project: Project) -> Pr
 
 
 async def attach_media_to_project(session: AsyncSession, project_id: int, media_id: int) -> None:
+    """Attach an Asset-backed payload canonically, or stage until promotion."""
+    from asset_association_service import asset_for_media, attach_asset_to_project
+
+    asset = await asset_for_media(session, media_id)
+    if asset is not None:
+        await attach_asset_to_project(session, project_id, asset.id)
+        # Consume any staging edge left by an earlier step/build.
+        staged = await session.scalar(
+            select(ProjectMedia).where(
+                ProjectMedia.project_id == project_id,
+                ProjectMedia.media_id == media_id,
+            )
+        )
+        if staged is not None:
+            await session.delete(staged)
+        await session.flush()
+        return
+
+    # Some generation pipelines know project context before disposition. Keep
+    # that intent only as a temporary edge; promotion consumes it into
+    # ProjectAsset. It is never used by project browsers or counts.
     existing = await session.execute(
         select(ProjectMedia).where(
             ProjectMedia.project_id == project_id,
@@ -77,6 +98,12 @@ async def attach_media_to_project(session: AsyncSession, project_id: int, media_
 
 
 async def remove_media_from_project(session: AsyncSession, project_id: int, media_id: int) -> bool:
+    from asset_association_service import asset_for_media, detach_asset_from_project
+
+    asset = await asset_for_media(session, media_id)
+    if asset is not None:
+        return await detach_asset_from_project(session, project_id, asset.id)
+
     existing = await session.execute(
         select(ProjectMedia).where(
             ProjectMedia.project_id == project_id,
@@ -100,5 +127,4 @@ async def get_project_or_404(session: AsyncSession, project_id: int) -> Project:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Project not found")
     return project
-
 
