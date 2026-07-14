@@ -153,21 +153,15 @@ export function useSettingsApi() {
     return response.data
   }
 
-  /**
-   * Get preview of database cleanup (orphaned + missing file counts).
-   * @returns {Promise<{orphaned_count: number, missing_count: number, total_count: number}>}
-   */
-  async function getDatabaseCleanupPreview() {
-    const response = await axios.get(`${getAPIBase()}/settings/database/cleanup-preview`)
+  /** Run a read-only foreign-key analysis for the current profile. */
+  async function analyzeDatabaseMaintenance() {
+    const response = await axios.get(`${getAPIBase()}/settings/database/maintenance/analyze`)
     return response.data
   }
 
-  /**
-   * Execute database cleanup (permanently forget orphaned and missing files).
-   * @returns {Promise<{orphaned_forgotten: number, missing_forgotten: number, total_forgotten: number}>}
-   */
-  async function executeDatabaseCleanup() {
-    const response = await axios.post(`${getAPIBase()}/settings/database/cleanup`, { confirm: true })
+  /** Explicitly repair safe foreign-key debris for the current profile. */
+  async function cleanupDatabaseMaintenance() {
+    const response = await axios.post(`${getAPIBase()}/settings/database/maintenance/cleanup`, { confirm: true })
     return response.data
   }
 
@@ -240,8 +234,8 @@ export function useSettingsApi() {
     deleteProfile,
     renameProfile,
     rescanFolders,
-    getDatabaseCleanupPreview,
-    executeDatabaseCleanup,
+    analyzeDatabaseMaintenance,
+    cleanupDatabaseMaintenance,
     updateDeveloperMode,
     updateDebugForceFfmpegMissing,
     recheckFfmpeg,

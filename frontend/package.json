@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "lint:dead-code": "knip --include files --no-progress",
     "lint:storage-keys": "bash scripts/check-storage-keys.sh",
-    "test:handoff": "node --test --experimental-strip-types src/utils/toolHandoff.test.ts"
+    "test:handoff": "node --test --experimental-strip-types src/utils/toolHandoff.test.ts",
+    "test:database-cleanup": "node --test tests/databaseCleanupState.test.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.2",

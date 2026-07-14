@@ -1,15 +1,6 @@
 <template>
   <div>
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-base font-medium text-content">Sources</h3>
-      <!-- Database cleanup link -->
-      <button
-        @click="showCleanupModal = true"
-        class="text-xs text-content-muted hover:text-content-tertiary transition-colors"
-      >
-        Clean up database
-      </button>
-    </div>
+    <h3 class="mb-4 text-base font-medium text-content">Sources</h3>
     <p class="text-sm text-content-tertiary mb-6">
       Add folders Stimma may scan for external media. Stimma never writes to or deletes files in these folders.
     </p>
@@ -111,13 +102,6 @@
       @cancel="handleAddFolderCancel"
     />
 
-    <!-- Database cleanup modal -->
-    <DatabaseCleanupModal
-      :show="showCleanupModal"
-      @close="showCleanupModal = false"
-      @cleaned="handleCleanupComplete"
-    />
-
     <!-- Folder menu dropdown (teleported to avoid overflow clipping) -->
     <Teleport to="body">
       <div
@@ -174,7 +158,6 @@ import { isTauri } from '../../../apiConfig'
 import { useMarkers } from '../../../composables/useMarkers'
 import ConfirmModal from '../../ConfirmModal.vue'
 import AddFolderModal from '../AddFolderModal.vue'
-import DatabaseCleanupModal from '../DatabaseCleanupModal.vue'
 import FolderSettingsModal from '../FolderSettingsModal.vue'
 import { sanitizeSvg } from '../../../utils/sanitizeHtml'
 
@@ -207,7 +190,6 @@ const rescanning = ref(null)
 const showRemoveConfirm = ref(false)
 const folderToRemove = ref(null)
 const showAddFolderModal = ref(false)
-const showCleanupModal = ref(false)
 const showFolderSettings = ref(false)
 const folderToEdit = ref(null)
 const folderToEditIndex = ref(null)
@@ -420,11 +402,4 @@ function handleAddFolderCancel() {
   showAddFolderModal.value = false
 }
 
-function handleCleanupComplete(result) {
-  // Emit an event so parent can refresh settings if needed
-  // The cleanup may have changed folder media counts
-  if (result.total_forgotten > 0) {
-    emit('refresh')  // Trigger a refresh of settings data
-  }
-}
 </script>

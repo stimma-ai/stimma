@@ -117,7 +117,27 @@
           </button>
         </div>
       </div>
+
+      <div class="mt-3 rounded-lg border border-white/10 bg-white/[0.05] p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <h4 class="text-sm font-medium text-content">Database maintenance</h4>
+            <p class="mt-0.5 text-xs text-content-tertiary">Analyze and safely clean historical SQLite foreign-key debris for the current profile</p>
+          </div>
+          <button
+            class="rounded border border-edge bg-surface-raised px-3 py-1.5 text-xs font-medium text-content-secondary transition-all hover:bg-surface hover:text-content"
+            @click="showDatabaseCleanupModal = true"
+          >
+            Open maintenance
+          </button>
+        </div>
+      </div>
     </template>
+
+    <DatabaseCleanupModal
+      :show="showDatabaseCleanupModal"
+      @close="showDatabaseCleanupModal = false"
+    />
 
     <!-- Request Metrics Modal -->
     <div v-if="showRequestMetricsModal" class="fixed inset-0 z-[10030] bg-overlay-backdrop backdrop-blur-sm p-4 flex flex-col" @click.self="closeRequestMetricsModal">
@@ -253,6 +273,7 @@ import { useSettingsApi } from '../../../composables/useSettingsApi'
 import { makeGlobalKey } from '../../../utils/storageKeys'
 import { hidePricesRef, setHidePrices } from '../../../appConfig'
 import { isTauri } from '../../../apiConfig'
+import DatabaseCleanupModal from '../DatabaseCleanupModal.vue'
 
 const props = defineProps({
   developerMode: {
@@ -272,6 +293,7 @@ const localForceFfmpegMissing = ref(false)
 const { fetchRequestMetrics, resetRequestMetrics } = useSettingsApi()
 
 const showRequestMetricsModal = ref(false)
+const showDatabaseCleanupModal = ref(false)
 const metricsLoading = ref(false)
 const metricsResetting = ref(false)
 const metricsError = ref('')
@@ -405,6 +427,7 @@ async function confirmResetMetrics() {
 }
 
 watch(localDevMode, (enabled) => {
+  if (!enabled) showDatabaseCleanupModal.value = false
   if (!enabled && showRequestMetricsModal.value) {
     closeRequestMetricsModal()
   }

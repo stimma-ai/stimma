@@ -384,23 +384,41 @@ class RenameProfileRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
 
 
-class DatabaseCleanupPreviewResponse(BaseModel):
-    """Preview of what database cleanup will forget."""
-    orphaned_count: int  # Files from folders NOT in current config
-    missing_count: int   # Files marked unavailable from configured folders
-    total_count: int
+class DatabaseMaintenanceGroup(BaseModel):
+    """One grouped SQLite foreign-key violation."""
+    child_table: str
+    child_columns: List[str]
+    parent_table: str
+    parent_columns: List[str]
+    on_delete: str
+    count: int
+    repairable: bool
+    repair_action: Optional[str] = None
+    reason: str
 
 
-class DatabaseCleanupRequest(BaseModel):
-    """Request to execute database cleanup."""
-    confirm: bool = True  # Safety flag
+class DatabaseMaintenanceAnalysis(BaseModel):
+    """Read-only foreign-key analysis for the current profile."""
+    profile_id: str
+    total_findings: int
+    repairable_count: int
+    report_only_count: int
+    groups: List[DatabaseMaintenanceGroup]
 
 
-class DatabaseCleanupResponse(BaseModel):
-    """Result of database cleanup execution."""
-    orphaned_forgotten: int
-    missing_forgotten: int
-    total_forgotten: int
+class DatabaseMaintenanceCleanupRequest(BaseModel):
+    """Explicit confirmation for database maintenance cleanup."""
+    confirm: bool = False
+
+
+class DatabaseMaintenanceCleanupResponse(BaseModel):
+    """Before/after result from transactional foreign-key cleanup."""
+    profile_id: str
+    before: DatabaseMaintenanceAnalysis
+    after: DatabaseMaintenanceAnalysis
+    repaired_count: int
+    deleted_count: int
+    nullified_count: int
 
 
 class HeroiconResponse(BaseModel):
@@ -783,7 +801,12 @@ class UpdateDeveloperModeRequest(BaseModel):
 @router.patch("/developer-mode")
 async def update_developer_mode(request: UpdateDeveloperModeRequest):
     """Update the developer mode setting (global)."""
+    from config import reload_settings
+
     patch_global_section("developer_mode", request.enabled)
+    # Developer-only endpoints must reflect the toggle immediately instead of
+    # waiting for the one-second config watcher interval.
+    reload_settings()
     log.info("developer_mode updated", enabled=request.enabled)
     return {"status": "success", "developer_mode": request.enabled}
 
@@ -2059,142 +2082,61 @@ async def rename_profile_endpoint(profile_id: str, request: RenameProfileRequest
 
 
 # =============================================================================
-# Database Cleanup Endpoints
+# Database Maintenance Endpoints (developer-only, never automatic)
 # =============================================================================
 
 
-def _is_path_under_folders(file_path: str, folder_paths: List[str]) -> bool:
-    """Check if a file path is under any of the configured folders."""
-    for folder_path in folder_paths:
-        # Normalize: ensure folder ends with /
-        folder_prefix = folder_path if folder_path.endswith('/') else folder_path + '/'
-        if file_path.startswith(folder_prefix) or file_path == folder_path:
-            return True
-    return False
+def _require_developer_mode() -> None:
+    if not get_settings().developer_mode:
+        raise HTTPException(status_code=403, detail="Database maintenance requires developer mode")
 
 
-@router.get("/database/cleanup-preview", response_model=DatabaseCleanupPreviewResponse)
-async def get_database_cleanup_preview():
-    """Preview what database cleanup will delete.
-
-    Returns counts of:
-    - orphaned_count: Files from folders NOT in current config
-    - missing_count: Files marked unavailable from configured folders
-    """
-    settings = get_settings()
-    current_profile_id = get_current_profile()
-
-    # Get configured folder paths
-    folder_configs = settings.get_folders_for_profile(current_profile_id)
-    folder_paths = [f.path for f in folder_configs]
-
-    registry = get_database_registry()
-    db = registry.get_database(current_profile_id)
-
-    orphaned_count = 0
-    missing_count = 0
-
-    async with db.async_session_maker() as session:
-        # Get all non-deleted media items
-        result = await session.execute(
-            select(MediaItem.id, MediaItem.file_path, MediaItem.file_unavailable).where(
-                MediaItem.deleted_at.is_(None)
-            )
-        )
-        items = result.fetchall()
-
-        for item_id, file_path, file_unavailable in items:
-            is_under_config = _is_path_under_folders(file_path, folder_paths)
-
-            if not is_under_config:
-                # Orphaned: file is not under any configured folder
-                orphaned_count += 1
-            elif file_unavailable:
-                # Missing: file is marked unavailable but IS under a configured folder
-                missing_count += 1
-
-    return DatabaseCleanupPreviewResponse(
-        orphaned_count=orphaned_count,
-        missing_count=missing_count,
-        total_count=orphaned_count + missing_count,
-    )
+def _maintenance_analysis(profile_id: str, result: Dict[str, Any]) -> DatabaseMaintenanceAnalysis:
+    return DatabaseMaintenanceAnalysis(profile_id=profile_id, **result)
 
 
-@router.post("/database/cleanup", response_model=DatabaseCleanupResponse)
-async def execute_database_cleanup(request: DatabaseCleanupRequest):
-    """Execute database cleanup.
+@router.get("/database/maintenance/analyze", response_model=DatabaseMaintenanceAnalysis)
+async def analyze_database_maintenance():
+    """Run read-only PRAGMA foreign_key_check for the current profile."""
+    _require_developer_mode()
+    from services.database_maintenance import analyze_database
 
-    Permanently deletes (hard delete) database entries for:
-    - Orphaned files: Files from folders NOT in current config
-    - Missing files: Files marked unavailable from configured folders
+    profile_id = get_current_profile()
+    db = get_database_registry().get_database(profile_id)
+    result = await analyze_database(db.db_path)
+    return _maintenance_analysis(profile_id, result)
 
-    This operation is irreversible.
-    """
+
+@router.post("/database/maintenance/cleanup", response_model=DatabaseMaintenanceCleanupResponse)
+async def cleanup_database_maintenance(request: DatabaseMaintenanceCleanupRequest):
+    """Explicitly repair safe FK debris in one transaction for this profile."""
+    _require_developer_mode()
     if not request.confirm:
-        raise HTTPException(status_code=400, detail="Cleanup must be confirmed")
+        raise HTTPException(status_code=400, detail="Cleanup must be explicitly confirmed")
 
-    settings = get_settings()
-    current_profile_id = get_current_profile()
+    from services.database_maintenance import cleanup_database
 
-    # Get configured folder paths
-    folder_configs = settings.get_folders_for_profile(current_profile_id)
-    folder_paths = [f.path for f in folder_configs]
-
-    registry = get_database_registry()
-    db = registry.get_database(current_profile_id)
-
-    orphaned_ids = []
-    missing_ids = []
-
-    async with db.async_session_maker() as session:
-        # Get all non-deleted media items
-        result = await session.execute(
-            select(MediaItem.id, MediaItem.file_path, MediaItem.file_unavailable).where(
-                MediaItem.deleted_at.is_(None)
-            )
-        )
-        items = result.fetchall()
-
-        for item_id, file_path, file_unavailable in items:
-            is_under_config = _is_path_under_folders(file_path, folder_paths)
-
-            if not is_under_config:
-                orphaned_ids.append(item_id)
-            elif file_unavailable:
-                missing_ids.append(item_id)
-
-        # Hard delete the items (permanent deletion, not soft delete)
-        all_ids = orphaned_ids + missing_ids
-        if all_ids:
-            from sqlalchemy import delete
-            # Delete related records first (cascade may not handle all)
-            from database import BoardItem, MediaMarker, MediaTag, MediaKeyword, Face, MediaLineage
-
-            # Delete junction table entries
-            await session.execute(delete(MediaMarker).where(MediaMarker.media_id.in_(all_ids)))
-            await session.execute(delete(MediaTag).where(MediaTag.media_id.in_(all_ids)))
-            await session.execute(delete(BoardItem).where(BoardItem.media_id.in_(all_ids)))
-            await session.execute(delete(MediaKeyword).where(MediaKeyword.media_id.in_(all_ids)))
-            await session.execute(delete(Face).where(Face.media_id.in_(all_ids)))
-            await session.execute(delete(MediaLineage).where(MediaLineage.media_id.in_(all_ids)))
-            await session.execute(delete(MediaLineage).where(MediaLineage.source_media_id.in_(all_ids)))
-
-            # Delete media items
-            await session.execute(delete(MediaItem).where(MediaItem.id.in_(all_ids)))
-
-            await session.commit()
+    profile_id = get_current_profile()
+    db = get_database_registry().get_database(profile_id)
+    try:
+        result = await cleanup_database(db.db_path)
+    except Exception as exc:
+        log.exception("database maintenance cleanup failed", profile=profile_id)
+        raise HTTPException(status_code=500, detail="Database cleanup failed; all changes were rolled back") from exc
 
     log.info(
-        "database cleanup completed",
-        profile=current_profile_id,
-        orphaned_forgotten=len(orphaned_ids),
-        missing_forgotten=len(missing_ids),
+        "database maintenance cleanup completed",
+        profile=profile_id,
+        repaired_count=result["repaired_count"],
+        remaining_count=result["after"]["total_findings"],
     )
-
-    return DatabaseCleanupResponse(
-        orphaned_forgotten=len(orphaned_ids),
-        missing_forgotten=len(missing_ids),
-        total_forgotten=len(all_ids),
+    return DatabaseMaintenanceCleanupResponse(
+        profile_id=profile_id,
+        before=_maintenance_analysis(profile_id, result["before"]),
+        after=_maintenance_analysis(profile_id, result["after"]),
+        repaired_count=result["repaired_count"],
+        deleted_count=result["deleted_count"],
+        nullified_count=result["nullified_count"],
     )
 
 

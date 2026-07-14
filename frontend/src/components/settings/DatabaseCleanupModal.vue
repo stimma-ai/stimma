@@ -1,233 +1,203 @@
 <template>
   <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="show"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="close"
-      >
-        <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[500px] max-w-[90vw] overflow-hidden">
-          <!-- Header -->
-          <div class="flex items-center justify-between px-6 py-4 border-b border-edge">
-            <h2 class="text-lg font-semibold text-content">Database Cleanup</h2>
-            <button
-              @click="close"
-              class="w-8 h-8 flex items-center justify-center text-content-tertiary hover:text-content hover:bg-surface-raised rounded-lg transition-colors"
-            >
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+    <div
+      v-if="show"
+      class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop p-4 backdrop-blur-sm"
+      @click.self="close"
+    >
+      <div class="flex max-h-[90vh] w-[860px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-edge bg-surface shadow-2xl">
+        <div class="flex items-start justify-between border-b border-edge px-6 py-4">
+          <div>
+            <h2 class="text-lg font-semibold text-content">Database maintenance</h2>
+            <p class="mt-1 text-xs text-content-tertiary">Current profile only · foreign-key references only</p>
+          </div>
+          <button
+            :disabled="busy"
+            class="flex h-8 w-8 items-center justify-center rounded-lg text-content-tertiary transition-colors hover:bg-surface-raised hover:text-content disabled:opacity-40"
+            aria-label="Close database maintenance"
+            @click="close"
+          >
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="flex-1 space-y-4 overflow-y-auto p-6">
+          <div class="rounded-lg border border-white/10 bg-white/[0.05] p-4 text-sm text-content-secondary">
+            <p>This tool analyzes historical SQLite foreign-key debris. Analysis is read-only and cleanup never runs automatically.</p>
+            <p class="mt-2 text-xs text-content-tertiary">It does not delete Assets, Media, revisions, StorageObjects, managed files, or source files. It does not reconstruct lineage or run VACUUM.</p>
           </div>
 
-          <!-- Loading state -->
-          <div v-if="state === 'loading'" class="p-6">
-            <div class="flex items-center justify-center gap-3 text-content-tertiary">
-              <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span>Scanning database...</span>
+          <div v-if="busy" class="flex min-h-32 items-center justify-center gap-3 text-content-tertiary">
+            <svg class="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
+            </svg>
+            <div>
+              <p class="text-sm text-content">{{ maintenance.phase === 'analyzing' ? 'Analyzing database…' : 'Cleaning orphaned references…' }}</p>
+              <p class="mt-0.5 text-xs">Large profiles may take a while. Keep this window open.</p>
             </div>
           </div>
 
-          <!-- Error state -->
-          <div v-else-if="state === 'error'" class="p-6">
-            <div class="text-red-500 text-sm">
-              {{ error }}
-            </div>
+          <div v-else-if="maintenance.phase === 'error'" class="rounded-lg border border-red-500/50 bg-red-500/15 p-4">
+            <p class="text-sm font-medium text-red-500">Database maintenance failed</p>
+            <p class="mt-1 text-sm text-red-400">{{ maintenance.error }}</p>
+            <p class="mt-2 text-xs text-content-tertiary">Cleanup failures are rolled back completely.</p>
           </div>
 
-          <!-- Preview state -->
-          <div v-else-if="state === 'preview'" class="p-6 space-y-4">
-            <p class="text-sm text-content-tertiary">
-              Review what will be cleaned up. This cannot be undone.
-            </p>
-
-            <!-- Nothing to clean -->
-            <div v-if="preview.total_count === 0" class="bg-surface-raised/50 rounded-lg p-4">
-              <p class="text-content-secondary text-sm">
-                No cleanup needed. Your database is already clean.
+          <template v-else-if="maintenance.analysis">
+            <div v-if="maintenance.result" class="rounded-lg border border-blue-500/50 bg-blue-500/15 p-4">
+              <p class="text-sm font-medium text-blue-500">Cleanup complete</p>
+              <p class="mt-1 text-sm text-content-secondary">
+                Repaired {{ number(maintenance.result.repaired_count) }} of {{ number(maintenance.result.before.total_findings) }} findings.
+                {{ number(maintenance.result.after.total_findings) }} remain report only.
+              </p>
+              <p class="mt-1 text-xs text-content-tertiary">
+                {{ number(maintenance.result.deleted_count) }} child rows deleted · {{ number(maintenance.result.nullified_count) }} references cleared
               </p>
             </div>
 
-            <!-- Items to clean -->
-            <div v-else class="space-y-3">
-              <div v-if="preview.orphaned_count > 0" class="bg-surface-raised/50 rounded-lg p-4">
-                <div class="flex items-start gap-3">
-                  <div class="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p class="text-content font-medium">{{ preview.orphaned_count.toLocaleString() }} orphaned {{ preview.orphaned_count === 1 ? 'file' : 'files' }}</p>
-                    <p class="text-content-tertiary text-sm mt-1">Files from folders no longer in your configuration</p>
-                  </div>
-                </div>
+            <div class="grid grid-cols-3 gap-3">
+              <SummaryCard label="Total findings" :value="maintenance.analysis.total_findings" />
+              <SummaryCard label="Repairable" :value="maintenance.analysis.repairable_count" tone="blue" />
+              <SummaryCard label="Report only" :value="maintenance.analysis.report_only_count" tone="neutral" />
+            </div>
+
+            <div v-if="maintenance.analysis.total_findings === 0" class="rounded-lg bg-surface-raised/50 p-5 text-center text-sm text-content-secondary">
+              No foreign-key violations found for this profile.
+            </div>
+
+            <div v-else class="overflow-hidden rounded-lg border border-edge">
+              <div class="overflow-x-auto">
+                <table class="w-full min-w-[760px] text-left text-xs">
+                  <thead class="border-b border-edge bg-surface-raised text-content-tertiary">
+                    <tr>
+                      <th class="px-3 py-2 font-medium">Child reference</th>
+                      <th class="px-3 py-2 font-medium">Missing parent</th>
+                      <th class="px-3 py-2 font-medium">ON DELETE</th>
+                      <th class="px-3 py-2 text-right font-medium">Count</th>
+                      <th class="px-3 py-2 font-medium">Handling</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="group in maintenance.analysis.groups" :key="groupKey(group)" class="border-b border-edge/60 last:border-0">
+                      <td class="px-3 py-3 font-mono text-content">{{ relationship(group.child_table, group.child_columns) }}</td>
+                      <td class="px-3 py-3 font-mono text-content-secondary">{{ relationship(group.parent_table, group.parent_columns) }}</td>
+                      <td class="px-3 py-3 text-content-secondary">{{ group.on_delete }}</td>
+                      <td class="px-3 py-3 text-right text-content">{{ number(group.count) }}</td>
+                      <td class="px-3 py-3">
+                        <span
+                          class="inline-flex rounded border px-2 py-0.5"
+                          :class="group.repairable ? 'border-blue-500/50 bg-blue-500/15 text-blue-500' : 'border-white/10 bg-white/[0.05] text-[#888]'"
+                        >
+                          {{ findingHandlingLabel(group) }}
+                        </span>
+                        <p class="mt-1 max-w-[260px] text-content-tertiary">{{ group.reason }}</p>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-
-              <div v-if="preview.missing_count > 0" class="bg-surface-raised/50 rounded-lg p-4">
-                <div class="flex items-start gap-3">
-                  <div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m6 4.125 2.25 2.25m0 0 2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p class="text-content font-medium">{{ preview.missing_count.toLocaleString() }} missing {{ preview.missing_count === 1 ? 'file' : 'files' }}</p>
-                    <p class="text-content-tertiary text-sm mt-1">Files that no longer exist on disk</p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="bg-surface-raised rounded-lg p-3 border border-edge">
-                <p class="text-content-secondary text-sm">
-                    {{ preview.total_count.toLocaleString() }} {{ preview.total_count === 1 ? 'file' : 'files' }} will be permanently forgotten
-                </p>
-              </div>
             </div>
-          </div>
+          </template>
 
-          <!-- Cleaning state -->
-          <div v-else-if="state === 'cleaning'" class="p-6">
-            <div class="flex items-center justify-center gap-3 text-content-tertiary">
-              <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span>Cleaning up database...</span>
-            </div>
-          </div>
-
-          <!-- Success state -->
-          <div v-else-if="state === 'success'" class="p-6 space-y-4">
-            <div class="flex items-center gap-3 text-green-500">
-              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-              <span class="font-medium">Cleanup complete</span>
-            </div>
-
-            <div class="bg-surface-raised/50 rounded-lg p-4 text-sm text-content-secondary">
-              <p>Forgot {{ result.total_forgotten.toLocaleString() }} {{ result.total_forgotten === 1 ? 'file' : 'files' }}:</p>
-              <ul class="mt-2 space-y-1 text-content-tertiary">
-                <li v-if="result.orphaned_forgotten > 0">{{ result.orphaned_forgotten.toLocaleString() }} orphaned {{ result.orphaned_forgotten === 1 ? 'file' : 'files' }}</li>
-                <li v-if="result.missing_forgotten > 0">{{ result.missing_forgotten.toLocaleString() }} missing {{ result.missing_forgotten === 1 ? 'file' : 'files' }}</li>
-              </ul>
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <div class="flex justify-end gap-3 px-6 py-4 border-t border-edge">
-            <!-- Preview state buttons -->
-            <template v-if="state === 'preview'">
-              <button
-                @click="close"
-                class="px-4 py-2 text-sm font-medium text-content-secondary hover:text-content hover:bg-surface-raised rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                v-if="preview.total_count > 0"
-                @click="executeCleanup"
-                class="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors"
-              >
-                Forget {{ preview.total_count.toLocaleString() }} {{ preview.total_count === 1 ? 'File' : 'Files' }}
-              </button>
-            </template>
-
-            <!-- Success/Error state button -->
-            <template v-else-if="state === 'success' || state === 'error'">
-              <button
-                @click="close"
-                class="px-4 py-2 text-sm font-medium bg-surface-raised hover:bg-surface-hover text-content rounded-lg transition-colors"
-              >
-                Close
-              </button>
-            </template>
+          <div v-else class="py-5 text-center">
+            <p class="text-sm text-content-secondary">Analyze the current profile to find orphaned foreign-key references.</p>
           </div>
         </div>
+
+        <div class="flex items-center justify-end gap-3 border-t border-edge px-6 py-4">
+          <button
+            :disabled="busy"
+            class="rounded-lg px-4 py-2 text-sm font-medium text-content-secondary transition-colors hover:bg-surface-raised hover:text-content disabled:opacity-40"
+            @click="close"
+          >
+            Close
+          </button>
+          <button
+            v-if="maintenance.analysis?.repairable_count > 0 && !maintenance.result"
+            :disabled="busy"
+            class="rounded-lg border border-red-500/50 bg-red-500/15 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/20 disabled:opacity-40"
+            @click="maintenance.requestCleanup()"
+          >
+            Clean orphaned references
+          </button>
+          <button
+            :disabled="busy"
+            class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-40"
+            @click="maintenance.analyzeDatabase()"
+          >
+            {{ maintenance.analysis ? 'Analyze again' : 'Analyze database' }}
+          </button>
+        </div>
       </div>
-    </Transition>
+    </div>
+
+    <ConfirmModal
+      :show="maintenance.showConfirmation"
+      title="Clean orphaned references?"
+      :message="confirmationMessage"
+      confirm-text="Clean References"
+      @confirm="maintenance.confirmCleanup()"
+      @cancel="maintenance.cancelCleanup()"
+    />
   </Teleport>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useSettingsApi } from '../../composables/useSettingsApi'
+import ConfirmModal from '../ConfirmModal.vue'
+import SummaryCard from './DatabaseMaintenanceSummaryCard.vue'
+import { createDatabaseCleanupController, findingHandlingLabel } from './databaseCleanupState'
 
 const props = defineProps({
-  show: {
-    type: Boolean,
-    default: false
-  }
+  show: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close', 'cleaned'])
+const { analyzeDatabaseMaintenance, cleanupDatabaseMaintenance } = useSettingsApi()
+const maintenance = reactive(createDatabaseCleanupController({
+  analyze: analyzeDatabaseMaintenance,
+  cleanup: async () => {
+    const result = await cleanupDatabaseMaintenance()
+    emit('cleaned', result)
+    return result
+  },
+}))
 
-const { getDatabaseCleanupPreview, executeDatabaseCleanup } = useSettingsApi()
+const busy = computed(() => ['analyzing', 'cleaning'].includes(maintenance.phase))
+const confirmationMessage = computed(() =>
+  `Repair ${number(maintenance.analysis?.repairable_count || 0)} orphaned references in the current profile?\n\n` +
+  'CASCADE rows will be deleted and SET NULL references will be cleared in one transaction. Report-only findings will not be changed.'
+)
 
-// State: loading, error, preview, cleaning, success
-const state = ref('loading')
-const error = ref('')
-const preview = ref({ orphaned_count: 0, missing_count: 0, total_count: 0 })
-const result = ref({ orphaned_forgotten: 0, missing_forgotten: 0, total_forgotten: 0 })
-
-// Fetch preview when modal opens
-watch(() => props.show, async (isOpen) => {
-  if (isOpen) {
-    state.value = 'loading'
-    error.value = ''
-    preview.value = { orphaned_count: 0, missing_count: 0, total_count: 0 }
-    result.value = { orphaned_forgotten: 0, missing_forgotten: 0, total_forgotten: 0 }
-
-    try {
-      preview.value = await getDatabaseCleanupPreview()
-      state.value = 'preview'
-    } catch (err) {
-      error.value = err.response?.data?.detail || err.message || 'Failed to scan database'
-      state.value = 'error'
-    }
+watch(() => props.show, (open) => {
+  if (open) {
+    Object.assign(maintenance, {
+      phase: 'idle',
+      analysis: null,
+      result: null,
+      error: '',
+      showConfirmation: false,
+    })
   }
 })
 
-async function executeCleanup() {
-  state.value = 'cleaning'
-
-  try {
-    result.value = await executeDatabaseCleanup()
-    state.value = 'success'
-    emit('cleaned', result.value)
-  } catch (err) {
-    error.value = err.response?.data?.detail || err.message || 'Failed to cleanup database'
-    state.value = 'error'
-  }
+function close() {
+  if (!busy.value) emit('close')
 }
 
-function close() {
-  emit('close')
+function number(value) {
+  return Number(value || 0).toLocaleString()
+}
+
+function relationship(table, columns) {
+  return `${table}.${columns?.length ? columns.join(', ') : '(unknown)'}`
+}
+
+function groupKey(group) {
+  return [group.child_table, group.child_columns.join(','), group.parent_table, group.parent_columns.join(','), group.on_delete].join('|')
 }
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active > div,
-.modal-leave-active > div {
-  transition: transform 0.15s ease;
-}
-
-.modal-enter-from > div,
-.modal-leave-to > div {
-  transform: scale(0.95);
-}
-</style>
