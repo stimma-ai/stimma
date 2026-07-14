@@ -279,15 +279,10 @@ export async function seedPendingToolInput(
   const entries: MediaItem[] = [];
   for (const mediaId of mediaIds) {
     const media = await getMedia(page, mediaId);
-    const copied = await apiJSON<{ path: string; filename?: string }>(
-      page,
-      `/api/generate/copy-to-reference?source_path=${encodeURIComponent(media.file_path || '')}`,
-      { method: 'POST' },
-    );
     entries.push({
       id: media.id,
       file_hash: media.file_hash,
-      file_path: copied.path,
+      file_path: media.file_path,
       width: media.width,
       height: media.height,
     });

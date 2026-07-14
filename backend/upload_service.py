@@ -319,33 +319,6 @@ class UploadService:
             log.error(f"Upload failed for {original_filename}: {e}")
             raise UploadError(f"Upload failed: {e}")
 
-    async def copy_existing_to_library(
-        self,
-        source_path: str,
-    ) -> Tuple[MediaItem, str]:
-        """
-        Copy an existing file into managed storage.
-
-        Used when "sending" an existing library image to a generation task -
-        creates a separate copy so the original is preserved.
-
-        Args:
-            source_path: Path to existing file to copy
-
-        Returns:
-            Tuple of (MediaItem, new_file_path as string)
-        """
-        source = Path(source_path)
-        if not source.exists():
-            raise UploadError(f"Source file not found: {source_path}")
-
-        # Read file content
-        with open(source, 'rb') as f:
-            content = f.read()
-
-        # Upload as new file
-        return await self.upload_file(content, source.name)
-
     async def upload_multiple(
         self,
         files: List[Tuple[bytes, str]],

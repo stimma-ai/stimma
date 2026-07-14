@@ -1584,24 +1584,11 @@ async function addFromMediaId(mediaId: number, replaceIndex?: number) {
       items.value = [newItem]
       emit('update:modelValue', [newItem])
     } else {
-      // Handle regular media item
-      // Copy the media to reference directory
-      let path = mediaItem.file_path
-      let filename = mediaItem.file_path?.split('/').pop() || `media.${mediaItem.file_format}`
-
-      try {
-        const response = await axios.post(
-          `${API_BASE}/generate/copy-to-reference?source_path=${encodeURIComponent(mediaItem.file_path)}`
-        )
-        path = response.data.path
-        filename = response.data.filename
-      } catch (err) {
-        console.error('Error copying media to reference:', err)
-      }
-
+      // A library pick is an existing immutable Media payload. Use it directly;
+      // routing it back through upload ingest creates a duplicate Asset.
       const newItem: MediaItem = {
-        path,
-        filename,
+        path: mediaItem.file_path,
+        filename: mediaItem.file_path?.split('/').pop() || `media.${mediaItem.file_format}`,
         hash: mediaItem.file_hash,
         mediaId: mediaItem.id,
         width: mediaItem.width,

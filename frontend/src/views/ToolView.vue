@@ -2553,16 +2553,13 @@ async function handleRemixUseImage() {
   try {
     const mediaItem = await getMediaItem(mediaId)
     if (!mediaItem?.file_path) return
-    const copyResp = await axios.post(
-      `/api/generate/copy-to-reference?source_path=${encodeURIComponent(mediaItem.file_path)}`
-    )
     const refImage = {
-      path: copyResp.data.path,
-      filename: copyResp.data.filename,
-      mediaId: copyResp.data.media_id,
-      hash: copyResp.data.file_hash,
-      width: copyResp.data.width,
-      height: copyResp.data.height,
+      path: mediaItem.file_path,
+      filename: mediaItem.file_path.split('/').pop() || mediaItem.file_hash,
+      mediaId: mediaItem.id,
+      hash: mediaItem.file_hash,
+      width: mediaItem.width,
+      height: mediaItem.height,
     }
     const existing = globalPrefs.value.inputImages || []
     const max = mediaInputConfig.value.max || 1
@@ -2575,6 +2572,18 @@ async function handleRemixUseImage() {
     }
   } catch (err) {
     console.error('Failed to use remix image as reference:', err)
+  }
+}
+
+function inputItemFromSource(source: any) {
+  const path = source.file_path
+  return {
+    path,
+    filename: path?.split('/').pop() || source.file_hash || `media-${source.media_id ?? 'input'}`,
+    mediaId: source.media_id ?? undefined,
+    hash: source.file_hash || `media-${source.media_id ?? path}`,
+    width: source.width,
+    height: source.height,
   }
 }
 
@@ -3695,25 +3704,11 @@ async function loadPendingGeneration() {
         // I2V tools: restore start/end frames
         for (const source of sourceInputs) {
           if (!source.file_path) continue
-          try {
-            const copyResp = await axios.post(
-              `/api/generate/copy-to-reference?source_path=${encodeURIComponent(source.file_path)}`
-            )
-            const refImage = {
-              path: copyResp.data.path,
-              filename: copyResp.data.filename,
-              mediaId: source.media_id,
-              hash: copyResp.data.file_hash,
-              width: copyResp.data.width,
-              height: copyResp.data.height,
-            }
-            if (source.role === 'end_image') {
-              videoImages.endImage = refImage
-            } else {
-              videoImages.startImage = refImage
-            }
-          } catch (err) {
-            console.warn(`Failed to copy source input to reference:`, err)
+          const refImage = inputItemFromSource(source)
+          if (source.role === 'end_image') {
+            videoImages.endImage = refImage
+          } else {
+            videoImages.startImage = refImage
           }
         }
       } else if (mediaInputConfig.value) {
@@ -3721,29 +3716,17 @@ async function loadPendingGeneration() {
         const restored: any[] = []
         for (const source of sourceInputs) {
           if (!source.file_path) continue
-          try {
-            const copyResp = await axios.post(
-              `/api/generate/copy-to-reference?source_path=${encodeURIComponent(source.file_path)}`
-            )
-            restored.push({
-              path: copyResp.data.path,
-              filename: copyResp.data.filename,
-              mediaId: source.media_id,
-              hash: copyResp.data.file_hash,
-              width: copyResp.data.width,
-              height: copyResp.data.height,
-              _preprocessor: source.preprocessor || null,
-              _preprocessorParams: source.preprocessor_params || null,
-              _paintLayerPath: source.paint_layer || null,
-              _extendPadding: source.extend_padding || null,
-              _extendBgColor: source.extend_bg_color || null,
-              _scale: source.scale || null,
-              _flip: source.flip || null,
-              _crop: source.crop || null,
-            })
-          } catch (err) {
-            console.warn(`Failed to copy source input to reference:`, err)
-          }
+          restored.push({
+            ...inputItemFromSource(source),
+            _preprocessor: source.preprocessor || null,
+            _preprocessorParams: source.preprocessor_params || null,
+            _paintLayerPath: source.paint_layer || null,
+            _extendPadding: source.extend_padding || null,
+            _extendBgColor: source.extend_bg_color || null,
+            _scale: source.scale || null,
+            _flip: source.flip || null,
+            _crop: source.crop || null,
+          })
         }
         if (restored.length > 0) {
           if (hoppedMask && hasMask.value) {
@@ -3829,8 +3812,8 @@ function handleRemixMedia(mediaId: number) {
 // call has started, so a stale invocation can't clobber the winner's state. We
 // also resolve the source frames into reference images BEFORE mutating UI state,
 // then apply config + assign the frames synchronously — otherwise applyAdaptedConfig
-// clears the frame picker and it stays empty across the awaited copy-to-reference
-// (the bug where an i2v remix lands with no start frame populated).
+// clears the frame picker. Resolve all source input objects first, then apply
+// them synchronously so an i2v remix never lands with an empty start frame.
 let loadRemixSeq = 0
 async function loadRemix(mediaId: string) {
   if (!tool.value) return
@@ -3869,26 +3852,11 @@ async function loadRemix(mediaId: string) {
       // I2V: restore original start/end frames
       for (const source of sourceInputs) {
         if (!source.file_path) continue
-        try {
-          const copyResp = await axios.post(
-            `/api/generate/copy-to-reference?source_path=${encodeURIComponent(source.file_path)}`
-          )
-          if (loadRemixSeq !== mySeq) return  // superseded mid-copy
-          const refImage = {
-            path: copyResp.data.path,
-            filename: copyResp.data.filename,
-            mediaId: source.media_id,
-            hash: copyResp.data.file_hash,
-            width: copyResp.data.width,
-            height: copyResp.data.height,
-          }
-          if (source.role === 'end_image') {
-            resolvedEnd = refImage
-          } else {
-            resolvedStart = refImage
-          }
-        } catch (err) {
-          console.warn(`Failed to copy source input (${source.role}) to reference:`, err)
+        const refImage = inputItemFromSource(source)
+        if (source.role === 'end_image') {
+          resolvedEnd = refImage
+        } else {
+          resolvedStart = refImage
         }
       }
     } else if (mediaInputConfig.value) {
@@ -3900,30 +3868,17 @@ async function loadRemix(mediaId: string) {
         const restoredImages: typeof globalPrefs.value.inputImages = []
         for (const source of editSourceInputs) {
           if (!source.file_path) continue
-          try {
-            const copyResp = await axios.post(
-              `/api/generate/copy-to-reference?source_path=${encodeURIComponent(source.file_path)}`
-            )
-            if (loadRemixSeq !== mySeq) return  // superseded mid-copy
-            restoredImages.push({
-              path: copyResp.data.path,
-              filename: copyResp.data.filename,
-              mediaId: source.media_id,
-              hash: copyResp.data.file_hash,
-              width: copyResp.data.width,
-              height: copyResp.data.height,
-              _preprocessor: source.preprocessor || null,
-              _preprocessorParams: source.preprocessor_params || null,
-              _paintLayerPath: source.paint_layer || null,
-              _extendPadding: source.extend_padding || null,
-              _extendBgColor: source.extend_bg_color || null,
-              _scale: source.scale || null,
-              _flip: source.flip || null,
-              _crop: source.crop || null,
-            })
-          } catch (err) {
-            console.warn('Failed to copy source input to reference:', err)
-          }
+          restoredImages.push({
+            ...inputItemFromSource(source),
+            _preprocessor: source.preprocessor || null,
+            _preprocessorParams: source.preprocessor_params || null,
+            _paintLayerPath: source.paint_layer || null,
+            _extendPadding: source.extend_padding || null,
+            _extendBgColor: source.extend_bg_color || null,
+            _scale: source.scale || null,
+            _flip: source.flip || null,
+            _crop: source.crop || null,
+          })
         }
         if (restoredImages.length > 0) {
           resolvedInputs = restoredImages

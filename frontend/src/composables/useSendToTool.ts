@@ -193,7 +193,9 @@ export function useSendToTool() {
 
     const wantBatch = canMediaBatch && mediaItems.length > 1
 
-    // Process all items - copy to reference directory (unless it's a set)
+    // Existing library media is already a durable tool input. Preserve its
+    // exact Media identity and path; copying it through upload/reference ingest
+    // would create a second Media + Asset for the same user-visible item.
     const mediaEntries: MediaEntry[] = []
     for (const mediaItem of mediaItems) {
       // Check if this is a set
@@ -222,30 +224,11 @@ export function useSendToTool() {
           setId: mediaItem.id
         })
       } else {
-        // Regular media - copy to reference directory
-        const isVideo = mediaItem.is_video || false
-        const isAudio = mediaItem.is_audio || false
-        let path = mediaItem.file_path
-        let filename: string | undefined
-
-        try {
-          const endpoint = isAudio
-            ? `/api/generate/copy-audio-to-reference?source_path=${encodeURIComponent(mediaItem.file_path)}`
-            : isVideo
-            ? `/api/generate/copy-video-to-reference?source_path=${encodeURIComponent(mediaItem.file_path)}`
-            : `/api/generate/copy-to-reference?source_path=${encodeURIComponent(mediaItem.file_path)}`
-          const copyResponse = await axios.post(endpoint)
-          path = copyResponse.data.path
-          filename = copyResponse.data.filename
-        } catch (error) {
-          console.warn('Failed to copy to reference, using original path:', error)
-        }
-
         mediaEntries.push({
           mediaId: mediaItem.id,
           hash: mediaItem.file_hash,
-          path,
-          filename,
+          path: mediaItem.file_path,
+          filename: mediaItem.file_path.split('/').pop(),
           width: mediaItem.width,
           height: mediaItem.height
         })

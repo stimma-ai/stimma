@@ -406,80 +406,6 @@ async def upload_reference_image(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Failed to upload file")
 
 
-@router.post("/copy-to-reference")
-async def copy_to_reference_image(source_path: str):
-    """
-    Copy an existing image into managed storage for use as a reference.
-
-    This creates a library copy that won't be affected if the original
-    is deleted or trashed. Used when sending images to the edit tab.
-
-    Args:
-        source_path: Path to the existing image file
-
-    Returns:
-        The path, filename, and metadata of the copied file
-    """
-    from upload_service import get_upload_service, UploadError
-
-    try:
-        upload_service = get_upload_service()
-        media_item, file_path = await upload_service.copy_existing_to_library(source_path)
-
-        return {
-            "path": file_path,
-            "filename": Path(file_path).name,
-            "media_id": media_item.id,
-            "file_hash": media_item.file_hash,
-            "width": media_item.width,
-            "height": media_item.height,
-        }
-    except UploadError as e:
-        if "not found" in str(e).lower():
-            raise HTTPException(status_code=404, detail=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        log.error(f"Failed to copy reference image: {e}")
-        raise HTTPException(status_code=500, detail="Failed to copy file")
-
-
-@router.post("/copy-video-to-reference")
-async def copy_video_to_reference(source_path: str):
-    """
-    Copy an existing video into managed storage for use as a reference.
-
-    This creates a library copy that won't be affected if the original
-    is deleted or trashed. Used when sending videos to the upscale tab.
-
-    Args:
-        source_path: Path to the existing video file
-
-    Returns:
-        The path, filename, and metadata of the copied file
-    """
-    from upload_service import get_upload_service, UploadError
-
-    try:
-        upload_service = get_upload_service()
-        media_item, file_path = await upload_service.copy_existing_to_library(source_path)
-
-        return {
-            "path": file_path,
-            "filename": Path(file_path).name,
-            "media_id": media_item.id,
-            "file_hash": media_item.file_hash,
-            "width": media_item.width,
-            "height": media_item.height,
-        }
-    except UploadError as e:
-        if "not found" in str(e).lower():
-            raise HTTPException(status_code=404, detail=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        log.error(f"Failed to copy reference video: {e}")
-        raise HTTPException(status_code=500, detail="Failed to copy file")
-
-
 @router.delete("/upload-reference/{filename}")
 async def delete_reference_image(filename: str):
     """Delete an uploaded reference image."""
@@ -741,43 +667,6 @@ async def upload_reference_audio(file: UploadFile = File(...)):
     except Exception as e:
         log.error(f"Failed to upload reference audio: {e}")
         raise HTTPException(status_code=500, detail="Failed to upload file")
-
-
-@router.post("/copy-audio-to-reference")
-async def copy_audio_to_reference(source_path: str):
-    """
-    Copy an existing audio file into managed storage for use as a reference.
-
-    This creates a library copy that won't be affected if the original
-    is deleted or trashed. Used when sending audio to an audio-input tool.
-
-    Args:
-        source_path: Path to the existing audio file
-
-    Returns:
-        The path, filename, and metadata of the copied file
-    """
-    from upload_service import get_upload_service, UploadError
-
-    try:
-        upload_service = get_upload_service()
-        media_item, file_path = await upload_service.copy_existing_to_library(source_path)
-
-        return {
-            "path": file_path,
-            "filename": Path(file_path).name,
-            "media_id": media_item.id,
-            "file_hash": media_item.file_hash,
-            "width": media_item.width,
-            "height": media_item.height,
-        }
-    except UploadError as e:
-        if "not found" in str(e).lower():
-            raise HTTPException(status_code=404, detail=str(e))
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        log.error(f"Failed to copy reference audio: {e}")
-        raise HTTPException(status_code=500, detail="Failed to copy file")
 
 
 @router.delete("/upload-reference-video/{filename}")
@@ -2334,7 +2223,7 @@ def exact_match_loras(extracted_loras: List[Dict], available_loras: List[Dict]) 
 
 
 async def _resolve_source_inputs(db: AsyncSession, source_inputs: list) -> list:
-    """Resolve source_inputs media_ids to current file_paths (stored paths may be stale)."""
+    """Resolve source inputs to their current immutable Media payload metadata."""
     if not source_inputs:
         return []
     resolved = []
@@ -2343,11 +2232,16 @@ async def _resolve_source_inputs(db: AsyncSession, source_inputs: list) -> list:
         media_id = source.get("media_id")
         if media_id:
             result = await db.execute(
-                select(MediaItem.file_path).filter(MediaItem.id == media_id, MediaItem.deleted_at.is_(None))
+                select(MediaItem).filter(MediaItem.id == media_id, MediaItem.deleted_at.is_(None))
             )
-            row = result.scalar_one_or_none()
-            if row:
-                entry["file_path"] = row
+            media = result.scalar_one_or_none()
+            if media:
+                entry.update({
+                    "file_path": media.file_path,
+                    "file_hash": media.file_hash,
+                    "width": media.width,
+                    "height": media.height,
+                })
                 resolved.append(entry)
             else:
                 log.warning(f"Source input media_id={media_id} not found or deleted, skipping")

@@ -17,6 +17,7 @@ from sqlalchemy import select
 from database import Asset, AssetRevision, GenerationJob, MediaItem
 from providers.test_provider import TestToolConfig
 from tests.helpers import (
+    create_media_item,
     create_media_with_generation_metadata,
     process_job,
 )
@@ -26,6 +27,37 @@ from routes import generation as generation_routes
 # =============================================================================
 # Job Submission Tests
 # =============================================================================
+
+
+class TestSourceInputResolution:
+    async def test_existing_media_is_returned_in_place_with_picker_metadata(
+        self,
+        generation_db_session,
+    ):
+        async with generation_db_session() as session:
+            media = await create_media_item(
+                session,
+                file_path=Path("/managed/objects/source.png"),
+                file_hash="stable-source-hash",
+                width=640,
+                height=480,
+                materialize_asset=True,
+            )
+            await session.commit()
+
+            resolved = await generation_routes._resolve_source_inputs(
+                session,
+                [{"media_id": media.id, "file_path": "/obsolete/reference-copy.png", "role": "input_image"}],
+            )
+
+        assert resolved == [{
+            "media_id": media.id,
+            "file_path": "/managed/objects/source.png",
+            "file_hash": "stable-source-hash",
+            "width": 640,
+            "height": 480,
+            "role": "input_image",
+        }]
 
 
 class TestPromptPipelineRouting:

@@ -860,23 +860,9 @@ async function addFromMediaId(mediaId: number) {
   try {
     const mediaItem = await getMediaItem(mediaId)
 
-    // Copy the media to reference directory (same as "send to tool")
-    let path = mediaItem.file_path
-    let filename = mediaItem.file_path?.split('/').pop() || `image.${mediaItem.file_format}`
-
-    try {
-      const response = await axios.post(
-        `${API_BASE}/generate/copy-to-reference?source_path=${encodeURIComponent(mediaItem.file_path)}`
-      )
-      path = response.data.path
-      filename = response.data.filename
-    } catch (err) {
-      console.error('Error copying media to reference:', err)
-    }
-
     const newImage: ImageInfo = {
-      path,
-      filename,
+      path: mediaItem.file_path,
+      filename: mediaItem.file_path?.split('/').pop() || `image.${mediaItem.file_format}`,
       hash: mediaItem.file_hash,
       mediaId: mediaItem.id,
       width: mediaItem.width,
