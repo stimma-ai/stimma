@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import (
     Asset,
+    AssetRevision,
     AssetMarker,
     AssetTag,
     Board,
@@ -17,6 +18,28 @@ from database import (
     ProjectAsset,
     ProjectMedia,
 )
+
+
+async def clear_asset_expiration(session: AsyncSession, asset_id: int) -> Asset | None:
+    """Make an Asset durable after user curation.
+
+    Asset lifecycle is canonical. Clear historical ``MediaItem.auto_delete_at``
+    residue on the current payload as a one-way compatibility repair; Media
+    availability never depends on that legacy field.
+    """
+    asset = await session.get(Asset, asset_id)
+    if asset is None:
+        return None
+    asset.expires_at = None
+    if asset.current_revision_id is not None:
+        revision = await session.get(AssetRevision, asset.current_revision_id)
+        if revision is not None:
+            from database import MediaItem
+
+            media = await session.get(MediaItem, revision.primary_media_id)
+            if media is not None:
+                media.auto_delete_at = None
+    return asset
 
 
 async def _add_live(session, model, lookup: dict, values: dict):
@@ -41,9 +64,7 @@ async def attach_asset_to_project(session: AsyncSession, project_id: int, asset_
         {"project_id": project_id, "asset_id": asset_id},
         {"project_id": project_id, "asset_id": asset_id},
     )
-    asset = await session.get(Asset, asset_id)
-    if asset is not None:
-        asset.expires_at = None
+    await clear_asset_expiration(session, asset_id)
     return row
 
 
@@ -81,7 +102,7 @@ async def attach_asset_to_board_section(
             BoardAssetItem.deleted_at.is_(None),
         )
     )
-    asset.expires_at = None
+    await clear_asset_expiration(session, asset_id)
     if board.project_id is not None:
         await attach_asset_to_project(session, board.project_id, asset_id)
     if existing is not None:
@@ -108,7 +129,9 @@ async def set_asset_marker(
         )
     )
     if add:
+        await clear_asset_expiration(session, asset_id)
         if row is not None and row.source == "manual":
+            await session.flush()
             return False
         if row is None:
             session.add(
@@ -116,9 +139,6 @@ async def set_asset_marker(
             )
         else:
             row.source = "manual"
-        asset = await session.get(Asset, asset_id)
-        if asset is not None:
-            asset.expires_at = None
         await session.flush()
         return True
     if row is None:
@@ -142,12 +162,11 @@ async def set_asset_tag(
         )
     )
     if add:
+        await clear_asset_expiration(session, asset_id)
         if row is not None:
+            await session.flush()
             return False
         session.add(AssetTag(asset_id=asset_id, tag_id=tag_id))
-        asset = await session.get(Asset, asset_id)
-        if asset is not None:
-            asset.expires_at = None
         await session.flush()
         return True
     if row is None:
@@ -220,7 +239,5 @@ async def mirror_media_associations_to_asset(
         )
 
     if marker_rows or tag_ids or board_items:
-        asset = await session.get(Asset, asset_id)
-        if asset is not None:
-            asset.expires_at = None
+        await clear_asset_expiration(session, asset_id)
     await session.flush()

@@ -29,6 +29,7 @@ from database import (
     Tag,
 )
 from container_service import create_container_asset_from_media
+from cleanup_service import CleanupService
 from tests.helpers.media import create_media_item
 
 
@@ -100,6 +101,87 @@ async def test_asset_browser_identity_and_curation_survive_current_revision_chan
     assert item["media_id"] == second_media_id
     assert item["revision_count"] == 2
     assert [entry["name"] for entry in item["markers"]] == ["Winner"]
+
+
+@pytest.mark.asyncio
+async def test_asset_marker_clears_asset_and_media_expiration(
+    client, db_session
+):
+    """A kept Asset stays usable by Media-ID consumers after its old deadline."""
+    async with db_session() as session:
+        media = await create_media_item(session)
+        asset = await create_asset_from_media(session, media_id=media.id)
+        marker = Marker(name="Keep", icon_svg="<svg />", color="#fff")
+        session.add(marker)
+        await session.flush()
+        deadline = datetime.utcnow() - timedelta(minutes=1)
+        asset.expires_at = deadline
+        media.auto_delete_at = deadline
+        asset_id = asset.id
+        media_id = media.id
+        marker_id = marker.id
+        await session.commit()
+
+    response = await client.post(
+        f"/api/assets/item/{asset_id}/markers/{marker_id}"
+    )
+    assert response.status_code == 200, response.text
+
+    async with db_session() as session:
+        kept_asset = await session.get(Asset, asset_id)
+        kept_media = await session.get(MediaItem, media_id)
+        assert kept_asset.expires_at is None
+        assert kept_media.auto_delete_at is None
+
+    # Sidebar/tool handoff hydrates exact payloads through this endpoint.
+    payload = await client.get(f"/api/media/{media_id}")
+    assert payload.status_code == 200, payload.text
+    assert payload.json()["auto_delete_at"] is None
+
+    response = await client.delete(
+        f"/api/assets/item/{asset_id}/markers/{marker_id}"
+    )
+    assert response.status_code == 200, response.text
+
+    async with db_session() as session:
+        asset_ids, media_ids, _ = await CleanupService().cleanup_expired_images(
+            session, {}
+        )
+        assert asset_ids == []
+        assert media_ids == []
+        assert (await session.get(Asset, asset_id)).state == "active"
+
+
+@pytest.mark.asyncio
+async def test_readding_existing_asset_marker_still_clears_expiration(
+    client, db_session
+):
+    """Idempotent curation repairs stale deadlines left by older builds."""
+    async with db_session() as session:
+        media = await create_media_item(session)
+        asset = await create_asset_from_media(session, media_id=media.id)
+        marker = Marker(name="Existing", icon_svg="<svg />", color="#fff")
+        session.add(marker)
+        await session.flush()
+        session.add(
+            AssetMarker(asset_id=asset.id, marker_id=marker.id, source="manual")
+        )
+        deadline = datetime.utcnow() - timedelta(minutes=1)
+        asset.expires_at = deadline
+        media.auto_delete_at = deadline
+        asset_id = asset.id
+        media_id = media.id
+        marker_id = marker.id
+        await session.commit()
+
+    response = await client.post(
+        f"/api/assets/item/{asset_id}/markers/{marker_id}"
+    )
+    assert response.status_code == 200, response.text
+
+    async with db_session() as session:
+        assert (await session.get(Asset, asset_id)).expires_at is None
+        assert (await session.get(MediaItem, media_id)).auto_delete_at is None
 
 
 @pytest.mark.asyncio

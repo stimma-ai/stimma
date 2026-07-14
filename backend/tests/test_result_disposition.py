@@ -1,12 +1,14 @@
 """Invocation-specific generated-result disposition tests."""
 
 import json
+from datetime import datetime, timedelta
 
 import pytest
 from sqlalchemy import func, select
 
 from asset_service import AssetServiceError, acquire_media_owner
 from database import Asset, AssetRevision, ContainerMember, GenerationJob, MediaOwner
+from generation_queue import generation_job_payload
 from result_disposition_service import (
     finalize_generation_output,
     validate_output_disposition,
@@ -28,6 +30,17 @@ def _job(**overrides) -> GenerationJob:
     }
     values.update(overrides)
     return GenerationJob(**values)
+
+
+def test_generation_job_payload_projects_asset_expiration():
+    deadline = datetime.utcnow() + timedelta(hours=1)
+    job = _job(
+        auto_delete_at=deadline + timedelta(hours=1), created_at=datetime.utcnow()
+    )
+    asset = Asset(expires_at=deadline)
+
+    assert generation_job_payload(job, asset)["auto_delete_at"] == deadline.isoformat()
+    assert generation_job_payload(job, None)["auto_delete_at"] is None
 
 
 @pytest.mark.asyncio
@@ -54,6 +67,25 @@ async def test_direct_result_atomically_materializes_one_asset(db_session):
         )
         assert len(owners) == 1
         assert owners[0].root_kind == "asset_revision"
+
+
+@pytest.mark.asyncio
+async def test_generation_expiration_is_asset_only(db_session):
+    async with db_session() as session:
+        media = await create_media_item(session)
+        job = _job()
+        session.add(job)
+        await session.flush()
+        deadline = datetime.utcnow() + timedelta(hours=1)
+
+        asset_id = await finalize_generation_output(
+            session, job=job, media=media, expires_at=deadline
+        )
+        await session.commit()
+
+        asset = await session.get(Asset, asset_id)
+        assert asset.expires_at == deadline
+        assert media.auto_delete_at is None
 
 
 @pytest.mark.asyncio

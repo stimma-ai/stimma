@@ -1295,32 +1295,10 @@ async def get_filter_counts(
         range_result = await session.execute(range_query)
         date_range_counts[range_key] = range_result.scalar()
 
-    # Count expiring items (generated items with auto_delete_at set)
-    expiring_query = get_base_query()
-    expiring_query = build_filtered_query(
-        expiring_query,
-        caption_query=caption_query,
-        prompt_query=prompt_query,
-        media_types=media_types,
-        excluded_media_types=excluded_media_types,
-        resolutions=resolutions,
-        excluded_resolutions=excluded_resolutions,
-        keywords=keywords,
-        excluded_keywords=excluded_keywords,
-        folders=folders,
-        excluded_folders=excluded_folders,
-        marker_ids=marker_ids,
-        excluded_marker_ids=excluded_marker_ids,
-        tag_ids=tag_ids,
-        excluded_tag_ids=excluded_tag_ids,
-        tool_ids=tool_ids,
-        excluded_tool_ids=excluded_tool_ids,
-        exclude_category=None
-    )
-    # Add filter for items with auto_delete_at set
-    expiring_query = expiring_query.where(MediaItem.auto_delete_at.isnot(None))
-    expiring_result = await session.execute(expiring_query)
-    expiring_count = expiring_result.scalar()
+    # This is the legacy Media filter-count endpoint. Expiration belongs to
+    # Assets, whose browser uses /api/assets/filter-counts; bare Media has no
+    # expiring population.
+    expiring_count = 0
 
     # Tool lineage preview counts (exclude tools category from filters)
     tool_counts_list = []

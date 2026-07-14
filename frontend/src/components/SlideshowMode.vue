@@ -1790,7 +1790,7 @@ const currentPayloadItem = computed(() => (
     ? {
         ...currentItem.value,
         id: currentPayloadId.value,
-        auto_delete_at: currentItem.value.expires_at || currentItem.value.auto_delete_at || null,
+        auto_delete_at: currentItem.value.expires_at || null,
       }
     : null
 ))
@@ -5923,7 +5923,12 @@ async function toggleMarker(markerId) {
         : [...(currentItem.value.markers || []), availableMarkers.value.find((marker) => marker.id === markerId)].filter(Boolean)
     )
 
-    applyMediaPatchToLocalState(mediaId, { markers: updatedMarkers })
+    applyMediaPatchToLocalState(mediaId, {
+      markers: updatedMarkers,
+      // Adding explicit curation makes the Asset durable. Reflect that
+      // immediately instead of leaving the info panel on a stale projection.
+      ...(isActive ? {} : { expires_at: null, auto_delete_at: null }),
+    })
 
     // Force re-render of marker UI
     markerUpdateTrigger.value++

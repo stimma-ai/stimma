@@ -1130,18 +1130,25 @@ async def batch_get_asset_markers(
 async def add_asset_marker(
     asset_id: int, marker_id: int, session: AsyncSession = Depends(get_db_session)
 ):
-    await _live_asset_or_404(session, asset_id)
+    asset = await _live_asset_or_404(session, asset_id)
     if await session.get(Marker, marker_id) is None:
         raise HTTPException(status_code=404, detail="Marker not found")
-    changed = await set_asset_marker(
+    await set_asset_marker(
         session, asset_id=asset_id, marker_id=marker_id, add=True
     )
     await session.commit()
     markers = await _asset_markers(session, asset_id)
-    if changed:
+    revision = await session.get(AssetRevision, asset.current_revision_id)
+    if revision is not None:
         await ws_manager.broadcast(
-            "assets_updated", {"asset_ids": [asset_id], "fields": ["markers"]}
+            "auto_delete_removed", {"media_id": revision.primary_media_id}
         )
+    # Broadcast even for an idempotent add: it may have repaired stale
+    # expiration left by an older build.
+    await ws_manager.broadcast(
+        "assets_updated",
+        {"asset_ids": [asset_id], "fields": ["markers", "expires_at"]},
+    )
     return {"status": "success", "markers": markers}
 
 
@@ -1190,10 +1197,13 @@ async def bulk_asset_markers(
             )
         )
     await session.commit()
-    if changed:
+    if changed or request.add:
         await ws_manager.broadcast(
             "assets_updated",
-            {"asset_ids": sorted(valid_ids), "fields": ["markers"]},
+            {
+                "asset_ids": sorted(valid_ids),
+                "fields": ["markers", "expires_at"] if request.add else ["markers"],
+            },
         )
     return {"status": "success", "changed": changed, "total": len(valid_ids)}
 
@@ -1216,18 +1226,27 @@ async def add_asset_tags(
     request: AssetTagsRequest,
     session: AsyncSession = Depends(get_db_session),
 ):
-    await _live_asset_or_404(session, asset_id)
+    asset = await _live_asset_or_404(session, asset_id)
     added = []
+    requested_add = False
     for text in request.tags:
         tag = await _find_or_create_tag(session, text)
-        if tag is not None and await set_asset_tag(
-            session, asset_id=asset_id, tag_id=tag.id, add=True
-        ):
-            added.append(tag.tag_text)
+        if tag is not None:
+            requested_add = True
+            if await set_asset_tag(
+                session, asset_id=asset_id, tag_id=tag.id, add=True
+            ):
+                added.append(tag.tag_text)
     await session.commit()
-    if added:
+    if requested_add:
+        revision = await session.get(AssetRevision, asset.current_revision_id)
+        if revision is not None:
+            await ws_manager.broadcast(
+                "auto_delete_removed", {"media_id": revision.primary_media_id}
+            )
         await ws_manager.broadcast(
-            "assets_updated", {"asset_ids": [asset_id], "fields": ["tags"]}
+            "assets_updated",
+            {"asset_ids": [asset_id], "fields": ["tags", "expires_at"]},
         )
     return {"status": "success", "added": added}
 
@@ -1261,6 +1280,7 @@ async def bulk_asset_tags(
         )
     )
     tags = [await _find_or_create_tag(session, text) for text in request.tag_texts]
+    requested_add = any(tag is not None for tag in tags)
     added = removed = 0
     for asset_id in valid_ids:
         for tag in tags:
@@ -1277,9 +1297,13 @@ async def bulk_asset_tags(
                 )
             )
     await session.commit()
-    if added or removed:
+    if added or removed or requested_add:
         await ws_manager.broadcast(
-            "assets_updated", {"asset_ids": valid_ids, "fields": ["tags"]}
+            "assets_updated",
+            {
+                "asset_ids": valid_ids,
+                "fields": ["tags", "expires_at"] if requested_add else ["tags"],
+            },
         )
     return {"status": "success", "added": added, "removed": removed}
 
@@ -1435,8 +1459,15 @@ async def clear_asset_expiration(
     session: AsyncSession = Depends(get_db_session),
 ):
     asset = await _live_asset_or_404(session, asset_id)
-    asset.expires_at = None
+    from asset_association_service import clear_asset_expiration as clear_deadline
+
+    await clear_deadline(session, asset.id)
     await session.commit()
+    revision = await session.get(AssetRevision, asset.current_revision_id)
+    if revision is not None:
+        await ws_manager.broadcast(
+            "auto_delete_removed", {"media_id": revision.primary_media_id}
+        )
     await ws_manager.broadcast(
         "assets_updated", {"asset_ids": [asset_id], "fields": ["expires_at"]}
     )

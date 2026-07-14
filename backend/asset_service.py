@@ -130,6 +130,7 @@ async def create_asset_from_media(
     origin_type: Optional[str] = None,
     origin_id: Optional[str] = None,
     idempotency_key: Optional[str] = None,
+    expires_at: Optional[datetime] = None,
 ) -> Asset:
     """Promote Media into a stable Asset with its first immutable Revision.
 
@@ -150,7 +151,7 @@ async def create_asset_from_media(
         asset_type=asset_type or infer_asset_type(media),
         title=title,
         state="active",
-        expires_at=media.auto_delete_at,
+        expires_at=expires_at,
         origin_type=origin_type,
         origin_id=origin_id,
     )

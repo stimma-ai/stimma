@@ -214,13 +214,11 @@ class TestSingleMedia:
         assert response.status_code == 404
 
 
-class TestAutoDeleteGate:
-    """Items past their auto_delete_at deadline must be invisible immediately, before
-    the background cleanup worker physically removes them — mirroring the worker's
-    keep rules (tags/boards/markers exempt an item from deletion)."""
+class TestLegacyMediaAutoDeleteIsInert:
+    """Historical Media deadlines never control visibility or deletion."""
 
-    async def test_expired_item_hidden_from_list(self, client: AsyncClient, db_session):
-        """An item whose auto_delete_at has passed is excluded from GET /api/media."""
+    async def test_expired_item_remains_in_list(self, client: AsyncClient, db_session):
+        """A stale Media deadline does not hide the payload from Media consumers."""
         from tests.helpers.media import create_media_item
 
         async with db_session() as session:
@@ -232,10 +230,10 @@ class TestAutoDeleteGate:
         response = await client.get("/api/media")
         assert response.status_code == 200
         ids = {i["id"] for i in response.json()["items"]}
-        assert expired_id not in ids
+        assert expired_id in ids
 
-    async def test_expired_item_returns_404_on_single_fetch(self, client: AsyncClient, db_session):
-        """A direct GET /api/media/{id} for an expired item must 404, not flash the content."""
+    async def test_expired_item_remains_fetchable(self, client: AsyncClient, db_session):
+        """Exact Media remains available while retained, regardless of stale deadline."""
         from tests.helpers.media import create_media_item
 
         async with db_session() as session:
@@ -245,7 +243,7 @@ class TestAutoDeleteGate:
             expired_id = item.id
 
         response = await client.get(f"/api/media/{expired_id}")
-        assert response.status_code == 404
+        assert response.status_code == 200
 
     async def test_future_expiry_item_still_visible(self, client: AsyncClient, db_session):
         """An item with a future auto_delete_at is still shown (deadline not reached)."""

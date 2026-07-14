@@ -1,20 +1,14 @@
-"""Service for automatic cleanup of expired generated images.
+"""Asset-level expiration and owner-aware cleanup services."""
 
-When images expire (auto_delete_at), they are marked as deleted (deleted_at set)
-but the file stays in place until trash is emptied.
-"""
-
-import os
 from core.logging import get_logger
 from datetime import datetime, timedelta
 from typing import Dict, Any
-from sqlalchemy import and_, select, func, text
+from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import (
     Asset,
     AssetMarker,
-    AssetRevision,
     AssetTag,
     Board,
     BoardAssetItem,
@@ -93,11 +87,47 @@ class CleanupService:
             folder_configs: Dictionary mapping folder paths to their configurations (unused but kept for API compatibility)
 
         Returns:
-            Tuple of (trashed Asset IDs, legacy deleted Media IDs, next expiration)
+            Tuple of (trashed Asset IDs, empty legacy Media list, next expiration)
         """
         now = datetime.utcnow()
         trashed_asset_ids: list[int] = []
         deleted_ids: list[int] = []
+
+        # Repair lifecycle drift from older builds before considering expiry.
+        # Any explicit curation makes the Asset durable immediately. The helper
+        # also scrubs historical Media deadline residue.
+        curated_asset_ids = (
+            select(AssetTag.asset_id)
+            .where(AssetTag.deleted_at.is_(None))
+            .union(
+                select(AssetMarker.asset_id).where(
+                    AssetMarker.deleted_at.is_(None)
+                ),
+                select(BoardAssetItem.asset_id)
+                .join(
+                    BoardSection,
+                    BoardSection.id == BoardAssetItem.board_section_id,
+                )
+                .join(Board, Board.id == BoardSection.board_id)
+                .where(
+                    BoardAssetItem.deleted_at.is_(None),
+                    BoardSection.deleted_at.is_(None),
+                    Board.deleted_at.is_(None),
+                ),
+            )
+        )
+        repaired_expiration = await db.execute(
+            update(Asset)
+            .where(
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+                Asset.expires_at.is_not(None),
+                Asset.id.in_(curated_asset_ids),
+            )
+            .values(expires_at=None)
+        )
+        if repaired_expiration.rowcount and repaired_expiration.rowcount > 0:
+            await db.commit()
 
         expired_assets = list(
             await db.scalars(
@@ -112,140 +142,35 @@ class CleanupService:
         for asset in expired_assets:
             try:
                 if await self._should_keep_asset(db, asset.id):
-                    asset.expires_at = None
+                    from asset_association_service import clear_asset_expiration
+
+                    await clear_asset_expiration(db, asset.id)
                     await db.commit()
                     continue
                 from asset_service import trash_asset
 
                 await trash_asset(db, asset_id=asset.id)
                 asset.expires_at = None
-                revision = await db.get(AssetRevision, asset.current_revision_id)
-                if revision is not None:
-                    current_media = await db.get(MediaItem, revision.primary_media_id)
-                    if current_media is not None:
-                        current_media.auto_delete_at = None
                 await db.commit()
                 trashed_asset_ids.append(asset.id)
             except Exception:
                 log.exception("CLEANUP: failed to trash expired Asset %s", asset.id)
                 await db.rollback()
 
-        # First, check how many items have auto_delete_at set (for debugging)
-        pending_query = (
-            select(func.count())
-            .select_from(MediaItem)
-            .where(
-                and_(
-                    MediaItem.auto_delete_at.isnot(None),
-                    MediaItem.deleted_at.is_(None),
-                    MediaItem.id.not_in(select(AssetRevision.primary_media_id)),
-                )
-            )
+        # Historical Media deadlines are inert. Scrub them automatically so
+        # old profiles converge on the Asset-only lifecycle without presenting
+        # stale status in legacy payloads.
+        scrubbed_media = await db.execute(
+            update(MediaItem)
+            .where(MediaItem.auto_delete_at.is_not(None))
+            .values(auto_delete_at=None)
         )
-        pending_result = await db.execute(pending_query)
-        pending_count = pending_result.scalar() or 0
-
-        # Query for expired media items directly
-        query = (
-            select(MediaItem)
-            .where(
-                and_(
-                    MediaItem.auto_delete_at.isnot(None),
-                    MediaItem.auto_delete_at <= now,
-                    MediaItem.deleted_at.is_(None),  # Not already deleted
-                    MediaItem.id.not_in(select(AssetRevision.primary_media_id)),
-                )
+        if scrubbed_media.rowcount and scrubbed_media.rowcount > 0:
+            log.info(
+                "CLEANUP: Cleared %s legacy Media auto-delete deadlines",
+                scrubbed_media.rowcount,
             )
-        )
-
-        result = await db.execute(query)
-        expired_items = result.scalars().all()
-
-        # Only log if there's something to report
-        if expired_items or pending_count > 0:
-            log.info(f"CLEANUP: Found {len(expired_items)} expired items out of {pending_count} pending auto-delete items (now={now.isoformat()})")
-
-        # Log details of expired items for debugging
-        if expired_items:
-            for item in expired_items[:5]:  # Log first 5 for brevity
-                log.info(f"CLEANUP: Expired item {item.id}: auto_delete_at={item.auto_delete_at.isoformat() if item.auto_delete_at else 'None'}")
-        elif pending_count > 0:
-            # There are pending items but none are expired - log the next few to see when they expire
-            sample_query = (
-                select(MediaItem.id, MediaItem.auto_delete_at)
-                .where(
-                    and_(
-                        MediaItem.auto_delete_at.isnot(None),
-                        MediaItem.deleted_at.is_(None)
-                    )
-                )
-                .order_by(MediaItem.auto_delete_at)
-                .limit(3)
-            )
-            sample_result = await db.execute(sample_query)
-            samples = sample_result.all()
-            for sample_id, sample_time in samples:
-                log.info(f"CLEANUP: Pending item {sample_id}: auto_delete_at={sample_time.isoformat() if sample_time else 'None'} (in {(sample_time - now).total_seconds():.0f}s)")
-
-        for media_item in expired_items:
-            try:
-                # Re-fetch to avoid stale data (item may have been manually trashed)
-                result = await db.execute(
-                    select(MediaItem).where(MediaItem.id == media_item.id)
-                )
-                media_item = result.scalar_one_or_none()
-                if not media_item or media_item.deleted_at is not None or media_item.auto_delete_at is None:
-                    # Item was deleted/trashed while we were processing, skip it
-                    continue
-
-                # Check if file exists - if missing, just mark as deleted
-                if not os.path.exists(media_item.file_path):
-                    log.info(
-                        f"File already missing, marking media {media_item.id} as deleted: {media_item.file_path}"
-                    )
-                    media_item.deleted_at = datetime.utcnow()
-                    media_item.auto_delete_at = None
-                    await db.commit()
-                    deleted_ids.append(media_item.id)
-                    continue
-
-                # Check if the image has tags, boards, or markers
-                should_keep = await self._should_keep_image(db, media_item.id)
-
-                if should_keep:
-                    log.info(
-                        f"Skipping deletion of media {media_item.id} (file: {media_item.file_path}) "
-                        f"- has tags, boards, or markers"
-                    )
-                    # Clear the auto_delete_at since user has shown interest in keeping it
-                    media_item.auto_delete_at = None
-                    await db.commit()
-                    continue
-
-                # Mark as deleted - file stays in place
-                log.info(
-                    f"Marking expired image as deleted: {media_item.file_path} "
-                    f"(expired at {media_item.auto_delete_at.isoformat()})"
-                )
-
-                deleted_media_id = media_item.id
-                media_item.deleted_at = datetime.utcnow()
-                media_item.auto_delete_at = None  # Clear expiration so it doesn't immediately expire again if restored
-                await db.commit()
-
-                deleted_ids.append(deleted_media_id)
-                log.info(f"Successfully marked as deleted: {media_item.file_path}")
-
-            except Exception as e:
-                log.error(
-                    f"Error deleting expired media {media_item.id} ({media_item.file_path}): {e}",
-                    exc_info=True
-                )
-                await db.rollback()
-                continue
-
-        if deleted_ids:
-            log.info(f"Cleanup complete: marked {len(deleted_ids)} expired images as deleted (IDs: {deleted_ids[:10]}{'...' if len(deleted_ids) > 10 else ''})")
+            await db.commit()
 
         # Find the next expiration time for scheduling
         next_expiration = await self._get_next_expiration(db)
@@ -254,7 +179,7 @@ class CleanupService:
 
     async def _get_next_expiration(self, db: AsyncSession) -> datetime | None:
         """
-        Find the earliest auto_delete_at time for pending deletions.
+        Find the earliest Asset expiration time.
 
         Args:
             db: Database session
@@ -262,25 +187,12 @@ class CleanupService:
         Returns:
             The next expiration datetime, or None if no pending expirations
         """
-        media_query = (
-            select(func.min(MediaItem.auto_delete_at))
-            .where(
-                and_(
-                    MediaItem.auto_delete_at.isnot(None),
-                    MediaItem.deleted_at.is_(None),
-                    MediaItem.id.not_in(select(AssetRevision.primary_media_id)),
-                )
-            )
-        )
         asset_query = select(func.min(Asset.expires_at)).where(
             Asset.state == "active",
             Asset.deleted_at.is_(None),
             Asset.expires_at.is_not(None),
         )
-        media_expiration = await db.scalar(media_query)
-        asset_expiration = await db.scalar(asset_query)
-        candidates = [value for value in (media_expiration, asset_expiration) if value]
-        return min(candidates) if candidates else None
+        return await db.scalar(asset_query)
 
     async def _should_keep_asset(self, db: AsyncSession, asset_id: int) -> bool:
         has_tag = await db.scalar(
@@ -313,42 +225,3 @@ class CleanupService:
             .limit(1)
         )
         return has_board is not None
-
-    async def _should_keep_image(self, db: AsyncSession, media_id: int) -> bool:
-        """
-        Check if an image has tags, boards, or markers that indicate it should be kept.
-
-        Args:
-            db: Database session
-            media_id: ID of the media item to check
-
-        Returns:
-            True if the image should be kept, False if it can be deleted
-        """
-        # Check for tags
-        tag_query = text("SELECT COUNT(*) FROM media_tags WHERE media_id = :media_id")
-        tag_result = await db.execute(tag_query, {"media_id": media_id})
-        tag_count = tag_result.scalar()
-        if tag_count and tag_count > 0:
-            return True
-
-        # Check for boards
-        board_query = text(
-            "SELECT COUNT(*) FROM board_items bi "
-            "JOIN board_sections bs ON bs.id = bi.board_section_id "
-            "JOIN boards b ON b.id = bs.board_id "
-            "WHERE bi.media_id = :media_id AND bs.deleted_at IS NULL AND b.deleted_at IS NULL"
-        )
-        board_result = await db.execute(board_query, {"media_id": media_id})
-        board_count = board_result.scalar()
-        if board_count and board_count > 0:
-            return True
-
-        # Check for markers
-        marker_query = text("SELECT COUNT(*) FROM media_markers WHERE media_id = :media_id")
-        marker_result = await db.execute(marker_query, {"media_id": media_id})
-        marker_count = marker_result.scalar()
-        if marker_count and marker_count > 0:
-            return True
-
-        return False

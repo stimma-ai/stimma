@@ -133,7 +133,26 @@ def get_file_dates(file_path: Path) -> Tuple[Optional[datetime], datetime]:
     return created_date, modified_date
 
 
-async def fast_scan_directories(paths: List[str]) -> List[dict]:
+def path_is_within_resolved_roots(candidate: Path, roots: List[Path]) -> bool:
+    """Fast boundary check for paths the caller has already resolved."""
+    for root in roots:
+        if candidate == root or root in candidate.parents:
+            return True
+    return False
+
+
+def is_path_within_roots(path: str | Path, roots: List[str | Path]) -> bool:
+    """Return whether a path is inside one of the supplied roots."""
+    candidate = Path(path).expanduser().resolve(strict=False)
+    resolved_roots = [
+        Path(root).expanduser().resolve(strict=False) for root in roots
+    ]
+    return path_is_within_resolved_roots(candidate, resolved_roots)
+
+
+async def fast_scan_directories(
+    paths: List[str], *, excluded_paths: Optional[List[str | Path]] = None
+) -> List[dict]:
     """
     Ultra-fast file discovery - loads all paths and basic stats into RAM.
 
@@ -146,16 +165,25 @@ async def fast_scan_directories(paths: List[str]) -> List[dict]:
 
     Args:
         paths: List of directory paths to scan
+        excluded_paths: App-owned roots that must never be treated as Sources
 
     Returns:
         List of dicts with: file_path, file_size, file_format, created_date, modified_date
     """
     log.debug(f"FAST DISCOVERY: Starting ultra-fast scan of {len(paths)} path(s)")
     files = []
+    excluded_roots = [
+        Path(path).expanduser().resolve(strict=False)
+        for path in (excluded_paths or [])
+    ]
 
     for path_str in paths:
         path = Path(path_str).expanduser().resolve()
         log.debug(f"FAST DISCOVERY: Scanning path: {path}")
+
+        if path_is_within_resolved_roots(path, excluded_roots):
+            log.warning(f"FAST DISCOVERY: Skipping app-owned path: {path}")
+            continue
 
         if not path.exists():
             log.warning(f"FAST DISCOVERY: Path does not exist: {path}")
@@ -175,6 +203,17 @@ async def fast_scan_directories(paths: List[str]) -> List[dict]:
         elif path.is_dir():
             # Fast directory walk - just stat() calls
             for root, dirs, filenames in os.walk(path):
+                root_path = Path(root)
+                # A Source may be a broad ancestor (even the home directory).
+                # Prune Stimma's data/cache trees before seeing staging,
+                # content-addressed objects, databases, or provider assets.
+                dirs[:] = [
+                    directory
+                    for directory in dirs
+                    if not path_is_within_resolved_roots(
+                        root_path / directory, excluded_roots
+                    )
+                ]
                 # Check for .stimmalayout directories (treat as media items, don't descend into them)
                 layout_dirs = []
                 for d in dirs:
@@ -198,7 +237,9 @@ async def fast_scan_directories(paths: List[str]) -> List[dict]:
                     dirs.remove(ld)
 
                 for filename in filenames:
-                    file_path = Path(root) / filename
+                    file_path = root_path / filename
+                    if path_is_within_resolved_roots(file_path, excluded_roots):
+                        continue
                     if is_supported_extension(file_path):
                         try:
                             stat = file_path.stat()

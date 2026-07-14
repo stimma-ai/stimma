@@ -15,8 +15,11 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app_dirs
+from core.logging import get_logger
 from database import ManagedArtifact, MediaItem, StorageObject
 from trash_service import TrashService
+
+log = get_logger(__name__)
 
 
 class StorageServiceError(RuntimeError):
@@ -275,6 +278,20 @@ async def register_external_asset(
     media: MediaItem,
 ):
     """Register watched bytes and give the user-addressable item Asset identity."""
+    media_path = Path(media.file_path).expanduser().resolve(strict=False)
+    if any(
+        media_path == root or root in media_path.parents
+        for root in app_dirs.get_all_stimma_owned_roots()
+    ):
+        # Defense in depth against a scanner/generation race. A private payload
+        # may become generation-owned moments later, but it must never acquire a
+        # second watched-file Asset identity.
+        log.warning(
+            "Refusing to register app-owned payload as watched Source media: %s",
+            media.file_path,
+        )
+        return None, None
+
     storage = await register_external_media(session, media=media)
     from sqlalchemy.orm import aliased
     from asset_association_service import mirror_media_associations_to_asset

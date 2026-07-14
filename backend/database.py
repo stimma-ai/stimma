@@ -65,7 +65,8 @@ class MediaItem(Base):
     # Durable privacy-deletion barrier. Once set, no new root may acquire this
     # Media even though the worker has not yet removed its bytes and row.
     deletion_pending_at = Column(DateTime, nullable=True, index=True)
-    auto_delete_at = Column(DateTime, nullable=True, index=True)  # Scheduled auto-deletion time
+    # Legacy inert column. Auto-delete belongs exclusively to Asset.expires_at.
+    auto_delete_at = Column(DateTime, nullable=True, index=True)
 
     # File availability tracking (system-detected missing files)
     file_unavailable = Column(Boolean, default=False, index=True)  # True if file not found on disk
@@ -216,7 +217,9 @@ class MediaItem(Base):
             "created_date": self.created_date.isoformat() if self.created_date else None,
             "modified_date": self.modified_date.isoformat() if self.modified_date else None,
             "indexed_date": self.indexed_date.isoformat(),
-            "auto_delete_at": self.auto_delete_at.isoformat() if self.auto_delete_at else None,
+            # Media has no independent auto-delete lifecycle. Keep the column
+            # readable for migration only; never expose it as live state.
+            "auto_delete_at": None,
             "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
             "chat_item_id": self.chat_item_id,
             "tool_id": self.tool_id,
@@ -762,9 +765,10 @@ class GenerationJob(Base):
     started_at = Column(DateTime, nullable=True)  # When generation actually started
     completed_at = Column(DateTime, nullable=True)  # When generation finished
 
-    # Auto-delete settings
+    # Auto-delete settings. Duration remains the generation preference; the
+    # resulting deadline lives on Asset.expires_at.
     auto_delete_duration = Column(String, nullable=True)  # e.g., "24h", "3d", "never"
-    auto_delete_at = Column(DateTime, nullable=True, index=True)  # Scheduled deletion time
+    auto_delete_at = Column(DateTime, nullable=True, index=True)  # Legacy inert column
 
     # Results
     result_media_id = Column(Integer, nullable=True)  # FK to media_items
@@ -806,7 +810,7 @@ class GenerationJob(Base):
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "auto_delete_duration": self.auto_delete_duration,
-            "auto_delete_at": self.auto_delete_at.isoformat() if self.auto_delete_at else None,
+            "auto_delete_at": None,
             "result_media_id": self.result_media_id,
             "error": self.error,
             "batch_id": self.batch_id,

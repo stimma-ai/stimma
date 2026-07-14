@@ -1,7 +1,7 @@
 """Query building utilities for filtering media items."""
 from datetime import datetime
 from typing import Optional, Union
-from sqlalchemy import select, or_, and_, func
+from sqlalchemy import select, or_, and_, func, false, true
 from database import (
     MediaItem, Keyword, MediaKeyword, MediaMarker, MediaTag, MediaToolLineage,
     AssetMarker, AssetTag, ProjectAsset,
@@ -73,61 +73,13 @@ RESOLUTION_MAP = {
 
 
 def media_pending_autodelete(now: Optional[datetime] = None):
-    """Predicate matching MediaItems the cleanup worker is due to auto-delete.
-
-    Mirrors cleanup_service.cleanup_expired_images exactly: an item is removed once
-    auto_delete_at has passed AND it has no tags, boards, or markers (any of those
-    makes the worker preserve the item and clear its auto_delete_at). This lets read
-    APIs hide expired items the instant their deadline passes, instead of leaving them
-    visible until the background worker happens to run. Because the keep-rules are
-    matched here too, items the worker would preserve are never hidden.
-    """
-    if now is None:
-        now = datetime.utcnow()
-
-    # correlate(MediaItem) pins each EXISTS to the outer MediaItem row ONLY. Without it,
-    # auto-correlation strips any subquery FROM that also appears in the enclosing query —
-    # so when the outer query joins media_tags/media_markers/board tables (e.g. the
-    # filter-counts facet queries), the subquery loses its own driving table and SQLAlchemy
-    # raises "returned no FROM clauses due to auto-correlation".
-    has_tag = (
-        select(1).select_from(MediaTag)
-        .where(MediaTag.media_id == MediaItem.id)
-        .correlate(MediaItem)
-        .exists()
-    )
-    has_marker = (
-        select(1).select_from(MediaMarker)
-        .where(MediaMarker.media_id == MediaItem.id)
-        .correlate(MediaItem)
-        .exists()
-    )
-    has_board = (
-        select(1).select_from(BoardItem)
-        .join(BoardSection, BoardSection.id == BoardItem.board_section_id)
-        .join(Board, Board.id == BoardSection.board_id)
-        .where(
-            BoardItem.media_id == MediaItem.id,
-            BoardSection.deleted_at.is_(None),
-            Board.deleted_at.is_(None),
-        )
-        .correlate(MediaItem)
-        .exists()
-    )
-    return and_(
-        MediaItem.auto_delete_at.isnot(None),
-        MediaItem.auto_delete_at <= now,
-        ~has_tag,
-        ~has_marker,
-        ~has_board,
-    )
+    """Compatibility predicate: Media no longer auto-deletes independently."""
+    return false()
 
 
 def not_due_for_autodelete(now: Optional[datetime] = None):
-    """Negation of media_pending_autodelete — add to active read queries so expired
-    generations vanish at their deadline while staying consistent with the worker's
-    keep rules (tagged/boarded/markered items are never hidden)."""
-    return ~media_pending_autodelete(now)
+    """Compatibility predicate: Media availability is owner-driven."""
+    return true()
 
 
 def build_filtered_query(
@@ -541,13 +493,15 @@ def build_filtered_query(
             except ValueError:
                 pass
 
-    # Expiring filters use Asset lifecycle when an Asset projection supplies
-    # its expiration column; legacy Media callers retain auto_delete_at.
-    expires_at = expiration_column if expiration_column is not None else MediaItem.auto_delete_at
+    # Expiration is exclusively an Asset lifecycle property. Media-only views
+    # have no expiring population.
+    expires_at = expiration_column
     if exclude_category != "expiring":
-        if show_expiring:
+        if show_expiring and expires_at is not None:
             query = query.where(expires_at.isnot(None))
-        if exclude_expiring:
+        elif show_expiring:
+            query = query.where(false())
+        if exclude_expiring and expires_at is not None:
             query = query.where(expires_at.is_(None))
 
     # Direct megapixel range (legacy: only meaningful when `resolutions` is not used)

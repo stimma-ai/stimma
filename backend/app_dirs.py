@@ -82,6 +82,44 @@ def get_bundle_cache_root() -> Path:
     return _os_cache_root() / get_bundle_id()
 
 
+def get_all_stimma_owned_roots() -> list[Path]:
+    """Return private data/cache roots that Sources must never scan.
+
+    Include every release channel, not only the running one, so a broad Source
+    such as the home directory cannot import another Stimma install's managed
+    objects. Explicit environment overrides are included as well.
+    """
+    from app_context import (
+        BUNDLE_ID_BETA,
+        BUNDLE_ID_CANARY,
+        BUNDLE_ID_DEBUG,
+        BUNDLE_ID_STABLE,
+    )
+
+    bundle_ids = {
+        BUNDLE_ID_STABLE,
+        BUNDLE_ID_BETA,
+        BUNDLE_ID_CANARY,
+        BUNDLE_ID_DEBUG,
+        get_bundle_id(),
+    }
+    roots = [get_data_dir(), get_cache_dir()]
+    roots.extend(_os_data_root() / bundle_id for bundle_id in bundle_ids)
+    roots.extend(_os_cache_root() / bundle_id for bundle_id in bundle_ids)
+    return list(dict.fromkeys(root.expanduser().resolve(strict=False) for root in roots))
+
+
+def get_source_excluded_roots() -> list[Path]:
+    """Return every filesystem root that must remain invisible to Sources."""
+    import tempfile
+
+    roots = [
+        *get_all_stimma_owned_roots(),
+        Path(tempfile.gettempdir()).resolve(strict=False),
+    ]
+    return list(dict.fromkeys(roots))
+
+
 def get_config_path() -> Path:
     """Return path to config.yaml inside data directory."""
     return get_data_dir() / "config.yaml"

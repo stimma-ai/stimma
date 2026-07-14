@@ -548,6 +548,30 @@ async def test_watched_file_registration_materializes_one_asset(db_session, tmp_
 
 
 @pytest.mark.asyncio
+async def test_app_owned_payload_never_materializes_watched_asset(db_session, tmp_path):
+    source = tmp_path / "staging" / "generated" / "result.png"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"generated")
+    async with db_session() as session:
+        asset_count = await session.scalar(select(func.count()).select_from(Asset))
+        media = await create_media_item(session, file_path=source)
+        with patch(
+            "app_dirs.get_all_stimma_owned_roots", return_value=[tmp_path]
+        ):
+            storage, asset = await register_external_asset(session, media=media)
+        await session.commit()
+
+        assert storage is None
+        assert asset is None
+        assert media.storage_object_id is None
+        assert await session.scalar(select(func.count()).select_from(Asset)) == asset_count
+        # Module-scoped storage tests share a database; remove this deliberately
+        # ownerless row so later migration-count assertions stay isolated.
+        await session.delete(media)
+        await session.commit()
+
+
+@pytest.mark.asyncio
 async def test_changed_watched_file_advances_same_asset(db_session, tmp_path):
     source = tmp_path / "mutable-watch.png"
     source.write_bytes(b"first")

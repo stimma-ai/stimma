@@ -13,7 +13,7 @@ from database_registry import get_database_registry
 from media_scanner import (
     scan_directories, fast_scan_directories, extract_metadata,
     VIDEO_EXTENSIONS, AUDIO_EXTENSIONS, STRUCTURED_EXTENSIONS, IMAGE_EXTENSIONS,
-    get_file_extension
+    get_file_extension, path_is_within_resolved_roots,
 )
 from exif_extractor import extract_prompt_from_exif, extract_stimma_metadata
 from vlm_service import VLMService
@@ -794,10 +794,18 @@ class MediaIngestion:
             return 0
 
         folder_paths = [f.path for f in profile_folders]
+        import app_dirs
+
+        app_owned_roots = app_dirs.get_source_excluded_roots()
+        source_roots = [
+            Path(path).expanduser().resolve(strict=False) for path in folder_paths
+        ]
         log.debug(f"FAST DISCOVERY [{profile_id}]: Scanning {len(folder_paths)} folders...")
 
         # Step 1: Scan filesystem into RAM
-        scanned_files = await fast_scan_directories(folder_paths)
+        scanned_files = await fast_scan_directories(
+            folder_paths, excluded_paths=app_owned_roots
+        )
         log.debug(f"FAST DISCOVERY [{profile_id}]: Loaded {len(scanned_files)} files into RAM")
 
         # Step 2: Get database for this profile
@@ -905,10 +913,16 @@ class MediaIngestion:
 
             # Step 6: Mark missing files as unavailable (SOFT - preserves user data)
             # This protects against data loss if a folder is temporarily unavailable
-            files_in_scanned_folders = {
-                path for path in existing_files.keys()
-                if any(path.startswith(folder_path) for folder_path in folder_paths)
-            }
+            files_in_scanned_folders = set()
+            for existing_path in existing_files:
+                resolved_path = Path(existing_path).expanduser().resolve(strict=False)
+                if (
+                    path_is_within_resolved_roots(resolved_path, source_roots)
+                    and not path_is_within_resolved_roots(
+                        resolved_path, app_owned_roots
+                    )
+                ):
+                    files_in_scanned_folders.add(existing_path)
             files_now_missing = files_in_scanned_folders - scanned_paths
 
             unavailable_count = 0

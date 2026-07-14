@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import MediaItem
+from database import Asset, AssetRevision, MediaItem
 from database_registry import get_database_registry
 from config import get_settings
 
@@ -287,25 +287,40 @@ async def clear_auto_delete_for_media(session: AsyncSession, media_ids: list[int
     if not media_ids:
         return
 
-    # Find media items with auto-delete set
-    query = select(MediaItem).where(
-        and_(
-            MediaItem.id.in_(media_ids),
-            MediaItem.auto_delete_at.isnot(None)
-        )
-    )
+    # Fetch every requested Media: the Asset deadline may still be populated
+    # even when the legacy Media deadline has already been cleared.
+    query = select(MediaItem).where(MediaItem.id.in_(media_ids))
     result = await session.execute(query)
     media_items = result.scalars().all()
 
-    if not media_items:
-        return
-
-    # Clear auto-delete settings
+    # Clear both the legacy payload deadline and canonical Asset deadline.
     affected_media_ids = []
     for media_item in media_items:
-        media_item.auto_delete_at = None
-        affected_media_ids.append(media_item.id)
-        log.info(f"Cleared auto-delete for media {media_item.id}")
+        if media_item.auto_delete_at is not None:
+            media_item.auto_delete_at = None
+            affected_media_ids.append(media_item.id)
+            log.info(f"Cleared auto-delete for media {media_item.id}")
+
+    asset_rows = (
+        await session.execute(
+            select(Asset, AssetRevision.primary_media_id)
+            .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+            .where(
+                AssetRevision.primary_media_id.in_(media_ids),
+                Asset.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    affected_asset_ids = []
+    for asset, media_id in asset_rows:
+        if asset.expires_at is not None:
+            asset.expires_at = None
+            affected_asset_ids.append(asset.id)
+        if media_id not in affected_media_ids:
+            affected_media_ids.append(media_id)
+
+    if not affected_media_ids and not affected_asset_ids:
+        return
 
     await session.commit()
 
@@ -313,6 +328,11 @@ async def clear_auto_delete_for_media(session: AsyncSession, media_ids: list[int
     for media_id in affected_media_ids:
         await ws_manager.broadcast('auto_delete_removed', {
             'media_id': media_id
+        })
+    if affected_asset_ids:
+        await ws_manager.broadcast('assets_updated', {
+            'asset_ids': affected_asset_ids,
+            'fields': ['expires_at'],
         })
 
 

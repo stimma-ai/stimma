@@ -514,8 +514,15 @@ class StdioTransport(Transport):
 
     async def connect(self) -> None:
         """Spawn the provider subprocess."""
-        # Create asset directory
-        self._asset_dir = Path(tempfile.mkdtemp(prefix="stimma-assets-"))
+        # Keep the STP filesystem bridge inside Stimma-owned cache so even a
+        # broad user Source cannot discover provider transfer artifacts.
+        import app_dirs
+
+        asset_root = app_dirs.get_cache_dir() / "provider-assets"
+        asset_root.mkdir(parents=True, exist_ok=True)
+        self._asset_dir = Path(
+            tempfile.mkdtemp(prefix="stimma-assets-", dir=asset_root)
+        )
 
         # Build environment
         env = os.environ.copy()

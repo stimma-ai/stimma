@@ -12,7 +12,7 @@ from sqlalchemy import select, update, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import GenerationJob, MediaItem, ChatItem, ControlFlag, MediaLineage
+from database import Asset, GenerationJob, MediaItem, ChatItem, ControlFlag, MediaLineage
 from database_registry import get_database_registry
 from utils.background_tasks import clear_auto_delete_for_media
 from utils.lineage import record_lineage_from_inputs, propagate_tool_lineage
@@ -44,6 +44,15 @@ PROMPT_WARM_POOL_MAX_CONCURRENCY = 8  # sane ceiling regardless of client input
 def resolve_recorded_seed(requested_seed, actual_seed):
     """Prefer the provider's actual seed, but fall back when it is absent."""
     return actual_seed if actual_seed is not None else requested_seed
+
+
+def generation_job_payload(job: GenerationJob, asset: Asset | None = None) -> dict:
+    """Project canonical Asset expiration onto the legacy job response shape."""
+    payload = job.to_dict()
+    payload["auto_delete_at"] = (
+        asset.expires_at.isoformat() if asset and asset.expires_at else None
+    )
+    return payload
 
 
 def compute_size_from_image(image_path: str, megapixels: float, step: int = 64) -> tuple[int, int]:
@@ -1558,20 +1567,24 @@ class GenerationQueue:
             # Fast path: known profile
             async with self._get_db(profile_id).async_session_maker() as session:
                 result = await session.execute(
-                    select(GenerationJob).where(GenerationJob.id == job_id)
+                    select(GenerationJob, Asset)
+                    .outerjoin(Asset, GenerationJob.result_asset_id == Asset.id)
+                    .where(GenerationJob.id == job_id)
                 )
-                job = result.scalar_one_or_none()
-                return job.to_dict() if job else None
+                row = result.one_or_none()
+                return generation_job_payload(*row) if row else None
         else:
             # Search all profile databases
             for pid, db in self._get_all_jobs_dbs():
                 async with db.async_session_maker() as session:
                     result = await session.execute(
-                        select(GenerationJob).where(GenerationJob.id == job_id)
+                        select(GenerationJob, Asset)
+                        .outerjoin(Asset, GenerationJob.result_asset_id == Asset.id)
+                        .where(GenerationJob.id == job_id)
                     )
-                    job = result.scalar_one_or_none()
-                    if job:
-                        return job.to_dict()
+                    row = result.one_or_none()
+                    if row:
+                        return generation_job_payload(*row)
             return None
 
     async def list_jobs(
@@ -1602,8 +1615,9 @@ class GenerationQueue:
             # any other path nulls it.
             # Select both job and media to include media data in response
             query = (
-                select(GenerationJob, MediaItem)
+                select(GenerationJob, MediaItem, Asset)
                 .outerjoin(MediaItem, GenerationJob.result_media_id == MediaItem.id)
+                .outerjoin(Asset, GenerationJob.result_asset_id == Asset.id)
                 .where(
                     or_(
                         # Include jobs without a result_media_id that aren't completed
@@ -1639,7 +1653,7 @@ class GenerationQueue:
             rows = result.all()
 
             # Collect media IDs that need marker loading
-            media_ids = [media.id for job, media in rows if media is not None]
+            media_ids = [media.id for job, media, asset in rows if media is not None]
 
             # Batch load markers for all media items
             markers_by_media = {}
@@ -1659,8 +1673,8 @@ class GenerationQueue:
 
             # Build response with inline media data
             jobs_list = []
-            for job, media in rows:
-                job_dict = job.to_dict()
+            for job, media, asset in rows:
+                job_dict = generation_job_payload(job, asset)
 
                 # Add inline media data if media exists
                 if media:
@@ -3132,8 +3146,9 @@ class GenerationQueue:
             # re-stamped lineage here has been removed — it was redundant and was
             # itself a source of image/video drift.
 
-            # Calculate auto_delete_at if duration is set. completed_at was stamped
-            # at GPU-done by the caller (not here) so it excludes this tail.
+            # Calculate the Asset expiration if configured. Media has no
+            # independent auto-delete lifecycle; it is retained by roots and
+            # collected only after the final owner is permanently removed.
             _t1 = _time.time()
             auto_delete_at = None
             log.debug(f"Job {job.id}: auto_delete_duration = {repr(job.auto_delete_duration)}, media_item.id = {media_item.id}")
@@ -3142,9 +3157,7 @@ class GenerationQueue:
                 log.debug(f"Job {job.id}: parsed duration = {repr(duration)}")
                 if duration:
                     auto_delete_at = completed_at + duration
-                    log.debug(f"Job {job.id}: Setting auto_delete_at = {auto_delete_at.isoformat()} (completed_at={completed_at.isoformat()}, duration={job.auto_delete_duration})")
-                    # Update media item directly (it's in this session)
-                    media_item.auto_delete_at = auto_delete_at
+                    log.debug(f"Job {job.id}: Setting Asset expiration = {auto_delete_at.isoformat()} (completed_at={completed_at.isoformat()}, duration={job.auto_delete_duration})")
             else:
                 log.debug(f"Job {job.id}: NO auto_delete_duration set, skipping auto_delete_at")
             log.debug(f"Job {job.id}: TIMING - auto_delete handling: {(_time.time() - _t1)*1000:.0f}ms")
@@ -3168,7 +3181,10 @@ class GenerationQueue:
                 raise RuntimeError(f"Generation job {job.id} disappeared before finalization")
             from result_disposition_service import finalize_generation_output
             await finalize_generation_output(
-                session, job=persistent_job, media=media_item
+                session,
+                job=persistent_job,
+                media=media_item,
+                expires_at=auto_delete_at,
             )
 
             # ONE commit for all database operations
@@ -3207,7 +3223,7 @@ class GenerationQueue:
                 .values(
                     status='completed',
                     completed_at=completed_at,
-                    auto_delete_at=auto_delete_at,  # Keep for legacy tracking
+                    auto_delete_at=None,  # Legacy inert; Asset.expires_at is canonical
                     result_media_id=media_item.id if media_item else None
                 )
             )

@@ -2068,14 +2068,17 @@ async def get_job_statuses(
     if not job_ids:
         return []
 
-    # Query jobs with optional join to MediaItem to check if media is trashed.
+    # Query jobs with their exact Media and canonical Asset expiration.
     # Internal one-shot flow-as-tool jobs (stamped with _ephemeral_run_id in their
     # params) are never surfaced to the user, even when polled by explicit id.
     from sqlalchemy.orm import selectinload
     from sqlalchemy import func
+    from database import Asset
+
     result = await session.execute(
-        select(GenerationJob, MediaItem)
+        select(GenerationJob, MediaItem, Asset)
         .outerjoin(MediaItem, GenerationJob.result_media_id == MediaItem.id)
+        .outerjoin(Asset, GenerationJob.result_asset_id == Asset.id)
         .where(GenerationJob.id.in_(job_ids))
         .where(func.json_extract(GenerationJob.parameters, '$._ephemeral_run_id').is_(None))
     )
@@ -2105,11 +2108,11 @@ async def get_job_statuses(
             "model_name": job.model_name,
             "parameters": job.parameters,
             "created_at": job.created_at.isoformat() if job.created_at else None,
-            "auto_delete_at": media.auto_delete_at.isoformat() if media and media.auto_delete_at else None,
+            "auto_delete_at": asset.expires_at.isoformat() if asset and asset.expires_at else None,
             "generation_time": get_generation_time(media),
             "file_format": media.file_format if media else None
         }
-        for job, media in rows
+        for job, media, asset in rows
     ]
 
 
@@ -2212,18 +2215,21 @@ async def retry_generation_job(job_id: int, session: AsyncSession = Depends(get_
 @router.get("/api/media/{media_id}/generation-job")
 async def get_media_generation_job(media_id: int, session: AsyncSession = Depends(get_db_session)):
     """Get the generation job that created this media item."""
-    from database import GenerationJob
+    from database import Asset, GenerationJob
+    from generation_queue import generation_job_payload
 
     # Find the generation job for this media item
     result = await session.execute(
-        select(GenerationJob).where(GenerationJob.result_media_id == media_id)
+        select(GenerationJob, Asset)
+        .outerjoin(Asset, GenerationJob.result_asset_id == Asset.id)
+        .where(GenerationJob.result_media_id == media_id)
     )
-    job = result.scalar_one_or_none()
+    row = result.one_or_none()
 
-    if not job:
+    if not row:
         return None
 
-    return job.to_dict()
+    return generation_job_payload(*row)
 
 
 # Helper functions for LoRA matching

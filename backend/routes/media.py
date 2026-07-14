@@ -524,7 +524,6 @@ async def get_media(
             "hasResults": total > 0,
         })
 
-    # Fetch auto_delete_at for all items in one query
     # Convert to response model
     media_items = []
     for item in items:
@@ -532,9 +531,6 @@ async def get_media(
         # Add similarity score if available
         if item.id in similarity_scores:
             item_dict['similarity_score'] = similarity_scores[item.id]
-        # Add auto_delete_at from media item itself
-        if item.auto_delete_at:
-            item_dict['auto_delete_at'] = item.auto_delete_at.isoformat()
         media_items.append(MediaItemResponse(**item_dict))
 
     return MediaListResponse(
@@ -867,7 +863,7 @@ async def get_media_item(
 
     if not include_trashed:
         query = query.where(MediaItem.deleted_at.is_(None))
-        # An item past its auto-delete deadline must read as gone even before the worker runs.
+        # Media availability is owner-driven; historical payload deadlines are inert.
         query = query.where(not_due_for_autodelete())
     # Ephemeral one-shot-run intermediates never resolve, even with include_trashed.
     query = query.where(MediaItem.ephemeral_run_id.is_(None))
@@ -1021,7 +1017,7 @@ async def update_media_content(
 
 @router.delete("/api/media/{media_id}/auto-delete")
 async def remove_auto_delete(media_id: int, session: AsyncSession = Depends(get_db_session)):
-    """Remove auto-delete from a media item."""
+    """Compatibility endpoint that retains the Asset owning this Media."""
     # Find the media item
     result = await session.execute(
         select(MediaItem).where(MediaItem.id == media_id)
@@ -1031,14 +1027,9 @@ async def remove_auto_delete(media_id: int, session: AsyncSession = Depends(get_
     if not media_item:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    # Clear auto-delete setting
-    media_item.auto_delete_at = None
-    await session.commit()
+    from utils.background_tasks import clear_auto_delete_for_media
 
-    # Broadcast update to refresh UI
-    await ws_manager.broadcast('auto_delete_removed', {
-        'media_id': media_id
-    })
+    await clear_auto_delete_for_media(session, [media_id], ws_manager)
 
     return {"status": "success", "message": "Auto-delete removed"}
 
