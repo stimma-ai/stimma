@@ -22,6 +22,7 @@ from database_registry import get_database_registry
 from database import MediaItem
 from sqlalchemy import select, func
 from ingestion import sync_auto_markers_for_items
+from llm_resolver import normalize_model_slug
 from utils.websocket import ws_manager
 from config_writer import (
     patch_profile_section,
@@ -874,9 +875,10 @@ class UpdateDefaultModelRequest(BaseModel):
 @router.patch("/default-model")
 async def update_default_model(request: UpdateDefaultModelRequest):
     """Update the global default model slug."""
-    patch_global_section("default_model", request.default_model)
-    log.info("default model updated", default_model=request.default_model)
-    return {"status": "success", "default_model": request.default_model}
+    model_slug = normalize_model_slug(request.default_model)
+    patch_global_section("default_model", model_slug)
+    log.info("default model updated", default_model=model_slug)
+    return {"status": "success", "default_model": model_slug}
 
 
 class UpdateQuickTaskModelRequest(BaseModel):
@@ -885,8 +887,9 @@ class UpdateQuickTaskModelRequest(BaseModel):
 
 @router.patch("/quick-task-model")
 async def update_quick_task_model(request: UpdateQuickTaskModelRequest):
-    patch_global_section("quick_task_model", request.model)
-    return {"status": "success", "quick_task_model": request.model}
+    model_slug = normalize_model_slug(request.model)
+    patch_global_section("quick_task_model", model_slug)
+    return {"status": "success", "quick_task_model": model_slug}
 
 
 class UpdateModelReasoningRequest(BaseModel):
@@ -897,22 +900,23 @@ class UpdateModelReasoningRequest(BaseModel):
 @router.patch("/model-reasoning")
 async def update_model_reasoning(request: UpdateModelReasoningRequest):
     settings = get_settings()
+    model_slug = normalize_model_slug(request.model)
     available = None
     for provider in settings.llm_providers:
         for model in provider.models:
-            if model.id == request.model:
+            if model.id == model_slug:
                 available = model.reasoning.levels
                 break
     if available is None:
         from llm_resolver import _lookup_catalog
-        entry = _lookup_catalog(request.model) or {}
+        entry = _lookup_catalog(model_slug) or {}
         available = (entry.get("reasoning") or {}).get("levels")
     if not available or request.level not in available:
         raise HTTPException(status_code=400, detail="Reasoning level is not available for this model.")
     levels = dict(settings.llm_reasoning_levels)
-    levels[request.model] = request.level
+    levels[model_slug] = request.level
     patch_global_section("llm_reasoning_levels", levels)
-    return {"status": "success", "model": request.model, "level": request.level}
+    return {"status": "success", "model": model_slug, "level": request.level}
 
 
 class UpdateLLMPromptPolicyRequest(BaseModel):

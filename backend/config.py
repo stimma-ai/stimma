@@ -11,6 +11,12 @@ from pydantic_settings import BaseSettings
 import app_dirs
 from cloud_runtime import env_cloud_base_url
 
+
+LEGACY_LLM_MODEL_SLUGS = {
+    "agent-max": "stimma:minimax-m3",
+    "default": "stimma:minimax-m3",
+}
+
 def generate_profile_id() -> str:
     """Generate a profile ID like 'profile-k3Rm9x'."""
     chars = string.ascii_letters + string.digits
@@ -649,6 +655,53 @@ def _migrate_source_folder_config(config_file: Path) -> bool:
     return True
 
 
+def _migrate_legacy_llm_model_slugs(config_file: Path) -> bool:
+    """Replace retired model aliases in the persisted YAML configuration."""
+    from ruamel.yaml import YAML
+    import shutil
+    import tempfile
+
+    parser = YAML()
+    parser.preserve_quotes = True
+    parser.width = 120
+    with config_file.open("r") as handle:
+        data = parser.load(handle) or {}
+
+    changed = False
+    for key in ("default_model", "quick_task_model"):
+        replacement = LEGACY_LLM_MODEL_SLUGS.get(data.get(key))
+        if replacement:
+            data[key] = replacement
+            changed = True
+
+    reasoning_levels = data.get("llm_reasoning_levels")
+    if isinstance(reasoning_levels, dict):
+        for legacy_slug, replacement in LEGACY_LLM_MODEL_SLUGS.items():
+            if legacy_slug not in reasoning_levels:
+                continue
+            legacy_level = reasoning_levels.pop(legacy_slug)
+            # MiniMax exposes off/high. Preserve a compatible selection, but do
+            # not let an obsolete alias overwrite an explicit new-model choice.
+            if replacement not in reasoning_levels and legacy_level in {"off", "high"}:
+                reasoning_levels[replacement] = legacy_level
+            changed = True
+
+    if not changed:
+        return False
+
+    fd, temp_path = tempfile.mkstemp(suffix=".yaml", dir=config_file.parent)
+    try:
+        with os.fdopen(fd, "w") as handle:
+            parser.dump(data, handle)
+        shutil.copy2(config_file, config_file.with_suffix(".yaml.bak"))
+        os.replace(temp_path, config_file)
+    except Exception:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        raise
+    return True
+
+
 class Settings(BaseSettings):
     # Profile-based configuration (new structure)
     profiles: List[ProfileConfig] = []
@@ -808,6 +861,7 @@ class Settings(BaseSettings):
             config_file = ensure_config_exists()
 
         _migrate_source_folder_config(config_file)
+        _migrate_legacy_llm_model_slugs(config_file)
         with open(config_file, 'r') as f:
             config_data = yaml.safe_load(f)
 

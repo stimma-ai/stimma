@@ -100,7 +100,7 @@
             <div class="flex-1 min-w-0">
               <div class="text-sm text-content">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
               <div v-if="model.source === 'stimma_cloud' && model.description" class="text-[11px] leading-snug whitespace-normal break-words">
-                <span class="stimma-cloud-text font-medium">Stimma Cloud</span><span class="text-content-muted"> · {{ model.description }}<template v-if="model.cost_tier"> · {{ model.cost_tier }}</template></span>
+                <span class="stimma-cloud-text font-medium">via Stimma</span><span class="text-content-muted"> · {{ model.description }}<template v-if="model.cost_tier"> · {{ model.cost_tier }}</template></span>
               </div>
               <div
                 v-else-if="model.endpoint_model"
@@ -120,7 +120,7 @@
               @click="showCollapsedCloud = !showCollapsedCloud"
               class="flex w-full items-center justify-between border-t border-edge px-3 py-2 text-left text-[11px] text-content-muted hover:text-content-secondary"
             >
-              <span>Also via Stimma Cloud</span>
+              <span>Also via Stimma</span>
               <svg class="h-3 w-3 transition-transform" :class="showCollapsedCloud ? 'rotate-180' : ''" viewBox="0 0 12 12" fill="currentColor">
                 <path d="M3 4.5L6 8l3-3.5H3z" />
               </svg>
@@ -136,7 +136,7 @@
             >
               <div class="min-w-0 flex-1">
                 <div class="text-sm text-content">{{ model.name }}</div>
-                <div class="text-[11px] text-content-muted">Stimma Cloud<span v-if="model.cost_tier"> · {{ model.cost_tier }}</span><span v-if="model.shadowed_by_provider"> · also available via {{ model.shadowed_by_provider }}</span></div>
+                <div class="text-[11px] text-content-muted">via Stimma<span v-if="model.cost_tier"> · {{ model.cost_tier }}</span><span v-if="model.shadowed_by_provider"> · also available via {{ model.shadowed_by_provider }}</span></div>
               </div>
               <svg v-if="isSelectedModel(model)" class="h-4 w-4 flex-shrink-0 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
@@ -171,7 +171,7 @@
 import { ref, computed, nextTick, onMounted } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../apiConfig'
-import { useAvailableModels } from '../../composables/useAvailableModels'
+import { normalizeModelSlug, useAvailableModels } from '../../composables/useAvailableModels'
 
 const props = defineProps({
   modelSlug: { type: String, default: null },
@@ -192,7 +192,7 @@ const showCollapsedCloud = ref(false)
 const dropdownStyle = ref({})
 
 // The effective slug (what's actually being used)
-const effectiveSlug = computed(() => props.modelSlug || globalDefault.value)
+const effectiveSlug = computed(() => normalizeModelSlug(props.modelSlug || globalDefault.value))
 
 const currentDisplayName = computed(() => {
   if (props.disabled) return props.disabledLabel

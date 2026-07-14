@@ -5,6 +5,47 @@ import pytest
 from config import LLMEndpointConfig, LLMRoleConfig
 
 
+def test_retired_model_aliases_normalize_to_minimax(monkeypatch):
+    import llm_resolver
+
+    monkeypatch.setattr(
+        "privacy_lockdown.is_privacy_lockdown_enabled",
+        lambda: False,
+    )
+
+    assert llm_resolver.normalize_model_slug("agent-max") == "stimma:minimax-m3"
+    assert llm_resolver.normalize_model_slug("default") == "stimma:minimax-m3"
+    assert llm_resolver.normalize_model_slug("stimma:gpt-5.6-sol") == "stimma:gpt-5.6-sol"
+    assert (
+        llm_resolver.resolve_chat_model_slug("agent-max", None, None)
+        == "stimma:minimax-m3"
+    )
+
+
+def test_config_migration_rewrites_retired_model_aliases(tmp_path):
+    import yaml
+
+    from config import _migrate_legacy_llm_model_slugs
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "default_model: agent-max\n"
+        "quick_task_model: default\n"
+        "llm_reasoning_levels:\n"
+        "  agent-max: high\n"
+        "  default: medium\n"
+    )
+
+    assert _migrate_legacy_llm_model_slugs(config_path) is True
+    migrated = yaml.safe_load(config_path.read_text())
+
+    assert migrated["default_model"] == "stimma:minimax-m3"
+    assert migrated["quick_task_model"] == "stimma:minimax-m3"
+    assert migrated["llm_reasoning_levels"] == {"stimma:minimax-m3": "high"}
+    assert config_path.with_suffix(".yaml.bak").exists()
+    assert _migrate_legacy_llm_model_slugs(config_path) is False
+
+
 def test_chat_cloud_default_becomes_auto_in_privacy_lockdown(monkeypatch):
     import llm_resolver
 

@@ -12,15 +12,13 @@
           <p class="mt-0.5 text-xs text-content-tertiary">Prompt cleanup, chat names, and other background work.</p>
         </div>
         <div>
-          <select
-            :value="quickTaskModel"
-            @change="saveQuickTaskModel($event.target.value)"
-            class="w-64 rounded border border-edge bg-surface-raised px-3 py-1.5 text-sm text-content focus:border-blue-500 focus:outline-none"
-          >
-            <option v-for="model in selectableModels" :key="model.slug" :value="model.slug" :disabled="model.available === false">
-              {{ model.name }} · {{ providerLabel(model) }}{{ model.cost_tier ? ` · ${model.cost_tier}` : '' }}
-            </option>
-          </select>
+          <SettingsDropdown
+            control
+            class="w-72"
+            :model-value="quickTaskModel"
+            :options="quickTaskOptions"
+            @update:model-value="saveQuickTaskModel"
+          />
           <p v-if="selectedQuickModel?.available === false" class="mt-1 text-xs text-red-400">Unavailable. Choose another model.</p>
         </div>
       </div>
@@ -36,9 +34,12 @@
           <svg v-if="voiceModelReady" class="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
           </svg>
-          <select v-model="voiceModel" class="w-52 rounded border border-edge bg-surface-raised px-3 py-1.5 text-sm text-content focus:border-blue-500 focus:outline-none">
-            <option v-for="model in VOICE_MODELS" :key="model.id" :value="model.id">{{ model.label }} · {{ model.size }}</option>
-          </select>
+          <SettingsDropdown
+            v-model="voiceModel"
+            control
+            class="w-56"
+            :options="VOICE_MODELS.map(model => ({ value: model.id, label: `${model.label} · ${model.size}` }))"
+          />
         </div>
       </div>
       <p v-if="!voiceModelReady && privacyLockdownActive" class="mt-3 text-xs text-content-secondary">Downloads are off during Privacy Lockdown.</p>
@@ -205,23 +206,21 @@
               <div class="grid gap-3 sm:grid-cols-2">
                 <label class="block">
                   <span class="mb-1 block text-[11px] text-content-tertiary">Reasoning</span>
-                  <select v-model="model.reasoning.mode" class="w-full rounded border border-edge bg-surface-raised px-2 py-1.5 text-xs text-content" @change="normalizeReasoning(model)">
-                    <option value="none">None</option>
-                    <option value="optional">Optional</option>
-                    <option value="required">Always on</option>
-                  </select>
+                  <SettingsDropdown
+                    control
+                    :model-value="model.reasoning.mode"
+                    :options="reasoningModeOptions"
+                    @update:model-value="setReasoningMode(model, $event)"
+                  />
                 </label>
                 <label class="block">
                   <span class="mb-1 block text-[11px] text-content-tertiary">Request control</span>
-                  <select v-model="model.reasoning.control" class="w-full rounded border border-edge bg-surface-raised px-2 py-1.5 text-xs text-content" @change="normalizeReasoning(model)">
-                    <option value="none">None</option>
-                    <option value="openai_effort">reasoning_effort</option>
-                    <option value="openrouter_effort">OpenRouter reasoning</option>
-                    <option value="fireworks_effort">Fireworks reasoning_effort</option>
-                    <option value="enable_thinking">enable_thinking</option>
-                    <option value="think">think</option>
-                    <option value="reasoning_budget">reasoning_budget</option>
-                  </select>
+                  <SettingsDropdown
+                    control
+                    :model-value="model.reasoning.control"
+                    :options="reasoningControlOptions"
+                    @update:model-value="setReasoningControl(model, $event)"
+                  />
                 </label>
               </div>
               <label v-if="model.reasoning.mode !== 'none'" class="block">
@@ -231,9 +230,11 @@
               <div v-if="model.reasoning.mode !== 'none'" class="grid gap-3 sm:grid-cols-2">
                 <label class="block">
                   <span class="mb-1 block text-[11px] text-content-tertiary">Chat default</span>
-                  <select v-model="model.reasoning.default" class="w-full rounded border border-edge bg-surface-raised px-2 py-1.5 text-xs text-content">
-                    <option v-for="level in model.reasoning.levels" :key="level" :value="level">{{ level }}</option>
-                  </select>
+                  <SettingsDropdown
+                    v-model="model.reasoning.default"
+                    control
+                    :options="model.reasoning.levels.map(level => ({ value: level, label: reasoningLevelLabel(level) }))"
+                  />
                 </label>
                 <div>
                   <span class="mb-1 block text-[11px] text-content-tertiary">Quick tasks</span>
@@ -283,6 +284,7 @@ import { getApiBase } from '../../../apiConfig'
 import { useAvailableModels } from '../../../composables/useAvailableModels'
 import { VOICE_MODELS, voiceModel, isModelReady, supported as voiceSupported } from '../../../composables/useVoiceInput'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
+import SettingsDropdown from '../../ui/SettingsDropdown.vue'
 
 const props = defineProps({ llmSettings: { type: Array, default: () => [] } })
 const emit = defineEmits(['update'])
@@ -293,6 +295,20 @@ const providerKinds = [
   { id: 'xai', name: 'xAI' },
   { id: 'openrouter', name: 'OpenRouter' },
   { id: 'local', name: 'Local LLM' },
+]
+const reasoningModeOptions = [
+  { value: 'none', label: 'None' },
+  { value: 'optional', label: 'Optional' },
+  { value: 'required', label: 'Always on' },
+]
+const reasoningControlOptions = [
+  { value: 'none', label: 'None' },
+  { value: 'openai_effort', label: 'reasoning_effort' },
+  { value: 'openrouter_effort', label: 'OpenRouter reasoning' },
+  { value: 'fireworks_effort', label: 'Fireworks reasoning_effort' },
+  { value: 'enable_thinking', label: 'enable_thinking' },
+  { value: 'think', label: 'think' },
+  { value: 'reasoning_budget', label: 'reasoning_budget' },
 ]
 const { models, quickTaskModel, cloudStatus, fetchModels, invalidateCache } = useAvailableModels()
 const { privacyLockdownActive } = usePrivacyLockdown()
@@ -323,12 +339,32 @@ const selectableModels = computed(() => models.value.filter(model => (
   && !model.collapsed
   && (model.available !== false || model.slug === quickTaskModel.value)
 )))
+const quickTaskOptions = computed(() => selectableModels.value.map(model => ({
+  value: model.slug,
+  label: quickTaskLabel(model),
+  disabled: model.available === false,
+})))
 const managerModels = computed(() => discoveredModels.value.length ? discoveredModels.value : (activeProvider.value?.models || []))
 
 function kindLabel(kind) { return providerKinds.find(item => item.id === kind)?.name || kind }
-function providerLabel(model) { return model.provider_name || (model.source === 'stimma_cloud' ? 'Stimma Cloud' : 'Local LLM') }
+function quickTaskLabel(model) {
+  if (model.source === 'endpoint') return model.name
+  const provider = model.source === 'stimma_cloud' ? 'Stimma' : (model.provider_name || 'Local LLM')
+  return `${model.name} · via ${provider}${model.cost_tier ? ` · ${model.cost_tier}` : ''}`
+}
+function reasoningLevelLabel(level) { return level === 'off' ? 'Off' : level === 'xhigh' ? 'XHigh' : level }
 function isDiscoverable(provider) { return ['openrouter', 'local'].includes(provider.kind) }
 function managerModelId(model) { return model.model_id || model.id }
+
+function setReasoningMode(model, mode) {
+  model.reasoning.mode = mode
+  normalizeReasoning(model)
+}
+
+function setReasoningControl(model, control) {
+  model.reasoning.control = control
+  normalizeReasoning(model)
+}
 
 async function loadProviders() {
   const response = await axios.get(`${getApiBase()}/models/providers`)

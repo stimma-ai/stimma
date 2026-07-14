@@ -7,13 +7,18 @@ the two source types: stimma_cloud and endpoint.
 import os
 from typing import Optional
 
-from config import get_settings, LLMEndpointConfig
+from config import LEGACY_LLM_MODEL_SLUGS, get_settings, LLMEndpointConfig
 from core.logging import get_logger
 
 log = get_logger(__name__)
 
 # Type alias for configs that can be passed to llm_http
 LLMEffectiveConfig = LLMEndpointConfig
+
+
+def normalize_model_slug(model_slug: Optional[str]) -> Optional[str]:
+    """Return the current catalog slug for a retired saved alias."""
+    return LEGACY_LLM_MODEL_SLUGS.get(model_slug, model_slug)
 
 
 def _acceptance_llm_config(role: str) -> Optional[LLMEndpointConfig]:
@@ -77,7 +82,7 @@ async def get_effective_llm_config(role: str) -> LLMEffectiveConfig:
         return acceptance_config
 
     settings = get_settings()
-    selected_slug = (
+    selected_slug = normalize_model_slug(
         getattr(settings, "quick_task_model", "auto")
         if role == "agent-fast"
         else getattr(settings, "default_model", "auto")
@@ -213,7 +218,9 @@ def resolve_chat_model_slug(
     like ``auto``.  ``auto`` still respects the normal resolver order and uses
     the configured local endpoint without contacting Stimma Cloud.
     """
-    slug = chat_model_slug or project_default_slug or global_default or 'stimma:minimax-m3'
+    slug = normalize_model_slug(
+        chat_model_slug or project_default_slug or global_default or 'stimma:minimax-m3'
+    )
 
     from privacy_lockdown import is_privacy_lockdown_enabled
 
@@ -425,8 +432,7 @@ async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') ->
     if acceptance_config:
         return acceptance_config
 
-    if model_slug is None:
-        model_slug = 'auto'
+    model_slug = normalize_model_slug(model_slug) or 'auto'
 
     provider_config = _get_provider_model_config(
         model_slug,

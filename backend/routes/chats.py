@@ -15,7 +15,12 @@ from pydantic import BaseModel as PydanticBaseModel
 from project_service import get_project_or_404
 from utils.websocket import ws_manager
 from config import get_settings
-from llm_resolver import get_effective_llm_config, LLMNotConfiguredError, LLMInsufficientBalanceError
+from llm_resolver import (
+    get_effective_llm_config,
+    LLMInsufficientBalanceError,
+    LLMNotConfiguredError,
+    normalize_model_slug,
+)
 from llm_correlation import llm_correlation_context
 
 log = get_logger(__name__)
@@ -536,7 +541,7 @@ async def create_chat(
         generation_settings=json.dumps(default_settings),
         # Snapshot the current choice. New chats follow the last explicitly
         # selected model; existing chats do not change when that choice moves.
-        model_slug=(
+        model_slug=normalize_model_slug(
             request.model_slug
             or (project.default_model_slug if project else None)
             or get_settings().default_model
@@ -834,6 +839,8 @@ async def update_chat(
 
     # Update fields that were provided
     update_data = request.dict(exclude_unset=True)
+    if "model_slug" in update_data:
+        update_data["model_slug"] = normalize_model_slug(update_data["model_slug"])
 
     # Check if settings (not just name) are being changed
     settings_changed = 'throttle' in update_data or 'generation_settings' in update_data

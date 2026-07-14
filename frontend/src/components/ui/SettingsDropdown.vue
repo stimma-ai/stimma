@@ -1,13 +1,16 @@
 <template>
-  <div class="relative" ref="container">
+  <div class="relative" :class="control ? 'w-full' : ''" ref="container">
     <button
       type="button"
       :disabled="disabled"
       @click="toggle"
       @keydown="handleButtonKeydown"
       class="flex items-center gap-1.5 text-content-secondary text-sm cursor-pointer hover:text-content transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-content-secondary"
+      :class="control ? 'w-full min-w-52 justify-between rounded-md border border-edge bg-surface-raised px-3 py-2 text-left hover:border-blue-500/50' : ''"
+      aria-haspopup="listbox"
+      :aria-expanded="isOpen"
     >
-      <span>{{ displayValue }}</span>
+      <span class="truncate">{{ displayValue }}</span>
       <svg
         class="w-3 h-3 text-content-muted transition-transform"
         :class="{ 'rotate-180': isOpen }"
@@ -27,8 +30,10 @@
       <div
         v-if="isOpen"
         ref="dropdown"
-        class="fixed z-50 py-1 bg-surface border border-edge rounded-lg shadow-xl overflow-hidden max-w-72 flex flex-col"
+        class="fixed z-50 py-1 bg-surface border border-edge rounded-lg shadow-xl overflow-hidden max-w-[calc(100vw-1rem)] flex flex-col"
+        :class="control ? 'min-w-52' : 'max-w-72'"
         :style="dropdownStyle"
+        role="listbox"
       >
         <div v-if="searchable" class="px-2 pt-1 pb-1.5 border-b border-edge shrink-0">
           <input
@@ -46,14 +51,19 @@
             :key="option.value"
             :ref="el => setOptionRef(el, index)"
             type="button"
+            :disabled="option.disabled"
             @click="select(option.value)"
-            @mouseenter="highlightedIndex = index"
+            @mouseenter="option.disabled ? null : highlightedIndex = index"
             class="w-full px-3 py-1.5 text-left text-sm transition-colors truncate"
-            :class="index === highlightedIndex
+            :class="option.disabled
+              ? 'cursor-not-allowed text-content-muted opacity-60'
+              : index === highlightedIndex
               ? 'text-content bg-blue-500/30'
               : option.value === modelValue
                 ? 'text-content bg-blue-500/10'
                 : 'text-content-secondary hover:bg-surface-raised'"
+            role="option"
+            :aria-selected="option.value === modelValue"
           >
             {{ option.label }}
           </button>
@@ -67,17 +77,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 
 interface Option {
   value: string
   label: string
+  disabled?: boolean
 }
 
 const props = defineProps<{
   modelValue: string
   options: Option[]
   disabled?: boolean
+  control?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -127,8 +139,9 @@ function open() {
   searchQuery.value = ''
   optionRefs.value = []
   // Set highlighted index to current selection
-  const currentIndex = filteredOptions.value.findIndex(o => o.value === props.modelValue)
-  highlightedIndex.value = currentIndex >= 0 ? currentIndex : 0
+  const currentIndex = filteredOptions.value.findIndex(o => o.value === props.modelValue && !o.disabled)
+  const firstEnabled = filteredOptions.value.findIndex(o => !o.disabled)
+  highlightedIndex.value = currentIndex >= 0 ? currentIndex : Math.max(0, firstEnabled)
   isOpen.value = true
   nextTick(() => {
     positionDropdown()
@@ -148,8 +161,22 @@ function close() {
 }
 
 function select(value: string) {
+  if (props.options.find(option => option.value === value)?.disabled) return
   emit('update:modelValue', value)
   close()
+}
+
+function moveHighlight(direction: 1 | -1) {
+  let index = highlightedIndex.value
+  for (let attempts = 0; attempts < filteredOptions.value.length; attempts += 1) {
+    index = Math.max(0, Math.min(index + direction, filteredOptions.value.length - 1))
+    if (!filteredOptions.value[index]?.disabled) {
+      highlightedIndex.value = index
+      scrollToHighlighted()
+      return
+    }
+    if (index === 0 || index === filteredOptions.value.length - 1) return
+  }
 }
 
 function scrollToHighlighted() {
@@ -170,13 +197,11 @@ function handleDropdownKeydown(e: KeyboardEvent) {
   switch (e.key) {
     case 'ArrowDown':
       e.preventDefault()
-      highlightedIndex.value = Math.min(highlightedIndex.value + 1, filteredOptions.value.length - 1)
-      scrollToHighlighted()
+      moveHighlight(1)
       break
     case 'ArrowUp':
       e.preventDefault()
-      highlightedIndex.value = Math.max(highlightedIndex.value - 1, 0)
-      scrollToHighlighted()
+      moveHighlight(-1)
       break
     case 'Enter':
       e.preventDefault()
@@ -195,7 +220,7 @@ function handleDropdownKeydown(e: KeyboardEvent) {
 // changes shape (typing narrows/widens it) so arrow-key nav stays in range.
 watch(filteredOptions, () => {
   optionRefs.value = []
-  highlightedIndex.value = 0
+  highlightedIndex.value = Math.max(0, filteredOptions.value.findIndex(option => !option.disabled))
   nextTick(scrollToHighlighted)
 })
 
@@ -218,20 +243,22 @@ function positionDropdown() {
     dropdownStyle.value = {
       top: `${rect.bottom + 4}px`,
       right: `${right}px`,
+      ...(props.control ? { minWidth: `${rect.width}px` } : {}),
     }
   } else if (menuHeight <= spaceAbove) {
     // Show above
     dropdownStyle.value = {
       bottom: `${viewportHeight - rect.top + 4}px`,
       right: `${right}px`,
+      ...(props.control ? { minWidth: `${rect.width}px` } : {}),
     }
   } else {
     // Doesn't fit either side — open on the roomier side and cap height
     const below = spaceBelow >= spaceAbove
     const space = Math.max(Math.floor(below ? spaceBelow : spaceAbove), 40)
     dropdownStyle.value = below
-      ? { top: `${rect.bottom + 4}px`, right: `${right}px`, maxHeight: `${space}px` }
-      : { bottom: `${viewportHeight - rect.top + 4}px`, right: `${right}px`, maxHeight: `${space}px` }
+      ? { top: `${rect.bottom + 4}px`, right: `${right}px`, maxHeight: `${space}px`, ...(props.control ? { minWidth: `${rect.width}px` } : {}) }
+      : { bottom: `${viewportHeight - rect.top + 4}px`, right: `${right}px`, maxHeight: `${space}px`, ...(props.control ? { minWidth: `${rect.width}px` } : {}) }
   }
 }
 
@@ -248,5 +275,9 @@ watch(isOpen, (open) => {
   } else {
     document.removeEventListener('keydown', handleGlobalKeydown)
   }
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleGlobalKeydown)
 })
 </script>

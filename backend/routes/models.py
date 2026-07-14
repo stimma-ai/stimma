@@ -24,15 +24,13 @@ from config import (
 from config_writer import patch_global_section
 from core.logging import get_logger
 from cloud_runtime import with_cloud_access_headers
-from llm_resolver import set_catalog_cache, get_max_context_tokens
+from llm_resolver import get_max_context_tokens, normalize_model_slug, set_catalog_cache
 from privacy_lockdown import is_privacy_lockdown_enabled
 from llm_provider_catalog import PROVIDER_DEFAULTS, branded_models, discovered_model
 
 router = APIRouter(prefix="/api/models", tags=["models"])
 log = get_logger(__name__)
 
-# Slugs are stable identifiers: 'agent-max' is the flagship "Stimma Agent",
-# 'default' is "Stimma Agent Flash".
 PUBLIC_CLOUD_FALLBACK_MODELS = {
     "stimma:minimax-m3": "MiniMax M3",
 }
@@ -535,7 +533,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     if cloud_status == "available":
         auto_model.update({
             "name": "Auto: MiniMax M3",
-            "description": "Uses MiniMax M3 via Stimma Cloud.",
+            "description": "Uses MiniMax M3 via Stimma.",
             "available": True,
             "status": "available",
             "resolved_slug": "stimma:minimax-m3",
@@ -593,8 +591,8 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         except Exception as e:
             log.warning("failed to fetch project default model", error=str(e))
 
-    effective_global_default = settings.default_model
-    effective_project_default = project_default
+    effective_global_default = normalize_model_slug(settings.default_model)
+    effective_project_default = normalize_model_slug(project_default)
     if lockdown:
         if effective_global_default not in {None, "auto", "local"}:
             effective_global_default = "auto"
@@ -619,7 +617,9 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     return {
         "models": models,
         "global_default": effective_global_default,
-        "quick_task_model": getattr(settings, "quick_task_model", "stimma:minimax-m3"),
+        "quick_task_model": normalize_model_slug(
+            getattr(settings, "quick_task_model", "stimma:minimax-m3")
+        ),
         "reasoning_levels": getattr(settings, "llm_reasoning_levels", {}),
         "project_default": effective_project_default,
         "cloud_status": cloud_status,

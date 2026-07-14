@@ -15,6 +15,7 @@ from models.api_models import (
     ProjectSummaryResponse,
     ProjectUpdateRequest,
 )
+from llm_resolver import normalize_model_slug
 from project_service import get_project_or_404, initialize_project_root
 from utils.websocket import ws_manager
 
@@ -86,7 +87,7 @@ async def create_project(
 ):
     project = Project(
         name=(request.name or "").strip(),
-        default_model_slug=request.default_model_slug,
+        default_model_slug=normalize_model_slug(request.default_model_slug),
     )
     session.add(project)
     await session.flush()
@@ -128,7 +129,7 @@ async def update_project(
         import json
         project.agent_tool_config = json.dumps(request.agent_tool_config)
     if request.default_model_slug is not None:
-        project.default_model_slug = request.default_model_slug
+        project.default_model_slug = normalize_model_slug(request.default_model_slug)
     project.updated_at = datetime.utcnow()
     await session.commit()
     await session.refresh(project)

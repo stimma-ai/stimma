@@ -21,6 +21,15 @@ const lastFetchTime = ref(0)
 // global list.
 const lastProjectId = ref(null)
 
+const LEGACY_MODEL_SLUGS = {
+  'agent-max': 'stimma:minimax-m3',
+  default: 'stimma:minimax-m3',
+}
+
+export function normalizeModelSlug(slug) {
+  return LEGACY_MODEL_SLUGS[slug] || slug
+}
+
 const CACHE_TTL_MS = 60_000 // 1 minute cache
 const hasFetched = computed(() => lastFetchTime.value > 0)
 const visibleModels = computed(() => {
@@ -85,8 +94,8 @@ async function fetchModels(projectId = null, force = false) {
     if (projectId != null) params.project_id = projectId
     const response = await axios.get(`${getApiBase()}/models/available`, { params })
     models.value = response.data.models || []
-    globalDefault.value = response.data.global_default || 'auto'
-    quickTaskModel.value = response.data.quick_task_model || 'stimma:minimax-m3'
+    globalDefault.value = normalizeModelSlug(response.data.global_default || 'auto')
+    quickTaskModel.value = normalizeModelSlug(response.data.quick_task_model || 'stimma:minimax-m3')
     reasoningLevels.value = response.data.reasoning_levels || {}
     cloudStatus.value = response.data.cloud_status || 'unknown'
     cloudMessage.value = response.data.cloud_message || ''
@@ -115,6 +124,7 @@ export function refreshAvailableModels() {
  * Falls back to the slug itself if not found.
  */
 function getModelDisplayName(slug) {
+  slug = normalizeModelSlug(slug)
   if (!slug) return getModelDisplayName(effectiveGlobalDefault.value)
   const model = visibleModels.value.find(m => m.slug === slug)
   if (model?.slug === 'auto' && model.resolved_slug) {
@@ -128,9 +138,10 @@ function getModelDisplayName(slug) {
 
 /**
  * Get the concrete model a slug resolves to. Legacy "auto" may resolve to
- * Stimma Agent Max, Local Endpoint, or no usable model depending on availability.
+ * MiniMax M3, a local endpoint, or no usable model depending on availability.
  */
 function getResolvedModel(slug) {
+  slug = normalizeModelSlug(slug)
   const model = visibleModels.value.find(m => m.slug === slug)
   if (model?.slug === 'auto' && model.resolved_slug) {
     return visibleModels.value.find(m => m.slug === model.resolved_slug) || model
