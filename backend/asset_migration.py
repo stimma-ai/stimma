@@ -48,6 +48,54 @@ _MIGRATION_PHASES = (
     "contracted",
 )
 
+_MIGRATION_MAP_BATCH_SIZE = 1_000
+
+
+async def _bulk_insert_migration_maps(
+    session: AsyncSession,
+    *,
+    rows: list[dict[str, Any]],
+    profile_id: str | None = None,
+) -> None:
+    """Insert migration audit rows without an ORM flush per row.
+
+    SQLAlchemy's normal ORM unit of work emits one INSERT/RETURNING statement
+    for each added object on SQLite. Large profiles can therefore spend minutes
+    in an otherwise invisible final flush. Core executemany batches preserve the
+    surrounding transaction while avoiding that pathological write pattern.
+    """
+    started = time.monotonic()
+    total = len(rows)
+    if profile_id:
+        log.info(
+            "asset media backfill mapping started",
+            profile=profile_id,
+            total=total,
+        )
+
+    statement = AssetMigrationMap.__table__.insert()
+    for offset in range(0, total, _MIGRATION_MAP_BATCH_SIZE):
+        batch = rows[offset : offset + _MIGRATION_MAP_BATCH_SIZE]
+        await session.execute(statement, batch)
+        completed = offset + len(batch)
+        if profile_id:
+            log.info(
+                "asset media backfill mapping progress",
+                profile=profile_id,
+                completed=completed,
+                total=total,
+                percent=round(completed * 100 / max(total, 1), 1),
+                elapsed_seconds=round(time.monotonic() - started, 1),
+            )
+
+    if profile_id:
+        log.info(
+            "asset media backfill mapping completed",
+            profile=profile_id,
+            completed=total,
+            elapsed_seconds=round(time.monotonic() - started, 1),
+        )
+
 
 def _phase_at_least(phase: str, minimum: str) -> bool:
     try:
@@ -554,12 +602,21 @@ async def apply_asset_backfill(
     media_by_path: dict[str, list[MediaItem]] = defaultdict(list)
     for media in media_items:
         media_by_path[_normalized_path(media.file_path)].append(media)
-    for media_id, asset in assets_by_media.items():
+    container_assets = [
+        (media_id, asset)
+        for media_id, asset in assets_by_media.items()
+        if media_by_id[media_id].file_format in {"stimmaset.json", "stimmagrid.json"}
+        and records_by_media[media_id]["classification"] != "existing_asset_revision"
+    ]
+    container_started = time.monotonic()
+    if profile_id:
+        log.info(
+            "asset media backfill container normalization started",
+            profile=profile_id,
+            total=len(container_assets),
+        )
+    for container_index, (media_id, asset) in enumerate(container_assets, start=1):
         media = media_by_id[media_id]
-        if media.file_format not in {"stimmaset.json", "stimmagrid.json"}:
-            continue
-        if records_by_media[media_id]["classification"] == "existing_asset_revision":
-            continue
         try:
             specs, membership_conflicts = await _migration_container_specs(
                 session,
@@ -581,6 +638,21 @@ async def apply_asset_backfill(
             revision_id=asset.current_revision_id,
             members=specs,
         )
+        if profile_id:
+            log.info(
+                "asset media backfill container normalization progress",
+                profile=profile_id,
+                completed=container_index,
+                total=len(container_assets),
+            )
+
+    if profile_id:
+        log.info(
+            "asset media backfill container normalization completed",
+            profile=profile_id,
+            completed=len(container_assets),
+            elapsed_seconds=round(time.monotonic() - container_started, 1),
+        )
 
     existing_mapped_ids = set(
         await session.scalars(
@@ -590,41 +662,35 @@ async def apply_asset_backfill(
             )
         )
     )
-    mapping_started = time.monotonic()
-    last_progress = mapping_started
     total_records = len(report["records"])
-    for index, record in enumerate(report["records"], start=1):
-        if record["media_id"] in existing_mapped_ids:
-            continue
-        asset = assets_by_media.get(record["media_id"])
-        session.add(AssetMigrationMap(
-            legacy_media_id=record["media_id"],
-            asset_id=asset.id if asset else None,
-            classification=record["classification"],
-            reason=",".join(record["evidence"]),
-            evidence=json.dumps({
-                "conflicts": record["conflicts"],
-                "file_missing": record["file_missing"],
-            }, sort_keys=True),
-            migration_version=1,
-            status="applied",
-        ))
-        now = time.monotonic()
-        if profile_id and now - last_progress >= 5:
-            log.info(
-                "asset media backfill mapping progress",
-                profile=profile_id,
-                completed=index,
-                total=total_records,
-                percent=round(index * 100 / max(total_records, 1), 1),
-                elapsed_seconds=round(now - mapping_started, 1),
-            )
-            last_progress = now
+    mapping_rows: list[dict[str, Any]] = []
+    for record in report["records"]:
+        if record["media_id"] not in existing_mapped_ids:
+            asset = assets_by_media.get(record["media_id"])
+            mapping_rows.append({
+                "legacy_media_id": record["media_id"],
+                "asset_id": asset.id if asset else None,
+                "classification": record["classification"],
+                "reason": ",".join(record["evidence"]),
+                "evidence": json.dumps({
+                    "conflicts": record["conflicts"],
+                    "file_missing": record["file_missing"],
+                }, sort_keys=True),
+                "migration_version": 1,
+                "status": "applied",
+            })
+    await _bulk_insert_migration_maps(
+        session,
+        rows=mapping_rows,
+        profile_id=profile_id,
+    )
 
     state.phase = "contracted"
     state.report_digest = approved_digest
     state.completed_at = datetime.utcnow()
     state.updated_at = datetime.utcnow()
+    if profile_id:
+        log.info("asset media backfill finalizing transaction", profile=profile_id)
     await session.flush()
     if profile_id:
         log.info(

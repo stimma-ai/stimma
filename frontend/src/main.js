@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import { initApiConfig, isTauri } from './apiConfig'
+import { initApiConfig, isTauri, setStartupStatusCallback } from './apiConfig'
 import { initConsoleBridge, installVueConsoleHandlers } from './consoleBridge'
 // Import useProfile early to set up the global fetch interceptor before any API calls
 import './composables/useProfile'
@@ -33,8 +33,18 @@ function showLoadingScreen() {
   logo.src = '/logo.png'
   logo.alt = 'Stimma'
 
-  screen.append(dragRegion, logo)
+  const status = document.createElement('p')
+  status.id = 'startup-status'
+  status.className = 'text-sm text-content-tertiary'
+  status.textContent = 'Starting Stimma...'
+
+  screen.append(dragRegion, logo, status)
   appDiv.appendChild(screen)
+}
+
+function updateLoadingStatus(message) {
+  const status = document.getElementById('startup-status')
+  if (status) status.textContent = message
 }
 
 function showError(message) {
@@ -90,6 +100,7 @@ function showError(message) {
 // Show loading screen in Tauri mode
 if (isTauri()) {
   showLoadingScreen()
+  setStartupStatusCallback(updateLoadingStatus)
 }
 
 // Initialize API config (handles Tauri port detection) before mounting

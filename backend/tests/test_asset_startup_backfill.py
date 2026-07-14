@@ -3,12 +3,17 @@
 import json
 import asyncio
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy import select
 
-from asset_migration import classify_legacy_media, ensure_asset_backfill
+from asset_migration import (
+    _MIGRATION_MAP_BATCH_SIZE,
+    _bulk_insert_migration_maps,
+    classify_legacy_media,
+    ensure_asset_backfill,
+)
 from core.app import check_and_reset_stale_clip_embeddings
 from delete_operations import _process_profile, create_delete_operation
 from database import (
@@ -22,6 +27,23 @@ from database import (
     MediaItem,
 )
 from tests.helpers.media import create_media_item, generate_test_image
+
+
+@pytest.mark.asyncio
+async def test_migration_map_writes_are_batched_without_an_orm_flush():
+    session = AsyncMock()
+    row_count = _MIGRATION_MAP_BATCH_SIZE * 2 + 17
+    rows = [{"legacy_media_id": index} for index in range(row_count)]
+
+    await _bulk_insert_migration_maps(session, rows=rows)
+
+    assert session.execute.await_count == 3
+    batch_sizes = [len(call.args[1]) for call in session.execute.await_args_list]
+    assert batch_sizes == [
+        _MIGRATION_MAP_BATCH_SIZE,
+        _MIGRATION_MAP_BATCH_SIZE,
+        17,
+    ]
 
 
 @pytest.mark.asyncio
@@ -119,6 +141,7 @@ async def test_startup_backfill_is_conservative_recoverable_and_constant_time(
         progress_events = [call.args[0] for call in progress_log.call_args_list]
         assert "asset media backfill classification started" in progress_events
         assert "asset media backfill materialization completed" in progress_events
+        assert "asset media backfill mapping completed" in progress_events
         assert "asset media backfill committed" in progress_events
         second = await ensure_asset_backfill(session)
 

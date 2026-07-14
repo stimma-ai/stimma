@@ -5,6 +5,7 @@
  * In Tauri production: Uses dynamic port from sidecar
  */
 import axios from 'axios'
+import { waitForBackendHealth } from './utils/backendStartup'
 
 let apiBaseUrl = '/api'
 let wsBaseUrl = '/ws'
@@ -151,26 +152,33 @@ export async function initApiConfig() {
       wsBaseUrl = `ws://127.0.0.1:${port}/ws`
       axios.defaults.baseURL = backendOrigin
 
-      // Step 2: Wait for backend to be ready (health check)
+      // Step 2: Wait for backend to be ready (health check). Once the native
+      // supervisor has supplied a port, there is deliberately no fixed
+      // readiness deadline: a large one-time migration can legitimately take
+      // several minutes and remains transactional until startup completes.
       updateStartupStatus?.('Waiting for backend...')
       console.log('[apiConfig] Health checking', backendOrigin)
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          const response = await fetch(`${backendOrigin}/`)
-          console.log('[apiConfig] Health check response:', response.status)
-          if (response.ok) {
-            updateStartupStatus?.('Ready')
-            initialized = true
-            return
+      const response = await waitForBackendHealth(backendOrigin, {
+        retryDelayMs: delayMs,
+        onWaiting: ({ attempt, elapsedMs }) => {
+          if (attempt === 1 || attempt % 20 === 0) {
+            console.log(
+              '[apiConfig] Backend is still initializing',
+              Math.round(elapsedMs / 1000),
+              'seconds elapsed',
+            )
           }
-        } catch (error) {
-          console.log('[apiConfig] Health check failed, attempt', attempt, error.message)
-        }
-        if (attempt >= maxAttempts) {
-          throw new Error('Initialization timed out')
-        }
-        await new Promise(resolve => setTimeout(resolve, delayMs))
-      }
+          updateStartupStatus?.(
+            elapsedMs >= 30_000
+              ? 'Upgrading your library. Large libraries may take several minutes.'
+              : 'Preparing your library...',
+          )
+        },
+      })
+      console.log('[apiConfig] Health check response:', response.status)
+      updateStartupStatus?.('Ready')
+      initialized = true
+      return
     } else {
       // Development mode - use relative paths (Vite proxy handles routing)
       console.log('[apiConfig] Dev mode: using relative /api paths')
