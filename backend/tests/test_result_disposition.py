@@ -39,7 +39,10 @@ def test_generation_job_payload_projects_asset_expiration():
     )
     asset = Asset(expires_at=deadline)
 
-    assert generation_job_payload(job, asset)["auto_delete_at"] == deadline.isoformat()
+    payload = generation_job_payload(job, asset)
+    assert payload["expires_at"] == deadline.isoformat()
+    assert payload["auto_delete_at"] == deadline.isoformat()
+    assert generation_job_payload(job, None)["expires_at"] is None
     assert generation_job_payload(job, None)["auto_delete_at"] is None
 
 

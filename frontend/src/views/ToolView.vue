@@ -1280,10 +1280,9 @@ const stageGenerationTime = computed<number | null>(() => {
   return time ? Math.round(time * 10) / 10 : null
 })
 const stageAutoDeleteTime = computed<string | null>(() => {
-  const autoDeleteAt = stageCurrentJob.value?.auto_delete_at
-  if (!autoDeleteAt) return null
-  const remaining = formatRemainingTime(autoDeleteAt)
-  return remaining && remaining !== '0m' ? remaining : null
+  const expiresAt = stageCurrentJob.value?.expires_at
+  if (!expiresAt) return null
+  return formatRemainingTime(expiresAt)
 })
 const stageOnNewest = computed(() => {
   const list = stageCompletedJobs.value

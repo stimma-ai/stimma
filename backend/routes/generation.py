@@ -2108,6 +2108,8 @@ async def get_job_statuses(
             "model_name": job.model_name,
             "parameters": job.parameters,
             "created_at": job.created_at.isoformat() if job.created_at else None,
+            "expires_at": asset.expires_at.isoformat() if asset and asset.expires_at else None,
+            # Transitional alias; the canonical deadline belongs to the Asset.
             "auto_delete_at": asset.expires_at.isoformat() if asset and asset.expires_at else None,
             "generation_time": get_generation_time(media),
             "file_format": media.file_format if media else None

@@ -104,6 +104,24 @@ async def test_asset_browser_identity_and_curation_survive_current_revision_chan
 
 
 @pytest.mark.asyncio
+async def test_asset_expiration_is_projected_to_browser_surfaces(client, db_session):
+    async with db_session() as session:
+        media = await create_media_item(session)
+        asset = await create_asset_from_media(session, media_id=media.id)
+        deadline = datetime.utcnow() + timedelta(days=1)
+        asset.expires_at = deadline
+        asset_id = asset.id
+        await session.commit()
+
+    browse = (await client.get("/api/assets/browse")).json()["items"]
+    item = next(item for item in browse if item["asset_id"] == asset_id)
+    assert item["expires_at"] == deadline.isoformat()
+
+    detail = (await client.get(f"/api/assets/item/{asset_id}/browser")).json()
+    assert detail["expires_at"] == deadline.isoformat()
+
+
+@pytest.mark.asyncio
 async def test_asset_marker_clears_asset_and_media_expiration(
     client, db_session
 ):

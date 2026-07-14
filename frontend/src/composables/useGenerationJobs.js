@@ -535,6 +535,16 @@ export function useGenerationJobs(options = {}) {
     }
   }
 
+  function handleAutoDeleteRemoved(data) {
+    const { media_id } = data
+    if (!media_id) return
+    jobs.value = jobs.value.map(job => (
+      job.result_media_id === media_id
+        ? { ...job, expires_at: null, auto_delete_at: null }
+        : job
+    ))
+  }
+
   function handleMediaDeleted(data) {
     const { media_id } = data
     if (!media_id) return
@@ -867,6 +877,14 @@ export function useGenerationJobs(options = {}) {
   // Create page provider for slideshow
   // Uses pre-cached mediaData when available (already loaded during init)
   // Only fetches from API if data is missing (rare edge case)
+  function projectGeneratedAsset(media, job) {
+    return {
+      ...media,
+      asset_id: job.result_asset_id ?? media.asset_id ?? null,
+      expires_at: job.expires_at ?? null,
+    }
+  }
+
   async function fetchGeneratedImages(page, pageSize) {
     const completedJobsList = sortedCompletedJobs.value
 
@@ -882,7 +900,7 @@ export function useGenerationJobs(options = {}) {
         // Return cached data if available
         if (mediaData.value[mediaId]) {
           return {
-            ...mediaData.value[mediaId],
+            ...projectGeneratedAsset(mediaData.value[mediaId], job),
             _slideshowItemKey: job.id
           }
         }
@@ -893,7 +911,7 @@ export function useGenerationJobs(options = {}) {
           // Cache it for future use
           mediaData.value = { ...mediaData.value, [mediaId]: response.data }
           return {
-            ...response.data,
+            ...projectGeneratedAsset(response.data, job),
             _slideshowItemKey: job.id
           }
         } catch (err) {
@@ -919,6 +937,7 @@ export function useGenerationJobs(options = {}) {
     unsubscribers.push(onWebSocketEvent('generation_job_deleted', handleJobDeleted))
     unsubscribers.push(onWebSocketEvent('generation_job_cancelled', handleJobCancelled))
     unsubscribers.push(onWebSocketEvent('media_updated', handleMediaUpdated))
+    unsubscribers.push(onWebSocketEvent('auto_delete_removed', handleAutoDeleteRemoved))
     unsubscribers.push(onWebSocketEvent('media_deleted', handleMediaDeleted))
     unsubscribers.push(onWebSocketEvent('media_bulk_deleted', handleBulkMediaDeleted))
     unsubscribers.push(onWebSocketEvent('batch_job_completed', handleBatchJobCompleted))

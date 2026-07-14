@@ -165,8 +165,8 @@
       </div>
 
       <!-- Auto-Delete Warning (hide in trash view or for trashed items) -->
-      <div v-if="!isTrashView && !isCurrentItemTrashed && currentItem.auto_delete_at && formatRemainingTime(currentItem.auto_delete_at)" class="mb-4">
-        <div :class="['p-3 rounded-lg border-2 flex items-start gap-2 relative', getRemainingTimeColor(currentItem.auto_delete_at) === 'bg-red-500/80' ? 'bg-red-500/10 border-red-500' : getRemainingTimeColor(currentItem.auto_delete_at) === 'bg-orange-500/80' ? 'bg-orange-500/10 border-orange-500' : getRemainingTimeColor(currentItem.auto_delete_at) === 'bg-yellow-500/80' ? 'bg-yellow-500/10 border-yellow-500' : 'bg-gray-500/10 border-gray-500']">
+      <div v-if="!isTrashView && !isCurrentItemTrashed && currentItem.expires_at && formatRemainingTime(currentItem.expires_at)" class="mb-4">
+        <div :class="['p-3 rounded-lg border-2 flex items-start gap-2 relative', getRemainingTimeColor(currentItem.expires_at) === 'bg-red-500/80' ? 'bg-red-500/10 border-red-500' : getRemainingTimeColor(currentItem.expires_at) === 'bg-orange-500/80' ? 'bg-orange-500/10 border-orange-500' : getRemainingTimeColor(currentItem.expires_at) === 'bg-yellow-500/80' ? 'bg-yellow-500/10 border-yellow-500' : 'bg-gray-500/10 border-gray-500']">
           <button
             @click="removeAutoDelete"
             class="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded hover:bg-overlay-light transition-colors text-content-tertiary hover:text-content"
@@ -176,12 +176,12 @@
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
             </svg>
           </button>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" :class="['w-5 h-5 flex-shrink-0 mt-0.5', getRemainingTimeColor(currentItem.auto_delete_at) === 'bg-red-500/80' ? 'text-red-500' : getRemainingTimeColor(currentItem.auto_delete_at) === 'bg-orange-500/80' ? 'text-orange-500' : getRemainingTimeColor(currentItem.auto_delete_at) === 'bg-yellow-500/80' ? 'text-yellow-400' : 'text-gray-400']">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" :class="['w-5 h-5 flex-shrink-0 mt-0.5', getRemainingTimeColor(currentItem.expires_at) === 'bg-red-500/80' ? 'text-red-500' : getRemainingTimeColor(currentItem.expires_at) === 'bg-orange-500/80' ? 'text-orange-500' : getRemainingTimeColor(currentItem.expires_at) === 'bg-yellow-500/80' ? 'text-yellow-400' : 'text-gray-400']">
             <path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd" />
           </svg>
           <div class="flex-1 pr-4">
-            <div :class="['text-xs font-semibold mb-1', getRemainingTimeColor(currentItem.auto_delete_at) === 'bg-red-500/80' ? 'text-red-500' : getRemainingTimeColor(currentItem.auto_delete_at) === 'bg-orange-500/80' ? 'text-orange-500' : getRemainingTimeColor(currentItem.auto_delete_at) === 'bg-yellow-500/80' ? 'text-yellow-400' : 'text-gray-400']">
-              Auto-Delete in {{ formatRemainingTime(currentItem.auto_delete_at) }}
+            <div :class="['text-xs font-semibold mb-1', getRemainingTimeColor(currentItem.expires_at) === 'bg-red-500/80' ? 'text-red-500' : getRemainingTimeColor(currentItem.expires_at) === 'bg-orange-500/80' ? 'text-orange-500' : getRemainingTimeColor(currentItem.expires_at) === 'bg-yellow-500/80' ? 'text-yellow-400' : 'text-gray-400']">
+              Auto-Delete in {{ formatRemainingTime(currentItem.expires_at) }}
             </div>
             <div class="text-xs text-content-tertiary">
               This image will be automatically moved to trash unless you tag, collect, or mark it.
@@ -1270,13 +1270,8 @@ async function removeAutoDelete() {
   if (!props.currentItem) return
 
   try {
-    if (props.currentItem.asset_id) {
-      await axios.delete(`/api/assets/item/${props.currentItem.asset_id}/expiration`)
-      props.currentItem.expires_at = null
-    } else {
-      await axios.delete(`/api/media/${props.currentItem.id}/auto-delete`)
-    }
-    props.currentItem.auto_delete_at = null
+    await axios.delete(`/api/assets/item/${props.currentItem.asset_id}/expiration`)
+    props.currentItem.expires_at = null
   } catch (error) {
     console.error('Failed to remove auto-delete:', error)
     addToast('Failed to remove auto-delete. Please try again.', 'error')

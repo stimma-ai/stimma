@@ -333,6 +333,7 @@ class TestJobProcessing:
                 "tool_id": "test:text-to-image:test-model",
                 "folder_path": output_folder,
                 "task_type": "text-to-image",
+                "auto_delete_duration": "1h",
                 "parameters": {"prompt": "state transition test", "width": 64, "height": 64, "steps": 5, "seed": 123},
             },
         )
@@ -352,6 +353,11 @@ class TestJobProcessing:
         assert job["status"] == "completed"
         assert job["result_media_id"] is not None
         assert job["result_asset_id"] is not None
+        assert job["expires_at"] is not None
+
+        async with generation_db_session() as session:
+            asset = await session.get(Asset, job["result_asset_id"])
+            assert asset.expires_at.isoformat() == job["expires_at"]
 
     async def test_completed_job_creates_media_item(
         self,

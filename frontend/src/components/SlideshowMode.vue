@@ -1790,7 +1790,6 @@ const currentPayloadItem = computed(() => (
     ? {
         ...currentItem.value,
         id: currentPayloadId.value,
-        auto_delete_at: currentItem.value.expires_at || null,
       }
     : null
 ))
@@ -2113,9 +2112,6 @@ function mediaUpdatePatch(fields = [], media = {}) {
   }
   if (fields.includes('tags')) {
     patch.tags = media.tags || []
-  }
-  if ('auto_delete_at' in media) {
-    patch.auto_delete_at = media.auto_delete_at
   }
   return patch
 }
@@ -5257,7 +5253,7 @@ function handleAssetsRemovedWs(data) {
 function handleAutoDeleteRemovedWs(data) {
   const { media_id } = data
   if (media_id) {
-    applyMediaPatchToLocalState(media_id, { auto_delete_at: null })
+    applyMediaPatchToLocalState(media_id, { expires_at: null })
   }
 }
 

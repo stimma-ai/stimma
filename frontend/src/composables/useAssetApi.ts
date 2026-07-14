@@ -13,6 +13,7 @@ export interface AssetBrowserItem {
   revision_number: number
   asset_state: 'active' | 'trashed' | 'deleting'
   asset_title?: string | null
+  expires_at?: string | null
   file_hash: string
   file_format: string
   [key: string]: unknown

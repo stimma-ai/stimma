@@ -47,11 +47,15 @@ def resolve_recorded_seed(requested_seed, actual_seed):
 
 
 def generation_job_payload(job: GenerationJob, asset: Asset | None = None) -> dict:
-    """Project canonical Asset expiration onto the legacy job response shape."""
+    """Project canonical Asset expiration onto generation-job responses."""
     payload = job.to_dict()
-    payload["auto_delete_at"] = (
+    expires_at = (
         asset.expires_at.isoformat() if asset and asset.expires_at else None
     )
+    payload["expires_at"] = expires_at
+    # Keep the old response name during the API transition. The value is still
+    # projected from Asset.expires_at; GenerationJob.auto_delete_at is inert.
+    payload["auto_delete_at"] = expires_at
     return payload
 
 
