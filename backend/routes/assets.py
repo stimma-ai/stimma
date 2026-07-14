@@ -1916,7 +1916,11 @@ async def restore_asset_route(
     except AssetServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await session.commit()
-    await ws_manager.broadcast("asset_restored", {"asset": asset.to_dict()})
+    # Carry asset_id at top level: lifecycle listeners key on asset_id/asset_ids
+    # (useMediaState.updateAssetLifecycle) and never unwrap the full dict.
+    await ws_manager.broadcast(
+        "asset_restored", {"asset_id": asset.id, "asset": asset.to_dict()}
+    )
     return {"asset": asset.to_dict()}
 
 

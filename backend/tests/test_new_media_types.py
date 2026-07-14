@@ -160,29 +160,33 @@ async def create_grid_item(
 
 @pytest.fixture
 async def mixed_all_types(db_session):
-    """Create media of all types for filtering tests."""
+    """Create library media of all types for filtering tests.
+
+    Browser listings only show Asset-backed payloads, so every item here is
+    materialized as an Asset — matching what generation/upload/scan producers do.
+    """
     async with db_session() as session:
         items = []
 
         # Images
-        items.append(await create_media_item(session, file_format="png"))
-        items.append(await create_media_item(session, file_format="jpg"))
+        items.append(await create_media_item(session, file_format="png", materialize_asset=True))
+        items.append(await create_media_item(session, file_format="jpg", materialize_asset=True))
 
         # Videos
-        items.append(await create_media_item(session, file_format="mp4"))
+        items.append(await create_media_item(session, file_format="mp4", materialize_asset=True))
 
         # Audio
-        items.append(await create_audio_item(session, file_format="mp3"))
-        items.append(await create_audio_item(session, file_format="wav"))
+        items.append(await create_audio_item(session, file_format="mp3", materialize_asset=True))
+        items.append(await create_audio_item(session, file_format="wav", materialize_asset=True))
 
         # Text
-        items.append(await create_text_item(session, content="Hello world"))
+        items.append(await create_text_item(session, content="Hello world", materialize_asset=True))
 
         # Sets
-        items.append(await create_set_item(session, items=[{"path": "a.png"}]))
+        items.append(await create_set_item(session, items=[{"path": "a.png"}], materialize_asset=True))
 
         # Grids
-        items.append(await create_grid_item(session, rows=2, cols=2, cells=[]))
+        items.append(await create_grid_item(session, rows=2, cols=2, cells=[], materialize_asset=True))
 
         yield items
 

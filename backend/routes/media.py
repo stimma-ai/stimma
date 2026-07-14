@@ -78,19 +78,16 @@ def _scope_media_query_to_project(query, project_id: int, sort_by: str):
     return query.where(MediaItem.id.in_(project_media_ids))
 
 
-def _media_has_no_unavailable_asset():
-    """Bare Media is contextual; Asset-backed Media follows Asset lifecycle."""
-    revision_exists = (
-        select(1)
-        .select_from(AssetRevision)
-        .where(
-            AssetRevision.primary_media_id == MediaItem.id,
-            AssetRevision.deleted_at.is_(None),
-        )
-        .correlate(MediaItem)
-        .exists()
-    )
-    active_asset_exists = (
+def _media_is_current_active_asset_payload(now: Optional[datetime] = None):
+    """Ordinary browsers list only the current payload of a live Asset.
+
+    Bare contextual Media (chat/editor/container-retained), historical
+    revisions, trashed/deleting Assets, and Assets past their expiration
+    deadline never appear in a browser projection — matching the canonical
+    /api/assets/browse population.
+    """
+    now = now or datetime.utcnow()
+    return (
         select(1)
         .select_from(AssetRevision)
         .join(Asset, Asset.id == AssetRevision.asset_id)
@@ -100,11 +97,32 @@ def _media_has_no_unavailable_asset():
             Asset.current_revision_id == AssetRevision.id,
             Asset.state == "active",
             Asset.deleted_at.is_(None),
+            or_(Asset.expires_at.is_(None), Asset.expires_at > now),
         )
         .correlate(MediaItem)
         .exists()
     )
-    return or_(~revision_exists, active_asset_exists)
+
+
+def _asset_expires_at_for_media():
+    """Correlated Asset.expires_at of the live Asset whose current payload is this Media.
+
+    Lets the legacy /api/media listing apply the Asset-level expiring filters
+    (show_expiring/exclude_expiring) that /api/assets applies via a direct join.
+    """
+    return (
+        select(Asset.expires_at)
+        .select_from(AssetRevision)
+        .join(Asset, Asset.id == AssetRevision.asset_id)
+        .where(
+            AssetRevision.primary_media_id == MediaItem.id,
+            AssetRevision.deleted_at.is_(None),
+            Asset.current_revision_id == AssetRevision.id,
+            Asset.deleted_at.is_(None),
+        )
+        .correlate(MediaItem)
+        .scalar_subquery()
+    )
 
 
 async def _reset_stale_clip_embeddings(session: AsyncSession, item_ids: list[int]) -> None:
@@ -186,7 +204,8 @@ async def get_media(
 
     # Exclude soft-deleted items by default
     query = query.where(MediaItem.deleted_at.is_(None))
-    query = query.where(_media_has_no_unavailable_asset())
+    query = query.where(MediaItem.deletion_pending_at.is_(None))
+    query = query.where(_media_is_current_active_asset_payload())
 
     # Only show items with completed metadata (have file_hash for thumbnails)
     query = query.where(MediaItem.metadata_status == 'completed')
@@ -274,6 +293,7 @@ async def get_media(
         created_before=created_before,
         show_expiring=show_expiring,
         exclude_expiring=exclude_expiring,
+        expiration_column=_asset_expires_at_for_media(),
     )
 
     # Handle similarity search
@@ -652,7 +672,8 @@ async def get_media_ids(
 
     # Exclude soft-deleted items by default
     query = query.where(MediaItem.deleted_at.is_(None))
-    query = query.where(_media_has_no_unavailable_asset())
+    query = query.where(MediaItem.deletion_pending_at.is_(None))
+    query = query.where(_media_is_current_active_asset_payload())
     # Never surface ephemeral one-shot-run intermediates
     query = query.where(MediaItem.ephemeral_run_id.is_(None))
 
@@ -729,6 +750,7 @@ async def get_media_ids(
         excluded_tool_ids=excluded_tool_ids,
         show_expiring=show_expiring,
         exclude_expiring=exclude_expiring,
+        expiration_column=_asset_expires_at_for_media(),
     )
 
     if similar_to is not None and similar_face_to is not None:
@@ -923,6 +945,9 @@ async def get_media_item(
         query = query.where(not_due_for_autodelete())
     # Ephemeral one-shot-run intermediates never resolve, even with include_trashed.
     query = query.where(MediaItem.ephemeral_run_id.is_(None))
+    # The privacy-deletion barrier is absolute: once a payload is queued for
+    # secure deletion it must not resolve, trashed views included.
+    query = query.where(MediaItem.deletion_pending_at.is_(None))
 
     result = await session.execute(query)
     item = result.scalar_one_or_none()
@@ -963,6 +988,7 @@ async def get_media_content(
         select(MediaItem).where(
             MediaItem.id == media_id,
             MediaItem.deleted_at.is_(None),
+            MediaItem.deletion_pending_at.is_(None),
             MediaItem.ephemeral_run_id.is_(None),
             not_due_for_autodelete(),
         )
@@ -1052,12 +1078,15 @@ async def update_media_content(
 
     await session.commit()
 
-    # Broadcast update with full media object
+    # Broadcast update with the shared compatibility projection so this event's
+    # `media` payload carries the same shape (media_id, asset_state, markers,
+    # tags, revision_id, …) as every other media_updated broadcast.
+    projection = (await media_compatibility_projections(session, [item]))[0]
     await ws_manager.broadcast('media_updated', {
         'media_id': media_id,
         'asset_id': asset.id,
         'fields': ['title'],
-        'media': {**item.to_dict(), 'asset_id': asset.id, 'title': asset.title}
+        'media': projection,
     })
 
     return {"status": "success", "asset_id": asset.id, "title": asset.title}
@@ -1263,7 +1292,8 @@ async def find_media_index(
 
     # Endpoint-specific pre-filters (mirror get_media)
     query = query.where(MediaItem.deleted_at.is_(None))
-    query = query.where(_media_has_no_unavailable_asset())
+    query = query.where(MediaItem.deletion_pending_at.is_(None))
+    query = query.where(_media_is_current_active_asset_payload())
     query = query.where(MediaItem.ephemeral_run_id.is_(None))
     query = query.where(MediaItem.metadata_status == 'completed')
     query = query.where(
@@ -1303,6 +1333,7 @@ async def find_media_index(
         created_before=created_before,
         show_expiring=show_expiring,
         exclude_expiring=exclude_expiring,
+        expiration_column=_asset_expires_at_for_media(),
         min_mp=min_mp,
         max_mp=max_mp,
     )
@@ -1389,9 +1420,20 @@ async def search_similar(
             detail="Reference asset has outdated CLIP embedding. It has been scheduled for re-indexing. Please try again after CLIP indexing completes."
         )
 
-    # Get all items with embeddings
+    # Get all items with embeddings, restricted to the ordinary browser
+    # population: live current-revision Asset payloads only. Trashed Assets,
+    # historical revisions, bare contextual Media, deletion-pending payloads,
+    # and ephemeral run intermediates never surface in similarity results.
     result = await session.execute(
-        select(MediaItem).where(MediaItem.clip_embedding.isnot(None))
+        select(MediaItem).where(
+            MediaItem.clip_embedding.isnot(None),
+            MediaItem.deleted_at.is_(None),
+            MediaItem.deletion_pending_at.is_(None),
+            MediaItem.ephemeral_run_id.is_(None),
+            MediaItem.metadata_status == 'completed',
+            (MediaItem.file_unavailable == False) | (MediaItem.file_unavailable.is_(None)),
+            _media_is_current_active_asset_payload(),
+        )
     )
     all_items = result.scalars().all()
 
@@ -1425,11 +1467,14 @@ async def search_similar(
     threshold = get_settings().clip_similarity_threshold
     filtered_similarities = [(item, score) for item, score in similarities if score >= threshold]
 
-    # Convert to response with similarity scores
+    # Convert to response with similarity scores using the shared compatibility
+    # projection so the payload shape matches every other Media-shaped list.
+    scores_by_id = {item.id: float(score) for item, score in filtered_similarities}
     media_items = []
-    for item, score in filtered_similarities:
-        item_dict = item.to_dict()
-        item_dict['similarity_score'] = float(score)
+    for item_dict in await media_compatibility_projections(
+        session, [item for item, _ in filtered_similarities]
+    ):
+        item_dict['similarity_score'] = scores_by_id[item_dict["media_id"]]
         media_items.append(MediaItemResponse(**item_dict))
 
     return MediaListResponse(

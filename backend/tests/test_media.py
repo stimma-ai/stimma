@@ -125,10 +125,10 @@ class TestFaceSimilaritySearch:
         from tests.helpers.media import create_media_item
 
         async with db_session() as session:
-            reference = await create_media_item(session, face_detection_status="completed")
-            matching = await create_media_item(session, face_detection_status="completed")
-            nonmatching = await create_media_item(session, face_detection_status="completed")
-            no_faces = await create_media_item(session, face_detection_status="completed")
+            reference = await create_media_item(session, face_detection_status="completed", materialize_asset=True)
+            matching = await create_media_item(session, face_detection_status="completed", materialize_asset=True)
+            nonmatching = await create_media_item(session, face_detection_status="completed", materialize_asset=True)
+            no_faces = await create_media_item(session, face_detection_status="completed", materialize_asset=True)
 
             face_a = self._unit([1, 0, 0])
             face_b = self._unit([0, 1, 0])
@@ -178,7 +178,7 @@ class TestFaceSimilaritySearch:
         from tests.helpers.media import create_media_item
 
         async with db_session() as session:
-            reference = await create_media_item(session, face_detection_status="completed")
+            reference = await create_media_item(session, face_detection_status="completed", materialize_asset=True)
             reference_id = reference.id
 
         response = await client.get(
@@ -222,7 +222,7 @@ class TestLegacyMediaAutoDeleteIsInert:
         from tests.helpers.media import create_media_item
 
         async with db_session() as session:
-            item = await create_media_item(session)
+            item = await create_media_item(session, materialize_asset=True)
             item.auto_delete_at = datetime.utcnow() - timedelta(minutes=1)
             await session.commit()
             expired_id = item.id
@@ -237,7 +237,7 @@ class TestLegacyMediaAutoDeleteIsInert:
         from tests.helpers.media import create_media_item
 
         async with db_session() as session:
-            item = await create_media_item(session)
+            item = await create_media_item(session, materialize_asset=True)
             item.auto_delete_at = datetime.utcnow() - timedelta(minutes=1)
             await session.commit()
             expired_id = item.id
@@ -250,7 +250,7 @@ class TestLegacyMediaAutoDeleteIsInert:
         from tests.helpers.media import create_media_item
 
         async with db_session() as session:
-            item = await create_media_item(session)
+            item = await create_media_item(session, materialize_asset=True)
             item.auto_delete_at = datetime.utcnow() + timedelta(hours=1)
             await session.commit()
             future_id = item.id

@@ -67,6 +67,7 @@ async def create_media_item(
     audio_bit_depth: Optional[int] = None,
     audio_bitrate: Optional[int] = None,
     audio_codec: Optional[str] = None,
+    materialize_asset: bool = False,
 ) -> MediaItem:
     """Create a single MediaItem directly in the database.
 
@@ -89,6 +90,10 @@ async def create_media_item(
         tool_id: Tool ID that created the media
         duration: Duration in seconds (for audio/video)
         raw_metadata: Raw metadata JSON string (for structured types)
+        materialize_asset: If True, promote the payload into an Asset with a
+            first revision — matching what every real library producer
+            (generation, upload, source scan, explicit save) does. Leave False
+            only for deliberately bare/contextual Media.
 
     Returns:
         The created MediaItem
@@ -130,6 +135,11 @@ async def create_media_item(
         audio_codec=audio_codec,
     )
     session.add(item)
+    await session.flush()
+    if materialize_asset:
+        from asset_service import create_asset_from_media
+
+        await create_asset_from_media(session, media_id=item.id)
     await session.commit()
     await session.refresh(item)
 
@@ -141,6 +151,7 @@ async def create_test_media(
     count: int = 5,
     temp_dir: Optional[Path] = None,
     with_captions: bool = False,
+    materialize_assets: bool = True,
 ) -> list[MediaItem]:
     """Create multiple test media items.
 
@@ -149,6 +160,9 @@ async def create_test_media(
         count: Number of items to create
         temp_dir: Optional directory to create real image files
         with_captions: If True, add unique captions for search testing
+        materialize_assets: Promote each item into an Asset (library items are
+            always Asset-backed in the product model). Pass False only when a
+            test needs bare contextual Media.
 
     Returns:
         List of created MediaItem objects
@@ -186,6 +200,7 @@ async def create_test_media(
             file_hash=file_hash,
             vlm_caption=caption,
             vlm_caption_status="complete" if caption else "pending",
+            materialize_asset=materialize_assets,
         )
         items.append(item)
 

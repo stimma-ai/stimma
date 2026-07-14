@@ -382,12 +382,12 @@ async def mixed_media(db_session):
     async with db_session() as session:
         items = []
         # Images
-        items.append(await create_media_item(session, file_format="png", file_path=Path(f"/test/{prefix}/image1.png")))
-        items.append(await create_media_item(session, file_format="jpg", file_path=Path(f"/test/{prefix}/image2.jpg")))
-        items.append(await create_media_item(session, file_format="gif", file_path=Path(f"/test/{prefix}/image3.gif")))
+        items.append(await create_media_item(session, materialize_asset=True, file_format="png", file_path=Path(f"/test/{prefix}/image1.png")))
+        items.append(await create_media_item(session, materialize_asset=True, file_format="jpg", file_path=Path(f"/test/{prefix}/image2.jpg")))
+        items.append(await create_media_item(session, materialize_asset=True, file_format="gif", file_path=Path(f"/test/{prefix}/image3.gif")))
         # Videos
-        items.append(await create_media_item(session, file_format="mp4", file_path=Path(f"/test/{prefix}/video1.mp4")))
-        items.append(await create_media_item(session, file_format="webm", file_path=Path(f"/test/{prefix}/video2.webm")))
+        items.append(await create_media_item(session, materialize_asset=True, file_format="mp4", file_path=Path(f"/test/{prefix}/video1.mp4")))
+        items.append(await create_media_item(session, materialize_asset=True, file_format="webm", file_path=Path(f"/test/{prefix}/video2.webm")))
         yield items
 
 
@@ -397,11 +397,11 @@ async def varied_resolution_media(db_session):
     async with db_session() as session:
         items = []
         # Small: < 0.8 MP (e.g., 800x800 = 0.64 MP)
-        items.append(await create_media_item(session, width=800, height=800))
+        items.append(await create_media_item(session, materialize_asset=True, width=800, height=800))
         # Medium: 0.8-1.5 MP (e.g., 1000x1000 = 1.0 MP)
-        items.append(await create_media_item(session, width=1000, height=1000))
+        items.append(await create_media_item(session, materialize_asset=True, width=1000, height=1000))
         # Large: >= 1.5 MP (e.g., 1500x1500 = 2.25 MP)
-        items.append(await create_media_item(session, width=1500, height=1500))
+        items.append(await create_media_item(session, materialize_asset=True, width=1500, height=1500))
         yield items
 
 
@@ -412,10 +412,10 @@ async def folder_organized_media(db_session):
     suffix = str(uuid.uuid4())[:8]
     async with db_session() as session:
         items = []
-        items.append(await create_media_item(session, file_path=Path(f"/photos/vacation/beach_{suffix}.jpg")))
-        items.append(await create_media_item(session, file_path=Path(f"/photos/vacation/mountain_{suffix}.jpg")))
-        items.append(await create_media_item(session, file_path=Path(f"/photos/work/meeting_{suffix}.jpg")))
-        items.append(await create_media_item(session, file_path=Path(f"/photos/family/birthday_{suffix}.jpg")))
+        items.append(await create_media_item(session, materialize_asset=True, file_path=Path(f"/photos/vacation/beach_{suffix}.jpg")))
+        items.append(await create_media_item(session, materialize_asset=True, file_path=Path(f"/photos/vacation/mountain_{suffix}.jpg")))
+        items.append(await create_media_item(session, materialize_asset=True, file_path=Path(f"/photos/work/meeting_{suffix}.jpg")))
+        items.append(await create_media_item(session, materialize_asset=True, file_path=Path(f"/photos/family/birthday_{suffix}.jpg")))
         yield items
 
 
@@ -426,11 +426,11 @@ async def date_varied_media(db_session):
         items = []
         now = datetime.now()
         # Recent (3 days ago)
-        items.append(await create_media_item(session, created_date=now - timedelta(days=3)))
+        items.append(await create_media_item(session, materialize_asset=True, created_date=now - timedelta(days=3)))
         # Week ago
-        items.append(await create_media_item(session, created_date=now - timedelta(days=10)))
+        items.append(await create_media_item(session, materialize_asset=True, created_date=now - timedelta(days=10)))
         # Month ago
-        items.append(await create_media_item(session, created_date=now - timedelta(days=30)))
+        items.append(await create_media_item(session, materialize_asset=True, created_date=now - timedelta(days=30)))
         yield items
 
 
@@ -442,12 +442,14 @@ async def generated_and_regular_media(db_session):
         # Generated images with prompts (generation_metadata marks as generated)
         items.append(await create_media_item(
             session,
+            materialize_asset=True,
             generation_metadata='{"model": "test"}',
             extracted_prompt="A beautiful sunset over the ocean",
             vlm_caption="sunset scene"
         ))
         items.append(await create_media_item(
             session,
+            materialize_asset=True,
             generation_metadata='{"model": "test"}',
             extracted_prompt="A mountain landscape with snow",
             vlm_caption="mountain scene"

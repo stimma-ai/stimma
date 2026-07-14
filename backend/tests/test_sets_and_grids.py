@@ -122,7 +122,11 @@ class TestBrowseFiltering:
         async with generation_db_session() as session:
             images = []
             for _ in range(3):
-                images.append(await create_media_item(session, file_format="png"))
+                images.append(
+                    await create_media_item(
+                        session, file_format="png", materialize_asset=True
+                    )
+                )
 
         response = await generation_client.get("/api/media")
         assert response.status_code == 200

@@ -853,7 +853,7 @@ import { getFilterDisplayLabel } from '@stimma/image-editor'
 import { isImage as isImageType, hasVisualContent, getMediaType } from '../utils/mediaTypes'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { useAssetApi } from '../composables/useAssetApi'
-import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
+import { hasAssetIdentity, mediaIdOf } from '../utils/assetIdentity'
 
 const { formatRemainingTime } = useExpirationClock()
 
@@ -1021,20 +1021,34 @@ function handleInlineTagsChanged(updatedTags) {
   emit('tags-updated', mediaIdOf(props.currentItem), updatedTags)
 }
 
+// Asset identity for context-menu actions. Embedded container cells and other
+// payload-shaped items carry `id` = media id with no `asset_id`; the generic
+// `assetIdOf` fallback (`asset_id ?? id`) would address whichever unrelated
+// Asset shares that number. Only a real asset_id (or the resolved
+// saved_asset_id of an embedded cell whose Media is also a saved Asset) may
+// drive Asset-level actions here.
+function contextAssetId() {
+  const item = props.currentItem
+  if (!item) return null
+  if (hasAssetIdentity(item)) return item.asset_id
+  return item.saved_asset_id ?? null
+}
+
 function openContextMenu(event) {
   if (!props.currentItem) return
   // Use event target position if ref not available
   const el = event?.currentTarget || moreButtonRef.value
   if (!el) return
   const rect = el.getBoundingClientRect()
+  const assetId = contextAssetId()
   contextMenu.showAt({
     x: rect.left,
     y: rect.bottom + 4,
     mediaId: mediaIdOf(props.currentItem),
-    assetId: assetIdOf(props.currentItem) || undefined,
+    assetId: assetId || undefined,
     fileHash: props.currentItem.file_hash,
     mediaIds: [mediaIdOf(props.currentItem)].filter(Boolean),
-    assetIds: [assetIdOf(props.currentItem)].filter(Boolean),
+    assetIds: [assetId].filter(Boolean),
     selectedItems: [props.currentItem]
   })
 }
