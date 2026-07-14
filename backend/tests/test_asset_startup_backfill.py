@@ -3,6 +3,7 @@
 import json
 import asyncio
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from sqlalchemy import select
 from asset_migration import (
     _MIGRATION_MAP_BATCH_SIZE,
     _bulk_insert_migration_maps,
+    _supersede_assetized_delete_operations,
     classify_legacy_media,
     ensure_asset_backfill,
 )
@@ -44,6 +46,30 @@ async def test_migration_map_writes_are_batched_without_an_orm_flush():
         _MIGRATION_MAP_BATCH_SIZE,
         17,
     ]
+
+
+@pytest.mark.asyncio
+async def test_failed_deletion_reconciliation_does_not_expand_migrated_ids_in_sql():
+    matching = SimpleNamespace(id=1, status="failed")
+    unrelated = SimpleNamespace(id=2, status="failed")
+    session = AsyncMock()
+    session.execute.return_value = [
+        (matching, 10),
+        (matching, 11),
+        (unrelated, 50_000),
+    ]
+
+    superseded = await _supersede_assetized_delete_operations(
+        session,
+        assetized_media_ids=set(range(40_000)),
+    )
+
+    statement = session.execute.await_args.args[0]
+    assert " IN " not in f" {statement} "
+    assert len(statement.compile().params) == 1
+    assert superseded == 1
+    assert matching.status == "superseded"
+    assert unrelated.status == "failed"
 
 
 @pytest.mark.asyncio
@@ -141,6 +167,10 @@ async def test_startup_backfill_is_conservative_recoverable_and_constant_time(
         progress_events = [call.args[0] for call in progress_log.call_args_list]
         assert "asset media backfill classification started" in progress_events
         assert "asset media backfill materialization completed" in progress_events
+        assert (
+            "asset media backfill deletion reconciliation completed"
+            in progress_events
+        )
         assert "asset media backfill mapping completed" in progress_events
         assert "asset media backfill committed" in progress_events
         second = await ensure_asset_backfill(session)

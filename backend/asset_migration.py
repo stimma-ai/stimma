@@ -97,6 +97,60 @@ async def _bulk_insert_migration_maps(
         )
 
 
+async def _supersede_assetized_delete_operations(
+    session: AsyncSession,
+    *,
+    assetized_media_ids: set[int],
+    profile_id: str | None = None,
+) -> int:
+    """Retire failed legacy deletions whose Media became Asset roots.
+
+    Scan the normally tiny set of failed deletion items and filter it against
+    the in-memory migration set. Expanding every migrated Media ID into a SQL
+    ``IN`` clause exceeds the packaged SQLite variable limit on large profiles,
+    even though development SQLite permits a much higher limit.
+    """
+    started = time.monotonic()
+    if profile_id:
+        log.info(
+            "asset media backfill deletion reconciliation started",
+            profile=profile_id,
+        )
+
+    rows = await session.execute(
+        select(DeleteOperation, DeleteOperationItem.media_id)
+        .join(
+            DeleteOperationItem,
+            DeleteOperationItem.operation_id == DeleteOperation.id,
+        )
+        .where(DeleteOperation.status == "failed")
+    )
+    matched_operations: dict[int, DeleteOperation] = {}
+    scanned_items = 0
+    for operation, media_id in rows:
+        scanned_items += 1
+        if media_id in assetized_media_ids:
+            matched_operations[operation.id] = operation
+
+    for operation in matched_operations.values():
+        operation.status = "superseded"
+        operation.current_phase = "assetized"
+        operation.last_error = (
+            "Historical deletion was replaced by Asset trash state"
+        )
+        operation.updated_at = datetime.utcnow()
+
+    if profile_id:
+        log.info(
+            "asset media backfill deletion reconciliation completed",
+            profile=profile_id,
+            scanned_items=scanned_items,
+            superseded=len(matched_operations),
+            elapsed_seconds=round(time.monotonic() - started, 1),
+        )
+    return len(matched_operations)
+
+
 def _phase_at_least(phase: str, minimum: str) -> bool:
     try:
         return _MIGRATION_PHASES.index(phase) >= _MIGRATION_PHASES.index(minimum)
@@ -574,27 +628,11 @@ async def apply_asset_backfill(
     # retire the obsolete operation; the user can permanently delete the new
     # Asset identity through the Asset trash workflow.
     if assets_by_media:
-        superseded_operations = list(
-            await session.scalars(
-                select(DeleteOperation)
-                .join(
-                    DeleteOperationItem,
-                    DeleteOperationItem.operation_id == DeleteOperation.id,
-                )
-                .where(
-                    DeleteOperation.status == "failed",
-                    DeleteOperationItem.media_id.in_(assets_by_media),
-                )
-                .distinct()
-            )
+        await _supersede_assetized_delete_operations(
+            session,
+            assetized_media_ids=set(assets_by_media),
+            profile_id=profile_id,
         )
-        for operation in superseded_operations:
-            operation.status = "superseded"
-            operation.current_phase = "assetized"
-            operation.last_error = (
-                "Historical deletion was replaced by Asset trash state"
-            )
-            operation.updated_at = datetime.utcnow()
 
     # Populate container structure only after every independent member has its
     # Asset, so the resolver can choose linked versus embedded deterministically.
