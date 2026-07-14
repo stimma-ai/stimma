@@ -224,17 +224,38 @@ async def _finalize_staged_deletion(
                 )
             ).scalars()
         )
+        retry_claimed_ids = list(
+            (
+                await session.execute(
+                    update(DeleteOperationItem)
+                    .where(
+                        DeleteOperationItem.operation_id == operation_id,
+                        DeleteOperationItem.state == "unlink_retry",
+                    )
+                    .values(
+                        state="unlinking_retry",
+                        lease_expires_at=_utcnow()
+                        + timedelta(seconds=LEASE_SECONDS),
+                        updated_at=_utcnow(),
+                    )
+                    .returning(DeleteOperationItem.media_id)
+                )
+            ).scalars()
+        )
+        all_claimed_ids = claimed_ids + retry_claimed_ids
         staged_items = (
             list(
                 await session.scalars(
                     select(DeleteOperationItem).where(
                         DeleteOperationItem.operation_id == operation_id,
-                        DeleteOperationItem.media_id.in_(claimed_ids),
-                        DeleteOperationItem.state == "unlinking",
+                        DeleteOperationItem.media_id.in_(all_claimed_ids),
+                        DeleteOperationItem.state.in_(
+                            ["unlinking", "unlinking_retry"]
+                        ),
                     )
                 )
             )
-            if claimed_ids
+            if all_claimed_ids
             else []
         )
         has_media_work = await session.scalar(
@@ -365,7 +386,11 @@ async def _finalize_staged_deletion(
                         ),
                     )
                     .values(
-                        state="failed",
+                        # Logical deletion already committed. Preserve that
+                        # phase across the retry boundary so a subsequently
+                        # reused SQLite Media ID cannot be mistaken for the
+                        # row this operation deleted.
+                        state="unlink_failed",
                         lease_expires_at=None,
                         last_error="permanent deletion failed",
                         updated_at=_utcnow(),
@@ -418,7 +443,9 @@ async def _finalize_staged_deletion(
                 delete(DeleteOperationItem).where(
                     DeleteOperationItem.operation_id == operation_id,
                     DeleteOperationItem.media_id.in_(completed_ids),
-                    DeleteOperationItem.state == "unlinking",
+                    DeleteOperationItem.state.in_(
+                        ["unlinking", "unlinking_retry"]
+                    ),
                 )
             )
         operation = await session.get(DeleteOperation, operation_id)
@@ -430,10 +457,19 @@ async def _finalize_staged_deletion(
             operation.updated_at = _utcnow()
         await session.commit()
 
-    if completed_ids:
-        payload: dict[str, Any] = {"count": len(completed_ids)}
-        if len(completed_ids) <= 500:
-            payload["media_ids"] = completed_ids
+    # A delayed unlink retry may run after SQLite has reused the old integer
+    # Media ID. The Asset identity was already removed and announced before
+    # unlinking, so broadcasting that stale ID now could hide unrelated,
+    # newly ingested Media in compatibility clients.
+    broadcast_ids = [
+        media_id
+        for media_id in completed_ids
+        if media_id not in set(retry_claimed_ids)
+    ]
+    if broadcast_ids:
+        payload: dict[str, Any] = {"count": len(broadcast_ids)}
+        if len(broadcast_ids) <= 500:
+            payload["media_ids"] = broadcast_ids
         await ws_manager.broadcast(
             "media_permanently_deleted", payload, include_profile=False
         )
@@ -476,6 +512,19 @@ async def _process_profile(profile_id: str) -> bool:
             )
             .values(
                 state="media_deleted",
+                lease_expires_at=None,
+                updated_at=now,
+            )
+        )
+        await session.execute(
+            update(DeleteOperationItem)
+            .where(
+                DeleteOperationItem.state == "unlinking_retry",
+                DeleteOperationItem.lease_expires_at.is_not(None),
+                DeleteOperationItem.lease_expires_at < now,
+            )
+            .values(
+                state="unlink_retry",
                 lease_expires_at=None,
                 updated_at=now,
             )
@@ -1184,12 +1233,25 @@ async def retry_delete_operation(session, operation_id: int) -> DeleteOperation:
         await session.scalars(
             select(DeleteOperationItem).where(
                 DeleteOperationItem.operation_id == operation_id,
-                DeleteOperationItem.state == "failed",
+                DeleteOperationItem.state.in_(["failed", "unlink_failed"]),
             )
         )
     )
+    # Older operations recorded unlink failures as generic ``failed`` rows.
+    # ``thumbnail_paths`` was durably populated in the same transaction that
+    # deleted the Media row, so it is a safe compatibility discriminator.
+    # Never look up these items by Media ID: SQLite may have reused that ID for
+    # newly ingested Media while the unlink operation was waiting for retry.
+    unlink_failed_items = {
+        (item.operation_id, item.media_id)
+        for item in failed_items
+        if item.state == "unlink_failed"
+        or (item.state == "failed" and item.thumbnail_paths is not None)
+    }
     surviving_media = []
     for item in failed_items:
+        if (item.operation_id, item.media_id) in unlink_failed_items:
+            continue
         media = await session.get(MediaItem, item.media_id)
         if media is not None:
             surviving_media.append(media)
@@ -1202,8 +1264,20 @@ async def retry_delete_operation(session, operation_id: int) -> DeleteOperation:
         [media.id for media in surviving_media],
     )
     for item in failed_items:
-        media = await session.get(MediaItem, item.media_id)
-        item.state = "pending" if media is not None else "media_deleted"
+        logical_delete_committed = (
+            item.operation_id,
+            item.media_id,
+        ) in unlink_failed_items
+        media = (
+            None
+            if logical_delete_committed
+            else await session.get(MediaItem, item.media_id)
+        )
+        item.state = (
+            "unlink_retry"
+            if logical_delete_committed or media is None
+            else "pending"
+        )
         if media is not None:
             media.deletion_pending_at = media.deletion_pending_at or _utcnow()
         item.lease_expires_at = None

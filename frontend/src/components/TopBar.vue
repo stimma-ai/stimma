@@ -47,10 +47,14 @@
           <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
         </svg>
         <!-- Spinner when actively processing -->
-        <div v-else-if="isActivelyProcessing && !isPaused" class="w-5 h-5 border-2 border-edge-strong border-t-white/80 rounded-full animate-spin"></div>
+        <div v-else-if="(isActivelyProcessing && !isPaused) || isDeleteRunning" class="w-5 h-5 border-2 border-edge-strong border-t-white/80 rounded-full animate-spin"></div>
         <!-- Red warning triangle when there are errors -->
-        <svg v-else-if="totalFailed > 0" class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+        <svg v-else-if="totalFailed > 0 || hasDeleteFailed" class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 24 24">
           <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+        </svg>
+        <!-- Brief success state after permanent deletion completes -->
+        <svg v-else-if="hasDeleteCompleted" class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
         </svg>
         <!-- Yellow warning triangle when only system warnings present -->
         <svg v-else-if="systemWarnings.length > 0 && totalPending === 0 && totalProcessing === 0" class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
@@ -803,6 +807,18 @@ const hasActiveWork = computed(() => {
   return totalPending.value > 0 || totalProcessing.value > 0 || totalFailed.value > 0 || systemWarnings.value.length > 0 || hasActiveDeleteOperation.value
 })
 
+const isDeleteRunning = computed(() => {
+  return ['queued', 'running'].includes(activeDeleteOperation.value?.status)
+})
+
+const hasDeleteFailed = computed(() => {
+  return activeDeleteOperation.value?.status === 'failed'
+})
+
+const hasDeleteCompleted = computed(() => {
+  return activeDeleteOperation.value?.status === 'completed'
+})
+
 const isActivelyProcessing = computed(() => {
   return totalProcessing.value > 0
 })
@@ -813,7 +829,9 @@ const hasIncompleteWork = computed(() => {
 })
 
 const progressTitle = computed(() => {
-  if (hasActiveDeleteOperation.value) return 'Permanent delete in progress - click for details'
+  if (hasDeleteFailed.value) return 'Permanent deletion failed - click for details'
+  if (hasDeleteCompleted.value) return 'Permanent deletion complete - click for details'
+  if (isDeleteRunning.value) return 'Permanent deletion in progress - click for details'
   if (isPaused.value && hasIncompleteWork.value) return 'Processing paused - click for details'
   if (isActivelyProcessing.value) return 'Processing in progress - click for details'
   if (totalFailed.value > 0) return `${totalFailed.value} failed items - click for details`
@@ -825,11 +843,12 @@ const deleteOperationLabel = computed(() => {
   const op = activeDeleteOperation.value
   if (!op) return ''
   if (op.status === 'queued') return 'Queued'
+  if (op.status === 'completed') return 'Complete'
+  if (op.status === 'failed') return `${op.failed_items || 0} failed`
   if (op.current_phase === 'scrubbing_refs') return 'Scrubbing references'
   if (op.current_phase === 'purging_cache') return 'Purging cache'
   if (op.current_phase === 'deleting_media_row') return 'Deleting media rows'
   if (op.current_phase === 'claiming') return 'Claiming batch'
-  if (op.failed_items > 0 && op.status === 'failed') return `${op.failed_items} failed`
   return 'Running'
 })
 

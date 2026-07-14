@@ -15,6 +15,7 @@ from database import Asset, AssetRevision, AssetTag, DeleteOperation, MediaItem,
 from asset_association_service import media_compatibility_projections
 from core.dependencies import get_db_session
 from delete_operations import (
+    RetainedMediaError,
     create_delete_operation,
     ensure_delete_worker_started,
     get_active_delete_operation,
@@ -991,6 +992,8 @@ async def retry_delete_operation_route(
         raise HTTPException(status_code=404, detail="Delete operation not found")
     try:
         operation = await retry_delete_operation(session, operation_id)
+    except RetainedMediaError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await ensure_delete_worker_started()

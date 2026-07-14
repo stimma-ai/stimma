@@ -11,6 +11,7 @@ Tests cover:
 
 import asyncio
 import json
+from datetime import datetime
 
 import pytest
 from httpx import AsyncClient
@@ -387,7 +388,7 @@ class TestPermanentDelete:
             assert await session.get(MediaItem, media_id) is None
             row = await session.get(DeleteOperationItem, (operation_id, media_id))
             assert row is not None
-            assert row.state == "failed"
+            assert row.state == "unlink_failed"
             assert row.last_error == "permanent deletion failed"
             assert "sensitive path" not in row.last_error
 
@@ -397,6 +398,62 @@ class TestPermanentDelete:
         assert retried.status_code == 202
         completed = await wait_for_delete_operation(client, operation_id)
         assert completed["status"] == "completed"
+
+    async def test_unlink_retry_does_not_target_reused_media_id(
+        self, client: AsyncClient, db_session, tmp_path
+    ):
+        source = tmp_path / "original.png"
+        source.write_bytes(b"original")
+        async with db_session() as session:
+            media = await create_media_item(session, file_path=source)
+            asset = await create_asset_from_media(session, media_id=media.id)
+            media_id = media.id
+            asset_id = asset.id
+            await session.commit()
+
+        trashed = await client.delete(f"/api/assets/{asset_id}")
+        assert trashed.status_code == 200
+        with patch(
+            "delete_operations.TrashService.permanently_delete",
+            side_effect=PermissionError("denied"),
+        ):
+            response = await client.delete(f"/api/assets/{asset_id}/permanent")
+            assert response.status_code == 202
+            operation_id = response.json()["operation"]["id"]
+            failed = await wait_for_delete_operation(client, operation_id)
+        assert failed["status"] == "failed"
+
+        replacement_path = tmp_path / "replacement.png"
+        replacement_path.write_bytes(b"replacement")
+        async with db_session() as session:
+            replacement = MediaItem(
+                id=media_id,
+                file_path=str(replacement_path),
+                file_hash="replacement-hash",
+                file_size=11,
+                file_format="png",
+                width=1,
+                height=1,
+                megapixels=0.000001,
+                indexed_date=datetime.now(),
+            )
+            session.add(replacement)
+            await session.flush()
+            await create_asset_from_media(session, media_id=replacement.id)
+            await session.commit()
+
+        mock_ws = MockWebSocketManager()
+        with patch("delete_operations.ws_manager", mock_ws):
+            retried = await client.post(
+                f"/api/delete-operations/{operation_id}/retry"
+            )
+            assert retried.status_code == 202
+            completed = await wait_for_delete_operation(client, operation_id)
+        assert completed["status"] == "completed"
+        assert mock_ws.get_broadcasts("media_permanently_deleted") == []
+        assert replacement_path.exists()
+        async with db_session() as session:
+            assert await session.get(MediaItem, media_id) is not None
 
     async def test_thumbnail_failure_preserves_cache_locator_for_retry(
         self, client: AsyncClient, db_session, seeded_media, tmp_path
