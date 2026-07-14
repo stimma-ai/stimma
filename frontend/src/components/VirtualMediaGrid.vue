@@ -1484,13 +1484,32 @@ function handleMediaUpdated(data) {
   buildRows()
 }
 
+// media_deleted/media_bulk_deleted carry payload ids (media_id namespace),
+// while the caches key items by browser identity (asset id). Asset and media
+// ids come from independent sequences, so a raw media_id must never be
+// compared against asset identities: resolve each payload id to a cached item
+// first (same pattern as handleMediaUpdated). An id that resolves to nothing
+// refers to media we aren't showing (e.g. a historical revision payload) and
+// is a no-op, not a removal.
+function browserIdentitiesForMediaIds(mediaIds) {
+  const wanted = new Set(mediaIds.map(id => parseInt(id)))
+  const identities = []
+  for (const item of itemsCache.value.values()) {
+    if (item && wanted.has(mediaIdOf(item))) {
+      const identity = assetIdOf(item)
+      if (identity != null) identities.push(identity)
+    }
+  }
+  return identities
+}
+
 // Handle media deletion from WebSocket
 function handleMediaDeleted(data) {
   const { media_id } = data
   if (!media_id) return
 
-  // Use removeItems to properly handle the deletion
-  removeItems([media_id])
+  const identities = browserIdentitiesForMediaIds([media_id])
+  if (identities.length) removeItems(identities)
 }
 
 // Handle bulk media deletion from WebSocket (e.g., from auto-delete cleanup)
@@ -1498,8 +1517,8 @@ function handleBulkDeleted(data) {
   const { media_ids } = data
   if (!media_ids || media_ids.length === 0) return
 
-  // Use removeItems to properly handle the deletions
-  removeItems(media_ids)
+  const identities = browserIdentitiesForMediaIds(media_ids)
+  if (identities.length) removeItems(identities)
 }
 
 // Remove items and shift subsequent items to maintain contiguous indexing

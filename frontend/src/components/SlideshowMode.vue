@@ -5198,24 +5198,44 @@ function handleEscapeCapture(event) {
   }
 }
 
+// media_deleted/media_bulk_deleted carry payload ids (media_id namespace),
+// while deletingItemIds/localRemovedIds/mediaList are keyed by browser
+// identity (itemIdentity → asset id). The two id sequences are independent,
+// so a raw media_id must never enter those sets: resolve each payload id to a
+// visible item first. Unresolved ids (e.g. historical revision payloads) are
+// a no-op, not a removal.
+function browserIdentitiesForPayloadIds(mediaIds) {
+  const wanted = new Set(mediaIds)
+  const source = props.mediaList ? props.mediaList.itemsCache.value : itemsCache.value
+  const identities = []
+  for (const item of source.values()) {
+    if (item && wanted.has(itemPayloadId(item))) {
+      const identity = itemIdentity(item)
+      if (identity != null) identities.push(identity)
+    }
+  }
+  return identities
+}
+
 // WebSocket handler: media_deleted (external deletion)
 function handleMediaDeletedWs(data) {
   const { media_id } = data
   if (!media_id) return
 
-  // If we initiated this delete, skip handling (already handled in handleDeleteCurrentItem)
-  if (deletingItemIds.value.has(media_id)) return
-  const removedIds = new Set([media_id])
+  const externalIds = browserIdentitiesForPayloadIds([media_id])
+    .filter(id => !deletingItemIds.value.has(id))
+  if (externalIds.length === 0) return
+  const removedIds = new Set(externalIds)
 
   // External deletion - mark as removed and advance
-  localRemovedIds.value = new Set([...localRemovedIds.value, media_id])
+  localRemovedIds.value = new Set([...localRemovedIds.value, ...externalIds])
 
   // Update shared mediaList so grid sees the removal
   if (props.mediaList) {
-    props.mediaList.removeItem(media_id)
+    props.mediaList.removeItems(externalIds)
   }
 
-  applyRemovalToCount(1)
+  applyRemovalToCount(externalIds.length)
   handleRemovedMediaIdsLocally(removedIds)
 }
 
@@ -5224,7 +5244,8 @@ function handleMediaBulkDeletedWs(data) {
   const { media_ids } = data
   if (!media_ids?.length) return
 
-  const externalIds = media_ids.filter(id => !deletingItemIds.value.has(id))
+  const externalIds = browserIdentitiesForPayloadIds(media_ids)
+    .filter(id => !deletingItemIds.value.has(id))
   if (externalIds.length === 0) return
 
   localRemovedIds.value = new Set([...localRemovedIds.value, ...externalIds])

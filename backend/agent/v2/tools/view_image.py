@@ -116,7 +116,12 @@ async def view_image(path: str = None, media_id: int = None, detail: str = "low"
             select(MediaItem).where(MediaItem.id == media_id)
         )
         media_item = result.scalar_one_or_none()
-        if not media_item or not media_item.file_path:
+        if (
+            not media_item
+            or not media_item.file_path
+            or media_item.deleted_at is not None
+            or media_item.deletion_pending_at is not None
+        ):
             return f"Error: Media {media_id} not found"
         resolved = Path(media_item.file_path)
     elif path:
