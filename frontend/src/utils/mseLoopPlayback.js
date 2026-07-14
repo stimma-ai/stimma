@@ -71,6 +71,10 @@ export class MseLoopPlayback {
     this.onReady = options.onReady || null
     this.onError = options.onError || null
     this.onMaintenanceError = options.onMaintenanceError || null
+    // Some players live in KeepAlive-cached views. Their async MSE startup can
+    // finish after the view has been deactivated, so let the owner veto the
+    // final play() instead of briefly reviving hidden media.
+    this.shouldPlay = options.shouldPlay || (() => true)
     // Align an object-fit: cover video with its face-cropped thumbnail. Only
     // correct for square containers; leave off for contain/full-frame players.
     // Also keeps the video invisible until a frame has actually been presented:
@@ -165,7 +169,7 @@ export class MseLoopPlayback {
       this._tick()
       this.onReady?.(this)
       if (this.hidOpacity) this._revealOnFirstFrame()
-      await this.video.play().catch(() => {})
+      if (this.shouldPlay()) await this.video.play().catch(() => {})
     } catch (error) {
       if (!this.destroyed) this.onError?.(error)
       if (!this.destroyed) throw error

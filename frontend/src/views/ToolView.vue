@@ -674,7 +674,7 @@
               :poster="getThumbnailUrl(stageCurrentHash, 1024, { mode: 'fit' })"
               class="w-full h-full object-contain"
               :muted="videoMuted"
-              autoplay playsinline
+              playsinline
               draggable="true"
               @dragstart.stop="onHeroDragStart($event)"
               @dragend="handleHeroDragEnd"
@@ -979,6 +979,7 @@ import { AudioPlayer, VideoVolumeControl } from '../components/viewers'
 import { useScopedVideoPlayback, useManagedMediaElement } from '../composables/useMediaPlayback'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
+import { shouldPlayStageVideo } from '../utils/stageVideoPlayback'
 import {
   AIMaskAssistant,
   AIPromptEditor,
@@ -1054,6 +1055,8 @@ const stageMenuOpen = ref(false)
 // element gives it audible-exclusivity and ghost prevention; volume is a DOM
 // property so it's applied via watcher.
 const stageVideoRef = ref<HTMLVideoElement | null>(null)
+const stageViewActive = ref(true)
+const stageWindowFocused = ref(typeof document === 'undefined' ? true : document.hasFocus())
 const { muted: videoMuted, volume: videoVolume } = useScopedVideoPlayback('toolview')
 useManagedMediaElement(stageVideoRef)
 watch([stageVideoRef, videoVolume], ([el, vol]) => {
@@ -1191,6 +1194,29 @@ function onHeroDragStart(event: DragEvent) {
 // element's src; if preparation fails (unsupported codec, fetch error), fall
 // back to plain src playback with the element's native loop.
 let stageMsePlayback: MseLoopPlayback | null = null
+function stageVideoIsForeground(): boolean {
+  return shouldPlayStageVideo({
+    viewActive: stageViewActive.value,
+    layoutMode: layoutMode.value,
+    slideshowActive: slideshowState.active,
+    compareActive: compareState.active,
+    documentVisible: typeof document === 'undefined' || document.visibilityState === 'visible',
+    windowFocused: stageWindowFocused.value,
+  })
+}
+
+function syncStageVideoPlayback() {
+  const element = stageVideoRef.value
+  if (!element) return
+  if (stageVideoIsForeground()) void element.play().catch(() => {})
+  else element.pause()
+}
+
+function updateStageWindowFocus() {
+  stageWindowFocused.value = document.visibilityState === 'visible' && document.hasFocus()
+  syncStageVideoPlayback()
+}
+
 function destroyStageMsePlayback() {
   stageMsePlayback?.destroy()
   stageMsePlayback = null
@@ -1205,32 +1231,39 @@ onMounted(() => {
     element.muted = videoMuted.value
     element.volume = videoVolume.value
     const playback = new MseLoopPlayback(element, getMseLoopUrls(fileHash), {
+      shouldPlay: stageVideoIsForeground,
       onError: (error: unknown) => {
         if (stageMsePlayback !== playback) return
         console.warn('[ToolView] Seamless video playback failed, falling back to native loop:', error)
         element.src = getMediaFileUrl(fileHash)
         element.loop = true
-        void element.play().catch(() => {})
+        syncStageVideoPlayback()
       },
     })
     stageMsePlayback = playback
     void playback.start().catch(() => {}).finally(() => {
-      // A new generation can arrive while the slideshow covers the stage —
-      // don't let the fresh pipeline play underneath it.
-      if (slideshowState.active && stageMsePlayback === playback) element.pause()
+      // Foreground state may change while the async pipeline is preparing.
+      if (stageMsePlayback === playback) syncStageVideoPlayback()
     })
   }, { immediate: true, flush: 'post' })
 
-  // The slideshow renders over the stage; pause the hero while it's up so the
-  // two players never run (or sound) at once, and resume the loop on close.
-  watch(() => slideshowState.active, (active) => {
-    const el = stageVideoRef.value
-    if (!el) return
-    if (active) el.pause()
-    else void el.play().catch(() => {})
-  })
+  // The hero is ambient media. Pause it whenever its view, layout, overlay, or
+  // app window stops being the user's foreground surface.
+  watch(
+    [stageViewActive, stageWindowFocused, layoutMode, () => slideshowState.active, () => compareState.active],
+    syncStageVideoPlayback,
+  )
+
+  window.addEventListener('focus', updateStageWindowFocus)
+  window.addEventListener('blur', updateStageWindowFocus)
+  document.addEventListener('visibilitychange', updateStageWindowFocus)
 })
-onUnmounted(destroyStageMsePlayback)
+onUnmounted(() => {
+  destroyStageMsePlayback()
+  window.removeEventListener('focus', updateStageWindowFocus)
+  window.removeEventListener('blur', updateStageWindowFocus)
+  document.removeEventListener('visibilitychange', updateStageWindowFocus)
+})
 
 const stageContextMenu = useMediaContextMenu()
 function handleStageContextMenu(event: MouseEvent) {
@@ -6139,12 +6172,14 @@ onMounted(async () => {
 // Use onActivated/onDeactivated for keyboard handler since this component is in KeepAlive
 onActivated(() => {
   console.log('[ToolView onActivated] Component reactivated, route.query:', JSON.stringify(route.query))
+  stageViewActive.value = true
   window.addEventListener('keydown', handleKeyDown)
-  // useManagedMediaElement paused the hero video on deactivate; resume the loop.
-  stageVideoRef.value?.play().catch(() => {})
+  syncStageVideoPlayback()
 })
 
 onDeactivated(() => {
+  stageViewActive.value = false
+  syncStageVideoPlayback()
   window.removeEventListener('keydown', handleKeyDown)
 })
 
