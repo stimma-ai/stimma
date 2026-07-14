@@ -92,6 +92,7 @@
       v-model:excludedTools="filters.excludedTools"
       v-model:selectedMarkers="filters.selectedMarkers"
       v-model:excludedMarkers="filters.excludedMarkers"
+      v-model:isImported="filters.isImported"
       v-model:showExpiring="filters.showExpiring"
       v-model:excludeExpiring="filters.excludeExpiring"
       v-model:createdAfter="filters.createdAfter"
@@ -835,6 +836,9 @@ function buildFilterParams() {
   }
   if (filters.excludedTools && filters.excludedTools.length > 0) {
     params.excluded_tool_ids = filters.excludedTools.join(',')
+  }
+  if (filters.isImported !== null && filters.isImported !== undefined) {
+    params.is_imported = filters.isImported
   }
   if (filters.similarTo && filters.similarTo.length > 0) {
     params.similar_to = filters.similarTo.join(',')
@@ -1924,6 +1928,7 @@ onMounted(async () => {
         (filters.excludedTools?.length > 0) ||
         (filters.selectedMarkers?.length > 0) ||
         (filters.excludedMarkers?.length > 0) ||
+        filters.isImported !== null ||
         (filters.similarTo?.length > 0) ||
         (filters.similarFaceTo?.length > 0) ||
         !!filters.createdAfter ||
@@ -2108,7 +2113,8 @@ async function handleSettingsLoaded() {
       savedFilters.selectedKeywords?.length > 0 ||
       savedFilters.selectedTags?.length > 0 ||
       savedFilters.selectedFolders?.length > 0 ||
-      savedFilters.selectedMarkers?.length > 0
+      savedFilters.selectedMarkers?.length > 0 ||
+      savedFilters.isImported !== null
 
     if (hasNonDefaultFilters) {
       Object.assign(filters, savedFilters)

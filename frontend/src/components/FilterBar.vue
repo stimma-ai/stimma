@@ -226,6 +226,18 @@
           </button>
         </div>
 
+        <!-- Imported Badge (not shown in trash mode) -->
+        <div v-if="!isTrashMode && localIsImported !== null"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', localIsImported === false ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             @click="toggleImportedExclusion">
+          <span class="leading-none">Imported</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearImportedFilter">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
         <!-- Expiring Badge (not shown in trash mode) -->
         <div v-if="!isTrashMode && (localShowExpiring || localExcludeExpiring)"
              :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', localExcludeExpiring ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
@@ -620,6 +632,13 @@
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">UTILITY</h4>
             <div class="flex flex-col gap-2">
               <div
+                @click="toggleImportedFilter"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': localIsImported !== null }, localIsImported !== null ? '' : 'hover:bg-overlay-subtle']"
+              >
+                <span :class="['text-sm', localIsImported !== null ? 'text-content font-semibold' : 'text-content-secondary']">Imported</span>
+                <span :class="['text-xs', localIsImported !== null ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.imported || 0 }})</span>
+              </div>
+              <div
                 @click="toggleExpiringFilter('expiring')"
                 :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isExpiringFilterSelected() }, isExpiringFilterSelected() ? '' : 'hover:bg-overlay-subtle']"
               >
@@ -760,6 +779,7 @@ const props = defineProps({
   selectedMarkers: Array,         // New: selected markers (by ID)
   excludedMarkers: Array,         // New: excluded markers (by ID)
   markers: { type: Array, default: () => [] },  // Available markers from backend
+  isImported: { type: Boolean, default: null }, // null | true | false provenance filter
   showExpiring: Boolean,          // New: filter for expiring images (positive)
   excludeExpiring: Boolean,       // New: filter to exclude expiring images (negative)
   createdAfter: String,           // ISO datetime string for file date filter
@@ -800,6 +820,7 @@ const emit = defineEmits([
   'update:excludedTools',      // Excluded tool lineage filter
   'update:selectedMarkers',    // New: markers filter
   'update:excludedMarkers',    // New: excluded markers filter
+  'update:isImported',         // Imported lineage provenance filter
   'update:showExpiring',       // New: expiring filter (positive)
   'update:excludeExpiring',    // New: exclude expiring filter (negative)
   'update:createdAfter',       // New: file date filter
@@ -847,6 +868,7 @@ const selectedTools = ref(props.selectedTools || [])      // Tool lineage filter
 const excludedTools = ref(props.excludedTools || [])      // Excluded tool lineage filter
 const selectedMarkers = ref(props.selectedMarkers || [])  // New: markers
 const excludedMarkers = ref(props.excludedMarkers || [])  // New: excluded markers
+const localIsImported = ref(props.isImported ?? null)
 const localShowExpiring = ref(props.showExpiring || false)  // New: expiring filter (positive)
 const localExcludeExpiring = ref(props.excludeExpiring || false)  // New: exclude expiring filter (negative)
 const localSimilarityThreshold = ref(props.similarityThreshold ?? 0.75)
@@ -876,6 +898,7 @@ const filterCounts = ref({
   projects: {},
   project_membership: { any: 0, none: 0 },
   date_ranges: {},
+  imported: 0,
   expiring: 0
 })
 const showKeywordModal = ref(false)
@@ -1191,6 +1214,9 @@ const modalFilterParams = computed(() => {
   if (props.excludedMarkers && props.excludedMarkers.length > 0) {
     params.excluded_marker_ids = props.excludedMarkers.join(',')
   }
+  if (props.isImported !== null && props.isImported !== undefined) {
+    params.is_imported = props.isImported
+  }
   if (props.similarSearchActive) {
     if (props.similarFaceTo && props.similarFaceTo.length > 0) {
       params.similar_face_to = props.similarFaceTo.join(',')
@@ -1232,6 +1258,7 @@ function emitUpdate() {
   emit('update:excludedTools', excludedTools.value)            // Excluded tool lineage filter
   emit('update:selectedMarkers', selectedMarkers.value)        // New: markers
   emit('update:excludedMarkers', excludedMarkers.value)        // New: excluded markers
+  emit('update:isImported', localIsImported.value)              // Imported provenance filter
   emit('update:showExpiring', localShowExpiring.value)         // New: expiring filter (positive)
   emit('update:excludeExpiring', localExcludeExpiring.value)   // New: exclude expiring filter (negative)
   emit('update:createdAfter', localCreatedAfter.value)         // New: file date filter
@@ -1248,6 +1275,7 @@ function emitUpdate() {
     hasTagFilter: (selectedTags.value?.length > 0 || excludedTags.value?.length > 0),
     hasToolFilter: (selectedTools.value?.length > 0 || excludedTools.value?.length > 0),
     hasMarkerFilter: (selectedMarkers.value?.length > 0 || excludedMarkers.value?.length > 0),
+    hasImportedFilter: localIsImported.value !== null,
     hasDateFilter: (!!localCreatedAfter.value || !!localCreatedBefore.value),
   }
   if (Object.values(filterFlags).some(Boolean)) {
@@ -1941,6 +1969,28 @@ function toggleMarker(markerId) {
   emitUpdate()
 }
 
+// Imported provenance filter - 3-state toggle (include, exclude, clear)
+function toggleImportedFilter() {
+  if (localIsImported.value === null) {
+    localIsImported.value = true
+  } else if (localIsImported.value === true) {
+    localIsImported.value = false
+  } else {
+    localIsImported.value = null
+  }
+  emitUpdate()
+}
+
+function toggleImportedExclusion() {
+  localIsImported.value = localIsImported.value === false
+  emitUpdate()
+}
+
+function clearImportedFilter() {
+  localIsImported.value = null
+  emitUpdate()
+}
+
 // Expiring filter functions - 3-state toggle
 function isExpiringFilterSelected() {
   return localShowExpiring.value
@@ -2150,6 +2200,9 @@ async function loadFilterCounts() {
     if (props.excludedMarkers && props.excludedMarkers.length > 0) {
       params.excluded_marker_ids = props.excludedMarkers.join(',')
     }
+    if (props.isImported !== null && props.isImported !== undefined) {
+      params.is_imported = props.isImported
+    }
     if (props.showExpiring) params.show_expiring = true
     if (props.excludeExpiring) params.exclude_expiring = true
     if (props.createdAfter) params.created_after = props.createdAfter
@@ -2220,6 +2273,7 @@ watch(() => props.selectedTools, (val) => syncArray(selectedTools, val))
 watch(() => props.excludedTools, (val) => syncArray(excludedTools, val))
 watch(() => props.selectedMarkers, (val) => syncArray(selectedMarkers, val))
 watch(() => props.excludedMarkers, (val) => syncArray(excludedMarkers, val))
+watch(() => props.isImported, (val) => localIsImported.value = val ?? null)
 watch(() => props.showExpiring, (val) => localShowExpiring.value = val || false)
 watch(() => props.excludeExpiring, (val) => localExcludeExpiring.value = val || false)
 // Reload counts when similarity search changes
@@ -2263,6 +2317,7 @@ watch(
     props.excludedTools,
     props.selectedMarkers,
     props.excludedMarkers,
+    props.isImported,
     props.similarTo,
     props.similarFaceTo,
     props.similarSearchSourceItems,
@@ -2300,6 +2355,7 @@ async function handleProfileChanged() {
     projects: {},
     project_membership: { any: 0, none: 0 },
     date_ranges: {},
+    imported: 0,
     expiring: 0
   }
   unfilteredTotalCount.value = null

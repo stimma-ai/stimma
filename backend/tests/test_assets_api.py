@@ -882,6 +882,71 @@ async def test_asset_facets_ignore_contextual_and_old_revision_media(client, db_
 
 
 @pytest.mark.asyncio
+async def test_imported_asset_filter_uses_lineage_provenance_not_storage(client, db_session):
+    before = (await client.get("/api/assets/filter-counts")).json()
+    async with db_session() as session:
+        plain_import = await create_media_item(
+            session,
+            file_path="/external/library/plain-import.png",
+        )
+        metadata_import = await create_media_item(
+            session,
+            file_path="/external/library/metadata-import.png",
+            generation_metadata=json.dumps({
+                "source": "external",
+                "task_type": "imported",
+                "prompt": "external metadata",
+            }),
+        )
+        path_backed_generation = await create_media_item(
+            session,
+            file_path="/external/library/legacy-generation.png",
+            generation_metadata=json.dumps({
+                "task_type": "text-to-image",
+                "tool_id": "test:text-to-image",
+                "prompt": "generated outside managed storage",
+            }),
+            tool_id="test:text-to-image",
+        )
+        plain_asset = await create_asset_from_media(session, media_id=plain_import.id)
+        metadata_asset = await create_asset_from_media(session, media_id=metadata_import.id)
+        generated_asset = await create_asset_from_media(
+            session,
+            media_id=path_backed_generation.id,
+        )
+        assert path_backed_generation.storage_object_id is None
+        await session.commit()
+
+    imported = await client.get("/api/assets/browse", params={"is_imported": "true"})
+    assert imported.status_code == 200, imported.text
+    imported_ids = {item["asset_id"] for item in imported.json()["items"]}
+    assert {plain_asset.id, metadata_asset.id} <= imported_ids
+    assert generated_asset.id not in imported_ids
+
+    tool_history = await client.get("/api/assets/browse", params={"is_imported": "false"})
+    assert tool_history.status_code == 200, tool_history.text
+    tool_history_ids = {item["asset_id"] for item in tool_history.json()["items"]}
+    assert generated_asset.id in tool_history_ids
+    assert plain_asset.id not in tool_history_ids
+    assert metadata_asset.id not in tool_history_ids
+
+    selected_ids = await client.get(
+        "/api/assets/browse/ids",
+        params={"is_imported": "true"},
+    )
+    assert selected_ids.status_code == 200, selected_ids.text
+    assert {plain_asset.id, metadata_asset.id} <= set(selected_ids.json()["ids"])
+    assert generated_asset.id not in selected_ids.json()["ids"]
+
+    counts = (await client.get("/api/assets/filter-counts")).json()
+    assert counts["imported"] == before["imported"] + 2
+    inverse_counts = (
+        await client.get("/api/assets/filter-counts", params={"is_imported": "false"})
+    ).json()
+    assert inverse_counts["imported"] == before["imported"] + 2
+
+
+@pytest.mark.asyncio
 async def test_expired_asset_is_absent_from_browse_and_facets(client, db_session):
     before = (await client.get("/api/assets/filter-counts")).json()
     async with db_session() as session:

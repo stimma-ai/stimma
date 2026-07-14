@@ -19,6 +19,7 @@ export const DEFAULT_BROWSE_FILTERS = {
   excludedTools: [],
   selectedMarkers: [],
   excludedMarkers: [],
+  isImported: null,
   showExpiring: false,
   excludeExpiring: false,
   similarTo: [],

@@ -153,6 +153,14 @@ class TestBuildFilteredQuery:
         compiled = str(query.compile(compile_kwargs={"literal_binds": True}))
         assert "generation_metadata" in compiled.lower()
 
+    def test_is_imported_uses_lineage_metadata_not_storage(self):
+        """Imported provenance is derived from history metadata."""
+        query = build_filtered_query(self._base_query(), is_imported=True)
+        compiled = str(query.compile(compile_kwargs={"literal_binds": True})).lower()
+        assert "json_extract" in compiled
+        assert "$.source" in compiled
+        assert "file_path" not in compiled.split("where", 1)[-1]
+
     def test_exclude_category_skips_filter(self):
         """build_filtered_query with exclude_category skips that filter category."""
         query = build_filtered_query(

@@ -1,7 +1,7 @@
 """Query building utilities for filtering media items."""
 from datetime import datetime
 from typing import Optional, Union
-from sqlalchemy import select, or_, and_, func, false, true
+from sqlalchemy import select, or_, and_, case, func, false, true
 from database import (
     AssetMarker,
     AssetRevision,
@@ -88,6 +88,26 @@ def not_due_for_autodelete(now: Optional[datetime] = None):
     return true()
 
 
+def media_is_imported():
+    """Return the canonical predicate for an imported Media payload.
+
+    The lineage/history UI treats payloads with no generation metadata as
+    imports, as well as externally generated files whose metadata was
+    normalized during ingestion. This deliberately does not inspect storage
+    location: legacy Stimma generations may still be path-backed.
+    """
+    safe_metadata = case(
+        (func.json_valid(MediaItem.generation_metadata) == 1, MediaItem.generation_metadata),
+        else_='{}',
+    )
+    return or_(
+        MediaItem.generation_metadata.is_(None),
+        func.json_valid(MediaItem.generation_metadata) == 0,
+        func.coalesce(func.json_extract(safe_metadata, '$.source'), '') == 'external',
+        func.coalesce(func.json_extract(safe_metadata, '$.task_type'), '') == 'imported',
+    )
+
+
 def build_filtered_query(
     query,
     caption_query: Optional[str] = None,
@@ -101,6 +121,7 @@ def build_filtered_query(
     folders: Optional[str] = None,
     excluded_folders: Optional[str] = None,
     is_generated: Optional[bool] = None,
+    is_imported: Optional[bool] = None,
     marker_ids: Optional[str] = None,
     excluded_marker_ids: Optional[str] = None,
     tag_ids: Optional[str] = None,
@@ -133,7 +154,7 @@ def build_filtered_query(
 
     Args:
         query: SQLAlchemy query to apply filters to
-        exclude_category: Category to exclude from filtering ('media_types', 'resolutions', 'keywords', 'folders', 'tags', 'projects', 'tools')
+        exclude_category: Category to exclude from filtering ('media_types', 'resolutions', 'keywords', 'folders', 'tags', 'projects', 'tools', 'imported')
         project_ids: Comma-separated project IDs; item must belong to at least one (OR logic).
         excluded_project_ids: Comma-separated project IDs; item must NOT belong to any of them.
         has_project: Tri-state membership predicate — True = in at least one (non-deleted) project,
@@ -332,6 +353,12 @@ def build_filtered_query(
             query = query.where(MediaItem.generation_metadata.isnot(None))
         else:
             query = query.where(MediaItem.generation_metadata.is_(None))
+
+    # Import provenance filter. Keep this aligned with the lineage/history UI,
+    # not with external-source or managed-storage placement.
+    if exclude_category != 'imported' and is_imported is not None:
+        imported_predicate = media_is_imported()
+        query = query.where(imported_predicate if is_imported else ~imported_predicate)
 
     # Marker filter (OR logic - item must have at least one of the specified markers)
     # Excludes suppressed markers (source != 'suppressed')

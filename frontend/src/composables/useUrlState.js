@@ -102,6 +102,11 @@ export function useUrlState() {
       params.set('xtl', filters.excludedTools.join(','))
     }
 
+    // Imported lineage provenance (1 = imported, 0 = has tool history)
+    if (filters.isImported !== null && filters.isImported !== undefined) {
+      params.set('imp', filters.isImported ? '1' : '0')
+    }
+
     // Similar search (supports multiple IDs)
     if (filters.similarTo && filters.similarTo.length > 0) {
       params.set('sim', Array.isArray(filters.similarTo) ? filters.similarTo.join(',') : filters.similarTo)
@@ -159,6 +164,9 @@ export function useUrlState() {
       similarFaceTo: [],
       similarityThreshold: 0.75
     }
+
+    if (queryParams.imp === '1') filters.isImported = true
+    else if (queryParams.imp === '0') filters.isImported = false
 
     // Media types
     if (queryParams.mt) {
