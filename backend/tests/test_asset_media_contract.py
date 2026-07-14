@@ -509,3 +509,188 @@ class TestSimilaritySearchPopulation:
 
         assert expected_present <= result_ids
         assert result_ids & expected_absent == set()
+
+
+class TestOrganizationEventing:
+    """Every Asset-level organization write must emit BOTH event flavors.
+
+    Display surfaces patch marker/tag chips in place from ``media_updated``
+    (keyed by the current payload's media_id, with the marker/tag data in the
+    ``media`` projection) and treat ``assets_updated`` as a refetch hint. A
+    write path that emits only ``assets_updated`` leaves the slideshow strip,
+    chat cards, job tiles, and the useMarkers store stale until an unrelated
+    full refetch — the symptom is marker clicks that "do nothing" or apply
+    late on other surfaces.
+    """
+
+    async def _seed_asset_and_marker(self, db_session, *, revisions: int = 1):
+        from unittest.mock import patch  # noqa: F401  (kept near usage below)
+
+        async with db_session() as session:
+            media = await create_media_item(session)
+            asset = await create_asset_from_media(session, media_id=media.id)
+            payload_id = media.id
+            for _ in range(revisions - 1):
+                replacement = await create_media_item(session)
+                await commit_revision(
+                    session, asset_id=asset.id, media_id=replacement.id
+                )
+                payload_id = replacement.id
+            marker = Marker(
+                name=f"contract-event-marker-{asset.id}-{revisions}",
+                icon_svg="<svg/>",
+                color="#0000ff",
+            )
+            session.add(marker)
+            await session.commit()
+            return asset.id, payload_id, marker.id
+
+    async def test_asset_marker_add_emits_media_updated_with_marker_data(
+        self, client, db_session
+    ):
+        from unittest.mock import patch
+
+        from tests.helpers.ws import MockWebSocketManager
+
+        asset_id, payload_id, marker_id = await self._seed_asset_and_marker(db_session)
+
+        mock_ws = MockWebSocketManager()
+        with patch("routes.assets.ws_manager", mock_ws):
+            response = await client.post(
+                f"/api/assets/item/{asset_id}/markers/{marker_id}"
+            )
+            assert response.status_code == 200
+
+        media_updated = mock_ws.get_broadcasts("media_updated")
+        assert len(media_updated) == 1
+        payload = media_updated[0][1]
+        assert payload["media_id"] == payload_id
+        assert payload["asset_id"] == asset_id
+        assert "markers" in payload["fields"]
+        assert [m["id"] for m in payload["media"]["markers"]] == [marker_id]
+
+        assets_updated = mock_ws.get_broadcasts("assets_updated")
+        assert len(assets_updated) == 1
+        assert assets_updated[0][1]["asset_ids"] == [asset_id]
+        assert "markers" in assets_updated[0][1]["fields"]
+
+    async def test_asset_marker_remove_emits_media_updated_with_marker_data(
+        self, client, db_session
+    ):
+        from unittest.mock import patch
+
+        from tests.helpers.ws import MockWebSocketManager
+
+        asset_id, payload_id, marker_id = await self._seed_asset_and_marker(db_session)
+        assert (
+            await client.post(f"/api/assets/item/{asset_id}/markers/{marker_id}")
+        ).status_code == 200
+
+        mock_ws = MockWebSocketManager()
+        with patch("routes.assets.ws_manager", mock_ws):
+            response = await client.delete(
+                f"/api/assets/item/{asset_id}/markers/{marker_id}"
+            )
+            assert response.status_code == 200
+
+        media_updated = mock_ws.get_broadcasts("media_updated")
+        assert len(media_updated) == 1
+        payload = media_updated[0][1]
+        assert payload["media_id"] == payload_id
+        assert payload["media"]["markers"] == []
+        assert "markers" in payload["fields"]
+        assert len(mock_ws.get_broadcasts("assets_updated")) == 1
+
+    async def test_marker_events_carry_the_current_revision_payload_id(
+        self, client, db_session
+    ):
+        """After an edit creates revision 2, marker events must reference the
+        new payload, not the historical one the surfaces no longer show."""
+        from unittest.mock import patch
+
+        from tests.helpers.ws import MockWebSocketManager
+
+        asset_id, current_payload_id, marker_id = await self._seed_asset_and_marker(
+            db_session, revisions=2
+        )
+
+        mock_ws = MockWebSocketManager()
+        with patch("routes.assets.ws_manager", mock_ws):
+            response = await client.post(
+                f"/api/assets/item/{asset_id}/markers/{marker_id}"
+            )
+            assert response.status_code == 200
+
+        media_updated = mock_ws.get_broadcasts("media_updated")
+        assert len(media_updated) == 1
+        assert media_updated[0][1]["media_id"] == current_payload_id
+
+    async def test_bulk_asset_markers_emit_per_payload_media_updated(
+        self, client, db_session
+    ):
+        from unittest.mock import patch
+
+        from tests.helpers.ws import MockWebSocketManager
+
+        first_asset, first_payload, marker_id = await self._seed_asset_and_marker(
+            db_session
+        )
+        async with db_session() as session:
+            second_media = await create_media_item(session)
+            second = await create_asset_from_media(session, media_id=second_media.id)
+            await session.commit()
+            second_asset, second_payload = second.id, second_media.id
+
+        mock_ws = MockWebSocketManager()
+        with patch("routes.assets.ws_manager", mock_ws):
+            response = await client.post(
+                "/api/assets/batch/markers",
+                json={
+                    "asset_ids": [first_asset, second_asset],
+                    "marker_id": marker_id,
+                    "add": True,
+                },
+            )
+            assert response.status_code == 200
+            assert response.json()["changed"] == 2
+
+        media_updated = mock_ws.get_broadcasts("media_updated")
+        assert {event[1]["media_id"] for event in media_updated} == {
+            first_payload,
+            second_payload,
+        }
+        for _, payload in media_updated:
+            assert [m["id"] for m in payload["media"]["markers"]] == [marker_id]
+        assets_updated = mock_ws.get_broadcasts("assets_updated")
+        assert len(assets_updated) == 1
+        assert sorted(assets_updated[0][1]["asset_ids"]) == sorted(
+            [first_asset, second_asset]
+        )
+
+    async def test_asset_tag_add_emits_media_updated_with_tag_data(
+        self, client, db_session
+    ):
+        from unittest.mock import patch
+
+        from tests.helpers.ws import MockWebSocketManager
+
+        async with db_session() as session:
+            media = await create_media_item(session)
+            asset = await create_asset_from_media(session, media_id=media.id)
+            await session.commit()
+            asset_id, payload_id = asset.id, media.id
+
+        mock_ws = MockWebSocketManager()
+        with patch("routes.assets.ws_manager", mock_ws):
+            response = await client.post(
+                f"/api/assets/item/{asset_id}/tags",
+                json={"tags": ["contract-event-tag"]},
+            )
+            assert response.status_code == 200
+
+        media_updated = mock_ws.get_broadcasts("media_updated")
+        assert len(media_updated) == 1
+        payload = media_updated[0][1]
+        assert payload["media_id"] == payload_id
+        assert "tags" in payload["fields"]
+        assert [t["tag"] for t in payload["media"]["tags"]] == ["contract-event-tag"]

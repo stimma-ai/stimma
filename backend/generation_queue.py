@@ -1278,10 +1278,15 @@ class GenerationQueue:
                 log.info(f"Applied {len(marker_ids)} auto-markers to media {media_id}")
 
                 if asset is not None and self._websocket_manager:
-                    from asset_association_service import broadcast_assets_retained
+                    from asset_association_service import (
+                        broadcast_asset_organization_updated,
+                    )
 
-                    await broadcast_assets_retained(
-                        session, [asset.id], self._websocket_manager
+                    await broadcast_asset_organization_updated(
+                        session,
+                        [asset.id],
+                        self._websocket_manager,
+                        fields=("markers", "expires_at"),
                     )
             except IntegrityError as e:
                 log.warning(f"Failed to apply auto-markers to media {media_id}: {e}")

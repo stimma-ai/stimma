@@ -240,6 +240,59 @@ async def broadcast_assets_retained(
     )
 
 
+async def broadcast_asset_organization_updated(
+    session: AsyncSession,
+    asset_ids: list[int] | set[int],
+    ws_manager,
+    *,
+    fields: tuple[str, ...] = ("markers",),
+) -> None:
+    """Emit the full event pair every organization display surface consumes.
+
+    Marker/tag state is Asset-level, but the display surfaces are a mix of
+    Asset-first listeners (``assets_updated``, no payload — triggers refetch)
+    and compatibility listeners that patch in place from ``media_updated``
+    keyed by the current payload's media_id (grid tiles, slideshow, chat
+    cards, job tiles, the useMarkers store). A write path that emits only
+    ``assets_updated`` leaves every in-place surface stale until an unrelated
+    refetch, so all Asset-level organization writes must go through here.
+    """
+    from database import MediaItem
+
+    ids = sorted(set(asset_ids))
+    if not ids:
+        return
+    media_items = list(
+        await session.scalars(
+            select(MediaItem)
+            .join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
+            .join(Asset, Asset.current_revision_id == AssetRevision.id)
+            .where(
+                Asset.id.in_(ids),
+                Asset.deleted_at.is_(None),
+                AssetRevision.deleted_at.is_(None),
+            )
+        )
+    )
+    for projection in await media_compatibility_projections(session, media_items):
+        if "expires_at" in fields and projection.get("expires_at") is None:
+            await ws_manager.broadcast(
+                "auto_delete_removed", {"media_id": projection["media_id"]}
+            )
+        await ws_manager.broadcast(
+            "media_updated",
+            {
+                "media_id": projection["media_id"],
+                "asset_id": projection.get("asset_id"),
+                "fields": list(fields),
+                "media": projection,
+            },
+        )
+    await ws_manager.broadcast(
+        "assets_updated", {"asset_ids": ids, "fields": list(fields)}
+    )
+
+
 async def _add_live(session, model, lookup: dict, values: dict):
     existing = await session.scalar(
         select(model).where(

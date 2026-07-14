@@ -1723,8 +1723,9 @@ async def _tag(
                 ):
                     added += 1
         await session.commit()
-        await ws_manager.broadcast(
-            "assets_updated", {"asset_ids": ids, "fields": ["tags"]}
+        from asset_association_service import broadcast_asset_organization_updated
+        await broadcast_asset_organization_updated(
+            session, ids, ws_manager, fields=("tags", "expires_at")
         )
         return json.dumps({"status": "ok", "added": added, "tags": tags})
 
@@ -1737,8 +1738,9 @@ async def _tag(
                 ):
                     removed += 1
         await session.commit()
-        await ws_manager.broadcast(
-            "assets_updated", {"asset_ids": ids, "fields": ["tags"]}
+        from asset_association_service import broadcast_asset_organization_updated
+        await broadcast_asset_organization_updated(
+            session, ids, ws_manager, fields=("tags",)
         )
         return json.dumps({"status": "ok", "removed": removed, "tags": tags})
 
@@ -1788,6 +1790,8 @@ async def _marker(
     if not ids:
         return "Error: asset_id or asset_ids is required for marker action"
 
+    from asset_association_service import broadcast_asset_organization_updated
+
     if operation == "add":
         added = 0
         for aid in ids:
@@ -1796,8 +1800,8 @@ async def _marker(
             ):
                 added += 1
         await session.commit()
-        await ws_manager.broadcast(
-            "assets_updated", {"asset_ids": ids, "fields": ["markers"]}
+        await broadcast_asset_organization_updated(
+            session, ids, ws_manager, fields=("markers", "expires_at")
         )
         return json.dumps({"status": "ok", "added": added, "marker": marker_name})
 
@@ -1809,9 +1813,7 @@ async def _marker(
             ):
                 removed += 1
         await session.commit()
-        await ws_manager.broadcast(
-            "assets_updated", {"asset_ids": ids, "fields": ["markers"]}
-        )
+        await broadcast_asset_organization_updated(session, ids, ws_manager)
         return json.dumps({"status": "ok", "removed": removed, "marker": marker_name})
 
     return f"Error: Unknown operation '{operation}'. Use: add, remove, list"

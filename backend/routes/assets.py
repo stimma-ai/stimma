@@ -17,6 +17,7 @@ from asset_service import (
 )
 from asset_association_service import (
     attach_asset_to_project,
+    broadcast_asset_organization_updated,
     detach_asset_from_project,
     set_asset_marker,
     set_asset_tag,
@@ -1138,16 +1139,10 @@ async def add_asset_marker(
     )
     await session.commit()
     markers = await _asset_markers(session, asset_id)
-    revision = await session.get(AssetRevision, asset.current_revision_id)
-    if revision is not None:
-        await ws_manager.broadcast(
-            "auto_delete_removed", {"media_id": revision.primary_media_id}
-        )
     # Broadcast even for an idempotent add: it may have repaired stale
     # expiration left by an older build.
-    await ws_manager.broadcast(
-        "assets_updated",
-        {"asset_ids": [asset_id], "fields": ["markers", "expires_at"]},
+    await broadcast_asset_organization_updated(
+        session, [asset_id], ws_manager, fields=("markers", "expires_at")
     )
     return {"status": "success", "markers": markers}
 
@@ -1164,9 +1159,7 @@ async def remove_asset_marker(
         raise HTTPException(status_code=404, detail="Marker not found on Asset")
     await session.commit()
     markers = await _asset_markers(session, asset_id)
-    await ws_manager.broadcast(
-        "assets_updated", {"asset_ids": [asset_id], "fields": ["markers"]}
-    )
+    await broadcast_asset_organization_updated(session, [asset_id], ws_manager)
     return {"status": "success", "markers": markers}
 
 
@@ -1198,12 +1191,11 @@ async def bulk_asset_markers(
         )
     await session.commit()
     if changed or request.add:
-        await ws_manager.broadcast(
-            "assets_updated",
-            {
-                "asset_ids": sorted(valid_ids),
-                "fields": ["markers", "expires_at"] if request.add else ["markers"],
-            },
+        await broadcast_asset_organization_updated(
+            session,
+            valid_ids,
+            ws_manager,
+            fields=("markers", "expires_at") if request.add else ("markers",),
         )
     return {"status": "success", "changed": changed, "total": len(valid_ids)}
 
@@ -1239,14 +1231,8 @@ async def add_asset_tags(
                 added.append(tag.tag_text)
     await session.commit()
     if requested_add:
-        revision = await session.get(AssetRevision, asset.current_revision_id)
-        if revision is not None:
-            await ws_manager.broadcast(
-                "auto_delete_removed", {"media_id": revision.primary_media_id}
-            )
-        await ws_manager.broadcast(
-            "assets_updated",
-            {"asset_ids": [asset_id], "fields": ["tags", "expires_at"]},
+        await broadcast_asset_organization_updated(
+            session, [asset_id], ws_manager, fields=("tags", "expires_at")
         )
     return {"status": "success", "added": added}
 
@@ -1259,8 +1245,8 @@ async def remove_asset_tag(
     if not await set_asset_tag(session, asset_id=asset_id, tag_id=tag_id, add=False):
         raise HTTPException(status_code=404, detail="Tag not found on Asset")
     await session.commit()
-    await ws_manager.broadcast(
-        "assets_updated", {"asset_ids": [asset_id], "fields": ["tags"]}
+    await broadcast_asset_organization_updated(
+        session, [asset_id], ws_manager, fields=("tags",)
     )
     return {"status": "success"}
 
@@ -1298,12 +1284,11 @@ async def bulk_asset_tags(
             )
     await session.commit()
     if added or removed or requested_add:
-        await ws_manager.broadcast(
-            "assets_updated",
-            {
-                "asset_ids": valid_ids,
-                "fields": ["tags", "expires_at"] if requested_add else ["tags"],
-            },
+        await broadcast_asset_organization_updated(
+            session,
+            valid_ids,
+            ws_manager,
+            fields=("tags", "expires_at") if requested_add else ("tags",),
         )
     return {"status": "success", "added": added, "removed": removed}
 

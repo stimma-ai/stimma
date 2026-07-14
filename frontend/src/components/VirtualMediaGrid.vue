@@ -1425,14 +1425,26 @@ async function handleAutoMarkersSynced() {
     })
 
     if (response.ok) {
-      const markersByMedia = await response.json()
+      const markersByAsset = await response.json()
 
-      // Update each item's markers
-      for (const item of itemsCache.value) {
-        const identity = assetIdOf(item)
-        if (item && identity && markersByMedia[identity] !== undefined) {
-          item.markers = markersByMedia[identity]
+      // Update each item's markers through the reactive paths (the caches are
+      // Maps of index → item; direct mutation would not trigger re-render).
+      if (props.mediaList) {
+        for (const item of itemsCache.value.values()) {
+          const identity = assetIdOf(item)
+          if (item && identity && markersByAsset[identity] !== undefined) {
+            props.mediaList.updateItem(identity, { markers: markersByAsset[identity] })
+          }
         }
+      } else {
+        const newCache = new Map(localItemsCache.value)
+        for (const [index, item] of localItemsCache.value.entries()) {
+          const identity = assetIdOf(item)
+          if (item && identity && markersByAsset[identity] !== undefined) {
+            newCache.set(index, { ...item, markers: markersByAsset[identity] })
+          }
+        }
+        localItemsCache.value = newCache
       }
 
       // Rebuild rows to trigger re-render
