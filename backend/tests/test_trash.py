@@ -17,7 +17,9 @@ from httpx import AsyncClient
 from sqlalchemy import delete, select
 from unittest.mock import patch
 
+from asset_service import create_asset_from_media
 from database import (
+    Asset,
     Chat,
     ChatItem,
     DeleteOperation,
@@ -63,6 +65,29 @@ class TestSoftDelete:
         """Test soft deleting a media item that doesn't exist."""
         response = await client.delete("/api/media/99999")
         assert response.status_code == 404
+
+    async def test_legacy_media_delete_trashes_asset_without_deleting_payload(
+        self, client: AsyncClient, db_session
+    ):
+        """Compatibility callers must obey canonical Asset trash semantics."""
+        async with db_session() as session:
+            media = await create_media_item(
+                session, file_path="/tmp/asset-backed-trash.png"
+            )
+            asset = await create_asset_from_media(session, media_id=media.id)
+            media_id = media.id
+            asset_id = asset.id
+            await session.commit()
+
+        response = await client.delete(f"/api/media/{media_id}")
+        assert response.status_code == 200
+
+        async with db_session() as session:
+            trashed_asset = await session.get(Asset, asset_id)
+            retained_media = await session.get(MediaItem, media_id)
+            assert trashed_asset.state == "trashed"
+            assert trashed_asset.deleted_at is not None
+            assert retained_media.deleted_at is None
 
     async def test_soft_delete_already_deleted(self, client: AsyncClient, seeded_media):
         """Test soft deleting an already deleted item returns error."""

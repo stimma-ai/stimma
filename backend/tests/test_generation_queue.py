@@ -8,14 +8,17 @@ These complement test_generation.py (which tests via HTTP API).
 
 import asyncio
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from database import GenerationJob
+from asset_service import create_asset_from_media
+from database import Asset, GenerationJob, MediaItem
 from generation_queue import resolve_recorded_seed
 from tests.helpers.generation import create_generation_job
+from tests.helpers.media import create_media_item
 
 
 # =============================================================================
@@ -77,6 +80,38 @@ class TestPendingCounterManagement:
 
         assert len(generation_queue._pending_work_requests.get(backend, [])) == 0
         assert len(generation_queue._pending_work_requests_per_client.get(client, [])) == 0
+
+    async def test_submit_job_retains_asset_input_before_queueing(
+        self, generation_queue, generation_db_session, output_folder
+    ):
+        """The shared queue boundary covers Tool View, agent, and internal submits."""
+        async with generation_db_session() as session:
+            media = await create_media_item(session, file_path="/tmp/queue-input.png")
+            asset = await create_asset_from_media(session, media_id=media.id)
+            deadline = datetime.utcnow() + timedelta(minutes=1)
+            asset.expires_at = deadline
+            media.auto_delete_at = deadline
+            asset_id = asset.id
+            media_id = media.id
+            await session.commit()
+
+        job_id = await generation_queue.submit_job(
+            generator_name="test",
+            model_name="test-model",
+            folder_path=output_folder,
+            parameters={
+                "prompt": "retain this input",
+                "input_media_ids": [media_id],
+            },
+            backend_name="test",
+            tool_id="test:text-to-image:test-model",
+            consume_pending_request=False,
+        )
+
+        async with generation_db_session() as session:
+            assert (await session.get(Asset, asset_id)).expires_at is None
+            assert (await session.get(MediaItem, media_id)).auto_delete_at is None
+        await generation_queue.cancel_job(job_id)
 
     async def test_submit_job_ignores_client_folder_and_decrements_pending(
         self, generation_queue, generation_db_session

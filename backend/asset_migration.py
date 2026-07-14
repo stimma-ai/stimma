@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logging import get_logger
@@ -28,6 +28,7 @@ from database import (
     ChatItem,
     DeleteOperation,
     DeleteOperationItem,
+    GenerationJob,
     MediaItem,
     MediaMarker,
     MediaOwner,
@@ -49,6 +50,32 @@ _MIGRATION_PHASES = (
 )
 
 _MIGRATION_MAP_BATCH_SIZE = 1_000
+
+
+async def repair_generation_job_asset_links(session: AsyncSession) -> int:
+    """Link historical Asset-result jobs to the Asset created for their Media."""
+    asset_id = (
+        select(AssetRevision.asset_id)
+        .where(
+            AssetRevision.primary_media_id == GenerationJob.result_media_id,
+            AssetRevision.deleted_at.is_(None),
+        )
+        .limit(1)
+        .correlate(GenerationJob)
+        .scalar_subquery()
+    )
+    result = await session.execute(
+        update(GenerationJob)
+        .where(
+            GenerationJob.status == "completed",
+            GenerationJob.output_disposition == "asset",
+            GenerationJob.result_media_id.is_not(None),
+            GenerationJob.result_asset_id.is_(None),
+            asset_id.is_not(None),
+        )
+        .values(result_asset_id=asset_id)
+    )
+    return max(result.rowcount or 0, 0)
 
 
 async def _bulk_insert_migration_maps(
@@ -764,6 +791,14 @@ async def ensure_asset_backfill(
         )
     )
     if state is not None and state.phase == "contracted":
+        repaired = await repair_generation_job_asset_links(session)
+        if repaired:
+            await session.commit()
+            log.info(
+                "asset media backfill repaired generation job links",
+                profile=profile_id,
+                jobs=repaired,
+            )
         if profile_id:
             log.info("asset media backfill already complete", profile=profile_id)
         return {
@@ -776,6 +811,7 @@ async def ensure_asset_backfill(
     if state is not None and _phase_at_least(state.phase, "dual_write"):
         state.phase = "contracted"
         state.updated_at = datetime.utcnow()
+        repaired = await repair_generation_job_asset_links(session)
         await session.commit()
         if profile_id:
             log.info("asset media backfill finalized existing cutover", profile=profile_id)
@@ -793,6 +829,7 @@ async def ensure_asset_backfill(
         report=report,
         profile_id=profile_id,
     )
+    repaired = await repair_generation_job_asset_links(session)
     await session.commit()
     if profile_id:
         log.info(
@@ -800,5 +837,6 @@ async def ensure_asset_backfill(
             profile=profile_id,
             assets=result["assets"],
             records=result["records"],
+            generation_jobs=repaired,
         )
     return {**result, "already_complete": False}

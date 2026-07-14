@@ -750,6 +750,35 @@ class TestJobListing:
         assert job["task_type"] == "text-to-image"
         assert job["tool_id"] == "test:text-to-image:test-model"
 
+    async def test_trashed_result_asset_disappears_from_tool_history(
+        self,
+        generation_client: httpx.AsyncClient,
+        generation_db_session,
+        generation_queue,
+        output_folder: str,
+    ):
+        response = await generation_client.post(
+            "/api/generate/submit",
+            json={
+                "tool_id": "test:text-to-image:test-model",
+                "folder_path": output_folder,
+                "task_type": "text-to-image",
+                "parameters": {"prompt": "temporary result", "steps": 2},
+            },
+        )
+        job_id = response.json()["job_id"]
+        await process_job(generation_queue, job_id)
+        job = (await generation_client.get(f"/api/generate/jobs/{job_id}")).json()
+
+        from asset_service import trash_asset
+
+        async with generation_db_session() as session:
+            await trash_asset(session, asset_id=job["result_asset_id"])
+            await session.commit()
+
+        listed = (await generation_client.get("/api/generate/jobs")).json()["jobs"]
+        assert job_id not in {item["id"] for item in listed}
+
 
 # =============================================================================
 # Video frame grab (POST /api/generate/extract-frame)

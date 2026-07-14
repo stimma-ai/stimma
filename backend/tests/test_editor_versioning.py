@@ -2,6 +2,7 @@
 
 import io
 import json
+from datetime import datetime, timedelta
 
 import pytest
 from PIL import Image
@@ -42,6 +43,8 @@ async def test_editor_save_commits_revision_and_old_revision_save_branches(
             session, file_path=source_path, file_hash=source_hash
         )
         asset = await create_asset_from_media(session, media_id=source_media.id)
+        asset.expires_at = datetime.utcnow() + timedelta(minutes=1)
+        source_media.auto_delete_at = asset.expires_at
         source_revision_id = asset.current_revision_id
         asset_id = asset.id
         await session.commit()
@@ -77,6 +80,7 @@ async def test_editor_save_commits_revision_and_old_revision_save_branches(
         assert second_revision.parent_revision_id == source_revision_id
         assert second_revision.revision_number == 3
         assert refreshed_asset.current_revision_id == second_revision.id
+        assert refreshed_asset.expires_at is None
         assert await session.scalar(
             select(func.count()).select_from(Asset).where(Asset.id == asset_id)
         ) == 1

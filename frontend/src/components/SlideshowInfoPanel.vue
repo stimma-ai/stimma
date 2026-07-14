@@ -844,7 +844,8 @@ import { getApiBase } from '../apiConfig'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { getCachedPin } from '../composables/usePinLock'
 import { useProvidersApi } from '../composables/useProvidersApi'
-import { formatRemainingTime, getRemainingTimeColor } from '../utils/timeFormat'
+import { getRemainingTimeColor } from '../utils/timeFormat'
+import { useExpirationClock } from '../composables/useExpirationClock'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { copyToClipboard } from '../utils/clipboard'
 import { addToast } from '../composables/useToasts'
@@ -852,6 +853,8 @@ import { getFilterDisplayLabel } from '@stimma/image-editor'
 import { isImage as isImageType, hasVisualContent, getMediaType } from '../utils/mediaTypes'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { useAssetApi } from '../composables/useAssetApi'
+
+const { formatRemainingTime } = useExpirationClock()
 
 const props = defineProps({
   currentItem: {

@@ -50,6 +50,7 @@
     <MediaImage
       v-else-if="!isVideo && job.result_media_id"
       :media-id="job.result_media_id"
+      :asset-id="job.result_asset_id"
       :is-audio="isAudio"
       :thumbnail="imageMode !== 'fit'"
       :thumbnail-size="thumbnailSize"
@@ -86,7 +87,7 @@
       <button
         v-for="marker in markers"
         :key="marker.id"
-        @click.stop="$emit('toggle-marker', { mediaId: job.result_media_id, marker })"
+        @click.stop="$emit('toggle-marker', { mediaId: job.result_media_id, assetId: job.result_asset_id, marker })"
         :class="[
           'w-7 h-7 rounded-md flex items-center justify-center transition-all border-2',
           hasMarker(job.result_media_id, marker.id)
@@ -111,7 +112,7 @@
         </svg>
       </button>
       <button
-        @click.stop="$emit('trash-media', job.result_media_id)"
+        @click.stop="$emit('trash-media', { mediaId: job.result_media_id, assetId: job.result_asset_id })"
         class="w-7 h-7 rounded-md flex items-center justify-center bg-black/40 hover:bg-red-500/80 text-white/50 hover:text-white transition-all"
         title="Move to Trash"
       >
@@ -128,7 +129,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick, onBeforeUnmount } from 'vue'
-import { formatRemainingTime } from '../../utils/timeFormat'
+import { useExpirationClock } from '../../composables/useExpirationClock'
 import { MediaImage, AppImage } from '../media'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
@@ -140,6 +141,7 @@ interface Job {
   id: number
   status: string
   result_media_id?: number
+  result_asset_id?: number
   expires_at?: string
   parameters?: string
 }
@@ -174,14 +176,15 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   (e: 'job-click', job: Job): void
-  (e: 'toggle-marker', data: { mediaId: number, marker: Marker }): void
+  (e: 'toggle-marker', data: { mediaId: number, assetId?: number, marker: Marker }): void
   (e: 'show-job-info', job: Job): void
   (e: 'media-load-error', mediaId: number): void
-  (e: 'trash-media', mediaId: number): void
+  (e: 'trash-media', data: { mediaId: number, assetId?: number }): void
   (e: 'remix-media', mediaId: number): void
 }>()
 
 const { getThumbnailUrl, getMseLoopUrls } = useMediaApi()
+const { formatRemainingTime } = useExpirationClock()
 const contextMenu = useMediaContextMenu()
 
 function getMediaHash(mediaId?: number): string { return (mediaId && props.mediaHashes[mediaId]) || '' }
@@ -241,9 +244,20 @@ function handleJobClick() {
   if (props.job.status === 'completed' || props.job.status === 'failed') emit('job-click', props.job)
 }
 function onDragStart(event: DragEvent, mediaId?: number) {
-  if (mediaId) createDragPreview(event, getThumbnailUrl(mediaId, 128), mediaId, undefined, props.isVideo)
+  if (!mediaId) return
+  createDragPreview(event, getThumbnailUrl(mediaId, 128), mediaId, undefined, props.isVideo)
+  if (event.dataTransfer && props.job.result_asset_id) {
+    event.dataTransfer.setData('application/x-stimma-assets', JSON.stringify({
+      items: [{ asset_id: props.job.result_asset_id, revision_id: null, media_id: mediaId }]
+    }))
+  }
 }
 function handleVideoContextMenu(event: MouseEvent, mediaId?: number) {
-  if (mediaId) contextMenu.show({ event, mediaId, fileHash: props.mediaHashes[mediaId] })
+  if (mediaId) contextMenu.show({
+    event,
+    mediaId,
+    assetId: props.job.result_asset_id,
+    fileHash: props.mediaHashes[mediaId],
+  })
 }
 </script>

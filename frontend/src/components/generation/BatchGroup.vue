@@ -99,7 +99,7 @@
 import JobTile from './JobTile.vue'
 import { isVideo as isVideoMedia } from '../../utils/mediaTypes'
 
-interface Job { id: number; status: string; result_media_id?: number; auto_delete_at?: string; parameters?: string }
+interface Job { id: number; status: string; result_media_id?: number; result_asset_id?: number; expires_at?: string; parameters?: string }
 interface Marker { id: number; name: string; color: string; icon_svg: string }
 interface BatchCell { key: string; state: 'pending' | 'postprocessing' | 'done' | 'failed'; job: Job; mediaId?: number }
 
@@ -141,7 +141,7 @@ function jobIsVideo(job: Job): boolean {
 
 defineEmits<{
   (e: 'job-click', job: Job): void
-  (e: 'toggle-marker', data: { mediaId: number, marker: Marker }): void
+  (e: 'toggle-marker', data: { mediaId: number, assetId?: number, marker: Marker }): void
   (e: 'show-job-info', job: Job): void
   (e: 'media-load-error', mediaId: number): void
   (e: 'retry-job', jobId: number): void

@@ -636,6 +636,22 @@ async def execute_call_tool(
 
     queue = get_generation_queue()
     chat_id = kwargs.get("chat_id")
+    auto_delete_duration = kwargs.get("auto_delete_duration")
+    if auto_delete_duration is None and chat_id is not None:
+        # V2 tool execution runs outside the legacy generation helpers, so read
+        # the chat's canonical generation preference explicitly.
+        from database import Chat
+        from database_registry import get_database_registry
+
+        settings_db = get_database_registry().get_database(get_current_profile())
+        async with settings_db.async_session_maker() as settings_session:
+            chat = await settings_session.get(Chat, int(chat_id))
+            if chat and chat.generation_settings:
+                try:
+                    chat_settings = json.loads(chat.generation_settings)
+                    auto_delete_duration = chat_settings.get("auto_delete_duration")
+                except (json.JSONDecodeError, TypeError):
+                    pass
     disposition_kwargs = {}
     if kwargs.get("output_disposition") is not None:
         disposition_kwargs = {
@@ -658,6 +674,7 @@ async def execute_call_tool(
         task_type=task_type,
         generator_instance_id=kwargs.get("generator_instance_id") or "agent",
         project_id=kwargs.get("project_id"),
+        auto_delete_duration=auto_delete_duration,
         **disposition_kwargs,
     )
 

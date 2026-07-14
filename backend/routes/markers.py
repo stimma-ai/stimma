@@ -4,7 +4,7 @@ from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
-from database import MediaMarker, Marker, MediaItem
+from database import AssetRevision, MediaMarker, Marker, MediaItem
 from config import get_settings
 from core.dependencies import get_db_session
 from core.profile_context import get_current_profile
@@ -24,6 +24,25 @@ async def _get_active_markers(session, media_id: int) -> list:
     return [MarkerResponse(**m.to_dict()).dict() for m in result.scalars().all()]
 
 router = APIRouter(prefix="/api", tags=["markers"])
+
+
+async def _mirror_markers_to_assets(session: AsyncSession, media_ids: list[int]) -> None:
+    from asset_association_service import mirror_media_associations_to_asset
+
+    rows = (
+        await session.execute(
+            select(AssetRevision).where(
+                AssetRevision.primary_media_id.in_(media_ids),
+                AssetRevision.deleted_at.is_(None),
+            )
+        )
+    ).scalars().all()
+    for revision in rows:
+        await mirror_media_associations_to_asset(
+            session, media_id=revision.primary_media_id, asset_id=revision.asset_id
+        )
+    if rows:
+        await session.commit()
 
 @router.get("/markers", response_model=List[MarkerResponse])
 async def get_markers(session: AsyncSession = Depends(get_db_session)):
@@ -154,6 +173,8 @@ async def add_marker_to_media(
 
     if existing:
         if existing.source == 'manual':
+            await clear_auto_delete_for_media(session, [media_id], ws_manager)
+            await _mirror_markers_to_assets(session, [media_id])
             markers = await _get_active_markers(session, media_id)
             return {"status": "already_exists", "message": "Marker already added to media", "markers": markers}
         # If suppressed or auto, upgrade to manual
@@ -167,6 +188,7 @@ async def add_marker_to_media(
 
     # Clear auto-delete for marked item
     await clear_auto_delete_for_media(session, [media_id], ws_manager)
+    await _mirror_markers_to_assets(session, [media_id])
 
     # Broadcast media_updated event with full media object
     media_result = await session.execute(select(MediaItem).where(MediaItem.id == media_id))
@@ -260,9 +282,9 @@ async def bulk_marker_operation(
 
         await session.commit()
 
-        # Clear auto-delete for marked items (only if markers were added)
-        if added > 0:
-            await clear_auto_delete_for_media(session, request.media_ids, ws_manager)
+        # The mark action is itself retention, including idempotent re-adds.
+        await clear_auto_delete_for_media(session, request.media_ids, ws_manager)
+        await _mirror_markers_to_assets(session, request.media_ids)
 
         # Fetch all affected media items and broadcast updates
         media_result = await session.execute(

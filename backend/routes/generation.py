@@ -21,6 +21,7 @@ from models.api_models import GenerationJobRequest, GenerationJobResponse, Batch
 from config import get_settings
 from prompts import get_prompt
 from utils.websocket import ws_manager
+from utils.background_tasks import generation_input_media_ids
 from project_service import get_project_or_404
 from llm import EntitlementError
 
@@ -207,6 +208,18 @@ def _prompt_media_id(parameters: Dict[str, Any], effective_task: str) -> Optiona
             if found is not None:
                 return found
     return None
+
+
+async def _retain_generation_inputs(
+    session: AsyncSession, parameters: Dict[str, Any]
+) -> None:
+    """First use makes every referenced Asset durable before work begins."""
+    media_ids = generation_input_media_ids(parameters)
+    if not media_ids:
+        return
+    from utils.background_tasks import clear_auto_delete_for_media
+
+    await clear_auto_delete_for_media(session, media_ids, ws_manager)
 
 
 def _model_from_prompt_options(prompt_options: Optional[Dict[str, Any]]) -> Optional[str]:
@@ -1469,7 +1482,10 @@ async def get_controlnet_preview(path: str):
 
 
 @router.post("/submit")
-async def submit_generation_job(request: GenerationJobRequest):
+async def submit_generation_job(
+    request: GenerationJobRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
     """Submit a new generation job to the queue."""
     from generation_queue import get_generation_queue
     generation_queue = get_generation_queue()
@@ -1504,6 +1520,8 @@ async def submit_generation_job(request: GenerationJobRequest):
             get_telemetry_client().track(
                 "auto_delete_configured", auto_delete_props, category="generation"
             )
+
+        await _retain_generation_inputs(session, parameters)
 
         reservation_handed_to_queue = True
         job_id = await generation_queue.submit_job(
@@ -1678,6 +1696,13 @@ async def submit_batch_jobs(
                 parameters["auto_marker_ids"] = request.auto_marker_ids
 
             prepared_jobs.append(parameters)
+
+        retained_ids = set(input_set_ids)
+        for parameters in prepared_jobs:
+            retained_ids.update(generation_input_media_ids(parameters))
+        await _retain_generation_inputs(
+            session, {"input_media_ids": sorted(retained_ids)}
+        )
 
         # Create jobs for each prepared combination.
         job_ids = []
@@ -1980,6 +2005,14 @@ async def submit_media_batch_jobs(
 
             prepared_jobs.append(parameters)
 
+        retained_ids = set(media_ids)
+        retained_ids.update(request.constant_inputs.values())
+        for parameters in prepared_jobs:
+            retained_ids.update(generation_input_media_ids(parameters))
+        await _retain_generation_inputs(
+            session, {"input_media_ids": sorted(retained_ids)}
+        )
+
         job_ids = []
         consume_reserved_work = _should_consume_forever_reservation(request)
         for idx, parameters in enumerate(prepared_jobs):
@@ -2101,9 +2134,13 @@ async def get_job_statuses(
             "id": job.id,
             "status": job.status,
             "result_media_id": job.result_media_id,
+            "result_asset_id": job.result_asset_id,
             "task_type": job.task_type,
             "media_trashed": media.deleted_at is not None if media else False,
             "media_deleted": media is None and job.result_media_id is not None,  # Had media but now gone
+            "asset_trashed": bool(
+                asset and (asset.state != "active" or asset.deleted_at is not None)
+            ),
             "error": job.error,
             "model_name": job.model_name,
             "parameters": job.parameters,

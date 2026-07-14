@@ -101,6 +101,11 @@ async def _populate_revision_members(
         desired_targets = [(*_member_target(member), index) for index, member in enumerate(desired)]
         if existing_targets != desired_targets:
             raise AssetServiceError("Immutable container Revision already has different members")
+        from asset_association_service import clear_asset_expiration
+
+        for member in existing:
+            if member.linked_asset_id is not None:
+                await clear_asset_expiration(session, member.linked_asset_id)
         return existing
 
     created: list[ContainerMember] = []
@@ -114,6 +119,9 @@ async def _populate_revision_members(
                 container_asset_id=container_asset_id,
                 linked_asset_id=int(linked_asset_id),
             )
+            from asset_association_service import clear_asset_expiration
+
+            await clear_asset_expiration(session, int(linked_asset_id))
         member = ContainerMember(
             container_revision_id=revision_id,
             linked_asset_id=linked_asset_id,

@@ -452,6 +452,10 @@ async def add_board_items(
 
     board.updated_at = datetime.utcnow()
     await session.commit()
+    if valid_asset_ids:
+        from asset_association_service import broadcast_assets_retained
+
+        await broadcast_assets_retained(session, valid_asset_ids, ws_manager)
     if added > 0:
         if request.media_ids:
             await clear_auto_delete_for_media(session, request.media_ids, ws_manager)

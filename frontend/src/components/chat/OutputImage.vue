@@ -179,7 +179,7 @@ import { getCurrentProfileId } from '../../composables/useProfile'
 import { getCachedPin } from '../../composables/usePinLock'
 import { useMarkers } from '../../composables/useMarkers'
 import { useMediaState } from '../../composables/useMediaState'
-import { formatRemainingTime } from '../../utils/timeFormat'
+import { useExpirationClock } from '../../composables/useExpirationClock'
 import { getMediaType } from '../../utils/mediaTypes'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
 
@@ -204,6 +204,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['view-image', 'retry', 'cancel', 'show-job-info'])
+const { formatRemainingTime } = useExpirationClock()
 
 const containerStyle = computed(() =>
   props.fill
@@ -294,7 +295,9 @@ const currentMediaState = computed(() => {
 // Computed for auto-delete time display (from media state or row data)
 const formattedRemainingTime = computed(() => {
   // Prefer shared media state, fall back to row data
-  const autoDeleteAt = currentMediaState.value?.auto_delete_at || props.row.output.auto_delete_at
+  const autoDeleteAt = currentMediaState.value
+    ? currentMediaState.value.auto_delete_at
+    : props.row.output.auto_delete_at
   if (!autoDeleteAt) return null
   const result = formatRemainingTime(autoDeleteAt)
   // Don't show if already expired

@@ -41,6 +41,8 @@ const { isTauri, handleDragStart: tauriHandleDragStart } = useTauriDrag()
 interface Props {
   /** Media ID from database (use this OR fileHash) */
   mediaId?: number
+  /** Stable Asset identity when this payload is an Asset projection. */
+  assetId?: number
   /** File hash (use this OR mediaId) */
   fileHash?: string
   /** File path for native drag in Tauri (optional, improves drag-to-desktop) */
@@ -138,6 +140,11 @@ async function handleDragStart(event: DragEvent) {
   if (identifier) {
     const thumbnailUrl = getThumbnailUrl(identifier, 128)
     createDragPreview(event, thumbnailUrl, props.mediaId, props.fileFormat, props.isVideo)
+    if (props.assetId && props.mediaId) {
+      event.dataTransfer.setData('application/x-stimma-assets', JSON.stringify({
+        items: [{ asset_id: props.assetId, revision_id: null, media_id: props.mediaId }]
+      }))
+    }
   }
 
   // Also set file hash for in-app drag-drop
@@ -159,6 +166,7 @@ function handleContextMenu(event: MouseEvent) {
     contextMenu.show({
       event,
       mediaId: props.mediaId,
+      assetId: props.assetId,
       fileHash: props.fileHash
     })
     return

@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { useMediaApi } from './useMediaApi'
 import { useWebSocket } from './useWebSocket'
+import { getCurrentProfileId } from './useProfile'
 
 // Shared singleton state for media state (auto_delete_at, deleted_at, file_format)
 const mediaState = ref({}) // { [mediaId]: { auto_delete_at, deleted_at, file_format } }
@@ -83,8 +84,10 @@ export function useMediaState() {
         mediaState.value = {
           ...mediaState.value,
           [media_id]: {
+            ...mediaState.value[media_id],
             auto_delete_at: media.auto_delete_at,
-            deleted_at: media.deleted_at
+            deleted_at: media.deleted_at,
+            asset_id: media.asset_id ?? mediaState.value[media_id]?.asset_id
           }
         }
       })
@@ -106,6 +109,27 @@ export function useMediaState() {
         }
       })
     )
+
+    const clearRemovedAssetDeadline = (data) => {
+      const currentProfile = getCurrentProfileId()
+      if (data.profile_id && data.profile_id !== currentProfile) return
+      const assetIds = new Set(
+        data.asset_ids || (data.asset_id ? [data.asset_id] : [])
+      )
+      if (!assetIds.size) return
+      const updates = {}
+      for (const [mediaId, state] of Object.entries(mediaState.value)) {
+        if (assetIds.has(state?.asset_id)) {
+          updates[mediaId] = { ...state, auto_delete_at: null }
+        }
+      }
+      if (Object.keys(updates).length) {
+        mediaState.value = { ...mediaState.value, ...updates }
+      }
+    }
+    wsUnsubscribers.push(onWebSocketEvent('asset_deleted', clearRemovedAssetDeadline))
+    wsUnsubscribers.push(onWebSocketEvent('assets_trashed', clearRemovedAssetDeadline))
+    wsUnsubscribers.push(onWebSocketEvent('asset_identity_deleted', clearRemovedAssetDeadline))
   }
 
   // Load state for specific media IDs (batch)
@@ -125,7 +149,8 @@ export function useMediaState() {
           updates[mediaId] = {
             auto_delete_at: media.auto_delete_at,
             deleted_at: media.deleted_at,
-            file_format: media.file_format
+            file_format: media.file_format,
+            asset_id: media.asset_id
           }
         } catch (error) {
           console.error(`Error fetching media state for ${mediaId}:`, error)

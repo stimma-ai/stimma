@@ -42,6 +42,32 @@ async def clear_asset_expiration(session: AsyncSession, asset_id: int) -> Asset 
     return asset
 
 
+async def broadcast_assets_retained(
+    session: AsyncSession, asset_ids: list[int] | set[int], ws_manager
+) -> None:
+    """Project a committed retention action to legacy and Asset-first clients."""
+    ids = sorted(set(asset_ids))
+    if not ids:
+        return
+    media_ids = list(
+        await session.scalars(
+            select(AssetRevision.primary_media_id)
+            .join(Asset, Asset.current_revision_id == AssetRevision.id)
+            .where(
+                Asset.id.in_(ids),
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+                AssetRevision.deleted_at.is_(None),
+            )
+        )
+    )
+    for media_id in media_ids:
+        await ws_manager.broadcast("auto_delete_removed", {"media_id": media_id})
+    await ws_manager.broadcast(
+        "assets_updated", {"asset_ids": ids, "fields": ["expires_at"]}
+    )
+
+
 async def _add_live(session, model, lookup: dict, values: dict):
     existing = await session.scalar(
         select(model).where(

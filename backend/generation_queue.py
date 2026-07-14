@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import Asset, GenerationJob, MediaItem, ChatItem, ControlFlag, MediaLineage
 from database_registry import get_database_registry
-from utils.background_tasks import clear_auto_delete_for_media
+from utils.background_tasks import clear_auto_delete_for_media, generation_input_media_ids
 from utils.lineage import record_lineage_from_inputs, propagate_tool_lineage
 from generation_metadata import build_generation_metadata, build_parameters
 from core.profile_context import get_current_profile, set_current_profile, set_thread_profile, ProfileScope
@@ -1213,26 +1213,6 @@ class GenerationQueue:
         """
         await record_lineage_from_inputs(session, media_id, source_inputs, task_type)
 
-    async def _clear_auto_delete_for_sources(self, source_inputs: list, profile_id: str):
-        """
-        Clear auto-delete flags on source media items.
-
-        This is a separate operation that creates its own session since it's
-        a non-critical background cleanup.
-
-        Args:
-            source_inputs: List of source input dicts with media_id
-            profile_id: Profile database to use
-        """
-        source_media_ids = [
-            source.get('media_id') for source in source_inputs
-            if source.get('media_id') is not None
-        ]
-
-        if source_media_ids and self._websocket_manager:
-            async with self._get_db(profile_id).async_session_maker() as session:
-                await clear_auto_delete_for_media(session, source_media_ids, self._websocket_manager)
-
     async def _apply_auto_markers(
         self,
         media_id: int,
@@ -1430,6 +1410,13 @@ class GenerationQueue:
             )
 
             async with self._get_db(profile_id).async_session_maker() as session:
+                # Queue submission is the authoritative first-use boundary. Both
+                # the REST Tool View and agent/internal callers come through here.
+                input_media_ids = generation_input_media_ids(parameters)
+                if input_media_ids:
+                    await clear_auto_delete_for_media(
+                        session, input_media_ids, self._websocket_manager
+                    )
                 session.add(job)
                 await session.commit()
                 await session.refresh(job)
@@ -1598,13 +1585,11 @@ class GenerationQueue:
         limit: int = 100,
         offset: int = 0
     ) -> List[Dict[str, Any]]:
-        """List generation jobs for the current profile, excluding completed jobs whose media was deleted.
+        """List generation jobs whose canonical result Asset is still active.
 
         Returns job dicts with inline media data (file_hash, markers, generation_time) to avoid N+1 queries.
         """
         from sqlalchemy import or_, and_, func
-        from sqlalchemy.orm import selectinload
-
         # Filter by current profile and use that profile's database
         profile_id = get_current_profile()
 
@@ -1633,7 +1618,24 @@ class GenerationQueue:
                         # Include jobs where media exists (id is not null from the join) and is not deleted
                         and_(
                             MediaItem.id.isnot(None),
-                            MediaItem.deleted_at.is_(None)
+                            MediaItem.deleted_at.is_(None),
+                            or_(
+                                # Durable Tool results exist only while their
+                                # Asset root is active. Retained Media is not a
+                                # second Tool View result identity.
+                                and_(
+                                    GenerationJob.result_asset_id.is_not(None),
+                                    Asset.id.is_not(None),
+                                    Asset.state == 'active',
+                                    Asset.deleted_at.is_(None),
+                                ),
+                                # Provisional context/container results can be
+                                # shown before their final Asset is committed.
+                                and_(
+                                    GenerationJob.result_asset_id.is_(None),
+                                    GenerationJob.output_disposition != 'asset',
+                                ),
+                            ),
                         )
                     )
                 )
@@ -1659,7 +1661,10 @@ class GenerationQueue:
             # Collect media IDs that need marker loading
             media_ids = [media.id for job, media, asset in rows if media is not None]
 
-            # Batch load markers for all media items
+            asset_ids = [asset.id for job, media, asset in rows if asset is not None]
+
+            # Batch load canonical Asset markers, with Media markers retained
+            # only for provisional non-Asset results.
             markers_by_media = {}
             if media_ids:
                 from database import MediaMarker, Marker
@@ -1674,6 +1679,23 @@ class GenerationQueue:
                     if media_marker.media_id not in markers_by_media:
                         markers_by_media[media_marker.media_id] = []
                     markers_by_media[media_marker.media_id].append(marker.to_dict())
+
+            markers_by_asset = {}
+            if asset_ids:
+                from database import AssetMarker, Marker
+                marker_result = await session.execute(
+                    select(AssetMarker, Marker)
+                    .join(Marker, AssetMarker.marker_id == Marker.id)
+                    .where(
+                        AssetMarker.asset_id.in_(asset_ids),
+                        AssetMarker.deleted_at.is_(None),
+                        AssetMarker.source != 'suppressed',
+                    )
+                )
+                for asset_marker, marker in marker_result.all():
+                    markers_by_asset.setdefault(asset_marker.asset_id, []).append(
+                        marker.to_dict()
+                    )
 
             # Build response with inline media data
             jobs_list = []
@@ -1695,7 +1717,11 @@ class GenerationQueue:
                             pass
 
                     # Add markers
-                    job_dict['result_markers'] = markers_by_media.get(media.id, [])
+                    job_dict['result_markers'] = (
+                        markers_by_asset.get(asset.id, [])
+                        if asset is not None
+                        else markers_by_media.get(media.id, [])
+                    )
 
                 jobs_list.append(job_dict)
 
@@ -2499,8 +2525,9 @@ class GenerationQueue:
                     except Exception as e:
                         log.error(f"Batch {batch_id}: Failed to reorder output set: {e}", exc_info=True)
 
+                finalized_asset = None
                 if output_set_id and completed_count:
-                    await self._finalize_batch_container_asset(
+                    finalized_asset = await self._finalize_batch_container_asset(
                         profile_id=profile_id,
                         batch_id=batch_id,
                         output_set_id=output_set_id,
@@ -2518,6 +2545,8 @@ class GenerationQueue:
                         'failed': failed_count,
                         'total': batch_total,
                         'status': batch_status,
+                        'result_asset_id': finalized_asset['asset_id'] if finalized_asset else None,
+                        'expires_at': finalized_asset['expires_at'] if finalized_asset else None,
                     })
 
     async def _finalize_batch_container_asset(
@@ -2527,7 +2556,7 @@ class GenerationQueue:
         batch_id: str,
         output_set_id: int,
         batch_jobs: list[GenerationJob],
-    ) -> int:
+    ) -> dict[str, Any]:
         """Commit the completed compatibility set as one normalized Asset."""
         ordered: list[tuple[int, int]] = []
         for job in batch_jobs:
@@ -2558,6 +2587,20 @@ class GenerationQueue:
                 origin_id=batch_id,
                 idempotency_key=f'generation-batch:{batch_id}:container',
             )
+
+            duration = next(
+                (
+                    parse_duration(job.auto_delete_duration)
+                    for job in batch_jobs
+                    if job.auto_delete_duration
+                ),
+                None,
+            )
+            completed_at = max(
+                (job.completed_at for job in batch_jobs if job.completed_at),
+                default=datetime.utcnow(),
+            )
+            asset.expires_at = completed_at + duration if duration else None
             await mirror_media_associations_to_asset(
                 session, media_id=output_set_id, asset_id=asset.id
             )
@@ -2582,7 +2625,14 @@ class GenerationQueue:
                 .values(result_asset_id=asset.id)
             )
             await session.commit()
-            return asset.id
+            if asset.expires_at is not None:
+                from utils.background_tasks import notify_asset_expiration_changed
+
+                notify_asset_expiration_changed()
+            return {
+                'asset_id': asset.id,
+                'expires_at': asset.expires_at.isoformat() if asset.expires_at else None,
+            }
 
     async def _wait_for_metadata(self, media_id: int, profile_id: str = None, timeout: int = 30):
         """Wait for metadata processing to complete for a media item."""
@@ -3193,6 +3243,10 @@ class GenerationQueue:
 
             # ONE commit for all database operations
             await session.commit()
+            if auto_delete_at is not None:
+                from utils.background_tasks import notify_asset_expiration_changed
+
+                notify_asset_expiration_changed()
             log.info(f"Job {job.id}: Committed all post-generation DB operations for media {media_item.id}")
 
         if not ephemeral_run_id and media_item.storage_object_id is not None:
@@ -3208,9 +3262,6 @@ class GenerationQueue:
                 )
 
         log.debug(f"Job {job.id}: TIMING - total post-gen DB ops: {(_time.time() - _t0)*1000:.0f}ms")
-
-        # Clear auto-delete flags on source media (separate, non-critical operation)
-        await self._clear_auto_delete_for_sources(lineage_data.get('source_inputs', []), profile_id)
 
         # Update the generation_grid chat item with the media_id
         _t0 = _time.time()

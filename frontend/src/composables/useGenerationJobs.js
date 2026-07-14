@@ -2,6 +2,7 @@ import { ref, computed, unref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useWebSocket } from './useWebSocket'
 import { useMediaApi } from './useMediaApi'
+import { useAssetApi } from './useAssetApi'
 import { getCurrentProfileId } from './useProfile'
 import { getApiBase } from '../apiConfig'
 
@@ -29,6 +30,7 @@ export function useGenerationJobs(options = {}) {
 
   const { on: onWebSocketEvent } = useWebSocket()
   const { getMarkers, addMarkerToMedia, removeMarkerFromMedia } = useMediaApi()
+  const { addMarker: addMarkerToAsset, removeMarker: removeMarkerFromAsset } = useAssetApi()
 
   // State
   const jobs = ref([])
@@ -191,6 +193,12 @@ export function useGenerationJobs(options = {}) {
         if (jobWithSetId) {
           group.output_set_id = jobWithSetId.batch_output_set_id
         }
+      }
+      if (!group.result_asset_id) {
+        group.result_asset_id = group.jobs.find(j => j.result_asset_id)?.result_asset_id || null
+      }
+      if (!group.expires_at) {
+        group.expires_at = group.jobs.find(j => j.expires_at)?.expires_at || null
       }
 
       // Add output set data for display
@@ -556,6 +564,16 @@ export function useGenerationJobs(options = {}) {
     delete mediaGenerationTimes.value[media_id]
   }
 
+  function handleAssetsRemoved(data) {
+    const currentProfile = getCurrentProfileId()
+    if (data.profile_id && data.profile_id !== currentProfile) return
+    const assetIds = new Set(
+      data.asset_ids || (data.asset_id ? [data.asset_id] : [])
+    )
+    if (!assetIds.size) return
+    jobs.value = jobs.value.filter(job => !assetIds.has(job.result_asset_id))
+  }
+
   function handleBulkMediaDeleted(data) {
     const { media_ids } = data
     if (!media_ids?.length) return
@@ -597,7 +615,16 @@ export function useGenerationJobs(options = {}) {
   }
 
   async function handleBatchCompleted(data) {
-    const { batch_id, completed, failed, total, output_set_id, status } = data
+    const {
+      batch_id,
+      completed,
+      failed,
+      total,
+      output_set_id,
+      status,
+      result_asset_id,
+      expires_at,
+    } = data
     if (!batch_id) return
 
     // Check profile filter
@@ -612,8 +639,18 @@ export function useGenerationJobs(options = {}) {
         completed,
         failed,
         output_set_id,
+        result_asset_id,
+        expires_at,
         status  // 'completed', 'partial', or 'failed'
       }
+    }
+
+    if (result_asset_id) {
+      jobs.value = jobs.value.map(job => (
+        job.batch_id === batch_id
+          ? { ...job, result_asset_id, expires_at: expires_at ?? null }
+          : job
+      ))
     }
 
     // Always reload media hash for output set (hash changes as items are added)
@@ -703,17 +740,19 @@ export function useGenerationJobs(options = {}) {
     return markers.some(m => m.id === markerId)
   }
 
-  async function toggleMarker(mediaId, marker) {
+  async function toggleMarker(mediaId, assetId, marker) {
     const has = hasMarker(mediaId, marker.id)
     try {
       if (has) {
-        await removeMarkerFromMedia(mediaId, marker.id)
+        if (assetId) await removeMarkerFromAsset(assetId, marker.id)
+        else await removeMarkerFromMedia(mediaId, marker.id)
         mediaMarkers.value = {
           ...mediaMarkers.value,
           [mediaId]: (mediaMarkers.value[mediaId] || []).filter(m => m.id !== marker.id)
         }
       } else {
-        await addMarkerToMedia(mediaId, marker.id)
+        if (assetId) await addMarkerToAsset(assetId, marker.id)
+        else await addMarkerToMedia(mediaId, marker.id)
         mediaMarkers.value = {
           ...mediaMarkers.value,
           [mediaId]: [...(mediaMarkers.value[mediaId] || []), marker]
@@ -938,6 +977,9 @@ export function useGenerationJobs(options = {}) {
     unsubscribers.push(onWebSocketEvent('generation_job_cancelled', handleJobCancelled))
     unsubscribers.push(onWebSocketEvent('media_updated', handleMediaUpdated))
     unsubscribers.push(onWebSocketEvent('auto_delete_removed', handleAutoDeleteRemoved))
+    unsubscribers.push(onWebSocketEvent('asset_deleted', handleAssetsRemoved))
+    unsubscribers.push(onWebSocketEvent('assets_trashed', handleAssetsRemoved))
+    unsubscribers.push(onWebSocketEvent('asset_identity_deleted', handleAssetsRemoved))
     unsubscribers.push(onWebSocketEvent('media_deleted', handleMediaDeleted))
     unsubscribers.push(onWebSocketEvent('media_bulk_deleted', handleBulkMediaDeleted))
     unsubscribers.push(onWebSocketEvent('batch_job_completed', handleBatchJobCompleted))

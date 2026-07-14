@@ -430,6 +430,11 @@ async function loadImage() {
     sourceItem.value = item
     targetAssetId.value = item.asset_id || null
     baseRevisionId.value = item.revision_id || null
+    if (targetAssetId.value) {
+      // Opening an Asset in a mutable editor is first use, even if the user
+      // ultimately closes without saving.
+      await axios.delete(`/api/assets/item/${targetAssetId.value}/expiration`)
+    }
     await refreshAssetVersionState({ initial: true })
 
     // Determine which image to load as the source

@@ -1329,6 +1329,10 @@ async def add_assets_to_project(
     for asset_id in valid_ids:
         await attach_asset_to_project(session, project_id, asset_id)
     await session.commit()
+    if valid_ids:
+        from asset_association_service import broadcast_assets_retained
+
+        await broadcast_assets_retained(session, valid_ids, ws_manager)
     return {"status": "success", "added": len(valid_ids)}
 
 

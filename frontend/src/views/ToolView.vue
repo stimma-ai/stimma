@@ -748,7 +748,7 @@
             <button
               v-for="marker in stageMarkers"
               :key="marker.id"
-              @click.stop="handleToggleMarker({ mediaId: stageCurrentMediaId, marker })"
+              @click.stop="handleToggleMarker({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id, marker })"
               :class="['w-8 h-8 rounded-lg flex items-center justify-center transition-all border-2', stageHasMarker(marker.id) ? 'bg-black/80' : 'bg-black/40 border-transparent hover:bg-black/60 text-white/50 hover:text-white']"
               :style="stageHasMarker(marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
               :title="stageHasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
@@ -771,7 +771,7 @@
             </svg>
           </button>
           <button
-            @click.stop="handleTrashMedia(stageCurrentMediaId)"
+            @click.stop="handleTrashMedia({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id })"
             class="w-8 h-8 rounded-lg flex items-center justify-center bg-black/40 hover:bg-red-500/80 text-white/50 hover:text-white transition-all"
             title="Move to Trash"
           >
@@ -947,6 +947,8 @@ import { usePromptWarmPool } from '../composables/usePromptWarmPool'
 import { useTabNavigation } from '../composables/useTabNavigation'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import { useMediaApi } from '../composables/useMediaApi'
+import { useAssetApi } from '../composables/useAssetApi'
+import { useExpirationClock } from '../composables/useExpirationClock'
 import { useProvidersApi, type ProviderTool } from '../composables/useProvidersApi'
 import { useToolState, type ToolState } from '../composables/useToolState'
 import { usePresetsApi } from '../composables/usePresetsApi'
@@ -960,7 +962,6 @@ import { convertMaskDataUrl } from '../utils/maskFormat'
 import { getToolDefaults } from '../utils/generationDefaults'
 import { parseGenerationConfig, type GenerationConfigUpdate } from '../utils/parseGenerationConfig'
 import type { PromptMetadata } from '../types/generationMetadata'
-import { formatRemainingTime } from '../utils/timeFormat'
 import { isStimmaCloudTool as isStimmaCloud } from '../utils/stimmaCloud'
 import { copyToClipboard } from '../utils/clipboard'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
@@ -1271,6 +1272,7 @@ function handleStageContextMenu(event: MouseEvent) {
   stageContextMenu.show({
     event,
     mediaId: stageCurrentMediaId.value,
+    assetId: stageCurrentJob.value?.result_asset_id,
     fileHash: stageCurrentHash.value ?? undefined,
   })
 }
@@ -1343,7 +1345,9 @@ const { getProviderTool, getToolState, saveToolState, refreshProviderTools, subs
 // WebSocket subscription for provider status changes
 let unsubscribeFromProviderChanges: (() => void) | null = null
 let foreverModeUnsubscribers: Array<() => void> = []
-const { getMediaItem, getMediaFileUrl, getThumbnailUrl, getMseLoopUrls, getProject, deleteMedia } = useMediaApi()
+const { getMediaItem, getMediaFileUrl, getThumbnailUrl, getMseLoopUrls, getProject } = useMediaApi()
+const { trash: trashAsset } = useAssetApi()
+const { formatRemainingTime } = useExpirationClock()
 const { compareState, enterCompare, exitCompare, swapImages: swapCompareImages } = useCompare()
 
 // Tool data - now a provider tool with state
@@ -3795,14 +3799,15 @@ async function loadPresetFromQuery() {
   }
 }
 
-// Tile/hero quick actions: trash a bad gen, or remix straight back into this
-// tool. Trash relies on the media_deleted broadcast to drop the tile from the
-// queue, so no local state cleanup is needed here.
-async function handleTrashMedia(mediaId: number) {
+// Tool results are Asset projections. Trashing one removes that Asset from the
+// result feed while preserving Media retained by chats or containers.
+async function handleTrashMedia({ mediaId, assetId }: { mediaId: number, assetId?: number }) {
   try {
-    await deleteMedia(mediaId)
+    if (!assetId) throw new Error(`Generated Media ${mediaId} has no Asset identity`)
+    await trashAsset(assetId)
   } catch (err) {
     console.error('Failed to move to trash:', err)
+    addToast('Failed to move Asset to Trash', 'error')
   }
 }
 
@@ -5936,8 +5941,8 @@ async function openMediaBatchSlideshow(mediaIds: number[]) {
   })
 }
 
-async function handleToggleMarker({ mediaId, marker }: { mediaId: number, marker: any }) {
-  await jobsManager?.toggleMarker(mediaId, marker)
+async function handleToggleMarker({ mediaId, assetId, marker }: { mediaId: number, assetId?: number, marker: any }) {
+  await jobsManager?.toggleMarker(mediaId, assetId, marker)
 }
 
 function handleMediaLoadError(mediaId: number) {

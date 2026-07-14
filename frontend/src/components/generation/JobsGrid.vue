@@ -104,10 +104,14 @@
                 v-if="item.batch.output_set_hash"
                 :file-hash="item.batch.output_set_hash"
                 :media-id="item.batch.output_set_id"
+                :asset-id="item.batch.result_asset_id"
                 :thumbnail-size="thumbnailSize"
                 alt="Batch output set"
                 container-class="w-full h-full"
               />
+              <div v-if="item.batch.expires_at && formatRemainingTime(item.batch.expires_at)" class="absolute top-2 left-2 z-[5] rounded-md bg-black/60 px-1.5 py-1 backdrop-blur-md">
+                <span class="text-xs font-semibold leading-none text-amber-500">{{ formatRemainingTime(item.batch.expires_at) }}</span>
+              </div>
               <!-- Set badge overlay (upper right, matching browser) -->
               <div class="absolute top-2 right-2 z-[5] bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1">
                 <svg class="w-4 h-4 flex-shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -120,7 +124,7 @@
                 <button
                   v-for="marker in markers"
                   :key="marker.id"
-                  @click.stop="$emit('toggle-marker', { mediaId: item.batch.output_set_id, marker })"
+                  @click.stop="$emit('toggle-marker', { mediaId: item.batch.output_set_id, assetId: item.batch.result_asset_id, marker })"
                   :class="[
                     'w-7 h-7 rounded-md flex items-center justify-center transition-all border-2',
                     hasMarker(item.batch.output_set_id, marker.id)
@@ -223,7 +227,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatRemainingTime } from '../../utils/timeFormat'
 import { MediaImage, AppImage } from '../media'
 import PipelineProgressBar from './postprocessing/PipelineProgressBar.vue'
 import FailedJobRow from './FailedJobRow.vue'
@@ -234,8 +237,10 @@ import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { createDragPreview, handleDragEnd } from '../../composables/useDragPreview'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
 import { isVideo as isVideoMedia } from '../../utils/mediaTypes'
+import { useExpirationClock } from '../../composables/useExpirationClock'
 
 const { getMediaFileUrl, getThumbnailUrl } = useMediaApi()
+const { formatRemainingTime } = useExpirationClock()
 const contextMenu = useMediaContextMenu()
 
 // Helper to build profile-aware media URLs using db_guid
@@ -252,7 +257,8 @@ interface Job {
   status: string
   model_name?: string
   result_media_id?: number
-  auto_delete_at?: string
+  result_asset_id?: number
+  expires_at?: string
   parameters?: string
   error?: string
   created_at?: string
@@ -277,6 +283,8 @@ interface BatchInfo {
   output_set_title?: string
   output_set_member_count?: number
   output_set_data?: any
+  result_asset_id?: number
+  expires_at?: string
   status?: string
   jobs: Job[]
 }
@@ -352,7 +360,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   (e: 'job-click', job: Job): void
-  (e: 'toggle-marker', data: { mediaId: number, marker: Marker }): void
+  (e: 'toggle-marker', data: { mediaId: number, assetId?: number, marker: Marker }): void
   (e: 'dismiss-job', jobId: number): void
   (e: 'retry-job', jobId: number): void
   (e: 'cancel-job', jobId: number): void
@@ -363,7 +371,7 @@ const emit = defineEmits<{
   (e: 'media-load-error', mediaId: number): void
   (e: 'retry-chain', chainRunId: number): void
   (e: 'dismiss-chain', chainRunId: number): void
-  (e: 'trash-media', mediaId: number): void
+  (e: 'trash-media', data: { mediaId: number, assetId?: number }): void
   (e: 'remix-media', mediaId: number): void
 }>()
 

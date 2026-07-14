@@ -285,6 +285,7 @@ async function pollJobs() {
             row.output.status = 'complete'
           }
           row.output.media_id = status.result_media_id
+          row.output.asset_id = status.result_asset_id || null
           row.output.auto_delete_at = status.auto_delete_at
           row.output.file_format = status.file_format
           hasUpdates = true

@@ -6,7 +6,11 @@ from datetime import datetime, timedelta
 import pytest
 from sqlalchemy import func, select
 
-from asset_migration import apply_asset_backfill, classify_legacy_media
+from asset_migration import (
+    apply_asset_backfill,
+    classify_legacy_media,
+    repair_generation_job_asset_links,
+)
 from asset_service import acquire_media_owner, commit_revision, create_asset_from_media
 from database import (
     Asset,
@@ -14,6 +18,7 @@ from database import (
     AssetMigrationState,
     AssetRevision,
     ContainerMember,
+    GenerationJob,
     MediaOwner,
     MediaTag,
     Tag,
@@ -132,3 +137,29 @@ async def test_classifier_respects_existing_asset_revisions_and_context_owners(
         assert by_media[current.id]["classification"] == "existing_asset_revision"
         assert by_media[intermediate.id]["classification"] == "context_media"
         assert asset.state == "active"
+
+
+@pytest.mark.asyncio
+async def test_historical_generation_jobs_link_to_backfilled_asset(db_session):
+    async with db_session() as session:
+        media = await create_media_item(session, file_path="/tmp/job-backfill.png")
+        asset = await create_asset_from_media(session, media_id=media.id)
+        job = GenerationJob(
+            status="completed",
+            task_type="text-to-image",
+            generator_type="test",
+            generator_name="test",
+            model_name="test",
+            parameters="{}",
+            folder_path="/tmp",
+            output_disposition="asset",
+            result_media_id=media.id,
+            created_at=datetime.utcnow(),
+        )
+        session.add(job)
+        await session.commit()
+
+        assert await repair_generation_job_asset_links(session) == 1
+        await session.commit()
+        await session.refresh(job)
+        assert job.result_asset_id == asset.id

@@ -889,6 +889,15 @@ async def get_media_item(
     if revision is not None:
         item_dict["asset_id"] = revision.asset_id
         item_dict["revision_id"] = revision.id
+        asset = await session.get(Asset, revision.asset_id)
+        if (
+            asset is not None
+            and asset.state == "active"
+            and asset.deleted_at is None
+            and asset.expires_at is not None
+        ):
+            # Compatibility projection only: the deadline remains Asset state.
+            item_dict["auto_delete_at"] = asset.expires_at.isoformat()
     return MediaItemResponse(**item_dict)
 
 
@@ -1641,6 +1650,12 @@ async def create_set_from_media(
         session, media_id=set_media_item.id, asset_id=set_asset.id
     )
     await session.commit()
+    if member_assets:
+        from asset_association_service import broadcast_assets_retained
+
+        await broadcast_assets_retained(
+            session, [asset.id for asset in member_assets], ws_manager
+        )
     from storage_service import cleanup_staged_source
 
     await cleanup_staged_source(session, media_id=set_media_item.id)
@@ -1783,6 +1798,12 @@ async def save_edited_image(
             source_asset = await session.get(Asset, source_revision.asset_id)
         if source_asset is None or source_asset.state != "active":
             raise HTTPException(status_code=400, detail="Source Asset is unavailable")
+
+        # Entering the editor is a use of the Asset. The frontend clears this
+        # when the editor opens; repeat it transactionally on save so every
+        # editor client honors the same retention boundary.
+        from asset_association_service import clear_asset_expiration
+        await clear_asset_expiration(session, source_asset.id)
 
         parent_revision = source_revision
         if base_revision_id is not None:

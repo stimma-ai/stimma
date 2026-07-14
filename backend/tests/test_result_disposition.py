@@ -159,6 +159,54 @@ async def test_show_intermediate_then_final_promotes_and_releases_chat_owner(db_
 
 
 @pytest.mark.asyncio
+async def test_show_final_carries_context_job_expiration_to_new_asset(db_session):
+    async with db_session() as session:
+        media = await create_media_item(session)
+        completed_at = datetime.utcnow()
+        job = _job(
+            status="completed",
+            output_disposition="context",
+            output_context_kind="chat",
+            output_context_id="93",
+            result_media_id=media.id,
+            auto_delete_duration="1h",
+            completed_at=completed_at,
+        )
+        session.add(job)
+        await acquire_media_owner(
+            session,
+            media_id=media.id,
+            root_kind="chat",
+            root_id="93",
+            role="result",
+        )
+        await session.commit()
+
+        asset_ids = await _apply_show_disposition(
+            session=session,
+            chat_id=93,
+            media_ids=[media.id],
+            role="final",
+        )
+        await session.commit()
+
+        asset = await session.get(Asset, asset_ids[0])
+        assert asset.expires_at == completed_at + timedelta(hours=1)
+
+        # A repeated show must not resurrect a deadline cleared by later use.
+        asset.expires_at = None
+        await session.commit()
+        await _apply_show_disposition(
+            session=session,
+            chat_id=93,
+            media_ids=[media.id],
+            role="final",
+        )
+        await session.commit()
+        assert (await session.get(Asset, asset.id)).expires_at is None
+
+
+@pytest.mark.asyncio
 async def test_show_final_grid_commits_one_asset_with_embedded_cells(
     db_session, tmp_path
 ):

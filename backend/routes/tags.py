@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy import select, func, delete as sql_delete, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import MediaItem, MediaTag, Tag
+from database import AssetRevision, MediaItem, MediaTag, Tag
 from core.dependencies import get_db_session
 from models.api_models import TagResponse, TagCreateRequest, BulkTagRequest
 from utils.websocket import ws_manager, broadcast_media_updated
@@ -14,6 +14,26 @@ from utils.background_tasks import clear_auto_delete_for_media
 
 router = APIRouter(prefix="/api", tags=["tags"])
 log = get_logger(__name__)
+
+
+async def _mirror_tags_to_assets(session: AsyncSession, media_ids: list[int]) -> None:
+    """Keep legacy Media tag writes coherent with canonical Asset tags."""
+    from asset_association_service import mirror_media_associations_to_asset
+
+    rows = (
+        await session.execute(
+            select(AssetRevision).where(
+                AssetRevision.primary_media_id.in_(media_ids),
+                AssetRevision.deleted_at.is_(None),
+            )
+        )
+    ).scalars().all()
+    for revision in rows:
+        await mirror_media_associations_to_asset(
+            session, media_id=revision.primary_media_id, asset_id=revision.asset_id
+        )
+    if rows:
+        await session.commit()
 
 @router.get("/tags", response_model=List[TagResponse])
 async def get_tags(
@@ -121,9 +141,10 @@ async def bulk_tag_operation(
 
     await session.commit()
 
-    # Clear auto-delete for tagged items (only if tags were added)
-    if request.tag_texts and added_count > 0:
+    # The tag action is itself retention, including idempotent re-adds.
+    if request.tag_texts:
         await clear_auto_delete_for_media(session, request.media_ids, ws_manager)
+        await _mirror_tags_to_assets(session, request.media_ids)
 
     # Fetch all affected media items and broadcast updates
     media_result = await session.execute(
@@ -188,9 +209,10 @@ async def add_tags_to_media(
 
     await session.commit()
 
-    # Clear auto-delete for tagged item (only if tags were added)
-    if added_tags:
+    # The tag action is itself retention, including idempotent re-adds.
+    if request.tags:
         await clear_auto_delete_for_media(session, [media_id], ws_manager)
+        await _mirror_tags_to_assets(session, [media_id])
 
     # Broadcast media_updated event
     await broadcast_media_updated(media, ["tags"], session)

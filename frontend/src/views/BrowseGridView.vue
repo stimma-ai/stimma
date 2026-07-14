@@ -1970,6 +1970,7 @@ onMounted(async () => {
   }))
 
   wsUnsubscribers.push(wsOn('asset_deleted', (data) => {
+    if (data.profile_id && data.profile_id !== getCurrentProfileId()) return
     const { asset_id } = data
     if (props.isTrashMode) {
       softReloadMedia()
@@ -1980,6 +1981,7 @@ onMounted(async () => {
   }))
 
   wsUnsubscribers.push(wsOn('assets_trashed', (data) => {
+    if (data.profile_id && data.profile_id !== getCurrentProfileId()) return
     const { asset_ids } = data
     if (props.isTrashMode) {
       softReloadMedia()

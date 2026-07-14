@@ -215,12 +215,14 @@ import MarkerBadges from './MarkerBadges.vue'
 import ActionMenu from './ActionMenu.vue'
 import EmptyState from './EmptyState.vue'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
-import { formatRemainingTime } from '../utils/timeFormat'
+import { useExpirationClock } from '../composables/useExpirationClock'
 import { createDragPreview, preloadDragPreview, handleDragEnd as dragPreviewHandleDragEnd } from '../composables/useDragPreview'
 import { getMediaType, isVideo as isVideoType, isAudio, getBadgeConfig, formatDuration as formatMediaDuration } from '../utils/mediaTypes'
 import { makeProfileKey } from '../utils/storageKeys'
 import { MseLoopPlayback } from '../utils/mseLoopPlayback'
 import { assetIdOf, mediaIdOf } from '../utils/assetIdentity'
+
+const { formatRemainingTime } = useExpirationClock()
 
 const props = defineProps({
   /**

@@ -1,5 +1,6 @@
 """Background tasks for media monitoring and cleanup."""
 import asyncio
+from typing import Any
 from core.logging import get_logger
 from datetime import datetime
 from sqlalchemy import select, func, and_
@@ -10,6 +11,70 @@ from database_registry import get_database_registry
 from config import get_settings
 
 log = get_logger(__name__)
+
+# The cleanup loop normally sleeps until the earliest deadline it observed.
+# Generation can introduce a much earlier deadline while that sleep is in
+# progress, so producers wake the loop after the transaction commits.
+_cleanup_schedule_changed = asyncio.Event()
+
+_DIRECT_MEDIA_INPUT_KEYS = {
+    "input_images",
+    "input_videos",
+    "input_audios",
+    "media_id",
+    "media_ids",
+    "set_id",
+}
+
+
+def notify_asset_expiration_changed() -> None:
+    """Wake the Asset-expiration scheduler after a committed deadline change."""
+    _cleanup_schedule_changed.set()
+
+
+def generation_input_media_ids(parameters: dict[str, Any]) -> list[int]:
+    """Collect explicit Media identities from an accepted tool invocation."""
+    found: set[int] = set()
+
+    def collect(value: Any) -> None:
+        if isinstance(value, bool) or value is None:
+            return
+        if isinstance(value, int):
+            found.add(value)
+            return
+        if isinstance(value, str) and value.isdigit():
+            found.add(int(value))
+            return
+        if isinstance(value, list):
+            for item in value:
+                collect(item)
+            return
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if (
+                    key in _DIRECT_MEDIA_INPUT_KEYS
+                    or key.endswith("_media_id")
+                    or key.endswith("_media_ids")
+                ):
+                    collect(item)
+
+    for key, value in parameters.items():
+        if isinstance(value, dict) or (
+            key in _DIRECT_MEDIA_INPUT_KEYS
+            or key.endswith("_media_id")
+            or key.endswith("_media_ids")
+        ):
+            collect(value)
+    return sorted(found)
+
+
+async def _wait_for_cleanup_schedule(timeout: float) -> None:
+    try:
+        await asyncio.wait_for(_cleanup_schedule_changed.wait(), timeout=timeout)
+    except asyncio.TimeoutError:
+        pass
+    finally:
+        _cleanup_schedule_changed.clear()
 
 # Processing phases to monitor
 BROADCAST_PHASES = ['metadata', 'clip', 'face_detection', 'vlm_caption']
@@ -162,7 +227,7 @@ async def cleanup_expired_images(ws_manager):
                 sleep_seconds = 60
                 log.debug("CLEANUP: No pending expirations, checking again in 60 seconds")
 
-            await asyncio.sleep(sleep_seconds)
+            await _wait_for_cleanup_schedule(sleep_seconds)
 
         except asyncio.CancelledError:
             log.info("CLEANUP: Shutting down")
@@ -274,7 +339,7 @@ async def monitor_processing_stats(ws_manager):
             await asyncio.sleep(5)  # Longer sleep on error
 
 
-async def clear_auto_delete_for_media(session: AsyncSession, media_ids: list[int], ws_manager):
+async def clear_auto_delete_for_media(session: AsyncSession, media_ids: list[int], ws_manager=None):
     """
     Clear auto-delete settings for media items when they are tagged, marked, or collected.
     This prevents auto-deletion of images that the user has actively curated.
@@ -304,9 +369,10 @@ async def clear_auto_delete_for_media(session: AsyncSession, media_ids: list[int
     asset_rows = (
         await session.execute(
             select(Asset, AssetRevision.primary_media_id)
-            .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+            .join(AssetRevision, AssetRevision.asset_id == Asset.id)
             .where(
                 AssetRevision.primary_media_id.in_(media_ids),
+                AssetRevision.deleted_at.is_(None),
                 Asset.deleted_at.is_(None),
             )
         )
@@ -316,24 +382,25 @@ async def clear_auto_delete_for_media(session: AsyncSession, media_ids: list[int
         if asset.expires_at is not None:
             asset.expires_at = None
             affected_asset_ids.append(asset.id)
-        if media_id not in affected_media_ids:
-            affected_media_ids.append(media_id)
+            if media_id not in affected_media_ids:
+                affected_media_ids.append(media_id)
 
     if not affected_media_ids and not affected_asset_ids:
         return
 
     await session.commit()
 
-    # Broadcast WebSocket events to update UI
-    for media_id in affected_media_ids:
-        await ws_manager.broadcast('auto_delete_removed', {
-            'media_id': media_id
-        })
-    if affected_asset_ids:
-        await ws_manager.broadcast('assets_updated', {
-            'asset_ids': affected_asset_ids,
-            'fields': ['expires_at'],
-        })
+    # Broadcast WebSocket events to update UI when called from an app process.
+    if ws_manager is not None:
+        for media_id in affected_media_ids:
+            await ws_manager.broadcast('auto_delete_removed', {
+                'media_id': media_id
+            })
+        if affected_asset_ids:
+            await ws_manager.broadcast('assets_updated', {
+                'asset_ids': affected_asset_ids,
+                'fields': ['expires_at'],
+            })
 
 
 async def monitor_system_warnings(ws_manager):

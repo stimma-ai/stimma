@@ -58,25 +58,32 @@ async def delete_media(
     if media.deleted_at is not None:
         raise HTTPException(status_code=400, detail="Asset already deleted")
 
-    deleted_ids = [media_id]
-
     asset_revision = await _asset_revision_for_media(session, media_id)
     if asset_revision is not None:
-        from asset_service import trash_asset
-        await trash_asset(session, asset_id=asset_revision.asset_id)
+        from asset_service import AssetServiceError, trash_asset
+        try:
+            await trash_asset(session, asset_id=asset_revision.asset_id)
+        except AssetServiceError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        await session.commit()
+        await ws_manager.broadcast(
+            "asset_deleted", {"asset_id": asset_revision.asset_id}
+        )
+        return {
+            "status": "success",
+            "message": "Asset moved to trash",
+            "deleted_count": 1,
+        }
 
-    # Soft delete the main item
+    # Bare contextual Media has no Asset lifecycle. Preserve the compatibility
+    # behavior only for that case.
     media.deleted_at = datetime.utcnow()
     media.auto_delete_at = None  # Clear expiration time
     await session.commit()
 
-    # Broadcast delete events for all deleted items
-    if len(deleted_ids) > 1:
-        await ws_manager.broadcast("media_bulk_deleted", {"media_ids": deleted_ids})
-    else:
-        await ws_manager.broadcast("media_deleted", {"media_id": media_id})
+    await ws_manager.broadcast("media_deleted", {"media_id": media_id})
 
-    return {"status": "success", "message": "Asset moved to trash", "deleted_count": len(deleted_ids)}
+    return {"status": "success", "message": "Media moved to trash", "deleted_count": 1}
 
 
 @router.post("/media/batch/delete")
@@ -86,6 +93,8 @@ async def bulk_delete_media(
 ):
     """Compatibility bulk soft-delete without implicit containment cascades."""
     all_deleted_ids = []
+    bare_media_ids = []
+    trashed_asset_ids = set()
     errors = []
     BATCH_SIZE = 500
 
@@ -111,22 +120,33 @@ async def bulk_delete_media(
 
         asset_revision = await _asset_revision_for_media(session, media_id)
         if asset_revision is not None:
-            from asset_service import trash_asset
-            await trash_asset(session, asset_id=asset_revision.asset_id)
-
-        # Soft delete - just set the timestamp
-        media.deleted_at = datetime.utcnow()
-        media.auto_delete_at = None
+            if asset_revision.asset_id not in trashed_asset_ids:
+                from asset_service import AssetServiceError, trash_asset
+                try:
+                    await trash_asset(session, asset_id=asset_revision.asset_id)
+                except AssetServiceError as exc:
+                    errors.append({"media_id": media_id, "error": str(exc)})
+                    all_deleted_ids.pop()
+                    continue
+                trashed_asset_ids.add(asset_revision.asset_id)
+        else:
+            media.deleted_at = datetime.utcnow()
+            media.auto_delete_at = None
+            bare_media_ids.append(media_id)
 
     await session.commit()
 
-    # Broadcast event with all deleted IDs (including cascade deleted members)
-    if all_deleted_ids:
+    if trashed_asset_ids:
+        await ws_manager.broadcast(
+            "assets_trashed", {"asset_ids": sorted(trashed_asset_ids)}
+        )
+    if bare_media_ids:
         await ws_manager.broadcast("media_bulk_deleted", {
-            "count": len(all_deleted_ids),
-            "media_ids": all_deleted_ids
+            "count": len(bare_media_ids),
+            "media_ids": bare_media_ids
         })
 
+    if all_deleted_ids:
         from telemetry import get_telemetry_client
         get_telemetry_client().track("media_deleted", {"count": len(all_deleted_ids)})
 

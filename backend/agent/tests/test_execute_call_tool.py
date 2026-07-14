@@ -8,6 +8,7 @@ reach the provider intact — and are NOT clobbered by the tool's schema default
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from unittest.mock import AsyncMock, patch
@@ -100,6 +101,48 @@ async def test_input_values_not_clobbered_by_schema_defaults():
     assert p["steps"] == 12
     assert p["guidance"] == 1
     assert captured["task_type"] == "text-to-image"
+
+
+@pytest.mark.asyncio
+async def test_chat_generation_auto_delete_preference_reaches_queue():
+    captured = {}
+
+    class _Queue:
+        async def submit_job(self, **kw):
+            captured.update(kw)
+            raise RuntimeError("__stop__")
+
+    class _SettingsSession:
+        async def get(self, model, chat_id):
+            return SimpleNamespace(
+                generation_settings='{"auto_delete_duration":"1m"}'
+            )
+
+    class _SettingsContext:
+        async def __aenter__(self):
+            return _SettingsSession()
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    fake_db = SimpleNamespace(async_session_maker=lambda: _SettingsContext())
+    fake_registry = SimpleNamespace(get_database=lambda profile_id: fake_db)
+
+    with patch.object(ct, "ProviderRegistry", _Reg), \
+         patch.object(ct, "get_generation_queue", lambda: _Queue()), \
+         patch.object(ct, "_get_default_folder", lambda *a, **k: "/tmp"), \
+         patch("database_registry.get_database_registry", lambda: fake_registry):
+        with pytest.raises(RuntimeError, match="__stop__"):
+            await ct.execute_call_tool(
+                tool_id="comfyui:mock",
+                parameters={"prompt": "short-lived"},
+                task_type_override="text-to-image",
+                session=object(),
+                chat_id=17,
+            )
+
+    assert captured["auto_delete_duration"] == "1m"
+    assert captured["output_disposition"] == "context"
 
 
 @pytest.mark.asyncio

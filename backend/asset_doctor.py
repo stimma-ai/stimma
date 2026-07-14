@@ -128,6 +128,23 @@ COUNT_CHECKS = (
         "live revisions without their primary Media ownership edge",
     ),
     (
+        "completed_asset_jobs_missing_asset_link",
+        """
+        SELECT count(*)
+        FROM generation_jobs j
+        WHERE j.status = 'completed'
+          AND j.output_disposition = 'asset'
+          AND j.result_media_id IS NOT NULL
+          AND j.result_asset_id IS NULL
+          AND EXISTS (
+              SELECT 1 FROM asset_revisions r
+              WHERE r.primary_media_id = j.result_media_id
+                AND r.deleted_at IS NULL
+          )
+        """,
+        "completed Asset-result jobs not linked to their backfilled Asset",
+    ),
+    (
         "duplicate_live_owner_edges",
         """
         SELECT count(*) FROM (

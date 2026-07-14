@@ -7,6 +7,7 @@ from hashlib import sha1
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..tools_registry import tool, ToolParameter
@@ -170,11 +171,9 @@ async def _apply_show_disposition(
     """Retain intermediates or atomically promote finals for this chat."""
     from datetime import datetime
 
-    from sqlalchemy import select
-
     from asset_association_service import mirror_media_associations_to_asset
     from asset_service import acquire_media_owner, create_asset_from_media
-    from database import AssetRevision, MediaItem, MediaOwner
+    from database import AssetRevision, GenerationJob, MediaItem, MediaOwner
 
     results: list[int | None] = []
     for media_id in media_ids:
@@ -201,6 +200,28 @@ async def _apply_show_disposition(
             results.append(existing_revision.asset_id if existing_revision else None)
             continue
 
+        expires_at = None
+        generation_job = await session.scalar(
+            select(GenerationJob)
+            .where(
+                GenerationJob.result_media_id == media_id,
+                GenerationJob.status == "completed",
+            )
+            .order_by(GenerationJob.id.desc())
+            .limit(1)
+        )
+        if (
+            existing_revision is None
+            and generation_job is not None
+            and generation_job.auto_delete_duration
+            and generation_job.completed_at is not None
+        ):
+            from generation_queue import parse_duration
+
+            duration = parse_duration(generation_job.auto_delete_duration)
+            if duration is not None:
+                expires_at = generation_job.completed_at + duration
+
         embedded_media_ids: list[int] = []
         if media.file_format in {"stimmaset.json", "stimmagrid.json"}:
             from container_service import (
@@ -224,6 +245,7 @@ async def _apply_show_disposition(
                 origin_id=str(chat_id),
                 idempotency_key=f"chat:{chat_id}:media:{media_id}:final",
             )
+            asset.expires_at = expires_at
         else:
             asset = await create_asset_from_media(
                 session,
@@ -231,6 +253,7 @@ async def _apply_show_disposition(
                 origin_type="chat_final",
                 origin_id=str(chat_id),
                 idempotency_key=f"chat:{chat_id}:media:{media_id}:final",
+                expires_at=expires_at,
             )
         await mirror_media_associations_to_asset(
             session, media_id=media_id, asset_id=asset.id
@@ -388,6 +411,21 @@ async def _create_display_item(
     )
     session.add(display_item)
     await session.commit()
+    if asset_ids:
+        from database import Asset
+
+        has_expiration = await session.scalar(
+            select(Asset.id).where(
+                Asset.id.in_(asset_ids),
+                Asset.expires_at.is_not(None),
+                Asset.state == "active",
+                Asset.deleted_at.is_(None),
+            ).limit(1)
+        )
+        if has_expiration is not None:
+            from utils.background_tasks import notify_asset_expiration_changed
+
+            notify_asset_expiration_changed()
 
     await ws_manager.broadcast("chat_item_created", {
         "chat_id": chat_id,

@@ -14,6 +14,8 @@ from database import (
     BoardAssetItem,
     BoardSection,
     MediaItem,
+    Project,
+    ProjectAsset,
 )
 
 log = get_logger(__name__)
@@ -101,7 +103,8 @@ class CleanupService:
             .where(AssetTag.deleted_at.is_(None))
             .union(
                 select(AssetMarker.asset_id).where(
-                    AssetMarker.deleted_at.is_(None)
+                    AssetMarker.deleted_at.is_(None),
+                    AssetMarker.source != "suppressed",
                 ),
                 select(BoardAssetItem.asset_id)
                 .join(
@@ -113,6 +116,12 @@ class CleanupService:
                     BoardAssetItem.deleted_at.is_(None),
                     BoardSection.deleted_at.is_(None),
                     Board.deleted_at.is_(None),
+                ),
+                select(ProjectAsset.asset_id)
+                .join(Project, Project.id == ProjectAsset.project_id)
+                .where(
+                    ProjectAsset.deleted_at.is_(None),
+                    Project.deleted_at.is_(None),
                 ),
             )
         )
@@ -224,4 +233,16 @@ class CleanupService:
             )
             .limit(1)
         )
-        return has_board is not None
+        if has_board is not None:
+            return True
+        has_project = await db.scalar(
+            select(ProjectAsset.id)
+            .join(Project, Project.id == ProjectAsset.project_id)
+            .where(
+                ProjectAsset.asset_id == asset_id,
+                ProjectAsset.deleted_at.is_(None),
+                Project.deleted_at.is_(None),
+            )
+            .limit(1)
+        )
+        return has_project is not None

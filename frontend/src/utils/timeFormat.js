@@ -52,9 +52,9 @@ export function formatRemainingTime(autoDeleteAt) {
     return '0m'
   }
 
-  const remainingMinutes = Math.round(remainingMs / (1000 * 60))
-  const remainingHours = Math.round(remainingMs / (1000 * 60 * 60))
-  const remainingDays = Math.round(remainingMs / (1000 * 60 * 60 * 24))
+  const remainingMinutes = Math.max(1, Math.ceil(remainingMs / (1000 * 60)))
+  const remainingHours = Math.max(1, Math.ceil(remainingMs / (1000 * 60 * 60)))
+  const remainingDays = Math.max(1, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)))
 
   // < 60 minutes: show minutes
   if (remainingMinutes < 60) {

@@ -5240,6 +5240,7 @@ function handleMediaBulkDeletedWs(data) {
 }
 
 function handleAssetsRemovedWs(data) {
+  if (data.profile_id && data.profile_id !== getCurrentProfileId()) return
   const ids = data.asset_ids || [data.asset_id || data.asset?.id].filter(Boolean)
   const externalIds = ids.filter((id) => !deletingItemIds.value.has(id))
   if (externalIds.length === 0) return
