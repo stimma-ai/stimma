@@ -26,7 +26,18 @@
               :agent-unavailable="agentModelUnavailable"
               @update:attachments="inputAttachments = $event"
               @submit="submitMessage"
-            />
+            >
+              <template v-if="newChatImageUnsupported" #context-header>
+                <div class="px-4 pt-2 text-xs text-amber-500">{{ newChatImageUnsupported }}</div>
+              </template>
+              <template #model-picker>
+                <ChatModelPicker
+                  :model-slug="selectedNewChatModel"
+                  :project-id="props.project.id"
+                  @update:model-slug="selectedNewChatModel = $event"
+                />
+              </template>
+            </ChatInputBox>
           </div>
         </div>
 
@@ -192,6 +203,7 @@ import { useRouter } from 'vue-router'
 import { MediaImage } from '../components/media'
 import EntityIcon from '../components/EntityIcon.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
+import ChatModelPicker from '../components/chat/ChatModelPicker.vue'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import FlowStatusPill from '../components/flow/FlowStatusPill.vue'
 import { useSlideshow } from '../composables/useSlideshow'
@@ -200,6 +212,8 @@ import { useAssetApi } from '../composables/useAssetApi'
 import { useFlowsApi } from '../composables/useFlowsApi'
 import { getDroppedAssetRefs, getDroppedMediaIds } from '../composables/useDragPreview'
 import { useAgentModelAvailability } from '../composables/useAgentModelAvailability'
+import { useAvailableModels } from '../composables/useAvailableModels'
+import { useToasts } from '../composables/useToasts'
 import { mediaIdOf } from '../utils/assetIdentity'
 
 const props = defineProps({
@@ -215,11 +229,24 @@ const { fetchAssets, addToBoard: addAssetsToBoard } = useAssetApi()
 const { listFlows } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 const { agentModelUnavailable, checkAgentModels } = useAgentModelAvailability()
+const { models: availableModels, globalDefault, getResolvedModel } = useAvailableModels()
+const { addToast } = useToasts()
 
 const chatInputBoxRef = ref(null)
 const contentRef = ref(null)
 const inputText = ref('')
 const inputAttachments = ref([])
+const selectedNewChatModel = ref(null)
+const selectedNewChatModelInfo = computed(() => {
+  const slug = selectedNewChatModel.value || globalDefault.value
+  return getResolvedModel(slug) || availableModels.value.find(model => model.slug === slug)
+})
+const newChatImageUnsupported = computed(() => {
+  if (inputAttachments.value.length === 0) return ''
+  const model = selectedNewChatModelInfo.value
+  if (!model || (model.input_modalities || ['text']).includes('image')) return ''
+  return `${model.name} can't use images. Remove the image or choose another model.`
+})
 const submitting = ref(false)
 const recentChats = ref([])
 const recentMedia = ref([])
@@ -351,6 +378,10 @@ async function openMediaSlideshow(index) {
 
 async function submitMessage() {
   if (agentModelUnavailable.value) return
+  if (newChatImageUnsupported.value) {
+    addToast(newChatImageUnsupported.value, 'error', 5000)
+    return
+  }
   const text = inputText.value.trim()
   const hasAttachments = inputAttachments.value.length > 0
   if (!text && !hasAttachments) return
@@ -361,7 +392,10 @@ async function submitMessage() {
     const response = await fetch('/api/chats', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project_id: props.project.id })
+      body: JSON.stringify({
+        project_id: props.project.id,
+        model_slug: selectedNewChatModel.value,
+      })
     })
     if (!response.ok) throw new Error('Failed to create chat')
     const newChat = await response.json()

@@ -503,8 +503,9 @@ async def create_chat(
     session: AsyncSession = Depends(get_db_session)
 ):
     """Create a new chat."""
+    project = None
     if request.project_id is not None:
-        await get_project_or_404(session, request.project_id)
+        project = await get_project_or_404(session, request.project_id)
     if request.flow_id is not None:
         from flow_service import get_flow_or_404
         await get_flow_or_404(session, request.flow_id)
@@ -533,7 +534,13 @@ async def create_chat(
         flow_id=request.flow_id,
         throttle='off',
         generation_settings=json.dumps(default_settings),
-        model_slug=request.model_slug,
+        # Snapshot the current choice. New chats follow the last explicitly
+        # selected model; existing chats do not change when that choice moves.
+        model_slug=(
+            request.model_slug
+            or (project.default_model_slug if project else None)
+            or get_settings().default_model
+        ),
     )
     session.add(chat)
     await session.commit()

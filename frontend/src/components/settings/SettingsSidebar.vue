@@ -246,6 +246,6 @@ const globalSections = [
   { id: 'tools', label: 'Tools', icon: WrenchIcon },
   { id: 'updates', label: 'Updates', icon: ArrowDownTrayIcon },
   { id: 'background', label: 'Background Work', icon: CpuIcon },
-  { id: 'ai-services', label: 'Advanced', icon: CogIcon },
+  { id: 'ai-services', label: 'AI Services', icon: CogIcon },
 ]
 </script>

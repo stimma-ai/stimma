@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from llm import llm_completion, QuotaExceededError, ContentFilteredError, Usage, is_auto_tool_choice_unsupported_error, strip_thinking_tags
+from llm import llm_completion, QuotaExceededError, ContentFilteredError, Usage, classify_provider_http_error, is_auto_tool_choice_unsupported_error, strip_thinking_tags
 from llm_correlation import llm_correlation_context
 from llm_resolver import get_effective_llm_config, get_chat_llm_config, resolve_chat_model_slug, LLMNotConfiguredError, LLMInsufficientBalanceError
 from sqlalchemy import select
@@ -1008,11 +1008,17 @@ async def run_agent(
 
     except Exception as e:
         log.error(f"V2 agent error for chat {chat_id}: {type(e).__name__}: {str(e)[:500]}")
+        provider_error = classify_provider_http_error(e)
+        metadata = {"raw_error": _format_raw_error(e)}
+        message = str(e)
+        if provider_error:
+            error_type, message = provider_error
+            metadata.update({"error_type": error_type, "error_summary": message})
         error_item = ChatItem(
             chat_id=chat_id,
             item_type="error",
-            message_text=str(e),
-            item_metadata=json.dumps({"raw_error": _format_raw_error(e)}),
+            message_text=message,
+            item_metadata=json.dumps(metadata),
         )
         session.add(error_item)
         await session.commit()

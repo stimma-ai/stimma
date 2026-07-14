@@ -77,17 +77,51 @@ async def get_effective_llm_config(role: str) -> LLMEffectiveConfig:
         return acceptance_config
 
     settings = get_settings()
+    selected_slug = (
+        getattr(settings, "quick_task_model", "auto")
+        if role == "agent-fast"
+        else getattr(settings, "default_model", "auto")
+    )
+    provider_config = _get_provider_model_config(
+        selected_slug,
+        quick_task=role == "agent-fast",
+    )
+    if provider_config:
+        return provider_config
+    provider = _provider_for_model_slug(selected_slug)
+    if provider:
+        raise LLMUnavailableError(
+            f"{provider.name} is unavailable. Check it in Settings > AI Services or choose another model.",
+            code="llm_provider_unavailable",
+        )
+    if selected_slug == "local":
+        role_config = settings.get_llm_role_config(role)
+        if role_config.endpoint and role_config.endpoint.url:
+            return role_config.endpoint
+        raise LLMNotConfiguredError(
+            "No local LLM server is configured. Add one in Settings > AI Services.",
+            code="llm_local_missing",
+        )
+    if selected_slug.startswith("stimma:"):
+        cloud_config = await _get_stimma_cloud_config(
+            _resolve_catalog_alias(selected_slug, role),
+            max_context_tokens=get_max_context_tokens(selected_slug),
+            quick_task=role == "agent-fast",
+        )
+        if cloud_config:
+            return cloud_config
+        await _raise_cloud_llm_error(model_slug=selected_slug)
     role_config = settings.get_llm_role_config(role)
 
     # For role-based entry points the caller only has a role (agent /
     # agent-fast), not a catalog slug. Use the default slug's context size
     # when falling back to cloud — it's what get_chat_llm_config('auto')
     # lands on anyway.
-    default_slug_context = get_max_context_tokens('default')
+    default_slug_context = get_max_context_tokens('stimma:minimax-m3')
 
     if role_config.source == 'auto':
         cloud_config = await _get_stimma_cloud_config(
-            role, max_context_tokens=default_slug_context
+            role, max_context_tokens=default_slug_context, quick_task=role == "agent-fast"
         )
         if cloud_config:
             return cloud_config
@@ -97,7 +131,7 @@ async def get_effective_llm_config(role: str) -> LLMEffectiveConfig:
 
     if role_config.source == 'stimma_cloud':
         cloud_config = await _get_stimma_cloud_config(
-            role, max_context_tokens=default_slug_context
+            role, max_context_tokens=default_slug_context, quick_task=role == "agent-fast"
         )
         if cloud_config:
             return cloud_config
@@ -113,6 +147,7 @@ async def _get_stimma_cloud_config(
     role: str,
     *,
     max_context_tokens: Optional[int] = None,
+    quick_task: bool = False,
 ) -> Optional[LLMEndpointConfig]:
     """Get Stimma Cloud LLM configuration.
 
@@ -160,6 +195,7 @@ async def _get_stimma_cloud_config(
             model=role,  # alias (e.g. 'agent', 'agent-max')
             api_key=id_token,
             max_context_tokens=max_context_tokens if max_context_tokens is not None else MAX_CONTEXT_CAP,
+            **_cloud_reasoning_fields(role, quick_task=quick_task),
         )
     except Exception as e:
         log.error("failed to get stimma cloud config", role=role, error=str(e))
@@ -177,11 +213,15 @@ def resolve_chat_model_slug(
     like ``auto``.  ``auto`` still respects the normal resolver order and uses
     the configured local endpoint without contacting Stimma Cloud.
     """
-    slug = chat_model_slug or project_default_slug or global_default or 'default'
+    slug = chat_model_slug or project_default_slug or global_default or 'stimma:minimax-m3'
 
     from privacy_lockdown import is_privacy_lockdown_enabled
 
     if is_privacy_lockdown_enabled() and slug not in {'auto', 'local'}:
+        settings = get_settings()
+        for provider in getattr(settings, "llm_providers", []):
+            if provider.kind == "local" and any(model.id == slug for model in provider.models):
+                return slug
         return 'auto'
     return slug
 
@@ -204,6 +244,17 @@ _catalog_cache: dict[str, dict] = {}
 # Built-in fallback mappings so resolution works even before the cloud catalog
 # is fetched. Must be kept in sync with MODEL_CATALOG in stimma-cloud config.ts.
 _BUILTIN_CATALOG: dict[str, dict] = {
+    'stimma:minimax-m3': {
+        'agent_model': 'stimma:minimax-m3',
+        'agent_fast_model': 'stimma:minimax-m3',
+        'max_context_tokens': 512_000,
+        'reasoning': {
+            'mode': 'optional',
+            'levels': ['off', 'high'],
+            'default': 'high',
+            'quick_task': 'off',
+        },
+    },
     'default':   {'agent_model': 'agent', 'agent_fast_model': 'agent-fast', 'max_context_tokens': 262_144},
     'agent-max': {'agent_model': 'agent-max', 'agent_fast_model': 'agent-fast', 'max_context_tokens': 262_144},
     'gpt54':     {'agent_model': 'agent-gpt54', 'agent_fast_model': 'agent-fast-gpt54mini', 'max_context_tokens': 400_000},
@@ -221,6 +272,8 @@ def set_catalog_cache(entries: list[dict]) -> None:
             'agent_model': e.get('agent_model', 'agent'),
             'agent_fast_model': e.get('agent_fast_model', 'agent-fast'),
             'max_context_tokens': int(e.get('max_context_tokens') or _FALLBACK_CONTEXT),
+            'reasoning': e.get('reasoning') or {},
+            'is_default': bool(e.get('is_default')),
         }
         for e in entries
     }
@@ -234,6 +287,32 @@ def get_known_catalog_slugs() -> set[str]:
 def _lookup_catalog(slug: str) -> Optional[dict]:
     """Look up a catalog entry by slug (live cache first, then built-ins)."""
     return _catalog_cache.get(slug) or _BUILTIN_CATALOG.get(slug)
+
+
+def _cloud_reasoning_fields(model_slug: str, *, quick_task: bool) -> dict:
+    entry = _lookup_catalog(model_slug) or {}
+    reasoning = entry.get("reasoning") or {}
+    levels = reasoning.get("levels") or []
+    if not levels:
+        return {}
+    settings = get_settings()
+    requested_level = (
+        reasoning.get("quick_task")
+        if quick_task
+        else settings.llm_reasoning_levels.get(model_slug, reasoning.get("default"))
+    )
+    level = requested_level if requested_level in levels else reasoning.get("default")
+    if level not in levels:
+        level = levels[0]
+    return {
+        "model_route_id": model_slug,
+        "provider_kind": "stimma",
+        "reasoning_level": level,
+        "reasoning_default": reasoning.get("default"),
+        "reasoning_quick_task": reasoning.get("quick_task"),
+        "reasoning_control": "stimma_normalized",
+        "reasoning_wire_levels": {item: item for item in levels},
+    }
 
 
 def get_max_context_tokens(model_slug: Optional[str]) -> int:
@@ -266,7 +345,65 @@ def _resolve_catalog_alias(slug: str, role: str) -> str:
 
 def _auto_chat_catalog_slug() -> str:
     """Catalog slug used by legacy chat auto when Stimma Cloud is available."""
-    return 'agent-max'
+    return 'stimma:minimax-m3'
+
+
+def _get_provider_model_config(
+    model_slug: Optional[str],
+    *,
+    quick_task: bool,
+) -> Optional[LLMEndpointConfig]:
+    if not model_slug:
+        return None
+    settings = get_settings()
+    for provider in getattr(settings, "llm_providers", []):
+        if provider.deleted_at or not provider.enabled or provider.last_test_passed is False:
+            continue
+        for model in provider.models:
+            if model.id != model_slug or not model.enabled:
+                continue
+            reasoning = model.reasoning
+            selected_level = (
+                reasoning.quick_task
+                if quick_task
+                else settings.llm_reasoning_levels.get(model.id, reasoning.default)
+            )
+            if selected_level not in reasoning.levels:
+                selected_level = (
+                    reasoning.default
+                    if reasoning.default in reasoning.levels
+                    else (reasoning.levels[0] if reasoning.levels else None)
+                )
+            global_prompt = settings.llm_extra_system_prompt.strip()
+            model_prompt = model.extra_system_prompt.strip()
+            return LLMEndpointConfig(
+                url=provider.base_url,
+                model=model.model_id,
+                api_key=provider.api_key,
+                max_context_tokens=min(MAX_CONTEXT_CAP, model.max_context_tokens),
+                content_policy_enabled=settings.llm_content_policy == "stimma",
+                extra_system_prompt="\n\n".join(
+                    part for part in (global_prompt, model_prompt) if part
+                ),
+                extra_body=model.extra_body,
+                provider_kind=provider.kind,
+                model_route_id=model.id,
+                reasoning_level=selected_level,
+                reasoning_default=reasoning.default,
+                reasoning_quick_task=reasoning.quick_task,
+                reasoning_control=reasoning.control,
+                reasoning_wire_levels=reasoning.wire_levels,
+            )
+    return None
+
+
+def _provider_for_model_slug(model_slug: Optional[str]):
+    if not model_slug:
+        return None
+    for provider in getattr(get_settings(), "llm_providers", []):
+        if any(model.id == model_slug for model in provider.models):
+            return provider
+    return None
 
 
 async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') -> LLMEffectiveConfig:
@@ -291,11 +428,27 @@ async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') ->
     if model_slug is None:
         model_slug = 'auto'
 
+    provider_config = _get_provider_model_config(
+        model_slug,
+        quick_task=role == "agent-fast",
+    )
+    if provider_config:
+        return provider_config
+    provider = _provider_for_model_slug(model_slug)
+    if provider:
+        raise LLMUnavailableError(
+            f"{provider.name} is unavailable. Check it in Settings > AI Services or choose another model.",
+            code="llm_provider_unavailable",
+        )
+
     if model_slug == 'auto':
         auto_slug = _auto_chat_catalog_slug()
+        cloud_kwargs = {"max_context_tokens": get_max_context_tokens(auto_slug)}
+        if role == "agent-fast":
+            cloud_kwargs["quick_task"] = True
         cloud_config = await _get_stimma_cloud_config(
             _resolve_catalog_alias(auto_slug, role),
-            max_context_tokens=get_max_context_tokens(auto_slug),
+            **cloud_kwargs,
         )
         if cloud_config:
             return cloud_config
@@ -311,7 +464,7 @@ async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') ->
         if role_config.endpoint and role_config.endpoint.url:
             return role_config.endpoint
         raise LLMNotConfiguredError(
-            "No local LLM endpoint is configured. Set one up in Settings > Advanced.",
+            "No local LLM server is configured. Add one in Settings > AI Services.",
             code="llm_local_missing",
         )
 
@@ -320,6 +473,7 @@ async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') ->
     cloud_config = await _get_stimma_cloud_config(
         alias,
         max_context_tokens=get_max_context_tokens(model_slug),
+        quick_task=role == "agent-fast",
     )
     if cloud_config:
         return cloud_config
@@ -336,7 +490,7 @@ def _raise_no_llm_error() -> None:
             "Your Stimma account has no balance."
         )
     raise LLMNotConfiguredError(
-        "No AI model is configured. Sign in to Stimma or set up a local endpoint in Settings."
+        "No AI model is configured. Sign in to Stimma or add a local LLM server in AI Services."
     )
 
 
@@ -358,7 +512,7 @@ async def _raise_cloud_llm_error(model_slug: str | None = None) -> None:
 
     if not id_token:
         raise LLMNotConfiguredError(
-            "Sign in to Stimma or choose a local endpoint.",
+            "Sign in to Stimma or choose a local LLM.",
             code="llm_not_logged_in",
         )
 

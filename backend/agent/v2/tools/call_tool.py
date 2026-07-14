@@ -822,7 +822,7 @@ async def call_tool(
     if tool_id is None:
         return "Error: call_tool() missing required argument: 'tool_id'"
 
-    # Some models (e.g. GPT-5.4) flatten args to top-level instead of nesting under
+    # Some models (e.g. GPT-5.6) flatten args to top-level instead of nesting under
     # "parameters". Recover: if parameters is missing but known fields appear in
     # kwargs, rebuild the parameters object from them.
     if parameters is None:

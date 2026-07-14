@@ -291,7 +291,11 @@ class SettingsResponse(BaseModel):
     telemetry_enabled: Optional[bool] = None
     distribution: str = "dev"  # Build distribution: 'dev' | 'official'
     privacy_lockdown_active: bool = False
-    default_model: str = 'agent-max'  # Global default model slug
+    default_model: str = 'stimma:minimax-m3'
+    quick_task_model: str = 'stimma:minimax-m3'
+    llm_reasoning_levels: Dict[str, str] = Field(default_factory=dict)
+    llm_content_policy: str = 'stimma'
+    llm_extra_system_prompt: str = ''
     readiness: ReadinessResponse  # App-entry readiness gate (OOBE entitlement flow)
 
 
@@ -698,6 +702,10 @@ async def get_settings_all():
         distribution=get_distribution(),
         privacy_lockdown_active=is_privacy_lockdown(),
         default_model=settings.default_model,
+        quick_task_model=settings.quick_task_model,
+        llm_reasoning_levels=settings.llm_reasoning_levels,
+        llm_content_policy=settings.llm_content_policy,
+        llm_extra_system_prompt=settings.llm_extra_system_prompt,
         readiness=readiness,
     )
 
@@ -869,6 +877,56 @@ async def update_default_model(request: UpdateDefaultModelRequest):
     patch_global_section("default_model", request.default_model)
     log.info("default model updated", default_model=request.default_model)
     return {"status": "success", "default_model": request.default_model}
+
+
+class UpdateQuickTaskModelRequest(BaseModel):
+    model: str
+
+
+@router.patch("/quick-task-model")
+async def update_quick_task_model(request: UpdateQuickTaskModelRequest):
+    patch_global_section("quick_task_model", request.model)
+    return {"status": "success", "quick_task_model": request.model}
+
+
+class UpdateModelReasoningRequest(BaseModel):
+    model: str
+    level: str
+
+
+@router.patch("/model-reasoning")
+async def update_model_reasoning(request: UpdateModelReasoningRequest):
+    settings = get_settings()
+    available = None
+    for provider in settings.llm_providers:
+        for model in provider.models:
+            if model.id == request.model:
+                available = model.reasoning.levels
+                break
+    if available is None:
+        from llm_resolver import _lookup_catalog
+        entry = _lookup_catalog(request.model) or {}
+        available = (entry.get("reasoning") or {}).get("levels")
+    if not available or request.level not in available:
+        raise HTTPException(status_code=400, detail="Reasoning level is not available for this model.")
+    levels = dict(settings.llm_reasoning_levels)
+    levels[request.model] = request.level
+    patch_global_section("llm_reasoning_levels", levels)
+    return {"status": "success", "model": request.model, "level": request.level}
+
+
+class UpdateLLMPromptPolicyRequest(BaseModel):
+    content_policy: str
+    extra_system_prompt: str = ""
+
+
+@router.patch("/llm-prompt-policy")
+async def update_llm_prompt_policy(request: UpdateLLMPromptPolicyRequest):
+    if request.content_policy not in {"stimma", "provider"}:
+        raise HTTPException(status_code=400, detail="Unknown policy option.")
+    patch_global_section("llm_content_policy", request.content_policy)
+    patch_global_section("llm_extra_system_prompt", request.extra_system_prompt)
+    return {"status": "success"}
 
 
 # =============================================================================

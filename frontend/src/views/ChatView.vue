@@ -748,7 +748,7 @@
                   <span class="text-sm font-medium text-red-400">Error</span>
                 </div>
                 <div class="px-3.5 py-2.5 space-y-3">
-                  <div class="text-sm text-content-secondary">{{ GENERIC_CHAT_ERROR_MESSAGE }}</div>
+                  <div class="text-sm text-content-secondary">{{ item.item_metadata?.error_summary || GENERIC_CHAT_ERROR_MESSAGE }}</div>
                   <div v-if="isLastChatItem(item)">
                     <button
                       type="button"
@@ -759,6 +759,12 @@
                       <ArrowPathIcon class="w-3.5 h-3.5" />
                       Try again
                     </button>
+                    <button
+                      v-if="item.item_metadata?.error_type?.startsWith('provider_')"
+                      type="button"
+                      @click="openAISettings"
+                      class="ml-2 inline-flex items-center px-2.5 py-1 rounded-md border border-white/10 bg-white/[0.05] text-content-secondary hover:text-content text-xs font-medium transition-colors"
+                    >AI Services</button>
                   </div>
                   <ChatErrorDisclosure :raw="getRawErrorDetails(item)" />
                 </div>
@@ -1176,6 +1182,9 @@
       >
         {{ modelUnavailableMessage }}
       </div>
+      <div v-if="imageUnsupportedMessage" class="mb-2 text-xs text-amber-500">
+        {{ imageUnsupportedMessage }}
+      </div>
       <ChatInputBox
         ref="chatInputBoxRef"
         v-model="messageInput"
@@ -1223,7 +1232,7 @@
           <button
             v-else
             @click="sendMessage()"
-            :disabled="(!messageInput.trim() && inputAttachments.length === 0) || sending || isChatModelUnavailable"
+            :disabled="(!messageInput.trim() && inputAttachments.length === 0) || sending || isChatModelUnavailable || Boolean(imageUnsupportedMessage)"
             class="w-8 h-8 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
             :title="modelUnavailableMessage || 'Send'"
           >
@@ -3123,7 +3132,14 @@ const modelUnavailableMessage = computed(() => {
   if (!isChatModelUnavailable.value) return ''
   const model = selectedChatModel.value
   const slug = chat.value?.model_slug || globalDefault.value
-  return model?.description || `The selected model (${slug}) is no longer available. Sign in to your Stimma account or configure a local endpoint in Settings > Advanced.`
+  return model?.description || `The selected model (${slug}) is no longer available. Check Settings > AI Services or choose another model.`
+})
+
+const imageUnsupportedMessage = computed(() => {
+  if (inputAttachments.value.length === 0) return ''
+  const model = selectedChatModel.value
+  if (!model || (model.input_modalities || ['text']).includes('image')) return ''
+  return `${model.name} can't use images. Remove the image or choose another model.`
 })
 
 // Send a message (from input or from queue)
@@ -3136,8 +3152,16 @@ async function sendMessage(queuedMessage = null) {
   }
 
   if (isChatModelUnavailable.value) {
-    addToast({ type: 'error', message: modelUnavailableMessage.value })
+    addToast(modelUnavailableMessage.value, 'error')
     // A dequeued message must survive the early return — put it back.
+    if (queuedMessage) messageQueue.value.unshift(queuedMessage)
+    return
+  }
+
+  const pendingAttachments = queuedMessage?.attachments || inputAttachments.value
+  const model = selectedChatModel.value
+  if (pendingAttachments.length > 0 && model && !(model.input_modalities || ['text']).includes('image')) {
+    addToast(`${model.name} can't use images. Choose another model.`, 'error')
     if (queuedMessage) messageQueue.value.unshift(queuedMessage)
     return
   }

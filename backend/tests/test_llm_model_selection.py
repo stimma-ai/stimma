@@ -47,7 +47,7 @@ async def test_chat_lockdown_cloud_default_resolves_to_local_endpoint(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_chat_auto_uses_agent_max_when_cloud_available(monkeypatch):
+async def test_chat_auto_uses_minimax_when_cloud_available(monkeypatch):
     import llm_resolver
 
     seen = {}
@@ -65,8 +65,8 @@ async def test_chat_auto_uses_agent_max_when_cloud_available(monkeypatch):
 
     cfg = await llm_resolver.get_chat_llm_config("auto", role="agent")
 
-    assert cfg.model == "agent-max"
-    assert seen["role"] == "agent-max"
+    assert cfg.model == "stimma:minimax-m3"
+    assert seen["role"] == "stimma:minimax-m3"
     assert seen["max_context_tokens"] == llm_resolver.get_max_context_tokens("agent-max")
 
 
@@ -101,13 +101,13 @@ async def test_available_models_auto_describes_local_only_fallback(monkeypatch):
 
     assert auto_model["available"] is True
     assert auto_model["resolved_slug"] == "local"
-    assert auto_model["name"] == "Auto: Local Endpoint"
-    assert auto_model["description"] == "Uses your configured local endpoint."
+    assert auto_model["name"] == "Auto: Local LLM"
+    assert auto_model["description"] == "Uses your configured local LLM server."
     assert auto_model["max_context_tokens"] == 64_000
     assert local_model["available"] is True
 
     slugs = {model["slug"] for model in payload["models"]}
-    assert {"agent-max", "default"}.issubset(slugs)
+    assert "stimma:minimax-m3" in slugs
     assert not {"gpt54", "kimi-k2", "opus", "sonnet"} & slugs
 
 
@@ -137,8 +137,8 @@ async def test_available_models_setup_state_is_not_a_hidden_model_list(monkeypat
 
     assert auto_model["available"] is False
     assert auto_model["name"] == "Set up AI models"
-    assert auto_model["description"] == "Sign in to Stimma Cloud or configure a local endpoint."
-    assert {"agent-max", "default", "local", "auto"} == slugs
+    assert auto_model["description"] == "Sign in to Stimma Cloud or add a local LLM server."
+    assert {"stimma:minimax-m3", "local", "auto"} == slugs
 
 
 @pytest.mark.asyncio
@@ -202,8 +202,8 @@ async def test_available_models_lockdown_setup_copy_is_local_only(monkeypatch):
     auto_model = payload["models"][0]
 
     assert auto_model["available"] is False
-    assert auto_model["name"] == "Set up a local AI model"
-    assert auto_model["description"] == "Configure a local endpoint in Settings > Advanced."
+    assert auto_model["name"] == "Set up a local LLM"
+    assert auto_model["description"] == "Add a local LLM server in Settings > AI Services."
     assert {model["slug"] for model in payload["models"]} == {"auto", "local"}
 
 

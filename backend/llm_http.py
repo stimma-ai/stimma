@@ -165,6 +165,44 @@ class LLMConnectionError(Exception):
         self.is_cloud = is_cloud
 
 
+def classify_provider_http_error(exc: Exception) -> tuple[str, str] | None:
+    """Turn common BYO-provider failures into short, actionable UI copy."""
+    if isinstance(exc, LLMConnectionError):
+        if exc.is_cloud:
+            return None
+        return "provider_connection_failed", "Could not reach this service."
+    if not isinstance(exc, httpx.HTTPStatusError):
+        return None
+    response = getattr(exc, "response", None)
+    if response is None:
+        return None
+    try:
+        from privacy_lockdown import is_stimma_service_url
+        if is_stimma_service_url(str(response.request.url)):
+            return None
+    except Exception:
+        pass
+    status = response.status_code
+    try:
+        detail = (response.text or "").lower()
+    except Exception:
+        detail = str(exc).lower()
+    if status == 401:
+        return "provider_invalid_key", "The provider rejected this API key."
+    if status == 402 or (
+        status == 403
+        and any(term in detail for term in ("balance", "billing", "credit", "fund", "quota"))
+    ):
+        return "provider_insufficient_funds", "The provider declined this request for insufficient funds."
+    if status == 404 and "model" in detail:
+        return "provider_model_missing", "This model is no longer available from the provider."
+    if status == 403:
+        return "provider_access_denied", "The provider denied access to this model."
+    if status == 429:
+        return "provider_rate_limited", "The provider rate limit was reached."
+    return None
+
+
 def is_auto_tool_choice_unsupported_error(exc: Exception) -> bool:
     """Return True when provider rejects implicit/explicit auto tool choice."""
     if not isinstance(exc, httpx.HTTPStatusError):

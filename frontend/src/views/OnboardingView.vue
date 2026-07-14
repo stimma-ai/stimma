@@ -97,7 +97,7 @@
       >
         <div class="rounded-xl p-[18px] bg-surface border border-edge">
           <p class="mb-3.5 text-content-secondary" style="font-size: 13px; line-height: 1.6;">
-            You'll connect Stimma to <strong class="text-content font-medium">your own local AI models</strong>. You can always create an account later.
+            You'll connect Stimma to <strong class="text-content font-medium">your own local LLMs</strong>. You can always create an account later.
           </p>
           <div class="flex gap-2">
             <button

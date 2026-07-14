@@ -194,6 +194,16 @@ class LLMEndpointConfig(BaseModel):
     last_tested_at: Optional[str] = None
     last_test_passed: Optional[bool] = None
 
+    # Provider/model abstraction fields. Legacy endpoints leave provider_kind
+    # unset and keep using reasoning_method.
+    provider_kind: Optional[str] = None
+    model_route_id: Optional[str] = None
+    reasoning_level: Optional[str] = None
+    reasoning_default: Optional[str] = None
+    reasoning_quick_task: Optional[str] = None
+    reasoning_control: Optional[str] = None
+    reasoning_wire_levels: Dict[str, Any] = Field(default_factory=dict)
+
     def get_model(self) -> str:
         return self.model
 
@@ -215,6 +225,50 @@ class LLMRoleConfig(BaseModel):
 
     source: str = 'auto'  # 'auto' | 'stimma_cloud' | 'endpoint'
     endpoint: Optional[LLMEndpointConfig] = None
+
+
+class LLMReasoningConfig(BaseModel):
+    """Discoverable reasoning contract for one model."""
+    mode: str = "none"  # none | optional | required
+    levels: List[str] = Field(default_factory=list)
+    default: str = "off"
+    quick_task: str = "off"
+    control: str = "none"
+    wire_levels: Dict[str, Any] = Field(default_factory=dict)
+
+
+class LLMProviderModelConfig(BaseModel):
+    """One user-visible model exposed by an LLM provider."""
+    model_config = {"protected_namespaces": ()}
+
+    id: str
+    model_id: str
+    name: str
+    enabled: bool = True
+    max_context_tokens: int = 128_000
+    input_modalities: List[str] = Field(default_factory=lambda: ["text"])
+    supports_tools: bool = True
+    reasoning: LLMReasoningConfig = Field(default_factory=LLMReasoningConfig)
+    # Manual compatibility controls, primarily for OpenRouter/local models.
+    extra_body: Optional[Dict[str, Any]] = None
+    extra_system_prompt: str = ""
+
+
+class LLMProviderConfig(BaseModel):
+    """A cloud account or local LLM server and its selected models."""
+    model_config = {"protected_namespaces": ()}
+
+    id: str
+    kind: str  # openai | anthropic | xai | openrouter | local
+    name: str
+    base_url: str
+    api_key: Optional[str] = None
+    enabled: bool = True
+    models: List[LLMProviderModelConfig] = Field(default_factory=list)
+    last_tested_at: Optional[str] = None
+    last_test_passed: Optional[bool] = None
+    last_error: Optional[str] = None
+    deleted_at: Optional[str] = None
 
 
 # Type alias for LLM configs passed to llm_http
@@ -625,7 +679,15 @@ class Settings(BaseSettings):
     # LLM configurations: agent (main), agent-fast (prompt enhancement, captioning, etc.)
     # Each role has a source selector (stimma_cloud or custom) and custom config
     llms: Dict[str, LLMRoleConfig] = {}
-    default_model: str = 'agent-max'  # Global default model slug for new chats
+    # Last model explicitly selected by the user; new chats inherit this while
+    # existing chats retain their own model_slug.
+    default_model: str = 'stimma:minimax-m3'
+    quick_task_model: str = 'stimma:minimax-m3'
+    llm_reasoning_levels: Dict[str, str] = Field(default_factory=dict)
+    llm_providers: List[LLMProviderConfig] = Field(default_factory=list)
+    # Global prompt policy applies uniformly to every BYO/local provider.
+    llm_content_policy: str = 'stimma'  # stimma | provider
+    llm_extra_system_prompt: str = ''
 
     # Task-specific settings
     captioning: CaptioningConfig = CaptioningConfig()

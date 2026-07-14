@@ -36,6 +36,7 @@ from llm_http import (
     QuotaExceededError,
     ContentFilteredError,
     EntitlementError,
+    classify_provider_http_error,
     is_auto_tool_choice_unsupported_error,
 )
 
@@ -51,6 +52,7 @@ __all__ = [
     "QuotaExceededError",
     "ContentFilteredError",
     "EntitlementError",
+    "classify_provider_http_error",
     "is_auto_tool_choice_unsupported_error",
     "llm_completion",
     "llm_complete_text",
@@ -382,6 +384,60 @@ def _apply_endpoint_reasoning(
     """
     effective = _merge_extra_body(getattr(config, "extra_body", None), extra_body)
 
+    control = getattr(config, "reasoning_control", None)
+    if control:
+        ctk = (effective or {}).get("chat_template_kwargs")
+        intent = True if thinking else None
+        if isinstance(ctk, dict) and "enable_thinking" in ctk:
+            intent = bool(ctk["enable_thinking"])
+        if isinstance(effective, dict) and isinstance(ctk, dict):
+            ctk.pop("enable_thinking", None)
+            if not ctk:
+                effective.pop("chat_template_kwargs", None)
+        if intent is None:
+            intent = True
+        level = (
+            getattr(config, "reasoning_level", None)
+            or (
+                getattr(config, "reasoning_default", None)
+                if intent
+                else getattr(config, "reasoning_quick_task", None)
+            )
+        )
+        if not intent:
+            level = getattr(config, "reasoning_quick_task", None) or level
+        wire_levels = getattr(config, "reasoning_wire_levels", {}) or {}
+        wire = wire_levels.get(level)
+        params: Dict[str, Any] = {}
+        if control in {"openai_effort", "fireworks_effort"}:
+            params = {"reasoning_effort": wire}
+        elif control == "stimma_normalized":
+            params = {"reasoning": {"effort": level}}
+        elif control == "openrouter_effort":
+            params = {"reasoning": {"effort": wire}}
+        elif control == "enable_thinking":
+            params = {"chat_template_kwargs": {"enable_thinking": bool(wire)}}
+        elif control == "think":
+            params = {"think": bool(wire)}
+        elif control == "reasoning_budget":
+            params = {"reasoning_budget": int(wire or 0)}
+        elif control == "anthropic_adaptive_default":
+            params = (
+                {"thinking": {"type": "disabled"}}
+                if level == "off"
+                else {"output_config": {"effort": wire}}
+            )
+        elif control == "anthropic_adaptive_optional":
+            params = {} if level == "off" else {
+                "thinking": {"type": "adaptive"},
+                "output_config": {"effort": wire},
+            }
+        elif control == "anthropic_adaptive_required":
+            params = {"output_config": {"effort": wire}}
+        elif control == "anthropic_budget_tokens" and int(wire or 0) > 0:
+            params = {"thinking": {"type": "enabled", "budget_tokens": int(wire)}}
+        return _merge_extra_body(effective, params)
+
     method = getattr(config, "reasoning_method", None)
     if not method or method == "none":
         # No known reasoning control for this endpoint: never leak the
@@ -488,8 +544,10 @@ async def llm_completion(
 
     # Self-hosted endpoints: apply content policy, extra system prompt, fixed
     # extra_body, and reasoning-method translation. Cloud handles its own.
-    if apply_endpoint_extras and _is_local_endpoint(api_base):
+    if apply_endpoint_extras and getattr(config, "reasoning_control", None):
         extra_body = _apply_endpoint_reasoning(config, extra_body, thinking)
+        thinking = None
+    if apply_endpoint_extras and _is_local_endpoint(api_base):
         messages = await _inject_local_system(config, messages)
         # Reasoning is controlled via extra_body for local endpoints; the
         # Anthropic-style `thinking` param is meaningless here and some gateways

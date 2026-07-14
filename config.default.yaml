@@ -42,9 +42,10 @@ profiles:
 #   - source: 'auto' | 'stimma_cloud' | 'endpoint'
 #   - endpoint: OpenAI-compatible endpoint config (vLLM, LM Studio, Ollama, etc.)
 #
-# Default uses Stimma Cloud when available, then a configured local endpoint.
+# New chats snapshot the last model explicitly selected in a model picker.
 
-default_model: auto  # Global default model slug for chat model picker
+default_model: stimma:minimax-m3
+quick_task_model: stimma:minimax-m3
 
 llms:
   agent:

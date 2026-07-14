@@ -32,7 +32,7 @@
         class="truncate max-w-[150px]"
         :class="isCloudModel && !currentUnavailable ? 'stimma-cloud-text' : ''"
       >
-        {{ currentDisplayName }}
+        {{ currentDisplayName }}<span v-if="currentReasoningLabel" class="text-content-muted"> · {{ currentReasoningLabel }}</span>
       </span>
       <svg
         v-if="!disabled && modelReady"
@@ -100,7 +100,7 @@
             <div class="flex-1 min-w-0">
               <div class="text-sm text-content">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
               <div v-if="model.source === 'stimma_cloud' && model.description" class="text-[11px] leading-snug whitespace-normal break-words">
-                <span class="stimma-cloud-text font-medium">Stimma Cloud</span><span class="text-content-muted"> · {{ model.description }}</span>
+                <span class="stimma-cloud-text font-medium">Stimma Cloud</span><span class="text-content-muted"> · {{ model.description }}<template v-if="model.cost_tier"> · {{ model.cost_tier }}</template></span>
               </div>
               <div
                 v-else-if="model.endpoint_model"
@@ -113,6 +113,49 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
           </button>
+
+          <template v-if="collapsedCloudModels.length">
+            <button
+              type="button"
+              @click="showCollapsedCloud = !showCollapsedCloud"
+              class="flex w-full items-center justify-between border-t border-edge px-3 py-2 text-left text-[11px] text-content-muted hover:text-content-secondary"
+            >
+              <span>Also via Stimma Cloud</span>
+              <svg class="h-3 w-3 transition-transform" :class="showCollapsedCloud ? 'rotate-180' : ''" viewBox="0 0 12 12" fill="currentColor">
+                <path d="M3 4.5L6 8l3-3.5H3z" />
+              </svg>
+            </button>
+            <button
+              v-if="showCollapsedCloud"
+              v-for="model in collapsedCloudModels"
+              :key="model.slug"
+              :disabled="model.available === false"
+              @click="selectModel(model)"
+              class="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
+              :class="modelButtonClass(model, 'bg-cyan-500/10')"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="text-sm text-content">{{ model.name }}</div>
+                <div class="text-[11px] text-content-muted">Stimma Cloud<span v-if="model.cost_tier"> · {{ model.cost_tier }}</span><span v-if="model.shadowed_by_provider"> · also available via {{ model.shadowed_by_provider }}</span></div>
+              </div>
+              <svg v-if="isSelectedModel(model)" class="h-4 w-4 flex-shrink-0 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+              </svg>
+            </button>
+          </template>
+
+          <div v-if="reasoningOptions.length" class="mt-1 border-t border-edge px-3 py-2">
+            <div class="mb-1.5 text-[11px] font-medium text-content-muted">Reasoning</div>
+            <div class="flex flex-wrap gap-1">
+              <button
+                v-for="level in reasoningOptions"
+                :key="level"
+                @click="selectReasoning(level)"
+                class="rounded-md border px-2 py-1 text-[11px] capitalize"
+                :class="level === currentReasoningLevel ? 'border-blue-500/50 bg-blue-500/15 text-blue-400' : 'border-white/10 bg-white/[0.05] text-content-secondary hover:text-content'"
+              >{{ reasoningLabel(level) }}</button>
+            </div>
+          </div>
 
           <!-- Empty state -->
           <div v-if="visibleAutoModels.length === 0 && pickerModels.length === 0" class="px-3 py-2 text-xs text-content-muted">
@@ -132,7 +175,7 @@ import { useAvailableModels } from '../../composables/useAvailableModels'
 
 const props = defineProps({
   modelSlug: { type: String, default: null },
-  chatId: { type: Number, required: true },
+  chatId: { type: Number, default: null },
   projectId: { type: Number, default: null },
   disabled: { type: Boolean, default: false },
   disabledLabel: { type: String, default: 'Model unavailable' },
@@ -140,11 +183,12 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelSlug'])
 
-const { models, globalDefault, loading, fetchModels, getModelDisplayName, getResolvedModel } = useAvailableModels()
+const { models, globalDefault, reasoningLevels, loading, fetchModels, getModelDisplayName, getResolvedModel } = useAvailableModels()
 
 const container = ref(null)
 const dropdown = ref(null)
 const isOpen = ref(false)
+const showCollapsedCloud = ref(false)
 const dropdownStyle = ref({})
 
 // The effective slug (what's actually being used)
@@ -168,6 +212,14 @@ const modelReady = computed(() => props.disabled || models.value.length > 0)
 const selectedModel = computed(() => models.value.find(m => m.slug === effectiveSlug.value))
 const resolvedModel = computed(() => getResolvedModel(effectiveSlug.value))
 const resolvedEffectiveSlug = computed(() => selectedModel.value?.resolved_slug || effectiveSlug.value)
+const reasoningModel = computed(() => resolvedModel.value || selectedModel.value)
+const reasoningOptions = computed(() => reasoningModel.value?.reasoning?.levels || [])
+const currentReasoningLevel = computed(() => {
+  const model = reasoningModel.value
+  if (!model) return null
+  return reasoningLevels.value[model.slug] || model.reasoning?.default || null
+})
+const currentReasoningLabel = computed(() => currentReasoningLevel.value ? reasoningLabel(currentReasoningLevel.value) : '')
 
 const currentUnavailable = computed(() => {
   if (loading.value) return false
@@ -190,9 +242,11 @@ const isCloudModel = computed(() => {
 
 const autoModels = computed(() => models.value.filter(m => m.source === 'auto'))
 const visibleAutoModels = computed(() => autoModels.value.filter(m => !m.resolved_slug))
-const cloudModels = computed(() => models.value.filter(m => m.source === 'stimma_cloud'))
+const cloudModels = computed(() => models.value.filter(m => m.source === 'stimma_cloud' && !m.collapsed))
+const collapsedCloudModels = computed(() => models.value.filter(m => m.source === 'stimma_cloud' && m.collapsed))
+const providerModels = computed(() => models.value.filter(m => m.source === 'provider'))
 const localModels = computed(() => models.value.filter(m => m.source === 'endpoint'))
-const pickerModels = computed(() => [...cloudModels.value, ...localModels.value])
+const pickerModels = computed(() => [...providerModels.value, ...cloudModels.value, ...localModels.value])
 
 onMounted(() => {
   // Use the in-memory cache if it's fresh; only the first open of a run hits
@@ -226,18 +280,37 @@ async function selectModel(model) {
   if (model.available === false) return
   close()
   const slug = model.slug
-  // If selecting the global default, store null (inherit)
-  const newSlug = slug === globalDefault.value ? null : slug
+  const newSlug = slug
   emit('update:modelSlug', newSlug)
 
   // Persist to backend
   try {
-    await axios.patch(`${getApiBase()}/chats/${props.chatId}`, {
-      model_slug: newSlug,
+    if (props.chatId != null) {
+      await axios.patch(`${getApiBase()}/chats/${props.chatId}`, {
+        model_slug: newSlug,
+      })
+    }
+    await axios.patch(`${getApiBase()}/settings/default-model`, {
+      default_model: newSlug,
     })
+    await fetchModels(props.projectId, true)
   } catch (err) {
     console.error('Failed to update chat model:', err)
   }
+}
+
+function reasoningLabel(level) {
+  return level === 'off' ? 'Off' : level === 'xhigh' ? 'XHigh' : level
+}
+
+async function selectReasoning(level) {
+  const model = reasoningModel.value
+  if (!model) return
+  await axios.patch(`${getApiBase()}/settings/model-reasoning`, {
+    model: model.slug,
+    level,
+  })
+  await fetchModels(props.projectId, true)
 }
 
 function isSelectedModel(model) {

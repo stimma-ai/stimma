@@ -56,6 +56,6 @@ placeholders these satisfy.
 - Shots needing real LLM content (agent chats, flows built by the agent)
   are not covered yet — they need either a local endpoint or the planned
   cloud "bake" session.
-- The Settings → Advanced (LLM Services) shot currently shows an
+- The Settings → AI Services shot currently shows an
   unconfigured endpoint; recapture after pointing the sandbox at a local
   endpoint via an ssh tunnel (`localhost` URLs only — no hostnames).

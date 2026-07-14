@@ -9,6 +9,8 @@ import { isPrivacyLockdownActive } from './usePrivacyLockdown'
 
 const models = ref([])
 const globalDefault = ref('auto')
+const quickTaskModel = ref('stimma:minimax-m3')
+const reasoningLevels = ref({})
 const cloudStatus = ref('unknown')
 const cloudMessage = ref('')
 const error = ref(null)
@@ -37,8 +39,8 @@ const visibleModels = computed(() => {
   const localAuto = localModel
     ? {
         ...cachedAuto,
-        name: 'Auto: Local Endpoint',
-        description: 'Uses your configured local endpoint.',
+        name: 'Auto: Local LLM',
+        description: 'Uses your configured local LLM server.',
         available: true,
         status: 'available',
         resolved_slug: localModel.slug,
@@ -46,8 +48,8 @@ const visibleModels = computed(() => {
       }
     : {
         ...cachedAuto,
-        name: 'Set up a local AI model',
-        description: 'Configure a local endpoint in Settings > Advanced.',
+        name: 'Set up a local LLM',
+        description: 'Add a local LLM server in Settings > AI Services.',
         available: false,
         status: 'llm_not_configured',
         resolved_slug: null,
@@ -84,6 +86,8 @@ async function fetchModels(projectId = null, force = false) {
     const response = await axios.get(`${getApiBase()}/models/available`, { params })
     models.value = response.data.models || []
     globalDefault.value = response.data.global_default || 'auto'
+    quickTaskModel.value = response.data.quick_task_model || 'stimma:minimax-m3'
+    reasoningLevels.value = response.data.reasoning_levels || {}
     cloudStatus.value = response.data.cloud_status || 'unknown'
     cloudMessage.value = response.data.cloud_message || ''
     error.value = null
@@ -145,6 +149,8 @@ export function useAvailableModels() {
   return {
     models: readonly(visibleModels),
     globalDefault: readonly(effectiveGlobalDefault),
+    quickTaskModel: readonly(quickTaskModel),
+    reasoningLevels: readonly(reasoningLevels),
     cloudStatus: readonly(cloudStatus),
     cloudMessage: readonly(cloudMessage),
     error: readonly(error),
