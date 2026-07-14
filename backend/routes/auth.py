@@ -226,14 +226,12 @@ async def start_auth() -> StartAuthResponse:
 
                             # 2. Fetch user account from stimma.cloud
                             account = await fetch_user_account(tokens['id_token'])
-                            tier = account.get('tier', 'free')
                             credits = account.get('credits', 0)
-                            log.info("fetched user account", tier=tier, credits=credits)
+                            log.info("fetched user account", credits=credits)
 
                             # 3. Persist auth state
                             save_auth_state({
                                 'user': user,
-                                'tier': tier,
                                 'credits': credits,
                                 'refresh_token': tokens['refresh_token'],
                                 'id_token': tokens['id_token'],
@@ -241,13 +239,12 @@ async def start_auth() -> StartAuthResponse:
                             })
                             log.info("saved auth state to disk")
 
-                            # 4. Connect to cloud tools if non-free tier (non-blocking)
-                            if tier != 'free':
-                                log.info("non-free tier, connecting to stimma cloud")
-                                # Don't await - let it connect in the background
-                                asyncio.create_task(connect_cloud_internal(tokens['id_token']))
+                            # 4. Connect to cloud tools (non-blocking); access is
+                            # decided per-request by balance on the cloud side.
+                            log.info("connecting to stimma cloud tools")
+                            asyncio.create_task(connect_cloud_internal(tokens['id_token']))
 
-                            # 5. Open the account-events push channel (any tier)
+                            # 5. Open the account-events push channel
                             try:
                                 from cloud_events import get_cloud_events_client
                                 get_cloud_events_client().start()
@@ -256,7 +253,7 @@ async def start_auth() -> StartAuthResponse:
 
                             # 6. Track sign-in telemetry
                             from telemetry import get_telemetry_client
-                            get_telemetry_client().track("cloud_signed_in", {"tier": tier}, category="account")
+                            get_telemetry_client().track("cloud_signed_in", {}, category="account")
 
                             # 7. Re-fetch feature flags with the new identity
                             from feature_flags import get_feature_flags
@@ -265,7 +262,6 @@ async def start_auth() -> StartAuthResponse:
                             # 8. Return user info to frontend (NOT tokens - backend owns those)
                             session['result'] = {
                                 'user': user,
-                                'tier': tier,
                                 'completed': True,
                                 'choice': choice,
                             }
@@ -276,7 +272,6 @@ async def start_auth() -> StartAuthResponse:
                             log.error("backend auth flow failed", error=str(auth_error))
                             session['result'] = {
                                 'user': user,
-                                'tier': 'free',  # Fallback to free tier
                                 'completed': True,
                                 'auth_warning': str(auth_error),
                                 'choice': choice,
@@ -431,7 +426,6 @@ async def get_auth_status():
     return {
         "authenticated": True,
         "user": auth_state.get('user'),
-        "tier": auth_state.get('tier', 'free'),
         "credits": auth_state.get('credits'),
     }
 
@@ -440,7 +434,7 @@ async def get_auth_status():
 async def get_account_info():
     """Get fresh account info from stimma.cloud.
 
-    Fetches the latest tier and balance info. Use this when displaying
+    Fetches the latest balance info. Use this when displaying
     account details that need to be up-to-date.
     """
     from auth_storage import load_auth_state, save_auth_state, clear_auth_state
@@ -510,8 +504,8 @@ async def get_account_info():
             account = await fetch_user_account(fresh_token)
             effective_token = fresh_token
 
-        # Persist the fresh state, apply tier transitions (cloud tool provider
-        # connect/disconnect), and broadcast to the frontend — shared with the
+        # Persist the fresh state, ensure the cloud tool provider is
+        # connected, and broadcast to the frontend — shared with the
         # account-events push path so pull and push behave identically.
         from account_sync import apply_account_update
         return await apply_account_update(account, effective_token)

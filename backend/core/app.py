@@ -1265,15 +1265,14 @@ async def lifespan(app: FastAPI):
                     except Exception:
                         pass
 
-                # Auto-connect to Stimma Cloud if logged in with non-free tier
-                # Uses cached tier to determine if we should connect, allowing
-                # the connection to be added to the manager even if network is down.
-                # The health monitor will retry the connection automatically.
+                # Auto-connect to Stimma Cloud for any signed-in account.
+                # Access is decided per-request by balance on the cloud side.
+                # The connection is added to the manager even if the network is
+                # down; the health monitor will retry it automatically.
                 try:
                     from privacy_lockdown import is_privacy_lockdown_enabled
-                    from auth_storage import load_auth_state, save_auth_state
+                    from auth_storage import load_auth_state
                     from firebase_auth import get_valid_id_token
-                    from cloud_api import fetch_user_account
                     from routes.cloud import connect_cloud_internal, STIMMA_CLOUD_PROVIDER_ID
 
                     # Check if stimma-cloud is explicitly disabled in config
@@ -1288,44 +1287,21 @@ async def lifespan(app: FastAPI):
                     else:
                         auth_state = load_auth_state()
                         if auth_state and auth_state.get('refresh_token'):
-                            cached_tier = auth_state.get('tier', 'free')
-
-                            # Only attempt connection if cached tier is non-free
-                            if cached_tier != 'free':
-                                log.info("cached tier is non-free, connecting to stimma cloud", tier=cached_tier)
-
-                                # Try to get fresh token, but don't fail if we can't
-                                id_token = await get_valid_id_token()
-                                if id_token:
-                                    # Also try to refresh tier, but don't block on it
-                                    try:
-                                        account = await fetch_user_account(id_token)
-                                        new_tier = account.get('tier', 'free')
-                                        if new_tier != cached_tier:
-                                            log.info("tier changed", old=cached_tier, new=new_tier)
-                                            auth_state['tier'] = new_tier
-                                            save_auth_state(auth_state)
-                                            cached_tier = new_tier
-                                    except Exception as e:
-                                        log.warning("failed to fetch fresh tier, using cached", error=str(e))
-
-                                # Connect if still non-free (based on latest info)
-                                if cached_tier != 'free':
-                                    # Use whatever token we have - callback will refresh if needed
-                                    token_to_use = id_token or auth_state.get('id_token', '')
-                                    await connect_cloud_internal(token_to_use)
-                            else:
-                                log.info("free tier, not connecting to cloud tools")
+                            log.info("signed in, connecting to stimma cloud")
+                            # Try to get a fresh token, but don't fail if we can't —
+                            # use whatever token we have; the callback refreshes it.
+                            id_token = await get_valid_id_token()
+                            token_to_use = id_token or auth_state.get('id_token', '')
+                            await connect_cloud_internal(token_to_use)
                         else:
                             log.debug("no stored auth state, skipping cloud auto-connect")
 
                 except Exception as e:
                     log.warning("failed to auto-connect to stimma cloud", error=str(e))
 
-                # Open the account-events push channel for any signed-in user
-                # (any tier). Its on-connect refresh also discovers a
-                # subscription bought while the app was closed — including the
-                # cached-free case the auto-connect block above skips.
+                # Open the account-events push channel for any signed-in user.
+                # Its on-connect refresh also discovers balance added while
+                # the app was closed.
                 try:
                     from cloud_events import get_cloud_events_client
                     get_cloud_events_client().start()

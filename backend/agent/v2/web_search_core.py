@@ -62,9 +62,9 @@ async def search(
     - ``kind="images"``: ``{title, image_url, source, width, height}``
     - ``kind="text"``:   ``{title, url, snippet}``
 
-    Tries Stimma Cloud (Serper.dev) for paying tiers; falls back to DuckDuckGo
-    for free tier or any cloud failure. Raises ``WebSearchError`` only when
-    both paths fail.
+    Tries Stimma Cloud (Serper.dev) for signed-in accounts; falls back to
+    DuckDuckGo when signed out or on any cloud failure. Raises
+    ``WebSearchError`` only when both paths fail.
     """
     if kind not in ("text", "images"):
         raise ValueError(f"kind must be 'text' or 'images', got {kind!r}")
@@ -201,10 +201,6 @@ async def _cloud_search(
         auth_state = load_auth_state()
         if not auth_state:
             log.info("cloud search skipped: no auth state")
-            return None
-        tier = auth_state.get("tier", "free")
-        if tier == "free":
-            log.info("cloud search skipped: free tier")
             return None
 
         id_token = await get_valid_id_token()

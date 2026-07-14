@@ -9,15 +9,11 @@ import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 
 
-def _account(credits=1234, tier="free"):
+def _account(credits=1234):
     return {
-        "tier": tier,
-        "tierDisplayName": None,
         "credits": credits,
         "createdAt": "2026-01-01T00:00:00Z",
-        "usageWindows": None,
         "usage": None,
-        "subscription": None,
     }
 
 
@@ -26,7 +22,7 @@ def sync_env(test_app):
     """Patch auth storage, connect side effects, and the ws broadcast."""
     import account_sync
 
-    state = {"auth": {"tier": "free", "credits": 0, "refresh_token": "r"}}
+    state = {"auth": {"credits": 0, "refresh_token": "r"}}
     saved = []
     broadcasts = []
     connects = []

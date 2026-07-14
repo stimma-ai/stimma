@@ -2,7 +2,7 @@
 Cloud tool provider routes for Stimma Cloud.
 
 Stimma Cloud is a WebSocket-based tool provider that auto-connects when the user
-is logged in. The server at stimma.ai determines available tools based on account tier.
+is logged in. Access is decided per-request by balance on the cloud side.
 """
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -243,88 +243,3 @@ async def get_cloud_tools_status():
     }
 
 
-class LLMUsageResponse(BaseModel):
-    """LLM usage stats from Stimma Cloud."""
-    request_count: int = 0
-    tokens_used: int = 0
-    requests_limit: Optional[int] = None
-    tokens_limit: Optional[int] = None
-
-
-class LLMStatusResponse(BaseModel):
-    """Stimma Cloud LLM availability status."""
-    available: bool  # True if user has a paid tier
-    tier: Optional[str] = None
-    usage: Optional[LLMUsageResponse] = None
-
-
-@router.get("/llm/status", response_model=LLMStatusResponse)
-async def get_cloud_llm_status():
-    """
-    Get Stimma Cloud LLM availability and usage status.
-
-    Returns:
-    - available: Whether user has access to cloud LLMs (non-free tier)
-    - tier: User's account tier
-    - usage: Current usage stats if available
-
-    Returns available=False if user is not logged in or has free tier.
-    """
-    from firebase_auth import get_valid_id_token
-    from cloud_api import fetch_user_account
-    import httpx
-
-    if is_privacy_lockdown_enabled():
-        return LLMStatusResponse(available=False)
-
-    try:
-        id_token = await get_valid_id_token()
-        if not id_token:
-            return LLMStatusResponse(available=False)
-
-        # Fetch user account info
-        account = await fetch_user_account(id_token)
-        tier = account.get("tier", "free")
-
-        # Check if user has LLM access (non-free tier)
-        # Free tier users don't have access to cloud LLMs
-        available = tier.lower() != "free"
-
-        usage = None
-        if available:
-            # Try to fetch usage stats from Stimma Cloud
-            try:
-                settings = get_settings()
-                base_url = settings.cloud.base_url
-                usage_url = f"{base_url}/api/llm/v1/usage"
-
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(
-                        usage_url,
-                        headers=with_cloud_access_headers({"Authorization": f"Bearer {id_token}"}),
-                        timeout=10.0
-                    )
-                    if response.status_code == 200:
-                        usage_data = response.json()
-                        usage = LLMUsageResponse(
-                            request_count=usage_data.get("requestCount", 0),
-                            tokens_used=usage_data.get("tokensUsed", 0),
-                            requests_limit=usage_data.get("requestsLimit"),
-                            tokens_limit=usage_data.get("tokensLimit"),
-                        )
-            except Exception as e:
-                log.warning("failed to fetch llm usage stats", error=str(e))
-                # Continue without usage stats
-
-        return LLMStatusResponse(
-            available=available,
-            tier=tier,
-            usage=usage,
-        )
-
-    except httpx.HTTPStatusError as e:
-        log.warning("failed to fetch cloud account status", status=e.response.status_code)
-        return LLMStatusResponse(available=False)
-    except Exception as e:
-        log.warning("failed to get cloud llm status", error=str(e))
-        return LLMStatusResponse(available=False)

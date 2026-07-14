@@ -461,7 +461,7 @@ function handleWindowFocusSync() {
   lastFocusSyncAt = now
   // Model availability drives the chat composer's lock, so always resync it.
   refreshAvailableModels()
-  // Tier/credits only matter (and 401s only fire) when signed in.
+  // Credits only matter (and 401s only fire) when signed in.
   if (isAuthenticated.value) fetchCloudAccount()
 }
 
@@ -706,7 +706,7 @@ async function loadAppSettings() {
   setPrivacyLockdownActive(privacyLockdown)
   initFeatureFlags(useWebSocket().on)
   initEditorProjectPrivacyCleanup(useWebSocket().on)
-  // Account push events (tier/subscription/balance) -> quiet data refreshes.
+  // Account push events (balance/entitlements) -> quiet data refreshes.
   initAccountEvents()
   // Sidebar "finished while away" dots must track even when the sidebar
   // itself is unmounted (mobile, closed), so the singleton starts here.
@@ -804,7 +804,7 @@ watch(
   { immediate: true }
 )
 
-// When user signs in via settings, refresh cloud-specific state (credits, tier)
+// When user signs in via settings, refresh cloud-specific state (credits)
 watch(isAuthenticated, async (authenticated) => {
   if (authenticated) {
     // Notify components so cloud account info can refresh

@@ -184,7 +184,6 @@ class TestAuthStorage:
 
         auth_storage.save_auth_state({
             "user": {"uid": "u1", "email": "test@example.com"},
-            "tier": "maker",
             "refresh_token": "refresh-file",
             "id_token": "id-secret",
             "id_token_expiry": 9999999999,
@@ -251,7 +250,6 @@ class TestAuthStorage:
 
         save_auth_state({
             "user": {"uid": "u1", "email": "test@example.com"},
-            "tier": "maker",
             "credits": 100,
             "refresh_token": "refresh-secret",
             "id_token": "id-secret",
@@ -260,7 +258,6 @@ class TestAuthStorage:
 
         raw = json.loads((data_dir / "cloud_auth.json").read_text())
         assert raw["user"]["uid"] == "u1"
-        assert raw["tier"] == "maker"
         assert "refresh_token" not in raw
         assert "id_token" not in raw
         assert store.token == "refresh-secret"
@@ -277,7 +274,6 @@ class TestAuthStorage:
         path = data_dir / "cloud_auth.json"
         path.write_text(json.dumps({
             "user": {"uid": "u1"},
-            "tier": "maker",
             "refresh_token": "legacy-refresh",
             "id_token": "legacy-id",
             "id_token_expiry": 9999999999,
@@ -292,7 +288,6 @@ class TestAuthStorage:
         raw = json.loads(path.read_text())
         assert "refresh_token" not in raw
         assert "id_token" not in raw
-        assert raw["tier"] == "maker"
 
     def test_clear_auth_state_clears_json_and_secure_token(self, auth_storage_env):
         """Logout clears both display JSON and secure token storage."""
@@ -403,7 +398,6 @@ class TestAuthStatus:
         """Test auth status when logged in."""
         mock_state = {
             "user": {"uid": "u1", "email": "test@example.com", "displayName": "Test"},
-            "tier": "maker",
             "credits": 100,
             "refresh_token": "refresh",
         }
@@ -414,16 +408,7 @@ class TestAuthStatus:
         data = response.json()
         assert data["authenticated"] is True
         assert data["user"]["email"] == "test@example.com"
-        assert data["tier"] == "maker"
         assert data["credits"] == 100
-
-    async def test_status_defaults_tier_to_free(self, auth_client: AsyncClient):
-        """Test auth status defaults tier to 'free' if missing."""
-        mock_state = {"user": {"uid": "u1"}, "refresh_token": "refresh"}
-        with patch("auth_storage.load_auth_state", return_value=mock_state):
-            response = await auth_client.get("/api/auth/status")
-
-        assert response.json()["tier"] == "free"
 
     async def test_status_hidden_in_privacy_lockdown(self, auth_client: AsyncClient, monkeypatch):
         """Privacy Lockdown makes cloud auth unavailable without reading auth state."""
@@ -469,7 +454,7 @@ class TestPollAuth:
         sessions["done-session"] = {
             "state": "abc",
             "port": 12345,
-            "result": {"user": {"uid": "u1"}, "tier": "maker", "completed": True},
+            "result": {"user": {"uid": "u1"}, "completed": True},
             "completed": True,
             "runner": None,
         }
@@ -479,7 +464,6 @@ class TestPollAuth:
         data = response.json()
         assert data["completed"] is True
         assert data["user"]["uid"] == "u1"
-        assert data["tier"] == "maker"
 
     async def test_poll_completed_with_error(self, auth_client: AsyncClient):
         """Test polling a completed session that has an error."""
@@ -522,16 +506,12 @@ class TestAccountInfo:
     async def test_account_success(self, auth_client: AsyncClient):
         """Test account info returns fresh data from cloud."""
         cloud_account = {
-            "tier": "maker",
-            "tierDisplayName": "Maker",
             "credits": 500,
             "createdAt": "2024-01-01",
-            "usageWindows": {},
             "usage": {},
-            "subscription": {"status": "active"},
         }
 
-        with patch("auth_storage.load_auth_state", return_value={"user": {}, "tier": "free", "refresh_token": "refresh"}), \
+        with patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
              patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value="tok"), \
              patch("cloud_api.fetch_user_account", new_callable=AsyncMock, return_value=cloud_account), \
              patch("auth_storage.save_auth_state"):
@@ -539,9 +519,7 @@ class TestAccountInfo:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["tier"] == "maker"
         assert data["credits"] == 500
-        assert data["subscription"]["status"] == "active"
 
     async def test_account_cloud_auth_temporarily_unavailable_preserves_auth(self, auth_client: AsyncClient):
         """Cloud auth verification outages return 503 without clearing local auth."""

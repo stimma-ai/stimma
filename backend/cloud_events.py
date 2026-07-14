@@ -2,8 +2,7 @@
 Account-events client: persistent WebSocket to Stimma Cloud.
 
 Connects to {cloud_base_url}/account-events-v1 whenever the user is signed in
-— any tier — and listens for account-change nudges (tier, subscription,
-balance). Events carry no data; on each one the client re-fetches account
+and listens for account-change nudges (balance, entitlements). Events carry no data; on each one the client re-fetches account
 state and applies it via account_sync (persist, tool connect/disconnect,
 frontend broadcast). An initial refresh runs on every (re)connect, which also
 catches anything that changed while the channel was down or the app closed.

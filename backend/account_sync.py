@@ -24,22 +24,18 @@ log = get_logger(__name__)
 def account_payload(account: dict) -> dict:
     """The account fields the frontend consumes, matching /api/auth/account."""
     return {
-        "tier": account.get('tier', 'free'),
-        "tierDisplayName": account.get('tierDisplayName'),
         "credits": account.get('credits', 0),
         "createdAt": account.get('createdAt'),
-        "usageWindows": account.get('usageWindows'),
         "usage": account.get('usage'),
-        "subscription": account.get('subscription'),
     }
 
 
 async def apply_account_update(account: dict, id_token: str | None) -> dict:
-    """Persist a fresh account payload and react to tier transitions.
+    """Persist a fresh account payload and react to balance transitions.
 
     Returns the response-shaped payload. Never raises — connect/disconnect
-    and broadcast failures are logged; persisting the tier is the one step
-    that must not be skipped, and it happens first.
+    and broadcast failures are logged; persisting the balance is the one
+    step that must not be skipped, and it happens first.
     """
     from auth_storage import load_auth_state, save_auth_state
 
@@ -51,7 +47,6 @@ async def apply_account_update(account: dict, id_token: str | None) -> dict:
     previous_credits = auth_state.get('credits')
     new_credits = account.get('credits', 0)
 
-    auth_state['tier'] = account.get('tier', 'free')
     auth_state['credits'] = new_credits
     auth_state['createdAt'] = account.get('createdAt')
     save_auth_state(auth_state)
@@ -133,7 +128,7 @@ async def refresh_account_state(source: str) -> dict | None:
             return None
         account = await fetch_user_account(id_token)
         payload = await apply_account_update(account, id_token)
-        log.debug("account state refreshed", source=source, tier=payload.get('tier'))
+        log.debug("account state refreshed", source=source, credits=payload.get('credits'))
         return payload
     except Exception as e:
         log.warning("account refresh failed", source=source, error=str(e))
