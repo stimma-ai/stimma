@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from llm import llm_completion, QuotaExceededError, ContentFilteredError, Usage, is_auto_tool_choice_unsupported_error, strip_thinking_tags
 from llm_correlation import llm_correlation_context
-from llm_resolver import get_effective_llm_config, get_chat_llm_config, resolve_chat_model_slug, LLMNotConfiguredError, LLMSubscriptionRequiredError
+from llm_resolver import get_effective_llm_config, get_chat_llm_config, resolve_chat_model_slug, LLMNotConfiguredError, LLMInsufficientBalanceError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -956,8 +956,8 @@ async def run_agent(
         _track_agent_error("content_filtered")
         _track_agent_turn("failed", error_type="content_filtered")
 
-    except LLMSubscriptionRequiredError as e:
-        log.warning(f"Chat {chat_id}: Subscription required: {e}")
+    except LLMInsufficientBalanceError as e:
+        log.warning(f"Chat {chat_id}: Insufficient balance: {e}")
         metadata = {
             "error_type": e.code,
             "error_summary": str(e),

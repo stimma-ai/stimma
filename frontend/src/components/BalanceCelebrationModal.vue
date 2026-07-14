@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div
         v-if="celebration"
-        data-testid="subscription-celebration"
+        data-testid="balance-celebration"
         class="fixed inset-0 z-[10010] flex items-center justify-center bg-black/50 backdrop-blur-sm"
         @click.self="dismissCelebration"
       >
@@ -34,10 +34,10 @@
                 </svg>
               </div>
               <h3 class="stagger stagger-1 mt-5 text-xl font-semibold text-content tracking-tight">
-                Welcome to <span class="stimma-cloud-text whitespace-nowrap">Stimma Cloud</span>
+                Your <span class="stimma-cloud-text whitespace-nowrap">Stimma account</span> is ready
               </h3>
               <p class="stagger stagger-2 mt-1.5 mx-auto max-w-[340px] text-sm text-content-secondary leading-relaxed">
-                {{ planLine }}
+                {{ balanceLine }}
               </p>
             </div>
           </div>
@@ -60,14 +60,15 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useSubscriptionCelebration } from '../composables/useAccountEvents'
+import { useBalanceCelebration } from '../composables/useAccountEvents'
+import { formatBalance } from '../composables/useCloudAccount'
 
-const { celebration, dismissCelebration } = useSubscriptionCelebration()
+const { celebration, dismissCelebration } = useBalanceCelebration()
 
-const planLine = computed(() => {
-  const name = celebration.value?.tierDisplayName || celebration.value?.tier
-  const plan = name ? `Your ${name} plan is active.` : 'Your plan is active.'
-  return `${plan} The agent and generation tools are ready.`
+const balanceLine = computed(() => {
+  const amount = formatBalance(celebration.value?.credits)
+  const balance = amount ? `${amount} added to your balance.` : 'Balance added.'
+  return `${balance} Generation and the agent are ready to use.`
 })
 
 // Gradient motes drifting up from the base glow; positions/timings are

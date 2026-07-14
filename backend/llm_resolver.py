@@ -48,10 +48,10 @@ class LLMNotConfiguredError(LLMUnavailableError):
     code = "llm_not_configured"
 
 
-class LLMSubscriptionRequiredError(LLMUnavailableError):
-    """Raised when user is signed in but on free tier (no LLM access)."""
+class LLMInsufficientBalanceError(LLMUnavailableError):
+    """Raised when the user is signed in but has no spendable balance."""
 
-    code = "llm_subscription_required"
+    code = "llm_insufficient_balance"
 
 
 async def get_effective_llm_config(role: str) -> LLMEffectiveConfig:
@@ -141,11 +141,12 @@ async def _get_stimma_cloud_config(
             log.debug("no valid id token for stimma cloud", role=role)
             return None
 
-        # Check if user is on free tier (cloud will reject)
+        # Skip cloud when the account has no balance (cloud will reject) so
+        # 'auto' can fall through to a configured local endpoint.
         from auth_storage import load_auth_state
         auth_state = load_auth_state()
-        if auth_state and auth_state.get('tier') == 'free':
-            log.debug("user is on free tier, skipping cloud config", role=role)
+        if auth_state and (auth_state.get('credits') or 0) <= 0:
+            log.debug("account has no balance, skipping cloud config", role=role)
             return None
 
         # Construct the Stimma Cloud LLM endpoint
@@ -330,12 +331,12 @@ def _raise_no_llm_error() -> None:
     """Raise the appropriate error based on auth state."""
     from auth_storage import load_auth_state
     auth_state = load_auth_state()
-    if auth_state and auth_state.get('tier') == 'free':
-        raise LLMSubscriptionRequiredError(
-            "Your current plan doesn't include AI chat. Subscribe to Stimma Cloud to get started."
+    if auth_state and (auth_state.get('credits') or 0) <= 0:
+        raise LLMInsufficientBalanceError(
+            "Your Stimma account has no balance."
         )
     raise LLMNotConfiguredError(
-        "No AI model is configured. Connect Stimma Cloud or set up a local endpoint in Settings."
+        "No AI model is configured. Sign in to Stimma or set up a local endpoint in Settings."
     )
 
 
@@ -345,10 +346,9 @@ async def _raise_cloud_llm_error(model_slug: str | None = None) -> None:
     from firebase_auth import get_valid_id_token
 
     auth_state = load_auth_state()
-    tier = (auth_state or {}).get("tier")
-    if tier == "free":
-        raise LLMSubscriptionRequiredError(
-            "Your current plan doesn't include AI models. Subscribe to Stimma Cloud or choose a local endpoint."
+    if auth_state and (auth_state.get("credits") or 0) <= 0:
+        raise LLMInsufficientBalanceError(
+            "Your Stimma account has no balance."
         )
 
     try:
@@ -358,18 +358,18 @@ async def _raise_cloud_llm_error(model_slug: str | None = None) -> None:
 
     if not id_token:
         raise LLMNotConfiguredError(
-            "Sign in to Stimma Cloud or choose a local endpoint.",
+            "Sign in to Stimma or choose a local endpoint.",
             code="llm_not_logged_in",
         )
 
     if model_slug:
         raise LLMNotConfiguredError(
-            f"Stimma Cloud model '{model_slug}' is not available right now.",
+            f"Cloud model '{model_slug}' is not available right now.",
             code="llm_cloud_unreachable",
             status_code=503,
         )
     raise LLMNotConfiguredError(
-        "Stimma Cloud cannot be reached. Choose Local or try again later.",
+        "Stimma\u2019s cloud cannot be reached. Choose Local or try again later.",
         code="llm_cloud_unreachable",
         status_code=503,
     )

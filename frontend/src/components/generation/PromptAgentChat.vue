@@ -183,12 +183,12 @@
           />
           <!-- Remedy sits beside the error, not inside its text. -->
           <button
-            v-if="f.code === 'subscription_required'"
+            v-if="isInsufficientBalanceCode(f.code)"
             @click.stop="connectStimmaCloud"
             :disabled="cloudConnecting"
             class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium stimma-cloud-text border border-current/20 hover:border-current/40 transition-colors"
           >
-            {{ cloudConnecting ? 'Connecting…' : 'Connect Stimma Cloud' }}
+            {{ cloudConnecting ? 'Connecting…' : 'Add Balance' }}
           </button>
           <!-- Dev mode: copy the failed step's full LLM trace for a bug report -->
           <button
@@ -309,12 +309,12 @@
     <div v-if="error && !agentModelUnavailable" class="mt-2 flex items-center gap-2">
       <p class="text-xs text-red-500">{{ error }}</p>
       <button
-        v-if="errorCode === 'subscription_required'"
+        v-if="isInsufficientBalanceCode(errorCode)"
         @click="connectStimmaCloud"
         :disabled="cloudConnecting"
         class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium stimma-cloud-text border border-current/20 hover:border-current/40 transition-colors"
       >
-        {{ cloudConnecting ? 'Connecting…' : 'Connect Stimma Cloud' }}
+        {{ cloudConnecting ? 'Connecting…' : 'Add Balance' }}
       </button>
     </div>
 
@@ -620,6 +620,12 @@ const agentFlashes = ref<AgentFlash[]>([])
 let agentFlashSeq = 0
 const agentFlashTimers = new Set<ReturnType<typeof setTimeout>>()
 
+// Discriminator codes for "signed in but no spendable balance" — current
+// backend code plus legacy names still recognized as the same thing.
+function isInsufficientBalanceCode(code: string | null): boolean {
+  return code === 'insufficient_balance' || code === 'llm_insufficient_balance' || code === 'subscription_required' || code === 'subscription_error'
+}
+
 function pushAgentFlash(kind: 'reply' | 'error', text: string, ms: number, code: string | null = null) {
   const id = agentFlashSeq++
   agentFlashes.value.unshift({ id, kind, text, code })
@@ -634,10 +640,10 @@ if (agent) {
   watch(agent.lastReply, (v) => { if (v) pushAgentFlash('reply', v, 6000) })
   watch(agent.error, (v) => {
     if (!v) return
-    // Entitlement errors carry a remedy (sign in) — give them longer to be
-    // read/acted on than an ordinary transient agent error.
+    // Entitlement errors carry a remedy (add balance) — give them longer to
+    // be read/acted on than an ordinary transient agent error.
     const code = agent.errorCode.value
-    pushAgentFlash('error', v, code === 'subscription_required' ? 20000 : 10000, code)
+    pushAgentFlash('error', v, isInsufficientBalanceCode(code) ? 20000 : 10000, code)
   })
 }
 
@@ -690,7 +696,7 @@ const undoStack = ref<string[]>([])
 const redoStack = ref<string[]>([])
 const isLoading = ref(false)
 const error = ref<string | null>(null)
-// Discriminator for the last error, e.g. 'subscription_required' — drives
+// Discriminator for the last error, e.g. 'llm_insufficient_balance' — drives
 // the CTA shown beside the error text; never folded into the error string.
 const errorCode = ref<string | null>(null)
 const showDebug = ref(false)

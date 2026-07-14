@@ -61,7 +61,7 @@
         style="background: linear-gradient(135deg, #0d9488, #06b6d4, #6366f1); box-shadow: 0 2px 14px rgba(13,148,136,0.18);"
       >
         <div class="flex-1 text-center">
-          <span class="text-sm font-semibold whitespace-nowrap">Create a Stimma Cloud account</span>
+          <span class="text-sm font-semibold whitespace-nowrap">Create your Stimma account</span>
         </div>
         <span class="text-[17px] opacity-85 flex-shrink-0">→</span>
       </button>

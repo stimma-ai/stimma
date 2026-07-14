@@ -599,12 +599,12 @@
         <div v-if="submissionError" class="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-500 text-sm flex items-center justify-between gap-3">
           <span>{{ submissionError }}</span>
           <button
-            v-if="submissionErrorCode === 'subscription_required'"
+            v-if="isInsufficientBalanceCode(submissionErrorCode)"
             @click="connectStimmaCloudForSubmission"
             :disabled="submissionCloudConnecting"
             class="flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium stimma-cloud-text border border-current/20 hover:border-current/40 transition-colors"
           >
-            {{ submissionCloudConnecting ? 'Connecting…' : 'Connect Stimma Cloud' }}
+            {{ submissionCloudConnecting ? 'Connecting…' : 'Add Balance' }}
           </button>
         </div>
        </div>
@@ -1360,10 +1360,16 @@ const tool = ref<ToolWithState | null>(null)
 const isInitialLoading = ref(true)
 const error = ref<{ message: string; statusCode?: number } | null>(null)
 const submissionError = ref<string | null>(null)
-// Discriminator for the last submission error, e.g. 'subscription_required'
+// Discriminator for the last submission error, e.g. 'llm_insufficient_balance'
 // (enhance-at-submit has no LLM entitlement) — drives the CTA shown beside
 // the error text; never folded into the error string itself.
 const submissionErrorCode = ref<string | null>(null)
+
+// Codes for "signed in but no spendable balance" — current backend code
+// plus legacy names still recognized as the same thing.
+function isInsufficientBalanceCode(code: string | null): boolean {
+  return code === 'insufficient_balance' || code === 'llm_insufficient_balance' || code === 'subscription_required' || code === 'subscription_error'
+}
 
 function classifySubmissionError(err: any): string {
   const detail = err?.response?.data?.detail

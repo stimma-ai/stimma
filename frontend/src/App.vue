@@ -14,7 +14,7 @@
 
     <ReadinessPanel />
 
-    <SubscriptionCelebrationModal />
+    <BalanceCelebrationModal />
 
     <FeedbackRoot />
 
@@ -179,7 +179,7 @@ import TopBar from './components/TopBar.vue'
 import ToastContainer from './components/ToastContainer.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
 import ReadinessPanel from './components/ReadinessPanel.vue'
-import SubscriptionCelebrationModal from './components/SubscriptionCelebrationModal.vue'
+import BalanceCelebrationModal from './components/BalanceCelebrationModal.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
 import FeedbackRoot from '@stimma/feedback-root'
 import { useProfile } from './composables/useProfile'

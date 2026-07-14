@@ -15,7 +15,7 @@ from pydantic import BaseModel as PydanticBaseModel
 from project_service import get_project_or_404
 from utils.websocket import ws_manager
 from config import get_settings
-from llm_resolver import get_effective_llm_config, LLMNotConfiguredError, LLMSubscriptionRequiredError
+from llm_resolver import get_effective_llm_config, LLMNotConfiguredError, LLMInsufficientBalanceError
 from llm_correlation import llm_correlation_context
 
 log = get_logger(__name__)
@@ -431,7 +431,7 @@ Title:"""
             else:
                 log.warning(f"Chat {chat_id}: Chat not found or has user-set custom name, skipping update")
 
-    except (LLMNotConfiguredError, LLMSubscriptionRequiredError):
+    except (LLMNotConfiguredError, LLMInsufficientBalanceError):
         log.info(f"Chat {chat_id}: No LLM available for auto-naming, skipping")
     except Exception as e:
         log.error(f"Error auto-naming chat {chat_id}: {e}", exc_info=True)

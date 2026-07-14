@@ -136,13 +136,14 @@ class ContentFilteredError(Exception):
 
 class EntitlementError(Exception):
     """Raised when Stimma Cloud rejects an LLM request with type
-    'subscription_error' (403) — the account has no active subscription.
+    'insufficient_balance' (403) — the account has no spendable balance
+    ('subscription_error' is the legacy pre-PAYG type, still recognized).
 
-    Distinct from QuotaExceededError (has a subscription, used it up) and
-    from LLMUnavailableError/LLMSubscriptionRequiredError in llm_resolver.py
-    (raised before any request goes out, from locally cached tier state).
+    Distinct from QuotaExceededError (abuse throttle) and from
+    LLMUnavailableError/LLMInsufficientBalanceError in llm_resolver.py
+    (raised before any request goes out, from locally cached balance state).
     This one is raised from the live response, so it also catches the case
-    where the local tier cache is stale."""
+    where the local balance cache is stale."""
 
     def __init__(self, message: str, upstream_status: int | None = None):
         super().__init__(message)
@@ -376,9 +377,9 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
                         upstream_status=upstream_status_passthrough,
                     )
 
-                if err_type == "subscription_error":
+                if err_type in ("insufficient_balance", "subscription_error"):
                     raise EntitlementError(
-                        err_data.get("message", "No active Stimma Cloud subscription."),
+                        err_data.get("message", "Your Stimma account has no available balance."),
                         upstream_status=resp.status_code,
                     )
 

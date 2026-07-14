@@ -42,6 +42,7 @@ TOOL_ERROR_TYPES = (
 AGENT_ERROR_TYPES = (
     "quota_exceeded",
     "content_filtered",
+    "insufficient_balance",
     "subscription_required",
     "llm_not_configured",
     "refusal",
@@ -112,9 +113,9 @@ def classify_agent_error(exc: BaseException) -> str:
     except Exception:
         pass
     try:
-        from llm_resolver import LLMSubscriptionRequiredError, LLMNotConfiguredError
-        if isinstance(exc, LLMSubscriptionRequiredError):
-            return "subscription_required"
+        from llm_resolver import LLMInsufficientBalanceError, LLMNotConfiguredError
+        if isinstance(exc, LLMInsufficientBalanceError):
+            return "insufficient_balance"
         if isinstance(exc, LLMNotConfiguredError):
             return "llm_not_configured"
     except Exception:

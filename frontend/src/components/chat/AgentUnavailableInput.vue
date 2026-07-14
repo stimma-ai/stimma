@@ -6,7 +6,7 @@
         Connect a local LLM to use the agent.
       </template>
       <template v-else>
-        Connect Stimma Cloud or configure a local LLM to start chatting.
+        Sign in to your Stimma account or configure a local LLM to start chatting.
       </template>
     </p>
 
@@ -17,7 +17,7 @@
         @click="openSettings('account')"
         class="rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400"
       >
-        Connect Stimma Cloud
+        Sign in to Stimma
       </button>
       <button
         type="button"

@@ -110,7 +110,7 @@ export async function fetchCloudAccount() {
     cloudUser.value = null
     cloudError.value = {
       code: 'privacy_lockdown',
-      message: 'Stimma Cloud is unavailable in Privacy Lockdown.',
+      message: 'Your Stimma account is unavailable in Privacy Lockdown.',
     }
     return null
   }
@@ -144,7 +144,7 @@ export async function fetchCloudAccount() {
     console.error('Failed to fetch cloud account:', error)
     cloudError.value = {
       code: 'cloud_unreachable',
-      message: "Couldn't reach Stimma Cloud. Check your connection and try again.",
+      message: "Couldn't reach your Stimma account. Check your connection and try again.",
     }
     return null
   } finally {

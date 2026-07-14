@@ -120,18 +120,9 @@ export async function signInWithBrowser(mode) {
       setUser(result.user)
     }
 
-    // Desktop-login plan chooser carries back `choice` (skip|purchase) on the
-    // callback redirect, surfaced here via the poll result. A subscribed
-    // login never sets it (no interstitial shown) — nothing new for that
-    // case. Unsubscribed with no choice at all is legacy/edge and treated
-    // like 'skip'. See plans/OOBE_ENTITLEMENT_FLOW.md section B.
-    const tier = (result.tier || '').toLowerCase()
-    const isSubscribed = !!tier && tier !== 'free' && tier !== 'byoai'
-    if (result.choice === 'purchase') {
-      await useReadiness().handleLoginChoice('purchase')
-    } else if (result.choice === 'skip' || (!result.choice && !isSubscribed)) {
-      await useReadiness().handleLoginChoice('skip')
-    }
+    // Refresh account + readiness after every completed login. The panel
+    // shows itself (via shouldShowPanel) if the account still isn't ready.
+    await useReadiness().handleLoginChoice()
 
     return result
 

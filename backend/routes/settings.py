@@ -702,20 +702,6 @@ async def get_settings_all():
     )
 
 
-def _has_active_subscription() -> bool:
-    """Mirrors the frontend's tier check (useCloudAccount consumers):
-    signed in with a tier that isn't 'free' or 'byoai'. Reads the locally
-    persisted auth state only — no network call.
-    """
-    from auth_storage import load_auth_state
-
-    auth_state = load_auth_state()
-    if not auth_state:
-        return False
-    tier = (auth_state.get('tier') or '').lower()
-    return bool(tier) and tier not in ('free', 'byoai')
-
-
 def _has_cloud_balance() -> bool:
     from auth_storage import load_auth_state
 
@@ -752,16 +738,15 @@ def _has_local_generation_provider_configured(settings) -> bool:
 def _compute_readiness(settings) -> ReadinessResponse:
     """App-entry readiness gate.
 
-    Agent LLM = active subscription OR local LLM endpoint configured.
-    Way to generate = active subscription OR cloud balance > 0 OR any
-    non-cloud STP/ComfyUI provider configured.
+    Agent LLM = cloud balance > 0 OR local LLM endpoint configured.
+    Way to generate = cloud balance > 0 OR any non-cloud STP/ComfyUI
+    provider configured.
     """
-    has_active_subscription = _has_active_subscription()
+    has_cloud_balance = _has_cloud_balance()
 
-    has_agent_llm = has_active_subscription or _has_local_agent_llm_configured(settings)
+    has_agent_llm = has_cloud_balance or _has_local_agent_llm_configured(settings)
     has_generation = (
-        has_active_subscription
-        or _has_cloud_balance()
+        has_cloud_balance
         or _has_local_generation_provider_configured(settings)
     )
 

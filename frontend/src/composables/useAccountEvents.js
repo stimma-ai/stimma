@@ -2,10 +2,10 @@
  * Account-events propagation (frontend half of the cloud push channel).
  *
  * The backend holds a persistent WebSocket to Stimma Cloud and, on any
- * account change (tier, subscription, balance), re-fetches account state and
- * broadcasts over the app websocket:
- *  - `account_updated`   — fresh account payload; refresh dependent state
- *  - `subscription_activated` — unsubscribed -> subscribed transition
+ * account change (balance, tier), re-fetches account state and broadcasts
+ * over the app websocket:
+ *  - `account_updated` — fresh account payload; refresh dependent state
+ *  - `balance_added`   — zero -> positive balance transition
  *
  * Refreshes here are data-only and quiet: shared reactive stores update in
  * place, no view reloads.
@@ -17,7 +17,7 @@ import { refreshAvailableModels } from './useAvailableModels'
 import { useReadiness } from './useReadiness'
 import { isTauri } from '../apiConfig'
 
-const celebration = ref(null) // { tier, tierDisplayName } | null
+const celebration = ref(null) // { credits } | null
 
 let initialized = false
 
@@ -33,10 +33,9 @@ export function initAccountEvents() {
     await useReadiness().refreshReadiness()
   })
 
-  on('subscription_activated', async (data) => {
+  on('balance_added', async (data) => {
     celebration.value = {
-      tier: data?.tier || null,
-      tierDisplayName: data?.tierDisplayName || null,
+      credits: data?.credits ?? null,
     }
     await foregroundAppWindow()
   })
@@ -59,7 +58,7 @@ function dismissCelebration() {
   celebration.value = null
 }
 
-export function useSubscriptionCelebration() {
+export function useBalanceCelebration() {
   return {
     celebration: readonly(celebration),
     dismissCelebration,

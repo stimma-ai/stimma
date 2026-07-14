@@ -240,7 +240,7 @@ const profileSections = [
 
 // Global settings (applies to all profiles)
 const globalSections = [
-  { id: 'account', label: 'Stimma Cloud', icon: CloudIcon, branded: true },
+  { id: 'account', label: 'Stimma Account', icon: CloudIcon, branded: true },
   { id: 'profiles', label: 'Profiles', icon: UserIcon },
   { id: 'privacy', label: 'Privacy', icon: ShieldCheckIcon },
   { id: 'tools', label: 'Tools', icon: WrenchIcon },

@@ -14,9 +14,9 @@
       or remote services that implement the Stimma Tools Protocol.
     </p>
 
-    <!-- Stimma Cloud Section -->
+    <!-- Stimma's cloud tools Section -->
     <div class="mb-6">
-      <h4 class="text-sm font-medium text-content-secondary mb-3">Stimma Cloud</h4>
+      <h4 class="text-sm font-medium text-content-secondary mb-3">Stimma's cloud tools</h4>
       <div class="rounded-lg bg-surface/50 border border-edge overflow-hidden">
         <!-- Not logged in state -->
         <div v-if="!isAuthenticated" class="px-4 py-3">
@@ -27,7 +27,7 @@
               </svg>
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm text-content-secondary">Stimma Cloud tools</p>
+              <p class="text-sm text-content-secondary">Stimma's cloud tools</p>
               <p class="text-xs text-content-muted mt-0.5">The newest closed image and video models, plus a hosted agent. Works alongside the providers below.</p>
             </div>
             <button
@@ -35,7 +35,7 @@
               :disabled="isCloudConnecting"
               class="flex-shrink-0 px-3.5 py-1.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded-lg text-xs font-medium transition-all disabled:opacity-60"
             >
-              {{ isCloudConnecting ? 'Connecting...' : 'Connect' }}
+              {{ isCloudConnecting ? 'Connecting...' : 'Sign in to Stimma' }}
             </button>
           </div>
         </div>
@@ -59,16 +59,8 @@
             <!-- Title and subtitle -->
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
-                <h4 class="text-sm font-medium" :class="cloudProvider?.enabled !== false ? 'text-content' : 'text-content-muted'">Stimma Cloud</h4>
+                <h4 class="text-sm font-medium" :class="cloudProvider?.enabled !== false ? 'text-content' : 'text-content-muted'">Stimma's cloud tools</h4>
                 <span v-if="cloudProvider?.enabled === false" class="text-xs text-content-muted">(Disabled)</span>
-                <!-- Tier badge -->
-                <span
-                  v-if="cloudUser?.tier && cloudProvider?.enabled !== false"
-                  class="text-[10px] px-1 py-px rounded"
-                  :class="hasPaidSubscription ? 'bg-rose-100 text-rose-600 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30' : 'bg-surface-hover/50 text-content-tertiary border border-edge/30'"
-                >
-                  {{ getPlanDisplayName(cloudUser) }}
-                </span>
                 <!-- Connecting indicator -->
                 <span
                   v-if="cloudProvider?.status === 'connecting' && cloudProvider?.enabled !== false"
@@ -106,11 +98,10 @@
             </div>
           </div>
 
-          <!-- Card Body - Account info & upgrade prompt -->
+          <!-- Card Body - Balance -->
           <div class="px-4 pb-4 pt-2 border-t border-edge/50">
             <div class="ml-[22px]">
-              <!-- Credits display for paid tiers -->
-              <div v-if="hasPaidSubscription" class="flex items-center gap-2 text-sm">
+              <div class="flex items-center gap-2 text-sm">
                 <span class="text-content-tertiary">Balance:</span>
                 <span class="text-content font-medium">{{ formatBalance(cloudUser?.credits) || '$0.00' }}</span>
                 <a
@@ -119,18 +110,6 @@
                   class="text-xs text-blue-500 hover:text-blue-500 hover:underline ml-2"
                 >
                   Add balance
-                </a>
-              </div>
-
-              <!-- Upgrade prompt for free/BYOAI tier -->
-              <div v-else class="flex items-center gap-3">
-                <p class="text-sm text-content-muted">Subscribe to use Stimma Cloud tools</p>
-                <a
-                  :href="cloudBaseUrl + '/link/getstarted'"
-                  target="_blank"
-                  class="text-xs px-2.5 py-1 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded font-medium transition-colors"
-                >
-                  Get Started
                 </a>
               </div>
             </div>
@@ -823,7 +802,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useAuth } from '../../../composables/useAuth'
-import { useCloudAccount, formatBalance, getPlanDisplayName } from '../../../composables/useCloudAccount'
+import { useCloudAccount, formatBalance } from '../../../composables/useCloudAccount'
 import { copyToClipboard } from '../../../utils/clipboard'
 import { addToast } from '../../../composables/useToasts'
 import { devModeRef } from '../../../appConfig'
@@ -856,13 +835,6 @@ async function handleCloudConnect() {
 
 // Cloud dashboard URL
 const cloudDashboardUrl = computed(() => cloudBaseUrl.value + '/link/dashboard')
-
-// Check if user has a paid subscription (not free tier or BYOAI)
-const hasPaidSubscription = computed(() => {
-  if (!cloudUser.value) return false
-  const tier = (cloudUser.value.tier || '').toLowerCase()
-  return tier && tier !== 'free' && tier !== 'byoai'
-})
 
 // Cloud provider from the providers list
 const cloudProvider = computed(() => {

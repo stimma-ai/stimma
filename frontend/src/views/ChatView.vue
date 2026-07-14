@@ -613,14 +613,14 @@
                     <span class="text-sm font-medium stimma-cloud-text">Almost There</span>
                   </div>
                   <div class="px-3.5 py-3 space-y-3">
-                    <p class="text-sm text-content-secondary text-center">Connect Stimma Cloud to start chatting.</p>
+                    <p class="text-sm text-content-secondary text-center">Sign in to your Stimma account to start chatting.</p>
                     <button
                       @click="handleCloudSignIn"
                       :disabled="cloudSigningIn"
                       class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 disabled:opacity-60 transition-all text-white text-sm font-medium w-full"
                     >
                       <SparklesIcon class="w-4 h-4 flex-shrink-0" />
-                      {{ cloudSigningIn ? 'Connecting...' : 'Get Started with Stimma Cloud' }}
+                      {{ cloudSigningIn ? 'Connecting...' : 'Sign in to Stimma' }}
                     </button>
                     <button
                       @click="openAISettings"
@@ -632,8 +632,8 @@
             </ChatItemWrapper>
           </div>
 
-          <!-- Subscription required (signed in but free tier) -->
-          <div v-else-if="item.item_type === 'error' && item.item_metadata?.error_type === 'subscription_required'" class="flex justify-start">
+          <!-- No balance (signed in, no spendable balance) -->
+          <div v-else-if="item.item_type === 'error' && INSUFFICIENT_BALANCE_ERROR_TYPES.has(item.item_metadata?.error_type)" class="flex justify-start">
             <ChatItemWrapper
               :item-id="item.id"
               align="left"
@@ -647,22 +647,22 @@
                     <div class="p-1 rounded-md bg-teal-600/15 flex-shrink-0">
                       <SparklesIcon class="w-3.5 h-3.5 text-teal-400" />
                     </div>
-                    <span class="text-sm font-medium stimma-cloud-text">Subscription Required</span>
+                    <span class="text-sm font-medium stimma-cloud-text">No Balance</span>
                   </div>
                   <div class="px-3.5 py-3 space-y-3">
-                    <p class="text-sm text-content-secondary text-center">Subscribe to Stimma Cloud to start chatting.</p>
+                    <p class="text-sm text-content-secondary text-center">This account has no available balance.</p>
                     <a
                       href="#"
-                      @click.prevent="openPricingPage"
+                      @click.prevent="openAddBalance"
                       class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 transition-all text-white text-sm font-medium w-full"
                     >
-                      See Plans
+                      Add Balance
                     </a>
                     <button
                       @click="refreshAccountAndRetry"
                       :disabled="accountRefreshing"
                       class="block w-full text-center text-xs text-content-muted hover:text-content-secondary transition-colors"
-                    >{{ accountRefreshing ? 'Checking...' : 'I just subscribed' }}</button>
+                    >{{ accountRefreshing ? 'Checking...' : 'I added balance' }}</button>
                     <button
                       @click="openAISettings"
                       class="block w-full text-center text-xs text-content-muted hover:text-content-secondary transition-colors"
@@ -692,45 +692,11 @@
                     <span class="text-sm font-medium stimma-cloud-text">Usage Limit Reached</span>
                   </div>
                   <div class="px-3.5 py-3 space-y-3">
-                    <p class="text-sm text-content-secondary">{{ item.item_metadata?.error_summary || item.message_text }}</p>
-                    <div class="space-y-2">
-                      <!-- Session quota -->
-                      <div v-if="item.item_metadata?.session" class="space-y-1">
-                        <div class="flex items-center justify-between text-xs">
-                          <span class="text-content-muted">Session</span>
-                          <div class="flex items-center gap-1 text-content-muted">
-                            <ClockIcon class="w-3 h-3" />
-                            <span>Resets in {{ formatQuotaReset(item.item_metadata.session.resetsAt) }}</span>
-                          </div>
-                        </div>
-                        <div class="h-1.5 rounded-full bg-surface-raised overflow-hidden">
-                          <div
-                            class="h-full rounded-full bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 transition-all"
-                            :style="{ width: Math.min(item.item_metadata.session.percentUsed, 100) + '%' }"
-                          />
-                        </div>
-                      </div>
-                      <!-- Weekly quota -->
-                      <div v-if="item.item_metadata?.weekly" class="space-y-1">
-                        <div class="flex items-center justify-between text-xs">
-                          <span class="text-content-muted">Weekly</span>
-                          <div class="flex items-center gap-1 text-content-muted">
-                            <ClockIcon class="w-3 h-3" />
-                            <span>Resets in {{ formatQuotaReset(item.item_metadata.weekly.resetsAt) }}</span>
-                          </div>
-                        </div>
-                        <div class="h-1.5 rounded-full bg-surface-raised overflow-hidden">
-                          <div
-                            class="h-full rounded-full bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 transition-all"
-                            :style="{ width: Math.min(item.item_metadata.weekly.percentUsed, 100) + '%' }"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <p class="text-sm text-content-secondary">Usage limit reached — try again later.</p>
                     <a
                       href="#"
                       @click.prevent="openCloudDashboard"
-                      class="inline-flex items-center gap-1 text-xs stimma-cloud-text hover:opacity-80 transition-opacity mt-1"
+                      class="inline-flex items-center gap-1 text-xs stimma-cloud-text hover:opacity-80 transition-opacity"
                     >Manage Account</a>
                     <ChatErrorDisclosure :raw="getRawErrorDetails(item)" />
                   </div>
@@ -1185,21 +1151,6 @@
           <div class="h-full rounded-full transition-all duration-300" :class="tokenUsagePercent > 90 ? 'bg-red-500' : tokenUsagePercent > 70 ? 'bg-amber-500' : 'bg-blue-500'" :style="{ width: tokenUsagePercent + '%' }"></div>
         </div>
       </div>
-      <!-- Stimma Cloud quota (piggybacked on LLM responses) — right-justified with mini bars -->
-      <div v-if="llmUsage?.quota" class="ml-auto flex items-center gap-3">
-        <div v-if="llmUsage.quota.session_percent != null" class="flex items-center gap-1.5">
-          <span :class="llmUsage.quota.session_percent > 95 ? 'text-red-400' : llmUsage.quota.session_percent > 80 ? 'text-amber-400' : 'text-content-muted'">session {{ llmUsage.quota.session_percent }}%</span>
-          <div class="w-10 h-1 bg-black/10 dark:bg-white/15 rounded-full overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-300" :class="llmUsage.quota.session_percent > 95 ? 'bg-red-500' : llmUsage.quota.session_percent > 80 ? 'bg-amber-500' : 'bg-teal-500'" :style="{ width: llmUsage.quota.session_percent + '%' }"></div>
-          </div>
-        </div>
-        <div v-if="llmUsage.quota.weekly_percent != null" class="flex items-center gap-1.5">
-          <span :class="llmUsage.quota.weekly_percent > 95 ? 'text-red-400' : llmUsage.quota.weekly_percent > 80 ? 'text-amber-400' : 'text-content-muted'">week {{ llmUsage.quota.weekly_percent }}%</span>
-          <div class="w-10 h-1 bg-black/10 dark:bg-white/15 rounded-full overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-300" :class="llmUsage.quota.weekly_percent > 95 ? 'bg-red-500' : llmUsage.quota.weekly_percent > 80 ? 'bg-amber-500' : 'bg-teal-500'" :style="{ width: llmUsage.quota.weekly_percent + '%' }"></div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Input Area -->
@@ -1427,7 +1378,6 @@ import {
   ChevronRightIcon,
   ExclamationTriangleIcon,
   ShieldExclamationIcon,
-  ClockIcon,
   SparklesIcon,
   Cog6ToothIcon,
 } from '@heroicons/vue/24/outline'
@@ -1497,11 +1447,18 @@ const GENERIC_CHAT_ERROR_MESSAGE = 'Something went wrong.'
 const LLM_SETUP_ERROR_TYPES = new Set([
   'llm_not_configured',
   'llm_not_logged_in',
-  'llm_subscription_required',
   'llm_cloud_unreachable',
   'llm_local_missing',
   'llm_model_missing',
+])
+// Balance codes get their own dedicated card (see below), not the generic
+// setup card. New codes plus legacy names still recognized as the same thing.
+const INSUFFICIENT_BALANCE_ERROR_TYPES = new Set([
+  'llm_insufficient_balance',
+  'insufficient_balance',
+  'llm_subscription_required',
   'subscription_required',
+  'subscription_error',
 ])
 const showDeleteModal = ref(false)
 const showJobInfoModal = ref(false)
@@ -3166,7 +3123,7 @@ const modelUnavailableMessage = computed(() => {
   if (!isChatModelUnavailable.value) return ''
   const model = selectedChatModel.value
   const slug = chat.value?.model_slug || globalDefault.value
-  return model?.description || `The selected model (${slug}) is no longer available. Sign in to Stimma Cloud or configure a local endpoint in Settings > Advanced.`
+  return model?.description || `The selected model (${slug}) is no longer available. Sign in to your Stimma account or configure a local endpoint in Settings > Advanced.`
 })
 
 // Send a message (from input or from queue)
@@ -4407,22 +4364,6 @@ function toggleSettingsPanel() {
   localStorage.setItem(_chatSettingsKey, String(settingsPanelVisible.value))
 }
 
-function formatQuotaReset(isoString) {
-  if (!isoString) return ''
-  const reset = new Date(isoString)
-  const now = new Date()
-  const diffMs = reset.getTime() - now.getTime()
-  if (diffMs <= 0) return 'now'
-  const diffMins = Math.floor(diffMs / 60000)
-  if (diffMins < 60) return `${diffMins}m`
-  const diffHours = Math.floor(diffMins / 60)
-  const remainMins = diffMins % 60
-  if (diffHours < 24) return remainMins > 0 ? `${diffHours}h ${remainMins}m` : `${diffHours}h`
-  const diffDays = Math.floor(diffHours / 24)
-  const remainHours = diffHours % 24
-  return remainHours > 0 ? `${diffDays}d ${remainHours}h` : `${diffDays}d`
-}
-
 async function openCloudDashboard() {
   const url = cloudBaseUrl.value + '/link/dashboard'
   if (isTauri()) {
@@ -4474,8 +4415,8 @@ watch(isAuthenticated, async (authed) => {
   }
 })
 
-async function openPricingPage() {
-  const url = cloudBaseUrl.value + '/link/pricing'
+async function openAddBalance() {
+  const url = cloudBaseUrl.value + '/link/addcredits'
   if (isTauri()) {
     const { open } = await import('@tauri-apps/plugin-shell')
     await open(url)

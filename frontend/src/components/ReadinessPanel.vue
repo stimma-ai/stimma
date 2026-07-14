@@ -33,9 +33,9 @@
               :disabled="connecting"
               class="mt-4 px-5 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded-lg text-sm font-semibold transition-all disabled:opacity-60"
             >
-              {{ finishCheckoutNeeded ? 'Finish checkout' : (connecting ? 'Connecting…' : 'Connect Stimma Cloud') }}
+              {{ connecting ? 'Connecting…' : (user ? 'Add balance' : 'Sign in to Stimma') }}
             </button>
-            <p v-if="!privacyLockdownActive && !finishCheckoutNeeded" class="mt-2.5 text-xs text-content-muted">Nothing to install or configure.</p>
+            <p v-if="!privacyLockdownActive" class="mt-2.5 text-xs text-content-muted">Nothing to install or configure.</p>
             <p v-if="!privacyLockdownActive && connectError" class="text-xs text-red-500 mt-2">{{ connectError }}</p>
           </div>
 
@@ -100,7 +100,7 @@ import { useCloudAccount } from '../composables/useCloudAccount'
 import { usePrivacyLockdown } from '../composables/usePrivacyLockdown'
 import { isTauri } from '../apiConfig'
 
-const { readiness, shouldShowPanel, finishCheckoutNeeded, dontShowAgain, dismissPanel, setDontShowAgain } = useReadiness()
+const { readiness, shouldShowPanel, dontShowAgain, dismissPanel, setDontShowAgain } = useReadiness()
 const { user, signInWithBrowser } = useAuth()
 const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
 const { privacyLockdownActive } = usePrivacyLockdown()
@@ -113,13 +113,16 @@ const missingGeneration = computed(() => !!readiness.value?.missing?.includes('g
 
 const headline = computed(() => {
   if (privacyLockdownActive.value) return 'Bring your own AI'
-  if (!privacyLockdownActive.value && finishCheckoutNeeded.value) return "Checkout didn't finish"
   if (missingAgentLlm.value && missingGeneration.value) return 'Connect AI to start creating'
   return 'One step left'
 })
 
 const heroText = computed(() => {
-  if (finishCheckoutNeeded.value) return "Checkout wasn't completed."
+  if (user.value) {
+    if (missingAgentLlm.value && missingGeneration.value) return 'Add balance to unlock the agent and generation tools, hosted.'
+    if (missingAgentLlm.value) return 'Add balance to give the agent a hosted model.'
+    return 'Add balance to unlock hosted generation tools.'
+  }
   if (missingAgentLlm.value && missingGeneration.value) return 'One sign-in sets up everything — the agent and generation tools, hosted.'
   if (missingAgentLlm.value) return 'One sign-in gives the agent a hosted model.'
   return 'One sign-in adds hosted generation tools.'
@@ -149,10 +152,10 @@ async function openUrl(url) {
 async function handleCloudCta() {
   connectError.value = ''
   if (user.value) {
-    // Already signed in, just unsubscribed/lapsed — go straight to the plan
-    // chooser on the web. No prices in-app; the web owns commerce.
+    // Already signed in with no balance — go straight to the dashboard to
+    // add balance. No prices in-app; the web owns commerce.
     await ensureCloudBaseUrl()
-    await openUrl(cloudBaseUrl.value + '/link/getstarted')
+    await openUrl(cloudBaseUrl.value + '/link/addcredits')
     return
   }
   connecting.value = true

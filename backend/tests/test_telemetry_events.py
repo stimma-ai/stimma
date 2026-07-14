@@ -290,11 +290,11 @@ def test_agent_error_unknown_exception_maps_to_other(capture, monkeypatch):
 
 def test_classify_agent_error_known_members():
     from llm import QuotaExceededError, ContentFilteredError
-    from llm_resolver import LLMNotConfiguredError, LLMSubscriptionRequiredError
+    from llm_resolver import LLMNotConfiguredError, LLMInsufficientBalanceError
     from telemetry_props import AGENT_ERROR_TYPES, classify_agent_error
     assert classify_agent_error(ContentFilteredError("x")) == "content_filtered"
     assert classify_agent_error(LLMNotConfiguredError("x")) == "llm_not_configured"
-    assert classify_agent_error(LLMSubscriptionRequiredError("x")) == "subscription_required"
+    assert classify_agent_error(LLMInsufficientBalanceError("x")) == "insufficient_balance"
     assert classify_agent_error(asyncio.TimeoutError()) == "timeout"
     assert classify_agent_error(ValueError("anything")) == "other"
     for exc in (ContentFilteredError("x"), ValueError("y")):

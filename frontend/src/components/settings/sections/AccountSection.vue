@@ -9,12 +9,12 @@
       </div>
       <h3 class="text-lg font-semibold text-content mb-2">Privacy Lockdown</h3>
       <p class="text-sm text-content-tertiary">
-        Stimma Cloud sign-in is disabled.
+        Sign-in to your Stimma account is disabled.
       </p>
     </div>
 
     <div v-else-if="!user" class="min-h-[60vh] flex flex-col items-center justify-center text-center">
-      <!-- Local tools connected: pitch cloud as an addition to a working stack -->
+      <!-- Local tools connected: pitch a Stimma account as an addition to a working stack -->
       <template v-if="hasLocalTools">
         <div class="flex items-center gap-2 text-xs text-content-tertiary bg-surface border border-edge rounded-full px-3.5 py-1.5 mb-5">
           <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
@@ -22,19 +22,19 @@
         </div>
         <h3 class="text-2xl font-semibold text-content mb-3 max-w-md text-balance">Add the frontier to your <span class="stimma-cloud-text">local stack.</span></h3>
         <p class="text-sm text-content-tertiary leading-relaxed max-w-md mb-6">
-          Your local setup stays as it is. Stimma Cloud adds the newest closed image and video models, plus a hosted agent. Run each job wherever you choose.
+          Your local setup stays as it is. A Stimma account adds the newest closed image and video models, plus a hosted agent. Run each job wherever you choose.
         </p>
         <button
           @click="handleConnect"
           class="px-6 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 text-white rounded-lg font-medium text-sm transition-all hover:shadow-lg hover:shadow-cyan-500/25 hover:-translate-y-0.5"
           :disabled="isConnecting"
         >
-          {{ isConnecting ? 'Connecting...' : 'Connect Stimma Cloud' }}
+          {{ isConnecting ? 'Connecting...' : 'Sign in to Stimma' }}
         </button>
         <p class="text-xs text-content-muted mt-2.5">Works alongside your local tools · Sign in or create an account in your browser</p>
       </template>
 
-      <!-- Nothing connected: cloud is the missing piece, with local setup as the alternative -->
+      <!-- Nothing connected: a Stimma account is the missing piece, with local setup as the alternative -->
       <template v-else>
         <svg class="w-8 h-8 mb-4" viewBox="0 0 24 24" fill="none" stroke="url(#account-cloud-grad)" stroke-width="1.5" aria-hidden="true">
           <defs>
@@ -48,14 +48,14 @@
         </svg>
         <h3 class="text-2xl font-semibold text-content mb-3 max-w-md text-balance">Stimma isn't connected to any AI <span class="stimma-cloud-text">yet.</span></h3>
         <p class="text-sm text-content-tertiary leading-relaxed max-w-md mb-6">
-          Stimma needs two things to work: tools that generate images and video, and a model that powers the agent. Stimma Cloud is both. Sign in once and start creating.
+          Stimma needs two things to work: tools that generate images and video, and a model that powers the agent. A Stimma account is both. Sign in once and start creating.
         </p>
         <button
           @click="handleConnect"
           class="px-6 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 text-white rounded-lg font-medium text-sm transition-all hover:shadow-lg hover:shadow-cyan-500/25 hover:-translate-y-0.5"
           :disabled="isConnecting"
         >
-          {{ isConnecting ? 'Connecting...' : 'Connect Stimma Cloud' }}
+          {{ isConnecting ? 'Connecting...' : 'Sign in to Stimma' }}
         </button>
         <p class="text-xs text-content-muted mt-2.5">No setup required · Sign in or create an account in your browser</p>
         <div class="mt-8 pt-5 border-t border-edge w-full max-w-sm">
@@ -138,25 +138,18 @@
             </span>
           </button>
 
-          <!-- Action: skeleton while first loading, then Add Balance (paid) / Get Started (free) -->
+          <!-- Action: skeleton while first loading, then Add Balance -->
           <div v-if="isFirstLoad" class="h-9 w-28 rounded-lg bg-white/10 animate-pulse"></div>
           <button
-            v-else-if="hasPaidSubscription"
+            v-else-if="!cloudError || cloudUser"
             @click="addBalance"
             class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-medium transition-colors"
           >
             Add Balance
           </button>
-          <button
-            v-else-if="!cloudError || cloudUser"
-            @click="openGetStarted"
-            class="px-4 py-2 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded-lg text-sm font-medium transition-all"
-          >
-            Get Started
-          </button>
         </div>
-        <p v-if="!isFirstLoad && !hasPaidSubscription && (!cloudError || cloudUser)" class="text-sm text-content-tertiary mt-3">
-          Subscribe to Stimma Cloud for hosted image and video generation, or configure your own providers.
+        <p v-if="!isFirstLoad && (!cloudError || cloudUser)" class="text-sm text-content-tertiary mt-3">
+          Balance covers hosted image and video generation. You can also configure your own providers.
         </p>
       </div>
 
@@ -176,83 +169,13 @@
         </button>
       </div>
 
-      <!-- Usage Card - show for paid tiers (and optimistically during first load to hold layout) -->
-      <div v-if="hasPaidSubscription || isFirstLoad" class="rounded-xl border border-edge bg-surface-raised p-5">
-        <div class="text-sm font-semibold text-content mb-4">Usage</div>
-
-        <div class="grid grid-cols-2 gap-5">
-          <!-- Session window -->
-          <div class="flex flex-col gap-2">
-            <div class="flex items-baseline justify-between">
-              <span class="text-[11px] font-semibold text-content-muted uppercase tracking-wider">Session</span>
-              <div v-if="isFirstLoad" class="h-4 w-9 rounded bg-white/10 animate-pulse"></div>
-              <span v-else-if="cloudUser?.usageWindows?.session" class="text-lg font-semibold text-content">{{ cloudUser.usageWindows.session.percentUsed }}%</span>
-              <span v-else class="text-sm text-content-muted">Idle</span>
-            </div>
-            <div class="h-1.5 bg-white/[0.07] rounded-full overflow-hidden">
-              <div
-                v-if="!isFirstLoad && cloudUser?.usageWindows?.session"
-                class="h-full rounded-full transition-all duration-300"
-                :class="cloudUser.usageWindows.session.percentUsed > 95 ? 'bg-red-500' : cloudUser.usageWindows.session.percentUsed > 80 ? 'bg-amber-500' : 'bg-gradient-to-r from-teal-500 to-emerald-500'"
-                :style="{ width: cloudUser.usageWindows.session.percentUsed + '%' }"
-              ></div>
-            </div>
-            <div v-if="isFirstLoad" class="h-3 w-32 rounded bg-white/10 animate-pulse"></div>
-            <span v-else-if="cloudUser?.usageWindows?.session" class="text-[11px] text-content-muted">Resets {{ formatDate(cloudUser.usageWindows.session.resetsAt) }}</span>
-            <span v-else class="text-[11px] text-content-muted">Starts on next request</span>
-          </div>
-
-          <!-- Weekly window -->
-          <div class="flex flex-col gap-2">
-            <div class="flex items-baseline justify-between">
-              <span class="text-[11px] font-semibold text-content-muted uppercase tracking-wider">Week</span>
-              <div v-if="isFirstLoad" class="h-4 w-9 rounded bg-white/10 animate-pulse"></div>
-              <span v-else-if="cloudUser?.usageWindows?.weekly" class="text-lg font-semibold text-content">{{ cloudUser.usageWindows.weekly.percentUsed }}%</span>
-              <span v-else class="text-sm text-content-muted">Idle</span>
-            </div>
-            <div class="h-1.5 bg-white/[0.07] rounded-full overflow-hidden">
-              <div
-                v-if="!isFirstLoad && cloudUser?.usageWindows?.weekly"
-                class="h-full rounded-full transition-all duration-300"
-                :class="cloudUser.usageWindows.weekly.percentUsed > 95 ? 'bg-red-500' : cloudUser.usageWindows.weekly.percentUsed > 80 ? 'bg-amber-500' : 'bg-gradient-to-r from-teal-500 to-emerald-500'"
-                :style="{ width: cloudUser.usageWindows.weekly.percentUsed + '%' }"
-              ></div>
-            </div>
-            <div v-if="isFirstLoad" class="h-3 w-32 rounded bg-white/10 animate-pulse"></div>
-            <span v-else-if="cloudUser?.usageWindows?.weekly" class="text-[11px] text-content-muted">Resets {{ formatDate(cloudUser.usageWindows.weekly.resetsAt) }}</span>
-            <span v-else class="text-[11px] text-content-muted">Starts on next request</span>
-          </div>
-        </div>
-      </div>
-
       <!-- Account Details Card -->
       <div class="rounded-xl border border-edge bg-surface-raised p-5">
         <div class="text-sm font-semibold text-content mb-4">Account</div>
-        <div class="grid grid-cols-3 gap-6">
+        <div class="grid grid-cols-2 gap-6">
           <div>
             <div class="text-xs text-content-muted mb-1.5">Email</div>
             <button @click="openDashboard" class="text-sm text-content truncate hover:text-content-secondary transition-colors text-left">{{ user.email }}</button>
-          </div>
-          <div>
-            <div class="text-xs text-content-muted mb-1.5">Plan</div>
-            <div v-if="isFirstLoad" class="h-5 w-14 rounded bg-white/10 animate-pulse"></div>
-            <div v-else class="flex items-center gap-2">
-              <span
-                v-if="cloudUser"
-                class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium"
-                :class="getPlanBadgeClass(cloudUser.tier)"
-              >
-                {{ getPlanDisplayName(cloudUser) }}
-              </span>
-              <button
-                v-if="cloudUser && !hasPaidSubscription"
-                @click="openGetStarted"
-                class="text-xs text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
-              >
-                Upgrade
-              </button>
-              <span v-if="!cloudUser" class="text-sm text-content-muted">—</span>
-            </div>
           </div>
           <div>
             <div class="text-xs text-content-muted mb-1.5">Member Since</div>
@@ -280,7 +203,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'navigate'])
 
 const { user, authError, signOut, signInWithBrowser } = useAuth()
-const { cloudBaseUrl, cloudUser, isCloudLoading, cloudError, fetchCloudAccount, ensureCloudBaseUrl, formatBalance, getPlanDisplayName } = useCloudAccount()
+const { cloudBaseUrl, cloudUser, isCloudLoading, cloudError, fetchCloudAccount, ensureCloudBaseUrl, formatBalance } = useCloudAccount()
 const { privacyLockdownActive } = usePrivacyLockdown()
 
 const showMenu = ref(false)
@@ -297,13 +220,6 @@ const isFirstLoad = computed(() => isCloudLoading.value && !cloudUser.value)
 const hasLocalTools = computed(() =>
   props.toolProviders.some(p => p.id !== 'stimma-cloud' && p.enabled !== false && p.status === 'connected')
 )
-
-// Check if user has a paid subscription (not free tier)
-const hasPaidSubscription = computed(() => {
-  if (!cloudUser.value) return false
-  const tier = (cloudUser.value.tier || '').toLowerCase()
-  return tier && tier !== 'free' && tier !== 'byoai'
-})
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -324,7 +240,7 @@ const userName = computed(() => {
 const connectMessage = computed(() => connectError.value || authError.value || '')
 
 const cloudErrorMessage = computed(() => {
-  return cloudError.value?.message || "Couldn't load Stimma Cloud account info."
+  return cloudError.value?.message || "Couldn't load Stimma account info."
 })
 
 onMounted(async () => {
@@ -334,7 +250,7 @@ onMounted(async () => {
   }
 })
 
-// When user signs in (e.g. via "Get Stimma Cloud"), fetch cloud account data
+// When user signs in, fetch cloud account data
 watch(user, async (newUser) => {
   if (newUser) {
     await ensureCloudBaseUrl()
@@ -348,23 +264,10 @@ async function refreshAccount() {
   }
 }
 
-function formatNumber(num) {
-  if (num == null) return '0'
-  return num.toLocaleString()
-}
-
 function formatDate(dateStr) {
   if (!dateStr) return '—'
   const date = new Date(dateStr)
   return date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
-}
-
-function getPlanBadgeClass(tier) {
-  const tierLower = (tier || '').toLowerCase()
-  if (tierLower === 'power') return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400'
-  if (tierLower === 'creator') return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-400'
-  if (tierLower === 'maker') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400'
-  return 'bg-surface-raised/50 text-content-tertiary'
 }
 
 async function handleConnect() {
@@ -386,16 +289,6 @@ async function openDashboard() {
     await open(dashboardUrl)
   } else {
     window.open(dashboardUrl, '_blank')
-  }
-}
-
-async function openGetStarted() {
-  const getStartedUrl = cloudBaseUrl.value + '/link/getstarted'
-  if (isTauri()) {
-    const { open } = await import('@tauri-apps/plugin-shell')
-    await open(getStartedUrl)
-  } else {
-    window.open(getStartedUrl, '_blank')
   }
 }
 

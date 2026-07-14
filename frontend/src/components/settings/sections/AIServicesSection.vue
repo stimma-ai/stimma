@@ -377,7 +377,7 @@ const { models: availableModelsRaw, globalDefault, fetchModels, invalidateCache 
 const defaultModelSlug = ref('auto')
 const unavailableSetupMessage = computed(() => privacyLockdownActive.value
   ? 'Configure a local endpoint.'
-  : 'Sign in to Stimma Cloud or configure a local endpoint.')
+  : 'Sign in to your Stimma account or configure a local endpoint.')
 const availableModelsList = computed(() => {
   if (availableModelsRaw.value.length > 0) return availableModelsRaw.value
   return [{
