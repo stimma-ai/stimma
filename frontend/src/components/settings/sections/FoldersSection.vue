@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h3 class="mb-4 text-base font-medium text-content">Sources</h3>
+    <h3 class="mb-4 text-base font-medium text-content">Folders</h3>
     <p class="text-sm text-content-tertiary mb-6">
       Add folders Stimma may scan for external media. Stimma never writes to or deletes files in these folders.
     </p>
@@ -63,7 +63,7 @@
 
     <!-- Empty state -->
     <div v-if="folders.length === 0" class="text-center py-8 text-content-tertiary">
-      No external sources configured
+      No external folders configured
     </div>
 
     <!-- Add folder button -->
@@ -76,7 +76,7 @@
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
         </svg>
-        Add Source
+        Add Folder
       </button>
     </div>
 
@@ -88,7 +88,7 @@
     <!-- Remove folder confirmation -->
     <ConfirmModal
       :show="showRemoveConfirm"
-      title="Remove Source?"
+      title="Remove Folder?"
       message="Stimma will stop scanning this folder. Files on disk will not be deleted."
       confirm-text="Remove"
       @confirm="confirmRemoveFolder"
@@ -364,7 +364,7 @@ async function addFolder() {
       const selected = await open({
         directory: true,
         multiple: false,
-        title: 'Select Source Folder'
+        title: 'Select Folder'
       })
       if (selected) {
         await addFolderPath(selected)
