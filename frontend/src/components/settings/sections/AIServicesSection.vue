@@ -16,6 +16,7 @@
             control
             fill
             class="w-72"
+            :menu-width="320"
             :model-value="quickTaskModel"
             :options="quickTaskOptions"
             @update:model-value="saveQuickTaskModel"
@@ -38,9 +39,9 @@
           <SettingsDropdown
             v-model="voiceModel"
             control
-            fill
-            class="w-56"
-            :options="VOICE_MODELS.map(model => ({ value: model.id, label: `${model.label} · ${model.size}` }))"
+            compact
+            :menu-width="224"
+            :options="voiceModelOptions"
           />
         </div>
       </div>
@@ -494,8 +495,16 @@ const cloudModels = computed(() => models.value.filter(model => model.source ===
 const selectedQuickModel = computed(() => models.value.find(model => model.slug === quickTaskModel.value))
 const quickTaskOptions = computed(() => models.value.filter(model => model.source !== 'auto' && !model.collapsed && (model.available !== false || model.slug === quickTaskModel.value)).map(model => ({
   value: model.slug,
-  label: `${model.name} · via ${model.source === 'stimma_cloud' ? 'Stimma' : (model.provider_name || model.name)}${model.cost_tier ? ` · ${model.cost_tier}` : ''}`,
+  label: model.name,
+  description: `via ${model.source === 'stimma_cloud' ? 'Stimma' : (model.provider_name || endpointHost(model.endpoint_url) || 'your endpoint')}`,
+  meta: model.cost_tier || '',
+  tone: model.source === 'stimma_cloud' ? 'cloud' : undefined,
   disabled: model.available === false,
+})))
+const voiceModelOptions = computed(() => VOICE_MODELS.map(model => ({
+  value: model.id,
+  label: model.label,
+  description: model.size,
 })))
 
 const legacyOverride = ref(null)
@@ -513,6 +522,10 @@ const legacyProvider = computed(() => {
 
 function kindLabel(kind) { return providerKinds.find(item => item.id === kind)?.name || kind }
 function kindDescription(kind) { return providerKinds.find(item => item.id === kind)?.description || '' }
+function endpointHost(url) {
+  if (!url) return ''
+  try { return new URL(url).host } catch { return url }
+}
 function modelSummary(items) {
   const names = items.map(item => item.name || item.model_id).filter(Boolean)
   if (!names.length) return 'No models selected'

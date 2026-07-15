@@ -1,5 +1,5 @@
 <template>
-  <div class="relative" ref="container">
+  <div class="relative inline-block max-w-full" ref="container">
     <button
       type="button"
       :disabled="disabled"
@@ -7,13 +7,22 @@
       @keydown="handleButtonKeydown"
       class="flex items-center gap-1.5 text-content-secondary text-sm cursor-pointer hover:text-content transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-content-secondary"
       :class="[
-        control ? 'min-w-52 max-w-[min(28rem,calc(100vw-2rem))] justify-between rounded-md border border-edge bg-surface-raised px-3 py-2 text-left hover:border-blue-500/50' : '',
+        control ? 'max-w-[min(28rem,calc(100vw-2rem))] justify-between rounded-md border border-edge bg-surface-raised px-3 py-2 text-left hover:border-blue-500/50' : '',
+        control && !compact ? 'min-w-52' : '',
         fill ? 'w-full' : '',
       ]"
       aria-haspopup="listbox"
       :aria-expanded="isOpen"
     >
-      <span class="truncate">{{ displayValue }}</span>
+      <span class="flex min-w-0 flex-1 items-baseline gap-1.5">
+        <span class="truncate font-medium text-content">{{ selectedOption?.triggerLabel || selectedOption?.label || modelValue }}</span>
+        <span
+          v-if="selectedOption?.description"
+          class="shrink-0 text-[11px]"
+          :class="selectedOption.tone === 'cloud' ? 'stimma-cloud-text font-medium' : 'text-content-muted'"
+        >{{ selectedOption.description }}</span>
+      </span>
+      <span v-if="selectedOption?.meta" class="shrink-0 text-[11px] tabular-nums text-content-muted">{{ selectedOption.meta }}</span>
       <svg
         class="w-3 h-3 text-content-muted transition-transform"
         :class="{ 'rotate-180': isOpen }"
@@ -33,8 +42,7 @@
       <div
         v-if="isOpen"
         ref="dropdown"
-        class="fixed z-[10031] py-1 bg-surface border border-edge rounded-lg shadow-xl overflow-hidden max-w-[calc(100vw-1rem)] flex flex-col"
-        :class="control ? 'min-w-52' : 'max-w-72'"
+        class="fixed z-[10031] flex max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg border border-edge bg-surface py-1 shadow-xl"
         :style="dropdownStyle"
         role="listbox"
       >
@@ -57,18 +65,34 @@
             :disabled="option.disabled"
             @click="select(option.value)"
             @mouseenter="option.disabled ? null : highlightedIndex = index"
-            class="w-full px-3 py-1.5 text-left text-sm transition-colors truncate"
-            :class="option.disabled
-              ? 'cursor-not-allowed text-content-muted opacity-60'
-              : index === highlightedIndex
-              ? 'text-content bg-blue-500/30'
-              : option.value === modelValue
-                ? 'text-content bg-blue-500/10'
-                : 'text-content-secondary hover:bg-surface-raised'"
+            class="flex w-full items-center gap-2 px-3 text-left text-sm transition-colors"
+            :class="[
+              option.description || option.meta ? 'py-2' : 'py-1.5',
+              option.disabled
+                ? 'cursor-not-allowed text-content-muted opacity-60'
+                : index === highlightedIndex
+                  ? 'bg-blue-500/15'
+                  : option.value === modelValue
+                    ? 'bg-blue-500/10'
+                    : 'hover:bg-surface-raised',
+            ]"
             role="option"
             :aria-selected="option.value === modelValue"
           >
-            {{ option.label }}
+            <span class="min-w-0 flex-1">
+              <span class="flex items-baseline justify-between gap-3">
+                <span class="truncate font-medium" :class="option.disabled ? 'text-content-muted' : 'text-content'">{{ option.label }}</span>
+                <span v-if="option.meta" class="shrink-0 text-[11px] tabular-nums text-content-muted">{{ option.meta }}</span>
+              </span>
+              <span
+                v-if="option.description"
+                class="mt-0.5 block truncate text-[11px]"
+                :class="option.tone === 'cloud' ? 'stimma-cloud-text font-medium' : 'text-content-muted'"
+              >{{ option.description }}</span>
+            </span>
+            <svg v-if="option.value === modelValue" class="h-3.5 w-3.5 shrink-0 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+            </svg>
           </button>
           <div v-if="filteredOptions.length === 0" class="px-3 py-1.5 text-sm text-content-muted">
             No matches
@@ -85,6 +109,10 @@ import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 interface Option {
   value: string
   label: string
+  triggerLabel?: string
+  description?: string
+  meta?: string
+  tone?: 'cloud'
   disabled?: boolean
 }
 
@@ -94,6 +122,8 @@ const props = defineProps<{
   disabled?: boolean
   control?: boolean
   fill?: boolean
+  compact?: boolean
+  menuWidth?: number
 }>()
 
 const emit = defineEmits<{
@@ -119,17 +149,14 @@ const searchable = computed(() => props.options.length > SEARCH_THRESHOLD)
 const filteredOptions = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (!searchable.value || !q) return props.options
-  return props.options.filter(o => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q))
+  return props.options.filter(o => [o.label, o.description, o.meta, o.value].some(value => value?.toLowerCase().includes(q)))
 })
 
 function setOptionRef(el: any, index: number) {
   optionRefs.value[index] = el
 }
 
-const displayValue = computed(() => {
-  const option = props.options.find(o => o.value === props.modelValue)
-  return option?.label || props.modelValue
-})
+const selectedOption = computed(() => props.options.find(o => o.value === props.modelValue))
 
 function toggle() {
   if (isOpen.value) {
@@ -233,7 +260,10 @@ function positionDropdown() {
 
   const rect = container.value.getBoundingClientRect()
   const viewportHeight = window.innerHeight
-  const menuWidth = dropdown.value.offsetWidth
+  const menuWidth = Math.min(
+    props.menuWidth || Math.max(rect.width, props.compact ? 176 : 208),
+    window.innerWidth - 16,
+  )
   const menuHeight = dropdown.value.offsetHeight
 
   // Right-aligned to the button, but keep the left edge on-screen
@@ -247,22 +277,22 @@ function positionDropdown() {
     dropdownStyle.value = {
       top: `${rect.bottom + 4}px`,
       right: `${right}px`,
-      ...(props.control ? { minWidth: `${rect.width}px` } : {}),
+      width: `${menuWidth}px`,
     }
   } else if (menuHeight <= spaceAbove) {
     // Show above
     dropdownStyle.value = {
       bottom: `${viewportHeight - rect.top + 4}px`,
       right: `${right}px`,
-      ...(props.control ? { minWidth: `${rect.width}px` } : {}),
+      width: `${menuWidth}px`,
     }
   } else {
     // Doesn't fit either side — open on the roomier side and cap height
     const below = spaceBelow >= spaceAbove
     const space = Math.max(Math.floor(below ? spaceBelow : spaceAbove), 40)
     dropdownStyle.value = below
-      ? { top: `${rect.bottom + 4}px`, right: `${right}px`, maxHeight: `${space}px`, ...(props.control ? { minWidth: `${rect.width}px` } : {}) }
-      : { bottom: `${viewportHeight - rect.top + 4}px`, right: `${right}px`, maxHeight: `${space}px`, ...(props.control ? { minWidth: `${rect.width}px` } : {}) }
+      ? { top: `${rect.bottom + 4}px`, right: `${right}px`, width: `${menuWidth}px`, maxHeight: `${space}px` }
+      : { bottom: `${viewportHeight - rect.top + 4}px`, right: `${right}px`, width: `${menuWidth}px`, maxHeight: `${space}px` }
   }
 }
 
