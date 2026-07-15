@@ -15,7 +15,7 @@ from config import (
 )
 from llm import _apply_endpoint_reasoning
 from llm_http import LLMConnectionError, classify_provider_http_error
-from llm_provider_catalog import branded_models
+from llm_provider_catalog import branded_models, discovered_model
 import llm_resolver
 from routes import models as models_route
 from routes import settings as settings_route
@@ -30,6 +30,7 @@ def test_branded_provider_contracts_match_current_model_series():
     ]
     assert openai[0].reasoning.levels == ["off", "low", "medium", "high", "xhigh"]
     assert openai[0].reasoning.quick_task == "off"
+    assert openai[0].model_vendor == "openai"
 
     anthropic = branded_models("anthropic", "anthropic-test")
     assert [model.model_id for model in anthropic] == [
@@ -40,6 +41,9 @@ def test_branded_provider_contracts_match_current_model_series():
     ]
     assert anthropic[2].reasoning.mode == "required"
     assert anthropic[2].reasoning.quick_task == "low"
+    assert anthropic[0].model_vendor == "anthropic"
+    assert discovered_model("openrouter-test", "qwen/qwen3.7-plus").model_vendor == "alibaba"
+    assert discovered_model("openrouter-test", "moonshotai/kimi-k2.7").model_vendor == "kimi"
 
 
 def test_generic_local_provider_name_is_replaced_with_endpoint_identity():

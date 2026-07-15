@@ -97,17 +97,18 @@
             class="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
             :class="modelButtonClass(model, model.source === 'stimma_cloud' ? 'bg-cyan-500/10' : 'bg-blue-500/10')"
           >
+            <ModelVendorIcon :model="model" size="sm" />
             <div class="flex-1 min-w-0">
               <div class="text-sm text-content">{{ model.name }}<span v-if="model.available === false"> · unavailable</span></div>
               <div v-if="model.source === 'stimma_cloud' && model.description" class="text-[11px] leading-snug whitespace-normal break-words">
-                <span class="stimma-cloud-text font-medium">via Stimma</span><span class="text-content-muted"> · {{ model.description }}<template v-if="model.cost_tier"> · {{ model.cost_tier }}</template></span>
+                <span class="text-content-muted">{{ modelVendorLabel(model) }} · </span><span class="stimma-cloud-text font-medium">via Stimma</span><span class="text-content-muted"> · {{ model.description }}<template v-if="model.cost_tier"> · {{ model.cost_tier }}</template></span>
               </div>
               <div
                 v-else-if="model.endpoint_model"
                 class="text-[11px] leading-snug font-mono text-content-muted truncate"
                 :title="model.endpoint_url ? `${model.endpoint_url} (${model.endpoint_model})` : model.endpoint_model"
               >{{ model.endpoint_model }}</div>
-              <div v-else-if="model.description" class="text-[11px] leading-snug text-content-muted whitespace-normal break-words">{{ model.description }}</div>
+              <div v-else-if="model.description" class="text-[11px] leading-snug text-content-muted whitespace-normal break-words"><template v-if="modelVendorLabel(model)">{{ modelVendorLabel(model) }} · </template>{{ model.description }}</div>
             </div>
             <svg v-if="isSelectedModel(model)" class="w-4 h-4 flex-shrink-0" :class="model.source === 'stimma_cloud' ? 'text-cyan-400' : 'text-blue-400'" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
@@ -134,9 +135,10 @@
               class="w-full px-3 py-2 text-left flex items-center gap-2 transition-colors"
               :class="modelButtonClass(model, 'bg-cyan-500/10')"
             >
+              <ModelVendorIcon :model="model" size="sm" />
               <div class="min-w-0 flex-1">
                 <div class="text-sm text-content">{{ model.name }}</div>
-                <div class="text-[11px] text-content-muted">via Stimma<span v-if="model.cost_tier"> · {{ model.cost_tier }}</span><span v-if="model.shadowed_by_provider"> · also available via {{ model.shadowed_by_provider }}</span></div>
+                <div class="text-[11px] text-content-muted">{{ modelVendorLabel(model) }} · via Stimma<span v-if="model.cost_tier"> · {{ model.cost_tier }}</span><span v-if="model.shadowed_by_provider"> · also available via {{ model.shadowed_by_provider }}</span></div>
               </div>
               <svg v-if="isSelectedModel(model)" class="h-4 w-4 flex-shrink-0 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
@@ -172,6 +174,8 @@ import { ref, computed, nextTick, onMounted } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../apiConfig'
 import { normalizeModelSlug, useAvailableModels } from '../../composables/useAvailableModels'
+import ModelVendorIcon from '../models/ModelVendorIcon.vue'
+import { getModelVendorInfo, sortModelsByBrand } from '../../utils/modelVendors'
 
 const props = defineProps({
   modelSlug: { type: String, default: null },
@@ -246,7 +250,7 @@ const cloudModels = computed(() => models.value.filter(m => m.source === 'stimma
 const collapsedCloudModels = computed(() => models.value.filter(m => m.source === 'stimma_cloud' && m.collapsed))
 const providerModels = computed(() => models.value.filter(m => m.source === 'provider'))
 const localModels = computed(() => models.value.filter(m => m.source === 'endpoint'))
-const pickerModels = computed(() => [...providerModels.value, ...cloudModels.value, ...localModels.value])
+const pickerModels = computed(() => sortModelsByBrand([...providerModels.value, ...cloudModels.value, ...localModels.value]))
 
 onMounted(() => {
   // Use the in-memory cache if it's fresh; only the first open of a run hits
@@ -322,6 +326,10 @@ function isSelectedModel(model) {
 function modelButtonClass(model, selectedClass) {
   if (isSelectedModel(model)) return selectedClass
   return model.available === false ? 'opacity-60 cursor-not-allowed' : 'hover:bg-surface-raised'
+}
+
+function modelVendorLabel(model) {
+  return getModelVendorInfo(model)?.label || ''
 }
 
 function handleKeydown(e) {

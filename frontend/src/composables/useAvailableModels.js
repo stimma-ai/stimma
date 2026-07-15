@@ -6,6 +6,7 @@ import { computed, ref, readonly } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { isPrivacyLockdownActive } from './usePrivacyLockdown'
+import { sortModelsByBrand } from '../utils/modelVendors'
 
 const models = ref([])
 const globalDefault = ref('auto')
@@ -93,7 +94,7 @@ async function fetchModels(projectId = null, force = false) {
     const params = {}
     if (projectId != null) params.project_id = projectId
     const response = await axios.get(`${getApiBase()}/models/available`, { params })
-    models.value = response.data.models || []
+    models.value = sortModelsByBrand(response.data.models || [])
     globalDefault.value = normalizeModelSlug(response.data.global_default || 'auto')
     quickTaskModel.value = normalizeModelSlug(response.data.quick_task_model || 'stimma:minimax-m3')
     reasoningLevels.value = response.data.reasoning_levels || {}

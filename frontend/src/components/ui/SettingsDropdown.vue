@@ -14,6 +14,7 @@
       aria-haspopup="listbox"
       :aria-expanded="isOpen"
     >
+      <ModelVendorIcon v-if="selectedOption?.vendor" :model="selectedOption.vendor" size="sm" />
       <span class="flex min-w-0 flex-1 items-baseline gap-1.5">
         <span class="truncate font-medium text-content">{{ selectedOption?.triggerLabel || selectedOption?.label || modelValue }}</span>
         <span
@@ -79,6 +80,7 @@
             role="option"
             :aria-selected="option.value === modelValue"
           >
+            <ModelVendorIcon v-if="option.vendor" :model="option.vendor" size="sm" />
             <span class="min-w-0 flex-1">
               <span class="flex items-baseline justify-between gap-3">
                 <span class="truncate font-medium" :class="option.disabled ? 'text-content-muted' : 'text-content'">{{ option.label }}</span>
@@ -105,6 +107,8 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
+import ModelVendorIcon from '../models/ModelVendorIcon.vue'
+import type { ModelVendorId } from '../../utils/modelVendors'
 
 interface Option {
   value: string
@@ -113,6 +117,7 @@ interface Option {
   description?: string
   meta?: string
   tone?: 'cloud'
+  vendor?: ModelVendorId
   disabled?: boolean
 }
 

@@ -9,7 +9,7 @@
       class="w-full h-full flex items-center justify-center text-content-secondary bg-surface-raised"
       :class="[innerRadiusClass, padClass]"
     >
-      <div class="tool-mark w-full h-full" v-html="glyphSvg" />
+      <div class="tool-mark w-full h-full" :class="{ 'preserve-brand-colors': preserveBrandColors }" v-html="glyphSvg" />
     </div>
   </div>
 
@@ -19,6 +19,7 @@
   <div
     v-else-if="bare"
     class="tool-mark w-full h-full"
+    :class="{ 'preserve-brand-colors': preserveBrandColors }"
     v-html="glyphSvg"
   />
 
@@ -29,7 +30,7 @@
     class="shrink-0 flex items-center justify-center text-content-secondary bg-surface-raised border border-edge-subtle"
     :class="[outerSizeClass, padClass]"
   >
-    <div class="tool-mark w-full h-full" v-html="glyphSvg" />
+    <div class="tool-mark w-full h-full" :class="{ 'preserve-brand-colors': preserveBrandColors }" v-html="glyphSvg" />
   </div>
 </template>
 
@@ -49,6 +50,7 @@
 import { computed } from 'vue'
 import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { getModelMarkSvg } from './modelMarks'
+import { getModelVendorInfo } from '../../utils/modelVendors'
 import { getTaskTypeIconSvg } from '../../utils/taskTypeIcons'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
 
@@ -89,7 +91,7 @@ const primaryTaskType = computed(() => {
 
 // Mark = identity. Vendor mark first; task-generic glyph as the fallback floor.
 const glyphSvg = computed(() => {
-  const markSvg = getModelMarkSvg(props.tool.model_vendor)
+  const markSvg = getModelVendorInfo(props.tool.model_vendor)?.svg || getModelMarkSvg(props.tool.model_vendor)
   if (markSvg) return sanitizeSvg(markSvg)
 
   const inner = getTaskTypeIconSvg(primaryTaskType.value)
@@ -98,6 +100,7 @@ const glyphSvg = computed(() => {
     `stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`
   return sanitizeSvg(wrapped)
 })
+const preserveBrandColors = computed(() => getModelVendorInfo(props.tool.model_vendor)?.id === 'kimi')
 
 const outerSizeClass = computed(() => {
   switch (props.size) {
@@ -164,9 +167,9 @@ const ringPadClass = 'p-[1.5px]'
   height: 100%;
   display: block;
 }
-.tool-mark :deep(svg path),
-.tool-mark :deep(svg stop),
-.tool-mark :deep(svg [fill]:not([fill='none'])) {
+.tool-mark:not(.preserve-brand-colors) :deep(svg path),
+.tool-mark:not(.preserve-brand-colors) :deep(svg stop),
+.tool-mark:not(.preserve-brand-colors) :deep(svg [fill]:not([fill='none'])) {
   fill: currentColor;
 }
 </style>

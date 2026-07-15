@@ -105,6 +105,7 @@ def branded_models(kind: str, provider_id: str) -> list[LLMProviderModelConfig]:
             id=f"{provider_id}:{row['model_id']}",
             model_id=row["model_id"],
             name=row["name"],
+            model_vendor={"openai": "openai", "anthropic": "anthropic", "xai": "xai"}.get(kind),
             max_context_tokens=row["context"],
             input_modalities=["text", "image"],
             supports_tools=True,
@@ -120,10 +121,20 @@ def discovered_model(
     *,
     name: str | None = None,
 ) -> LLMProviderModelConfig:
+    normalized_id = model_id.lower()
+    model_vendor = next((vendor for needle, vendor in (
+        ("anthropic/", "anthropic"), ("claude", "anthropic"),
+        ("openai/", "openai"), ("gpt-", "openai"),
+        ("x-ai/", "xai"), ("grok", "xai"),
+        ("minimax", "minimax"), ("moonshot", "kimi"), ("kimi", "kimi"),
+        ("qwen", "alibaba"), ("stepfun", "stepfun"), ("step-", "stepfun"),
+        ("z-ai", "zai"), ("zhipu", "zai"), ("glm", "zai"),
+    ) if needle in normalized_id), None)
     return LLMProviderModelConfig(
         id=f"{provider_id}:{model_id}",
         model_id=model_id,
         name=name or model_id,
+        model_vendor=model_vendor,
         reasoning=LLMReasoningConfig(
             mode="none",
             levels=["off"],

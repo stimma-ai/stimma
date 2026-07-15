@@ -287,6 +287,7 @@ class LLMProviderModelConfig(BaseModel):
     id: str
     model_id: str
     name: str
+    model_vendor: Optional[str] = None
     enabled: bool = True
     max_context_tokens: int = 128_000
     input_modalities: List[str] = Field(default_factory=lambda: ["text"])

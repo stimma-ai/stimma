@@ -52,11 +52,10 @@
     <section>
       <div class="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h4 class="text-sm font-medium text-content">Model providers</h4>
-          <p class="mt-0.5 text-xs text-content-tertiary">Each provider controls its connection and models.</p>
+          <h4 class="text-sm font-medium text-content">LLM Providers</h4>
+          <p class="mt-0.5 text-xs text-content-tertiary">Configure an LLM to enable the agent, prompt enhnacement, suggestions, and other features</p>
         </div>
         <div class="flex items-center gap-3">
-          <button type="button" @click="refreshAll" class="text-xs text-content-secondary hover:text-content">Refresh</button>
           <button type="button" @click="openAddProvider" class="rounded-md bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-400">Add provider</button>
         </div>
       </div>
@@ -129,7 +128,7 @@
             <button type="button" @click="closeAddProvider" class="text-sm text-content-muted hover:text-content">Cancel</button>
           </div>
 
-          <div class="overflow-y-auto p-5">
+          <div ref="managerBody" class="overflow-y-auto p-5">
             <div v-if="!addDraft.kind" class="grid grid-cols-2 gap-2">
               <button v-for="kind in providerKinds" :key="kind.id" type="button" @click="selectProviderKind(kind.id)" class="rounded-lg border border-edge bg-white/[0.03] p-4 text-left hover:border-blue-500/50 hover:bg-blue-500/5">
                 <div class="text-sm font-medium text-content">{{ kind.name }}</div>
@@ -156,6 +155,7 @@
               <p class="text-xs text-content-tertiary">Choose the models to show in Stimma.</p>
               <label v-for="model in addDiscoveredModels" :key="model.id" class="flex cursor-pointer items-center gap-3 rounded-lg border border-edge px-3 py-2.5 hover:bg-white/[0.03]">
                 <input type="checkbox" :checked="addSelectedModels.has(model.id)" @change="toggleAddModel(model.id)" class="rounded border-edge bg-surface" />
+                <ModelVendorIcon :model="model" size="sm" />
                 <span class="min-w-0 flex-1 truncate text-sm text-content">{{ model.name }}</span>
               </label>
             </div>
@@ -175,10 +175,23 @@
 
     <!-- Stimma Account / provider settings -->
     <Teleport to="body">
-      <div v-if="managerOpen" class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop p-4 backdrop-blur-sm" @click.self="closeManager" @keydown.escape.stop="closeManager">
+      <div v-if="managerOpen" class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop p-4 backdrop-blur-sm" @click.self="closeManager" @keydown.escape.stop="selectedManagerModel ? closeModelSettings() : closeManager()">
         <div class="flex max-h-[90vh] w-[760px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-edge bg-surface shadow-2xl">
           <div class="flex items-start justify-between border-b border-edge px-5 py-4">
-            <div class="min-w-0">
+            <div v-if="selectedManagerModel" class="min-w-0">
+              <button type="button" @click="closeModelSettings" class="mb-2 inline-flex items-center gap-1 text-xs text-content-secondary hover:text-content">
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
+                {{ managerTitle }}
+              </button>
+              <div class="flex items-center gap-3">
+                <ModelVendorIcon :model="selectedManagerModel" size="md" />
+                <div class="min-w-0">
+                  <h4 class="truncate text-base font-medium text-content">{{ selectedManagerModel.name }}</h4>
+                  <p class="mt-0.5 text-xs text-content-tertiary">{{ modelVendor(selectedManagerModel) }}<span v-if="selectedManagerModel.cost_tier"> · {{ selectedManagerModel.cost_tier }}</span></p>
+                </div>
+              </div>
+            </div>
+            <div v-else class="min-w-0">
               <h4 class="truncate text-base font-medium" :class="activeManager === 'stimma' ? 'stimma-cloud-text' : 'text-content'">{{ managerTitle }}</h4>
               <p class="mt-0.5 text-xs text-content-tertiary">{{ managerSubtitle }}</p>
             </div>
@@ -186,7 +199,7 @@
           </div>
 
           <div class="overflow-y-auto p-5">
-            <template v-if="activeManager !== 'stimma' && activeProvider">
+            <template v-if="!selectedManagerModel && activeManager !== 'stimma' && activeProvider">
               <div class="grid gap-3 sm:grid-cols-2">
                 <label class="block">
                   <span class="mb-1 block text-xs text-content-tertiary">Name</span>
@@ -219,6 +232,7 @@
                 <div v-if="discoveredModels.length" class="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
                   <label v-for="model in discoveredModels" :key="model.id" class="flex cursor-pointer items-center gap-3 rounded border border-edge px-3 py-2">
                     <input type="checkbox" :checked="selectedManagerIds.has(model.id)" @change="toggleManagerModel(model.id)" class="rounded border-edge bg-surface" />
+                    <ModelVendorIcon :model="model" size="sm" />
                     <span class="min-w-0 flex-1 truncate text-sm text-content">{{ model.name }}</span>
                   </label>
                 </div>
@@ -226,22 +240,25 @@
               </div>
             </template>
 
-            <div :class="activeManager === 'stimma' ? '' : 'mt-5 border-t border-edge pt-4'">
-              <h5 class="text-sm font-medium text-content">Models</h5>
-              <p class="mt-0.5 text-xs text-content-tertiary">Model-specific prompt and compatibility settings.</p>
-              <div class="mt-3 space-y-2">
-                <div v-for="model in managerModels" :key="model.slug || model.id" class="overflow-hidden rounded-lg border border-edge">
-                  <button type="button" @click="toggleModelSettings(model)" class="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-white/[0.03]">
+            <div :class="!selectedManagerModel && activeManager !== 'stimma' ? 'mt-5 border-t border-edge pt-4' : ''">
+              <template v-if="!selectedManagerModel">
+                <h5 class="text-sm font-medium text-content">Models</h5>
+                <p class="mt-0.5 text-xs text-content-tertiary">Choose a model to change its settings.</p>
+              </template>
+              <div :class="selectedManagerModel ? '' : 'mt-3 space-y-2'">
+                <div v-for="model in managerPageModels" :key="model.slug || model.id" :class="selectedManagerModel ? '' : 'overflow-hidden rounded-lg border border-edge'">
+                  <button v-if="!selectedManagerModel" type="button" @click="openModelSettings(model)" class="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-white/[0.03]">
+                    <ModelVendorIcon :model="model" size="md" />
                     <div class="min-w-0 flex-1">
                       <div class="truncate text-sm text-content">{{ model.name }}</div>
                       <div class="mt-0.5 text-[11px] text-content-muted">{{ modelVendor(model) }}<span v-if="model.cost_tier"> · {{ model.cost_tier }}</span></div>
                     </div>
                     <span v-if="model.last_test_passed === false" class="text-[11px] text-red-400">Failed</span>
                     <span v-else-if="model.last_test_passed" class="text-[11px] text-green-500">Ready</span>
-                    <ChevronIcon :open="customizingModelId === modelKey(model)" />
+                    <ChevronIcon />
                   </button>
 
-                  <div v-if="customizingModelId === modelKey(model)" class="space-y-4 border-t border-edge bg-white/[0.015] p-4">
+                  <div v-if="selectedManagerModel" class="space-y-4">
                     <div v-if="model.last_test_results && Object.keys(model.last_test_results).length" class="flex flex-wrap gap-1.5">
                       <span v-for="(result, name) in model.last_test_results" :key="name" class="rounded-md border px-1.5 py-0.5 text-[11px]" :class="result.passed ? 'border-green-500/30 text-green-500' : 'border-red-500/30 text-red-400'">
                         {{ result.passed ? '✓' : '×' }} {{ name }}<span v-if="result.elapsed_ms" class="text-content-muted"> · {{ fmtMs(result.elapsed_ms) }}</span>
@@ -281,6 +298,10 @@
                           <input v-model.number="model.max_context_tokens" type="number" min="1024" step="1024" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 text-xs text-content focus:border-blue-500 focus:outline-none" />
                         </label>
                       </div>
+                      <label v-if="isFlexibleProvider(activeProvider)" class="block">
+                        <span class="mb-1 block text-[11px] text-content-tertiary">Model maker</span>
+                        <SettingsDropdown v-model="model.model_vendor" control :options="modelVendorOptions" />
+                      </label>
                       <label class="flex items-center gap-2 text-xs text-content-secondary">
                         <input v-model="model.supports_tools" type="checkbox" class="rounded border-edge bg-surface" />
                         Tool calls
@@ -329,7 +350,7 @@
             </div>
           </div>
 
-          <div v-if="activeManager !== 'stimma' && activeProvider" class="flex justify-end border-t border-edge px-5 py-3">
+          <div v-if="!selectedManagerModel && activeManager !== 'stimma' && activeProvider" class="flex justify-end border-t border-edge px-5 py-3">
             <button type="button" @click="removeProvider(activeProvider)" class="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300">
               <TrashIcon /> Delete provider
             </button>
@@ -433,13 +454,15 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, h, nextTick, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
 import { useAvailableModels } from '../../../composables/useAvailableModels'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import { VOICE_MODELS, voiceModel, isModelReady, supported as voiceSupported } from '../../../composables/useVoiceInput'
 import SettingsDropdown from '../../ui/SettingsDropdown.vue'
+import ModelVendorIcon from '../../models/ModelVendorIcon.vue'
+import { getModelVendorInfo, resolveModelVendorId, sortModelsByBrand } from '../../../utils/modelVendors'
 
 const ChevronIcon = defineComponent({
   props: { open: Boolean },
@@ -461,6 +484,16 @@ const providerKinds = [
   { id: 'xai', name: 'xAI', description: 'Use your xAI API key for Grok.' },
   { id: 'openrouter', name: 'OpenRouter', description: 'Choose models from your OpenRouter account.' },
   { id: 'local', name: 'Local endpoint', description: 'Connect to LM Studio, vLLM, llama.cpp, Ollama, or another compatible server.' },
+]
+const modelVendorOptions = [
+  { value: 'anthropic', label: 'Anthropic', vendor: 'anthropic' },
+  { value: 'openai', label: 'OpenAI', vendor: 'openai' },
+  { value: 'xai', label: 'xAI', vendor: 'xai' },
+  { value: 'minimax', label: 'MiniMax', vendor: 'minimax' },
+  { value: 'kimi', label: 'Kimi', vendor: 'kimi' },
+  { value: 'alibaba', label: 'Alibaba · Qwen', vendor: 'alibaba' },
+  { value: 'stepfun', label: 'StepFun', vendor: 'stepfun' },
+  { value: 'zai', label: 'Z.ai', vendor: 'zai' },
 ]
 const reasoningModeOptions = [
   { value: 'none', label: 'Always on / no control' },
@@ -499,6 +532,7 @@ const quickTaskOptions = computed(() => models.value.filter(model => model.sourc
   description: `via ${model.source === 'stimma_cloud' ? 'Stimma' : (model.provider_name || endpointHost(model.endpoint_url) || 'your endpoint')}`,
   meta: model.cost_tier || '',
   tone: model.source === 'stimma_cloud' ? 'cloud' : undefined,
+  vendor: resolveModelVendorId(model) || undefined,
   disabled: model.available === false,
 })))
 const voiceModelOptions = computed(() => VOICE_MODELS.map(model => ({
@@ -532,11 +566,7 @@ function modelSummary(items) {
   return names.length > 3 ? `${names.slice(0, 3).join(', ')} +${names.length - 3}` : names.join(', ')
 }
 function modelKey(model) { return model.slug || model.id }
-function modelVendor(model) {
-  const raw = model.upstream_provider || model.provider_kind || model.canonical_model_id?.split(':')[0]
-  const labels = { openai: 'OpenAI', anthropic: 'Anthropic', xai: 'xAI', minimax: 'MiniMax', qwen: 'Qwen', stepfun: 'StepFun', moonshot: 'Moonshot AI', fireworks: 'Fireworks', openrouter: 'OpenRouter', local: 'Local endpoint' }
-  return labels[raw] || (activeProvider.value ? kindLabel(activeProvider.value.kind) : 'Model provider')
-}
+function modelVendor(model) { return getModelVendorInfo(model)?.label || 'Custom model' }
 function timeAgo(iso) {
   if (!iso) return ''
   const seconds = (Date.now() - new Date(iso).getTime()) / 1000
@@ -622,6 +652,7 @@ async function advanceAddProvider() {
 
 // Provider manager
 const managerOpen = ref(false)
+const managerBody = ref(null)
 const activeManager = ref(null)
 const activeProvider = ref(null)
 const providerKeyDraft = ref('')
@@ -638,7 +669,9 @@ const managerTitle = computed(() => activeManager.value === 'stimma' ? 'Stimma A
 const managerSubtitle = computed(() => activeManager.value === 'stimma'
   ? (cloudStatus.value === 'available' ? `${cloudModels.value.length} models · billed through Stimma` : cloudMessage.value || 'Unavailable')
   : activeProvider.value ? `${kindLabel(activeProvider.value.kind)} · ${activeProvider.value.models.length} models` : '')
-const managerModels = computed(() => activeManager.value === 'stimma' ? cloudModels.value : (activeProvider.value?.models || []))
+const managerModels = computed(() => sortModelsByBrand(activeManager.value === 'stimma' ? cloudModels.value : (activeProvider.value?.models || [])))
+const selectedManagerModel = computed(() => managerModels.value.find(model => modelKey(model) === customizingModelId.value) || null)
+const managerPageModels = computed(() => selectedManagerModel.value ? [selectedManagerModel.value] : managerModels.value)
 
 function openStimmaAccount() {
   activeManager.value = 'stimma'
@@ -658,9 +691,11 @@ function openProvider(provider) {
   extraBodyErrors.value = {}
   managerOpen.value = true
 }
-function closeManager() { managerOpen.value = false }
+function closeManager() { customizingModelId.value = null; managerOpen.value = false }
 function isFlexibleProvider(provider) { return provider && ['openrouter', 'local'].includes(provider.kind) }
-function toggleModelSettings(model) { customizingModelId.value = customizingModelId.value === modelKey(model) ? null : modelKey(model) }
+function resetManagerScroll() { nextTick(() => managerBody.value?.scrollTo({ top: 0 })) }
+function openModelSettings(model) { customizingModelId.value = modelKey(model); resetManagerScroll() }
+function closeModelSettings() { customizingModelId.value = null; resetManagerScroll() }
 function modelPrompt(model) {
   if (activeManager.value === 'stimma') {
     if (!modelPrompts.value[model.slug]) modelPrompts.value[model.slug] = { content_policy_enabled: true, extra_system_prompt: '' }
