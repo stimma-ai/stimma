@@ -24,7 +24,7 @@
             title="Enhance the prompt with AI when generating"
           >
             <WandSparklesIcon class="w-3 h-3" />
-            <span>Enhance Prompt</span>
+            <span>Enhance</span>
           </button>
 
           <!-- Translate Prompt chip: the whole chip opens the menu (one big hit target).
@@ -45,7 +45,7 @@
                 : 'Translate the prompt into another language before generating'"
             >
               <LanguageIcon class="w-3 h-3" />
-              <span>{{ translateActive ? activeLanguageLabel : 'Translate Prompt' }}</span>
+              <span>{{ translateActive ? activeLanguageLabel : 'Translate' }}</span>
               <ChevronDownIcon class="w-2.5 h-2.5 opacity-70" />
             </button>
 
