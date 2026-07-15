@@ -1,12 +1,16 @@
 <template>
   <span
-    v-if="vendor"
     class="inline-flex shrink-0 items-center justify-center overflow-hidden text-content-secondary [&_svg]:block [&_svg]:h-full [&_svg]:w-full"
     :class="sizeClass"
-    :title="vendor.label"
-    :aria-label="vendor.label"
-    v-html="safeSvg"
-  />
+    :title="vendor?.label || 'Unknown model maker'"
+    :aria-label="vendor?.label || 'Unknown model maker'"
+  >
+    <span v-if="vendor" class="contents" v-html="safeSvg" />
+    <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.75h4.5m-4.5 16.5h4.5M4.5 9.75v4.5m15-4.5v4.5M7.5 6.75h9v10.5h-9V6.75Z" />
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10 10h4v4h-4z" />
+    </svg>
+  </span>
 </template>
 
 <script setup lang="ts">

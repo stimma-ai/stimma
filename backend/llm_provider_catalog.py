@@ -129,6 +129,7 @@ def discovered_model(
         ("minimax", "minimax"), ("moonshot", "kimi"), ("kimi", "kimi"),
         ("qwen", "alibaba"), ("stepfun", "stepfun"), ("step-", "stepfun"),
         ("z-ai", "zai"), ("zhipu", "zai"), ("glm", "zai"),
+        ("google/", "google"), ("gemma", "google"),
     ) if needle in normalized_id), None)
     return LLMProviderModelConfig(
         id=f"{provider_id}:{model_id}",

@@ -44,6 +44,8 @@ def test_branded_provider_contracts_match_current_model_series():
     assert anthropic[0].model_vendor == "anthropic"
     assert discovered_model("openrouter-test", "qwen/qwen3.7-plus").model_vendor == "alibaba"
     assert discovered_model("openrouter-test", "moonshotai/kimi-k2.7").model_vendor == "kimi"
+    assert discovered_model("local-test", "gemma-4-31b-it").model_vendor == "google"
+    assert discovered_model("local-test", "google/gemma-4-26b-a4b").model_vendor == "google"
 
 
 def test_generic_local_provider_name_is_replaced_with_endpoint_identity():

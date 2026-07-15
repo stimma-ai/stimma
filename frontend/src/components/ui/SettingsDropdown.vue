@@ -14,7 +14,7 @@
       aria-haspopup="listbox"
       :aria-expanded="isOpen"
     >
-      <ModelVendorIcon v-if="selectedOption?.vendor" :model="selectedOption.vendor" size="sm" />
+      <ModelVendorIcon v-if="showVendorIcons" :model="selectedOption?.vendor" size="sm" />
       <span class="flex min-w-0 flex-1 items-baseline gap-1.5">
         <span class="truncate font-medium text-content">{{ selectedOption?.triggerLabel || selectedOption?.label || modelValue }}</span>
         <span
@@ -80,7 +80,7 @@
             role="option"
             :aria-selected="option.value === modelValue"
           >
-            <ModelVendorIcon v-if="option.vendor" :model="option.vendor" size="sm" />
+            <ModelVendorIcon v-if="showVendorIcons" :model="option.vendor" size="sm" />
             <span class="min-w-0 flex-1">
               <span class="flex items-baseline justify-between gap-3">
                 <span class="truncate font-medium" :class="option.disabled ? 'text-content-muted' : 'text-content'">{{ option.label }}</span>
@@ -162,6 +162,7 @@ function setOptionRef(el: any, index: number) {
 }
 
 const selectedOption = computed(() => props.options.find(o => o.value === props.modelValue))
+const showVendorIcons = computed(() => props.options.some(option => option.vendor))
 
 function toggle() {
   if (isOpen.value) {
