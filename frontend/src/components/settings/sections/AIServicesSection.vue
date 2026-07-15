@@ -1,58 +1,9 @@
 <template>
   <div class="space-y-6">
-    <div>
-      <h3 class="text-base font-medium text-content">AI Services</h3>
-      <p class="mt-1 text-xs text-content-tertiary">Choose models from your Stimma account, API providers, or your own endpoints.</p>
-    </div>
-
-    <section class="rounded-lg border border-edge p-4">
-      <div class="flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <h4 class="text-sm font-medium text-content">Quick tasks</h4>
-          <p class="mt-0.5 text-xs text-content-tertiary">Prompt cleanup, chat names, and other background work.</p>
-        </div>
-        <div class="shrink-0">
-          <SettingsDropdown
-            control
-            fill
-            class="w-72"
-            :menu-width="320"
-            :model-value="quickTaskModel"
-            :options="quickTaskOptions"
-            @update:model-value="saveQuickTaskModel"
-          />
-          <p v-if="selectedQuickModel?.available === false" class="mt-1 text-xs text-red-400">Unavailable. Choose another model.</p>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="voiceSupported" class="rounded-lg border border-edge p-4">
-      <div class="flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <h4 class="text-sm font-medium text-content">Voice input</h4>
-          <p class="mt-0.5 text-xs text-content-tertiary">Processed on this device.</p>
-        </div>
-        <div class="flex shrink-0 items-center gap-2">
-          <svg v-if="voiceModelReady" class="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
-          <SettingsDropdown
-            v-model="voiceModel"
-            control
-            compact
-            :menu-width="224"
-            :options="voiceModelOptions"
-          />
-        </div>
-      </div>
-      <p v-if="!voiceModelReady && privacyLockdownActive" class="mt-3 text-xs text-content-secondary">Downloads are off during Privacy Lockdown.</p>
-      <p v-else-if="!voiceModelReady" class="mt-3 text-xs text-content-tertiary">Downloads on first use.</p>
-    </section>
-
     <section>
       <div class="mb-3">
-        <h4 class="text-sm font-medium text-content">LLM Providers</h4>
-        <p class="mt-0.5 text-xs text-content-tertiary">Configure an LLM to enable the agent, prompt enhancement, suggestions, and other features.</p>
+        <h3 class="text-base font-medium text-content">LLM Providers</h3>
+        <p class="mt-1 text-xs text-content-tertiary">Choose models from your Stimma account, API providers, or your own endpoints.</p>
       </div>
 
       <div class="overflow-hidden rounded-lg border border-edge">
@@ -153,6 +104,59 @@
           </div>
           <ChevronIcon />
         </button>
+      </div>
+    </section>
+
+    <section>
+      <div class="mb-3">
+        <h3 class="text-base font-medium text-content">Preferences</h3>
+        <p class="mt-1 text-xs text-content-tertiary">Choose models for background work and voice input.</p>
+      </div>
+
+      <div class="space-y-4">
+        <div class="rounded-lg border border-edge p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0">
+              <h4 class="text-sm font-medium text-content">Quick tasks</h4>
+              <p class="mt-0.5 text-xs text-content-tertiary">Prompt cleanup, chat names, and other background work.</p>
+            </div>
+            <div class="shrink-0">
+              <SettingsDropdown
+                control
+                fill
+                class="w-72"
+                :menu-width="320"
+                :model-value="quickTaskModel"
+                :options="quickTaskOptions"
+                @update:model-value="saveQuickTaskModel"
+              />
+              <p v-if="selectedQuickModel?.available === false" class="mt-1 text-xs text-red-400">Unavailable. Choose another model.</p>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="voiceSupported" class="rounded-lg border border-edge p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0">
+              <h4 class="text-sm font-medium text-content">Voice input</h4>
+              <p class="mt-0.5 text-xs text-content-tertiary">Processed on this device.</p>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+              <svg v-if="voiceModelReady" class="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+              <SettingsDropdown
+                v-model="voiceModel"
+                control
+                compact
+                :menu-width="224"
+                :options="voiceModelOptions"
+              />
+            </div>
+          </div>
+          <p v-if="!voiceModelReady && privacyLockdownActive" class="mt-3 text-xs text-content-secondary">Downloads are off during Privacy Lockdown.</p>
+          <p v-else-if="!voiceModelReady" class="mt-3 text-xs text-content-tertiary">Downloads on first use.</p>
+        </div>
       </div>
     </section>
 
@@ -618,16 +622,52 @@ const remoteProviderRows = computed(() => providerKinds
     _unconfigured: true,
   }))
 const localProviders = computed(() => providers.value.filter(provider => provider.kind === 'local'))
-const selectedQuickModel = computed(() => models.value.find(model => model.slug === quickTaskModel.value))
-const quickTaskOptions = computed(() => models.value.filter(model => model.source !== 'auto' && !model.collapsed && (model.available !== false || model.slug === quickTaskModel.value)).map(model => ({
-  value: model.slug,
-  label: model.name,
-  description: `via ${model.source === 'stimma_cloud' ? 'Stimma' : (model.provider_name || endpointHost(model.endpoint_url) || 'your endpoint')}`,
-  meta: model.cost_tier || '',
-  tone: model.source === 'stimma_cloud' ? 'cloud' : undefined,
-  vendor: resolveModelVendorId(model) || undefined,
-  disabled: model.available === false,
-})))
+const configuredQuickTaskModel = computed(() => {
+  let sameModel = null
+  for (const provider of providers.value) {
+    for (const model of provider.models || []) {
+      if (model.id === quickTaskModel.value) return { provider, model, exact: true }
+      if (!sameModel && quickTaskModel.value.endsWith(`:${model.model_id}`)) sameModel = { provider, model, exact: false }
+    }
+  }
+  return sameModel
+})
+const selectedQuickModel = computed(() => {
+  const availableModel = models.value.find(model => model.slug === quickTaskModel.value)
+  if (availableModel) return availableModel
+  const configured = configuredQuickTaskModel.value
+  return {
+    slug: quickTaskModel.value,
+    name: configured?.model.name || modelIdDisplayName(quickTaskModel.value),
+    provider_name: configured?.provider.name,
+    model_vendor: configured?.model.model_vendor,
+    available: Boolean(configured?.exact && configured.provider.enabled !== false && configured.model.enabled !== false && configured.provider.last_test_passed !== false),
+  }
+})
+const quickTaskOptions = computed(() => {
+  const options = models.value.filter(model => model.source !== 'auto' && !model.collapsed && (model.available !== false || model.slug === quickTaskModel.value)).map(model => ({
+    value: model.slug,
+    label: model.name,
+    description: `via ${model.source === 'stimma_cloud' ? 'Stimma' : (model.provider_name || endpointHost(model.endpoint_url) || 'your endpoint')}`,
+    meta: model.cost_tier || '',
+    tone: model.source === 'stimma_cloud' ? 'cloud' : undefined,
+    vendor: resolveModelVendorId(model) || undefined,
+    disabled: model.available === false,
+  }))
+  if (!options.some(option => option.value === quickTaskModel.value)) {
+    const selected = selectedQuickModel.value
+    options.unshift({
+      value: quickTaskModel.value,
+      label: selected.name,
+      description: selected.provider_name ? `via ${selected.provider_name}` : 'Unavailable',
+      meta: '',
+      tone: undefined,
+      vendor: resolveModelVendorId(selected) || undefined,
+      disabled: selected.available === false,
+    })
+  }
+  return options
+})
 const voiceModelOptions = computed(() => VOICE_MODELS.map(model => ({
   value: model.id,
   label: model.label,
@@ -652,6 +692,21 @@ function kindDescription(kind) { return providerKinds.find(item => item.id === k
 function endpointHost(url) {
   if (!url) return ''
   try { return new URL(url).host } catch { return url }
+}
+function modelIdDisplayName(slug) {
+  const modelId = slug.includes(':') ? slug.slice(slug.indexOf(':') + 1) : slug
+  const knownNames = {
+    'grok-4.5': 'Grok 4.5',
+    'gpt-5.6-sol': 'GPT-5.6 Sol',
+    'gpt-5.6-terra': 'GPT-5.6 Terra',
+    'gpt-5.6-luna': 'GPT-5.6 Luna',
+    'claude-opus-4-8': 'Claude Opus 4.8',
+    'claude-fable-5': 'Claude Fable 5',
+    'claude-sonnet-5': 'Claude Sonnet 5',
+    'claude-haiku-4-5-20251001': 'Claude Haiku 4.5',
+  }
+  if (knownNames[modelId]) return knownNames[modelId]
+  return modelId.split('/').pop().replace(/[-_]+/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())
 }
 function modelSummary(items) {
   const names = items.map(item => item.name || item.model_id).filter(Boolean)
