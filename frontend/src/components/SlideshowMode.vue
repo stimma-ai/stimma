@@ -2100,6 +2100,30 @@ function applyMediaPatchToLocalState(mediaId, updates) {
       stackEntry.item = { ...stackEntry.item, ...updates }
     }
   }
+
+  // Set and grid sub-views resolve currentItem from their own item arrays / cell
+  // maps, which none of the stores above cover. Without patching them, toggling a
+  // marker/tag while inside a set or grid updates the backend and the display item
+  // but leaves the info panel + control strip reading the stale sub-view projection
+  // (both marker UIs read currentItem.markers).
+  for (const stackEntry of setViewStack.value) {
+    if (!stackEntry.items) continue
+    for (let i = 0; i < stackEntry.items.length; i++) {
+      if (itemPayloadId(stackEntry.items[i]) === mediaId) {
+        stackEntry.items[i] = { ...stackEntry.items[i], ...updates }
+      }
+    }
+  }
+
+  for (const stackEntry of gridViewStack.value) {
+    const cellMap = stackEntry.cellMap
+    if (!cellMap) continue
+    for (const [key, cell] of cellMap.entries()) {
+      if (cell?.resolved && itemPayloadId(cell.resolved) === mediaId) {
+        cellMap.set(key, { ...cell, resolved: { ...cell.resolved, ...updates } })
+      }
+    }
+  }
 }
 
 function mediaUpdatePatch(fields = [], media = {}) {
