@@ -5,7 +5,7 @@ import string
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 
 import app_dirs
@@ -241,6 +241,36 @@ class LLMReasoningConfig(BaseModel):
     quick_task: str = "off"
     control: str = "none"
     wire_levels: Dict[str, Any] = Field(default_factory=dict)
+
+    @staticmethod
+    def _yaml_level(value: Any) -> Any:
+        # PyYAML follows YAML 1.1 and decodes an unquoted `off` as False.
+        # ruamel emits these user-facing level names without quotes, so accept
+        # the already-written shape rather than making config unloadable.
+        if value is False:
+            return "off"
+        if value is True:
+            return "on"
+        return value
+
+    @field_validator("levels", mode="before")
+    @classmethod
+    def normalize_yaml_levels(cls, value: Any) -> Any:
+        if isinstance(value, list):
+            return [cls._yaml_level(level) for level in value]
+        return value
+
+    @field_validator("default", "quick_task", mode="before")
+    @classmethod
+    def normalize_yaml_level(cls, value: Any) -> Any:
+        return cls._yaml_level(value)
+
+    @field_validator("wire_levels", mode="before")
+    @classmethod
+    def normalize_yaml_wire_level_keys(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            return {cls._yaml_level(level): wire for level, wire in value.items()}
+        return value
 
 
 class LLMModelPromptConfig(BaseModel):

@@ -10,6 +10,7 @@ from config import (
     LLMModelPromptConfig,
     LLMProviderConfig,
     LLMProviderModelConfig,
+    LLMReasoningConfig,
     LLMRoleConfig,
 )
 from llm import _apply_endpoint_reasoning
@@ -45,7 +46,7 @@ def test_generic_local_provider_name_is_replaced_with_endpoint_identity():
     provider = LLMProviderConfig(
         id="local-test",
         kind="local",
-        name="Local LLM",
+        name="Local LLM · studio-mac.local:1234",
         base_url="http://studio-mac.local:1234/v1",
         models=[],
     )
@@ -53,6 +54,24 @@ def test_generic_local_provider_name_is_replaced_with_endpoint_identity():
     response = models_route._provider_response(provider)
 
     assert response["name"] == "studio-mac.local:1234"
+
+
+def test_reasoning_config_accepts_yaml_11_off_booleans():
+    # This is the exact Python shape produced when PyYAML reads the config that
+    # ruamel wrote with unquoted `off` values and keys.
+    reasoning = LLMReasoningConfig.model_validate({
+        "mode": "none",
+        "levels": [False],
+        "default": False,
+        "quick_task": False,
+        "control": "none",
+        "wire_levels": {False: False},
+    })
+
+    assert reasoning.levels == ["off"]
+    assert reasoning.default == "off"
+    assert reasoning.quick_task == "off"
+    assert reasoning.wire_levels == {"off": False}
 
 
 def test_provider_model_resolver_uses_saved_chat_level_and_minimum_for_quick_tasks(monkeypatch):

@@ -63,11 +63,11 @@ def _active_providers() -> list[LLMProviderConfig]:
 
 
 def _provider_display_name(provider: LLMProviderConfig) -> str:
-    if provider.kind == "local" and provider.name.strip().lower() in {
-        "local llm",
-        "local ai",
-        "local endpoint",
-    }:
+    normalized_name = provider.name.strip().lower()
+    generic_local_name = normalized_name in {
+        "local llm", "local ai", "local endpoint",
+    } or normalized_name.startswith(("local llm ·", "local ai ·", "local endpoint ·"))
+    if provider.kind == "local" and generic_local_name:
         # Early provider builds wrote a generic product label into config. A
         # local server is a provider in its own right, so identify it by host.
         return urlparse(provider.base_url).netloc or (
