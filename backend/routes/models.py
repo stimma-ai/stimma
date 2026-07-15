@@ -62,8 +62,23 @@ def _active_providers() -> list[LLMProviderConfig]:
     ]
 
 
+def _provider_display_name(provider: LLMProviderConfig) -> str:
+    if provider.kind == "local" and provider.name.strip().lower() in {
+        "local llm",
+        "local ai",
+        "local endpoint",
+    }:
+        # Early provider builds wrote a generic product label into config. A
+        # local server is a provider in its own right, so identify it by host.
+        return urlparse(provider.base_url).netloc or (
+            provider.models[0].name if provider.models else "Model endpoint"
+        )
+    return provider.name
+
+
 def _provider_response(provider: LLMProviderConfig) -> dict:
     data = provider.model_dump(exclude={"api_key"})
+    data["name"] = _provider_display_name(provider)
     data["api_key_set"] = bool(provider.api_key)
     data["api_key"] = "***" if provider.api_key else None
     return data
@@ -134,6 +149,8 @@ def _apply_local_profile(model: LLMProviderModelConfig, scenarios, detected) -> 
     model.input_modalities = ["text", "image"] if vision and vision.passed else ["text"]
     method = getattr(detected, "reasoning_method", None) if detected else None
     mode = getattr(detected, "reasoning_mode", None) if detected else None
+    model.detected_runtime = getattr(detected, "runtime", None) if detected else None
+    model.reasoning_output = getattr(detected, "reasoning_output", None) if detected else None
     control = {
         "reasoning_effort": "openai_effort",
         "enable_thinking": "enable_thinking",
@@ -141,6 +158,8 @@ def _apply_local_profile(model: LLMProviderModelConfig, scenarios, detected) -> 
         "think": "think",
         "reasoning_budget": "reasoning_budget",
     }.get(method, "none")
+    if model.reasoning_control_source == "manual":
+        return
     if mode == "always":
         model.reasoning = LLMReasoningConfig(
             mode="required", levels=["high"], default="high", quick_task="high",
@@ -160,6 +179,22 @@ def _apply_local_profile(model: LLMProviderModelConfig, scenarios, detected) -> 
             mode="none", levels=["off"], default="off", quick_task="off",
             control="none", wire_levels={"off": "off"},
         )
+
+
+async def _preview_provider(request: ProviderCreateRequest) -> tuple[LLMProviderConfig, list[dict]]:
+    if request.kind not in PROVIDER_DEFAULTS:
+        raise HTTPException(status_code=400, detail="Unsupported provider type.")
+    defaults = PROVIDER_DEFAULTS[request.kind]
+    provider = LLMProviderConfig(
+        id=f"{request.kind}-preview",
+        kind=request.kind,
+        name=(request.name or defaults["name"]).strip(),
+        base_url=(request.base_url or defaults["base_url"]).strip().rstrip("/"),
+        api_key=request.api_key or None,
+    )
+    if request.kind != "local" and not provider.api_key:
+        raise HTTPException(status_code=400, detail="API key is required.")
+    return provider, await _discover_provider_models(provider)
 
 
 async def _discover_provider_models(provider: LLMProviderConfig) -> list[dict]:
@@ -188,9 +223,50 @@ async def _discover_provider_models(provider: LLMProviderConfig) -> list[dict]:
     return [row for row in rows if isinstance(row, dict) and (row.get("id") or row.get("name"))]
 
 
+async def _test_local_provider_model(
+    provider: LLMProviderConfig,
+    model: LLMProviderModelConfig,
+) -> dict:
+    from routes.settings import _profile_endpoint
+
+    config = LLMEndpointConfig(
+        url=provider.base_url,
+        model=model.model_id,
+        api_key=provider.api_key,
+        max_context_tokens=model.max_context_tokens,
+        content_policy_enabled=False,
+    )
+    scenarios, detected = await _profile_endpoint(config)
+    _apply_local_profile(model, scenarios, detected)
+    results = {name: result.model_dump() for name, result in scenarios.items()}
+    model.last_test_results = results
+    model.last_tested_at = datetime.now(timezone.utc).isoformat()
+    model.last_test_passed = bool(scenarios.get("text") and scenarios["text"].passed)
+    model.last_error = None if model.last_test_passed else f"{model.name} did not return a response."
+    if not model.last_test_passed:
+        raise HTTPException(status_code=400, detail=model.last_error)
+    return results
+
+
 @router.get("/providers")
 async def list_llm_providers():
     return {"providers": [_provider_response(provider) for provider in _active_providers()]}
+
+
+@router.post("/providers/discover")
+async def preview_llm_provider_models(request: ProviderCreateRequest):
+    provider, rows = await _preview_provider(request)
+    return {
+        "provider_name": provider.name,
+        "models": [
+            {
+                "id": str(row.get("id") or row.get("name")),
+                "name": str(row.get("name") or row.get("id")),
+                "context_length": row.get("context_length"),
+            }
+            for row in rows
+        ],
+    }
 
 
 @router.post("/providers")
@@ -207,9 +283,7 @@ async def create_llm_provider(request: ProviderCreateRequest):
         api_key=request.api_key or None,
     )
     if request.kind == "local" and not request.name:
-        location = urlparse(provider.base_url).netloc
-        if location:
-            provider.name = f"Local LLM · {location}"
+        provider.name = urlparse(provider.base_url).netloc or "Local endpoint"
     if request.kind != "local" and not provider.api_key:
         raise HTTPException(status_code=400, detail="API key is required.")
 
@@ -224,7 +298,7 @@ async def create_llm_provider(request: ProviderCreateRequest):
                 detail=f"Provider does not offer: {', '.join(missing)}.",
             )
     else:
-        selected = request.model_ids
+        selected = request.model_ids or ([next(iter(discovered_by_id))] if len(discovered_by_id) == 1 else [])
         unknown = [model_id for model_id in selected if model_id not in discovered_by_id]
         if unknown:
             raise HTTPException(status_code=400, detail=f"Model not found: {unknown[0]}.")
@@ -236,6 +310,13 @@ async def create_llm_provider(request: ProviderCreateRequest):
             )
             for model_id in selected
         ]
+        for model in provider.models:
+            advertised_context = discovered_by_id[model.model_id].get("context_length")
+            if advertised_context:
+                model.max_context_tokens = int(advertised_context)
+        if request.kind == "local":
+            for model in provider.models:
+                await _test_local_provider_model(provider, model)
     provider.last_tested_at = datetime.now(timezone.utc).isoformat()
     provider.last_test_passed = True
     providers = list(get_settings().llm_providers)
@@ -319,24 +400,10 @@ async def test_llm_provider(provider_id: str):
             raise HTTPException(status_code=400, detail=f"Model no longer available: {missing[0]}.")
         model_checks = {}
         if provider.kind == "local":
-            from routes.settings import _profile_endpoint
             for model in provider.models:
                 if not model.enabled:
                     continue
-                config = LLMEndpointConfig(
-                    url=provider.base_url,
-                    model=model.model_id,
-                    api_key=provider.api_key,
-                    max_context_tokens=model.max_context_tokens,
-                    content_policy_enabled=False,
-                )
-                scenarios, detected = await _profile_endpoint(config)
-                _apply_local_profile(model, scenarios, detected)
-                model_checks[model.model_id] = {
-                    name: result.model_dump() for name, result in scenarios.items()
-                }
-                if not scenarios.get("text") or not scenarios["text"].passed:
-                    raise HTTPException(status_code=400, detail=f"{model.name} did not return a response.")
+                model_checks[model.model_id] = await _test_local_provider_model(provider, model)
         provider.last_test_passed = True
         provider.last_error = None
     except HTTPException as exc:
@@ -375,7 +442,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     settings = get_settings()
     lockdown = is_privacy_lockdown_enabled()
     cloud_status = "privacy_lockdown" if lockdown else "not_logged_in"
-    cloud_message = "" if lockdown else "Sign in to Stimma Cloud to use hosted models."
+    cloud_message = "" if lockdown else "Sign in to your Stimma account to use hosted models."
     cloud_entries = []
 
     # 1. Fetch cloud catalog if authenticated
@@ -384,7 +451,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         id_token = None if lockdown else await get_valid_id_token()
         if id_token:
             cloud_status = "cloud_unreachable"
-            cloud_message = "Stimma Cloud cannot be reached."
+            cloud_message = "Stimma cannot be reached."
             base_url = settings.cloud.base_url
             url = f"{base_url}/api/llm/v1/models"
             async with httpx.AsyncClient() as client:
@@ -412,6 +479,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
                             "max_context_tokens": get_max_context_tokens(entry["slug"]),
                             "provider_id": "stimma",
                             "provider_name": entry.get("provider_name", "Stimma Cloud"),
+                            "upstream_provider": entry.get("upstream_provider"),
                             "canonical_model_id": entry.get("canonical_model_id"),
                             "reasoning": entry.get("reasoning"),
                             "cost_tier": entry.get("cost_tier"),
@@ -421,7 +489,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
                         })
                 elif response.status_code in (401, 403):
                     cloud_status = "subscription_required"
-                    cloud_message = "Your current plan does not include Stimma Cloud AI models."
+                    cloud_message = "Your Stimma account does not currently include hosted models."
     except Exception as e:
         log.warning("failed to fetch cloud model catalog", error=str(e))
 
@@ -447,20 +515,21 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     for provider in _active_providers():
         if not provider.enabled:
             continue
+        provider_name = _provider_display_name(provider)
         for provider_model in provider.models:
             if not provider_model.enabled:
                 continue
             canonical_id = _canonical_model_id(provider.kind, provider_model.model_id)
-            user_canonical_ids[canonical_id] = provider.name
+            user_canonical_ids[canonical_id] = provider_name
             models.append({
                 "slug": provider_model.id,
                 "source": "provider",
                 "provider_id": provider.id,
-                "provider_name": provider.name,
+                "provider_name": provider_name,
                 "provider_kind": provider.kind,
                 "canonical_model_id": canonical_id,
                 "name": provider_model.name,
-                "description": f"via {provider.name}",
+                "description": f"via {provider_name}",
                 "available": provider.last_test_passed is not False,
                 "status": "available" if provider.last_test_passed is not False else "provider_unavailable",
                 "max_context_tokens": min(256_000, provider_model.max_context_tokens),
@@ -477,7 +546,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
             model["shadowed_by_provider"] = user_canonical_ids[canonical_id]
 
     # 3. Keep the legacy endpoint pair available until it is migrated into a
-    # Local LLM provider. New local servers are represented independently above.
+    # provider. New local servers are represented independently above.
     agent_config = settings.llms.get('agent')
     agent_fast_config = settings.llms.get('agent-fast')
     agent_has_endpoint = (
@@ -494,7 +563,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         models.append({
             "slug": "local",
             "source": "endpoint",
-            "name": "Local LLM",
+            "name": agent_model,
             # Kept for tooltips and non-picker consumers; the picker renders
             # endpoint_url/endpoint_model as separate truncated lines.
             "description": f"{agent_config.endpoint.url} ({agent_model})",
@@ -509,8 +578,8 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         models.append({
             "slug": "local",
             "source": "endpoint",
-            "name": "Local LLM",
-            "description": "Add a local LLM server in Settings > AI Services.",
+            "name": "Local model endpoint",
+            "description": "Add a model endpoint in Settings > AI Services.",
             "available": False,
             "status": "local_missing",
             "max_context_tokens": local_max_context_tokens,
@@ -519,11 +588,11 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     auto_model = {
         "slug": "auto",
         "source": "auto",
-        "name": "Set up a local LLM" if lockdown else "Set up AI models",
+        "name": "Set up a local model" if lockdown else "Set up AI models",
         "description": (
-            "Add a local LLM server in Settings > AI Services."
+            "Add a model endpoint in Settings > AI Services."
             if lockdown
-            else "Sign in to Stimma Cloud or add a local LLM server."
+            else "Sign in to your Stimma account or add a model provider."
         ),
         "available": False,
         "status": "llm_not_configured",
@@ -541,8 +610,8 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         })
     elif agent_has_endpoint and agent_fast_has_endpoint:
         auto_model.update({
-            "name": "Auto: Local LLM",
-            "description": "Uses your configured local LLM server.",
+            "name": f"Auto: {agent_model}",
+            "description": "Uses your configured model endpoint.",
             "available": True,
             "status": "available",
             "resolved_slug": "local",

@@ -48,8 +48,8 @@ const visibleModels = computed(() => {
   const localAuto = localModel
     ? {
         ...cachedAuto,
-        name: 'Auto: Local LLM',
-        description: 'Uses your configured local LLM server.',
+        name: `Auto: ${localModel.name}`,
+        description: 'Uses your configured model endpoint.',
         available: true,
         status: 'available',
         resolved_slug: localModel.slug,
@@ -57,8 +57,8 @@ const visibleModels = computed(() => {
       }
     : {
         ...cachedAuto,
-        name: 'Set up a local LLM',
-        description: 'Add a local LLM server in Settings > AI Services.',
+        name: 'Set up a local model',
+        description: 'Add a model endpoint in Settings > AI Services.',
         available: false,
         status: 'llm_not_configured',
         resolved_slug: null,

@@ -16,7 +16,7 @@ PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     "anthropic": {"name": "Anthropic", "base_url": "https://api.anthropic.com/v1"},
     "xai": {"name": "xAI", "base_url": "https://api.x.ai/v1"},
     "openrouter": {"name": "OpenRouter", "base_url": "https://openrouter.ai/api/v1"},
-    "local": {"name": "Local LLM", "base_url": "http://localhost:1234/v1"},
+    "local": {"name": "Local endpoint", "base_url": "http://localhost:1234/v1"},
 }
 
 

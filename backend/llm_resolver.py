@@ -104,12 +104,13 @@ async def get_effective_llm_config(role: str) -> LLMEffectiveConfig:
         if role_config.endpoint and role_config.endpoint.url:
             return role_config.endpoint
         raise LLMNotConfiguredError(
-            "No local LLM server is configured. Add one in Settings > AI Services.",
+            "No local model endpoint is configured. Add one in Settings > AI Services.",
             code="llm_local_missing",
         )
     if selected_slug.startswith("stimma:"):
         cloud_config = await _get_stimma_cloud_config(
             _resolve_catalog_alias(selected_slug, role),
+            model_slug=selected_slug,
             max_context_tokens=get_max_context_tokens(selected_slug),
             quick_task=role == "agent-fast",
         )
@@ -126,7 +127,10 @@ async def get_effective_llm_config(role: str) -> LLMEffectiveConfig:
 
     if role_config.source == 'auto':
         cloud_config = await _get_stimma_cloud_config(
-            role, max_context_tokens=default_slug_context, quick_task=role == "agent-fast"
+            role,
+            model_slug="stimma:minimax-m3",
+            max_context_tokens=default_slug_context,
+            quick_task=role == "agent-fast",
         )
         if cloud_config:
             return cloud_config
@@ -136,7 +140,10 @@ async def get_effective_llm_config(role: str) -> LLMEffectiveConfig:
 
     if role_config.source == 'stimma_cloud':
         cloud_config = await _get_stimma_cloud_config(
-            role, max_context_tokens=default_slug_context, quick_task=role == "agent-fast"
+            role,
+            model_slug="stimma:minimax-m3",
+            max_context_tokens=default_slug_context,
+            quick_task=role == "agent-fast",
         )
         if cloud_config:
             return cloud_config
@@ -151,6 +158,7 @@ async def get_effective_llm_config(role: str) -> LLMEffectiveConfig:
 async def _get_stimma_cloud_config(
     role: str,
     *,
+    model_slug: Optional[str] = None,
     max_context_tokens: Optional[int] = None,
     quick_task: bool = False,
 ) -> Optional[LLMEndpointConfig]:
@@ -200,6 +208,7 @@ async def _get_stimma_cloud_config(
             model=role,  # alias (e.g. 'agent', 'agent-max')
             api_key=id_token,
             max_context_tokens=max_context_tokens if max_context_tokens is not None else MAX_CONTEXT_CAP,
+            **_model_prompt_fields(model_slug or role),
             **_cloud_reasoning_fields(role, quick_task=quick_task),
         )
     except Exception as e:
@@ -322,6 +331,16 @@ def _cloud_reasoning_fields(model_slug: str, *, quick_task: bool) -> dict:
     }
 
 
+def _model_prompt_fields(model_slug: str) -> dict:
+    prompt = getattr(get_settings(), "llm_model_prompts", {}).get(model_slug)
+    if not prompt:
+        return {"content_policy_enabled": True, "extra_system_prompt": ""}
+    return {
+        "content_policy_enabled": prompt.content_policy_enabled,
+        "extra_system_prompt": prompt.extra_system_prompt,
+    }
+
+
 def get_max_context_tokens(model_slug: Optional[str]) -> int:
     """Return the (capped) context window for a catalog slug.
 
@@ -381,17 +400,13 @@ def _get_provider_model_config(
                     if reasoning.default in reasoning.levels
                     else (reasoning.levels[0] if reasoning.levels else None)
                 )
-            global_prompt = settings.llm_extra_system_prompt.strip()
-            model_prompt = model.extra_system_prompt.strip()
             return LLMEndpointConfig(
                 url=provider.base_url,
                 model=model.model_id,
                 api_key=provider.api_key,
                 max_context_tokens=min(MAX_CONTEXT_CAP, model.max_context_tokens),
-                content_policy_enabled=settings.llm_content_policy == "stimma",
-                extra_system_prompt="\n\n".join(
-                    part for part in (global_prompt, model_prompt) if part
-                ),
+                content_policy_enabled=model.content_policy_enabled,
+                extra_system_prompt=model.extra_system_prompt.strip(),
                 extra_body=model.extra_body,
                 provider_kind=provider.kind,
                 model_route_id=model.id,
@@ -454,6 +469,7 @@ async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') ->
             cloud_kwargs["quick_task"] = True
         cloud_config = await _get_stimma_cloud_config(
             _resolve_catalog_alias(auto_slug, role),
+            model_slug=auto_slug,
             **cloud_kwargs,
         )
         if cloud_config:
@@ -470,7 +486,7 @@ async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') ->
         if role_config.endpoint and role_config.endpoint.url:
             return role_config.endpoint
         raise LLMNotConfiguredError(
-            "No local LLM server is configured. Add one in Settings > AI Services.",
+            "No local model endpoint is configured. Add one in Settings > AI Services.",
             code="llm_local_missing",
         )
 
@@ -478,6 +494,7 @@ async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') ->
     alias = _resolve_catalog_alias(model_slug, role)
     cloud_config = await _get_stimma_cloud_config(
         alias,
+        model_slug=model_slug,
         max_context_tokens=get_max_context_tokens(model_slug),
         quick_task=role == "agent-fast",
     )
@@ -496,7 +513,7 @@ def _raise_no_llm_error() -> None:
             "Your Stimma account has no balance."
         )
     raise LLMNotConfiguredError(
-        "No AI model is configured. Sign in to Stimma or add a local LLM server in AI Services."
+        "No AI model is configured. Sign in to Stimma or add a model endpoint in AI Services."
     )
 
 
@@ -518,7 +535,7 @@ async def _raise_cloud_llm_error(model_slug: str | None = None) -> None:
 
     if not id_token:
         raise LLMNotConfiguredError(
-            "Sign in to Stimma or choose a local LLM.",
+            "Sign in to Stimma or choose a local model.",
             code="llm_not_logged_in",
         )
 
@@ -562,5 +579,5 @@ def get_effective_llm_config_sync(role: str) -> LLMEffectiveConfig:
         return role_config.endpoint
 
     raise LLMNotConfiguredError(
-        "No AI model is configured. Please sign in to Stimma Cloud or set up a local LLM endpoint in Settings > AI Services."
+        "No AI model is configured. Sign in to Stimma or set up a model endpoint in Settings > AI Services."
     )

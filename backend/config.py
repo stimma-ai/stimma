@@ -243,6 +243,13 @@ class LLMReasoningConfig(BaseModel):
     wire_levels: Dict[str, Any] = Field(default_factory=dict)
 
 
+class LLMModelPromptConfig(BaseModel):
+    """System-prompt choices stored independently for each selectable model."""
+
+    content_policy_enabled: bool = True
+    extra_system_prompt: str = ""
+
+
 class LLMProviderModelConfig(BaseModel):
     """One user-visible model exposed by an LLM provider."""
     model_config = {"protected_namespaces": ()}
@@ -255,9 +262,17 @@ class LLMProviderModelConfig(BaseModel):
     input_modalities: List[str] = Field(default_factory=lambda: ["text"])
     supports_tools: bool = True
     reasoning: LLMReasoningConfig = Field(default_factory=LLMReasoningConfig)
+    content_policy_enabled: bool = True
     # Manual compatibility controls, primarily for OpenRouter/local models.
     extra_body: Optional[Dict[str, Any]] = None
     extra_system_prompt: str = ""
+    reasoning_control_source: str = "auto"  # auto | manual
+    detected_runtime: Optional[str] = None
+    reasoning_output: Optional[str] = None
+    last_tested_at: Optional[str] = None
+    last_test_passed: Optional[bool] = None
+    last_error: Optional[str] = None
+    last_test_results: Dict[str, Any] = Field(default_factory=dict)
 
 
 class LLMProviderConfig(BaseModel):
@@ -738,7 +753,8 @@ class Settings(BaseSettings):
     quick_task_model: str = 'stimma:minimax-m3'
     llm_reasoning_levels: Dict[str, str] = Field(default_factory=dict)
     llm_providers: List[LLMProviderConfig] = Field(default_factory=list)
-    # Global prompt policy applies uniformly to every BYO/local provider.
+    llm_model_prompts: Dict[str, LLMModelPromptConfig] = Field(default_factory=dict)
+    # Deprecated global fields retained so existing config files still parse.
     llm_content_policy: str = 'stimma'  # stimma | provider
     llm_extra_system_prompt: str = ''
 

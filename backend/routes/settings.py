@@ -17,7 +17,16 @@ from pydantic import BaseModel, Field
 
 import app_dirs
 from app_context import get_bundle_id, get_sandbox
-from config import get_settings, generate_profile_id, FolderConfig, LLMRoleConfig, LLMEndpointConfig, WildcardEntry, PromptSegmentEntry
+from config import (
+    FolderConfig,
+    LLMEndpointConfig,
+    LLMModelPromptConfig,
+    LLMRoleConfig,
+    PromptSegmentEntry,
+    WildcardEntry,
+    generate_profile_id,
+    get_settings,
+)
 from database_registry import get_database_registry
 from database import MediaItem
 from sqlalchemy import select, func
@@ -295,6 +304,7 @@ class SettingsResponse(BaseModel):
     default_model: str = 'stimma:minimax-m3'
     quick_task_model: str = 'stimma:minimax-m3'
     llm_reasoning_levels: Dict[str, str] = Field(default_factory=dict)
+    llm_model_prompts: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     llm_content_policy: str = 'stimma'
     llm_extra_system_prompt: str = ''
     readiness: ReadinessResponse  # App-entry readiness gate (OOBE entitlement flow)
@@ -705,6 +715,10 @@ async def get_settings_all():
         default_model=settings.default_model,
         quick_task_model=settings.quick_task_model,
         llm_reasoning_levels=settings.llm_reasoning_levels,
+        llm_model_prompts={
+            slug: prompt.model_dump()
+            for slug, prompt in settings.llm_model_prompts.items()
+        },
         llm_content_policy=settings.llm_content_policy,
         llm_extra_system_prompt=settings.llm_extra_system_prompt,
         readiness=readiness,
@@ -931,6 +945,34 @@ async def update_llm_prompt_policy(request: UpdateLLMPromptPolicyRequest):
     patch_global_section("llm_content_policy", request.content_policy)
     patch_global_section("llm_extra_system_prompt", request.extra_system_prompt)
     return {"status": "success"}
+
+
+class UpdateModelPromptRequest(BaseModel):
+    model: str
+    content_policy_enabled: bool = True
+    extra_system_prompt: str = ""
+
+
+@router.patch("/model-prompt")
+async def update_model_prompt(request: UpdateModelPromptRequest):
+    model_slug = normalize_model_slug(request.model)
+    settings = get_settings()
+    prompts = {
+        slug: prompt.model_dump()
+        for slug, prompt in settings.llm_model_prompts.items()
+    }
+    prompts[model_slug] = {
+        "content_policy_enabled": request.content_policy_enabled,
+        "extra_system_prompt": request.extra_system_prompt,
+    }
+    patch_global_section("llm_model_prompts", prompts)
+    # Keep the process-local settings cache coherent so two model edits made in
+    # one settings session cannot overwrite each other before config reloads.
+    settings.llm_model_prompts[model_slug] = LLMModelPromptConfig(
+        content_policy_enabled=request.content_policy_enabled,
+        extra_system_prompt=request.extra_system_prompt,
+    )
+    return {"status": "success", "model": model_slug, **prompts[model_slug]}
 
 
 # =============================================================================

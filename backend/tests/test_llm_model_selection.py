@@ -93,8 +93,9 @@ async def test_chat_auto_uses_minimax_when_cloud_available(monkeypatch):
 
     seen = {}
 
-    async def fake_cloud_config(role, *, max_context_tokens=None):
+    async def fake_cloud_config(role, *, model_slug=None, max_context_tokens=None):
         seen["role"] = role
+        seen["model_slug"] = model_slug
         seen["max_context_tokens"] = max_context_tokens
         return LLMEndpointConfig(
             url="https://cloud.example/api/llm/v1",
@@ -108,6 +109,7 @@ async def test_chat_auto_uses_minimax_when_cloud_available(monkeypatch):
 
     assert cfg.model == "stimma:minimax-m3"
     assert seen["role"] == "stimma:minimax-m3"
+    assert seen["model_slug"] == "stimma:minimax-m3"
     assert seen["max_context_tokens"] == llm_resolver.get_max_context_tokens("agent-max")
 
 
@@ -142,8 +144,8 @@ async def test_available_models_auto_describes_local_only_fallback(monkeypatch):
 
     assert auto_model["available"] is True
     assert auto_model["resolved_slug"] == "local"
-    assert auto_model["name"] == "Auto: Local LLM"
-    assert auto_model["description"] == "Uses your configured local LLM server."
+    assert auto_model["name"] == "Auto: local-model"
+    assert auto_model["description"] == "Uses your configured model endpoint."
     assert auto_model["max_context_tokens"] == 64_000
     assert local_model["available"] is True
 
@@ -178,7 +180,7 @@ async def test_available_models_setup_state_is_not_a_hidden_model_list(monkeypat
 
     assert auto_model["available"] is False
     assert auto_model["name"] == "Set up AI models"
-    assert auto_model["description"] == "Sign in to Stimma Cloud or add a local LLM server."
+    assert auto_model["description"] == "Sign in to your Stimma account or add a model provider."
     assert {"stimma:minimax-m3", "local", "auto"} == slugs
 
 
@@ -243,8 +245,8 @@ async def test_available_models_lockdown_setup_copy_is_local_only(monkeypatch):
     auto_model = payload["models"][0]
 
     assert auto_model["available"] is False
-    assert auto_model["name"] == "Set up a local LLM"
-    assert auto_model["description"] == "Add a local LLM server in Settings > AI Services."
+    assert auto_model["name"] == "Set up a local model"
+    assert auto_model["description"] == "Add a model endpoint in Settings > AI Services."
     assert {model["slug"] for model in payload["models"]} == {"auto", "local"}
 
 

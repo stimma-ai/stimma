@@ -5,12 +5,19 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from config import LLMEndpointConfig, LLMProviderConfig, LLMProviderModelConfig, LLMRoleConfig
+from config import (
+    LLMEndpointConfig,
+    LLMModelPromptConfig,
+    LLMProviderConfig,
+    LLMProviderModelConfig,
+    LLMRoleConfig,
+)
 from llm import _apply_endpoint_reasoning
 from llm_http import LLMConnectionError, classify_provider_http_error
 from llm_provider_catalog import branded_models
 import llm_resolver
 from routes import models as models_route
+from routes import settings as settings_route
 
 
 def test_branded_provider_contracts_match_current_model_series():
@@ -34,8 +41,23 @@ def test_branded_provider_contracts_match_current_model_series():
     assert anthropic[2].reasoning.quick_task == "low"
 
 
+def test_generic_local_provider_name_is_replaced_with_endpoint_identity():
+    provider = LLMProviderConfig(
+        id="local-test",
+        kind="local",
+        name="Local LLM",
+        base_url="http://studio-mac.local:1234/v1",
+        models=[],
+    )
+
+    response = models_route._provider_response(provider)
+
+    assert response["name"] == "studio-mac.local:1234"
+
+
 def test_provider_model_resolver_uses_saved_chat_level_and_minimum_for_quick_tasks(monkeypatch):
     model = branded_models("openai", "openai-test")[0]
+    model.extra_system_prompt = "Keep answers concise."
     provider = LLMProviderConfig(
         id="openai-test",
         kind="openai",
@@ -47,8 +69,6 @@ def test_provider_model_resolver_uses_saved_chat_level_and_minimum_for_quick_tas
     settings = SimpleNamespace(
         llm_providers=[provider],
         llm_reasoning_levels={model.id: "xhigh"},
-        llm_content_policy="stimma",
-        llm_extra_system_prompt="Keep answers concise.",
     )
     monkeypatch.setattr(llm_resolver, "get_settings", lambda: settings)
 
@@ -65,6 +85,7 @@ def test_provider_model_resolver_uses_saved_chat_level_and_minimum_for_quick_tas
 
 def test_provider_model_resolver_repairs_removed_reasoning_level(monkeypatch):
     model = branded_models("xai", "xai-test")[0]
+    model.content_policy_enabled = False
     provider = LLMProviderConfig(
         id="xai-test",
         kind="xai",
@@ -76,14 +97,33 @@ def test_provider_model_resolver_repairs_removed_reasoning_level(monkeypatch):
     settings = SimpleNamespace(
         llm_providers=[provider],
         llm_reasoning_levels={model.id: "off"},
-        llm_content_policy="provider",
-        llm_extra_system_prompt="",
     )
     monkeypatch.setattr(llm_resolver, "get_settings", lambda: settings)
 
     resolved = llm_resolver._get_provider_model_config(model.id, quick_task=False)
     assert resolved is not None
     assert resolved.reasoning_level == "high"
+    assert resolved.content_policy_enabled is False
+
+
+def test_cloud_prompt_settings_are_read_per_model(monkeypatch):
+    monkeypatch.setattr(
+        llm_resolver,
+        "get_settings",
+        lambda: SimpleNamespace(
+            llm_model_prompts={
+                "stimma:minimax-m3": LLMModelPromptConfig(
+                    content_policy_enabled=False,
+                    extra_system_prompt="Use terse answers.",
+                )
+            }
+        ),
+    )
+
+    assert llm_resolver._model_prompt_fields("stimma:minimax-m3") == {
+        "content_policy_enabled": False,
+        "extra_system_prompt": "Use terse answers.",
+    }
 
 
 @pytest.mark.asyncio
@@ -255,6 +295,109 @@ async def test_adding_openai_key_checks_models_and_stores_branded_contracts(monk
         "gpt-5.6-luna",
     ]
     assert len(saved) == 1
+
+
+@pytest.mark.asyncio
+async def test_provider_preview_discovers_models_without_saving(monkeypatch):
+    async def discover(provider):
+        assert provider.base_url == "http://studio.local:1234/v1"
+        return [{"id": "qwen-3.5-122b", "context_length": 131_072}]
+
+    monkeypatch.setattr(models_route, "_discover_provider_models", discover)
+    response = await models_route.preview_llm_provider_models(
+        models_route.ProviderCreateRequest(
+            kind="local",
+            name="Studio Mac",
+            base_url="http://studio.local:1234/v1",
+        )
+    )
+
+    assert response == {
+        "provider_name": "Studio Mac",
+        "models": [
+            {
+                "id": "qwen-3.5-122b",
+                "name": "qwen-3.5-122b",
+                "context_length": 131_072,
+            }
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_local_provider_test_persists_capabilities_and_detection(monkeypatch):
+    from routes.settings import LLMDetected, LLMScenarioResult
+
+    provider = LLMProviderConfig(
+        id="local-test",
+        kind="local",
+        name="Studio Mac",
+        base_url="http://studio.local:1234/v1",
+    )
+    model = LLMProviderModelConfig(
+        id="local-test:qwen-3.5-122b",
+        model_id="qwen-3.5-122b",
+        name="Qwen 3.5 122B",
+    )
+
+    async def profile(_config):
+        return (
+            {
+                "text": LLMScenarioResult(passed=True, elapsed_ms=12),
+                "tools": LLMScenarioResult(passed=True, elapsed_ms=15),
+                "vision": LLMScenarioResult(passed=True, elapsed_ms=18),
+            },
+            LLMDetected(
+                runtime="vLLM",
+                reasoning_method="enable_thinking",
+                reasoning_mode="toggleable",
+                reasoning_output="field",
+            ),
+        )
+
+    monkeypatch.setattr(settings_route, "_profile_endpoint", profile)
+    results = await models_route._test_local_provider_model(provider, model)
+
+    assert results["text"]["passed"] is True
+    assert model.supports_tools is True
+    assert model.input_modalities == ["text", "image"]
+    assert model.detected_runtime == "vLLM"
+    assert model.reasoning.control == "enable_thinking"
+    assert model.reasoning.levels == ["off", "high"]
+    assert model.last_test_passed is True
+
+
+@pytest.mark.asyncio
+async def test_model_prompt_settings_are_persisted_per_model(monkeypatch):
+    saved = {}
+    runtime_settings = SimpleNamespace(llm_model_prompts={})
+    monkeypatch.setattr(
+        settings_route,
+        "get_settings",
+        lambda: runtime_settings,
+    )
+    monkeypatch.setattr(
+        settings_route,
+        "patch_global_section",
+        lambda key, value: saved.update({key: value}),
+    )
+
+    response = await settings_route.update_model_prompt(
+        settings_route.UpdateModelPromptRequest(
+            model="stimma:minimax-m3",
+            content_policy_enabled=False,
+            extra_system_prompt="Use terse answers.",
+        )
+    )
+
+    assert saved["llm_model_prompts"] == {
+        "stimma:minimax-m3": {
+            "content_policy_enabled": False,
+            "extra_system_prompt": "Use terse answers.",
+        }
+    }
+    assert response["model"] == "stimma:minimax-m3"
+    assert runtime_settings.llm_model_prompts["stimma:minimax-m3"].extra_system_prompt == "Use terse answers."
 
 
 @pytest.mark.asyncio

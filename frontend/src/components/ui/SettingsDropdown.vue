@@ -1,12 +1,15 @@
 <template>
-  <div class="relative" :class="control ? 'w-full' : ''" ref="container">
+  <div class="relative" ref="container">
     <button
       type="button"
       :disabled="disabled"
       @click="toggle"
       @keydown="handleButtonKeydown"
       class="flex items-center gap-1.5 text-content-secondary text-sm cursor-pointer hover:text-content transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-content-secondary"
-      :class="control ? 'w-full min-w-52 justify-between rounded-md border border-edge bg-surface-raised px-3 py-2 text-left hover:border-blue-500/50' : ''"
+      :class="[
+        control ? 'min-w-52 max-w-[min(28rem,calc(100vw-2rem))] justify-between rounded-md border border-edge bg-surface-raised px-3 py-2 text-left hover:border-blue-500/50' : '',
+        fill ? 'w-full' : '',
+      ]"
       aria-haspopup="listbox"
       :aria-expanded="isOpen"
     >
@@ -24,13 +27,13 @@
     <Teleport to="body">
       <div
         v-if="isOpen"
-        class="fixed inset-0 z-50"
+        class="fixed inset-0 z-[10030]"
         @click="close"
       />
       <div
         v-if="isOpen"
         ref="dropdown"
-        class="fixed z-50 py-1 bg-surface border border-edge rounded-lg shadow-xl overflow-hidden max-w-[calc(100vw-1rem)] flex flex-col"
+        class="fixed z-[10031] py-1 bg-surface border border-edge rounded-lg shadow-xl overflow-hidden max-w-[calc(100vw-1rem)] flex flex-col"
         :class="control ? 'min-w-52' : 'max-w-72'"
         :style="dropdownStyle"
         role="listbox"
@@ -90,6 +93,7 @@ const props = defineProps<{
   options: Option[]
   disabled?: boolean
   control?: boolean
+  fill?: boolean
 }>()
 
 const emit = defineEmits<{
