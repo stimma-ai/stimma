@@ -424,8 +424,8 @@
         <div class="flex max-h-[90vh] w-[720px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-edge bg-surface shadow-2xl">
           <div class="flex items-start justify-between border-b border-edge px-5 py-4">
             <div class="min-w-0">
-              <h4 class="truncate text-base font-medium text-content">{{ legacyDraft.model || legacyProvider?.name }}</h4>
-              <p class="mt-0.5 truncate text-xs text-content-tertiary">{{ legacyDraft.url }}</p>
+              <h4 class="truncate text-base font-medium text-content">{{ legacyProvider?.name || 'OpenAI-compatible endpoint' }}</h4>
+              <p class="mt-0.5 truncate text-xs text-content-tertiary">{{ legacyDraft.model || 'No model selected' }}</p>
             </div>
             <button type="button" @click="closeLegacyProvider" class="text-sm text-content-muted hover:text-content">Done</button>
           </div>
@@ -502,8 +502,12 @@
               <textarea v-model="legacyExtraBodyText" rows="3" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 font-mono text-xs text-content focus:border-blue-500 focus:outline-none" placeholder='{ "repetition_penalty": 1.05 }' />
               <span v-if="legacyExtraBodyError" class="mt-1 block text-[11px] text-red-400">{{ legacyExtraBodyError }}</span>
             </label>
+            <p v-if="legacyActionError" class="text-xs text-red-400">{{ legacyActionError }}</p>
           </div>
-          <div class="flex justify-end border-t border-edge px-5 py-4">
+          <div class="flex items-center justify-between border-t border-edge px-5 py-4">
+            <button type="button" @click="removeLegacyProvider" :disabled="legacySaving" class="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 disabled:opacity-50">
+              <TrashIcon /> Remove endpoint
+            </button>
             <button type="button" @click="saveLegacyEndpoint" :disabled="legacySaving || Boolean(legacyExtraBodyError)" class="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50">{{ legacySaving ? 'Saving…' : 'Save' }}</button>
           </div>
         </div>
@@ -672,9 +676,9 @@ const voiceModelOptions = computed(() => VOICE_MODELS.map(model => ({
   description: model.size,
 })))
 
-const legacyOverride = ref(null)
+const legacyOverride = ref(undefined)
 const legacyEndpoint = computed(() => {
-  if (legacyOverride.value) return legacyOverride.value
+  if (legacyOverride.value !== undefined) return legacyOverride.value
   return props.llmSettings.find(item => item.role === 'agent')?.endpoint || null
 })
 const legacyProvider = computed(() => {
@@ -1013,6 +1017,7 @@ const legacyScenarios = ref(null)
 const legacyTesting = ref(false)
 const legacySaving = ref(false)
 const legacyTestError = ref('')
+const legacyActionError = ref('')
 const legacyExtraBodyText = ref('')
 let legacyProbeTimer = null
 const legacyExtraBodyError = computed(() => {
@@ -1028,6 +1033,7 @@ function openLegacyProvider() {
   legacyExtraBodyText.value = legacyDraft.value.extra_body ? JSON.stringify(legacyDraft.value.extra_body, null, 2) : ''
   legacyScenarios.value = null
   legacyTestError.value = ''
+  legacyActionError.value = ''
   legacyOpen.value = true
   fetchLegacyModels()
 }
@@ -1069,6 +1075,32 @@ async function saveLegacyEndpoint() {
     legacyKeyDraft.value = ''
     invalidateCache()
     await fetchModels(null, true)
+  } finally { legacySaving.value = false }
+}
+async function removeLegacyProvider() {
+  legacySaving.value = true
+  legacyActionError.value = ''
+  try {
+    const payload = {
+      source: 'auto',
+      endpoint_url: '',
+      endpoint_model: '',
+      endpoint_api_key: '',
+      endpoint_extra_system_prompt: '',
+      endpoint_extra_body: {},
+      endpoint_reasoning_method: '',
+      endpoint_reasoning_method_source: 'auto',
+    }
+    await Promise.all([
+      axios.patch(`${getApiBase()}/settings/llms/agent`, payload),
+      axios.patch(`${getApiBase()}/settings/llms/agent-fast`, payload),
+    ])
+    legacyOverride.value = null
+    closeLegacyProvider()
+    invalidateCache()
+    await fetchModels(null, true)
+  } catch (error) {
+    legacyActionError.value = error.response?.data?.detail || 'Could not remove this endpoint.'
   } finally { legacySaving.value = false }
 }
 async function runLegacyTest() {
