@@ -150,7 +150,7 @@ async def test_available_models_auto_describes_local_only_fallback(monkeypatch):
     assert local_model["available"] is True
 
     slugs = {model["slug"] for model in payload["models"]}
-    assert "stimma:minimax-m3" in slugs
+    assert "stimma:minimax-m3" not in slugs
     assert not {"gpt54", "kimi-k2", "opus", "sonnet"} & slugs
 
 
@@ -181,7 +181,7 @@ async def test_available_models_setup_state_is_not_a_hidden_model_list(monkeypat
     assert auto_model["available"] is False
     assert auto_model["name"] == "Set up AI models"
     assert auto_model["description"] == "Sign in to your Stimma account or add a model provider."
-    assert {"stimma:minimax-m3", "local", "auto"} == slugs
+    assert {"local", "auto"} == slugs
 
 
 @pytest.mark.asyncio

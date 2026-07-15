@@ -149,6 +149,7 @@
                   v-if="settings"
                   :llm-settings="settings.llm_settings"
                   @update="handleLlmSettingsUpdate"
+                  @navigate="activeSection = $event"
                 />
               </template>
 

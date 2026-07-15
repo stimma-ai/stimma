@@ -444,11 +444,13 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     cloud_status = "privacy_lockdown" if lockdown else "not_logged_in"
     cloud_message = "" if lockdown else "Sign in to your Stimma account to use hosted models."
     cloud_entries = []
+    cloud_authenticated = False
 
     # 1. Fetch cloud catalog if authenticated
     try:
         from firebase_auth import get_valid_id_token
         id_token = None if lockdown else await get_valid_id_token()
+        cloud_authenticated = bool(id_token)
         if id_token:
             cloud_status = "cloud_unreachable"
             cloud_message = "Stimma cannot be reached."
@@ -497,7 +499,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
     # The fallback names are compiled into the app; they do not come from a
     # network request. Even so, Cloud models should be absent—not advertised as
     # unavailable—while Privacy Lockdown is active.
-    if not cloud_entries and not lockdown:
+    if cloud_authenticated and not cloud_entries and not lockdown:
         for slug in PUBLIC_CLOUD_FALLBACK_MODELS:
             models.append({
                 "slug": slug,

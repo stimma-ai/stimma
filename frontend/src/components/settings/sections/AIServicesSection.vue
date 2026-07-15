@@ -56,18 +56,19 @@
       </div>
 
       <div class="overflow-hidden rounded-lg border border-edge">
-        <button type="button" @click="openStimmaAccount" class="flex w-full items-center gap-4 border-b border-edge px-4 py-3 text-left hover:bg-white/[0.03]">
+        <button type="button" @click="cloudStatus === 'not_logged_in' ? emit('navigate', 'account') : openStimmaAccount()" class="flex w-full items-center gap-4 border-b border-edge px-4 py-3 text-left hover:bg-white/[0.03]">
           <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-600 via-cyan-500 to-indigo-500 text-white shadow-sm">
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" /></svg>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="stimma-cloud-text text-sm font-medium">Stimma Account</div>
-            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ modelSummary(cloudModels) }}</div>
-            <div v-if="cloudStatus !== 'available' && cloudMessage" class="mt-1 truncate text-xs text-red-400">{{ cloudMessage }}</div>
+            <div class="text-sm font-medium text-content">Stimma</div>
+            <div v-if="cloudStatus === 'available'" class="mt-0.5 truncate text-xs text-content-tertiary">{{ modelSummary(cloudModels) }}</div>
+            <div v-else-if="cloudStatus === 'not_logged_in'" class="mt-0.5 truncate text-xs text-content-tertiary">Buy credit packs to use models from multiple providers, without managing separate accounts or bills.</div>
+            <div v-else-if="cloudStatus !== 'not_logged_in' && cloudMessage" class="mt-1 truncate text-xs text-red-400">{{ cloudMessage }}</div>
           </div>
           <div class="shrink-0 text-right">
-            <div class="text-xs" :class="cloudStatus === 'available' ? 'text-green-500' : 'text-content-muted'">{{ cloudStatus === 'available' ? 'Ready' : 'Unavailable' }}</div>
-            <div class="mt-0.5 text-[11px] text-content-muted">{{ cloudModels.length }} model{{ cloudModels.length === 1 ? '' : 's' }}</div>
+            <div class="text-xs" :class="cloudStatus === 'not_logged_in' ? 'text-blue-400' : cloudStatus === 'available' ? 'text-green-500' : 'text-content-muted'">{{ cloudStatus === 'not_logged_in' ? 'Sign in' : cloudStatus === 'available' ? 'Ready' : 'Unavailable' }}</div>
+            <div v-if="cloudStatus === 'available'" class="mt-0.5 text-[11px] text-content-muted">{{ cloudModels.length }} model{{ cloudModels.length === 1 ? '' : 's' }}</div>
           </div>
           <ChevronIcon />
         </button>
@@ -550,6 +551,7 @@ const TrashIcon = defineComponent({
 })
 
 const props = defineProps({ llmSettings: { type: Array, default: () => [] } })
+const emit = defineEmits(['navigate'])
 
 const providerKinds = [
   { id: 'openai', name: 'OpenAI', description: 'Use your OpenAI API key.' },
