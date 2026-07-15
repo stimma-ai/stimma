@@ -6,8 +6,8 @@
         <p class="mt-1 text-xs text-content-tertiary">Choose models from your Stimma account, API providers, or your own endpoints.</p>
       </div>
 
-      <div class="overflow-hidden rounded-lg border border-edge">
-        <button type="button" @click="cloudStatus === 'not_logged_in' ? emit('navigate', 'account') : openStimmaAccount()" class="flex w-full items-center gap-4 border-b border-edge px-4 py-3 text-left hover:bg-white/[0.03]">
+      <div class="space-y-0.5">
+        <button type="button" @click="cloudStatus === 'not_logged_in' ? emit('navigate', 'account') : openStimmaAccount()" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]">
           <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-600 via-cyan-500 to-indigo-500 text-white shadow-sm">
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" /></svg>
           </div>
@@ -29,9 +29,9 @@
           :key="provider.id || provider.kind"
           type="button"
           @click="openProvider(provider)"
-          class="flex w-full items-center gap-4 border-b border-edge px-4 py-3 text-left hover:bg-white/[0.03]"
+          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]"
         >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge bg-surface-raised text-content-secondary">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
             <ProviderBrandIcon :provider="provider.kind" size="md" />
           </div>
           <div class="min-w-0 flex-1">
@@ -48,15 +48,14 @@
           <ChevronIcon />
         </button>
 
-        <button type="button" @click="openAddLocalProvider" class="flex w-full items-center gap-4 border-b border-edge px-4 py-3 text-left last:border-b-0 hover:bg-blue-500/5">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-500/40 bg-blue-500/10 text-blue-400">
+        <button type="button" @click="openAddLocalProvider" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-blue-500/[0.04]">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400">
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="text-sm font-medium text-blue-400">Add local model</div>
+            <div class="text-sm font-medium text-blue-400">Add OpenAI Compatible Endpoint</div>
             <div class="mt-0.5 truncate text-xs text-content-tertiary">Connect LM Studio, vLLM, llama.cpp, Ollama, or another compatible server.</div>
           </div>
-          <ChevronIcon />
         </button>
 
         <button
@@ -64,9 +63,9 @@
           :key="provider.id"
           type="button"
           @click="openProvider(provider)"
-          class="flex w-full items-center gap-4 border-b border-edge px-4 py-3 text-left last:border-b-0 hover:bg-white/[0.03]"
+          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]"
         >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge bg-surface-raised text-content-secondary">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
             <ModelVendorIcon :model="provider.models?.[0]" size="md" />
           </div>
           <div class="min-w-0 flex-1">
@@ -87,9 +86,9 @@
           v-if="legacyProvider"
           type="button"
           @click="openLegacyProvider"
-          class="flex w-full items-center gap-4 px-4 py-3 text-left hover:bg-white/[0.03]"
+          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]"
         >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge bg-surface-raised text-content-secondary">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
             <ModelVendorIcon :model="{ name: legacyProvider.model }" size="md" />
           </div>
           <div class="min-w-0 flex-1">
@@ -110,11 +109,10 @@
     <section>
       <div class="mb-3">
         <h3 class="text-base font-medium text-content">Preferences</h3>
-        <p class="mt-1 text-xs text-content-tertiary">Choose models for background work and voice input.</p>
       </div>
 
-      <div class="space-y-4">
-        <div class="rounded-lg border border-edge p-4">
+      <div class="space-y-6">
+        <div>
           <div class="flex items-center justify-between gap-4">
             <div class="min-w-0">
               <h4 class="text-sm font-medium text-content">Quick tasks</h4>
@@ -135,7 +133,7 @@
           </div>
         </div>
 
-        <div v-if="voiceSupported" class="rounded-lg border border-edge p-4">
+        <div v-if="voiceSupported">
           <div class="flex items-center justify-between gap-4">
             <div class="min-w-0">
               <h4 class="text-sm font-medium text-content">Voice input</h4>
