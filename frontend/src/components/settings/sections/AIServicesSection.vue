@@ -50,14 +50,9 @@
     </section>
 
     <section>
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <h4 class="text-sm font-medium text-content">LLM Providers</h4>
-          <p class="mt-0.5 text-xs text-content-tertiary">Configure an LLM to enable the agent, prompt enhnacement, suggestions, and other features</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <button type="button" @click="openAddProvider" class="rounded-md bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-400">Add provider</button>
-        </div>
+      <div class="mb-3">
+        <h4 class="text-sm font-medium text-content">LLM Providers</h4>
+        <p class="mt-0.5 text-xs text-content-tertiary">Configure an LLM to enable the agent, prompt enhancement, suggestions, and other features.</p>
       </div>
 
       <div class="overflow-hidden rounded-lg border border-edge">
@@ -78,15 +73,49 @@
         </button>
 
         <button
-          v-for="provider in providers"
+          v-for="provider in remoteProviderRows"
+          :key="provider.id || provider.kind"
+          type="button"
+          @click="openProvider(provider)"
+          class="flex w-full items-center gap-4 border-b border-edge px-4 py-3 text-left hover:bg-white/[0.03]"
+        >
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge bg-surface-raised text-content-secondary">
+            <ProviderBrandIcon :provider="provider.kind" size="md" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="truncate text-sm font-medium text-content">{{ provider.name }}</div>
+            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ provider._unconfigured ? kindDescription(provider.kind) : modelSummary(provider.models) }}</div>
+            <div v-if="provider.last_error" class="mt-1 truncate text-xs text-red-400">{{ provider.last_error }}</div>
+          </div>
+          <div class="shrink-0 text-right">
+            <div class="text-xs" :class="provider._unconfigured ? 'text-blue-400' : provider.last_test_passed === false ? 'text-red-400' : provider.last_test_passed ? 'text-green-500' : 'text-content-muted'">
+              {{ provider._unconfigured ? 'Add API key' : provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? 'Ready' : 'Not checked' }}
+            </div>
+            <div v-if="!provider._unconfigured" class="mt-0.5 text-[11px] text-content-muted">{{ provider.models.length }} model{{ provider.models.length === 1 ? '' : 's' }}</div>
+          </div>
+          <ChevronIcon />
+        </button>
+
+        <button type="button" @click="openAddLocalProvider" class="flex w-full items-center gap-4 border-b border-edge px-4 py-3 text-left last:border-b-0 hover:bg-blue-500/5">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-500/40 bg-blue-500/10 text-blue-400">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-medium text-blue-400">Add local model</div>
+            <div class="mt-0.5 truncate text-xs text-content-tertiary">Connect LM Studio, vLLM, llama.cpp, Ollama, or another compatible server.</div>
+          </div>
+          <ChevronIcon />
+        </button>
+
+        <button
+          v-for="provider in localProviders"
           :key="provider.id"
           type="button"
           @click="openProvider(provider)"
           class="flex w-full items-center gap-4 border-b border-edge px-4 py-3 text-left last:border-b-0 hover:bg-white/[0.03]"
         >
           <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge bg-surface-raised text-content-secondary">
-            <ModelVendorIcon v-if="providerPrimaryVendor(provider)" :model="providerPrimaryVendor(provider)" size="md" />
-            <svg v-else class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7" /></svg>
+            <ModelVendorIcon :model="provider.models?.[0]" size="md" />
           </div>
           <div class="min-w-0 flex-1">
             <div class="truncate text-sm font-medium text-content">{{ provider.name }}</div>
@@ -109,8 +138,7 @@
           class="flex w-full items-center gap-4 px-4 py-3 text-left hover:bg-white/[0.03]"
         >
           <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-edge bg-surface-raised text-content-secondary">
-            <ModelVendorIcon v-if="resolveModelVendorId({ name: legacyProvider.model })" :model="{ name: legacyProvider.model }" size="md" />
-            <svg v-else class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7" /></svg>
+            <ModelVendorIcon :model="{ name: legacyProvider.model }" size="md" />
           </div>
           <div class="min-w-0 flex-1">
             <div class="truncate text-sm font-medium text-content">{{ legacyProvider.name }}</div>
@@ -127,38 +155,31 @@
       </div>
     </section>
 
-    <!-- Add provider -->
+    <!-- Add local model -->
     <Teleport to="body">
       <div v-if="addOpen" class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop p-4 backdrop-blur-sm" @click.self="closeAddProvider" @keydown.escape.stop="closeAddProvider">
         <div class="flex max-h-[88vh] w-[560px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-edge bg-surface shadow-2xl">
           <div class="flex items-center justify-between border-b border-edge px-5 py-4">
             <div>
-              <h4 class="text-base font-medium text-content">{{ addDraft.kind ? `Add ${kindLabel(addDraft.kind)}` : 'Add a model provider' }}</h4>
-              <p v-if="addDraft.kind" class="mt-0.5 text-xs text-content-tertiary">{{ kindDescription(addDraft.kind) }}</p>
+              <h4 class="text-base font-medium text-content">Add local model</h4>
+              <p class="mt-0.5 text-xs text-content-tertiary">{{ kindDescription('local') }}</p>
             </div>
             <button type="button" @click="closeAddProvider" class="text-sm text-content-muted hover:text-content">Cancel</button>
           </div>
 
-          <div ref="managerBody" class="overflow-y-auto p-5">
-            <div v-if="!addDraft.kind" class="grid grid-cols-2 gap-2">
-              <button v-for="kind in providerKinds" :key="kind.id" type="button" @click="selectProviderKind(kind.id)" class="rounded-lg border border-edge bg-white/[0.03] p-4 text-left hover:border-blue-500/50 hover:bg-blue-500/5">
-                <div class="text-sm font-medium text-content">{{ kind.name }}</div>
-                <div class="mt-1 text-xs leading-relaxed text-content-tertiary">{{ kind.description }}</div>
-              </button>
-            </div>
-
-            <div v-else-if="addStep === 'connection'" class="space-y-4">
-              <label v-if="addDraft.kind === 'local'" class="block">
+          <div class="overflow-y-auto p-5">
+            <div v-if="addStep === 'connection'" class="space-y-4">
+              <label class="block">
                 <span class="mb-1 block text-xs text-content-tertiary">Name <span class="text-content-muted">(optional)</span></span>
                 <input v-model="addDraft.name" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" placeholder="Studio Mac" />
               </label>
-              <label v-if="addDraft.kind === 'local'" class="block">
+              <label class="block">
                 <span class="mb-1 block text-xs text-content-tertiary">Endpoint URL</span>
                 <input v-model="addDraft.base_url" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" placeholder="http://localhost:1234/v1" />
               </label>
               <label class="block">
-                <span class="mb-1 block text-xs text-content-tertiary">API key<span v-if="addDraft.kind === 'local'" class="text-content-muted"> (optional)</span></span>
-                <input v-model="addDraft.api_key" type="password" autocomplete="off" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" :placeholder="addDraft.kind === 'local' ? 'Leave empty if not required' : 'Paste API key'" />
+                <span class="mb-1 block text-xs text-content-tertiary">API key <span class="text-content-muted">(optional)</span></span>
+                <input v-model="addDraft.api_key" type="password" autocomplete="off" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" placeholder="Leave empty if not required" />
               </label>
             </div>
 
@@ -174,10 +195,10 @@
             <p v-if="addError" class="mt-4 text-xs text-red-400">{{ addError }}</p>
           </div>
 
-          <div v-if="addDraft.kind" class="flex items-center justify-between border-t border-edge px-5 py-4">
-            <button type="button" @click="backAddProvider" class="text-xs text-content-secondary hover:text-content">Back</button>
+          <div class="flex items-center justify-between border-t border-edge px-5 py-4">
+            <button type="button" @click="backAddProvider" class="text-xs text-content-secondary hover:text-content">{{ addStep === 'models' ? 'Back' : 'Cancel' }}</button>
             <button type="button" @click="advanceAddProvider" :disabled="addSaving || (addStep === 'models' && addSelectedModels.size === 0)" class="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50">
-              {{ addSaving ? 'Checking…' : addStep === 'models' || !['openrouter', 'local'].includes(addDraft.kind) ? 'Add provider' : 'Continue' }}
+              {{ addSaving ? 'Checking…' : addStep === 'models' ? 'Add local model' : 'Continue' }}
             </button>
           </div>
         </div>
@@ -209,22 +230,24 @@
             <button type="button" @click="closeManager" class="text-sm text-content-muted hover:text-content">Done</button>
           </div>
 
-          <div class="overflow-y-auto p-5">
+          <div ref="managerBody" class="overflow-y-auto p-5">
             <template v-if="!selectedManagerModel && activeManager !== 'stimma' && activeProvider">
-              <div v-if="isCannedProvider(activeProvider)" class="rounded-lg border border-edge p-4">
+              <div v-if="isRemoteProvider(activeProvider)" class="rounded-lg border border-edge p-4">
                 <div class="flex items-center justify-between gap-3">
                   <label class="text-xs font-medium text-content">API key</label>
                   <span v-if="managerSaving" class="text-xs text-content-muted">Checking…</span>
                   <span v-else-if="managerError" class="inline-flex items-center gap-1.5 text-xs text-red-400">
                     <span class="h-1.5 w-1.5 rounded-full bg-red-400" /> Not connected
                   </span>
-                  <span v-else-if="activeProvider.last_test_passed !== false" class="inline-flex items-center gap-1.5 text-xs text-green-500">
+                  <span v-else-if="activeProvider.last_test_passed === true" class="inline-flex items-center gap-1.5 text-xs text-green-500">
                     <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                     Connected
                   </span>
-                  <span v-else class="inline-flex items-center gap-1.5 text-xs text-red-400">
+                  <span v-else-if="activeProvider.last_test_passed === false" class="inline-flex items-center gap-1.5 text-xs text-red-400">
                     <span class="h-1.5 w-1.5 rounded-full bg-red-400" /> Not connected
                   </span>
+                  <span v-else-if="activeProvider._unconfigured" class="text-xs text-content-muted">Not configured</span>
+                  <span v-else class="text-xs text-content-muted">Not checked</span>
                 </div>
                 <div class="mt-2 flex items-center gap-2">
                   <input v-model="providerKeyDraft" type="password" autocomplete="off" class="min-w-0 flex-1 rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" :placeholder="activeProvider.api_key_set ? '••••••••••••' : 'Paste API key'" />
@@ -247,12 +270,12 @@
                   <input v-model="providerKeyDraft" type="password" autocomplete="off" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" placeholder="Leave blank to keep the current key" />
                 </label>
               </div>
-              <div v-if="!isCannedProvider(activeProvider)" class="mt-3 flex items-center gap-3">
+              <div v-if="!isRemoteProvider(activeProvider)" class="mt-3 flex items-center gap-3">
                 <button type="button" @click="saveProviderConnection" :disabled="managerSaving" class="rounded-md bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-400 disabled:opacity-50">{{ managerSaving ? 'Checking…' : 'Save connection' }}</button>
                 <button type="button" @click="testProvider(activeProvider)" :disabled="testingId === activeProvider.id" class="text-xs text-content-secondary hover:text-content disabled:opacity-50">{{ testingId === activeProvider.id ? 'Testing…' : 'Test all models' }}</button>
                 <span v-if="activeProvider.last_tested_at" class="text-[11px] text-content-muted">Tested {{ timeAgo(activeProvider.last_tested_at) }}</span>
               </div>
-              <p v-if="managerError && !isCannedProvider(activeProvider)" class="mt-2 text-xs text-red-400">{{ managerError }}</p>
+              <p v-if="managerError && !isRemoteProvider(activeProvider)" class="mt-2 text-xs text-red-400">{{ managerError }}</p>
 
               <div v-if="isFlexibleProvider(activeProvider)" class="mt-5 border-t border-edge pt-4">
                 <div class="flex items-center justify-between">
@@ -273,7 +296,7 @@
               </div>
             </template>
 
-            <div :class="!selectedManagerModel && activeManager !== 'stimma' ? 'mt-5 border-t border-edge pt-4' : ''">
+            <div v-if="selectedManagerModel || activeManager === 'stimma' || managerModels.length" :class="!selectedManagerModel && activeManager !== 'stimma' ? 'mt-5 border-t border-edge pt-4' : ''">
               <template v-if="!selectedManagerModel">
                 <h5 class="text-sm font-medium text-content">Models</h5>
                 <p class="mt-0.5 text-xs text-content-tertiary">Choose a model to change its settings.</p>
@@ -383,7 +406,7 @@
             </div>
           </div>
 
-          <div v-if="!selectedManagerModel && activeManager !== 'stimma' && activeProvider" class="flex justify-end border-t border-edge px-5 py-3">
+          <div v-if="!selectedManagerModel && activeManager !== 'stimma' && activeProvider && !activeProvider._unconfigured" class="flex justify-end border-t border-edge px-5 py-3">
             <button type="button" @click="removeProvider(activeProvider)" class="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300">
               <TrashIcon /> Delete provider
             </button>
@@ -511,6 +534,7 @@ import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import { VOICE_MODELS, voiceModel, isModelReady, supported as voiceSupported } from '../../../composables/useVoiceInput'
 import SettingsDropdown from '../../ui/SettingsDropdown.vue'
 import ModelVendorIcon from '../../models/ModelVendorIcon.vue'
+import ProviderBrandIcon from '../../models/ProviderBrandIcon.vue'
 import { getModelVendorInfo, resolveModelVendorId, sortModelsByBrand } from '../../../utils/modelVendors'
 
 const ChevronIcon = defineComponent({
@@ -541,6 +565,7 @@ const modelVendorOptions = [
   { value: 'minimax', label: 'MiniMax', vendor: 'minimax' },
   { value: 'kimi', label: 'Kimi', vendor: 'kimi' },
   { value: 'alibaba', label: 'Alibaba · Qwen', vendor: 'alibaba' },
+  { value: 'google', label: 'Google · Gemma', vendor: 'google' },
   { value: 'stepfun', label: 'StepFun', vendor: 'stepfun' },
   { value: 'zai', label: 'Z.ai', vendor: 'zai' },
 ]
@@ -578,6 +603,19 @@ const policyText = ref('')
 const policyError = ref('')
 
 const cloudModels = computed(() => models.value.filter(model => model.source === 'stimma_cloud'))
+const remoteProviderRows = computed(() => providerKinds
+  .filter(kind => kind.id !== 'local')
+  .map(kind => providers.value.find(provider => provider.kind === kind.id) || {
+    id: null,
+    kind: kind.id,
+    name: kind.name,
+    models: [],
+    api_key_set: false,
+    last_test_passed: null,
+    last_error: null,
+    _unconfigured: true,
+  }))
+const localProviders = computed(() => providers.value.filter(provider => provider.kind === 'local'))
 const selectedQuickModel = computed(() => models.value.find(model => model.slug === quickTaskModel.value))
 const quickTaskOptions = computed(() => models.value.filter(model => model.source !== 'auto' && !model.collapsed && (model.available !== false || model.slug === quickTaskModel.value)).map(model => ({
   value: model.slug,
@@ -617,9 +655,6 @@ function modelSummary(items) {
   const names = items.map(item => item.name || item.model_id).filter(Boolean)
   if (!names.length) return 'No models selected'
   return names.length > 3 ? `${names.slice(0, 3).join(', ')} +${names.length - 3}` : names.join(', ')
-}
-function providerPrimaryVendor(provider) {
-  return resolveModelVendorId(provider.models?.[0]) || resolveModelVendorId(provider.kind)
 }
 function modelKey(model) { return model.slug || model.id }
 function modelVendor(model) { return getModelVendorInfo(model)?.label || 'Custom model' }
@@ -667,17 +702,17 @@ async function saveQuickTaskModel(model) {
   await fetchModels(null, true)
 }
 
-// Add provider dialog
+// Local model flow
 const addOpen = ref(false)
 const addStep = ref('connection')
-const addDraft = ref({ kind: '', name: '', base_url: '', api_key: '' })
+const addDraft = ref({ kind: 'local', name: '', base_url: 'http://localhost:1234/v1', api_key: '' })
 const addDiscoveredModels = ref([])
 const addSelectedModels = ref(new Set())
 const addSaving = ref(false)
 const addError = ref('')
 
-function openAddProvider() {
-  addDraft.value = { kind: '', name: '', base_url: '', api_key: '' }
+function openAddLocalProvider() {
+  addDraft.value = { kind: 'local', name: '', base_url: 'http://localhost:1234/v1', api_key: '' }
   addStep.value = 'connection'
   addDiscoveredModels.value = []
   addSelectedModels.value = new Set()
@@ -685,14 +720,9 @@ function openAddProvider() {
   addOpen.value = true
 }
 function closeAddProvider() { addOpen.value = false }
-function selectProviderKind(kind) {
-  addDraft.value = { kind, name: '', base_url: kind === 'local' ? 'http://localhost:1234/v1' : '', api_key: '' }
-  addStep.value = 'connection'
-  addError.value = ''
-}
 function backAddProvider() {
   if (addStep.value === 'models') addStep.value = 'connection'
-  else addDraft.value.kind = ''
+  else closeAddProvider()
 }
 function toggleAddModel(id) {
   const next = new Set(addSelectedModels.value)
@@ -703,7 +733,7 @@ async function advanceAddProvider() {
   addSaving.value = true
   addError.value = ''
   try {
-    if (addStep.value === 'connection' && ['openrouter', 'local'].includes(addDraft.value.kind)) {
+    if (addStep.value === 'connection') {
       const response = await axios.post(`${getApiBase()}/models/providers/discover`, addDraft.value)
       addDiscoveredModels.value = response.data.models || []
       addSelectedModels.value = new Set(addDiscoveredModels.value.length === 1 ? [addDiscoveredModels.value[0].id] : [])
@@ -716,7 +746,7 @@ async function advanceAddProvider() {
     closeAddProvider()
     openProvider(response.data)
   } catch (error) {
-    addError.value = error.response?.data?.detail || 'Could not add this provider.'
+    addError.value = error.response?.data?.detail || 'Could not add this local model.'
   } finally {
     addSaving.value = false
   }
@@ -740,7 +770,9 @@ const extraBodyErrors = ref({})
 const managerTitle = computed(() => activeManager.value === 'stimma' ? 'Stimma Account' : activeProvider.value?.name || '')
 const managerSubtitle = computed(() => activeManager.value === 'stimma'
   ? (cloudStatus.value === 'available' ? `${cloudModels.value.length} models · billed through Stimma` : cloudMessage.value || 'Unavailable')
-  : activeProvider.value ? `${kindLabel(activeProvider.value.kind)} · ${activeProvider.value.models.length} models` : '')
+  : activeProvider.value?._unconfigured
+    ? `${kindLabel(activeProvider.value.kind)} · Not configured`
+    : activeProvider.value ? `${kindLabel(activeProvider.value.kind)} · ${activeProvider.value.models.length} models` : '')
 const managerModels = computed(() => sortModelsByBrand(activeManager.value === 'stimma' ? cloudModels.value : (activeProvider.value?.models || [])))
 const selectedManagerModel = computed(() => managerModels.value.find(model => modelKey(model) === customizingModelId.value) || null)
 const managerPageModels = computed(() => selectedManagerModel.value ? [selectedManagerModel.value] : managerModels.value)
@@ -752,7 +784,7 @@ function openStimmaAccount() {
   managerOpen.value = true
 }
 function openProvider(provider) {
-  activeManager.value = provider.id
+  activeManager.value = provider.id || `unconfigured-${provider.kind}`
   activeProvider.value = clone(provider)
   providerKeyDraft.value = ''
   managerError.value = ''
@@ -765,7 +797,7 @@ function openProvider(provider) {
 }
 function closeManager() { customizingModelId.value = null; managerOpen.value = false }
 function isFlexibleProvider(provider) { return provider && ['openrouter', 'local'].includes(provider.kind) }
-function isCannedProvider(provider) { return provider && ['openai', 'anthropic', 'xai'].includes(provider.kind) }
+function isRemoteProvider(provider) { return provider && provider.kind !== 'local' }
 function resetManagerScroll() { nextTick(() => managerBody.value?.scrollTo({ top: 0 })) }
 function openModelSettings(model) { customizingModelId.value = modelKey(model); resetManagerScroll() }
 function closeModelSettings() { customizingModelId.value = null; resetManagerScroll() }
@@ -797,14 +829,27 @@ async function saveModelSettings(model) {
   }
 }
 async function saveProviderConnection() {
-  if (isCannedProvider(activeProvider.value) && !providerKeyDraft.value) return
+  if (isRemoteProvider(activeProvider.value) && !providerKeyDraft.value) return
   managerSaving.value = true
   managerError.value = ''
   try {
-    const payload = isCannedProvider(activeProvider.value)
+    if (activeProvider.value._unconfigured) {
+      const response = await axios.post(`${getApiBase()}/models/providers`, {
+        kind: activeProvider.value.kind,
+        api_key: providerKeyDraft.value,
+        model_ids: [],
+      })
+      activeManager.value = response.data.id
+      activeProvider.value = clone(response.data)
+      providerKeyDraft.value = ''
+      await refreshAll()
+      if (isFlexibleProvider(activeProvider.value)) await loadProviderModels(activeProvider.value)
+      return
+    }
+    const payload = isRemoteProvider(activeProvider.value)
       ? { api_key: providerKeyDraft.value }
       : { name: activeProvider.value.name, base_url: activeProvider.value.base_url }
-    if (!isCannedProvider(activeProvider.value) && providerKeyDraft.value) payload.api_key = providerKeyDraft.value
+    if (!isRemoteProvider(activeProvider.value) && providerKeyDraft.value) payload.api_key = providerKeyDraft.value
     const response = await axios.patch(`${getApiBase()}/models/providers/${activeProvider.value.id}`, payload)
     activeProvider.value = clone(response.data)
     providerKeyDraft.value = ''
