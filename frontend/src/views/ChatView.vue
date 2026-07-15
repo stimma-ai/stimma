@@ -764,7 +764,7 @@
                       type="button"
                       @click="openAISettings"
                       class="ml-2 inline-flex items-center px-2.5 py-1 rounded-md border border-white/10 bg-white/[0.05] text-content-secondary hover:text-content text-xs font-medium transition-colors"
-                    >AI Services</button>
+                    >LLM Providers</button>
                   </div>
                   <ChatErrorDisclosure :raw="getRawErrorDetails(item)" />
                 </div>
@@ -3132,7 +3132,7 @@ const modelUnavailableMessage = computed(() => {
   if (!isChatModelUnavailable.value) return ''
   const model = selectedChatModel.value
   const slug = chat.value?.model_slug || globalDefault.value
-  return model?.description || `The selected model (${slug}) is no longer available. Check Settings > AI Services or choose another model.`
+  return model?.description || `The selected model (${slug}) is no longer available. Check Settings > LLM Providers or choose another model.`
 })
 
 const imageUnsupportedMessage = computed(() => {

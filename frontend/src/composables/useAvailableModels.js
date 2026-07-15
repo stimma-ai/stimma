@@ -59,7 +59,7 @@ const visibleModels = computed(() => {
     : {
         ...cachedAuto,
         name: 'Set up a local model',
-        description: 'Add a model endpoint in Settings > AI Services.',
+        description: 'Add a model endpoint in Settings > LLM Providers.',
         available: false,
         status: 'llm_not_configured',
         resolved_slug: null,

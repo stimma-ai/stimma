@@ -1,6 +1,6 @@
-# AI Services
+# LLM Providers
 
-Settings → AI Services manages every LLM route available to chats and quick tasks.
+Settings → LLM Providers manages every LLM route available to chats and quick tasks.
 
 ## Services and models
 

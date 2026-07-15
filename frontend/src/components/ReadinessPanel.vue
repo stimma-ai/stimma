@@ -53,7 +53,7 @@
                   v-if="missingAgentLlm"
                   @click="openSettingsSection('ai-services')"
                   class="text-[12.5px] text-content-tertiary hover:text-content transition-colors whitespace-nowrap"
-                >Settings → AI Services</button>
+                >Settings → LLM Providers</button>
                 <span v-else class="text-xs text-green-400">Connected</span>
               </div>
               <div class="flex items-center gap-3 py-2.5 px-2 -mx-2">

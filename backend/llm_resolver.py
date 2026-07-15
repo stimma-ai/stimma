@@ -96,7 +96,7 @@ async def get_effective_llm_config(role: str) -> LLMEffectiveConfig:
     provider = _provider_for_model_slug(selected_slug)
     if provider:
         raise LLMUnavailableError(
-            f"{provider.name} is unavailable. Check it in Settings > AI Services or choose another model.",
+            f"{provider.name} is unavailable. Check it in Settings > LLM Providers or choose another model.",
             code="llm_provider_unavailable",
         )
     if selected_slug == "local":
@@ -104,7 +104,7 @@ async def get_effective_llm_config(role: str) -> LLMEffectiveConfig:
         if role_config.endpoint and role_config.endpoint.url:
             return role_config.endpoint
         raise LLMNotConfiguredError(
-            "No local model endpoint is configured. Add one in Settings > AI Services.",
+            "No local model endpoint is configured. Add one in Settings > LLM Providers.",
             code="llm_local_missing",
         )
     if selected_slug.startswith("stimma:"):
@@ -458,7 +458,7 @@ async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') ->
     provider = _provider_for_model_slug(model_slug)
     if provider:
         raise LLMUnavailableError(
-            f"{provider.name} is unavailable. Check it in Settings > AI Services or choose another model.",
+            f"{provider.name} is unavailable. Check it in Settings > LLM Providers or choose another model.",
             code="llm_provider_unavailable",
         )
 
@@ -486,7 +486,7 @@ async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') ->
         if role_config.endpoint and role_config.endpoint.url:
             return role_config.endpoint
         raise LLMNotConfiguredError(
-            "No local model endpoint is configured. Add one in Settings > AI Services.",
+            "No local model endpoint is configured. Add one in Settings > LLM Providers.",
             code="llm_local_missing",
         )
 
@@ -513,7 +513,7 @@ def _raise_no_llm_error() -> None:
             "Your Stimma account has no balance."
         )
     raise LLMNotConfiguredError(
-        "No AI model is configured. Sign in to Stimma or add a model endpoint in AI Services."
+        "No AI model is configured. Sign in to Stimma or add a model endpoint in LLM Providers."
     )
 
 
@@ -579,5 +579,5 @@ def get_effective_llm_config_sync(role: str) -> LLMEffectiveConfig:
         return role_config.endpoint
 
     raise LLMNotConfiguredError(
-        "No AI model is configured. Sign in to Stimma or set up a model endpoint in Settings > AI Services."
+        "No AI model is configured. Sign in to Stimma or set up a model endpoint in Settings > LLM Providers."
     )

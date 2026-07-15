@@ -246,7 +246,7 @@ async def test_available_models_lockdown_setup_copy_is_local_only(monkeypatch):
 
     assert auto_model["available"] is False
     assert auto_model["name"] == "Set up a local model"
-    assert auto_model["description"] == "Add a model endpoint in Settings > AI Services."
+    assert auto_model["description"] == "Add a model endpoint in Settings > LLM Providers."
     assert {model["slug"] for model in payload["models"]} == {"auto", "local"}
 
 

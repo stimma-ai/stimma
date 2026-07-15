@@ -583,7 +583,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
             "slug": "local",
             "source": "endpoint",
             "name": "Local model endpoint",
-            "description": "Add a model endpoint in Settings > AI Services.",
+            "description": "Add a model endpoint in Settings > LLM Providers.",
             "available": False,
             "status": "local_missing",
             "max_context_tokens": local_max_context_tokens,
@@ -594,7 +594,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         "source": "auto",
         "name": "Set up a local model" if lockdown else "Set up AI models",
         "description": (
-            "Add a model endpoint in Settings > AI Services."
+            "Add a model endpoint in Settings > LLM Providers."
             if lockdown
             else "Sign in to your Stimma account or add a model provider."
         ),
