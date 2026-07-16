@@ -1,8 +1,8 @@
 <template>
   <div class="h-full flex flex-col bg-base">
     <!-- Header row -->
-    <div class="flex items-center justify-between px-6 py-4 border-b border-edge-subtle">
-      <h1 v-if="!projectId" class="text-xl font-semibold text-content">All Tools</h1>
+    <div class="flex items-center justify-between px-6 py-5 border-b border-edge-subtle">
+      <h1 v-if="!projectId" class="text-xl font-semibold leading-none text-content">All Tools</h1>
       <div v-else></div>
 
       <div class="flex items-center gap-3">

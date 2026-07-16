@@ -1,6 +1,6 @@
 <template>
   <div class="flex h-full flex-col bg-base">
-    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-4">
+    <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
       <span class="text-xl font-semibold leading-none text-content">Boards</span>
 
       <div class="flex items-center gap-3">

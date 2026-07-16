@@ -32,21 +32,21 @@
     <div v-show="!slideshowState.active && !compareState.active" class="w-full h-full flex flex-col">
 
     <!-- Trash Header (only in trash mode) -->
-    <div v-if="isTrashMode" class="flex justify-between items-center px-2 py-2 border-b border-edge-subtle">
-      <div>
-        <h1 class="text-2xl font-semibold text-content">Trash</h1>
-        <p class="text-sm text-content-secondary">
+    <div v-if="isTrashMode" class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
+      <div class="flex flex-col gap-1">
+        <span class="text-xl font-semibold leading-none text-content">Trash</span>
+        <p class="text-sm text-content-tertiary">
           {{ trashHeaderSubtitle }}
         </p>
       </div>
       <div class="flex items-center gap-3">
         <button
           v-if="totalCount > 0"
-          class="flex items-center gap-2 px-4 py-2.5 bg-red-500/15 text-red-500 border border-red-500/30 rounded-lg text-sm font-medium hover:bg-red-500/25 hover:border-red-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-500/15 disabled:hover:border-red-500/30"
+          class="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/15 px-2.5 py-1.5 text-sm text-red-500 transition-all hover:bg-red-500/25 hover:border-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-500/15 disabled:hover:border-red-500/30"
           @click="confirmEmptyTrash"
           :disabled="isEmptyingTrash"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[18px] h-[18px]">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
             <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
           {{ isEmptyingTrash ? 'Emptying...' : 'Empty Trash' }}
