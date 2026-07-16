@@ -9,12 +9,10 @@ import { useAvailableModels } from './useAvailableModels'
  * treatment during startup. The model catalog itself remains shared.
  */
 export function useAgentModelAvailability() {
-  const { models, error, loading, fetchModels } = useAvailableModels()
+  const { selectableModels, error, loading, fetchModels } = useAvailableModels()
   const checked = ref(false)
 
-  const hasViableAgentModel = computed(() => (
-    models.value.some(model => model.available !== false)
-  ))
+  const hasViableAgentModel = computed(() => selectableModels.value.length > 0)
 
   const agentModelUnavailable = computed(() => (
     checked.value && !loading.value && !error.value && !hasViableAgentModel.value

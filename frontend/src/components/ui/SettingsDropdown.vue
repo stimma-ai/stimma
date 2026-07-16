@@ -14,16 +14,16 @@
       aria-haspopup="listbox"
       :aria-expanded="isOpen"
     >
-      <ModelVendorIcon v-if="showVendorIcons" :model="selectedOption?.vendor" size="sm" />
+      <ModelVendorIcon v-if="showVendorIcons && selectedOption" :model="selectedOption.vendor" size="sm" />
       <span class="flex min-w-0 flex-1 items-baseline gap-1.5">
-        <span class="truncate font-medium text-content">{{ selectedOption?.triggerLabel || selectedOption?.label || modelValue }}</span>
+        <span class="truncate font-medium text-content">{{ selectedOption?.triggerLabel || selectedOption?.label || placeholder || modelValue }}</span>
         <span
-          v-if="selectedOption?.description"
+          v-if="!hideTriggerDetails && selectedOption?.description"
           class="shrink-0 text-[11px]"
           :class="selectedOption.tone === 'cloud' ? 'stimma-cloud-text font-medium' : 'text-content-muted'"
         >{{ selectedOption.description }}</span>
       </span>
-      <span v-if="selectedOption?.meta" class="shrink-0 text-[11px] tabular-nums text-content-muted">{{ selectedOption.meta }}</span>
+      <span v-if="!hideTriggerDetails && selectedOption?.meta" class="shrink-0 text-[11px] tabular-nums text-content-muted">{{ selectedOption.meta }}</span>
       <svg
         class="w-3 h-3 text-content-muted transition-transform"
         :class="{ 'rotate-180': isOpen }"
@@ -128,7 +128,9 @@ const props = defineProps<{
   control?: boolean
   fill?: boolean
   compact?: boolean
+  hideTriggerDetails?: boolean
   menuWidth?: number
+  placeholder?: string
 }>()
 
 const emit = defineEmits<{

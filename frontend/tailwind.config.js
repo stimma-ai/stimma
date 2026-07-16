@@ -18,6 +18,12 @@ export default {
       full: 'var(--radius-full)',
     },
     extend: {
+      fontFamily: {
+        // Stimma logotype font (self-hosted, see @font-face in style.css).
+        // Always use `font-brand` for the wordmark so the fallback stack
+        // applies — a bare font-family with no fallback degrades to serif.
+        brand: ['General Sans', 'system-ui', 'sans-serif'],
+      },
       colors: {
         // Solid tokens are stored as RGB channels in style.css so the
         // `<alpha-value>` placeholder lets opacity modifiers work, e.g.

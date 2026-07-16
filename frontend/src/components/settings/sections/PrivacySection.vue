@@ -1,61 +1,54 @@
 <template>
   <div>
-    <div class="flex items-center gap-3 mb-4">
-      <h3 class="text-base font-medium text-content">Privacy</h3>
-      <div class="flex items-center gap-1.5 text-xs text-blue-500 bg-blue-500/10 border border-blue-500/30 rounded-full px-2.5 py-1">
-        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 21.75c5.176-1.333 9-6.03 9-11.623 0-1.31-.21-2.57-.598-3.75A11.959 11.959 0 0 1 12 3.09a11.959 11.959 0 0 1-8.402 3.286A11.99 11.99 0 0 0 3 10.127c0 5.592 3.824 10.29 9 11.623Z" />
-        </svg>
-        <span>Applies to all profiles</span>
+    <div class="mb-3">
+      <div class="flex items-center gap-3">
+        <h3 class="text-base font-medium text-content">Privacy</h3>
       </div>
     </div>
 
-    <div class="space-y-4">
-      <div v-if="isOfficial" class="p-4 bg-surface-raised/50 rounded-lg">
-        <div class="flex items-center justify-between gap-4">
-          <div class="flex-1 min-w-0">
-            <h4 class="text-sm font-medium text-content">Usage Analytics</h4>
-            <p class="text-xs text-content-tertiary mt-0.5 leading-relaxed">
-              Help improve Stimma with first-party usage telemetry. Events do not include prompts, files, images, generation parameters, file names, or content you create. If you are signed in, telemetry can be associated with your Stimma Cloud account.
-            </p>
-            <p v-if="privacyLockdownActive" class="text-xs text-content-tertiary mt-1">
-              Privacy Lockdown is active. Usage telemetry and Stimma services are disabled.
-            </p>
-          </div>
-          <button
-            @click="toggleTelemetry"
-            :disabled="telemetrySaving || privacyLockdownActive"
-            :aria-pressed="localTelemetryEnabled && !privacyLockdownActive"
-            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-60"
-            :class="localTelemetryEnabled && !privacyLockdownActive ? 'bg-blue-600' : 'bg-surface-hover'"
-          >
-            <span
-              class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-              :class="localTelemetryEnabled && !privacyLockdownActive ? 'translate-x-5' : 'translate-x-0'"
-            />
-          </button>
+    <div class="mt-8 space-y-9">
+      <div v-if="isOfficial" class="flex items-start justify-between gap-4">
+        <div class="min-w-0 max-w-xl">
+          <h4 class="text-sm font-medium text-content">Usage Analytics</h4>
+          <p class="mt-1 text-xs leading-relaxed text-content-tertiary">
+            Help improve Stimma with first-party usage telemetry. Events do not include prompts, files, images, generation parameters, file names, or content you create. If you are signed in, telemetry can be associated with your Stimma Cloud account.
+          </p>
+          <p v-if="privacyLockdownActive" class="mt-1 text-xs text-content-tertiary">
+            Privacy Lockdown is active. Usage telemetry and Stimma services are disabled.
+          </p>
         </div>
+        <button
+          @click="toggleTelemetry"
+          :disabled="telemetrySaving || privacyLockdownActive"
+          :aria-pressed="localTelemetryEnabled && !privacyLockdownActive"
+          class="relative ml-4 inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-60"
+          :class="localTelemetryEnabled && !privacyLockdownActive ? 'bg-blue-600' : 'bg-surface-hover'"
+        >
+          <span
+            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+            :class="localTelemetryEnabled && !privacyLockdownActive ? 'translate-x-5' : 'translate-x-0'"
+          />
+        </button>
       </div>
-      <div v-else class="p-4 bg-surface-raised/50 rounded-lg">
+      <div v-else>
         <h4 class="text-sm font-medium text-content">Usage Analytics</h4>
-        <p class="text-xs text-content-tertiary mt-0.5 leading-relaxed">
+        <p class="mt-0.5 text-xs leading-relaxed text-content-tertiary">
           Telemetry is disabled in source builds and cannot send events.
         </p>
       </div>
 
-      <div v-if="isOfficial" class="p-4 bg-surface-raised/50 rounded-lg space-y-4">
-        <div>
-          <h4 class="text-sm font-medium text-content">Feedback Sharing</h4>
-          <p class="text-xs text-content-tertiary mt-0.5 leading-relaxed">
-            Thumbs ratings include the conversation. Crash reports include the error, stack trace, and recent log lines. "Ask" requires a prompt before sending; "Always" sends future items of that type without prompting.
-          </p>
-        </div>
-        <PrivacyFeedbackControls />
-      </div>
-      <div v-else class="p-4 bg-surface-raised/50 rounded-lg">
+      <div v-if="isOfficial">
         <h4 class="text-sm font-medium text-content">Feedback Sharing</h4>
-        <p class="text-xs text-content-tertiary mt-0.5 leading-relaxed">
+        <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">
+          Thumbs ratings include the conversation. Crash reports include the error, stack trace, and recent log lines.
+        </p>
+        <div class="mt-6 space-y-5">
+          <PrivacyFeedbackControls />
+        </div>
+      </div>
+      <div v-else>
+        <h4 class="text-sm font-medium text-content">Feedback Sharing</h4>
+        <p class="mt-0.5 text-xs leading-relaxed text-content-tertiary">
           Sharing feedback is disabled in source builds.
         </p>
       </div>

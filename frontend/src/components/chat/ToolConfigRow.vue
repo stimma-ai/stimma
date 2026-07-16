@@ -78,6 +78,7 @@
 import { computed } from 'vue'
 import type { ProviderTool } from '../../composables/useProvidersApi'
 import type { ToolConfig } from '../../composables/useAgentPresetsApi'
+import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 
 type ToolState = 'neutral' | 'allowed' | 'denied'
 
@@ -98,7 +99,7 @@ const emit = defineEmits<{
 
 // Computed
 const isStimmaCloud = computed(() => {
-  return props.tool.provider_id === 'stimma-cloud' || props.tool.provider_name === 'Stimma Cloud'
+  return isStimmaCloudTool(props.tool)
 })
 
 const currentState = computed((): ToolState => {

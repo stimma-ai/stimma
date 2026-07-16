@@ -8,6 +8,7 @@
 import axios from 'axios'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getApiBase } from '../apiConfig'
+import { toolProviderDisplayName } from '../utils/stimmaCloud'
 import { useWebSocket } from './useWebSocket'
 
 function getToolsAPIBase() {
@@ -73,6 +74,13 @@ const toolsCache = ref<ProviderTool[]>([])
 const lastFetchTime = ref<number>(0)
 const CACHE_TTL = 30000 // 30 seconds
 
+function normalizeProvider<T extends { provider_id?: string | null; provider_name?: string | null }>(provider: T): T {
+  return {
+    ...provider,
+    provider_name: toolProviderDisplayName(provider),
+  }
+}
+
 // Module-level cache clearing function (used by event handlers)
 function clearToolsCache() {
   providersCache.value = []
@@ -98,8 +106,9 @@ export function useProvidersApi() {
    */
   async function listProviders(): Promise<Provider[]> {
     const response = await axios.get(`${getToolsAPIBase()}/providers`)
-    providersCache.value = response.data
-    return response.data
+    const providers = response.data.map(normalizeProvider)
+    providersCache.value = providers
+    return providers
   }
 
   /**
@@ -107,7 +116,7 @@ export function useProvidersApi() {
    */
   async function getProvider(providerId: string): Promise<Provider> {
     const response = await axios.get(`${getToolsAPIBase()}/providers/${providerId}`)
-    return response.data
+    return normalizeProvider(response.data)
   }
 
   /**
@@ -115,9 +124,10 @@ export function useProvidersApi() {
    */
   async function listAllTools(): Promise<ProviderTool[]> {
     const response = await axios.get(`${getToolsAPIBase()}/providers/tools`)
-    toolsCache.value = response.data
+    const tools = response.data.map(normalizeProvider)
+    toolsCache.value = tools
     lastFetchTime.value = Date.now()
-    return response.data
+    return tools
   }
 
   /**
@@ -180,7 +190,7 @@ export function useProvidersApi() {
    */
   async function getProviderTool(fullToolId: string): Promise<ProviderTool> {
     const response = await axios.get(`${getToolsAPIBase()}/provider-tool/${encodeURIComponent(fullToolId)}`)
-    return response.data
+    return normalizeProvider(response.data)
   }
 
   /**
@@ -377,7 +387,7 @@ export function useProvidersApi() {
    */
   async function listPinnedTools(): Promise<PinnedToolResponse[]> {
     const response = await axios.get(`${getToolsAPIBase()}/pinned`)
-    return response.data
+    return response.data.map(normalizeProvider)
   }
 
   /**
@@ -387,7 +397,7 @@ export function useProvidersApi() {
     const response = await axios.post(`${getToolsAPIBase()}/pin`, {
       full_tool_id: fullToolId
     })
-    return response.data
+    return normalizeProvider(response.data)
   }
 
   /**

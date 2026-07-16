@@ -12,7 +12,7 @@ from uuid import uuid4
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from config import (
     get_settings,
@@ -26,13 +26,33 @@ from core.logging import get_logger
 from cloud_runtime import with_cloud_access_headers
 from llm_resolver import get_max_context_tokens, normalize_model_slug, set_catalog_cache
 from privacy_lockdown import is_privacy_lockdown_enabled
-from llm_provider_catalog import PROVIDER_DEFAULTS, branded_models, discovered_model
+from llm_provider_catalog import (
+    FIXED_MODEL_PROVIDERS,
+    PROFILED_MODEL_PROVIDERS,
+    PROVIDER_DEFAULTS,
+    branded_models,
+    discovered_model,
+)
 
 router = APIRouter(prefix="/api/models", tags=["models"])
 log = get_logger(__name__)
 
 PUBLIC_CLOUD_FALLBACK_MODELS = {
     "stimma:minimax-m3": "MiniMax M3",
+}
+
+REQUIRED_MODEL_PROFILE_SCENARIOS = ("text", "tools", "vision", "thinking", "context")
+FIREWORKS_CATALOG_URL = "https://api.fireworks.ai/v1/accounts/fireworks/models"
+# Together's models API labels both text-only and multimodal models as `chat`
+# and does not expose input modalities. Keep this aligned with the provider's
+# serverless Vision catalog; behavioral profiling still verifies each model
+# before it can be added.
+TOGETHER_VISION_MODEL_IDS = {
+    "google/gemma-4-31b-it",
+    "minimaxai/minimax-m3",
+    "moonshotai/kimi-k2.6",
+    "moonshotai/kimi-k2.7-code",
+    "qwen/qwen3.5-9b",
 }
 
 
@@ -42,7 +62,7 @@ class ProviderCreateRequest(BaseModel):
     name: Optional[str] = None
     base_url: Optional[str] = None
     api_key: Optional[str] = None
-    model_ids: list[str] = Field(default_factory=list)
+    model_ids: Optional[list[str]] = None
 
 
 class ProviderUpdateRequest(BaseModel):
@@ -53,6 +73,13 @@ class ProviderUpdateRequest(BaseModel):
     enabled: Optional[bool] = None
     model_ids: Optional[list[str]] = None
     models: Optional[list[dict]] = None
+
+
+class ProviderModelProfileRequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
+    model_id: str
+    name: Optional[str] = None
+    max_context_tokens: Optional[int] = None
 
 
 def _active_providers() -> list[LLMProviderConfig]:
@@ -81,34 +108,55 @@ def _provider_response(provider: LLMProviderConfig) -> dict:
     data["name"] = _provider_display_name(provider)
     data["api_key_set"] = bool(provider.api_key)
     data["api_key"] = "***" if provider.api_key else None
+    if (
+        provider.kind == "openrouter"
+        and provider.last_test_passed is True
+        and not provider.credentials_validated_at
+    ):
+        data["last_test_passed"] = None
     return data
 
 
 def _canonical_model_id(kind: str, model_id: str) -> str:
-    if kind != "openrouter":
+    if kind not in {"openrouter", "together", "fireworks"}:
         return f"{kind}:{model_id}"
     known = {
         "minimax/minimax-m3": "minimax:minimax-m3",
+        "minimaxai/minimax-m3": "minimax:minimax-m3",
         "qwen/qwen3.7-plus": "qwen:qwen-3.7-plus",
         "moonshotai/kimi-k2.7-code": "moonshot:kimi-k2.7",
         "moonshotai/kimi-k2.7": "moonshot:kimi-k2.7",
         "stepfun/step-3.7-flash": "stepfun:step-3.7-flash",
+        "accounts/fireworks/models/kimi-k2p6": "moonshot:kimi-k2.6",
+        "accounts/fireworks/models/glm-5p1": "zai:glm-5.1",
+        "accounts/fireworks/models/glm-5p2": "zai:glm-5.2",
+        "accounts/fireworks/models/gpt-oss-120b": "openai:gpt-oss-120b",
+        "accounts/fireworks/models/deepseek-v4-pro": "deepseek:deepseek-v4-pro",
     }
-    if model_id in known:
-        return known[model_id]
+    normalized = model_id.lower()
+    if normalized in known:
+        return known[normalized]
     if "/" not in model_id:
-        return f"openrouter:{model_id}"
+        return f"{kind}:{model_id}"
     upstream, upstream_model = model_id.split("/", 1)
-    upstream = {"x-ai": "xai"}.get(upstream, upstream)
+    upstream = {
+        "minimaxai": "minimax", "moonshotai": "moonshot",
+        "qwen": "qwen", "zai-org": "zai", "x-ai": "xai",
+    }.get(upstream.lower(), upstream.lower())
     return f"{upstream}:{upstream_model}"
 
 
 def _save_providers(providers: list[LLMProviderConfig]) -> None:
     patch_global_section("llm_providers", [provider.model_dump() for provider in providers])
+    # Config reload is file-watcher driven. Keep this process authoritative
+    # immediately so a GET following provider creation cannot return the old
+    # unconfigured state.
+    get_settings().llm_providers = providers
 
 
 def _validated_models(provider: LLMProviderConfig, rows: list[dict]) -> list[LLMProviderModelConfig]:
     models = [LLMProviderModelConfig.model_validate(row) for row in rows]
+    existing_ids = {model.id for model in provider.models}
     seen: set[str] = set()
     for model in models:
         if not model.model_id.strip():
@@ -129,6 +177,25 @@ def _validated_models(provider: LLMProviderConfig, rows: list[dict]) -> list[LLM
         missing_wire = [level for level in reasoning.levels if level not in reasoning.wire_levels]
         if reasoning.control != "none" and missing_wire:
             raise HTTPException(status_code=400, detail=f"Missing request value for: {missing_wire[0]}.")
+        if provider.kind in PROFILED_MODEL_PROVIDERS and model.id not in existing_ids:
+            capability_gaps = []
+            if "image" not in model.input_modalities:
+                capability_gaps.append("vision")
+            if not model.supports_tools:
+                capability_gaps.append("tools")
+            if model.reasoning.mode == "none":
+                capability_gaps.append("reasoning")
+            if capability_gaps:
+                raise HTTPException(
+                    status_code=400,
+                    detail=_capability_requirement_detail(capability_gaps),
+                )
+            passed_required = model.last_test_passed is True and all(
+                model.last_test_results.get(scenario, {}).get("passed") is True
+                for scenario in REQUIRED_MODEL_PROFILE_SCENARIOS
+            )
+            if not passed_required:
+                raise HTTPException(status_code=400, detail="The model must pass its tests before it can be added.")
     return models
 
 
@@ -141,7 +208,172 @@ def _provider_headers(provider: LLMProviderConfig) -> dict[str, str]:
     return {"Authorization": f"Bearer {provider.api_key}"} if provider.api_key else {}
 
 
-def _apply_local_profile(model: LLMProviderModelConfig, scenarios, detected) -> None:
+def _provider_error_detail(
+    response: httpx.Response,
+    *,
+    models_endpoint: bool = False,
+) -> str:
+    """Turn common provider failures into concise, actionable UI copy."""
+    body = response.text.lower()
+    status = response.status_code
+    insufficient_funds = (
+        "insufficient balance",
+        "insufficient credit",
+        "insufficient funds",
+        "payment required",
+        "out of credit",
+        "out of funds",
+    )
+    invalid_key = (
+        "incorrect api key",
+        "invalid api key",
+        "invalid_api_key",
+        "invalid bearer",
+        "invalid token",
+        "authentication failed",
+        "unauthorized",
+    )
+
+    if status == 402 or any(phrase in body for phrase in insufficient_funds):
+        return "This account has insufficient funds."
+    if status == 401 or any(phrase in body for phrase in invalid_key):
+        return "API key is invalid."
+    if status == 429 or "rate limit" in body or "too many requests" in body:
+        return "The provider is rate limiting requests. Try again shortly."
+    if status == 403:
+        return "This key does not have permission to use this provider."
+    if status == 404 and models_endpoint:
+        return "This server does not have a models endpoint."
+    if status >= 500:
+        return "The provider is unavailable."
+    return "The provider rejected this key."
+
+
+def _openrouter_capability_gaps(row: dict) -> list[str]:
+    architecture = row.get("architecture") if isinstance(row.get("architecture"), dict) else {}
+    input_modalities = {
+        str(modality).lower()
+        for modality in architecture.get("input_modalities", [])
+    }
+    supported_parameters = row.get("supported_parameters", [])
+    if isinstance(supported_parameters, dict):
+        supported_parameters = supported_parameters.keys()
+    supported_parameters = {str(parameter).lower() for parameter in supported_parameters}
+
+    gaps = []
+    if "image" not in input_modalities:
+        gaps.append("vision")
+    if "tools" not in supported_parameters:
+        gaps.append("tools")
+    if not isinstance(row.get("reasoning"), dict):
+        gaps.append("reasoning")
+    return gaps
+
+
+def _together_capability_gaps(row: dict) -> list[str]:
+    # Together's /models response does not distinguish text-only chat models
+    # from the much smaller vision catalog. Only offer the models Together
+    # explicitly documents as accepting image input.
+    model_id = str(row.get("id") or row.get("name") or "").lower()
+    if (
+        str(row.get("type") or "").lower() != "chat"
+        or model_id not in TOGETHER_VISION_MODEL_IDS
+    ):
+        return ["vision"]
+    return []
+
+
+def _fireworks_capability_gaps(row: dict) -> list[str]:
+    gaps = []
+    if not (row.get("supportsImageInput") or row.get("supports_image_input")):
+        gaps.append("vision")
+    if not (row.get("supportsTools") or row.get("supports_tools")):
+        gaps.append("tools")
+    # Fireworks' management catalog does not currently expose a reasoning
+    # capability. The model profiler verifies reasoning before a model can be
+    # added; do not infer it from model IDs or marketing names here.
+    return gaps
+
+
+def _provider_capability_gaps(provider: LLMProviderConfig, row: dict) -> list[str]:
+    if provider.kind == "openrouter":
+        return _openrouter_capability_gaps(row)
+    if provider.kind == "together":
+        return _together_capability_gaps(row)
+    if provider.kind == "fireworks":
+        return _fireworks_capability_gaps(row)
+    return []
+
+
+def _capability_requirement_detail(gaps: list[str]) -> str:
+    labels = {"vision": "Vision", "tools": "tools", "reasoning": "reasoning"}
+    missing = [labels[gap] for gap in gaps]
+    if len(missing) == 1:
+        return f"{missing[0].capitalize()} is required."
+    return f"{', '.join(missing[:-1])}, and {missing[-1]} are required."
+
+
+def _require_provider_capabilities(provider: LLMProviderConfig, row: dict) -> None:
+    gaps = _provider_capability_gaps(provider, row)
+    if gaps:
+        raise HTTPException(status_code=400, detail=_capability_requirement_detail(gaps))
+
+
+def _selectable_provider_rows(provider: LLMProviderConfig, rows: list[dict]) -> list[dict]:
+    if provider.kind not in {"openrouter", "together", "fireworks"}:
+        return rows
+    selectable = [row for row in rows if not _provider_capability_gaps(provider, row)]
+    if provider.kind == "fireworks":
+        selectable = [
+            row for row in selectable
+            if row.get("supportsServerless") is True
+            and (
+                not isinstance(row.get("status"), dict)
+                or row["status"].get("code") == "OK"
+            )
+            and not row.get("deprecationDate")
+        ]
+    return selectable
+
+
+def _apply_openrouter_reasoning_metadata(model: LLMProviderModelConfig, row: dict) -> None:
+    metadata = row.get("reasoning")
+    if not isinstance(metadata, dict):
+        return
+
+    effort_order = ["minimal", "low", "medium", "high", "xhigh", "max"]
+    advertised = metadata.get("supported_efforts")
+    efforts = (
+        [level for level in effort_order if level in advertised]
+        if isinstance(advertised, list)
+        else effort_order
+    )
+    if not efforts:
+        efforts = ["medium"]
+    mandatory = metadata.get("mandatory") is True
+    levels = efforts if mandatory else ["off", *efforts]
+    advertised_default = str(metadata.get("default_effort") or "").lower()
+    default = advertised_default if advertised_default in levels else (
+        efforts[0] if mandatory else ("medium" if "medium" in levels else efforts[0])
+    )
+    if metadata.get("default_enabled") is False and not mandatory:
+        default = "off"
+    model.reasoning = LLMReasoningConfig(
+        mode="required" if mandatory else "optional",
+        levels=levels,
+        default=default,
+        quick_task=efforts[0] if mandatory else "off",
+        control="openrouter_effort",
+        wire_levels={level: ("none" if level == "off" else level) for level in levels},
+    )
+
+
+def _apply_local_profile(
+    model: LLMProviderModelConfig,
+    scenarios,
+    detected,
+    provider_kind: str | None = None,
+) -> None:
     """Carry the existing local-endpoint profiler into the provider model."""
     tools = scenarios.get("tools")
     vision = scenarios.get("vision")
@@ -158,6 +390,8 @@ def _apply_local_profile(model: LLMProviderModelConfig, scenarios, detected) -> 
         "think": "think",
         "reasoning_budget": "reasoning_budget",
     }.get(method, "none")
+    if provider_kind == "fireworks" and control == "openai_effort":
+        control = "fireworks_effort"
     if model.reasoning_control_source == "manual":
         return
     if mode == "always":
@@ -197,52 +431,170 @@ async def _preview_provider(request: ProviderCreateRequest) -> tuple[LLMProvider
     return provider, await _discover_provider_models(provider)
 
 
+async def _fetch_fireworks_catalog(
+    client: httpx.AsyncClient,
+    provider: LLMProviderConfig,
+) -> list[dict]:
+    rows: list[dict] = []
+    page_token: Optional[str] = None
+    for _ in range(20):
+        params = {"pageSize": 200}
+        if page_token:
+            params["pageToken"] = page_token
+        response = await client.get(
+            FIREWORKS_CATALOG_URL,
+            headers=_provider_headers(provider),
+            params=params,
+            timeout=10.0,
+        )
+        if response.status_code >= 400:
+            raise HTTPException(
+                status_code=400,
+                detail=_provider_error_detail(response, models_endpoint=True),
+            )
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="The models endpoint returned invalid JSON.",
+            ) from exc
+        page_rows = payload.get("models", []) if isinstance(payload, dict) else []
+        rows.extend(row for row in page_rows if isinstance(row, dict))
+        page_token = payload.get("nextPageToken") if isinstance(payload, dict) else None
+        if not page_token:
+            return rows
+    raise HTTPException(status_code=400, detail="The Fireworks model catalog did not finish loading.")
+
+
 async def _discover_provider_models(provider: LLMProviderConfig) -> list[dict]:
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{provider.base_url.rstrip('/')}/models",
-                headers=_provider_headers(provider),
-                timeout=10.0,
-            )
+            if provider.kind == "fireworks":
+                rows = await _fetch_fireworks_catalog(client, provider)
+                response = None
+            else:
+                response = None
+            if provider.kind == "openrouter":
+                # OpenRouter's models catalog is public and therefore cannot
+                # validate a bearer token. Its key endpoint is authenticated.
+                key_response = await client.get(
+                    f"{provider.base_url.rstrip('/')}/key",
+                    headers=_provider_headers(provider),
+                    timeout=10.0,
+                )
+                if key_response.status_code >= 400:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=_provider_error_detail(key_response),
+                    )
+            if provider.kind != "fireworks":
+                response = await client.get(
+                    f"{provider.base_url.rstrip('/')}/models",
+                    headers=_provider_headers(provider),
+                    timeout=10.0,
+                )
     except httpx.RequestError as exc:
         raise HTTPException(status_code=400, detail=f"Could not reach {provider.name}.") from exc
-    if response.status_code == 401:
-        raise HTTPException(status_code=400, detail="API key is invalid.")
-    if response.status_code in (402, 403):
-        raise HTTPException(status_code=400, detail="The provider declined this key.")
-    if response.status_code == 404:
-        raise HTTPException(status_code=400, detail="This server does not have a models endpoint.")
-    if response.status_code >= 400:
-        raise HTTPException(status_code=400, detail=f"Provider returned HTTP {response.status_code}.")
-    try:
-        payload = response.json()
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="The models endpoint returned invalid JSON.") from exc
-    rows = payload.get("data") or payload.get("models") or []
-    return [row for row in rows if isinstance(row, dict) and (row.get("id") or row.get("name"))]
+    if response is not None and response.status_code >= 400:
+        raise HTTPException(
+            status_code=400,
+            detail=_provider_error_detail(response, models_endpoint=True),
+        )
+    if response is not None:
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="The models endpoint returned invalid JSON.") from exc
+        if isinstance(payload, list):
+            rows = payload
+        elif isinstance(payload, dict):
+            rows = payload.get("data") or payload.get("models") or []
+        else:
+            rows = []
+
+    normalized_rows: list[dict] = []
+    for raw_row in rows:
+        if not isinstance(raw_row, dict):
+            continue
+        row = dict(raw_row)
+        model_id = str(row.get("id") or row.get("name") or "")
+        if provider.kind == "google" and model_id.startswith("models/"):
+            model_id = model_id.removeprefix("models/")
+        if not model_id:
+            continue
+        row["id"] = model_id
+        row["name"] = str(
+            row.get("display_name")
+            or row.get("displayName")
+            or row.get("name")
+            or model_id
+        )
+        if provider.kind == "fireworks" and row.get("contextLength"):
+            row["context_length"] = row["contextLength"]
+        normalized_rows.append(row)
+    return normalized_rows
+
+
+async def _profile_provider_model(
+    provider: LLMProviderConfig,
+    model: LLMProviderModelConfig,
+) -> dict:
+    from routes.settings import LLMScenarioResult, _profile_endpoint
+
+    config = LLMEndpointConfig(
+        url=provider.base_url,
+        model=model.model_id,
+        api_key=provider.api_key,
+        # A full remote context probe can consume tens of thousands of paid
+        # tokens. Authenticated remote catalogs supply context while behavioral
+        # probes stay deliberately small.
+        max_context_tokens=(
+            min(model.max_context_tokens, 8192)
+            if provider.kind in {"openrouter", "together", "fireworks"}
+            else model.max_context_tokens
+        ),
+        content_policy_enabled=False,
+    )
+    scenarios, detected = await _profile_endpoint(config)
+    if provider.kind in {"openrouter", "together", "fireworks"}:
+        scenarios["context"] = LLMScenarioResult(
+            passed=True,
+            detail=f"Provider reports {model.max_context_tokens:,} tokens",
+        )
+    _apply_local_profile(model, scenarios, detected, provider.kind)
+    if provider.kind in {"local", "together", "fireworks"} and model.reasoning.mode == "none":
+        scenarios["thinking"] = LLMScenarioResult(
+            passed=False,
+            error="Reasoning is required.",
+        )
+    results = {name: result.model_dump() for name, result in scenarios.items()}
+    model.last_test_results = results
+    model.last_tested_at = datetime.now(timezone.utc).isoformat()
+    failed = [
+        scenario for scenario in REQUIRED_MODEL_PROFILE_SCENARIOS
+        if not scenarios.get(scenario) or not scenarios[scenario].passed
+    ]
+    model.last_test_passed = not failed
+    required_errors = {
+        "vision": "Vision is required.",
+        "tools": "Tools are required.",
+        "thinking": "Reasoning is required.",
+    }
+    first_failure = scenarios.get(failed[0]) if failed else None
+    model.last_error = None if not failed else required_errors.get(failed[0]) or (
+        first_failure.error
+        if first_failure and first_failure.error
+        else f"{failed[0].capitalize()} test failed."
+    )
+    return results
 
 
 async def _test_local_provider_model(
     provider: LLMProviderConfig,
     model: LLMProviderModelConfig,
 ) -> dict:
-    from routes.settings import _profile_endpoint
-
-    config = LLMEndpointConfig(
-        url=provider.base_url,
-        model=model.model_id,
-        api_key=provider.api_key,
-        max_context_tokens=model.max_context_tokens,
-        content_policy_enabled=False,
-    )
-    scenarios, detected = await _profile_endpoint(config)
-    _apply_local_profile(model, scenarios, detected)
-    results = {name: result.model_dump() for name, result in scenarios.items()}
-    model.last_test_results = results
-    model.last_tested_at = datetime.now(timezone.utc).isoformat()
-    model.last_test_passed = bool(scenarios.get("text") and scenarios["text"].passed)
-    model.last_error = None if model.last_test_passed else f"{model.name} did not return a response."
+    results = await _profile_provider_model(provider, model)
     if not model.last_test_passed:
         raise HTTPException(status_code=400, detail=model.last_error)
     return results
@@ -256,6 +608,7 @@ async def list_llm_providers():
 @router.post("/providers/discover")
 async def preview_llm_provider_models(request: ProviderCreateRequest):
     provider, rows = await _preview_provider(request)
+    rows = _selectable_provider_rows(provider, rows)
     return {
         "provider_name": provider.name,
         "models": [
@@ -288,8 +641,12 @@ async def create_llm_provider(request: ProviderCreateRequest):
         raise HTTPException(status_code=400, detail="API key is required.")
 
     discovered = await _discover_provider_models(provider)
+    raw_discovered_by_id = {
+        str(row.get("id") or row.get("name")): row for row in discovered
+    }
+    discovered = _selectable_provider_rows(provider, discovered)
     discovered_by_id = {str(row.get("id") or row.get("name")): row for row in discovered}
-    if request.kind in {"openai", "anthropic", "xai"}:
+    if request.kind in FIXED_MODEL_PROVIDERS:
         provider.models = branded_models(request.kind, provider.id)
         missing = [model.model_id for model in provider.models if model.model_id not in discovered_by_id]
         if missing:
@@ -298,7 +655,17 @@ async def create_llm_provider(request: ProviderCreateRequest):
                 detail=f"Provider does not offer: {', '.join(missing)}.",
             )
     else:
-        selected = request.model_ids or ([next(iter(discovered_by_id))] if len(discovered_by_id) == 1 else [])
+        selected = request.model_ids if request.model_ids is not None else (
+            [next(iter(discovered_by_id))] if len(discovered_by_id) == 1 else []
+        )
+        incompatible = [
+            model_id for model_id in selected
+            if model_id in raw_discovered_by_id and model_id not in discovered_by_id
+        ]
+        if incompatible:
+            _require_provider_capabilities(
+                provider, raw_discovered_by_id[incompatible[0]]
+            )
         unknown = [model_id for model_id in selected if model_id not in discovered_by_id]
         if unknown:
             raise HTTPException(status_code=400, detail=f"Model not found: {unknown[0]}.")
@@ -314,11 +681,17 @@ async def create_llm_provider(request: ProviderCreateRequest):
             advertised_context = discovered_by_id[model.model_id].get("context_length")
             if advertised_context:
                 model.max_context_tokens = int(advertised_context)
-        if request.kind == "local":
+        if request.kind in PROFILED_MODEL_PROVIDERS:
             for model in provider.models:
                 await _test_local_provider_model(provider, model)
+                if request.kind == "openrouter":
+                    _apply_openrouter_reasoning_metadata(
+                        model, discovered_by_id[model.model_id]
+                    )
     provider.last_tested_at = datetime.now(timezone.utc).isoformat()
     provider.last_test_passed = True
+    if provider.kind != "local":
+        provider.credentials_validated_at = provider.last_tested_at
     providers = list(get_settings().llm_providers)
     providers.append(provider)
     _save_providers(providers)
@@ -337,6 +710,7 @@ def _find_provider(provider_id: str) -> tuple[list[LLMProviderConfig], LLMProvid
 async def discover_llm_provider_models(provider_id: str):
     _, provider = _find_provider(provider_id)
     rows = await _discover_provider_models(provider)
+    rows = _selectable_provider_rows(provider, rows)
     selected = {model.model_id for model in provider.models if model.enabled}
     return {
         "models": [
@@ -351,6 +725,44 @@ async def discover_llm_provider_models(provider_id: str):
     }
 
 
+@router.post("/providers/{provider_id}/models/profile")
+async def profile_llm_provider_model(
+    provider_id: str,
+    request: ProviderModelProfileRequest,
+):
+    """Profile one selectable model without adding it to the provider."""
+    _, provider = _find_provider(provider_id)
+    if provider.kind not in PROFILED_MODEL_PROVIDERS:
+        raise HTTPException(status_code=400, detail="This provider has fixed model capabilities.")
+
+    rows = await _discover_provider_models(provider)
+    by_id = {str(row.get("id") or row.get("name")): row for row in rows}
+    advertised = by_id.get(request.model_id)
+    if not advertised:
+        raise HTTPException(status_code=400, detail="Model is no longer available from this provider.")
+    _require_provider_capabilities(provider, advertised)
+
+    existing = next(
+        (model for model in provider.models if model.model_id == request.model_id),
+        None,
+    )
+    model = existing.model_copy(deep=True) if existing else discovered_model(
+        provider.id,
+        request.model_id,
+        name=request.name or str(advertised.get("name") or request.model_id),
+    )
+    advertised_context = advertised.get("context_length")
+    if request.max_context_tokens:
+        model.max_context_tokens = request.max_context_tokens
+    elif advertised_context:
+        model.max_context_tokens = int(advertised_context)
+
+    await _profile_provider_model(provider, model)
+    if provider.kind == "openrouter":
+        _apply_openrouter_reasoning_metadata(model, advertised)
+    return {"model": model.model_dump()}
+
+
 @router.patch("/providers/{provider_id}")
 async def update_llm_provider(provider_id: str, request: ProviderUpdateRequest):
     providers, provider = _find_provider(provider_id)
@@ -361,15 +773,31 @@ async def update_llm_provider(provider_id: str, request: ProviderUpdateRequest):
     for field in ("name", "base_url", "api_key", "enabled"):
         if field in updates:
             setattr(candidate, field, updates[field])
-    if any(field in updates for field in ("base_url", "api_key")):
+    connection_checked = any(field in updates for field in ("base_url", "api_key"))
+    if connection_checked:
         discovered = await _discover_provider_models(candidate)
-        advertised = {str(row.get("id") or row.get("name")) for row in discovered}
+        advertised_by_id = {
+            str(row.get("id") or row.get("name")): row for row in discovered
+        }
+        advertised = set(advertised_by_id)
         missing = [model.model_id for model in candidate.models if model.enabled and model.model_id not in advertised]
         if missing:
             raise HTTPException(status_code=400, detail=f"Model no longer available: {missing[0]}.")
+        if candidate.kind in {"openrouter", "together", "fireworks"}:
+            for model in candidate.models:
+                if model.enabled:
+                    _require_provider_capabilities(
+                        candidate, advertised_by_id[model.model_id]
+                    )
     for field in ("name", "base_url", "api_key", "enabled"):
         if field in updates:
             setattr(provider, field, getattr(candidate, field))
+    if connection_checked:
+        provider.last_tested_at = datetime.now(timezone.utc).isoformat()
+        provider.last_test_passed = True
+        provider.last_error = None
+        if provider.kind != "local":
+            provider.credentials_validated_at = provider.last_tested_at
     if request.models is not None:
         provider.models = _validated_models(provider, request.models)
     elif request.model_ids is not None:
@@ -378,6 +806,9 @@ async def update_llm_provider(provider_id: str, request: ProviderUpdateRequest):
         unknown = [model_id for model_id in request.model_ids if model_id not in by_id]
         if unknown:
             raise HTTPException(status_code=400, detail=f"Model not found: {unknown[0]}.")
+        if provider.kind in {"openrouter", "together", "fireworks"}:
+            for model_id in request.model_ids:
+                _require_provider_capabilities(provider, by_id[model_id])
         existing = {model.model_id: model for model in provider.models}
         provider.models = [
             existing.get(model_id) or discovered_model(
@@ -394,10 +825,17 @@ async def test_llm_provider(provider_id: str):
     providers, provider = _find_provider(provider_id)
     try:
         rows = await _discover_provider_models(provider)
-        advertised = {str(row.get("id") or row.get("name")) for row in rows}
+        advertised_by_id = {str(row.get("id") or row.get("name")): row for row in rows}
+        advertised = set(advertised_by_id)
         missing = [model.model_id for model in provider.models if model.enabled and model.model_id not in advertised]
         if missing:
             raise HTTPException(status_code=400, detail=f"Model no longer available: {missing[0]}.")
+        if provider.kind in {"openrouter", "together", "fireworks"}:
+            for model in provider.models:
+                if model.enabled:
+                    _require_provider_capabilities(
+                        provider, advertised_by_id[model.model_id]
+                    )
         model_checks = {}
         if provider.kind == "local":
             for model in provider.models:
@@ -413,6 +851,8 @@ async def test_llm_provider(provider_id: str):
         _save_providers(providers)
         raise
     provider.last_tested_at = datetime.now(timezone.utc).isoformat()
+    if provider.kind != "local":
+        provider.credentials_validated_at = provider.last_tested_at
     _save_providers(providers)
     return {
         "status": "ready",
@@ -583,7 +1023,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
             "slug": "local",
             "source": "endpoint",
             "name": "Local model endpoint",
-            "description": "Add a model endpoint in Settings > LLM Providers.",
+            "description": "Add a model endpoint in Settings > Chat Models.",
             "available": False,
             "status": "local_missing",
             "max_context_tokens": local_max_context_tokens,
@@ -594,7 +1034,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         "source": "auto",
         "name": "Set up a local model" if lockdown else "Set up AI models",
         "description": (
-            "Add a model endpoint in Settings > LLM Providers."
+            "Add a model endpoint in Settings > Chat Models."
             if lockdown
             else "Sign in to your Stimma account or add a model provider."
         ),

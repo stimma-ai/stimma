@@ -124,6 +124,10 @@ export async function openPromptToolById(page: Page, toolId: string, projectId?:
 export async function submitGeneration(page: Page, prompt: string) {
   await disablePromptTransforms(page);
   await promptInput(page).fill(prompt);
+  // Readiness is fetched asynchronously after route settlement. On a fresh
+  // acceptance profile the overlay can appear after openTool() has already
+  // dismissed it, so close it again at the actual interaction boundary.
+  await dismissReadinessPanelIfNeeded(page);
   const runButton = page.getByTestId('tool-run-button');
   await expect(runButton).toBeEnabled({ timeout: 10000 });
   await runButton.click();
@@ -676,7 +680,7 @@ function promptInput(page: Page) {
 
 async function continueWithoutAccountIfNeeded(page: Page) {
   const shell = page.getByText('All Assets', { exact: true }).first();
-  const skip = page.getByText('Continue without an account', { exact: true }).first();
+  const getStarted = page.getByRole('button', { name: 'Get started' }).first();
   const deadline = Date.now() + 30000;
 
   while (Date.now() < deadline) {
@@ -684,9 +688,8 @@ async function continueWithoutAccountIfNeeded(page: Page) {
       await dismissReadinessPanelIfNeeded(page);
       return;
     }
-    if (await skip.isVisible({ timeout: 250 }).catch(() => false)) {
-      await skip.click();
-      await page.getByRole('button', { name: 'Continue without account' }).first().click();
+    if (await getStarted.isVisible({ timeout: 250 }).catch(() => false)) {
+      await getStarted.click();
       await expect(shell).toBeVisible({ timeout: 30000 });
       await dismissReadinessPanelIfNeeded(page);
       return;

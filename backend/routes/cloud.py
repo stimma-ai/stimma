@@ -12,13 +12,14 @@ from config import get_settings
 from core.logging import get_logger
 from cloud_runtime import cloud_access_headers, with_cloud_access_headers
 from privacy_lockdown import disabled_message, is_privacy_lockdown_enabled
+from tool_provider_identity import STIMMA_TOOL_PROVIDER_DISPLAY_NAME, STIMMA_TOOL_PROVIDER_ID
 from utils.websocket import ws_manager
 
 router = APIRouter(prefix="/api/cloud", tags=["cloud"])
 log = get_logger(__name__)
 
 # Provider ID for Stimma Cloud - used as a constant
-STIMMA_CLOUD_PROVIDER_ID = "stimma-cloud"
+STIMMA_CLOUD_PROVIDER_ID = STIMMA_TOOL_PROVIDER_ID
 
 
 class ConnectRequest(BaseModel):
@@ -107,7 +108,7 @@ async def connect_cloud_internal(id_token: str) -> bool:
     # Build config dict for the manager (same format as config file providers)
     config = {
         "id": STIMMA_CLOUD_PROVIDER_ID,
-        "name": "Stimma Cloud",
+        "name": STIMMA_TOOL_PROVIDER_DISPLAY_NAME,
         "type": "websocket",
         "url": ws_url,
         "auth_token": id_token,
@@ -241,5 +242,4 @@ async def get_cloud_tools_status():
         "error_message": None,
         "tool_count": len(tools),
     }
-
 

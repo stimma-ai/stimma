@@ -1,15 +1,5 @@
 <template>
   <div class="h-full flex flex-col bg-base">
-    <!-- SVG gradient definition for Stimma Cloud icon -->
-    <svg class="absolute w-0 h-0" aria-hidden="true">
-      <defs>
-        <linearGradient id="stimma-gradient-alltools" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#0d9488" />
-          <stop offset="50%" stop-color="#06b6d4" />
-          <stop offset="100%" stop-color="#6366f1" />
-        </linearGradient>
-      </defs>
-    </svg>
     <!-- Header row -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-edge-subtle">
       <h1 v-if="!projectId" class="text-xl font-semibold text-content">All Tools</h1>
@@ -25,7 +15,7 @@
               ? 'bg-blue-500/15 border-blue-500/50 text-blue-500'
               : 'bg-overlay-subtle border-edge-subtle text-content-tertiary hover:text-content-secondary hover:border-edge'"
           >
-            <span>{{ providerFilterLabel }}</span>
+            <span :class="providerFilterIsStimma ? 'stimma-cloud-text font-medium' : ''">{{ providerFilterLabel }}</span>
             <svg class="w-4 h-4 transition-transform" :class="providerDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
             </svg>
@@ -54,7 +44,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
               </svg>
               <span v-else class="w-4 flex-shrink-0"></span>
-              <span>{{ provider.provider_name || provider.provider_id }}</span>
+              <span :class="isStimmaCloudTool(provider) ? 'stimma-cloud-text font-medium' : ''">{{ toolProviderDisplayName(provider) }}</span>
             </button>
           </div>
         </div>
@@ -181,10 +171,7 @@
                 </span>
                 <!-- Provider as a badge -->
                 <span v-if="isStimmaCloudTool(tool)" class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-teal-600/10 border border-teal-600/25 flex-shrink-0">
-                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" :stroke="'url(#stimma-gradient-alltools)'">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
-                  </svg>
-                  <span class="stimma-cloud-text">Stimma Cloud</span>
+                  <span class="stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
                 </span>
                 <span v-else-if="!isUserTool(tool)" class="px-2 py-0.5 text-[10px] font-medium rounded-full border border-edge text-content-secondary flex-shrink-0">
                   {{ tool.provider_name || tool.provider_id }}
@@ -266,7 +253,12 @@ import { ref, computed, onMounted, onUnmounted, onActivated, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProvidersApi } from '../composables/useProvidersApi'
 import { makeProfileKey } from '../utils/storageKeys'
-import { isStimmaCloudTool } from '../utils/stimmaCloud'
+import {
+  STIMMA_CLOUD_PROVIDER_ID,
+  STIMMA_TOOL_PROVIDER_DISPLAY_NAME,
+  isStimmaCloudTool,
+  toolProviderDisplayName,
+} from '../utils/stimmaCloud'
 import { formatTaskTypeLabel, TASK_TYPE_LABELS } from '../utils/taskTypeIcons'
 import ToolIcon from '../components/tools/ToolIcon.vue'
 import ConnectionError from '../components/ConnectionError.vue'
@@ -449,6 +441,11 @@ const providerFilterLabel = computed(() => {
     .sort()
   return selectedNames.join(', ')
 })
+
+const providerFilterIsStimma = computed(() => (
+  activeProviderFilters.value.size === 1
+  && activeProviderFilters.value.has(STIMMA_CLOUD_PROVIDER_ID)
+))
 
 const filteredTools = computed(() => {
   let result = [...tools.value]

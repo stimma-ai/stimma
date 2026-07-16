@@ -316,6 +316,14 @@ def _dump_tool_args(arguments: dict) -> str:
     return json.dumps(arguments)
 
 
+def _provider_state_metadata(provider_state: dict | None) -> str | None:
+    """Serialize opaque native-provider continuation state for a tool item."""
+    return (
+        json.dumps({"llm_provider_state": provider_state})
+        if provider_state else None
+    )
+
+
 def _serialize_tool_result(fn_name: str, result_str: str) -> str:
     if isinstance(result_str, str) and result_str.startswith("Error"):
         return json.dumps({
@@ -637,6 +645,7 @@ async def _pause_for_permission(
     chat: Chat,
     session: AsyncSession,
     ws_manager: WebSocketManager,
+    llm_provider_state: dict | None = None,
 ) -> None:
     """Pause execution and create a HITL request for tool permission."""
     from ..hitl import HumanActionRequest, HumanActionRequired
@@ -683,6 +692,7 @@ async def _pause_for_permission(
         "fn_arguments": fn_arguments,
         "remaining_tool_calls": remaining_tool_calls,
         "turn": turn,
+        "llm_provider_state": llm_provider_state,
     }
     gen_settings = {}
     if chat.generation_settings:
@@ -1242,6 +1252,7 @@ async def _run_agentic_loop_inner(
                     await _pause_for_permission(
                         fn_name, fn_arguments, tool_call_id,
                         remaining, start_turn, chat, session, ws_manager,
+                        llm_provider_state=tc_data.get("llm_provider_state"),
                     )
                 except HumanActionRequired:
                     raise _PermissionPause()
@@ -1256,6 +1267,7 @@ async def _run_agentic_loop_inner(
                 tool_name=fn_name,
                 tool_call_id=tool_call_id,
                 tool_args=enriched_args,
+                item_metadata=_provider_state_metadata(tc_data.get("llm_provider_state")),
             )
             session.add(call_item)
             await session.commit()
@@ -1503,6 +1515,7 @@ async def _run_agentic_loop_inner(
                         "fn_name": tc.name,
                         "fn_arguments": tc.arguments,
                         "tool_call_id": tc.id or f"call_{uuid.uuid4().hex[:12]}",
+                        "llm_provider_state": resp.provider_state,
                     })
 
                 # Permission check before execution
@@ -1511,6 +1524,7 @@ async def _run_agentic_loop_inner(
                         await _pause_for_permission(
                             fn_name, fn_arguments, tool_call_id,
                             remaining, turn, chat, session, ws_manager,
+                            llm_provider_state=resp.provider_state,
                         )
                     except HumanActionRequired:
                         raise _PermissionPause()
@@ -1522,6 +1536,7 @@ async def _run_agentic_loop_inner(
                     tool_name=fn_name,
                     tool_call_id=tool_call_id,
                     tool_args=_enrich_tool_args(fn_name, fn_arguments),
+                    item_metadata=_provider_state_metadata(resp.provider_state),
                 )
                 session.add(call_item)
                 await session.commit()
@@ -1889,6 +1904,7 @@ async def resume_after_hitl(
                 tool_name=pending["tool_name"],
                 tool_call_id=tool_call_id,
                 tool_args=_enrich_tool_args(pending["tool_name"], pending["fn_arguments"]),
+                item_metadata=_provider_state_metadata(pending.get("llm_provider_state")),
             )
             session.add(call_item)
             await session.commit()
@@ -2040,6 +2056,7 @@ async def resume_after_ask_user(
             chat, session, ws_manager,
             max_turns=_max_turns_for_chat(chat),
             start_turn=pending.get("turn", 0) + 1,
+            pending_tool_calls=pending.get("remaining_tool_calls"),
         )
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "completed"})
 

@@ -1,82 +1,89 @@
 <template>
   <div>
-    <h3 class="mb-4 text-base font-medium text-content">Folders</h3>
-    <p class="text-sm text-content-tertiary mb-6">
-      Add folders Stimma may scan for external media. Stimma never writes to or deletes files in these folders.
-    </p>
+    <div class="mb-3">
+      <h3 class="text-base font-medium text-content">Folders</h3>
+      <p class="mt-1 text-xs text-content-tertiary">
+        Add folders Stimma may scan for external media. Stimma never writes to or deletes files in these folders.
+      </p>
+    </div>
 
     <!-- Folder list -->
-    <div class="space-y-3">
+    <div class="space-y-0.5">
       <div
         v-for="(folder, index) in folders"
         :key="index"
-        class="bg-surface-raised/50 rounded-lg px-4 py-3"
+        class="flex w-full items-center gap-4 px-1 py-3 hover:bg-white/[0.025]"
       >
-        <div class="flex items-center gap-3">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <p class="text-sm text-content truncate" :title="folder.path">{{ folder.path }}</p>
-              <!-- Scanning indicator -->
-              <svg
-                v-if="rescanning === index"
-                class="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            </div>
-            <div class="flex items-center gap-1.5 mt-0.5">
-              <p class="text-xs text-content-muted">{{ folder.media_count?.toLocaleString() || 0 }} assets</p>
-              <!-- Auto-mark indicators -->
-              <template v-if="folder.markers && folder.markers.length > 0">
-                <span class="text-content-muted text-xs">·</span>
-                <div class="flex items-center gap-1">
-                  <template v-for="markerName in folder.markers" :key="markerName">
-                    <span
-                      v-if="getMarkerByName(markerName)"
-                      class="w-3.5 h-3.5 flex items-center justify-center text-content-muted icon-container"
-                      :title="'Auto-mark: ' + markerName"
-                      v-html="markerIconSvg(markerName)"
-                    ></span>
-                  </template>
-                </div>
-              </template>
-            </div>
-          </div>
-          <!-- 3-dots menu -->
-          <button
-            :ref="el => setMenuButtonRef(index, el)"
-            @click="toggleFolderMenu(index)"
-            :disabled="saving"
-            class="p-1.5 text-content-tertiary hover:text-content hover:bg-surface-hover rounded transition-colors disabled:opacity-50"
-            title="More options"
-          >
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
-            </svg>
-          </button>
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+          </svg>
         </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <p class="truncate text-sm font-medium text-content" :title="folder.path">{{ folder.path }}</p>
+            <!-- Scanning indicator -->
+            <svg
+              v-if="rescanning === index"
+              class="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          </div>
+          <div class="mt-0.5 flex items-center gap-1.5">
+            <p class="text-xs text-content-tertiary">{{ folder.media_count?.toLocaleString() || 0 }} assets</p>
+            <!-- Auto-mark indicators -->
+            <template v-if="folder.markers && folder.markers.length > 0">
+              <span class="text-content-muted text-xs">·</span>
+              <div class="flex items-center gap-1">
+                <template v-for="markerName in folder.markers" :key="markerName">
+                  <span
+                    v-if="getMarkerByName(markerName)"
+                    class="w-3.5 h-3.5 flex items-center justify-center text-content-muted icon-container"
+                    :title="'Auto-mark: ' + markerName"
+                    v-html="markerIconSvg(markerName)"
+                  ></span>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+        <!-- 3-dots menu -->
+        <button
+          :ref="el => setMenuButtonRef(index, el)"
+          @click="toggleFolderMenu(index)"
+          :disabled="saving"
+          class="shrink-0 p-1.5 text-content-tertiary hover:text-content hover:bg-surface-hover rounded transition-colors disabled:opacity-50"
+          title="More options"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
+          </svg>
+        </button>
       </div>
-    </div>
 
-    <!-- Empty state -->
-    <div v-if="folders.length === 0" class="text-center py-8 text-content-tertiary">
-      No external folders configured
-    </div>
+      <!-- Empty state -->
+      <div v-if="folders.length === 0" class="text-center py-8 text-content-tertiary">
+        No external folders configured
+      </div>
 
-    <!-- Add folder button -->
-    <div class="mt-4">
+      <!-- Add folder row -->
       <button
+        type="button"
         @click="addFolder"
         :disabled="saving"
-        class="flex items-center gap-2 px-4 py-2 bg-surface-raised hover:bg-surface-hover disabled:opacity-50 text-content rounded-lg font-medium transition-colors"
+        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-blue-500/[0.04] disabled:opacity-50"
       >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        Add Folder
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-medium text-blue-400">Add Folder</div>
+          <div class="mt-0.5 truncate text-xs text-content-tertiary">Scan an external folder for media, read-only.</div>
+        </div>
       </button>
     </div>
 

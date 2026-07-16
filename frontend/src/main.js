@@ -7,6 +7,7 @@ import { initializeCurrentProfile } from './composables/useProfile'
 import router from './router'
 import App from './App.vue'
 import './style.css'
+import { installTextSelectionPolicy } from './utils/textSelection'
 import {
   isEditorDebugEnabled,
   logEditorDebug,
@@ -15,6 +16,7 @@ import {
 } from '../../packages/image-editor/src/utils/editorDebug'
 
 initConsoleBridge()
+installTextSelectionPolicy()
 
 // Show loading screen for Tauri mode
 function showLoadingScreen() {

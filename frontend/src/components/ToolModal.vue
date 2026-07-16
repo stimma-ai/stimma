@@ -23,17 +23,6 @@
         />
       </div>
 
-      <!-- SVG gradient for Stimma Cloud branding -->
-      <svg class="absolute w-0 h-0" aria-hidden="true">
-        <defs>
-          <linearGradient id="stimma-gradient-tool-modal" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#0d9488" />
-            <stop offset="50%" stop-color="#06b6d4" />
-            <stop offset="100%" stop-color="#6366f1" />
-          </linearGradient>
-        </defs>
-      </svg>
-
       <div class="flex-1 overflow-y-auto p-2 tool-list">
         <div
           v-for="tool in filteredTools"
@@ -52,9 +41,7 @@
               'text-[15px] font-medium',
               isSelected(tool.full_tool_id) ? 'text-indigo-300 font-semibold' : 'text-content'
             ]">{{ tool.name || tool.full_tool_id }}</span>
-            <svg v-if="isStimmaCloud(tool)" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="url(#stimma-gradient-tool-modal)" :title="tool.provider_name">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
-            </svg>
+            <span v-if="isStimmaCloud(tool)" class="text-[11px] leading-none px-1.5 py-0.5 rounded-full bg-teal-600/10 border border-teal-600/25 font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
             <span v-else-if="tool.provider_name" class="text-[11px] leading-none px-1.5 py-0.5 rounded-full text-content-muted bg-overlay-subtle">{{ tool.provider_name }}</span>
           </span>
           <span :class="[
@@ -80,7 +67,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import ToolIcon from './tools/ToolIcon.vue'
-import { STIMMA_CLOUD_PROVIDER_ID } from '../utils/stimmaCloud'
+import { STIMMA_CLOUD_PROVIDER_ID, STIMMA_TOOL_PROVIDER_DISPLAY_NAME } from '../utils/stimmaCloud'
 
 const props = defineProps({
   tools: {

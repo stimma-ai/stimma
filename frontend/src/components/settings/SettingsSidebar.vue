@@ -48,35 +48,42 @@
         <span>{{ section.label }}</span>
       </button>
 
-      <!-- Settings header -->
-      <div class="px-3 py-1 mt-4 mb-2">
-        <span class="text-xs font-semibold text-content-muted uppercase tracking-wider">Settings</span>
-      </div>
+      <!-- Global sections -->
+      <template v-for="group in globalSectionGroups" :key="group.label">
+        <div class="mb-2 mt-4 px-3 py-1">
+          <span class="text-xs font-semibold uppercase tracking-wider text-content-muted">{{ group.label }}</span>
+        </div>
 
-      <!-- Global settings items -->
-      <button
-        v-for="section in globalSections"
-        :key="section.id"
-        @click="$emit('select', section.id)"
-        class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer"
-        :class="[
-          activeSection === section.id
-            ? 'bg-overlay-light'
-            : 'hover:bg-overlay-hover',
-          section.branded
-            ? (activeSection === section.id ? 'text-cyan-600 dark:text-cyan-300' : 'text-cyan-500/70 dark:text-cyan-400/70 hover:text-cyan-600 dark:hover:text-cyan-300')
-            : (activeSection === section.id ? 'text-content' : 'text-content-tertiary hover:text-content')
-        ]"
-      >
-        <component
-          :is="section.icon"
-          class="w-5 h-5"
-          :class="section.branded ? 'text-cyan-600 dark:text-cyan-400' : ''"
-        />
-        <span
-          :class="section.branded ? 'bg-gradient-to-r from-teal-700 via-cyan-600 to-indigo-600 dark:from-teal-500 dark:via-cyan-400 dark:to-indigo-400 bg-clip-text text-transparent' : ''"
-        >{{ section.label }}</span>
-      </button>
+        <button
+          v-for="section in group.sections"
+          :key="section.id"
+          @click="$emit('select', section.id)"
+          class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all"
+          :class="[
+            activeSection === section.id
+              ? 'bg-overlay-light'
+              : 'hover:bg-overlay-hover',
+            section.branded
+              ? (activeSection === section.id ? 'text-cyan-600 dark:text-cyan-300' : 'text-cyan-500/70 dark:text-cyan-400/70 hover:text-cyan-600 dark:hover:text-cyan-300')
+              : (activeSection === section.id ? 'text-content' : 'text-content-tertiary hover:text-content')
+          ]"
+        >
+          <component
+            :is="section.icon"
+            class="h-5 w-5"
+            :class="section.branded ? 'text-cyan-600 dark:text-cyan-400' : ''"
+          />
+          <span
+            class="whitespace-nowrap"
+            :class="section.branded ? 'bg-gradient-to-r from-teal-700 via-cyan-600 to-indigo-600 bg-clip-text text-transparent dark:from-teal-500 dark:via-cyan-400 dark:to-indigo-400' : ''"
+          >{{ section.label }}</span>
+          <span
+            v-if="sectionNeedsSetup(section.id)"
+            class="ml-auto h-2 w-2 shrink-0 rounded-full bg-yellow-400 ring-2 ring-yellow-400/15"
+            :title="section.id === 'ai-services' ? 'Chat model setup required' : 'Generation provider setup required'"
+          ></span>
+        </button>
+      </template>
 
     </nav>
 
@@ -104,6 +111,12 @@
 <script setup>
 import { ref, computed, h, onMounted, onUnmounted } from 'vue'
 import { devModeRef } from '../../appConfig'
+// Monochrome Stimma pinwheel (logo.png as a currentColor mask), matching the
+// treatment on the Generation Tools and Chat Models screens.
+const AccountIcon = () => h('span', {
+  'aria-hidden': 'true',
+  class: "block bg-current [mask-image:url('/logo.png')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.png')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]",
+})
 
 const props = defineProps({
   activeSection: {
@@ -117,6 +130,14 @@ const props = defineProps({
   currentProfileId: {
     type: String,
     default: ''
+  },
+  llmSetupRequired: {
+    type: Boolean,
+    default: false
+  },
+  generationSetupRequired: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -134,6 +155,12 @@ function switchProfile(profileId) {
   if (profileId !== props.currentProfileId) {
     emit('switch-profile', profileId)
   }
+}
+
+function sectionNeedsSetup(sectionId) {
+  if (sectionId === 'ai-services') return props.llmSetupRequired
+  if (sectionId === 'tools') return props.generationSetupRequired
+  return false
 }
 
 // Close dropdown when clicking outside
@@ -173,17 +200,13 @@ const UserIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-wi
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z' })
 ])
 
-const UserCircleIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
-  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z' })
-])
-
-const CloudIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
-  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z' })
-])
-
 const CogIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z' }),
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z' })
+])
+
+const AdjustmentsIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75' })
 ])
 
 const ShieldCheckIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
@@ -191,8 +214,8 @@ const ShieldCheckIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'st
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M12 21.75c5.176-1.333 9-6.03 9-11.623 0-1.31-.21-2.57-.598-3.75A11.959 11.959 0 0 1 12 3.09a11.959 11.959 0 0 1-8.402 3.286A11.99 11.99 0 0 0 3 10.127c0 5.592 3.824 10.29 9 11.623Z' })
 ])
 
-const ArrowDownTrayIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
-  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3' })
+const InformationCircleIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'm11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z' })
 ])
 
 const SparklesIcon = () => h('svg', { fill: 'none', viewBox: '0 0 24 24', 'stroke-width': '1.5', stroke: 'currentColor' }, [
@@ -239,13 +262,19 @@ const profileSections = [
 ]
 
 // Global settings (applies to all profiles)
-const globalSections = [
-  { id: 'account', label: 'Stimma Account', icon: CloudIcon, branded: true },
-  { id: 'profiles', label: 'Profiles', icon: UserIcon },
-  { id: 'privacy', label: 'Privacy', icon: ShieldCheckIcon },
-  { id: 'tools', label: 'Tools', icon: WrenchIcon },
-  { id: 'updates', label: 'Updates', icon: ArrowDownTrayIcon },
-  { id: 'background', label: 'Background Work', icon: CpuIcon },
-  { id: 'ai-services', label: 'LLM Providers', icon: CogIcon },
+const globalSectionGroups = [
+  {
+    label: 'Settings',
+    sections: [
+      { id: 'account', label: 'Stimma Account', icon: AccountIcon },
+      { id: 'tools', label: 'Generation Tools', icon: WrenchIcon },
+      { id: 'ai-services', label: 'Chat Models', icon: CogIcon },
+      { id: 'model-preferences', label: 'Preferences', icon: AdjustmentsIcon },
+      { id: 'profiles', label: 'Profiles', icon: UserIcon },
+      { id: 'background', label: 'Background Work', icon: CpuIcon },
+      { id: 'privacy', label: 'Privacy', icon: ShieldCheckIcon },
+      { id: 'updates', label: 'About', icon: InformationCircleIcon },
+    ],
+  },
 ]
 </script>

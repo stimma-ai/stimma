@@ -9,152 +9,120 @@
       </div>
       <h3 class="text-lg font-semibold text-content mb-2">Privacy Lockdown</h3>
       <p class="text-sm text-content-tertiary">
-        Sign-in to your Stimma account is disabled.
+        Sign-in to your account is disabled.
       </p>
     </div>
 
-    <div v-else-if="!user" class="min-h-[60vh] flex flex-col items-center justify-center text-center">
-      <!-- Local tools connected: pitch a Stimma account as an addition to a working stack -->
-      <template v-if="hasLocalTools">
-        <div class="flex items-center gap-2 text-xs text-content-tertiary bg-surface border border-edge rounded-full px-3.5 py-1.5 mb-5">
-          <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-          Local tools connected
-        </div>
-        <h3 class="text-2xl font-semibold text-content mb-3 max-w-md text-balance">Add the frontier to your <span class="stimma-cloud-text">local stack.</span></h3>
-        <p class="text-sm text-content-tertiary leading-relaxed max-w-md mb-6">
-          Your local setup stays as it is. A Stimma account adds the newest closed image and video models, plus a hosted agent. Run each job wherever you choose.
+    <div v-else-if="!user" class="min-h-[60vh] flex items-start justify-center pt-10">
+      <div class="w-full max-w-[640px] text-center">
+        <img src="/logo.png" alt="" aria-hidden="true" class="mx-auto mb-7 h-[72px] w-[72px]" />
+        <h3 class="text-[26px] font-semibold tracking-tight text-content">Sign in to Stimma</h3>
+        <p class="mx-auto mt-2.5 mb-14 max-w-[420px] text-sm leading-6 text-content-secondary">
+          Stimma doesn’t require an account — sign in when you want it connected.
         </p>
-        <button
-          @click="handleConnect"
-          class="px-6 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 text-white rounded-lg font-medium text-sm transition-all hover:shadow-lg hover:shadow-cyan-500/25 hover:-translate-y-0.5"
-          :disabled="isConnecting"
-        >
-          {{ isConnecting ? 'Connecting...' : 'Sign in to Stimma' }}
-        </button>
-        <p class="text-xs text-content-muted mt-2.5">Works alongside your local tools · Sign in or create an account in your browser</p>
-      </template>
 
-      <!-- Nothing connected: a Stimma account is the missing piece, with local setup as the alternative -->
-      <template v-else>
-        <svg class="w-8 h-8 mb-4" viewBox="0 0 24 24" fill="none" stroke="url(#account-cloud-grad)" stroke-width="1.5" aria-hidden="true">
-          <defs>
-            <linearGradient id="account-cloud-grad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#0d9488" />
-              <stop offset="0.5" stop-color="#06b6d4" />
-              <stop offset="1" stop-color="#6366f1" />
-            </linearGradient>
-          </defs>
-          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
-        </svg>
-        <h3 class="text-2xl font-semibold text-content mb-3 max-w-md text-balance">Stimma isn't connected to any AI <span class="stimma-cloud-text">yet.</span></h3>
-        <p class="text-sm text-content-tertiary leading-relaxed max-w-md mb-6">
-          Stimma needs two things to work: tools that generate images and video, and a model that powers the agent. A Stimma account is both. Sign in once and start creating.
-        </p>
-        <button
-          @click="handleConnect"
-          class="px-6 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 text-white rounded-lg font-medium text-sm transition-all hover:shadow-lg hover:shadow-cyan-500/25 hover:-translate-y-0.5"
-          :disabled="isConnecting"
-        >
-          {{ isConnecting ? 'Connecting...' : 'Sign in to Stimma' }}
-        </button>
-        <p class="text-xs text-content-muted mt-2.5">No setup required · Sign in or create an account in your browser</p>
-        <div class="mt-8 pt-5 border-t border-edge w-full max-w-sm">
-          <div class="text-[11px] font-semibold uppercase tracking-wider text-content-muted mb-2.5">Or, bring your own AI</div>
-          <div class="flex flex-col items-center gap-1.5 text-xs">
-            <button @click="emit('navigate', 'tools')" class="text-content-tertiary hover:text-content transition-colors">
-              Connect generation tools →
-            </button>
-            <button @click="emit('navigate', 'ai-services')" class="text-content-tertiary hover:text-content transition-colors">
-              Point the agent at a local LLM →
-            </button>
+        <div class="mb-16 grid grid-cols-3 gap-10 text-center">
+          <div>
+            <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-teal-600/10 via-cyan-500/10 to-indigo-500/10">
+              <svg class="h-5 w-5 text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+              </svg>
+            </div>
+            <h4 class="text-sm font-semibold text-content">Use hosted AI</h4>
+            <p class="mt-1.5 text-[13px] leading-[1.55] text-content-tertiary">
+              LLMs and 50+ image, video, and audio tools from many providers — pay with credits.
+            </p>
+          </div>
+
+          <div>
+            <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-teal-600/10 via-cyan-500/10 to-indigo-500/10">
+              <svg class="h-5 w-5 text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+              </svg>
+            </div>
+            <h4 class="text-sm font-semibold text-content">Share your work</h4>
+            <p class="mt-1.5 text-[13px] leading-[1.55] text-content-tertiary">
+              Publish the pieces you choose and share them with anyone, anywhere.
+            </p>
+          </div>
+
+          <div>
+            <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-teal-600/10 via-cyan-500/10 to-indigo-500/10">
+              <svg class="h-5 w-5 text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+              </svg>
+            </div>
+            <h4 class="text-sm font-semibold text-content">Publish stimpacks</h4>
+            <p class="mt-1.5 text-[13px] leading-[1.55] text-content-tertiary">
+              Ship your own stimpacks for other Stimma users to discover and install.
+            </p>
           </div>
         </div>
-      </template>
-      <p v-if="connectMessage" class="text-sm text-red-500 text-center mt-4">{{ connectMessage }}</p>
+
+        <button
+          @click="handleConnect"
+          class="rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-8 py-2.5 text-sm font-semibold text-white transition-all hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 disabled:cursor-wait disabled:opacity-60"
+          :disabled="isConnecting"
+        >
+          {{ isConnecting ? 'Connecting...' : 'Sign in to Stimma' }}
+        </button>
+        <p class="mt-4 text-[12.5px] text-content-muted">Free to create an account · No card required</p>
+
+        <p v-if="connectMessage" class="mt-4 text-center text-sm text-red-500">{{ connectMessage }}</p>
+      </div>
     </div>
 
-    <!-- Signed in state - separate cards -->
-    <div v-else class="space-y-4">
-      <!-- Hero card: greeting + balance. The single Stimma Cloud brand moment -->
-      <div class="relative overflow-hidden rounded-xl border border-edge-strong bg-surface-raised p-5 bg-[radial-gradient(120%_140%_at_0%_0%,rgba(6,182,212,0.10),transparent_55%)]">
-        <!-- Gradient accent rail -->
-        <div class="absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-teal-600 via-cyan-500 to-indigo-500"></div>
+    <!-- Signed in state -->
+    <div v-else class="max-w-[680px]">
+      <header class="flex items-center gap-4">
+        <img src="/logo.png" alt="" aria-hidden="true" class="h-12 w-12 shrink-0" />
+        <div class="min-w-0">
+          <h2 class="text-[22px] font-semibold tracking-tight text-content">Stimma Account</h2>
+          <p class="mt-0.5 truncate text-[13.5px] text-content-tertiary">{{ user.email }}</p>
+        </div>
+        <div class="ml-auto flex shrink-0 items-center gap-4 text-[13.5px]">
+          <button
+            @click="openDashboard"
+            class="font-medium text-blue-500 transition-colors hover:text-blue-400"
+          >
+            Open dashboard
+          </button>
+          <button
+            @click="handleSignOut"
+            class="text-content-tertiary transition-colors hover:text-content"
+          >
+            Sign out
+          </button>
+        </div>
+      </header>
 
-        <!-- Greeting + 3-dot menu -->
-        <div class="flex items-start justify-between">
-          <div>
-            <h2 class="text-xl font-semibold text-content mb-1">{{ greeting }}, {{ userName }}!</h2>
-            <p class="text-sm text-content-tertiary">Here's an overview of your Stimma account.</p>
-          </div>
-          <div class="relative">
-            <button
-              @click="showMenu = !showMenu"
-              class="p-1.5 rounded-lg text-content-tertiary hover:text-content hover:bg-surface-hover/60 transition-colors"
-            >
-              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-              </svg>
-            </button>
-            <div v-if="showMenu" class="fixed inset-0 z-10" @click="showMenu = false"></div>
-            <div
-              v-if="showMenu"
-              class="absolute right-0 mt-1 w-48 rounded-lg bg-surface border border-edge shadow-xl py-1 z-20"
-            >
-              <button
-                @click="openDashboard(); showMenu = false"
-                class="w-full px-4 py-2 text-left text-sm text-content hover:bg-surface-hover flex items-center gap-2"
-              >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                </svg>
-                Go to Dashboard
-              </button>
-              <button
-                @click="handleSignOut"
-                class="w-full px-4 py-2 text-left text-sm text-content hover:bg-surface-hover flex items-center gap-2"
-              >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-                </svg>
-                Sign Out
-              </button>
+      <!-- Balance card with gradient whisper border -->
+      <div class="mt-10 rounded-[14px] p-[1px] bg-gradient-to-r from-teal-600/35 via-cyan-500/20 to-indigo-500/35">
+        <div class="flex items-center gap-7 rounded-[13px] bg-surface px-[30px] py-7">
+          <div class="shrink-0">
+            <div class="stimma-cloud-text mb-1.5 text-[11px] font-semibold uppercase tracking-[0.1em]">Credits</div>
+            <div v-if="isFirstLoad" class="h-10 w-32 animate-pulse rounded bg-white/10"></div>
+            <div v-else-if="cloudError && !cloudUser" class="text-[40px] font-semibold leading-[1.05] tracking-tight text-content-muted">—</div>
+            <div v-else class="text-[40px] font-semibold leading-[1.05] tracking-tight text-content">
+              {{ formatBalance(cloudUser?.credits) }}
             </div>
           </div>
-        </div>
-
-        <!-- Balance -->
-        <div class="mt-5 flex items-end justify-between">
-          <button
-            @click="refreshAccount"
-            class="text-left hover:opacity-80 transition-opacity"
-            :class="{ 'cursor-wait': isCloudLoading }"
-            title="Click to refresh"
-          >
-            <div class="text-[11px] font-semibold uppercase tracking-wider text-content-muted mb-2">Balance</div>
-            <div v-if="isFirstLoad" class="h-8 w-28 rounded-md bg-white/10 animate-pulse"></div>
-            <span v-else-if="cloudError && !cloudUser" class="text-3xl font-bold text-content-muted">—</span>
-            <span v-else class="text-3xl font-bold bg-gradient-to-r from-teal-600 to-indigo-600 dark:from-cyan-400 dark:to-indigo-400 bg-clip-text text-transparent">
-              {{ formatBalance(cloudUser?.credits) }}
-            </span>
-          </button>
-
-          <!-- Action: skeleton while first loading, then Add Balance -->
-          <div v-if="isFirstLoad" class="h-9 w-28 rounded-lg bg-white/10 animate-pulse"></div>
+          <p class="ml-auto max-w-[300px] text-[13px] leading-5 text-content-tertiary">
+            Use your credits for hosted image and video generation and LLM services. You can also configure your own providers.
+          </p>
+          <div v-if="isFirstLoad" class="h-9 w-28 shrink-0 animate-pulse rounded-lg bg-white/10"></div>
           <button
             v-else-if="!cloudError || cloudUser"
             @click="addBalance"
-            class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-sm font-medium transition-colors"
+            class="shrink-0 rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-6 py-2.5 text-[13.5px] font-semibold text-white transition-all hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400"
           >
-            Add Balance
+            Add credits
           </button>
         </div>
-        <p v-if="!isFirstLoad && (!cloudError || cloudUser)" class="text-sm text-content-tertiary mt-3">
-          Balance covers hosted image and video generation. You can also configure your own providers.
-        </p>
       </div>
 
       <!-- Error banner when cloud is unreachable -->
-      <div v-if="cloudError && !isCloudLoading" class="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 flex items-center justify-between gap-3">
+      <div v-if="cloudError && !isCloudLoading" class="mt-5 flex items-center justify-between gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
         <div class="flex items-center gap-2.5 min-w-0">
           <svg class="w-4 h-4 text-red-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
@@ -169,22 +137,23 @@
         </button>
       </div>
 
-      <!-- Account Details Card -->
-      <div class="rounded-xl border border-edge bg-surface-raised p-5">
-        <div class="text-sm font-semibold text-content mb-4">Account</div>
-        <div class="grid grid-cols-2 gap-6">
-          <div>
-            <div class="text-xs text-content-muted mb-1.5">Email</div>
-            <button @click="openDashboard" class="text-sm text-content truncate hover:text-content-secondary transition-colors text-left">{{ user.email }}</button>
+      <section class="mt-9">
+        <h3 class="text-sm font-semibold text-content">Account details</h3>
+        <dl class="mt-4 grid grid-cols-2 gap-x-10 gap-y-6">
+          <div class="min-w-0">
+            <dt class="text-xs text-content-tertiary">Email</dt>
+            <dd class="mt-1 truncate text-sm text-content">{{ user.email }}</dd>
           </div>
           <div>
-            <div class="text-xs text-content-muted mb-1.5">Member Since</div>
-            <div v-if="isFirstLoad" class="h-4 w-28 rounded bg-white/10 animate-pulse"></div>
-            <div v-else-if="cloudUser?.createdAt" class="text-sm text-content">{{ formatDate(cloudUser.createdAt) }}</div>
-            <div v-else class="text-sm text-content-muted">—</div>
+            <dt class="text-xs text-content-tertiary">Member since</dt>
+            <dd class="mt-1">
+              <div v-if="isFirstLoad" class="h-4 w-28 animate-pulse rounded bg-white/10"></div>
+              <div v-else-if="cloudUser?.createdAt" class="text-sm text-content">{{ formatDate(cloudUser.createdAt) }}</div>
+              <div v-else class="text-sm text-content-muted">—</div>
+            </dd>
           </div>
-        </div>
-      </div>
+        </dl>
+      </section>
     </div>
   </div>
 </template>
@@ -196,17 +165,16 @@ import { useCloudAccount } from '../../../composables/useCloudAccount'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import { isTauri } from '../../../apiConfig'
 
-const props = defineProps({
+defineProps({
   toolProviders: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['close', 'navigate'])
+defineEmits(['close', 'navigate'])
 
 const { user, authError, signOut, signInWithBrowser } = useAuth()
 const { cloudBaseUrl, cloudUser, isCloudLoading, cloudError, fetchCloudAccount, ensureCloudBaseUrl, formatBalance } = useCloudAccount()
 const { privacyLockdownActive } = usePrivacyLockdown()
 
-const showMenu = ref(false)
 const isConnecting = ref(false)
 const connectError = ref('')
 
@@ -215,32 +183,10 @@ const connectError = ref('')
 // cached (module-scoped), reopening settings skips skeletons entirely.
 const isFirstLoad = computed(() => isCloudLoading.value && !cloudUser.value)
 
-// Signed-out CTA state: with a working local stack, cloud is pitched as an
-// addition; with nothing connected, it's the missing piece + local setup links.
-const hasLocalTools = computed(() =>
-  props.toolProviders.some(p => p.id !== 'stimma-cloud' && p.enabled !== false && p.status === 'connected')
-)
-
-const greeting = computed(() => {
-  const hour = new Date().getHours()
-  if (hour < 12) return 'Good morning'
-  if (hour < 18) return 'Good afternoon'
-  return 'Good evening'
-})
-
-const userName = computed(() => {
-  if (!user.value) return ''
-  // Try displayName, then name, then email prefix
-  if (user.value.displayName) return user.value.displayName.split(' ')[0]
-  if (user.value.name) return user.value.name.split(' ')[0]
-  if (user.value.email) return user.value.email.split('@')[0]
-  return 'there'
-})
-
 const connectMessage = computed(() => connectError.value || authError.value || '')
 
 const cloudErrorMessage = computed(() => {
-  return cloudError.value?.message || "Couldn't load Stimma account info."
+  return cloudError.value?.message || "Couldn't load account info."
 })
 
 onMounted(async () => {
@@ -267,7 +213,7 @@ async function refreshAccount() {
 function formatDate(dateStr) {
   if (!dateStr) return '—'
   const date = new Date(dateStr)
-  return date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 async function handleConnect() {

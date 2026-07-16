@@ -251,7 +251,7 @@
                     <span class="text-[12px] text-content-muted">raw step error</span>
                   </div>
                   <div class="px-4 py-3">
-                    <pre class="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-overlay-subtle px-3 py-2 font-mono text-[11px] text-content-secondary custom-scrollbar">{{ errorDetails }}</pre>
+                    <pre class="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-overlay-subtle px-3 py-2 font-mono text-[11px] text-content-secondary custom-scrollbar select-text">{{ errorDetails }}</pre>
                   </div>
                 </div>
 
@@ -293,7 +293,7 @@
                     </button>
                   </div>
                   <div v-if="rawJsonExpanded" class="px-4 py-3">
-                    <pre class="max-h-72 overflow-auto whitespace-pre rounded-lg bg-overlay-subtle px-3 py-2 font-mono text-[11px] text-content-secondary custom-scrollbar">{{ rawJson }}</pre>
+                    <pre class="max-h-72 overflow-auto whitespace-pre rounded-lg bg-overlay-subtle px-3 py-2 font-mono text-[11px] text-content-secondary custom-scrollbar select-text">{{ rawJson }}</pre>
                   </div>
                 </div>
 

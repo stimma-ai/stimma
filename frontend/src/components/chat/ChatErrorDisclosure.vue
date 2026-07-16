@@ -18,7 +18,7 @@
       <span>Details</span>
     </summary>
     <pre
-      class="px-3 py-2 text-xs whitespace-pre-wrap break-words font-mono text-content-muted max-h-48 overflow-y-auto custom-scrollbar border-t border-white/10"
+      class="px-3 py-2 text-xs whitespace-pre-wrap break-words font-mono text-content-muted max-h-48 overflow-y-auto custom-scrollbar border-t border-white/10 select-text"
     >{{ raw }}</pre>
   </details>
 </template>

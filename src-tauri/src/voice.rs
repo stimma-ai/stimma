@@ -60,17 +60,17 @@ struct ModelInfo {
 }
 
 const WHISPER_BASE_FILES: &[ModelFile] = &[ModelFile {
-    relative_path: "ggml-base.en.bin",
-    download_url: "https://models.stimma.ai/whisper/ggml-base.en.bin",
-    fallback_url: None,
-    size: None,
+    relative_path: "ggml-base.bin",
+    download_url: "https://models.stimma.ai/whisper/ggml-base.bin",
+    fallback_url: Some("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"),
+    size: Some(147_951_465),
 }];
 
 const WHISPER_SMALL_FILES: &[ModelFile] = &[ModelFile {
-    relative_path: "ggml-small.en.bin",
-    download_url: "https://models.stimma.ai/whisper/ggml-small.en.bin",
-    fallback_url: None,
-    size: None,
+    relative_path: "ggml-small.bin",
+    download_url: "https://models.stimma.ai/whisper/ggml-small.bin",
+    fallback_url: Some("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"),
+    size: Some(487_601_967),
 }];
 
 const PARAKEET_TDT_06B_V2_FILES: &[ModelFile] = &[
@@ -117,11 +117,11 @@ fn model_info(model_id: &str) -> Option<ModelInfo> {
     // Whisper comes from "ggerganov/whisper.cpp"; Parakeet v2 int8 comes from
     // the sherpa-onnx export of NVIDIA's English-only Parakeet TDT 0.6B v2 model.
     match model_id {
-        "base.en" => Some(ModelInfo {
+        "base" => Some(ModelInfo {
             kind: ModelKind::Whisper,
             files: WHISPER_BASE_FILES,
         }),
-        "small.en" => Some(ModelInfo {
+        "small" => Some(ModelInfo {
             kind: ModelKind::Whisper,
             files: WHISPER_SMALL_FILES,
         }),
@@ -302,8 +302,8 @@ pub enum TranscriptEvent {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelStatus {
-    base_en: bool,
-    small_en: bool,
+    base: bool,
+    small: bool,
     parakeet_tdt_06b_v2: bool,
 }
 
@@ -314,8 +314,8 @@ pub struct ModelStatus {
 #[tauri::command]
 pub async fn voice_model_status(app: tauri::AppHandle) -> Result<ModelStatus, String> {
     Ok(ModelStatus {
-        base_en: model_is_downloaded(&app, "base.en")?,
-        small_en: model_is_downloaded(&app, "small.en")?,
+        base: model_is_downloaded(&app, "base")?,
+        small: model_is_downloaded(&app, "small")?,
         parakeet_tdt_06b_v2: model_is_downloaded(&app, "parakeet-tdt-0.6b-v2")?,
     })
 }
@@ -707,7 +707,8 @@ fn run_whisper(ctx: &WhisperContext, samples: &[f32]) -> Result<String, String> 
     let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
     params.set_n_threads(4);
     params.set_translate(false);
-    params.set_language(Some("en"));
+    // Let multilingual Whisper detect the spoken language.
+    params.set_language(None);
     params.set_print_special(false);
     params.set_print_progress(false);
     params.set_print_realtime(false);

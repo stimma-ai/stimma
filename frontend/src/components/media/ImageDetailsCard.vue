@@ -13,7 +13,7 @@
     </div>
 
     <!-- Right: Info -->
-    <div class="w-1/3 overflow-y-auto overflow-x-hidden p-4 space-y-3">
+    <div class="w-1/3 overflow-y-auto overflow-x-hidden p-4 space-y-3 select-text">
       <!-- Markers (editable) -->
       <div v-if="availableMarkers.length > 0">
         <div class="flex flex-wrap gap-1.5">

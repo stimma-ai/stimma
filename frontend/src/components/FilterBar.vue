@@ -1,16 +1,5 @@
 <template>
   <div class="bg-surface border-b border-edge flex-shrink-0">
-    <!-- SVG gradient definition for Stimma Cloud branding -->
-    <svg class="absolute w-0 h-0" aria-hidden="true">
-      <defs>
-        <linearGradient id="stimma-gradient-filter" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#0d9488" />
-          <stop offset="50%" stop-color="#06b6d4" />
-          <stop offset="100%" stop-color="#6366f1" />
-        </linearGradient>
-      </defs>
-    </svg>
-
     <!-- Filter Selection Strip (Shopping Cart) -->
     <div class="flex justify-between items-center px-2 py-2 gap-2 flex-wrap">
       <!-- Left Side: Filter Toggle Button -->
@@ -192,9 +181,7 @@
              :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isToolExcluded(tool.full_tool_id) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
              @click="toggleExcludeTool(tool.full_tool_id)">
           <span class="leading-none">{{ getToolName(tool) }}</span>
-          <svg v-if="isToolStimmaCloud(tool)" class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="url(#stimma-gradient-filter)" :title="getToolProvider(tool)">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
-          </svg>
+          <span v-if="isToolStimmaCloud(tool)" class="text-[10px] leading-none font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
           <span v-else-if="getToolProvider(tool)" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full opacity-60 bg-black/10">{{ getToolProvider(tool) }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeTool(tool.full_tool_id)">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -566,9 +553,7 @@
               >
                 <span class="flex items-center gap-1.5 min-w-0">
                   <span :class="['text-sm truncate', isToolSelected(tool.full_tool_id) ? 'text-content font-semibold' : 'text-content-secondary']" :title="getToolName(tool)">{{ getToolName(tool) }}</span>
-                  <svg v-if="isToolStimmaCloud(tool)" class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="url(#stimma-gradient-filter)" :title="getToolProvider(tool)">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
-                  </svg>
+                  <span v-if="isToolStimmaCloud(tool)" class="text-[10px] leading-none font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
                   <span v-else-if="getToolProvider(tool)" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full flex-shrink-0 text-content-muted bg-overlay-subtle">{{ getToolProvider(tool) }}</span>
                 </span>
                 <span :class="['text-xs flex-shrink-0', isToolSelected(tool.full_tool_id) ? 'text-content-tertiary' : 'text-content-muted']">({{ tool.count || 0 }})</span>
@@ -746,7 +731,7 @@ import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
 import { getCurrentProfileId } from '../composables/useProfile'
-import { STIMMA_CLOUD_PROVIDER_ID } from '../utils/stimmaCloud'
+import { STIMMA_CLOUD_PROVIDER_ID, STIMMA_TOOL_PROVIDER_DISPLAY_NAME } from '../utils/stimmaCloud'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { captioningEnabledRef } from '../appConfig'
 import { useTelemetry } from '../composables/useTelemetry'

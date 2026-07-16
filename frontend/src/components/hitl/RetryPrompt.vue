@@ -15,9 +15,9 @@
           </button>
         </div>
         <!-- Summary view (markdown rendered) -->
-        <div v-if="!showRaw" class="text-sm text-content-secondary prose prose-sm max-w-none" v-html="renderedPrompt"></div>
+        <div v-if="!showRaw" class="text-sm text-content-secondary prose prose-sm max-w-none select-text" v-html="renderedPrompt"></div>
         <!-- Raw error view -->
-        <div v-else class="text-xs text-content-muted font-mono whitespace-pre-wrap break-all leading-relaxed">{{ errorMessage }}</div>
+        <div v-else class="text-xs text-content-muted font-mono whitespace-pre-wrap break-all leading-relaxed select-text">{{ errorMessage }}</div>
       </div>
     </div>
   </div>

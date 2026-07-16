@@ -544,8 +544,11 @@ async def _run_delegate_loop_inner(
                         "name": tc.name,
                         "arguments": tc.arguments or "{}",
                     },
+                    **({"extra_content": tc.extra_content} if tc.extra_content else {}),
                 })
             assistant_msg["tool_calls"] = tool_calls_data
+            if resp.provider_state:
+                assistant_msg["_stimma_provider_state"] = resp.provider_state
             messages.append(assistant_msg)
 
         # Execute each tool call

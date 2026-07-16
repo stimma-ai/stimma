@@ -1,7 +1,6 @@
 <template>
   <div
-    class="fixed inset-0 flex items-center justify-center overflow-hidden bg-base"
-    style="font-family: 'General Sans', system-ui, sans-serif;"
+    class="fixed inset-0 flex items-center justify-center overflow-hidden bg-base font-brand"
   >
     <!-- Theme picker — upper right -->
     <div class="absolute top-4 right-4 flex items-center gap-0.5 p-1 bg-surface-raised rounded-lg border border-edge">
@@ -55,64 +54,25 @@
 
       <!-- Primary CTA -->
       <button
-        @click="handleCreateAccount"
+        @click="handleGetStarted"
         :disabled="loading"
-        class="w-full max-w-[320px] px-[18px] py-[14px] rounded-xl text-white flex items-center justify-between gap-3 transition-all hover:brightness-105 hover:-translate-y-px active:translate-y-0 active:brightness-95 disabled:opacity-60"
-        style="background: linear-gradient(135deg, #0d9488, #06b6d4, #6366f1); box-shadow: 0 2px 14px rgba(13,148,136,0.18);"
+        class="w-full max-w-[320px] px-[18px] py-[13px] rounded-xl bg-blue-500 text-white flex items-center justify-center gap-2 transition-all hover:bg-blue-400 active:bg-blue-600 disabled:opacity-60"
+        style="box-shadow: 0 2px 14px rgba(59,130,246,0.22);"
       >
-        <div class="flex-1 text-center">
-          <span class="text-sm font-semibold whitespace-nowrap">Create your Stimma account</span>
-        </div>
-        <span class="text-[17px] opacity-85 flex-shrink-0">→</span>
+        <span class="text-sm font-semibold whitespace-nowrap">Get started</span>
+        <span class="text-[15px] opacity-85 flex-shrink-0">→</span>
       </button>
 
-      <!-- Already have account -->
-      <p class="mt-3 text-content-secondary" style="font-size: 12.5px;">
-        Already have an account?
+      <!-- Returning users -->
+      <p class="mt-4 text-content-tertiary" style="font-size: 12.5px;">
+        Have a Stimma account?
         <a
           href="#"
           @click.prevent="handleSignIn"
-          class="text-content font-medium no-underline hover:text-content transition-colors"
+          class="text-content-secondary font-medium no-underline hover:text-content transition-colors"
         >Sign in</a>
       </p>
 
-    </div>
-
-    <!-- Skip / confirm — fixed between content and compliance -->
-    <div class="fixed flex flex-col items-center" style="bottom: 110px; left: 0; right: 0;">
-      <!-- Skip button -->
-      <template v-if="!showConfirm">
-        <button
-          @click="showConfirm = true"
-          class="bg-transparent border-none text-content-secondary hover:text-content cursor-pointer p-0 transition-colors"
-          style="font-family: 'General Sans', system-ui, sans-serif; font-size: 12.5px; font-weight: 500; text-decoration: underline; text-underline-offset: 2px;"
-        >Continue without an account</button>
-        <span class="text-content-muted mt-1.5" style="font-size: 11px;">Requires local LLM and generation tools</span>
-      </template>
-
-      <!-- Confirm card — appears in the same spot -->
-      <div
-        v-else
-        class="w-full max-w-[380px] px-7"
-      >
-        <div class="rounded-xl p-[18px] bg-surface border border-edge">
-          <p class="mb-3.5 text-content-secondary" style="font-size: 13px; line-height: 1.6;">
-            You'll connect Stimma to <strong class="text-content font-medium">your own local LLMs</strong>. You can always create an account later.
-          </p>
-          <div class="flex gap-2">
-            <button
-              @click="showConfirm = false"
-              class="flex-1 py-2.5 rounded-lg cursor-pointer bg-transparent border border-edge text-content-secondary hover:bg-overlay-subtle transition-colors"
-              style="font-family: 'General Sans', system-ui, sans-serif; font-size: 12.5px; font-weight: 500;"
-            >← Back</button>
-            <button
-              @click="handleContinueWithoutAccount"
-              class="rounded-lg cursor-pointer bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover transition-colors"
-              style="flex: 2; padding: 10px 0; font-family: 'General Sans', system-ui, sans-serif; font-size: 12.5px; font-weight: 500;"
-            >Continue without account</button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Compliance footer — pinned to bottom, no box -->
@@ -162,6 +122,7 @@ import { useCloudAccount } from '../composables/useCloudAccount'
 import { useTheme } from '../composables/useTheme'
 import { useSettingsApi } from '../composables/useSettingsApi'
 import { useTelemetry } from '../composables/useTelemetry'
+import { useReadiness } from '../composables/useReadiness'
 
 const router = useRouter()
 const { track } = useTelemetry()
@@ -187,7 +148,6 @@ function selectTheme(theme) {
   updateTheme(theme).catch(() => {})
 }
 
-const showConfirm = ref(false)
 const loading = ref(false)
 const isOfficial = isOfficialBuild()
 
@@ -197,6 +157,8 @@ const isOfficial = isOfficialBuild()
 // after the first successful check; unreachable -> optin, re-checked next
 // launch).
 const shareAnalytics = ref(false)
+
+const { checkStartupReadiness } = useReadiness()
 
 if (isOfficial) {
   fetch(`${getApiBase()}/compliance/region`)
@@ -220,6 +182,10 @@ function markComplete() {
   if (isOfficial) {
     saveAnalyticsPref(shareAnalytics.value)
   }
+  // App.vue's startup path skips the readiness check when it redirects here,
+  // so run it now — the setup wizard shows itself right after onboarding if
+  // this install's seen version is behind SETUP_WIZARD_VERSION.
+  void checkStartupReadiness()
 }
 
 async function saveAnalyticsPref(enabled) {
@@ -234,15 +200,9 @@ async function saveAnalyticsPref(enabled) {
   }
 }
 
-async function handleCreateAccount() {
-  loading.value = true
-  try {
-    await signInWithBrowser('create')
-    markComplete()
-    router.push({ name: 'home' })
-  } catch {
-    loading.value = false
-  }
+function handleGetStarted() {
+  markComplete()
+  router.push({ name: 'home' })
 }
 
 async function handleSignIn() {
@@ -254,10 +214,5 @@ async function handleSignIn() {
   } catch {
     loading.value = false
   }
-}
-
-function handleContinueWithoutAccount() {
-  markComplete()
-  router.push({ name: 'home' })
 }
 </script>

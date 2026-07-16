@@ -1,8 +1,8 @@
 """Static contracts for branded BYO LLM integrations.
 
-Dynamic providers (OpenRouter and local servers) can discover model IDs, but
-their reasoning behavior is not inferred from names. Branded integrations use
-these checked contracts so their controls work immediately after a key is added.
+Dynamic providers (OpenRouter, Together AI, Fireworks AI, and local servers)
+discover model IDs instead of carrying a curated list. Branded integrations use
+checked contracts so their controls work immediately after a key is added.
 """
 from __future__ import annotations
 
@@ -14,10 +14,17 @@ from config import LLMProviderModelConfig, LLMReasoningConfig
 PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     "openai": {"name": "OpenAI", "base_url": "https://api.openai.com/v1"},
     "anthropic": {"name": "Anthropic", "base_url": "https://api.anthropic.com/v1"},
+    "google": {"name": "Google", "base_url": "https://generativelanguage.googleapis.com/v1beta/openai"},
     "xai": {"name": "xAI", "base_url": "https://api.x.ai/v1"},
+    "together": {"name": "Together AI", "base_url": "https://api.together.xyz/v1"},
+    "fireworks": {"name": "Fireworks AI", "base_url": "https://api.fireworks.ai/inference/v1"},
     "openrouter": {"name": "OpenRouter", "base_url": "https://openrouter.ai/api/v1"},
     "local": {"name": "Local endpoint", "base_url": "http://localhost:1234/v1"},
 }
+
+
+FIXED_MODEL_PROVIDERS = {"openai", "anthropic", "google", "xai"}
+PROFILED_MODEL_PROVIDERS = {"openrouter", "together", "fireworks", "local"}
 
 
 def _reasoning(
@@ -45,6 +52,16 @@ OPENAI_REASONING = _reasoning(
     "off",
     "openai_effort",
     {"off": "none", "low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh"},
+)
+
+
+GEMINI_REASONING = _reasoning(
+    "required",
+    ["minimal", "low", "medium", "high"],
+    "medium",
+    "minimal",
+    "openai_effort",
+    {"minimal": "minimal", "low": "low", "medium": "medium", "high": "high"},
 )
 
 
@@ -87,6 +104,24 @@ BRANDED_MODELS: dict[str, list[dict[str, Any]]] = {
             ),
         },
     ],
+    "google": [
+        {
+            "model_id": "gemini-3.5-flash", "name": "Gemini 3.5 Flash",
+            "context": 1_048_576, "reasoning": GEMINI_REASONING,
+        },
+        {
+            "model_id": "gemini-3.1-pro-preview", "name": "Gemini 3.1 Pro",
+            "context": 1_048_576,
+            "reasoning": _reasoning(
+                "required", ["low", "medium", "high"], "medium", "low",
+                "openai_effort", {"low": "low", "medium": "medium", "high": "high"},
+            ),
+        },
+        {
+            "model_id": "gemini-3.1-flash-lite", "name": "Gemini 3.1 Flash Lite",
+            "context": 1_048_576, "reasoning": GEMINI_REASONING,
+        },
+    ],
     "xai": [
         {
             "model_id": "grok-4.5", "name": "Grok 4.5", "context": 500_000,
@@ -105,7 +140,10 @@ def branded_models(kind: str, provider_id: str) -> list[LLMProviderModelConfig]:
             id=f"{provider_id}:{row['model_id']}",
             model_id=row["model_id"],
             name=row["name"],
-            model_vendor={"openai": "openai", "anthropic": "anthropic", "xai": "xai"}.get(kind),
+            model_vendor={
+                "openai": "openai", "anthropic": "anthropic",
+                "google": "gemini", "xai": "xai",
+            }.get(kind),
             max_context_tokens=row["context"],
             input_modalities=["text", "image"],
             supports_tools=True,
@@ -130,6 +168,11 @@ def discovered_model(
         ("qwen", "alibaba"), ("stepfun", "stepfun"), ("step-", "stepfun"),
         ("z-ai", "zai"), ("zhipu", "zai"), ("glm", "zai"),
         ("google/", "google"), ("gemma", "google"),
+        ("gemini", "gemini"),
+        ("deepseek", "deepseek"),
+        ("nvidia", "nvidia"), ("nemotron", "nvidia"),
+        ("meta-llama", "meta"), ("llama", "meta"),
+        ("mistral", "mistral"), ("mixtral", "mistral"),
     ) if needle in normalized_id), None)
     return LLMProviderModelConfig(
         id=f"{provider_id}:{model_id}",

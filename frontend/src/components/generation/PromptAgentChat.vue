@@ -2,7 +2,7 @@
   <div class="relative">
     <!-- Conversation panel (agent) — shows the real exchange + tool calls -->
     <div v-if="showDebug && agent" class="mb-3 bg-surface-overlay border border-surface-raised rounded-lg overflow-hidden">
-      <div class="max-h-80 overflow-y-auto p-3 space-y-2">
+      <div class="max-h-80 overflow-y-auto p-3 space-y-2 select-text">
         <div v-if="agentDebugEntries.length === 0 && debugHistory.length === 0" class="text-xs text-content-muted italic py-4 text-center">
           Send a message to see the conversation
         </div>
@@ -93,7 +93,7 @@
 
     <!-- Debug Panel (standalone, prompt-only) - shows actual requests/responses -->
     <div v-else-if="showDebug" class="mb-3 bg-surface-overlay border border-surface-raised rounded-lg overflow-hidden">
-      <div class="max-h-80 overflow-y-auto p-3 space-y-3">
+      <div class="max-h-80 overflow-y-auto p-3 space-y-3 select-text">
         <div v-if="debugHistory.length === 0" class="text-xs text-content-muted italic py-4 text-center">
           Start enhancing to see requests/responses
         </div>
@@ -188,7 +188,7 @@
             :disabled="cloudConnecting"
             class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium stimma-cloud-text border border-current/20 hover:border-current/40 transition-colors"
           >
-            {{ cloudConnecting ? 'Connecting…' : 'Add Balance' }}
+            {{ cloudConnecting ? 'Opening…' : isAuthenticated ? 'Add credits' : 'Configure Chat Models' }}
           </button>
           <!-- Dev mode: copy the failed step's full LLM trace for a bug report -->
           <button
@@ -314,7 +314,7 @@
         :disabled="cloudConnecting"
         class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium stimma-cloud-text border border-current/20 hover:border-current/40 transition-colors"
       >
-        {{ cloudConnecting ? 'Connecting…' : 'Add Balance' }}
+        {{ cloudConnecting ? 'Opening…' : isAuthenticated ? 'Add credits' : 'Configure Chat Models' }}
       </button>
     </div>
 
@@ -496,8 +496,10 @@ import SkillsMenuButton from '../chat/SkillsMenuButton.vue'
 import AgentUnavailableInput from '../chat/AgentUnavailableInput.vue'
 import { devModeRef } from '../../appConfig'
 import PromptAgentThumbButtons from '@stimma/prompt-agent-thumb-buttons'
-import { signInWithBrowser } from '../../composables/useAuth'
+import { useAuth } from '../../composables/useAuth'
+import { useCloudAccount } from '../../composables/useCloudAccount'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
+import { isTauri } from '../../apiConfig'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -557,6 +559,8 @@ const instructionsText = computed({
 // Collapsed by default — an occasional field.
 const showSettings = ref(false)
 const { agentModelUnavailable, checkAgentModels } = useAgentModelAvailability()
+const { isAuthenticated } = useAuth()
+const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
 void checkAgentModels()
 
 // Injected page-wide mini-agent. Present → full-agent mode (drives the whole
@@ -702,12 +706,26 @@ const errorCode = ref<string | null>(null)
 const showDebug = ref(false)
 
 const cloudConnecting = ref(false)
+async function openCloudUrl(url: string) {
+  if (isTauri()) {
+    const { open } = await import('@tauri-apps/plugin-shell')
+    await open(url)
+  } else {
+    window.open(url, '_blank')
+  }
+}
+
 async function connectStimmaCloud() {
+  if (!isAuthenticated.value) {
+    window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' }))
+    return
+  }
   cloudConnecting.value = true
   try {
-    await signInWithBrowser()
+    await ensureCloudBaseUrl()
+    await openCloudUrl(`${cloudBaseUrl.value}/link/addcredits`)
   } catch (err: any) {
-    console.error('Failed to connect Stimma Cloud:', err)
+    console.error('Failed to open Stimma account action:', err)
   } finally {
     cloudConnecting.value = false
   }

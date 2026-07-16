@@ -213,7 +213,7 @@
         <template v-else-if="focusEquation?.equation_type === 'info'">
           <div v-if="infoMarkdown" class="rounded-md border border-edge-subtle bg-overlay-faint px-3 py-2">
             <div
-              class="info-prose text-[12.5px] leading-relaxed text-content break-words"
+              class="info-prose text-[12.5px] leading-relaxed text-content break-words select-text"
               v-html="infoMarkdown"
             />
           </div>
@@ -375,7 +375,7 @@
             <span class="flex-1" />
             <span class="text-content-muted truncate">{{ focusEquation?.equation_key || '' }}</span>
           </div>
-          <pre class="px-2.5 py-2 whitespace-pre-wrap break-words">{{ rawErrorText }}</pre>
+          <pre class="px-2.5 py-2 whitespace-pre-wrap break-words select-text">{{ rawErrorText }}</pre>
         </div>
       </div>
 

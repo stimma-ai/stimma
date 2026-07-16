@@ -1,39 +1,41 @@
 <template>
   <div>
-    <h3 class="text-base font-medium text-content mb-4">Agent</h3>
-    <p class="text-sm text-content-tertiary mb-6">
-      Configure default agent behavior for all chats in this profile. Per-chat settings can override these defaults.
-    </p>
+    <div class="mb-3">
+      <h3 class="text-base font-medium text-content">Agent</h3>
+      <p class="mt-1 max-w-xl text-xs text-content-tertiary">
+        Configure default agent behavior for all chats in this profile. Per-chat settings can override these defaults.
+      </p>
+    </div>
 
     <!-- Loading state -->
     <div v-if="loading" class="flex items-center justify-center py-12">
       <div class="w-6 h-6 border-2 border-edge border-t-content-secondary rounded-full animate-spin"></div>
     </div>
 
-    <template v-else>
+    <div v-else class="mt-8 space-y-9">
       <!-- Default Instructions -->
-      <div class="mb-6">
-        <h4 class="text-sm font-medium text-content-secondary mb-3">Default Instructions</h4>
+      <div>
+        <h4 class="text-sm font-medium text-content">Default Instructions</h4>
         <textarea
           v-model="localInstructions"
           placeholder="Give the agent default instructions..."
           rows="6"
-          class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 resize-none"
+          class="mt-3 w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 resize-none"
           @blur="saveInstructions"
         />
       </div>
 
       <!-- Memory -->
-      <div class="mb-6">
-        <h4 class="text-sm font-medium text-content-secondary mb-1">Memory</h4>
-        <p class="text-xs text-content-tertiary mb-3">
+      <div>
+        <h4 class="text-sm font-medium text-content">Memory</h4>
+        <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">
           Persistent context the agent remembers across all chats. The agent can also update this.
         </p>
         <textarea
           v-model="localMemory"
           placeholder="No memories yet..."
           rows="6"
-          class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 resize-none"
+          class="mt-3 w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 resize-none"
           @blur="saveMemory"
         />
       </div>
@@ -43,26 +45,24 @@
         Loading tools...
       </div>
 
-      <template v-else>
-        <!-- Tool Permissions -->
-        <div class="mb-6">
-          <h4 class="text-sm font-medium text-content-secondary mb-1">Tool Permissions</h4>
-          <p class="text-xs text-content-tertiary mb-3">The agent asks the first time it uses a tool. Tools you allow or block appear here.</p>
-          <div v-if="configuredTools.length > 0" class="bg-surface-raised border border-edge rounded-lg overflow-hidden">
-            <ToolConfigRow
-              v-for="(tool, idx) in configuredTools"
-              :key="tool.full_tool_id"
-              :tool="tool"
-              :config="localToolConfig"
-              :show-neutral="false"
-              :show-border="idx < configuredTools.length - 1"
-              @update:config="handleToolConfigUpdate"
-              @remove="handleRemoveTool(tool.full_tool_id)"
-            />
-          </div>
+      <!-- Tool Permissions -->
+      <div v-else>
+        <h4 class="text-sm font-medium text-content">Tool Permissions</h4>
+        <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">The agent asks the first time it uses a tool. Tools you allow or block appear here.</p>
+        <div v-if="configuredTools.length > 0" class="mt-3">
+          <ToolConfigRow
+            v-for="tool in configuredTools"
+            :key="tool.full_tool_id"
+            :tool="tool"
+            :config="localToolConfig"
+            :show-neutral="false"
+            :show-border="false"
+            @update:config="handleToolConfigUpdate"
+            @remove="handleRemoveTool(tool.full_tool_id)"
+          />
         </div>
-      </template>
-    </template>
+      </div>
+    </div>
   </div>
 </template>
 

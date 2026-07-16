@@ -130,7 +130,7 @@
           <span class="flex-1" />
           <span class="text-content-muted truncate">{{ task.equation_key }}</span>
         </div>
-        <pre class="px-2.5 py-2 whitespace-pre-wrap break-words" :class="devErrorClass">{{ task.error }}</pre>
+        <pre class="px-2.5 py-2 whitespace-pre-wrap break-words select-text" :class="devErrorClass">{{ task.error }}</pre>
       </div>
     </div>
   </div>

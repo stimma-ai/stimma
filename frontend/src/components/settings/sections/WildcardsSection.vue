@@ -1,19 +1,20 @@
 <template>
   <div>
     <!-- Wildcards -->
-    <h3 class="text-base font-medium text-content mb-1">Wildcards</h3>
-    <p class="text-xs text-content-muted mb-4">
-      Each time you generate, a random value from the list is picked — great for adding variety across batches.
-    </p>
+    <div class="mb-3">
+      <h3 class="text-base font-medium text-content">Wildcards</h3>
+      <p class="mt-1 max-w-xl text-xs text-content-tertiary">
+        Each time you generate, a random value from the list is picked — great for adding variety across batches.
+      </p>
+    </div>
 
-    <div class="space-y-3">
+    <div class="space-y-1">
       <div
         v-for="(wildcard, wIndex) in localWildcards"
         :key="wildcard._id"
-        class="border border-edge rounded-lg overflow-hidden"
+        class="group px-1 py-3 hover:bg-white/[0.015]"
       >
-        <!-- Card header -->
-        <div class="flex items-center justify-between px-3 py-2 bg-surface-raised/50">
+        <div class="flex items-center justify-between gap-3">
           <!-- Editable name (double-click to edit) -->
           <div v-if="editingNameIndex === wIndex && editingNameType === 'wildcard'" class="flex items-center gap-2 flex-1">
             <input
@@ -39,17 +40,17 @@
           <!-- Delete button -->
           <button
             @click="confirmDeleteWildcard(wIndex)"
-            class="p-1 text-content-muted hover:text-red-500 transition-colors"
+            class="p-1 text-content-muted opacity-0 transition-all hover:text-red-500 focus:opacity-100 group-hover:opacity-100"
             title="Delete wildcard"
           >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd" />
             </svg>
           </button>
         </div>
 
         <!-- Tag input area -->
-        <div class="px-3 py-2.5 flex flex-wrap gap-1.5 items-center">
+        <div class="mt-2 flex flex-wrap gap-1.5 items-center">
           <span
             v-for="(value, vIndex) in wildcard.values"
             :key="vIndex"
@@ -79,33 +80,37 @@
           />
         </div>
       </div>
+
+      <!-- Add wildcard row -->
+      <button
+        type="button"
+        @click="addWildcard"
+        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-blue-500/[0.04]"
+      >
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-medium text-blue-400">Add Wildcard</div>
+        </div>
+      </button>
     </div>
 
-    <!-- Add wildcard button -->
-    <button
-      @click="addWildcard"
-      class="mt-3 flex items-center gap-1 text-xs text-content-muted hover:text-content-secondary transition-colors"
-    >
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-      </svg>
-      Add Wildcard
-    </button>
-
     <!-- Segments -->
-    <h3 class="text-base font-medium text-content mt-10 mb-1">Segments</h3>
-    <p class="text-xs text-content-muted mb-4">
-      Fixed text blocks that expand in place. Content can include <code class="text-xs">[verbatim]</code>, <code class="text-xs"># comments</code>, and <code class="text-xs">{a|b|c}</code> wildcards.
-    </p>
+    <div class="mt-12 mb-3">
+      <h3 class="text-base font-medium text-content">Segments</h3>
+      <p class="mt-1 max-w-xl text-xs text-content-tertiary">
+        Fixed text blocks that expand in place. Content can include <code class="text-xs">[verbatim]</code>, <code class="text-xs"># comments</code>, and <code class="text-xs">{a|b|c}</code> wildcards.
+      </p>
+    </div>
 
-    <div class="space-y-3">
+    <div class="space-y-1">
       <div
         v-for="(segment, sIndex) in localSegments"
         :key="segment._id"
-        class="border border-edge rounded-lg overflow-hidden"
+        class="group px-1 py-3 hover:bg-white/[0.015]"
       >
-        <!-- Card header -->
-        <div class="flex items-center justify-between px-3 py-2 bg-surface-raised/50">
+        <div class="flex items-center justify-between gap-3">
           <div v-if="editingNameIndex === sIndex && editingNameType === 'segment'" class="flex items-center gap-2 flex-1">
             <input
               ref="nameInputRefs"
@@ -130,35 +135,38 @@
           <!-- Delete button -->
           <button
             @click="confirmDeleteSegment(sIndex)"
-            class="p-1 text-content-muted hover:text-red-500 transition-colors"
+            class="p-1 text-content-muted opacity-0 transition-all hover:text-red-500 focus:opacity-100 group-hover:opacity-100"
             title="Delete segment"
           >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd" />
             </svg>
           </button>
         </div>
 
         <!-- CodeMirror editor for segment content -->
-        <div class="px-3 py-2.5">
+        <div class="mt-2">
           <SegmentEditor
             :model-value="segment.content"
             @update:model-value="(val) => { segment.content = val; emitSegmentsUpdate() }"
           />
         </div>
       </div>
-    </div>
 
-    <!-- Add segment button -->
-    <button
-      @click="addSegment"
-      class="mt-3 flex items-center gap-1 text-xs text-content-muted hover:text-content-secondary transition-colors"
-    >
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-      </svg>
-      Add Segment
-    </button>
+      <!-- Add segment row -->
+      <button
+        type="button"
+        @click="addSegment"
+        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-blue-500/[0.04]"
+      >
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-medium text-blue-400">Add Segment</div>
+        </div>
+      </button>
+    </div>
 
     <!-- Delete confirmation -->
     <ConfirmModal

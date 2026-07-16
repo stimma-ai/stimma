@@ -24,7 +24,7 @@
     </div>
 
     <!-- Body (collapsible) -->
-    <div v-show="expanded" class="px-3.5 py-3 space-y-3">
+    <div v-show="expanded" class="px-3.5 py-3 space-y-3 select-text">
       <!-- Tasks -->
       <div v-if="tasks.length">
         <div class="text-[11px] uppercase tracking-wide text-content-muted mb-1.5">Tasks</div>

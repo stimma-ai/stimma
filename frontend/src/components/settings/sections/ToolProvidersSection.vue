@@ -1,426 +1,471 @@
 <template>
   <div>
-    <div class="flex items-center gap-3 mb-4">
-      <h3 class="text-base font-medium text-content">Tool Providers</h3>
-      <div class="flex items-center gap-1.5 text-xs text-blue-500 bg-blue-500/10 border border-blue-500/30 rounded-full px-2.5 py-1">
-        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
-        </svg>
-        <span>Applies to all profiles</span>
-      </div>
+    <template v-if="!showModal && !selectedProvider">
+    <div v-if="!wizard" class="mb-4 flex items-center gap-3">
+      <h3 class="text-base font-medium text-content">Generation Tools</h3>
     </div>
-    <p class="text-sm text-content-tertiary mb-6">
-      Connect tool providers to expand Stimma's capabilities. Providers can be local processes
-      or remote services that implement the Stimma Tools Protocol.
+
+    <p v-if="!wizard" class="mb-6 max-w-2xl text-sm leading-6 text-content-tertiary">
+      Generation tools create and edit images, video, and audio.
     </p>
 
-    <!-- Stimma's cloud tools Section -->
-    <div class="mb-6">
-      <h4 class="text-sm font-medium text-content-secondary mb-3">Stimma's cloud tools</h4>
-      <div class="rounded-lg bg-surface/50 border border-edge overflow-hidden">
-        <!-- Not logged in state -->
-        <div v-if="!isAuthenticated" class="px-4 py-3">
-          <div class="flex items-center gap-3">
-            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-teal-600 via-cyan-500 to-indigo-500 flex items-center justify-center">
-              <svg class="w-5 h-5 text-content" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
-              </svg>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm text-content-secondary">Stimma's cloud tools</p>
-              <p class="text-xs text-content-muted mt-0.5">The newest closed image and video models, plus a hosted agent. Works alongside the providers below.</p>
-            </div>
-            <button
-              @click="handleCloudConnect"
-              :disabled="isCloudConnecting"
-              class="flex-shrink-0 px-3.5 py-1.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded-lg text-xs font-medium transition-all disabled:opacity-60"
-            >
-              {{ isCloudConnecting ? 'Connecting...' : 'Sign in to Stimma' }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Logged in state -->
-        <template v-else>
-          <!-- Card Header -->
-          <div class="flex items-center gap-3 px-4 py-3">
-            <!-- Status dot -->
-            <div
-              class="w-2.5 h-2.5 rounded-full flex-shrink-0"
-              :class="{
-                'bg-green-500': cloudProvider?.status === 'connected',
-                'bg-yellow-400': cloudProvider?.status === 'connecting',
-                'bg-red-500': cloudProvider?.status === 'error',
-                'bg-zinc-500': !cloudProvider || cloudProvider?.status === 'disconnected'
-              }"
-              :title="cloudProvider?.status || 'disconnected'"
-            ></div>
-
-            <!-- Title and subtitle -->
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
-                <h4 class="text-sm font-medium" :class="cloudProvider?.enabled !== false ? 'text-content' : 'text-content-muted'">Stimma's cloud tools</h4>
-                <span v-if="cloudProvider?.enabled === false" class="text-xs text-content-muted">(Disabled)</span>
-                <!-- Connecting indicator -->
-                <span
-                  v-if="cloudProvider?.status === 'connecting' && cloudProvider?.enabled !== false"
-                  class="text-xs text-content-muted"
-                >
-                  Connecting...
-                </span>
-              </div>
-              <p class="text-xs text-content-tertiary">{{ user?.email }}</p>
-            </div>
-
-            <!-- 3-dots menu -->
-            <button
-              ref="cloudMenuButtonRef"
-              @click="toggleCloudMenu"
-              class="p-1.5 text-content-tertiary hover:text-content hover:bg-surface-hover rounded transition-colors"
-              title="More options"
-            >
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
-              </svg>
-            </button>
-          </div>
-
-          <!-- Error message -->
-          <div
-            v-if="cloudProvider?.error_message && cloudProvider?.status === 'error'"
-            class="px-4 py-2 bg-red-500/10 border-t border-red-500/20"
-          >
-            <div class="flex items-start gap-2 ml-[22px]">
-              <svg class="w-4 h-4 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-              </svg>
-              <p class="text-xs text-red-500">{{ cloudProvider?.error_message }}</p>
-            </div>
-          </div>
-
-          <!-- Card Body - Balance -->
-          <div class="px-4 pb-4 pt-2 border-t border-edge/50">
-            <div class="ml-[22px]">
-              <div class="flex items-center gap-2 text-sm">
-                <span class="text-content-tertiary">Balance:</span>
-                <span class="text-content font-medium">{{ formatBalance(cloudUser?.credits) || '$0.00' }}</span>
-                <a
-                  :href="cloudBaseUrl + '/link/addcredits'"
-                  target="_blank"
-                  class="text-xs text-blue-500 hover:text-blue-500 hover:underline ml-2"
-                >
-                  Add balance
-                </a>
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
+    <div
+      v-if="setupRequired && !wizard"
+      class="mb-6 flex w-full items-center gap-3 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3"
+    >
+      <span class="h-2 w-2 shrink-0 rounded-full bg-yellow-400"></span>
+      <p class="text-sm text-content-secondary">Connect generation tools to generate media.</p>
     </div>
 
-    <!-- Other Providers Section -->
-    <h4 class="text-sm font-medium text-content-secondary mb-3">Tool Providers</h4>
-
-    <!-- Provider list -->
-    <div class="space-y-4">
-      <div
-        v-for="provider in otherProviders"
-        :key="provider.id"
-        class="bg-surface-raised/50 rounded-lg overflow-hidden"
-      >
-        <!-- Card Header -->
-        <div class="flex items-center gap-3 px-4 py-3">
-          <!-- Status dot -->
-          <div
-            class="w-2.5 h-2.5 rounded-full flex-shrink-0"
-            :class="{
-              'bg-green-500': provider.status === 'connected',
-              'bg-yellow-400': provider.status === 'connecting' || provider.status === 'disconnected',
-              'bg-red-500': provider.status === 'error',
-              'bg-zinc-500': provider.status === 'unknown'
-            }"
-            :title="provider.status"
-          ></div>
-
-          <!-- Title and subtitle -->
-          <div class="min-w-0 flex-1">
-            <!-- Editable name (for non-builtin providers) -->
-            <div v-if="editingNameProvider === provider.id" class="flex items-center gap-2">
-              <input
-                ref="nameInputRef"
-                :value="getEditValue(provider.id, 'name') ?? provider.name"
-                @input="setEditValue(provider.id, 'name', $event.target.value)"
-                @blur="finishEditingName(provider.id)"
-                @keydown.enter="finishEditingName(provider.id)"
-                @keydown.escape="cancelEditingName()"
-                type="text"
-                class="flex-1 min-w-0 bg-surface-raised border border-edge rounded px-2 py-0.5 text-sm font-medium text-content focus:outline-none focus:border-blue-500"
-              />
-            </div>
-            <div v-else class="flex items-center gap-1.5 group">
-              <h4 class="text-sm font-medium" :class="provider.enabled ? 'text-content' : 'text-content-muted'">{{ provider.name }}</h4>
-              <span v-if="!provider.enabled" class="text-xs text-content-muted">(Disabled)</span>
-              <!-- Pencil icon for non-builtin providers -->
-              <button
-                v-if="provider.type !== 'builtin'"
-                @click="startEditingName(provider)"
-                class="p-0.5 text-content-muted hover:text-content-secondary opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Rename"
-              >
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                </svg>
-              </button>
-            </div>
-            <p class="text-xs text-content-tertiary">{{ getProviderTypeLabel(provider.type) }}<span v-if="provider.tool_count != null"> · {{ provider.tool_count }} tool{{ provider.tool_count !== 1 ? 's' : '' }}</span></p>
-          </div>
-
-          <!-- 3-dots menu -->
-          <button
-            :ref="el => setMenuButtonRef(provider.id, el)"
-            @click="toggleProviderMenu(provider.id)"
-            class="p-1.5 text-content-tertiary hover:text-content hover:bg-surface-hover rounded transition-colors"
-            title="More options"
-          >
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Error message (shown when status is error or disconnected with an error) -->
-        <div
-          v-if="provider.error_message && (provider.status === 'error' || provider.status === 'disconnected')"
-          class="px-4 py-2 bg-red-500/10 border-t border-red-500/20"
-        >
-          <div class="flex items-start gap-2 ml-[22px]">
-            <svg class="w-4 h-4 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-            </svg>
-            <p class="text-xs text-red-500">{{ provider.error_message }}</p>
-          </div>
-        </div>
-
-        <!-- Card Body (always visible) -->
-        <div class="px-4 pb-4 pt-2 border-t border-edge/50">
-          <!-- Indent to align with title (status dot w-2.5 + gap-3 = 22px) -->
-          <div class="ml-[22px] space-y-3">
-            <!-- Gemini: API Key -->
-            <template v-if="provider.type === 'builtin' && provider.id === 'gemini'">
-              <div class="flex items-start gap-3">
-                <label class="text-xs text-content-tertiary w-20 pt-1.5 shrink-0">API Key</label>
-                <div class="flex-1 min-w-0">
-                  <input
-                    :value="getEditValue(provider.id, 'api_key') ?? provider.api_key ?? '${GEMINI_API_KEY}'"
-                    @input="setEditValue(provider.id, 'api_key', $event.target.value)"
-                    @blur="saveInlineEdit(provider.id, 'api_key')"
-                    type="text"
-                    placeholder="${GEMINI_API_KEY}"
-                    class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 font-mono"
-                  />
-                  <p class="text-xs text-content-muted mt-1">Use ${GEMINI_API_KEY} to read from environment variable</p>
-                </div>
-              </div>
-            </template>
-
-            <!-- Stdio: Command + Args -->
-            <template v-if="provider.type === 'stdio'">
-              <div class="flex items-start gap-3">
-                <label class="text-xs text-content-tertiary w-20 pt-1.5 shrink-0">Command</label>
-                <input
-                  :value="getEditValue(provider.id, 'command') ?? provider.command ?? ''"
-                  @input="setEditValue(provider.id, 'command', $event.target.value)"
-                  @blur="saveInlineEdit(provider.id, 'command')"
-                  type="text"
-                  placeholder="/path/to/tool"
-                  class="flex-1 min-w-0 bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 font-mono"
-                />
-              </div>
-              <div class="flex items-start gap-3">
-                <label class="text-xs text-content-tertiary w-20 pt-1.5 shrink-0">Arguments</label>
-                <input
-                  :value="getEditValue(provider.id, 'args') ?? serializeArgs(provider.args) ?? ''"
-                  @input="setEditValue(provider.id, 'args', $event.target.value)"
-                  @blur="saveInlineEdit(provider.id, 'args')"
-                  type="text"
-                  placeholder="--port 8080 --config &quot;my config.json&quot;"
-                  class="flex-1 min-w-0 bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 font-mono"
-                />
-              </div>
-              <div class="flex items-start gap-3">
-                <label class="text-xs text-content-tertiary w-20 pt-1.5 shrink-0">Working Dir</label>
-                <input
-                  :value="getEditValue(provider.id, 'working_dir') ?? provider.working_dir ?? ''"
-                  @input="setEditValue(provider.id, 'working_dir', $event.target.value)"
-                  @blur="saveInlineEdit(provider.id, 'working_dir')"
-                  type="text"
-                  placeholder="/path/to/working/directory (optional)"
-                  class="flex-1 min-w-0 bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 font-mono"
-                />
-              </div>
-            </template>
-
-            <!-- WebSocket: URL + Token -->
-            <template v-if="provider.type === 'websocket'">
-              <div class="flex items-start gap-3">
-                <label class="text-xs text-content-tertiary w-20 pt-1.5 shrink-0">URL</label>
-                <input
-                  :value="getEditValue(provider.id, 'url') ?? provider.url ?? ''"
-                  @input="setEditValue(provider.id, 'url', $event.target.value)"
-                  @blur="saveInlineEdit(provider.id, 'url')"
-                  type="text"
-                  placeholder="ws://localhost:8080"
-                  class="flex-1 min-w-0 bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 font-mono"
-                />
-              </div>
-              <div class="flex items-start gap-3">
-                <label class="text-xs text-content-tertiary w-20 pt-1.5 shrink-0">Token</label>
-                <div class="flex-1 min-w-0">
-                  <input
-                    :value="getEditValue(provider.id, 'auth_token') ?? provider.auth_token ?? ''"
-                    @input="setEditValue(provider.id, 'auth_token', $event.target.value)"
-                    @blur="saveInlineEdit(provider.id, 'auth_token')"
-                    type="text"
-                    placeholder="Bearer token (optional)"
-                    class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 font-mono"
-                  />
-                  <p class="text-xs text-content-muted mt-1">Sent as Authorization: Bearer &lt;token&gt;</p>
-                </div>
-              </div>
-            </template>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Empty state -->
-    <div v-if="providers.length === 0" class="text-center py-8 text-content-tertiary">
-      No tool providers configured
-    </div>
-
-    <!-- Add tool button -->
-    <div class="mt-4">
+    <div class="space-y-0.5">
       <button
-        @click="openAddModal"
-        class="flex items-center gap-2 px-4 py-2 bg-surface-raised hover:bg-surface-hover text-content rounded-lg font-medium transition-colors"
+        type="button"
+        class="group flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-white/[0.025]"
+        @click="isAuthenticated ? openProviderDetails('stimma-cloud') : handleCloudConnect()"
       >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        <ToolProviderBrandIcon kind="stimma" />
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-medium text-content">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</div>
+          <div class="mt-0.5 truncate text-xs text-content-tertiary">
+            {{ stimmaProviderDescription }}
+          </div>
+        </div>
+        <template v-if="isAuthenticated">
+          <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 text-right text-xs" :class="cloudRowStatusClass">
+            <ArrowPathIcon v-if="isProviderConnecting(cloudProvider)" class="h-3.5 w-3.5 animate-spin" />
+            <ExclamationCircleIcon v-else-if="isProviderConnectionError(cloudProvider)" class="h-4 w-4" />
+            {{ cloudRowStatusLabel }}
+          </div>
+          <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+          </svg>
+        </template>
+        <template v-else>
+          <div class="min-w-20 shrink-0 text-right text-xs">
+            <span class="relative inline-block">
+              <span class="invisible" aria-hidden="true">Configure</span>
+              <span class="absolute left-0 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-3.5 py-1.5 text-xs font-medium text-white transition-all group-hover:from-teal-500 group-hover:via-cyan-400 group-hover:to-indigo-400" :class="{ 'opacity-60': isCloudConnecting }">
+                {{ isCloudConnecting ? 'Connecting…' : 'Sign in' }}
+              </span>
+            </span>
+          </div>
+          <span class="h-4 w-4 shrink-0" aria-hidden="true"></span>
+        </template>
+      </button>
+
+      <button
+        v-if="comfyProviders.length === 0"
+        type="button"
+        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-white/[0.025]"
+        @click="openComfySetup"
+      >
+        <ToolProviderBrandIcon kind="comfyui" />
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-medium text-content">ComfyUI</div>
+          <div class="mt-0.5 truncate text-xs text-content-tertiary">Run generation workflows locally.</div>
+        </div>
+        <div class="min-w-20 shrink-0 text-right text-xs text-blue-400">Configure</div>
+        <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
         </svg>
-        Add Provider
+      </button>
+
+      <button
+        v-for="provider in comfyProviders"
+        :key="provider.id"
+        type="button"
+        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-white/[0.025]"
+        @click="openProviderDetails(provider.id)"
+      >
+        <ToolProviderBrandIcon :provider="provider" />
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-sm font-medium" :class="provider.enabled === false ? 'text-content-muted' : 'text-content'">{{ provider.name }}</div>
+          <div class="mt-0.5 truncate text-xs text-content-tertiary">ComfyUI · {{ provider.url || getProviderTypeLabel(provider.type) }}</div>
+        </div>
+        <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-right text-xs" :class="providerRowStatusClass(provider)">
+          <ArrowPathIcon v-if="isProviderConnecting(provider)" class="h-3.5 w-3.5 animate-spin" />
+          <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
+          {{ providerStatusLabel(provider) }}
+        </div>
+        <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+        </svg>
+      </button>
+
+      <button
+        v-for="provider in customProviders"
+        :key="provider.id"
+        type="button"
+        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-white/[0.025]"
+        @click="openProviderDetails(provider.id)"
+      >
+        <ToolProviderBrandIcon :provider="provider" />
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-sm font-medium" :class="provider.enabled === false ? 'text-content-muted' : 'text-content'">{{ provider.name }}</div>
+          <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ getProviderTypeLabel(provider.type) }}</div>
+        </div>
+        <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-right text-xs" :class="providerRowStatusClass(provider)">
+          <ArrowPathIcon v-if="isProviderConnecting(provider)" class="h-3.5 w-3.5 animate-spin" />
+          <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
+          {{ providerStatusLabel(provider) }}
+        </div>
+        <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-blue-500/[0.04]"
+        @click="openAddModal"
+      >
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center text-blue-400">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+            <path stroke-linecap="round" d="M12 5v14M5 12h14" />
+          </svg>
+        </span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-medium text-blue-400">Add STP Provider</span>
+          <span class="mt-0.5 block truncate text-xs text-content-tertiary">
+            Connect any server that speaks the
+            <a :href="stpDocsUrl" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-400" @click.stop.prevent="openStpDocs">Stimma Tools Protocol ↗</a>.
+          </span>
+        </span>
       </button>
     </div>
+    </template>
 
-    <!-- Add modal -->
-    <Teleport to="body">
-      <div
-        v-if="showModal"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="closeModal"
-        @keydown.escape.stop="closeModal"
-        tabindex="-1"
-        ref="addModalRef"
-      >
-        <div class="bg-surface border border-edge rounded-lg p-6 w-[480px] max-w-[90vw]">
-          <h3 class="text-lg font-medium text-content mb-4">Add Tool Provider</h3>
+    <section v-else-if="selectedProvider && detailView === 'tools'" class="max-w-3xl">
+      <div class="mb-7 flex items-center gap-4">
+        <button type="button" class="flex h-9 w-9 shrink-0 items-center justify-center text-content-tertiary hover:text-content" title="Back to provider" @click="closeProviderSubpage">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <ToolProviderBrandIcon :provider="selectedProvider" />
+        <div class="min-w-0 flex-1">
+          <h3 class="text-base font-medium text-content">Tools</h3>
+          <p class="truncate text-xs text-content-tertiary">{{ selectedProvider.name }}</p>
+        </div>
+        <span class="text-xs text-content-muted">{{ toolsModal.tools.length }} tool{{ toolsModal.tools.length === 1 ? '' : 's' }}</span>
+      </div>
 
-          <!-- Tool type selection -->
-          <div class="mb-4">
-            <label class="block text-xs text-content-tertiary mb-2">Provider Type</label>
-            <div class="flex gap-4">
-              <label class="flex items-center gap-2 text-sm text-content-secondary cursor-pointer">
-                <input
-                  type="radio"
-                  v-model="formData.type"
-                  value="websocket"
-                  class="text-blue-500 focus:ring-blue-500"
-                />
-                WebSocket connection
-              </label>
-              <label class="flex items-center gap-2 text-sm text-content-secondary cursor-pointer">
-                <input
-                  type="radio"
-                  v-model="formData.type"
-                  value="stdio"
-                  class="text-blue-500 focus:ring-blue-500"
-                />
-                Local Process
-              </label>
+      <input v-model="toolsFilter" type="search" placeholder="Search tools" class="mb-5 w-full border border-edge bg-surface-raised px-3 py-2.5 text-sm text-content placeholder:text-content-muted focus:border-blue-500 focus:outline-none" />
+
+      <div v-if="toolsModal.loading" class="py-10 text-center text-sm text-content-tertiary">Loading tools…</div>
+      <div v-else-if="filteredTools.length === 0" class="py-10 text-center text-sm text-content-tertiary">
+        {{ toolsFilter ? 'No tools match your search.' : 'No tools available.' }}
+      </div>
+      <div v-else>
+        <div v-for="tool in filteredTools" :key="tool.full_tool_id" class="flex items-start gap-4 py-3.5">
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-medium text-content">{{ tool.name }}</div>
+            <p v-if="tool.metadata?.description" class="mt-0.5 line-clamp-2 text-xs leading-5 text-content-tertiary">{{ tool.metadata.description }}</p>
+            <div v-if="tool.task_types?.length || tool.task_type" class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-content-muted">
+              <span v-for="taskType in (tool.task_types?.length ? tool.task_types : [tool.task_type])" :key="taskType">{{ formatTaskTypeLabel(taskType) }}</span>
             </div>
           </div>
+          <button v-if="devModeRef" type="button" class="shrink-0 p-1.5 text-content-muted hover:text-content" :title="copiedToolId === tool.full_tool_id ? 'Copied' : 'Copy raw JSON'" @click="copyToolJson(tool.full_tool_id)">
+            <svg v-if="copiedToolId === tool.full_tool_id" class="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" /></svg>
+            <svg v-else class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2m-6 12h8a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z" /></svg>
+          </button>
+        </div>
+      </div>
+    </section>
 
-          <!-- Name field -->
-          <div class="mb-4">
-            <label class="block text-xs text-content-tertiary mb-1">Name</label>
+    <section v-else-if="selectedProvider && detailView === 'logs'" class="max-w-3xl">
+      <div class="mb-7 flex items-center gap-4">
+        <button type="button" class="flex h-9 w-9 shrink-0 items-center justify-center text-content-tertiary hover:text-content" title="Back to provider" @click="closeProviderSubpage">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <ToolProviderBrandIcon :provider="selectedProvider" />
+        <div class="min-w-0 flex-1">
+          <h3 class="text-base font-medium text-content">Logs</h3>
+          <p class="truncate text-xs text-content-tertiary">{{ selectedProvider.name }}</p>
+        </div>
+        <button type="button" :disabled="logsModal.loading" class="text-sm text-blue-500 hover:text-blue-400 disabled:opacity-50" @click="refreshLogs">Refresh</button>
+        <button type="button" class="text-sm text-content-tertiary hover:text-content" @click="clearLogsDisplay">Clear</button>
+      </div>
+
+      <div ref="logsContentRef" class="max-h-[60vh] min-h-72 overflow-auto bg-black/20 p-4">
+        <div v-if="logsModal.loading && logsModal.lines.length === 0" class="py-10 text-center text-sm text-content-tertiary">Loading logs…</div>
+        <div v-else-if="logsModal.lines.length === 0" class="py-10 text-center text-sm text-content-tertiary">No logs available.</div>
+        <pre v-else class="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-content-secondary select-text">{{ logsModal.lines.join('\n') }}</pre>
+      </div>
+    </section>
+
+    <section v-else-if="selectedProvider">
+      <div class="mb-7 flex max-w-2xl items-center gap-4">
+        <button
+          type="button"
+          class="flex h-9 w-9 shrink-0 items-center justify-center text-content-tertiary hover:text-content"
+          title="Back to Generation Tools"
+          @click="closeProviderDetails"
+        >
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
+        <ToolProviderBrandIcon :provider="selectedProvider" />
+        <div class="min-w-0 flex-1">
+          <h3 class="truncate text-base font-medium text-content">{{ selectedProvider.name }}</h3>
+          <p class="truncate text-xs text-content-tertiary">
+            {{ selectedProvider.id === 'stimma-cloud'
+              ? 'Hosted generation tools'
+              : isComfyUIProvider(selectedProvider)
+                ? 'Local generation tools'
+                : getProviderTypeLabel(selectedProvider.type) }}
+          </p>
+        </div>
+        <span class="flex items-center gap-1.5 text-xs font-medium" :class="providerConnectionStatusClass(selectedProvider)">
+          <ArrowPathIcon v-if="isProviderConnecting(selectedProvider)" class="h-3.5 w-3.5 animate-spin" />
+          <ExclamationCircleIcon v-else-if="isProviderConnectionError(selectedProvider)" class="h-4 w-4" />
+          {{ providerConnectionStatus(selectedProvider) }}
+        </span>
+      </div>
+
+      <div v-if="selectedProvider.error_message" class="mb-7 flex max-w-2xl items-start gap-3 border border-red-500/25 bg-red-500/10 px-4 py-3.5">
+        <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-1.5a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12V16.5Z" />
+        </svg>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-red-300">{{ formattedSelectedProviderError.title }}</p>
+          <p class="mt-0.5 text-xs leading-5 text-content-secondary">{{ formattedSelectedProviderError.message }}</p>
+        </div>
+      </div>
+
+      <template v-if="selectedProvider.id === 'stimma-cloud'">
+        <div v-if="!isAuthenticated" class="space-y-5">
+          <p class="max-w-xl text-sm leading-6 text-content-tertiary">Buy credits to use image, video, audio, and other generation tools from many providers.</p>
+          <button
+            type="button"
+            :disabled="isCloudConnecting"
+            class="bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-4 py-2 text-sm font-medium text-white transition-all hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 disabled:opacity-60"
+            @click="handleCloudConnect"
+          >
+            {{ isCloudConnecting ? 'Connecting...' : 'Sign in to Stimma' }}
+          </button>
+        </div>
+        <div v-else class="max-w-2xl space-y-5">
+          <div class="flex items-center justify-between gap-6 py-2">
+            <div>
+              <div class="text-sm font-medium text-content">Credits</div>
+              <div class="mt-0.5 text-xs text-content-tertiary">Used across Stimma generation tools and hosted models.</div>
+            </div>
+            <div class="flex shrink-0 items-center gap-3">
+              <span class="text-sm font-medium text-content">{{ formatBalance(cloudUser?.credits) || '$0.00' }}</span>
+              <a :href="cloudBaseUrl + '/link/addcredits'" target="_blank" class="text-sm text-blue-500 hover:underline">Add credits</a>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <div v-else-if="isComfyUIProvider(selectedProvider)" class="max-w-2xl space-y-5">
+        <div>
+          <label class="mb-1 block text-xs text-content-tertiary">Name</label>
+          <input :value="getEditValue(selectedProvider.id, 'name') ?? selectedProvider.name" type="text" class="w-full border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" @input="setEditValue(selectedProvider.id, 'name', $event.target.value)" @blur="saveInlineEdit(selectedProvider.id, 'name')" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-content-tertiary">WebSocket URL</label>
+          <input :value="getEditValue(selectedProvider.id, 'url') ?? selectedProvider.url ?? ''" type="text" class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" @input="setEditValue(selectedProvider.id, 'url', $event.target.value)" @blur="saveInlineEdit(selectedProvider.id, 'url')" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-content-tertiary">Token <span class="text-content-muted">(optional)</span></label>
+          <input :value="getEditValue(selectedProvider.id, 'auth_token') ?? selectedProvider.auth_token ?? ''" type="password" autocomplete="off" class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" @input="setEditValue(selectedProvider.id, 'auth_token', $event.target.value)" @blur="saveInlineEdit(selectedProvider.id, 'auth_token')" />
+        </div>
+        <div class="flex justify-end">
+          <button type="button" :disabled="testing" class="text-sm text-blue-500 hover:text-blue-400 disabled:opacity-50" @click="testExistingProvider(selectedProvider)">{{ testing ? 'Testing…' : 'Test connection' }}</button>
+        </div>
+      </div>
+
+      <div v-else class="max-w-2xl space-y-5">
+        <div>
+          <label class="mb-1 block text-xs text-content-tertiary">Name</label>
+          <input
+            :value="getEditValue(selectedProvider.id, 'name') ?? selectedProvider.name"
+            type="text"
+            class="w-full border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none"
+            @input="setEditValue(selectedProvider.id, 'name', $event.target.value)"
+            @blur="saveInlineEdit(selectedProvider.id, 'name')"
+          />
+        </div>
+
+        <template v-if="selectedProvider.type === 'builtin' && selectedProvider.id === 'gemini'">
+          <div>
+            <label class="mb-1 block text-xs text-content-tertiary">API key</label>
             <input
-              v-model="formData.name"
+              :value="getEditValue(selectedProvider.id, 'api_key') ?? selectedProvider.api_key ?? '${GEMINI_API_KEY}'"
               type="text"
-              placeholder="My Tool Provider"
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500"
+              placeholder="${GEMINI_API_KEY}"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none"
+              @input="setEditValue(selectedProvider.id, 'api_key', $event.target.value)"
+              @blur="saveInlineEdit(selectedProvider.id, 'api_key')"
             />
-            <p v-if="nameError" class="text-xs text-red-500 mt-1">{{ nameError }}</p>
+            <p class="mt-1 text-xs text-content-muted">Use ${GEMINI_API_KEY} to read from an environment variable.</p>
           </div>
+        </template>
 
-          <!-- Stdio-specific fields -->
-          <div v-if="formData.type === 'stdio'" class="space-y-4 mb-4">
-            <div>
-              <label class="block text-xs text-content-tertiary mb-1">Command</label>
-              <input
-                v-model="formData.command"
-                type="text"
-                placeholder="/path/to/tool"
-                class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500"
-              />
-              <p class="text-xs text-content-muted mt-1">Path to the executable that implements Stimma Tools Protocol</p>
-            </div>
-            <div>
-              <label class="block text-xs text-content-tertiary mb-1">Arguments (optional)</label>
-              <input
-                v-model="formData.args"
-                type="text"
-                placeholder="--port 8080 --config &quot;my config.json&quot;"
-                class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 font-mono text-xs"
-              />
-              <p class="text-xs text-content-muted mt-1">Command line arguments (shell-style quoting supported)</p>
-            </div>
-            <div>
-              <label class="block text-xs text-content-tertiary mb-1">Working Directory (optional)</label>
-              <input
-                v-model="formData.working_dir"
-                type="text"
-                placeholder="/path/to/working/directory"
-                class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 font-mono text-xs"
-              />
-              <p class="text-xs text-content-muted mt-1">Directory to run the process in (defaults to current directory)</p>
+        <template v-if="selectedProvider.type === 'stdio'">
+          <div>
+            <label class="mb-1 block text-xs text-content-tertiary">Command</label>
+            <input
+              :value="getEditValue(selectedProvider.id, 'command') ?? selectedProvider.command ?? ''"
+              type="text"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none"
+              @input="setEditValue(selectedProvider.id, 'command', $event.target.value)"
+              @blur="saveInlineEdit(selectedProvider.id, 'command')"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-content-tertiary">Arguments</label>
+            <input
+              :value="getEditValue(selectedProvider.id, 'args') ?? serializeArgs(selectedProvider.args) ?? ''"
+              type="text"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none"
+              @input="setEditValue(selectedProvider.id, 'args', $event.target.value)"
+              @blur="saveInlineEdit(selectedProvider.id, 'args')"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-content-tertiary">Working directory</label>
+            <input
+              :value="getEditValue(selectedProvider.id, 'working_dir') ?? selectedProvider.working_dir ?? ''"
+              type="text"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none"
+              @input="setEditValue(selectedProvider.id, 'working_dir', $event.target.value)"
+              @blur="saveInlineEdit(selectedProvider.id, 'working_dir')"
+            />
+          </div>
+        </template>
+
+        <template v-if="selectedProvider.type === 'websocket'">
+          <div>
+            <label class="mb-1 block text-xs text-content-tertiary">WebSocket URL</label>
+            <input
+              :value="getEditValue(selectedProvider.id, 'url') ?? selectedProvider.url ?? ''"
+              type="text"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none"
+              @input="setEditValue(selectedProvider.id, 'url', $event.target.value)"
+              @blur="saveInlineEdit(selectedProvider.id, 'url')"
+            />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-content-tertiary">Token</label>
+            <input
+              :value="getEditValue(selectedProvider.id, 'auth_token') ?? selectedProvider.auth_token ?? ''"
+              type="password"
+              autocomplete="off"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none"
+              @input="setEditValue(selectedProvider.id, 'auth_token', $event.target.value)"
+              @blur="saveInlineEdit(selectedProvider.id, 'auth_token')"
+            />
+          </div>
+        </template>
+
+        <div v-if="selectedProvider.type === 'stdio' || selectedProvider.type === 'websocket'" class="flex justify-end">
+          <button type="button" :disabled="testing" class="text-sm text-blue-500 hover:text-blue-400 disabled:opacity-50" @click="testExistingProvider(selectedProvider)">{{ testing ? 'Testing…' : 'Test connection' }}</button>
+        </div>
+      </div>
+
+      <div v-if="selectedProvider.id !== 'stimma-cloud' || isAuthenticated" class="mt-8 max-w-2xl space-y-1">
+        <button type="button" class="flex w-full items-center gap-4 py-3 text-left hover:bg-white/[0.025]" @click="openProviderToolsPage(selectedProvider)">
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-medium text-content">Tools</div>
+            <div class="mt-0.5 text-xs text-content-tertiary">{{ selectedProvider.tool_count || 0 }} available</div>
+          </div>
+          <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" /></svg>
+        </button>
+
+        <button v-if="selectedProvider.type === 'stdio' || selectedProvider.type === 'websocket'" type="button" class="flex w-full items-center gap-4 py-3 text-left hover:bg-white/[0.025]" @click="openProviderLogsPage(selectedProvider)">
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-medium text-content">Logs</div>
+            <div class="mt-0.5 text-xs text-content-tertiary">Connection and provider output</div>
+          </div>
+          <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" /></svg>
+        </button>
+
+        <div v-if="isComfyUIProvider(selectedProvider)" class="flex items-center justify-between gap-6 py-3">
+          <div>
+            <div class="text-sm font-medium text-content">ComfyUI setup</div>
+            <div class="mt-0.5 text-xs text-content-tertiary">Install or update the Stimma extension.</div>
+          </div>
+          <a :href="comfyUiDocsUrl" target="_blank" rel="noopener noreferrer" class="shrink-0 text-sm text-blue-500 hover:text-blue-400" @click.prevent="openComfyUiDocs">Setup guide ↗</a>
+        </div>
+
+        <div v-if="!wizard" class="flex items-center justify-end gap-5 pt-6">
+          <button type="button" class="text-sm text-content-tertiary hover:text-content" @click="toggleProviderFromDetail(selectedProvider)">{{ selectedProvider.enabled === false ? 'Enable' : 'Disable' }}</button>
+          <button v-if="selectedProvider.id !== 'stimma-cloud' && selectedProvider.type !== 'builtin'" type="button" class="text-sm text-red-400 hover:text-red-300" @click="confirmDelete(selectedProvider)">Remove provider</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Add provider drilldown -->
+    <div v-if="showModal" ref="addModalRef" class="max-w-2xl" tabindex="-1">
+      <div class="mb-7 flex items-center gap-4">
+        <button type="button" class="flex h-9 w-9 shrink-0 items-center justify-center text-content-tertiary hover:text-content" title="Back to Generation Tools" @click="closeModal">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <ToolProviderBrandIcon :kind="addMode === 'comfy' ? 'comfyui' : 'custom'" />
+        <div>
+          <h3 class="text-base font-medium text-content">{{ addMode === 'comfy' ? 'Set up ComfyUI' : 'Add Provider' }}</h3>
+          <p class="text-xs text-content-tertiary">{{ addMode === 'comfy' ? 'Run generation tools on your own computer.' : 'For STP servers you’re developing or running yourself.' }}</p>
+        </div>
+      </div>
+
+      <template v-if="addMode === 'comfy'">
+        <div class="space-y-1">
+          <div class="flex gap-4 py-3">
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-xs font-semibold text-blue-400">1</span>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium text-content">Install the Stimma extension in ComfyUI</div>
+              <p class="mt-1 text-sm leading-6 text-content-tertiary">The extension lets Stimma discover and run your ComfyUI workflows.</p>
+              <a :href="comfyUiDocsUrl" target="_blank" rel="noopener noreferrer" class="mt-2 inline-flex text-sm font-medium text-blue-500 hover:text-blue-400" @click.prevent="openComfyUiDocs">Open the ComfyUI setup guide ↗</a>
             </div>
           </div>
-
-          <!-- WebSocket-specific fields -->
-          <div v-if="formData.type === 'websocket'" class="space-y-4 mb-4">
-            <div>
-              <label class="block text-xs text-content-tertiary mb-1">WebSocket URL</label>
-              <input
-                v-model="formData.url"
-                type="text"
-                placeholder="ws://localhost:8080"
-                class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500"
-              />
-              <p class="text-xs text-content-muted mt-1">WebSocket endpoint for Stimma Tools Protocol</p>
-            </div>
-            <div>
-              <label class="block text-xs text-content-tertiary mb-1">Token (optional)</label>
-              <input
-                v-model="formData.auth_token"
-                type="text"
-                placeholder="Bearer token"
-                class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 font-mono"
-              />
-              <p class="text-xs text-content-muted mt-1">Sent as Authorization: Bearer &lt;token&gt;</p>
+          <div class="flex gap-4 py-3">
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-xs font-semibold text-blue-400">2</span>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium text-content">Start ComfyUI</div>
+              <p class="mt-1 text-sm leading-6 text-content-tertiary">Leave it running while Stimma connects.</p>
             </div>
           </div>
+          <div class="flex gap-4 py-3">
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-xs font-semibold text-blue-400">3</span>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium text-content">Connect</div>
+              <label class="mt-4 block text-xs text-content-tertiary">ComfyUI address</label>
+              <input v-model="formData.url" type="text" class="mt-1.5 w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" />
+              <p class="mt-2 text-xs text-content-muted">The default works with ComfyUI running on this computer.</p>
+            </div>
+          </div>
+        </div>
+      </template>
 
-          <!-- Test connection result -->
-          <div v-if="testResult" class="mb-4 p-3 rounded-lg" :class="testResult.success ? 'bg-green-500/15 border border-green-500/30' : 'bg-red-500/15 border border-red-500/30'">
+      <template v-else>
+        <div class="space-y-5">
+          <div>
+            <label class="mb-1 block text-xs text-content-tertiary">Name</label>
+            <input v-model="formData.name" type="text" placeholder="My provider" class="w-full border border-edge bg-surface-raised px-3 py-2.5 text-sm text-content focus:border-blue-500 focus:outline-none" />
+            <p v-if="nameError" class="mt-1 text-xs text-red-500">{{ nameError }}</p>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs text-content-tertiary">Connection</label>
+            <div class="inline-flex border border-edge bg-surface-raised p-1 text-xs">
+              <button type="button" class="px-3 py-1.5" :class="formData.type === 'websocket' ? 'bg-blue-500/15 text-blue-300' : 'text-content-tertiary'" @click="formData.type = 'websocket'">WebSocket</button>
+              <button type="button" class="px-3 py-1.5" :class="formData.type === 'stdio' ? 'bg-blue-500/15 text-blue-300' : 'text-content-tertiary'" @click="formData.type = 'stdio'">Command</button>
+            </div>
+          </div>
+          <template v-if="formData.type === 'stdio'">
+            <div><label class="mb-1 block text-xs text-content-tertiary">Command</label><input v-model="formData.command" type="text" placeholder="/path/to/tool" class="w-full border border-edge bg-surface-raised px-3 py-2.5 text-sm text-content focus:border-blue-500 focus:outline-none" /></div>
+            <div><label class="mb-1 block text-xs text-content-tertiary">Arguments</label><input v-model="formData.args" type="text" placeholder="--port 8080" class="w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" /></div>
+            <div><label class="mb-1 block text-xs text-content-tertiary">Working directory</label><input v-model="formData.working_dir" type="text" placeholder="Optional" class="w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" /></div>
+          </template>
+          <template v-else>
+            <div><label class="mb-1 block text-xs text-content-tertiary">WebSocket URL</label><input v-model="formData.url" type="text" placeholder="ws://localhost:9000/stp-v1" class="w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" /></div>
+            <div><label class="mb-1 block text-xs text-content-tertiary">Token</label><input v-model="formData.auth_token" type="text" placeholder="Optional bearer token" class="w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" /></div>
+          </template>
+        </div>
+      </template>
+
+      <div v-if="testResult" class="mt-5 border px-4 py-3" :class="testResult.success ? 'border-green-500/30 bg-green-500/15' : 'border-red-500/30 bg-red-500/15'">
             <div v-if="testResult.success" class="flex items-start gap-2">
               <svg class="w-5 h-5 text-green-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -434,45 +479,32 @@
                 </p>
               </div>
             </div>
-            <div v-else class="flex items-start gap-2">
-              <svg class="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            <div v-else class="flex items-start gap-3">
+              <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-1.5a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12V16.5Z" />
               </svg>
-              <div>
-                <p class="text-sm font-medium text-red-500">Connection failed</p>
-                <p class="text-xs text-content-tertiary mt-1">{{ testResult.error }}</p>
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-red-300">{{ formattedTestResultError.title }}</p>
+                <p class="mt-0.5 text-xs leading-5 text-content-secondary">{{ formattedTestResultError.message }}</p>
               </div>
             </div>
-          </div>
-
-          <!-- Form actions -->
-          <div class="flex justify-between gap-3">
-            <button
-              @click="testConnection"
-              :disabled="!canTest || testing"
-              class="px-4 py-2 bg-surface-raised hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed text-content rounded-lg font-medium transition-colors"
-            >
-              {{ testing ? 'Testing...' : 'Test Connection' }}
-            </button>
-            <div class="flex gap-3">
-              <button
-                @click="closeModal"
-                class="px-4 py-2 bg-surface-raised hover:bg-surface-hover text-content rounded-lg font-medium transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                @click="saveProvider"
-                :disabled="!canSave || saving"
-                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
-              >
-                {{ saving ? 'Adding...' : 'Add Provider' }}
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
-    </Teleport>
+
+      <div class="mt-6 flex items-center gap-3">
+        <button
+          v-if="addMode === 'comfy'"
+          type="button"
+          :disabled="!canTest || testing || saving"
+          class="bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
+          @click="connectComfyProvider"
+        >{{ testing ? 'Testing…' : saving ? 'Adding…' : 'Test and connect' }}</button>
+        <template v-else>
+          <button type="button" :disabled="!canTest || testing" class="bg-surface-raised px-4 py-2 text-sm font-medium text-content hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50" @click="testConnection">{{ testing ? 'Testing…' : 'Test connection' }}</button>
+          <button type="button" :disabled="!canSave || saving" class="bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50" @click="saveProvider">{{ saving ? 'Adding…' : 'Add provider' }}</button>
+        </template>
+        <button type="button" class="px-3 py-2 text-sm text-content-tertiary hover:text-content" @click="closeModal">Cancel</button>
+      </div>
+    </div>
 
     <!-- Delete confirmation modal -->
     <Teleport to="body">
@@ -511,7 +543,7 @@
     <!-- Logs modal -->
     <Teleport to="body">
       <div
-        v-if="logsModal.provider"
+        v-if="logsModal.provider && detailView !== 'logs'"
         class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closeLogsModal"
         @keydown.escape.stop="closeLogsModal"
@@ -561,7 +593,7 @@
             <div v-else-if="logsModal.lines.length === 0" class="text-center text-content-tertiary py-8">
               No logs available
             </div>
-            <pre v-else class="text-xs font-mono text-content-secondary whitespace-pre-wrap break-words">{{ logsModal.lines.join('\n') }}</pre>
+            <pre v-else class="text-xs font-mono text-content-secondary whitespace-pre-wrap break-words select-text">{{ logsModal.lines.join('\n') }}</pre>
           </div>
 
           <!-- Footer -->
@@ -575,7 +607,7 @@
     <!-- Tools modal -->
     <Teleport to="body">
       <div
-        v-if="toolsModal.provider"
+        v-if="toolsModal.provider && detailView !== 'tools'"
         class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closeToolsModal"
         @keydown.escape.stop="closeToolsModal"
@@ -801,25 +833,59 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ArrowPathIcon, ExclamationCircleIcon } from '@heroicons/vue/24/outline'
 import { useAuth } from '../../../composables/useAuth'
 import { useCloudAccount, formatBalance } from '../../../composables/useCloudAccount'
 import { copyToClipboard } from '../../../utils/clipboard'
 import { addToast } from '../../../composables/useToasts'
 import { devModeRef } from '../../../appConfig'
 import { formatTaskTypeLabel } from '../../../utils/taskTypeIcons'
+import { STIMMA_TOOL_PROVIDER_DISPLAY_NAME } from '../../../utils/stimmaCloud'
+import { DEFAULT_COMFYUI_STP_URL, isComfyUIProvider, nextComfyUIIdentity } from '../../../utils/toolProviderBrands'
+import { formatToolProviderConnectionError } from '../../../utils/toolProviderErrors'
+import ToolProviderBrandIcon from '../../tools/ToolProviderBrandIcon.vue'
 
 const props = defineProps({
   providers: {
     type: Array,
     default: () => []
+  },
+  setupRequired: {
+    type: Boolean,
+    default: false
+  },
+  // Setup-wizard variant: no section header/description/banner; rows and
+  // connect flows are unchanged.
+  wizard: {
+    type: Boolean,
+    default: false
   }
 })
 
 // Auth and cloud account state
 const { user, isAuthenticated, signInWithBrowser } = useAuth()
 const { cloudBaseUrl, cloudUser, fetchCloudAccount, ensureCloudBaseUrl } = useCloudAccount()
+const comfyUiDocsUrl = 'https://stimma.ai/link/comfyui'
+const stpDocsUrl = 'https://stimma.ai/link/stp'
 
-// Signed-out Connect button on the Stimma Cloud card
+async function openExternalDocs(url) {
+  try {
+    const { open } = await import('@tauri-apps/plugin-shell')
+    await open(url)
+  } catch {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
+
+async function openComfyUiDocs() {
+  await openExternalDocs(comfyUiDocsUrl)
+}
+
+async function openStpDocs() {
+  await openExternalDocs(stpDocsUrl)
+}
+
+// Signed-out Connect button on the built-in Stimma provider card
 const isCloudConnecting = ref(false)
 
 async function handleCloudConnect() {
@@ -841,9 +907,30 @@ const cloudProvider = computed(() => {
   return props.providers.find(p => p.id === 'stimma-cloud')
 })
 
-// Tool providers (excluding stimma-cloud which has its own section)
-const otherProviders = computed(() => {
-  return props.providers.filter(p => p.id !== 'stimma-cloud')
+// The cloud provider stays connected for any signed-in account (access is
+// enforced per-request by balance on the cloud side), so a connected
+// zero-balance account must read as "Add credits", not as a tool count.
+const cloudNeedsCredits = computed(() => (
+  cloudUser.value != null && Number(cloudUser.value.credits ?? 0) <= 0
+))
+const cloudConnectedWithoutCredits = computed(() => (
+  cloudNeedsCredits.value
+  && cloudProvider.value?.enabled !== false
+  && cloudProvider.value?.status === 'connected'
+))
+const cloudRowStatusLabel = computed(() => (
+  cloudConnectedWithoutCredits.value ? 'Add credits' : providerStatusLabel(cloudProvider.value)
+))
+const cloudRowStatusClass = computed(() => (
+  cloudConnectedWithoutCredits.value ? 'text-yellow-400' : providerRowStatusClass(cloudProvider.value)
+))
+
+const configurableProviders = computed(() => props.providers.filter(provider => provider.id !== 'stimma-cloud'))
+const comfyProviders = computed(() => configurableProviders.value.filter(isComfyUIProvider))
+const customProviders = computed(() => configurableProviders.value.filter(provider => !isComfyUIProvider(provider)))
+const stimmaProviderDescription = computed(() => {
+  if (!isAuthenticated.value) return 'A complete toolkit powered by one pool of credits.'
+  return 'Over 50 hosted image, video, and audio tools'
 })
 
 // Init cloud account info
@@ -860,7 +947,7 @@ async function initCloudAccount() {
 function openCloudToolsModal() {
   const provider = cloudProvider.value
   if (provider) {
-    openToolsModal(provider)
+    openToolsModal({ ...provider, name: STIMMA_TOOL_PROVIDER_DISPLAY_NAME })
   }
 }
 
@@ -869,6 +956,9 @@ const emit = defineEmits(['update', 'create', 'delete'])
 const saving = ref(false)
 const togglingProvider = ref(null)
 const showModal = ref(false)
+const addMode = ref('custom')
+const selectedProviderId = ref(null)
+const detailView = ref('overview')
 const deleteConfirm = ref(null)
 const testing = ref(false)
 const testResult = ref(null)
@@ -878,6 +968,130 @@ const logsModalRef = ref(null)
 const logsContentRef = ref(null)
 const toolsModalRef = ref(null)
 const nameInputRef = ref(null)
+
+const selectedProvider = computed(() => {
+  if (!selectedProviderId.value) return null
+  if (selectedProviderId.value === 'stimma-cloud') {
+    return cloudProvider.value || {
+      id: 'stimma-cloud',
+      name: STIMMA_TOOL_PROVIDER_DISPLAY_NAME,
+      type: 'websocket',
+      enabled: true,
+      status: 'disconnected',
+      tool_count: 0,
+      error_message: null,
+    }
+  }
+  return props.providers.find(provider => provider.id === selectedProviderId.value) || null
+})
+
+const formattedSelectedProviderError = computed(() => formatToolProviderConnectionError(
+  selectedProvider.value?.error_message,
+  selectedProvider.value?.url,
+))
+
+function providerStatusDotClass(provider) {
+  if (!provider || provider.enabled === false) return 'bg-zinc-500'
+  if (provider.status === 'connected') return 'bg-green-500'
+  if (provider.status === 'connecting') return 'bg-yellow-400'
+  if (isProviderConnectionError(provider)) return 'bg-red-500'
+  if (provider.status === 'disconnected') return 'bg-yellow-400'
+  return 'bg-zinc-500'
+}
+
+function providerStatusLabel(provider) {
+  if (!provider) return 'Not connected'
+  if (provider.enabled === false) return 'Disabled'
+  if (provider.status === 'connecting') return 'Connecting'
+  if (provider.status === 'connected') {
+    const count = Number(provider.tool_count || 0)
+    return `${count} tool${count === 1 ? '' : 's'}`
+  }
+  if (provider.error_message) return providerConnectionErrorTitle(provider)
+  if (provider.status === 'error') return 'Connection failed'
+  return 'Not connected'
+}
+
+function isProviderConnecting(provider) {
+  return provider?.enabled !== false && provider?.status === 'connecting'
+}
+
+function isProviderConnectionError(provider) {
+  return provider?.enabled !== false
+    && provider?.status !== 'connecting'
+    && provider?.status !== 'connected'
+    && (provider?.status === 'error' || Boolean(provider?.error_message))
+}
+
+function providerConnectionErrorTitle(provider) {
+  return formatToolProviderConnectionError(provider?.error_message, provider?.url).title
+}
+
+function providerRowStatusClass(provider) {
+  if (provider?.enabled === false) return 'text-content-muted'
+  if (provider?.status === 'connecting') return 'text-yellow-300'
+  if (isProviderConnectionError(provider)) return 'text-red-400'
+  return 'text-content-muted'
+}
+
+function openProviderDetails(providerId) {
+  closeCloudMenu()
+  closeProviderMenu()
+  showModal.value = false
+  detailView.value = 'overview'
+  selectedProviderId.value = providerId
+}
+
+function closeProviderDetails() {
+  closeCloudMenu()
+  closeProviderMenu()
+  closeToolsModal()
+  closeLogsModal()
+  detailView.value = 'overview'
+  selectedProviderId.value = null
+}
+
+function providerConnectionStatus(provider) {
+  if (provider?.id === 'stimma-cloud' && !isAuthenticated.value) return 'Not signed in'
+  if (provider?.enabled === false) return 'Disabled'
+  if (provider?.status === 'connecting') return 'Connecting'
+  if (provider?.status === 'connected') return 'Connected'
+  if (provider?.error_message) return providerConnectionErrorTitle(provider)
+  if (provider?.status === 'error') return 'Connection failed'
+  return 'Not connected'
+}
+
+function providerConnectionStatusClass(provider) {
+  if (provider?.enabled === false) return 'text-content-muted'
+  if (provider?.status === 'connected') return 'text-green-400'
+  if (provider?.status === 'connecting') return 'text-yellow-300'
+  if (isProviderConnectionError(provider)) return 'text-red-400'
+  return provider?.id === 'stimma-cloud' && !isAuthenticated.value ? 'text-blue-400' : 'text-content-muted'
+}
+
+async function openProviderToolsPage(provider) {
+  detailView.value = 'tools'
+  await openToolsModal(provider)
+}
+
+async function openProviderLogsPage(provider) {
+  detailView.value = 'logs'
+  await openLogsModal(provider)
+}
+
+function closeProviderSubpage() {
+  if (detailView.value === 'tools') closeToolsModal()
+  if (detailView.value === 'logs') closeLogsModal()
+  detailView.value = 'overview'
+}
+
+function toggleProviderFromDetail(provider) {
+  if (provider.id === 'stimma-cloud') {
+    toggleCloudEnabled()
+    return
+  }
+  toggleEnabled(provider.id, provider.enabled === false)
+}
 
 // Logs modal state
 const logsModal = ref({
@@ -947,9 +1161,8 @@ function closeCloudMenu() {
 }
 
 function openCloudLogsModal() {
-  // Use cloudProvider if available, otherwise create a minimal object for logs
-  const provider = cloudProvider.value || { id: 'stimma-cloud', name: 'Stimma Cloud' }
-  openLogsModal(provider)
+  const provider = cloudProvider.value || { id: 'stimma-cloud' }
+  openLogsModal({ ...provider, name: STIMMA_TOOL_PROVIDER_DISPLAY_NAME })
 }
 
 function setMenuButtonRef(providerId, el) {
@@ -1053,6 +1266,11 @@ const formData = ref({
   auth_token: '',
 })
 
+const formattedTestResultError = computed(() => formatToolProviderConnectionError(
+  testResult.value?.error,
+  formData.value.url,
+))
+
 /**
  * Convert a name to a URL-safe slug ID
  */
@@ -1089,7 +1307,7 @@ const canTest = computed(() => {
 })
 
 async function testConnection() {
-  if (!canTest.value || testing.value) return
+  if (!canTest.value || testing.value) return false
 
   testing.value = true
   testResult.value = null
@@ -1122,12 +1340,47 @@ async function testConnection() {
     })
 
     testResult.value = await response.json()
+    return testResult.value.success === true
   } catch (err) {
     testResult.value = {
       success: false,
       error: `Network error: ${err.message}`,
       error_type: 'network',
     }
+    return false
+  } finally {
+    testing.value = false
+  }
+}
+
+async function testExistingProvider(provider) {
+  if (!provider || testing.value) return
+  testing.value = true
+  try {
+    const body = { type: provider.type }
+    if (provider.type === 'stdio') {
+      body.command = provider.command
+      if (provider.args?.length) body.args = provider.args
+      if (provider.working_dir) body.working_dir = provider.working_dir
+    } else {
+      body.url = provider.url
+      if (provider.auth_token) body.auth_token = provider.auth_token
+    }
+    const response = await fetch('/api/tools/test-connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const result = await response.json()
+    if (result.success) {
+      addToast(`Connected${result.tool_count != null ? ` · ${result.tool_count} tools` : ''}`, 'success')
+    } else {
+      const formattedError = formatToolProviderConnectionError(result.error, provider.url)
+      addToast(formattedError.message, 'error')
+    }
+  } catch (error) {
+    const formattedError = formatToolProviderConnectionError(error.message, provider.url)
+    addToast(formattedError.message, 'error')
   } finally {
     testing.value = false
   }
@@ -1356,6 +1609,8 @@ async function toggleEnabled(providerId, enabled) {
 }
 
 function openAddModal() {
+  closeProviderDetails()
+  addMode.value = 'custom'
   formData.value = {
     type: 'websocket',
     name: '',
@@ -1369,9 +1624,44 @@ function openAddModal() {
   showModal.value = true
 }
 
+function openComfySetup() {
+  closeProviderDetails()
+  addMode.value = 'comfy'
+  const identity = nextComfyUIIdentity(props.providers)
+  formData.value = {
+    type: 'websocket',
+    name: identity.name,
+    command: '',
+    args: '',
+    working_dir: '',
+    url: DEFAULT_COMFYUI_STP_URL,
+    auth_token: '',
+  }
+  testResult.value = null
+  showModal.value = true
+}
+
 function closeModal() {
   showModal.value = false
 }
+
+function handleEscape() {
+  if (showModal.value) {
+    closeModal()
+    return true
+  }
+  if (detailView.value !== 'overview') {
+    closeProviderSubpage()
+    return true
+  }
+  if (selectedProvider.value) {
+    closeProviderDetails()
+    return true
+  }
+  return false
+}
+
+defineExpose({ handleEscape })
 
 // Logs modal functions
 async function openLogsModal(provider) {
@@ -1572,6 +1862,11 @@ async function saveProvider() {
   }
 }
 
+async function connectComfyProvider() {
+  const connected = await testConnection()
+  if (connected) await saveProvider()
+}
+
 function confirmDelete(provider) {
   deleteConfirm.value = provider
 }
@@ -1583,6 +1878,7 @@ async function deleteTool() {
   try {
     emit('delete', deleteConfirm.value.id)
     deleteConfirm.value = null
+    closeProviderDetails()
   } finally {
     saving.value = false
   }

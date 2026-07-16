@@ -265,35 +265,40 @@
         </transition>
       </div>
 
-      <!-- Update affordance: prominent, not buried in a menu -->
-      <div
-        v-if="isDownloading && !updatesBlockedByPrivacyLockdown"
-        class="flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-blue-500/15 border border-blue-500/50 text-blue-400 text-xs font-medium select-none"
-      >
-        <div class="w-3.5 h-3.5 border-2 border-blue-400/40 border-t-blue-400 rounded-full animate-spin"></div>
-        <span>Updating…</span>
-      </div>
+      <!-- Update affordance: compact icon pill that peeks open on state change and expands on hover -->
       <button
-        v-else-if="pendingRestart && !updatesBlockedByPrivacyLockdown"
-        @click="restartToApply()"
-        class="flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25 text-xs font-medium transition-colors"
-        title="Restart to update"
+        v-if="updateState && !updatesBlockedByPrivacyLockdown"
+        @click="onUpdatePillClick"
+        @mouseenter="updatePillHover = true"
+        @mouseleave="updatePillHover = false"
+        class="flex items-center h-7 rounded-full border overflow-hidden whitespace-nowrap text-xs font-medium transition-[width,background-color] duration-200 ease-out select-none"
+        :class="[
+          updateState === 'restart'
+            ? 'bg-green-500/15 border-green-500/50 text-green-400 hover:bg-green-500/25'
+            : 'bg-blue-500/15 border-blue-500/50 text-blue-400',
+          updateState === 'available' ? 'hover:bg-blue-500/25' : '',
+          updateState === 'downloading' ? 'cursor-default' : '',
+        ]"
+        :style="{ width: updatePillExpanded ? updatePillWidth : '28px' }"
+        :title="updatePillLabel"
       >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-        </svg>
-        <span>Restart to update</span>
-      </button>
-      <button
-        v-else-if="hasUpdate && !updatesBlockedByPrivacyLockdown"
-        @click="downloadAndInstallUpdate()"
-        class="flex items-center gap-1.5 px-2.5 h-7 rounded-md bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25 text-xs font-medium transition-colors"
-        title="Install update"
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-        </svg>
-        <span>Update available</span>
+        <span class="flex-none w-[26px] flex items-center justify-center">
+          <div
+            v-if="updateState === 'downloading'"
+            class="w-3.5 h-3.5 border-2 border-blue-400/40 border-t-blue-400 rounded-full animate-spin"
+          ></div>
+          <svg v-else-if="updateState === 'restart'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+        </span>
+        <span
+          ref="updatePillLabelEl"
+          class="pr-3 transition-opacity duration-150"
+          :class="updatePillExpanded ? 'opacity-100 delay-75' : 'opacity-0'"
+        >{{ updatePillLabel }}</span>
       </button>
 
       <!-- Logo menu -->
@@ -527,7 +532,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useTelemetry } from '../composables/useTelemetry'
 import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
@@ -628,6 +633,49 @@ const {
   downloadAndInstallUpdate,
   restartToApply,
 } = useAppUpdater()
+
+// Update pill: rests as a compact icon; peeks open for a few seconds when the
+// state changes, and expands on hover. Width is measured from the label so the
+// expand animation has a concrete px target.
+const updateState = computed(() => {
+  if (isDownloading.value) return 'downloading'
+  if (pendingRestart.value) return 'restart'
+  if (hasUpdate.value) return 'available'
+  return null
+})
+const updatePillLabel = computed(() => {
+  switch (updateState.value) {
+    case 'downloading': return 'Updating…'
+    case 'restart': return 'Restart to update'
+    case 'available': return 'Update available'
+    default: return ''
+  }
+})
+const updatePillLabelEl = ref(null)
+const updatePillHover = ref(false)
+const updatePillPeek = ref(false)
+const updatePillWidth = ref('28px')
+const updatePillExpanded = computed(() => updatePillHover.value || updatePillPeek.value)
+let updatePillPeekTimer
+
+watch(updateState, async (state) => {
+  if (!state) {
+    updatePillPeek.value = false
+    return
+  }
+  await nextTick()
+  const label = updatePillLabelEl.value
+  // 26px icon well + label + 12px right padding + 2px borders
+  if (label) updatePillWidth.value = `${26 + label.scrollWidth + 12 + 2}px`
+  clearTimeout(updatePillPeekTimer)
+  updatePillPeek.value = true
+  updatePillPeekTimer = setTimeout(() => { updatePillPeek.value = false }, 3000)
+}, { immediate: true })
+
+function onUpdatePillClick() {
+  if (updateState.value === 'available') downloadAndInstallUpdate()
+  else if (updateState.value === 'restart') restartToApply()
+}
 
 // Logo menu
 const logoMenuOpen = ref(false)

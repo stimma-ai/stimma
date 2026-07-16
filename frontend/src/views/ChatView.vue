@@ -77,7 +77,7 @@
               </button>
             </div>
             <div v-if="systemPromptExpanded" class="border-t border-edge p-3 max-h-[60vh] overflow-y-auto">
-              <pre class="text-[11px] text-content-secondary whitespace-pre-wrap font-mono">{{ debugSystemPrompt }}</pre>
+              <pre class="text-[11px] text-content-secondary whitespace-pre-wrap font-mono select-text">{{ debugSystemPrompt }}</pre>
             </div>
           </div>
           <div v-else-if="debugLoading" class="bg-base border border-edge rounded px-3 py-2">
@@ -157,7 +157,7 @@
             <div class="text-xs text-content-muted mb-1">
               ID: {{ item.id }} | Type: {{ item.item_type }} | Created: {{ new Date(item.created_at).toLocaleString() }}
             </div>
-            <pre class="text-xs text-content-secondary overflow-x-auto whitespace-pre-wrap json-highlighted" v-html="formatJsonWithHighlighting(item)"></pre>
+            <pre class="text-xs text-content-secondary overflow-x-auto whitespace-pre-wrap json-highlighted select-text" v-html="formatJsonWithHighlighting(item)"></pre>
             <!-- Subagent child items (delegate deep-dive in raw view) -->
             <details v-if="item.item_type === 'tool_call' && item.tool_name === 'delegate' && getChildItems(item.id).length > 0" class="mt-2 border-t border-edge pt-2">
               <summary class="text-xs text-purple-400 cursor-pointer hover:text-purple-300 flex items-center gap-2">
@@ -181,7 +181,7 @@
                   <div class="text-xs text-content-muted mb-1">
                     ID: {{ child.id }} | Type: {{ child.item_type }} | Created: {{ new Date(child.created_at).toLocaleString() }}
                   </div>
-                  <pre class="text-xs text-content-secondary overflow-x-auto whitespace-pre-wrap json-highlighted" v-html="formatJsonWithHighlighting(child)"></pre>
+                  <pre class="text-xs text-content-secondary overflow-x-auto whitespace-pre-wrap json-highlighted select-text" v-html="formatJsonWithHighlighting(child)"></pre>
                 </div>
               </div>
             </details>
@@ -225,7 +225,7 @@
           <template v-else-if="isFirstInActivityGroup(item.id) && !getActivityGroupSummary(getActivityGroup(item.id)).isRunning && getActivityGroupSummary(getActivityGroup(item.id)).toolNames.length === 0"></template>
 
           <div v-else-if="isFirstInActivityGroup(item.id)" class="flex justify-start">
-            <div class="activity-group select-none" :class="{ 'activity-group--running': getActivityGroupSummary(getActivityGroup(item.id)).isRunning }">
+            <div class="activity-group" :class="{ 'activity-group--running': getActivityGroupSummary(getActivityGroup(item.id)).isRunning }">
               <!-- Collapsed summary line -->
               <div
                 class="activity-summary"
@@ -276,7 +276,7 @@
                         </template>
                       </summary>
                       <div class="activity-step-content">
-                        <div class="prose prose-sm max-w-none text-content-secondary" v-html="renderMarkdown(getThinkingContent(actItem))"></div>
+                        <div class="prose prose-sm max-w-none text-content-secondary select-text" v-html="renderMarkdown(getThinkingContent(actItem))"></div>
                       </div>
                     </details>
                     <div v-else-if="isThinkingInProgress(actItem)" class="activity-step-summary" style="cursor: default;">
@@ -348,7 +348,7 @@
                                 </template>
                               </summary>
                               <div class="activity-step-content">
-                                <div class="prose prose-sm max-w-none text-content-secondary" v-html="renderMarkdown(getThinkingContent(childItem))"></div>
+                                <div class="prose prose-sm max-w-none text-content-secondary select-text" v-html="renderMarkdown(getThinkingContent(childItem))"></div>
                               </div>
                             </details>
                             <div v-else-if="isThinkingInProgress(childItem)" class="activity-step-summary" style="cursor: default;">
@@ -370,16 +370,16 @@
                                 </div>
                                 <template v-if="getDelegateChildToolDetails(childItem)">
                                   <div v-if="getToolCallDetailKind(childItem) === 'code'" class="activity-code-block">
-                                    <pre class="text-sm leading-6"><code v-html="renderHighlightedCode(getDelegateChildToolDetails(childItem), getToolCallLanguage(childItem))" /></pre>
+                                    <pre class="text-sm leading-6 select-text"><code v-html="renderHighlightedCode(getDelegateChildToolDetails(childItem), getToolCallLanguage(childItem))" /></pre>
                                   </div>
                                   <div v-else-if="getToolCallDetailKind(childItem) === 'json' && devModeRef" class="activity-code-block">
-                                    <pre class="text-xs text-content-secondary whitespace-pre-wrap json-highlighted" v-html="formatToolCallJson(childItem)"></pre>
+                                    <pre class="text-xs text-content-secondary whitespace-pre-wrap json-highlighted select-text" v-html="formatToolCallJson(childItem)"></pre>
                                   </div>
-                                  <div v-else-if="getToolCallDetailKind(childItem) !== 'json'" class="text-sm text-content-secondary whitespace-pre-wrap break-words">{{ getDelegateChildToolDetails(childItem) }}</div>
+                                   <div v-else-if="getToolCallDetailKind(childItem) !== 'json'" class="text-sm text-content-secondary whitespace-pre-wrap break-words select-text">{{ getDelegateChildToolDetails(childItem) }}</div>
                                 </template>
                                 <div v-if="devModeRef && getToolCallResultData(childItem)" class="activity-code-block mt-1">
                                   <div class="text-[10px] text-content-muted uppercase tracking-wider mb-0.5">Response</div>
-                                  <pre class="text-xs text-content-secondary whitespace-pre-wrap json-highlighted" v-html="formatToolResultJson(childItem)"></pre>
+                                  <pre class="text-xs text-content-secondary whitespace-pre-wrap json-highlighted select-text" v-html="formatToolResultJson(childItem)"></pre>
                                 </div>
                               </div>
                             </details>
@@ -410,16 +410,16 @@
                         </div>
                         <template v-if="getToolCallDetails(actItem)">
                           <div v-if="getToolCallDetailKind(actItem) === 'code'" class="activity-code-block">
-                            <pre class="text-sm leading-6"><code v-html="renderHighlightedCode(getToolCallDetails(actItem), getToolCallLanguage(actItem))" /></pre>
+                            <pre class="text-sm leading-6 select-text"><code v-html="renderHighlightedCode(getToolCallDetails(actItem), getToolCallLanguage(actItem))" /></pre>
                           </div>
                           <div v-else-if="getToolCallDetailKind(actItem) === 'json' && devModeRef" class="activity-code-block">
-                            <pre class="text-xs text-content-secondary whitespace-pre-wrap json-highlighted" v-html="formatToolCallJson(actItem)"></pre>
+                            <pre class="text-xs text-content-secondary whitespace-pre-wrap json-highlighted select-text" v-html="formatToolCallJson(actItem)"></pre>
                           </div>
-                          <div v-else-if="getToolCallDetailKind(actItem) !== 'json'" class="text-sm text-content-secondary whitespace-pre-wrap break-words">{{ getToolCallDetails(actItem) }}</div>
+                           <div v-else-if="getToolCallDetailKind(actItem) !== 'json'" class="text-sm text-content-secondary whitespace-pre-wrap break-words select-text">{{ getToolCallDetails(actItem) }}</div>
                         </template>
                         <div v-if="devModeRef && getToolCallResultData(actItem)" class="activity-code-block mt-1">
                           <div class="text-[10px] text-content-muted uppercase tracking-wider mb-0.5">Response</div>
-                          <pre class="text-xs text-content-secondary whitespace-pre-wrap json-highlighted" v-html="formatToolResultJson(actItem)"></pre>
+                          <pre class="text-xs text-content-secondary whitespace-pre-wrap json-highlighted select-text" v-html="formatToolResultJson(actItem)"></pre>
                         </div>
                       </div>
                     </details>
@@ -522,7 +522,7 @@
                     class="w-full bg-blue-700 text-white rounded px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-edge-strong"
                   ></textarea>
                   <!-- Normal text display -->
-                  <span v-else class="whitespace-pre-wrap break-words">{{ getMessageBodyText(item) }}</span>
+                  <span v-else class="whitespace-pre-wrap break-words select-text">{{ getMessageBodyText(item) }}</span>
                 </div>
               </div>
             </ChatItemWrapper>
@@ -546,7 +546,7 @@
                   <div v-if="isThinkingInterrupted(item)" class="activity-summary select-none" style="display: inline-flex; cursor: default;">
                     <span class="text-content-muted">Interrupted</span>
                   </div>
-                  <details v-else-if="getThinkingContent(item)" class="activity-details inline-block select-none">
+                  <details v-else-if="getThinkingContent(item)" class="activity-details inline-block">
                     <summary class="activity-summary" style="display: inline-flex;">
                       <ChevronRightIcon class="activity-chevron" />
                       <template v-if="isThinkingInProgress(item)">
@@ -558,7 +558,7 @@
                       </template>
                     </summary>
                     <div class="activity-step-content mt-1.5">
-                      <div class="prose prose-sm max-w-none text-content-secondary" v-html="renderMarkdown(getThinkingContent(item))"></div>
+                      <div class="prose prose-sm max-w-none text-content-secondary select-text" v-html="renderMarkdown(getThinkingContent(item))"></div>
                     </div>
                   </details>
                   <div v-else-if="isThinkingInProgress(item)" class="activity-summary select-none" style="display: inline-flex; cursor: default;">
@@ -568,7 +568,7 @@
                 </template>
                 <div
                   v-if="getDisplayText(item)"
-                  class="bg-surface text-content rounded-lg px-4 py-2 prose prose-sm max-w-none"
+                  class="bg-surface text-content rounded-lg px-4 py-2 prose prose-sm max-w-none select-text"
                 >
                   <template v-for="(seg, segIdx) in parseMarkdownSegments(getDisplayText(item))" :key="segIdx">
                     <span v-if="seg.type === 'html'" v-html="seg.content"></span>
@@ -610,22 +610,31 @@
                     <div class="p-1 rounded-md bg-teal-600/15 flex-shrink-0">
                       <SparklesIcon class="w-3.5 h-3.5 text-teal-400" />
                     </div>
-                    <span class="text-sm font-medium stimma-cloud-text">Almost There</span>
+                    <span class="text-sm font-medium stimma-cloud-text">{{ hasNoStimmaBalance ? 'Out of Credits' : 'Stimma needs AI to work' }}</span>
                   </div>
                   <div class="px-3.5 py-3 space-y-3">
-                    <p class="text-sm text-content-secondary text-center">Sign in to your Stimma account to start chatting.</p>
-                    <button
-                      @click="handleCloudSignIn"
-                      :disabled="cloudSigningIn"
-                      class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 disabled:opacity-60 transition-all text-white text-sm font-medium w-full"
+                    <p v-if="hasNoStimmaBalance" class="text-sm text-content-secondary text-center">You're out of Stimma credits.</p>
+                    <p v-else class="text-sm text-content-secondary text-center">You need a chat model to use the agent.</p>
+                    <a
+                      v-if="hasNoStimmaBalance"
+                      href="#"
+                      @click.prevent="openAddBalance"
+                      class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 transition-all text-white text-sm font-medium w-full"
                     >
-                      <SparklesIcon class="w-4 h-4 flex-shrink-0" />
-                      {{ cloudSigningIn ? 'Connecting...' : 'Sign in to Stimma' }}
+                      Add credits
+                    </a>
+                    <button
+                      v-else
+                      @click="openAISettings"
+                      class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-edge bg-transparent hover:bg-overlay-subtle transition-colors text-content-secondary hover:text-content text-sm font-medium w-full"
+                    >
+                      Configure Chat Models
                     </button>
                     <button
+                      v-if="hasNoStimmaBalance"
                       @click="openAISettings"
                       class="block w-full text-center text-xs text-content-muted hover:text-content-secondary transition-colors"
-                    >Or configure a local LLM</button>
+                    >Configure Chat Models</button>
                   </div>
                 </div>
               </div>
@@ -647,26 +656,26 @@
                     <div class="p-1 rounded-md bg-teal-600/15 flex-shrink-0">
                       <SparklesIcon class="w-3.5 h-3.5 text-teal-400" />
                     </div>
-                    <span class="text-sm font-medium stimma-cloud-text">No Balance</span>
+                    <span class="text-sm font-medium stimma-cloud-text">Out of Credits</span>
                   </div>
                   <div class="px-3.5 py-3 space-y-3">
-                    <p class="text-sm text-content-secondary text-center">This account has no available balance.</p>
+                    <p class="text-sm text-content-secondary text-center">You're out of Stimma credits.</p>
                     <a
                       href="#"
                       @click.prevent="openAddBalance"
                       class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 transition-all text-white text-sm font-medium w-full"
                     >
-                      Add Balance
+                      Add credits
                     </a>
                     <button
                       @click="refreshAccountAndRetry"
                       :disabled="accountRefreshing"
                       class="block w-full text-center text-xs text-content-muted hover:text-content-secondary transition-colors"
-                    >{{ accountRefreshing ? 'Checking...' : 'I added balance' }}</button>
+                    >{{ accountRefreshing ? 'Checking...' : 'I added credits' }}</button>
                     <button
                       @click="openAISettings"
                       class="block w-full text-center text-xs text-content-muted hover:text-content-secondary transition-colors"
-                    >Or use your own endpoint</button>
+                    >Configure Chat Models</button>
                     <ChatErrorDisclosure :raw="getRawErrorDetails(item)" />
                   </div>
                 </div>
@@ -764,7 +773,7 @@
                       type="button"
                       @click="openAISettings"
                       class="ml-2 inline-flex items-center px-2.5 py-1 rounded-md border border-white/10 bg-white/[0.05] text-content-secondary hover:text-content text-xs font-medium transition-colors"
-                    >LLM Providers</button>
+                    >Chat Models</button>
                   </div>
                   <ChatErrorDisclosure :raw="getRawErrorDetails(item)" />
                 </div>
@@ -812,7 +821,7 @@
                 <!-- Plan body (collapsible) -->
                 <div v-show="isPlanExpanded(item.id)" class="px-3.5 py-3">
                   <!-- Raw JSON view -->
-                  <pre v-if="rawPlanItemIds.has(item.id)" class="text-xs whitespace-pre-wrap break-words font-mono text-content-muted max-h-96 overflow-y-auto custom-scrollbar">{{ JSON.stringify(getPlanData(item), null, 2) }}</pre>
+                  <pre v-if="rawPlanItemIds.has(item.id)" class="text-xs whitespace-pre-wrap break-words font-mono text-content-muted max-h-96 overflow-y-auto custom-scrollbar select-text">{{ JSON.stringify(getPlanData(item), null, 2) }}</pre>
                   <!-- Visual plan -->
                   <PlanVisualization
                     v-else
@@ -847,12 +856,12 @@
                 </summary>
                 <div v-if="getToolCallDetails(item)" class="activity-step-content mt-1">
                   <div v-if="getToolCallDetailKind(item) === 'code'" class="activity-code-block">
-                    <pre class="text-sm leading-6"><code v-html="renderHighlightedCode(getToolCallDetails(item), getToolCallLanguage(item))" /></pre>
+                    <pre class="text-sm leading-6 select-text"><code v-html="renderHighlightedCode(getToolCallDetails(item), getToolCallLanguage(item))" /></pre>
                   </div>
                   <div v-else-if="getToolCallDetailKind(item) === 'json'" class="activity-code-block">
-                    <pre class="text-xs text-content-secondary whitespace-pre-wrap json-highlighted" v-html="formatToolCallJson(item)"></pre>
+                    <pre class="text-xs text-content-secondary whitespace-pre-wrap json-highlighted select-text" v-html="formatToolCallJson(item)"></pre>
                   </div>
-                  <div v-else class="text-sm text-content-secondary whitespace-pre-wrap break-words">{{ getToolCallDetails(item) }}</div>
+                  <div v-else class="text-sm text-content-secondary whitespace-pre-wrap break-words select-text">{{ getToolCallDetails(item) }}</div>
                 </div>
               </details>
             </div>
@@ -1375,7 +1384,7 @@ import NotepadDisplay from '../components/chat/NotepadDisplay.vue'
 import TraceModal from '../components/chat/TraceModal.vue'
 import { copyToClipboard } from '../utils/clipboard'
 import { addToast } from '../composables/useToasts'
-import { signInWithBrowser, useAuth } from '../composables/useAuth'
+import { useAuth } from '../composables/useAuth'
 import { useAvailableModels } from '../composables/useAvailableModels'
 import {
   ClipboardDocumentListIcon,
@@ -1403,6 +1412,7 @@ import axios from 'axios'
 import { devModeRef } from '../appConfig'
 import { escapeHtmlAttribute, sanitizeHtml } from '../utils/sanitizeHtml'
 import { formatTaskTypeLabel } from '../utils/taskTypeIcons'
+import { resolveAgentUnavailableState } from '../utils/agentUnavailableState'
 
 const props = defineProps<{
   // Optional override for chat identity. When provided, this takes precedence
@@ -1419,10 +1429,10 @@ const route = useRoute()
 const router = useRouter()
 const { getMediaItem, getThumbnailUrl } = useMediaApi()
 const { listSkills: listSkillsApi } = useStimpacksApi()
-const { cloudBaseUrl } = useCloudAccount()
+const { cloudBaseUrl, cloudUser } = useCloudAccount()
 const { privacyLockdownActive } = usePrivacyLockdown()
 const { isAuthenticated } = useAuth()
-const { models: availableModels, globalDefault, loading: modelsLoading, hasFetched: modelsFetched, invalidateCache: invalidateModelCache, fetchModels: fetchAvailableModels, getResolvedModel } = useAvailableModels()
+const { models: availableModels, selectableModels, globalDefault, cloudStatus, loading: modelsLoading, hasFetched: modelsFetched, invalidateCache: invalidateModelCache, fetchModels: fetchAvailableModels, getSelectableModel } = useAvailableModels()
 const { slideshowState, enterSlideshow, exitSlideshow } = useSlideshow()
 const mediaDetailsModal = useMediaDetailsModal()
 const { compareState, enterCompare, exitCompare, swapImages: swapCompareImages } = useCompare()
@@ -3101,8 +3111,16 @@ const showModelPicker = computed(() => {
 
 const noUsableChatModels = computed(() => {
   if (modelsLoading.value || !modelsFetched.value) return false
-  return !availableModels.value.some(model => model.available !== false)
+  return selectableModels.value.length === 0
 })
+
+const hasNoStimmaBalance = computed(() => (
+  resolveAgentUnavailableState({
+    isAuthenticated: isAuthenticated.value,
+    cloudCredits: cloudUser.value?.credits ?? null,
+    cloudStatus: cloudStatus.value,
+  }) === 'no-balance'
+))
 
 // The "Almost There" Connect-Stimma-Cloud CTA card renders as the trailing
 // chat item after a failed turn (isLLMSetupError). When it's showing, it IS
@@ -3117,23 +3135,63 @@ const showingConnectCloudCta = computed(() => {
 
 const selectedChatModel = computed(() => {
   const slug = chat.value?.model_slug || globalDefault.value
-  return getResolvedModel(slug) || availableModels.value.find(model => model.slug === slug)
+  return getSelectableModel(slug)
 })
 
 const isChatModelUnavailable = computed(() => {
   if (modelsLoading.value) return false
   if (noUsableChatModels.value) return true
   const slug = chat.value?.model_slug || globalDefault.value
-  if (availableModels.value.length > 0 && slug && !selectedChatModel.value) return true
-  return selectedChatModel.value?.available === false
+  return Boolean(modelsFetched.value && slug && !selectedChatModel.value)
 })
 
 const modelUnavailableMessage = computed(() => {
   if (!isChatModelUnavailable.value) return ''
-  const model = selectedChatModel.value
-  const slug = chat.value?.model_slug || globalDefault.value
-  return model?.description || `The selected model (${slug}) is no longer available. Check Settings > LLM Providers or choose another model.`
+  return 'This chat’s model is no longer available. Choose another model.'
 })
+
+// Never dead-end on a stale model: when this chat's saved model is gone but the
+// catalog still has usable models, silently switch to a reasonable one instead
+// of stranding the composer. Prefer the user's global default (usually "auto",
+// which resolves to the Stimma Cloud default) and fall back to the first usable
+// model. Only fires when models are loaded and at least one is selectable, so it
+// never fights the "no models configured" setup flow.
+function pickFallbackModelSlug() {
+  if (getSelectableModel(globalDefault.value)) return globalDefault.value
+  const first = selectableModels.value.find(m => m.source !== 'auto') || selectableModels.value[0]
+  return first?.slug || null
+}
+
+let recoveringChatModel = false
+async function recoverUnavailableChatModel() {
+  if (recoveringChatModel) return
+  if (!modelsFetched.value || modelsLoading.value) return
+  if (noUsableChatModels.value) return
+  if (!chat.value || !isChatModelUnavailable.value) return
+  const fallback = pickFallbackModelSlug()
+  if (!fallback) return
+  recoveringChatModel = true
+  chat.value.model_slug = fallback
+  try {
+    if (chatId.value != null) {
+      await fetch(`${getApiBase()}/chats/${chatId.value}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model_slug: fallback }),
+      })
+    }
+  } catch (err) {
+    console.warn('Failed to persist fallback chat model:', err)
+  } finally {
+    recoveringChatModel = false
+  }
+}
+
+watch(
+  [isChatModelUnavailable, () => chatId.value],
+  () => { void recoverUnavailableChatModel() },
+  { immediate: true }
+)
 
 const imageUnsupportedMessage = computed(() => {
   if (inputAttachments.value.length === 0) return ''
@@ -3773,7 +3831,7 @@ function renderMarkdown(text) {
     const language = (lang || '').toLowerCase()
     const normalized = language === 'py' ? 'python' : language === 'sh' ? 'bash' : language
     const highlighted = renderHighlightedCode(code, normalized)
-    return `<div class="rounded-xl border border-white/10 bg-black/20 p-3 overflow-x-auto my-3"><pre class="text-sm leading-6"><code>${highlighted}</code></pre></div>`
+    return `<div class="rounded-xl border border-white/10 bg-black/20 p-3 overflow-x-auto my-3"><pre class="text-sm leading-6 select-text"><code>${highlighted}</code></pre></div>`
   }
   renderer.image = (token) => {
     const href = typeof token === 'string' ? token : (token?.href || '')
@@ -4395,26 +4453,6 @@ async function openCloudDashboard() {
     await open(url)
   } else {
     window.open(url, '_blank')
-  }
-}
-
-const cloudSigningIn = ref(false)
-
-async function handleCloudSignIn() {
-  cloudSigningIn.value = true
-  try {
-    await signInWithBrowser()
-    // Refresh models directly rather than relying on the isAuthenticated
-    // watcher: the hero can be visible while already authenticated (e.g. a
-    // transient cloud-catalog fetch left every model unavailable), in which
-    // case auth state doesn't change and the watcher never fires.
-    clearLLMNotConfiguredErrors()
-    invalidateModelCache()
-    await fetchAvailableModels(chat.value?.project_id, true)
-  } catch (error) {
-    addToast({ type: 'error', message: error.message || 'Sign in failed' })
-  } finally {
-    cloudSigningIn.value = false
   }
 }
 

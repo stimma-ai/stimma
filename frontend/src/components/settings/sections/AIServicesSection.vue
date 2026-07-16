@@ -1,31 +1,54 @@
 <template>
   <div class="space-y-6">
+    <template v-if="!addOpen && !managerOpen && !legacyOpen">
     <section>
-      <div class="mb-3">
-        <h3 class="text-base font-medium text-content">LLM Providers</h3>
+      <div v-if="!wizard" class="mb-3">
+        <div class="flex items-center gap-3">
+          <h3 class="text-base font-medium text-content">Chat Models</h3>
+        </div>
         <p class="mt-1 text-xs text-content-tertiary">Choose models from your Stimma account, API providers, or your own endpoints.</p>
       </div>
 
+      <div
+        v-if="setupRequired && !wizard"
+        class="mb-5 flex w-full items-center gap-3 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3"
+      >
+        <span class="h-2 w-2 shrink-0 rounded-full bg-yellow-400"></span>
+        <p class="text-sm text-content-secondary">Connect a chat model to use chat, the agent, and AI-assisted features.</p>
+      </div>
+
       <div class="space-y-0.5">
-        <button type="button" @click="cloudStatus === 'not_logged_in' ? emit('navigate', 'account') : openStimmaAccount()" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-600 via-cyan-500 to-indigo-500 text-white shadow-sm">
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" /></svg>
+        <button type="button" class="group flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]" @click="cloudStatus === 'not_logged_in' ? handleCloudConnect() : openStimmaAccount()">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary" aria-hidden="true">
+            <div class="h-7 w-7 bg-current [mask-image:url('/logo.png')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.png')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"></div>
           </div>
           <div class="min-w-0 flex-1">
             <div class="text-sm font-medium text-content">Stimma</div>
-            <div v-if="cloudStatus === 'available'" class="mt-0.5 truncate text-xs text-content-tertiary">{{ modelSummary(cloudModels) }}</div>
-            <div v-else-if="cloudStatus === 'not_logged_in'" class="mt-0.5 truncate text-xs text-content-tertiary">Buy credit packs to use models from multiple providers, without managing separate accounts or bills.</div>
-            <div v-else-if="cloudStatus !== 'not_logged_in' && cloudMessage" class="mt-1 truncate text-xs text-red-400">{{ cloudMessage }}</div>
+            <div v-if="cloudStatus === 'available' || cloudStatus === 'not_logged_in'" class="mt-0.5 truncate text-xs text-content-tertiary">Use a variety of models with one pool of credits.</div>
+            <div v-else-if="cloudMessage" class="mt-1 truncate text-xs text-red-400">{{ cloudMessage }}</div>
+            <div v-else-if="cloudConnectError" class="mt-1 truncate text-xs text-red-400">{{ cloudConnectError }}</div>
           </div>
-          <div class="shrink-0 text-right">
-            <div class="text-xs" :class="cloudStatus === 'not_logged_in' ? 'text-blue-400' : cloudStatus === 'available' ? 'text-green-500' : 'text-content-muted'">{{ cloudStatus === 'not_logged_in' ? 'Sign in' : cloudStatus === 'available' ? 'Ready' : 'Unavailable' }}</div>
-            <div v-if="cloudStatus === 'available'" class="mt-0.5 text-[11px] text-content-muted">{{ cloudModels.length }} model{{ cloudModels.length === 1 ? '' : 's' }}</div>
-          </div>
-          <ChevronIcon />
+          <template v-if="cloudStatus === 'not_logged_in'">
+            <div class="min-w-20 shrink-0 text-right text-xs">
+              <span class="relative inline-block">
+                <span class="invisible" aria-hidden="true">Configure</span>
+                <span class="absolute left-0 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-3.5 py-1.5 text-xs font-medium text-white transition-all group-hover:from-teal-500 group-hover:via-cyan-400 group-hover:to-indigo-400" :class="{ 'opacity-60': cloudConnecting }">
+                  {{ cloudConnecting ? 'Connecting…' : 'Sign in' }}
+                </span>
+              </span>
+            </div>
+            <span class="h-4 w-4 shrink-0" aria-hidden="true"></span>
+          </template>
+          <template v-else>
+            <div class="min-w-20 shrink-0 text-right text-xs" :class="cloudStatus !== 'available' ? 'text-red-400' : cloudNeedsCredits ? 'text-yellow-400' : 'text-content-muted'">
+              {{ cloudStatus !== 'available' ? 'Unavailable' : cloudNeedsCredits ? 'Add credits' : `${cloudModels.length} model${cloudModels.length === 1 ? '' : 's'}` }}
+            </div>
+            <ChevronIcon />
+          </template>
         </button>
 
         <button
-          v-for="provider in remoteProviderRows"
+          v-for="provider in visibleRemoteProviderRows"
           :key="provider.id || provider.kind"
           type="button"
           @click="openProvider(provider)"
@@ -36,14 +59,51 @@
           </div>
           <div class="min-w-0 flex-1">
             <div class="truncate text-sm font-medium text-content">{{ provider.name }}</div>
-            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ provider._unconfigured ? kindDescription(provider.kind) : modelSummary(provider.models) }}</div>
+            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ kindDescription(provider.kind) }}</div>
             <div v-if="provider.last_error" class="mt-1 truncate text-xs text-red-400">{{ provider.last_error }}</div>
           </div>
-          <div class="shrink-0 text-right">
-            <div class="text-xs" :class="provider._unconfigured ? 'text-blue-400' : provider.last_test_passed === false ? 'text-red-400' : provider.last_test_passed ? 'text-green-500' : 'text-content-muted'">
-              {{ provider._unconfigured ? 'Add API key' : provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? 'Ready' : 'Not checked' }}
-            </div>
-            <div v-if="!provider._unconfigured" class="mt-0.5 text-[11px] text-content-muted">{{ provider.models.length }} model{{ provider.models.length === 1 ? '' : 's' }}</div>
+          <div class="min-w-20 shrink-0 text-right text-xs" :class="provider._unconfigured ? 'text-blue-400' : provider.last_test_passed === false ? 'text-red-400' : 'text-content-muted'">
+            {{ provider._unconfigured ? 'Configure' : provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? `${provider.models.length} model${provider.models.length === 1 ? '' : 's'}` : 'Not checked' }}
+          </div>
+          <ChevronIcon />
+        </button>
+
+        <button
+          v-for="provider in localProviders"
+          :key="provider.id"
+          type="button"
+          @click="openProvider(provider)"
+          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]"
+        >
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
+            <ProviderBrandIcon provider="local" size="md" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="truncate text-sm font-medium text-content">{{ provider.name }}</div>
+            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ modelSummary(provider.models) }}</div>
+            <div v-if="provider.last_error" class="mt-1 truncate text-xs text-red-400">{{ provider.last_error }}</div>
+          </div>
+          <div class="min-w-20 shrink-0 text-right text-xs" :class="provider.last_test_passed === false ? 'text-red-400' : 'text-content-muted'">
+            {{ provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? `${provider.models.length} model${provider.models.length === 1 ? '' : 's'}` : 'Not checked' }}
+          </div>
+          <ChevronIcon />
+        </button>
+
+        <button
+          v-if="legacyProvider"
+          type="button"
+          @click="openLegacyProvider"
+          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]"
+        >
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
+            <ProviderBrandIcon provider="local" size="md" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="truncate text-sm font-medium text-content">{{ legacyProvider.name }}</div>
+            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ legacyProvider.model }}</div>
+          </div>
+          <div class="min-w-20 shrink-0 text-right text-xs" :class="legacyProvider.last_test_passed === false ? 'text-red-400' : 'text-content-muted'">
+            {{ legacyProvider.last_test_passed === false ? 'Check failed' : legacyProvider.last_test_passed ? '1 model' : 'Not checked' }}
           </div>
           <ChevronIcon />
         </button>
@@ -57,121 +117,29 @@
             <div class="mt-0.5 truncate text-xs text-content-tertiary">Connect LM Studio, vLLM, llama.cpp, Ollama, or another compatible server.</div>
           </div>
         </button>
+      </div>
 
-        <button
-          v-for="provider in localProviders"
-          :key="provider.id"
-          type="button"
-          @click="openProvider(provider)"
-          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]"
-        >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
-            <ModelVendorIcon :model="provider.models?.[0]" size="md" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-medium text-content">{{ provider.name }}</div>
-            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ modelSummary(provider.models) }}</div>
-            <div v-if="provider.last_error" class="mt-1 truncate text-xs text-red-400">{{ provider.last_error }}</div>
-          </div>
-          <div class="shrink-0 text-right">
-            <div class="text-xs" :class="provider.last_test_passed === false ? 'text-red-400' : provider.last_test_passed ? 'text-green-500' : 'text-content-muted'">
-              {{ provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? 'Ready' : 'Not checked' }}
-            </div>
-            <div class="mt-0.5 text-[11px] text-content-muted">{{ provider.models.length }} model{{ provider.models.length === 1 ? '' : 's' }}</div>
-          </div>
-          <ChevronIcon />
-        </button>
-
-        <button
-          v-if="legacyProvider"
-          type="button"
-          @click="openLegacyProvider"
-          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]"
-        >
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
-            <ModelVendorIcon :model="{ name: legacyProvider.model }" size="md" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-medium text-content">{{ legacyProvider.name }}</div>
-            <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ legacyProvider.model }}</div>
-          </div>
-          <div class="shrink-0 text-right">
-            <div class="text-xs" :class="legacyProvider.last_test_passed === false ? 'text-red-400' : legacyProvider.last_test_passed ? 'text-green-500' : 'text-content-muted'">
-              {{ legacyProvider.last_test_passed === false ? 'Check failed' : legacyProvider.last_test_passed ? 'Ready' : 'Not checked' }}
-            </div>
-            <div class="mt-0.5 text-[11px] text-content-muted">1 model</div>
-          </div>
-          <ChevronIcon />
-        </button>
+      <div v-if="wizard && hiddenRemoteProviderCount > 0" class="mt-3 px-1">
+        <button type="button" class="text-xs text-content-tertiary hover:text-content-secondary hover:underline" @click="showAllProviders = true">See all</button>
       </div>
     </section>
 
-    <section>
-      <div class="mb-3">
-        <h3 class="text-base font-medium text-content">Preferences</h3>
-      </div>
+    </template>
 
-      <div class="space-y-6">
-        <div>
-          <div class="flex items-center justify-between gap-4">
-            <div class="min-w-0">
-              <h4 class="text-sm font-medium text-content">Quick tasks</h4>
-              <p class="mt-0.5 text-xs text-content-tertiary">Prompt cleanup, chat names, and other background work.</p>
-            </div>
-            <div class="shrink-0">
-              <SettingsDropdown
-                control
-                fill
-                class="w-72"
-                :menu-width="320"
-                :model-value="quickTaskModel"
-                :options="quickTaskOptions"
-                @update:model-value="saveQuickTaskModel"
-              />
-              <p v-if="selectedQuickModel?.available === false" class="mt-1 text-xs text-red-400">Unavailable. Choose another model.</p>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="voiceSupported">
-          <div class="flex items-center justify-between gap-4">
-            <div class="min-w-0">
-              <h4 class="text-sm font-medium text-content">Voice input</h4>
-              <p class="mt-0.5 text-xs text-content-tertiary">Processed on this device.</p>
-            </div>
-            <div class="flex shrink-0 items-center gap-2">
-              <svg v-if="voiceModelReady" class="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-              <SettingsDropdown
-                v-model="voiceModel"
-                control
-                compact
-                :menu-width="224"
-                :options="voiceModelOptions"
-              />
-            </div>
-          </div>
-          <p v-if="!voiceModelReady && privacyLockdownActive" class="mt-3 text-xs text-content-secondary">Downloads are off during Privacy Lockdown.</p>
-          <p v-else-if="!voiceModelReady" class="mt-3 text-xs text-content-tertiary">Downloads on first use.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Add local model -->
-    <Teleport to="body">
-      <div v-if="addOpen" class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop p-4 backdrop-blur-sm" @click.self="closeAddProvider" @keydown.escape.stop="closeAddProvider">
-        <div class="flex max-h-[88vh] w-[560px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-edge bg-surface shadow-2xl">
-          <div class="flex items-center justify-between border-b border-edge px-5 py-4">
+    <!-- Add OpenAI-compatible endpoint -->
+    <div v-else-if="addOpen" class="-m-6 min-h-full" @keydown.escape.stop="closeAddProvider">
+          <div class="flex items-center gap-3 px-6 pb-2 pt-4">
+            <button type="button" @click="closeAddProvider" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-content-secondary hover:bg-white/[0.05] hover:text-content">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
+            </button>
             <div>
-              <h4 class="text-base font-medium text-content">Add local model</h4>
+              <h4 class="text-base font-medium text-content">Add OpenAI Compatible Endpoint</h4>
               <p class="mt-0.5 text-xs text-content-tertiary">{{ kindDescription('local') }}</p>
             </div>
-            <button type="button" @click="closeAddProvider" class="text-sm text-content-muted hover:text-content">Cancel</button>
           </div>
 
-          <div class="overflow-y-auto p-5">
-            <div v-if="addStep === 'connection'" class="space-y-4">
+          <div class="px-6 py-4">
+            <div class="space-y-4">
               <label class="block">
                 <span class="mb-1 block text-xs text-content-tertiary">Name <span class="text-content-muted">(optional)</span></span>
                 <input v-model="addDraft.name" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" placeholder="Studio Mac" />
@@ -186,38 +154,24 @@
               </label>
             </div>
 
-            <div v-else class="space-y-3">
-              <p class="text-xs text-content-tertiary">Choose the models to show in Stimma.</p>
-              <label v-for="model in addDiscoveredModels" :key="model.id" class="flex cursor-pointer items-center gap-3 rounded-lg border border-edge px-3 py-2.5 hover:bg-white/[0.03]">
-                <input type="checkbox" :checked="addSelectedModels.has(model.id)" @change="toggleAddModel(model.id)" class="rounded border-edge bg-surface" />
-                <ModelVendorIcon :model="model" size="sm" />
-                <span class="min-w-0 flex-1 truncate text-sm text-content">{{ model.name }}</span>
-              </label>
-            </div>
-
             <p v-if="addError" class="mt-4 text-xs text-red-400">{{ addError }}</p>
           </div>
 
-          <div class="flex items-center justify-between border-t border-edge px-5 py-4">
-            <button type="button" @click="backAddProvider" class="text-xs text-content-secondary hover:text-content">{{ addStep === 'models' ? 'Back' : 'Cancel' }}</button>
-            <button type="button" @click="advanceAddProvider" :disabled="addSaving || (addStep === 'models' && addSelectedModels.size === 0)" class="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50">
-              {{ addSaving ? 'Checking…' : addStep === 'models' ? 'Add local model' : 'Continue' }}
+          <div class="flex items-center justify-between px-6 pb-4 pt-2">
+            <button type="button" @click="closeAddProvider" class="text-xs text-content-secondary hover:text-content">Cancel</button>
+            <button type="button" @click="advanceAddProvider" :disabled="addSaving" class="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50">
+              {{ addSaving ? 'Checking…' : 'Continue' }}
             </button>
           </div>
-        </div>
-      </div>
-    </Teleport>
+    </div>
 
-    <!-- Stimma Account / provider settings -->
-    <Teleport to="body">
-      <div v-if="managerOpen" class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop p-4 backdrop-blur-sm" @click.self="closeManager" @keydown.escape.stop="selectedManagerModel ? closeModelSettings() : closeManager()">
-        <div class="flex h-[760px] max-h-[calc(100vh-2rem)] w-[760px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-edge bg-surface shadow-2xl">
-          <div class="flex items-start justify-between border-b border-edge px-5 py-4">
-            <div v-if="selectedManagerModel" class="min-w-0">
-              <button type="button" @click="closeModelSettings" class="mb-2 inline-flex items-center gap-1 text-xs text-content-secondary hover:text-content">
-                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
-                {{ managerTitle }}
-              </button>
+    <!-- Provider settings -->
+    <div v-else-if="managerOpen" class="-m-6 min-h-full" @keydown.escape.stop="managerBack">
+          <div class="flex items-center gap-3 px-6 pb-2 pt-4">
+            <button type="button" @click="managerBack" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-content-secondary hover:bg-white/[0.05] hover:text-content">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
+            </button>
+            <div v-if="selectedManagerModel" class="flex min-w-0 flex-1 items-center gap-3">
               <div class="flex items-center gap-3">
                 <ModelVendorIcon :model="selectedManagerModel" size="md" />
                 <div class="min-w-0">
@@ -226,38 +180,51 @@
                 </div>
               </div>
             </div>
-            <div v-else class="min-w-0">
-              <h4 class="truncate text-base font-medium" :class="activeManager === 'stimma' ? 'stimma-cloud-text' : 'text-content'">{{ managerTitle }}</h4>
-              <p class="mt-0.5 text-xs text-content-tertiary">{{ managerSubtitle }}</p>
+            <div v-else class="flex min-w-0 flex-1 items-center gap-3">
+              <div v-if="activeProvider || activeManager === 'stimma'" class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary" :aria-hidden="activeManager === 'stimma' ? true : undefined">
+                <ProviderBrandIcon v-if="activeProvider" :provider="activeProvider.kind" size="md" />
+                <div v-else class="h-7 w-7 bg-current [mask-image:url('/logo.png')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.png')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"></div>
+              </div>
+              <div class="min-w-0">
+                <h4 class="truncate text-base font-medium text-content">{{ modelAddStep === 'choose' ? 'Add a model' : managerTitle }}</h4>
+              </div>
             </div>
-            <button type="button" @click="closeManager" class="text-sm text-content-muted hover:text-content">Done</button>
           </div>
 
-          <div ref="managerBody" class="overflow-y-auto p-5">
+          <div ref="managerBody" class="p-6">
+            <div v-if="modelAddStep === 'choose'" class="space-y-3">
+              <input v-model="modelSearch" type="search" autofocus placeholder="Search models…" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content placeholder:text-content-muted focus:border-blue-500 focus:outline-none" />
+              <div v-if="managerLoadingModels" class="py-10 text-center text-sm text-content-muted">Loading models…</div>
+              <div v-else-if="availableProviderModels.length" class="space-y-0.5">
+                <button v-for="model in availableProviderModels" :key="model.id" type="button" @click="chooseProviderModel(model)" class="flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-white/[0.025]">
+                  <ModelVendorIcon :model="model" size="md" />
+                  <div class="min-w-0 flex-1"><div class="truncate text-sm font-medium text-content">{{ model.name }}</div><div class="mt-0.5 truncate text-[11px] text-content-muted">{{ model.id }}</div></div>
+                  <ChevronIcon />
+                </button>
+              </div>
+              <p v-else class="py-10 text-center text-sm text-content-muted">{{ modelSearch ? 'No matching models.' : 'No more models are available.' }}</p>
+              <p v-if="managerError" class="text-xs text-red-400">{{ managerError }}</p>
+            </div>
+
+            <template v-else>
             <template v-if="!selectedManagerModel && activeManager !== 'stimma' && activeProvider">
-              <div v-if="isRemoteProvider(activeProvider)" class="rounded-lg border border-edge p-4">
-                <div class="flex items-center justify-between gap-3">
-                  <label class="text-xs font-medium text-content">API key</label>
-                  <span v-if="managerSaving" class="text-xs text-content-muted">Checking…</span>
-                  <span v-else-if="managerError" class="inline-flex items-center gap-1.5 text-xs text-red-400">
-                    <span class="h-1.5 w-1.5 rounded-full bg-red-400" /> Not connected
-                  </span>
-                  <span v-else-if="activeProvider.last_test_passed === true" class="inline-flex items-center gap-1.5 text-xs text-green-500">
-                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                    Connected
-                  </span>
-                  <span v-else-if="activeProvider.last_test_passed === false" class="inline-flex items-center gap-1.5 text-xs text-red-400">
-                    <span class="h-1.5 w-1.5 rounded-full bg-red-400" /> Not connected
-                  </span>
-                  <span v-else-if="activeProvider._unconfigured" class="text-xs text-content-muted">Not configured</span>
-                  <span v-else class="text-xs text-content-muted">Not checked</span>
+              <section v-if="isRemoteProvider(activeProvider)" class="max-w-2xl">
+                <h5 class="text-sm font-medium text-content">API key</h5>
+                <p class="mt-1 text-xs leading-relaxed text-content-tertiary">
+                  {{ activeProviderKind?.apiKeyHelp }}
+                  <button type="button" @click="openProviderKeyPage" class="ml-1 text-blue-400 hover:text-blue-300 hover:underline">Get an API key ↗</button>
+                </p>
+                <div v-if="activeProvider.api_key_set && !editingProviderKey" class="mt-4 flex items-center gap-2">
+                  <input type="text" value="••••••••••••••••" disabled aria-label="Saved API key" class="min-w-0 flex-1 cursor-not-allowed rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm tracking-wider text-content-muted opacity-70" />
+                  <button type="button" @click="beginProviderKeyEdit" class="rounded-md px-3 py-2 text-sm text-blue-400 hover:bg-white/[0.05] hover:text-blue-300">Change key</button>
                 </div>
-                <div class="mt-2 flex items-center gap-2">
+                <div v-else class="mt-4 flex items-center gap-2">
                   <input v-model="providerKeyDraft" type="password" autocomplete="off" class="min-w-0 flex-1 rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" :placeholder="activeProvider.api_key_set ? '••••••••••••' : 'Paste API key'" />
-                  <button type="button" @click="saveProviderConnection" :disabled="managerSaving || !providerKeyDraft" class="rounded-md bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50">Save</button>
+                  <button type="button" @click="saveProviderConnection" :disabled="managerSaving || !providerKeyDraft" class="rounded-md bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50">{{ activeProvider.api_key_set ? 'Save' : 'Connect' }}</button>
+                  <button v-if="activeProvider.api_key_set" type="button" @click="cancelProviderKeyEdit" :disabled="managerSaving" class="rounded-md px-3 py-2 text-sm text-content-secondary hover:bg-white/[0.05] hover:text-content disabled:opacity-50">Cancel</button>
                 </div>
                 <p v-if="managerError" class="mt-2 text-xs text-red-400">{{ managerError }}</p>
-              </div>
+              </section>
 
               <div v-else class="grid gap-3 sm:grid-cols-2">
                 <label class="block">
@@ -268,79 +235,82 @@
                   <span class="mb-1 block text-xs text-content-tertiary">Endpoint URL</span>
                   <input v-model="activeProvider.base_url" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" />
                 </label>
-                <label v-if="activeProvider.kind !== 'local'" class="block sm:col-span-2">
-                  <span class="mb-1 block text-xs text-content-tertiary">Replace API key</span>
-                  <input v-model="providerKeyDraft" type="password" autocomplete="off" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" placeholder="Leave blank to keep the current key" />
+                <label class="block sm:col-span-2">
+                  <span class="mb-1 block text-xs text-content-tertiary">API key <span class="text-content-muted">(optional)</span></span>
+                  <input v-model="providerKeyDraft" type="password" autocomplete="off" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" :placeholder="activeProvider.api_key_set ? 'Leave blank to keep the current key' : 'Leave empty if not required'" />
                 </label>
               </div>
               <div v-if="!isRemoteProvider(activeProvider)" class="mt-3 flex items-center gap-3">
                 <button type="button" @click="saveProviderConnection" :disabled="managerSaving" class="rounded-md bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-400 disabled:opacity-50">{{ managerSaving ? 'Checking…' : 'Save connection' }}</button>
-                <button type="button" @click="testProvider(activeProvider)" :disabled="testingId === activeProvider.id" class="text-xs text-content-secondary hover:text-content disabled:opacity-50">{{ testingId === activeProvider.id ? 'Testing…' : 'Test all models' }}</button>
+                <button type="button" @click="testProvider(activeProvider)" :disabled="testingId === activeProvider.id" class="text-xs text-content-secondary hover:text-content disabled:opacity-50">{{ testingId === activeProvider.id ? 'Testing…' : 'Check connection' }}</button>
                 <span v-if="activeProvider.last_tested_at" class="text-[11px] text-content-muted">Tested {{ timeAgo(activeProvider.last_tested_at) }}</span>
               </div>
               <p v-if="managerError && !isRemoteProvider(activeProvider)" class="mt-2 text-xs text-red-400">{{ managerError }}</p>
 
-              <div v-if="isFlexibleProvider(activeProvider)" class="mt-5 border-t border-edge pt-4">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <h5 class="text-sm font-medium text-content">Shown models</h5>
-                    <p class="mt-0.5 text-xs text-content-tertiary">Choose which models appear in Stimma.</p>
-                  </div>
-                  <button type="button" @click="loadProviderModels(activeProvider)" class="text-xs text-blue-400 hover:text-blue-300">Refresh list</button>
-                </div>
-                <div v-if="discoveredModels.length" class="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
-                  <label v-for="model in discoveredModels" :key="model.id" class="flex cursor-pointer items-center gap-3 rounded border border-edge px-3 py-2">
-                    <input type="checkbox" :checked="selectedManagerIds.has(model.id)" @change="toggleManagerModel(model.id)" class="rounded border-edge bg-surface" />
-                    <ModelVendorIcon :model="model" size="sm" />
-                    <span class="min-w-0 flex-1 truncate text-sm text-content">{{ model.name }}</span>
-                  </label>
-                </div>
-                <button v-if="discoveredModels.length" type="button" @click="saveProviderModels" class="mt-3 rounded-md border border-blue-500/50 bg-blue-500/15 px-3 py-1.5 text-xs text-blue-400 hover:bg-blue-500/20">Save shown models</button>
-              </div>
             </template>
 
-            <div v-if="selectedManagerModel || activeManager === 'stimma' || managerModels.length" :class="!selectedManagerModel && activeManager !== 'stimma' ? 'mt-5 border-t border-edge pt-4' : ''">
+            <div v-if="selectedManagerModel || activeManager === 'stimma' || managerModels.length || (isFlexibleProvider(activeProvider) && !activeProvider?._unconfigured)" :class="!selectedManagerModel && activeManager !== 'stimma' ? 'mt-8' : ''">
               <template v-if="!selectedManagerModel">
                 <h5 class="text-sm font-medium text-content">Models</h5>
-                <p class="mt-0.5 text-xs text-content-tertiary">Choose a model to change its settings.</p>
               </template>
-              <div :class="selectedManagerModel ? '' : 'mt-3 space-y-2'">
-                <div v-for="model in managerPageModels" :key="model.slug || model.id" :class="selectedManagerModel ? '' : 'overflow-hidden rounded-lg border border-edge'">
-                  <button v-if="!selectedManagerModel" type="button" @click="openModelSettings(model)" class="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-white/[0.03]">
+              <div :class="selectedManagerModel ? '' : 'mt-3 space-y-0.5'">
+                <div v-for="model in managerPageModels" :key="model.slug || model.id">
+                  <component
+                    :is="activeManager === 'stimma' ? 'div' : 'button'"
+                    v-if="!selectedManagerModel"
+                    :type="activeManager === 'stimma' ? undefined : 'button'"
+                    @click="activeManager !== 'stimma' && openModelSettings(model)"
+                    class="flex w-full items-center gap-3 px-1 py-3 text-left"
+                    :class="activeManager === 'stimma' ? '' : 'hover:bg-white/[0.025]'"
+                  >
                     <ModelVendorIcon :model="model" size="md" />
                     <div class="min-w-0 flex-1">
                       <div class="truncate text-sm text-content">{{ model.name }}</div>
                       <div class="mt-0.5 text-[11px] text-content-muted">{{ modelVendor(model) }}<span v-if="model.cost_tier"> · {{ model.cost_tier }}</span></div>
                     </div>
-                    <span v-if="model.last_test_passed === false" class="text-[11px] text-red-400">Failed</span>
-                    <span v-else-if="model.last_test_passed" class="text-[11px] text-green-500">Ready</span>
-                    <ChevronIcon />
-                  </button>
+                    <span v-if="isFlexibleProvider(activeProvider) && model.last_test_passed === false" class="text-[11px] text-red-400">Failed</span>
+                    <span v-else-if="isFlexibleProvider(activeProvider) && model.last_test_passed" class="text-[11px] text-green-500">Ready</span>
+                    <ChevronIcon v-if="activeManager !== 'stimma'" />
+                  </component>
 
                   <div v-if="selectedManagerModel" class="space-y-4">
-                    <div v-if="model.last_test_results && Object.keys(model.last_test_results).length" class="flex flex-wrap gap-1.5">
+                    <ProviderModelSetup
+                      v-if="isFlexibleProvider(activeProvider)"
+                      :model="model"
+                      :is-new="Boolean(modelSetupDraft)"
+                      :testing="managerTestingModel"
+                      :saving="managerSaving"
+                      :error="managerError"
+                      @test="profileManagerModel(model)"
+                      @commit="commitProviderModel"
+                      @save="saveModelSettings(model)"
+                      @remove="removeProviderModel(model)"
+                    />
+                    <template v-else>
+                    <div v-if="activeProvider?.kind === 'local' && model.last_test_results && Object.keys(model.last_test_results).length" class="flex flex-wrap gap-1.5">
                       <span v-for="(result, name) in model.last_test_results" :key="name" class="rounded-md border px-1.5 py-0.5 text-[11px]" :class="result.passed ? 'border-green-500/30 text-green-500' : 'border-red-500/30 text-red-400'">
                         {{ result.passed ? '✓' : '×' }} {{ name }}<span v-if="result.elapsed_ms" class="text-content-muted"> · {{ fmtMs(result.elapsed_ms) }}</span>
                       </span>
                     </div>
 
-                    <div class="rounded-lg border border-edge p-3">
-                      <div class="text-xs font-medium text-content">Prompt policy</div>
+                    <div class="py-2">
+                      <div class="text-xs font-medium text-content">System prompt policy</div>
+                      <p class="mt-1 text-[11px] leading-relaxed text-content-muted">Choose whether Stimma adds its Content Policy to this model's system prompt.</p>
                       <label class="mt-3 flex cursor-pointer items-start gap-2.5">
-                        <input type="radio" :name="`policy-${modelKey(model)}`" :checked="modelPrompt(model).content_policy_enabled" @change="modelPrompt(model).content_policy_enabled = true" class="mt-0.5" />
+                        <input type="radio" :name="`policy-${modelKey(model)}`" :checked="modelPrompt(model).content_policy_enabled" @change="updateModelPolicy(model, true)" class="mt-0.5" />
                         <span>
-                          <span class="block text-xs text-content">Stimma content policy</span>
-                          <span class="mt-0.5 block text-[11px] leading-relaxed text-content-muted">Stating the policy typically increases permissiveness and creative control with aligned models, while making refusals clearer. <button type="button" @click.stop.prevent="openContentPolicy" class="text-blue-400 hover:text-blue-300">View content policy</button></span>
+                          <span class="block text-xs text-content">Include Stimma's Content Policy</span>
+                          <span class="mt-0.5 block text-[11px] leading-relaxed text-content-muted">Adds the policy to the system prompt. With aligned models, stating it typically increases permissiveness and creative control while making refusals clearer.</span>
                         </span>
                       </label>
                       <label class="mt-3 flex cursor-pointer items-start gap-2.5">
-                        <input type="radio" :name="`policy-${modelKey(model)}`" :checked="!modelPrompt(model).content_policy_enabled" @change="modelPrompt(model).content_policy_enabled = false" class="mt-0.5" />
+                        <input type="radio" :name="`policy-${modelKey(model)}`" :checked="!modelPrompt(model).content_policy_enabled" @change="updateModelPolicy(model, false)" class="mt-0.5" />
                         <span>
-                          <span class="block text-xs text-content">Model default</span>
-                          <span class="mt-0.5 block text-[11px] leading-relaxed text-content-muted">Do not add Stimma's policy prompt. The provider or model's built-in policy remains in effect.</span>
+                          <span class="block text-xs text-content">Do not include it</span>
+                          <span class="mt-0.5 block text-[11px] leading-relaxed text-content-muted">Does not add Stimma's Content Policy to the system prompt. The provider or model's built-in policy remains in effect.</span>
                         </span>
                       </label>
-                      <label class="mt-3 block">
+                      <label v-if="isFlexibleProvider(activeProvider)" class="mt-3 block">
                         <span class="mb-1 block text-[11px] text-content-tertiary">Additional instructions</span>
                         <textarea v-model="modelPrompt(model).extra_system_prompt" rows="3" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 text-xs text-content focus:border-blue-500 focus:outline-none" placeholder="Appended to the system prompt for this model." />
                       </label>
@@ -366,7 +336,7 @@
                         Tool calls
                       </label>
 
-                      <div v-if="isFlexibleProvider(activeProvider)" class="rounded-lg border border-edge p-3">
+                      <div v-if="isFlexibleProvider(activeProvider)" class="py-2">
                         <div class="flex items-start justify-between gap-4">
                           <div>
                             <div class="text-xs font-medium text-content">Reasoning control</div>
@@ -402,34 +372,38 @@
                       </label>
                     </template>
 
-                    <button type="button" @click="saveModelSettings(model)" :disabled="managerSaving || Boolean(extraBodyErrors[model.id])" class="rounded-md bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-400 disabled:opacity-50">{{ managerSaving ? 'Saving…' : isFlexibleProvider(activeProvider) ? 'Save model settings' : 'Save prompt policy' }}</button>
+                    <p v-if="managerError" class="text-xs text-red-400">{{ managerError }}</p>
+                    <button v-if="isFlexibleProvider(activeProvider)" type="button" @click="saveModelSettings(model)" :disabled="managerSaving || Boolean(extraBodyErrors[model.id])" class="rounded-md bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-400 disabled:opacity-50">{{ managerSaving ? 'Saving…' : 'Save model settings' }}</button>
+                    </template>
                   </div>
                 </div>
+                <button v-if="!selectedManagerModel && canAddProviderModel" type="button" @click="startAddProviderModel" class="mt-1 flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-blue-500/[0.04]">
+                  <span class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg></span>
+                  <span class="min-w-0 flex-1"><span class="block text-sm font-medium text-blue-400">Add a model</span></span>
+                </button>
               </div>
             </div>
+            <div v-if="!selectedManagerModel && activeManager !== 'stimma' && activeProvider && !activeProvider._unconfigured" class="mt-8 flex justify-end">
+              <button type="button" @click="removeProvider(activeProvider)" class="text-xs text-red-400 hover:text-red-300">
+                Disconnect
+              </button>
+            </div>
+            </template>
           </div>
-
-          <div v-if="!selectedManagerModel && activeManager !== 'stimma' && activeProvider && !activeProvider._unconfigured" class="flex justify-end border-t border-edge px-5 py-3">
-            <button type="button" @click="removeProvider(activeProvider)" class="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300">
-              <TrashIcon /> Delete provider
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    </div>
 
     <!-- Existing local endpoint: preserve the proven endpoint workflow. -->
-    <Teleport to="body">
-      <div v-if="legacyOpen" class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop p-4 backdrop-blur-sm" @click.self="closeLegacyProvider" @keydown.escape.stop="closeLegacyProvider">
-        <div class="flex max-h-[90vh] w-[720px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-edge bg-surface shadow-2xl">
-          <div class="flex items-start justify-between border-b border-edge px-5 py-4">
+    <div v-else-if="legacyOpen" class="-m-6 min-h-full" @keydown.escape.stop="closeLegacyProvider">
+          <div class="flex items-center gap-3 px-6 pb-2 pt-4">
+            <button type="button" @click="closeLegacyProvider" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-content-secondary hover:bg-white/[0.05] hover:text-content">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
+            </button>
             <div class="min-w-0">
               <h4 class="truncate text-base font-medium text-content">{{ legacyProvider?.name || 'OpenAI-compatible endpoint' }}</h4>
               <p class="mt-0.5 truncate text-xs text-content-tertiary">{{ legacyDraft.model || 'No model selected' }}</p>
             </div>
-            <button type="button" @click="closeLegacyProvider" class="text-sm text-content-muted hover:text-content">Done</button>
           </div>
-          <div class="space-y-4 overflow-y-auto p-5">
+          <div class="space-y-6 px-6 py-4">
             <div class="grid gap-3 sm:grid-cols-2">
               <label class="block sm:col-span-2">
                 <span class="mb-1 block text-xs text-content-tertiary">Endpoint URL</span>
@@ -446,7 +420,7 @@
               </label>
             </div>
 
-            <div class="rounded-lg border border-edge p-3">
+            <div class="py-2">
               <div class="flex items-center justify-between gap-3">
                 <div class="text-xs">
                   <span v-if="legacyTesting" class="text-content-secondary">Testing…</span>
@@ -462,15 +436,16 @@
               </div>
             </div>
 
-            <div class="rounded-lg border border-edge p-3">
-              <div class="text-xs font-medium text-content">Prompt policy</div>
+            <div class="py-2">
+              <div class="text-xs font-medium text-content">System prompt policy</div>
+              <p class="mt-1 text-[11px] leading-relaxed text-content-muted">Choose whether Stimma adds its Content Policy to this model's system prompt.</p>
               <label class="mt-3 flex cursor-pointer items-start gap-2.5">
                 <input v-model="legacyDraft.content_policy_enabled" :value="true" type="radio" class="mt-0.5" />
-                <span><span class="block text-xs text-content">Stimma content policy</span><span class="mt-0.5 block text-[11px] leading-relaxed text-content-muted">Stating the policy typically increases permissiveness and creative control with aligned models, while making refusals clearer. <button type="button" @click.stop.prevent="openContentPolicy" class="text-blue-400 hover:text-blue-300">View content policy</button></span></span>
+                <span><span class="block text-xs text-content">Include Stimma's Content Policy</span><span class="mt-0.5 block text-[11px] leading-relaxed text-content-muted">Adds the policy to the system prompt. With aligned models, stating it typically increases permissiveness and creative control while making refusals clearer.</span></span>
               </label>
               <label class="mt-3 flex cursor-pointer items-start gap-2.5">
                 <input v-model="legacyDraft.content_policy_enabled" :value="false" type="radio" class="mt-0.5" />
-                <span><span class="block text-xs text-content">Model default</span><span class="mt-0.5 block text-[11px] leading-relaxed text-content-muted">Do not add Stimma's policy prompt. The model's built-in policy remains in effect.</span></span>
+                <span><span class="block text-xs text-content">Do not include it</span><span class="mt-0.5 block text-[11px] leading-relaxed text-content-muted">Does not add Stimma's Content Policy to the system prompt. The model's built-in policy remains in effect.</span></span>
               </label>
               <label class="mt-3 block">
                 <span class="mb-1 block text-[11px] text-content-tertiary">Additional instructions</span>
@@ -478,7 +453,7 @@
               </label>
             </div>
 
-            <div class="rounded-lg border border-edge p-3">
+            <div class="py-2">
               <div class="flex items-start justify-between gap-4">
                 <div><div class="text-xs font-medium text-content">Reasoning control</div><div class="mt-0.5 text-[11px] text-content-muted">How thinking is toggled per request.</div></div>
                 <div class="inline-flex overflow-hidden rounded-md border border-edge text-[11px]">
@@ -490,13 +465,13 @@
               <SettingsDropdown v-else v-model="legacyDraft.reasoning_method" control class="mt-3" :options="legacyReasoningOptions" />
             </div>
 
-            <div class="rounded-lg border border-edge p-3">
+            <div class="py-2">
               <div class="mb-1 flex items-baseline justify-between"><label class="text-xs font-medium text-content">Context window</label><span class="text-xs tabular-nums text-content-secondary">{{ Math.round(legacyDraft.max_context_tokens / 1024) }}k tokens</span></div>
               <input v-model.number="legacyDraft.max_context_tokens" type="range" min="32768" max="262144" step="32768" class="w-full accent-blue-500" />
               <p class="mt-1 text-[11px] text-content-muted">Match the model's configured context length. Stimma compacts history at about 80% of this.</p>
             </div>
 
-            <label class="block rounded-lg border border-edge p-3">
+            <label class="block py-2">
               <span class="text-xs font-medium text-content">Extra request body</span>
               <span class="mb-2 mt-0.5 block text-[11px] text-content-muted">Merged into every request for this model.</span>
               <textarea v-model="legacyExtraBodyText" rows="3" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 font-mono text-xs text-content focus:border-blue-500 focus:outline-none" placeholder='{ "repetition_penalty": 1.05 }' />
@@ -504,45 +479,29 @@
             </label>
             <p v-if="legacyActionError" class="text-xs text-red-400">{{ legacyActionError }}</p>
           </div>
-          <div class="flex items-center justify-between border-t border-edge px-5 py-4">
+          <div class="flex items-center justify-between px-6 pb-4 pt-2">
             <button type="button" @click="removeLegacyProvider" :disabled="legacySaving" class="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 disabled:opacity-50">
               <TrashIcon /> Remove endpoint
             </button>
             <button type="button" @click="saveLegacyEndpoint" :disabled="legacySaving || Boolean(legacyExtraBodyError)" class="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50">{{ legacySaving ? 'Saving…' : 'Save' }}</button>
           </div>
-        </div>
-      </div>
-    </Teleport>
+    </div>
 
-    <Teleport to="body">
-      <div v-if="policyModalOpen" class="fixed inset-0 z-[10040] flex items-center justify-center bg-overlay-backdrop p-4 backdrop-blur-sm" @click.self="closeContentPolicy" @keydown.escape.stop="closeContentPolicy">
-        <div class="flex max-h-[80vh] w-[680px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-edge bg-surface shadow-2xl">
-          <div class="flex items-center justify-between border-b border-edge px-5 py-4">
-            <h4 class="text-base font-medium text-content">Stimma content policy</h4>
-            <button type="button" @click="closeContentPolicy" class="text-sm text-content-muted hover:text-content">Done</button>
-          </div>
-          <div class="overflow-y-auto p-5">
-            <p v-if="policyLoading" class="text-sm text-content-muted">Loading…</p>
-            <p v-else-if="policyError" class="text-sm text-red-400">{{ policyError }}</p>
-            <pre v-else class="whitespace-pre-wrap font-sans text-sm leading-relaxed text-content-secondary">{{ policyText }}</pre>
-          </div>
-        </div>
-      </div>
-    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { computed, defineComponent, h, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, h, nextTick, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../../apiConfig'
 import { useAvailableModels } from '../../../composables/useAvailableModels'
-import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
-import { VOICE_MODELS, voiceModel, isModelReady, supported as voiceSupported } from '../../../composables/useVoiceInput'
+import { useAuth } from '../../../composables/useAuth'
+import { useCloudAccount } from '../../../composables/useCloudAccount'
 import SettingsDropdown from '../../ui/SettingsDropdown.vue'
 import ModelVendorIcon from '../../models/ModelVendorIcon.vue'
 import ProviderBrandIcon from '../../models/ProviderBrandIcon.vue'
-import { getModelVendorInfo, resolveModelVendorId, sortModelsByBrand } from '../../../utils/modelVendors'
+import ProviderModelSetup from '../ProviderModelSetup.vue'
+import { getModelVendorInfo, MODEL_VENDOR_OPTIONS, resolveModelVendorId, sortModelsByBrand } from '../../../utils/modelVendors'
 
 const ChevronIcon = defineComponent({
   props: { open: Boolean },
@@ -550,33 +509,26 @@ const ChevronIcon = defineComponent({
     return () => h('svg', { class: ['h-4 w-4 shrink-0 text-content-muted transition-transform', props.open ? 'rotate-90' : ''], fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' }, [h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'm9 5 7 7-7 7' })])
   },
 })
-const TrashIcon = defineComponent({
-  setup() {
-    return () => h('svg', { class: 'h-3.5 w-3.5', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' }, [h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', d: 'm14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166M4.772 5.79l1.068 13.133A2.25 2.25 0 0 0 8.084 21h7.832a2.25 2.25 0 0 0 2.244-2.077L19.228 5.79M9.75 5.393V4.477c0-1.18.91-2.164 2.09-2.201a51.964 51.964 0 0 1 3.32 0c1.18.037 2.09 1.022 2.09 2.201v.916' })])
-  },
+const props = defineProps({
+  llmSettings: { type: Array, default: () => [] },
+  setupRequired: { type: Boolean, default: false },
+  // Setup-wizard variant: no section header/banner, primary providers only
+  // (with a "See all" expander); connect flows are unchanged.
+  wizard: { type: Boolean, default: false },
 })
-
-const props = defineProps({ llmSettings: { type: Array, default: () => [] } })
-const emit = defineEmits(['navigate'])
+defineEmits(['navigate'])
 
 const providerKinds = [
-  { id: 'openai', name: 'OpenAI', description: 'Use your OpenAI API key.' },
-  { id: 'anthropic', name: 'Anthropic', description: 'Use your Anthropic API key.' },
-  { id: 'xai', name: 'xAI', description: 'Use your xAI API key for Grok.' },
-  { id: 'openrouter', name: 'OpenRouter', description: 'Choose models from your OpenRouter account.' },
+  { id: 'openai', name: 'OpenAI', description: 'Ensuring artificial general intelligence benefits all of humanity.', apiKeyHelp: 'Create or manage keys in the OpenAI Platform.', apiKeyUrl: 'https://platform.openai.com/api-keys' },
+  { id: 'anthropic', name: 'Anthropic', description: 'Making AI systems you can rely on.', apiKeyHelp: 'Create or manage keys in the Claude Console.', apiKeyUrl: 'https://platform.claude.com/settings/keys' },
+  { id: 'google', name: 'Google', description: 'Gemini models from Google.', apiKeyHelp: 'Create or manage keys in Google AI Studio.', apiKeyUrl: 'https://aistudio.google.com/app/apikey' },
+  { id: 'xai', name: 'xAI', description: 'Accelerating human scientific discovery.', apiKeyHelp: 'Create or manage keys in the xAI Console.', apiKeyUrl: 'https://console.x.ai/' },
+  { id: 'together', name: 'Together AI', description: 'Open models through Together AI.', apiKeyHelp: 'Create or manage keys in your Together AI account.', apiKeyUrl: 'https://api.together.ai/settings/api-keys' },
+  { id: 'fireworks', name: 'Fireworks AI', description: 'Open models through Fireworks AI.', apiKeyHelp: 'Create or manage keys in your Fireworks AI account.', apiKeyUrl: 'https://app.fireworks.ai/settings/users/api-keys' },
+  { id: 'openrouter', name: 'OpenRouter', description: 'Access hundreds of models with one key.', apiKeyHelp: 'Create or manage keys in your OpenRouter account.', apiKeyUrl: 'https://openrouter.ai/settings/keys' },
   { id: 'local', name: 'Local endpoint', description: 'Connect to LM Studio, vLLM, llama.cpp, Ollama, or another compatible server.' },
 ]
-const modelVendorOptions = [
-  { value: 'anthropic', label: 'Anthropic', vendor: 'anthropic' },
-  { value: 'openai', label: 'OpenAI', vendor: 'openai' },
-  { value: 'xai', label: 'xAI', vendor: 'xai' },
-  { value: 'minimax', label: 'MiniMax', vendor: 'minimax' },
-  { value: 'kimi', label: 'Kimi', vendor: 'kimi' },
-  { value: 'alibaba', label: 'Alibaba · Qwen', vendor: 'alibaba' },
-  { value: 'google', label: 'Google · Gemma', vendor: 'google' },
-  { value: 'stepfun', label: 'StepFun', vendor: 'stepfun' },
-  { value: 'zai', label: 'Z.ai', vendor: 'zai' },
-]
+const modelVendorOptions = MODEL_VENDOR_OPTIONS
 const reasoningModeOptions = [
   { value: 'none', label: 'Always on / no control' },
   { value: 'optional', label: 'Optional' },
@@ -600,17 +552,36 @@ const legacyReasoningOptions = [
   { value: 'none', label: 'Always on / no control' },
 ]
 
-const { models, quickTaskModel, cloudStatus, cloudMessage, fetchModels, invalidateCache } = useAvailableModels()
-const { privacyLockdownActive } = usePrivacyLockdown()
-const providers = ref([])
-const voiceModelReady = ref(false)
-const modelPrompts = ref({})
-const policyModalOpen = ref(false)
-const policyLoading = ref(false)
-const policyText = ref('')
-const policyError = ref('')
+const { selectableModels, cloudStatus, cloudMessage, fetchModels, invalidateCache } = useAvailableModels()
+const { signInWithBrowser, isAuthenticated } = useAuth()
+const { cloudUser, fetchCloudAccount } = useCloudAccount()
 
-const cloudModels = computed(() => models.value.filter(model => model.source === 'stimma_cloud'))
+// Signed in but no balance: the catalog still lists models, but none of them
+// will actually run — surface that instead of a reassuring model count.
+const cloudNeedsCredits = computed(() => (
+  cloudUser.value != null && Number(cloudUser.value.credits ?? 0) <= 0
+))
+
+const cloudConnecting = ref(false)
+const cloudConnectError = ref('')
+
+async function handleCloudConnect() {
+  if (cloudConnecting.value) return
+  cloudConnecting.value = true
+  cloudConnectError.value = ''
+  try {
+    await signInWithBrowser('sign-in')
+    await refreshAll()
+  } catch (error) {
+    cloudConnectError.value = error?.message || 'Could not sign in to Stimma.'
+  } finally {
+    cloudConnecting.value = false
+  }
+}
+const providers = ref([])
+const modelPrompts = ref({})
+
+const cloudModels = computed(() => selectableModels.value.filter(model => model.source === 'stimma_cloud'))
 const remoteProviderRows = computed(() => providerKinds
   .filter(kind => kind.id !== 'local')
   .map(kind => providers.value.find(provider => provider.kind === kind.id) || {
@@ -623,58 +594,16 @@ const remoteProviderRows = computed(() => providerKinds
     last_error: null,
     _unconfigured: true,
   }))
+// Wizard variant: lead with the primary providers; the rest sit behind
+// "See all". Configured providers always show regardless of tier.
+const WIZARD_PRIMARY_KINDS = new Set(['openai', 'anthropic', 'openrouter'])
+const showAllProviders = ref(false)
+const visibleRemoteProviderRows = computed(() => {
+  if (!props.wizard || showAllProviders.value) return remoteProviderRows.value
+  return remoteProviderRows.value.filter(provider => WIZARD_PRIMARY_KINDS.has(provider.kind) || !provider._unconfigured)
+})
+const hiddenRemoteProviderCount = computed(() => remoteProviderRows.value.length - visibleRemoteProviderRows.value.length)
 const localProviders = computed(() => providers.value.filter(provider => provider.kind === 'local'))
-const configuredQuickTaskModel = computed(() => {
-  let sameModel = null
-  for (const provider of providers.value) {
-    for (const model of provider.models || []) {
-      if (model.id === quickTaskModel.value) return { provider, model, exact: true }
-      if (!sameModel && quickTaskModel.value.endsWith(`:${model.model_id}`)) sameModel = { provider, model, exact: false }
-    }
-  }
-  return sameModel
-})
-const selectedQuickModel = computed(() => {
-  const availableModel = models.value.find(model => model.slug === quickTaskModel.value)
-  if (availableModel) return availableModel
-  const configured = configuredQuickTaskModel.value
-  return {
-    slug: quickTaskModel.value,
-    name: configured?.model.name || modelIdDisplayName(quickTaskModel.value),
-    provider_name: configured?.provider.name,
-    model_vendor: configured?.model.model_vendor,
-    available: Boolean(configured?.exact && configured.provider.enabled !== false && configured.model.enabled !== false && configured.provider.last_test_passed !== false),
-  }
-})
-const quickTaskOptions = computed(() => {
-  const options = models.value.filter(model => model.source !== 'auto' && !model.collapsed && (model.available !== false || model.slug === quickTaskModel.value)).map(model => ({
-    value: model.slug,
-    label: model.name,
-    description: `via ${model.source === 'stimma_cloud' ? 'Stimma' : (model.provider_name || endpointHost(model.endpoint_url) || 'your endpoint')}`,
-    meta: model.cost_tier || '',
-    tone: model.source === 'stimma_cloud' ? 'cloud' : undefined,
-    vendor: resolveModelVendorId(model) || undefined,
-    disabled: model.available === false,
-  }))
-  if (!options.some(option => option.value === quickTaskModel.value)) {
-    const selected = selectedQuickModel.value
-    options.unshift({
-      value: quickTaskModel.value,
-      label: selected.name,
-      description: selected.provider_name ? `via ${selected.provider_name}` : 'Unavailable',
-      meta: '',
-      tone: undefined,
-      vendor: resolveModelVendorId(selected) || undefined,
-      disabled: selected.available === false,
-    })
-  }
-  return options
-})
-const voiceModelOptions = computed(() => VOICE_MODELS.map(model => ({
-  value: model.id,
-  label: model.label,
-  description: model.size,
-})))
 
 const legacyOverride = ref(undefined)
 const legacyEndpoint = computed(() => {
@@ -691,25 +620,6 @@ const legacyProvider = computed(() => {
 
 function kindLabel(kind) { return providerKinds.find(item => item.id === kind)?.name || kind }
 function kindDescription(kind) { return providerKinds.find(item => item.id === kind)?.description || '' }
-function endpointHost(url) {
-  if (!url) return ''
-  try { return new URL(url).host } catch { return url }
-}
-function modelIdDisplayName(slug) {
-  const modelId = slug.includes(':') ? slug.slice(slug.indexOf(':') + 1) : slug
-  const knownNames = {
-    'grok-4.5': 'Grok 4.5',
-    'gpt-5.6-sol': 'GPT-5.6 Sol',
-    'gpt-5.6-terra': 'GPT-5.6 Terra',
-    'gpt-5.6-luna': 'GPT-5.6 Luna',
-    'claude-opus-4-8': 'Claude Opus 4.8',
-    'claude-fable-5': 'Claude Fable 5',
-    'claude-sonnet-5': 'Claude Sonnet 5',
-    'claude-haiku-4-5-20251001': 'Claude Haiku 4.5',
-  }
-  if (knownNames[modelId]) return knownNames[modelId]
-  return modelId.split('/').pop().replace(/[-_]+/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())
-}
 function modelSummary(items) {
   const names = items.map(item => item.name || item.model_id).filter(Boolean)
   if (!names.length) return 'No models selected'
@@ -736,74 +646,39 @@ async function loadPromptSettings() {
   const response = await axios.get(`${getApiBase()}/settings`)
   modelPrompts.value = response.data.llm_model_prompts || {}
 }
-async function openContentPolicy() {
-  policyModalOpen.value = true
-  policyError.value = ''
-  if (policyText.value) return
-  policyLoading.value = true
-  try {
-    const response = await axios.get(`${getApiBase()}/settings/content-policy`)
-    policyText.value = response.data.text || ''
-    if (!policyText.value) policyError.value = 'The content policy is not available right now.'
-  } catch (error) {
-    policyError.value = error.response?.data?.detail || 'The content policy is not available right now.'
-  } finally {
-    policyLoading.value = false
-  }
-}
-function closeContentPolicy() { policyModalOpen.value = false }
 async function refreshAll() {
   invalidateCache()
+  if (isAuthenticated.value) fetchCloudAccount().catch(() => {})
   await Promise.all([fetchModels(null, true), loadProviders(), loadPromptSettings()])
 }
-async function saveQuickTaskModel(model) {
-  await axios.patch(`${getApiBase()}/settings/quick-task-model`, { model })
-  await fetchModels(null, true)
-}
-
 // Local model flow
 const addOpen = ref(false)
-const addStep = ref('connection')
 const addDraft = ref({ kind: 'local', name: '', base_url: 'http://localhost:1234/v1', api_key: '' })
 const addDiscoveredModels = ref([])
-const addSelectedModels = ref(new Set())
 const addSaving = ref(false)
 const addError = ref('')
 
 function openAddLocalProvider() {
   addDraft.value = { kind: 'local', name: '', base_url: 'http://localhost:1234/v1', api_key: '' }
-  addStep.value = 'connection'
   addDiscoveredModels.value = []
-  addSelectedModels.value = new Set()
   addError.value = ''
   addOpen.value = true
 }
 function closeAddProvider() { addOpen.value = false }
-function backAddProvider() {
-  if (addStep.value === 'models') addStep.value = 'connection'
-  else closeAddProvider()
-}
-function toggleAddModel(id) {
-  const next = new Set(addSelectedModels.value)
-  next.has(id) ? next.delete(id) : next.add(id)
-  addSelectedModels.value = next
-}
 async function advanceAddProvider() {
   addSaving.value = true
   addError.value = ''
   try {
-    if (addStep.value === 'connection') {
-      const response = await axios.post(`${getApiBase()}/models/providers/discover`, addDraft.value)
-      addDiscoveredModels.value = response.data.models || []
-      addSelectedModels.value = new Set(addDiscoveredModels.value.length === 1 ? [addDiscoveredModels.value[0].id] : [])
-      addStep.value = 'models'
-      return
-    }
-    const payload = { ...addDraft.value, model_ids: [...addSelectedModels.value] }
-    const response = await axios.post(`${getApiBase()}/models/providers`, payload)
+    const preview = await axios.post(`${getApiBase()}/models/providers/discover`, addDraft.value)
+    addDiscoveredModels.value = preview.data.models || []
+    const response = await axios.post(`${getApiBase()}/models/providers`, {
+      ...addDraft.value,
+      model_ids: [],
+    })
     await refreshAll()
     closeAddProvider()
     openProvider(response.data)
+    if (addDiscoveredModels.value.length) await startAddProviderModel()
   } catch (error) {
     addError.value = error.response?.data?.detail || 'Could not add this local model.'
   } finally {
@@ -817,49 +692,133 @@ const managerBody = ref(null)
 const activeManager = ref(null)
 const activeProvider = ref(null)
 const providerKeyDraft = ref('')
+const editingProviderKey = ref(false)
 const managerSaving = ref(false)
 const managerError = ref('')
 const testingId = ref(null)
 const discoveredModels = ref([])
-const selectedManagerIds = ref(new Set())
+const providerModelsLoaded = ref(false)
+const managerLoadingModels = ref(false)
+const managerTestingModel = ref(false)
+const modelAddStep = ref(null)
+const modelSetupDraft = ref(null)
+const modelSetupReturnToCatalog = ref(false)
+const modelSearch = ref('')
 const customizingModelId = ref(null)
 const extraBodyDrafts = ref({})
 const extraBodyErrors = ref({})
 
-const managerTitle = computed(() => activeManager.value === 'stimma' ? 'Stimma Account' : activeProvider.value?.name || '')
-const managerSubtitle = computed(() => activeManager.value === 'stimma'
-  ? (cloudStatus.value === 'available' ? `${cloudModels.value.length} models · billed through Stimma` : cloudMessage.value || 'Unavailable')
-  : activeProvider.value?._unconfigured
-    ? `${kindLabel(activeProvider.value.kind)} · Not configured`
-    : activeProvider.value ? `${kindLabel(activeProvider.value.kind)} · ${activeProvider.value.models.length} models` : '')
+const managerTitle = computed(() => activeManager.value === 'stimma' ? 'Stimma' : activeProvider.value?.name || '')
+const activeProviderKind = computed(() => providerKinds.find(item => item.id === activeProvider.value?.kind) || null)
 const managerModels = computed(() => sortModelsByBrand(activeManager.value === 'stimma' ? cloudModels.value : (activeProvider.value?.models || [])))
-const selectedManagerModel = computed(() => managerModels.value.find(model => modelKey(model) === customizingModelId.value) || null)
+const selectedManagerModel = computed(() => modelSetupDraft.value || managerModels.value.find(model => modelKey(model) === customizingModelId.value) || null)
 const managerPageModels = computed(() => selectedManagerModel.value ? [selectedManagerModel.value] : managerModels.value)
-
+const unselectedProviderModels = computed(() => {
+  const selected = new Set((activeProvider.value?.models || []).map(model => model.model_id))
+  return discoveredModels.value.filter(model => !selected.has(model.id))
+})
+const availableProviderModels = computed(() => {
+  const query = modelSearch.value.trim().toLowerCase()
+  return unselectedProviderModels.value.filter(model => !query || `${model.name} ${model.id}`.toLowerCase().includes(query))
+})
+const canAddProviderModel = computed(() => providerModelsLoaded.value && unselectedProviderModels.value.length > 0)
 function openStimmaAccount() {
   activeManager.value = 'stimma'
   activeProvider.value = null
   customizingModelId.value = null
+  modelAddStep.value = null
+  modelSetupDraft.value = null
+  modelSetupReturnToCatalog.value = false
   managerOpen.value = true
 }
 function openProvider(provider) {
   activeManager.value = provider.id || `unconfigured-${provider.kind}`
   activeProvider.value = clone(provider)
   providerKeyDraft.value = ''
+  editingProviderKey.value = Boolean(provider._unconfigured)
   managerError.value = ''
   customizingModelId.value = null
+  modelAddStep.value = null
+  modelSetupDraft.value = null
+  modelSetupReturnToCatalog.value = false
+  modelSearch.value = ''
   discoveredModels.value = []
-  selectedManagerIds.value = new Set(provider.models.filter(model => model.enabled).map(model => model.model_id))
+  providerModelsLoaded.value = false
   extraBodyDrafts.value = Object.fromEntries(provider.models.map(model => [model.id, JSON.stringify(model.extra_body || {}, null, 2)]))
   extraBodyErrors.value = {}
   managerOpen.value = true
+  if (provider.id && isFlexibleProvider(provider) && !provider._unconfigured) {
+    void loadProviderModels(activeProvider.value, { silent: true })
+  }
 }
-function closeManager() { customizingModelId.value = null; managerOpen.value = false }
-function isFlexibleProvider(provider) { return provider && ['openrouter', 'local'].includes(provider.kind) }
+function closeManager() {
+  modelProfileRequestId += 1
+  managerTestingModel.value = false
+  customizingModelId.value = null
+  modelAddStep.value = null
+  modelSetupDraft.value = null
+  modelSetupReturnToCatalog.value = false
+  managerOpen.value = false
+}
+function managerBack() {
+  if (selectedManagerModel.value || modelAddStep.value) closeModelSettings()
+  else closeManager()
+}
+function handleEscape() {
+  if (addOpen.value) {
+    closeAddProvider()
+    return true
+  }
+  if (managerOpen.value) {
+    managerBack()
+    return true
+  }
+  if (legacyOpen.value) {
+    closeLegacyProvider()
+    return true
+  }
+  return false
+}
+defineExpose({ handleEscape })
+function isFlexibleProvider(provider) { return provider && ['openrouter', 'together', 'fireworks', 'local'].includes(provider.kind) }
 function isRemoteProvider(provider) { return provider && provider.kind !== 'local' }
+function beginProviderKeyEdit() {
+  providerKeyDraft.value = ''
+  managerError.value = ''
+  editingProviderKey.value = true
+}
+function cancelProviderKeyEdit() {
+  providerKeyDraft.value = ''
+  managerError.value = ''
+  editingProviderKey.value = false
+}
+async function openProviderKeyPage() {
+  const url = activeProviderKind.value?.apiKeyUrl
+  if (!url) return
+  try {
+    const { open } = await import('@tauri-apps/plugin-shell')
+    await open(url)
+  } catch {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
 function resetManagerScroll() { nextTick(() => managerBody.value?.scrollTo({ top: 0 })) }
-function openModelSettings(model) { customizingModelId.value = modelKey(model); resetManagerScroll() }
-function closeModelSettings() { customizingModelId.value = null; resetManagerScroll() }
+function openModelSettings(model) { modelAddStep.value = null; modelSetupDraft.value = null; modelSetupReturnToCatalog.value = false; customizingModelId.value = modelKey(model); resetManagerScroll() }
+function closeModelSettings(toProvider = false) {
+  modelProfileRequestId += 1
+  managerTestingModel.value = false
+  customizingModelId.value = null
+  modelSetupDraft.value = null
+  managerError.value = ''
+  if (!toProvider && modelAddStep.value === 'setup' && modelSetupReturnToCatalog.value) {
+    modelAddStep.value = 'choose'
+  } else {
+    modelAddStep.value = null
+    modelSearch.value = ''
+  }
+  modelSetupReturnToCatalog.value = false
+  resetManagerScroll()
+}
 function modelPrompt(model) {
   if (activeManager.value === 'stimma') {
     if (!modelPrompts.value[model.slug]) modelPrompts.value[model.slug] = { content_policy_enabled: true, extra_system_prompt: '' }
@@ -868,6 +827,10 @@ function modelPrompt(model) {
   if (model.content_policy_enabled == null) model.content_policy_enabled = true
   if (model.extra_system_prompt == null) model.extra_system_prompt = ''
   return model
+}
+function updateModelPolicy(model, enabled) {
+  modelPrompt(model).content_policy_enabled = enabled
+  if (!isFlexibleProvider(activeProvider.value)) saveModelSettings(model)
 }
 async function saveModelSettings(model) {
   managerSaving.value = true
@@ -901,8 +864,12 @@ async function saveProviderConnection() {
       activeManager.value = response.data.id
       activeProvider.value = clone(response.data)
       providerKeyDraft.value = ''
+      editingProviderKey.value = false
       await refreshAll()
-      if (isFlexibleProvider(activeProvider.value)) await loadProviderModels(activeProvider.value)
+      if (isFlexibleProvider(activeProvider.value)) {
+        if (activeProvider.value.models.length === 1) openModelSettings(activeProvider.value.models[0])
+        else await startAddProviderModel()
+      }
       return
     }
     const payload = isRemoteProvider(activeProvider.value)
@@ -912,6 +879,7 @@ async function saveProviderConnection() {
     const response = await axios.patch(`${getApiBase()}/models/providers/${activeProvider.value.id}`, payload)
     activeProvider.value = clone(response.data)
     providerKeyDraft.value = ''
+    editingProviderKey.value = false
     await loadProviders()
   } catch (error) {
     managerError.value = error.response?.data?.detail || 'Could not save this connection.'
@@ -933,29 +901,132 @@ async function testProvider(provider) {
     if (refreshed) activeProvider.value = clone(refreshed)
   }
 }
-async function loadProviderModels(provider) {
-  managerError.value = ''
+async function loadProviderModels(provider, { silent = false } = {}) {
+  const providerId = provider?.id
+  if (!providerId) return
+  if (!silent) {
+    managerError.value = ''
+    managerLoadingModels.value = true
+  }
   try {
-    const response = await axios.get(`${getApiBase()}/models/providers/${provider.id}/models`)
+    const response = await axios.get(`${getApiBase()}/models/providers/${providerId}/models`)
+    if (activeProvider.value?.id !== providerId) return
     discoveredModels.value = response.data.models || []
-    selectedManagerIds.value = new Set(discoveredModels.value.filter(model => model.selected).map(model => model.id))
+    providerModelsLoaded.value = true
   } catch (error) {
-    managerError.value = error.response?.data?.detail || 'Could not load models.'
+    if (!silent) managerError.value = error.response?.data?.detail || 'Could not load models.'
+  } finally {
+    if (!silent) managerLoadingModels.value = false
   }
 }
-function toggleManagerModel(id) {
-  const next = new Set(selectedManagerIds.value)
-  next.has(id) ? next.delete(id) : next.add(id)
-  selectedManagerIds.value = next
+
+async function startAddProviderModel() {
+  modelAddStep.value = 'choose'
+  modelSetupDraft.value = null
+  modelSetupReturnToCatalog.value = false
+  customizingModelId.value = null
+  modelSearch.value = ''
+  resetManagerScroll()
+  await loadProviderModels(activeProvider.value)
+  if (availableProviderModels.value.length === 1) {
+    chooseProviderModel(availableProviderModels.value[0], false)
+  }
 }
-async function saveProviderModels() {
-  managerSaving.value = true
+
+function providerModelDraft(discovered) {
+  return {
+    id: `${activeProvider.value.id}:${discovered.id}`,
+    model_id: discovered.id,
+    name: discovered.name || discovered.id,
+    model_vendor: resolveModelVendorId(discovered) || null,
+    enabled: true,
+    max_context_tokens: discovered.context_length || 128000,
+    input_modalities: ['text'],
+    supports_tools: false,
+    reasoning: { mode: 'none', levels: ['off'], default: 'off', quick_task: 'off', control: 'none', wire_levels: { off: 'off' } },
+    content_policy_enabled: true,
+    extra_body: {},
+    extra_system_prompt: '',
+    reasoning_control_source: 'auto',
+    last_test_results: {},
+  }
+}
+
+async function profileProviderModelCandidate(discovered) {
+  const draft = providerModelDraft(discovered)
+  const response = await axios.post(`${getApiBase()}/models/providers/${activeProvider.value.id}/models/profile`, {
+    model_id: draft.model_id,
+    name: draft.name,
+    max_context_tokens: draft.max_context_tokens,
+  })
+  return response.data.model
+}
+
+function chooseProviderModel(discovered, returnToCatalog = true) {
+  modelSetupDraft.value = providerModelDraft(discovered)
+  modelSetupReturnToCatalog.value = returnToCatalog
+  modelAddStep.value = 'setup'
+  customizingModelId.value = null
+  managerError.value = ''
+  resetManagerScroll()
+  void profileManagerModel(modelSetupDraft.value)
+}
+
+let modelProfileRequestId = 0
+async function profileManagerModel(model) {
+  const requestId = ++modelProfileRequestId
+  managerTestingModel.value = true
+  managerError.value = ''
   try {
-    const response = await axios.patch(`${getApiBase()}/models/providers/${activeProvider.value.id}`, { model_ids: [...selectedManagerIds.value] })
+    const profiled = await profileProviderModelCandidate({
+      id: model.model_id,
+      name: model.name,
+      context_length: model.max_context_tokens,
+    })
+    if (requestId !== modelProfileRequestId) return
+    if (modelSetupDraft.value) modelSetupDraft.value = profiled
+    else {
+      const index = activeProvider.value.models.findIndex(item => item.id === model.id)
+      if (index !== -1) activeProvider.value.models.splice(index, 1, profiled)
+      await saveModelSettings(profiled)
+    }
+  } catch (error) {
+    if (requestId === modelProfileRequestId) managerError.value = error.response?.data?.detail || 'The model test failed.'
+  } finally {
+    if (requestId === modelProfileRequestId) managerTestingModel.value = false
+  }
+}
+
+async function commitProviderModel() {
+  if (!modelSetupDraft.value?.last_test_passed) return
+  managerSaving.value = true
+  managerError.value = ''
+  try {
+    const response = await axios.patch(`${getApiBase()}/models/providers/${activeProvider.value.id}`, {
+      models: [...activeProvider.value.models, modelSetupDraft.value],
+    })
     activeProvider.value = clone(response.data)
     await refreshAll()
+    closeModelSettings(true)
   } catch (error) {
-    managerError.value = error.response?.data?.detail || 'Could not save shown models.'
+    managerError.value = error.response?.data?.detail || 'Could not add this model.'
+  } finally {
+    managerSaving.value = false
+  }
+}
+
+async function removeProviderModel(model) {
+  managerSaving.value = true
+  managerError.value = ''
+  try {
+    const response = await axios.patch(`${getApiBase()}/models/providers/${activeProvider.value.id}`, {
+      models: activeProvider.value.models.filter(item => item.id !== model.id),
+    })
+    activeProvider.value = clone(response.data)
+    await refreshAll()
+    closeModelSettings()
+  } catch (error) {
+    managerError.value = error.response?.data?.detail || 'Could not remove this model.'
   } finally {
     managerSaving.value = false
   }
@@ -1138,7 +1209,5 @@ function setLegacyReasoningSource(source) {
   if (source === 'manual' && !legacyDraft.value.reasoning_method) legacyDraft.value.reasoning_method = 'reasoning_effort'
 }
 
-async function refreshVoiceModelReady() { voiceModelReady.value = await isModelReady(voiceModel.value) }
-watch(voiceModel, refreshVoiceModelReady)
-onMounted(async () => { await refreshVoiceModelReady(); await refreshAll() })
+onMounted(refreshAll)
 </script>

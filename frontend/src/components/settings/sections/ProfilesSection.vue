@@ -1,62 +1,59 @@
 <template>
   <div>
-    <h3 class="text-base font-medium text-content mb-4">Profiles</h3>
-    <p class="text-sm text-content-tertiary mb-6">
-      Manage workspace profiles. Each profile has its own media library, markers, and settings.
-    </p>
+    <div class="mb-3">
+      <h3 class="text-base font-medium text-content">Profiles</h3>
+      <p class="mt-1 text-xs text-content-tertiary">
+        Manage workspace profiles. Each profile has its own media library, markers, and settings.
+      </p>
+    </div>
 
     <!-- Profile list -->
-    <div class="space-y-3">
+    <div class="space-y-0.5">
       <div
         v-for="profile in profiles"
         :key="profile.id"
-        class="bg-surface-raised/50 rounded-lg overflow-hidden transition-colors"
-        :class="{
-          'ring-2 ring-blue-500/50': profile.id === currentProfileId,
-          'cursor-pointer hover:bg-surface-raised/70': profile.id !== currentProfileId
-        }"
+        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]"
+        :class="{ 'cursor-pointer': profile.id !== currentProfileId }"
         @click="profile.id !== currentProfileId && switchToProfile(profile.id)"
       >
-        <!-- Card Header -->
-        <div class="flex items-center gap-3 px-4 py-3">
-          <!-- Title and subtitle -->
-          <div class="min-w-0 flex-1">
-            <h4 class="text-sm font-medium text-content">{{ profile.name }}</h4>
-            <p class="text-xs text-content-tertiary">
-              {{ profile.media_count?.toLocaleString() || 0 }} media file{{ profile.media_count !== 1 ? 's' : '' }}
-            </p>
-          </div>
-
-          <!-- 3-dot menu button -->
-          <button
-            :ref="el => setMenuButtonRef(profile.id, el)"
-            @click.stop="toggleProfileMenu(profile.id)"
-            class="p-1.5 text-content-tertiary hover:text-content hover:bg-surface-hover rounded transition-colors"
-            title="Profile options"
-          >
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-            </svg>
-          </button>
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center" :class="profile.id === currentProfileId ? 'text-blue-400' : 'text-content-secondary'">
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+          </svg>
         </div>
+        <div class="min-w-0 flex-1">
+          <div class="truncate text-sm font-medium text-content">{{ profile.name }}</div>
+          <div class="mt-0.5 truncate text-xs text-content-tertiary">
+            {{ profile.media_count?.toLocaleString() || 0 }} media file{{ profile.media_count !== 1 ? 's' : '' }}<template v-if="profile.has_pin"> · PIN</template>
+          </div>
+        </div>
+        <div v-if="profile.id === currentProfileId" class="shrink-0 text-xs text-blue-400">Current</div>
+        <button
+          :ref="el => setMenuButtonRef(profile.id, el)"
+          @click.stop="toggleProfileMenu(profile.id)"
+          class="shrink-0 p-1.5 text-content-tertiary hover:text-content hover:bg-surface-hover rounded transition-colors"
+          title="Profile options"
+        >
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+          </svg>
+        </button>
       </div>
-    </div>
 
-    <!-- Empty state -->
-    <div v-if="profiles.length === 0" class="text-center py-8 text-content-tertiary">
-      No profiles configured
-    </div>
+      <!-- Empty state -->
+      <div v-if="profiles.length === 0" class="text-center py-8 text-content-tertiary">
+        No profiles configured
+      </div>
 
-    <!-- Create profile button -->
-    <div class="mt-4">
-      <button
-        @click="openCreateModal"
-        class="flex items-center gap-2 px-4 py-2 bg-surface-raised hover:bg-surface-hover text-content rounded-lg font-medium transition-colors"
-      >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        Create Profile
+      <!-- Create profile row -->
+      <button type="button" @click="openCreateModal" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-blue-500/[0.04]">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-medium text-blue-400">Create Profile</div>
+          <div class="mt-0.5 truncate text-xs text-content-tertiary">Start a separate library with its own markers and settings.</div>
+        </div>
       </button>
     </div>
 

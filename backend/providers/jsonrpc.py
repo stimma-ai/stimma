@@ -25,6 +25,7 @@ import aiohttp
 
 from core.logging import get_logger
 from tasks.schemas import validate_tool_schema, validate_tool_schema_multi, is_known_task_type, normalize_task_type
+from tool_provider_identity import tool_provider_display_name
 from .base import (
     ExecutionProgress,
     ExecutionResult,
@@ -763,7 +764,7 @@ class JsonRpcProvider(ToolProvider):
 
     @property
     def provider_name(self) -> str:
-        return self._config.name or self._config.id
+        return tool_provider_display_name(self._config.id, self._config.name)
 
     @property
     def provider_type(self) -> str:
@@ -1913,7 +1914,11 @@ async def test_provider_connection(
 
         # Extract provider info from registration
         params = message.get("params", {})
-        provider_name = params.get("provider_name") or params.get("provider_id", "Unknown")
+        provider_id = params.get("provider_id", "Unknown")
+        provider_name = tool_provider_display_name(
+            provider_id,
+            params.get("provider_name") or provider_id,
+        )
         provider_version = params.get("version")
 
         # Send registration response to complete handshake

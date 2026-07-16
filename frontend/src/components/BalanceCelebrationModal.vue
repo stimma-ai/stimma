@@ -67,8 +67,8 @@ const { celebration, dismissCelebration } = useBalanceCelebration()
 
 const balanceLine = computed(() => {
   const amount = formatBalance(celebration.value?.credits)
-  const balance = amount ? `${amount} added to your balance.` : 'Balance added.'
-  return `${balance} Generation and the agent are ready to use.`
+  const credits = amount ? `${amount} in credits added.` : 'Credits added.'
+  return `${credits} Generation and the agent are ready to use.`
 })
 
 // Gradient motes drifting up from the base glow; positions/timings are

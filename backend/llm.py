@@ -79,6 +79,7 @@ class ToolCall:
     id: str
     name: str
     arguments: str  # raw JSON string
+    extra_content: Optional[Dict[str, Any]] = field(default=None, repr=False)
 
     def parsed_arguments(self) -> Any:
         return json.loads(self.arguments)
@@ -113,6 +114,9 @@ class LLMResponse:
     model: str = ""
     elapsed_seconds: float = 0.0
     tokens_per_second: float = 0.0
+    # Opaque provider-native continuation data. This is persisted only on
+    # assistant tool-call turns and replayed verbatim to the same transport.
+    provider_state: Optional[Dict[str, Any]] = field(default=None, repr=False)
     _raw: object = field(default=None, repr=False)
 
 
@@ -213,6 +217,17 @@ def _extract_reasoning_field(message) -> Optional[str]:
     return None
 
 
+def _plain_value(value: Any) -> Any:
+    """Convert llm_http's attribute wrappers back to JSON-compatible values."""
+    if isinstance(value, list):
+        return [_plain_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _plain_value(item) for key, item in value.items()}
+    if hasattr(value, "__dict__"):
+        return {key: _plain_value(item) for key, item in vars(value).items()}
+    return value
+
+
 def _normalize_finish_reason(raw: str | None) -> FinishReason:
     if not raw:
         return FinishReason.UNKNOWN
@@ -273,6 +288,7 @@ def _normalize_response(raw_response) -> LLMResponse:
                     id=getattr(tc, 'id', ''),
                     name=getattr(fn, 'name', ''),
                     arguments=getattr(fn, 'arguments', '{}'),
+                    extra_content=_plain_value(getattr(tc, 'extra_content', None)),
                 ))
 
     # --- Usage ---
@@ -304,6 +320,20 @@ def _normalize_response(raw_response) -> LLMResponse:
             weekly_percent=getattr(raw_quota, 'weekly_percent', None),
         )
 
+    provider_state = _plain_value(getattr(message, '_stimma_provider_state', None))
+    if not provider_state and (
+        len(tool_calls) > 1 or any(call.extra_content for call in tool_calls)
+    ):
+        provider_state = {
+            "kind": "openai_chat_tool_batch",
+            "tool_calls": [{
+                "id": call.id,
+                "type": "function",
+                "function": {"name": call.name, "arguments": call.arguments},
+                **({"extra_content": call.extra_content} if call.extra_content else {}),
+            } for call in tool_calls],
+        }
+
     return LLMResponse(
         content=content,
         thinking=thinking,
@@ -312,8 +342,133 @@ def _normalize_response(raw_response) -> LLMResponse:
         usage=usage,
         quota=quota,
         model=getattr(raw_response, 'model', ''),
+        provider_state=provider_state,
         _raw=raw_response,
     )
+
+
+def _normalize_parallel_tool_history(
+    messages: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Replay one provider tool batch before any injected user context.
+
+    Agent tool calls are persisted call/result/call/result so the UI can show
+    execution as it happens. Native and OpenAI-compatible provider protocols
+    instead require the original assistant batch followed by every matching
+    tool result. Skill context is user-shaped, so leaving it interleaved makes
+    the provider see a new turn before the batch is complete.
+    """
+    normalized: List[Dict[str, Any]] = []
+    index = 0
+
+    while index < len(messages):
+        message = messages[index]
+        if message.get("role") != "assistant":
+            normalized.append(message)
+            index += 1
+            continue
+
+        calls = message.get("tool_calls") or []
+        state = message.get("_stimma_provider_state")
+        if isinstance(state, dict) and state.get("kind") == "openai_chat_tool_batch":
+            state_calls = state.get("tool_calls")
+            if isinstance(state_calls, list) and state_calls:
+                calls = state_calls
+        elif isinstance(state, dict) and state.get("kind") == "anthropic_message":
+            state_calls = []
+            for block in state.get("content") or []:
+                if not isinstance(block, dict) or block.get("type") != "tool_use":
+                    continue
+                state_calls.append({
+                    "id": block.get("id", ""),
+                    "type": "function",
+                    "function": {
+                        "name": block.get("name", ""),
+                        "arguments": json.dumps(block.get("input") or {}),
+                    },
+                })
+            if state_calls:
+                calls = state_calls
+
+        call_ids = [call.get("id") for call in calls if isinstance(call, dict) and call.get("id")]
+        if len(call_ids) < 2:
+            normalized.append(message)
+            index += 1
+            continue
+
+        expected = set(call_ids)
+        results: Dict[str, Dict[str, Any]] = {}
+        context: List[Dict[str, Any]] = []
+        cursor = index + 1
+        while cursor < len(messages) and len(results) < len(expected):
+            candidate = messages[cursor]
+            role = candidate.get("role")
+            if role == "tool" and candidate.get("tool_call_id") in expected:
+                results[candidate["tool_call_id"]] = candidate
+            elif role == "user" and candidate.get("name") == "_stimma_context":
+                context.append(candidate)
+            elif role == "assistant":
+                duplicate_ids = {
+                    call.get("id")
+                    for call in candidate.get("tool_calls") or []
+                    if isinstance(call, dict) and call.get("id")
+                }
+                if not duplicate_ids or not duplicate_ids.issubset(expected):
+                    break
+            else:
+                break
+            cursor += 1
+
+        if len(results) != len(expected):
+            normalized.append(message)
+            index += 1
+            continue
+
+        batch_message = dict(message)
+        batch_message["tool_calls"] = calls
+        normalized.append(batch_message)
+        normalized.extend(results[call_id] for call_id in call_ids)
+        normalized.extend(context)
+        index = cursor
+
+    return normalized
+
+
+def _malformed_tool_retry_kwargs(
+    raw_response: Any,
+    kwargs: Dict[str, Any],
+) -> Dict[str, Any] | None:
+    """Lower reasoning only after a provider explicitly rejects its own tool call.
+
+    Gemini 3.1 Pro can return ``MALFORMED_FUNCTION_CALL`` at medium/high effort
+    for a valid parallel tool request while producing the same calls correctly
+    at low effort. Preserve the complete tool surface and retry once instead of
+    exposing an empty assistant turn to the agent.
+    """
+    malformed = False
+    for choice in getattr(raw_response, "choices", None) or []:
+        finish = str(getattr(choice, "finish_reason", "") or "").upper()
+        if "MALFORMED_FUNCTION_CALL" in finish:
+            malformed = True
+            break
+    if not malformed or not kwargs.get("tools"):
+        return None
+
+    extra = dict(kwargs.get("extra_body") or {})
+    changed = False
+    if extra.get("reasoning_effort") not in (None, "low"):
+        extra["reasoning_effort"] = "low"
+        changed = True
+    reasoning = extra.get("reasoning")
+    if isinstance(reasoning, dict) and reasoning.get("effort") not in (None, "low"):
+        extra["reasoning"] = {**reasoning, "effort": "low"}
+        changed = True
+    if not changed:
+        return None
+
+    retry = dict(kwargs)
+    retry["extra_body"] = extra
+    return retry
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -539,6 +694,8 @@ async def llm_completion(
     api_key = config.get_api_key()
     api_base = config.get_api_base()
 
+    messages = _normalize_parallel_tool_history(messages)
+
     if os.environ.get("STIMMA_TEST_PROVIDER") and api_base == _ACCEPTANCE_LLM_URL:
         return _acceptance_response(config, messages)
 
@@ -560,6 +717,7 @@ async def llm_completion(
         "api_key": api_key,
         "api_base": api_base,
         "cacheable": cacheable,
+        "provider_kind": getattr(config, "provider_kind", None),
     }
     if session_id:
         kwargs["session_id"] = session_id
@@ -576,6 +734,13 @@ async def llm_completion(
 
     start = time.time()
     raw = await _raw_acompletion(**kwargs)
+    retry_kwargs = _malformed_tool_retry_kwargs(raw, kwargs)
+    if retry_kwargs is not None:
+        log.warning(
+            "Provider produced a malformed function call; retrying the same "
+            "tool request once at low reasoning effort"
+        )
+        raw = await _raw_acompletion(**retry_kwargs)
     elapsed = time.time() - start
 
     resp = _normalize_response(raw)

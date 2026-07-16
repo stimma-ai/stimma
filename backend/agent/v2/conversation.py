@@ -93,7 +93,25 @@ async def build_messages(
         {"role": "system", "content": system_prompt},
     ]
 
+    seen_provider_batches: set[str] = set()
     for item in items:
+        # A single assistant response can request several tools. ChatItems are
+        # persisted call/result/call/result for execution/UI purposes, while
+        # provider APIs require the original assistant batch exactly once.
+        # Every call in a native-provider batch carries the same opaque state;
+        # collapse duplicates here so replay is assistant(all calls), then all
+        # tool results.
+        if item.item_type == "tool_call" and item.item_metadata:
+            try:
+                metadata = json.loads(item.item_metadata) if isinstance(item.item_metadata, str) else item.item_metadata
+                state = (metadata or {}).get("llm_provider_state")
+                batch_key = json.dumps(state, sort_keys=True, separators=(",", ":")) if state else None
+            except (json.JSONDecodeError, TypeError):
+                batch_key = None
+            if batch_key:
+                if batch_key in seen_provider_batches:
+                    continue
+                seen_provider_batches.add(batch_key)
         msg = _item_to_message(item)
         if msg is not None:
             messages.append(msg)
@@ -216,11 +234,39 @@ def _item_to_message(item: ChatItem) -> Dict[str, Any] | None:
                 "arguments": args,
             },
         }
-        return {
+        message = {
             "role": "assistant",
             "content": None,
             "tool_calls": [tool_call],
         }
+        if item.item_metadata:
+            try:
+                metadata = json.loads(item.item_metadata) if isinstance(item.item_metadata, str) else item.item_metadata
+                state = (metadata or {}).get("llm_provider_state")
+            except (json.JSONDecodeError, TypeError):
+                state = None
+            if isinstance(state, dict) and state.get("kind") == "anthropic_message":
+                message["_stimma_provider_state"] = state
+                state_calls = []
+                for block in state.get("content") or []:
+                    if not isinstance(block, dict) or block.get("type") != "tool_use":
+                        continue
+                    state_calls.append({
+                        "id": block.get("id", ""),
+                        "type": "function",
+                        "function": {
+                            "name": block.get("name", ""),
+                            "arguments": json.dumps(block.get("input") or {}),
+                        },
+                    })
+                if state_calls:
+                    message["tool_calls"] = state_calls
+            elif isinstance(state, dict) and state.get("kind") == "openai_chat_tool_batch":
+                state_calls = state.get("tool_calls")
+                if isinstance(state_calls, list) and state_calls:
+                    message["tool_calls"] = state_calls
+                message["_stimma_provider_state"] = state
+        return message
 
     if item.item_type == "tool_result":
         content = item.tool_result or item.tool_error or ""
@@ -240,7 +286,14 @@ def _item_to_message(item: ChatItem) -> Dict[str, Any] | None:
         }
 
     if item.item_type == "stimpack_injection":
-        return {"role": "user", "content": item.message_text or ""}
+        # Keep this user-shaped for provider prompt semantics, but mark it so
+        # stateful transports do not mistake injected context for a new human
+        # turn when locating an outstanding parallel tool-call batch.
+        return {
+            "role": "user",
+            "name": "_stimma_context",
+            "content": item.message_text or "",
+        }
 
     # Skip: generated_media, media_grid, error, system, hitl_request, etc.
     return None

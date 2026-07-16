@@ -316,6 +316,52 @@ async def test_library_organization_rejects_mixed_partial_and_trashed_targets(
         assert "unavailable or trashed" in trashed
 
 
+async def test_library_marker_applies_by_media_id_without_asset_id(db_session):
+    """The agent holds only a media_id from its own output; applying a marker
+    must work with that media_id alone (no asset_id lookup)."""
+    async with db_session() as session:
+        media = await create_media_item(session, file_path=Path("/library/marker-by-media.png"))
+        asset = await create_asset_from_media(session, media_id=media.id)
+        # 'library' is a default marker seeded by migrations.
+        marker = await session.scalar(select(Marker).where(Marker.name == "library"))
+        assert marker is not None
+        await session.commit()
+
+        result = json.loads(await library(
+            action="marker",
+            media_id=media.id,
+            marker_name="library",
+            operation="add",
+            session=session,
+        ))
+        assert result["status"] == "ok"
+        assert result["added"] == 1
+        assert await session.scalar(
+            select(AssetMarker.id).where(
+                AssetMarker.asset_id == asset.id,
+                AssetMarker.marker_id == marker.id,
+            )
+        ) is not None
+
+
+async def test_library_marker_unknown_name_lists_available(db_session):
+    """An unknown marker name must fail with the available names inline, so the
+    agent can recover in one step instead of a separate list probe."""
+    async with db_session() as session:
+        media = await create_media_item(session, file_path=Path("/library/marker-unknown.png"))
+        await create_asset_from_media(session, media_id=media.id)
+        # Default markers 'favorite' and 'library' are seeded by migrations.
+        result = await library(
+            action="marker",
+            media_id=media.id,
+            marker_name="collected",
+            operation="add",
+            session=session,
+        )
+        assert "not found" in result
+        assert "favorite" in result and "library" in result
+
+
 async def test_library_board_retains_assets_and_scopes_names_by_project(db_session):
     async with db_session() as session:
         media = await create_media_item(session, file_path=Path("/library/board-retain.png"))

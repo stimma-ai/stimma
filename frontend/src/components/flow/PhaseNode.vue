@@ -218,7 +218,7 @@
               >
                 <div
                   v-if="eq.status === 'completed' && infoMarkdown(eq)"
-                  class="info-prose text-[12.5px] text-content leading-relaxed break-words"
+                  class="info-prose text-[12.5px] text-content leading-relaxed break-words select-text"
                   v-html="infoMarkdown(eq)"
                 />
                 <div v-else-if="eq.status === 'computing'" class="text-[11px] text-content-muted italic">
@@ -272,7 +272,7 @@
                     <span class="flex-1" />
                     <span class="text-content-muted truncate">{{ eq.equation_key }}</span>
                   </div>
-                  <pre class="px-2.5 py-2 whitespace-pre-wrap break-words">{{ eq.error }}</pre>
+                  <pre class="px-2.5 py-2 whitespace-pre-wrap break-words select-text">{{ eq.error }}</pre>
                 </div>
               </div>
               </div>

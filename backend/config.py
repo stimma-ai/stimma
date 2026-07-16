@@ -311,7 +311,7 @@ class LLMProviderConfig(BaseModel):
     model_config = {"protected_namespaces": ()}
 
     id: str
-    kind: str  # openai | anthropic | xai | openrouter | local
+    kind: str  # openai | anthropic | google | xai | together | fireworks | openrouter | local
     name: str
     base_url: str
     api_key: Optional[str] = None
@@ -320,6 +320,10 @@ class LLMProviderConfig(BaseModel):
     last_tested_at: Optional[str] = None
     last_test_passed: Optional[bool] = None
     last_error: Optional[str] = None
+    # Set only after an authenticated provider endpoint succeeds. Older
+    # OpenRouter entries were checked against its public models catalog and
+    # must not continue to appear connected on that basis.
+    credentials_validated_at: Optional[str] = None
     deleted_at: Optional[str] = None
 
 
@@ -759,6 +763,11 @@ class Settings(BaseSettings):
 
     # Global settings (shared across all profiles)
     developer_mode: bool = False  # Show debug tools and developer options in the UI
+    # Last AI-setup-wizard version this install has completed/dismissed.
+    # The wizard auto-shows whenever this is behind SETUP_WIZARD_VERSION
+    # (routes/settings.py) — bumping that constant re-runs the wizard for
+    # everyone who hasn't seen the current one.
+    setup_wizard_seen_version: int = 0
     debug_force_ffmpeg_missing: bool = False  # Dev-only: pretend ffmpeg/ffprobe aren't installed
     # Dev-only: when set, stimpacks in this directory are the authority for built-in
     # stimpacks — they shadow same-named stimpacks installed in any profile. Lets us edit

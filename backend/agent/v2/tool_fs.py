@@ -35,6 +35,7 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 
 from core.logging import get_logger
+from tool_provider_identity import STIMMA_TOOL_PROVIDER_DISPLAY_NAME
 
 log = get_logger(__name__)
 
@@ -79,7 +80,7 @@ def module_for_task(task_type: str) -> str:
 
 _PROVIDER_LABELS = {
     "comfyui": "ComfyUI (local)",
-    "stimma-cloud": "Stimma Cloud",
+    "stimma-cloud": STIMMA_TOOL_PROVIDER_DISPLAY_NAME,
     "builtin": "built-in",
 }
 

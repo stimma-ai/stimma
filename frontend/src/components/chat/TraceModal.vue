@@ -136,7 +136,7 @@
                     v-if="expandedMessages[i]"
                     class="px-3 py-2 bg-surface-overlay max-h-[400px] overflow-y-auto"
                   >
-                    <pre class="text-xs text-content-secondary whitespace-pre-wrap break-words font-mono leading-relaxed">{{ formatContent(msg.content) }}</pre>
+                    <pre class="text-xs text-content-secondary whitespace-pre-wrap break-words font-mono leading-relaxed select-text">{{ formatContent(msg.content) }}</pre>
                   </div>
                 </div>
               </div>
@@ -168,7 +168,7 @@
                     v-if="responseExpanded"
                     class="px-3 py-2 bg-surface-overlay max-h-[400px] overflow-y-auto"
                   >
-                    <pre class="text-xs text-content-secondary whitespace-pre-wrap break-words font-mono leading-relaxed">{{ formatContent(trace.response) }}</pre>
+                    <pre class="text-xs text-content-secondary whitespace-pre-wrap break-words font-mono leading-relaxed select-text">{{ formatContent(trace.response) }}</pre>
                   </div>
                 </div>
               </div>

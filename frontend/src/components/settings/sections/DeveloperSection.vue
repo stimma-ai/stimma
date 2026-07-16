@@ -1,14 +1,16 @@
 <template>
   <div>
-    <h2 class="text-lg font-semibold text-content mb-1">Developer</h2>
-    <p class="text-sm text-content-tertiary mb-6">Debug tools and developer options</p>
+    <div class="mb-3">
+      <h3 class="text-base font-medium text-content">Developer</h3>
+      <p class="mt-1 text-xs text-content-tertiary">Debug tools and developer options</p>
+    </div>
 
-    <!-- Developer Mode Toggle -->
-    <div class="p-4 bg-surface-raised/50 rounded-lg">
-      <div class="flex items-center justify-between">
-        <div class="flex-1 min-w-0">
+    <div class="mt-8 space-y-9">
+      <!-- Developer Mode Toggle -->
+      <div class="flex items-start justify-between gap-6">
+        <div class="min-w-0 max-w-xl">
           <h4 class="text-sm font-medium text-content">Developer Mode</h4>
-          <p class="text-xs text-content-tertiary mt-0.5">Show debug tools and additional developer options throughout the UI</p>
+          <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Show debug tools and additional developer options throughout the UI</p>
         </div>
         <button
           @click="toggleDeveloperMode"
@@ -25,16 +27,14 @@
           />
         </button>
       </div>
-    </div>
 
-    <!-- Dev-only tools -->
-    <template v-if="localDevMode">
-      <!-- Hide Prices Toggle (for marketing screenshots) -->
-      <div class="mt-3 p-4 bg-surface-raised/50 rounded-lg">
-        <div class="flex items-center justify-between">
-          <div class="flex-1 min-w-0">
+      <!-- Dev-only tools -->
+      <template v-if="localDevMode">
+        <!-- Hide Prices Toggle (for marketing screenshots) -->
+        <div class="flex items-start justify-between gap-6">
+          <div class="min-w-0 max-w-xl">
             <h4 class="text-sm font-medium text-content">Hide Prices</h4>
-            <p class="text-xs text-content-tertiary mt-0.5">Hide all price/cost display throughout the UI</p>
+            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Hide all price/cost display throughout the UI</p>
           </div>
           <button
             @click="toggleHidePrices"
@@ -51,14 +51,12 @@
             />
           </button>
         </div>
-      </div>
 
-      <!-- Force FFmpeg Missing Toggle (for taking screenshots of the warning UI) -->
-      <div class="mt-3 p-4 bg-surface-raised/50 rounded-lg">
-        <div class="flex items-center justify-between">
-          <div class="flex-1 min-w-0">
+        <!-- Force FFmpeg Missing Toggle (for taking screenshots of the warning UI) -->
+        <div class="flex items-start justify-between gap-6">
+          <div class="min-w-0 max-w-xl">
             <h4 class="text-sm font-medium text-content">Force FFmpeg Missing</h4>
-            <p class="text-xs text-content-tertiary mt-0.5">Pretend FFmpeg isn't installed, to preview the missing-FFmpeg warning</p>
+            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Pretend FFmpeg isn't installed, to preview the missing-FFmpeg warning</p>
           </div>
           <button
             @click="toggleForceFfmpegMissing"
@@ -75,64 +73,73 @@
             />
           </button>
         </div>
-      </div>
 
-      <div class="mt-3 p-4 bg-surface-raised/50 rounded-lg">
-        <div class="flex items-center justify-between gap-3">
-          <div class="flex-1 min-w-0">
+        <div class="flex items-start justify-between gap-6">
+          <div class="min-w-0 max-w-xl">
             <h4 class="text-sm font-medium text-content">Request Metrics</h4>
-            <p class="text-xs text-content-tertiary mt-0.5">Inspect endpoint latency percentiles for recent requests</p>
+            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Inspect endpoint latency percentiles for recent requests</p>
           </div>
           <button
             @click="openRequestMetricsModal"
-            class="px-3 py-1.5 text-xs font-medium rounded border bg-surface-raised border-edge text-content-secondary hover:border-edge hover:bg-surface transition-all"
+            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
           >
             Open Request Metrics
           </button>
         </div>
 
-        <div class="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-edge">
-          <div class="flex-1 min-w-0">
-            <h4 class="text-sm font-medium text-content">Reset Onboarding</h4>
-            <p class="text-xs text-content-tertiary mt-0.5">Clear onboarding completion flag and show the welcome screen</p>
+        <div class="flex items-start justify-between gap-6">
+          <div class="min-w-0 max-w-xl">
+            <h4 class="text-sm font-medium text-content">Reset Welcome Screen</h4>
+            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Clear the welcome screen completion flag and show it again</p>
           </div>
           <button
             @click="resetOnboarding"
-            class="px-3 py-1.5 text-xs font-medium rounded border bg-surface-raised border-edge text-content-secondary hover:border-edge hover:bg-surface transition-all"
+            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
           >
-            Show Onboarding
+            Show Welcome Screen
           </button>
         </div>
 
-        <div v-if="isTauri()" class="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-edge">
-          <div class="flex-1 min-w-0">
+        <div class="flex items-start justify-between gap-6">
+          <div class="min-w-0 max-w-xl">
+            <h4 class="text-sm font-medium text-content">Run Setup Wizard</h4>
+            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Clear the shown-once flag and open the AI setup wizard</p>
+          </div>
+          <button
+            @click="runSetupWizard"
+            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
+          >
+            Run Wizard
+          </button>
+        </div>
+
+        <div v-if="isTauri()" class="flex items-start justify-between gap-6">
+          <div class="min-w-0 max-w-xl">
             <h4 class="text-sm font-medium text-content">Set Window Size to 1440×900</h4>
-            <p class="text-xs text-content-tertiary mt-0.5">Resize the window to a logical 1440×900</p>
+            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Resize the window to a logical 1440×900</p>
           </div>
           <button
             @click="setWindowSize1440x900"
-            class="px-3 py-1.5 text-xs font-medium rounded border bg-surface-raised border-edge text-content-secondary hover:border-edge hover:bg-surface transition-all"
+            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
           >
             Set 1440×900
           </button>
         </div>
-      </div>
 
-      <div class="mt-3 rounded-lg border border-white/10 bg-white/[0.05] p-4">
-        <div class="flex items-center justify-between gap-3">
-          <div class="min-w-0 flex-1">
+        <div class="flex items-start justify-between gap-6">
+          <div class="min-w-0 max-w-xl">
             <h4 class="text-sm font-medium text-content">Database maintenance</h4>
-            <p class="mt-0.5 text-xs text-content-tertiary">Analyze and safely clean historical SQLite foreign-key debris for the current profile</p>
+            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Analyze and safely clean historical SQLite foreign-key debris for the current profile</p>
           </div>
           <button
-            class="rounded border border-edge bg-surface-raised px-3 py-1.5 text-xs font-medium text-content-secondary transition-all hover:bg-surface hover:text-content"
+            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
             @click="showDatabaseCleanupModal = true"
           >
             Open maintenance
           </button>
         </div>
-      </div>
-    </template>
+      </template>
+    </div>
 
     <DatabaseCleanupModal
       :show="showDatabaseCleanupModal"
@@ -270,6 +277,7 @@
 import { ref, watch, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSettingsApi } from '../../../composables/useSettingsApi'
+import { useReadiness } from '../../../composables/useReadiness'
 import { makeGlobalKey } from '../../../utils/storageKeys'
 import { hidePricesRef, setHidePrices } from '../../../appConfig'
 import { isTauri } from '../../../apiConfig'
@@ -286,7 +294,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update-developer-mode', 'update-debug-force-ffmpeg-missing'])
+const emit = defineEmits(['update-developer-mode', 'update-debug-force-ffmpeg-missing', 'close-settings'])
 
 const localDevMode = ref(false)
 const localForceFfmpegMissing = ref(false)
@@ -336,8 +344,16 @@ async function setWindowSize1440x900() {
 
 const router = useRouter()
 function resetOnboarding() {
+  // Close settings first so finishing onboarding lands in the app, not settings.
+  emit('close-settings')
   localStorage.removeItem(makeGlobalKey('onboarding_completed'))
   router.push({ name: 'onboarding' })
+}
+
+function runSetupWizard() {
+  // The wizard renders below the settings modal, so close settings first.
+  emit('close-settings')
+  useReadiness().relaunchWizard()
 }
 
 const filteredMetricRows = computed(() => {

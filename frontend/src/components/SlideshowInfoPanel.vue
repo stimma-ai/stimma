@@ -399,7 +399,7 @@
                     <ClipboardDocumentIcon class="w-3 h-3" />
                   </button>
                 </div>
-                <p class="text-content-secondary text-xs leading-relaxed m-0">{{ step.prompt }}</p>
+                <p class="text-content-secondary text-xs leading-relaxed m-0 select-text">{{ step.prompt }}</p>
               </div>
 
               <!-- Negative Prompt -->
@@ -413,13 +413,13 @@
                     <ClipboardDocumentIcon class="w-3 h-3" />
                   </button>
                 </div>
-                <p class="text-content-secondary text-xs leading-relaxed m-0">{{ step.negative_prompt }}</p>
+                <p class="text-content-secondary text-xs leading-relaxed m-0 select-text">{{ step.negative_prompt }}</p>
               </div>
 
               <!-- Timestamp (standalone for generated items) -->
               <div v-if="step.generated_at && !step.is_imported" class="bg-overlay-subtle p-2 rounded">
                 <div class="text-content-tertiary text-xs mb-0.5">Generated</div>
-                <div class="text-content text-xs">{{ formatRelativeTime(step.generated_at) }}</div>
+                <div class="text-content text-xs select-text">{{ formatRelativeTime(step.generated_at) }}</div>
               </div>
 
               <!-- Parameters Grid (generic display of all params) -->
@@ -427,11 +427,11 @@
                 <!-- Imported timestamp (in grid) -->
                 <div v-if="step.generated_at && step.is_imported" class="bg-overlay-subtle p-2 rounded">
                   <div class="text-content-tertiary mb-0.5">Imported</div>
-                  <div class="text-content">{{ formatRelativeTime(step.generated_at) }}</div>
+                  <div class="text-content select-text">{{ formatRelativeTime(step.generated_at) }}</div>
                 </div>
                 <div v-if="step.model" class="bg-overlay-subtle p-2 rounded">
                   <div class="text-content-tertiary mb-0.5">Model</div>
-                  <div class="text-content">{{ step.model }}</div>
+                  <div class="text-content select-text">{{ step.model }}</div>
                 </div>
                 <!-- Generic parameter display -->
                 <div
@@ -440,7 +440,7 @@
                   :class="['bg-overlay-subtle p-2 rounded', param.fullWidth ? 'col-span-2' : '']"
                 >
                   <div class="text-content-tertiary mb-0.5">{{ param.label }}</div>
-                  <div :class="['text-content', param.fullWidth ? 'break-all text-xs' : '']">{{ param.value }}</div>
+                  <div :class="['text-content select-text', param.fullWidth ? 'break-all text-xs' : '']">{{ param.value }}</div>
                 </div>
               </div>
 
@@ -615,7 +615,7 @@
             <ClipboardDocumentIcon class="w-4 h-4" />
           </button>
         </h4>
-        <p class="text-content-secondary text-sm leading-relaxed m-0">{{ currentItem.extracted_prompt }}</p>
+        <p class="text-content-secondary text-sm leading-relaxed m-0 select-text">{{ currentItem.extracted_prompt }}</p>
       </div>
 
       <!-- AI Description -->
@@ -630,7 +630,7 @@
             <ClipboardDocumentIcon class="w-4 h-4" />
           </button>
         </h4>
-        <p class="text-content-secondary text-sm leading-relaxed m-0">{{ currentItem.vlm_caption }}</p>
+        <p class="text-content-secondary text-sm leading-relaxed m-0 select-text">{{ currentItem.vlm_caption }}</p>
       </div>
 
       <!-- Detected Faces -->
@@ -686,7 +686,7 @@
       <!-- File -->
       <div class="mb-6">
         <h4 class="m-0 mb-2 text-xs uppercase tracking-wider text-content-tertiary font-semibold">File</h4>
-        <div class="space-y-2">
+        <div class="space-y-2 select-text">
           <div v-if="currentItem.file_path" class="bg-overlay-subtle p-2 rounded text-xs">
             <div class="text-content-tertiary mb-0.5">Name</div>
             <div class="text-content break-words text-xs">{{ currentItem.file_path.split('/').pop() }}</div>
@@ -807,12 +807,12 @@
           <div class="overflow-auto p-4 flex-1 min-h-0">
             <pre
               v-if="formatMetadataForDisplay(metadataModalContent).isJson"
-              class="text-sm text-content-secondary m-0 whitespace-pre font-mono json-highlighted"
+              class="text-sm text-content-secondary m-0 whitespace-pre font-mono json-highlighted select-text"
               v-html="formatMetadataForDisplay(metadataModalContent).content"
             ></pre>
             <pre
               v-else
-              class="text-sm text-content-tertiary m-0 whitespace-pre-wrap font-mono"
+              class="text-sm text-content-tertiary m-0 whitespace-pre-wrap font-mono select-text"
             >{{ metadataModalContent }}</pre>
           </div>
         </div>

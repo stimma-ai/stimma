@@ -64,7 +64,7 @@
             </svg>
             <div class="flex-1 min-w-0">
               <div class="truncate">{{ row.tab.customName || row.tab.displayName }}</div>
-              <div class="truncate text-[10px] text-content-muted leading-tight">{{ row.tool.provider_name }}</div>
+              <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(row.tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ row.tool.provider_name }}</div>
             </div>
             <span
               v-if="row.tab.projectName"
@@ -96,7 +96,7 @@
             </svg>
             <div class="flex-1 min-w-0">
               <div class="truncate">{{ tool.name }}</div>
-              <div class="truncate text-[10px] text-content-muted leading-tight">{{ tool.provider_name }}</div>
+              <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ tool.provider_name }}</div>
             </div>
           </button>
         </template>
@@ -115,7 +115,7 @@
               </svg>
               <div class="flex-1 min-w-0">
                 <div class="truncate">{{ originalTool.name }}</div>
-                <div class="truncate text-[10px] text-content-muted leading-tight">{{ originalTool.provider_name }}</div>
+                <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(originalTool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ originalTool.provider_name }}</div>
               </div>
             </button>
           </template>
@@ -137,7 +137,7 @@
               </svg>
               <div class="flex-1 min-w-0">
                 <div class="truncate">{{ tool.name }}</div>
-                <div class="truncate text-[10px] text-content-muted leading-tight">{{ tool.provider_name }}</div>
+                <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ tool.provider_name }}</div>
               </div>
             </button>
           </template>
@@ -158,7 +158,7 @@
             </svg>
             <div class="flex-1 min-w-0">
               <div class="truncate">{{ tool.name }}</div>
-              <div class="truncate text-[10px] text-content-muted leading-tight">{{ tool.provider_name }}</div>
+              <div class="truncate text-[10px] leading-tight" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ tool.provider_name }}</div>
             </div>
           </button>
         </template>

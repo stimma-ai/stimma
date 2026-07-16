@@ -153,7 +153,7 @@
             <span>{{ tool.name }}</span>
             <span>·</span>
           </template>
-          <span v-if="isStimmaCloudTool" class="stimma-cloud-text font-medium">Stimma Cloud</span>
+          <span v-if="isStimmaCloudTool" class="stimma-cloud-text font-medium">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
           <span v-else class="text-content-muted">{{ providerDisplayName }}</span>
           <template v-if="taskTypesDisplay">
             <span>·</span>
@@ -604,7 +604,7 @@
             :disabled="submissionCloudConnecting"
             class="flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium stimma-cloud-text border border-current/20 hover:border-current/40 transition-colors"
           >
-            {{ submissionCloudConnecting ? 'Connecting…' : 'Add Balance' }}
+            {{ submissionCloudConnecting ? 'Opening…' : isAuthenticated ? 'Add credits' : 'Open Settings' }}
           </button>
         </div>
        </div>
@@ -962,7 +962,7 @@ import { convertMaskDataUrl } from '../utils/maskFormat'
 import { getToolDefaults } from '../utils/generationDefaults'
 import { parseGenerationConfig, type GenerationConfigUpdate } from '../utils/parseGenerationConfig'
 import type { PromptMetadata } from '../types/generationMetadata'
-import { isStimmaCloudTool as isStimmaCloud } from '../utils/stimmaCloud'
+import { STIMMA_TOOL_PROVIDER_DISPLAY_NAME, isStimmaCloudTool as isStimmaCloud } from '../utils/stimmaCloud'
 import { copyToClipboard } from '../utils/clipboard'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { formatTaskTypeLabel } from '../utils/taskTypeIcons'
@@ -1012,14 +1012,17 @@ import RemixBanner from '../components/generation/RemixBanner.vue'
 import PromptAgentChat from '../components/generation/PromptAgentChat.vue'
 import JobsGrid from '../components/generation/JobsGrid.vue'
 import SettingsDropdown from '../components/ui/SettingsDropdown.vue'
-import { getApiBase } from '../apiConfig'
+import { getApiBase, isTauri } from '../apiConfig'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { getCachedPin } from '../composables/usePinLock'
-import { signInWithBrowser } from '../composables/useAuth'
+import { useAuth } from '../composables/useAuth'
+import { useCloudAccount } from '../composables/useCloudAccount'
 
 const API_BASE = '/api'
 const router = useRouter()
 const route = useRoute()
+const { isAuthenticated } = useAuth()
+const { cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
 const projectScopeId = computed(() => {
   const raw = route.query.project_id
   if (raw == null) return null
@@ -1380,12 +1383,26 @@ function classifySubmissionError(err: any): string {
 }
 
 const submissionCloudConnecting = ref(false)
+async function openCloudAccountUrl(url: string) {
+  if (isTauri()) {
+    const { open } = await import('@tauri-apps/plugin-shell')
+    await open(url)
+  } else {
+    window.open(url, '_blank')
+  }
+}
+
 async function connectStimmaCloudForSubmission() {
+  if (!isAuthenticated.value) {
+    window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' }))
+    return
+  }
   submissionCloudConnecting.value = true
   try {
-    await signInWithBrowser()
+    await ensureCloudBaseUrl()
+    await openCloudAccountUrl(`${cloudBaseUrl.value}/link/addcredits`)
   } catch (err: any) {
-    console.error('Failed to connect Stimma Cloud:', err)
+    console.error('Failed to open Stimma account action:', err)
   } finally {
     submissionCloudConnecting.value = false
   }

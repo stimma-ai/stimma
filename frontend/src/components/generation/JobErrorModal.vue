@@ -28,7 +28,7 @@
           </div>
 
           <!-- Body -->
-          <div class="px-6 py-4 space-y-4">
+          <div class="px-6 py-4 space-y-4 select-text">
             <!-- Error Message -->
             <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
               <div class="flex items-center justify-between mb-1">

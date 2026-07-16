@@ -1,17 +1,19 @@
 <template>
   <div>
-    <h3 class="text-base font-medium text-content mb-4">Markers</h3>
-    <p class="text-sm text-content-tertiary mb-6">
-      Markers are the fastest way to organize your library. One click to mark an image as a favorite,
-      flag it for review, or sort it into any category you create.
-    </p>
+    <div class="mb-3">
+      <h3 class="text-base font-medium text-content">Markers</h3>
+      <p class="mt-1 max-w-xl text-xs text-content-tertiary">
+        Markers are the fastest way to organize your library. One click to mark an image as a favorite,
+        flag it for review, or sort it into any category you create.
+      </p>
+    </div>
 
     <!-- Marker list -->
-    <div class="space-y-2">
+    <div class="space-y-0.5">
       <div
         v-for="(marker, index) in localMarkers"
         :key="marker.id || marker._tempId || index"
-        class="flex items-center gap-3 p-3 bg-surface-raised/50 rounded-lg group"
+        class="group flex items-center gap-3 px-1 py-1.5"
       >
         <!-- Unified marker picker (icon + color) -->
         <MarkerPicker
@@ -24,7 +26,7 @@
         <input
           :value="marker.name"
           @input="updateMarker(index, 'name', $event.target.value)"
-          class="flex-1 bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500"
+          class="flex-1 rounded-md border border-transparent bg-transparent px-3 py-1.5 text-sm text-content transition-colors hover:border-edge focus:border-blue-500 focus:bg-surface-raised focus:outline-none"
           placeholder="Marker name"
         />
 
@@ -33,7 +35,7 @@
           :ref="el => setMenuButtonRef(index, el)"
           @click="toggleMarkerMenu(index)"
           :disabled="saving"
-          class="p-1.5 text-content-muted hover:text-content-secondary disabled:opacity-50"
+          class="shrink-0 p-1.5 text-content-tertiary hover:text-content hover:bg-surface-hover rounded transition-colors disabled:opacity-50"
           title="More options"
         >
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -41,25 +43,26 @@
           </svg>
         </button>
       </div>
-    </div>
 
-    <!-- Empty state -->
-    <div v-if="localMarkers.length === 0" class="text-center py-8">
-      <p class="text-content-tertiary mb-3">No markers yet</p>
-      <p class="text-xs text-content-muted">Click "Add Marker" to create your first one</p>
-    </div>
+      <!-- Empty state -->
+      <div v-if="localMarkers.length === 0" class="text-center py-8">
+        <p class="text-content-tertiary mb-3">No markers yet</p>
+        <p class="text-xs text-content-muted">Click "Add Marker" to create your first one</p>
+      </div>
 
-    <!-- Add marker button -->
-    <div class="mt-4">
+      <!-- Add marker row -->
       <button
+        type="button"
         @click="addMarker"
         :disabled="saving"
-        class="flex items-center gap-2 px-4 py-2 bg-surface-raised hover:bg-surface-hover disabled:opacity-50 text-content rounded-lg font-medium transition-colors"
+        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-blue-500/[0.04] disabled:opacity-50"
       >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        Add Marker
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-medium text-blue-400">Add Marker</div>
+        </div>
       </button>
     </div>
 

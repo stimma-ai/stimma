@@ -25,17 +25,17 @@
         <div class="text-[11px] uppercase tracking-wide text-content-muted mb-0.5">
           {{ trace.detail_availability === 'serialized' ? 'System template' : 'System' }}
         </div>
-        <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5" :class="scrollBlockClass('max-h-48')">{{ trace.system || trace.system_template }}</pre>
+        <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5 select-text" :class="scrollBlockClass('max-h-48')">{{ trace.system || trace.system_template }}</pre>
       </div>
       <div>
         <div class="text-[11px] uppercase tracking-wide text-content-muted mb-0.5">
           {{ trace.detail_availability === 'serialized' ? 'Prompt template' : 'Prompt' }}
         </div>
-        <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5" :class="scrollBlockClass('max-h-64')">{{ trace.prompt || trace.prompt_template || '(empty)' }}</pre>
+        <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5 select-text" :class="scrollBlockClass('max-h-64')">{{ trace.prompt || trace.prompt_template || '(empty)' }}</pre>
       </div>
       <div v-if="trace.result !== undefined && trace.result !== null">
         <div class="text-[11px] uppercase tracking-wide text-content-muted mb-0.5">Response</div>
-        <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5" :class="scrollBlockClass('max-h-64')">{{ formatResult(trace.result) }}</pre>
+        <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5 select-text" :class="scrollBlockClass('max-h-64')">{{ formatResult(trace.result) }}</pre>
       </div>
     </template>
 
@@ -235,7 +235,7 @@
       </div>
       <div v-if="documentContent">
         <div class="text-[11px] uppercase tracking-wide text-content-muted mb-0.5">Preview</div>
-        <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5" :class="scrollBlockClass('max-h-64')">{{ documentContent }}</pre>
+        <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5 select-text" :class="scrollBlockClass('max-h-64')">{{ documentContent }}</pre>
       </div>
       <div v-else-if="toolResultMediaIds.length > 0" class="text-[11px] text-content-muted italic">
         Saved as media #{{ toolResultMediaIds[0] }}.
@@ -280,7 +280,7 @@
         <span class="flex-1" />
         <span class="text-content-muted truncate">{{ equation.equation_key }}</span>
       </div>
-      <pre class="px-2.5 py-2 whitespace-pre-wrap break-words" :class="scrollBlockClass('max-h-60')">{{ trace.error }}</pre>
+      <pre class="px-2.5 py-2 whitespace-pre-wrap break-words select-text" :class="scrollBlockClass('max-h-60')">{{ trace.error }}</pre>
     </div>
   </template>
   <div v-else-if="equation.status === 'pending'" class="text-[11px] text-content-muted italic">

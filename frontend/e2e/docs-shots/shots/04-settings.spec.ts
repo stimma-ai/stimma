@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
   await page.keyboard.press('Escape')
 })
 
-test('settings: tool providers', async ({ page }) => {
+test('settings: generation tools', async ({ page }) => {
   await openSettings(page, 'tools')
   await settle(page, 500)
   await shoot(page, 'settings/tool-providers')
@@ -25,7 +25,7 @@ test('settings: stimpacks', async ({ page }) => {
   await shoot(page, 'settings/stimpacks')
 })
 
-test('settings: llm services (advanced)', async ({ page }) => {
+test('settings: Chat Models', async ({ page }) => {
   test.setTimeout(180000)
   await openSettings(page, 'ai-services')
   await settle(page, 500)

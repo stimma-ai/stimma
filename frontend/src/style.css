@@ -2,6 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/* General Sans — the Stimma logotype font, matching stimma.ai. Self-hosted so
+   the wordmark never depends on a CDN (offline/CSP failures fell back to the
+   default serif). Use the `font-brand` Tailwind utility, never a raw
+   font-family. */
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans-Semibold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Stimma is an interaction-first desktop UI. Text selection is opt-in for
+   content, while native editing surfaces must always retain normal selection. */
+@layer base {
+  input,
+  textarea,
+  [contenteditable]:not([contenteditable="false"]) {
+    @apply select-text;
+  }
+}
+
 /*
   ============================================================================
   SEMANTIC COLOR GUIDELINES

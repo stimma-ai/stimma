@@ -8,7 +8,7 @@
       {{ error }}
     </div>
 
-    <div v-else class="max-w-3xl mx-auto">
+    <div v-else class="max-w-3xl mx-auto select-text">
       <!-- Title from frontmatter -->
       <h1 v-if="title" class="text-2xl font-semibold mb-2" :class="isDark ? 'text-slate-100' : 'text-gray-900'">{{ title }}</h1>
 

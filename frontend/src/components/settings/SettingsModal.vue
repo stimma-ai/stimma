@@ -27,6 +27,8 @@
               :active-section="activeSection"
               :profiles="settings?.profiles || []"
               :current-profile-id="currentProfileId"
+              :llm-setup-required="llmSetupRequired"
+              :generation-setup-required="generationSetupRequired"
               @select="activeSection = $event"
               @switch-profile="handleProfileSwitch"
             />
@@ -94,11 +96,13 @@
                 />
               </template>
 
-              <!-- Tools Section -->
+              <!-- Generation Tools Section -->
               <template v-else-if="activeSection === 'tools'">
                 <ToolProvidersSection
                   v-if="settings"
+                  ref="toolProvidersSection"
                   :providers="settings.tool_providers"
+                  :setup-required="generationSetupRequired"
                   @update="handleToolProviderUpdate"
                   @create="handleToolProviderCreate"
                   @delete="handleToolProviderDelete"
@@ -143,14 +147,21 @@
                 <AgentSection />
               </template>
 
-              <!-- Advanced Section -->
+              <!-- Chat Models Section -->
               <template v-else-if="activeSection === 'ai-services'">
                 <AIServicesSection
                   v-if="settings"
+                  ref="aiServicesSection"
                   :llm-settings="settings.llm_settings"
+                  :setup-required="llmSetupRequired"
                   @update="handleLlmSettingsUpdate"
                   @navigate="activeSection = $event"
                 />
+              </template>
+
+              <!-- Model Preferences Section -->
+              <template v-else-if="activeSection === 'model-preferences'">
+                <ModelPreferencesSection />
               </template>
 
               <!-- Developer Section -->
@@ -161,6 +172,7 @@
                   :debug-force-ffmpeg-missing="settings.debug_force_ffmpeg_missing"
                   @update-developer-mode="handleDeveloperModeUpdate"
                   @update-debug-force-ffmpeg-missing="handleDebugForceFfmpegMissingUpdate"
+                  @close-settings="close"
                 />
               </template>
             </div>
@@ -188,6 +200,10 @@ import { useWebSocket } from '../../composables/useWebSocket'
 import { setDevMode } from '../../appConfig'
 import { useProfile } from '../../composables/useProfile'
 import { usePinLock } from '../../composables/usePinLock'
+import { useAuth } from '../../composables/useAuth'
+import { useCloudAccount } from '../../composables/useCloudAccount'
+import { useAvailableModels } from '../../composables/useAvailableModels'
+import { hasUsableGenerationProvider, hasUsableLlmModel } from '../../utils/settingsReadiness'
 import SettingsSidebar from './SettingsSidebar.vue'
 import ProfilesSection from './sections/ProfilesSection.vue'
 import FoldersSection from './sections/FoldersSection.vue'
@@ -198,11 +214,13 @@ import UpdatesSection from './sections/UpdatesSection.vue'
 import AccountSection from './sections/AccountSection.vue'
 import PrivacySection from './sections/PrivacySection.vue'
 import AIServicesSection from './sections/AIServicesSection.vue'
+import ModelPreferencesSection from './sections/ModelPreferencesSection.vue'
 import DeveloperSection from './sections/DeveloperSection.vue'
 import AgentSection from './sections/AgentSection.vue'
 import WildcardsSection from './sections/WildcardsSection.vue'
 import PinEntryModal from '../PinEntryModal.vue'
 import { setWildcards, setSegments } from '../../composables/useWildcards'
+import { preserveConnectingToolProviderStatuses, toolProviderUpdateStartsConnection } from '../../utils/toolProviderBrands'
 
 const props = defineProps({
   show: {
@@ -221,6 +239,9 @@ const { fetchSettings, updateFolders, updateMarkers, updateWildcards, updateProm
 const { on, off } = useWebSocket()
 const { currentProfileId, setCurrentProfileId, loadProfiles } = useProfile()
 const { showPinModal, pinModalProfileId, pinModalError, submitPin, cancelPinEntry, ensurePinForProfile } = usePinLock()
+const { models: availableModels, hasFetched: hasFetchedModels, fetchModels } = useAvailableModels()
+const { isAuthenticated } = useAuth()
+const { cloudUser, fetchCloudAccount } = useCloudAccount()
 
 // Compute profile name for PIN modal
 const pinModalProfileName = computed(() => {
@@ -229,9 +250,26 @@ const pinModalProfileName = computed(() => {
 })
 
 const activeSection = ref('folders')
+const aiServicesSection = ref(null)
+const toolProvidersSection = ref(null)
 const settings = ref(null)
 const loading = ref(false)
 const error = ref(null)
+
+// A signed-in account with zero balance is NOT set up: the cloud provider
+// stays connected and the model catalog still lists as available, so the
+// balance has to gate whether Stimma Cloud counts toward readiness.
+const stimmaCloudUsable = computed(() => Number(cloudUser.value?.credits ?? 0) > 0)
+
+const llmSetupRequired = computed(() => (
+  hasFetchedModels.value
+  && !hasUsableLlmModel(availableModels.value, { stimmaCloudUsable: stimmaCloudUsable.value })
+))
+
+const generationSetupRequired = computed(() => {
+  if (!settings.value) return false
+  return !hasUsableGenerationProvider(settings.value.tool_providers, { stimmaCloudUsable: stimmaCloudUsable.value })
+})
 
 // Handle provider status changes from WebSocket
 function handleProviderStatusChanged(data) {
@@ -241,11 +279,12 @@ function handleProviderStatusChanged(data) {
   if (!provider_id || !status) return
 
   // Update the status of the matching provider
+  const freshProviders = settings.value.tool_providers.map(provider =>
+    provider.id === provider_id ? { ...provider, status } : provider
+  )
   settings.value = {
     ...settings.value,
-    tool_providers: settings.value.tool_providers.map(p =>
-      p.id === provider_id ? { ...p, status } : p
-    )
+    tool_providers: preserveConnectingToolProviderStatuses(settings.value.tool_providers, freshProviders),
   }
 }
 
@@ -254,7 +293,14 @@ function handleProviderStatusChanged(data) {
 async function handleToolsUpdated() {
   if (!props.show) return
   try {
-    settings.value = await fetchSettings()
+    const freshSettings = await fetchSettings()
+    if (settings.value) {
+      freshSettings.tool_providers = preserveConnectingToolProviderStatuses(
+        settings.value.tool_providers,
+        freshSettings.tool_providers,
+      )
+    }
+    settings.value = freshSettings
   } catch (err) {
     console.error('Failed to refresh settings after tools_updated:', err)
   }
@@ -268,6 +314,16 @@ function handleKeydown(e) {
   if (e.key === 'Escape' && props.show) {
     // Don't close if Escape originated from a CodeMirror editor (e.g. exiting Vim insert mode)
     if (e.target?.closest?.('.cm-editor')) return
+    if (activeSection.value === 'ai-services' && aiServicesSection.value?.handleEscape?.()) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
+    if (activeSection.value === 'tools' && toolProvidersSection.value?.handleEscape?.()) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
     close()
   }
 }
@@ -288,6 +344,14 @@ async function loadSettings() {
   loading.value = true
   error.value = null
   try {
+    fetchModels(null, true).catch(err => {
+      console.warn('Failed to refresh model availability:', err)
+    })
+    // Keep the balance-gated readiness dots current (cloudUser is shared
+    // reactive state, also refreshed by account_updated websocket events).
+    if (isAuthenticated.value) {
+      fetchCloudAccount().catch(() => {})
+    }
     settings.value = await fetchSettings()
   } catch (err) {
     console.error('Failed to load settings:', err)
@@ -381,10 +445,14 @@ function handleSegmentsUpdate(promptSegments) {
 }
 
 async function handleToolProviderUpdate({ providerId, data }) {
+  const originalProvider = settings.value?.tool_providers.find(provider => provider.id === providerId)
+  const startsConnection = toolProviderUpdateStartsConnection(data)
   // Update local state
   if (settings.value) {
     const providers = settings.value.tool_providers.map(p =>
-      p.id === providerId ? { ...p, ...data } : p
+      p.id === providerId
+        ? { ...p, ...data, ...(startsConnection ? { status: 'connecting', error_message: null } : {}) }
+        : p
     )
     settings.value = { ...settings.value, tool_providers: providers }
   }
@@ -393,6 +461,12 @@ async function handleToolProviderUpdate({ providerId, data }) {
     await updateToolProvider(providerId, data)
   } catch (err) {
     console.error('Failed to persist tool provider:', err)
+    if (settings.value && originalProvider) {
+      settings.value = {
+        ...settings.value,
+        tool_providers: settings.value.tool_providers.map(provider => provider.id === providerId ? originalProvider : provider),
+      }
+    }
   }
 }
 
@@ -404,7 +478,7 @@ async function handleToolProviderCreate(providerConfig) {
     name: providerConfig.name || providerConfig.id,
     type: providerConfig.type,
     enabled: true,
-    status: 'disconnected',
+    status: 'connecting',
     command: providerConfig.command,
     args: providerConfig.args,
     url: providerConfig.url,

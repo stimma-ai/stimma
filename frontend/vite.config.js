@@ -2,8 +2,16 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 import { fileURLToPath } from 'url'
+import { execSync } from 'child_process'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
+
+let commitHash = ''
+try {
+  commitHash = execSync('git rev-parse --short HEAD', { cwd: __dirname }).toString().trim()
+} catch {
+  // not a git checkout (e.g. source tarball) — omit the hash
+}
 
 const backendPort = process.env.STIMMA_BACKEND_PORT || '9191'
 const frontendPort = parseInt(process.env.STIMMA_FRONTEND_PORT || '9192', 10)
@@ -56,6 +64,7 @@ export default defineConfig(({ command }) => ({
   plugins: [vue()],
   define: {
     __STIMMA_DISTRIBUTION__: JSON.stringify(distribution),
+    __STIMMA_COMMIT__: JSON.stringify(commitHash),
   },
   resolve: {
     alias: command === 'serve'

@@ -158,7 +158,7 @@
           </div>
 
           <div class="overflow-auto px-5 py-4" :class="modalBodyClass">
-            <pre class="min-w-max rounded-xl border p-4 text-sm leading-6" :class="codeBlockClass"><code v-html="highlightedCodeHtml" /></pre>
+            <pre class="min-w-max rounded-xl border p-4 text-sm leading-6 select-text" :class="codeBlockClass"><code v-html="highlightedCodeHtml" /></pre>
           </div>
 
           <div class="flex justify-end px-5 py-4" :class="modalFooterClass">
@@ -178,6 +178,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'
+import { isStimmaCloudTool, toolProviderDisplayName } from '../../utils/stimmaCloud'
 import { MediaImage } from '../media'
 import { useTheme } from '../../composables/useTheme'
 
@@ -236,8 +237,9 @@ const displayName = computed(() => {
   return 'Tool'
 })
 
-const providerName = computed(() => args.value._provider_name || '')
-const isStimmaCloud = computed(() => providerName.value === 'Stimma Cloud')
+const rawProviderName = computed(() => args.value._provider_name || '')
+const isStimmaCloud = computed(() => isStimmaCloudTool({ provider_name: rawProviderName.value }))
+const providerName = computed(() => toolProviderDisplayName({ provider_name: rawProviderName.value }, ''))
 const modalPanelClass = computed(() => isLight.value
   ? 'border-edge bg-surface'
   : 'border-white/10 bg-zinc-950'

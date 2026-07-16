@@ -240,9 +240,380 @@ class _Obj:
         return f"_Obj({vars(self)})"
 
 
+_RESPONSES_TOOL_CALL_PREFIX = "sr_"
+
+
+def _encode_responses_tool_call_id(response_id: str, call_id: str) -> str:
+    """Carry the Responses continuation id through Stimma's persisted tool id."""
+    return f"{_RESPONSES_TOOL_CALL_PREFIX}{len(response_id)}_{response_id}{call_id}"
+
+
+def _decode_responses_tool_call_id(value: str | None) -> tuple[str, str] | None:
+    if not value or not value.startswith(_RESPONSES_TOOL_CALL_PREFIX):
+        return None
+    length_end = value.find("_", len(_RESPONSES_TOOL_CALL_PREFIX))
+    if length_end < 0:
+        return None
+    try:
+        response_length = int(value[len(_RESPONSES_TOOL_CALL_PREFIX):length_end])
+    except ValueError:
+        return None
+    response_start = length_end + 1
+    response_end = response_start + response_length
+    if response_length <= 0 or response_end >= len(value):
+        return None
+    return value[response_start:response_end], value[response_end:]
+
+
+def _provider_http_error(resp: httpx.Response, *, provider: str) -> httpx.HTTPStatusError:
+    """Log supplier diagnostics, but keep URLs/models/body out of UI exceptions."""
+    try:
+        detail = resp.text
+    except Exception:
+        detail = "(could not read response body)"
+    log.error(f"{provider} API error {resp.status_code}: {detail[:2000]}")
+    return httpx.HTTPStatusError(
+        f"The AI provider rejected the request (HTTP {resp.status_code}).",
+        request=resp.request,
+        response=resp,
+    )
+
+
+def _message_text(content) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(
+            block.get("text", "")
+            for block in content
+            if isinstance(block, dict) and block.get("type") == "text"
+        )
+    return ""
+
+
+def _responses_input_content(content, *, assistant: bool = False):
+    if isinstance(content, str):
+        return content
+    result = []
+    for block in content or []:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "image_url" and isinstance(block.get("image_url"), dict):
+            result.append({"type": "input_image", "image_url": block["image_url"].get("url", "")})
+        else:
+            result.append({
+                "type": "output_text" if assistant else "input_text",
+                "text": block.get("text", ""),
+            })
+    return result
+
+
+def _responses_continuation(messages: list[dict]) -> tuple[str, int] | None:
+    response_id: str | None = None
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if (
+            message.get("role") == "user"
+            and message.get("name") != "_stimma_context"
+        ):
+            break
+        if message.get("role") != "assistant":
+            continue
+        for call in message.get("tool_calls") or []:
+            decoded = _decode_responses_tool_call_id(call.get("id"))
+            if decoded:
+                response_id = decoded[0]
+                break
+        if response_id:
+            break
+    if not response_id:
+        return None
+
+    # One Responses output can contain several parallel function calls. The
+    # app persists them call/result/call/result and can interleave user-shaped
+    # skill injections between results. Find the first call from the same
+    # response across that whole persisted batch; stopping at an injected user
+    # message drops earlier outstanding calls and makes Responses reject the
+    # continuation as incomplete.
+    matching_indexes = [
+        index
+        for index, message in enumerate(messages)
+        if message.get("role") == "assistant"
+        and any(
+            (decoded := _decode_responses_tool_call_id(call.get("id"))) is not None
+            and decoded[0] == response_id
+            for call in message.get("tool_calls") or []
+        )
+    ]
+    return response_id, min(matching_indexes)
+
+
+def _to_responses_request(model: str, messages: list[dict], kwargs: dict) -> dict:
+    continuation = _responses_continuation(messages)
+    source = messages[continuation[1]:] if continuation else messages
+    if continuation:
+        # Responses requires every outstanding function_call_output before
+        # accepting new user content. Skill injections are represented as user
+        # messages in history, so preserve them after the complete output set.
+        source = (
+            [message for message in source if message.get("role") == "tool"]
+            + [message for message in source if message.get("role") != "tool"]
+        )
+    input_items: list[dict] = []
+    for message in source:
+        role = message.get("role")
+        if role == "system":
+            continue
+        if role == "tool":
+            decoded = _decode_responses_tool_call_id(message.get("tool_call_id"))
+            input_items.append({
+                "type": "function_call_output",
+                "call_id": decoded[1] if decoded else message.get("tool_call_id", ""),
+                "output": _responses_input_content(message.get("content")),
+            })
+            continue
+        calls = message.get("tool_calls") or []
+        if role == "assistant" and calls:
+            if not continuation:
+                text = _message_text(message.get("content"))
+                if text:
+                    input_items.append({"role": "assistant", "content": text})
+                for call in calls:
+                    decoded = _decode_responses_tool_call_id(call.get("id"))
+                    fn = call.get("function") or {}
+                    input_items.append({
+                        "type": "function_call",
+                        "call_id": decoded[1] if decoded else call.get("id", ""),
+                        "name": fn.get("name", ""),
+                        "arguments": fn.get("arguments", "{}"),
+                    })
+            continue
+        input_items.append({
+            "role": role,
+            "content": _responses_input_content(message.get("content"), assistant=role == "assistant"),
+        })
+
+    body: dict = {"model": model, "input": input_items, "store": True}
+    instructions = "\n\n".join(
+        _message_text(message.get("content"))
+        for message in messages
+        if message.get("role") == "system" and _message_text(message.get("content"))
+    )
+    if instructions:
+        body["instructions"] = instructions
+    if continuation:
+        body["previous_response_id"] = continuation[0]
+    if kwargs.get("max_tokens") is not None:
+        body["max_output_tokens"] = kwargs["max_tokens"]
+    extra = dict(kwargs.get("extra_body") or {})
+    effort = extra.pop("reasoning_effort", None)
+    if effort is not None:
+        body["reasoning"] = {"effort": effort}
+    body.update(extra)
+    if kwargs.get("tools"):
+        body["tools"] = [
+            {
+                "type": "function",
+                "name": tool["function"]["name"],
+                "description": tool["function"].get("description", ""),
+                "parameters": tool["function"].get("parameters", {"type": "object", "properties": {}}),
+                "strict": False,
+            }
+            for tool in kwargs["tools"]
+        ]
+    if kwargs.get("tool_choice"):
+        choice = kwargs["tool_choice"]
+        body["tool_choice"] = (
+            choice if isinstance(choice, str)
+            else {"type": "function", "name": choice["function"]["name"]}
+        )
+    return body
+
+
+def _responses_to_chat(data: dict, requested_model: str) -> _Obj:
+    output = data.get("output") or []
+    text = "".join(
+        part.get("text", "")
+        for item in output if item.get("type") == "message"
+        for part in item.get("content") or [] if part.get("type") == "output_text"
+    )
+    calls = [item for item in output if item.get("type") == "function_call"]
+    reasoning = "\n".join(
+        part.get("text", "")
+        for item in output if item.get("type") == "reasoning"
+        for part in item.get("summary") or [] if part.get("text")
+    )
+    message: dict = {"role": "assistant", "content": text or None}
+    if calls:
+        message["tool_calls"] = [{
+            "id": _encode_responses_tool_call_id(data.get("id", ""), call.get("call_id") or call.get("id", "")),
+            "type": "function",
+            "function": {"name": call.get("name", ""), "arguments": call.get("arguments", "{}")},
+        } for call in calls]
+    if reasoning:
+        message["reasoning_content"] = reasoning
+    usage = data.get("usage") or {}
+    output_details = usage.get("output_tokens_details") or {}
+    chat_usage = {
+        "prompt_tokens": usage.get("input_tokens", 0),
+        "completion_tokens": usage.get("output_tokens", 0),
+        "total_tokens": usage.get("total_tokens", 0),
+        "completion_tokens_details": {"reasoning_tokens": output_details.get("reasoning_tokens", 0)},
+        "prompt_tokens_details": {"cached_tokens": (usage.get("input_tokens_details") or {}).get("cached_tokens", 0)},
+    }
+    finish = "tool_calls" if calls else "stop"
+    if data.get("status") == "incomplete" and (data.get("incomplete_details") or {}).get("reason") == "max_output_tokens":
+        finish = "length"
+    return _Obj({
+        "id": data.get("id", ""), "model": requested_model,
+        "choices": [{"index": 0, "message": message, "finish_reason": finish}],
+        "usage": chat_usage,
+    })
+
+
+async def _acompletion_openai_responses(*, model, messages, api_key, api_base, **kwargs) -> _Obj:
+    url = f"{api_base.rstrip('/')}/responses"
+    body = _to_responses_request(model, messages, kwargs)
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
+    async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
+        resp = await client.post(url, json=body, headers=headers)
+    if resp.status_code >= 400:
+        raise _provider_http_error(resp, provider="OpenAI")
+    return _responses_to_chat(resp.json(), model)
+
+
+def _anthropic_content_blocks(content) -> list[dict]:
+    if isinstance(content, str):
+        return [{"type": "text", "text": content}]
+    result: list[dict] = []
+    for block in content or []:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "image_url" and isinstance(block.get("image_url"), dict):
+            url = block["image_url"].get("url", "")
+            if url.startswith("data:") and ";base64," in url:
+                header, data = url.split(",", 1)
+                result.append({"type": "image", "source": {
+                    "type": "base64", "media_type": header[5:].split(";", 1)[0], "data": data,
+                }})
+            else:
+                result.append({"type": "image", "source": {"type": "url", "url": url}})
+        else:
+            result.append({"type": "text", "text": block.get("text", "")})
+    return result
+
+
+def _to_anthropic_request(model: str, messages: list[dict], kwargs: dict) -> dict:
+    system = []
+    converted: list[dict] = []
+    for message in messages:
+        role = message.get("role")
+        if role == "system":
+            system.extend(_anthropic_content_blocks(message.get("content")))
+            continue
+        if role == "tool":
+            block = {
+                "type": "tool_result",
+                "tool_use_id": message.get("tool_call_id", ""),
+                "content": _anthropic_content_blocks(message.get("content")),
+            }
+            if converted and converted[-1]["role"] == "user" and all(
+                part.get("type") == "tool_result" for part in converted[-1]["content"]
+            ):
+                converted[-1]["content"].append(block)
+            else:
+                converted.append({"role": "user", "content": [block]})
+            continue
+        if role == "assistant":
+            state = message.get("_stimma_provider_state")
+            if isinstance(state, dict) and state.get("kind") == "anthropic_message" and isinstance(state.get("content"), list):
+                content = state["content"]
+            else:
+                content = _anthropic_content_blocks(message.get("content"))
+                for call in message.get("tool_calls") or []:
+                    fn = call.get("function") or {}
+                    try:
+                        call_input = json.loads(fn.get("arguments") or "{}")
+                    except (TypeError, ValueError):
+                        call_input = {"_malformed_arguments": str(fn.get("arguments"))[:2000]}
+                    content.append({
+                        "type": "tool_use", "id": call.get("id", ""),
+                        "name": fn.get("name", ""), "input": call_input,
+                    })
+            converted.append({"role": "assistant", "content": content})
+        else:
+            converted.append({"role": "user", "content": _anthropic_content_blocks(message.get("content"))})
+
+    body: dict = {"model": model, "messages": converted, "max_tokens": kwargs.get("max_tokens") or 4096}
+    if system:
+        body["system"] = system
+    if kwargs.get("tools"):
+        body["tools"] = [{
+            "name": tool["function"]["name"],
+            "description": tool["function"].get("description", ""),
+            "input_schema": tool["function"].get("parameters", {"type": "object", "properties": {}}),
+        } for tool in kwargs["tools"]]
+    extra = dict(kwargs.get("extra_body") or {})
+    body.update(extra)
+    thinking_config = body.get("thinking")
+    if isinstance(thinking_config, dict) and thinking_config.get("type") == "enabled":
+        budget = int(thinking_config.get("budget_tokens") or 0)
+        if budget > 0:
+            body["max_tokens"] = max(int(body.get("max_tokens") or 0), budget + 256)
+    if kwargs.get("temperature") is not None and "thinking" not in body:
+        body["temperature"] = kwargs["temperature"]
+    return body
+
+
+def _anthropic_to_chat(data: dict, requested_model: str) -> _Obj:
+    blocks = data.get("content") or []
+    text = "".join(block.get("text", "") for block in blocks if block.get("type") == "text")
+    thinking = "\n".join(block.get("thinking", "") for block in blocks if block.get("type") == "thinking")
+    calls = [block for block in blocks if block.get("type") == "tool_use"]
+    message: dict = {
+        "role": "assistant", "content": text or None,
+        "_stimma_provider_state": {"kind": "anthropic_message", "content": blocks},
+    }
+    if thinking:
+        message["reasoning_content"] = thinking
+    if calls:
+        message["tool_calls"] = [{
+            "id": call.get("id", ""), "type": "function",
+            "function": {"name": call.get("name", ""), "arguments": json.dumps(call.get("input") or {})},
+        } for call in calls]
+    usage = data.get("usage") or {}
+    stop_reason = data.get("stop_reason")
+    finish = {"tool_use": "tool_calls", "max_tokens": "length"}.get(stop_reason, "stop")
+    return _Obj({
+        "id": data.get("id", ""), "model": requested_model,
+        "choices": [{"index": 0, "message": message, "finish_reason": finish}],
+        "usage": {
+            "prompt_tokens": usage.get("input_tokens", 0),
+            "completion_tokens": usage.get("output_tokens", 0),
+            "total_tokens": usage.get("input_tokens", 0) + usage.get("output_tokens", 0),
+            "cache_creation_input_tokens": usage.get("cache_creation_input_tokens", 0),
+            "cache_read_input_tokens": usage.get("cache_read_input_tokens", 0),
+        },
+    })
+
+
+async def _acompletion_anthropic(*, model, messages, api_key, api_base, **kwargs) -> _Obj:
+    url = f"{api_base.rstrip('/')}/messages"
+    body = _to_anthropic_request(model, messages, kwargs)
+    headers = {
+        "Content-Type": "application/json", "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+    }
+    async with httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
+        resp = await client.post(url, json=body, headers=headers)
+    if resp.status_code >= 400:
+        raise _provider_http_error(resp, provider="Anthropic")
+    return _anthropic_to_chat(resp.json(), model)
+
+
 async def acompletion(*, model, messages, api_key=None, api_base=None,
                        thinking=None, cacheable=False, session_id=None,
-                       **kwargs) -> _Obj:
+                       provider_kind=None, **kwargs) -> _Obj:
     """Make a raw HTTP POST to an OpenAI-compatible /chat/completions endpoint.
 
     Returns an _Obj with the same attribute shape as the openai SDK response:
@@ -256,7 +627,26 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
             Cloud as X-Stimma-Session so the proxy can pin routing for prefix
             caching (e.g. Cloudflare Workers AI's x-session-affinity).
     """
-    body: dict = {"model": model, "messages": messages}
+    if provider_kind == "openai":
+        return await _acompletion_openai_responses(
+            model=model, messages=messages, api_key=api_key, api_base=api_base,
+            thinking=thinking, cacheable=cacheable, session_id=session_id, **kwargs,
+        )
+    if provider_kind == "anthropic":
+        return await _acompletion_anthropic(
+            model=model, messages=messages, api_key=api_key, api_base=api_base,
+            thinking=thinking, cacheable=cacheable, session_id=session_id, **kwargs,
+        )
+
+    body: dict = {
+        "model": model,
+        # Namespaced continuation state is for Stimma's adapters, never an
+        # OpenAI-compatible provider wire field.
+        "messages": [
+            {key: value for key, value in message.items() if key != "_stimma_provider_state"}
+            for message in messages
+        ],
+    }
 
     # Merge extra_body keys into the top-level body (OpenAI-compatible endpoints
     # accept them as top-level keys)
@@ -417,20 +807,13 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
 
                 if err_type in ("insufficient_balance", "subscription_error"):
                     raise EntitlementError(
-                        err_data.get("message", "Your Stimma account has no available balance."),
+                        err_data.get("message", "Your Stimma account has no credits."),
                         upstream_status=resp.status_code,
                     )
 
-                # Generic upstream failure — raise HTTPStatusError ourselves so
-                # the exception text carries the provider's actual message,
-                # not just httpx's "Client error 'NNN ...' for url ..." boilerplate.
-                # Keeping the class as HTTPStatusError preserves downstream
-                # isinstance checks (e.g. is_auto_tool_choice_unsupported_error).
-                trimmed = upstream_msg.strip()
-                if len(trimmed) > 1000:
-                    trimmed = trimmed[:1000] + "…"
-                message = f"HTTP {resp.status_code} from {url}: {trimmed}" if trimmed else f"HTTP {resp.status_code} from {url}"
-                raise httpx.HTTPStatusError(message, request=resp.request, response=resp)
+                # Raw supplier diagnostics stay in logs/response for internal
+                # classification, never in the customer-visible exception.
+                raise _provider_http_error(resp, provider="LLM")
 
             resp.raise_for_status()
             data = resp.json()

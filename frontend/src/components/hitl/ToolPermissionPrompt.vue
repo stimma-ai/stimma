@@ -153,6 +153,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
+import { isStimmaCloudTool } from '../../utils/stimmaCloud'
 import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'
 
 const props = defineProps<{
@@ -231,7 +232,7 @@ function formatTaskType(taskType: string): string {
 }
 
 function isStimmaCloud(tool: ProviderTool): boolean {
-  return tool.provider_id === 'stimma-cloud' || tool.provider_name === 'Stimma Cloud'
+  return isStimmaCloudTool(tool)
 }
 
 async function loadTools() {

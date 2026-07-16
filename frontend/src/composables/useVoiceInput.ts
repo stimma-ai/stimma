@@ -21,22 +21,22 @@ export const VOICE_DOWNLOAD_LOCKDOWN_MESSAGE =
 
 export const VOICE_MODELS = [
   {
-    id: 'base.en',
+    id: 'base',
     label: 'Whisper Base',
     size: '142 MB',
-    description: 'Fastest Whisper option.',
+    description: 'Multilingual · Faster',
   },
   {
-    id: 'small.en',
+    id: 'small',
     label: 'Whisper Small',
     size: '466 MB',
-    description: 'More accurate Whisper option.',
+    description: 'Multilingual · Better quality',
   },
   {
     id: 'parakeet-tdt-0.6b-v2',
     label: 'Parakeet TDT 0.6B v2',
     size: '661 MB',
-    description: 'English only; optimized for faster local transcription.',
+    description: 'English · Fastest',
   },
 ] as const
 
@@ -53,7 +53,13 @@ function isVoiceModel(value: string | null): value is VoiceModel {
 
 function loadModel(): VoiceModel {
   const v = localStorage.getItem(VOICE_MODEL_KEY)
-  return isVoiceModel(v) ? v : 'base.en'
+  // Migrate preferences from the former English-only Whisper variants.
+  if (v === 'base.en' || v === 'small.en') {
+    const migrated = v.slice(0, -3) as VoiceModel
+    localStorage.setItem(VOICE_MODEL_KEY, migrated)
+    return migrated
+  }
+  return isVoiceModel(v) ? v : 'base'
 }
 
 export const voiceModel = ref<VoiceModel>(loadModel())
@@ -90,15 +96,15 @@ async function initTauri(): Promise<void> {
 initTauri()
 
 interface ModelStatus {
-  baseEn: boolean
-  smallEn: boolean
+  base: boolean
+  small: boolean
   parakeetTdt06bV2: boolean
 }
 
 function statusForModel(status: ModelStatus, model: VoiceModel): boolean {
-  if (model === 'small.en') return status.smallEn
+  if (model === 'small') return status.small
   if (model === 'parakeet-tdt-0.6b-v2') return status.parakeetTdt06bV2
-  return status.baseEn
+  return status.base
 }
 
 /** Whether the given model is already downloaded. */

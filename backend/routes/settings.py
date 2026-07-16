@@ -32,6 +32,11 @@ from database import MediaItem
 from sqlalchemy import select, func
 from ingestion import sync_auto_markers_for_items
 from llm_resolver import normalize_model_slug
+from tool_provider_identity import (
+    STIMMA_TOOL_PROVIDER_DISPLAY_NAME,
+    STIMMA_TOOL_PROVIDER_ID,
+    tool_provider_display_name,
+)
 from utils.websocket import ws_manager
 from config_writer import (
     patch_profile_section,
@@ -56,7 +61,7 @@ from config_writer import (
 ALWAYS_SHOW_BUILTIN_PROVIDERS = []
 
 # Provider ID for Stimma Cloud - used for special handling in settings
-STIMMA_CLOUD_PROVIDER_ID = "stimma-cloud"
+STIMMA_CLOUD_PROVIDER_ID = STIMMA_TOOL_PROVIDER_ID
 from core.logging import get_logger
 from core.profile_context import get_current_profile
 
@@ -145,6 +150,12 @@ class ToolProviderResponse(BaseModel):
     url: Optional[str] = None
 
 
+# Current AI-setup-wizard version. Bump this when the wizard changes enough
+# that existing installs should see it again; anyone whose persisted
+# setup_wizard_seen_version is behind gets the wizard on next launch.
+SETUP_WIZARD_VERSION = 1
+
+
 class ReadinessResponse(BaseModel):
     """App-entry readiness (OOBE entitlement flow).
 
@@ -152,11 +163,16 @@ class ReadinessResponse(BaseModel):
     ingredient(s) are absent so the UI can show only relevant guidance.
     Config presence counts for tool providers; live connection status does
     not (connections are async and this runs at a startup moment).
+
+    The setup wizard shows when wizard_seen_version < wizard_version; the
+    frontend marks it seen via POST /api/settings/setup-wizard-seen.
     """
     ready: bool
     has_agent_llm: bool
     has_generation: bool
     missing: List[str] = []  # subset of ["agent_llm", "generation"]
+    wizard_version: int = SETUP_WIZARD_VERSION
+    wizard_seen_version: int = 0
 
 
 class ProfileResponse(BaseModel):
@@ -605,7 +621,7 @@ async def get_settings_all():
 
         tool_providers.append(ToolProviderResponse(
             id=provider_config.id,
-            name=provider_config.name or provider_config.id,
+            name=tool_provider_display_name(provider_config.id, provider_config.name),
             type=provider_config.type,
             enabled=provider_config.enabled,
             has_api_key=bool(provider_config.api_key),
@@ -748,12 +764,15 @@ def _has_local_agent_llm_configured(settings) -> bool:
 
 def _has_local_generation_provider_configured(settings) -> bool:
     """Any enabled external STP provider (stdio/websocket transport).
-    Excludes the always-registered 'builtin' (in-process filter tools) and
-    'user-tools' pseudo-providers, which aren't generation capable.
+    Excludes Stimma Cloud, the always-registered 'builtin' (in-process filter
+    tools), and 'user-tools' pseudo-providers. Stimma readiness is determined
+    by account balance, not by a saved cloud transport entry.
     Enabled-in-config counts; live connection status does not.
     """
     return any(
-        tp.enabled and tp.type in ('stdio', 'websocket')
+        tp.id != STIMMA_CLOUD_PROVIDER_ID
+        and tp.enabled
+        and tp.type in ('stdio', 'websocket')
         for tp in settings.tool_providers
     )
 
@@ -784,6 +803,8 @@ def _compute_readiness(settings) -> ReadinessResponse:
         has_agent_llm=has_agent_llm,
         has_generation=has_generation,
         missing=missing,
+        wizard_version=SETUP_WIZARD_VERSION,
+        wizard_seen_version=settings.setup_wizard_seen_version,
     )
 
 
@@ -817,6 +838,16 @@ async def update_developer_mode(request: UpdateDeveloperModeRequest):
     reload_settings()
     log.info("developer_mode updated", enabled=request.enabled)
     return {"status": "success", "developer_mode": request.enabled}
+
+
+@router.post("/setup-wizard-seen")
+async def mark_setup_wizard_seen():
+    """Persist that this install has seen the current AI setup wizard."""
+    settings = get_settings()
+    patch_global_section("setup_wizard_seen_version", SETUP_WIZARD_VERSION)
+    settings.setup_wizard_seen_version = SETUP_WIZARD_VERSION
+    log.info("setup wizard marked seen", version=SETUP_WIZARD_VERSION)
+    return {"status": "success", "wizard_seen_version": SETUP_WIZARD_VERSION}
 
 
 class UpdateDebugForceFFmpegMissingRequest(BaseModel):
@@ -973,6 +1004,17 @@ async def update_model_prompt(request: UpdateModelPromptRequest):
         extra_system_prompt=request.extra_system_prompt,
     )
     return {"status": "success", "model": model_slug, **prompts[model_slug]}
+
+
+@router.get("/content-policy")
+async def read_content_policy():
+    """Return the exact policy text currently used for model requests."""
+    from content_policy import get_content_policy
+
+    text = await get_content_policy()
+    if not text:
+        raise HTTPException(status_code=503, detail="The content policy is not available right now.")
+    return {"text": text}
 
 
 # =============================================================================
@@ -1246,7 +1288,7 @@ async def update_tool_provider_endpoint(
             from config_writer import add_tool_provider
             new_provider = {
                 "id": STIMMA_CLOUD_PROVIDER_ID,
-                "name": "Stimma Cloud",
+                "name": STIMMA_TOOL_PROVIDER_DISPLAY_NAME,
                 "type": "websocket",
                 "enabled": updates.get("enabled", True),
             }
@@ -1632,12 +1674,19 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
     """
     import time, base64, struct, zlib
     from llm import llm_completion
+    from llm_http import classify_provider_http_error
 
     scenarios: dict[str, LLMScenarioResult] = {}
+
+    def _profile_error(exc: Exception) -> str:
+        classified = classify_provider_http_error(exc)
+        return (classified[1] if classified else str(exc))[:200]
 
     # Cloud configs resolve+inject reasoning server-side; only profile local ones.
     is_local = "stimma.ai" not in (config.get_api_base() or "")
     is_openrouter = "openrouter.ai" in (config.get_api_base() or "")
+    is_together = "together.xyz" in (config.get_api_base() or "")
+    is_fireworks = "fireworks.ai" in (config.get_api_base() or "")
     runtime: Optional[str] = None
     reasoning_output: Optional[str] = None
     reasoning_off: Optional[bool] = None  # did it reason when asked NOT to?
@@ -1690,7 +1739,7 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
         else:
             scenarios["text"] = LLMScenarioResult(passed=False, elapsed_ms=elapsed, error="Empty response")
     except Exception as e:
-        scenarios["text"] = LLMScenarioResult(passed=False, elapsed_ms=_ms(t0), error=str(e)[:200])
+        scenarios["text"] = LLMScenarioResult(passed=False, elapsed_ms=_ms(t0), error=_profile_error(e))
 
     # --- Probe 2: thinking ON (also the "thinking" capability) ---
     # Each dialect is sent ALONE — strict gateways (OpenRouter) 400 when you mix
@@ -1711,6 +1760,14 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
         reasoning_on = bool(on.thinking)
         if reasoning_on:
             reasoning_method = "reasoning_effort"
+        elif on.content and is_fireworks:
+            # Fireworks' current multimodal agent models may emit the reasoning
+            # trace in ordinary content instead of reasoning_content. A
+            # successful reasoning_effort request is still a positive provider
+            # signal; vision and tools are independently catalog-checked.
+            reasoning_on = True
+            reasoning_method = "reasoning_effort"
+            reasoning_output = "content"
         elif on.content and is_local:
             # Didn't reason via reasoning_effort — try the vLLM/Qwen template flag.
             try:
@@ -1731,7 +1788,7 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
             scenarios["thinking"] = LLMScenarioResult(passed=False, elapsed_ms=elapsed, error="No content extracted")
     except Exception as e:
         reasoning_on = False
-        scenarios["thinking"] = LLMScenarioResult(passed=False, elapsed_ms=_ms(t0), error=str(e)[:200])
+        scenarios["thinking"] = LLMScenarioResult(passed=False, elapsed_ms=_ms(t0), error=_profile_error(e))
 
     # --- Verify the OFF switch for the chosen method ---
     # Probe 2 picks the dialect that turns reasoning ON, but the utility path
@@ -1794,7 +1851,7 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
         else:
             scenarios["tools"] = LLMScenarioResult(passed=False, elapsed_ms=elapsed, error=f"No tool call — got text: {resp.content[:80]}")
     except Exception as e:
-        error_str = str(e)[:200]
+        error_str = _profile_error(e)
         elapsed = int((time.time() - t0) * 1000)
         if "tool" in error_str.lower() and "auto" in error_str.lower():
             scenarios["tools"] = LLMScenarioResult(passed=False, elapsed_ms=elapsed, error="Tool calling not enabled on this endpoint")
@@ -1833,14 +1890,14 @@ async def _profile_endpoint(config) -> "tuple[dict, Optional[LLMDetected]]":
             scenarios["vision"] = LLMScenarioResult(passed=False, elapsed_ms=elapsed, error="Empty response")
     except Exception as e:
         elapsed = int((time.time() - t0) * 1000)
-        error_str = str(e)[:200]
+        error_str = _profile_error(e)
         if "image" in error_str.lower() or "vision" in error_str.lower() or "multimodal" in error_str.lower():
             scenarios["vision"] = LLMScenarioResult(passed=False, elapsed_ms=elapsed, error="Vision not supported by this model")
         else:
             scenarios["vision"] = LLMScenarioResult(passed=False, elapsed_ms=elapsed, error=error_str)
 
     # --- Context window scenario (local only — cloud configs are catalog-stamped) ---
-    if is_local:
+    if is_local and not (is_openrouter or is_together or is_fireworks):
         t0 = time.time()
         configured_tokens = int(getattr(config, "max_context_tokens", 0) or 128_000)
         # Half the configured window is enough to catch the common failure

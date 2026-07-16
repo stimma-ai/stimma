@@ -53,7 +53,7 @@
         <span class="flex-1" />
         <span v-if="error.category" class="uppercase tracking-wider text-content-muted">{{ error.category }}</span>
       </div>
-      <pre class="px-2.5 py-2 whitespace-pre-wrap break-words">{{ error.message }}</pre>
+      <pre class="px-2.5 py-2 whitespace-pre-wrap break-words select-text">{{ error.message }}</pre>
       <div v-if="error.suggestion" class="px-2.5 pb-2 text-content-muted">hint: {{ error.suggestion }}</div>
     </div>
   </section>

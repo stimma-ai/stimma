@@ -7,6 +7,12 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import { isPrivacyLockdownActive } from './usePrivacyLockdown'
 import { sortModelsByBrand } from '../utils/modelVendors'
+import {
+  isCatalogSelectableModel,
+  isSelectableModel,
+  modelSelectionLabel,
+  selectableModelForSlug,
+} from '../utils/settingsReadiness'
 
 const models = ref([])
 const globalDefault = ref('auto')
@@ -44,7 +50,7 @@ const visibleModels = computed(() => {
   if (cachedAuto.resolved_slug === 'auto') return [cachedAuto, ...nonCloudModels]
 
   const localModel = nonCloudModels.find(
-    model => model.source === 'endpoint' && model.available !== false
+    model => model.source === 'endpoint' && isSelectableModel(model)
   )
   const localAuto = localModel
     ? {
@@ -59,7 +65,7 @@ const visibleModels = computed(() => {
     : {
         ...cachedAuto,
         name: 'Set up a local model',
-        description: 'Add a model endpoint in Settings > LLM Providers.',
+        description: 'Add a model endpoint in Settings > Chat Models.',
         available: false,
         status: 'llm_not_configured',
         resolved_slug: null,
@@ -71,6 +77,9 @@ const effectiveGlobalDefault = computed(() => {
   if (!isPrivacyLockdownActive()) return globalDefault.value
   return [null, 'auto', 'local'].includes(globalDefault.value) ? globalDefault.value : 'auto'
 })
+const selectableModels = computed(() => visibleModels.value.filter(
+  model => isCatalogSelectableModel(visibleModels.value, model)
+))
 
 /**
  * Fetch available models from the backend.
@@ -122,19 +131,12 @@ export function refreshAvailableModels() {
 
 /**
  * Get the display name for a model slug.
- * Falls back to the slug itself if not found.
+ * Never exposes a saved slug that is absent from the selectable catalog.
  */
 function getModelDisplayName(slug) {
   slug = normalizeModelSlug(slug)
   if (!slug) return getModelDisplayName(effectiveGlobalDefault.value)
-  const model = visibleModels.value.find(m => m.slug === slug)
-  if (model?.slug === 'auto' && model.resolved_slug) {
-    const resolved = visibleModels.value.find(m => m.slug === model.resolved_slug)
-    if (resolved?.available !== false) return resolved.name
-  }
-  if (!model) return visibleModels.value.length > 0 ? `${slug} · unavailable` : slug
-  if (model.slug === 'auto' && model.available === false) return model.name
-  return model.available === false ? `${model.name} · unavailable` : model.name
+  return modelSelectionLabel(visibleModels.value, slug)
 }
 
 /**
@@ -150,6 +152,10 @@ function getResolvedModel(slug) {
   return model
 }
 
+function getSelectableModel(slug) {
+  return selectableModelForSlug(visibleModels.value, normalizeModelSlug(slug))
+}
+
 /**
  * Invalidate the cache so next access triggers a re-fetch.
  */
@@ -160,6 +166,7 @@ function invalidateCache() {
 export function useAvailableModels() {
   return {
     models: readonly(visibleModels),
+    selectableModels: readonly(selectableModels),
     globalDefault: readonly(effectiveGlobalDefault),
     quickTaskModel: readonly(quickTaskModel),
     reasoningLevels: readonly(reasoningLevels),
@@ -171,6 +178,7 @@ export function useAvailableModels() {
     fetchModels,
     getModelDisplayName,
     getResolvedModel,
+    getSelectableModel,
     invalidateCache,
   }
 }

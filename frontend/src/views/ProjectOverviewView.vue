@@ -229,7 +229,7 @@ const { fetchAssets, addToBoard: addAssetsToBoard } = useAssetApi()
 const { listFlows } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 const { agentModelUnavailable, checkAgentModels } = useAgentModelAvailability()
-const { models: availableModels, globalDefault, getResolvedModel } = useAvailableModels()
+const { globalDefault, getSelectableModel } = useAvailableModels()
 const { addToast } = useToasts()
 
 const chatInputBoxRef = ref(null)
@@ -239,7 +239,7 @@ const inputAttachments = ref([])
 const selectedNewChatModel = ref(null)
 const selectedNewChatModelInfo = computed(() => {
   const slug = selectedNewChatModel.value || globalDefault.value
-  return getResolvedModel(slug) || availableModels.value.find(model => model.slug === slug)
+  return getSelectableModel(slug)
 })
 const newChatImageUnsupported = computed(() => {
   if (inputAttachments.value.length === 0) return ''

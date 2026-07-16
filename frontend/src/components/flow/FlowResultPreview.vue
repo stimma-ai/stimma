@@ -6,7 +6,7 @@
        the primary so the user can still see them without reading raw
        JSON. Anything we can't parse falls back to a stringified blob,
        but that path should be rare in practice. -->
-  <div class="text-[12.5px] leading-snug text-content">
+  <div class="text-[12.5px] leading-snug text-content select-text">
     <template v-if="primary.kind === 'empty'">
       <span class="text-content-muted">—</span>
     </template>

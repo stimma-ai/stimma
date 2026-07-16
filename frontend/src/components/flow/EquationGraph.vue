@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full overflow-hidden relative select-none bg-base">
+  <div class="w-full h-full overflow-hidden relative bg-base">
     <!-- Empty state -->
     <div v-if="layoutNodes.length === 0" class="absolute inset-0 flex items-center justify-center">
       <div class="text-center space-y-1.5">
@@ -124,7 +124,7 @@
                   />
                 </div>
                 <div
-                  class="info-prose flex-1 min-w-0 text-[10px] text-content leading-tight line-clamp-3 break-words"
+                  class="info-prose flex-1 min-w-0 text-[10px] text-content leading-tight line-clamp-3 break-words select-text"
                   v-html="renderInfoMarkdown(infoText(n))"
                 />
               </div>

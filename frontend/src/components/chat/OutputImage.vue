@@ -151,7 +151,7 @@
       <div v-if="row.output.error_summary" class="text-[10px] text-red-400 mb-1 px-2 text-center leading-tight line-clamp-3">{{ row.output.error_summary }}</div>
       <details v-if="row.output.error && row.output.error !== row.output.error_summary" class="w-full px-1 mb-1" @click.stop>
         <summary class="text-[10px] cursor-pointer text-red-400/70 hover:text-red-400 select-none text-center">Details</summary>
-        <pre class="mt-1 text-[9px] whitespace-pre-wrap break-words font-mono bg-red-500/10 rounded p-1 max-h-20 overflow-y-auto custom-scrollbar text-red-400/80">{{ row.output.error }}</pre>
+        <pre class="mt-1 text-[9px] whitespace-pre-wrap break-words font-mono bg-red-500/10 rounded p-1 max-h-20 overflow-y-auto custom-scrollbar text-red-400/80 select-text">{{ row.output.error }}</pre>
       </details>
       <button
         @click.stop="$emit('retry', row.id)"

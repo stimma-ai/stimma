@@ -919,8 +919,10 @@ async def _load_lineage_data(session: AsyncSession, media_id: int) -> Dict[str, 
     name="library",
     description=(
         "Search, retrieve, save, and browse the media library. "
-        "Manage tags, markers, and boards on Assets. Browse/search results return "
-        "both asset_id (organization) and media_id (exact payload). "
+        "Manage tags, markers, and boards on Assets. For tag/marker/board actions you can "
+        "target an item by the media_id you already have (from show/create_layout/media_info/"
+        "generation) — it resolves to the owning Asset automatically; you do NOT need to look up "
+        "an asset_id first. Browse/search results return both asset_id and media_id. "
         "Use browse_schema and browse_options for progressive disclosure of browse facets. Inspect lineage. "
         "Use generation_params to get a call_tool-ready flow for reproducing an existing image (tweak one field, then call_tool)."
     ),
@@ -928,10 +930,10 @@ async def _load_lineage_data(session: AsyncSession, media_id: int) -> Dict[str, 
         ToolParameter("action", "string", "search | get | generation_params | browse | browse_schema | browse_options | save | lineage | tag | marker | board"),
         ToolParameter("query", "string", "Text query. Search matches against generation prompts by default (best signal). Use search_fields to broaden.", required=False),
         ToolParameter("search_fields", "string", "prompt (default) | caption | keywords | all — which fields to search. Only broaden when prompt search returns nothing useful.", required=False),
-        ToolParameter("media_id", "integer", "Exact Media payload ID for get or lineage", required=False),
-        ToolParameter("media_ids", "array", "Exact Media payload IDs for payload operations", required=False, items={"type": "integer"}),
-        ToolParameter("asset_id", "integer", "Asset ID required for tag, marker, and board organization actions", required=False),
-        ToolParameter("asset_ids", "array", "Asset IDs required for bulk tag, marker, and board organization actions", required=False, items={"type": "integer"}),
+        ToolParameter("media_id", "integer", "Exact Media payload ID. Used for get/lineage, and ALSO accepted as the target for tag/marker/board actions (resolved to its owning Asset — just pass the media_id you already have).", required=False),
+        ToolParameter("media_ids", "array", "Exact Media payload IDs for payload operations, or as bulk targets for tag/marker/board actions.", required=False, items={"type": "integer"}),
+        ToolParameter("asset_id", "integer", "Asset ID for tag/marker/board actions. Optional — if you only have a media_id, pass that instead (do not mix asset and media IDs in one call).", required=False),
+        ToolParameter("asset_ids", "array", "Asset IDs for bulk tag/marker/board actions. Optional — media_ids works too.", required=False, items={"type": "integer"}),
         ToolParameter("tags", "array", "Filter by tag names (browse) or tag names to add/remove (tag action)", required=False, items={"type": "string"}),
         ToolParameter("limit", "integer", "Max results, default 20", required=False),
         ToolParameter("offset", "integer", "Browse result offset, default 0", required=False),
@@ -942,12 +944,12 @@ async def _load_lineage_data(session: AsyncSession, media_id: int) -> Dict[str, 
         ToolParameter("cursor", "string", "Opaque cursor for browse_options pagination", required=False),
         ToolParameter("path", "string", "Workspace filename to save (save action)", required=False),
         ToolParameter("save_tags", "array", "Tags to apply on save — only when the user explicitly requests tagging", required=False, items={"type": "string"}),
-        ToolParameter("marker_name", "string", "Marker name (marker action)", required=False),
+        ToolParameter("marker_name", "string", "Marker name (marker action). Markers are a FIXED, curated set (typically 'favorite' and 'library' — the saved-for-later flag) — you cannot create new ones. Use operation='list' if unsure which names exist; 'add' only applies an existing marker.", required=False),
         ToolParameter("board_name", "string", "Board name (board action)", required=False),
         ToolParameter("board_id", "integer", "Board ID (board action)", required=False),
         ToolParameter("section_name", "string", "Section name (board action)", required=False),
         ToolParameter("section_id", "integer", "Section ID (board action)", required=False),
-        ToolParameter("operation", "string", "add | remove | move | list | contents | create | delete | rename | create_section | rename_section | delete_section | set_collapsed (for tag/marker/board actions, default: add). Board add auto-creates the board if board_name doesn't exist yet — no separate create needed. Move relocates items to a target section.", required=False),
+        ToolParameter("operation", "string", "Default: add. Supported ops differ by action — tag: add | remove | list ('add' creates missing tags); marker: add | remove | list ('add' applies an existing marker only — markers cannot be created here); board: add | remove | move | list | contents | create | delete | rename | create_section | rename_section | delete_section | set_collapsed. Board 'add' auto-creates the board if board_name doesn't exist yet — no separate create needed. Move relocates items to a target section.", required=False),
     ],
 )
 async def library(
@@ -1710,7 +1712,7 @@ async def _tag(
     if resolution_error:
         return resolution_error
     if not ids:
-        return "Error: asset_id or asset_ids is required for tag action"
+        return "Error: pass asset_id/asset_ids or media_id/media_ids to target an item for the tag action"
 
     tag_ids = await _resolve_or_create_tags(session, tags)
 
@@ -1780,7 +1782,14 @@ async def _marker(
         )
         marker = result.scalar_one_or_none()
     if not marker:
-        return f"Error: Marker '{marker_name}' not found. Use operation='list' to see available markers."
+        available = (
+            await session.execute(select(Marker.name).order_by(Marker.name))
+        ).scalars().all()
+        names = ", ".join(available) if available else "(none defined)"
+        return (
+            f"Error: Marker '{marker_name}' not found. Markers are a fixed set — "
+            f"available names: {names}. Pick one of these; new marker names cannot be created."
+        )
 
     ids, resolution_error = await _resolve_org_asset_ids(
         session, asset_id, asset_ids, media_id, media_ids
@@ -1788,7 +1797,7 @@ async def _marker(
     if resolution_error:
         return resolution_error
     if not ids:
-        return "Error: asset_id or asset_ids is required for marker action"
+        return "Error: pass asset_id/asset_ids or media_id/media_ids to target an item for the marker action"
 
     from asset_association_service import broadcast_asset_organization_updated
 
@@ -2037,7 +2046,7 @@ async def _board(
     if resolution_error:
         return resolution_error
     if not ids:
-        return "Error: asset_id or asset_ids is required for board add/remove/move"
+        return "Error: pass asset_id/asset_ids or media_id/media_ids to target an item for board add/remove/move"
 
     if operation == "move":
         if not section:
