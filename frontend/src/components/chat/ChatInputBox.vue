@@ -10,7 +10,7 @@
     <Transition name="fade">
       <div
         v-if="dragging && !agentUnavailable"
-        class="absolute inset-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-blue-500"
+        class="pointer-events-none absolute inset-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-blue-500"
       >
         <div class="flex flex-col items-center gap-2 text-blue-500">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10">
@@ -130,7 +130,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import axios from 'axios'
 import ChatInputAttachments from './ChatInputAttachments.vue'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
@@ -262,12 +262,20 @@ function onDragOver() {
   dragging.value = true
 }
 
-function onDragLeave() {
+function resetDragging() {
   dragging.value = false
 }
 
+function onDragLeave(event) {
+  // Ignore transitions between descendants of the input. Without this check,
+  // moving over attachments and controls can briefly dismiss the overlay.
+  const nextTarget = event.relatedTarget
+  if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return
+  resetDragging()
+}
+
 async function onDrop(event) {
-  dragging.value = false
+  resetDragging()
   if (props.agentUnavailable) return
 
   // Check for media_id from in-app drag
@@ -288,4 +296,21 @@ async function onDrop(event) {
     }
   }
 }
+
+onMounted(() => {
+  // A drag can start inside this composer and be dropped elsewhere. In that
+  // case the composer receives neither drop nor a reliable dragleave, while
+  // dragend still reaches the window.
+  window.addEventListener('dragend', resetDragging, true)
+  window.addEventListener('drop', resetDragging, true)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('dragend', resetDragging, true)
+  window.removeEventListener('drop', resetDragging, true)
+})
+
+watch(() => props.agentUnavailable, unavailable => {
+  if (unavailable) resetDragging()
+})
 </script>
