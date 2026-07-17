@@ -27,21 +27,55 @@ from database import (
 async def classify_media_assets(
     session: AsyncSession, media_ids: list[int] | set[int],
 ) -> dict[int, str]:
-    """Classify Media IDs by canonical Asset lifecycle state.
+    """Classify Media IDs by browser visibility, mirroring the ordinary
+    Asset-browser population (`_media_is_current_active_asset_payload` plus the
+    Media-level gates every browser screen applies).
 
-    Returns a mapping of media_id -> 'asset' | 'trashed' | 'bare':
-    - 'asset': the payload of a live revision of an active Asset
-    - 'trashed': retained only by a trashed/deleting Asset
-    - 'bare': contextual Media with no Asset identity
+    Returns media_id -> kind:
+    - 'asset': would appear as a card in All Assets right now
+    - 'trashed': retained by a trashed/deleting Asset (or Media-level
+      soft-delete/deletion-pending compatibility state)
+    - 'expired': active Asset past its auto-delete deadline, hidden from
+      browsers while awaiting the cleanup worker
+    - 'revision': payload of a non-current revision of a live Asset
+    - 'intermediate': bare contextual Media (chat/flow/container-owned) or
+      ephemeral run output — never independently browsable
+    - 'unavailable': browser-visible Asset whose payload is missing on disk or
+      not yet ingested
 
     IDs without a MediaItem row are absent from the result.
     """
+    from datetime import datetime
+
+    from database import MediaItem
+
     ids = list(media_ids)
     if not ids:
         return {}
-    rows = (
+
+    media_rows = (
         await session.execute(
-            select(AssetRevision.primary_media_id, Asset.state)
+            select(
+                MediaItem.id,
+                MediaItem.deleted_at,
+                MediaItem.deletion_pending_at,
+                MediaItem.ephemeral_run_id,
+                MediaItem.metadata_status,
+                MediaItem.file_unavailable,
+            ).where(MediaItem.id.in_(ids))
+        )
+    ).all()
+
+    revision_rows = (
+        await session.execute(
+            select(
+                AssetRevision.primary_media_id,
+                Asset.state,
+                Asset.deleted_at,
+                Asset.expires_at,
+                Asset.current_revision_id,
+                AssetRevision.id,
+            )
             .join(Asset, Asset.id == AssetRevision.asset_id)
             .where(
                 AssetRevision.primary_media_id.in_(ids),
@@ -49,19 +83,34 @@ async def classify_media_assets(
             )
         )
     ).all()
-    from database import MediaItem
+    asset_state: dict[int, str] = {}
+    now = datetime.utcnow()
+    rank = {"asset": 0, "revision": 1, "expired": 2, "trashed": 3}
+    for media_id, state, asset_deleted_at, expires_at, current_revision_id, revision_id in revision_rows:
+        if state != "active" or asset_deleted_at is not None:
+            kind = "trashed"
+        elif expires_at is not None and expires_at <= now:
+            kind = "expired"
+        elif current_revision_id != revision_id:
+            kind = "revision"
+        else:
+            kind = "asset"
+        prev = asset_state.get(media_id)
+        if prev is None or rank[kind] < rank[prev]:
+            asset_state[media_id] = kind
 
-    existing = set(
-        await session.scalars(select(MediaItem.id).where(MediaItem.id.in_(ids)))
-    )
-    result = {mid: "bare" for mid in ids if mid in existing}
-    for media_id, state in rows:
-        if media_id not in result:
-            continue
-        if state == "active":
-            result[media_id] = "asset"
-        elif result[media_id] != "asset":
+    result: dict[int, str] = {}
+    for media_id, deleted_at, deletion_pending_at, ephemeral_run_id, metadata_status, file_unavailable in media_rows:
+        if deleted_at is not None or deletion_pending_at is not None:
             result[media_id] = "trashed"
+            continue
+        kind = asset_state.get(media_id)
+        if kind is None or ephemeral_run_id is not None:
+            result[media_id] = "intermediate"
+        elif kind == "asset" and (metadata_status != "completed" or file_unavailable):
+            result[media_id] = "unavailable"
+        else:
+            result[media_id] = kind
     return result
 
 

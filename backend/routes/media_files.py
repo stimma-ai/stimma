@@ -1921,14 +1921,12 @@ async def get_media_lineage(
                 else:
                     item["type"] = "deleted"
                     item["media_id"] = s.source_media_id
-            elif kind == "trashed":
-                item["type"] = "trashed"
-                item["media_id"] = s.source_media_id
-            elif kind == "bare":
-                item["type"] = "intermediate"
+            elif kind is None:
+                item["type"] = "deleted"
                 item["media_id"] = s.source_media_id
             else:
-                item["type"] = "deleted"
+                # trashed / expired / revision / intermediate / unavailable
+                item["type"] = kind
                 item["media_id"] = s.source_media_id
         else:
             item["type"] = "external"
@@ -2067,24 +2065,24 @@ async def get_media_lineage_tree(
     session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Get the provenance graph for a media item: its ancestors and descendants.
+    Get the lineage graph around a media item.
 
-    The walk is directional — ancestors of the focus and descendants of the
-    focus — never the full connected component, so unrelated siblings/cousins
-    reachable only through shared parents or container membership are excluded.
+    Walks the connected lineage component outward from the focus in rings
+    (parents and children of every discovered node), so siblings and cousins —
+    other results generated from the same sources — are included, matching how
+    iteration sessions are actually explored.
 
-    Node visibility follows the Asset model:
-    - Live Assets appear as full nodes.
-    - Trashed Assets and bare contextual Media (agent intermediates, embedded
-      container members) appear only when they sit on a provenance path that
-      reaches a live node; they are rendered as minimal placeholders. Non-live
-      leaves are dropped entirely.
+    Node visibility follows the Asset browser exactly:
+    - Nodes that would appear in All Assets right now render as full nodes.
+    - Everything else (trashed, expired, old revisions, bare/contextual Media)
+      is kept only when it sits on a provenance path leading down to a visible
+      node, rendered as a minimal placeholder. Hidden leaves — rejected drafts,
+      abandoned intermediates — are dropped entirely.
+    - Lineage rows pointing at permanently deleted media are never followed.
 
-    Returns:
-    - nodes: [{id, depth, kind: 'asset'|'trashed'|'intermediate', media}]
-      (placeholder nodes carry kind != 'asset' and a minimal media payload)
-    - edges: All retained parent-child relationships
-    - truncated: True when the walk hit the max_nodes budget
+    A max_nodes budget bounds the graph; the closest nodes to the focus win,
+    with browser-visible nodes admitted first within a ring. `truncated: true`
+    reports that the budget was hit.
     """
     from asset_association_service import classify_media_assets, media_compatibility_projections
 
@@ -2096,9 +2094,9 @@ async def get_media_lineage_tree(
     if not focus_media:
         raise HTTPException(status_code=404, detail="Media item not found")
 
+    classification = await classify_media_assets(session, [media_id])
+
     visited = {media_id}
-    ancestor_ids = set()
-    descendant_ids = set()
     all_edges = []  # (child_id, parent_id, task_type, relationship_type, source_order)
     seen_edge_keys = set()
     truncated = False
@@ -2111,7 +2109,7 @@ async def get_media_lineage_tree(
                               getattr(ml, 'relationship_type', 'derived') or 'derived',
                               ml.source_order or 0))
 
-    # Walk up: ancestors of the focus (provenance inputs, transitively)
+    # Ring-by-ring BFS over the connected component (both directions at once).
     frontier = {media_id}
     for _ in range(max_depth):
         if not frontier:
@@ -2119,78 +2117,81 @@ async def get_media_lineage_tree(
         if len(visited) >= max_nodes:
             truncated = True
             break
-        rows = (await session.execute(
+        frontier_list = list(frontier)
+        parent_rows = (await session.execute(
             select(MediaLineage).where(
-                MediaLineage.media_id.in_(list(frontier)),
+                MediaLineage.media_id.in_(frontier_list),
                 MediaLineage.source_media_id.is_not(None)
             )
         )).scalars().all()
-        new_frontier = set()
-        for ml in rows:
-            pid = ml.source_media_id
-            if pid not in visited and len(visited) >= max_nodes:
-                truncated = True
-                continue
-            _record_edge(ml)
-            if pid not in visited:
-                visited.add(pid)
-                ancestor_ids.add(pid)
-                new_frontier.add(pid)
-        frontier = new_frontier
-
-    # Walk down: descendants of the focus (things derived from it, transitively)
-    frontier = {media_id}
-    for _ in range(max_depth):
-        if not frontier:
-            break
-        if len(visited) >= max_nodes:
-            truncated = True
-            break
-        rows = (await session.execute(
+        child_rows = (await session.execute(
             select(MediaLineage).where(
-                MediaLineage.source_media_id.in_(list(frontier))
+                MediaLineage.source_media_id.in_(frontier_list)
             )
         )).scalars().all()
-        new_frontier = set()
-        for ml in rows:
+
+        candidates = {ml.source_media_id for ml in parent_rows} | {ml.media_id for ml in child_rows}
+        candidates -= visited
+        new_classes = await classify_media_assets(session, candidates)
+        # Rows referencing permanently deleted media are dangling provenance;
+        # never walk or render them.
+        candidates = {cid for cid in candidates if cid in new_classes}
+        classification.update(new_classes)
+
+        budget = max_nodes - len(visited)
+        if len(candidates) > budget:
+            truncated = True
+            # Admit browser-visible nodes first, then most recent first.
+            admitted = set(sorted(
+                candidates,
+                key=lambda cid: (classification[cid] != "asset", -cid),
+            )[:budget])
+        else:
+            admitted = candidates
+
+        for ml in parent_rows:
+            pid = ml.source_media_id
+            if pid in visited or pid in admitted:
+                _record_edge(ml)
+        for ml in child_rows:
             cid = ml.media_id
-            if cid not in visited and len(visited) >= max_nodes:
-                truncated = True
-                continue
+            if cid in visited or cid in admitted:
+                _record_edge(ml)
+
+        visited.update(admitted)
+        frontier = admitted
+
+    # Final sweep: edges between visited nodes that ring expansion may have
+    # missed (both endpoints discovered through different neighbors).
+    if visited:
+        sweep_rows = (await session.execute(
+            select(MediaLineage).where(
+                MediaLineage.media_id.in_(list(visited)),
+                MediaLineage.source_media_id.in_(list(visited))
+            )
+        )).scalars().all()
+        for ml in sweep_rows:
             _record_edge(ml)
-            if cid not in visited:
-                visited.add(cid)
-                descendant_ids.add(cid)
-                new_frontier.add(cid)
-        frontier = new_frontier
 
-    # Classify every discovered node against canonical Asset state.
-    # IDs with no surviving MediaItem row (scrubbed) simply disappear.
-    classification = await classify_media_assets(session, visited)
+    live_ids = {mid for mid in visited if classification.get(mid) == "asset"}
 
-    live_ids = {mid for mid, kind in classification.items() if kind == "asset"}
-    kept = set(live_ids)
-    if media_id in classification:
-        kept.add(media_id)
-
-    # Every discovered ancestor lies on a provenance path down to the focus, so
-    # non-live ancestors are interior placeholders, never droppable leaves.
-    kept.update(aid for aid in ancestor_ids if aid in classification)
-
-    # Non-live descendants are kept only when a live node is reachable further
-    # downstream (interior pass-through); non-live descendant leaves are dropped.
+    # Hidden nodes are kept only when a browser-visible node (or the focus) is
+    # reachable strictly downstream of them — they carry provenance into
+    # something the user can still see. Hidden leaves are dropped.
     parents_of = {}
     for child_id, parent_id, *_ in all_edges:
         parents_of.setdefault(child_id, []).append(parent_id)
-    queue = [mid for mid in descendant_ids if mid in live_ids]
-    reach_live_down = set(queue)
+    seeds = set(live_ids)
+    if media_id in classification:
+        seeds.add(media_id)
+    kept = set(seeds)
+    queue = list(seeds)
     while queue:
         nid = queue.pop()
         for pid in parents_of.get(nid, []):
-            if pid in descendant_ids and pid not in reach_live_down:
-                reach_live_down.add(pid)
+            if pid in visited and pid not in kept:
+                kept.add(pid)
                 queue.append(pid)
-    kept.update(mid for mid in reach_live_down if mid in classification)
 
     kept_edges = [
         e for e in all_edges
@@ -2248,20 +2249,20 @@ async def get_media_lineage_tree(
 
     nodes = []
     for mid in kept:
-        kind = classification.get(mid, "bare")
+        kind = classification.get(mid, "intermediate")
         if mid in media_items:
             nodes.append({
                 "id": mid,
                 "media": media_items[mid],
                 "depth": depth_map.get(mid, 0),
-                "kind": "intermediate" if kind == "bare" else kind,
+                "kind": kind,
             })
         else:
             nodes.append({
                 "id": mid,
                 "media": {"id": mid, "file_format": placeholder_formats.get(mid)},
                 "depth": depth_map.get(mid, 0),
-                "kind": "trashed" if kind == "trashed" else "intermediate",
+                "kind": kind,
                 "placeholder": True,
             })
 

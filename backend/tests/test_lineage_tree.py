@@ -158,11 +158,11 @@ class TestLineageTree:
         assert edge["task_type"] == "image-to-image"
         assert edge["relationship_type"] == "inspired"
 
-    async def test_siblings_excluded(self, client: AsyncClient, db_session):
-        """The walk is directional: siblings/cousins are never included.
+    async def test_siblings_and_cousins_included(self, client: AsyncClient, db_session):
+        """The walk covers the whole connected component of visible nodes.
 
         Tree: A -> B -> C (focus), A -> D -> E
-        Querying from C includes A and B (ancestors) but not D or E.
+        Querying from C includes the sibling branch D and its descendant E.
         """
         a = await _create_item(db_session)
         b = await _create_item(db_session)
@@ -180,7 +180,136 @@ class TestLineageTree:
 
         data = response.json()
         node_ids = {n["id"] for n in data["nodes"]}
-        assert node_ids == {a.id, b.id, c.id}
+        assert node_ids == {a.id, b.id, c.id, d.id, e.id}
+
+    async def test_trashed_sibling_dropped(self, client: AsyncClient, db_session):
+        """Trashed sibling drafts with no visible offspring stay out of the tree."""
+        a = await _create_item(db_session)
+        b = await _create_item(db_session)
+        c = await _create_item(db_session)
+
+        await _create_lineage(db_session, b.id, a.id, "image-to-image")
+        await _create_lineage(db_session, c.id, a.id, "image-to-image")
+        await _trash_item(db_session, c.id)
+
+        response = await client.get(f"/api/media/{b.id}/lineage/tree")
+        assert response.status_code == 200
+
+        data = response.json()
+        node_ids = {n["id"] for n in data["nodes"]}
+        assert node_ids == {a.id, b.id}
+
+    async def test_trashed_sibling_with_live_descendant_is_placeholder(self, client: AsyncClient, db_session):
+        """A trashed sibling survives as a placeholder when something visible came from it."""
+        a = await _create_item(db_session)
+        b = await _create_item(db_session)
+        c = await _create_item(db_session)
+        d = await _create_item(db_session)
+
+        await _create_lineage(db_session, b.id, a.id, "image-to-image")
+        await _create_lineage(db_session, c.id, a.id, "image-to-image")
+        await _create_lineage(db_session, d.id, c.id, "upscale")
+        await _trash_item(db_session, c.id)
+
+        response = await client.get(f"/api/media/{b.id}/lineage/tree")
+        assert response.status_code == 200
+
+        data = response.json()
+        nodes_by_id = {n["id"]: n for n in data["nodes"]}
+        assert set(nodes_by_id) == {a.id, b.id, c.id, d.id}
+        assert nodes_by_id[c.id]["kind"] == "trashed"
+        assert nodes_by_id[c.id].get("placeholder") is True
+        assert nodes_by_id[d.id]["kind"] == "asset"
+
+    async def test_expired_asset_is_not_full_node(self, client: AsyncClient, db_session):
+        """Assets past their auto-delete deadline never render as full nodes."""
+        from datetime import datetime, timedelta
+        from sqlalchemy import select
+        from database import Asset, AssetRevision
+
+        a = await _create_item(db_session)
+        b = await _create_item(db_session)
+        await _create_lineage(db_session, b.id, a.id, "image-to-image")
+
+        async with db_session() as session:
+            revision = await session.scalar(
+                select(AssetRevision).where(AssetRevision.primary_media_id == b.id)
+            )
+            asset = await session.get(Asset, revision.asset_id)
+            asset.expires_at = datetime.utcnow() - timedelta(hours=1)
+            await session.commit()
+
+        response = await client.get(f"/api/media/{a.id}/lineage/tree")
+        assert response.status_code == 200
+
+        data = response.json()
+        node_ids = {n["id"] for n in data["nodes"]}
+        assert b.id not in node_ids  # expired leaf is dropped
+
+    async def test_old_revision_payload_is_placeholder(self, client: AsyncClient, db_session):
+        """Media that is a non-current revision payload shows as a placeholder, not a card."""
+        from sqlalchemy import select
+        from database import Asset, AssetRevision
+
+        v1 = await _create_item(db_session)
+        v2 = await _create_item(db_session, materialize_asset=False)
+        child = await _create_item(db_session)
+
+        # Make v2 the current revision of v1's asset; v1 becomes history.
+        async with db_session() as session:
+            revision1 = await session.scalar(
+                select(AssetRevision).where(AssetRevision.primary_media_id == v1.id)
+            )
+            asset = await session.get(Asset, revision1.asset_id)
+            revision2 = AssetRevision(
+                asset_id=asset.id,
+                parent_revision_id=revision1.id,
+                primary_media_id=v2.id,
+                revision_number=revision1.revision_number + 1,
+            )
+            session.add(revision2)
+            await session.flush()
+            asset.current_revision_id = revision2.id
+            await session.commit()
+
+        await _create_lineage(db_session, child.id, v1.id, "image-to-image")
+
+        response = await client.get(f"/api/media/{child.id}/lineage/tree")
+        assert response.status_code == 200
+
+        data = response.json()
+        nodes_by_id = {n["id"]: n for n in data["nodes"]}
+        assert set(nodes_by_id) == {v1.id, child.id}
+        assert nodes_by_id[v1.id]["kind"] == "revision"
+        assert nodes_by_id[v1.id].get("placeholder") is True
+
+    async def test_dangling_lineage_rows_skipped(self, client: AsyncClient, db_session):
+        """Lineage rows pointing at permanently deleted media are never followed."""
+        from sqlalchemy import text
+
+        # Create the ghost first: media_items ids are not AUTOINCREMENT, so
+        # deleting the highest id would let the next test reuse it and inherit
+        # this test's dangling lineage row.
+        ghost = await _create_item(db_session, materialize_asset=False)
+        a = await _create_item(db_session)
+        b = await _create_item(db_session)
+        await _create_lineage(db_session, b.id, a.id, "image-to-image")
+        await _create_lineage(db_session, b.id, ghost.id, "image-to-image", source_order=1)
+        # Simulate a pre-cutover hard delete that left the lineage row behind
+        # (real profile databases do not enforce FKs).
+        async with db_session() as session:
+            await session.execute(text("PRAGMA foreign_keys=OFF"))
+            await session.execute(text("DELETE FROM media_items WHERE id = :mid"), {"mid": ghost.id})
+            await session.commit()
+            await session.execute(text("PRAGMA foreign_keys=ON"))
+
+        response = await client.get(f"/api/media/{b.id}/lineage/tree")
+        assert response.status_code == 200
+
+        data = response.json()
+        node_ids = {n["id"] for n in data["nodes"]}
+        assert node_ids == {a.id, b.id}
+        assert all(e["source_id"] != ghost.id for e in data["edges"])
 
     async def test_trashed_descendant_leaf_dropped(self, client: AsyncClient, db_session):
         """Trashed descendants with no live offspring disappear from the tree."""
