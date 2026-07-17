@@ -52,6 +52,28 @@
           </button>
         </div>
 
+        <!-- Hide Account Toggle (for marketing screenshots) -->
+        <div class="flex items-start justify-between gap-6">
+          <div class="min-w-0 max-w-xl">
+            <h4 class="text-sm font-medium text-content">Hide Account</h4>
+            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Show the signed-out sidebar footer instead of the account chip</p>
+          </div>
+          <button
+            @click="toggleHideAccount"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-surface',
+              hideAccountRef ? 'bg-blue-600' : 'bg-surface-hover'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                hideAccountRef ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+
         <!-- Force FFmpeg Missing Toggle (for taking screenshots of the warning UI) -->
         <div class="flex items-start justify-between gap-6">
           <div class="min-w-0 max-w-xl">
@@ -279,7 +301,7 @@ import { useRouter } from 'vue-router'
 import { useSettingsApi } from '../../../composables/useSettingsApi'
 import { useReadiness } from '../../../composables/useReadiness'
 import { makeGlobalKey } from '../../../utils/storageKeys'
-import { hidePricesRef, setHidePrices } from '../../../appConfig'
+import { hideAccountRef, hidePricesRef, setHideAccount, setHidePrices } from '../../../appConfig'
 import { isTauri } from '../../../apiConfig'
 import DatabaseCleanupModal from '../DatabaseCleanupModal.vue'
 
@@ -335,6 +357,10 @@ function toggleForceFfmpegMissing() {
 
 function toggleHidePrices() {
   setHidePrices(!hidePricesRef.value)
+}
+
+function toggleHideAccount() {
+  setHideAccount(!hideAccountRef.value)
 }
 
 async function setWindowSize1440x900() {

@@ -891,7 +891,7 @@
                on the right. Signed out: feedback and gear split the bar as
                equal cells so it reads as a composed strip, not two orphaned
                icons at opposite corners. -->
-          <template v-if="isAuthenticated">
+          <template v-if="showAccountChip">
             <button
               @click="openAccountSettings"
               class="flex-1 min-w-0 flex items-center gap-2.5 px-2 py-1 rounded text-left transition-colors cursor-pointer hover:bg-overlay-subtle border-none bg-transparent"
@@ -907,11 +907,11 @@
             </button>
             <FeedbackFooterButton />
           </template>
-          <FeedbackFooterButton v-if="!isAuthenticated" wide />
+          <FeedbackFooterButton v-if="!showAccountChip" wide />
           <button
             @click="openSettingsFromFooter"
             class="h-8 flex items-center justify-center rounded text-content-tertiary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle border-none bg-transparent"
-            :class="isAuthenticated ? 'w-8 flex-shrink-0' : 'flex-1'"
+            :class="showAccountChip ? 'w-8 flex-shrink-0' : 'flex-1'"
             title="Settings (⌘,)"
           >
             <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -957,6 +957,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useAuth } from '../composables/useAuth'
 import { useCloudAccount } from '../composables/useCloudAccount'
+import { hideAccountRef } from '../appConfig'
 import { setPendingMedia } from '../composables/usePendingMedia'
 import { makeProfileKey } from '../utils/storageKeys'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
@@ -1014,9 +1015,11 @@ const activeTab = computed(() => {
 // WebSocket
 const { on, connected: wsConnected } = useWebSocket()
 
-// Footer: account chip + settings gear
+// Footer: account chip + settings gear. hideAccountRef (developer toggle)
+// forces the signed-out treatment for screenshots.
 const { isAuthenticated, user } = useAuth()
 const { cloudUser, fetchCloudAccount, formatBalance } = useCloudAccount()
+const showAccountChip = computed(() => isAuthenticated.value && !hideAccountRef.value)
 
 const accountName = computed(() => {
   const email = user.value?.email || ''

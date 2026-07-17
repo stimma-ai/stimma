@@ -19,6 +19,11 @@ const devModeRef = ref(false)
 const HIDE_PRICES_KEY = 'stimma_hide_prices'
 const hidePricesRef = ref(localStorage.getItem(HIDE_PRICES_KEY) === 'true')
 
+// Reactive ref for hiding the signed-in account chip in the sidebar footer
+// (shows the signed-out treatment instead). Developer-only, for screenshots.
+const HIDE_ACCOUNT_KEY = 'stimma_hide_account'
+const hideAccountRef = ref(localStorage.getItem(HIDE_ACCOUNT_KEY) === 'true')
+
 // Reactive ref for captioning (visual analysis) feature - allows hiding all caption/keyword UI when disabled
 const captioningEnabledRef = ref(false)
 
@@ -98,7 +103,16 @@ export function setHidePrices(enabled) {
 }
 
 /**
+ * Toggle hiding the signed-in account chip in the sidebar footer (developer-only).
+ * Persisted to localStorage; not synced to the backend.
+ */
+export function setHideAccount(enabled) {
+  hideAccountRef.value = enabled === true
+  localStorage.setItem(HIDE_ACCOUNT_KEY, enabled === true ? 'true' : 'false')
+}
+
+/**
  * Reactive ref for developer mode.
  * Use this in Vue components for reactive updates.
  */
-export { devModeRef, captioningEnabledRef, telemetryEnabledRef, hidePricesRef }
+export { devModeRef, captioningEnabledRef, telemetryEnabledRef, hidePricesRef, hideAccountRef }
