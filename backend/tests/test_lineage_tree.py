@@ -3,22 +3,37 @@ Tests for the lineage tree API endpoint.
 
 Tests cover:
 - Basic tree structure (nodes and edges)
-- Multi-level ancestor chains
-- Branching descendants
-- Multiple parents (merge nodes)
-- Empty lineage (isolated node)
+- Directional walk: ancestors + descendants only, never siblings/cousins
+- Asset-aware visibility: trashed Assets and bare Media as placeholders or dropped
+- Truncation budget
+- The flat /lineage endpoint's Asset-aware gates
 """
 
 import pytest
 from httpx import AsyncClient
 
 
-async def _create_item(db_session, **kwargs):
-    """Helper to create a media item."""
+async def _create_item(db_session, materialize_asset=True, **kwargs):
+    """Helper to create a media item (Asset-backed by default, like real producers)."""
     from tests.helpers.media import create_media_item
 
     async with db_session() as session:
-        return await create_media_item(session, **kwargs)
+        return await create_media_item(session, materialize_asset=materialize_asset, **kwargs)
+
+
+async def _trash_item(db_session, media_id: int):
+    """Move the Asset retaining this media to Trash (canonical trash path)."""
+    from sqlalchemy import select
+    from database import AssetRevision
+    from asset_service import trash_asset
+
+    async with db_session() as session:
+        revision = await session.scalar(
+            select(AssetRevision).where(AssetRevision.primary_media_id == media_id)
+        )
+        assert revision is not None, "media is not Asset-backed"
+        await trash_asset(session, asset_id=revision.asset_id)
+        await session.commit()
 
 
 async def _create_lineage(db_session, media_id: int, source_media_id: int, task_type: str = "image-to-image", relationship_type: str = "derived", source_order: int = 0):
@@ -49,9 +64,11 @@ class TestLineageTree:
 
         data = response.json()
         assert data["focus_media_id"] == item.id
+        assert data["truncated"] is False
         assert len(data["nodes"]) == 1
         assert data["nodes"][0]["id"] == item.id
         assert data["nodes"][0]["depth"] == 0
+        assert data["nodes"][0]["kind"] == "asset"
         assert len(data["edges"]) == 0
 
     async def test_linear_chain(self, client: AsyncClient, db_session):
@@ -141,11 +158,11 @@ class TestLineageTree:
         assert edge["task_type"] == "image-to-image"
         assert edge["relationship_type"] == "inspired"
 
-    async def test_full_connected_component(self, client: AsyncClient, db_session):
-        """Querying from a leaf includes siblings and their descendants.
+    async def test_siblings_excluded(self, client: AsyncClient, db_session):
+        """The walk is directional: siblings/cousins are never included.
 
         Tree: A -> B -> C (focus), A -> D -> E
-        Querying from C should include D and E (siblings/cousins).
+        Querying from C includes A and B (ancestors) but not D or E.
         """
         a = await _create_item(db_session)
         b = await _create_item(db_session)
@@ -163,8 +180,118 @@ class TestLineageTree:
 
         data = response.json()
         node_ids = {n["id"] for n in data["nodes"]}
-        # All 5 nodes should be present — full connected component
-        assert node_ids == {a.id, b.id, c.id, d.id, e.id}
+        assert node_ids == {a.id, b.id, c.id}
+
+    async def test_trashed_descendant_leaf_dropped(self, client: AsyncClient, db_session):
+        """Trashed descendants with no live offspring disappear from the tree."""
+        a = await _create_item(db_session)
+        b = await _create_item(db_session)
+        c = await _create_item(db_session)
+
+        await _create_lineage(db_session, b.id, a.id, "image-to-image")
+        await _create_lineage(db_session, c.id, a.id, "image-to-image")
+        await _trash_item(db_session, c.id)
+
+        response = await client.get(f"/api/media/{a.id}/lineage/tree")
+        assert response.status_code == 200
+
+        data = response.json()
+        node_ids = {n["id"] for n in data["nodes"]}
+        assert node_ids == {a.id, b.id}
+
+    async def test_trashed_interior_descendant_is_placeholder(self, client: AsyncClient, db_session):
+        """A trashed node between the focus and a live descendant stays as a placeholder."""
+        a = await _create_item(db_session)
+        b = await _create_item(db_session)
+        c = await _create_item(db_session)
+
+        await _create_lineage(db_session, b.id, a.id, "image-to-image")
+        await _create_lineage(db_session, c.id, b.id, "upscale")
+        await _trash_item(db_session, b.id)
+
+        response = await client.get(f"/api/media/{a.id}/lineage/tree")
+        assert response.status_code == 200
+
+        data = response.json()
+        nodes_by_id = {n["id"]: n for n in data["nodes"]}
+        assert set(nodes_by_id) == {a.id, b.id, c.id}
+        assert nodes_by_id[b.id]["kind"] == "trashed"
+        assert nodes_by_id[b.id].get("placeholder") is True
+        assert nodes_by_id[c.id]["kind"] == "asset"
+
+    async def test_trashed_ancestor_is_placeholder(self, client: AsyncClient, db_session):
+        """Ancestors in Trash remain visible as placeholders (provenance path to focus)."""
+        a = await _create_item(db_session)
+        b = await _create_item(db_session)
+
+        await _create_lineage(db_session, b.id, a.id, "image-to-image")
+        await _trash_item(db_session, a.id)
+
+        response = await client.get(f"/api/media/{b.id}/lineage/tree")
+        assert response.status_code == 200
+
+        data = response.json()
+        nodes_by_id = {n["id"]: n for n in data["nodes"]}
+        assert set(nodes_by_id) == {a.id, b.id}
+        assert nodes_by_id[a.id]["kind"] == "trashed"
+        assert nodes_by_id[a.id].get("placeholder") is True
+
+    async def test_bare_media_leaf_dropped_interior_kept(self, client: AsyncClient, db_session):
+        """Bare contextual Media: leaves dropped, interior steps become placeholders.
+
+        Chain: A(asset) -> I(bare) -> B(asset), plus A -> J(bare leaf).
+        """
+        a = await _create_item(db_session)
+        i = await _create_item(db_session, materialize_asset=False)
+        b = await _create_item(db_session)
+        j = await _create_item(db_session, materialize_asset=False)
+
+        await _create_lineage(db_session, i.id, a.id, "image-to-image")
+        await _create_lineage(db_session, b.id, i.id, "upscale")
+        await _create_lineage(db_session, j.id, a.id, "image-to-image")
+
+        response = await client.get(f"/api/media/{a.id}/lineage/tree")
+        assert response.status_code == 200
+
+        data = response.json()
+        nodes_by_id = {n["id"]: n for n in data["nodes"]}
+        assert set(nodes_by_id) == {a.id, i.id, b.id}
+        assert nodes_by_id[i.id]["kind"] == "intermediate"
+        assert nodes_by_id[i.id].get("placeholder") is True
+        assert j.id not in nodes_by_id
+
+    async def test_trashed_focus_returns_full_node(self, client: AsyncClient, db_session):
+        """Opening lineage on a trashed item still shows the focus with full payload."""
+        a = await _create_item(db_session)
+        b = await _create_item(db_session)
+
+        await _create_lineage(db_session, b.id, a.id, "image-to-image")
+        await _trash_item(db_session, b.id)
+
+        response = await client.get(f"/api/media/{b.id}/lineage/tree")
+        assert response.status_code == 200
+
+        data = response.json()
+        nodes_by_id = {n["id"]: n for n in data["nodes"]}
+        assert set(nodes_by_id) == {a.id, b.id}
+        focus = nodes_by_id[b.id]
+        assert focus["kind"] == "trashed"
+        assert focus.get("placeholder") is not True
+        assert focus["media"]["file_hash"]
+
+    async def test_truncation_budget(self, client: AsyncClient, db_session):
+        """The walk stops expanding at max_nodes and reports truncation."""
+        root = await _create_item(db_session)
+        for _ in range(15):
+            child = await _create_item(db_session)
+            await _create_lineage(db_session, child.id, root.id, "image-to-image")
+
+        response = await client.get(f"/api/media/{root.id}/lineage/tree?max_nodes=10")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["truncated"] is True
+        assert len(data["nodes"]) <= 10
 
     async def test_nonexistent_media(self, client: AsyncClient):
         """Requesting tree for nonexistent media returns 404."""
@@ -183,3 +310,70 @@ class TestLineageTree:
         assert "media" in node
         assert node["media"]["width"] == 512
         assert node["media"]["height"] == 512
+
+
+class TestFlatLineage:
+    """Tests for GET /api/media/{media_id}/lineage Asset-aware gates."""
+
+    async def test_trashed_derivative_excluded(self, client: AsyncClient, db_session):
+        a = await _create_item(db_session)
+        b = await _create_item(db_session)
+        c = await _create_item(db_session)
+
+        await _create_lineage(db_session, b.id, a.id, "image-to-image")
+        await _create_lineage(db_session, c.id, a.id, "image-to-image")
+        await _trash_item(db_session, c.id)
+
+        response = await client.get(f"/api/media/{a.id}/lineage")
+        assert response.status_code == 200
+
+        data = response.json()
+        derivative_ids = {d["media"]["id"] for d in data["derivatives"]}
+        assert derivative_ids == {b.id}
+
+    async def test_trashed_source_is_stub(self, client: AsyncClient, db_session):
+        a = await _create_item(db_session)
+        b = await _create_item(db_session)
+
+        await _create_lineage(db_session, b.id, a.id, "image-to-image")
+        await _trash_item(db_session, a.id)
+
+        response = await client.get(f"/api/media/{b.id}/lineage")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert len(data["sources"]) == 1
+        source = data["sources"][0]
+        assert source["type"] == "trashed"
+        assert source["media_id"] == a.id
+        assert "media" not in source
+
+    async def test_bare_source_is_intermediate_stub(self, client: AsyncClient, db_session):
+        i = await _create_item(db_session, materialize_asset=False)
+        b = await _create_item(db_session)
+
+        await _create_lineage(db_session, b.id, i.id, "image-to-image")
+
+        response = await client.get(f"/api/media/{b.id}/lineage")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert len(data["sources"]) == 1
+        assert data["sources"][0]["type"] == "intermediate"
+        assert data["sources"][0]["media_id"] == i.id
+
+    async def test_trashed_descendants_excluded_recursive(self, client: AsyncClient, db_session):
+        a = await _create_item(db_session)
+        b = await _create_item(db_session)
+        c = await _create_item(db_session)
+
+        await _create_lineage(db_session, b.id, a.id, "image-to-image")
+        await _create_lineage(db_session, c.id, b.id, "upscale")
+        await _trash_item(db_session, c.id)
+
+        response = await client.get(f"/api/media/{a.id}/lineage?include_descendants=true")
+        assert response.status_code == 200
+
+        data = response.json()
+        descendant_ids = {d["media"]["id"] for d in data["descendants"]}
+        assert descendant_ids == {b.id}

@@ -24,6 +24,47 @@ from database import (
 )
 
 
+async def classify_media_assets(
+    session: AsyncSession, media_ids: list[int] | set[int],
+) -> dict[int, str]:
+    """Classify Media IDs by canonical Asset lifecycle state.
+
+    Returns a mapping of media_id -> 'asset' | 'trashed' | 'bare':
+    - 'asset': the payload of a live revision of an active Asset
+    - 'trashed': retained only by a trashed/deleting Asset
+    - 'bare': contextual Media with no Asset identity
+
+    IDs without a MediaItem row are absent from the result.
+    """
+    ids = list(media_ids)
+    if not ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(AssetRevision.primary_media_id, Asset.state)
+            .join(Asset, Asset.id == AssetRevision.asset_id)
+            .where(
+                AssetRevision.primary_media_id.in_(ids),
+                AssetRevision.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    from database import MediaItem
+
+    existing = set(
+        await session.scalars(select(MediaItem.id).where(MediaItem.id.in_(ids)))
+    )
+    result = {mid: "bare" for mid in ids if mid in existing}
+    for media_id, state in rows:
+        if media_id not in result:
+            continue
+        if state == "active":
+            result[media_id] = "asset"
+        elif result[media_id] != "asset":
+            result[media_id] = "trashed"
+    return result
+
+
 async def media_compatibility_projections(
     session: AsyncSession, media_items: list,
 ) -> list[dict]:

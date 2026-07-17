@@ -50,54 +50,76 @@
             width: `${nodeWidth}px`
           }"
           @mousedown.stop
-          @click.stop="selectedNodeId = node.id"
+          @click.stop="!node.placeholder && (selectedNodeId = node.id)"
         >
           <div class="flex flex-col items-center transition-all">
-            <!-- Thumbnail -->
-            <div
-              class="relative rounded-lg overflow-hidden border-2 transition-all"
-              :class="node.id === focusedNodeId
-                ? 'border-blue-500/70'
-                : node.id === selectedNodeId
-                  ? 'border-edge-strong'
-                  : 'border-transparent group-hover:border-edge-subtle'"
-              :style="{ width: `${thumbSize}px`, height: `${thumbSize}px` }"
-            >
-              <MediaImage
-                :media-id="node.id"
-                :file-hash="node.media.file_hash"
-                :thumbnail-size="128"
-                container-class="w-full h-full"
-                img-class="w-full h-full object-cover"
-              />
-              <div v-if="node.media.markers?.length" class="absolute bottom-1 right-1 flex gap-0.5">
-                <div
-                  v-for="marker in node.media.markers"
-                  :key="marker.id"
-                  class="w-4 h-4 bg-black/60 backdrop-blur-md rounded flex items-center justify-center"
-                  :title="marker.name"
-                >
-                  <span class="w-3 h-3 flex items-center justify-center icon-container" :style="{ color: marker.color }" v-html="sanitizeSvg(marker.icon_svg)" />
+            <!-- Placeholder node: trashed Asset or contextual intermediate on the provenance path -->
+            <template v-if="node.placeholder">
+              <div
+                class="relative rounded-lg border-2 border-dashed border-edge-subtle bg-overlay-light flex items-center justify-center"
+                :style="{ width: `${thumbSize}px`, height: `${thumbSize}px` }"
+              >
+                <svg v-if="node.kind === 'trashed'" class="w-5 h-5 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                </svg>
+                <svg v-else class="w-5 h-5 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+                </svg>
+              </div>
+              <div class="flex flex-col items-center gap-0 mt-1" :style="{ width: `${labelWidth}px` }">
+                <span class="text-[10px] text-content-muted leading-tight text-center">
+                  {{ node.kind === 'trashed' ? 'In Trash' : 'Intermediate' }}
+                </span>
+              </div>
+            </template>
+
+            <template v-else>
+              <!-- Thumbnail -->
+              <div
+                class="relative rounded-lg overflow-hidden border-2 transition-all"
+                :class="node.id === focusedNodeId
+                  ? 'border-blue-500/70'
+                  : node.id === selectedNodeId
+                    ? 'border-edge-strong'
+                    : 'border-transparent group-hover:border-edge-subtle'"
+                :style="{ width: `${thumbSize}px`, height: `${thumbSize}px` }"
+              >
+                <MediaImage
+                  :media-id="node.id"
+                  :file-hash="node.media.file_hash"
+                  :thumbnail-size="128"
+                  container-class="w-full h-full"
+                  img-class="w-full h-full object-cover"
+                />
+                <div v-if="node.media.markers?.length" class="absolute bottom-1 right-1 flex gap-0.5">
+                  <div
+                    v-for="marker in node.media.markers"
+                    :key="marker.id"
+                    class="w-4 h-4 bg-black/60 backdrop-blur-md rounded flex items-center justify-center"
+                    :title="marker.name"
+                  >
+                    <span class="w-3 h-3 flex items-center justify-center icon-container" :style="{ color: marker.color }" v-html="sanitizeSvg(marker.icon_svg)" />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Info below thumbnail -->
-            <div class="flex flex-col items-center gap-0 mt-1" :style="{ width: `${labelWidth}px` }">
-              <span
-                v-if="nodeSubtitle(node)"
-                class="text-[10px] truncate leading-tight max-w-full text-center"
-                :class="node.id === focusedNodeId ? 'text-blue-500 font-semibold' : 'text-content-tertiary font-medium'"
-              >
-                {{ nodeSubtitle(node) }}
-              </span>
-              <span
-                v-if="node.media.created_date"
-                class="text-[9px] text-content-muted leading-tight"
-              >
-                {{ formatDateShort(node.media.created_date) }}
-              </span>
-            </div>
+              <!-- Info below thumbnail -->
+              <div class="flex flex-col items-center gap-0 mt-1" :style="{ width: `${labelWidth}px` }">
+                <span
+                  v-if="nodeSubtitle(node)"
+                  class="text-[10px] truncate leading-tight max-w-full text-center"
+                  :class="node.id === focusedNodeId ? 'text-blue-500 font-semibold' : 'text-content-tertiary font-medium'"
+                >
+                  {{ nodeSubtitle(node) }}
+                </span>
+                <span
+                  v-if="node.media.created_date"
+                  class="text-[9px] text-content-muted leading-tight"
+                >
+                  {{ formatDateShort(node.media.created_date) }}
+                </span>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -111,6 +133,14 @@
     <!-- Error state -->
     <div v-else-if="error" class="flex-1 flex items-center justify-center">
       <span class="text-red-400 text-sm">{{ error }}</span>
+    </div>
+
+    <!-- Truncation notice -->
+    <div
+      v-if="!loading && !error && truncated"
+      class="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-full bg-overlay-strong backdrop-blur-md border border-edge-subtle text-content-tertiary text-xs"
+    >
+      Lineage is very large — showing the closest {{ nodes.length }} items
     </div>
 
     <!-- Detail modal -->
@@ -280,6 +310,7 @@ const loading = ref(true)
 const error = ref(null)
 const nodes = ref([])
 const edges = ref([])
+const truncated = ref(false)
 const selectedNodeId = ref(null)
 const focusedNodeId = ref(props.mediaId)
 // Left/right navigation history stacks (browser back/forward model)
@@ -349,7 +380,7 @@ const selectedParentNodes = computed(() => {
   const parentEdges = edges.value.filter(e => e.target_id === selectedNodeId.value)
   const nodeMap = new Map(normalizedNodes.value.map(n => [n.id, n]))
   return parentEdges
-    .filter(e => !sourceInputIds.has(e.source_id) && nodeMap.has(e.source_id))
+    .filter(e => !sourceInputIds.has(e.source_id) && nodeMap.has(e.source_id) && !nodeMap.get(e.source_id).placeholder)
     .map(e => ({ ...nodeMap.get(e.source_id), inspired: e.relationship_type === 'inspired' }))
 })
 
@@ -359,7 +390,7 @@ const selectedChildNodes = computed(() => {
   const childEdges = edges.value.filter(e => e.source_id === selectedNodeId.value)
   const nodeMap = new Map(normalizedNodes.value.map(n => [n.id, n]))
   return childEdges
-    .filter(e => nodeMap.has(e.target_id))
+    .filter(e => nodeMap.has(e.target_id) && !nodeMap.get(e.target_id).placeholder)
     .map(e => ({ ...nodeMap.get(e.target_id), inspired: e.relationship_type === 'inspired' }))
 })
 
@@ -462,6 +493,8 @@ const dagreLayout = computed(() => {
       id: node.id,
       media: node.media,
       depth: node.depth,
+      kind: node.kind || 'asset',
+      placeholder: !!node.placeholder,
       taskType: nodeTaskTypes.get(node.id) || null,
       x: pos.x,
       y: pos.y
@@ -607,9 +640,10 @@ async function fetchTree() {
     const { data } = await axios.get(`/api/media/${props.mediaId}/lineage/tree`)
     nodes.value = data.nodes
     edges.value = data.edges
+    truncated.value = !!data.truncated
     fetchedForMediaId = props.mediaId
-    // Load markers for all nodes in the tree
-    await loadMarkersForMedia(data.nodes.map(n => n.id))
+    // Load markers for all full nodes in the tree (placeholders carry no metadata)
+    await loadMarkersForMedia(data.nodes.filter(n => !n.placeholder).map(n => n.id))
     focusedNodeId.value = props.mediaId
     selectedNodeId.value = null
     navBackStack.length = 0
@@ -831,7 +865,7 @@ function navigateSpatial(direction, currentId, current) {
   let bestScore = Infinity
 
   for (const node of normalizedNodes.value) {
-    if (node.id === currentId) continue
+    if (node.id === currentId || node.placeholder) continue
     const nx = node.x + nodeWidth / 2
     const ny = node.y + nodeHeight / 2
     const dx = nx - cx
@@ -861,7 +895,8 @@ function navigateEdge(direction, currentId, current) {
 
   if (connectedIds.length === 0) return null
   if (connectedIds.length === 1) {
-    return normalizedNodes.value.find(n => n.id === connectedIds[0]) || null
+    const node = normalizedNodes.value.find(n => n.id === connectedIds[0])
+    return node && !node.placeholder ? node : null
   }
 
   // Multiple edges: pick the one closest spatially (by Y distance)
@@ -870,7 +905,7 @@ function navigateEdge(direction, currentId, current) {
   let bestDist = Infinity
   for (const id of connectedIds) {
     const node = normalizedNodes.value.find(n => n.id === id)
-    if (!node) continue
+    if (!node || node.placeholder) continue
     const dist = Math.abs((node.y + nodeHeight / 2) - cy)
     if (dist < bestDist) { bestDist = dist; best = node }
   }
@@ -935,7 +970,11 @@ function onModalKeydown(e) {
 defineExpose({
   hasDetailOpen: () => selectedNodeId.value != null,
   closeDetail: () => { selectedNodeId.value = null },
-  openDetail: () => { if (focusedNodeId.value) selectedNodeId.value = focusedNodeId.value },
+  openDetail: () => {
+    if (!focusedNodeId.value) return
+    const node = normalizedNodes.value.find(n => n.id === focusedNodeId.value)
+    if (node && !node.placeholder) selectedNodeId.value = focusedNodeId.value
+  },
   navigateDpad,
   nodeCount: computed(() => nodes.value.length),
   edgeCount: computed(() => edges.value.length),

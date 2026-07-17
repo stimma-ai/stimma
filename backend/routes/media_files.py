@@ -1873,6 +1873,8 @@ async def get_media_lineage(
     - ancestors: (if include_ancestors=true) Full ancestor tree
     - descendants: (if include_descendants=true) Full descendant tree
     """
+    from asset_association_service import classify_media_assets
+
     # Get sources (what was used to create this media)
     sources_result = await session.execute(
         select(MediaLineage)
@@ -1889,6 +1891,14 @@ async def get_media_lineage(
     )
     derivatives = derivatives_result.scalars().all()
 
+    # Classify all referenced IDs by canonical Asset state in one pass.
+    # Only live-Asset payloads are returned as full entries; trashed Assets and
+    # bare contextual Media surface as typed stubs (sources) or are dropped
+    # (derivatives).
+    referenced_ids = {s.source_media_id for s in sources if s.source_media_id}
+    referenced_ids.update(d.media_id for d in derivatives)
+    classification = await classify_media_assets(session, referenced_ids)
+
     # Build response with resolved media items
     source_data = []
     source_ids = set()  # Track IDs we've already added
@@ -1899,14 +1909,24 @@ async def get_media_lineage(
             "task_type": s.task_type,
         }
         if s.source_media_id:
-            media_result = await session.execute(
-                select(MediaItem).where(MediaItem.id == s.source_media_id)
-            )
-            media = media_result.scalar_one_or_none()
-            if media and not media.deleted_at:
-                item["type"] = "internal"
-                item["media"] = media.to_dict()
-                source_ids.add(media.id)
+            kind = classification.get(s.source_media_id)
+            if kind == "asset":
+                media = (await session.execute(
+                    select(MediaItem).where(MediaItem.id == s.source_media_id)
+                )).scalar_one_or_none()
+                if media:
+                    item["type"] = "internal"
+                    item["media"] = media.to_dict()
+                    source_ids.add(media.id)
+                else:
+                    item["type"] = "deleted"
+                    item["media_id"] = s.source_media_id
+            elif kind == "trashed":
+                item["type"] = "trashed"
+                item["media_id"] = s.source_media_id
+            elif kind == "bare":
+                item["type"] = "intermediate"
+                item["media_id"] = s.source_media_id
             else:
                 item["type"] = "deleted"
                 item["media_id"] = s.source_media_id
@@ -1919,11 +1939,12 @@ async def get_media_lineage(
     derivative_ids = set()  # Track IDs we've already added
 
     for d in derivatives:
-        media_result = await session.execute(
+        if classification.get(d.media_id) != "asset":
+            continue
+        media = (await session.execute(
             select(MediaItem).where(MediaItem.id == d.media_id)
-        )
-        media = media_result.scalar_one_or_none()
-        if media and not media.deleted_at:
+        )).scalar_one_or_none()
+        if media:
             derivative_data.append({
                 "media": media.to_dict(),
                 "task_type": d.task_type,
@@ -1967,14 +1988,19 @@ async def get_media_lineage(
         )
         ancestor_rows = ancestors_result.fetchall()
 
+        ancestor_classes = await classify_media_assets(
+            session, {row[0] for row in ancestor_rows}
+        )
         ancestors_data = []
         for row in ancestor_rows:
             source_id, depth, task_type = row
+            if ancestor_classes.get(source_id) != "asset":
+                continue
             media_result = await session.execute(
                 select(MediaItem).where(MediaItem.id == source_id)
             )
             media = media_result.scalar_one_or_none()
-            if media and not media.deleted_at:
+            if media:
                 ancestors_data.append({
                     "media": media.to_dict(),
                     "depth": depth,
@@ -2009,14 +2035,19 @@ async def get_media_lineage(
         )
         descendant_rows = descendants_result.fetchall()
 
+        descendant_classes = await classify_media_assets(
+            session, {row[0] for row in descendant_rows}
+        )
         descendants_data = []
         for row in descendant_rows:
             child_id, depth, task_type, rel_type = row
+            if descendant_classes.get(child_id) != "asset":
+                continue
             media_result = await session.execute(
                 select(MediaItem).where(MediaItem.id == child_id)
             )
             media = media_result.scalar_one_or_none()
-            if media and not media.deleted_at:
+            if media:
                 descendants_data.append({
                     "media": media.to_dict(),
                     "depth": depth,
@@ -2032,21 +2063,30 @@ async def get_media_lineage(
 async def get_media_lineage_tree(
     media_id: int,
     max_depth: int = Query(50, ge=1, le=100, description="Maximum recursion depth"),
+    max_nodes: int = Query(400, ge=10, le=1000, description="Maximum nodes before truncation"),
     session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Get the full connected lineage graph for a media item.
+    Get the provenance graph for a media item: its ancestors and descendants.
 
-    Walks ALL edges in both directions (parents and children) from the focus node,
-    then continues walking from every discovered node until the entire connected
-    component is found. This means siblings, cousins, and their descendants are
-    all included — not just the direct ancestor/descendant chain.
+    The walk is directional — ancestors of the focus and descendants of the
+    focus — never the full connected component, so unrelated siblings/cousins
+    reachable only through shared parents or container membership are excluded.
 
-    Returns a graph structure with:
-    - nodes: All media items in the connected component with depth relative to focus
-    - edges: All parent-child relationships with task_type and relationship_type
+    Node visibility follows the Asset model:
+    - Live Assets appear as full nodes.
+    - Trashed Assets and bare contextual Media (agent intermediates, embedded
+      container members) appear only when they sit on a provenance path that
+      reaches a live node; they are rendered as minimal placeholders. Non-live
+      leaves are dropped entirely.
+
+    Returns:
+    - nodes: [{id, depth, kind: 'asset'|'trashed'|'intermediate', media}]
+      (placeholder nodes carry kind != 'asset' and a minimal media payload)
+    - edges: All retained parent-child relationships
+    - truncated: True when the walk hit the max_nodes budget
     """
-    from sqlalchemy import text
+    from asset_association_service import classify_media_assets, media_compatibility_projections
 
     # Verify focus media exists
     focus_result = await session.execute(
@@ -2056,162 +2096,174 @@ async def get_media_lineage_tree(
     if not focus_media:
         raise HTTPException(status_code=404, detail="Media item not found")
 
-    # Walk the full connected component using BFS in both directions.
-    # We fetch ALL edges from the media_lineage table that touch any node we've
-    # discovered, repeating until no new nodes are found.
     visited = {media_id}
-    frontier = {media_id}
+    ancestor_ids = set()
+    descendant_ids = set()
     all_edges = []  # (child_id, parent_id, task_type, relationship_type, source_order)
     seen_edge_keys = set()
-    # Pre-load set of trashed media IDs so we don't walk through them
-    trashed_ids = set()
+    truncated = False
 
+    def _record_edge(ml):
+        key = (ml.source_media_id, ml.media_id)
+        if key not in seen_edge_keys:
+            seen_edge_keys.add(key)
+            all_edges.append((ml.media_id, ml.source_media_id, ml.task_type,
+                              getattr(ml, 'relationship_type', 'derived') or 'derived',
+                              ml.source_order or 0))
+
+    # Walk up: ancestors of the focus (provenance inputs, transitively)
+    frontier = {media_id}
     for _ in range(max_depth):
         if not frontier:
             break
-
-        frontier_list = list(frontier)
-
-        # Find all edges where any frontier node is the child (i.e. walk to parents)
-        parents_result = await session.execute(
+        if len(visited) >= max_nodes:
+            truncated = True
+            break
+        rows = (await session.execute(
             select(MediaLineage).where(
-                MediaLineage.media_id.in_(frontier_list),
+                MediaLineage.media_id.in_(list(frontier)),
                 MediaLineage.source_media_id.is_not(None)
             )
-        )
-        # Find all edges where any frontier node is the parent (i.e. walk to children)
-        children_result = await session.execute(
-            select(MediaLineage).where(
-                MediaLineage.source_media_id.in_(frontier_list)
-            )
-        )
-
-        # Collect candidate new IDs to check for trashed status
-        candidate_ids = set()
-        parent_rows = parents_result.scalars().all()
-        child_rows = children_result.scalars().all()
-        for ml in parent_rows:
-            if ml.source_media_id not in visited:
-                candidate_ids.add(ml.source_media_id)
-        for ml in child_rows:
-            if ml.media_id not in visited:
-                candidate_ids.add(ml.media_id)
-
-        # Check which candidates are trashed
-        if candidate_ids:
-            trashed_result = await session.execute(
-                select(MediaItem.id).where(
-                    MediaItem.id.in_(list(candidate_ids)),
-                    MediaItem.deleted_at.is_not(None)
-                )
-            )
-            trashed_ids.update(trashed_result.scalars().all())
-
+        )).scalars().all()
         new_frontier = set()
-        for ml in parent_rows:
-            if ml.source_media_id in trashed_ids:
+        for ml in rows:
+            pid = ml.source_media_id
+            if pid not in visited and len(visited) >= max_nodes:
+                truncated = True
                 continue
-            key = (ml.source_media_id, ml.media_id)
-            if key not in seen_edge_keys:
-                seen_edge_keys.add(key)
-                all_edges.append((ml.media_id, ml.source_media_id, ml.task_type,
-                                  getattr(ml, 'relationship_type', 'derived') or 'derived',
-                                  ml.source_order or 0))
-            if ml.source_media_id not in visited:
-                visited.add(ml.source_media_id)
-                new_frontier.add(ml.source_media_id)
-
-        for ml in child_rows:
-            if ml.media_id in trashed_ids:
-                continue
-            key = (ml.source_media_id, ml.media_id)
-            if key not in seen_edge_keys:
-                seen_edge_keys.add(key)
-                all_edges.append((ml.media_id, ml.source_media_id, ml.task_type,
-                                  getattr(ml, 'relationship_type', 'derived') or 'derived',
-                                  ml.source_order or 0))
-            if ml.media_id not in visited:
-                visited.add(ml.media_id)
-                new_frontier.add(ml.media_id)
-
+            _record_edge(ml)
+            if pid not in visited:
+                visited.add(pid)
+                ancestor_ids.add(pid)
+                new_frontier.add(pid)
         frontier = new_frontier
 
-    # Final sweep: find ALL edges between visited nodes that BFS may have missed.
-    # This catches edges where both endpoints were discovered from different directions.
-    if visited:
-        sweep_result = await session.execute(
+    # Walk down: descendants of the focus (things derived from it, transitively)
+    frontier = {media_id}
+    for _ in range(max_depth):
+        if not frontier:
+            break
+        if len(visited) >= max_nodes:
+            truncated = True
+            break
+        rows = (await session.execute(
             select(MediaLineage).where(
-                MediaLineage.media_id.in_(list(visited)),
-                MediaLineage.source_media_id.in_(list(visited))
+                MediaLineage.source_media_id.in_(list(frontier))
             )
-        )
-        for ml in sweep_result.scalars().all():
-            key = (ml.source_media_id, ml.media_id)
-            if key not in seen_edge_keys:
-                seen_edge_keys.add(key)
-                all_edges.append((ml.media_id, ml.source_media_id, ml.task_type,
-                                  getattr(ml, 'relationship_type', 'derived') or 'derived',
-                                  ml.source_order or 0))
+        )).scalars().all()
+        new_frontier = set()
+        for ml in rows:
+            cid = ml.media_id
+            if cid not in visited and len(visited) >= max_nodes:
+                truncated = True
+                continue
+            _record_edge(ml)
+            if cid not in visited:
+                visited.add(cid)
+                descendant_ids.add(cid)
+                new_frontier.add(cid)
+        frontier = new_frontier
 
-    # Compute depth via BFS from focus node using the edge adjacency
-    # Build adjacency: parent -> [children], child -> [parents]
-    children_of = {}
+    # Classify every discovered node against canonical Asset state.
+    # IDs with no surviving MediaItem row (scrubbed) simply disappear.
+    classification = await classify_media_assets(session, visited)
+
+    live_ids = {mid for mid, kind in classification.items() if kind == "asset"}
+    kept = set(live_ids)
+    if media_id in classification:
+        kept.add(media_id)
+
+    # Every discovered ancestor lies on a provenance path down to the focus, so
+    # non-live ancestors are interior placeholders, never droppable leaves.
+    kept.update(aid for aid in ancestor_ids if aid in classification)
+
+    # Non-live descendants are kept only when a live node is reachable further
+    # downstream (interior pass-through); non-live descendant leaves are dropped.
     parents_of = {}
     for child_id, parent_id, *_ in all_edges:
+        parents_of.setdefault(child_id, []).append(parent_id)
+    queue = [mid for mid in descendant_ids if mid in live_ids]
+    reach_live_down = set(queue)
+    while queue:
+        nid = queue.pop()
+        for pid in parents_of.get(nid, []):
+            if pid in descendant_ids and pid not in reach_live_down:
+                reach_live_down.add(pid)
+                queue.append(pid)
+    kept.update(mid for mid in reach_live_down if mid in classification)
+
+    kept_edges = [
+        e for e in all_edges
+        if e[0] in kept and e[1] in kept
+    ]
+
+    # Compute depth via BFS from focus over kept edges
+    children_of = {}
+    parents_of = {}
+    for child_id, parent_id, *_ in kept_edges:
         children_of.setdefault(parent_id, []).append(child_id)
         parents_of.setdefault(child_id, []).append(parent_id)
 
     depth_map = {media_id: 0}
-    # BFS backward (to ancestors)
+    queue = [media_id]
+    while queue:
+        nid = queue.pop(0)
+        for pid in parents_of.get(nid, []):
+            if pid not in depth_map:
+                depth_map[pid] = depth_map[nid] - 1
+                queue.append(pid)
     queue = [media_id]
     bfs_visited = {media_id}
     while queue:
         nid = queue.pop(0)
-        for pid in parents_of.get(nid, []):
-            if pid not in bfs_visited:
-                bfs_visited.add(pid)
-                depth_map[pid] = depth_map[nid] - 1
-                queue.append(pid)
-    # BFS forward (to descendants) — from focus and also from nodes already visited
-    queue = [media_id]
-    bfs_visited2 = {media_id}
-    while queue:
-        nid = queue.pop(0)
         for cid in children_of.get(nid, []):
-            if cid not in bfs_visited2:
-                bfs_visited2.add(cid)
+            if cid not in bfs_visited:
+                bfs_visited.add(cid)
                 if cid not in depth_map:
                     depth_map[cid] = depth_map[nid] + 1
                 queue.append(cid)
 
-    # Any nodes still without depth (disconnected via only legacy edges) get depth 0
-    for nid in visited:
-        if nid not in depth_map:
-            depth_map[nid] = 0
-
-    # Batch-fetch all media items
-    if visited:
+    # Full payloads for live nodes and the focus; minimal payloads for placeholders
+    projected_ids = live_ids | ({media_id} & kept)
+    media_items = {}
+    if projected_ids:
         media_result = await session.execute(
-            select(MediaItem).where(
-                MediaItem.id.in_(list(visited)),
-                MediaItem.deleted_at.is_(None)
-            )
+            select(MediaItem).where(MediaItem.id.in_(list(projected_ids)))
         )
         media_rows = list(media_result.scalars().all())
-        from asset_association_service import media_compatibility_projections
-
         media_items = {
             item["media_id"]: item
             for item in await media_compatibility_projections(session, media_rows)
         }
-    else:
-        media_items = {}
 
-    valid_ids = set(media_items.keys())
-    nodes = [
-        {"id": mid, "media": media_items[mid], "depth": depth_map.get(mid, 0)}
-        for mid in valid_ids
-    ]
+    placeholder_ids = kept - set(media_items.keys())
+    placeholder_formats = {}
+    if placeholder_ids:
+        fmt_rows = (await session.execute(
+            select(MediaItem.id, MediaItem.file_format).where(
+                MediaItem.id.in_(list(placeholder_ids))
+            )
+        )).all()
+        placeholder_formats = dict(fmt_rows)
+
+    nodes = []
+    for mid in kept:
+        kind = classification.get(mid, "bare")
+        if mid in media_items:
+            nodes.append({
+                "id": mid,
+                "media": media_items[mid],
+                "depth": depth_map.get(mid, 0),
+                "kind": "intermediate" if kind == "bare" else kind,
+            })
+        else:
+            nodes.append({
+                "id": mid,
+                "media": {"id": mid, "file_format": placeholder_formats.get(mid)},
+                "depth": depth_map.get(mid, 0),
+                "kind": "trashed" if kind == "trashed" else "intermediate",
+                "placeholder": True,
+            })
 
     edges = [
         {
@@ -2221,16 +2273,19 @@ async def get_media_lineage_tree(
             "relationship_type": rel_type,
             "source_order": source_order
         }
-        for child_id, parent_id, task_type, rel_type, source_order in all_edges
-        if parent_id in valid_ids and child_id in valid_ids
+        for child_id, parent_id, task_type, rel_type, source_order in kept_edges
     ]
 
-    log.debug(f"Lineage tree for {media_id}: {len(nodes)} nodes, {len(edges)} edges")
+    log.debug(
+        f"Lineage tree for {media_id}: {len(nodes)} nodes ({len(kept) - len(live_ids)} placeholders), "
+        f"{len(edges)} edges, truncated={truncated}"
+    )
 
     return {
         "focus_media_id": media_id,
         "nodes": nodes,
-        "edges": edges
+        "edges": edges,
+        "truncated": truncated
     }
 
 
