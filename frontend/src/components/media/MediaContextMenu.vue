@@ -413,6 +413,28 @@
             </div>
 
             <div class="overflow-y-auto flex-1">
+              <!-- Original tool section (if exists) -->
+              <template v-if="!generateSearchQuery.trim() && originalTool">
+                <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+                  Original
+                </div>
+                <button
+                  @click="originalToolInstance ? sendToGenerateToolInstance({ tab: originalToolInstance, tool: originalTool }) : sendToGenerateTool(originalTool)"
+                  class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
+                >
+                  <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(originalTool) ? '' : 'text-content-tertiary'">
+                    <ToolIcon :tool="originalTool" size="xs" :bare="true" :ring="false" />
+                  </div>
+                  <span class="flex-1 min-w-0 truncate">{{ originalToolInstance ? (originalToolInstance.customName || originalToolInstance.displayName) : originalTool.name }}</span>
+                  <span
+                    v-if="originalToolInstance?.projectName"
+                    class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"
+                  >{{ originalToolInstance.projectName }}</span>
+                  <ToolProviderLabel :cloud="isStimmaCloudTool(originalTool)" :provider-name="originalTool.provider_name" class="pl-3" />
+                </button>
+                <div class="border-t border-edge-subtle my-1"></div>
+              </template>
+
               <!-- Active tool instances: eligible open tool tabs (incl. renamed
                    stations), targeted exactly. Mirrors Send to Tool's section. -->
               <template v-if="filteredRemixOpenInstances.length > 0">
@@ -456,30 +478,8 @@
                 </button>
               </template>
               <template v-else>
-                <!-- Original tool section (if exists) -->
-                <template v-if="originalTool">
-                  <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
-                    Original
-                  </div>
-                  <button
-                    @click="originalToolInstance ? sendToGenerateToolInstance({ tab: originalToolInstance, tool: originalTool }) : sendToGenerateTool(originalTool)"
-                    class="w-full px-3.5 py-2 text-left text-[13px] text-content hover:bg-overlay-light flex items-center gap-2.5"
-                  >
-                    <div class="w-3.5 h-3.5 flex-shrink-0" :class="isStimmaCloudTool(originalTool) ? '' : 'text-content-tertiary'">
-                      <ToolIcon :tool="originalTool" size="xs" :bare="true" :ring="false" />
-                    </div>
-                    <span class="flex-1 min-w-0 truncate">{{ originalToolInstance ? (originalToolInstance.customName || originalToolInstance.displayName) : originalTool.name }}</span>
-                    <span
-                      v-if="originalToolInstance?.projectName"
-                      class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"
-                    >{{ originalToolInstance.projectName }}</span>
-                    <ToolProviderLabel :cloud="isStimmaCloudTool(originalTool)" :provider-name="originalTool.provider_name" class="pl-3" />
-                  </button>
-                </template>
-
                 <!-- Recent tools section -->
                 <template v-if="recentGenerateTools.length > 0">
-                  <div v-if="originalTool" class="border-t border-edge-subtle my-1"></div>
                   <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
                     Recent
                   </div>
@@ -498,7 +498,7 @@
                 </template>
 
                 <!-- All tools section -->
-                <div v-if="originalTool || recentGenerateTools.length > 0" class="border-t border-edge-subtle my-1"></div>
+                <div v-if="recentGenerateTools.length > 0" class="border-t border-edge-subtle my-1"></div>
                 <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
                   {{ originalTool ? 'All Tools' : 'Generate Image' }}
                 </div>
