@@ -328,6 +328,18 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        // Persist window size/position/monitor across runs. VISIBLE is
+        // excluded because closing the main window hides it instead of
+        // quitting — persisting visibility could relaunch the app with an
+        // invisible window.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    tauri_plugin_window_state::StateFlags::all()
+                        & !tauri_plugin_window_state::StateFlags::VISIBLE,
+                )
+                .build(),
+        )
         .manage(backend_state.clone())
         .manage(Arc::new(voice::VoiceState::new()))
         .invoke_handler(tauri::generate_handler![
