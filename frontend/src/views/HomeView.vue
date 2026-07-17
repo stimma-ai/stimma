@@ -16,10 +16,17 @@
       <div class="min-h-full flex flex-col items-center px-8 lg:px-16" :class="loaded ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
 
         <!-- Hero area — centered in space above content -->
-        <div class="flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16">
-          <h1 class="text-3xl font-semibold text-content mb-16">What would you like to create today?</h1>
+        <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16">
+          <!-- Soft ambient halo behind the greeting + prompt -->
+          <div
+            class="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-[880px] max-w-full h-[420px]"
+            style="background: radial-gradient(50% 60% at 42% 45%, rgba(139, 92, 246, 0.13), transparent 70%), radial-gradient(45% 55% at 62% 50%, rgba(59, 130, 246, 0.09), transparent 70%); filter: blur(12px)"
+          ></div>
 
-          <div class="w-full max-w-[720px]">
+          <h1 class="relative font-brand text-4xl font-semibold text-content mb-3 text-center">{{ greeting }}</h1>
+          <p class="relative text-[15px] text-content-secondary mb-10 text-center">{{ greetingSub }}</p>
+
+          <div class="relative w-full max-w-[720px]">
             <ChatInputBox
               ref="chatInputBoxRef"
               v-model="inputText"
@@ -40,16 +47,154 @@
                 />
               </template>
             </ChatInputBox>
+
+            <!-- Tool launchers docked to the prompt (recent tools, starter picks as cold-start fill) -->
+            <div v-if="!isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-center gap-2 mt-4">
+              <button
+                v-for="tool in launcherTools"
+                :key="tool.full_tool_id"
+                @click="openToolById(tool.full_tool_id)"
+                class="flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-edge-subtle bg-overlay-faint hover:bg-overlay-subtle hover:border-edge transition-colors cursor-pointer"
+                :title="tool.name"
+              >
+                <div class="w-5 h-5 flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
+                <span class="text-[13px] font-medium text-content max-w-[180px] truncate">{{ tool.name }}</span>
+                <span class="text-[11px]" :class="isStimmaCloudTool(tool) ? 'stimma-cloud-text font-medium' : 'text-content-muted'">{{ providerLabel(tool) }}</span>
+              </button>
+              <router-link
+                to="/tools"
+                class="flex items-center px-3.5 py-1.5 rounded-full border border-edge-subtle text-[13px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle hover:border-edge transition-colors"
+              >
+                All tools →
+              </router-link>
+            </div>
+          </div>
+
+          <!-- First run: recommended starting points instead of empty sections -->
+          <div v-if="isFirstRun && starterTools.length > 0" class="relative w-full max-w-[720px] mt-12">
+            <div class="flex items-center gap-4 mb-4">
+              <div class="h-px flex-1 bg-edge-subtle"></div>
+              <span class="text-[11px] font-medium uppercase tracking-wider text-content-muted">Or start with a tool</span>
+              <div class="h-px flex-1 bg-edge-subtle"></div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                v-for="pick in starterTools"
+                :key="pick.tool.full_tool_id"
+                @click="openToolById(pick.tool.full_tool_id)"
+                class="flex items-start gap-3.5 rounded-lg p-3.5 text-left transition-all cursor-pointer"
+                :class="isStimmaCloudTool(pick.tool)
+                  ? 'bg-overlay-faint stimma-cloud-border hover:bg-overlay-subtle'
+                  : 'bg-overlay-faint border border-edge-subtle hover:bg-overlay-subtle hover:border-edge'"
+              >
+                <ToolIcon :tool="pick.tool" size="lg" :ring="false" />
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-semibold text-content truncate">{{ pick.tool.name }}</div>
+                  <p v-if="starterDescription(pick.tool)" class="text-xs text-content-secondary line-clamp-2 mt-1 leading-relaxed">{{ starterDescription(pick.tool) }}</p>
+                  <div class="flex items-center gap-2 mt-2 overflow-hidden">
+                    <span v-if="isStimmaCloudTool(pick.tool)" class="inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full bg-teal-600/10 border border-teal-600/25 flex-shrink-0">
+                      <span class="stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
+                    </span>
+                    <span v-else class="px-2 py-0.5 text-[10px] font-medium rounded-full border border-edge text-content-secondary flex-shrink-0 truncate">
+                      {{ providerLabel(pick.tool) }}
+                    </span>
+                    <span class="px-2 py-0.5 text-[10px] font-medium rounded-full border border-edge text-content-secondary flex-shrink-0">
+                      {{ formatTaskTypeLabel(pick.taskType) }}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            </div>
+            <div class="flex justify-center mt-4">
+              <router-link
+                to="/tools"
+                class="px-3.5 py-1.5 rounded-full border border-edge-subtle text-[13px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle hover:border-edge transition-colors"
+              >
+                All tools →
+              </router-link>
+            </div>
           </div>
         </div>
 
         <!-- Content sections -->
         <div ref="contentRef" class="w-full max-w-[960px] pb-12 space-y-10">
 
-          <!-- Recents Media -->
+          <!-- Jump back in: boards, flows, and chats merged into one recency row -->
+          <div v-if="jumpBackIn.length > 0">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Jump back in</h2>
+            </div>
+            <div class="grid gap-3" :class="isCompact ? 'grid-cols-2' : 'grid-cols-3'">
+              <button
+                v-for="item in jumpBackIn"
+                :key="`${item.type}-${item.id}`"
+                @click="openJumpItem(item)"
+                @contextmenu="handleJumpContextMenu($event, item)"
+                @dragover.prevent="item.type === 'board' && (dragOverBoardId = item.id)"
+                @dragleave="item.type === 'board' && dragOverBoardId === item.id && (dragOverBoardId = null)"
+                @drop.prevent="item.type === 'board' && handleBoardDrop(item.id, $event)"
+                class="flex flex-col rounded-xl border overflow-hidden text-left bg-overlay-faint transition-all cursor-pointer"
+                :class="item.type === 'board' && dragOverBoardId === item.id
+                  ? 'border-blue-500 bg-blue-500/10'
+                  : 'border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle'"
+              >
+                <!-- Art -->
+                <div class="h-28 bg-overlay-subtle">
+                  <!-- Board: up to 4 preview thumbnails -->
+                  <div v-if="item.type === 'board' && getBoardPreviewItems(item.board).length > 0" class="grid grid-cols-4 gap-[2px] w-full h-full">
+                    <MediaImage
+                      v-for="previewItem in getBoardPreviewItems(item.board)"
+                      :key="`${item.id}-${previewItem.id}`"
+                      :media-id="mediaIdOf(previewItem)"
+                      :file-hash="previewItem.file_hash"
+                      :thumbnail="true"
+                      :thumbnail-size="128"
+                      :draggable="false"
+                      :enable-context-menu="false"
+                      container-class="w-full h-full"
+                      class="w-full h-full object-cover"
+                    />
+                  </div>
+                  <!-- Chat: latest media as cover -->
+                  <MediaImage
+                    v-else-if="item.type === 'chat' && hasChatMedia(item.chat)"
+                    :media-id="item.chat.recent_media[0].media_id"
+                    :file-hash="item.chat.recent_media[0].file_hash"
+                    :thumbnail="true"
+                    :thumbnail-size="256"
+                    :draggable="false"
+                    :enable-context-menu="false"
+                    container-class="w-full h-full"
+                    class="w-full h-full object-cover"
+                  />
+                  <!-- Fallback: entity icon centered -->
+                  <div v-else class="w-full h-full flex items-center justify-center">
+                    <EntityIcon :type="item.type" size="lg" />
+                  </div>
+                </div>
+                <!-- Body -->
+                <div class="px-3.5 py-3">
+                  <div class="text-[10px] font-medium uppercase tracking-wider text-content-muted">{{ jumpKindLabel(item) }}</div>
+                  <div class="text-sm font-medium truncate mt-1" :class="item.name ? 'text-content' : 'text-content-muted italic'">
+                    {{ item.name || jumpUntitledLabel(item) }}
+                  </div>
+                  <FlowStatusPill
+                    v-if="item.type === 'flow'"
+                    :flow-id="item.id"
+                    show-pending
+                    text-class="truncate text-xs text-content-muted"
+                    class="mt-0.5"
+                  />
+                  <div v-else class="text-xs text-content-muted truncate mt-0.5">{{ item.sub }}</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Library strip -->
           <div v-if="recentMedia.length > 0">
             <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Recents</h2>
+              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Fresh from your library</h2>
               <router-link to="/browse" class="text-xs text-content-muted hover:text-content-secondary transition-colors">
                 View all
               </router-link>
@@ -70,132 +215,6 @@
                   class="w-full h-full object-cover"
                 />
               </div>
-            </div>
-          </div>
-
-          <!-- Boards -->
-          <div v-if="recentBoards.length > 0">
-            <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Boards</h2>
-              <router-link to="/boards" class="text-xs text-content-muted hover:text-content-secondary transition-colors">
-                View all
-              </router-link>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <button
-                v-for="board in visibleBoards"
-                :key="board.id"
-                @click="openBoard(board.id)"
-                @contextmenu="handleBoardContextMenu($event, board)"
-                @dragover.prevent="dragOverBoardId = board.id"
-                @dragleave="dragOverBoardId === board.id && (dragOverBoardId = null)"
-                @drop.prevent="handleBoardDrop(board.id, $event)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left bg-transparent cursor-pointer"
-                :class="dragOverBoardId === board.id ? 'border-blue-500 bg-blue-500/10' : 'border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle'"
-              >
-                <div class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-overlay-subtle">
-                  <div v-if="getBoardPreviewItems(board).length > 0" class="grid grid-cols-2 gap-[1px] w-full h-full">
-                    <MediaImage
-                      v-for="item in getBoardPreviewItems(board).slice(0, 4)"
-                      :key="`${board.id}-${item.id}`"
-                      :media-id="mediaIdOf(item)"
-                      :file-hash="item.file_hash"
-                      :thumbnail="true"
-                      :thumbnail-size="64"
-                      :draggable="false"
-                      :enable-context-menu="false"
-                      container-class="w-full h-full"
-                      class="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div v-else class="w-full h-full flex items-center justify-center text-content-muted">
-                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M3.75 3A1.75 1.75 0 002 4.75v3.5C2 9.216 2.784 10 3.75 10h3.5C8.216 10 9 9.216 9 8.25v-3.5C9 3.784 8.216 3 7.25 3h-3.5zM3.75 11A1.75 1.75 0 002 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 009 16.25v-3.5A1.75 1.75 0 007.25 11h-3.5zM11 4.75A1.75 1.75 0 0112.75 3h3.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0116.25 10h-3.5A1.75 1.75 0 0111 8.25v-3.5zM12.75 11A1.75 1.75 0 0011 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 0018 16.25v-3.5A1.75 1.75 0 0016.25 11h-3.5z" />
-                    </svg>
-                  </div>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-sm text-content font-medium truncate">{{ board.name || 'Untitled board' }}</div>
-                  <div class="text-xs text-content-muted truncate mt-0.5">{{ formatBoardMeta(board) }}</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <!-- Flows -->
-          <div v-if="recentFlows.length > 0">
-            <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Flows</h2>
-              <router-link to="/flows" class="text-xs text-content-muted hover:text-content-secondary transition-colors">
-                View all
-              </router-link>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <button
-                v-for="flow in visibleFlows"
-                :key="flow.id"
-                @click="openFlow(flow)"
-                @contextmenu="handleFlowContextMenu($event, flow)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
-              >
-                <EntityIcon type="flow" size="md" />
-                <div class="flex-1 min-w-0">
-                  <div
-                    v-if="flow.name"
-                    class="text-sm text-content font-medium truncate"
-                  >{{ flow.name }}</div>
-                  <div
-                    v-else
-                    class="text-sm text-content-muted italic truncate"
-                  >Name this flow...</div>
-                  <FlowStatusPill
-                    :flow-id="flow.id"
-                    show-pending
-                    text-class="truncate text-xs text-content-muted"
-                    class="mt-0.5"
-                  />
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <!-- Chats -->
-          <div v-if="recentChats.length > 0">
-            <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Chats</h2>
-              <router-link to="/chats" class="text-xs text-content-muted hover:text-content-secondary transition-colors">
-                View all
-              </router-link>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <button
-                v-for="chat in visibleChats"
-                :key="chat.id"
-                @click="openChat(chat)"
-                @contextmenu="handleChatContextMenu($event, chat)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
-              >
-                <div v-if="hasChatMedia(chat)" class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden">
-                  <MediaImage
-                    :media-id="chat.recent_media[0].media_id"
-                    :file-hash="chat.recent_media[0].file_hash"
-                    :thumbnail="true"
-                    :thumbnail-size="64"
-                    :draggable="false"
-                    :enable-context-menu="false"
-                    container-class="w-full h-full"
-                    class="w-full h-full object-cover"
-                  />
-                </div>
-                <EntityIcon v-else type="chat" size="md" shape="rounded" />
-                <div class="flex-1 min-w-0">
-                  <div class="text-sm text-content font-medium truncate">{{ chat.name || 'New chat' }}</div>
-                  <div class="text-xs text-content-muted truncate mt-0.5">
-                    <template v-if="chat.last_message">{{ chat.last_message }}</template>
-                    <template v-else-if="chat.updated_at">{{ formatRelativeTime(chat.updated_at) }}</template>
-                  </div>
-                </div>
-              </button>
             </div>
           </div>
         </div>
@@ -223,7 +242,13 @@ import ChatInputBox from '../components/chat/ChatInputBox.vue'
 import ChatModelPicker from '../components/chat/ChatModelPicker.vue'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import FlowStatusPill from '../components/flow/FlowStatusPill.vue'
+import ToolIcon from '../components/tools/ToolIcon.vue'
 import { useSlideshow } from '../composables/useSlideshow'
+import { useProvidersApi } from '../composables/useProvidersApi'
+import { recentEntities } from '../composables/useRecentEntities'
+import { pickStarterTools } from '../utils/starterTools'
+import { isStimmaCloudTool, toolProviderDisplayName, STIMMA_TOOL_PROVIDER_DISPLAY_NAME } from '../utils/stimmaCloud'
+import { formatTaskTypeLabel } from '../utils/taskTypeIcons'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
 import { useFlowsApi } from '../composables/useFlowsApi'
@@ -244,6 +269,7 @@ const entityContextMenu = useEntityContextMenu()
 const { addToast } = useToasts()
 const { agentModelUnavailable, checkAgentModels } = useAgentModelAvailability()
 const { globalDefault, getSelectableModel } = useAvailableModels()
+const { fetchProvidersAndTools } = useProvidersApi()
 
 const chatInputBoxRef = ref(null)
 const contentRef = ref(null)
@@ -270,8 +296,6 @@ const loaded = ref(false)
 const dragOverBoardId = ref(null)
 const contentWidth = ref(960)
 
-const hasContent = computed(() => loaded.value && (recentChats.value.length > 0 || recentMedia.value.length > 0))
-
 const isCompact = computed(() => contentWidth.value < 700)
 
 const mediaColumns = computed(() => {
@@ -280,12 +304,131 @@ const mediaColumns = computed(() => {
 })
 
 const visibleMedia = computed(() => recentMedia.value.slice(0, mediaColumns.value))
-const visibleChats = computed(() => isCompact.value ? recentChats.value.slice(0, 2) : recentChats.value.slice(0, 4))
-const visibleBoards = computed(() => recentBoards.value.slice(0, 2))
-const visibleFlows = computed(() => isCompact.value ? recentFlows.value.slice(0, 2) : recentFlows.value.slice(0, 4))
 
 function hasChatMedia(chat) {
   return chat.recent_media && chat.recent_media.length > 0
+}
+
+// ==================== Greeting ====================
+
+// True only after the first load with nothing to show: no chats, boards,
+// flows, or library media — i.e. a fresh install right after onboarding.
+const isFirstRun = computed(() =>
+  loaded.value
+  && recentChats.value.length === 0
+  && recentBoards.value.length === 0
+  && recentFlows.value.length === 0
+  && recentMedia.value.length === 0
+)
+
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 12) return "Good morning, let's make something."
+  if (hour < 18) return 'Good afternoon, what are we making?'
+  return 'Good evening, what are we making?'
+})
+
+const greetingSub = computed(() => 'Describe it, drop an image in, or jump straight into a tool.')
+
+// ==================== Tools ====================
+
+const toolsList = ref([])
+const recentToolEntities = ref([])
+
+async function loadTools() {
+  try {
+    const { tools } = await fetchProvidersAndTools()
+    toolsList.value = tools.filter(t => !t.metadata?.agent_only)
+  } catch (err) {
+    console.error('Failed to load tools:', err)
+  }
+  recentToolEntities.value = recentEntities(60).filter(e => e.type === 'tool')
+}
+
+const availableTools = computed(() => toolsList.value.filter(t => t.availability === 'available'))
+
+// Cold-start recommendations: curated favorites fuzzy-matched against
+// installed tools, constrained to t2i/i2i/i2v with task coverage.
+const starterTools = computed(() => pickStarterTools(availableTools.value, 4))
+
+// Launcher pills under the prompt: recently used tools first (frecency),
+// starter picks fill the remaining slots when history is thin. Deduped by
+// name as well as id so cloud + local copies of the same model don't both
+// take a slot.
+const launcherTools = computed(() => {
+  const byId = new Map(availableTools.value.map(t => [t.full_tool_id, t]))
+  const picked = []
+  const seen = new Set()
+  const tryAdd = (tool) => {
+    const nameKey = `name:${(tool.name || '').toLowerCase().trim()}`
+    if (seen.has(tool.full_tool_id) || seen.has(nameKey)) return
+    seen.add(tool.full_tool_id)
+    seen.add(nameKey)
+    picked.push(tool)
+  }
+  for (const entity of recentToolEntities.value) {
+    if (picked.length >= 3) break
+    const tool = byId.get(entity.id)
+    if (tool) tryAdd(tool)
+  }
+  for (const pick of starterTools.value) {
+    if (picked.length >= 3) break
+    tryAdd(pick.tool)
+  }
+  return picked
+})
+
+function providerLabel(tool) {
+  return toolProviderDisplayName(tool, tool.provider_id || '')
+}
+
+function starterDescription(tool) {
+  return tool.metadata?.description || tool.subtitle || ''
+}
+
+function openToolById(fullToolId) {
+  router.push({ name: 'tool', params: { fullToolId } })
+}
+
+// ==================== Jump back in ====================
+
+const jumpBackIn = computed(() => {
+  const items = []
+  for (const board of recentBoards.value) {
+    items.push({ type: 'board', id: board.id, name: board.name, sub: formatBoardMeta(board), updatedAt: board.updated_at, board })
+  }
+  for (const flow of recentFlows.value) {
+    items.push({ type: 'flow', id: flow.id, name: flow.name, sub: '', updatedAt: flow.updated_at, flow })
+  }
+  for (const chat of recentChats.value) {
+    const sub = chat.last_message || (chat.updated_at ? formatRelativeTime(chat.updated_at) : '')
+    items.push({ type: 'chat', id: chat.id, name: chat.name, sub, updatedAt: chat.updated_at, chat })
+  }
+  return items
+    .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
+    .slice(0, isCompact.value ? 2 : 3)
+})
+
+function jumpKindLabel(item) {
+  return { board: 'Board', flow: 'Flow', chat: 'Chat' }[item.type] || item.type
+}
+
+function jumpUntitledLabel(item) {
+  if (item.type === 'flow') return 'Name this flow...'
+  if (item.type === 'chat') return 'New chat'
+  return 'Untitled board'
+}
+
+function openJumpItem(item) {
+  if (item.type === 'board') openBoard(item.id)
+  else if (item.type === 'flow') openFlow(item.flow)
+  else openChat(item.chat)
+}
+
+function handleJumpContextMenu(event, item) {
+  if (item.type === 'board') handleBoardContextMenu(event, item.board)
+  else if (item.type === 'flow') handleFlowContextMenu(event, item.flow)
+  else handleChatContextMenu(event, item.chat)
 }
 
 // ==================== Content width tracking ====================
@@ -672,7 +815,7 @@ function checkPendingMedia() {
 watch(pendingMedia, () => checkPendingMedia(), { flush: 'post' })
 
 async function loadAll() {
-  await Promise.all([loadRecentChats(), loadRecentMedia(), loadRecentBoards(), loadRecentFlows()])
+  await Promise.all([loadRecentChats(), loadRecentMedia(), loadRecentBoards(), loadRecentFlows(), loadTools()])
   loaded.value = true
 }
 
