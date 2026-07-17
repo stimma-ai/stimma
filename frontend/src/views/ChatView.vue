@@ -1435,7 +1435,7 @@ const { listSkills: listSkillsApi } = useStimpacksApi()
 const { cloudBaseUrl, cloudUser } = useCloudAccount()
 const { privacyLockdownActive } = usePrivacyLockdown()
 const { isAuthenticated } = useAuth()
-const { models: availableModels, selectableModels, globalDefault, cloudStatus, loading: modelsLoading, hasFetched: modelsFetched, invalidateCache: invalidateModelCache, fetchModels: fetchAvailableModels, getSelectableModel } = useAvailableModels()
+const { models: availableModels, selectableModels, globalDefault, cloudStatus, loading: modelsLoading, hasFetched: modelsFetched, invalidateCache: invalidateModelCache, fetchModels: fetchAvailableModels, getSelectableModel, getResolvedModel } = useAvailableModels()
 const { slideshowState, enterSlideshow, exitSlideshow } = useSlideshow()
 const mediaDetailsModal = useMediaDetailsModal()
 const { compareState, enterCompare, exitCompare, swapImages: swapCompareImages } = useCompare()
@@ -4689,13 +4689,17 @@ function openTraceForItem(item) {
   }
 }
 
-// Context limit for the model (approximate — user can adjust if their model differs)
-const contextLimit = 131072
+// Context limit for this chat's model, from the model catalog (auto resolves to
+// its concrete model). Conservative 128k fallback when no catalog info exists.
+const contextLimit = computed(() => {
+  const slug = chat.value?.model_slug || globalDefault.value
+  return getResolvedModel(slug)?.max_context_tokens || 131072
+})
 
 const tokenUsagePercent = computed(() => {
   const ctx = llmUsage.value?.context_tokens
   if (!ctx) return 0
-  return Math.min(100, (ctx / contextLimit) * 100)
+  return Math.min(100, (ctx / contextLimit.value) * 100)
 })
 
 function formatTokenCount(n) {
