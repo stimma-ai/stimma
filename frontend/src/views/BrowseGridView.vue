@@ -139,6 +139,9 @@
       :selected-item-ids="selectedItemIds"
       :is-trash-view="isTrashMode"
       :storage-key="gridStorageKey"
+      :empty-state-icon="showEmptyLibraryState ? 'photo' : 'funnel'"
+      :empty-state-message="showEmptyLibraryState ? 'Nothing here yet' : 'No assets found'"
+      :empty-state-subtext="showEmptyLibraryState ? 'Go make something, or upload your own media' : 'Try adjusting your filters'"
       @item-click="openSlideshow"
       @item-find-similar="searchSimilar"
       @toggle-selection="handleToggleSelection"
@@ -158,12 +161,13 @@
       subtitle="Deleted items will appear here"
     />
 
-    <!-- Empty state for filtered/saved views -->
+    <!-- Empty state: filtered views suggest loosening filters, a truly empty
+         library points at creating something instead -->
     <EmptyState
       v-else-if="!loading && !initializing && !isTrashMode && totalCount === 0"
-      icon="funnel"
-      title="No assets found"
-      subtitle="Try adjusting your filters"
+      :icon="showEmptyLibraryState ? 'photo' : 'funnel'"
+      :title="showEmptyLibraryState ? 'Nothing here yet' : 'No assets found'"
+      :subtitle="showEmptyLibraryState ? 'Go make something, or upload your own media' : 'Try adjusting your filters'"
     />
 
     <!-- Loading state when filtering -->
@@ -429,6 +433,36 @@ const similarSearchSourceItems = props.similarSearchState?.sourceItems ?? global
 // Filter change counter - only relevant for global state
 const filterChangeCounter = computed(() => globalFilterState.filterChangeCounter.value)
 
+// True when any filter criteria is narrowing results (mirrors FilterBar.hasActiveFilters)
+const hasActiveFilterCriteria = computed(() =>
+  !!filters.captionQuery ||
+  !!filters.promptQuery ||
+  !!filters.similarToText ||
+  (filters.mediaTypes?.length > 0) ||
+  (filters.excludedMediaTypes?.length > 0) ||
+  (filters.resolutions?.length > 0) ||
+  (filters.excludedResolutions?.length > 0) ||
+  (filters.selectedKeywords?.length > 0) ||
+  (filters.excludedKeywords?.length > 0) ||
+  (filters.selectedFolders?.length > 0) ||
+  (filters.excludedFolders?.length > 0) ||
+  (filters.selectedTags?.length > 0) ||
+  (filters.excludedTags?.length > 0) ||
+  (filters.selectedTools?.length > 0) ||
+  (filters.excludedTools?.length > 0) ||
+  (filters.selectedMarkers?.length > 0) ||
+  (filters.excludedMarkers?.length > 0) ||
+  filters.isImported !== null ||
+  filters.isUnused !== null ||
+  (filters.similarTo?.length > 0) ||
+  (filters.similarFaceTo?.length > 0) ||
+  !!filters.createdAfter ||
+  !!filters.createdBefore ||
+  !!filters.showExpiring ||
+  !!filters.excludeExpiring ||
+  similarSearchActive.value
+)
+
 function setSimilarSearch(ids) {
   if (useExternalFilters) {
     filters.similarTo = Array.isArray(ids) ? ids : [ids]
@@ -569,6 +603,35 @@ const randomSeed = ref(Date.now())
 const initializing = ref(true)
 const pendingReload = ref(false)  // Track if reload was deferred during slideshow
 const loadRequestId = ref(0)
+
+// When a filtered view comes back empty, probe whether the view's whole asset
+// universe (same container, all filter criteria dropped) is empty too — a truly
+// empty library gets the "go make something" state, not "adjust your filters".
+const libraryIsEmpty = ref(false)
+let libraryEmptyProbeId = 0
+async function probeLibraryEmpty() {
+  const probeId = ++libraryEmptyProbeId
+  try {
+    const params = { page: 1, page_size: 1 }
+    if (props.projectId != null) params.project_id = props.projectId
+    const response = await fetchMedia(params)
+    if (probeId !== libraryEmptyProbeId) return
+    libraryIsEmpty.value = response.total === 0
+  } catch {
+    // Keep the current value; the filtered copy is the safe fallback
+  }
+}
+watch([totalCount, hasActiveFilterCriteria], ([total, filtered]) => {
+  if (total > 0) {
+    libraryEmptyProbeId++
+    libraryIsEmpty.value = false
+  } else if (filtered && !props.isTrashMode) {
+    probeLibraryEmpty()
+  }
+}, { immediate: true })
+
+// True when the empty state should encourage creating, not filter tweaking
+const showEmptyLibraryState = computed(() => !hasActiveFilterCriteria.value || libraryIsEmpty.value)
 
 // Library management state
 const markers = ref([])
@@ -1916,38 +1979,11 @@ onMounted(async () => {
       // Check if we can do a soft update (prepend items in place)
       // Use a conservative strategy for filtered and saved views.
       const hasSpecificIds = Boolean(data.asset_id || data.asset_ids?.length)
-      const hasActiveFilterCriteria =
-        !!filters.captionQuery ||
-        !!filters.promptQuery ||
-        !!filters.similarToText ||
-        (filters.mediaTypes?.length > 0) ||
-        (filters.excludedMediaTypes?.length > 0) ||
-        (filters.resolutions?.length > 0) ||
-        (filters.excludedResolutions?.length > 0) ||
-        (filters.selectedKeywords?.length > 0) ||
-        (filters.excludedKeywords?.length > 0) ||
-        (filters.selectedFolders?.length > 0) ||
-        (filters.excludedFolders?.length > 0) ||
-        (filters.selectedTags?.length > 0) ||
-        (filters.excludedTags?.length > 0) ||
-        (filters.selectedTools?.length > 0) ||
-        (filters.excludedTools?.length > 0) ||
-        (filters.selectedMarkers?.length > 0) ||
-        (filters.excludedMarkers?.length > 0) ||
-        filters.isImported !== null ||
-        filters.isUnused !== null ||
-        (filters.similarTo?.length > 0) ||
-        (filters.similarFaceTo?.length > 0) ||
-        !!filters.createdAfter ||
-        !!filters.createdBefore ||
-        !!filters.showExpiring ||
-        !!filters.excludeExpiring
       const canSoftUpdate =
         !props.isTrashMode &&
         !useExternalFilters &&
         filters.sortBy === 'created_desc' &&
-        !similarSearchActive.value &&
-        !hasActiveFilterCriteria &&
+        !hasActiveFilterCriteria.value &&
         !hasSpecificIds
 
       if (canSoftUpdate && virtualGridRef.value) {
