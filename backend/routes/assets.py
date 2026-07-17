@@ -57,6 +57,7 @@ from utils.query_builder import (
     SET_FORMATS,
     TEXT_FORMATS,
     VIDEO_FORMATS,
+    asset_unused_predicate,
     build_filtered_query,
     media_is_imported,
 )
@@ -221,6 +222,7 @@ def _apply_asset_filters(query, **filters):
         created_before=filters.get("created_before"),
         show_expiring=filters.get("show_expiring"),
         exclude_expiring=filters.get("exclude_expiring"),
+        is_unused=filters.get("is_unused"),
         min_mp=filters.get("min_mp"),
         max_mp=filters.get("max_mp"),
         exclude_expired=False,
@@ -299,6 +301,7 @@ async def browse_assets(
     created_before: str | None = None,
     show_expiring: bool | None = None,
     exclude_expiring: bool | None = None,
+    is_unused: bool | None = None,
     min_mp: float | None = None,
     max_mp: float | None = None,
     sort_by: str = Query(
@@ -343,6 +346,7 @@ async def browse_assets(
         created_before=created_before,
         show_expiring=show_expiring,
         exclude_expiring=exclude_expiring,
+        is_unused=is_unused,
         min_mp=min_mp,
         max_mp=max_mp,
         state=state,
@@ -529,6 +533,7 @@ async def browse_asset_ids(
     created_before: str | None = None,
     show_expiring: bool | None = None,
     exclude_expiring: bool | None = None,
+    is_unused: bool | None = None,
     min_mp: float | None = None,
     max_mp: float | None = None,
     sort_by: str = Query("created_desc"),
@@ -577,6 +582,7 @@ async def browse_asset_ids(
             created_before=created_before,
             show_expiring=show_expiring,
             exclude_expiring=exclude_expiring,
+            is_unused=is_unused,
             min_mp=min_mp,
             max_mp=max_mp,
             sort_by=sort_by,
@@ -617,6 +623,7 @@ async def browse_asset_ids(
         created_before=created_before,
         show_expiring=show_expiring,
         exclude_expiring=exclude_expiring,
+        is_unused=is_unused,
         state=state,
     )
     if folders:
@@ -819,6 +826,7 @@ async def get_asset_filter_counts(
     created_before: str | None = None,
     show_expiring: bool | None = None,
     exclude_expiring: bool | None = None,
+    is_unused: bool | None = None,
     similar_to: str | None = None,
     similar_face_to: str | None = None,
     similar_to_text: str | None = None,
@@ -855,6 +863,7 @@ async def get_asset_filter_counts(
         created_before=created_before,
         show_expiring=show_expiring,
         exclude_expiring=exclude_expiring,
+        is_unused=is_unused,
     )
     similarity_ids = await _similarity_media_ids_for_facets(
         session,
@@ -1061,6 +1070,10 @@ async def get_asset_filter_counts(
         "expiring": await _count_assets(
             session,
             facet("expiring").where(Asset.expires_at.is_not(None)),
+        ),
+        "unused": await _count_assets(
+            session,
+            facet("unused").where(asset_unused_predicate(Asset.id)),
         ),
     }
 

@@ -93,7 +93,7 @@
         </div>
 
         <!-- Media Type Badges -->
-        <div v-for="mediaType in localMediaTypes"
+        <div v-for="mediaType in allMediaTypes"
              :key="mediaType"
              :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isMediaTypeExcluded(mediaType) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
              @click="toggleExcludeMediaType(mediaType)">
@@ -106,7 +106,7 @@
         </div>
 
         <!-- Resolution Badges -->
-        <div v-for="resolution in localResolutions"
+        <div v-for="resolution in allResolutions"
              :key="resolution"
              :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isResolutionExcluded(resolution) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
              @click="toggleExcludeResolution(resolution)">
@@ -203,10 +203,12 @@
           </button>
         </div>
 
-        <!-- File Date Badge (no toggle, just blue) -->
-        <div v-if="selectedDateRange" class="inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
+        <!-- File Date Badge (quick ranges toggle include/exclude; custom stays blue) -->
+        <div v-if="selectedDateRange"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9', dateRangeExcluded ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500', selectedDateRange !== 'custom' ? 'cursor-pointer' : '']"
+             @click="toggleExcludeDateRange">
           <span class="leading-none">{{ getDateRangeLabel() }}</span>
-          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearDateRange">
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearDateRange">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -219,6 +221,18 @@
              @click="toggleImportedExclusion">
           <span class="leading-none">Imported</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearImportedFilter">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Unused Badge (not shown in trash mode) -->
+        <div v-if="!isTrashMode && localIsUnused !== null"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', localIsUnused === false ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             @click="toggleUnusedExclusion">
+          <span class="leading-none">Unused</span>
+          <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearUnusedFilter">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -372,7 +386,7 @@
     <transition name="slide-down">
       <div v-if="showCriteriaPanel" class="border-t border-edge bg-overlay-faint relative">
         <!-- Loading spinner -->
-        <div v-if="isLoading" class="absolute top-0 left-0 right-0 bottom-0 bg-[rgba(26,26,26,0.8)] flex items-center justify-center z-10 backdrop-blur-[2px]">
+        <div v-if="isLoading" class="absolute top-0 left-0 right-0 bottom-0 bg-surface/80 flex items-center justify-center z-10 backdrop-blur-[2px]">
           <div class="w-8 h-8 border-[3px] border-edge border-t-indigo-500 rounded-full spinner"></div>
         </div>
         <div ref="criteriaScrollContainer" class="flex gap-8 px-4 py-3 overflow-x-auto overflow-y-hidden transition-opacity" :class="{ 'opacity-50 pointer-events-none': isLoading }" @wheel="handleHorizontalScroll">
@@ -384,9 +398,12 @@
                 v-for="range in visibleDateRanges"
                 :key="range.value"
                 @click="selectDateRange(range.value)"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': selectedDateRange === range.value }, selectedDateRange === range.value ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all',
+                         selectedDateRange === range.value
+                           ? (dateRangeExcluded ? 'bg-red-500/15 border border-red-500/50 px-3' : 'bg-overlay-light border border-edge-strong px-3')
+                           : 'hover:bg-overlay-subtle']"
               >
-                <span :class="['text-sm', selectedDateRange === range.value ? 'text-content font-semibold' : 'text-content-secondary']">{{ range.label }}</span>
+                <span :class="['text-sm', selectedDateRange === range.value ? (dateRangeExcluded ? 'text-red-400 font-semibold' : 'text-content font-semibold') : 'text-content-secondary']">{{ range.label }}</span>
                 <span :class="['text-xs', selectedDateRange === range.value ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.date_ranges[range.value] || 0 }})</span>
               </button>
               <a @click="openCustomDatePicker" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
@@ -576,6 +593,15 @@
                 <span :class="['text-sm', isExpiringFilterSelected() ? 'text-content font-semibold' : 'text-content-secondary']">Expiring</span>
                 <span :class="['text-xs', isExpiringFilterSelected() ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.expiring || 0 }})</span>
               </div>
+              <div
+                v-if="showUnusedRow"
+                @click="toggleUnusedFilter"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': localIsUnused !== null }, localIsUnused !== null ? '' : 'hover:bg-overlay-subtle']"
+                title="Generated items never remixed, organized, or referenced anywhere"
+              >
+                <span :class="['text-sm', localIsUnused !== null ? 'text-content font-semibold' : 'text-content-secondary']">Unused</span>
+                <span :class="['text-xs', localIsUnused !== null ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.unused || 0 }})</span>
+              </div>
             </div>
           </div>
 
@@ -703,6 +729,7 @@ const props = defineProps({
   excludedMarkers: Array,         // New: excluded markers (by ID)
   markers: { type: Array, default: () => [] },  // Available markers from backend
   isImported: { type: Boolean, default: null }, // null | true | false provenance filter
+  isUnused: { type: Boolean, default: null },   // null | true | false dead-end filter
   showExpiring: Boolean,          // New: filter for expiring images (positive)
   excludeExpiring: Boolean,       // New: filter to exclude expiring images (negative)
   createdAfter: String,           // ISO datetime string for file date filter
@@ -744,6 +771,7 @@ const emit = defineEmits([
   'update:selectedMarkers',    // New: markers filter
   'update:excludedMarkers',    // New: excluded markers filter
   'update:isImported',         // Imported lineage provenance filter
+  'update:isUnused',           // Unused (dead-end) filter
   'update:showExpiring',       // New: expiring filter (positive)
   'update:excludeExpiring',    // New: exclude expiring filter (negative)
   'update:createdAfter',       // New: file date filter
@@ -792,6 +820,7 @@ const excludedTools = ref(props.excludedTools || [])      // Excluded tool linea
 const selectedMarkers = ref(props.selectedMarkers || [])  // New: markers
 const excludedMarkers = ref(props.excludedMarkers || [])  // New: excluded markers
 const localIsImported = ref(props.isImported ?? null)
+const localIsUnused = ref(props.isUnused ?? null)
 const localShowExpiring = ref(props.showExpiring || false)  // New: expiring filter (positive)
 const localExcludeExpiring = ref(props.excludeExpiring || false)  // New: exclude expiring filter (negative)
 const localSimilarityThreshold = ref(props.similarityThreshold ?? 0.75)
@@ -806,6 +835,7 @@ function detectDateRangeFromProps() {
 }
 
 const selectedDateRange = ref(detectDateRangeFromProps())  // Track which quick range is selected (e.g., '24hrs', '7d', 'custom')
+const dateRangeExcluded = ref(false)  // Quick range inverted to "Older than N" (custom ranges never invert)
 const customAfterDate = ref('')  // Temporary state for custom date picker
 const customBeforeDate = ref('')  // Temporary state for custom date picker
 
@@ -822,7 +852,8 @@ const filterCounts = ref({
   project_membership: { any: 0, none: 0 },
   date_ranges: {},
   imported: 0,
-  expiring: 0
+  expiring: 0,
+  unused: 0
 })
 const showKeywordModal = ref(false)
 const showTagModal = ref(false)
@@ -864,7 +895,8 @@ const similarSearchFallbackLabel = computed(() => {
   return `${count} assets`
 })
 
-// Date range presets
+// Date range presets. Quick ranges are invertible: excluding "Last N" maps to
+// created_before = now - N; red styling communicates the invert, label is unchanged.
 const dateRanges = [
   { label: 'Last 24 hours', value: '24hrs' },
   { label: 'Last 7 days', value: '7d' },
@@ -898,6 +930,8 @@ const hasActiveFilters = computed(() => {
     (excludedTools.value && excludedTools.value.length > 0) ||
     (selectedMarkers.value && selectedMarkers.value.length > 0) ||
     (excludedMarkers.value && excludedMarkers.value.length > 0) ||
+    localIsImported.value !== null ||
+    localIsUnused.value !== null ||
     localShowExpiring.value ||
     localExcludeExpiring.value ||
     props.similarSearchActive ||
@@ -977,6 +1011,10 @@ const allKeywords = computed(() => {
 })
 
 // All folders (both selected and excluded) for showing badges
+// Cart chips must show excluded entries too, or an active exclusion becomes invisible
+const allMediaTypes = computed(() => [...new Set([...(localMediaTypes.value || []), ...(localExcludedMediaTypes.value || [])])])
+const allResolutions = computed(() => [...new Set([...(localResolutions.value || []), ...(localExcludedResolutions.value || [])])])
+
 const allFolders = computed(() => {
   const selected = selectedFolders.value || []
   const excluded = excludedFolders.value || []
@@ -1155,7 +1193,10 @@ const showImportedRow = computed(() =>
 const showExpiringRow = computed(() =>
   !hasLoadedCounts.value || (filterCounts.value.expiring || 0) > 0 || localShowExpiring.value || localExcludeExpiring.value
 )
-const showUtilityColumn = computed(() => showImportedRow.value || showExpiringRow.value)
+const showUnusedRow = computed(() =>
+  !hasLoadedCounts.value || (filterCounts.value.unused || 0) > 0 || localIsUnused.value !== null
+)
+const showUtilityColumn = computed(() => showImportedRow.value || showExpiringRow.value || showUnusedRow.value)
 
 // Filter params to pass to keyword modal
 const modalFilterParams = computed(() => {
@@ -1252,6 +1293,7 @@ function emitUpdate() {
   emit('update:selectedMarkers', selectedMarkers.value)        // New: markers
   emit('update:excludedMarkers', excludedMarkers.value)        // New: excluded markers
   emit('update:isImported', localIsImported.value)              // Imported provenance filter
+  emit('update:isUnused', localIsUnused.value)                  // Unused (dead-end) filter
   emit('update:showExpiring', localShowExpiring.value)         // New: expiring filter (positive)
   emit('update:excludeExpiring', localExcludeExpiring.value)   // New: exclude expiring filter (negative)
   emit('update:createdAfter', localCreatedAfter.value)         // New: file date filter
@@ -1467,10 +1509,17 @@ function clearAllFilters() {
   excludedTools.value = []
   selectedMarkers.value = []
   excludedMarkers.value = []
+  selectedProjects.value = []
+  excludedProjects.value = []
+  projectMembership.value = null
+  localIsImported.value = null
+  localIsUnused.value = null
   localShowExpiring.value = false
   localExcludeExpiring.value = false
   localCreatedAfter.value = null
   localCreatedBefore.value = null
+  selectedDateRange.value = null
+  dateRangeExcluded.value = false
   localSortBy.value = 'created_desc'
   emit('clear-similar')
   emitUpdate()
@@ -1814,51 +1863,54 @@ function getFolderName(folderPath) {
 }
 
 // Date range functions
+function dateRangeCutoff(rangeValue) {
+  const now = new Date()
+  const HOUR = 60 * 60 * 1000
+  const DAY = 24 * HOUR
+  switch (rangeValue) {
+    case '2hrs': return new Date(now.getTime() - 2 * HOUR)
+    case '24hrs': return new Date(now.getTime() - 24 * HOUR)
+    case '72hrs': return new Date(now.getTime() - 72 * HOUR)
+    case '7d': return new Date(now.getTime() - 7 * DAY)
+    case '30d': return new Date(now.getTime() - 30 * DAY)
+    case '90d': return new Date(now.getTime() - 90 * DAY)
+    case '365d': return new Date(now.getTime() - 365 * DAY)
+    default: return null
+  }
+}
+
+function applyDateRange(rangeValue, excluded) {
+  const cutoff = dateRangeCutoff(rangeValue)
+  if (!cutoff) return
+  selectedDateRange.value = rangeValue
+  dateRangeExcluded.value = excluded
+  localCreatedAfter.value = excluded ? null : cutoff.toISOString()
+  localCreatedBefore.value = excluded ? cutoff.toISOString() : null
+  emitUpdate()
+}
+
+// Panel click cycle: off -> "Last N" -> "Older than N" -> off
 function selectDateRange(rangeValue) {
-  // If clicking the same range again, clear it (toggle off)
   if (selectedDateRange.value === rangeValue) {
-    clearDateRange()
+    if (!dateRangeExcluded.value) {
+      applyDateRange(rangeValue, true)
+    } else {
+      clearDateRange()
+    }
     return
   }
+  applyDateRange(rangeValue, false)
+}
 
-  const now = new Date()
-  let afterDate = null
-
-  // Calculate the start date based on the selected range
-  switch (rangeValue) {
-    case '2hrs':
-      afterDate = new Date(now.getTime() - 2 * 60 * 60 * 1000)
-      break
-    case '24hrs':
-      afterDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-      break
-    case '72hrs':
-      afterDate = new Date(now.getTime() - 72 * 60 * 60 * 1000)
-      break
-    case '7d':
-      afterDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      break
-    case '30d':
-      afterDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      break
-    case '90d':
-      afterDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-      break
-    case '365d':
-      afterDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
-      break
-  }
-
-  if (afterDate) {
-    selectedDateRange.value = rangeValue
-    localCreatedAfter.value = afterDate.toISOString()
-    localCreatedBefore.value = null  // No upper bound for quick ranges
-    emitUpdate()
-  }
+// Cart chip click: flip between include and exclude (quick ranges only)
+function toggleExcludeDateRange() {
+  if (!selectedDateRange.value || selectedDateRange.value === 'custom') return
+  applyDateRange(selectedDateRange.value, !dateRangeExcluded.value)
 }
 
 function clearDateRange() {
   selectedDateRange.value = null
+  dateRangeExcluded.value = false
   localCreatedAfter.value = null
   localCreatedBefore.value = null
   emitUpdate()
@@ -1904,6 +1956,7 @@ function openCustomDatePicker() {
 
 function applyCustomDateRange() {
   selectedDateRange.value = 'custom'
+  dateRangeExcluded.value = false
 
   // For date-only inputs, set time to start/end of day
   if (customAfterDate.value) {
@@ -1928,6 +1981,7 @@ function applyCustomDateRange() {
 
 function setCustomDateRange(afterDate, beforeDate) {
   selectedDateRange.value = 'custom'
+  dateRangeExcluded.value = false
   localCreatedAfter.value = afterDate
   localCreatedBefore.value = beforeDate
   showDatePickerModal.value = false
@@ -1981,6 +2035,28 @@ function toggleImportedExclusion() {
 
 function clearImportedFilter() {
   localIsImported.value = null
+  emitUpdate()
+}
+
+// Unused (dead-end) filter functions - 3-state toggle like Imported
+function toggleUnusedFilter() {
+  if (localIsUnused.value === null) {
+    localIsUnused.value = true
+  } else if (localIsUnused.value === true) {
+    localIsUnused.value = false
+  } else {
+    localIsUnused.value = null
+  }
+  emitUpdate()
+}
+
+function toggleUnusedExclusion() {
+  localIsUnused.value = localIsUnused.value === false
+  emitUpdate()
+}
+
+function clearUnusedFilter() {
+  localIsUnused.value = null
   emitUpdate()
 }
 
@@ -2196,6 +2272,9 @@ async function loadFilterCounts() {
     if (props.isImported !== null && props.isImported !== undefined) {
       params.is_imported = props.isImported
     }
+    if (props.isUnused !== null && props.isUnused !== undefined) {
+      params.is_unused = props.isUnused
+    }
     if (props.showExpiring) params.show_expiring = true
     if (props.excludeExpiring) params.exclude_expiring = true
     if (props.createdAfter) params.created_after = props.createdAfter
@@ -2248,14 +2327,16 @@ watch(() => props.selectedFolders, (val) => syncArray(selectedFolders, val))
 watch(() => props.excludedFolders, (val) => syncArray(excludedFolders, val))
 watch(() => props.similarityThreshold, (val) => localSimilarityThreshold.value = val ?? 0.75)
 watch(() => props.createdAfter, (val) => {
+  if ((val || null) === localCreatedAfter.value) return  // echo of our own emit; keep quick-range identity
   localCreatedAfter.value = val || null
-  // Update selectedDateRange when props change
   selectedDateRange.value = detectDateRangeFromProps()
+  dateRangeExcluded.value = false
 })
 watch(() => props.createdBefore, (val) => {
+  if ((val || null) === localCreatedBefore.value) return  // echo of our own emit; keep quick-range identity
   localCreatedBefore.value = val || null
-  // Update selectedDateRange when props change
   selectedDateRange.value = detectDateRangeFromProps()
+  dateRangeExcluded.value = false
 })
 watch(() => props.selectedTags, (val) => syncArray(selectedTags, val))
 watch(() => props.excludedTags, (val) => syncArray(excludedTags, val))
@@ -2267,6 +2348,7 @@ watch(() => props.excludedTools, (val) => syncArray(excludedTools, val))
 watch(() => props.selectedMarkers, (val) => syncArray(selectedMarkers, val))
 watch(() => props.excludedMarkers, (val) => syncArray(excludedMarkers, val))
 watch(() => props.isImported, (val) => localIsImported.value = val ?? null)
+watch(() => props.isUnused, (val) => localIsUnused.value = val ?? null)
 watch(() => props.showExpiring, (val) => localShowExpiring.value = val || false)
 watch(() => props.excludeExpiring, (val) => localExcludeExpiring.value = val || false)
 // Reload counts when similarity search changes
@@ -2311,6 +2393,7 @@ watch(
     props.selectedMarkers,
     props.excludedMarkers,
     props.isImported,
+    props.isUnused,
     props.similarTo,
     props.similarFaceTo,
     props.similarSearchSourceItems,
@@ -2349,7 +2432,8 @@ async function handleProfileChanged() {
     project_membership: { any: 0, none: 0 },
     date_ranges: {},
     imported: 0,
-    expiring: 0
+    expiring: 0,
+    unused: 0
   }
   unfilteredTotalCount.value = null
   hasLoadedCounts.value = false

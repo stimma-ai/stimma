@@ -1,14 +1,23 @@
 """Query building utilities for filtering media items."""
 from datetime import datetime
 from typing import Optional, Union
-from sqlalchemy import select, or_, and_, case, func, false, true
+from sqlalchemy import select, or_, and_, case, func, false, true, union_all
+from sqlalchemy.orm import aliased
 from database import (
+    Asset,
     AssetMarker,
     AssetRevision,
     AssetTag,
+    Board,
+    BoardAssetItem,
+    BoardSection,
+    Chat,
+    ChatItem,
+    ContainerMember,
     Keyword,
     MediaItem,
     MediaKeyword,
+    MediaLineage,
     MediaToolLineage,
     Project,
     ProjectAsset,
@@ -108,6 +117,208 @@ def media_is_imported():
     )
 
 
+def asset_engaged_predicate(asset_id_column):
+    """Return the predicate for an "engaged" Asset — the opposite of Unused.
+
+    An Asset is engaged (NOT a dead end) when any of these hold:
+      - a lineage child of any of its revisions' media belongs to a live Asset,
+        or is bare Media with no Asset at all (conservative: something consumed
+        it and we can't cheaply prove the consumer chain is dead)
+      - any of its media is embedded in — or the Asset is linked from — a live
+        container (set/grid) revision
+      - it carries a live marker (non-suppressed), tag, board membership, or
+        project membership
+      - it was created by a chat item of a live chat, or a live chat references
+        it (asset_id/asset_ids/media_id/media_ids)
+      - it has more than one live revision (the user edited it)
+
+    Every branch below is an UNCORRELATED set query, unioned into one
+    engaged-asset-id set that SQLite materializes once per statement. A
+    per-asset correlated formulation of the same predicate was quadratic in
+    practice (each asset row rescanned chat_items/media_lineage) and took
+    double-digit seconds on real libraries.
+    """
+    # --- Media-id-level protections; owning assets resolve at the end ---
+
+    # Lineage sources whose child is attached to a live asset, or bare
+    child_rev = aliased(AssetRevision)
+    child_asset = aliased(Asset)
+    child_live = (
+        select(1)
+        .select_from(child_rev)
+        .join(child_asset, child_asset.id == child_rev.asset_id)
+        .where(
+            child_rev.primary_media_id == MediaLineage.media_id,
+            child_rev.deleted_at.is_(None),
+            child_asset.state == 'active',
+            child_asset.deleted_at.is_(None),
+        )
+        .correlate_except(child_rev, child_asset)
+        .exists()
+    )
+    child_any_rev = aliased(AssetRevision)
+    child_has_asset = (
+        select(1)
+        .select_from(child_any_rev)
+        .where(
+            child_any_rev.primary_media_id == MediaLineage.media_id,
+            child_any_rev.deleted_at.is_(None),
+        )
+        .correlate_except(child_any_rev)
+        .exists()
+    )
+    lineage_source_media = (
+        select(MediaLineage.source_media_id.label('media_id'))
+        .where(
+            MediaLineage.source_media_id.is_not(None),
+            or_(child_live, ~child_has_asset),
+        )
+    )
+
+    # Media embedded in a live container revision
+    container_rev = aliased(AssetRevision)
+    container_asset = aliased(Asset)
+
+    def _live_container_members(column):
+        return (
+            select(column)
+            .select_from(ContainerMember)
+            .join(container_rev, container_rev.id == ContainerMember.container_revision_id)
+            .join(container_asset, container_asset.id == container_rev.asset_id)
+            .where(
+                column.is_not(None),
+                ContainerMember.deleted_at.is_(None),
+                container_rev.deleted_at.is_(None),
+                container_asset.state == 'active',
+                container_asset.deleted_at.is_(None),
+            )
+        )
+
+    embedded_container_media = _live_container_members(
+        ContainerMember.embedded_media_id.label('media_id')
+    )
+
+    # Media created by, or directly shown in, a live chat
+    creator_media = aliased(MediaItem)
+    chat_created_media = (
+        select(creator_media.id.label('media_id'))
+        .select_from(creator_media)
+        .join(ChatItem, ChatItem.id == creator_media.chat_item_id)
+        .join(Chat, Chat.id == ChatItem.chat_id)
+        .where(Chat.deleted_at.is_(None))
+    )
+    chat_direct_media = (
+        select(ChatItem.media_id.label('media_id'))
+        .join(Chat, Chat.id == ChatItem.chat_id)
+        .where(Chat.deleted_at.is_(None), ChatItem.media_id.is_not(None))
+    )
+    media_json = func.json_each(ChatItem.media_ids).table_valued('value', name='chat_media_json')
+    chat_json_media = (
+        select(media_json.c.value.label('media_id'))
+        .select_from(ChatItem)
+        .join(Chat, Chat.id == ChatItem.chat_id)
+        .join(media_json, true())
+        .where(
+            Chat.deleted_at.is_(None),
+            ChatItem.media_ids.is_not(None),
+            func.json_valid(ChatItem.media_ids) == 1,
+        )
+    )
+
+    protected_media = union_all(
+        lineage_source_media,
+        embedded_container_media,
+        chat_created_media,
+        chat_direct_media,
+        chat_json_media,
+    )
+
+    # --- Asset-id-level protections ---
+    marker_assets = select(AssetMarker.asset_id).where(
+        AssetMarker.source != 'suppressed',
+        AssetMarker.deleted_at.is_(None),
+    )
+    tag_assets = select(AssetTag.asset_id).where(AssetTag.deleted_at.is_(None))
+    board_assets = (
+        select(BoardAssetItem.asset_id)
+        .join(BoardSection, BoardSection.id == BoardAssetItem.board_section_id)
+        .join(Board, Board.id == BoardSection.board_id)
+        .where(
+            BoardAssetItem.deleted_at.is_(None),
+            BoardSection.deleted_at.is_(None),
+            Board.deleted_at.is_(None),
+        )
+    )
+    project_assets = (
+        select(ProjectAsset.asset_id)
+        .join(Project, Project.id == ProjectAsset.project_id)
+        .where(
+            ProjectAsset.deleted_at.is_(None),
+            Project.deleted_at.is_(None),
+        )
+    )
+    linked_container_assets = _live_container_members(
+        ContainerMember.linked_asset_id.label('asset_id')
+    )
+    chat_direct_assets = (
+        select(ChatItem.asset_id)
+        .join(Chat, Chat.id == ChatItem.chat_id)
+        .where(Chat.deleted_at.is_(None), ChatItem.asset_id.is_not(None))
+    )
+    asset_json = func.json_each(ChatItem.asset_ids).table_valued('value', name='chat_asset_json')
+    chat_json_assets = (
+        select(asset_json.c.value.label('asset_id'))
+        .select_from(ChatItem)
+        .join(Chat, Chat.id == ChatItem.chat_id)
+        .join(asset_json, true())
+        .where(
+            Chat.deleted_at.is_(None),
+            ChatItem.asset_ids.is_not(None),
+            func.json_valid(ChatItem.asset_ids) == 1,
+        )
+    )
+    multi_revision_assets = (
+        select(AssetRevision.asset_id)
+        .where(AssetRevision.deleted_at.is_(None))
+        .group_by(AssetRevision.asset_id)
+        .having(func.count(AssetRevision.id) > 1)
+    )
+    media_protected_assets = (
+        select(AssetRevision.asset_id)
+        .where(
+            AssetRevision.deleted_at.is_(None),
+            AssetRevision.primary_media_id.in_(select(protected_media.subquery().c.media_id)),
+        )
+    )
+
+    engaged_assets = union_all(
+        marker_assets,
+        tag_assets,
+        board_assets,
+        project_assets,
+        linked_container_assets,
+        chat_direct_assets,
+        chat_json_assets,
+        multi_revision_assets,
+        media_protected_assets,
+    )
+
+    return asset_id_column.in_(select(engaged_assets.subquery().c.asset_id))
+
+
+def asset_unused_predicate(asset_id_column):
+    """The Unused ("dead end") predicate: never engaged AND not imported.
+
+    Imported payloads are the user's own files — they are never cleanup
+    candidates regardless of engagement. Requires MediaItem in the enclosing
+    query (true for all browser-screen queries).
+    """
+    return and_(
+        ~asset_engaged_predicate(asset_id_column),
+        ~media_is_imported(),
+    )
+
+
 def build_filtered_query(
     query,
     caption_query: Optional[str] = None,
@@ -137,6 +348,7 @@ def build_filtered_query(
     created_before: Optional[str] = None,
     show_expiring: Optional[bool] = None,
     exclude_expiring: Optional[bool] = None,
+    is_unused: Optional[bool] = None,
     min_mp: Optional[float] = None,
     max_mp: Optional[float] = None,
     exclude_expired: bool = True,
@@ -504,6 +716,11 @@ def build_filtered_query(
             query = query.where(false())
         if exclude_expiring and expires_at is not None:
             query = query.where(expires_at.is_(None))
+
+    # Unused ("dead end") filter: generated leaves nobody ever did anything with.
+    if exclude_category != 'unused' and is_unused is not None:
+        unused = asset_unused_predicate(organization_asset_id)
+        query = query.where(unused if is_unused else ~unused)
 
     # Direct megapixel range (legacy: only meaningful when `resolutions` is not used)
     if min_mp is not None:

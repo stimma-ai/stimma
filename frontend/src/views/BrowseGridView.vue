@@ -93,6 +93,7 @@
       v-model:selectedMarkers="filters.selectedMarkers"
       v-model:excludedMarkers="filters.excludedMarkers"
       v-model:isImported="filters.isImported"
+      v-model:isUnused="filters.isUnused"
       v-model:showExpiring="filters.showExpiring"
       v-model:excludeExpiring="filters.excludeExpiring"
       v-model:createdAfter="filters.createdAfter"
@@ -841,6 +842,9 @@ function buildFilterParams() {
   }
   if (filters.isImported !== null && filters.isImported !== undefined) {
     params.is_imported = filters.isImported
+  }
+  if (filters.isUnused !== null && filters.isUnused !== undefined) {
+    params.is_unused = filters.isUnused
   }
   if (filters.similarTo && filters.similarTo.length > 0) {
     params.similar_to = filters.similarTo.join(',')
@@ -1931,6 +1935,7 @@ onMounted(async () => {
         (filters.selectedMarkers?.length > 0) ||
         (filters.excludedMarkers?.length > 0) ||
         filters.isImported !== null ||
+        filters.isUnused !== null ||
         (filters.similarTo?.length > 0) ||
         (filters.similarFaceTo?.length > 0) ||
         !!filters.createdAfter ||
@@ -2116,7 +2121,8 @@ async function handleSettingsLoaded() {
       savedFilters.selectedTags?.length > 0 ||
       savedFilters.selectedFolders?.length > 0 ||
       savedFilters.selectedMarkers?.length > 0 ||
-      savedFilters.isImported !== null
+      savedFilters.isImported !== null ||
+      savedFilters.isUnused !== null
 
     if (hasNonDefaultFilters) {
       Object.assign(filters, savedFilters)

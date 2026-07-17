@@ -107,6 +107,11 @@ export function useUrlState() {
       params.set('imp', filters.isImported ? '1' : '0')
     }
 
+    // Unused / dead-end filter (1 = unused only, 0 = used only)
+    if (filters.isUnused !== null && filters.isUnused !== undefined) {
+      params.set('unu', filters.isUnused ? '1' : '0')
+    }
+
     // Similar search (supports multiple IDs)
     if (filters.similarTo && filters.similarTo.length > 0) {
       params.set('sim', Array.isArray(filters.similarTo) ? filters.similarTo.join(',') : filters.similarTo)
@@ -167,6 +172,9 @@ export function useUrlState() {
 
     if (queryParams.imp === '1') filters.isImported = true
     else if (queryParams.imp === '0') filters.isImported = false
+
+    if (queryParams.unu === '1') filters.isUnused = true
+    else if (queryParams.unu === '0') filters.isUnused = false
 
     // Media types
     if (queryParams.mt) {

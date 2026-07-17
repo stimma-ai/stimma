@@ -20,6 +20,7 @@ export const DEFAULT_BROWSE_FILTERS = {
   selectedMarkers: [],
   excludedMarkers: [],
   isImported: null,
+  isUnused: null,
   showExpiring: false,
   excludeExpiring: false,
   similarTo: [],
