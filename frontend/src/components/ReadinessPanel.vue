@@ -76,8 +76,6 @@
 
               <p class="relative mt-8 text-center text-xs text-content-tertiary">Mix and match services freely. You can change them at any time.</p>
 
-              <div class="relative mt-3 text-center"><RedeemCodeLink /></div>
-
             </div>
 
             <!-- STEP 1 · chat models -->
@@ -216,7 +214,6 @@ import { addToast } from '../composables/useToasts'
 import AIServicesSection from './settings/sections/AIServicesSection.vue'
 import ToolProvidersSection from './settings/sections/ToolProvidersSection.vue'
 import FoldersSection from './settings/sections/FoldersSection.vue'
-import RedeemCodeLink from './RedeemCodeLink.vue'
 import { preserveConnectingToolProviderStatuses, toolProviderUpdateStartsConnection } from '../utils/toolProviderBrands'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { MODEL_MARK_SVGS } from './tools/modelMarks'
