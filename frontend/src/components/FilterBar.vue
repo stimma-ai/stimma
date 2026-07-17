@@ -375,13 +375,13 @@
         <div v-if="isLoading" class="absolute top-0 left-0 right-0 bottom-0 bg-[rgba(26,26,26,0.8)] flex items-center justify-center z-10 backdrop-blur-[2px]">
           <div class="w-8 h-8 border-[3px] border-edge border-t-indigo-500 rounded-full spinner"></div>
         </div>
-        <div ref="criteriaScrollContainer" class="flex gap-2 px-2 py-2 overflow-x-auto overflow-y-hidden transition-opacity" :class="{ 'opacity-50 pointer-events-none': isLoading }" @wheel="handleHorizontalScroll">
+        <div ref="criteriaScrollContainer" class="flex gap-8 px-4 py-3 overflow-x-auto overflow-y-hidden transition-opacity" :class="{ 'opacity-50 pointer-events-none': isLoading }" @wheel="handleHorizontalScroll">
           <!-- Created Column -->
-          <div class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+          <div v-if="visibleDateRanges.length > 0 || selectedDateRange === 'custom'" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">CREATED</h4>
             <div class="flex flex-col gap-2">
               <button
-                v-for="range in dateRanges"
+                v-for="range in visibleDateRanges"
                 :key="range.value"
                 @click="selectDateRange(range.value)"
                 :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': selectedDateRange === range.value }, selectedDateRange === range.value ? '' : 'hover:bg-overlay-subtle']"
@@ -396,70 +396,27 @@
           </div>
 
           <!-- Asset Type Column -->
-          <div class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+          <div v-if="visibleMediaTypes.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">ASSET TYPE</h4>
             <div class="flex flex-col gap-2">
               <div
-                @click="toggleMediaType('images')"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('images') }, isMediaTypeSelected('images') ? '' : 'hover:bg-overlay-subtle']"
+                v-for="type in visibleMediaTypes"
+                :key="type.value"
+                @click="toggleMediaType(type.value)"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected(type.value) }, isMediaTypeSelected(type.value) ? '' : 'hover:bg-overlay-subtle']"
               >
-                <span :class="['text-sm', isMediaTypeSelected('images') ? 'text-content font-semibold' : 'text-content-secondary']">Images</span>
-                <span :class="['text-xs', isMediaTypeSelected('images') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.images }})</span>
-              </div>
-              <div
-                @click="toggleMediaType('videos')"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('videos') }, isMediaTypeSelected('videos') ? '' : 'hover:bg-overlay-subtle']"
-              >
-                <span :class="['text-sm', isMediaTypeSelected('videos') ? 'text-content font-semibold' : 'text-content-secondary']">Videos</span>
-                <span :class="['text-xs', isMediaTypeSelected('videos') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.videos }})</span>
-              </div>
-              <div
-                @click="toggleMediaType('audio')"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('audio') }, isMediaTypeSelected('audio') ? '' : 'hover:bg-overlay-subtle']"
-              >
-                <span :class="['text-sm', isMediaTypeSelected('audio') ? 'text-content font-semibold' : 'text-content-secondary']">Audio</span>
-                <span :class="['text-xs', isMediaTypeSelected('audio') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.audio }})</span>
-              </div>
-              <div
-                @click="toggleMediaType('text')"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('text') }, isMediaTypeSelected('text') ? '' : 'hover:bg-overlay-subtle']"
-              >
-                <span :class="['text-sm', isMediaTypeSelected('text') ? 'text-content font-semibold' : 'text-content-secondary']">Text</span>
-                <span :class="['text-xs', isMediaTypeSelected('text') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.text }})</span>
-              </div>
-              <div
-                @click="toggleMediaType('sets')"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('sets') }, isMediaTypeSelected('sets') ? '' : 'hover:bg-overlay-subtle']"
-              >
-                <span :class="['text-sm', isMediaTypeSelected('sets') ? 'text-content font-semibold' : 'text-content-secondary']">Sets</span>
-                <span :class="['text-xs', isMediaTypeSelected('sets') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.sets }})</span>
-              </div>
-              <div
-                @click="toggleMediaType('grids')"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('grids') }, isMediaTypeSelected('grids') ? '' : 'hover:bg-overlay-subtle']"
-              >
-                <span :class="['text-sm', isMediaTypeSelected('grids') ? 'text-content font-semibold' : 'text-content-secondary']">Grids</span>
-                <span :class="['text-xs', isMediaTypeSelected('grids') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.grids }})</span>
-              </div>
-              <div
-                @click="toggleMediaType('layouts')"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected('layouts') }, isMediaTypeSelected('layouts') ? '' : 'hover:bg-overlay-subtle']"
-              >
-                <span :class="['text-sm', isMediaTypeSelected('layouts') ? 'text-content font-semibold' : 'text-content-secondary']">Layouts</span>
-                <span :class="['text-xs', isMediaTypeSelected('layouts') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type.layouts }})</span>
+                <span :class="['text-sm', isMediaTypeSelected(type.value) ? 'text-content font-semibold' : 'text-content-secondary']">{{ type.label }}</span>
+                <span :class="['text-xs', isMediaTypeSelected(type.value) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type[type.value] }})</span>
               </div>
             </div>
           </div>
 
           <!-- Folders Column -->
-          <div class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+          <div v-if="visibleFolders.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">FOLDERS</h4>
             <div class="flex flex-col gap-2">
-              <div v-if="!isLoading && folders.length === 0" class="text-sm text-content-muted italic py-2 text-center">
-                None
-              </div>
               <div
-                v-for="folder in foldersLimited"
+                v-for="folder in visibleFolders"
                 :key="folder"
                 @click="toggleFolder(folder)"
                 :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isFolderSelected(folder) }, isFolderSelected(folder) ? '' : 'hover:bg-overlay-subtle']"
@@ -474,16 +431,12 @@
           </div>
 
           <!-- Tags Column -->
-          <div class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+          <div v-if="visibleTags.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">TAGS</h4>
             <div class="flex flex-col gap-2">
-              <!-- No tags placeholder -->
-              <div v-if="!isLoading && tags.length === 0" class="text-sm text-content-muted italic py-2 text-center">
-                None
-              </div>
               <!-- Top tags (clickable) -->
               <div
-                v-for="tag in tagsLimited"
+                v-for="tag in visibleTags"
                 :key="tag.id"
                 @click="toggleTag(tag.id)"
                 :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isTagSelected(tag.id) }, isTagSelected(tag.id) ? '' : 'hover:bg-overlay-subtle']"
@@ -499,11 +452,12 @@
           </div>
 
           <!-- Projects Column (hidden in trash and when already scoped to a single project) -->
-          <div v-if="!isTrashMode && !inProjectScope" class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+          <div v-if="!isTrashMode && !inProjectScope && (showProjectMembershipChip || visibleProjects.length > 0)" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">PROJECTS</h4>
             <div class="flex flex-col gap-2">
               <!-- Membership existence chip: none → In a project (blue) → Not in a project (red) -->
               <div
+                v-if="showProjectMembershipChip"
                 @click="cycleProjectMembership"
                 :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all',
                          projectMembership === 'any' ? 'bg-blue-500/15 border border-blue-500/50 px-3'
@@ -517,11 +471,8 @@
                 <span :class="['text-xs', projectMembership ? 'text-content-tertiary' : 'text-content-muted']">({{ projectMembership === 'none' ? (filterCounts.project_membership?.none || 0) : (filterCounts.project_membership?.any || 0) }})</span>
               </div>
               <!-- Specific projects (greyed out while "not in any project" is active) -->
-              <div v-if="!isLoading && projects.length === 0" class="text-sm text-content-muted italic py-2 text-center">
-                None
-              </div>
               <div
-                v-for="project in projectsLimited"
+                v-for="project in visibleProjects"
                 :key="project.id"
                 @click="toggleProject(project.id)"
                 :class="['flex justify-between items-center gap-2 py-1.5 rounded-md transition-all',
@@ -539,14 +490,11 @@
           </div>
 
           <!-- Tools Column -->
-          <div v-if="(filterCounts.tools && filterCounts.tools.length > 0) || (selectedTools.length > 0 || excludedTools.length > 0)" class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+          <div v-if="visibleTools.length > 0" class="flex flex-col gap-3 min-w-[240px] max-w-[340px] flex-[2] flex-shrink-0">
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">TOOLS</h4>
             <div class="flex flex-col gap-2">
-              <div v-if="!isLoading && toolsLimited.length === 0" class="text-sm text-content-muted italic py-2 text-center">
-                None
-              </div>
               <div
-                v-for="tool in toolsLimited"
+                v-for="tool in visibleTools"
                 :key="tool.full_tool_id"
                 @click="toggleTool(tool.full_tool_id)"
                 :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isToolSelected(tool.full_tool_id) }, isToolSelected(tool.full_tool_id) ? '' : 'hover:bg-overlay-subtle']"
@@ -565,16 +513,12 @@
           </div>
 
           <!-- Keywords Column -->
-          <div v-if="captioningEnabledRef" class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+          <div v-if="captioningEnabledRef && visibleKeywords.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">KEYWORDS</h4>
             <div class="flex flex-col gap-2">
-              <!-- No keywords placeholder -->
-              <div v-if="!isLoading && topKeywords.length === 0" class="text-sm text-content-muted italic py-2 text-center">
-                None
-              </div>
               <!-- Top keywords (clickable) -->
               <div
-                v-for="kw in topKeywordsLimited"
+                v-for="kw in visibleKeywords"
                 :key="kw.keyword"
                 @click="toggleKeyword(kw.keyword)"
                 :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isKeywordSelected(kw.keyword) }, isKeywordSelected(kw.keyword) ? '' : 'hover:bg-overlay-subtle']"
@@ -590,7 +534,7 @@
           </div>
 
           <!-- Text Filter Column -->
-          <div class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+          <div class="flex flex-col gap-3 min-w-[220px] max-w-[320px] flex-[2] flex-shrink-0">
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">AI SEARCH</h4>
             <div class="flex flex-col gap-2">
               <input v-no-autocorrect
@@ -612,11 +556,12 @@
             </div>
           </div>
 
-          <!-- Utility Column (far right) - not shown in trash mode -->
-          <div v-if="!isTrashMode" class="flex flex-col gap-3 min-w-[140px] flex-shrink-0">
+          <!-- Utility Column - not shown in trash mode -->
+          <div v-if="!isTrashMode && showUtilityColumn" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">UTILITY</h4>
             <div class="flex flex-col gap-2">
               <div
+                v-if="showImportedRow"
                 @click="toggleImportedFilter"
                 :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': localIsImported !== null }, localIsImported !== null ? '' : 'hover:bg-overlay-subtle']"
               >
@@ -624,6 +569,7 @@
                 <span :class="['text-xs', localIsImported !== null ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.imported || 0 }})</span>
               </div>
               <div
+                v-if="showExpiringRow"
                 @click="toggleExpiringFilter('expiring')"
                 :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isExpiringFilterSelected() }, isExpiringFilterSelected() ? '' : 'hover:bg-overlay-subtle']"
               >
@@ -631,28 +577,20 @@
                 <span :class="['text-xs', isExpiringFilterSelected() ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.expiring || 0 }})</span>
               </div>
             </div>
+          </div>
+
+          <!-- Resolution Column - not shown in trash mode -->
+          <div v-if="!isTrashMode && visibleResolutions.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">RESOLUTION</h4>
             <div class="flex flex-col gap-2">
               <div
-                @click="toggleResolution('small')"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isResolutionSelected('small') }, isResolutionSelected('small') ? '' : 'hover:bg-overlay-subtle']"
+                v-for="res in visibleResolutions"
+                :key="res.value"
+                @click="toggleResolution(res.value)"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isResolutionSelected(res.value) }, isResolutionSelected(res.value) ? '' : 'hover:bg-overlay-subtle']"
               >
-                <span :class="['text-sm', isResolutionSelected('small') ? 'text-content font-semibold' : 'text-content-secondary']">Small</span>
-                <span :class="['text-xs', isResolutionSelected('small') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.resolution.small }})</span>
-              </div>
-              <div
-                @click="toggleResolution('medium')"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isResolutionSelected('medium') }, isResolutionSelected('medium') ? '' : 'hover:bg-overlay-subtle']"
-              >
-                <span :class="['text-sm', isResolutionSelected('medium') ? 'text-content font-semibold' : 'text-content-secondary']">Medium</span>
-                <span :class="['text-xs', isResolutionSelected('medium') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.resolution.medium }})</span>
-              </div>
-              <div
-                @click="toggleResolution('large')"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isResolutionSelected('large') }, isResolutionSelected('large') ? '' : 'hover:bg-overlay-subtle']"
-              >
-                <span :class="['text-sm', isResolutionSelected('large') ? 'text-content font-semibold' : 'text-content-secondary']">Large</span>
-                <span :class="['text-xs', isResolutionSelected('large') ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.resolution.large }})</span>
+                <span :class="['text-sm', isResolutionSelected(res.value) ? 'text-content font-semibold' : 'text-content-secondary']">{{ res.label }}</span>
+                <span :class="['text-xs', isResolutionSelected(res.value) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.resolution[res.value] }})</span>
               </div>
             </div>
           </div>
@@ -1148,6 +1086,76 @@ const toolsLimited = computed(() => {
 
   return result
 })
+
+// Facet row/column visibility: hide zero-count entries unless they're part of an
+// active filter (so an active selection can always be deselected). Before the
+// first counts load, show everything to avoid a flash of empty columns.
+const mediaTypeOptions = [
+  { value: 'images', label: 'Images' },
+  { value: 'videos', label: 'Videos' },
+  { value: 'audio', label: 'Audio' },
+  { value: 'text', label: 'Text' },
+  { value: 'sets', label: 'Sets' },
+  { value: 'grids', label: 'Grids' },
+  { value: 'layouts', label: 'Layouts' },
+]
+const resolutionOptions = [
+  { value: 'small', label: 'Small' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'large', label: 'Large' },
+]
+
+const visibleMediaTypes = computed(() => {
+  if (!hasLoadedCounts.value) return mediaTypeOptions
+  return mediaTypeOptions.filter(t => (filterCounts.value.media_type[t.value] || 0) > 0 || isMediaTypeSelected(t.value))
+})
+
+const visibleDateRanges = computed(() => {
+  if (!hasLoadedCounts.value) return dateRanges
+  return dateRanges.filter(r => (filterCounts.value.date_ranges[r.value] || 0) > 0 || selectedDateRange.value === r.value)
+})
+
+const visibleFolders = computed(() => {
+  if (!hasLoadedCounts.value) return foldersLimited.value
+  return foldersLimited.value.filter(f => (filterCounts.value.folders[f] || 0) > 0 || isFolderSelected(f))
+})
+
+const visibleTags = computed(() => {
+  if (!hasLoadedCounts.value) return tagsLimited.value
+  return tagsLimited.value.filter(t => (t.usage_count || 0) > 0 || isTagSelected(t.id) || isTagExcluded(t.id))
+})
+
+const visibleProjects = computed(() => {
+  if (!hasLoadedCounts.value) return projectsLimited.value
+  return projectsLimited.value.filter(p => (filterCounts.value.projects?.[p.id] || 0) > 0 || isProjectSelected(p.id))
+})
+
+const showProjectMembershipChip = computed(() =>
+  !hasLoadedCounts.value || (filterCounts.value.project_membership?.any || 0) > 0 || projectMembership.value !== null
+)
+
+const visibleTools = computed(() => {
+  if (!hasLoadedCounts.value) return toolsLimited.value
+  return toolsLimited.value.filter(t => (t.count || 0) > 0 || isToolSelected(t.full_tool_id))
+})
+
+const visibleKeywords = computed(() => {
+  if (!hasLoadedCounts.value) return topKeywordsLimited.value
+  return topKeywordsLimited.value.filter(kw => (kw.count || 0) > 0 || isKeywordSelected(kw.keyword))
+})
+
+const visibleResolutions = computed(() => {
+  if (!hasLoadedCounts.value) return resolutionOptions
+  return resolutionOptions.filter(r => (filterCounts.value.resolution[r.value] || 0) > 0 || isResolutionSelected(r.value))
+})
+
+const showImportedRow = computed(() =>
+  !hasLoadedCounts.value || (filterCounts.value.imported || 0) > 0 || localIsImported.value !== null
+)
+const showExpiringRow = computed(() =>
+  !hasLoadedCounts.value || (filterCounts.value.expiring || 0) > 0 || localShowExpiring.value || localExcludeExpiring.value
+)
+const showUtilityColumn = computed(() => showImportedRow.value || showExpiringRow.value)
 
 // Filter params to pass to keyword modal
 const modalFilterParams = computed(() => {
