@@ -328,7 +328,7 @@ const greeting = computed(() => {
   return 'Good evening, what are we making?'
 })
 
-const greetingSub = computed(() => 'Describe it, drop an image in, or jump straight into a tool.')
+const greetingSub = computed(() => '')
 
 // ==================== Tools ====================
 
