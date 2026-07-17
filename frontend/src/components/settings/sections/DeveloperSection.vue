@@ -135,6 +135,19 @@
           </button>
         </div>
 
+        <div class="flex items-start justify-between gap-6">
+          <div class="min-w-0 max-w-xl">
+            <h4 class="text-sm font-medium text-content">Replay First-Run Tour</h4>
+            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Run the sidebar coachmark tour again (Chats, Tools, Feedback)</p>
+          </div>
+          <button
+            @click="replayTour"
+            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
+          >
+            Replay Tour
+          </button>
+        </div>
+
         <div v-if="isTauri()" class="flex items-start justify-between gap-6">
           <div class="min-w-0 max-w-xl">
             <h4 class="text-sm font-medium text-content">Set Window Size to 1440×900</h4>
@@ -300,6 +313,7 @@ import { ref, watch, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSettingsApi } from '../../../composables/useSettingsApi'
 import { useReadiness } from '../../../composables/useReadiness'
+import { useTour } from '../../../composables/useTour'
 import { makeGlobalKey } from '../../../utils/storageKeys'
 import { hideAccountRef, hidePricesRef, setHideAccount, setHidePrices } from '../../../appConfig'
 import { isTauri } from '../../../apiConfig'
@@ -380,6 +394,14 @@ function runSetupWizard() {
   // The wizard renders below the settings modal, so close settings first.
   emit('close-settings')
   useReadiness().relaunchWizard()
+}
+
+function replayTour() {
+  // The tour anchors to the sidebar, so close settings first. The tour's
+  // trigger only fires on the home route — go there too.
+  emit('close-settings')
+  router.push({ name: 'home' })
+  useTour().relaunchTour()
 }
 
 const filteredMetricRows = computed(() => {

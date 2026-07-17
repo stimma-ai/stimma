@@ -155,6 +155,12 @@ class ToolProviderResponse(BaseModel):
 # setup_wizard_seen_version is behind gets the wizard on next launch.
 SETUP_WIZARD_VERSION = 1
 
+# Current first-run-tour version (the three-coachmark sidebar tour shown
+# after the setup wizard). Bump when the tour changes enough that existing
+# installs should see it again; anyone whose persisted tour_seen_version is
+# behind gets the tour on next launch.
+FIRST_RUN_TOUR_VERSION = 1
+
 
 class ReadinessResponse(BaseModel):
     """App-entry readiness (OOBE entitlement flow).
@@ -173,6 +179,10 @@ class ReadinessResponse(BaseModel):
     missing: List[str] = []  # subset of ["agent_llm", "generation"]
     wizard_version: int = SETUP_WIZARD_VERSION
     wizard_seen_version: int = 0
+    # First-run tour: shows when tour_seen_version < tour_version; the
+    # frontend marks it seen via POST /api/settings/tour-seen.
+    tour_version: int = FIRST_RUN_TOUR_VERSION
+    tour_seen_version: int = 0
 
 
 class ProfileResponse(BaseModel):
@@ -805,6 +815,8 @@ def _compute_readiness(settings) -> ReadinessResponse:
         missing=missing,
         wizard_version=SETUP_WIZARD_VERSION,
         wizard_seen_version=settings.setup_wizard_seen_version,
+        tour_version=FIRST_RUN_TOUR_VERSION,
+        tour_seen_version=settings.tour_seen_version,
     )
 
 
@@ -848,6 +860,16 @@ async def mark_setup_wizard_seen():
     settings.setup_wizard_seen_version = SETUP_WIZARD_VERSION
     log.info("setup wizard marked seen", version=SETUP_WIZARD_VERSION)
     return {"status": "success", "wizard_seen_version": SETUP_WIZARD_VERSION}
+
+
+@router.post("/tour-seen")
+async def mark_tour_seen():
+    """Persist that this install has seen the current first-run tour."""
+    settings = get_settings()
+    patch_global_section("tour_seen_version", FIRST_RUN_TOUR_VERSION)
+    settings.tour_seen_version = FIRST_RUN_TOUR_VERSION
+    log.info("first-run tour marked seen", version=FIRST_RUN_TOUR_VERSION)
+    return {"status": "success", "tour_seen_version": FIRST_RUN_TOUR_VERSION}
 
 
 class UpdateDebugForceFFmpegMissingRequest(BaseModel):

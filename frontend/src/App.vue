@@ -14,6 +14,8 @@
 
     <ReadinessPanel />
 
+    <FirstRunTour />
+
     <BalanceCelebrationModal />
 
     <FeedbackRoot />
@@ -179,6 +181,7 @@ import TopBar from './components/TopBar.vue'
 import ToastContainer from './components/ToastContainer.vue'
 import MediaDetailsModal from './components/media/MediaDetailsModal.vue'
 import ReadinessPanel from './components/ReadinessPanel.vue'
+import FirstRunTour from './components/FirstRunTour.vue'
 import BalanceCelebrationModal from './components/BalanceCelebrationModal.vue'
 import SettingsModal from './components/settings/SettingsModal.vue'
 import FeedbackRoot from '@stimma/feedback-root'

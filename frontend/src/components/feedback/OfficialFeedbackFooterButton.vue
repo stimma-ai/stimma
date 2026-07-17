@@ -2,6 +2,7 @@
   <button
     v-if="!privacyLockdownActive"
     @click="openFeedback"
+    data-tour="feedback"
     class="h-8 flex items-center justify-center rounded text-content-tertiary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle border-none bg-transparent"
     :class="wide ? 'flex-1' : 'w-8 flex-shrink-0'"
     title="Send feedback"

@@ -768,6 +768,11 @@ class Settings(BaseSettings):
     # (routes/settings.py) — bumping that constant re-runs the wizard for
     # everyone who hasn't seen the current one.
     setup_wizard_seen_version: int = 0
+    # Last first-run-tour version this install has completed/dismissed.
+    # The three-coachmark sidebar tour auto-shows whenever this is behind
+    # FIRST_RUN_TOUR_VERSION (routes/settings.py) — bumping that constant
+    # re-runs the tour for everyone who hasn't seen the current one.
+    tour_seen_version: int = 0
     debug_force_ffmpeg_missing: bool = False  # Dev-only: pretend ffmpeg/ffprobe aren't installed
     # Dev-only: when set, stimpacks in this directory are the authority for built-in
     # stimpacks — they shadow same-named stimpacks installed in any profile. Lets us edit

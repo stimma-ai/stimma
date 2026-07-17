@@ -160,6 +160,7 @@
           <div class="group relative">
             <button
               @click="handleNavClick('chats')"
+              data-tour="chats"
               @dragover="handleDragOver"
               @dragenter="handleNewChatDragEnter"
               @dragleave="handleNewChatDragLeave"
@@ -222,6 +223,7 @@
           <!-- Tools landing link -->
           <button
             @click="handleNavClick('all-tools')"
+            data-tour="tools"
             class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
             :class="activeTab === 'all-tools' ? '!bg-overlay-hover !text-content' : ''"
           >

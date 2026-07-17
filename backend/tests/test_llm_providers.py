@@ -85,6 +85,7 @@ def test_readiness_carries_setup_wizard_versions(monkeypatch):
     settings = SimpleNamespace(
         tool_providers=[],
         setup_wizard_seen_version=0,
+        tour_seen_version=0,
     )
     monkeypatch.setattr(settings_route, "_has_cloud_balance", lambda: False)
     monkeypatch.setattr(
@@ -95,6 +96,8 @@ def test_readiness_carries_setup_wizard_versions(monkeypatch):
 
     assert readiness.wizard_version == settings_route.SETUP_WIZARD_VERSION
     assert readiness.wizard_seen_version == 0
+    assert readiness.tour_version == settings_route.FIRST_RUN_TOUR_VERSION
+    assert readiness.tour_seen_version == 0
 
 
 @pytest.mark.asyncio
@@ -115,6 +118,26 @@ async def test_mark_setup_wizard_seen_persists_current_version(monkeypatch):
     ]
     assert runtime_settings.setup_wizard_seen_version == settings_route.SETUP_WIZARD_VERSION
     assert result["wizard_seen_version"] == settings_route.SETUP_WIZARD_VERSION
+
+
+@pytest.mark.asyncio
+async def test_mark_tour_seen_persists_current_version(monkeypatch):
+    runtime_settings = SimpleNamespace(tour_seen_version=0)
+    persisted = []
+    monkeypatch.setattr(settings_route, "get_settings", lambda: runtime_settings)
+    monkeypatch.setattr(
+        settings_route,
+        "patch_global_section",
+        lambda section, value: persisted.append((section, value)),
+    )
+
+    result = await settings_route.mark_tour_seen()
+
+    assert persisted == [
+        ("tour_seen_version", settings_route.FIRST_RUN_TOUR_VERSION)
+    ]
+    assert runtime_settings.tour_seen_version == settings_route.FIRST_RUN_TOUR_VERSION
+    assert result["tour_seen_version"] == settings_route.FIRST_RUN_TOUR_VERSION
 
 
 @pytest.mark.asyncio
