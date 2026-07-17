@@ -57,8 +57,6 @@
             <span class="font-brand lowercase tracking-[0.12em]">stimma</span>
           </button>
 
-          <div class="h-1"></div>
-
           <!-- Saved Views -->
           <button
             v-for="savedView in savedViews"
@@ -73,9 +71,6 @@
             </svg>
             <span class="truncate text-sm">{{ savedView.name }}</span>
           </button>
-
-          <!-- Small gap between saved views and system views -->
-          <div v-if="savedViews.length > 0" class="h-1"></div>
 
           <!-- All Assets -->
           <button
@@ -100,9 +95,6 @@
             </svg>
             <span>Trash</span>
           </button>
-
-          <!-- Gap before landing page links -->
-          <div class="h-2"></div>
 
           <div class="group relative">
             <button
