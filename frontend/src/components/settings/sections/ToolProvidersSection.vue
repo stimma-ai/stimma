@@ -898,7 +898,7 @@ const isCloudConnecting = ref(false)
 async function handleCloudConnect() {
   isCloudConnecting.value = true
   try {
-    await signInWithBrowser()
+    await signInWithBrowser(props.wizard ? 'create' : undefined)
   } catch (error) {
     addToast(error.message || 'Connection failed', 'error')
   } finally {

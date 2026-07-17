@@ -570,7 +570,7 @@ async function handleCloudConnect() {
   cloudConnecting.value = true
   cloudConnectError.value = ''
   try {
-    await signInWithBrowser('sign-in')
+    await signInWithBrowser(props.wizard ? 'create' : 'sign-in')
     await refreshAll()
   } catch (error) {
     cloudConnectError.value = error?.message || 'Could not sign in to Stimma.'
