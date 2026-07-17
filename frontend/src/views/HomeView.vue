@@ -269,7 +269,7 @@ const entityContextMenu = useEntityContextMenu()
 const { addToast } = useToasts()
 const { agentModelUnavailable, checkAgentModels } = useAgentModelAvailability()
 const { globalDefault, getSelectableModel } = useAvailableModels()
-const { fetchProvidersAndTools } = useProvidersApi()
+const { fetchProvidersAndTools, subscribeToProviderChanges } = useProvidersApi()
 
 const chatInputBoxRef = ref(null)
 const contentRef = ref(null)
@@ -819,16 +819,27 @@ async function loadAll() {
   loaded.value = true
 }
 
+// Providers connect and tools appear asynchronously (login, funding, first
+// sync) — often after this screen has already rendered behind the setup
+// wizard. Reload tools on provider/tool change events so the launcher pills
+// and first-run starter grid fill in as soon as tools exist.
+let unsubscribeFromProviderChanges = null
+
 onMounted(() => {
   setupResizeObserver()
   loadAll()
   checkAgentModels()
   checkPendingMedia()
   chatInputBoxRef.value?.focus()
+  unsubscribeFromProviderChanges = subscribeToProviderChanges(() => loadTools())
 })
 
 onUnmounted(() => {
   cleanupResizeObserver()
+  if (unsubscribeFromProviderChanges) {
+    unsubscribeFromProviderChanges()
+    unsubscribeFromProviderChanges = null
+  }
 })
 
 onActivated(() => {
