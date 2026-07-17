@@ -139,21 +139,58 @@
                   : 'border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle'"
               >
                 <!-- Art -->
-                <div class="h-28 bg-overlay-subtle">
-                  <!-- Board: up to 4 preview thumbnails -->
-                  <div v-if="item.type === 'board' && getBoardPreviewItems(item.board).length > 0" class="grid grid-cols-4 gap-[2px] w-full h-full">
-                    <MediaImage
-                      v-for="previewItem in getBoardPreviewItems(item.board)"
-                      :key="`${item.id}-${previewItem.id}`"
-                      :media-id="mediaIdOf(previewItem)"
-                      :file-hash="previewItem.file_hash"
-                      :thumbnail="true"
-                      :thumbnail-size="128"
-                      :draggable="false"
-                      :enable-context-menu="false"
-                      container-class="w-full h-full"
-                      class="w-full h-full object-cover"
-                    />
+                <div class="w-full h-28 bg-overlay-subtle">
+                  <!-- Board: filmstrip of tiles at natural aspect, full strip
+                       height, left-aligned on the gray backdrop. Widths follow
+                       each item's aspect ratio so sparse boards read as tiles
+                       on a shelf instead of stretched crops. -->
+                  <div
+                    v-if="item.type === 'board' && getBoardPreviewItems(item.board).length > 0"
+                    class="h-full overflow-hidden px-2 py-2"
+                  >
+                    <div class="flex h-full gap-1.5">
+                      <div
+                        v-for="(previewItem, index) in getBoardPreviewItems(item.board)"
+                        :key="`${item.id}-${previewItem.id}-${index}`"
+                        class="h-full flex-shrink-0 max-w-[55%] overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint"
+                        :style="getPreviewTileStyle(previewItem)"
+                      >
+                        <MediaImage
+                          :media-id="mediaIdOf(previewItem)"
+                          :file-hash="previewItem.file_hash"
+                          :file-path="previewItem.file_path"
+                          :file-format="previewItem.file_format"
+                          :is-video="isVideoFormat(previewItem.file_format)"
+                          :thumbnail="true"
+                          :thumbnail-size="256"
+                          :draggable="false"
+                          :enable-context-menu="false"
+                          container-class="w-full h-full"
+                          class="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Flow: filmstrip of surfaced output media -->
+                  <div
+                    v-else-if="item.type === 'flow' && getFlowPreviewMediaIds(item.id).length > 0"
+                    class="flex w-full h-full gap-[2px]"
+                  >
+                    <div
+                      v-for="mid in getFlowPreviewMediaIds(item.id)"
+                      :key="`${item.id}-${mid}`"
+                      class="flex-1 min-w-0 h-full overflow-hidden"
+                    >
+                      <MediaImage
+                        :media-id="mid"
+                        :thumbnail="true"
+                        :thumbnail-size="256"
+                        :draggable="false"
+                        :enable-context-menu="false"
+                        container-class="w-full h-full"
+                        class="w-full h-full object-cover"
+                      />
+                    </div>
                   </div>
                   <!-- Chat: latest media as cover -->
                   <MediaImage
@@ -252,6 +289,7 @@ import { formatTaskTypeLabel } from '../utils/taskTypeIcons'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
 import { useFlowsApi } from '../composables/useFlowsApi'
+import { computeFlowOutputs } from '../composables/useFlowOutputs'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
 import { useToasts } from '../composables/useToasts'
 import { getDroppedAssetRefs, getDroppedMediaIds } from '../composables/useDragPreview'
@@ -263,7 +301,7 @@ import { mediaIdOf } from '../utils/assetIdentity'
 const router = useRouter()
 const { getBoards, getBoard, addMediaToBoard, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
 const { fetchAssets, addToBoard: addAssetsToBoard } = useAssetApi()
-const { listFlows, updateFlow, deleteFlow, restoreFlow } = useFlowsApi()
+const { listFlows, listEquations, updateFlow, deleteFlow, restoreFlow } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
 const entityContextMenu = useEntityContextMenu()
 const { addToast } = useToasts()
@@ -291,6 +329,7 @@ const recentChats = ref([])
 const recentMedia = ref([])
 const recentBoards = ref([])
 const recentFlows = ref([])
+const flowOutputMedia = ref(new Map()) // flow_id -> [media_id, ...] newest-first
 const boardDetails = ref(new Map())
 const loaded = ref(false)
 const dragOverBoardId = ref(null)
@@ -392,15 +431,27 @@ function openToolById(fullToolId) {
 
 // ==================== Jump back in ====================
 
+// An unnamed flow with no parsed program and no runtime state is a stray
+// "New flow" click — not something worth jumping back into.
+function isEmptyFlow(flow) {
+  if (flow.name) return false
+  if (flow.has_load_error) return false
+  if ((flow.pending_task_count || 0) > 0) return false
+  return Object.keys(flow.root_status_summary || {}).length === 0
+}
+
 const jumpBackIn = computed(() => {
   const items = []
   for (const board of recentBoards.value) {
+    if (!board.name && !(board.asset_count > 0)) continue
     items.push({ type: 'board', id: board.id, name: board.name, sub: formatBoardMeta(board), updatedAt: board.updated_at, board })
   }
   for (const flow of recentFlows.value) {
+    if (isEmptyFlow(flow)) continue
     items.push({ type: 'flow', id: flow.id, name: flow.name, sub: '', updatedAt: flow.updated_at, flow })
   }
   for (const chat of recentChats.value) {
+    if (!chat.name && !(chat.message_count > 0)) continue
     const sub = chat.last_message || (chat.updated_at ? formatRelativeTime(chat.updated_at) : '')
     items.push({ type: 'chat', id: chat.id, name: chat.name, sub, updatedAt: chat.updated_at, chat })
   }
@@ -471,9 +522,27 @@ async function loadRecentFlows() {
     recentFlows.value = [...all]
       .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
       .slice(0, 6)
+
+    // Card art: the flow list endpoint doesn't aggregate output media, so pull
+    // each flow's equations and derive outputs the same way FlowCard does.
+    const results = await Promise.allSettled(
+      recentFlows.value.map((flow) => listEquations(flow.id))
+    )
+    const next = new Map()
+    results.forEach((result, index) => {
+      if (result.status !== 'fulfilled') return
+      const byKey = new Map()
+      for (const eq of result.value) byKey.set(eq.equation_key, eq)
+      next.set(recentFlows.value[index].id, computeFlowOutputs(byKey).map((o) => o.mediaId))
+    })
+    flowOutputMedia.value = next
   } catch (err) {
     console.error('Failed to load recent flows:', err)
   }
+}
+
+function getFlowPreviewMediaIds(flowId) {
+  return (flowOutputMedia.value.get(flowId) || []).slice(0, 3)
 }
 
 async function loadRecentMedia() {
@@ -773,7 +842,24 @@ function getBoardPreviewItems(board) {
 
   return detail.sections
     .flatMap((section) => section.items || [])
-    .slice(0, 4)
+    .slice(0, 6)
+}
+
+// Tile width is computed from the item's aspect ratio against the fixed strip
+// height (h-28 card art minus py-2 padding = 6rem). aspect-ratio CSS can't be
+// used here: in a flex row the width resolves before the stretched height, so
+// the tile collapses. Wide panoramas are capped at 16:9, object-cover crops.
+function getPreviewTileStyle(item) {
+  const width = Math.max(item?.width || 1, 1)
+  const height = Math.max(item?.height || 1, 1)
+  const ratio = Math.min(width / height, 16 / 9)
+  return {
+    width: `${(6 * ratio).toFixed(3)}rem`
+  }
+}
+
+function isVideoFormat(fileFormat) {
+  return !!fileFormat && ['mp4', 'webm', 'mov', 'avi', 'mkv', 'ogg'].includes(fileFormat)
 }
 
 function formatBoardMeta(board) {
