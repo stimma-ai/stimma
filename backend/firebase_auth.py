@@ -100,7 +100,7 @@ async def _refresh_id_token_classified(refresh_token: str) -> TokenResult:
         return await refresh_id_token(refresh_token)
     except httpx.HTTPStatusError as e:
         if _is_invalid_refresh_token_error(e):
-            raise AuthSessionExpiredError("Stimma Cloud session expired") from e
+            raise AuthSessionExpiredError("Stimma session expired") from e
         raise AuthRefreshError(
             f"Firebase token refresh failed with HTTP {e.response.status_code}"
         ) from e
@@ -249,7 +249,7 @@ async def get_valid_id_token(*, raise_on_failure: bool = False) -> Optional[str]
     if not refresh_token:
         log.debug("no refresh token in auth state")
         if raise_on_failure:
-            raise AuthSessionExpiredError("No saved Stimma Cloud session")
+            raise AuthSessionExpiredError("No saved Stimma session")
         return None
 
     # Check if current token is valid
@@ -315,7 +315,7 @@ async def force_refresh_id_token(*, raise_on_failure: bool = False) -> Optional[
     refresh_token = auth_state.get('refresh_token')
     if not refresh_token:
         if raise_on_failure:
-            raise AuthSessionExpiredError("No saved Stimma Cloud session")
+            raise AuthSessionExpiredError("No saved Stimma session")
         return None
 
     log.info("force-refreshing id token after 401")

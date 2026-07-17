@@ -138,7 +138,7 @@ async def start_auth() -> StartAuthResponse:
     if is_privacy_lockdown_enabled():
         raise HTTPException(
             status_code=403,
-            detail=_auth_error("privacy_lockdown", disabled_message("Stimma Cloud sign-in")),
+            detail=_auth_error("privacy_lockdown", disabled_message("Stimma sign-in")),
         )
 
     session_id = secrets.token_urlsafe(16)
@@ -186,10 +186,10 @@ async def start_auth() -> StartAuthResponse:
 
         if code:
             if is_privacy_lockdown_enabled():
-                session['result'] = {'error': disabled_message("Stimma Cloud sign-in")}
+                session['result'] = {'error': disabled_message("Stimma sign-in")}
                 session['completed'] = True
                 return web.Response(
-                    text=_html_page("Sign In Disabled", disabled_message("Stimma Cloud sign-in"), is_error=True),
+                    text=_html_page("Sign In Disabled", disabled_message("Stimma sign-in"), is_error=True),
                     content_type='text/html'
                 )
 
@@ -450,14 +450,14 @@ async def get_account_info():
     if is_privacy_lockdown_enabled():
         raise HTTPException(
             status_code=403,
-            detail=_auth_error("privacy_lockdown", disabled_message("Stimma Cloud")),
+            detail=_auth_error("privacy_lockdown", disabled_message("Stimma account access")),
         )
 
     auth_state = load_auth_state()
     if not auth_state or not auth_state.get('refresh_token'):
         raise HTTPException(
             status_code=401,
-            detail=_auth_error("sign_in_required", "Please sign in to Stimma Cloud."),
+            detail=_auth_error("sign_in_required", "Please sign in to your Stimma account."),
         )
 
     # Get fresh token
@@ -473,19 +473,19 @@ async def get_account_info():
             status_code=503,
             detail=_auth_error(
                 "cloud_unreachable",
-                "Couldn't reach Stimma Cloud. Check your connection and try again.",
+                "Couldn't reach Stimma. Check your connection and try again.",
             ),
         )
     except AuthRefreshError:
         raise HTTPException(
             status_code=502,
-            detail=_auth_error("auth_refresh_failed", "Couldn't verify your Stimma Cloud session."),
+            detail=_auth_error("auth_refresh_failed", "Couldn't verify your Stimma session."),
         )
 
     if not id_token:
         raise HTTPException(
             status_code=401,
-            detail=_auth_error("sign_in_required", "Please sign in to Stimma Cloud."),
+            detail=_auth_error("sign_in_required", "Please sign in to your Stimma account."),
         )
 
     try:
@@ -519,13 +519,13 @@ async def get_account_info():
             status_code=503,
             detail=_auth_error(
                 "cloud_unreachable",
-                "Couldn't reach Stimma Cloud. Check your connection and try again.",
+                "Couldn't reach Stimma. Check your connection and try again.",
             ),
         )
     except AuthRefreshError:
         raise HTTPException(
             status_code=502,
-            detail=_auth_error("auth_refresh_failed", "Couldn't verify your Stimma Cloud session."),
+            detail=_auth_error("auth_refresh_failed", "Couldn't verify your Stimma session."),
         )
     except httpx.RequestError as e:
         log.warning("failed to reach cloud account endpoint", error=str(e))
@@ -533,7 +533,7 @@ async def get_account_info():
             status_code=503,
             detail=_auth_error(
                 "cloud_unreachable",
-                "Couldn't reach Stimma Cloud. Check your connection and try again.",
+                "Couldn't reach Stimma. Check your connection and try again.",
             ),
         )
     except httpx.HTTPStatusError as e:
@@ -543,7 +543,7 @@ async def get_account_info():
                 status_code=503,
                 detail=_auth_error(
                     "auth_temporarily_unavailable",
-                    "Couldn't verify your Stimma Cloud session. Try again shortly.",
+                    "Couldn't verify your Stimma session. Try again shortly.",
                 ),
             )
         if e.response.status_code in (401, 403):
@@ -555,13 +555,13 @@ async def get_account_info():
         log.error("failed to fetch account info", status=e.response.status_code, error=str(e))
         raise HTTPException(
             status_code=502,
-            detail=_auth_error("cloud_error", "Couldn't load Stimma Cloud account info."),
+            detail=_auth_error("cloud_error", "Couldn't load Stimma account info."),
         )
     except Exception as e:
         log.error("failed to fetch account info", error=str(e))
         raise HTTPException(
             status_code=502,
-            detail=_auth_error("cloud_error", "Couldn't load Stimma Cloud account info."),
+            detail=_auth_error("cloud_error", "Couldn't load Stimma account info."),
         )
 
 

@@ -171,7 +171,7 @@ async def connect_cloud_tools(request: ConnectRequest):
         return ConnectResponse(
             success=False,
             provider_id=STIMMA_CLOUD_PROVIDER_ID,
-            error=disabled_message("Stimma Cloud tools"),
+            error=disabled_message("Stimma tools"),
         )
 
     success = await connect_cloud_internal(request.token)
@@ -217,7 +217,7 @@ async def get_cloud_tools_status():
         return {
             "connected": False,
             "status": "privacy_lockdown",
-            "error_message": disabled_message("Stimma Cloud tools"),
+            "error_message": disabled_message("Stimma tools"),
             "tool_count": 0,
         }
 

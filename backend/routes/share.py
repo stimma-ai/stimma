@@ -132,7 +132,7 @@ async def share_media(request: ShareRequest, session: AsyncSession = Depends(get
     from utils.keyword_blocklist import check_blocklist, gather_texts_for_blocklist
 
     if is_privacy_lockdown_enabled():
-        return ShareResponse(success=False, error=disabled_message("Stimma Cloud sharing"))
+        return ShareResponse(success=False, error=disabled_message("Stimma sharing"))
 
     # Load media item
     media_item = await session.get(MediaItem, request.media_id)
@@ -165,7 +165,7 @@ async def share_media(request: ShareRequest, session: AsyncSession = Depends(get
         token = None
 
     if not token:
-        return ShareResponse(success=False, error="Not signed in to Stimma Cloud")
+        return ShareResponse(success=False, error="Not signed in to your Stimma account")
     file_path = Path(media_item.file_path)
     settings = get_settings()
     cloud_base_url = settings.cloud.base_url
@@ -1069,7 +1069,7 @@ async def get_share_status():
     from cloud_api import fetch_user_account
 
     if is_privacy_lockdown_enabled():
-        return ShareStatusResponse(can_share=False, reason=disabled_message("Stimma Cloud sharing"))
+        return ShareStatusResponse(can_share=False, reason=disabled_message("Stimma sharing"))
 
     try:
         token = await get_valid_id_token()
@@ -1083,7 +1083,7 @@ async def get_share_status():
             "gate": "signin_required",
             "surface": "share",
         }, category="account")
-        return ShareStatusResponse(can_share=False, reason="Not signed in to Stimma Cloud")
+        return ShareStatusResponse(can_share=False, reason="Not signed in to your Stimma account")
 
     try:
         account = await fetch_user_account(token)
@@ -1122,7 +1122,7 @@ async def check_username(username: str):
         return CheckUsernameResponse(
             available=False,
             username=username,
-            error=disabled_message("Stimma Cloud identity"),
+            error=disabled_message("Stimma identity"),
         )
 
     try:
@@ -1173,7 +1173,7 @@ async def setup_identity(request: SetupIdentityRequest):
     if is_privacy_lockdown_enabled():
         return SetupIdentityResponse(
             success=False,
-            error=disabled_message("Stimma Cloud identity"),
+            error=disabled_message("Stimma identity"),
         )
 
     try:
@@ -1182,7 +1182,7 @@ async def setup_identity(request: SetupIdentityRequest):
         token = None
 
     if not token:
-        return SetupIdentityResponse(success=False, error="Not signed in to Stimma Cloud")
+        return SetupIdentityResponse(success=False, error="Not signed in to your Stimma account")
 
     settings = get_settings()
     cloud_base_url = settings.cloud.base_url

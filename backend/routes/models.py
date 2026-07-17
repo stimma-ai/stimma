@@ -932,7 +932,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
                             "status": "available",
                             "max_context_tokens": get_max_context_tokens(entry["slug"]),
                             "provider_id": "stimma",
-                            "provider_name": entry.get("provider_name", "Stimma Cloud"),
+                            "provider_name": entry.get("provider_name", "Stimma"),
                             "model_vendor": entry.get("model_vendor"),
                             "upstream_provider": entry.get("upstream_provider"),
                             "canonical_model_id": entry.get("canonical_model_id"),

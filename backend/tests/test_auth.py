@@ -540,7 +540,7 @@ class TestAccountInfo:
         assert response.status_code == 503
         assert response.json()["detail"] == {
             "code": "auth_temporarily_unavailable",
-            "message": "Couldn't verify your Stimma Cloud session. Try again shortly.",
+            "message": "Couldn't verify your Stimma session. Try again shortly.",
         }
         mock_clear.assert_not_called()
 

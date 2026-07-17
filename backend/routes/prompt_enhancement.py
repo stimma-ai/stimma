@@ -1478,7 +1478,7 @@ async def agent_step(request: AgentStepRequest):
         except EntitlementError as e:
             log.warning(f"Prompt-agent step: no active subscription: {e}")
             _track_step("failed", error_type="subscription_required")
-            message = str(e) or "No active Stimma Cloud subscription."
+            message = str(e) or "No active Stimma subscription."
             if debug_info:
                 debug_info["error_type"] = "subscription_required"
                 raise HTTPException(status_code=402, detail={"code": "subscription_required", "message": message, "debug": debug_info})

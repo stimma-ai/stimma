@@ -11,7 +11,7 @@
         <div class="min-w-0 max-w-xl">
           <h4 class="text-sm font-medium text-content">Usage Analytics</h4>
           <p class="mt-1 text-xs leading-relaxed text-content-tertiary">
-            Help improve Stimma with first-party usage telemetry. Events do not include prompts, files, images, generation parameters, file names, or content you create. If you are signed in, telemetry can be associated with your Stimma Cloud account.
+            Help improve Stimma with first-party usage telemetry. Events do not include prompts, files, images, generation parameters, file names, or content you create. If you are signed in, telemetry can be associated with your Stimma account.
           </p>
           <p v-if="privacyLockdownActive" class="mt-1 text-xs text-content-tertiary">
             Privacy Lockdown is active. Usage telemetry and Stimma services are disabled.

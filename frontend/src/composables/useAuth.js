@@ -75,7 +75,7 @@ export async function signInWithBrowser(mode) {
   authError.value = null
 
   if (isPrivacyLockdownActive()) {
-    const message = 'Stimma Cloud sign-in is unavailable in Privacy Lockdown.'
+    const message = 'Stimma sign-in is unavailable in Privacy Lockdown.'
     authError.value = message
     throw new Error(message)
   }

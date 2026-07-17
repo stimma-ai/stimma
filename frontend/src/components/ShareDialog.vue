@@ -48,7 +48,7 @@
 
             <div class="text-center">
               <p class="text-sm font-medium text-content">Set up your profile</p>
-              <p class="text-xs text-content-muted mt-1">Choose a username to start sharing on Stimma Cloud</p>
+              <p class="text-xs text-content-muted mt-1">Choose a username to start sharing on Stimma</p>
             </div>
 
             <div class="w-full mt-1">

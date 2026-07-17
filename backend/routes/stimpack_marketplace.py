@@ -257,7 +257,7 @@ async def publish_to_marketplace(name: str, changelog: str | None = None):
 
     token = await get_id_token()
     if not token:
-        raise HTTPException(status_code=401, detail="Sign in to Stimma Cloud to publish stimpacks")
+        raise HTTPException(status_code=401, detail="Sign in to your Stimma account to publish stimpacks")
 
     headers = with_cloud_access_headers()
     headers["Authorization"] = f"Bearer {token}"

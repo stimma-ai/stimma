@@ -698,7 +698,7 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
     is_stimma_cloud = is_stimma_service_url(api_base)
     if is_stimma_cloud:
         from privacy_lockdown import raise_if_enabled
-        raise_if_enabled("Stimma Cloud")
+        raise_if_enabled("Stimma models")
 
     # Mechanical correlation IDs (chat/run/agent-context) for Stimma Cloud's
     # server-side request grouping, plus the Stimma User-Agent (the single
@@ -842,7 +842,7 @@ async def acompletion(*, model, messages, api_key=None, api_base=None,
         # the target so the chat "Details" disclosure tells the user exactly
         # what was unreachable. (HTTPStatusError is not a RequestError, so the
         # 4xx/5xx paths above pass through untouched.)
-        target = "Stimma Cloud" if is_stimma_cloud else f"the LLM endpoint at {api_base}"
+        target = "Stimma" if is_stimma_cloud else f"the LLM endpoint at {api_base}"
         reason = str(e).strip() or type(e).__name__
         log.error(f"LLM connection error reaching {url}: {type(e).__name__}: {reason}")
         raise LLMConnectionError(
