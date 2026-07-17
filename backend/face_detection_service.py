@@ -44,6 +44,7 @@ class FaceDetectionService:
         self.device = None
         self._loading = False
         self._loaded = False
+        self._load_lock = threading.Lock()
 
     def load_model(self, background: bool = False):
         """
@@ -56,10 +57,6 @@ class FaceDetectionService:
             log.info("Face detection model already loaded")
             return
 
-        if self._loading:
-            log.info("Face detection model is currently loading")
-            return
-
         if background:
             log.info("Starting face detection model loading in background thread...")
             thread = threading.Thread(target=self._load_model_sync, daemon=True)
@@ -68,13 +65,21 @@ class FaceDetectionService:
             self._load_model_sync()
 
     def _load_model_sync(self):
-        """Internal method to load the model synchronously."""
+        """Load the model, serialized so concurrent callers block until it's ready."""
         import onnxruntime as ort
         from face_onnx import SCRFDDetector, AuraFaceRecognizer
 
-        self._loading = True
-        log.info("Loading face detection models...")
+        with self._load_lock:
+            if self._loaded:
+                return
+            self._loading = True
+            log.info("Loading face detection models...")
+            try:
+                self._load_model_locked(ort, SCRFDDetector, AuraFaceRecognizer)
+            finally:
+                self._loading = False
 
+    def _load_model_locked(self, ort, SCRFDDetector, AuraFaceRecognizer):
         try:
             # Ensure AuraFace models are downloaded/available
             model_dir = _ensure_auraface_models()
@@ -102,11 +107,9 @@ class FaceDetectionService:
             self.recognizer = AuraFaceRecognizer(auraface_path, providers)
 
             self._loaded = True
-            self._loading = False
             log.info("Face detection models loaded successfully ✓")
 
         except Exception as e:
-            self._loading = False
             log.error(f"Failed to load face detection model: {e}", exc_info=True)
             raise
 
@@ -133,17 +136,9 @@ class FaceDetectionService:
                 - landmarks: dict with facial landmark coordinates (optional)
         """
         if not self._loaded:
-            if self._loading:
-                # Wait for model to finish loading (with timeout)
-                import time
-                deadline = time.time() + 60.0
-                while self._loading and time.time() < deadline:
-                    time.sleep(0.1)
-                if not self._loaded:
-                    raise RuntimeError("Timeout waiting for face detection model to load")
-            else:
-                # Auto-load on first use
-                self._load_model_sync()
+            # Auto-load on first use; blocks on the load lock if another
+            # thread is already loading, so we never proceed with detector=None.
+            self._load_model_sync()
 
         # Load image if path provided
         should_close_image = False

@@ -32,9 +32,11 @@ class CLIPService:
         self._loading = False
         self._loaded = False
         self._loaded_event = threading.Event()
+        self._load_lock = threading.Lock()
 
     def load_model(self):
-        """Load the CLIP model. Call this once at startup."""
+        """Load the CLIP model. Safe to call from multiple threads; concurrent
+        callers block until the load finishes."""
         # onnx_clip imports cv2 at module level but never uses it (PIL path is
         # hardcoded). Provide a stub so the import succeeds in packaged builds
         # where cv2 isn't bundled.
@@ -43,33 +45,30 @@ class CLIPService:
 
         from onnx_clip import OnnxClip
 
-        if self._loaded:
-            log.info("CLIP model already loaded")
-            return
+        with self._load_lock:
+            if self._loaded:
+                log.info("CLIP model already loaded")
+                return
 
-        if self._loading:
-            log.info("CLIP model is currently loading")
-            return
+            self._loading = True
+            log.info("Loading CLIP model (ONNX, ViT-B/32)...")
 
-        self._loading = True
-        log.info("Loading CLIP model (ONNX, ViT-B/32)...")
+            try:
+                # By default onnx_clip loads its weights from inside its own package
+                # dir, downloading them from a third-party S3 bucket on first use.
+                # Instead, fetch them through our shared model cache (R2, user cache
+                # dir, atomic) and patch onnx_clip's loader to use those files.
+                self._patch_onnx_clip_loader()
+                self.model = OnnxClip(batch_size=16)
 
-        try:
-            # By default onnx_clip loads its weights from inside its own package
-            # dir, downloading them from a third-party S3 bucket on first use.
-            # Instead, fetch them through our shared model cache (R2, user cache
-            # dir, atomic) and patch onnx_clip's loader to use those files.
-            self._patch_onnx_clip_loader()
-            self.model = OnnxClip(batch_size=16)
-
-            self._loaded = True
-            self._loading = False
-            self._loaded_event.set()
-            log.info("CLIP model loaded successfully (ONNX)")
-        except Exception as e:
-            self._loading = False
-            log.error(f"Failed to load CLIP model: {e}")
-            raise
+                self._loaded = True
+                self._loaded_event.set()
+                log.info("CLIP model loaded successfully (ONNX)")
+            except Exception as e:
+                log.error(f"Failed to load CLIP model: {e}")
+                raise
+            finally:
+                self._loading = False
 
     @staticmethod
     def _patch_onnx_clip_loader():
@@ -129,11 +128,9 @@ class CLIPService:
     def _ensure_loaded(self):
         """Ensure model is loaded, auto-loading if needed."""
         if not self._loaded:
-            if self._loading:
-                if not self.wait_for_model():
-                    raise RuntimeError("Timeout waiting for CLIP model to load")
-            else:
-                self.load_model()
+            # load_model blocks on the load lock, so concurrent callers wait
+            # for the in-flight load instead of proceeding with model=None.
+            self.load_model()
 
     def encode_image(self, image: Union[str, Path, Image.Image]) -> np.ndarray:
         """

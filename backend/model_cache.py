@@ -18,6 +18,7 @@ or caching logic.
 """
 import os
 import shutil
+import threading
 import urllib.request
 from pathlib import Path
 from typing import Iterable, Optional, Sequence
@@ -34,6 +35,16 @@ MODELS_BASE_URL = os.environ.get("STIMMA_MODELS_BASE_URL", "https://models.stimm
 
 _USER_AGENT = "Stimma/1.0"
 _CHUNK = 1 << 20  # 1 MiB
+
+# Serialize concurrent ensure_model() calls per key so parallel ingestion
+# workers don't download the same file twice or race on the temp file.
+_key_locks: dict[str, threading.Lock] = {}
+_key_locks_guard = threading.Lock()
+
+
+def _key_lock(key: str) -> threading.Lock:
+    with _key_locks_guard:
+        return _key_locks.setdefault(key, threading.Lock())
 
 
 def models_root() -> Path:
@@ -89,25 +100,32 @@ def ensure_model(key: str, *, legacy_paths: Optional[Iterable[Path]] = None) -> 
     if _is_present(dest):
         return dest
 
-    if legacy_paths and _adopt_legacy(dest, [Path(p) for p in legacy_paths]):
-        return dest
+    with _key_lock(key):
+        # Another thread may have finished the download while we waited.
+        if _is_present(dest):
+            return dest
 
-    url = f"{MODELS_BASE_URL}/{key}"
-    raise_for_stimma_url_if_enabled(url, "Stimma model downloads")
+        if legacy_paths and _adopt_legacy(dest, [Path(p) for p in legacy_paths]):
+            return dest
 
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_name(dest.name + ".part")
-    log.info(f"Downloading model {key} from {url}")
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
-        with urllib.request.urlopen(req) as resp, open(tmp, "wb") as f:
-            while chunk := resp.read(_CHUNK):
-                f.write(chunk)
-        os.replace(tmp, dest)
-    except BaseException:
-        # Clean up the partial file on any failure, including KeyboardInterrupt.
-        tmp.unlink(missing_ok=True)
-        raise
+        url = f"{MODELS_BASE_URL}/{key}"
+        raise_for_stimma_url_if_enabled(url, "Stimma model downloads")
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        # Unique temp name so a concurrent download in another process can't
+        # rename our partial file out from under us.
+        tmp = dest.with_name(f"{dest.name}.{os.getpid()}.{threading.get_ident()}.part")
+        log.info(f"Downloading model {key} from {url}")
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
+            with urllib.request.urlopen(req) as resp, open(tmp, "wb") as f:
+                while chunk := resp.read(_CHUNK):
+                    f.write(chunk)
+            os.replace(tmp, dest)
+        except BaseException:
+            # Clean up the partial file on any failure, including KeyboardInterrupt.
+            tmp.unlink(missing_ok=True)
+            raise
 
     log.info(f"Model {key} cached at {dest} ({dest.stat().st_size / 1024 / 1024:.1f} MB)")
     return dest
