@@ -50,7 +50,10 @@ const visibleModels = computed(() => {
   if (cachedAuto.resolved_slug === 'auto') return [cachedAuto, ...nonCloudModels]
 
   const localModel = nonCloudModels.find(
-    model => model.source === 'endpoint' && isSelectableModel(model)
+    model => (
+      model.source === 'endpoint'
+      || (model.source === 'provider' && model.provider_kind === 'local')
+    ) && isSelectableModel(model)
   )
   const localAuto = localModel
     ? {

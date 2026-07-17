@@ -180,7 +180,7 @@ async def test_available_models_setup_state_is_not_a_hidden_model_list(monkeypat
 
     assert auto_model["available"] is False
     assert auto_model["name"] == "Set up AI models"
-    assert auto_model["description"] == "Sign in to your Stimma account or add a model provider."
+    assert auto_model["description"] == "Add a model provider or sign in to your Stimma account."
     assert {"local", "auto"} == slugs
 
 
@@ -281,3 +281,148 @@ async def test_available_models_acceptance_provider_advertises_auto(monkeypatch)
     assert auto_model["available"] is True
     assert auto_model["resolved_slug"] == "auto"
     assert payload["cloud_status"] == "available"
+
+
+def _local_provider(**overrides):
+    from config import LLMProviderConfig, LLMProviderModelConfig
+
+    provider = LLMProviderConfig(
+        id="local-abc123",
+        kind="local",
+        name="my-llm-box",
+        base_url="http://llmbox.local:8080/v1",
+        models=[
+            LLMProviderModelConfig(
+                id="local-abc123:qwen3-vl",
+                model_id="qwen3-vl",
+                name="Qwen3 VL",
+                max_context_tokens=32_000,
+            )
+        ],
+    )
+    for key, value in overrides.items():
+        setattr(provider, key, value)
+    return provider
+
+
+@pytest.mark.asyncio
+async def test_quick_task_falls_back_to_only_provider_model(monkeypatch):
+    """A saved cloud quick-task model with no cloud auth must fall back to the
+    one configured provider model instead of demanding a sign-in."""
+    import llm_resolver
+
+    settings = SimpleNamespace(
+        quick_task_model="stimma:minimax-m3",
+        default_model="stimma:minimax-m3",
+        llm_providers=[_local_provider()],
+        llm_reasoning_levels={},
+        get_llm_role_config=lambda _role: LLMRoleConfig(source="auto"),
+    )
+
+    async def no_cloud(*args, **kwargs):
+        return None
+
+    async def no_token():
+        return None
+
+    monkeypatch.setattr(llm_resolver, "get_settings", lambda: settings)
+    monkeypatch.setattr(llm_resolver, "_get_stimma_cloud_config", no_cloud)
+    monkeypatch.setattr("privacy_lockdown.is_privacy_lockdown_enabled", lambda: False)
+    monkeypatch.setattr("auth_storage.load_auth_state", lambda: None)
+    monkeypatch.setattr("firebase_auth.get_valid_id_token", no_token)
+
+    cfg = await llm_resolver.get_effective_llm_config("agent-fast")
+
+    assert cfg.model == "qwen3-vl"
+    assert cfg.url == "http://llmbox.local:8080/v1"
+
+
+@pytest.mark.asyncio
+async def test_quick_task_fallback_skips_unusable_providers(monkeypatch):
+    """Disabled/broken providers are not fallback candidates."""
+    import llm_resolver
+    from llm_resolver import LLMUnavailableError
+
+    settings = SimpleNamespace(
+        quick_task_model="stimma:minimax-m3",
+        default_model="stimma:minimax-m3",
+        llm_providers=[
+            _local_provider(enabled=False),
+            _local_provider(last_test_passed=False),
+        ],
+        llm_reasoning_levels={},
+        get_llm_role_config=lambda _role: LLMRoleConfig(source="auto"),
+    )
+
+    async def no_cloud(*args, **kwargs):
+        return None
+
+    async def no_token():
+        return None
+
+    monkeypatch.setattr(llm_resolver, "get_settings", lambda: settings)
+    monkeypatch.setattr(llm_resolver, "_get_stimma_cloud_config", no_cloud)
+    monkeypatch.setattr("privacy_lockdown.is_privacy_lockdown_enabled", lambda: False)
+    monkeypatch.setattr("auth_storage.load_auth_state", lambda: None)
+    monkeypatch.setattr("firebase_auth.get_valid_id_token", no_token)
+
+    with pytest.raises(LLMUnavailableError):
+        await llm_resolver.get_effective_llm_config("agent-fast")
+
+
+@pytest.mark.asyncio
+async def test_chat_auto_falls_back_to_provider_model(monkeypatch):
+    """'auto' with no cloud auth and no legacy endpoint resolves to the
+    configured provider model."""
+    import llm_resolver
+
+    settings = SimpleNamespace(
+        llm_providers=[_local_provider()],
+        llm_reasoning_levels={},
+        get_llm_role_config=lambda _role: LLMRoleConfig(source="auto"),
+    )
+
+    async def no_cloud(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(llm_resolver, "get_settings", lambda: settings)
+    monkeypatch.setattr(llm_resolver, "_get_stimma_cloud_config", no_cloud)
+    monkeypatch.setattr("privacy_lockdown.is_privacy_lockdown_enabled", lambda: False)
+
+    cfg = await llm_resolver.get_chat_llm_config("auto", role="agent")
+
+    assert cfg.model == "qwen3-vl"
+    assert cfg.url == "http://llmbox.local:8080/v1"
+
+
+@pytest.mark.asyncio
+async def test_available_models_auto_and_quick_task_resolve_to_provider_model(monkeypatch):
+    """/models/available mirrors the resolver fallback: 'auto' resolves to the
+    one provider model and quick_task_model reports the model in effect."""
+    from routes import models as models_route
+    import firebase_auth
+
+    settings = SimpleNamespace(
+        cloud=SimpleNamespace(base_url="https://cloud.example"),
+        default_model="auto",
+        quick_task_model="stimma:minimax-m3",
+        llm_providers=[_local_provider()],
+        llms={
+            "agent": LLMRoleConfig(source="auto"),
+            "agent-fast": LLMRoleConfig(source="auto"),
+        },
+    )
+
+    async def no_cloud_token():
+        return None
+
+    monkeypatch.setattr(models_route, "get_settings", lambda: settings)
+    monkeypatch.setattr(firebase_auth, "get_valid_id_token", no_cloud_token)
+
+    payload = await models_route.get_available_models()
+    auto_model = payload["models"][0]
+
+    assert auto_model["available"] is True
+    assert auto_model["resolved_slug"] == "local-abc123:qwen3-vl"
+    assert auto_model["name"] == "Auto: Qwen3 VL"
+    assert payload["quick_task_model"] == "local-abc123:qwen3-vl"

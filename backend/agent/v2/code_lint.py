@@ -341,8 +341,17 @@ class _LintVisitor(ast.NodeVisitor):
 
         # Names passed as call arguments (incl. inside tuples/lists/starred)
         # count as consumed — e.g. coros.append((i, j, coro)), gather(*coros).
-        for arg in list(node.args) + [kw.value for kw in node.keywords]:
-            self.consumed_names.update(_collect_bare_names(arg))
+        # Known sync-only sinks can never await their argument, so they don't
+        # count: `saved = stimma.library.save(...); print(saved)` is exactly
+        # the missing-await bug this lint exists to catch.
+        _SYNC_SINKS = {"print", "repr", "str", "len", "type"}
+        is_sync_sink = (
+            (isinstance(node.func, ast.Name) and node.func.id in _SYNC_SINKS)
+            or (name is not None and not is_library and name in {"show", "show_grid"})
+        )
+        if not is_sync_sink:
+            for arg in list(node.args) + [kw.value for kw in node.keywords]:
+                self.consumed_names.update(_collect_bare_names(arg))
 
         # bare agent-tool-name function call: create_layout(...), bash(...), etc.
         if isinstance(node.func, ast.Name) and node.func.id in AGENT_ONLY_TOOLS:

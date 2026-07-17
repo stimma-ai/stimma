@@ -68,6 +68,8 @@
         </button>
         <p class="mt-4 text-[12.5px] text-content-muted">Free to create an account · No card required</p>
 
+        <div class="mt-5 text-center"><RedeemCodeLink /></div>
+
         <p v-if="connectMessage" class="mt-4 text-center text-sm text-red-500">{{ connectMessage }}</p>
       </div>
     </div>
@@ -108,7 +110,7 @@
             </div>
           </div>
           <p class="ml-auto max-w-[300px] text-[13px] leading-5 text-content-tertiary">
-            Use your credits for hosted image and video generation and LLM services. You can also configure your own providers.
+            Use your credits for hosted image and video generation and LLM services.
           </p>
           <div v-if="isFirstLoad" class="h-9 w-28 shrink-0 animate-pulse rounded-lg bg-white/10"></div>
           <button
@@ -120,6 +122,8 @@
           </button>
         </div>
       </div>
+
+      <RedeemCodeLink class="mt-3.5" />
 
       <!-- Error banner when cloud is unreachable -->
       <div v-if="cloudError && !isCloudLoading" class="mt-5 flex items-center justify-between gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3">
@@ -164,6 +168,7 @@ import { useAuth } from '../../../composables/useAuth'
 import { useCloudAccount } from '../../../composables/useCloudAccount'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import { isTauri } from '../../../apiConfig'
+import RedeemCodeLink from '../../RedeemCodeLink.vue'
 
 defineProps({
   toolProviders: { type: Array, default: () => [] },

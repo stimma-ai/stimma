@@ -732,6 +732,108 @@ class TestPermanentDelete:
             assert sibling_refreshed.batch_output_set_id is None
 
 
+class TestDeleteProgressSummary:
+    """Wave-level progress aggregation across grouped delete operations."""
+
+    async def test_bulk_delete_operations_share_group(self, client: AsyncClient, seeded_media):
+        media_ids = [m.id for m in seeded_media[:3]]
+        await client.post("/api/media/batch/delete", json={"media_ids": media_ids})
+
+        response = await client.post(
+            "/api/trash/batch/delete", json={"media_ids": media_ids}
+        )
+        assert response.status_code == 202
+        data = response.json()
+        operations = data["operations"]
+        assert len(operations) == 3
+        group_ids = {operation["group_id"] for operation in operations}
+        assert len(group_ids) == 1
+        assert None not in group_ids
+        await wait_for_delete_operations(client, data)
+
+    async def test_summary_aggregates_active_wave(self, client: AsyncClient, db_session):
+        from delete_operations import get_delete_progress_summary
+
+        now = datetime.utcnow()
+        async with db_session() as session:
+            # Failed operations are inert (the worker skips them), so a
+            # synthetic wave can be asserted against without racing the worker.
+            wave = [
+                DeleteOperation(
+                    kind="asset", profile_id="default", group_id="wave-under-test",
+                    status="failed", current_phase="failed",
+                    total_items=5, claimed_items=5, processed_items=5,
+                    deleted_items=3, failed_items=2,
+                    started_at=now, updated_at=now, completed_at=now,
+                ),
+                DeleteOperation(
+                    kind="asset", profile_id="default", group_id="wave-under-test",
+                    status="completed", current_phase="completed",
+                    total_items=10, claimed_items=10, processed_items=10,
+                    deleted_items=10, failed_items=0,
+                    started_at=now, updated_at=now, completed_at=now,
+                ),
+                # A finished wave from an earlier action must not be counted.
+                DeleteOperation(
+                    kind="asset", profile_id="default", group_id="older-wave",
+                    status="completed", current_phase="completed",
+                    total_items=100, claimed_items=100, processed_items=100,
+                    deleted_items=100, failed_items=0,
+                    started_at=now, updated_at=now, completed_at=now,
+                ),
+            ]
+            session.add_all(wave)
+            await session.commit()
+            operation_ids = [operation.id for operation in wave]
+
+        try:
+            async with db_session() as session:
+                summary = await get_delete_progress_summary(session, "default")
+            assert summary is not None
+            assert summary["status"] == "failed"
+            assert summary["total_items"] == 15
+            assert summary["processed_items"] == 15
+            assert summary["failed_items"] == 2
+            assert summary["operations_total"] == 2
+            assert summary["operations_completed"] == 2
+            assert summary["kinds"] == ["asset"]
+
+            response = await client.get("/api/delete-operations/active")
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["summary"]["total_items"] == 15
+            assert payload["operation"] is not None
+        finally:
+            async with db_session() as session:
+                await session.execute(
+                    delete(DeleteOperation).where(
+                        DeleteOperation.id.in_(operation_ids)
+                    )
+                )
+                await session.commit()
+
+    async def test_retry_failed_endpoint_recovers_wave(
+        self, client: AsyncClient, seeded_media
+    ):
+        media_id = seeded_media[0].id
+        await client.delete(f"/api/media/{media_id}")
+
+        with patch(
+            "delete_operations.TrashService.permanently_delete",
+            side_effect=PermissionError("simulated unlink failure"),
+        ):
+            response = await client.delete(f"/api/trash/{media_id}")
+            operation_id = response.json()["operation"]["id"]
+            operation = await wait_for_delete_operation(client, operation_id)
+        assert operation["status"] == "failed"
+
+        retried = await client.post("/api/delete-operations/retry-failed")
+        assert retried.status_code == 202
+        assert retried.json()["retried"] >= 1
+        completed = await wait_for_delete_operation(client, operation_id)
+        assert completed["status"] == "completed"
+
+
 class TestTrashWebSocketEvents:
     """Tests for WebSocket events emitted during trash operations."""
 

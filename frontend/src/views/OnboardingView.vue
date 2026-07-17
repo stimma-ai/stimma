@@ -73,6 +73,9 @@
         >Sign in</a>
       </p>
 
+      <!-- Codes are redeemed on the website; the app reacts to the balance push -->
+      <RedeemCodeLink class="mt-3" />
+
     </div>
 
     <!-- Compliance footer — pinned to bottom, no box -->
@@ -123,6 +126,7 @@ import { useTheme } from '../composables/useTheme'
 import { useSettingsApi } from '../composables/useSettingsApi'
 import { useTelemetry } from '../composables/useTelemetry'
 import { useReadiness } from '../composables/useReadiness'
+import RedeemCodeLink from '../components/RedeemCodeLink.vue'
 
 const router = useRouter()
 const { track } = useTelemetry()
@@ -214,5 +218,4 @@ async function handleSignIn() {
   } catch {
     loading.value = false
   }
-}
-</script>
+}</script>

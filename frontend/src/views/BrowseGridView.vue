@@ -357,23 +357,25 @@ const emit = defineEmits([
 const isTrashMode = computed(() => props.isTrashMode)
 const savedViewId = computed(() => props.savedViewId)
 const savedViewName = computed(() => props.savedViewName)
-const { activeDeleteOperation } = useDeleteOperations()
+const { deleteSummary } = useDeleteOperations()
 const isEmptyingTrash = computed(() => {
-  const op = activeDeleteOperation.value
-  return props.isTrashMode && op?.kind === 'empty_trash' && ['queued', 'running'].includes(op.status)
+  const summary = deleteSummary.value
+  return props.isTrashMode
+    && summary?.status === 'running'
+    && (summary.kinds || []).some(kind => kind === 'asset' || kind === 'empty_trash')
 })
 const trashHeaderSubtitle = computed(() => {
   if (isEmptyingTrash.value) {
-    const op = activeDeleteOperation.value
-    return `Emptying trash: ${op?.processed_items || 0} / ${op?.total_items || totalCount.value}`
+    const summary = deleteSummary.value
+    return `Emptying trash: ${summary?.processed_items || 0} / ${summary?.total_items || totalCount.value}`
   }
   return `${totalCount.value} deleted ${totalCount.value === 1 ? 'item' : 'items'}`
 })
 const trashEmptyProgress = computed(() => {
-  const op = activeDeleteOperation.value
-  const total = op?.total_items || totalCount.value || 0
+  const summary = deleteSummary.value
+  const total = summary?.total_items || totalCount.value || 0
   if (!total) return 0
-  return Math.min(1, (op?.processed_items || 0) / total)
+  return Math.min(1, (summary?.processed_items || 0) / total)
 })
 
 const route = useRoute()

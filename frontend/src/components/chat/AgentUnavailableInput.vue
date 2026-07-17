@@ -31,6 +31,7 @@
         Configure Chat Models
       </button>
     </div>
+    <RedeemCodeLink v-if="unavailableState === 'no-balance'" class="mt-3" />
     <p v-if="actionError" class="mt-2 text-xs text-red-500">{{ actionError }}</p>
   </div>
 </template>
@@ -43,6 +44,7 @@ import { useAvailableModels } from '../../composables/useAvailableModels'
 import { useCloudAccount } from '../../composables/useCloudAccount'
 import { usePrivacyLockdown } from '../../composables/usePrivacyLockdown'
 import { resolveAgentUnavailableState } from '../../utils/agentUnavailableState'
+import RedeemCodeLink from '../RedeemCodeLink.vue'
 
 const { privacyLockdownActive } = usePrivacyLockdown()
 const { isAuthenticated } = useAuth()

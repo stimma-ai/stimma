@@ -53,18 +53,6 @@
           title="Kept with this chat, but not added to All Assets"
         >Working result</span>
       </div>
-      <button
-        v-if="showRole === 'intermediate' && promotableMediaIds.length"
-        class="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-content-muted transition-colors hover:bg-white/[0.05] hover:text-content-secondary disabled:opacity-50"
-        :disabled="savingIntermediates"
-        title="Keep in All Assets"
-        @click="saveIntermediates"
-      >
-        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
-          <path fill-rule="evenodd" d="M4.25 3A2.25 2.25 0 002 5.25v11.69c0 .839.968 1.306 1.624.782L10 12.62l6.376 5.102A1 1 0 0018 16.94V5.25A2.25 2.25 0 0015.75 3H4.25z" clip-rule="evenodd" />
-        </svg>
-        {{ savingIntermediates ? 'Keeping…' : 'Keep' }}
-      </button>
       <!-- Actions slot (right side) -->
       <slot name="actions"></slot>
     </div>
@@ -75,8 +63,6 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import MediaDisplayRow from './MediaDisplayRow.vue'
 import { getCurrentProfileId } from '../../composables/useProfile'
-import { useAssetApi } from '../../composables/useAssetApi'
-import { addToast } from '../../composables/useToasts'
 
 const props = defineProps({
   displayData: {
@@ -104,9 +90,6 @@ const pollInterval = ref(null)
 
 // Compact mode state (default: true for trimmer default appearance)
 const isCompact = ref(true)
-const savingIntermediates = ref(false)
-const savedMediaIds = ref(new Set())
-const { promoteContextualMedia } = useAssetApi()
 
 const DEFAULT_ITEMS_PER_LOAD = 18
 const GALLERY_ITEMS_PER_LOAD = 9
@@ -119,26 +102,6 @@ watch(() => props.displayData.rows, (newRows) => {
 
 // Computed status - use localRows but fall back to props for initial render
 const rows = computed(() => localRows.value.length > 0 ? localRows.value : (props.displayData.rows || []))
-const promotableMediaIds = computed(() => [...new Set(
-  rows.value
-    .map(row => row.output?.media_id)
-    .filter(mediaId => mediaId && !savedMediaIds.value.has(mediaId))
-)])
-
-async function saveIntermediates() {
-  savingIntermediates.value = true
-  try {
-    for (const mediaId of promotableMediaIds.value) {
-      await promoteContextualMedia(mediaId)
-      savedMediaIds.value = new Set([...savedMediaIds.value, mediaId])
-    }
-    addToast('Kept in All Assets', 'success')
-  } catch (error) {
-    addToast(error.response?.data?.detail || 'Could not keep result', 'error')
-  } finally {
-    savingIntermediates.value = false
-  }
-}
 const generatingCount = computed(() =>
   rows.value.filter(r => r.output?.status === 'generating' || r.output?.status === 'pending').length
 )

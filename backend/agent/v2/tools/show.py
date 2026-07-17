@@ -19,12 +19,12 @@ log = get_logger(__name__)
 
 @tool(
     name="show",
-    description="Display media in chat and declare whether it is an intermediate for inspection or a final committed result. Viewing an intermediate never makes it an Asset; final results do.",
+    description="Display media in chat. role='final' commits the media to the user's library as an Asset — use it only for results you produced for the user (generated, edited, composed). Everything shown just for viewing — work-in-progress, and reference material found or downloaded from elsewhere — is role='intermediate' and never becomes an Asset.",
     parameters=[
         ToolParameter(
             name="role",
             type="string",
-            description="intermediate for work-in-progress/inspection, final for a committed result",
+            description="final only for results you produced for the user (commits an Asset to their library); intermediate for everything shown just for viewing — work-in-progress, downloaded/found reference material",
             enum=["intermediate", "final"],
             required=True,
         ),

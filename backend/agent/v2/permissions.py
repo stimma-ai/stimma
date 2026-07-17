@@ -31,7 +31,8 @@ PermissionDecision = Literal["allow", "deny", "ask"]
 # workspace and there are no shell metacharacters. Read-only discovery (including `cd`, which
 # only changes the shell's cwd within the one-shot subprocess it runs in) plus the in-workspace
 # mutating trio (cp/mv/rm) — destruction is fine as long as it's provably inside the box; the
-# workspace-relative path check below is what enforces "inside the box".
+# workspace-relative path check below is what enforces "inside the box". Plain http(s)
+# downloads via curl/wget are handled separately in _is_safe_download_segment.
 _AUTO_APPROVED_BASH_COMMANDS = {
     "cat",
     "cd",
@@ -44,6 +45,7 @@ _AUTO_APPROVED_BASH_COMMANDS = {
     "head",
     "echo",
     "ls",
+    "mkdir",
     "mv",
     "pwd",
     "rg",
@@ -56,10 +58,12 @@ _AUTO_APPROVED_BASH_COMMANDS = {
 
 # Constructs that enable arbitrary code execution or expansion — never auto-approved.
 _UNSAFE_SHELL_CHARS = re.compile(r"[`$(){}\n\r]")
-# Redirections to the null device (or fd duplications) are harmless; stripped before analysis.
-_NULL_REDIRECT = re.compile(r"(?:&|\d+)?>\s*/dev/null|\d*>&\d+")
+# Shell operator characters shlex emits as punctuation-run tokens (see
+# _split_safe_segments). A token made entirely of these is an operator; a token
+# merely containing one (e.g. a quoted URL with `&` in its query string) is a word.
+_SHELL_PUNCT_CHARS = set("();<>|&")
 # Pipeline / sequence separators — each segment is analysed independently.
-_SEGMENT_SEP = re.compile(r"\|\||&&|[|;]")
+_SEGMENT_SEPARATOR_TOKENS = {"&&", "||", "|", ";"}
 _WINDOWS_ABSOLUTE_PATH = re.compile(r"^[A-Za-z]:[\\/]")
 _MUTATING_FIND_ACTIONS = {
     "-delete",
@@ -72,6 +76,30 @@ _MUTATING_FIND_ACTIONS = {
     "-ok",
     "-okdir",
 }
+
+# Read-only downloads into the workspace (same risk class as the ungated
+# browse_web: public http(s) GET, output confined to the workspace). Anything
+# that sends data (-d/-F/-T), changes the method, adds headers/credentials, or
+# reads config falls through to a prompt. Allowlist, not denylist: an
+# unrecognized flag rejects the segment.
+_DOWNLOAD_COMMANDS = {"curl", "wget"}
+_CURL_BARE_FLAGS = {
+    "-L", "--location",
+    "-s", "--silent",
+    "-S", "--show-error",
+    "-f", "--fail",
+    "-O", "--remote-name",
+    "--compressed",
+    "-G", "--get",
+}
+# Single-letter curl flags that may appear combined (e.g. -sSfL, -sLO).
+_CURL_COMBINABLE = set("LsSfOG")
+_CURL_PATH_VALUE_FLAGS = {"-o", "--output"}
+_CURL_NUMERIC_VALUE_FLAGS = {"-m", "--max-time", "--connect-timeout", "--retry"}
+_WGET_BARE_FLAGS = {"-q", "--quiet", "-nv", "--no-verbose"}
+_WGET_PATH_VALUE_FLAGS = {"-O", "--output-document", "-P", "--directory-prefix"}
+_WGET_NUMERIC_VALUE_FLAGS = {"--timeout", "--tries", "-T", "-t"}
+_DOWNLOAD_URL = re.compile(r"^https?://", re.IGNORECASE)
 
 
 def _canonical_tool_name(tool_name: str) -> str:
@@ -223,33 +251,76 @@ def _is_safe_workspace_command(command: str) -> bool:
     if not command or _UNSAFE_SHELL_CHARS.search(command):
         return False
 
-    # Drop harmless null-device redirects, then reject any redirect that remains
-    # (it targets a real path we can't prove stays in-workspace).
-    stripped = _NULL_REDIRECT.sub(" ", command)
-    if "<" in stripped or ">" in stripped:
-        return False
-
-    # A lone ``&`` (background) is not part of ``&&`` sequencing — reject it.
-    if "&" in stripped.replace("&&", ""):
-        return False
-
-    segments = [seg.strip() for seg in _SEGMENT_SEP.split(stripped) if seg.strip()]
+    segments = _split_safe_segments(command)
     if not segments:
         return False
 
     return all(_is_safe_command_segment(seg) for seg in segments)
 
 
-def _is_safe_command_segment(segment: str) -> bool:
-    try:
-        tokens = shlex.split(segment, posix=True)
-    except ValueError:
-        return False
+def _split_safe_segments(command: str) -> list[list[str]] | None:
+    """Quote-aware split of a command into pipeline/sequence segments.
 
+    Uses shlex with punctuation_chars so operators arrive as their own
+    punctuation-run tokens while quoted text stays inside its word — a URL
+    like ``"https://x.com/a.jpg?h=1&itok=2"`` is one word token, not a
+    background ``&``. Only ``&&`` ``||`` ``|`` ``;`` separators and redirects
+    to the null device (``2>/dev/null``, ``2>&1``) are accepted; any other
+    operator (``<``, lone ``&``, a redirect to a real path) rejects the whole
+    command. Returns None when the command can't be proven safe.
+    """
+    lex = shlex.shlex(command, posix=True, punctuation_chars=True)
+    lex.whitespace_split = True
+    lex.commenters = ""  # '#' is data (URL fragments), not a comment
+    try:
+        tokens = list(lex)
+    except ValueError:
+        return None
+
+    segments: list[list[str]] = []
+    current: list[str] = []
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token and all(ch in _SHELL_PUNCT_CHARS for ch in token):
+            if token in _SEGMENT_SEPARATOR_TOKENS:
+                if current:
+                    segments.append(current)
+                    current = []
+            elif token == ">":
+                # Only the null device is a harmless target. shlex splits a
+                # leading fd number off as its own word (``2>/dev/null`` →
+                # '2', '>', '/dev/null') — drop it before checking.
+                if current and current[-1].isdigit():
+                    current.pop()
+                i += 1
+                if i >= len(tokens) or tokens[i] != "/dev/null":
+                    return None
+            elif token == ">&":
+                # fd duplication, e.g. ``2>&1``
+                if current and current[-1].isdigit():
+                    current.pop()
+                i += 1
+                if i >= len(tokens) or not tokens[i].isdigit():
+                    return None
+            else:
+                # ``<``, lone ``&``, ``>>``, subshell parens, ... — not provably safe.
+                return None
+        else:
+            current.append(token)
+        i += 1
+    if current:
+        segments.append(current)
+    return segments
+
+
+def _is_safe_command_segment(tokens: list[str]) -> bool:
     if not tokens:
         return False
 
     executable = tokens[0].split("/")[-1]
+    if executable in _DOWNLOAD_COMMANDS:
+        return _is_safe_download_segment(executable, tokens[1:])
     if executable not in _AUTO_APPROVED_BASH_COMMANDS:
         return False
 
@@ -268,6 +339,56 @@ def _is_safe_command_segment(segment: str) -> bool:
             return False
 
     return all(_is_workspace_relative_token(token) for token in tokens[1:])
+
+
+def _is_safe_download_segment(executable: str, args: list[str]) -> bool:
+    """True for a curl/wget invocation that is provably a plain GET of http(s)
+    URLs with output confined to the workspace."""
+    if executable == "curl":
+        bare = _CURL_BARE_FLAGS
+        path_value = _CURL_PATH_VALUE_FLAGS
+        numeric_value = _CURL_NUMERIC_VALUE_FLAGS
+        combinable = _CURL_COMBINABLE
+    else:
+        bare = _WGET_BARE_FLAGS
+        path_value = _WGET_PATH_VALUE_FLAGS
+        numeric_value = _WGET_NUMERIC_VALUE_FLAGS
+        combinable = set()
+
+    saw_url = False
+    i = 0
+    while i < len(args):
+        token = args[i]
+        if _DOWNLOAD_URL.match(token):
+            saw_url = True
+        elif token in bare:
+            pass
+        elif token in path_value:
+            i += 1
+            if i >= len(args):
+                return False
+            value = args[i]
+            if value.startswith("-") or not _is_workspace_relative_token(value):
+                return False
+        elif token in numeric_value:
+            i += 1
+            if i >= len(args) or not args[i].isdigit():
+                return False
+        elif (
+            combinable
+            and len(token) > 2
+            and token.startswith("-")
+            and not token.startswith("--")
+            and set(token[1:]) <= combinable
+        ):
+            pass  # combined bare flags, e.g. -sSfL
+        else:
+            # Unrecognized flag, non-http(s) scheme (file:, ftp:), or stray
+            # argument — not provably a safe download.
+            return False
+        i += 1
+
+    return saw_url
 
 
 def _is_workspace_relative_token(token: str) -> bool:
@@ -330,8 +451,30 @@ async def get_stp_permission_decision(
     if stp_tool_id in (agent_config.tool_config.denied_tools or []):
         return "deny"
 
+    # Built-in tools (reverse, resize, crop, ...) run in-process, cost nothing,
+    # and only touch library/workspace media — the same surface the ungated
+    # run_code already has. Prompting for them reads as noise, so they default
+    # to allow. An explicit deny above still wins.
+    if _is_builtin_tool(stp_tool_id):
+        return "allow"
+
     # Not found — needs prompt
     return "ask"
+
+
+def _is_builtin_tool(stp_tool_id: str) -> bool:
+    """True when the tool belongs to the in-process builtin provider."""
+    try:
+        from providers.registry import ProviderRegistry
+
+        pt = ProviderRegistry.get_instance().get_tool(stp_tool_id)
+        if pt:
+            provider, _descriptor = pt
+            return getattr(provider, "provider_type", None) == "builtin"
+    except Exception:
+        pass
+    # Registry unavailable (e.g. unit tests) — the id prefix is the provider id.
+    return stp_tool_id.startswith("builtin:")
 
 
 async def check_stp_permission(

@@ -63,9 +63,14 @@ Example:
 Display one or more images/videos to the user. Items can be ToolResult objects,
 media IDs, workspace paths, or lists of those values.
 
+role="final" commits the items to the user's library as Assets — use it for results
+you produced for them. role="intermediate" is plain display: work-in-progress, and
+reference material found or downloaded from elsewhere.
+
 Example:
   stimma.show(result, role="final", title="Final")
-  stimma.show([a, b, c], role="intermediate", title="Work in progress")""",
+  stimma.show([a, b, c], role="intermediate", title="Work in progress")
+  stimma.show(downloaded_paths, role="intermediate", title="Reference photos")""",
         group="display",
         is_async=False,
     ),
@@ -120,7 +125,8 @@ or info.path.""",
         summary="Save workspace files or generated results to the media library.",
         details="""\
 Library save is explicit. `show(..., role="final")` also commits a durable
-Asset, while `role="intermediate"` only retains Media in the chat for inspection.
+Asset, while `role="intermediate"` only retains Media in the chat for viewing
+(work-in-progress, downloaded reference material).
 Use save when the user asks to keep something without presenting it.
 `item` accepts a ToolResult, a PIL Image, or a workspace path. When saving an
 image you composed or edited in code (an Image or path rather than a
@@ -197,6 +203,39 @@ Use this for local image adjustments in PIL/numpy workflows rather than calling 
 generation provider.""",
         group="image",
         is_async=False,
+    ),
+    "ffmpeg": SDKMethodHelp(
+        name="ffmpeg",
+        signature="await stimma.ffmpeg(*args, timeout=600.0, check=True) -> AVToolResult",
+        summary="Run ffmpeg in the chat workspace (concat, trim, remux, extract frames).",
+        details="""\
+Runs ffmpeg with the workspace as cwd. Paths must stay inside the chat
+workspace (or shared project workspace); use workspace-relative paths.
+Args can be flat strings, a single list, or one command string. Raises
+RuntimeError with ffmpeg's stderr on nonzero exit unless check=False.
+
+Example — concatenate two clips losslessly:
+  open("list.txt", "w").write("file 'a.mp4'\\nfile 'b.mp4'\\n")
+  await stimma.ffmpeg("-y", "-f", "concat", "-safe", "0", "-i", "list.txt",
+                      "-c", "copy", "joined.mp4")
+  saved = await stimma.library.save("joined.mp4")""",
+        group="image",
+        is_async=True,
+    ),
+    "ffprobe": SDKMethodHelp(
+        name="ffprobe",
+        signature="await stimma.ffprobe(*args, timeout=120.0, check=True) -> AVToolResult",
+        summary="Inspect media files with ffprobe (duration, streams, fps).",
+        details="""\
+Same workspace rules as stimma.ffmpeg. The result's .stdout holds ffprobe's
+output.
+
+Example:
+  r = await stimma.ffprobe("-v", "error", "-show_entries", "format=duration",
+                           "-of", "json", "clip.mp4")
+  print(r.stdout)""",
+        group="image",
+        is_async=True,
     ),
     "filters": SDKMethodHelp(
         name="filters",
@@ -282,6 +321,7 @@ stimma quick reference (inside run_code / run_file):
   First read .stimma/tools/<category>/ (ls/cat) to get the exact name, then:
     from stimma.tools.<category> import <name_from_catalog>
     r = await <name_from_catalog>(prompt="a cat", width=1024)   # r.media_id, r.path, r.seed
-  stimma.show(r, role="final") to commit/display; asyncio.gather() for parallel batches.
-  stimma.* also has: .library (search/get/save), .llm(), .show(), .detect_faces().
+  stimma.show(r, role="final") commits+displays produced results ("intermediate" = display only); asyncio.gather() for parallel batches.
+  stimma.* also has: .library (search/get/save), .llm(), .show(), .detect_faces(),
+    await stimma.ffmpeg(...) / stimma.ffprobe(...) for workspace-jailed video/audio processing.
 NOT available in run_code (use as agent tools outside run_code): create_layout, bash, view_image, ask_user, browse_web, skill"""

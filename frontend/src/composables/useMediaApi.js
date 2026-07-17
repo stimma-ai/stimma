@@ -429,6 +429,11 @@ export function useMediaApi() {
     return response.data
   }
 
+  async function retryFailedDeleteOperations() {
+    const response = await axios.post(`${getAPIBase()}/delete-operations/retry-failed`)
+    return response.data
+  }
+
   async function bulkRestoreFromTrash(mediaIds) {
     const response = await axios.post(`${getAPIBase()}/trash/batch/restore`, {
       media_ids: mediaIds.map(id => parseInt(id))
@@ -618,6 +623,7 @@ export function useMediaApi() {
     getActiveDeleteOperation,
     getDeleteOperation,
     retryDeleteOperation,
+    retryFailedDeleteOperations,
     bulkRestoreFromTrash,
     bulkPermanentlyDelete,
     // Face Detection

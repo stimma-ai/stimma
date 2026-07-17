@@ -110,24 +110,27 @@
         <span class="text-[10px] font-semibold text-[#FFC107] leading-none whitespace-nowrap">{{ formattedRemainingTime }}</span>
       </div>
 
-      <!-- Bottom right controls: markers + info button -->
-      <div class="absolute bottom-2 right-2 z-[10] flex gap-1 items-center">
-        <!-- Active marker indicators -->
-        <template v-if="activeMarkerIds.size > 0 && !isTrashed">
-          <div
-            v-for="marker in activeMarkers"
-            :key="marker.id"
-            class="w-6 h-6 bg-black/60 backdrop-blur-md rounded flex items-center justify-center"
-            :title="marker.name"
-          >
-            <span
-              class="w-4 h-4 flex items-center justify-center icon-container"
-              :style="{ color: marker.color }"
-              v-html="sanitizeSvg(marker.icon_svg)"
-            />
-          </div>
-        </template>
+      <!-- Marker toggle buttons (bottom left) -->
+      <div v-if="!isTrashed && availableMarkers.length > 0" class="absolute bottom-2 left-2 z-[10] flex gap-0.5">
+        <button
+          v-for="marker in availableMarkers"
+          :key="marker.id"
+          @click.stop="toggleMarker(row.output.media_id, marker)"
+          :class="[
+            'w-7 h-7 rounded-md flex items-center justify-center transition-all border-2',
+            hasMarker(row.output.media_id, marker.id)
+              ? 'bg-black/80'
+              : 'bg-black/40 border-transparent hover:bg-black/60 text-white/50 hover:text-white'
+          ]"
+          :style="hasMarker(row.output.media_id, marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
+          :title="hasMarker(row.output.media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
+        >
+          <span class="w-4 h-4 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
+        </button>
+      </div>
 
+      <!-- Bottom right controls: info button -->
+      <div class="absolute bottom-2 right-2 z-[10] flex gap-1 items-center">
         <!-- Info button (visible on hover) -->
         <button
           v-if="row.output.job_id"
@@ -234,9 +237,10 @@ const workspaceImageSrc = computed(() => {
 // Use shared markers composable
 const {
   availableMarkers,
-  mediaMarkers,
   init: initMarkers,
-  loadMarkersForMedia
+  loadMarkersForMedia,
+  hasMarker,
+  toggleMarker
 } = useMarkers()
 
 // Use shared media state composable for auto_delete_at and deleted_at
@@ -273,18 +277,6 @@ watch(
     }
   }
 )
-
-// Computed set of active marker IDs for this media (reactive)
-const activeMarkerIds = computed(() => {
-  if (!props.row.output.media_id) return new Set()
-  const markers = mediaMarkers.value[props.row.output.media_id] || []
-  return new Set(markers.map(m => m.id))
-})
-
-// Computed list of active marker objects for display
-const activeMarkers = computed(() => {
-  return availableMarkers.value.filter(m => activeMarkerIds.value.has(m.id))
-})
 
 // Get current media state (reactive via shared composable)
 const currentMediaState = computed(() => {

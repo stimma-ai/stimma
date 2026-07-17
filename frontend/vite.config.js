@@ -31,10 +31,10 @@ const distributionAliases = [
     )
   },
   {
-    find: '@stimma/logo-feedback-menu',
+    find: '@stimma/feedback-footer-button',
     replacement: feedbackVariant(
-      'src/components/feedback/OfficialLogoFeedbackMenu.vue',
-      'src/components/feedback/SourceLogoFeedbackMenu.vue'
+      'src/components/feedback/OfficialFeedbackFooterButton.vue',
+      'src/components/feedback/SourceFeedbackFooterButton.vue'
     )
   },
   {

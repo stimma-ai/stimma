@@ -35,7 +35,7 @@
         </div>
 
         <!-- Nav Menu - only show when we have data -->
-        <nav v-if="hasLoadedData" class="p-3 flex flex-col gap-1 flex-1 overflow-y-auto custom-scrollbar" :class="isTauriMac ? 'pt-10' : 'pt-3'">
+        <nav v-if="hasLoadedData" ref="navEl" @scroll.passive="updateNavEdge" class="p-3 flex flex-col gap-1 flex-1 overflow-y-auto custom-scrollbar" :class="isTauriMac ? 'pt-10' : 'pt-3'">
 
           <!-- ==================== ZONE 1: Library Links ==================== -->
 
@@ -53,7 +53,7 @@
             ]"
             title="Stimma (drag media here to attach)"
           >
-            <img src="/logo.png" class="w-3.5 h-3.5 flex-shrink-0" alt="" />
+            <img src="/logo.png" class="w-3.5 h-3.5 flex-shrink-0" :class="{ 'logo-disconnected': !wsConnected }" alt="" />
             <span class="font-brand lowercase tracking-[0.12em]">stimma</span>
           </button>
 
@@ -879,6 +879,48 @@
 
         </nav>
 
+        <!-- Footer: account chip (only when signed in) + settings gear. The
+             top hairline shows only while nav content is scrolled under it
+             (scroll-edge divider); border stays in flow via transparent so
+             toggling never shifts layout. -->
+        <div
+          class="flex items-center gap-1 px-2 py-2 border-t flex-shrink-0 transition-colors"
+          :class="navScrolledUnder ? 'border-edge-subtle' : 'border-transparent'"
+        >
+          <!-- Signed in: chip fills the left, compact feedback + gear icons
+               on the right. Signed out: feedback and gear split the bar as
+               equal cells so it reads as a composed strip, not two orphaned
+               icons at opposite corners. -->
+          <template v-if="isAuthenticated">
+            <button
+              @click="openAccountSettings"
+              class="flex-1 min-w-0 flex items-center gap-2.5 px-2 py-1 rounded text-left transition-colors cursor-pointer hover:bg-overlay-subtle border-none bg-transparent"
+              title="Stimma account"
+            >
+              <div class="w-7 h-7 rounded-full bg-overlay-light text-content-secondary flex items-center justify-center text-xs font-semibold uppercase flex-shrink-0">
+                {{ accountInitial }}
+              </div>
+              <div class="min-w-0 flex flex-col leading-tight">
+                <span class="text-[13px] text-content truncate">{{ accountName }}</span>
+                <span v-if="accountBalance" class="text-[11px] text-content-muted tabular-nums">{{ accountBalance }}</span>
+              </div>
+            </button>
+            <FeedbackFooterButton />
+          </template>
+          <FeedbackFooterButton v-if="!isAuthenticated" wide />
+          <button
+            @click="openSettingsFromFooter"
+            class="h-8 flex items-center justify-center rounded text-content-tertiary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle border-none bg-transparent"
+            :class="isAuthenticated ? 'w-8 flex-shrink-0' : 'flex-1'"
+            title="Settings (⌘,)"
+          >
+            <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+          </button>
+        </div>
+
         <!-- Drop-intent hint while media is dragged over a tool tab. Absolute
              overlay (not flow) so appearing mid-drag can't shift tabs under
              the cursor and flicker the hover state. -->
@@ -909,10 +951,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, h, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, onUpdated, watch, h, nextTick } from 'vue'
 import { ArchiveBoxIcon } from '@heroicons/vue/24/outline'
 import { useRouter, useRoute } from 'vue-router'
 import { useWebSocket } from '../composables/useWebSocket'
+import { useAuth } from '../composables/useAuth'
+import { useCloudAccount } from '../composables/useCloudAccount'
 import { setPendingMedia } from '../composables/usePendingMedia'
 import { makeProfileKey } from '../utils/storageKeys'
 import { isStimmaCloudTool } from '../utils/stimmaCloud'
@@ -938,6 +982,8 @@ import { MediaImage } from './media'
 import ToolIcon from './tools/ToolIcon.vue'
 import EntityIcon from './EntityIcon.vue'
 import WorkspaceTabsContextMenu from './WorkspaceTabsContextMenu.vue'
+// @ts-expect-error - distribution-aliased Vue component (see vite.config.js)
+import FeedbackFooterButton from '@stimma/feedback-footer-button'
 
 const props = defineProps({
   isOpen: {
@@ -950,7 +996,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'media-dropped-on-tool', 'media-dropped-on-chat'])
+const emit = defineEmits(['close', 'open-settings', 'media-dropped-on-tool', 'media-dropped-on-chat'])
 
 // Platform detection
 const isTauriMac = isTauri() && navigator.platform.toLowerCase().includes('mac')
@@ -967,6 +1013,58 @@ const activeTab = computed(() => {
 
 // WebSocket
 const { on, connected: wsConnected } = useWebSocket()
+
+// Footer: account chip + settings gear
+const { isAuthenticated, user } = useAuth()
+const { cloudUser, fetchCloudAccount, formatBalance } = useCloudAccount()
+
+const accountName = computed(() => {
+  const email = user.value?.email || ''
+  return email.split('@')[0] || 'Account'
+})
+const accountInitial = computed(() => accountName.value.charAt(0) || '?')
+const accountBalance = computed(() =>
+  cloudUser.value ? formatBalance(cloudUser.value.credits) : ''
+)
+
+watch(isAuthenticated, (signedIn) => {
+  if (signedIn) fetchCloudAccount()
+}, { immediate: true })
+
+function openAccountSettings() {
+  emit('open-settings', 'account')
+  if (props.isMobile) emit('close')
+}
+
+function openSettingsFromFooter() {
+  emit('open-settings')
+  if (props.isMobile) emit('close')
+}
+
+// Scroll-edge divider: the footer's top hairline shows only while nav
+// content is scrolled under it, and disappears at scroll-bottom.
+const navEl = ref<HTMLElement | null>(null)
+const navScrolledUnder = ref(false)
+
+function updateNavEdge() {
+  const el = navEl.value
+  navScrolledUnder.value = !!el && el.scrollHeight - el.scrollTop - el.clientHeight > 1
+}
+
+let navResizeObserver: ResizeObserver | null = null
+watch(navEl, (el) => {
+  navResizeObserver?.disconnect()
+  navResizeObserver = null
+  if (el) {
+    navResizeObserver = new ResizeObserver(updateNavEdge)
+    navResizeObserver.observe(el)
+    updateNavEdge()
+  }
+})
+// Content mutations (tabs opening/closing, sections loading) change
+// scrollHeight without resizing the nav box, so re-check after renders.
+onUpdated(() => nextTick(updateNavEdge))
+onUnmounted(() => navResizeObserver?.disconnect())
 
 // Generation status
 const { isToolActive: isToolGenerating, isFeedScopeActive } = useGenerationStatus()
@@ -2370,6 +2468,16 @@ watch(wsConnected, (connected, wasConnected) => {
 </script>
 
 <style scoped>
+/* Logo disconnected animation - pendulum swing (matches Tauri loading screen) */
+.logo-disconnected {
+  animation: logo-pendulum 2.4s ease-in-out infinite;
+}
+
+@keyframes logo-pendulum {
+  0%, 100% { transform: rotate(-175deg); }
+  50% { transform: rotate(175deg); }
+}
+
 /* Fade transition for backdrop */
 .fade-enter-active,
 .fade-leave-active {

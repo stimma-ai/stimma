@@ -606,6 +606,13 @@
           >
             {{ submissionCloudConnecting ? 'Opening…' : isAuthenticated ? 'Add credits' : 'Open Settings' }}
           </button>
+          <button
+            v-else-if="isLlmSetupCode(submissionErrorCode)"
+            @click="openChatModelSettings"
+            class="flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium border border-current/20 hover:border-current/40 transition-colors"
+          >
+            Configure Chat Models
+          </button>
         </div>
        </div>
       </div>
@@ -1372,6 +1379,18 @@ const submissionErrorCode = ref<string | null>(null)
 // plus legacy names still recognized as the same thing.
 function isInsufficientBalanceCode(code: string | null): boolean {
   return code === 'insufficient_balance' || code === 'llm_insufficient_balance' || code === 'subscription_required' || code === 'subscription_error'
+}
+
+// Codes for "no usable chat model" — the remedy is configuring one in
+// Settings > Chat Models, mirroring the chat input's agent-unavailable card.
+function isLlmSetupCode(code: string | null): boolean {
+  return code === 'llm_not_configured' || code === 'llm_not_logged_in'
+    || code === 'llm_local_missing' || code === 'llm_model_missing'
+    || code === 'llm_cloud_unreachable' || code === 'llm_provider_unavailable'
+}
+
+function openChatModelSettings() {
+  window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' }))
 }
 
 function classifySubmissionError(err: any): string {

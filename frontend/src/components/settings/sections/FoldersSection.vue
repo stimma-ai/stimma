@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="mb-3">
+    <div v-if="!wizard" class="mb-3">
       <h3 class="text-base font-medium text-content">Folders</h3>
       <p class="mt-1 text-xs text-content-tertiary">
         Add folders Stimma may scan for external media. Stimma never writes to or deletes files in these folders.
@@ -65,13 +65,26 @@
         </button>
       </div>
 
-      <!-- Empty state -->
-      <div v-if="folders.length === 0" class="text-center py-8 text-content-tertiary">
-        No external folders configured
-      </div>
-
-      <!-- Add folder row -->
+      <!-- Empty state: one contained card that IS the add-folder action -->
       <button
+        v-if="folders.length === 0"
+        type="button"
+        @click="addFolder"
+        :disabled="saving"
+        class="flex w-full flex-col items-center gap-3 rounded-xl border border-dashed border-edge px-6 py-10 text-center transition-colors hover:border-blue-500/50 hover:bg-blue-500/[0.04] disabled:opacity-50"
+      >
+        <svg class="h-8 w-8 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+        </svg>
+        <div>
+          <div class="text-sm font-medium text-blue-400">Add Folder</div>
+          <div class="mt-1 text-xs text-content-tertiary">Choose a folder to scan into your library — read-only, your files are never changed.</div>
+        </div>
+      </button>
+
+      <!-- Add folder row (below the existing list) -->
+      <button
+        v-else
         type="button"
         @click="addFolder"
         :disabled="saving"
@@ -187,6 +200,11 @@ const props = defineProps({
   folders: {
     type: Array,
     default: () => []
+  },
+  // Setup-wizard variant: the step provides its own header, so skip ours.
+  wizard: {
+    type: Boolean,
+    default: false
   }
 })
 

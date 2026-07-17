@@ -190,6 +190,13 @@
           >
             {{ cloudConnecting ? 'Opening…' : isAuthenticated ? 'Add credits' : 'Configure Chat Models' }}
           </button>
+          <button
+            v-else-if="isLlmSetupCode(f.code)"
+            @click.stop="openChatModelSettings"
+            class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium border border-current/20 hover:border-current/40 transition-colors"
+          >
+            Configure Chat Models
+          </button>
           <!-- Dev mode: copy the failed step's full LLM trace for a bug report -->
           <button
             v-if="f.kind === 'error' && devModeRef && agentDebugTrace"
@@ -315,6 +322,13 @@
         class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium stimma-cloud-text border border-current/20 hover:border-current/40 transition-colors"
       >
         {{ cloudConnecting ? 'Opening…' : isAuthenticated ? 'Add credits' : 'Configure Chat Models' }}
+      </button>
+      <button
+        v-else-if="isLlmSetupCode(errorCode)"
+        @click="openChatModelSettings"
+        class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium border border-current/20 hover:border-current/40 transition-colors"
+      >
+        Configure Chat Models
       </button>
     </div>
 
@@ -628,6 +642,18 @@ const agentFlashTimers = new Set<ReturnType<typeof setTimeout>>()
 // backend code plus legacy names still recognized as the same thing.
 function isInsufficientBalanceCode(code: string | null): boolean {
   return code === 'insufficient_balance' || code === 'llm_insufficient_balance' || code === 'subscription_required' || code === 'subscription_error'
+}
+
+// Codes for "no usable chat model" — the remedy is configuring one in
+// Settings > Chat Models, mirroring the chat input's agent-unavailable card.
+function isLlmSetupCode(code: string | null | undefined): boolean {
+  return code === 'llm_not_configured' || code === 'llm_not_logged_in'
+    || code === 'llm_local_missing' || code === 'llm_model_missing'
+    || code === 'llm_cloud_unreachable' || code === 'llm_provider_unavailable'
+}
+
+function openChatModelSettings() {
+  window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' }))
 }
 
 function pushAgentFlash(kind: 'reply' | 'error', text: string, ms: number, code: string | null = null) {

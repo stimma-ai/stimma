@@ -206,6 +206,7 @@ async def permanently_delete_asset(
     *,
     asset_id: int,
     profile_id: str,
+    group_id: str | None = None,
 ):
     """Destroy an Asset identity and queue only newly-unowned Media collection."""
     asset = await session.get(Asset, asset_id)
@@ -345,6 +346,7 @@ async def permanently_delete_asset(
             kind="asset",
             media_items=collectible,
             managed_artifacts=artifacts,
+            group_id=group_id,
         )
         return AssetDeletionResult(
             operation=operation,

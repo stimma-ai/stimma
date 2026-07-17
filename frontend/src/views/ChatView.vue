@@ -635,6 +635,7 @@
                       @click="openAISettings"
                       class="block w-full text-center text-xs text-content-muted hover:text-content-secondary transition-colors"
                     >Configure Chat Models</button>
+                    <div v-if="hasNoStimmaBalance" class="text-center"><RedeemCodeLink /></div>
                   </div>
                 </div>
               </div>
@@ -676,6 +677,7 @@
                       @click="openAISettings"
                       class="block w-full text-center text-xs text-content-muted hover:text-content-secondary transition-colors"
                     >Configure Chat Models</button>
+                    <div class="text-center"><RedeemCodeLink /></div>
                     <ChatErrorDisclosure :raw="getRawErrorDetails(item)" />
                   </div>
                 </div>
@@ -1413,6 +1415,7 @@ import { devModeRef } from '../appConfig'
 import { escapeHtmlAttribute, sanitizeHtml } from '../utils/sanitizeHtml'
 import { formatTaskTypeLabel } from '../utils/taskTypeIcons'
 import { resolveAgentUnavailableState } from '../utils/agentUnavailableState'
+import RedeemCodeLink from '../components/RedeemCodeLink.vue'
 
 const props = defineProps<{
   // Optional override for chat identity. When provided, this takes precedence

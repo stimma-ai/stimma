@@ -92,6 +92,48 @@ async def test_run_code_captures_stdout_and_blocks_unsafe_imports(session, test_
     assert ok == "2"
     assert "ImportError" in blocked
     assert "subprocess" in blocked
+    # The denial points at the sanctioned ffmpeg surface instead of dead-ending.
+    assert "stimma.ffmpeg" in blocked
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(__import__("shutil").which("ffmpeg") is None, reason="ffmpeg not installed")
+async def test_run_code_ffmpeg_and_ffprobe_in_workspace(session, test_chat, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    result = await run_code(
+        code=(
+            "r = await stimma.ffmpeg('-y', '-f', 'lavfi', '-i', 'color=c=red:s=64x64:d=1', "
+            "'-pix_fmt', 'yuv420p', 'out.mp4')\n"
+            "print(r.returncode)\n"
+            "p = await stimma.ffprobe('-v', 'error', '-show_entries', 'format=duration', "
+            "'-of', 'csv=p=0', 'out.mp4')\n"
+            "print(round(float(p.stdout.strip())))\n"
+        ),
+        session=session,
+        chat_id=test_chat.id,
+        workspace_dir=workspace,
+    )
+
+    assert result.splitlines()[:2] == ["0", "1"]
+    assert (workspace / "out.mp4").exists()
+
+
+@pytest.mark.asyncio
+async def test_run_code_ffmpeg_rejects_paths_outside_workspace(session, test_chat, tmp_path):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    result = await run_code(
+        code="await stimma.ffmpeg('-i', '/etc/passwd', 'out.mp4')",
+        session=session,
+        chat_id=test_chat.id,
+        workspace_dir=workspace,
+    )
+
+    assert "PermissionError" in result
+    assert "workspace" in result
 
 
 @pytest.mark.asyncio

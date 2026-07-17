@@ -10,7 +10,6 @@
         v-if="panelVisible"
         data-testid="readiness-panel"
         class="fixed inset-0 z-[10005] flex items-center justify-center bg-black/65 p-6 backdrop-blur-sm"
-        @click.self="dismissWizard"
       >
         <section class="relative flex h-[820px] max-h-[94vh] w-[1180px] max-w-[96vw] flex-col overflow-hidden rounded-2xl border border-edge bg-surface shadow-2xl">
           <button
@@ -77,6 +76,8 @@
 
               <p class="relative mt-8 text-center text-xs text-content-tertiary">Mix and match services freely. You can change them at any time.</p>
 
+              <div class="relative mt-3 text-center"><RedeemCodeLink /></div>
+
             </div>
 
             <!-- STEP 1 · chat models -->
@@ -85,6 +86,10 @@
                 <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-content-tertiary">Step 1 of 3 · Chat models</div>
                 <h1 class="mt-2 text-2xl font-semibold tracking-tight text-content">Connect a chat model</h1>
                 <p class="mt-2 text-sm text-content-secondary">Chat models power chat, the agent, and AI-assisted features.</p>
+                <div v-if="llmReady" class="mt-5 flex items-center gap-3 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3">
+                  <svg class="h-4 w-4 shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                  <p class="text-sm text-content-secondary">You're all set. Continue, or add more providers below.</p>
+                </div>
                 <div class="mt-6">
                   <AIServicesSection
                     :llm-settings="settings?.llm_settings || []"
@@ -101,6 +106,10 @@
                 <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-content-tertiary">Step 2 of 3 · Generation tools</div>
                 <h1 class="mt-2 text-2xl font-semibold tracking-tight text-content">Connect generation tools</h1>
                 <p class="mt-2 text-sm text-content-secondary">Generation tools create and edit images, video, and audio.</p>
+                <div v-if="generationReady" class="mt-5 flex items-center gap-3 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3">
+                  <svg class="h-4 w-4 shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                  <p class="text-sm text-content-secondary">You're all set. Continue, or add more providers below.</p>
+                </div>
                 <div class="mt-6">
                   <ToolProvidersSection
                     :providers="settings?.tool_providers || []"
@@ -118,15 +127,16 @@
             <div v-else-if="step === 'folders'" class="min-h-0 flex-1 overflow-y-auto px-10 py-9">
               <div class="max-w-3xl">
                 <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-content-tertiary">Step 3 of 3 · Your library</div>
-                <h1 class="mt-2 text-2xl font-semibold tracking-tight text-content">Add your existing artwork</h1>
+                <h1 class="mt-2 text-2xl font-semibold tracking-tight text-content">Add your image folders</h1>
                 <p class="mt-2 text-sm text-content-secondary">
-                  Add folders of AI artwork you've made — ComfyUI outputs, Midjourney downloads — plus photos,
+                  Add folders of AI artwork you've made — ComfyUI outputs, Midjourney downloads, photos,
                   renders, and other reference imagery. Everything becomes part of your library to browse,
                   search, and remix.
                 </p>
                 <div class="mt-6">
                   <FoldersSection
                     :folders="settings?.folders || []"
+                    wizard
                     @update="handleFoldersUpdate"
                     @rescan="handleFolderRescan"
                   />
@@ -206,6 +216,7 @@ import { addToast } from '../composables/useToasts'
 import AIServicesSection from './settings/sections/AIServicesSection.vue'
 import ToolProvidersSection from './settings/sections/ToolProvidersSection.vue'
 import FoldersSection from './settings/sections/FoldersSection.vue'
+import RedeemCodeLink from './RedeemCodeLink.vue'
 import { preserveConnectingToolProviderStatuses, toolProviderUpdateStartsConnection } from '../utils/toolProviderBrands'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { MODEL_MARK_SVGS } from './tools/modelMarks'

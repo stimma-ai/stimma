@@ -11,7 +11,7 @@ MAX_RESULTS = 1000
 
 @tool(
     name="glob",
-    description="Find files in the workspace matching a glob pattern. Returns matching filenames.",
+    description="Find files in the workspace matching a glob pattern. Returns matching filenames; directories are listed with a trailing '/'.",
     parameters=[
         ToolParameter(
             name="pattern",
@@ -50,15 +50,19 @@ async def glob_files(pattern: str | None = None, path: str | None = None, **kwar
     matches = sorted(search_root.glob(pattern))
     duration_ms = round((time.monotonic() - start) * 1000, 1)
 
-    # Filter to files only, make paths relative to workspace
+    # Directories are included (with a trailing '/') so discovery patterns like
+    # '.stimma' or '.stimma/tools/*' — whose matches are all directories — don't
+    # come back as "no matches" and send the model hunting outside the workspace.
     filenames = []
     for m in matches:
-        if m.is_file():
-            try:
-                rel = m.relative_to(workspace)
-                filenames.append(str(rel))
-            except ValueError:
-                continue
+        try:
+            rel = m.relative_to(workspace)
+        except ValueError:
+            continue
+        if m.is_dir():
+            filenames.append(f"{rel}/")
+        elif m.is_file():
+            filenames.append(str(rel))
 
     truncated = len(filenames) > MAX_RESULTS
     if truncated:
@@ -76,7 +80,7 @@ async def glob_files(pattern: str | None = None, path: str | None = None, **kwar
 
     # Model-visible result
     if not filenames:
-        return f"No files matching '{pattern}'"
+        return f"No files or directories matching '{pattern}'"
 
     result = "\n".join(filenames)
     if truncated:

@@ -871,6 +871,18 @@ async def delete_llm_provider(provider_id: str):
     return {"status": "deleted"}
 
 
+def _fallback_provider_model_entry(models: list[dict], lockdown: bool) -> Optional[dict]:
+    """First available provider model — the resolver's last-resort fallback."""
+    return next(
+        (
+            m for m in models
+            if m.get("source") == "provider" and m.get("available")
+            and (not lockdown or m.get("provider_kind") == "local")
+        ),
+        None,
+    )
+
+
 @router.get("/available")
 async def get_available_models(project_id: Optional[int] = Query(None)):
     """Get available models for the chat model picker.
@@ -1036,7 +1048,7 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
         "description": (
             "Add a model endpoint in Settings > Chat Models."
             if lockdown
-            else "Sign in to your Stimma account or add a model provider."
+            else "Add a model provider or sign in to your Stimma account."
         ),
         "available": False,
         "status": "llm_not_configured",
@@ -1061,6 +1073,20 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
             "resolved_slug": "local",
             "max_context_tokens": local_max_context_tokens,
         })
+    else:
+        # Mirror the resolver's last-resort fallback: with no cloud and no
+        # legacy endpoint pair, 'auto' uses the first working provider model
+        # so one configured model never needs an explicit selection.
+        fallback = _fallback_provider_model_entry(models, lockdown)
+        if fallback:
+            auto_model.update({
+                "name": f"Auto: {fallback['name']}",
+                "description": f"Uses {fallback['name']} via {fallback['provider_name']}.",
+                "available": True,
+                "status": "available",
+                "resolved_slug": fallback["slug"],
+                "max_context_tokens": fallback["max_context_tokens"],
+            })
 
     # Acceptance lane: the resolver (_acceptance_llm_config) serves a
     # deterministic in-process LLM for every role regardless of cloud auth or
@@ -1127,12 +1153,25 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
             "max_context_tokens": get_max_context_tokens(slug),
         })
 
+    # Report the quick-task model actually in effect. When the saved slug
+    # can't resolve (e.g. a cloud model while signed out) the resolver falls
+    # back to a working provider model / the legacy endpoint pair; the
+    # settings UI should show that model, not an empty selection.
+    quick_task_model = normalize_model_slug(
+        getattr(settings, "quick_task_model", "stimma:minimax-m3")
+    )
+    usable_slugs = {m["slug"] for m in models if m.get("available")}
+    if quick_task_model not in usable_slugs:
+        fallback = _fallback_provider_model_entry(models, lockdown)
+        if fallback:
+            quick_task_model = fallback["slug"]
+        elif agent_has_endpoint and agent_fast_has_endpoint:
+            quick_task_model = "local"
+
     return {
         "models": models,
         "global_default": effective_global_default,
-        "quick_task_model": normalize_model_slug(
-            getattr(settings, "quick_task_model", "stimma:minimax-m3")
-        ),
+        "quick_task_model": quick_task_model,
         "reasoning_levels": getattr(settings, "llm_reasoning_levels", {}),
         "project_default": effective_project_default,
         "cloud_status": cloud_status,

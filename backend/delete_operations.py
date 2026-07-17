@@ -1,10 +1,11 @@
 import asyncio
 import json
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import delete, or_, select, text, update
+from sqlalchemy import and_, case, delete, func, or_, select, text, update
 
 from core.logging import get_logger
 from database import (
@@ -73,7 +74,122 @@ def _operation_payload(operation: DeleteOperation) -> dict[str, Any]:
     return payload
 
 
+ACTIVE_STATUSES = ("queued", "running", "failed")
 
+
+async def get_delete_progress_summary(session, profile_id: str) -> dict[str, Any] | None:
+    """Aggregate progress across every operation in the active deletion wave.
+
+    One user action (empty trash, bulk delete) enqueues one operation per
+    asset, all sharing a group_id. Progress is reported for the whole wave:
+    completed operations in an active group still count toward the totals so
+    the denominator stays stable while the wave drains.
+    """
+    active_rows = (
+        await session.execute(
+            select(DeleteOperation.group_id, DeleteOperation.status)
+            .where(
+                DeleteOperation.profile_id == profile_id,
+                DeleteOperation.status.in_(ACTIVE_STATUSES),
+            )
+            .distinct()
+        )
+    ).all()
+    if not active_rows:
+        return None
+
+    group_ids = {group_id for group_id, _status in active_rows if group_id}
+    has_ungrouped = any(group_id is None for group_id, _status in active_rows)
+    wave_filters = []
+    if group_ids:
+        wave_filters.append(DeleteOperation.group_id.in_(group_ids))
+    if has_ungrouped:
+        wave_filters.append(
+            and_(
+                DeleteOperation.group_id.is_(None),
+                DeleteOperation.status.in_(ACTIVE_STATUSES),
+            )
+        )
+
+    (
+        ops_total,
+        total_items,
+        processed_items,
+        failed_items,
+        ops_finished,
+        earliest_started_at,
+    ) = (
+        await session.execute(
+            select(
+                func.count(),
+                func.coalesce(func.sum(DeleteOperation.total_items), 0),
+                func.coalesce(func.sum(DeleteOperation.processed_items), 0),
+                func.coalesce(func.sum(DeleteOperation.failed_items), 0),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (DeleteOperation.status.in_(["completed", "failed"]), 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ),
+                func.min(DeleteOperation.started_at),
+            ).where(
+                DeleteOperation.profile_id == profile_id,
+                or_(*wave_filters),
+            )
+        )
+    ).one()
+
+    kinds = sorted(
+        (
+            await session.scalars(
+                select(DeleteOperation.kind)
+                .where(
+                    DeleteOperation.profile_id == profile_id,
+                    or_(*wave_filters),
+                )
+                .distinct()
+            )
+        ).all()
+    )
+
+    statuses = {status for _group_id, status in active_rows}
+    status = "running" if statuses & {"queued", "running"} else "failed"
+
+    eta = None
+    if status == "running" and earliest_started_at is not None:
+        if isinstance(earliest_started_at, str):
+            earliest_started_at = datetime.fromisoformat(earliest_started_at)
+        elapsed = max((_utcnow() - earliest_started_at).total_seconds(), 0.001)
+        # Zero-item operations (e.g. chat privacy deletions) still do real
+        # work, so fall back to operation counts when there are no items.
+        done_units = processed_items if total_items else ops_finished
+        remaining_units = (
+            (total_items - processed_items) if total_items else (ops_total - ops_finished)
+        )
+        rate = done_units / elapsed
+        eta = remaining_units / rate if rate > 0 else None
+
+    return {
+        "status": status,
+        "total_items": total_items,
+        "processed_items": processed_items,
+        "failed_items": failed_items,
+        "operations_total": ops_total,
+        "operations_completed": ops_finished,
+        "kinds": kinds,
+        "eta_seconds": eta,
+    }
+
+
+async def _operation_event_payload(session, operation: DeleteOperation) -> dict[str, Any]:
+    payload = _operation_payload(operation)
+    payload["summary"] = await get_delete_progress_summary(
+        session, operation.profile_id
+    )
+    return payload
 
 async def create_delete_operation(
     session,
@@ -82,6 +198,7 @@ async def create_delete_operation(
     kind: str,
     media_items: list[MediaItem],
     managed_artifacts: list[ManagedArtifact] | None = None,
+    group_id: str | None = None,
 ) -> DeleteOperation:
     media_ids = [item.id for item in media_items]
     await _assert_no_live_media_owners(session, media_ids)
@@ -94,6 +211,7 @@ async def create_delete_operation(
     operation = DeleteOperation(
         kind=kind,
         profile_id=profile_id,
+        group_id=group_id or uuid.uuid4().hex,
         status="queued",
         current_phase="queued",
         total_items=len(media_items),
@@ -365,6 +483,7 @@ async def _finalize_staged_deletion(
     try:
         await asyncio.to_thread(_unlink_manifests)
     except Exception as exc:
+        failure_payload = None
         async with db.async_session_maker() as session:
             operation = await session.get(DeleteOperation, operation_id)
             if operation is not None:
@@ -397,16 +516,19 @@ async def _finalize_staged_deletion(
                     )
                 )
             await session.commit()
+            if operation is not None:
+                failure_payload = await _operation_event_payload(session, operation)
         log.error(
             "DELETE OPS: durable artifact unlink failed",
             operation_id=operation_id,
             error_type=type(exc).__name__,
         )
-        await ws_manager.broadcast(
-            "delete_operation_failed",
-            _operation_payload(operation),
-            include_profile=False,
-        )
+        if failure_payload is not None:
+            await ws_manager.broadcast(
+                "delete_operation_failed",
+                failure_payload,
+                include_profile=False,
+            )
         return True, []
 
     completed_ids = [item.media_id for item in staged_items]
@@ -546,7 +668,7 @@ async def _process_profile(profile_id: str) -> bool:
             operation.current_phase = "claiming"
             operation.updated_at = now
             await session.commit()
-            await ws_manager.broadcast("delete_operation_started", _operation_payload(operation), include_profile=False)
+            await ws_manager.broadcast("delete_operation_started", await _operation_event_payload(session, operation), include_profile=False)
 
         pending_logical_work = await session.scalar(
             select(DeleteOperationItem.media_id).where(
@@ -608,7 +730,7 @@ async def _process_profile(profile_id: str) -> bool:
             operation.updated_at = operation.completed_at
             await session.commit()
             event_name = "delete_operation_failed" if operation.failed_items else "delete_operation_completed"
-            await ws_manager.broadcast(event_name, _operation_payload(operation), include_profile=False)
+            await ws_manager.broadcast(event_name, await _operation_event_payload(session, operation), include_profile=False)
             if operation_kind == "empty_trash" and operation.deleted_items:
                 await ws_manager.broadcast("trash_emptied", {"count": operation.deleted_items}, include_profile=False)
             return True
@@ -855,7 +977,7 @@ async def _process_profile(profile_id: str) -> bool:
     async with db.async_session_maker() as session:
         refreshed = await session.get(DeleteOperation, operation.id)
         if refreshed:
-            await ws_manager.broadcast("delete_operation_progress", _operation_payload(refreshed), include_profile=False)
+            await ws_manager.broadcast("delete_operation_progress", await _operation_event_payload(session, refreshed), include_profile=False)
 
     if completed_ids:
         payload = {"count": len(completed_ids)}
@@ -1295,6 +1417,29 @@ async def retry_delete_operation(session, operation_id: int) -> DeleteOperation:
     await session.commit()
     await session.refresh(operation)
     return operation
+
+
+async def retry_failed_delete_operations(session, profile_id: str) -> int:
+    """Retry every failed operation for a profile. Returns the retried count."""
+    operation_ids = list(
+        await session.scalars(
+            select(DeleteOperation.id)
+            .where(
+                DeleteOperation.profile_id == profile_id,
+                DeleteOperation.status == "failed",
+            )
+            .order_by(DeleteOperation.id.asc())
+        )
+    )
+    retried = 0
+    for operation_id in operation_ids:
+        try:
+            await retry_delete_operation(session, operation_id)
+            retried += 1
+        except (ValueError, RetainedMediaError):
+            await session.rollback()
+            continue
+    return retried
 
 
 async def get_active_delete_operation(session, profile_id: str) -> DeleteOperation | None:

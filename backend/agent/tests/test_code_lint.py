@@ -350,6 +350,40 @@ results = await asyncio.gather(*[stimma.call_tool("flux", prompt=p) for p in pro
         assert not any("unexpected keyword" in w.message for w in warnings)
 
 
+class TestSyncSinkConsumption:
+    def test_unawaited_save_consumed_only_by_print_and_show_warns(self):
+        """The real-world miss: a coroutine assigned then only printed/shown.
+        print()/stimma.show() are sync sinks — they can never await, so they
+        must not suppress the missing-await warning."""
+        code = """
+saved = stimma.library.save("boomerang.mp4")
+print(saved)
+stimma.show(saved, role="intermediate")
+"""
+        warnings = lint_code(code)
+        assert any("must await" in w.message for w in warnings)
+
+    def test_unawaited_coroutine_gathered_later_still_fine(self):
+        code = """
+a = stimma.llm("one")
+b = stimma.llm("two")
+results = await asyncio.gather(a, b)
+"""
+        warnings = lint_code(code)
+        assert not any("must await" in w.message for w in warnings)
+
+    def test_unawaited_coroutine_appended_then_gathered_still_fine(self):
+        code = """
+coros = []
+for p in prompts:
+    c = stimma.llm(p)
+    coros.append(c)
+results = await asyncio.gather(*coros)
+"""
+        warnings = lint_code(code)
+        assert not any("must await" in w.message for w in warnings)
+
+
 class TestFormatting:
     def test_format_lint_errors(self):
         warnings = lint_code("stimma.generate('cat')")

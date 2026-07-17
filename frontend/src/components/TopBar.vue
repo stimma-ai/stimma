@@ -68,15 +68,15 @@
             <div class="p-8 text-center text-content-muted text-sm">Loading progress data...</div>
           </div>
           <div v-else-if="isExpanded" class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge rounded-lg p-4 min-w-[400px] shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-[10000]">
-            <div v-if="activeDeleteOperation" class="mb-4 pb-4 border-b border-surface-raised">
+            <div v-if="deleteSummary" class="mb-4 pb-4 border-b border-surface-raised">
               <div class="flex justify-between items-center mb-2">
                 <span class="flex items-center gap-2 text-sm font-semibold text-content">
-                  {{ activeDeleteOperation.status === 'completed' ? 'Deletion Complete' : activeDeleteOperation.status === 'failed' ? 'Deletion Failed' : 'Permanently Deleting' }}
-                  <span v-if="activeDeleteOperation.status === 'running'" class="w-3 h-3 border-2 border-edge border-t-white/80 rounded-full animate-spin"></span>
+                  {{ deleteSummary.status === 'completed' ? 'Deletion Complete' : deleteSummary.status === 'failed' ? 'Deletion Failed' : 'Permanently Deleting' }}
+                  <span v-if="deleteSummary.status === 'running'" class="w-3 h-3 border-2 border-edge border-t-white/80 rounded-full animate-spin"></span>
                 </span>
                 <span class="text-xs text-content-tertiary">
-                  <span class="text-red-400 font-semibold">{{ activeDeleteOperation.processed_items || 0 }}</span> /
-                  <span class="text-content-muted">{{ activeDeleteOperation.total_items || 0 }}</span>
+                  <span class="text-red-400 font-semibold">{{ deleteDoneCount }}</span> /
+                  <span class="text-content-muted">{{ deleteTotalCount }}</span>
                 </span>
               </div>
               <div class="mb-2">
@@ -86,10 +86,10 @@
               </div>
               <div class="flex items-center justify-between text-[0.6875rem] text-content-tertiary">
                 <span>{{ deleteOperationLabel }}</span>
-                <span v-if="activeDeleteOperation.eta_seconds">ETA {{ formatEta(activeDeleteOperation.eta_seconds) }}</span>
+                <span v-if="deleteSummary.eta_seconds">ETA {{ formatEta(deleteSummary.eta_seconds) }}</span>
               </div>
               <button
-                v-if="activeDeleteOperation.status === 'failed'"
+                v-if="deleteSummary.status === 'failed'"
                 class="mt-3 px-3 py-1.5 rounded border border-blue-500/50 bg-blue-500/15 text-xs text-blue-400 hover:bg-blue-500/25 disabled:opacity-50"
                 :disabled="retryingDeletion"
                 @click="retryDeletion"
@@ -301,32 +301,25 @@
         >{{ updatePillLabel }}</span>
       </button>
 
-      <!-- Logo menu -->
-      <div class="relative logo-menu">
+      <!-- Profile picker: exists only when a second profile does -->
+      <div v-if="profiles.length > 1" class="relative profile-menu">
         <button
-          class="relative w-8 h-8 flex items-center justify-center rounded transition-all cursor-pointer hover:bg-overlay-subtle"
-          @click="toggleLogoMenu"
-          :title="wsConnected ? 'Connected to server' : 'Disconnected from server'"
+          class="flex items-center gap-1.5 h-7 pl-2.5 pr-2 rounded-full border border-edge bg-surface-raised text-sm text-content-secondary transition-all cursor-pointer hover:text-content hover:border-edge-strong"
+          @click="toggleProfileMenu"
+          title="Switch profile"
         >
-          <img
-            src="/logo.png"
-            alt="Stimma"
-            class="w-7 h-7"
-            :class="{ 'logo-disconnected': !wsConnected }"
-          />
-          <span
-            v-if="(hasUpdate || pendingRestart) && !updatesBlockedByPrivacyLockdown"
-            class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-base"
-          />
+          <span class="max-w-[140px] truncate font-medium">{{ currentProfileName }}</span>
+          <svg class="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+          </svg>
         </button>
 
         <transition name="dropdown">
           <div
-            v-if="logoMenuOpen"
+            v-if="profileMenuOpen"
             class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-[10000] min-w-[220px] overflow-hidden"
           >
-            <!-- Profile list -->
-            <div v-if="profiles.length > 0" class="py-1">
+            <div class="py-1">
               <div
                 v-for="profile in profiles"
                 :key="profile.id"
@@ -371,71 +364,6 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
                 </svg>
                 <span>Manage Profiles</span>
-              </button>
-            </div>
-
-            <!-- Divider after profiles -->
-            <div v-if="profiles.length > 0" class="border-t border-edge-subtle"></div>
-
-            <!-- Theme switcher row -->
-            <div class="px-3 py-2.5 flex items-center gap-1.5">
-              <button
-                @click.stop="selectTheme('light')"
-                class="flex items-center justify-center w-8 h-8 rounded-md transition-all border"
-                :class="currentTheme === 'light'
-                  ? 'bg-blue-500/15 border-blue-500/50 text-blue-500'
-                  : 'bg-surface-raised border-edge text-content-tertiary hover:text-content hover:border-edge-strong'"
-                title="Light"
-              >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
-                </svg>
-              </button>
-              <button
-                @click.stop="selectTheme('dark')"
-                class="flex items-center justify-center w-8 h-8 rounded-md transition-all border"
-                :class="currentTheme === 'dark'
-                  ? 'bg-blue-500/15 border-blue-500/50 text-blue-500'
-                  : 'bg-surface-raised border-edge text-content-tertiary hover:text-content hover:border-edge-strong'"
-                title="Dark"
-              >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
-                </svg>
-              </button>
-              <button
-                @click.stop="selectTheme('system')"
-                class="flex items-center justify-center w-8 h-8 rounded-md transition-all border"
-                :class="currentTheme === 'system'
-                  ? 'bg-blue-500/15 border-blue-500/50 text-blue-500'
-                  : 'bg-surface-raised border-edge text-content-tertiary hover:text-content hover:border-edge-strong'"
-                title="System"
-              >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
-                </svg>
-              </button>
-            </div>
-
-            <!-- Divider -->
-            <div class="border-t border-edge-subtle"></div>
-
-            <LogoFeedbackMenu
-              @close-menu="closeLogoMenu"
-              @ensure-menu-open="ensureLogoMenuOpen"
-            />
-
-            <!-- Settings -->
-            <div class="py-1">
-              <button
-                @click="openSettings"
-                class="w-full px-3 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle hover:text-content flex items-center gap-2.5 transition-colors"
-              >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                </svg>
-                <span>Settings</span>
               </button>
             </div>
           </div>
@@ -542,11 +470,8 @@ import { useProfile } from '../composables/useProfile'
 import { useMediaApi } from '../composables/useMediaApi'
 import { clearCachedPin, hasCachedPin } from '../composables/usePinLock'
 import { makeGlobalKey } from '../utils/storageKeys'
-import { useTheme } from '../composables/useTheme'
-import { useSettingsApi } from '../composables/useSettingsApi'
 import { useAppUpdater } from '../composables/useAppUpdater'
 import { captioningEnabledRef } from '../appConfig'
-import LogoFeedbackMenu from '@stimma/logo-feedback-menu'
 import GlobalSearchBox from './search/GlobalSearchBox.vue'
 
 const router = useRouter()
@@ -591,7 +516,7 @@ router.afterEach((to) => {
 // WebSocket connection
 const { connected: wsConnected, on: wsOn } = useWebSocket()
 const {
-  activeDeleteOperation,
+  deleteSummary,
   hasActiveDeleteOperation,
   deleteProgressPercent,
   refreshActiveDeleteOperation,
@@ -621,8 +546,6 @@ const {
 } = useProfile()
 
 // Theme
-const { themePreference: currentTheme, setTheme } = useTheme()
-const { updateTheme } = useSettingsApi()
 
 // Updates
 const {
@@ -677,53 +600,41 @@ function onUpdatePillClick() {
   else if (updateState.value === 'restart') restartToApply()
 }
 
-// Logo menu
-const logoMenuOpen = ref(false)
+// Profile picker menu
+const profileMenuOpen = ref(false)
 
-function closeLogoMenu() {
-  logoMenuOpen.value = false
-  document.removeEventListener('click', handleLogoClickOutside)
+const currentProfileName = computed(() => {
+  const current = profiles.value.find(p => p.id === currentProfileId.value)
+  return current?.name || 'Profile'
+})
+
+function closeProfileMenu() {
+  profileMenuOpen.value = false
+  document.removeEventListener('click', handleProfileClickOutside)
 }
 
-function ensureLogoMenuOpen() {
-  if (!logoMenuOpen.value) toggleLogoMenu()
-}
-
-function toggleLogoMenu() {
-  logoMenuOpen.value = !logoMenuOpen.value
-  if (logoMenuOpen.value) {
+function toggleProfileMenu() {
+  profileMenuOpen.value = !profileMenuOpen.value
+  if (profileMenuOpen.value) {
     setTimeout(() => {
-      document.addEventListener('click', handleLogoClickOutside)
+      document.addEventListener('click', handleProfileClickOutside)
     }, 0)
   } else {
-    document.removeEventListener('click', handleLogoClickOutside)
+    document.removeEventListener('click', handleProfileClickOutside)
   }
 }
 
-function handleLogoClickOutside(event) {
-  const menu = event.target.closest('.logo-menu')
-  if (!menu && logoMenuOpen.value) {
-    closeLogoMenu()
+function handleProfileClickOutside(event) {
+  const menu = event.target.closest('.profile-menu')
+  if (!menu && profileMenuOpen.value) {
+    closeProfileMenu()
   }
-}
-
-function selectTheme(theme) {
-  setTheme(theme)
-  // Fire-and-forget persist to server
-  updateTheme(theme).catch(err => console.error('Failed to persist theme:', err))
-}
-
-function openSettings() {
-  logoMenuOpen.value = false
-  document.removeEventListener('click', handleLogoClickOutside)
-  emit('open-settings')
 }
 
 const { track: trackTelemetry } = useTelemetry()
 
 function selectProfile(profileId) {
-  logoMenuOpen.value = false
-  document.removeEventListener('click', handleLogoClickOutside)
+  closeProfileMenu()
 
   if (profileId === currentProfileId.value) return
 
@@ -735,16 +646,14 @@ function selectProfile(profileId) {
 }
 
 function openProfilesSettings() {
-  logoMenuOpen.value = false
-  document.removeEventListener('click', handleLogoClickOutside)
+  closeProfileMenu()
   emit('open-settings', 'profiles')
 }
 
 function lockProfile(profileId) {
   trackTelemetry('profile_locked', {}, 'settings')
   clearCachedPin(profileId)
-  logoMenuOpen.value = false
-  document.removeEventListener('click', handleLogoClickOutside)
+  closeProfileMenu()
   // If locking the current profile, reload to trigger lock screen
   if (profileId === currentProfileId.value) {
     window.location.reload()
@@ -856,15 +765,28 @@ const hasActiveWork = computed(() => {
 })
 
 const isDeleteRunning = computed(() => {
-  return ['queued', 'running'].includes(activeDeleteOperation.value?.status)
+  return deleteSummary.value?.status === 'running'
 })
 
 const hasDeleteFailed = computed(() => {
-  return activeDeleteOperation.value?.status === 'failed'
+  return deleteSummary.value?.status === 'failed'
 })
 
 const hasDeleteCompleted = computed(() => {
-  return activeDeleteOperation.value?.status === 'completed'
+  return deleteSummary.value?.status === 'completed'
+})
+
+// Zero-item waves (e.g. chat privacy deletions) fall back to operation counts.
+const deleteTotalCount = computed(() => {
+  const summary = deleteSummary.value
+  if (!summary) return 0
+  return summary.total_items || summary.operations_total || 0
+})
+
+const deleteDoneCount = computed(() => {
+  const summary = deleteSummary.value
+  if (!summary) return 0
+  return summary.total_items ? (summary.processed_items || 0) : (summary.operations_completed || 0)
 })
 
 const isActivelyProcessing = computed(() => {
@@ -888,16 +810,12 @@ const progressTitle = computed(() => {
 })
 
 const deleteOperationLabel = computed(() => {
-  const op = activeDeleteOperation.value
-  if (!op) return ''
-  if (op.status === 'queued') return 'Queued'
-  if (op.status === 'completed') return 'Complete'
-  if (op.status === 'failed') return `${op.failed_items || 0} failed`
-  if (op.current_phase === 'scrubbing_refs') return 'Scrubbing references'
-  if (op.current_phase === 'purging_cache') return 'Purging cache'
-  if (op.current_phase === 'deleting_media_row') return 'Deleting media rows'
-  if (op.current_phase === 'claiming') return 'Claiming batch'
-  return 'Running'
+  const summary = deleteSummary.value
+  if (!summary) return ''
+  if (summary.status === 'completed') return 'Complete'
+  if (summary.status === 'failed') return `${summary.failed_items || summary.operations_total || 0} failed`
+  const remaining = deleteTotalCount.value - deleteDoneCount.value
+  return `${remaining} remaining`
 })
 
 const summaryText = computed(() => {
@@ -1173,7 +1091,7 @@ watch(wsConnected, (connected, wasConnected) => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
-  document.removeEventListener('click', handleLogoClickOutside)
+  document.removeEventListener('click', handleProfileClickOutside)
 })
 
 onUnmounted(() => {
@@ -1190,16 +1108,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Logo disconnected animation - pendulum swing (matches Tauri loading screen) */
-.logo-disconnected {
-  animation: logo-pendulum 2.4s ease-in-out infinite;
-}
-
-@keyframes logo-pendulum {
-  0%, 100% { transform: rotate(-175deg); }
-  50% { transform: rotate(175deg); }
-}
-
 /* Expand transition */
 .expand-enter-active,
 .expand-leave-active {

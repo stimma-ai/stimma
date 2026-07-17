@@ -21,7 +21,7 @@
       <button
         type="button"
         class="group flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-white/[0.025]"
-        @click="isAuthenticated ? openProviderDetails('stimma-cloud') : handleCloudConnect()"
+        @click="!isAuthenticated ? handleCloudConnect() : cloudConnectedWithoutCredits ? openAddCredits() : openProviderDetails('stimma-cloud')"
       >
         <ToolProviderBrandIcon kind="stimma" />
         <div class="min-w-0 flex-1">
@@ -877,6 +877,13 @@ async function openExternalDocs(url) {
   }
 }
 
+// The zero-balance row reads "Add credits" — clicking it must go to the web
+// dashboard, not the provider detail screen.
+async function openAddCredits() {
+  await ensureCloudBaseUrl()
+  await openExternalDocs(`${cloudBaseUrl.value}/link/addcredits`)
+}
+
 async function openComfyUiDocs() {
   await openExternalDocs(comfyUiDocsUrl)
 }
@@ -918,12 +925,21 @@ const cloudConnectedWithoutCredits = computed(() => (
   && cloudProvider.value?.enabled !== false
   && cloudProvider.value?.status === 'connected'
 ))
-const cloudRowStatusLabel = computed(() => (
-  cloudConnectedWithoutCredits.value ? 'Add credits' : providerStatusLabel(cloudProvider.value)
+const cloudReady = computed(() => (
+  !cloudNeedsCredits.value
+  && cloudProvider.value?.enabled !== false
+  && cloudProvider.value?.status === 'connected'
 ))
-const cloudRowStatusClass = computed(() => (
-  cloudConnectedWithoutCredits.value ? 'text-yellow-400' : providerRowStatusClass(cloudProvider.value)
-))
+const cloudRowStatusLabel = computed(() => {
+  if (cloudConnectedWithoutCredits.value) return 'Add credits'
+  if (cloudReady.value) return `Ready · ${providerStatusLabel(cloudProvider.value)}`
+  return providerStatusLabel(cloudProvider.value)
+})
+const cloudRowStatusClass = computed(() => {
+  if (cloudConnectedWithoutCredits.value) return 'text-yellow-400'
+  if (cloudReady.value) return 'text-green-400'
+  return providerRowStatusClass(cloudProvider.value)
+})
 
 const configurableProviders = computed(() => props.providers.filter(provider => provider.id !== 'stimma-cloud'))
 const comfyProviders = computed(() => configurableProviders.value.filter(isComfyUIProvider))

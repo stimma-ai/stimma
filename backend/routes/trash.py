@@ -14,13 +14,17 @@ from core.profile_context import get_current_profile
 from database import Asset, AssetRevision, AssetTag, DeleteOperation, MediaItem, MediaKeyword, Keyword, Tag
 from asset_association_service import media_compatibility_projections
 from core.dependencies import get_db_session
+import uuid
+
 from delete_operations import (
     RetainedMediaError,
     create_delete_operation,
     ensure_delete_worker_started,
     get_active_delete_operation,
     get_delete_operation,
+    get_delete_progress_summary,
     retry_delete_operation,
+    retry_failed_delete_operations,
 )
 from models.api_models import BulkDeleteRequest, MediaListResponse, MediaItemResponse, BulkTrashRequest
 from utils.query_builder import (
@@ -808,6 +812,7 @@ async def bulk_permanently_delete(
     from asset_deletion_service import permanently_delete_asset
     from database import Asset
 
+    group_id = uuid.uuid4().hex
     for media_id in request.media_ids:
         revision = await _asset_revision_for_media(session, media_id)
         if revision is None:
@@ -826,6 +831,7 @@ async def bulk_permanently_delete(
             session,
             asset_id=revision.asset_id,
             profile_id=get_current_profile(),
+            group_id=group_id,
         )
         accepted_asset_ids.add(revision.asset_id)
         if deletion.operation is not None:
@@ -943,8 +949,25 @@ async def empty_trash(
 async def get_active_delete_operation_route(
     session: AsyncSession = Depends(get_db_session)
 ):
-    operation = await get_active_delete_operation(session, get_current_profile())
-    return {"operation": operation.to_dict() if operation else None}
+    profile_id = get_current_profile()
+    operation = await get_active_delete_operation(session, profile_id)
+    summary = await get_delete_progress_summary(session, profile_id)
+    return {
+        "operation": operation.to_dict() if operation else None,
+        "summary": summary,
+    }
+
+
+@router.post("/delete-operations/retry-failed", status_code=202)
+async def retry_failed_delete_operations_route(
+    session: AsyncSession = Depends(get_db_session),
+):
+    profile_id = get_current_profile()
+    retried = await retry_failed_delete_operations(session, profile_id)
+    if retried:
+        await ensure_delete_worker_started()
+    summary = await get_delete_progress_summary(session, profile_id)
+    return {"status": "accepted", "retried": retried, "summary": summary}
 
 
 @router.get("/deletion-status/media/{media_id}")

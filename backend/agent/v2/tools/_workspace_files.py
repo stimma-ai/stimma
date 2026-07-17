@@ -19,7 +19,9 @@ READONLY_PREFIX = ".stimma/"
 
 def readonly_workspace_error(file_path: str) -> str | None:
     """Return an error if file_path targets the read-only .stimma/ tree, else None."""
-    normalized = (file_path or "").replace("\\", "/").lstrip("./")
+    normalized = (file_path or "").replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
     if normalized == ".stimma" or normalized.startswith(READONLY_PREFIX):
         return (
             "Error: .stimma/ is a generated, read-only view of available tools — "

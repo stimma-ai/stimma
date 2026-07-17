@@ -969,6 +969,19 @@ class GenerationQueue:
             if input_videos:
                 for i, path in enumerate(input_videos):
                     media_id = input_video_media_ids[i] if i < len(input_video_media_ids) else None
+
+                    # Agents pass library media ids directly in input_videos (as
+                    # int or digit-string) — same shape as input_images above.
+                    # Use them as media_id and resolve the file path.
+                    if media_id is None:
+                        if isinstance(path, int) and not isinstance(path, bool):
+                            media_id = path
+                        elif isinstance(path, str) and path.isdigit():
+                            media_id = int(path)
+                        if media_id is not None:
+                            resolved_path = await self._resolve_media_id_to_path(session, media_id)
+                            path = resolved_path or str(media_id)
+
                     # Try to resolve file path to media ID if not provided
                     if media_id is None and path:
                         media_id = await self._resolve_path_to_media_id(session, path)
@@ -996,6 +1009,10 @@ class GenerationQueue:
         """
         if not file_path:
             return None
+        if not isinstance(file_path, str):
+            # A stray media id (int) reaching here would TypeError in
+            # os.path.basename; treat it as its own answer.
+            return file_path if isinstance(file_path, int) and not isinstance(file_path, bool) else None
         # Exact path match first
         result = await session.execute(
             select(MediaItem.id).where(MediaItem.file_path == file_path)

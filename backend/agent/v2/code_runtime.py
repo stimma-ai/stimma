@@ -132,7 +132,10 @@ ALLOWED_MODULES_PROMPT_DESCRIPTION = (
     "ImageDraw, ImageFilter, ImageFont, ImageOps, ImageEnhance), random, re, "
     "statistics, string, struct, textwrap, urllib / urllib.parse / "
     "urllib.request, aiohttp. "
-    "tqdm is also importable (sandbox-patched for progress display)."
+    "tqdm is also importable (sandbox-patched for progress display). "
+    "For video/audio processing (concat, trim, remux, probe) use "
+    "`await stimma.ffmpeg(...)` / `await stimma.ffprobe(...)` — workspace-jailed, "
+    "no subprocess import needed."
 )
 
 
@@ -316,6 +319,15 @@ def _make_safe_import(
             return safe_os if safe_os is not None else SimpleNamespace(path=os.path)
         if name == "glob" and safe_glob is not None:
             return safe_glob
+        if name == "subprocess":
+            # The one thing agents reach for subprocess for is ffmpeg — point
+            # them at the sanctioned surface instead of a bare denial.
+            raise ImportError(
+                "Import 'subprocess' is not allowed in run_code. For ffmpeg/ffprobe "
+                "use the built-in helpers: r = await stimma.ffmpeg('-y', '-i', 'in.mp4', ..., 'out.mp4') "
+                "(also stimma.ffprobe). They run in the workspace and return .returncode/.stdout/.stderr. "
+                "For other shell commands use the bash agent tool outside run_code."
+            )
         # Check stimpack modules
         if stimpack_modules:
             top_level = name.split(".")[0]
@@ -472,6 +484,24 @@ class ToolResult:
             return getattr(self, key)
         except AttributeError:
             raise KeyError(key)
+
+
+@dataclass
+class AVToolResult:
+    """Completed ffmpeg/ffprobe run — mirrors subprocess.CompletedProcess."""
+
+    args: list[str]
+    returncode: int
+    stdout: str
+    stderr: str
+
+    def __repr__(self) -> str:
+        # ffmpeg banners run to kilobytes; keep the default repr readable.
+        tail = self.stderr[-300:] if self.stderr else ""
+        return (
+            f"AVToolResult(returncode={self.returncode}, "
+            f"stdout={len(self.stdout)} chars, stderr tail={tail!r})"
+        )
 
 
 class ProgressTracker:
@@ -813,6 +843,104 @@ class StimmaSDK:
         """List of available filter preset names."""
         from .image_adjust import FILTER_NAMES
         return list(FILTER_NAMES)
+
+    async def ffmpeg(self, *args, timeout: float = 600.0, check: bool = True) -> AVToolResult:
+        """Run ffmpeg in the chat workspace (concat, trim, remux, extract frames...).
+
+        Accepts a single list or flat string args; paths must stay inside the
+        workspace. Raises on nonzero exit unless check=False.
+        """
+        return await self._run_av_tool("ffmpeg", args, timeout=timeout, check=check)
+
+    async def ffprobe(self, *args, timeout: float = 120.0, check: bool = True) -> AVToolResult:
+        """Run ffprobe in the chat workspace to inspect media files."""
+        return await self._run_av_tool("ffprobe", args, timeout=timeout, check=check)
+
+    def _contain_av_token(self, tool: str, token: str) -> str:
+        """Enforce the workspace jail on a single argv token.
+
+        Flags and filter expressions pass through untouched; anything shaped
+        like a path escape (absolute path outside the jail, ``~``, ``..``)
+        raises with the boundary named.
+        """
+        boundary_msg = (
+            f"{tool} in run_code can only touch files inside the chat workspace"
+            " (and shared project workspace). Use workspace-relative paths;"
+            " library media is already copied into the workspace."
+        )
+        if token.startswith("~") or re.match(r"^[A-Za-z]:[\\/]", token):
+            raise PermissionError(f"{boundary_msg} Got {token!r}.")
+        if token.startswith("/"):
+            resolved = Path(token).resolve()
+            roots = [self.workspace_dir.resolve()]
+            if self.project_workspace_dir is not None:
+                roots.append(self.project_workspace_dir.resolve())
+            if not any(root == resolved or root in resolved.parents for root in roots):
+                raise PermissionError(f"{boundary_msg} Got {token!r}.")
+            return token
+        normalized = token.replace("\\", "/")
+        if (
+            normalized == ".."
+            or normalized.startswith("../")
+            or normalized.endswith("/..")
+            or "/../" in normalized
+        ):
+            raise PermissionError(f"{boundary_msg} Got {token!r}.")
+        return token
+
+    async def _run_av_tool(
+        self, tool: str, args: tuple, *, timeout: float, check: bool
+    ) -> AVToolResult:
+        import shlex
+        import shutil
+
+        # Accept ffmpeg(["-y", ...]), ffmpeg("-y", "-i", path, ...), or one
+        # command string; normalize everything (Path, int knobs) to str.
+        if len(args) == 1 and isinstance(args[0], (list, tuple)):
+            raw = list(args[0])
+        elif len(args) == 1 and isinstance(args[0], str) and any(c.isspace() for c in args[0]):
+            raw = shlex.split(args[0])
+        else:
+            raw = list(args)
+        argv = [self._contain_av_token(tool, os.fspath(a) if isinstance(a, os.PathLike) else str(a)) for a in raw]
+        # The leading program name is implicit; tolerate agents passing it anyway.
+        if argv and argv[0] in ("ffmpeg", "ffprobe"):
+            argv = argv[1:]
+
+        exe = shutil.which(tool)
+        if exe is None:
+            raise RuntimeError(f"{tool} is not installed on this machine.")
+
+        proc = await asyncio.create_subprocess_exec(
+            exe,
+            *argv,
+            cwd=str(self.workspace_dir),
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.communicate()
+            raise RuntimeError(f"{tool} timed out after {timeout:.0f}s: {' '.join(argv)}")
+        except asyncio.CancelledError:
+            proc.kill()
+            raise
+
+        result = AVToolResult(
+            args=[tool, *argv],
+            returncode=proc.returncode or 0,
+            stdout=stdout_b.decode("utf-8", errors="replace"),
+            stderr=stderr_b.decode("utf-8", errors="replace"),
+        )
+        if check and result.returncode != 0:
+            raise RuntimeError(
+                f"{tool} exited {result.returncode}: {' '.join(argv)}\n"
+                f"{result.stderr[-2000:]}"
+            )
+        return result
 
     async def detect_faces(self, media_id: int) -> list[dict[str, Any]]:
         """Get detected faces for a media item, including bounding boxes and embeddings."""

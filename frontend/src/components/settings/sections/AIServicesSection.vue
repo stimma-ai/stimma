@@ -18,7 +18,7 @@
       </div>
 
       <div class="space-y-0.5">
-        <button type="button" class="group flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]" @click="cloudStatus === 'not_logged_in' ? handleCloudConnect() : openStimmaAccount()">
+        <button type="button" class="group flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]" @click="cloudStatus === 'not_logged_in' ? handleCloudConnect() : cloudNeedsCredits ? openAddCredits() : openStimmaAccount()">
           <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary" aria-hidden="true">
             <div class="h-7 w-7 bg-current [mask-image:url('/logo.png')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.png')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"></div>
           </div>
@@ -40,8 +40,8 @@
             <span class="h-4 w-4 shrink-0" aria-hidden="true"></span>
           </template>
           <template v-else>
-            <div class="min-w-20 shrink-0 text-right text-xs" :class="cloudStatus !== 'available' ? 'text-red-400' : cloudNeedsCredits ? 'text-yellow-400' : 'text-content-muted'">
-              {{ cloudStatus !== 'available' ? 'Unavailable' : cloudNeedsCredits ? 'Add credits' : `${cloudModels.length} model${cloudModels.length === 1 ? '' : 's'}` }}
+            <div class="min-w-20 shrink-0 text-right text-xs" :class="cloudStatus !== 'available' ? 'text-red-400' : cloudNeedsCredits ? 'text-yellow-400' : 'text-green-400'">
+              {{ cloudStatus !== 'available' ? 'Unavailable' : cloudNeedsCredits ? 'Add credits' : `Ready · ${cloudModels.length} model${cloudModels.length === 1 ? '' : 's'}` }}
             </div>
             <ChevronIcon />
           </template>
@@ -554,7 +554,7 @@ const legacyReasoningOptions = [
 
 const { selectableModels, cloudStatus, cloudMessage, fetchModels, invalidateCache } = useAvailableModels()
 const { signInWithBrowser, isAuthenticated } = useAuth()
-const { cloudUser, fetchCloudAccount } = useCloudAccount()
+const { cloudUser, fetchCloudAccount, cloudBaseUrl, ensureCloudBaseUrl } = useCloudAccount()
 
 // Signed in but no balance: the catalog still lists models, but none of them
 // will actually run — surface that instead of a reassuring model count.
@@ -722,6 +722,18 @@ const availableProviderModels = computed(() => {
   return unselectedProviderModels.value.filter(model => !query || `${model.name} ${model.id}`.toLowerCase().includes(query))
 })
 const canAddProviderModel = computed(() => providerModelsLoaded.value && unselectedProviderModels.value.length > 0)
+// The zero-balance row reads "Add credits" — clicking it must go to the web
+// dashboard, not the model catalog (which lists models the user can't run).
+async function openAddCredits() {
+  await ensureCloudBaseUrl()
+  const url = `${cloudBaseUrl.value}/link/addcredits`
+  try {
+    const { open } = await import('@tauri-apps/plugin-shell')
+    await open(url)
+  } catch {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
 function openStimmaAccount() {
   activeManager.value = 'stimma'
   activeProvider.value = null

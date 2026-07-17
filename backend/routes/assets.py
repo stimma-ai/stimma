@@ -1,5 +1,6 @@
 """Asset-first identity and contextual-Media APIs used during cutover."""
 
+import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -1391,11 +1392,13 @@ async def empty_asset_trash(session: AsyncSession = Depends(get_db_session)):
     ) if asset_ids else []
     operations = []
     retained_media_ids: list[int] = []
+    group_id = uuid.uuid4().hex
     for asset_id in asset_ids:
         result = await permanently_delete_asset(
             session,
             asset_id=asset_id,
             profile_id=get_current_profile(),
+            group_id=group_id,
         )
         if result.operation is not None:
             operations.append(result.operation.to_dict())

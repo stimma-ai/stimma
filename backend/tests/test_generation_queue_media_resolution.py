@@ -69,3 +69,52 @@ async def test_unresolvable_id_is_dropped(queue):
     that — strings of digits behave the same as ints, including the drop."""
     out = await _resolve(queue, {"input_images": ["12345", "7658"]})
     assert out["input_images"] == ["/tmp/a.png"]
+
+
+class _FakeSessionCtx:
+    async def __aenter__(self):
+        return None
+
+    async def __aexit__(self, *args):
+        return False
+
+
+class _FakeDB:
+    def async_session_maker(self):
+        return _FakeSessionCtx()
+
+
+@pytest.mark.asyncio
+async def test_lineage_resolves_int_media_id_in_input_videos(queue):
+    """Agents pass library media ids directly in input_videos. The lineage
+    builder used to hand the raw int to os.path.basename (TypeError: expected
+    str, bytes or os.PathLike object, not int) and fail the whole job."""
+    async def fake_id_to_path(_session, media_id):
+        return {9651: "/tmp/vid.mp4"}.get(media_id)
+
+    with patch.object(queue, "_get_db", return_value=_FakeDB()), \
+         patch.object(queue, "_resolve_media_id_to_path", new=AsyncMock(side_effect=fake_id_to_path)), \
+         patch.object(queue, "_get_inherited_lineage", new=AsyncMock(return_value=[])):
+        out = await queue._resolve_lineage(
+            {"input_videos": [9651]}, "video-to-video", "default"
+        )
+
+    assert out["source_inputs"] == [
+        {"media_id": 9651, "file_path": "/tmp/vid.mp4", "role": "input_video"}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_lineage_resolves_digit_string_media_id_in_input_videos(queue):
+    async def fake_id_to_path(_session, media_id):
+        return {9651: "/tmp/vid.mp4"}.get(media_id)
+
+    with patch.object(queue, "_get_db", return_value=_FakeDB()), \
+         patch.object(queue, "_resolve_media_id_to_path", new=AsyncMock(side_effect=fake_id_to_path)), \
+         patch.object(queue, "_get_inherited_lineage", new=AsyncMock(return_value=[])):
+        out = await queue._resolve_lineage(
+            {"input_videos": ["9651"]}, "video-to-video", "default"
+        )
+
+    assert out["source_inputs"][0]["media_id"] == 9651
+    assert out["source_inputs"][0]["file_path"] == "/tmp/vid.mp4"

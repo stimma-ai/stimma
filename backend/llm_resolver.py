@@ -77,6 +77,23 @@ async def get_effective_llm_config(role: str) -> LLMEffectiveConfig:
     Raises:
         ValueError: If no valid config is available for the role
     """
+    try:
+        return await _resolve_role_llm_config(role)
+    except LLMUnavailableError:
+        # Role-based entry points serve background work (quick tasks,
+        # captioning, chat titles) with no per-chat selection to honor. When
+        # the saved selection can't resolve — e.g. a cloud model while signed
+        # out — any working configured model beats failing the feature.
+        fallback = _fallback_provider_model_config(quick_task=role == "agent-fast")
+        if fallback:
+            return fallback
+        role_config = get_settings().get_llm_role_config(role)
+        if role_config.endpoint and role_config.endpoint.url:
+            return role_config.endpoint
+        raise
+
+
+async def _resolve_role_llm_config(role: str) -> LLMEffectiveConfig:
     acceptance_config = _acceptance_llm_config(role)
     if acceptance_config:
         return acceptance_config
@@ -428,6 +445,25 @@ def _provider_for_model_slug(model_slug: Optional[str]):
     return None
 
 
+def _fallback_provider_model_config(*, quick_task: bool) -> Optional[LLMEndpointConfig]:
+    """First enabled, working provider model, for when the saved selection
+    can't resolve. A single configured model should be used without making the
+    user pick it explicitly. Remote providers are excluded during Privacy
+    Lockdown, matching resolve_chat_model_slug."""
+    from privacy_lockdown import is_privacy_lockdown_enabled
+
+    lockdown = is_privacy_lockdown_enabled()
+    for provider in getattr(get_settings(), "llm_providers", []):
+        if provider.deleted_at or not provider.enabled or provider.last_test_passed is False:
+            continue
+        if lockdown and provider.kind != "local":
+            continue
+        for model in provider.models:
+            if model.enabled:
+                return _get_provider_model_config(model.id, quick_task=quick_task)
+    return None
+
+
 async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') -> LLMEffectiveConfig:
     """Get LLM config for a chat message, respecting per-chat model selection.
 
@@ -478,6 +514,9 @@ async def get_chat_llm_config(model_slug: Optional[str], role: str = 'agent') ->
         role_config = settings.get_llm_role_config(role)
         if role_config.endpoint and role_config.endpoint.url:
             return role_config.endpoint
+        fallback = _fallback_provider_model_config(quick_task=role == "agent-fast")
+        if fallback:
+            return fallback
         await _raise_cloud_llm_error()
 
     if model_slug == 'local':
@@ -513,7 +552,7 @@ def _raise_no_llm_error() -> None:
             "Your Stimma account has no credits."
         )
     raise LLMNotConfiguredError(
-        "No chat model is configured. Sign in to Stimma or add a model endpoint in Chat Models."
+        "No chat model is configured. Set one up in Settings > Chat Models."
     )
 
 
@@ -535,7 +574,7 @@ async def _raise_cloud_llm_error(model_slug: str | None = None) -> None:
 
     if not id_token:
         raise LLMNotConfiguredError(
-            "Sign in to Stimma or choose a local model.",
+            "No chat model is available. Set one up in Settings > Chat Models.",
             code="llm_not_logged_in",
         )
 
@@ -579,5 +618,5 @@ def get_effective_llm_config_sync(role: str) -> LLMEffectiveConfig:
         return role_config.endpoint
 
     raise LLMNotConfiguredError(
-        "No chat model is configured. Sign in to Stimma or set up a model endpoint in Settings > Chat Models."
+        "No chat model is configured. Set one up in Settings > Chat Models."
     )
