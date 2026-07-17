@@ -197,7 +197,7 @@ import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue'
 import { useTelemetry } from '../../composables/useTelemetry'
 import { useSettingsApi } from '../../composables/useSettingsApi'
 import { useWebSocket } from '../../composables/useWebSocket'
-import { setDevMode } from '../../appConfig'
+import { setDevMode, devModeRef } from '../../appConfig'
 import { useProfile } from '../../composables/useProfile'
 import { usePinLock } from '../../composables/usePinLock'
 import { useAuth } from '../../composables/useAuth'
@@ -564,6 +564,14 @@ async function handleLlmSettingsUpdate({ role, data }) {
     console.error('Failed to persist LLM settings:', err)
   }
 }
+
+// Keep the loaded settings snapshot in sync when developer mode is toggled
+// globally (e.g. the Cmd/Ctrl+Shift+D shortcut) while the modal is open
+watch(devModeRef, (enabled) => {
+  if (settings.value && settings.value.developer_mode !== enabled) {
+    settings.value = { ...settings.value, developer_mode: enabled }
+  }
+})
 
 async function handleDeveloperModeUpdate(enabled) {
   // Optimistic update
