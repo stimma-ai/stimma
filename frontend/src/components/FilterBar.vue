@@ -153,7 +153,7 @@
                :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', projectMembership === 'none' ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
                @click="toggleProjectMembershipSign">
             <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
-            <span class="leading-none">{{ projectMembership === 'none' ? 'Not in Any Project' : 'Any Project' }}</span>
+            <span class="leading-none">Any Project</span>
             <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearProjectMembership">
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -483,7 +483,7 @@
                 :title="'Cycle: no constraint → in any project → not in any project'"
               >
                 <span :class="['text-sm', projectMembership === 'any' ? 'text-blue-400 font-semibold' : projectMembership === 'none' ? 'text-red-400 font-semibold' : 'text-content-secondary']">
-                  {{ projectMembership === 'none' ? 'Not in Any Project' : 'Any Project' }}
+                  Any Project
                 </span>
                 <span :class="['text-xs', projectMembership ? 'text-content-tertiary' : 'text-content-muted']">({{ projectMembership === 'none' ? (filterCounts.project_membership?.none || 0) : (filterCounts.project_membership?.any || 0) }})</span>
               </div>
