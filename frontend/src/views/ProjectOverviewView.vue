@@ -194,13 +194,15 @@
         </div>
       </div>
     </div>
+
+    <MediaContextMenu />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onActivated, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { MediaImage } from '../components/media'
+import { MediaContextMenu, MediaImage } from '../components/media'
 import EntityIcon from '../components/EntityIcon.vue'
 import ChatInputBox from '../components/chat/ChatInputBox.vue'
 import ChatModelPicker from '../components/chat/ChatModelPicker.vue'
