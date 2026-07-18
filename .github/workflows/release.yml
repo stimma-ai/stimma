@@ -113,6 +113,34 @@ jobs:
       publish_github_release: true
     secrets: inherit
 
+  release-notes:
+    name: Publish release notes
+    needs:
+      - release-meta
+      - macos
+      - windows
+      - linux
+      - linux-arm64
+    # Production only: re-publishing rebuilds notes/index.json so this
+    # version's "released" flag flips once the release actually shipped.
+    # Notes content is read from main, not the tagged commit — notes edits
+    # may land after the promoted commit was tagged.
+    if: ${{ needs.release-meta.outputs.channel == 'production' }}
+    runs-on: ubuntu-latest
+    env:
+      BUCKET: ${{ vars.R2_BUCKET }}
+      R2_S3_ENDPOINT: ${{ vars.R2_S3_ENDPOINT }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Publish notes to R2
+        run: bash scripts/publish-release-notes.sh
+
   linux-arm64:
     name: Linux AppImage arm64
     needs:

@@ -276,7 +276,7 @@
           updateState === 'restart'
             ? 'bg-green-500/15 border-green-500/50 text-green-400 hover:bg-green-500/25'
             : 'bg-blue-500/15 border-blue-500/50 text-blue-400',
-          updateState === 'available' ? 'hover:bg-blue-500/25' : '',
+          updateState === 'available' || updateState === 'whatsnew' ? 'hover:bg-blue-500/25' : '',
           updateState === 'downloading' ? 'cursor-default' : '',
         ]"
         :style="{ width: updatePillExpanded ? updatePillWidth : '28px' }"
@@ -289,6 +289,9 @@
           ></div>
           <svg v-else-if="updateState === 'restart'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          <svg v-else-if="updateState === 'whatsnew'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
           </svg>
           <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -456,6 +459,13 @@
         </div>
       </div>
     </Teleport>
+
+    <WhatsNewModal
+      :show="whatsNewOpen"
+      :markdown="notesMarkdown"
+      :version="notesVersion"
+      @close="closeWhatsNew"
+    />
   </div>
 </template>
 
@@ -471,6 +481,8 @@ import { useMediaApi } from '../composables/useMediaApi'
 import { clearCachedPin, hasCachedPin } from '../composables/usePinLock'
 import { makeGlobalKey } from '../utils/storageKeys'
 import { useAppUpdater } from '../composables/useAppUpdater'
+import { useReleaseNotes } from '../composables/useReleaseNotes'
+import WhatsNewModal from './WhatsNewModal.vue'
 import { captioningEnabledRef } from '../appConfig'
 import GlobalSearchBox from './search/GlobalSearchBox.vue'
 
@@ -557,6 +569,15 @@ const {
   restartToApply,
 } = useAppUpdater()
 
+const {
+  notesMarkdown,
+  notesVersion,
+  hasUnseenNotes,
+  whatsNewOpen,
+  openWhatsNew,
+  closeWhatsNew,
+} = useReleaseNotes()
+
 // Update pill: rests as a compact icon; peeks open for a few seconds when the
 // state changes, and expands on hover. Width is measured from the label so the
 // expand animation has a concrete px target.
@@ -564,6 +585,8 @@ const updateState = computed(() => {
   if (isDownloading.value) return 'downloading'
   if (pendingRestart.value) return 'restart'
   if (hasUpdate.value) return 'available'
+  // Lowest priority: release notes for the version we're already running.
+  if (hasUnseenNotes.value) return 'whatsnew'
   return null
 })
 const updatePillLabel = computed(() => {
@@ -571,6 +594,7 @@ const updatePillLabel = computed(() => {
     case 'downloading': return 'Updating…'
     case 'restart': return 'Restart to update'
     case 'available': return 'Update available'
+    case 'whatsnew': return "What's new"
     default: return ''
   }
 })
@@ -598,6 +622,7 @@ watch(updateState, async (state) => {
 function onUpdatePillClick() {
   if (updateState.value === 'available') downloadAndInstallUpdate()
   else if (updateState.value === 'restart') restartToApply()
+  else if (updateState.value === 'whatsnew') openWhatsNew()
 }
 
 // Profile picker menu

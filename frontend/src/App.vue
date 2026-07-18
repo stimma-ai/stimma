@@ -220,6 +220,7 @@ import { useWorkspaceTabs, toolTabRoute, toolRouteTabId } from './composables/us
 import { useProjectRoute } from './composables/useProjectRoute'
 import { useToasts } from './composables/useToasts'
 import { useAppUpdater } from './composables/useAppUpdater'
+import { useReleaseNotes } from './composables/useReleaseNotes'
 import { useStimpacksApi } from './composables/useStimpacksApi'
 import { setupLayoutRenderer } from './composables/useLayoutRenderer'
 import { makeGlobalKey } from './utils/storageKeys'
@@ -250,6 +251,7 @@ const {
   loadPreferences: loadUpdatePreferences,
   checkForUpdates,
 } = useAppUpdater()
+const { initReleaseNotes } = useReleaseNotes()
 const sidebarOpen = ref(false)
 const settingsOpen = ref(false)
 const settingsSection = ref('folders')
@@ -716,6 +718,9 @@ async function loadAppSettings() {
   useUnseenActivity()
   // Auto update checks start only once Privacy Lockdown state is known.
   void startUpdaterLoop(privacyLockdown)
+  // What's New pill: fetch this version's release notes (same host as the
+  // updater), once lockdown state is known.
+  void initReleaseNotes(privacyLockdown)
   // Sync theme from backend config (backend is source of truth,
   // localStorage is used for instant flash prevention on load)
   if (settings.theme) {

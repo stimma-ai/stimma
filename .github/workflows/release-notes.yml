@@ -1,0 +1,42 @@
+name: Publish release notes
+
+# Release notes live in releasenotes/ on main and are served from the same
+# R2 bucket as updater artifacts (stimma/notes/). Editing a notes file on
+# main re-publishes it (typo fixes deploy on commit). Production releases
+# also re-publish via a job in release.yml, which flips that version's
+# "released" flag in index.json.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "releasenotes/**"
+      - "scripts/publish-release-notes.sh"
+  workflow_dispatch:
+
+concurrency:
+  group: release-notes
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      BUCKET: ${{ vars.R2_BUCKET }}
+      R2_S3_ENDPOINT: ${{ vars.R2_S3_ENDPOINT }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    steps:
+      # Always publish from main: notes edits often land after the promoted
+      # commit was tagged, and main is the source of truth for their content.
+      # Tags are needed to compute each version's "released" flag.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Publish notes to R2
+        run: bash scripts/publish-release-notes.sh

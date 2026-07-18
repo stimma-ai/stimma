@@ -778,6 +778,23 @@ async function commandPromote(args: string[]): Promise<void> {
   const describe = await runCapture("git", ["log", "-1", "--format=%h %ad %s", "--date=short", commit], { cwd: repoRoot });
 
   const prodName = `v${fmtCore(latestBeta)}`;
+
+  // Release notes are required to ship. They are read from the working tree
+  // (not the promoted commit) because notes are often polished after the beta
+  // was tagged; CI publishes them from main (see release-notes.yml).
+  const notesPath = join(repoRoot, "releasenotes", `${prodName}.md`);
+  let notesBody = "";
+  try {
+    notesBody = await Deno.readTextFile(notesPath);
+  } catch {
+    // fall through to the empty check
+  }
+  if (!notesBody.trim()) {
+    console.error(`Release notes missing: releasenotes/${prodName}.md`);
+    console.error("Write them (user-facing, markdown), commit to main, and re-run.");
+    Deno.exit(1);
+  }
+
   console.log(`Promoting ${ref ? `ref '${ref}'` : betaName} to ${prodName}`);
   console.log(`  commit: ${describe.stdout.trim() || commit}`);
   if (ref) {
