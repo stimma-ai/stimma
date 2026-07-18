@@ -15,9 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased
 
 from core.logging import get_logger
 from database import (
@@ -51,139 +50,6 @@ _MIGRATION_PHASES = (
 )
 
 _MIGRATION_MAP_BATCH_SIZE = 1_000
-
-
-async def collapse_duplicate_reingest(
-    session: AsyncSession,
-    *,
-    profile_id: str | None = None,
-) -> dict[str, int]:
-    """Undo spurious re-ingestion of unchanged watched files.
-
-    A source root that scanned as empty (unmounted volume, unreadable folder)
-    used to bury its Media as unavailable; when the files were seen again they
-    were re-ingested as brand-new rows — creating no-op revisions on unchanged
-    Assets and resurrecting trashed Assets as fresh active duplicates.
-
-    This pass restores the original state wherever content proves nothing
-    changed: for each live newer row whose path and content match an older
-    unavailable row, the original row is restored in place, the duplicate row
-    and its no-op revision are soft-deleted, current_revision is repointed,
-    and duplicate Assets created for the same bytes are removed (the original
-    Asset keeps its state — trashed stays trashed). Pairs whose content
-    differs are left alone. Idempotent and cheap when there is nothing to do.
-    """
-    newer_media = aliased(MediaItem)
-    pairs = (
-        await session.execute(
-            select(MediaItem, newer_media)
-            .join(
-                newer_media,
-                (newer_media.file_path == MediaItem.file_path)
-                & (newer_media.id > MediaItem.id),
-            )
-            .where(
-                MediaItem.deleted_at.is_(None),
-                MediaItem.file_unavailable.is_(True),
-                newer_media.deleted_at.is_(None),
-                or_(
-                    newer_media.file_unavailable.is_(False),
-                    newer_media.file_unavailable.is_(None),
-                ),
-            )
-            .order_by(MediaItem.file_path, MediaItem.id.desc(), newer_media.id)
-        )
-    ).all()
-
-    counts = Counter()
-    now = datetime.utcnow()
-    seen_paths: set[str] = set()
-    for old_row, new_row in pairs:
-        # Highest surviving old row per path is authoritative (query is
-        # ordered old-id descending within a path).
-        if old_row.file_path in seen_paths:
-            continue
-
-        if new_row.file_hash and old_row.file_hash:
-            identical = new_row.file_hash == old_row.file_hash
-        else:
-            # Re-ingested row still pending hashing: same size + mtime is the
-            # same evidence the scanner itself uses for "unchanged".
-            identical = (
-                new_row.file_size == old_row.file_size
-                and new_row.modified_date is not None
-                and old_row.modified_date is not None
-                and abs(
-                    (new_row.modified_date - old_row.modified_date).total_seconds()
-                )
-                <= 1.0
-            )
-        # Whatever the newest buried row says about this path is final; never
-        # fall through to older history rows for the same path.
-        seen_paths.add(old_row.file_path)
-        if not identical:
-            counts["skipped_changed_content"] += 1
-            continue
-
-        old_revision = await session.scalar(
-            select(AssetRevision).where(
-                AssetRevision.primary_media_id == old_row.id,
-                AssetRevision.deleted_at.is_(None),
-            )
-        )
-        new_revision = await session.scalar(
-            select(AssetRevision).where(
-                AssetRevision.primary_media_id == new_row.id,
-                AssetRevision.deleted_at.is_(None),
-            )
-        )
-
-        if new_revision is not None:
-            if old_revision is None:
-                # The old row was never Asset-backed; nothing to converge to.
-                counts["skipped_no_original_asset"] += 1
-                seen_paths.discard(old_row.file_path)
-                continue
-            new_asset = await session.get(Asset, new_revision.asset_id)
-            old_asset = await session.get(Asset, old_revision.asset_id)
-            if new_asset is None or old_asset is None:
-                counts["skipped_dangling_asset"] += 1
-                seen_paths.discard(old_row.file_path)
-                continue
-
-            new_revision.deleted_at = now
-            await session.execute(
-                update(MediaOwner)
-                .where(
-                    MediaOwner.root_kind == "asset_revision",
-                    MediaOwner.root_id == str(new_revision.id),
-                    MediaOwner.deleted_at.is_(None),
-                )
-                .values(deleted_at=now)
-            )
-            if new_asset.id == old_asset.id:
-                # No-op revision on the original Asset: roll current back.
-                if new_asset.current_revision_id == new_revision.id:
-                    new_asset.current_revision_id = old_revision.id
-                counts["noop_revisions_removed"] += 1
-            else:
-                # Duplicate Asset resurrected for the same bytes. The original
-                # keeps its state — trashed stays exactly where the user put it.
-                new_asset.deleted_at = now
-                counts["duplicate_assets_removed"] += 1
-
-        new_row.deleted_at = now
-        old_row.file_unavailable = False
-        old_row.file_unavailable_since = None
-        counts["restored"] += 1
-
-    if counts:
-        log.info(
-            "duplicate re-ingest collapse",
-            profile=profile_id,
-            **dict(counts),
-        )
-    return dict(counts)
 
 
 async def repair_generation_job_asset_links(session: AsyncSession) -> int:
@@ -924,8 +790,7 @@ async def ensure_asset_backfill(
     )
     if state is not None and state.phase == "contracted":
         repaired = await repair_generation_job_asset_links(session)
-        collapsed = await collapse_duplicate_reingest(session, profile_id=profile_id)
-        if repaired or collapsed:
+        if repaired:
             await session.commit()
             log.info(
                 "asset media backfill repaired generation job links",
@@ -945,7 +810,6 @@ async def ensure_asset_backfill(
         state.phase = "contracted"
         state.updated_at = datetime.utcnow()
         repaired = await repair_generation_job_asset_links(session)
-        await collapse_duplicate_reingest(session, profile_id=profile_id)
         await session.commit()
         if profile_id:
             log.info("asset media backfill finalized existing cutover", profile=profile_id)
