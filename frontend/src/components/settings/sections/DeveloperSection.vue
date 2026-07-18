@@ -137,6 +137,19 @@
 
         <div class="flex items-start justify-between gap-6">
           <div class="min-w-0 max-w-xl">
+            <h4 class="text-sm font-medium text-content">Preview What's New</h4>
+            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Show the What's New pill with the latest published release notes</p>
+          </div>
+          <button
+            @click="previewWhatsNew"
+            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
+          >
+            Show Pill
+          </button>
+        </div>
+
+        <div class="flex items-start justify-between gap-6">
+          <div class="min-w-0 max-w-xl">
             <h4 class="text-sm font-medium text-content">Replay First-Run Tour</h4>
             <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Run the sidebar coachmark tour again (Chats, Tools, Feedback)</p>
           </div>
@@ -314,6 +327,7 @@ import { useRouter } from 'vue-router'
 import { useSettingsApi } from '../../../composables/useSettingsApi'
 import { useReadiness } from '../../../composables/useReadiness'
 import { useTour } from '../../../composables/useTour'
+import { useReleaseNotes } from '../../../composables/useReleaseNotes'
 import { makeGlobalKey } from '../../../utils/storageKeys'
 import { hideAccountRef, hidePricesRef, setHideAccount, setHidePrices } from '../../../appConfig'
 import { isTauri } from '../../../apiConfig'
@@ -394,6 +408,12 @@ function runSetupWizard() {
   // The wizard renders below the settings modal, so close settings first.
   emit('close-settings')
   useReadiness().relaunchWizard()
+}
+
+async function previewWhatsNew() {
+  // Close settings so the top-bar pill (and its peek animation) is visible.
+  const shown = await useReleaseNotes().devPreviewWhatsNew()
+  if (shown) emit('close-settings')
 }
 
 function replayTour() {

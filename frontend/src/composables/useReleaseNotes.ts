@@ -31,6 +31,10 @@ const notesBase = computed(() => {
   return `${updateEndpoint.slice(0, idx)}/stimma/notes`
 })
 
+// Dev builds have no updater endpoint baked in; the developer-settings
+// preview falls back to the production notes host.
+const DEFAULT_NOTES_BASE = 'https://updates.stimma.ai/stimma/notes'
+
 // Notes files are keyed by the production core version; a beta build of the
 // upcoming train (1.0.6-beta.2) reads the 1.0.6 draft if one exists.
 function coreVersion(version: string): string {
@@ -92,6 +96,32 @@ async function markNotesSeen(): Promise<void> {
   }
 }
 
+// Developer settings: force the What's New pill with the newest published
+// notes (drafts included), regardless of seen state or build type. Purely a
+// preview — it never writes the seen preference until the pill is opened.
+async function devPreviewWhatsNew(): Promise<boolean> {
+  const base = notesBase.value || DEFAULT_NOTES_BASE
+  try {
+    const indexResponse = await axios.get(`${base}/index.json`)
+    const entries = indexResponse.data?.notes
+    if (!Array.isArray(entries) || entries.length === 0) return false
+    const latest = entries[0]
+    const response = await axios.get(`${base}/${latest.file}`, {
+      responseType: 'text',
+      transformResponse: [(data) => data],
+    })
+    const body = typeof response.data === 'string' ? response.data.trim() : ''
+    if (!body) return false
+    notesMarkdown.value = body
+    notesVersion.value = latest.version
+    hasUnseenNotes.value = true
+    return true
+  } catch (error) {
+    console.error('[release-notes] Dev preview failed:', error)
+    return false
+  }
+}
+
 function openWhatsNew(): void {
   if (!notesMarkdown.value) return
   whatsNewOpen.value = true
@@ -110,6 +140,7 @@ export function useReleaseNotes() {
     hasUnseenNotes,
     whatsNewOpen,
     initReleaseNotes,
+    devPreviewWhatsNew,
     openWhatsNew,
     closeWhatsNew,
   }
