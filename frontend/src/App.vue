@@ -121,7 +121,7 @@
   </div>
 
   <!-- Normal app with sidebar and topbar -->
-  <div v-else class="w-full h-screen flex overflow-hidden bg-base">
+  <div v-else class="w-full h-screen flex overflow-clip bg-base">
     <!-- Sidebar - fixed on wide screens, overlay on narrow -->
     <NavigationSidebar
       :is-open="sidebarOpen"
@@ -138,7 +138,7 @@
     />
 
     <!-- Main area (header + content) -->
-    <div class="flex-1 flex flex-col overflow-hidden">
+    <div class="flex-1 flex flex-col overflow-clip">
       <!-- Static top bar -->
       <TopBar
         class="top-bar"
@@ -152,7 +152,7 @@
       />
 
       <!-- Page content -->
-      <div class="flex-1 overflow-hidden flex flex-col relative">
+      <div class="flex-1 overflow-clip flex flex-col relative">
         <router-view v-slot="{ Component, route }">
           <!-- Keep views alive to preserve state when navigating between tabs -->
           <!-- Use unique keys so each tool/chat gets its own cached instance -->

@@ -97,13 +97,16 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background: var(--color-base);
   color: var(--color-text-primary);
-  overflow: hidden;
+  /* clip (not hidden): hidden still permits programmatic scrolling — a stray
+     scrollIntoView can displace the whole shell with no way to scroll back.
+     clip forbids scrolling entirely. */
+  overflow: clip;
 }
 
 #app {
   width: 100vw;
   height: 100vh;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .startup-screen {
