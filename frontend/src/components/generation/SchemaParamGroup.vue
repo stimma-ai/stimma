@@ -17,9 +17,9 @@
         <span v-else class="text-xs font-semibold text-content-secondary">{{ displayGroupLabel(paramGroup.label) }}</span>
       </div>
       <!-- Parameters list (settings-style: label+desc on left, control on right) -->
-      <!-- Atelier: groups are hairline-separated rows under a micro-label —
-           never a bordered card (depth budget). -->
-      <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" class="divide-y divide-edge-subtle border-t border-edge-subtle">
+      <!-- Atelier: ONE hairline under the group label; rows separate by
+           whitespace (per-row rules read as a wall of <hr>s on two-line rows). -->
+      <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" :class="paramGroup.label ? 'border-t border-edge-subtle pt-1' : ''">
         <template v-for="param in paramGroup.params" :key="param.name">
           <!-- Skip if visibleWhen condition not met, or a hide constraint is active -->
           <template v-if="(!param.visibleWhen || values[param.visibleWhen.param] === param.visibleWhen.value) && !constraintState(param).hidden">
