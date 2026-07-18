@@ -234,14 +234,19 @@
         <div
           v-else-if="field.kind === 'media'"
           class="w-20 h-20 relative group bg-base border rounded overflow-hidden flex-shrink-0 transition-colors"
-          :class="dragHover[field.name] ? 'border-blue-500/70 bg-blue-500/5' : fieldInputClass(field)"
+          :class="mediaTileClass(field)"
           @dragover.prevent="() => (dragHover[field.name] = true)"
           @dragleave="() => (dragHover[field.name] = false)"
           @drop.prevent="(e) => onDropMedia(field.name, e, false)"
         >
-          <div v-if="!values[field.name]" class="w-full h-full flex items-center justify-center text-content-muted text-[11px] italic text-center px-1">
-            Drop image here
-          </div>
+          <button
+            v-if="!values[field.name]"
+            type="button"
+            class="w-full h-full flex items-center justify-center text-content-muted text-[11px] italic text-center px-1 cursor-pointer hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+            @click="openPicker(field, false, $event)"
+          >
+            Click or drop {{ fieldAccept(field) }}
+          </button>
           <template v-else>
             <MediaImage :mediaId="values[field.name]" :contain="true" container-class="w-full h-full" />
             <button
@@ -250,21 +255,28 @@
               @click.prevent="values[field.name] = null"
               title="Remove"
             >×</button>
+            <button
+              type="button"
+              class="absolute bottom-1 right-1 w-6 h-6 bg-black/60 hover:bg-blue-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
+              title="Replace from library"
+              @click.prevent="openPicker(field, false, $event)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+            </button>
           </template>
         </div>
 
         <div
           v-else-if="field.kind === 'media_list'"
           class="w-full bg-base border rounded p-2 text-[13px] transition-colors"
-          :class="dragHover[field.name] ? 'border-blue-500/70 bg-blue-500/5' : fieldInputClass(field)"
+          :class="mediaTileClass(field)"
           @dragover.prevent="() => (dragHover[field.name] = true)"
           @dragleave="() => (dragHover[field.name] = false)"
           @drop.prevent="(e) => onDropMedia(field.name, e, true)"
         >
-          <div v-if="!(values[field.name] && values[field.name].length)" class="text-content-muted text-center py-2 italic">
-            Drop media items here.
-          </div>
-          <div v-else class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-2">
             <div v-for="(mid, idx) in (values[field.name] || [])" :key="mid" class="relative group">
               <MediaImage :mediaId="mid" :contain="true" container-class="w-12 h-12 rounded" />
               <button
@@ -274,6 +286,16 @@
                 title="Remove"
               >×</button>
             </div>
+            <button
+              type="button"
+              class="w-12 h-12 rounded border border-dashed border-edge text-content-muted hover:text-content-secondary hover:border-edge-strong hover:bg-overlay-subtle flex items-center justify-center text-lg cursor-pointer transition-colors"
+              title="Add from library"
+              @click="openPicker(field, true, $event)"
+            >+</button>
+            <span
+              v-if="!(values[field.name] && values[field.name].length)"
+              class="self-center text-content-muted italic text-[12px]"
+            >Click + or drop media items here.</span>
           </div>
         </div>
 
@@ -313,13 +335,33 @@
       </div>
     </div>
     </div>
+
+    <!-- In-app library picker anchored to the clicked media tile; its
+         "Browse Files…" footer falls through to the OS dialog below. -->
+    <MediaPickerPopover
+      v-if="picker"
+      :accept="picker.accept"
+      :anchor-el="picker.anchor"
+      :exclude-ids="pickerExcludeIds"
+      @pick="onPickerPick"
+      @browse="onPickerBrowse"
+      @close="picker = null"
+    />
+    <input
+      ref="pickerFileInput"
+      type="file"
+      :accept="pickerFileAccept"
+      class="hidden"
+      @change="onPickerFileSelect"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import axios from 'axios'
 import { MediaImage } from '../media'
+import MediaPickerPopover from '../generation/MediaPickerPopover.vue'
 import AIPromptEditor from '../generation/AIPromptEditor.vue'
 import ResolutionPicker from '../ResolutionPicker.vue'
 import MegapixelsPicker from '../generation/MegapixelsPicker.vue'
@@ -328,6 +370,11 @@ import ConstrainedResolutionPicker from '../generation/ConstrainedResolutionPick
 import UpscaleResolutionPicker from '../generation/UpscaleResolutionPicker.vue'
 import { detectResolutionControls, paramsConsumedByResolutionPickers } from '../../utils/resolutionControls'
 import { getDroppedMediaIds } from '../../composables/useDragPreview'
+import { draggedMediaType } from '../../stores/dragStore'
+import { fieldAcceptsDraggedType } from '../../utils/flowMediaInputs'
+import { useMediaApi } from '../../composables/useMediaApi'
+import { recordMediaInputUse, type RecentInputKind } from '../../composables/useRecentMediaInputs'
+import { getMediaType } from '../../utils/mediaTypes'
 
 interface Props {
   schema: Record<string, any> | null | undefined
@@ -715,44 +762,155 @@ function setTableCell(field: Field, idx: number, col: TableColumn, raw: any) {
   values[field.name] = arr
 }
 
+const { getMediaItem } = useMediaApi()
+
+// Feed the picker popover's frecency "All" tab, same as ToolView's
+// addFromMediaId. Fire-and-forget: the value is already applied.
+async function recordInputUse(mediaId: number) {
+  try {
+    const item = await getMediaItem(mediaId)
+    const kind = getMediaType(item)
+    if (kind === 'image' || kind === 'video' || kind === 'audio') {
+      recordMediaInputUse({
+        mediaId: item.id,
+        fileHash: item.file_hash,
+        fileFormat: item.file_format,
+        kind: kind as RecentInputKind,
+      })
+    }
+  } catch { /* frecency only — never block the assignment */ }
+}
+
+// Single entry point for library media landing in a field, whatever the path
+// (tile drop, popover pick, chat-panel drop zone in FlowView).
+function applyMediaIds(name: string, ids: number[], multi: boolean) {
+  if (!ids.length) return
+  if (multi) {
+    const merged = [...listValue(name)]
+    for (const id of ids) if (!merged.includes(id)) merged.push(id)
+    values[name] = merged
+  } else {
+    values[name] = ids[0]
+  }
+  for (const id of ids) recordInputUse(id)
+}
+
+async function uploadFileToField(name: string, file: File, multi: boolean) {
+  const endpoint = file.type.startsWith('video/')
+    ? '/api/generate/upload-reference-video'
+    : '/api/generate/upload-reference'
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await axios.post(endpoint, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    const mediaId = res.data.media_id
+    if (multi) {
+      const existing = listValue(name)
+      if (!existing.includes(mediaId)) values[name] = [...existing, mediaId]
+    } else {
+      values[name] = mediaId
+    }
+  } catch (err) {
+    console.error('Failed to upload file:', err)
+  }
+}
+
 async function onDropMedia(name: string, e: DragEvent, multi: boolean) {
   dragHover[name] = false
   const ids = getDroppedMediaIds(e.dataTransfer)
   if (ids.length) {
-    if (multi) {
-      const merged = [...listValue(name)]
-      for (const id of ids) if (!merged.includes(id)) merged.push(id)
-      values[name] = merged
-    } else {
-      values[name] = ids[0]
-    }
+    applyMediaIds(name, ids, multi)
     return
   }
 
   const files = e.dataTransfer?.files
   if (files && files.length > 0) {
-    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'))
-    if (!imageFiles.length) return
-    const filesToUpload = multi ? imageFiles : [imageFiles[0]]
-    for (const file of filesToUpload) {
-      try {
-        const formData = new FormData()
-        formData.append('file', file)
-        const res = await axios.post('/api/generate/upload-reference', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        })
-        const mediaId = res.data.media_id
-        if (multi) {
-          const existing = listValue(name)
-          if (!existing.includes(mediaId)) values[name] = [...existing, mediaId]
-        } else {
-          values[name] = mediaId
-        }
-      } catch (err) {
-        console.error('Failed to upload dropped file:', err)
-      }
-    }
+    const mediaFiles = Array.from(files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'))
+    if (!mediaFiles.length) return
+    const filesToUpload = multi ? mediaFiles : [mediaFiles[0]]
+    for (const file of filesToUpload) await uploadFileToField(name, file, multi)
   }
+}
+
+// ----- Library picker popover + OS browse fallback -----
+
+const picker = ref<{ field: string; multi: boolean; accept: 'image' | 'video' | 'audio'; anchor: HTMLElement } | null>(null)
+const pickerFileInput = ref<HTMLInputElement | null>(null)
+
+function fieldAccept(f: Field): 'image' | 'video' | 'audio' {
+  const t = f.kind === 'media_list' ? f.itemType : f.type
+  if (t === 'video') return 'video'
+  if (t === 'audio') return 'audio'
+  return 'image'
+}
+
+function openPicker(field: Field, multi: boolean, event: MouseEvent) {
+  picker.value = {
+    field: field.name,
+    multi,
+    accept: fieldAccept(field),
+    anchor: event.currentTarget as HTMLElement,
+  }
+}
+
+const pickerExcludeIds = computed<number[]>(() => {
+  if (!picker.value) return []
+  const v = values[picker.value.field]
+  if (Array.isArray(v)) return v.filter((x) => typeof x === 'number')
+  return typeof v === 'number' ? [v] : []
+})
+
+// Survives the popover closing: the file-input change event arrives after
+// `picker` is already null.
+const browseTarget = ref<{ field: string; multi: boolean; accept: 'image' | 'video' | 'audio' } | null>(null)
+
+const pickerFileAccept = computed(() => {
+  const accept = browseTarget.value?.accept ?? picker.value?.accept
+  if (accept === 'video') return 'video/*'
+  if (accept === 'audio') return 'audio/*'
+  return 'image/*'
+})
+
+function onPickerPick(mediaId: number) {
+  if (!picker.value) return
+  const { field, multi } = picker.value
+  applyMediaIds(field, [mediaId], multi)
+  if (!multi) picker.value = null
+}
+
+function onPickerBrowse() {
+  if (!picker.value) return
+  const { field, multi, accept } = picker.value
+  browseTarget.value = { field, multi, accept }
+  picker.value = null
+  nextTick(() => pickerFileInput.value?.click())
+}
+
+async function onPickerFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  const target = browseTarget.value
+  browseTarget.value = null
+  if (!file || !target) return
+  await uploadFileToField(target.field, file, target.multi)
+}
+
+// ----- Drag-compatibility highlight -----
+
+// While an in-app media drag is under way (dragStore is set on dragstart),
+// light up the fields that can take the dragged type so they read as live
+// targets even before the cursor reaches them.
+function acceptsDraggedType(f: Field): boolean {
+  return fieldAcceptsDraggedType(fieldAccept(f), draggedMediaType.value)
+}
+
+function mediaTileClass(f: Field): string {
+  if (dragHover[f.name]) return 'border-blue-500/70 bg-blue-500/5'
+  if (acceptsDraggedType(f)) return 'border-blue-500/40 bg-blue-500/[0.03]'
+  return fieldInputClass(f)
 }
 
 function removeMediaAt(name: string, idx: number) {

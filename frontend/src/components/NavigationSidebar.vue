@@ -941,6 +941,44 @@
 
     <!-- Workspace Tabs Context Menu -->
     <WorkspaceTabsContextMenu @rename="handleRenameFromContextMenu" @rename-tab="handleRenameTabFromContextMenu" @refresh="loadPinnedTools" />
+
+    <!-- Flow-tab drop targets: pops out flush against the sidebar edge,
+         centered on the tab. Pull right onto a target and release. -->
+    <Teleport to="body">
+      <div
+        v-if="flowDropTargets"
+        class="fixed z-[10000] w-48 bg-surface border border-edge rounded-lg shadow-xl p-1.5 space-y-1.5"
+        :style="{ left: flowDropTargets.left + 'px', top: flowDropTargets.top + 'px' }"
+        @dragenter.prevent="cancelFlowTargetsHide"
+        @dragover.prevent="onFlowTargetsPanelDragOver"
+        @dragleave="onFlowTargetsPanelDragLeave"
+      >
+        <div
+          data-zone="__chat__"
+          class="flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-dashed text-[12.5px] font-medium transition-colors"
+          :class="flowTargetHover === '__chat__' ? 'border-blue-500 bg-blue-500/15 text-blue-400' : 'border-edge-strong text-content-muted'"
+          @drop.stop.prevent="onFlowTargetDrop(null, $event)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 flex-shrink-0 pointer-events-none">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM21 12c0 4.556-4.03 8.25-9 8.25a9.76 9.76 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+          </svg>
+          <span class="truncate pointer-events-none">Chat</span>
+        </div>
+        <div
+          v-for="zone in flowDropTargets.zones"
+          :key="zone.name"
+          :data-zone="zone.name"
+          class="flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-dashed text-[12.5px] font-medium transition-colors"
+          :class="flowTargetHover === zone.name ? 'border-blue-500 bg-blue-500/15 text-blue-400' : 'border-edge-strong text-content-muted'"
+          @drop.stop.prevent="onFlowTargetDrop(zone, $event)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 flex-shrink-0 pointer-events-none">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" />
+          </svg>
+          <span class="truncate pointer-events-none">{{ zone.label }}</span>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -969,6 +1007,8 @@ import { removeRecentEntity } from '../composables/useRecentEntities'
 import { useProjectRoute } from '../composables/useProjectRoute'
 import { useWorkspaceTabsContextMenu } from '../composables/useWorkspaceTabsContextMenu'
 import { useFlowCounts } from '../composables/useFlowCounts'
+import { useFlowsApi } from '../composables/useFlowsApi'
+import { flowMediaInputFields, fieldAcceptsDraggedType, type FlowMediaInputField } from '../utils/flowMediaInputs'
 import FlowStatusPill from './flow/FlowStatusPill.vue'
 import { useDragStore } from '../stores/dragStore'
 import { getDroppedAssetRefs, getDroppedMediaIds } from '../composables/useDragPreview'
@@ -1094,7 +1134,7 @@ const tabsContextMenu = useWorkspaceTabsContextMenu()
 useFlowCounts()
 
 // Drag store
-const { draggedMediaInfo, draggedMediaItems, draggedMediaCount } = useDragStore()
+const { draggedMediaInfo, draggedMediaItems, draggedMediaCount, draggedMediaType } = useDragStore()
 
 // APIs
 const { getSavedViews, getBoard, getProject, createBoard: apiCreateBoard, createProject: apiCreateProject, updateBoard, updateProject } = useMediaApi()
@@ -1627,10 +1667,15 @@ function handleTabDragEnter(tab: WorkspaceTab, e: DragEvent) {
     dragAddModifier.value = e.shiftKey
     const count = (tabDragCounters.value.get(tab.id) || 0) + 1
     tabDragCounters.value.set(tab.id, count)
+    // A different tab under the pointer usually means the drag moved on —
+    // but a diagonal pull toward the panel can clip a neighbor, so hide on
+    // a grace timer (entering the panel cancels it) instead of instantly.
+    if (flowDropTargets.value && flowDropTargets.value.tabId !== tab.id) scheduleFlowTargetsHide()
     if (tab.type === 'lineage') return // No drag-drop onto lineage tabs
     if (tab.type !== 'tool' || isToolCompatible(tab.entityId)) {
       dragHoverTabId.value = tab.id
     }
+    if (tab.type === 'flow') void maybeShowFlowDropTargets(tab, e.currentTarget as HTMLElement)
   }
 }
 
@@ -1641,6 +1686,9 @@ function handleTabDragLeave(tab: WorkspaceTab, e: DragEvent) {
     dragHoverTabId.value = null
     dragAddModifier.value = false
   }
+  // Toward the panel or away entirely — the grace timer covers both; the
+  // panel's dragenter cancels it.
+  if (count <= 0 && flowDropTargets.value?.tabId === tab.id) scheduleFlowTargetsHide()
 }
 
 async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
@@ -1656,6 +1704,7 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
   e.stopPropagation()
   dragHoverTabId.value = null
   tabDragCounters.value.delete(tab.id)
+  resetFlowDropTargets()
   // e.shiftKey is unpopulated in WKWebView; the polled value covers Tauri.
   const add = e.shiftKey || dragAddModifier.value
   dragAddModifier.value = false
@@ -1707,6 +1756,132 @@ async function handleTabMediaDrop(tab: WorkspaceTab, e: DragEvent) {
   } else if (tab.type === 'editor') {
     updateEditorMedia(tab.id, String(mediaId))
     router.push({ name: 'edit-image', params: { editorId: tab.entityId, mediaId } })
+  }
+}
+
+// ==================== Flow-tab drop targets ====================
+// While media hovers a flow tab, a target panel pops out to its right —
+// flush against the sidebar edge, vertically centered on the tab — with one
+// clear target per destination: the flow's chat (the tab's default drop,
+// unchanged) and each media input that accepts the dragged type. The drag
+// gesture is: reach the tab, pull right onto a target, release. Flows with
+// no compatible media inputs never show the panel.
+//
+// Finishing the pull must be forgiving: there is no gap between sidebar and
+// panel, and every hide goes through a grace timer (never an instant reset)
+// so briefly clipping a neighboring tab on the way over can't kill it.
+
+const flowsApi = useFlowsApi()
+const flowDropTargets = ref<{ tabId: string; flowId: number; left: number; top: number; zones: FlowMediaInputField[] } | null>(null)
+const flowTargetHover = ref<string | null>(null)
+let flowTargetsHideTimer: ReturnType<typeof setTimeout> | null = null
+// Per-drag-session cache: schemas don't change mid-drag, but can between drags.
+const dragFlowFieldsCache = new Map<number, Promise<FlowMediaInputField[]>>()
+
+function flowMediaFieldsFor(flowId: number): Promise<FlowMediaInputField[]> {
+  let p = dragFlowFieldsCache.get(flowId)
+  if (!p) {
+    p = flowsApi.getFlow(flowId).then(f => flowMediaInputFields(f.input_schema)).catch(() => [])
+    dragFlowFieldsCache.set(flowId, p)
+  }
+  return p
+}
+
+async function maybeShowFlowDropTargets(tab: WorkspaceTab, el: HTMLElement) {
+  const flowId = parseInt(tab.entityId, 10)
+  if (!Number.isFinite(flowId)) return
+  const fields = await flowMediaFieldsFor(flowId)
+  // The fetch is async — the drag may have left this tab meanwhile.
+  if ((tabDragCounters.value.get(tab.id) || 0) <= 0) return
+  const zones = fields.filter(f => fieldAcceptsDraggedType(f.accept, draggedMediaType.value))
+  if (!zones.length) return
+  const rect = el.getBoundingClientRect()
+  const approxHeight = (zones.length + 1) * 44 + 12
+  flowDropTargets.value = {
+    tabId: tab.id,
+    flowId,
+    // Overlap the sidebar edge by 2px — no dead strip to stall the pull.
+    left: rect.right - 2,
+    top: Math.max(8, Math.min(rect.top + rect.height / 2 - approxHeight / 2, window.innerHeight - approxHeight - 8)),
+    zones,
+  }
+  cancelFlowTargetsHide()
+}
+
+function cancelFlowTargetsHide() {
+  if (flowTargetsHideTimer) {
+    clearTimeout(flowTargetsHideTimer)
+    flowTargetsHideTimer = null
+  }
+}
+
+function scheduleFlowTargetsHide() {
+  cancelFlowTargetsHide()
+  flowTargetsHideTimer = setTimeout(() => {
+    flowDropTargets.value = null
+    flowTargetHover.value = null
+  }, 250)
+}
+
+function resetFlowDropTargets() {
+  cancelFlowTargetsHide()
+  flowDropTargets.value = null
+  flowTargetHover.value = null
+  dragFlowFieldsCache.clear()
+}
+
+// Hover tracking rides dragover (fires continuously on whatever is under the
+// cursor) instead of per-row dragenter, which WKWebView delivers unreliably.
+// One handler on the panel reads the row from the event target, so the lit
+// target always matches where the drop would land.
+function onFlowTargetsPanelDragOver(e: DragEvent) {
+  cancelFlowTargetsHide()
+  const row = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-zone]') : null
+  flowTargetHover.value = row?.dataset.zone ?? null
+}
+
+function onFlowTargetsPanelDragLeave(e: DragEvent) {
+  const next = e.relatedTarget
+  if (next instanceof Node && (e.currentTarget as Node).contains(next)) return
+  flowTargetHover.value = null
+  scheduleFlowTargetsHide()
+}
+
+async function onFlowTargetDrop(zone: FlowMediaInputField | null, e: DragEvent) {
+  const mediaIds = getDroppedMediaIds(e.dataTransfer)
+  const targets = flowDropTargets.value
+  resetFlowDropTargets()
+  // The chip's .stop keeps this drop away from handleTabMediaDrop — do its
+  // hover cleanup here instead.
+  dragHoverTabId.value = null
+  if (targets) tabDragCounters.value.delete(targets.tabId)
+  if (!targets || mediaIds.length === 0) return
+
+  if (!zone) {
+    // Same routing as dropping on the tab itself.
+    const flowChatId = await resolveFlowChatId(targets.flowId)
+    if (flowChatId != null) setPendingMedia('chat', mediaIds, flowChatId)
+    router.push({ name: 'flow', params: { id: String(targets.flowId) } })
+    if (props.isMobile) emit('close')
+    return
+  }
+
+  try {
+    const flow = await flowsApi.getFlow(targets.flowId)
+    const inputs = { ...(flow.inputs || {}) }
+    if (zone.multi) {
+      const arr = Array.isArray(inputs[zone.name]) ? [...inputs[zone.name]] : []
+      for (const id of mediaIds) if (!arr.includes(id)) arr.push(id)
+      inputs[zone.name] = arr
+    } else {
+      inputs[zone.name] = mediaIds[0]
+    }
+    await flowsApi.updateFlow(targets.flowId, { inputs })
+    router.push({ name: 'flow', params: { id: String(targets.flowId) } })
+    if (props.isMobile) emit('close')
+  } catch (error) {
+    console.error('Failed to set flow input:', error)
+    addToast('Failed to set flow input', 'warning')
   }
 }
 
@@ -2431,6 +2606,14 @@ onMounted(() => {
   })
 
   window.addEventListener('profile-changed', handleProfileChanged)
+
+  // A canceled drag (Esc, released elsewhere) fires neither drop nor a
+  // reliable dragleave on the tab — dragend at the window still does. The
+  // drop listener is bubble-phase on purpose: the flyout's own drop handler
+  // stops propagation, so only drops landing elsewhere reset it here (a
+  // capture listener would clear the flyout before its handler could read it).
+  window.addEventListener('dragend', resetFlowDropTargets, true)
+  window.addEventListener('drop', resetFlowDropTargets)
 })
 
 // Load chat/board metadata whenever tabs change (covers initial load, new tabs, profile switch)
@@ -2443,6 +2626,8 @@ onUnmounted(() => {
     unsubscribeFromProviderChanges = null
   }
   window.removeEventListener('profile-changed', handleProfileChanged)
+  window.removeEventListener('dragend', resetFlowDropTargets, true)
+  window.removeEventListener('drop', resetFlowDropTargets)
   document.removeEventListener('mousemove', handleResizeMove)
   document.removeEventListener('mouseup', stopResize)
 })

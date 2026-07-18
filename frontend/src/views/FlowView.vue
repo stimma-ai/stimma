@@ -1355,16 +1355,6 @@ onUnmounted(() => {
   stopFlowSlideshowListWatch = null
 })
 
-watch(() => flow.value?.id, (id) => {
-  copiesOpen.value = false
-  showMenu.value = false
-  showTabMenu.value = false
-  showChatMenu.value = false
-  flowChatSessions.value = []
-  if (id) loadCopies()
-  else copies.value = []
-}, { immediate: true })
-
 // --- 3-dot menu ---
 const showMenu = ref(false)
 const menuContainerRef = ref<HTMLElement | null>(null)
@@ -1435,6 +1425,18 @@ const flowChatSessions = ref<FlowChatSession[]>([])
 const loadingChatSessions = ref(false)
 const chatSessionsError = ref(false)
 const creatingChatSession = ref(false)
+
+// Below the menu/session refs it resets: with `immediate`, the callback runs
+// at the watch() call itself, so everything it touches must already exist.
+watch(() => flow.value?.id, (id) => {
+  copiesOpen.value = false
+  showMenu.value = false
+  showTabMenu.value = false
+  showChatMenu.value = false
+  flowChatSessions.value = []
+  if (id) loadCopies()
+  else copies.value = []
+}, { immediate: true })
 
 async function loadChatSessions() {
   if (!flow.value) return
