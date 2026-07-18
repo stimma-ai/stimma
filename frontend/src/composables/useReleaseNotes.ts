@@ -35,6 +35,16 @@ const notesBase = computed(() => {
 // preview falls back to the production notes host.
 const DEFAULT_NOTES_BASE = 'https://updates.stimma.ai/stimma/notes'
 
+// Notes requests go through plain fetch, NOT axios: the app's global axios
+// interceptors attach X-Profile-* headers to every request, which forces a
+// CORS preflight the update host's headerless GET/HEAD rule rejects.
+async function fetchNotesText(url: string): Promise<string | null> {
+  const response = await fetch(url)
+  if (!response.ok) return null
+  const body = (await response.text()).trim()
+  return body || null
+}
+
 // Notes files are keyed by the production core version; a beta build of the
 // upcoming train (1.0.6-beta.2) reads the 1.0.6 draft if one exists.
 function coreVersion(version: string): string {
@@ -64,12 +74,7 @@ async function initReleaseNotes(privacyLockdownActive: boolean): Promise<void> {
     const seen = await getSeenVersion()
     if (seen === version) return
 
-    const response = await axios.get(`${notesBase.value}/v${version}.md`, {
-      responseType: 'text',
-      // Axios sniffs JSON-ish text otherwise; the notes are always markdown.
-      transformResponse: [(data) => data],
-    })
-    const body = typeof response.data === 'string' ? response.data.trim() : ''
+    const body = await fetchNotesText(`${notesBase.value}/v${version}.md`)
     if (!body) return
 
     notesMarkdown.value = body
@@ -102,15 +107,11 @@ async function markNotesSeen(): Promise<void> {
 async function devPreviewWhatsNew(): Promise<boolean> {
   const base = notesBase.value || DEFAULT_NOTES_BASE
   try {
-    const indexResponse = await axios.get(`${base}/index.json`)
-    const entries = indexResponse.data?.notes
+    const indexText = await fetchNotesText(`${base}/index.json`)
+    const entries = indexText ? JSON.parse(indexText)?.notes : null
     if (!Array.isArray(entries) || entries.length === 0) return false
     const latest = entries[0]
-    const response = await axios.get(`${base}/${latest.file}`, {
-      responseType: 'text',
-      transformResponse: [(data) => data],
-    })
-    const body = typeof response.data === 'string' ? response.data.trim() : ''
+    const body = await fetchNotesText(`${base}/${latest.file}`)
     if (!body) return false
     notesMarkdown.value = body
     notesVersion.value = latest.version
