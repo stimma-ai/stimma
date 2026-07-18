@@ -12,12 +12,14 @@
           class="flex items-center gap-2 text-xs font-semibold text-content-secondary hover:text-content transition-colors duration-150"
         >
           <span :class="['transition-transform duration-150 text-[10px]', isCollapsed(paramGroup.group) ? '' : 'rotate-90']">&#9654;</span>
-          {{ paramGroup.label }}
+          {{ displayGroupLabel(paramGroup.label) }}
         </button>
-        <span v-else class="text-xs font-semibold text-content-secondary">{{ paramGroup.label }}</span>
+        <span v-else class="text-xs font-semibold text-content-secondary">{{ displayGroupLabel(paramGroup.label) }}</span>
       </div>
       <!-- Parameters list (settings-style: label+desc on left, control on right) -->
-      <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" :class="flat ? 'divide-y divide-edge-subtle' : 'rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-edge-subtle'">
+      <!-- Atelier: groups are hairline-separated rows under a micro-label —
+           never a bordered card (depth budget). -->
+      <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" class="divide-y divide-edge-subtle border-t border-edge-subtle">
         <template v-for="param in paramGroup.params" :key="param.name">
           <!-- Skip if visibleWhen condition not met, or a hide constraint is active -->
           <template v-if="(!param.visibleWhen || values[param.visibleWhen.param] === param.visibleWhen.value) && !constraintState(param).hidden">
@@ -175,7 +177,7 @@ const props = defineProps<{
   onToggleGroupCollapsed?: (groupLabel: string | null) => void
 }>()
 
-const rowPad = computed(() => (props.flat ? 'px-1 py-2' : 'px-4 py-3'))
+const rowPad = computed(() => (props.flat ? 'px-1 py-2' : 'px-1 py-2.5'))
 
 const emit = defineEmits<{
   (e: 'update:param', name: string, value: any): void
@@ -183,6 +185,13 @@ const emit = defineEmits<{
 
 function emitParam(name: string, value: any) {
   emit('update:param', name, value)
+}
+
+// Schema authors sometimes ship ALL-CAPS group labels; the UI voice is
+// sentence case, so de-shout purely for display.
+function displayGroupLabel(l: string): string {
+  if (!l || l !== l.toUpperCase() || !/[A-Z]/.test(l)) return l
+  return l.charAt(0) + l.slice(1).toLowerCase()
 }
 
 // x-constraints — evaluated against props.values, which callers may enrich

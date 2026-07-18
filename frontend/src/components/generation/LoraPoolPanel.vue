@@ -496,7 +496,7 @@ function calcChipDropPosition(mouseX: number, mouseY: number) {
     const rect = groupEl.getBoundingClientRect()
     if (mouseY < rect.top || mouseY > rect.bottom) continue
 
-    const gridEl = groupEl.querySelector('.grid')
+    const gridEl = groupEl.querySelector('[data-lora-rows]')
     if (!gridEl) continue
 
     const slot = findVisualSlot(gridEl, mouseX, mouseY)

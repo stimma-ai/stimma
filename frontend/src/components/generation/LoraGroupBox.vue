@@ -46,8 +46,9 @@
     </div>
     <div v-if="!hideHeader" class="border-b border-edge-subtle mb-0.5" />
 
-    <!-- Rows container: full-width vertical stack, no chip-grid wrapping -->
-    <div class="flex flex-col">
+    <!-- Rows container: full-width vertical stack, no chip-grid wrapping.
+         data-lora-rows is the drag hit-testing hook (LoraPoolPanel targets it). -->
+    <div data-lora-rows class="flex flex-col">
       <slot />
 
       <!-- Empty state -->

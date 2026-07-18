@@ -436,12 +436,11 @@ const emptySpaceMenuActions = computed(() => {
 })
 
 // Grid configuration
-const GRID_SIDE_PADDING_PX = 16 // px-2 -> 8px left + 8px right
-// CSS grid rounds fractional square tile widths to physical pixels. The virtual
-// row stride needs a small compensation so the measured row gap matches the
-// column gap on 2x displays.
-const ROW_VERTICAL_GUTTER_PX = 4.5
-const GRID_GAP_PX = 2 // Atelier contact-sheet gutter (gap-0.5)
+// Atelier contact sheet: ONE gutter size everywhere — columns, rows, and
+// edges all use GRID_GAP_PX so the sheet reads as a uniform grid.
+const GRID_GAP_PX = 2
+const GRID_SIDE_PADDING_PX = GRID_GAP_PX * 2 // split across left+right edges
+const ROW_VERTICAL_GUTTER_PX = GRID_GAP_PX
 const GRID_THUMBNAIL_SIZE = 512
 const itemsPerRow = ref(6) // Will be calculated based on window width
 const itemHeight = ref(220) // Height of each virtual row (item width + vertical gutter)
