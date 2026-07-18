@@ -54,6 +54,9 @@ test.describe('media handoff acceptance', () => {
       }));
     }, source.id);
     await expect(picker.getByText('1/3')).toBeVisible();
+    const preview = picker.locator('img[alt="image 1"]');
+    await expect(preview).toBeVisible();
+    await expect(preview).toHaveAttribute('src', new RegExp(`/media/${source.id}/file$`));
 
     const after = await listMedia(page, { page: 1, page_size: 200 });
     expect(after.map((item) => item.id).sort()).toEqual(before.map((item) => item.id).sort());

@@ -83,7 +83,25 @@
                 @loadedmetadata="onScrubVideoLoaded(item, $event)"
               />
 
-              <!-- Image preview -->
+              <!-- Library-backed image preview. Use the exact Media identity rather
+                   than its content hash: duplicate payloads can share a hash while
+                   only this Media row owns the path used by the tool. -->
+              <MediaImage
+                v-else-if="accept === 'image' && item.mediaId && item.hash"
+                :media-id="item.mediaId"
+                :thumbnail="false"
+                :alt="`${accept} ${index + 1}`"
+                contain
+                container-class="w-full h-full"
+                img-class="cursor-pointer"
+                :draggable="false"
+                :enable-context-menu="false"
+                @click="onItemClick(item)"
+              />
+
+              <!-- Derived/reference-cache image preview. Once prep has been
+                   applied, path is the derived file and must take precedence over
+                   the original item's mediaId. -->
               <AppImage
                 v-else-if="accept === 'image'"
                 :src="getMediaUrl(item)"
@@ -843,6 +861,7 @@ import { useVideoFrameExtraction, type FramePosition } from '../../composables/u
 import { createDragPreview, handleDragEnd as clearDragPreview } from '../../composables/useDragPreview'
 import { addToast } from '../../composables/useToasts'
 import AppImage from '../media/AppImage.vue'
+import MediaImage from '../media/MediaImage.vue'
 import CompactAudioPlayer from '../viewers/CompactAudioPlayer.vue'
 import PaintEditorModal from './PaintEditorModal.vue'
 import CropEditorModal from './CropEditorModal.vue'
