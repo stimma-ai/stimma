@@ -23,7 +23,7 @@
         <div
           v-if="showDropdown"
           ref="dropdownRef"
-          class="fixed w-64 bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu overflow-hidden"
+          class="fixed w-64 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu overflow-hidden"
           :style="dropdownStyle"
         >
         <!-- Loading state -->
@@ -58,11 +58,11 @@
               :key="preset.id"
               @click="selectPreset(preset)"
               class="w-full flex items-center gap-2 px-4 py-2 hover:bg-overlay-subtle text-left transition-colors"
-              :class="selectedPresetId === preset.id ? 'bg-blue-500/10' : ''"
+              :class="selectedPresetId === preset.id ? 'bg-accent/10' : ''"
             >
               <svg
                 v-if="preset.pinned"
-                class="w-3.5 h-3.5 text-blue-500 flex-shrink-0"
+                class="w-3.5 h-3.5 text-accent-hi flex-shrink-0"
                 viewBox="0 0 24 24"
                 fill="currentColor"
               >
@@ -129,7 +129,7 @@
             <input v-no-autocorrect
               type="checkbox"
               v-model="pinNewPreset"
-              class="w-4 h-4 rounded border-edge bg-overlay-subtle text-accent focus:ring-accent"
+              class="w-4 h-4 rounded border-edge bg-overlay-subtle text-accent focus-visible:ring-accent"
             />
             Pin to presets
           </label>

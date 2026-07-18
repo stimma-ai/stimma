@@ -19,10 +19,10 @@
     <!-- Dropdown menu -->
     <div
       v-if="showDropdown"
-      class="absolute right-0 mt-2 w-48 bg-surface border border-surface-raised rounded-lg shadow-lg z-menu py-1"
+      class="absolute right-0 mt-2 w-48 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1"
       @click.stop
     >
-      <div class="px-3 py-2 text-xs text-content-muted border-b border-surface-raised">
+      <div class="px-3 py-2 text-xs text-content-muted border-b border-edge-subtle">
         Auto-delete after
       </div>
       <button
@@ -33,7 +33,7 @@
           'w-full px-3 py-2 text-left text-sm transition-colors flex items-center justify-between',
           modelValue === option.value
             ? 'bg-selection/15 text-selection'
-            : 'text-content-secondary hover:bg-surface-raised'
+            : 'text-content-secondary hover:bg-overlay-subtle'
         ]"
       >
         <span>{{ option.label }}</span>

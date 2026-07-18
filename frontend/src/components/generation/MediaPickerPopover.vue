@@ -5,7 +5,7 @@
 
     <div
       ref="panel"
-      class="fixed z-menu w-[420px] bg-surface border border-edge rounded-lg shadow-xl flex flex-col overflow-hidden"
+      class="fixed z-menu w-[420px] bg-surface border border-edge-subtle rounded-lg shadow-lg flex flex-col overflow-hidden"
       :style="panelStyle"
     >
       <!-- Flat text tabs: color + underline carry the state -->
@@ -16,7 +16,7 @@
           @click="activeTab = tab.key"
           class="text-[11.5px] py-2 -mb-px border-b-[1.5px] transition-colors cursor-pointer"
           :class="activeTab === tab.key
-            ? 'text-blue-400 border-blue-500'
+            ? 'text-accent-hi border-accent'
             : 'text-content-muted border-transparent hover:text-content-secondary'"
         >
           {{ tab.label }}

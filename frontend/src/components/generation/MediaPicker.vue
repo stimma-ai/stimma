@@ -23,25 +23,17 @@
             :class="[
               'flex flex-col flex-shrink-0',
               reorderable ? 'w-[17rem]' : 'w-[26.5rem]',
-              hasControlnet && accept === 'image'
-                ? 'gap-0 rounded-lg border border-edge-subtle bg-surface-raised overflow-hidden'
-                : (reorderable ? 'gap-1.5' : 'gap-2')
+              reorderable ? 'gap-1.5' : 'gap-2'
             ]"
           >
             <div
               :class="[
-                'relative bg-surface overflow-hidden group flex-shrink-0',
+                'relative bg-matte overflow-hidden group flex-shrink-0 rounded-media',
                 reorderable
-                  ? (hasControlnet && accept === 'image'
-                      ? 'w-[17rem] h-[9.5rem] cursor-grab'
-                      : 'w-[17rem] h-[9.5rem] cursor-grab border border-surface-raised rounded-lg')
-                  : (accept === 'audio'
-                      ? 'w-full h-[7rem] border border-surface-raised rounded-lg'
-                      : (hasControlnet && accept === 'image'
-                          ? 'w-full h-[18.5rem]'
-                          : 'w-full h-[18.5rem] border border-surface-raised rounded-lg')),
+                  ? 'w-[17rem] h-[9.5rem] cursor-grab'
+                  : (accept === 'audio' ? 'w-full h-[7rem]' : 'w-full h-[18.5rem]'),
                 dragIndex === item.originalIndex ? 'opacity-30' : '',
-                dropIndex === index && dropIndex !== dragIndex ? 'ring-2 ring-blue-500' : ''
+                dropIndex === index && dropIndex !== dragIndex ? 'ring-2 ring-accent' : ''
               ]"
               :draggable="!!item.mediaId && !batchMode"
               @dragstart="item.mediaId && !batchMode && onReorderDragStart($event, item)"
@@ -152,7 +144,7 @@
               <!-- Batch count badge (stack indicator) -->
               <div v-if="batchMode" class="absolute top-2 left-2 z-chrome">
                 <div class="bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1">
-                  <svg class="w-4 h-4 flex-shrink-0 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
+                  <svg class="w-4 h-4 flex-shrink-0 text-accent-hi" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
                   <span class="text-xs font-semibold text-content leading-none">{{ items.length }}</span>
                 </div>
               </div>
@@ -223,13 +215,13 @@
                     v-if="frameFps(item) > 0"
                     @click.stop="toggleFrameDisplay"
                     :title="frameDisplayMode === 'frames' ? 'Show time' : 'Show frame number'"
-                    class="text-[10px] text-blue-400 font-medium tabular-nums hover:text-blue-300 cursor-pointer"
+                    class="text-[10px] font-mono text-accent-hi font-medium tabular-nums hover:text-accent cursor-pointer"
                   >{{ headerFrameLabel(item) }}</button>
-                  <span v-else class="text-[10px] text-blue-400 font-medium tabular-nums">{{ headerFrameLabel(item) }}</span>
+                  <span v-else class="text-[10px] font-mono text-accent-hi font-medium tabular-nums">{{ headerFrameLabel(item) }}</span>
                   <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'frame' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                 </div>
                 <!-- Frame picker expanded panel (the live preview is the <video> up top) -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'frame'" class="px-2.5 py-2 bg-overlay-faint space-y-2">
+                <div v-if="openPrepPanel[item.originalIndex] === 'frame'" class="px-2.5 py-2 bg-overlay-faint rounded-md space-y-2">
                   <!-- Filmstrip timeline: full tile width, square cells, undistorted -->
                   <div
                     class="relative w-full rounded-md overflow-hidden border border-edge-subtle bg-black/30 cursor-pointer select-none touch-none"
@@ -254,15 +246,15 @@
                       v-if="!frameStripUrl(item) || stripFailed[item.originalIndex] || !stripReady[item.originalIndex]"
                       class="absolute inset-x-2 top-1/2 -translate-y-1/2 h-1 rounded-full bg-white/10 pointer-events-none"
                     >
-                      <div class="absolute left-0 top-0 h-full rounded-full bg-blue-500" :style="{ width: framePercent(item) + '%' }"></div>
+                      <div class="absolute left-0 top-0 h-full rounded-full bg-accent" :style="{ width: framePercent(item) + '%' }"></div>
                     </div>
                     <!-- playhead -->
                     <div
-                      class="absolute top-0 bottom-0 w-0.5 bg-blue-400 pointer-events-none"
+                      class="absolute top-0 bottom-0 w-0.5 bg-accent-hi pointer-events-none"
                       style="box-shadow: 0 0 6px rgba(96,165,250,.8)"
                       :style="{ left: framePercent(item) + '%' }"
                     >
-                      <div class="absolute -top-[3px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-blue-400"></div>
+                      <div class="absolute -top-[3px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-accent-hi"></div>
                     </div>
                   </div>
                   <!-- One unified control strip (full width): step ◀ · First · Middle · Last · step ▶ -->
@@ -278,7 +270,7 @@
                       @click="setFramePosition(item, pos)"
                       :class="[
                         'flex-1 py-1 text-[11px] capitalize border-r border-edge-subtle transition-colors',
-                        item._framePosition === pos ? 'bg-blue-500/15 text-blue-400 font-medium' : 'text-content-muted hover:bg-overlay-medium'
+                        item._framePosition === pos ? 'bg-accent/15 text-accent-hi font-medium' : 'text-content-muted hover:bg-overlay-medium'
                       ]"
                     >{{ pos }}</button>
                     <button @click="stepFrame(item, 1)" title="Next frame"
@@ -303,7 +295,7 @@
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"/></svg>
                   <span class="text-[11px] text-content-secondary flex-1">Flip / Rotate</span>
-                  <span :class="['text-[10px]', hasFlip(item) ? 'text-blue-400 font-medium' : 'text-content-muted']">
+                  <span :class="['text-[10px] font-mono', hasFlip(item) ? 'text-accent-hi font-medium' : 'text-content-muted']">
                     {{ getFlipStatusText(item) }}
                   </span>
                   <div class="w-3 h-3 flex-shrink-0">
@@ -315,13 +307,13 @@
                   </div>
                 </div>
                 <!-- Flip / Rotate expanded panel -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'flip'" class="px-2.5 py-2 bg-overlay-faint">
+                <div v-if="openPrepPanel[item.originalIndex] === 'flip'" class="px-2.5 py-2 bg-overlay-faint rounded-md">
                   <div class="pl-5 flex items-center gap-1.5">
                     <button
                       @click="toggleFlip(item.originalIndex, 'horizontal')"
                       :class="[
                         'flex-1 flex items-center justify-center py-1.5 rounded border transition-colors',
-                        item._flip?.horizontal ? 'border-blue-500/50 text-blue-400 bg-blue-500/10' : 'border-transparent text-content-muted bg-overlay-light hover:bg-overlay-medium'
+                        item._flip?.horizontal ? 'border-accent/50 text-accent-hi bg-accent/10' : 'border-transparent text-content-muted bg-overlay-light hover:bg-overlay-medium'
                       ]"
                       title="Flip horizontal"
                     >
@@ -331,7 +323,7 @@
                       @click="toggleFlip(item.originalIndex, 'vertical')"
                       :class="[
                         'flex-1 flex items-center justify-center py-1.5 rounded border transition-colors',
-                        item._flip?.vertical ? 'border-blue-500/50 text-blue-400 bg-blue-500/10' : 'border-transparent text-content-muted bg-overlay-light hover:bg-overlay-medium'
+                        item._flip?.vertical ? 'border-accent/50 text-accent-hi bg-accent/10' : 'border-transparent text-content-muted bg-overlay-light hover:bg-overlay-medium'
                       ]"
                       title="Flip vertical"
                     >
@@ -355,7 +347,7 @@
                   <!-- Reset -->
                   <div v-if="hasFlip(item)" class="mt-1.5 pl-5 flex justify-end">
                     <button @click="resetFlip(item.originalIndex)"
-                      class="text-[10px] text-content-muted hover:text-blue-400">Reset</button>
+                      class="text-[10px] text-content-muted hover:text-accent-hi">Reset</button>
                   </div>
                 </div>
               </div>
@@ -365,7 +357,7 @@
                 <div class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle">
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75V16.5a.75.75 0 0 0 .75.75h12.25M3.75 7.5H16.5a.75.75 0 0 1 .75.75v12.25"/></svg>
                   <span class="text-[11px] text-content-secondary flex-1">Crop</span>
-                  <span v-if="hasCrop(item)" class="text-[10px] tabular-nums text-blue-400 font-medium">
+                  <span v-if="hasCrop(item)" class="text-[10px] font-mono tabular-nums text-accent-hi font-medium">
                     {{ getCropStatusText(item) }}
                   </span>
                   <Spinner
@@ -385,7 +377,7 @@
                     :class="[
                       'text-[10px] px-2 py-0.5 rounded border transition-colors',
                       hasCrop(item)
-                        ? 'border-blue-500/50 text-blue-400 bg-blue-500/10 hover:bg-blue-500/15'
+                        ? 'border-accent/50 text-accent-hi bg-accent/10 hover:bg-accent/15'
                         : 'border-transparent text-content-muted bg-overlay-light hover:bg-overlay-medium'
                     ]"
                   >Edit</button>
@@ -400,7 +392,7 @@
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75H4.5m0 0v3m0-3l3.75 3.75M7.5 20.25H4.5m0 0v-3m0 3l3.75-3.75M16.5 3.75h3m0 0v3m0-3l-3.75 3.75M16.5 20.25h3m0 0v-3m0 3l-3.75-3.75"/></svg>
                   <span class="text-[11px] text-content-secondary flex-1">Scale</span>
-                  <span :class="['text-[10px]', hasScale(item) ? 'text-blue-400 font-medium' : 'text-content-muted']">
+                  <span :class="['text-[10px] font-mono', hasScale(item) ? 'text-accent-hi font-medium' : 'text-content-muted']">
                     {{ getScaleStatusText(item) }}
                   </span>
                   <div class="w-3 h-3 flex-shrink-0">
@@ -412,16 +404,16 @@
                   </div>
                 </div>
                 <!-- Scale expanded panel -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'scale'" class="px-2.5 py-2 bg-overlay-faint space-y-2">
+                <div v-if="openPrepPanel[item.originalIndex] === 'scale'" class="px-2.5 py-2 bg-overlay-faint rounded-md space-y-2">
                   <!-- Pill mode switcher -->
-                  <div class="flex bg-base rounded p-0.5 gap-0.5 ml-5">
+                  <div class="flex bg-overlay-faint rounded-md p-0.5 gap-0.5 ml-5">
                     <button
                       v-for="mode in scaleModes" :key="mode.value"
                       @click="onScaleModeChange(item.originalIndex, mode.value)"
                       :class="[
                         'flex-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors',
                         (item._scale?.mode || 'factor') === mode.value
-                          ? 'bg-surface-raised text-content'
+                          ? 'bg-accent/15 text-accent-hi'
                           : 'text-content-muted hover:text-content-secondary'
                       ]"
                     >{{ mode.label }}</button>
@@ -433,8 +425,8 @@
                       @input="onScaleSliderInput(item.originalIndex, parseInt(($event.target as HTMLInputElement).value) / 100)"
                       @mouseup="onScaleSliderCommit(item.originalIndex)"
                       @touchend="onScaleSliderCommit(item.originalIndex)"
-                      class="flex-1 h-1 accent-blue-500 cursor-pointer" />
-                    <span class="text-[10px] text-blue-400 tabular-nums w-10 text-right">{{ (item._scale?.factor || 1).toFixed(2) }}x</span>
+                      class="flex-1 h-1 accent-accent cursor-pointer" />
+                    <span class="text-[10px] font-mono text-accent-hi tabular-nums w-10 text-right">{{ (item._scale?.factor || 1).toFixed(2) }}x</span>
                   </div>
                   <!-- Megapixels: slider -->
                   <div v-else-if="item._scale?.mode === 'megapixels'" class="pl-5 flex items-center gap-1.5">
@@ -443,8 +435,8 @@
                       @input="onMegapixelsSliderInput(item.originalIndex, parseInt(($event.target as HTMLInputElement).value) / 10)"
                       @mouseup="onScaleSliderCommit(item.originalIndex)"
                       @touchend="onScaleSliderCommit(item.originalIndex)"
-                      class="flex-1 h-1 accent-blue-500 cursor-pointer" />
-                    <span class="text-[10px] text-blue-400 tabular-nums w-10 text-right">{{ (item._scale?.megapixels || origMegapixels(item)).toFixed(1) }} MP</span>
+                      class="flex-1 h-1 accent-accent cursor-pointer" />
+                    <span class="text-[10px] font-mono text-accent-hi tabular-nums w-10 text-right">{{ (item._scale?.megapixels || origMegapixels(item)).toFixed(1) }} MP</span>
                   </div>
                   <!-- Manual: W × H with locked aspect -->
                   <div v-else-if="item._scale?.mode === 'manual'" class="pl-5 flex items-center gap-1.5">
@@ -461,7 +453,7 @@
                   <!-- Reset -->
                   <div v-if="hasScale(item)" class="pl-5 flex justify-end">
                     <button @click="resetScale(item.originalIndex)"
-                      class="text-[10px] text-content-muted hover:text-blue-400">Reset</button>
+                      class="text-[10px] text-content-muted hover:text-accent-hi">Reset</button>
                   </div>
                 </div>
               </div>
@@ -474,61 +466,61 @@
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
                   <span class="text-[11px] text-content-secondary flex-1">Extend Canvas</span>
-                  <span :class="['text-[10px]', hasExtendPadding(item) ? 'text-blue-400 font-medium' : 'text-content-muted']">
+                  <span :class="['text-[10px] font-mono', hasExtendPadding(item) ? 'text-accent-hi font-medium' : 'text-content-muted']">
                     {{ getExtendStatusText(item) }}
                   </span>
                   <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'extend' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                 </div>
                 <!-- Extend expanded panel -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'extend'" class="px-2.5 py-2 bg-overlay-faint">
+                <div v-if="openPrepPanel[item.originalIndex] === 'extend'" class="px-2.5 py-2 bg-overlay-faint rounded-md">
                   <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 pl-5">
                     <div>
                       <div class="flex justify-between mb-0.5">
                         <span class="text-[10px] text-content-muted">Top</span>
-                        <span class="text-[10px] text-blue-400 tabular-nums">{{ getExtendValue(item, 'top') }}%</span>
+                        <span class="text-[10px] font-mono text-accent-hi tabular-nums">{{ getExtendValue(item, 'top') }}%</span>
                       </div>
                       <input type="range" min="0" max="100" :step="1"
                         :value="getExtendValue(item, 'top')"
                         @input="onExtendSliderInput(item.originalIndex, 'top', parseInt(($event.target as HTMLInputElement).value))"
                         @mouseup="onExtendSliderCommit(item.originalIndex)"
                         @touchend="onExtendSliderCommit(item.originalIndex)"
-                        class="w-full h-1 accent-blue-500 cursor-pointer" />
+                        class="w-full h-1 accent-accent cursor-pointer" />
                     </div>
                     <div>
                       <div class="flex justify-between mb-0.5">
                         <span class="text-[10px] text-content-muted">Bottom</span>
-                        <span class="text-[10px] text-blue-400 tabular-nums">{{ getExtendValue(item, 'bottom') }}%</span>
+                        <span class="text-[10px] font-mono text-accent-hi tabular-nums">{{ getExtendValue(item, 'bottom') }}%</span>
                       </div>
                       <input type="range" min="0" max="100" :step="1"
                         :value="getExtendValue(item, 'bottom')"
                         @input="onExtendSliderInput(item.originalIndex, 'bottom', parseInt(($event.target as HTMLInputElement).value))"
                         @mouseup="onExtendSliderCommit(item.originalIndex)"
                         @touchend="onExtendSliderCommit(item.originalIndex)"
-                        class="w-full h-1 accent-blue-500 cursor-pointer" />
+                        class="w-full h-1 accent-accent cursor-pointer" />
                     </div>
                     <div>
                       <div class="flex justify-between mb-0.5">
                         <span class="text-[10px] text-content-muted">Left</span>
-                        <span class="text-[10px] text-blue-400 tabular-nums">{{ getExtendValue(item, 'left') }}%</span>
+                        <span class="text-[10px] font-mono text-accent-hi tabular-nums">{{ getExtendValue(item, 'left') }}%</span>
                       </div>
                       <input type="range" min="0" max="100" :step="1"
                         :value="getExtendValue(item, 'left')"
                         @input="onExtendSliderInput(item.originalIndex, 'left', parseInt(($event.target as HTMLInputElement).value))"
                         @mouseup="onExtendSliderCommit(item.originalIndex)"
                         @touchend="onExtendSliderCommit(item.originalIndex)"
-                        class="w-full h-1 accent-blue-500 cursor-pointer" />
+                        class="w-full h-1 accent-accent cursor-pointer" />
                     </div>
                     <div>
                       <div class="flex justify-between mb-0.5">
                         <span class="text-[10px] text-content-muted">Right</span>
-                        <span class="text-[10px] text-blue-400 tabular-nums">{{ getExtendValue(item, 'right') }}%</span>
+                        <span class="text-[10px] font-mono text-accent-hi tabular-nums">{{ getExtendValue(item, 'right') }}%</span>
                       </div>
                       <input type="range" min="0" max="100" :step="1"
                         :value="getExtendValue(item, 'right')"
                         @input="onExtendSliderInput(item.originalIndex, 'right', parseInt(($event.target as HTMLInputElement).value))"
                         @mouseup="onExtendSliderCommit(item.originalIndex)"
                         @touchend="onExtendSliderCommit(item.originalIndex)"
-                        class="w-full h-1 accent-blue-500 cursor-pointer" />
+                        class="w-full h-1 accent-accent cursor-pointer" />
                     </div>
                   </div>
                   <!-- Background color -->
@@ -544,7 +536,7 @@
                   <!-- Reset -->
                   <div v-if="hasExtendPadding(item)" class="mt-1 pl-5 flex justify-end">
                     <button @click="resetExtendPadding(item.originalIndex)"
-                      class="text-[10px] text-content-muted hover:text-blue-400"
+                      class="text-[10px] text-content-muted hover:text-accent-hi"
                       title="Reset to no extension">Reset</button>
                   </div>
                 </div>
@@ -558,7 +550,7 @@
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 13.5V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m12-3V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m-6-9V3.75m0 3.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 9.75V10.5"/></svg>
                   <span class="text-[11px] text-content-secondary flex-1">Preprocess</span>
-                  <span :class="['text-[10px]', item._preprocessor ? 'text-blue-400 font-medium' : 'text-content-muted']">
+                  <span :class="['text-[10px] font-mono', item._preprocessor ? 'text-accent-hi font-medium' : 'text-content-muted']">
                     {{ item._preprocessor ? (controlnetLabels[item._preprocessor] || item._preprocessor) : 'Original' }}
                   </span>
                   <div class="w-3 h-3 flex-shrink-0">
@@ -570,7 +562,7 @@
                   </div>
                 </div>
                 <!-- Preprocess expanded panel -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'preprocess'" class="px-2.5 py-2 bg-overlay-faint">
+                <div v-if="openPrepPanel[item.originalIndex] === 'preprocess'" class="px-2.5 py-2 bg-overlay-faint rounded-md">
                   <div class="flex items-center gap-1.5 pl-5">
                     <select
                       :value="item._preprocessor || ''"
@@ -579,7 +571,7 @@
                       :class="[
                         'flex-1 text-[10px] rounded border bg-overlay-light pl-1 pr-1 py-0.5 cursor-pointer',
                         item._preprocessor
-                          ? 'border-blue-500/50 text-blue-400'
+                          ? 'border-accent/50 text-accent-hi'
                           : 'border-transparent text-content-muted'
                       ]"
                     >
@@ -598,7 +590,7 @@
                         @input="onPreprocessorSliderInput(item.originalIndex, 'low', parseInt(($event.target as HTMLInputElement).value))"
                         @mouseup="onPreprocessorSliderCommit(item.originalIndex)"
                         @touchend="onPreprocessorSliderCommit(item.originalIndex)"
-                        class="flex-1 min-w-0 h-1 accent-blue-500 cursor-pointer" />
+                        class="flex-1 min-w-0 h-1 accent-accent cursor-pointer" />
                       <span class="text-[10px] text-content-muted w-5 text-right tabular-nums">{{ item._preprocessorParams?.low ?? 'A' }}</span>
                     </div>
                     <div class="flex items-center gap-1.5 w-full min-w-0">
@@ -608,11 +600,11 @@
                         @input="onPreprocessorSliderInput(item.originalIndex, 'high', parseInt(($event.target as HTMLInputElement).value))"
                         @mouseup="onPreprocessorSliderCommit(item.originalIndex)"
                         @touchend="onPreprocessorSliderCommit(item.originalIndex)"
-                        class="flex-1 min-w-0 h-1 accent-blue-500 cursor-pointer" />
+                        class="flex-1 min-w-0 h-1 accent-accent cursor-pointer" />
                       <span class="text-[10px] text-content-muted w-5 text-right tabular-nums">{{ item._preprocessorParams?.high ?? 'A' }}</span>
                     </div>
                     <button @click="onPreprocessorReset(item.originalIndex)"
-                      class="text-[10px] text-content-muted hover:text-blue-400 self-end"
+                      class="text-[10px] text-content-muted hover:text-accent-hi self-end"
                       title="Reset to defaults">Reset</button>
                   </div>
                   <!-- Lineart sliders -->
@@ -624,7 +616,7 @@
                         @input="onPreprocessorSliderInput(item.originalIndex, 'sigma', parseInt(($event.target as HTMLInputElement).value) / 10)"
                         @mouseup="onPreprocessorSliderCommit(item.originalIndex)"
                         @touchend="onPreprocessorSliderCommit(item.originalIndex)"
-                        class="flex-1 min-w-0 h-1 accent-blue-500 cursor-pointer" />
+                        class="flex-1 min-w-0 h-1 accent-accent cursor-pointer" />
                       <span class="text-[10px] text-content-muted w-6 text-right tabular-nums">{{ (item._preprocessorParams?.sigma ?? 6.0).toFixed(1) }}</span>
                     </div>
                     <div class="flex items-center gap-1.5 w-full min-w-0">
@@ -634,11 +626,11 @@
                         @input="onPreprocessorSliderInput(item.originalIndex, 'threshold', parseInt(($event.target as HTMLInputElement).value))"
                         @mouseup="onPreprocessorSliderCommit(item.originalIndex)"
                         @touchend="onPreprocessorSliderCommit(item.originalIndex)"
-                        class="flex-1 min-w-0 h-1 accent-blue-500 cursor-pointer" />
+                        class="flex-1 min-w-0 h-1 accent-accent cursor-pointer" />
                       <span class="text-[10px] text-content-muted w-5 text-right tabular-nums">{{ item._preprocessorParams?.threshold ?? 8 }}</span>
                     </div>
                     <button @click="onPreprocessorReset(item.originalIndex)"
-                      class="text-[10px] text-content-muted hover:text-blue-400 self-end"
+                      class="text-[10px] text-content-muted hover:text-accent-hi self-end"
                       title="Reset to defaults">Reset</button>
                   </div>
                   <!-- Lineart Realistic toggle -->
@@ -647,7 +639,7 @@
                       <input type="checkbox"
                         :checked="!!(item._preprocessorParams?.coarse)"
                         @change="onRealisticCoarseToggle(item.originalIndex, ($event.target as HTMLInputElement).checked)"
-                        class="w-3 h-3 accent-blue-500" />
+                        class="w-3 h-3 accent-accent" />
                       <span class="text-[10px] text-content-muted">Coarse</span>
                     </label>
                   </div>
@@ -672,7 +664,7 @@
                     :class="[
                       'text-[10px] px-2 py-0.5 rounded border transition-colors',
                       item._paintLayerDataUrl
-                        ? 'border-blue-500/50 text-blue-400 bg-blue-500/10 hover:bg-blue-500/15'
+                        ? 'border-accent/50 text-accent-hi bg-accent/10 hover:bg-accent/15'
                         : 'border-transparent text-content-muted bg-overlay-light hover:bg-overlay-medium'
                     ]"
                   >Edit</button>
@@ -751,7 +743,7 @@
         <button
           v-if="useSlotLabels && items.length >= 1 && !isDragging"
           @click.stop="duplicateFirstToFill"
-          class="mt-1 text-[10px] px-2 py-0.5 rounded text-content-muted bg-overlay-light hover:bg-blue-500/10 hover:text-blue-400 transition-colors"
+          class="mt-1 text-[10px] px-2 py-0.5 rounded text-content-muted bg-overlay-light hover:bg-accent/10 hover:text-accent-hi transition-colors"
           :title="`Use the same image as ${slotName(0)} (for loops)`"
         >
           Same as {{ slotBadge(0) }}

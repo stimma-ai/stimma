@@ -5,7 +5,7 @@
       :key="marker.id"
       @click="toggleMarker(marker.id)"
       :class="[
-        'w-10 h-10 rounded-lg cursor-pointer transition-all border flex items-center justify-center',
+        'w-10 h-10 rounded-md cursor-pointer transition-all border flex items-center justify-center',
         isSelected(marker.id)
           ? 'bg-opacity-30 border-opacity-100'
           : 'bg-overlay-subtle border-edge-subtle text-content-tertiary hover:bg-overlay-light hover:text-content'
