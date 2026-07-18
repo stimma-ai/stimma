@@ -66,7 +66,7 @@ const buttonClasses = computed(() => {
     ? 'bg-accent/15 text-accent-hi'
     : props.size === 'small'
       ? 'text-content-tertiary hover:text-content hover:bg-surface'
-      : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'
+      : 'bg-surface-raised hover:bg-surface-hover text-content-secondary hover:text-content'
   return `${base} ${sizeClasses} ${colorClasses}`
 })
 const emit = defineEmits<{

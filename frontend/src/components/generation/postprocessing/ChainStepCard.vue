@@ -51,11 +51,11 @@
         class="flex-1 min-w-0 text-left"
         @click="$emit('toggle-expanded')"
       >
-        <div class="text-sm font-medium text-content truncate flex items-center gap-1.5">
+        <div class="text-[13px] font-medium text-content truncate flex items-center gap-1.5">
           {{ title }}
           <span v-if="unavailable" class="text-[10px] font-medium text-amber-500">unavailable</span>
         </div>
-        <div class="text-xs text-content-muted truncate mt-0.5 flex items-center gap-1.5">
+        <div class="text-[11px] text-content-muted truncate mt-0.5 flex items-center gap-1.5">
           <template v-if="incompatible">
             <span class="text-amber-500">Needs {{ neededInput }} input — will be skipped</span>
           </template>

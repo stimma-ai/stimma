@@ -6,11 +6,11 @@
     <div v-if="jobs.length === 0 && activeChainRuns.length === 0 && waitingSlotCount === 0" class="text-center py-12 px-4 text-content-muted">
       <p>{{ emptyMessage }}</p>
     </div>
-    <div v-else class="flex flex-col gap-2">
+    <div v-else class="flex flex-col gap-0.5">
       <!-- In-flight progress: slim landscape bars docked at the top of the
            results area — one per job/batch/chain, stacked newest-first so
            finishing work flows into the completed list below. -->
-      <div v-if="activeDisplayItems.length > 0 || waitingSlotCount > 0" class="flex flex-col gap-2">
+      <div v-if="activeDisplayItems.length > 0 || waitingSlotCount > 0" class="flex flex-col gap-0.5">
         <template v-for="item in activeDisplayItems" :key="item.key">
           <!-- Active individual job (queued/processing/enhancing) -->
           <PipelineProgressBar
@@ -38,7 +38,7 @@
           />
           <!-- Active media-batch: standard progress strip, plus finished
                results appearing below as they complete. -->
-          <div v-else-if="item.type === 'media-batch-active'" class="flex flex-col gap-2">
+          <div v-else-if="item.type === 'media-batch-active'" class="flex flex-col gap-0.5">
             <PipelineProgressBar
               v-bind="mediaBatchModel(item.batch)"
               :compact="compactOverlays"

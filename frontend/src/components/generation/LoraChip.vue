@@ -17,7 +17,7 @@
     <!-- Name + secondary chips -->
     <div class="flex-1 min-w-0" :title="unavailable ? item.lora + ' — not available for this tool' : item.lora">
       <div class="flex items-center gap-1">
-        <span :class="['truncate text-xs', unavailable ? 'line-through' : (item.enabled ? 'font-medium' : '')]">{{ displayName.primary }}</span>
+        <span :class="['truncate text-[13px]', unavailable ? 'line-through' : (item.enabled ? 'font-medium' : '')]">{{ displayName.primary }}</span>
         <span
           v-for="chip in secondaryChips"
           :key="chip"

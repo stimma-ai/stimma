@@ -4,7 +4,7 @@
     ref="inputRef"
     :value="displayValue"
     type="text"
-    class="w-16 text-sm font-mono tabular-nums text-content bg-overlay-subtle border border-transparent rounded-md px-2 py-0.5 text-right focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
+    class="w-16 text-xs font-mono tabular-nums text-content bg-overlay-subtle border border-transparent rounded-md px-2 py-0.5 text-right focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
     @blur="commit"
     @keydown.enter="commit"
     @keydown.escape="editing = false"
@@ -12,7 +12,7 @@
   <span
     v-else
     :class="[
-      'text-sm font-mono tabular-nums text-right select-none',
+      'text-xs font-mono tabular-nums text-right select-none',
       disabled ? 'opacity-40 cursor-not-allowed text-content-tertiary'
                : 'cursor-ew-resize ' + (nonDefault ? 'text-accent-hi hover:text-accent' : 'text-content-secondary hover:text-content'),
     ]"

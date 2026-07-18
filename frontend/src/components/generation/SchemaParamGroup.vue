@@ -26,7 +26,7 @@
             <!-- Seed control with randomize checkbox -->
             <div v-if="param.control === 'seed'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-sm text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <div class="flex items-center justify-end gap-3 flex-wrap">
@@ -52,7 +52,7 @@
             <!-- Enum/Select -->
             <div v-else-if="param.enum" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-sm text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <div class="min-w-0 max-w-[45%] flex-shrink-0">
@@ -68,7 +68,7 @@
                  click to type (the mock's ValueRow grammar; no slider). -->
             <div v-else-if="param.type === 'number' || param.type === 'integer'" class="py-2">
               <div class="flex items-center justify-between gap-4">
-                <div class="text-sm text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
                 <ScrubValue
                   :model-value="Number(values[param.name] ?? param.default ?? 0)"
                   @update:model-value="emitParam(param.name, $event)"
@@ -85,7 +85,7 @@
             <!-- Boolean/Checkbox -->
             <div v-else-if="param.type === 'boolean'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-sm text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <input v-no-autocorrect

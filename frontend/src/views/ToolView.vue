@@ -75,7 +75,7 @@
            teleported up from the controls scope into #tool-header-slot so it
            sits above both columns regardless of the Studio/Stage layout. -->
       <div v-show="!slideshowState.active" class="flex-1 min-w-0 flex flex-col min-h-0">
-        <div id="tool-header-slot" class="flex-none border-b border-surface px-4 pt-4 pb-3"></div>
+        <div id="tool-header-slot" class="flex-none m-3 mb-0 rounded-lg border border-edge-subtle bg-surface px-4 pt-3.5 pb-3"></div>
         <div class="flex-1 min-w-0 flex min-h-0">
 
       <!-- Generation Controls. In Studio mode the primary column (left, wide); in
@@ -92,7 +92,7 @@
         ]"
         :style="{ width: layoutMode === 'stage' ? stageControlsWidth + 'px' : '66.6667%' }"
       >
-       <div class="flex-1 overflow-y-auto scrollbar-stable p-4 pb-6">
+       <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-4 pb-6">
         <!-- Header (teleported full-width to #tool-header-slot) -->
         <Teleport defer to="#tool-header-slot">
         <div class="flex items-center justify-between">
@@ -300,7 +300,7 @@
             <button
               @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
               class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md"
-              :class="layoutMode === 'stage' ? 'bg-accent/15 text-accent-hi' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
+              :class="layoutMode === 'stage' ? 'bg-surface-raised text-accent-hi hover:bg-surface-hover' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content'"
               :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Studio — controls primary'"
             >
               <PhotoIcon class="w-5 h-5" />
@@ -311,7 +311,7 @@
             <div v-if="jobsManager" class="relative flex items-center">
               <button
                 @click="stageMenuOpen = !stageMenuOpen"
-                class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md text-content-secondary hover:bg-overlay-subtle hover:text-content"
+                class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content"
                 title="Queue options"
               >
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
@@ -645,10 +645,10 @@
            Stays mounted across the toggle so the matte/image tween smoothly. -->
       <div
         v-if="jobsManager"
-        class="order-3 flex-1 min-w-0 flex min-h-0 relative items-center justify-center bg-matte overflow-hidden"
+        class="order-3 flex-1 min-w-0 flex min-h-0 relative items-start justify-center bg-matte overflow-hidden"
       >
         <!-- Empty state -->
-        <div v-if="!stageCurrentJob" class="flex flex-col items-center gap-3 text-content-muted">
+        <div v-if="!stageCurrentJob" class="self-center flex flex-col items-center gap-3 text-content-muted">
           <Spinner v-if="stageHasPending" size="lg" />
           <span class="text-sm">{{ stageHasPending ? 'Generating…' : 'No images yet' }}</span>
         </div>
