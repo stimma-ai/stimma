@@ -63,6 +63,7 @@
       <!-- Ghost text row, always. During reorder drags the insert line above
            marks the end-drop position — Add step never dresses up as a target. -->
       <button
+        ref="addBtnRef"
         type="button"
         class="w-full flex items-center gap-1.5 rounded-md px-1 py-1.5 text-xs text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
         @click="toggleAddMenu"
@@ -74,6 +75,7 @@
       </button>
       <AddStepMenu
         v-if="addMenuOpen"
+        :anchor-rect="addMenuAnchor"
         :tools="candidateTools"
         :filters="candidateFilters"
         @add-tool="addToolStep"
@@ -234,7 +236,13 @@ function updateStepResolutionLock(id: string, resolutionLock: ChainStepResolutio
 }
 
 const addMenuOpen = ref(false)
+const addBtnRef = ref<HTMLElement | null>(null)
+const addMenuAnchor = ref<{ left: number; bottom: number; top: number; width: number } | null>(null)
 function toggleAddMenu() {
+  if (!addMenuOpen.value && addBtnRef.value) {
+    const r = addBtnRef.value.getBoundingClientRect()
+    addMenuAnchor.value = { left: r.left, bottom: r.bottom, top: r.top, width: r.width }
+  }
   addMenuOpen.value = !addMenuOpen.value
 }
 

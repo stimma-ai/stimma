@@ -29,14 +29,7 @@
                 <div class="text-[13px] text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
-              <div class="flex items-center justify-end gap-3 flex-wrap">
-                <input v-no-autocorrect
-                  :value="values[param.name]"
-                  @input="emitParam(param.name, parseIntOrNull(($event.target as HTMLInputElement).value))"
-                  type="number"
-                  :disabled="(values.randomizeSeed ?? true) || constraintState(param).disabled"
-                  class="w-28 sm:w-36 px-3 py-1.5 bg-overlay-subtle border border-transparent rounded-md text-content font-mono tabular-nums text-sm disabled:opacity-40 focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
-                >
+              <div class="flex items-center justify-end gap-3">
                 <label class="flex items-center gap-1.5 text-xs text-content-tertiary cursor-pointer">
                   <input v-no-autocorrect
                     :checked="values.randomizeSeed ?? true"
@@ -47,7 +40,14 @@
                   >
                   <span>Randomize</span>
                 </label>
-              </div>
+                <input v-no-autocorrect
+                  :value="values[param.name]"
+                  @input="emitParam(param.name, parseIntOrNull(($event.target as HTMLInputElement).value))"
+                  type="number"
+                  :disabled="(values.randomizeSeed ?? true) || constraintState(param).disabled"
+                  class="w-24 text-right bg-transparent border-b border-transparent text-content-secondary font-mono tabular-nums text-xs disabled:opacity-40 focus:border-accent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                >
+                              </div>
             </div>
             <!-- Enum/Select -->
             <div v-else-if="param.enum" :class="['flex items-center justify-between gap-4', rowPad]">

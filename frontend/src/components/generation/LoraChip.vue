@@ -1,7 +1,7 @@
 <template>
   <div
     :class="[
-      'group flex items-center gap-1.5 px-1 py-1.5 border-b border-edge-subtle last:border-b-0 text-sm select-none cursor-pointer transition-colors',
+      'group flex items-center gap-1.5 py-1.5 border-b border-edge-subtle last:border-b-0 text-sm select-none cursor-pointer transition-colors',
       unavailable ? 'opacity-60' : item.enabled ? '' : 'opacity-50'
     ]"
     @pointerdown="onPointerDown"
@@ -29,45 +29,45 @@
       </div>
     </div>
 
-    <!-- Weight: bare mono scrub value, +/- ghost glyphs on hover -->
-    <div class="shrink-0 flex items-center gap-0.5" @click.stop @pointerdown.stop>
+    <!-- Hover controls: LEFT of the weight so the value column stays on the
+         panel right rail -->
+    <div class="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop @pointerdown.stop>
+      <button
+        @click.stop="$emit('remove')"
+        type="button"
+        class="w-4 h-4 flex items-center justify-center text-content-muted hover:!text-red-500"
+        title="Remove"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
+          <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+        </svg>
+      </button>
       <button
         @click.stop="decrementWeight"
         type="button"
-        class="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center text-[10px] text-content-tertiary hover:text-content transition-opacity"
+        class="w-4 h-4 flex items-center justify-center text-[10px] text-content-tertiary hover:text-content"
       >−</button>
-      <input v-no-autocorrect
-        type="text"
-        :value="formattedWeight"
-        @click.stop
-        @input="onWeightInput"
-        @blur="onWeightBlur"
-        @keydown.enter="($event.target as HTMLInputElement).blur()"
-        :class="[
-          'w-8 text-[11px] font-mono tabular-nums text-center bg-transparent border-none outline-none cursor-ew-resize',
-          unavailable ? 'text-content-muted' : (item.weight !== 1 ? 'text-accent-hi' : 'text-content-secondary')
-        ]"
-        title="Drag to adjust, click to type"
-      />
       <button
         @click.stop="incrementWeight"
         type="button"
-        class="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center text-[10px] text-content-tertiary hover:text-content transition-opacity"
+        class="w-4 h-4 flex items-center justify-center text-[10px] text-content-tertiary hover:text-content"
       >+</button>
     </div>
 
-    <!-- Remove button -->
-    <button
-      @click.stop="$emit('remove')"
+    <!-- Weight: mono value on the right rail -->
+    <input v-no-autocorrect
+      type="text"
+      :value="formattedWeight"
+      @click.stop
       @pointerdown.stop
-      type="button"
-      class="opacity-0 group-hover:opacity-100 shrink-0 w-4 h-4 flex items-center justify-center text-content-muted hover:!text-red-500 transition-opacity"
-      title="Remove"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
-        <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-      </svg>
-    </button>
+      @input="onWeightInput"
+      @blur="onWeightBlur"
+      @keydown.enter="($event.target as HTMLInputElement).blur()"
+      :class="[
+        'w-10 shrink-0 text-xs font-mono tabular-nums text-right bg-transparent border-none outline-none',
+        unavailable ? 'text-content-muted' : (item.weight !== 1 ? 'text-accent-hi' : 'text-content-secondary')
+      ]"
+    />
 
     <!-- Drag handle -->
     <span class="opacity-0 group-hover:opacity-100 shrink-0 text-content-muted text-[10px] cursor-grab transition-opacity">⠿</span>

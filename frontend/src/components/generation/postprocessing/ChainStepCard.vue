@@ -15,7 +15,7 @@
       ]"
     ></div>
 
-    <div :class="['flex items-center gap-2.5 pl-3 pr-2.5 py-2', step.enabled ? '' : 'opacity-50']">
+    <div :class="['flex items-center gap-2.5 pl-2.5 pr-0 py-2', step.enabled ? '' : 'opacity-50']">
       <!-- Drag grip -->
       <span
         class="cursor-grab text-content-muted/40 hover:text-content-muted touch-none"

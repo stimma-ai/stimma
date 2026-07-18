@@ -679,7 +679,7 @@
             <video
               ref="stageVideoRef"
               :poster="getThumbnailUrl(stageCurrentHash, 1024, { mode: 'fit' })"
-              class="w-full h-full object-contain"
+              class="w-full h-full object-contain object-top"
               :muted="videoMuted"
               playsinline
               draggable="true"
@@ -704,7 +704,7 @@
             :thumbnail="false"
             :contain="false"
             container-class="w-full h-full !bg-transparent"
-            img-class="!object-contain !bg-none !bg-transparent"
+            img-class="!object-contain object-top !bg-none !bg-transparent"
             alt="Current generation"
           />
         </div>

@@ -1,7 +1,9 @@
 <template>
+  <Teleport to="body">
   <div
     ref="menuRef"
-    class="absolute z-menu left-0 right-0 mt-1 rounded-lg border border-edge bg-surface shadow-xl overflow-hidden"
+    class="fixed z-menu rounded-lg border border-edge-subtle bg-surface shadow-lg overflow-hidden"
+    :style="menuStyle"
   >
     <!-- Search -->
     <div class="relative border-b border-edge-subtle">
@@ -71,6 +73,7 @@
       </div>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -86,7 +89,25 @@ const props = defineProps<{
   tools: ProviderTool[]
   /** Built-in filter defs offered for the current running media type. */
   filters: ChainFilterDef[]
+  /** Trigger rect (viewport coords) — the menu teleports to body and anchors
+      here so the scrolling controls card can't clip it. */
+  anchorRect?: { left: number; bottom: number; top: number; width: number } | null
 }>()
+
+const menuStyle = computed(() => {
+  const r = props.anchorRect
+  if (!r) return {}
+  const width = Math.min(Math.max(r.width, 280), 420)
+  const left = Math.max(8, Math.min(window.innerWidth - width - 8, r.left))
+  const below = r.bottom + 8
+  const flip = below + 440 > window.innerHeight && r.top > 460
+  return {
+    left: `${left}px`,
+    width: `${width}px`,
+    ...(flip ? { bottom: `${window.innerHeight - r.top + 4}px` } : { top: `${below - 4}px` }),
+    maxHeight: '440px',
+  }
+})
 
 const emit = defineEmits<{
   (e: 'add-tool', tool: ProviderTool): void
