@@ -1,16 +1,16 @@
 <template>
+  <!-- Atelier: a chain step is a hairline row, not a card. The 3px rail
+       carries type identity; incompatible turns it amber (was a border). -->
   <div
     :class="[
-      'relative rounded-lg border bg-overlay-faint transition-colors',
-      incompatible ? 'border-amber-500/50' : 'border-edge-subtle',
+      'relative border-b border-edge-subtle last:border-b-0 transition-colors',
       dragging ? 'opacity-30' : '',
     ]"
   >
-    <!-- Accent rail (3px inset) echoing the step type color -->
     <div
       :class="[
         'absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r',
-        step.kind === 'tool' ? 'bg-purple-500/70' : 'bg-white/20',
+        incompatible ? 'bg-amber-500/70' : step.kind === 'tool' ? 'bg-purple-500/70' : 'bg-overlay-strong',
         step.enabled ? '' : 'opacity-40',
       ]"
     ></div>
@@ -123,8 +123,8 @@
       </div>
     </div>
 
-    <!-- Expanded settings (in place) -->
-    <div v-if="expanded" class="border-t border-edge-subtle px-3 py-2">
+    <!-- Expanded settings: the wash-inset disclosure (deepest containment) -->
+    <div v-if="expanded" class="bg-overlay-faint rounded-md mx-1 mb-2 px-3 py-2">
       <slot name="settings"></slot>
     </div>
   </div>

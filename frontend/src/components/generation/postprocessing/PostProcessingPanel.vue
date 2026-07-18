@@ -21,7 +21,7 @@
         <!-- Insertion indicator (drag reorder) -->
         <div v-if="drag.active && drag.overIndex === index" class="h-0.5 bg-accent-hi rounded my-1"></div>
         <div
-          :class="index > 0 ? 'mt-1.5' : ''"
+          :class="''"
           @dragover.prevent="onDragOver($event, index)"
           @drop.prevent="onDrop(index)"
         >
