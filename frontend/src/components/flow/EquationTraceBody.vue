@@ -22,19 +22,19 @@
         Model: <span class="text-content font-mono">{{ trace.model }}</span>
       </div>
       <div v-if="trace.system || trace.system_template">
-        <div class="text-[11px] uppercase tracking-wide text-content-muted mb-0.5">
+        <div class="text-xs font-semibold text-content-secondary mb-0.5">
           {{ trace.detail_availability === 'serialized' ? 'System template' : 'System' }}
         </div>
         <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5 select-text" :class="scrollBlockClass('max-h-48')">{{ trace.system || trace.system_template }}</pre>
       </div>
       <div>
-        <div class="text-[11px] uppercase tracking-wide text-content-muted mb-0.5">
+        <div class="text-xs font-semibold text-content-secondary mb-0.5">
           {{ trace.detail_availability === 'serialized' ? 'Prompt template' : 'Prompt' }}
         </div>
         <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5 select-text" :class="scrollBlockClass('max-h-64')">{{ trace.prompt || trace.prompt_template || '(empty)' }}</pre>
       </div>
       <div v-if="trace.result !== undefined && trace.result !== null">
-        <div class="text-[11px] uppercase tracking-wide text-content-muted mb-0.5">Response</div>
+        <div class="text-xs font-semibold text-content-secondary mb-0.5">Response</div>
         <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5 select-text" :class="scrollBlockClass('max-h-64')">{{ formatResult(trace.result) }}</pre>
       </div>
     </template>
@@ -55,7 +55,7 @@
           v-if="codeResultValue !== undefined && codeResultValue !== null"
           class="rounded-md border border-edge-subtle bg-overlay-faint px-3 py-2"
         >
-          <div class="text-[10px] uppercase tracking-wide text-content-muted mb-1">Result</div>
+          <div class="text-xs font-semibold text-content-secondary mb-1">Result</div>
           <FlowResultPreview
             :value="codeResultValue"
             :max-lines="10"
@@ -187,7 +187,7 @@
         {{ assemblyInfo }}
       </div>
       <div v-if="toolResultMediaIds.length > 0">
-        <div class="text-[11px] uppercase tracking-wide text-content-muted mb-0.5">Result</div>
+        <div class="text-xs font-semibold text-content-secondary mb-0.5">Result</div>
         <div class="flex flex-wrap gap-2">
           <div
             v-for="mid in toolResultMediaIds"
@@ -234,7 +234,7 @@
         Format: <span class="text-content font-mono">{{ documentFormat }}</span>
       </div>
       <div v-if="documentContent">
-        <div class="text-[11px] uppercase tracking-wide text-content-muted mb-0.5">Preview</div>
+        <div class="text-xs font-semibold text-content-secondary mb-0.5">Preview</div>
         <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5 select-text" :class="scrollBlockClass('max-h-64')">{{ documentContent }}</pre>
       </div>
       <div v-else-if="toolResultMediaIds.length > 0" class="text-[11px] text-content-muted italic">
@@ -261,11 +261,11 @@
       </div>
       <div class="flex items-center gap-1.5">
         <button
-          class="text-[11px] px-2 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
+          class="text-[11px] px-2 py-0.5 rounded-md bg-accent text-white hover:bg-accent/90"
           @click.stop="$emit('fix-step-with-agent', equation)"
         >Ask the agent for help</button>
         <button
-          class="text-[11px] px-2 py-0.5 rounded bg-overlay-subtle border border-edge-subtle text-content-muted hover:text-content hover:bg-overlay-hover"
+          class="text-[11px] px-2 py-0.5 rounded-md bg-overlay-subtle text-content-muted hover:text-content hover:bg-overlay-hover"
           @click.stop="$emit('invalidate-equation', equation.equation_key)"
         >Retry ↻</button>
       </div>

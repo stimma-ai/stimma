@@ -7,7 +7,7 @@
     >
       <!-- Aspect ratio preview rectangle -->
       <span
-        class="border border-[#6b7280] bg-surface-raised flex-shrink-0"
+        class="border border-edge-subtle bg-surface-raised flex-shrink-0"
         :style="aspectPreviewStyle"
       ></span>
       <span>{{ displayText }}</span>
@@ -19,7 +19,7 @@
     <!-- Dropdown Menu -->
     <div
       v-if="showDropdown"
-      class="fixed bg-surface border border-surface-raised rounded-lg shadow-lg z-[9999] p-3 space-y-2"
+      class="fixed bg-surface border border-surface-raised rounded-lg shadow-lg z-menu p-3 space-y-2"
       :style="dropdownStyle"
       @click.stop
     >
@@ -31,7 +31,7 @@
           :class="[
             'px-2 py-1 rounded text-xs font-medium transition-colors',
             isGroupSelected(group)
-              ? 'bg-blue-500 text-white'
+              ? 'bg-accent text-white'
               : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised'
           ]"
         >
@@ -47,7 +47,7 @@
           :class="[
             'px-2 py-1 rounded text-xs font-medium transition-colors',
             width === pair[0] && height === pair[1]
-              ? 'bg-blue-500/60 text-white'
+              ? 'bg-accent/60 text-white'
               : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised'
           ]"
         >

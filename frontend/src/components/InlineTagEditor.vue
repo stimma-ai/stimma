@@ -1,7 +1,7 @@
 <template>
   <div class="relative w-full">
     <div
-      class="flex flex-wrap gap-1 px-1.5 py-1 border border-edge-subtle rounded-md bg-surface min-h-[28px] cursor-text focus-within:border-edge-strong focus-within:ring-1 focus-within:ring-white/10"
+      class="flex flex-wrap gap-1 px-1.5 py-1 border border-edge-subtle rounded-md bg-surface min-h-[28px] cursor-text focus-within:border-edge-strong focus-within:ring-1 focus-within:ring-edge-subtle"
       @click="inputRef?.focus()"
     >
       <!-- Existing tags as chips -->
@@ -34,7 +34,7 @@
     <!-- Autocomplete dropdown -->
     <div
       v-if="showSuggestions && filteredSuggestions.length > 0"
-      class="absolute top-full left-0 right-0 mt-1 bg-surface border border-edge-subtle rounded-md max-h-[200px] overflow-y-auto z-[1000] shadow-xl"
+      class="absolute top-full left-0 right-0 mt-1 bg-surface border border-edge-subtle rounded-md max-h-[200px] overflow-y-auto z-menu shadow-xl"
     >
       <div
         v-for="(suggestion, index) in filteredSuggestions"

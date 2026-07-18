@@ -26,7 +26,7 @@
         <input
           :value="marker.name"
           @input="updateMarker(index, 'name', $event.target.value)"
-          class="flex-1 rounded-md border border-transparent bg-transparent px-3 py-1.5 text-sm text-content transition-colors hover:border-edge focus:border-blue-500 focus:bg-surface-raised focus:outline-none"
+          class="flex-1 rounded-md border border-transparent bg-transparent px-3 py-1.5 text-sm text-content transition-colors hover:border-edge focus:border-accent focus:bg-surface-raised focus:outline-none"
           placeholder="Marker name"
         />
 
@@ -86,7 +86,7 @@
       <div
         v-if="openMenuIndex !== null && menuPosition"
         data-marker-menu
-        class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 min-w-[140px] z-[10010]"
+        class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 min-w-[140px] z-menu"
         :style="{ top: menuPosition.top + 'px', left: menuPosition.left + 'px' }"
       >
         <button

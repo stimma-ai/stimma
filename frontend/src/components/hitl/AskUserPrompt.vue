@@ -24,7 +24,7 @@
     <div class="text-sm font-medium text-content">{{ action.prompt }}</div>
 
     <div v-if="groupedQuestions.length > 0" class="space-y-4">
-      <div class="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
+      <div class="rounded-lg border border-edge-subtle bg-overlay-subtle overflow-hidden">
         <div class="flex gap-1.5 p-2 overflow-x-auto scrollbar-hide">
           <button
             v-for="(question, index) in groupedQuestions"
@@ -65,7 +65,7 @@
             </button>
           </div>
 
-          <div class="flex items-center gap-2 px-3 py-1.5 border-t border-white/5">
+          <div class="flex items-center gap-2 px-3 py-1.5 border-t border-edge-subtle">
             <input
               ref="groupedInputRef"
               v-model="groupedCustomAnswers[activeQuestion.question]"
@@ -255,8 +255,8 @@ function goToTab(index: number) {
 
 function tabClass(index: number) {
   if (index === activeTabIndex.value) return 'bg-blue-500/15 border-blue-500/40 text-blue-400'
-  if (isTabAnswered(index)) return 'bg-white/[0.04] border-white/10 text-content hover:bg-white/[0.07]'
-  return 'bg-white/[0.02] border-white/[0.06] text-content-muted hover:bg-white/[0.05] hover:text-content'
+  if (isTabAnswered(index)) return 'bg-overlay-subtle border-edge-subtle text-content hover:bg-overlay-light'
+  return 'bg-overlay-faint border-edge-subtle text-content-muted hover:bg-overlay-subtle hover:text-content'
 }
 
 function selectOption(index: number) {

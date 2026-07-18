@@ -68,12 +68,12 @@
           @keydown="handleKeydown"
           type="text"
           placeholder="e.g., mask the lights, unmask the plant, expand, shrink, invert, clear, ..."
-          class="flex-1 bg-surface border border-surface-raised rounded-md px-3 py-2 text-sm text-content-secondary placeholder-[#6b7280] focus:outline-none focus:border-blue-500/50"
+          class="flex-1 bg-surface border border-surface-raised rounded-md px-3 py-2 text-sm text-content-secondary placeholder-content-muted focus:outline-none focus:border-accent"
         />
         <button
           @click="handleSubmit"
           :disabled="!userInput.trim()"
-          class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+          class="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
         >
           <span v-if="isProcessing" class="flex items-center gap-1.5">
             <div class="w-3 h-3 border-2 border-edge-strong border-t-white rounded-full animate-spin"></div>

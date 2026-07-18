@@ -51,7 +51,7 @@
       </label>
       <label class="mt-4 block">
         <span class="mb-1 block text-[11px] text-content-tertiary">Additional instructions</span>
-        <textarea v-model="model.extra_system_prompt" rows="3" @blur="changed" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-xs text-content focus:border-blue-500 focus:outline-none" placeholder="Appended to this model's system prompt." />
+        <textarea v-model="model.extra_system_prompt" rows="3" @blur="changed" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-xs text-content focus:border-accent focus:outline-none" placeholder="Appended to this model's system prompt." />
       </label>
     </section>
 
@@ -90,7 +90,7 @@
         <label class="block py-2">
           <span class="text-xs font-medium text-content">Extra request body</span>
           <span class="mb-2 mt-0.5 block text-[11px] text-content-muted">Merged into every request for this model.</span>
-          <textarea v-model="extraBodyText" rows="3" @blur="commitExtraBody" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 font-mono text-xs text-content focus:border-blue-500 focus:outline-none" placeholder="{}" />
+          <textarea v-model="extraBodyText" rows="3" @blur="commitExtraBody" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 font-mono text-xs text-content focus:border-accent focus:outline-none" placeholder="{}" />
           <span v-if="extraBodyError" class="mt-1 block text-[11px] text-red-400">Enter a JSON object.</span>
         </label>
       </div>
@@ -101,7 +101,7 @@
         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166M4.772 5.79l1.068 13.133A2.25 2.25 0 0 0 8.084 21h7.832a2.25 2.25 0 0 0 2.244-2.077L19.228 5.79M9.75 5.393V4.477c0-1.18.91-2.164 2.09-2.201a51.964 51.964 0 0 1 3.32 0c1.18.037 2.09 1.022 2.09 2.201v.916" /></svg>
         Remove model
       </button>
-      <button v-if="isNew" type="button" @click="$emit('commit')" :disabled="saving || !canAdd || extraBodyError" class="ml-auto shrink-0 rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50">{{ saving ? 'Adding…' : 'Add model' }}</button>
+      <button v-if="isNew" type="button" @click="$emit('commit')" :disabled="saving || !canAdd || extraBodyError" class="ml-auto shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ saving ? 'Adding…' : 'Add model' }}</button>
     </div>
   </div>
 </template>

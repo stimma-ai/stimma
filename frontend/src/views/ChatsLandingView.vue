@@ -24,7 +24,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search chats..."
-            class="bg-overlay-subtle border border-edge-subtle rounded-lg pl-9 pr-3 py-1.5 text-sm text-content-secondary placeholder-white/30 focus:outline-none focus:border-blue-500/50 w-48"
+            class="bg-overlay-subtle border border-edge-subtle rounded-lg pl-9 pr-3 py-1.5 text-sm text-content-secondary placeholder-white/30 focus:outline-none focus:border-accent w-48"
           />
         </div>
       </div>
@@ -91,7 +91,7 @@
           </div>
 
           <!-- Thumbnail -->
-          <div v-if="hasMedia(chat)" class="flex-shrink-0 w-10 h-10 rounded-xl overflow-hidden">
+          <div v-if="hasMedia(chat)" class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden">
             <MediaImage
               :media-id="chat.recent_media[0].media_id"
               :file-hash="chat.recent_media[0].file_hash"
@@ -116,7 +116,7 @@
                   @keydown.enter="saveChatName(chat)"
                   @keydown.esc="cancelEdit"
                   @click.stop
-                  class="text-sm text-content font-medium bg-surface-raised border border-edge rounded px-2 py-0.5 outline-none focus:border-blue-500 flex-1 min-w-0"
+                  class="text-sm text-content font-medium bg-surface-raised border border-edge rounded px-2 py-0.5 outline-none focus:border-accent flex-1 min-w-0"
                   placeholder="Name this chat..."
                   autofocus
                 />
@@ -189,7 +189,7 @@
       <div
         v-if="emptyContextMenuVisible"
         ref="emptyMenuRef"
-        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[9999] py-1 min-w-[160px]"
+        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu py-1 min-w-[160px]"
         :style="{ top: emptyContextMenuY + 'px', left: emptyContextMenuX + 'px' }"
       >
         <button

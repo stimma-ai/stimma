@@ -3,7 +3,7 @@
     <!-- Header row with icon, content, and actions -->
     <div class="flex items-start gap-3">
       <!-- Icon -->
-      <div class="w-10 h-10 flex items-center justify-center bg-blue-500/15 rounded-xl flex-shrink-0">
+      <div class="w-10 h-10 flex items-center justify-center bg-blue-500/15 rounded-lg flex-shrink-0">
         <svg class="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
         </svg>
@@ -41,7 +41,7 @@
             <!-- Dropdown menu -->
             <div
               v-if="dropdownOpen && !loadingTools"
-              class="absolute left-0 top-full mt-1 bg-base border border-edge rounded-lg shadow-xl z-50 w-[280px] overflow-hidden"
+              class="absolute left-0 top-full mt-1 bg-base border border-edge rounded-lg shadow-xl z-menu w-[280px] overflow-hidden"
             >
               <!-- Search input -->
               <div class="p-2 border-b border-edge">
@@ -106,7 +106,7 @@
         <button
           @click="handleAllow('chat')"
           :disabled="!selectedToolId"
-          class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-surface-raised disabled:text-content-muted text-white text-sm font-medium rounded-l-lg transition-colors"
+          class="px-4 py-2 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-l-md transition-colors"
         >
           Allow
         </button>
@@ -114,7 +114,7 @@
         <button
           @click.stop="allowMenuOpen = !allowMenuOpen"
           :disabled="!selectedToolId"
-          class="px-2 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-surface-raised disabled:text-content-muted text-white rounded-r-lg border-l border-blue-500 transition-colors"
+          class="px-2 py-2 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-r-md border-l border-white/20 transition-colors"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
@@ -123,7 +123,7 @@
         <!-- Dropdown menu with all options -->
         <div
           v-if="allowMenuOpen"
-          class="absolute right-0 top-full mt-1 w-44 bg-surface border border-edge-subtle rounded-lg shadow-lg overflow-hidden z-50"
+          class="absolute right-0 top-full mt-1 w-44 bg-surface border border-edge-subtle rounded-lg shadow-lg overflow-hidden z-menu"
         >
           <button
             @click="handleAllow('once')"

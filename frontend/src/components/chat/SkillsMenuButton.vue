@@ -3,7 +3,7 @@
     <button
       ref="buttonRef"
       @click="toggle"
-      class="relative w-8 h-8 flex items-center justify-center rounded-full transition-colors text-content-muted hover:text-content-secondary hover:bg-white/[0.05]"
+      class="relative w-8 h-8 flex items-center justify-center rounded-full transition-colors text-content-muted hover:text-content-secondary hover:bg-overlay-subtle"
       :title="title"
     >
       <BookOpenIcon class="w-5 h-5" />
@@ -17,10 +17,10 @@
          overflow clipping (the input box lives inside overflow-hidden
          containers on several surfaces). -->
     <Teleport to="body">
-      <div v-if="open" class="fixed inset-0 z-[10040]" @click="open = false"></div>
+      <div v-if="open" class="fixed inset-0 z-menu" @click="open = false"></div>
       <div
         v-if="open"
-        class="fixed w-80 z-[10050] bg-surface border border-edge rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        class="fixed w-80 z-menu bg-surface border border-edge rounded-lg shadow-2xl overflow-hidden flex flex-col"
         :style="menuPosition"
       >
         <div class="px-3 pt-2.5 pb-1.5 shrink-0">

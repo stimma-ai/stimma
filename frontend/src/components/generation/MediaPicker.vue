@@ -9,7 +9,7 @@
   >
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <label class="text-xs font-medium text-content-muted uppercase tracking-wide">{{ displayLabel }}</label>
+        <label class="text-xs font-semibold text-content-secondary">{{ displayLabel }}</label>
         <span v-if="props.description" class="text-xs text-content-muted">{{ props.description }}</span>
       </div>
       <span v-if="!batchMode" class="text-xs text-content-muted">{{ items.length }}/{{ maxItems }}</span>
@@ -213,7 +213,7 @@
             <template v-if="accept === 'image' && !item.isSet && item._videoSource">
               <div class="w-full">
                 <div
-                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-white/[0.02] transition-colors"
+                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'frame')"
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M3.25 4A2.25 2.25 0 0 0 1 6.25v7.5A2.25 2.25 0 0 0 3.25 16h7.5A2.25 2.25 0 0 0 13 13.75v-7.5A2.25 2.25 0 0 0 10.75 4h-7.5ZM19 4.75a.75.75 0 0 0-1.28-.53l-3 3a.75.75 0 0 0-.22.53v4.5c0 .199.079.39.22.53l3 3a.75.75 0 0 0 1.28-.53V4.75Z" /></svg>
@@ -229,10 +229,10 @@
                   <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'frame' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                 </div>
                 <!-- Frame picker expanded panel (the live preview is the <video> up top) -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'frame'" class="px-2.5 py-2 bg-white/[0.01] space-y-2">
+                <div v-if="openPrepPanel[item.originalIndex] === 'frame'" class="px-2.5 py-2 bg-overlay-faint space-y-2">
                   <!-- Filmstrip timeline: full tile width, square cells, undistorted -->
                   <div
-                    class="relative w-full rounded-md overflow-hidden border border-white/10 bg-black/30 cursor-pointer select-none touch-none"
+                    class="relative w-full rounded-md overflow-hidden border border-edge-subtle bg-black/30 cursor-pointer select-none touch-none"
                     style="min-height: 38px"
                     @pointerdown="onScrubPointerDown(item, $event)"
                     @pointermove="onScrubPointerMove(item, $event)"
@@ -266,10 +266,10 @@
                     </div>
                   </div>
                   <!-- One unified control strip (full width): step ◀ · First · Middle · Last · step ▶ -->
-                  <div class="flex w-full rounded-md border border-white/10 overflow-hidden">
+                  <div class="flex w-full rounded-md border border-edge-subtle overflow-hidden">
                     <button @click="stepFrame(item, -1)" title="Previous frame"
                       :disabled="atFirstFrame(item)"
-                      class="flex-shrink-0 w-9 flex items-center justify-center py-1 border-r border-white/10 text-content-muted hover:bg-white/[0.08] hover:text-content transition-colors disabled:opacity-30 disabled:pointer-events-none">
+                      class="flex-shrink-0 w-9 flex items-center justify-center py-1 border-r border-edge-subtle text-content-muted hover:bg-overlay-medium hover:text-content transition-colors disabled:opacity-30 disabled:pointer-events-none">
                       <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 5 7.5 10l5 5"/></svg>
                     </button>
                     <button
@@ -277,13 +277,13 @@
                       :key="pos"
                       @click="setFramePosition(item, pos)"
                       :class="[
-                        'flex-1 py-1 text-[11px] capitalize border-r border-white/10 transition-colors',
-                        item._framePosition === pos ? 'bg-blue-500/15 text-blue-400 font-medium' : 'text-content-muted hover:bg-white/[0.08]'
+                        'flex-1 py-1 text-[11px] capitalize border-r border-edge-subtle transition-colors',
+                        item._framePosition === pos ? 'bg-blue-500/15 text-blue-400 font-medium' : 'text-content-muted hover:bg-overlay-medium'
                       ]"
                     >{{ pos }}</button>
                     <button @click="stepFrame(item, 1)" title="Next frame"
                       :disabled="atLastFrame(item)"
-                      class="flex-shrink-0 w-9 flex items-center justify-center py-1 text-content-muted hover:bg-white/[0.08] hover:text-content transition-colors disabled:opacity-30 disabled:pointer-events-none">
+                      class="flex-shrink-0 w-9 flex items-center justify-center py-1 text-content-muted hover:bg-overlay-medium hover:text-content transition-colors disabled:opacity-30 disabled:pointer-events-none">
                       <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 5l5 5-5 5"/></svg>
                     </button>
                   </div>
@@ -298,7 +298,7 @@
               <!-- Flip / Rotate row -->
               <div class="w-full">
                 <div
-                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-white/[0.02] transition-colors"
+                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'flip')"
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"/></svg>
@@ -315,13 +315,13 @@
                   </div>
                 </div>
                 <!-- Flip / Rotate expanded panel -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'flip'" class="px-2.5 py-2 bg-white/[0.01]">
+                <div v-if="openPrepPanel[item.originalIndex] === 'flip'" class="px-2.5 py-2 bg-overlay-faint">
                   <div class="pl-5 flex items-center gap-1.5">
                     <button
                       @click="toggleFlip(item.originalIndex, 'horizontal')"
                       :class="[
                         'flex-1 flex items-center justify-center py-1.5 rounded border transition-colors',
-                        item._flip?.horizontal ? 'border-blue-500/50 text-blue-400 bg-blue-500/10' : 'border-white/10 text-content-muted bg-white/[0.05] hover:bg-white/[0.08]'
+                        item._flip?.horizontal ? 'border-blue-500/50 text-blue-400 bg-blue-500/10' : 'border-transparent text-content-muted bg-overlay-light hover:bg-overlay-medium'
                       ]"
                       title="Flip horizontal"
                     >
@@ -331,7 +331,7 @@
                       @click="toggleFlip(item.originalIndex, 'vertical')"
                       :class="[
                         'flex-1 flex items-center justify-center py-1.5 rounded border transition-colors',
-                        item._flip?.vertical ? 'border-blue-500/50 text-blue-400 bg-blue-500/10' : 'border-white/10 text-content-muted bg-white/[0.05] hover:bg-white/[0.08]'
+                        item._flip?.vertical ? 'border-blue-500/50 text-blue-400 bg-blue-500/10' : 'border-transparent text-content-muted bg-overlay-light hover:bg-overlay-medium'
                       ]"
                       title="Flip vertical"
                     >
@@ -339,14 +339,14 @@
                     </button>
                     <button
                       @click="rotate(item.originalIndex, 'left')"
-                      class="flex-1 flex items-center justify-center py-1.5 rounded border border-white/10 text-content-muted bg-white/[0.05] hover:bg-white/[0.08] transition-colors"
+                      class="flex-1 flex items-center justify-center py-1.5 rounded text-content-muted bg-overlay-light hover:bg-overlay-medium transition-colors"
                       title="Rotate left 90°"
                     >
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"/></svg>
                     </button>
                     <button
                       @click="rotate(item.originalIndex, 'right')"
-                      class="flex-1 flex items-center justify-center py-1.5 rounded border border-white/10 text-content-muted bg-white/[0.05] hover:bg-white/[0.08] transition-colors"
+                      class="flex-1 flex items-center justify-center py-1.5 rounded text-content-muted bg-overlay-light hover:bg-overlay-medium transition-colors"
                       title="Rotate right 90°"
                     >
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5"/></svg>
@@ -375,7 +375,7 @@
                   <button
                     v-if="hasCrop(item)"
                     @click="resetCrop(item.originalIndex)"
-                    class="text-[10px] px-1.5 py-0.5 rounded border border-white/10 text-content-muted bg-white/[0.05] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 transition-colors"
+                    class="text-[10px] px-1.5 py-0.5 rounded text-content-muted bg-overlay-light hover:bg-red-500/10 hover:text-red-400 transition-colors"
                     title="Clear crop"
                   >
                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
@@ -386,7 +386,7 @@
                       'text-[10px] px-2 py-0.5 rounded border transition-colors',
                       hasCrop(item)
                         ? 'border-blue-500/50 text-blue-400 bg-blue-500/10 hover:bg-blue-500/15'
-                        : 'border-white/10 text-content-muted bg-white/[0.05] hover:bg-white/[0.08]'
+                        : 'border-transparent text-content-muted bg-overlay-light hover:bg-overlay-medium'
                     ]"
                   >Edit</button>
                 </div>
@@ -395,7 +395,7 @@
               <!-- Scale row -->
               <div class="w-full">
                 <div
-                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-white/[0.02] transition-colors"
+                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'scale')"
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75H4.5m0 0v3m0-3l3.75 3.75M7.5 20.25H4.5m0 0v-3m0 3l3.75-3.75M16.5 3.75h3m0 0v3m0-3l-3.75 3.75M16.5 20.25h3m0 0v-3m0 3l-3.75-3.75"/></svg>
@@ -412,7 +412,7 @@
                   </div>
                 </div>
                 <!-- Scale expanded panel -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'scale'" class="px-2.5 py-2 bg-white/[0.01] space-y-2">
+                <div v-if="openPrepPanel[item.originalIndex] === 'scale'" class="px-2.5 py-2 bg-overlay-faint space-y-2">
                   <!-- Pill mode switcher -->
                   <div class="flex bg-base rounded p-0.5 gap-0.5 ml-5">
                     <button
@@ -469,7 +469,7 @@
               <!-- Extend Canvas row -->
               <div class="w-full">
                 <div
-                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-white/[0.02] transition-colors"
+                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'extend')"
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
@@ -480,7 +480,7 @@
                   <svg class="w-3 h-3 text-content-muted flex-shrink-0 transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'extend' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                 </div>
                 <!-- Extend expanded panel -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'extend'" class="px-2.5 py-2 bg-white/[0.01]">
+                <div v-if="openPrepPanel[item.originalIndex] === 'extend'" class="px-2.5 py-2 bg-overlay-faint">
                   <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 pl-5">
                     <div>
                       <div class="flex justify-between mb-0.5">
@@ -553,7 +553,7 @@
               <!-- Preprocess row -->
               <div v-if="hasControlnet" class="w-full">
                 <div
-                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-white/[0.02] transition-colors"
+                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'preprocess')"
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 13.5V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m12-3V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m-6-9V3.75m0 3.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 9.75V10.5"/></svg>
@@ -570,17 +570,17 @@
                   </div>
                 </div>
                 <!-- Preprocess expanded panel -->
-                <div v-if="openPrepPanel[item.originalIndex] === 'preprocess'" class="px-2.5 py-2 bg-white/[0.01]">
+                <div v-if="openPrepPanel[item.originalIndex] === 'preprocess'" class="px-2.5 py-2 bg-overlay-faint">
                   <div class="flex items-center gap-1.5 pl-5">
                     <select
                       :value="item._preprocessor || ''"
                       @change="applyPreprocessor(item.originalIndex, ($event.target as HTMLSelectElement).value || null)"
                       :disabled="processingIndex === item.originalIndex"
                       :class="[
-                        'flex-1 text-[10px] rounded border bg-white/[0.05] pl-1 pr-1 py-0.5 cursor-pointer',
+                        'flex-1 text-[10px] rounded border bg-overlay-light pl-1 pr-1 py-0.5 cursor-pointer',
                         item._preprocessor
                           ? 'border-blue-500/50 text-blue-400'
-                          : 'border-white/10 text-content-muted'
+                          : 'border-transparent text-content-muted'
                       ]"
                     >
                       <option value="">Original</option>
@@ -662,7 +662,7 @@
                   <button
                     v-if="item._paintLayerDataUrl"
                     @click="revertPaint(item.originalIndex)"
-                    class="text-[10px] px-1.5 py-0.5 rounded border border-white/10 text-content-muted bg-white/[0.05] hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 transition-colors"
+                    class="text-[10px] px-1.5 py-0.5 rounded text-content-muted bg-overlay-light hover:bg-red-500/10 hover:text-red-400 transition-colors"
                     title="Clear paint"
                   >
                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
@@ -673,7 +673,7 @@
                       'text-[10px] px-2 py-0.5 rounded border transition-colors',
                       item._paintLayerDataUrl
                         ? 'border-blue-500/50 text-blue-400 bg-blue-500/10 hover:bg-blue-500/15'
-                        : 'border-white/10 text-content-muted bg-white/[0.05] hover:bg-white/[0.08]'
+                        : 'border-transparent text-content-muted bg-overlay-light hover:bg-overlay-medium'
                     ]"
                   >Edit</button>
                 </div>
@@ -685,7 +685,7 @@
                   <span class="text-[10px] text-content-muted flex-1 min-w-0 whitespace-nowrap tabular-nums">{{ getExtendedDimensions(item).width }} × {{ getExtendedDimensions(item).height }}</span>
                   <button
                     @click="setCanvasToItemAspect(item)"
-                    class="text-[10px] px-1.5 py-0.5 rounded border border-white/10 text-content-muted bg-white/[0.05] hover:bg-white/[0.08] transition-colors flex items-center gap-1 flex-shrink-0"
+                    class="text-[10px] px-1.5 py-0.5 rounded text-content-muted bg-overlay-light hover:bg-overlay-medium transition-colors flex items-center gap-1 flex-shrink-0"
                     title="Use this image's aspect ratio while keeping the current megapixel size"
                   >
                     <ArrowDownOnSquareIcon class="w-3 h-3" />
@@ -693,7 +693,7 @@
                   </button>
                   <button
                     @click="setCanvasToItemSize(item)"
-                    class="text-[10px] px-1.5 py-0.5 rounded border border-white/10 text-content-muted bg-white/[0.05] hover:bg-white/[0.08] transition-colors flex items-center gap-1 flex-shrink-0"
+                    class="text-[10px] px-1.5 py-0.5 rounded text-content-muted bg-overlay-light hover:bg-overlay-medium transition-colors flex items-center gap-1 flex-shrink-0"
                     title="Set canvas size to this image's output dimensions"
                   >
                     <ArrowDownOnSquareIcon class="w-3 h-3" />
@@ -751,7 +751,7 @@
         <button
           v-if="useSlotLabels && items.length >= 1 && !isDragging"
           @click.stop="duplicateFirstToFill"
-          class="mt-1 text-[10px] px-2 py-0.5 rounded border border-white/10 text-content-muted bg-white/[0.05] hover:bg-blue-500/10 hover:text-blue-400 hover:border-blue-500/30 transition-colors"
+          class="mt-1 text-[10px] px-2 py-0.5 rounded text-content-muted bg-overlay-light hover:bg-blue-500/10 hover:text-blue-400 transition-colors"
           :title="`Use the same image as ${slotName(0)} (for loops)`"
         >
           Same as {{ slotBadge(0) }}
@@ -801,7 +801,7 @@
     <Teleport to="body">
       <div
         v-if="previewModalUrl"
-        class="fixed inset-0 bg-black/80 flex items-center justify-center z-[10002]"
+        class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal"
         @click="previewModalUrl = ''"
         @keydown.esc="previewModalUrl = ''"
         tabindex="0"

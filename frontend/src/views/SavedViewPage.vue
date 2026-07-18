@@ -12,7 +12,7 @@
         </button>
         <button
           @click="saveChanges"
-          class="px-3 py-1 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors whitespace-nowrap"
+          class="px-3 py-1 text-sm text-white bg-accent hover:bg-accent/90 rounded-md transition-colors whitespace-nowrap"
         >
           Save
         </button>
@@ -43,14 +43,14 @@
     </div>
 
     <!-- Save As New Modal -->
-    <div v-if="showSaveAsModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showSaveAsModal = false">
+    <div v-if="showSaveAsModal" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="showSaveAsModal = false">
       <div class="bg-surface-raised border border-edge-strong rounded-lg p-6 w-96 max-w-[90vw]" @click.stop>
         <h3 class="text-lg font-semibold text-content mb-4">Save As New View</h3>
         <input v-no-autocorrect
           v-model="newViewName"
           type="text"
           placeholder="View name"
-          class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-indigo-500 mb-4"
+          class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent mb-4"
           @keyup.enter="saveAsNew"
           ref="saveAsInput"
         />
@@ -58,7 +58,7 @@
           <button
             @click="saveAsNew"
             :disabled="!newViewName.trim()"
-            class="flex-1 bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="flex-1 bg-accent text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Save
           </button>
@@ -73,7 +73,7 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showDeleteConfirm = false">
+    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="showDeleteConfirm = false">
       <div class="bg-surface-raised border border-edge-strong rounded-lg p-6 w-96 max-w-[90vw]" @click.stop>
         <h3 class="text-lg font-semibold text-content mb-2">Delete View</h3>
         <p class="text-content-secondary text-sm mb-4">Are you sure you want to delete "{{ savedViewName }}"? This action cannot be undone.</p>
@@ -95,14 +95,14 @@
     </div>
 
     <!-- Rename Modal -->
-    <div v-if="showRenameModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showRenameModal = false">
+    <div v-if="showRenameModal" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="showRenameModal = false">
       <div class="bg-surface-raised border border-edge-strong rounded-lg p-6 w-96 max-w-[90vw]" @click.stop>
         <h3 class="text-lg font-semibold text-content mb-4">Rename View</h3>
         <input v-no-autocorrect
           v-model="renameViewName"
           type="text"
           placeholder="View name"
-          class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-indigo-500"
+          class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent"
           :class="{ 'border-red-500': renameError }"
           @keyup.enter="renameView"
           ref="renameInput"
@@ -113,7 +113,7 @@
           <button
             @click="renameView"
             :disabled="!renameViewName.trim() || renaming"
-            class="flex-1 bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="flex-1 bg-accent text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {{ renaming ? 'Renaming...' : 'Rename' }}
           </button>

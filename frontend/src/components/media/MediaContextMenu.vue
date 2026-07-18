@@ -14,7 +14,7 @@
       v-if="contextMenu.state.value.visible"
       ref="menuRef"
       data-context-menu
-      class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10020] py-1 min-w-[180px]"
+      class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu py-1 min-w-[180px]"
       :style="menuPosition"
     >
       <!-- Loading state -->
@@ -140,7 +140,7 @@
 
           <div
             v-if="activeSubmenu === 'board'"
-            class="fixed z-[10020]"
+            class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
@@ -148,7 +148,7 @@
           <div
             v-if="activeSubmenu === 'board'"
             ref="boardSubmenuRef"
-            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10021] py-1 min-w-[260px] max-h-[420px] flex flex-col"
+            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-submenu py-1 min-w-[260px] max-h-[420px] flex flex-col"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
             @mouseleave="closeSubmenuDelayed"
@@ -227,7 +227,7 @@
 
           <div
             v-if="activeSubmenu === 'project'"
-            class="fixed z-[10020]"
+            class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
@@ -235,7 +235,7 @@
           <div
             v-if="activeSubmenu === 'project'"
             ref="projectSubmenuRef"
-            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10021] py-1 min-w-[260px]"
+            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-submenu py-1 min-w-[260px]"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
             @mouseleave="closeSubmenuDelayed"
@@ -381,7 +381,7 @@
           <!-- Invisible bridge to submenu - prevents mouseleave when traversing gap -->
           <div
             v-if="activeSubmenu === 'generate'"
-            class="fixed z-[10020]"
+            class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
@@ -390,7 +390,7 @@
           <div
             v-if="activeSubmenu === 'generate'"
             ref="generateSubmenuRef"
-            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10021] py-1 w-[300px] max-h-[min(640px,calc(100vh-24px))] flex flex-col"
+            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-submenu py-1 w-[300px] max-h-[min(640px,calc(100vh-24px))] flex flex-col"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
             @mouseleave="closeSubmenuDelayed"
@@ -415,7 +415,7 @@
             <div class="overflow-y-auto flex-1">
               <!-- Original tool section (if exists) -->
               <template v-if="!generateSearchQuery.trim() && originalTool">
-                <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+                <div class="px-3.5 pt-2.5 pb-1 text-xs font-semibold text-content-secondary">
                   Original
                 </div>
                 <button
@@ -438,8 +438,8 @@
               <!-- Active tool instances: eligible open tool tabs (incl. renamed
                    stations), targeted exactly. Mirrors Send to Tool's section. -->
               <template v-if="filteredRemixOpenInstances.length > 0">
-                <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
-                  Active Tools
+                <div class="px-3.5 pt-2.5 pb-1 text-xs font-semibold text-content-secondary">
+                  Active tools
                 </div>
                 <button
                   v-for="row in filteredRemixOpenInstances"
@@ -480,7 +480,7 @@
               <template v-else>
                 <!-- Recent tools section -->
                 <template v-if="recentGenerateTools.length > 0">
-                  <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+                  <div class="px-3.5 pt-2.5 pb-1 text-xs font-semibold text-content-secondary">
                     Recent
                   </div>
                   <button
@@ -499,8 +499,8 @@
 
                 <!-- All tools section -->
                 <div v-if="recentGenerateTools.length > 0" class="border-t border-edge-subtle my-1"></div>
-                <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
-                  {{ originalTool ? 'All Tools' : 'Generate Image' }}
+                <div class="px-3.5 pt-2.5 pb-1 text-xs font-semibold text-content-secondary">
+                  {{ originalTool ? 'All tools' : 'Generate image' }}
                 </div>
                 <button
                   v-for="tool in otherGenerateTools"
@@ -542,7 +542,7 @@
           <!-- Invisible bridge to submenu -->
           <div
             v-if="activeSubmenu === 'tool'"
-            class="fixed z-[10020]"
+            class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
@@ -551,7 +551,7 @@
           <div
             v-if="activeSubmenu === 'tool'"
             ref="toolSubmenuRef"
-            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10021] py-1 w-[300px] max-h-[min(640px,calc(100vh-24px))] overflow-y-auto"
+            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-submenu py-1 w-[300px] max-h-[min(640px,calc(100vh-24px))] overflow-y-auto"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
             @mouseleave="closeSubmenuDelayed"
@@ -594,7 +594,7 @@
           <!-- Invisible bridge to submenu -->
           <div
             v-if="activeSubmenu === 'chat'"
-            class="fixed z-[10020]"
+            class="fixed z-submenu"
             :style="submenuBridgeStyle"
             @mouseenter="cancelSubmenuClose"
           />
@@ -603,7 +603,7 @@
           <div
             v-if="activeSubmenu === 'chat'"
             ref="chatSubmenuRef"
-            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10021] py-1 min-w-[200px] max-h-[400px] overflow-y-auto"
+            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-submenu py-1 min-w-[200px] max-h-[400px] overflow-y-auto"
             :style="submenuPosition"
             @mouseenter="cancelSubmenuClose"
             @mouseleave="closeSubmenuDelayed"
@@ -703,10 +703,10 @@
 
     <div
       v-if="showExplodeConfirm"
-      class="fixed inset-0 z-[10040] flex items-center justify-center bg-black/70 p-4"
+      class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop p-4"
       @click.self="closeExplodeConfirm"
     >
-      <div class="w-full max-w-md rounded-xl border border-white/10 bg-surface p-5 shadow-2xl">
+      <div class="w-full max-w-md rounded-lg border border-edge-subtle bg-surface p-5 shadow-2xl">
         <h3 class="mb-2 text-base font-semibold text-content">
           Save {{ explodeSummary?.asset_type === 'set' ? 'members' : 'cells' }} as assets?
         </h3>
@@ -720,12 +720,12 @@
         </p>
         <div class="flex justify-end gap-2">
           <button
-            class="rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-content-secondary hover:bg-white/10 hover:text-content"
+            class="rounded-md bg-overlay-light px-3 py-2 text-sm text-content-secondary hover:bg-overlay-subtle hover:text-content"
             :disabled="explodingContainer"
             @click="closeExplodeConfirm"
           >Cancel</button>
           <button
-            class="rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50"
+            class="rounded-md bg-accent hover:bg-accent/90 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
             :disabled="explodingContainer"
             @click="confirmExplode"
           >{{ explodingContainer ? 'Saving…' : 'Save as assets' }}</button>

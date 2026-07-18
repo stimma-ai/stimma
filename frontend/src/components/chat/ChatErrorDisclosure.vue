@@ -10,7 +10,7 @@
     Matches the OutputImage.vue tile-error disclosure pattern (native
     <details>/<summary>) so behavior is consistent across the app.
   -->
-  <details v-if="raw" class="rounded-md border border-white/10 bg-white/[0.03] overflow-hidden group">
+  <details v-if="raw" class="rounded-md border border-edge-subtle bg-overlay-subtle overflow-hidden group">
     <summary
       class="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-content-muted hover:text-content-secondary cursor-pointer select-none transition-colors"
     >
@@ -18,7 +18,7 @@
       <span>Details</span>
     </summary>
     <pre
-      class="px-3 py-2 text-xs whitespace-pre-wrap break-words font-mono text-content-muted max-h-48 overflow-y-auto custom-scrollbar border-t border-white/10 select-text"
+      class="px-3 py-2 text-xs whitespace-pre-wrap break-words font-mono text-content-muted max-h-48 overflow-y-auto custom-scrollbar border-t border-edge-subtle select-text"
     >{{ raw }}</pre>
   </details>
 </template>

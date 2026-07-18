@@ -1,6 +1,6 @@
 <template>
-  <div class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-[10020] p-8" @click.self="close" @keydown.esc.stop="onEscape">
-    <div class="bg-surface border border-edge rounded-xl w-full max-w-[900px] max-h-[85vh] flex flex-col shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]">
+  <div class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal p-8" @click.self="close" @keydown.esc.stop="onEscape">
+    <div class="bg-surface border border-edge rounded-lg w-full max-w-[900px] max-h-[85vh] flex flex-col shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]">
       <div class="flex justify-between items-center px-6 py-4 border-b border-edge">
         <h2 class="m-0 text-lg font-semibold text-content">{{ stimpack ? `Edit: ${stimpack.display_name || stimpack.name}` : 'New Stimpack' }}</h2>
         <button
@@ -21,7 +21,7 @@
             v-model="form.display_name"
             type="text"
             placeholder="My Stimpack Name"
-            class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+            class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent"
             @input="autoGenerateSlug"
           />
         </div>
@@ -34,7 +34,7 @@
             type="text"
             :disabled="!!stimpack"
             placeholder="my-stimpack-name"
-            class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-mono text-xs"
+            class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed font-mono text-xs"
           />
           <p v-if="!stimpack" class="text-xs text-content-muted">Auto-generated from display name. Used as the stimpack identifier.</p>
         </div>
@@ -46,7 +46,7 @@
             v-model="form.description"
             type="text"
             placeholder="What does this stimpack do?"
-            class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+            class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent"
           />
         </div>
 
@@ -57,7 +57,7 @@
             v-model="tagsInput"
             type="text"
             placeholder="tag1, tag2, tag3"
-            class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+            class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent"
           />
           <p class="text-xs text-content-muted">Comma-separated list of tags.</p>
         </div>
@@ -65,7 +65,7 @@
         <!-- Content field -->
         <div class="space-y-1 flex-1 flex flex-col">
           <label class="block text-sm font-medium text-content-secondary">Content</label>
-          <div class="stimpack-editor rounded-md border border-edge overflow-hidden focus-within:border-blue-500 transition-colors">
+          <div class="stimpack-editor rounded-md border border-edge overflow-hidden focus-within:border-accent transition-colors">
             <div ref="editorMount"></div>
             <div class="px-3 py-1.5 flex items-center justify-end bg-surface border-t border-edge">
               <div class="flex items-center gap-1.5">
@@ -86,7 +86,7 @@
                   :class="[
                     'text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors',
                     monospaceEnabled
-                      ? 'text-blue-500 bg-blue-500/10 font-mono'
+                      ? 'text-accent bg-accent/10 font-mono'
                       : 'text-content-muted hover:text-content-secondary'
                   ]"
                   :title="monospaceEnabled ? 'Switch to proportional font' : 'Switch to monospace font'"
@@ -108,7 +108,7 @@
           Cancel
         </button>
         <button
-          class="bg-blue-600 text-white border-none py-2.5 px-6 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-blue-500"
+          class="bg-accent text-white border-none py-2.5 px-6 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-accent/90"
           @click="save"
         >
           Save

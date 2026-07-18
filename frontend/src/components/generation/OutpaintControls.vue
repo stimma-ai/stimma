@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4 mb-6">
     <!-- Header -->
-    <label class="text-xs font-medium text-content-muted uppercase tracking-wide">Expand Canvas</label>
+    <label class="text-xs font-semibold text-content-secondary">Expand canvas</label>
 
     <!-- Padding direction controls (2x2 grid) -->
     <div class="grid grid-cols-2 gap-4">

@@ -8,7 +8,7 @@
         <input
           v-model="localName"
           type="text"
-          class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+          class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent"
           placeholder="Untitled Project"
           @blur="saveGeneral"
         />
@@ -21,7 +21,7 @@
           v-model="localInstructions"
           placeholder="Give the agent project-specific instructions..."
           rows="6"
-          class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 resize-none"
+          class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent resize-none"
           @blur="saveAgentConfig"
         />
       </div>
@@ -36,7 +36,7 @@
           v-model="localMemory"
           placeholder="No memories yet..."
           rows="6"
-          class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 resize-none"
+          class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent resize-none"
           @blur="saveMemory"
         />
       </div>

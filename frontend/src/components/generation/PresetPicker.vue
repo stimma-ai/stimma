@@ -23,7 +23,7 @@
         <div
           v-if="showDropdown"
           ref="dropdownRef"
-          class="fixed w-64 bg-surface border border-edge-subtle rounded-lg shadow-xl z-[1000] overflow-hidden"
+          class="fixed w-64 bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu overflow-hidden"
           :style="dropdownStyle"
         >
         <!-- Loading state -->
@@ -38,7 +38,7 @@
               <button
                 v-if="hasActivePreset"
                 @click="handleSave"
-                class="flex-1 px-3 py-1.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                class="flex-1 px-3 py-1.5 text-sm text-white bg-accent hover:bg-accent/90 rounded-md transition-colors"
               >
                 Save
               </button>
@@ -112,7 +112,7 @@
     <!-- Save Preset Modal -->
     <Teleport to="body">
       <Transition name="fade">
-        <div v-if="showSaveModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000]" @click.self="showSaveModal = false">
+        <div v-if="showSaveModal" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="showSaveModal = false">
           <div class="bg-surface border border-edge-subtle rounded-lg p-6 max-w-md w-full mx-4">
             <h3 class="text-lg font-semibold text-content mb-4">Save Preset</h3>
             <input v-no-autocorrect
@@ -120,7 +120,7 @@
               v-model="newPresetName"
               type="text"
               placeholder="Preset name"
-              class="w-full bg-surface-overlay border border-edge-subtle text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-blue-500 mb-4"
+              class="w-full bg-surface-overlay border border-edge-subtle text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent mb-4"
               @keyup.enter="confirmSavePreset"
             />
             <div class="flex items-center gap-3 mb-4">
@@ -128,7 +128,7 @@
                 <input v-no-autocorrect
                   type="checkbox"
                   v-model="pinNewPreset"
-                  class="w-4 h-4 rounded border-edge bg-overlay-subtle text-blue-500 focus:ring-blue-500"
+                  class="w-4 h-4 rounded border-edge bg-overlay-subtle text-accent focus:ring-accent"
                 />
                 Pin to presets
               </label>
@@ -143,7 +143,7 @@
               <button
                 @click="confirmSavePreset"
                 :disabled="!newPresetName.trim() || saving"
-                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                class="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {{ saving ? 'Saving...' : 'Save' }}
               </button>

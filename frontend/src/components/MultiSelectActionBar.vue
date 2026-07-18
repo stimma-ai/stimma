@@ -101,7 +101,7 @@
                 :title="isMarkerActive(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
                 @click="$emit('toggle-marker', { markerId: marker.id, add: !isMarkerActive(marker.id) })"
               >
-                <span class="marker-icon icon-container" :style="isMarkerActive(marker.id) ? { color: marker.color } : { color: '#9ca3af' }" v-html="sanitizeSvg(marker.icon_svg)" />
+                <span class="marker-icon icon-container" :style="isMarkerActive(marker.id) ? { color: marker.color } : { color: 'var(--color-text-muted)' }" v-html="sanitizeSvg(marker.icon_svg)" />
               </button>
             </div>
 
@@ -322,13 +322,13 @@ function handleSelectNone() {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 100;
+  z-index: 30; /* z-chrome: in-page floating chrome */
   max-width: 800px;
   width: fit-content;
   background: var(--color-surface);
   backdrop-filter: blur(20px);
   border: 1px solid var(--color-border);
-  border-radius: 16px;
+  border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 

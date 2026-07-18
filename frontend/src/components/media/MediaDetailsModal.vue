@@ -8,12 +8,12 @@
     >
       <div
         v-if="mediaDetails.state.value.visible"
-        class="fixed inset-0 z-[10010] flex items-center justify-center p-6"
+        class="fixed inset-0 z-modal flex items-center justify-center p-6"
         @click.self="mediaDetails.close()"
       >
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="mediaDetails.close()" />
+        <div class="absolute inset-0 bg-overlay-backdrop backdrop-blur-sm" @click="mediaDetails.close()" />
 
-        <div class="relative bg-surface border border-edge-subtle rounded-2xl shadow-2xl overflow-hidden flex" style="width: 1100px; height: 75vh">
+        <div class="relative bg-surface border border-edge-subtle rounded-lg shadow-2xl overflow-hidden flex" style="width: 1100px; height: 75vh">
           <!-- Close -->
           <button
             class="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-overlay-strong text-content-tertiary hover:text-content hover:bg-overlay-medium transition-colors"

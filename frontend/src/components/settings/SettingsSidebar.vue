@@ -5,7 +5,7 @@
       <div class="relative mb-2">
         <button
           @click="showProfileDropdown = !showProfileDropdown"
-          class="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-content-muted uppercase tracking-wider hover:text-content-tertiary transition-colors"
+          class="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-content-secondary hover:text-content-tertiary transition-colors"
         >
           <span>{{ currentProfileName }}</span>
           <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
@@ -16,7 +16,7 @@
         <!-- Dropdown menu -->
         <div
           v-if="showProfileDropdown"
-          class="absolute z-10 top-full left-3 mt-1 bg-surface border border-edge rounded-lg shadow-xl py-1 min-w-[140px] max-h-48 overflow-auto"
+          class="absolute z-menu top-full left-3 mt-1 bg-surface border border-edge rounded-lg shadow-xl py-1 min-w-[140px] max-h-48 overflow-auto"
         >
           <button
             v-for="profile in profiles"
@@ -51,7 +51,7 @@
       <!-- Global sections -->
       <template v-for="group in globalSectionGroups" :key="group.label">
         <div class="mb-2 mt-4 px-3 py-1">
-          <span class="text-xs font-semibold uppercase tracking-wider text-content-muted">{{ group.label }}</span>
+          <span class="text-xs font-semibold text-content-secondary">{{ group.label }}</span>
         </div>
 
         <button

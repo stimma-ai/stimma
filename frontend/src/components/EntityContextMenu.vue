@@ -3,7 +3,7 @@
     <div
       v-if="contextMenu.state.value.visible"
       ref="menuRef"
-      class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[9999] py-1 min-w-[160px]"
+      class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu py-1 min-w-[160px]"
       :style="menuStyle"
     >
       <!-- Single item actions -->
@@ -54,7 +54,7 @@
           <!-- Invisible bridge for mouse travel between menu and submenu -->
           <div
             v-if="showProjectSubmenu"
-            class="fixed z-[10000]"
+            class="fixed z-submenu"
             :style="projectBridgeStyle"
             @mouseenter="cancelHideProjectSubmenu"
           />
@@ -63,7 +63,7 @@
           <div
             v-if="showProjectSubmenu"
             ref="projectSubmenuRef"
-            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[10001] py-1 min-w-[260px]"
+            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-submenu py-1 min-w-[260px]"
             :style="projectSubmenuStyle"
             @mouseenter="cancelHideProjectSubmenu"
             @mouseleave="hideProjectSubmenuDelayed"

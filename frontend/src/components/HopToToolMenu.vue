@@ -46,7 +46,7 @@
       <div
         v-if="showMenu"
         ref="menuRef"
-        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[9999] py-1 min-w-[220px] max-h-[400px] overflow-y-auto"
+        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu py-1 min-w-[220px] max-h-[400px] overflow-y-auto"
         :style="menuStyle"
       >
         <div v-if="loadingTools" class="px-3 py-2 text-xs text-content-tertiary">
@@ -58,7 +58,7 @@
         <template v-else>
           <!-- Open instances (includes sibling instances of this same tool) -->
           <template v-if="openInstances.length > 0">
-            <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+            <div class="px-3 py-1.5 text-xs font-semibold text-content-secondary">
               Open
             </div>
             <button
@@ -89,7 +89,7 @@
             <div v-if="groupIndex > 0" class="border-t border-edge-subtle my-1"></div>
 
             <!-- Group header -->
-            <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+            <div class="px-3 py-1.5 text-xs font-semibold text-content-secondary">
               {{ formatTaskTypeLabel(taskType as string) }}
             </div>
 

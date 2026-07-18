@@ -7,7 +7,7 @@
       <div class="ml-auto flex items-center gap-1">
         <button
           @click="$emit('menu', $event)"
-          class="p-1 rounded hover:bg-white/[0.08] text-content-muted hover:text-content"
+          class="p-1 rounded hover:bg-overlay-subtle text-content-muted hover:text-content"
           title="Batch actions"
         >
           <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
@@ -62,7 +62,7 @@
             @media-load-error="$emit('media-load-error', $event)"
           />
           <div class="absolute top-2 left-2 z-[11] flex items-center gap-1 bg-black/70 rounded px-1.5 py-0.5">
-            <div class="w-3 h-3 border-2 border-white/30 border-t-blue-400 rounded-full animate-spin"></div>
+            <div class="w-3 h-3 border-2 border-edge-subtle border-t-blue-400 rounded-full animate-spin"></div>
             <span class="text-[9px] text-white/80">post</span>
           </div>
         </div>
@@ -77,11 +77,11 @@
           <div class="flex items-center gap-1.5">
             <button
               @click.stop="$emit('retry-job', cell.job.id)"
-              class="text-[11px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-content"
+              class="text-[11px] px-2 py-0.5 rounded bg-overlay-medium hover:bg-overlay-strong text-content"
             >Retry</button>
             <button
               @click.stop="$emit('dismiss-job', cell.job.id)"
-              class="text-[11px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-content-muted"
+              class="text-[11px] px-2 py-0.5 rounded bg-overlay-medium hover:bg-overlay-strong text-content-muted"
             >Dismiss</button>
           </div>
         </div>

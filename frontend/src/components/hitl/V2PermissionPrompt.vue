@@ -54,7 +54,7 @@
     <div v-if="isCallTool" class="space-y-2">
       <!-- Input image thumbnails -->
       <div v-if="inputMediaIds.length" class="space-y-2">
-        <div class="text-[11px] uppercase tracking-[0.12em] text-content-muted">Input Images</div>
+        <div class="text-xs font-semibold text-content-secondary">Input images</div>
         <div class="flex flex-wrap gap-2">
         <MediaImage
           v-for="mediaId in inputMediaIds"
@@ -86,13 +86,13 @@
       <div class="relative flex" ref="allowMenuRef">
         <button
           @click="handleAllow(defaultScope)"
-          class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-l-lg transition-colors"
+          class="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-medium rounded-l-md transition-colors"
         >
           Allow
         </button>
         <button
           @click.stop="allowMenuOpen = !allowMenuOpen"
-          class="px-2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-r-lg border-l border-blue-500 transition-colors"
+          class="px-2 py-2 bg-accent hover:bg-accent/90 text-white rounded-r-md border-l border-white/20 transition-colors"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
@@ -140,10 +140,10 @@
     >
       <div
         v-if="reviewModalOpen"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm p-4"
         @click.self="reviewModalOpen = false"
       >
-        <div class="flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl shadow-2xl" :class="modalPanelClass">
+        <div class="flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg shadow-2xl" :class="modalPanelClass">
           <div class="flex items-center justify-between px-5 py-3" :class="modalHeaderClass">
             <h3 class="truncate text-sm font-medium" :class="modalTitleClass">{{ displayName }}</h3>
             <button
@@ -158,13 +158,13 @@
           </div>
 
           <div class="overflow-auto px-5 py-4" :class="modalBodyClass">
-            <pre class="min-w-max rounded-xl border p-4 text-sm leading-6 select-text" :class="codeBlockClass"><code v-html="highlightedCodeHtml" /></pre>
+            <pre class="min-w-max rounded-lg border p-4 text-sm leading-6 select-text" :class="codeBlockClass"><code v-html="highlightedCodeHtml" /></pre>
           </div>
 
           <div class="flex justify-end px-5 py-4" :class="modalFooterClass">
             <button
               @click="reviewModalOpen = false"
-              class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90"
             >
               Close
             </button>
@@ -242,25 +242,25 @@ const isStimmaCloud = computed(() => isStimmaCloudTool({ provider_name: rawProvi
 const providerName = computed(() => toolProviderDisplayName({ provider_name: rawProviderName.value }, ''))
 const modalPanelClass = computed(() => isLight.value
   ? 'border-edge bg-surface'
-  : 'border-white/10 bg-zinc-950'
+  : 'border-edge-subtle bg-zinc-950'
 )
 const modalHeaderClass = computed(() => isLight.value
   ? 'border-b border-edge'
-  : 'border-b border-white/10'
+  : 'border-b border-edge-subtle'
 )
 const modalTitleClass = computed(() => isLight.value ? 'text-content' : 'text-white')
 const modalCloseButtonClass = computed(() => isLight.value
   ? 'text-content-muted hover:bg-overlay-light hover:text-content'
-  : 'text-zinc-400 hover:bg-white/[0.06] hover:text-white'
+  : 'text-zinc-400 hover:bg-overlay-subtle hover:text-white'
 )
 const modalBodyClass = computed(() => isLight.value ? 'bg-surface' : 'bg-zinc-950')
 const modalFooterClass = computed(() => isLight.value
   ? 'border-t border-edge'
-  : 'border-t border-white/10'
+  : 'border-t border-edge-subtle'
 )
 const codeBlockClass = computed(() => isLight.value
   ? 'border-edge bg-surface-raised text-content'
-  : 'border-white/10 bg-black/30 text-zinc-100'
+  : 'border-edge-subtle bg-black/30 text-zinc-100'
 )
 
 function formatTaskType(taskType: string) {

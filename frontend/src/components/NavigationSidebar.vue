@@ -15,7 +15,7 @@
     <Transition name="fade">
       <div
         v-if="isOpen && isMobile"
-        class="fixed inset-0 bg-black/50 z-[999]"
+        class="fixed inset-0 bg-overlay-backdrop z-modal"
         @click="$emit('close')"
       ></div>
     </Transition>
@@ -25,7 +25,7 @@
       <div
         v-if="!isMobile || isOpen"
         class="navigation-sidebar h-screen bg-surface border-r border-edge-subtle flex flex-col flex-shrink-0"
-        :class="isMobile ? 'fixed top-0 left-0 z-[1000] shadow-[2px_0_10px_rgba(0,0,0,0.3)] w-[276px]' : 'relative'"
+        :class="isMobile ? 'fixed top-0 left-0 z-modal shadow-[2px_0_10px_rgba(0,0,0,0.3)] w-[276px]' : 'relative'"
         :style="!isMobile ? { width: `${sidebarWidth}px` } : undefined"
       >
         <!-- Draggable region + fade overlay for traffic light area -->
@@ -49,7 +49,7 @@
             class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-medium transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
             :class="[
               activeTab === 'home' ? '!bg-overlay-hover !text-content' : '',
-              dragHoverStimmaHome ? '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50' : ''
+              dragHoverStimmaHome ? '!bg-accent/10 !text-content ring-1 ring-accent/50' : ''
             ]"
             title="Stimma (drag media here to attach)"
           >
@@ -127,7 +127,7 @@
               class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
               :class="[
                 activeTab === 'boards' ? '!bg-overlay-hover !text-content' : '',
-                dragHoverNewBoard ? '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50' : ''
+                dragHoverNewBoard ? '!bg-accent/10 !text-content ring-1 ring-accent/50' : ''
               ]"
               title="Boards (drag media here to create new)"
             >
@@ -160,7 +160,7 @@
               class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
               :class="[
                 activeTab === 'chats' ? '!bg-overlay-hover !text-content' : '',
-                dragHoverNewChat ? '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50' : ''
+                dragHoverNewChat ? '!bg-accent/10 !text-content ring-1 ring-accent/50' : ''
               ]"
               title="Chats (drag media here to create new)"
             >
@@ -192,7 +192,7 @@
               class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
               :class="[
                 activeTab === 'flows' ? '!bg-overlay-hover !text-content' : '',
-                dragHoverNewFlow ? '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50' : ''
+                dragHoverNewFlow ? '!bg-accent/10 !text-content ring-1 ring-accent/50' : ''
               ]"
               title="Flows (drag media here to create new)"
             >
@@ -255,7 +255,7 @@
               <!-- Drop indicator line -->
               <div
                 v-if="tabReorderDropTarget?.index === index && tabReorderDropTarget?.group === 'pinned'"
-                class="absolute left-0 right-0 h-0.5 bg-blue-500 -top-px z-10"
+                class="absolute left-0 right-0 h-0.5 bg-accent -top-px z-10"
               ></div>
               <button
                 @click="navigateToTab(tab)"
@@ -267,7 +267,7 @@
                 class="flex items-center gap-2.5 px-3 py-2 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
                 :class="[
                   isTabActive(tab) ? '!bg-overlay-hover !text-content' : '',
-                  dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50') : '',
+                  dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent/50') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
                 ]"
@@ -544,7 +544,7 @@
             >
               <div
                 v-if="tabReorderDropTarget?.index === pinnedTabs.length && tabReorderDropTarget?.group === 'pinned'"
-                class="absolute left-0 right-0 h-0.5 bg-blue-500 top-0 z-10"
+                class="absolute left-0 right-0 h-0.5 bg-accent top-0 z-10"
               ></div>
             </div>
 
@@ -565,7 +565,7 @@
               <!-- Drop indicator line -->
               <div
                 v-if="tabReorderDropTarget?.index === index && tabReorderDropTarget?.group === 'open'"
-                class="absolute left-0 right-0 h-0.5 bg-blue-500 -top-px z-10"
+                class="absolute left-0 right-0 h-0.5 bg-accent -top-px z-10"
               ></div>
               <button
                 @click="navigateToTab(tab)"
@@ -577,7 +577,7 @@
                 class="flex items-center gap-3 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
                 :class="[
                   isTabActive(tab) ? '!bg-overlay-hover !text-content' : '',
-                  dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-blue-500/20 !text-content ring-1 ring-blue-500/50') : '',
+                  dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent/50') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : '',
                   tab.type === 'tool' ? 'py-1.5' : 'py-2'
@@ -866,7 +866,7 @@
             >
               <div
                 v-if="tabReorderDropTarget?.index === openTabs.length && tabReorderDropTarget?.group === 'open'"
-                class="absolute left-0 right-0 h-0.5 bg-blue-500 top-0 z-10"
+                class="absolute left-0 right-0 h-0.5 bg-accent top-0 z-10"
               ></div>
             </div>
           </div>
@@ -932,7 +932,7 @@
         <!-- Resize handle (desktop only) -->
         <div
           v-if="!isMobile"
-          class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500/50 transition-colors z-10"
+          class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/50 transition-colors z-10"
           @mousedown.stop="startResize"
         ></div>
 
@@ -947,7 +947,7 @@
     <Teleport to="body">
       <div
         v-if="flowDropTargets"
-        class="fixed z-[10000] w-48 bg-surface border border-edge rounded-lg shadow-xl p-1.5 space-y-1.5"
+        class="fixed z-menu w-48 bg-surface border border-edge rounded-lg shadow-xl p-1.5 space-y-1.5"
         :style="{ left: flowDropTargets.left + 'px', top: flowDropTargets.top + 'px' }"
         @dragenter.prevent="cancelFlowTargetsHide"
         @dragover.prevent="onFlowTargetsPanelDragOver"
@@ -956,7 +956,7 @@
         <div
           data-zone="__chat__"
           class="flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-dashed text-[12.5px] font-medium transition-colors"
-          :class="flowTargetHover === '__chat__' ? 'border-blue-500 bg-blue-500/15 text-blue-400' : 'border-edge-strong text-content-muted'"
+          :class="flowTargetHover === '__chat__' ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
           @drop.stop.prevent="onFlowTargetDrop(null, $event)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 flex-shrink-0 pointer-events-none">
@@ -969,7 +969,7 @@
           :key="zone.name"
           :data-zone="zone.name"
           class="flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-dashed text-[12.5px] font-medium transition-colors"
-          :class="flowTargetHover === zone.name ? 'border-blue-500 bg-blue-500/15 text-blue-400' : 'border-edge-strong text-content-muted'"
+          :class="flowTargetHover === zone.name ? 'border-accent bg-accent/15 text-accent' : 'border-edge-strong text-content-muted'"
           @drop.stop.prevent="onFlowTargetDrop(zone, $event)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 flex-shrink-0 pointer-events-none">

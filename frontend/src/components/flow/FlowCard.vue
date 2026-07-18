@@ -7,7 +7,7 @@
     <!-- Thumbnail / status -->
     <div
       v-if="heroMediaId != null"
-      class="flex-shrink-0 w-10 h-10 rounded-xl overflow-hidden ring-1 ring-edge-subtle bg-surface-raised"
+      class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden ring-1 ring-edge-subtle bg-surface-raised"
     >
       <MediaImage
         :media-id="heroMediaId"
@@ -33,7 +33,7 @@
             @keydown.enter="saveName"
             @keydown.esc.prevent="cancelEdit"
             @click.stop
-            class="text-sm text-content font-medium bg-surface-raised border border-edge rounded px-2 py-0.5 outline-none focus:border-blue-500 flex-1 min-w-0"
+            class="text-sm text-content font-medium bg-surface-raised border border-transparent rounded px-2 py-0.5 outline-none focus:border-accent flex-1 min-w-0"
             placeholder="Name this flow..."
           />
         </template>
@@ -77,7 +77,7 @@
       <div
         v-for="(mid, i) in stripMediaIds"
         :key="mid"
-        class="w-7 h-7 rounded-md border border-surface overflow-hidden ring-1 ring-edge-subtle bg-surface-raised"
+        class="w-7 h-7 rounded-media border border-surface overflow-hidden ring-1 ring-edge-subtle bg-surface-raised"
         :class="i > 0 ? '-ml-2' : ''"
         :style="{ zIndex: stripMediaIds.length - i }"
       >

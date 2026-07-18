@@ -3,17 +3,17 @@
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center p-8"
+        class="fixed inset-0 z-modal flex items-center justify-center p-8"
       >
         <!-- Backdrop -->
         <div
-          class="absolute inset-0 bg-black/80"
+          class="absolute inset-0 bg-overlay-backdrop"
           @click="close"
         />
 
         <!-- Modal content -->
         <div
-          class="relative w-full h-full max-w-[95vw] max-h-[95vh] bg-surface rounded-xl border border-surface-raised flex flex-col overflow-hidden"
+          class="relative w-full h-full max-w-[95vw] max-h-[95vh] bg-surface rounded-lg border border-surface-raised flex flex-col overflow-hidden"
         >
           <!-- Header -->
           <div class="flex items-center justify-between px-4 py-3 border-b border-surface-raised">

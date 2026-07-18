@@ -1,7 +1,7 @@
 <template>
   <div
     ref="menuRef"
-    class="absolute z-50 left-0 right-0 mt-1 rounded-lg border border-edge bg-surface shadow-xl overflow-hidden"
+    class="absolute z-menu left-0 right-0 mt-1 rounded-lg border border-edge bg-surface shadow-xl overflow-hidden"
   >
     <!-- Search -->
     <div class="relative border-b border-edge-subtle">
@@ -21,7 +21,7 @@
     <div class="max-h-96 overflow-y-auto py-1">
       <!-- Built-in filters (highest priority) -->
       <template v-if="filteredFilters.length">
-        <div class="px-3 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-content-muted">
+        <div class="px-3 pt-2 pb-1 text-xs font-semibold text-content-secondary">
           Filters
         </div>
         <button
@@ -45,7 +45,7 @@
 
       <!-- STP tools, grouped by category in priority order -->
       <template v-for="group in toolGroups" :key="group.label">
-        <div class="px-3 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-content-muted">
+        <div class="px-3 pt-2 pb-1 text-xs font-semibold text-content-secondary">
           {{ group.label }}
         </div>
         <button
@@ -127,10 +127,10 @@ function chainTaskType(tool: ProviderTool): string {
 // Anything whose task type isn't listed falls into a trailing "Other" group.
 const TOOL_CATEGORIES: { label: string; taskTypes: string[] }[] = [
   { label: 'Upscale', taskTypes: ['upscale-image', 'upscale-video'] },
-  { label: 'Background Removal', taskTypes: ['remove-background'] },
-  { label: 'Image Edit', taskTypes: ['image-to-image'] },
-  { label: 'Image to Video', taskTypes: ['image-to-video'] },
-  { label: 'Video Edit', taskTypes: ['video-to-video'] },
+  { label: 'Background removal', taskTypes: ['remove-background'] },
+  { label: 'Image edit', taskTypes: ['image-to-image'] },
+  { label: 'Image to video', taskTypes: ['image-to-video'] },
+  { label: 'Video edit', taskTypes: ['video-to-video'] },
 ]
 
 const toolGroups = computed(() => {

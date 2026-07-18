@@ -1,8 +1,8 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="visible" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/75 p-5" @click.self="close">
-        <div class="flex max-h-[80vh] w-full max-w-[520px] flex-col rounded-xl border border-edge-subtle bg-surface shadow-2xl">
+      <div v-if="visible" class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop p-5" @click.self="close">
+        <div class="flex max-h-[80vh] w-full max-w-[520px] flex-col rounded-lg border border-edge-subtle bg-surface shadow-2xl">
           <div class="flex items-center justify-between border-b border-edge-subtle px-5 py-4">
             <h2 class="text-lg font-semibold text-content">Add to Board</h2>
             <button
@@ -78,7 +78,7 @@
               Cancel
             </button>
             <button
-              class="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
+              class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="!selectedBoardId || saving"
               @click="saveChanges"
             >

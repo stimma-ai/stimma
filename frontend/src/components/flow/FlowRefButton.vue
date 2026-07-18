@@ -66,16 +66,16 @@ const buttonClass = computed<string>(() => {
   if (props.variant === 'tile') {
     const base = 'absolute top-1 left-1 z-10 w-6 h-6 flex items-center justify-center rounded transition-opacity'
     if (isAttached.value) {
-      return `${base} bg-blue-500 text-white opacity-100`
+      return `${base} bg-accent text-white opacity-100`
     }
-    return `${base} bg-black/55 text-white/85 hover:bg-blue-500/80 hover:text-white opacity-0 group-hover/iteration-card:opacity-100`
+    return `${base} bg-black/55 text-white/85 hover:bg-accent/80 hover:text-white opacity-0 group-hover/iteration-card:opacity-100`
   }
   // inline — match rerun button chrome (24×24 bordered rounded box), but
   // low-opacity at rest so the column doesn't feel crowded. Filled-blue
   // when attached so the attached state is visible without hovering.
   const base = 'flex-shrink-0 w-6 h-6 flex items-center justify-center rounded border transition-colors'
   if (isAttached.value) {
-    return `${base} border-blue-500 bg-blue-500 text-white opacity-100`
+    return `${base} bg-accent text-white opacity-100`
   }
   return `${base} border-transparent text-content hover:bg-overlay-hover hover:border-edge-subtle`
 })

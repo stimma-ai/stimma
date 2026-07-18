@@ -2,7 +2,7 @@
   <div class="my-6">
     <!-- Header with label, add button, filter, and overflow menu -->
     <div class="flex items-center justify-between mb-3">
-      <span class="text-xs font-medium text-content-muted uppercase tracking-wide">LoRAs</span>
+      <span class="text-xs font-semibold text-content-secondary">LoRAs</span>
       <div class="flex items-center gap-2">
         <!-- +Add button -->
         <button
@@ -15,7 +15,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
             <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
           </svg>
-          <span class="uppercase tracking-wider font-medium">Add</span>
+          <span class="font-medium">Add</span>
         </button>
         <!-- Filter input -->
         <div v-if="hasAnyItems" class="relative">
@@ -26,7 +26,7 @@
             v-model="filterQuery"
             type="text"
             placeholder="Filter"
-            class="w-20 pl-5 pr-5 py-0.5 text-[11px] bg-transparent border border-edge-subtle rounded text-content-secondary focus:outline-none focus:border-blue-500 focus:w-32 transition-all select-text"
+            class="w-20 pl-5 pr-5 py-0.5 text-[11px] bg-transparent border border-edge-subtle rounded text-content-secondary focus:outline-none focus:border-accent focus:w-32 transition-all select-text"
           />
           <button
             v-if="filterQuery"
@@ -151,7 +151,7 @@
       <div
         v-if="drag.active && drag.ghostHtml"
         ref="ghostRef"
-        class="fixed z-[9999] pointer-events-none opacity-80 rotate-1"
+        class="fixed z-top pointer-events-none opacity-80 rotate-1"
         :style="{ left: drag.ghostX + 'px', top: drag.ghostY + 'px', width: drag.ghostWidth + 'px' }"
         v-html="drag.ghostHtml"
       />

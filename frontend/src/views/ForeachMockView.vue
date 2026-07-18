@@ -12,9 +12,9 @@
             v-for="s in scenarios"
             :key="s.id"
             type="button"
-            class="px-2.5 py-1 rounded border transition-colors"
+            class="px-2.5 py-1 rounded-md border transition-colors"
             :class="s.id === activeScenarioId
-              ? 'bg-blue-500 border-blue-500 text-white'
+              ? 'bg-accent border-transparent text-white'
               : 'border-edge-subtle text-content-muted hover:text-content hover:bg-overlay-subtle'"
             @click="activeScenarioId = s.id"
           >{{ s.label }}</button>

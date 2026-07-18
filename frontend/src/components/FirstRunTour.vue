@@ -6,7 +6,7 @@
            exists. Multi-layer glow needs a composed box-shadow, which
            Tailwind can't express — inline style is the exception here. -->
       <div
-        class="fixed z-[10006] rounded-lg pointer-events-none transition-all duration-200"
+        class="fixed z-top rounded-lg pointer-events-none transition-all duration-200"
         :style="{
           left: `${anchorRect.left - 3}px`,
           top: `${anchorRect.top - 3}px`,
@@ -21,7 +21,7 @@
       <!-- Coachmark bubble, anchored to the right of the target -->
       <div
         ref="bubbleEl"
-        class="fixed z-[10007] w-[272px] bg-surface-raised border border-edge rounded-xl shadow-[0_12px_32px_rgba(0,0,0,0.55),0_2px_8px_rgba(0,0,0,0.4)] px-4 pt-3.5 pb-3"
+        class="fixed z-top w-[272px] bg-surface-raised border border-edge rounded-lg shadow-[0_12px_32px_rgba(0,0,0,0.55),0_2px_8px_rgba(0,0,0,0.4)] px-4 pt-3.5 pb-3"
         :style="{ left: `${bubblePos.left}px`, top: `${bubblePos.top}px` }"
       >
         <!-- Arrow pointing at the target -->
@@ -60,7 +60,7 @@
             </button>
             <button
               @click="nextStep"
-              class="px-3 py-1 rounded-md text-xs font-medium text-white bg-blue-500 hover:bg-blue-600 border-none cursor-pointer"
+              class="px-3 py-1 rounded-md text-xs font-medium text-white bg-accent hover:bg-accent/90 border-none cursor-pointer"
             >
               {{ stepIndex >= activeSteps.length - 1 ? 'Done' : 'Next' }}
             </button>

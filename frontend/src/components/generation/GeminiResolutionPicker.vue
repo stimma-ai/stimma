@@ -21,7 +21,7 @@
     <!-- Dropdown Menu -->
     <div
       v-if="showDropdown"
-      class="fixed bg-surface border border-surface-raised rounded-lg shadow-lg z-[9999] p-3 space-y-3"
+      class="fixed bg-surface border border-surface-raised rounded-lg shadow-lg z-menu p-3 space-y-3"
       :style="dropdownStyle"
       @click.stop
     >
@@ -34,7 +34,7 @@
           :class="[
             'px-2 py-1 rounded text-xs font-medium transition-colors',
             aspectRatio === ar
-              ? 'bg-blue-500 text-white'
+              ? 'bg-accent text-white'
               : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised'
           ]"
         >
@@ -51,7 +51,7 @@
           :class="[
             'px-2 py-1 rounded text-xs font-medium transition-colors',
             aspectRatio === ar
-              ? 'bg-blue-500 text-white'
+              ? 'bg-accent text-white'
               : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised'
           ]"
         >
@@ -70,7 +70,7 @@
             :class="[
               'px-2 py-1 rounded text-xs font-medium transition-colors',
               imageSize === size
-                ? 'bg-blue-500 text-white'
+                ? 'bg-accent text-white'
                 : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised'
             ]"
           >

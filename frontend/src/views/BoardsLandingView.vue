@@ -26,7 +26,7 @@
 
           <div
             v-if="sortDropdownOpen"
-            class="absolute right-0 top-full z-50 mt-1 min-w-[190px] rounded-lg border border-edge-subtle bg-surface py-1 shadow-xl"
+            class="absolute right-0 top-full z-menu mt-1 min-w-[190px] rounded-lg border border-edge-subtle bg-surface py-1 shadow-xl"
           >
             <button
               v-for="option in sortOptions"
@@ -59,7 +59,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search boards..."
-            class="w-48 rounded-lg border border-edge-subtle bg-overlay-subtle py-1.5 pl-9 pr-3 text-sm text-content-secondary placeholder-white/30 focus:border-blue-500/50 focus:outline-none"
+            class="w-48 rounded-lg border border-edge-subtle bg-overlay-subtle py-1.5 pl-9 pr-3 text-sm text-content-secondary placeholder-white/30 focus:border-accent focus:outline-none"
           />
         </div>
       </div>
@@ -100,7 +100,7 @@
                   <div
                     v-for="(item, index) in column"
                     :key="`${board.id}-${columnIndex}-${item.id}-${index}`"
-                    class="overflow-hidden rounded-2xl border border-edge-subtle bg-overlay-faint transition-transform duration-200 group-hover:scale-[1.01]"
+                    class="overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint"
                     :style="getPreviewTileStyle(item)"
                   >
                     <MediaImage
@@ -121,7 +121,7 @@
               </div>
             </div>
             <div v-else class="flex h-full items-center justify-center">
-              <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-overlay-subtle text-content-muted">
+              <div class="flex h-14 w-14 items-center justify-center rounded-lg bg-overlay-subtle text-content-muted">
                 <svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M3.75 3A1.75 1.75 0 002 4.75v3.5C2 9.216 2.784 10 3.75 10h3.5C8.216 10 9 9.216 9 8.25v-3.5C9 3.784 8.216 3 7.25 3h-3.5zM3.75 11A1.75 1.75 0 002 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 009 16.25v-3.5A1.75 1.75 0 007.25 11h-3.5zM11 4.75A1.75 1.75 0 0112.75 3h3.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0116.25 10h-3.5A1.75 1.75 0 0111 8.25v-3.5zM12.75 11A1.75 1.75 0 0011 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 0018 16.25v-3.5A1.75 1.75 0 0016.25 11h-3.5z" />
                 </svg>

@@ -33,8 +33,8 @@
          the top level and while filtering; gated behind showOpenInstances so
          settings-style pickers don't grow workspace rows. -->
     <template v-if="showOpenInstances && !selectedTaskType && filteredOpenInstances.length > 0">
-      <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
-        Active Tools
+      <div class="px-3.5 pt-2.5 pb-1 text-xs font-semibold text-content-secondary">
+        Active tools
       </div>
       <button
         v-for="row in filteredOpenInstances"
@@ -63,8 +63,8 @@
     </div>
     <template v-else-if="searchQuery.trim()">
       <!-- Filtered results (flat) -->
-      <div v-if="showAllToolsHeader && filteredTools.length > 0" class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
-        All Tools
+      <div v-if="showAllToolsHeader && filteredTools.length > 0" class="px-3.5 pt-2.5 pb-1 text-xs font-semibold text-content-secondary">
+        All tools
       </div>
       <div v-if="filteredTools.length === 0" class="px-3 py-2 text-xs text-content-tertiary">
         No matching tools
@@ -84,8 +84,8 @@
     </template>
     <template v-else-if="!selectedTaskType">
       <!-- Task type category list -->
-      <div v-if="showAllToolsHeader" class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
-        All Tools
+      <div v-if="showAllToolsHeader" class="px-3.5 pt-2.5 pb-1 text-xs font-semibold text-content-secondary">
+        All tools
       </div>
       <template v-for="taskType in taskTypeKeys" :key="taskType">
         <button
@@ -121,7 +121,7 @@
 
       <!-- Recent section -->
       <template v-if="recentToolsForSelectedTaskType.length > 0">
-        <div class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+        <div class="px-3.5 pt-2.5 pb-1 text-xs font-semibold text-content-secondary">
           Recents
         </div>
         <button
@@ -142,9 +142,9 @@
       <!-- All tools in this category -->
       <div
         v-if="recentToolsForSelectedTaskType.length > 0"
-        class="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold text-content-muted uppercase tracking-wider"
+        class="px-3.5 pt-2.5 pb-1 text-xs font-semibold text-content-secondary"
       >
-        All Tools
+        All tools
       </div>
       <button
         v-for="tool in allToolsForSelectedTaskType"

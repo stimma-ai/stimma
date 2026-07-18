@@ -10,10 +10,10 @@
       :class="triggerDisabled
         ? 'text-content-muted opacity-60 cursor-not-allowed'
         : currentUnavailable
-        ? 'text-content-muted opacity-70 hover:text-content-secondary hover:bg-white/[0.05]'
+        ? 'text-content-muted opacity-70 hover:text-content-secondary hover:bg-overlay-subtle'
         : isCloudModel
         ? 'text-teal-500 hover:text-teal-400 hover:bg-teal-500/10'
-        : 'text-content-muted hover:text-content-secondary hover:bg-white/[0.05]'"
+        : 'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'"
       :title="currentTitle"
     >
       <!-- Spinner until the model list is ready, to avoid the 'auto' -> resolved
@@ -51,14 +51,14 @@
       <!-- Backdrop -->
       <div
         v-if="isOpen"
-        class="fixed inset-0 z-50"
+        class="fixed inset-0 z-menu"
         @click="close"
       />
       <!-- Dropdown -->
       <div
         v-if="isOpen"
         ref="dropdown"
-        class="fixed z-50 flex w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-edge bg-surface shadow-xl"
+        class="fixed z-menu flex w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-edge bg-surface shadow-xl"
         :style="dropdownStyle"
         tabindex="-1"
         role="dialog"
@@ -77,12 +77,12 @@
               autocomplete="off"
               aria-label="Search models"
               placeholder="Search models…"
-              class="w-full rounded-md border border-white/10 bg-white/[0.05] py-2 pl-9 pr-8 text-sm text-content placeholder:text-content-muted focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+              class="w-full rounded-md border border-transparent bg-overlay-subtle py-2 pl-9 pr-8 text-sm text-content placeholder:text-content-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
             />
             <button
               v-if="searchQuery"
               type="button"
-              class="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-content-muted hover:bg-white/[0.05] hover:text-content"
+              class="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-content-muted hover:bg-overlay-subtle hover:text-content"
               aria-label="Clear model search"
               @click="searchQuery = ''"
             >
@@ -121,7 +121,7 @@
             </template>
 
           <template v-if="recentModels.length">
-            <div class="flex items-center gap-1.5 px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-content-muted">
+            <div class="flex items-center gap-1.5 px-3 pb-1 pt-1.5 text-xs font-semibold text-content-secondary">
               <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-9-9 9 9 0 0 1 9 9Z" />
               </svg>
@@ -147,7 +147,7 @@
           </template>
 
           <!-- Models (cloud + local, one flat list; provenance lives in the subtitle) -->
-          <div v-if="displayPickerModels.length > 0" class="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-content-muted">
+          <div v-if="displayPickerModels.length > 0" class="px-3 pb-1 pt-1.5 text-xs font-semibold text-content-secondary">
             {{ hasSearch ? 'Matching models' : 'Models' }}
           </div>
           <button
@@ -187,7 +187,7 @@
                 <path d="M3 4.5L6 8l3-3.5H3z" />
               </svg>
             </button>
-            <div v-else class="border-t border-edge px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-content-muted">
+            <div v-else class="border-t border-edge px-3 pb-1 pt-2 text-xs font-semibold text-content-secondary">
               Also via Stimma
             </div>
             <button
@@ -223,7 +223,7 @@
                 :key="level"
                 @click="selectReasoning(level)"
                 class="rounded-md border px-2 py-1 text-[11px] capitalize"
-                :class="level === currentReasoningLevel ? 'border-blue-500/50 bg-blue-500/15 text-blue-400' : 'border-white/10 bg-white/[0.05] text-content-secondary hover:text-content'"
+                :class="level === currentReasoningLevel ? 'border-blue-500/50 bg-blue-500/15 text-blue-400' : 'border-edge-subtle bg-overlay-light text-content-secondary hover:text-content'"
               >{{ reasoningLabel(level) }}</button>
             </div>
           </div>

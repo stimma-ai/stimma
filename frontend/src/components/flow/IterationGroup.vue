@@ -125,14 +125,14 @@
       <button
         v-if="pendingApproveTasks.length > 0"
         type="button"
-        class="flex-shrink-0 h-6 px-2 flex items-center justify-center rounded bg-blue-500 text-white border border-blue-500 text-[10.5px] font-semibold hover:bg-blue-600 transition-colors"
+        class="flex-shrink-0 h-6 px-2 flex items-center justify-center rounded-md bg-accent text-white text-[10.5px] font-semibold hover:bg-accent/90 transition-colors"
         :title="`Approve all ${pendingApproveTasks.length} pending`"
         @click.stop="approveAll"
       >Approve all</button>
       <button
         v-if="invalidateTargetKey"
         type="button"
-        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded border border-edge-subtle bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
+        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
         title="Re-run all iterations in this loop"
         @click.stop="$emit('invalidate-equation', invalidateTargetKey)"
       >
@@ -241,7 +241,7 @@
 
         <!-- Actionable + recent preview -->
         <div v-if="previewIterations.length">
-          <div class="text-[10px] uppercase tracking-wide text-content-muted mb-1">Needs attention</div>
+          <div class="text-xs font-semibold text-content-secondary mb-1">Needs attention</div>
           <div class="grid grid-cols-8 gap-1.5">
             <IterationCard
               v-for="it in previewIterations"

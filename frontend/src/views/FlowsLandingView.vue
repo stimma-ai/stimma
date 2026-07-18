@@ -22,7 +22,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search flows..."
-            class="bg-overlay-subtle border border-edge-subtle rounded-lg pl-9 pr-3 py-1.5 text-sm text-content-secondary placeholder-white/30 focus:outline-none focus:border-blue-500/50 w-48"
+            class="bg-overlay-subtle border border-edge-subtle rounded-lg pl-9 pr-3 py-1.5 text-sm text-content-secondary placeholder-white/30 focus:outline-none focus:border-accent w-48"
           />
         </div>
       </div>
@@ -47,7 +47,7 @@
             <span>Sort</span>
             <select
               v-model="sortKey"
-              class="bg-overlay-subtle border border-edge-subtle rounded px-2 py-1 text-content-secondary focus:outline-none focus:border-blue-500/50"
+              class="bg-overlay-subtle border border-edge-subtle rounded px-2 py-1 text-content-secondary focus:outline-none focus:border-accent"
             >
               <option value="updated">Recently updated</option>
               <option value="name">Name</option>

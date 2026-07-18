@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
     <!-- Backdrop -->
-    <div v-if="modelValue" class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/60 p-6">
+    <div v-if="modelValue" class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop p-6">
       <!-- Modal card -->
-      <div class="flex flex-col w-full h-full max-w-[1400px] max-h-[900px] bg-surface rounded-xl border border-edge-subtle shadow-2xl overflow-hidden">
+      <div class="flex flex-col w-full h-full max-w-[1400px] max-h-[900px] bg-surface rounded-lg border border-edge-subtle shadow-2xl overflow-hidden">
         <!-- Header -->
         <div class="flex items-center justify-between px-4 py-2 border-b border-edge-subtle flex-shrink-0">
           <h3 class="text-sm font-medium text-content">Crop Input Image</h3>
@@ -45,7 +45,7 @@
                   'px-2 py-1 rounded text-[11px] font-medium border transition-colors',
                   selectedAspect === opt.value
                     ? 'bg-blue-500/15 border-blue-500/50 text-blue-400'
-                    : 'border-white/10 text-content-muted bg-white/[0.05] hover:bg-white/[0.08]'
+                    : 'border-edge-subtle text-content-muted bg-overlay-light hover:bg-overlay-medium'
                 ]"
               >{{ opt.label }}</button>
             </div>
@@ -79,7 +79,7 @@
               >Cancel</button>
               <button
                 @click="apply"
-                class="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                class="px-3 py-1.5 rounded-md text-xs font-medium bg-accent hover:bg-accent/90 text-white transition-colors"
               >Apply</button>
             </div>
           </div>

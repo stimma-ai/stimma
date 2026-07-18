@@ -38,7 +38,7 @@
       />
       <div
         v-else
-        class="w-[30px] h-[30px] rounded-md flex items-center justify-center flex-shrink-0 bg-white/[0.06] text-content-tertiary"
+        class="w-[30px] h-[30px] rounded-md flex items-center justify-center flex-shrink-0 bg-overlay-light text-content-tertiary"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
           <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
@@ -77,7 +77,7 @@
         :media-id="thumbMediaId"
         :thumbnail="true"
         :size="128"
-        class="w-[34px] h-[34px] rounded-md object-cover flex-shrink-0"
+        class="w-[34px] h-[34px] rounded-media object-cover flex-shrink-0"
       />
 
       <!-- Expand chevron -->

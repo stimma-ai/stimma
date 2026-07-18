@@ -111,10 +111,10 @@ const outerSizeClass = computed(() => {
     case 'md':
       return 'w-8 h-8 rounded-lg'
     case 'xl':
-      return 'w-16 h-16 rounded-2xl'
+      return 'w-16 h-16 rounded-lg'
     case 'lg':
     default:
-      return 'w-12 h-12 rounded-xl'
+      return 'w-12 h-12 rounded-lg'
   }
 })
 

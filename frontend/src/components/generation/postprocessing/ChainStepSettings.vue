@@ -150,7 +150,7 @@
   </div>
 
   <!-- Built-in filter step: the small fixed control set from the shared defs -->
-  <div v-else class="divide-y divide-white/[0.06]">
+  <div v-else class="divide-y divide-edge-subtle">
     <template v-for="param in filterParams" :key="param.name">
       <!-- Enum -->
       <div v-if="param.type === 'enum'" class="flex items-center justify-between gap-4 px-1 py-2">

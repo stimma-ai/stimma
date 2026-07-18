@@ -9,12 +9,12 @@
           v-if="paramGroup.collapsible && !disableCollapse"
           @click="toggleCollapsed(paramGroup.group)"
           type="button"
-          class="flex items-center gap-2 text-xs font-medium text-content-muted uppercase tracking-wide hover:text-content-tertiary transition-colors"
+          class="flex items-center gap-2 text-xs font-semibold text-content-secondary hover:text-content-tertiary transition-colors"
         >
           <span :class="['transition-transform text-[10px]', isCollapsed(paramGroup.group) ? '' : 'rotate-90']">&#9654;</span>
           {{ paramGroup.label }}
         </button>
-        <span v-else class="text-xs font-medium text-content-muted uppercase tracking-wide">{{ paramGroup.label }}</span>
+        <span v-else class="text-xs font-semibold text-content-secondary">{{ paramGroup.label }}</span>
       </div>
       <!-- Parameters list (settings-style: label+desc on left, control on right) -->
       <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" :class="flat ? 'divide-y divide-white/[0.06]' : 'rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]'">
@@ -33,7 +33,7 @@
                   @input="emitParam(param.name, parseIntOrNull(($event.target as HTMLInputElement).value))"
                   type="number"
                   :disabled="(values.randomizeSeed ?? true) || constraintState(param).disabled"
-                  class="w-28 sm:w-36 px-2 py-1.5 bg-base border border-edge rounded text-content text-sm disabled:opacity-40 focus:outline-none focus:border-blue-500"
+                  class="w-28 sm:w-36 px-2 py-1.5 bg-base border border-edge rounded text-content text-sm disabled:opacity-40 focus:outline-none focus:border-accent"
                 >
                 <label class="flex items-center gap-1.5 text-xs text-content-tertiary cursor-pointer">
                   <input v-no-autocorrect
@@ -86,7 +86,7 @@
                   @blur="commitParamEdit(param, $event)"
                   @keydown.enter="commitParamEdit(param, $event)"
                   @keydown.escape="editingParam = null"
-                  class="w-16 flex-shrink-0 text-sm text-content-secondary bg-base border border-edge rounded px-2 py-1 text-right focus:outline-none focus:border-blue-500"
+                  class="w-16 flex-shrink-0 text-sm text-content-secondary bg-base border border-edge rounded px-2 py-1 text-right focus:outline-none focus:border-accent"
                   ref="paramEditInput"
                 />
                 <span
@@ -109,7 +109,7 @@
                 :checked="values[param.name] ?? param.default"
                 @change="emitParam(param.name, ($event.target as HTMLInputElement).checked)"
                 :disabled="constraintState(param).disabled"
-                class="flex-shrink-0 w-4 h-4 rounded border-edge bg-base text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                class="flex-shrink-0 w-4 h-4 rounded border-edge bg-base text-accent focus:ring-accent focus:ring-offset-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               />
             </div>
             <!-- String input (textarea for x-control: textarea, otherwise single-line) -->
@@ -127,7 +127,7 @@
                 rows="4"
                 :placeholder="paramDescription(param, constraintState(param)) || ''"
                 :disabled="constraintState(param).disabled"
-                class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm resize-y focus:outline-none focus:border-blue-500 font-sans disabled:opacity-40 disabled:cursor-not-allowed"
+                class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm resize-y focus:outline-none focus:border-accent font-sans disabled:opacity-40 disabled:cursor-not-allowed"
               ></textarea>
               <input v-no-autocorrect
                 v-else
@@ -136,7 +136,7 @@
                 @input="emitParam(param.name, ($event.target as HTMLInputElement).value)"
                 :placeholder="paramDescription(param, constraintState(param))"
                 :disabled="constraintState(param).disabled"
-                class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm focus:outline-none focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm focus:outline-none focus:border-accent disabled:opacity-40 disabled:cursor-not-allowed"
               />
             </div>
           </template>

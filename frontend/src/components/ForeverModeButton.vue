@@ -40,7 +40,7 @@
     <!-- Settings Popover -->
     <div
       v-if="showPopover"
-      class="absolute right-0 mt-2 w-72 bg-surface border border-surface-raised rounded-lg shadow-lg z-50"
+      class="absolute right-0 mt-2 w-72 bg-surface border border-surface-raised rounded-lg shadow-lg z-menu"
       @click.stop
     >
       <!-- Header -->
@@ -67,7 +67,7 @@
         <select
           v-model="localConcurrency"
           @change="handleConcurrencyChange"
-          class="w-full bg-surface-raised border border-edge rounded px-3 py-2 text-sm text-content focus:outline-none focus:border-blue-500"
+          class="w-full bg-surface-raised border border-edge rounded px-3 py-2 text-sm text-content focus:outline-none focus:border-accent"
         >
           <option v-for="option in concurrencyOptions" :key="option.value" :value="option.value">
             {{ option.label }}
@@ -81,7 +81,7 @@
         <select
           v-model="localIdleLimit"
           @change="handleIdleLimitChange"
-          class="w-full bg-surface-raised border border-edge rounded px-3 py-2 text-sm text-content focus:outline-none focus:border-blue-500"
+          class="w-full bg-surface-raised border border-edge rounded px-3 py-2 text-sm text-content focus:outline-none focus:border-accent"
         >
           <option v-for="option in idleLimitOptions" :key="option.value" :value="option.value">
             {{ option.label }}

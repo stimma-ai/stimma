@@ -56,10 +56,10 @@
               <div
                 v-if="showTranslateMenu"
                 ref="translateMenuEl"
-                class="fixed py-1 bg-surface border border-surface-raised rounded-lg shadow-xl z-[200] w-48 max-h-80 overflow-y-auto"
+                class="fixed py-1 bg-surface border border-surface-raised rounded-lg shadow-xl z-menu w-48 max-h-80 overflow-y-auto"
                 :style="{ left: translateMenuPos.left + 'px', bottom: translateMenuPos.bottom + 'px' }"
               >
-                <div class="px-3 pt-1 pb-1.5 text-[10px] font-medium uppercase tracking-wide text-content-tertiary">
+                <div class="px-3 pt-1 pb-1.5 text-xs font-semibold text-content-secondary">
                   Translate prompt to
                 </div>
                 <button
@@ -139,7 +139,7 @@
             <!-- Help popover -->
             <div
               v-if="showHelp"
-              class="absolute top-full right-0 mt-2 p-4 bg-surface border border-surface-raised rounded-lg shadow-xl z-20 w-80"
+              class="absolute top-full right-0 mt-2 p-4 bg-surface border border-surface-raised rounded-lg shadow-xl z-menu w-80"
             >
               <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-1.5">
@@ -219,7 +219,7 @@
               'p-1 rounded transition-colors',
               expanded
                 ? 'text-purple-500 bg-purple-500/20 hover:bg-purple-500/30'
-                : 'text-[#808080] hover:text-purple-500 hover:bg-surface-raised'
+                : 'text-content-muted hover:text-purple-500 hover:bg-surface-raised'
             ]"
             title="AI Prompt Enhancement"
           >

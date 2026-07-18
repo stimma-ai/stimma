@@ -1,6 +1,6 @@
 <template>
-  <div class="fixed inset-0 bg-black/80 flex items-center justify-center z-[10000] p-8" @click.self="close">
-    <div class="bg-surface border border-edge rounded-xl w-full max-w-[600px] max-h-[80vh] flex flex-col shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]">
+  <div class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal p-8" @click.self="close">
+    <div class="bg-surface border border-edge rounded-lg w-full max-w-[600px] max-h-[80vh] flex flex-col shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]">
       <div class="flex justify-between items-center px-6 py-6 border-b border-edge">
         <h2 class="m-0 text-xl font-semibold text-content">Tools</h2>
         <button class="bg-transparent border-none text-content-tertiary cursor-pointer p-2 flex items-center justify-center rounded transition-all hover:bg-overlay-light hover:text-content" @click="close">
@@ -18,7 +18,7 @@
           type="text"
           v-model="searchQuery"
           placeholder="Search tools..."
-          class="w-full bg-surface-raised border border-edge-strong rounded-lg py-3 pr-4 pl-11 text-content text-sm transition-all focus:outline-none focus:border-indigo-500 focus:bg-surface placeholder:text-content-muted"
+          class="w-full bg-surface-raised border border-edge-strong rounded-lg py-3 pr-4 pl-11 text-content text-sm transition-all focus:outline-none focus:border-accent focus:bg-surface placeholder:text-content-muted"
           autofocus
         />
       </div>
@@ -31,7 +31,7 @@
           :class="[
             'flex justify-between items-center py-3.5 px-4 mb-1 rounded-lg cursor-pointer transition-all',
             isSelected(tool.full_tool_id)
-              ? 'bg-indigo-500/20 border border-indigo-500 hover:bg-indigo-500/30'
+              ? 'bg-selection/20 border border-selection hover:bg-selection/30'
               : 'bg-transparent hover:bg-overlay-subtle'
           ]"
         >
@@ -39,14 +39,14 @@
             <ToolIcon :tool="tool" size="sm" :ring="false" />
             <span :class="[
               'text-[15px] font-medium',
-              isSelected(tool.full_tool_id) ? 'text-indigo-300 font-semibold' : 'text-content'
+              isSelected(tool.full_tool_id) ? 'text-selection font-semibold' : 'text-content'
             ]">{{ tool.name || tool.full_tool_id }}</span>
             <span v-if="isStimmaCloud(tool)" class="text-[11px] leading-none px-1.5 py-0.5 rounded-full bg-teal-600/10 border border-teal-600/25 font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
             <span v-else-if="tool.provider_name" class="text-[11px] leading-none px-1.5 py-0.5 rounded-full text-content-muted bg-overlay-subtle">{{ tool.provider_name }}</span>
           </span>
           <span :class="[
             'text-[13px] font-normal',
-            isSelected(tool.full_tool_id) ? 'text-indigo-400' : 'text-content-muted'
+            isSelected(tool.full_tool_id) ? 'text-selection' : 'text-content-muted'
           ]">({{ tool.count }})</span>
         </div>
 
@@ -58,7 +58,7 @@
 
       <div class="px-6 py-6 border-t border-edge flex justify-between items-center">
         <span class="text-sm text-content-muted">{{ tools.length }} tools</span>
-        <button class="bg-indigo-500 text-white border-none py-3 px-8 rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:-translate-y-px hover:shadow-[0_4px_6px_-1px_rgba(99,102,241,0.3)] active:translate-y-0" @click="close">Done</button>
+        <button class="bg-accent hover:bg-accent/90 text-white border-none py-3 px-8 rounded-lg text-[15px] font-semibold cursor-pointer transition-all active:translate-y-0" @click="close">Done</button>
       </div>
     </div>
   </div>

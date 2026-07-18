@@ -3,7 +3,7 @@
     <button
       @click="showAdvanced = !showAdvanced"
       type="button"
-      class="flex items-center gap-2 text-xs font-medium text-content-muted uppercase tracking-wide hover:text-content-tertiary transition-colors"
+      class="flex items-center gap-2 text-xs font-semibold text-content-secondary hover:text-content-tertiary transition-colors"
     >
       <span :class="['transition-transform', showAdvanced ? 'rotate-90' : '']">&#9654;</span>
       Advanced
@@ -21,7 +21,7 @@
           @input="updateNegativePrompt(($event.target as HTMLTextAreaElement).value)"
           rows="2"
           placeholder="What to avoid..."
-          class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm resize-y focus:outline-none focus:border-blue-500 font-sans"
+          class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm resize-y focus:outline-none focus:border-accent font-sans"
         ></textarea>
       </div>
 

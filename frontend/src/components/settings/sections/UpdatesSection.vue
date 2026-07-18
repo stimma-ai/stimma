@@ -2,7 +2,7 @@
   <div class="flex flex-col min-h-full">
     <!-- Identity -->
     <div class="flex items-center gap-4 pb-6">
-      <img src="/logo.png" alt="Stimma" class="w-16 h-16 rounded-xl border border-edge bg-surface" />
+      <img src="/logo.png" alt="Stimma" class="w-16 h-16 rounded-lg border border-edge bg-surface" />
       <div>
         <div class="flex items-center gap-2.5">
           <span class="font-brand lowercase tracking-[0.12em] text-xl font-semibold text-content">stimma</span>
@@ -37,7 +37,7 @@
     </div>
 
     <!-- Update status -->
-    <div class="rounded-xl border border-edge bg-surface px-4 py-3.5">
+    <div class="rounded-lg border border-edge bg-surface px-4 py-3.5">
       <div class="flex items-center gap-3">
         <template v-if="updatesBlockedByPrivacyLockdown">
           <div class="w-2 h-2 rounded-full bg-content-muted shrink-0 shadow-[0_0_0_4px_rgba(148,163,184,0.12)]"></div>
@@ -78,7 +78,7 @@
           </div>
           <button
             @click="restartToApply()"
-            class="px-3 py-1.5 bg-blue-500 hover:bg-blue-400 text-white rounded-lg text-sm font-medium transition-colors"
+            class="px-3 py-1.5 bg-accent hover:bg-accent/90 text-white rounded-md text-sm font-medium transition-colors"
           >
             {{ pendingApply === 'install' ? 'Restart & Install' : 'Restart Now' }}
           </button>
@@ -94,7 +94,7 @@
           </div>
           <button
             @click="downloadAndInstallUpdate()"
-            class="px-3 py-1.5 bg-blue-500 hover:bg-blue-400 text-white rounded-lg text-sm font-medium transition-colors"
+            class="px-3 py-1.5 bg-accent hover:bg-accent/90 text-white rounded-md text-sm font-medium transition-colors"
           >
             Install Update
           </button>

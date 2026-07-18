@@ -305,7 +305,7 @@
           :class="[
             'border-none text-xs px-3 h-6 rounded-full transition-all flex items-center',
             gridSelectedCells.length === 2
-              ? 'bg-blue-500 text-white cursor-pointer hover:bg-blue-600'
+              ? 'bg-accent text-white cursor-pointer hover:bg-accent/90'
               : 'bg-white/10 text-white/40 cursor-not-allowed'
           ]"
           @click="compareGridCells"
@@ -761,7 +761,7 @@
                 :class="[
                   'transition-colors',
                   row - 1 === gridViewRow && col - 1 === gridViewCol
-                    ? 'bg-blue-500'
+                    ? 'bg-accent'
                     : getGridCellContent(row - 1, col - 1)?.resolved
                       ? 'bg-white/30'
                       : 'bg-white/10'
@@ -868,7 +868,7 @@
             v-if="showVolumeSlider"
             ref="volumeSliderRef"
             :class="[
-              'absolute bg-black/70 backdrop-blur-xl rounded-xl border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.4)] z-[10001]',
+              'absolute bg-black/70 backdrop-blur-xl rounded-lg border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.4)] z-[10001]',
               controlBarOrientation === 'vertical'
                 ? 'left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-2 flex items-center gap-2'
                 : 'bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-2 flex flex-col items-center gap-2'
@@ -1034,7 +1034,7 @@
          live playhead, same treatment as the prep frame picker. Toggle with V. -->
     <div
       v-if="isVideo && showVideoTransport"
-      class="absolute z-[10000] flex items-center gap-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] select-none w-[620px]"
+      class="absolute z-[10000] flex items-center gap-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] select-none w-[620px]"
       :style="transportBarStyle"
       @mousedown.stop
       @dblclick.stop
@@ -1099,8 +1099,8 @@
     <!-- Project Picker Modal -->
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="showProjectPicker" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/75 p-5" @click.self="closeProjectPicker">
-          <div class="flex max-h-[80vh] w-full max-w-[400px] flex-col rounded-xl border border-edge-subtle bg-surface shadow-2xl">
+        <div v-if="showProjectPicker" class="fixed inset-0 z-[10000] flex items-center justify-center bg-overlay-backdrop p-5" @click.self="closeProjectPicker">
+          <div class="flex max-h-[80vh] w-full max-w-[400px] flex-col rounded-lg border border-edge-subtle bg-surface shadow-2xl">
             <div class="flex items-center justify-between border-b border-edge-subtle px-5 py-4">
               <h2 class="text-lg font-semibold text-content">Projects</h2>
               <button

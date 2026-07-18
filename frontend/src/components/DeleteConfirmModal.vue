@@ -10,7 +10,7 @@
     >
       <div
         v-if="visible"
-        class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/75 px-5"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop px-5"
         @click.self="close"
       >
         <div class="w-full max-w-md rounded-lg border border-edge bg-surface p-6 text-center shadow-2xl">

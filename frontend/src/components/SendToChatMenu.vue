@@ -18,7 +18,7 @@
       <div
         v-if="showMenu"
         ref="menuRef"
-        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[9999] py-1 min-w-[200px] max-h-[400px] overflow-y-auto"
+        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu py-1 min-w-[200px] max-h-[400px] overflow-y-auto"
         :style="menuStyle"
       >
         <div v-if="loading" class="px-3 py-2 text-xs text-content-tertiary">

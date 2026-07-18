@@ -260,7 +260,7 @@
     <!-- Upload FAB (only in browse mode, not trash) -->
     <button
       v-if="!isTrashMode"
-      class="fixed right-6 bottom-6 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center z-[101] bg-blue-600 hover:bg-blue-700 text-white"
+      class="fixed right-6 bottom-6 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center z-chrome bg-accent hover:bg-accent/90 text-white"
       @click="goToUpload"
       title="Upload assets"
     >

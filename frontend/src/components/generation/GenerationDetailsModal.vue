@@ -3,13 +3,13 @@
     <Transition name="modal">
       <div
         v-if="show"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="$emit('close')"
       >
-        <div class="mx-4 flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-edge bg-surface shadow-2xl">
+        <div class="mx-4 flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-edge bg-surface shadow-2xl">
           <div class="flex items-start gap-4 border-b border-edge px-5 py-4">
             <div
-              class="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-white"
+              class="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-white"
               :class="headerIconBgClass"
             >
               <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
@@ -92,7 +92,7 @@
             <div class="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
               <section class="space-y-3">
                 <slot name="preview">
-                  <div class="overflow-hidden rounded-xl border border-edge-subtle bg-overlay-faint">
+                  <div class="overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint">
                     <div
                       v-if="previewMediaIds && previewMediaIds.length"
                       class="grid gap-2 p-3"
@@ -118,7 +118,7 @@
                       :class="previewPlaceholder?.class || 'bg-overlay-faint text-content-muted'"
                     >
                       <div>
-                        <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-black/5">
+                        <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-overlay-subtle">
                           <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" :d="previewPlaceholder?.iconPath || defaultPlaceholderIconPath" />
                           </svg>
@@ -134,7 +134,7 @@
               </section>
 
               <section class="space-y-4">
-                <div class="rounded-xl border border-edge-subtle bg-base">
+                <div class="rounded-lg border border-edge-subtle bg-base">
                   <div class="border-b border-edge-subtle px-4 py-3">
                     <div class="text-[13px] font-semibold text-content">Summary</div>
                   </div>
@@ -160,7 +160,7 @@
                   </div>
                 </div>
 
-                <div class="rounded-xl border border-edge-subtle bg-base">
+                <div class="rounded-lg border border-edge-subtle bg-base">
                   <div class="border-b border-edge-subtle px-4 py-3">
                     <div class="text-[13px] font-semibold text-content">Inputs</div>
                   </div>
@@ -194,26 +194,14 @@
                         <p class="m-0 whitespace-pre-wrap break-words text-content-secondary text-xs leading-relaxed">{{ entry.value }}</p>
                       </div>
 
-                      <div
-                        v-if="(compactInputs?.length ?? 0) > 0"
-                        class="grid grid-cols-2 gap-2 text-xs"
-                      >
-                        <div
-                          v-for="entry in compactInputs"
-                          :key="entry.key"
-                          :class="['bg-overlay-subtle p-2 rounded', entry.fullWidth ? 'col-span-2' : '']"
-                        >
-                          <div class="text-content-tertiary mb-0.5">{{ entry.label }}</div>
-                          <div :class="['text-content', entry.fullWidth ? 'break-all text-xs whitespace-pre-wrap' : '']">{{ entry.value }}</div>
-                        </div>
-                      </div>
+                      <KeyValueList v-if="(compactInputs?.length ?? 0) > 0" :rows="compactInputRows" />
                     </div>
                   </div>
                 </div>
 
                 <div
                   v-if="parsedError"
-                  class="rounded-xl border border-red-500/30 bg-red-500/5"
+                  class="rounded-lg border border-red-500/30 bg-red-500/5"
                 >
                   <div class="border-b border-red-500/20 px-4 py-3">
                     <div class="text-[13px] font-semibold text-red-400">{{ parsedError.title }}</div>
@@ -225,7 +213,7 @@
                     <button
                       v-if="canFixWithAgent"
                       type="button"
-                      class="text-[12px] px-2.5 py-1 rounded bg-blue-500 text-white hover:bg-blue-600"
+                      class="text-[12px] px-2.5 py-1 rounded-md bg-accent hover:bg-accent/90 text-white"
                       @click="$emit('fix-with-agent')"
                     >Ask the agent for help</button>
                     <button
@@ -244,7 +232,7 @@
 
                 <div
                   v-if="devModeRef && errorDetails"
-                  class="rounded-xl border border-amber-500/40 bg-overlay-light"
+                  class="rounded-lg border border-amber-500/40 bg-overlay-light"
                 >
                   <div class="flex items-center gap-2 border-b border-amber-500/30 px-4 py-2.5">
                     <span class="text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-sm">Dev</span>
@@ -257,7 +245,7 @@
 
                 <div
                   v-if="devModeRef && rawJson"
-                  class="rounded-xl border border-edge-subtle bg-base"
+                  class="rounded-lg border border-edge-subtle bg-base"
                 >
                   <div class="flex items-center justify-between border-b border-edge-subtle px-4 py-3">
                     <button
@@ -312,6 +300,7 @@ import { devModeRef } from '../../appConfig'
 import { copyToClipboard } from '../../utils/clipboard'
 import { parseFlowError } from '../../utils/flowErrors'
 import MediaImage from '../media/MediaImage.vue'
+import KeyValueList, { type KeyValueRow } from '../ui/KeyValueList.vue'
 
 export interface InputEntry {
   key: string
@@ -381,6 +370,13 @@ const emit = defineEmits<{
 }>()
 
 const defaultPlaceholderIconPath = 'M3.375 3.375h17.25v17.25H3.375V3.375Zm3.375 11.25 3-3 2.25 2.25 4.5-4.5 2.25 2.25'
+
+const compactInputRows = computed<KeyValueRow[]>(() => (props.compactInputs || []).map(entry => ({
+  label: entry.label,
+  value: entry.value,
+  mono: !entry.fullWidth,
+  truncate: false,
+})))
 
 const rawJsonCopied = ref(false)
 const rawJsonExpanded = ref(false)

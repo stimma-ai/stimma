@@ -1,6 +1,6 @@
 <template>
-  <div class="fixed inset-0 bg-black/80 flex items-center justify-center z-[10000] p-8" @click.self="close">
-    <div class="bg-surface border border-edge rounded-xl w-full max-w-[600px] max-h-[80vh] flex flex-col shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]">
+  <div class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal p-8" @click.self="close">
+    <div class="bg-surface border border-edge rounded-lg w-full max-w-[600px] max-h-[80vh] flex flex-col shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]">
       <div class="flex justify-between items-center px-6 py-6 border-b border-edge">
         <h2 class="m-0 text-xl font-semibold text-content">Keywords</h2>
         <button class="bg-transparent border-none text-content-tertiary cursor-pointer p-2 flex items-center justify-center rounded transition-all hover:bg-overlay-light hover:text-content" @click="close">
@@ -19,7 +19,7 @@
           v-model="searchQuery"
           @input="handleSearchInput"
           placeholder="Search keywords..."
-          class="w-full bg-surface-raised border border-edge-strong rounded-lg py-3 pr-4 pl-11 text-content text-sm transition-all focus:outline-none focus:border-indigo-500 focus:bg-surface placeholder:text-content-muted"
+          class="w-full bg-surface-raised border border-edge-strong rounded-lg py-3 pr-4 pl-11 text-content text-sm transition-all focus:outline-none focus:border-accent focus:bg-surface placeholder:text-content-muted"
           autofocus
         />
       </div>
@@ -46,17 +46,17 @@
             :class="[
               'flex justify-between items-center py-3.5 px-4 mb-1 rounded-lg cursor-pointer transition-all',
               isSelected(kw.keyword)
-                ? 'bg-indigo-500/20 border border-indigo-500 hover:bg-indigo-500/30'
+                ? 'bg-selection/20 border border-selection hover:bg-selection/30'
                 : 'bg-transparent hover:bg-overlay-subtle'
             ]"
           >
             <span :class="[
               'text-[15px] font-medium',
-              isSelected(kw.keyword) ? 'text-indigo-300 font-semibold' : 'text-content'
+              isSelected(kw.keyword) ? 'text-selection font-semibold' : 'text-content'
             ]">{{ kw.keyword }}</span>
             <span :class="[
               'text-[13px] font-normal',
-              isSelected(kw.keyword) ? 'text-indigo-400' : 'text-content-muted'
+              isSelected(kw.keyword) ? 'text-selection' : 'text-content-muted'
             ]">({{ kw.count }})</span>
           </div>
 
@@ -83,7 +83,7 @@
           <span v-if="isInitialLoading">Loading keywords...</span>
           <span v-else>{{ totalCount }} total keywords</span>
         </span>
-        <button class="bg-indigo-500 text-white border-none py-3 px-8 rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-indigo-600 hover:-translate-y-px hover:shadow-[0_4px_6px_-1px_rgba(99,102,241,0.3)] active:translate-y-0" @click="close">Done</button>
+        <button class="bg-accent text-white border-none py-3 px-8 rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-accent/90 hover:-translate-y-px hover:shadow-[0_4px_6px_-1px_rgba(99,102,241,0.3)] active:translate-y-0" @click="close">Done</button>
       </div>
     </div>
   </div>

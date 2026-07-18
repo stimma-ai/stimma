@@ -30,7 +30,7 @@
               <LightBulbIcon class="w-3 h-3" />
               <span>Thinking</span>
             </summary>
-            <div class="mt-1 pl-3 border-l-2 border-white/10 text-content-muted whitespace-pre-wrap font-mono text-[10px] leading-relaxed break-words italic">{{ entry.thinking }}</div>
+            <div class="mt-1 pl-3 border-l-2 border-edge-subtle text-content-muted whitespace-pre-wrap font-mono text-[10px] leading-relaxed break-words italic">{{ entry.thinking }}</div>
           </details>
           <!-- Tool calls the assistant made -->
           <div v-if="entry.toolCalls.length" class="mb-1.5 space-y-1">
@@ -48,7 +48,7 @@
         <!-- Quick edits (suggestion pills + auto-ideas) use the single-shot
              /enhance path, not the agent loop, so they're logged separately. -->
         <template v-if="debugHistory.length">
-          <div class="pt-1 text-[10px] font-medium uppercase tracking-wide text-content-muted">Quick edits</div>
+          <div class="pt-1 text-xs font-semibold text-content-secondary">Quick edits</div>
           <div
             v-for="entry in debugHistory"
             :key="'legacy-' + entry.id"
@@ -220,12 +220,12 @@
       class="overflow-hidden transition-all duration-300 ease-out"
       :class="showSettings ? 'max-h-[640px] opacity-100 mb-2.5' : 'max-h-0 opacity-0 mb-0'"
     >
-      <div class="bg-surface-overlay border border-edge rounded-xl p-3.5">
+      <div class="bg-surface-overlay border border-edge rounded-lg p-3.5">
         <div class="flex items-center mb-3">
           <span class="text-xs font-semibold text-content-secondary">Agent settings</span>
           <button
             @click="showSettings = false"
-            class="ml-auto w-6 h-6 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-white/[0.05] transition-colors"
+            class="ml-auto w-6 h-6 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-overlay-light transition-colors"
             title="Close"
           >
             <ChevronUpIcon class="w-4 h-4" />
@@ -239,7 +239,7 @@
             v-model="instructionsText"
             rows="3"
             placeholder="Standing guidance for this tool — e.g. prefer portrait framing, keep skin texture realistic, avoid harsh lighting."
-            class="w-full bg-surface border border-edge rounded-lg text-content text-xs px-3 py-2 focus:outline-none focus:border-blue-500/50 resize-y font-sans leading-relaxed"
+            class="w-full bg-surface border border-edge rounded-lg text-content text-xs px-3 py-2 focus:outline-none focus:border-accent resize-y font-sans leading-relaxed"
           ></textarea>
         </div>
       </div>
@@ -248,7 +248,7 @@
     <AgentUnavailableInput v-if="agentModelUnavailable" />
 
     <!-- Feedback input box (mirrors ChatView's input: text on top, toolbar row) -->
-    <div v-else class="bg-surface border border-edge rounded-2xl overflow-hidden">
+    <div v-else class="bg-surface border border-edge rounded-lg overflow-hidden">
       <input v-no-autocorrect
         ref="feedbackInput"
         v-model="feedbackText"
@@ -268,7 +268,7 @@
           <button
             @click="undo"
             :disabled="!canUndo()"
-            class="w-8 h-8 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-white/[0.05] transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-content-muted"
+            class="w-8 h-8 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-overlay-light transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-content-muted"
             title="Undo"
           >
             <ArrowUturnLeftIcon class="w-4 h-4" />
@@ -276,7 +276,7 @@
           <button
             @click="redo"
             :disabled="!canRedo()"
-            class="w-8 h-8 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-white/[0.05] transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-content-muted"
+            class="w-8 h-8 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-overlay-light transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-content-muted"
             title="Redo"
           >
             <ArrowUturnRightIcon class="w-4 h-4" />
@@ -287,7 +287,7 @@
             v-if="agent"
             @click="showSettings = !showSettings"
             class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
-            :class="showSettings ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : 'text-content-muted hover:text-content-secondary hover:bg-white/[0.05]'"
+            :class="showSettings ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-light'"
             title="Agent settings — Instructions"
           >
             <WrenchIcon class="w-4 h-4" />

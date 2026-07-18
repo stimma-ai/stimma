@@ -1,10 +1,10 @@
 <template>
   <div
-    class="absolute left-1/2 z-[10001] bg-surface backdrop-blur-md border border-edge-subtle rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.3),0_4px_8px_rgba(0,0,0,0.2)]"
+    class="absolute left-1/2 z-[10001] bg-surface backdrop-blur-md border border-edge-subtle rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.3),0_4px_8px_rgba(0,0,0,0.2)]"
     :style="{ bottom: `${bottomOffset}px`, transform: 'translateX(-50%)' }"
   >
     <div class="flex items-center gap-3 px-4 py-2.5">
-      <span class="text-[10px] font-medium uppercase tracking-wider text-content-muted flex-shrink-0">
+      <span class="text-xs font-semibold text-content-secondary flex-shrink-0">
         Approval
       </span>
       <span class="h-4 w-px bg-edge-subtle" />
@@ -13,7 +13,7 @@
         <div class="flex items-center gap-2">
           <button
             type="button"
-            class="bg-blue-500 text-white border border-blue-500 text-[11px] font-medium px-3 py-1 rounded hover:bg-blue-600 transition-colors flex items-center gap-2"
+            class="bg-accent text-white text-[11px] font-medium px-3 py-1 rounded-md hover:bg-accent/90 transition-colors flex items-center gap-2"
             title="Approve (↑ or W)"
             @click.stop="$emit('approve')"
           >
@@ -22,7 +22,7 @@
           </button>
           <button
             type="button"
-            class="bg-overlay-subtle border border-edge-subtle text-content-secondary text-[11px] font-medium px-3 py-1 rounded hover:bg-overlay-hover hover:text-content transition-colors flex items-center gap-2"
+            class="bg-overlay-subtle text-content-secondary text-[11px] font-medium px-3 py-1 rounded-md hover:bg-overlay-hover hover:text-content transition-colors flex items-center gap-2"
             title="Replace — regenerates this candidate (↓ or S)"
             @click.stop="$emit('reject')"
           >

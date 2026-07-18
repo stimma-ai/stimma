@@ -22,7 +22,7 @@
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 20 20"
         fill="currentColor"
-        class="w-3.5 h-3.5 text-blue-500"
+        class="w-3.5 h-3.5 text-accent"
       >
         <path fill-rule="evenodd" d="M10 1.944a4 4 0 0 0-4 4V8H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1V5.944a4 4 0 0 0-4-4ZM8 8V5.944a2 2 0 1 1 4 0V8H8Z" clip-rule="evenodd" />
       </svg>
@@ -35,7 +35,7 @@
     <!-- Dropdown Menu -->
     <div
       v-if="showDropdown"
-      class="fixed bg-surface border border-edge rounded-lg shadow-xl z-[9999] p-3 space-y-3"
+      class="fixed bg-surface border border-edge rounded-lg shadow-xl z-menu p-3 space-y-3"
       :style="dropdownStyle"
       @click.stop
     >
@@ -72,7 +72,7 @@
             :class="[
               'px-2 py-1 rounded text-xs font-medium transition-colors',
               selectedAspectRatio === ar.label
-                ? 'bg-blue-500/20 text-blue-500'
+                ? 'bg-accent/15 text-accent'
                 : 'bg-base text-content-tertiary hover:bg-surface-raised hover:text-content'
             ]"
           >
@@ -89,7 +89,7 @@
             min="0.5"
             max="4.0"
             step="0.1"
-            class="w-32 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+            class="w-32 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
           >
           <span class="text-xs text-content-muted whitespace-nowrap">{{ megapixels.toFixed(1) }}MP</span>
         </div>
@@ -127,7 +127,7 @@
 
       <!-- Auto-change behavior — only when reference images exist -->
       <div v-if="hasReferenceImages" class="border-t border-edge-subtle pt-3 space-y-2">
-        <div class="text-[10px] font-medium uppercase tracking-wide text-content-muted">When reference images change</div>
+        <div class="text-xs font-semibold text-content-secondary">When reference images change</div>
         <div class="grid gap-1">
           <button
             @click="setAutoChangeLock('none')"
@@ -327,7 +327,7 @@ function autoLockButtonClass(active: boolean) {
   return [
     'rounded px-2.5 py-1.5 text-left text-xs font-medium transition-colors',
     active
-      ? 'bg-blue-500/15 text-blue-500 ring-1 ring-blue-500/30'
+      ? 'bg-accent/15 text-accent ring-1 ring-accent/30'
       : 'bg-base text-content-secondary hover:bg-surface-raised hover:text-content'
   ]
 }

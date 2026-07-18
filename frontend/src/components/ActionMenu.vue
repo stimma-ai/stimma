@@ -113,7 +113,7 @@ onUnmounted(() => {
 <style scoped>
 .action-menu {
   position: fixed;
-  z-index: 9999;
+  z-index: 100; /* z-menu: context menus, dropdowns, popovers, pickers */
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 8px;

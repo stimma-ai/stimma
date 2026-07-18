@@ -18,7 +18,7 @@
       <div
         v-if="showMenu"
         ref="menuRef"
-        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[9999] py-1 w-[300px] max-h-[min(640px,calc(100vh-24px))] overflow-y-auto"
+        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu py-1 w-[300px] max-h-[min(640px,calc(100vh-24px))] overflow-y-auto"
         :style="menuStyle"
       >
         <TaskTypeToolList

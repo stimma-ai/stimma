@@ -2,14 +2,14 @@
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-[10010] flex items-center justify-center"
+      class="fixed inset-0 z-modal flex items-center justify-center"
       @mousedown.self="close"
     >
       <!-- Backdrop -->
       <div class="absolute inset-0 bg-overlay-backdrop" />
 
       <!-- Modal panel -->
-      <div class="relative max-w-md w-full mx-4 bg-surface rounded-xl border border-edge-subtle shadow-2xl">
+      <div class="relative max-w-md w-full mx-4 bg-surface rounded-lg border border-edge-subtle shadow-2xl">
         <!-- Header -->
         <div class="flex items-center justify-between px-5 pt-5 pb-1">
           <div>

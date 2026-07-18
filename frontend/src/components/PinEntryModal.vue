@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div
         v-if="show"
-        class="fixed inset-0 z-[10030] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @keydown.esc="cancel"
       >
         <div
@@ -33,7 +33,7 @@
               inputmode="numeric"
               pattern="[0-9]*"
               maxlength="20"
-              class="w-full px-4 py-3 bg-base border border-edge rounded-lg text-content text-center text-xl tracking-widest focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              class="w-full px-4 py-3 bg-base border border-edge rounded-lg text-content text-center text-xl tracking-widest focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
               placeholder="PIN"
               autocomplete="off"
               @keydown.enter="submit"
@@ -57,7 +57,7 @@
             <button
               @click="submit"
               :disabled="!pinValue || isSubmitting"
-              class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              class="flex-1 px-4 py-2 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
             >
               <svg v-if="isSubmitting" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

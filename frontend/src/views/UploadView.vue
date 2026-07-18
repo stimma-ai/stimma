@@ -18,7 +18,7 @@
 
     <!-- Drop target area — flex-1 so it fills available space and shrinks when grid is present -->
     <div
-      class="w-full max-w-2xl flex-1 min-h-0 flex flex-col items-center justify-center gap-4 border-2 border-dashed rounded-2xl transition-all duration-200 relative"
+      class="w-full max-w-2xl flex-1 min-h-0 flex flex-col items-center justify-center gap-4 border-2 border-dashed rounded-lg transition-all duration-200 relative"
       :class="isDragging
         ? 'border-blue-500 bg-blue-500/10 scale-[1.02]'
         : 'border-edge bg-overlay-faint hover:border-edge-strong hover:bg-overlay-subtle'"
@@ -59,7 +59,7 @@
 
       <!-- Browse button -->
       <button
-        class="px-6 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
+        class="px-6 py-2.5 bg-accent hover:bg-accent/90 text-white font-medium rounded-md transition-colors"
         @click="openFilePicker"
       >
         Browse Files
@@ -115,7 +115,7 @@
         <div
           v-for="(item, index) in visibleMedia"
           :key="item.media_id"
-          class="aspect-square rounded-md overflow-hidden cursor-pointer transition-transform duration-150 hover:scale-[1.04]"
+          class="aspect-square rounded-media overflow-hidden cursor-pointer"
           @click="openSlideshow(index)"
         >
           <AppImage

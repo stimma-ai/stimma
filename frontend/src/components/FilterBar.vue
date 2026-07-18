@@ -182,7 +182,7 @@
              @click="toggleExcludeTool(tool.full_tool_id)">
           <span class="leading-none">{{ getToolName(tool) }}</span>
           <span v-if="isToolStimmaCloud(tool)" class="text-[10px] leading-none font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
-          <span v-else-if="getToolProvider(tool)" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full opacity-60 bg-black/10">{{ getToolProvider(tool) }}</span>
+          <span v-else-if="getToolProvider(tool)" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full opacity-60 bg-overlay-medium">{{ getToolProvider(tool) }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeTool(tool.full_tool_id)">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -287,9 +287,9 @@
           <!-- Dropdown menu -->
           <div
             v-if="showSavedViewMenu"
-            class="absolute right-0 top-full mt-1 bg-surface-raised border border-edge-strong rounded-md shadow-lg z-50 py-1 min-w-[160px]"
+            class="absolute right-0 top-full mt-1 bg-surface-raised border border-edge-strong rounded-md shadow-lg z-menu py-1 min-w-[160px]"
           >
-            <div class="px-4 py-2 text-xs text-content-tertiary uppercase tracking-wider">Saved View</div>
+            <div class="px-4 py-2 text-xs font-semibold text-content-secondary">Saved view</div>
             <button
               @click="handleRenameView"
               class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
@@ -354,7 +354,7 @@
           </button>
           <div
             v-if="showBrowseMenu"
-            class="absolute right-0 top-full mt-1 bg-surface-raised border border-edge-strong rounded-md shadow-lg z-50 py-1 min-w-[160px]"
+            class="absolute right-0 top-full mt-1 bg-surface-raised border border-edge-strong rounded-md shadow-lg z-menu py-1 min-w-[160px]"
           >
             <button
               v-if="canSaveView"
@@ -392,7 +392,7 @@
         <div ref="criteriaScrollContainer" class="flex gap-8 px-4 py-3 overflow-x-auto overflow-y-hidden transition-opacity" :class="{ 'opacity-50 pointer-events-none': isLoading }" @wheel="handleHorizontalScroll">
           <!-- Created Column -->
           <div v-if="visibleDateRanges.length > 0 || selectedDateRange === 'custom'" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
-            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">CREATED</h4>
+            <h4 class="m-0 text-xs font-semibold text-content-secondary">Created</h4>
             <div class="flex flex-col gap-2">
               <button
                 v-for="range in visibleDateRanges"
@@ -414,7 +414,7 @@
 
           <!-- Asset Type Column -->
           <div v-if="visibleMediaTypes.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
-            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">ASSET TYPE</h4>
+            <h4 class="m-0 text-xs font-semibold text-content-secondary">Asset type</h4>
             <div class="flex flex-col gap-2">
               <div
                 v-for="type in visibleMediaTypes"
@@ -430,7 +430,7 @@
 
           <!-- Folders Column -->
           <div v-if="visibleFolders.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
-            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">FOLDERS</h4>
+            <h4 class="m-0 text-xs font-semibold text-content-secondary">Folders</h4>
             <div class="flex flex-col gap-2">
               <div
                 v-for="folder in visibleFolders"
@@ -449,7 +449,7 @@
 
           <!-- Tags Column -->
           <div v-if="visibleTags.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
-            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">TAGS</h4>
+            <h4 class="m-0 text-xs font-semibold text-content-secondary">Tags</h4>
             <div class="flex flex-col gap-2">
               <!-- Top tags (clickable) -->
               <div
@@ -470,7 +470,7 @@
 
           <!-- Projects Column (hidden in trash and when already scoped to a single project) -->
           <div v-if="!isTrashMode && !inProjectScope && (showProjectMembershipChip || visibleProjects.length > 0)" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
-            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">PROJECTS</h4>
+            <h4 class="m-0 text-xs font-semibold text-content-secondary">Projects</h4>
             <div class="flex flex-col gap-2">
               <!-- Membership existence chip: none → In a project (blue) → Not in a project (red) -->
               <div
@@ -508,7 +508,7 @@
 
           <!-- Tools Column -->
           <div v-if="visibleTools.length > 0" class="flex flex-col gap-3 min-w-[240px] max-w-[340px] flex-[2] flex-shrink-0">
-            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">TOOLS</h4>
+            <h4 class="m-0 text-xs font-semibold text-content-secondary">Tools</h4>
             <div class="flex flex-col gap-2">
               <div
                 v-for="tool in visibleTools"
@@ -531,7 +531,7 @@
 
           <!-- Keywords Column -->
           <div v-if="captioningEnabledRef && visibleKeywords.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
-            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">KEYWORDS</h4>
+            <h4 class="m-0 text-xs font-semibold text-content-secondary">Keywords</h4>
             <div class="flex flex-col gap-2">
               <!-- Top keywords (clickable) -->
               <div
@@ -552,7 +552,7 @@
 
           <!-- Text Filter Column -->
           <div class="flex flex-col gap-3 min-w-[220px] max-w-[320px] flex-[2] flex-shrink-0">
-            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">AI SEARCH</h4>
+            <h4 class="m-0 text-xs font-semibold text-content-secondary">AI search</h4>
             <div class="flex flex-col gap-2">
               <input v-no-autocorrect
                 type="text"
@@ -560,22 +560,22 @@
                 @input="debouncedUpdate"
                 @keyup.enter="emitUpdate"
                 placeholder="Search"
-                class="bg-surface-raised border border-edge-strong text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-indigo-500"
+                class="bg-surface-raised border border-edge-strong text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent"
               />
-              <h5 class="m-0 mt-2 text-xs uppercase tracking-wider text-content-tertiary font-semibold">PROMPT FILTER</h5>
+              <h5 class="m-0 mt-2 text-xs font-semibold text-content-secondary">Prompt filter</h5>
               <input v-no-autocorrect
                 type="text"
                 v-model="localPromptQuery"
                 @input="debouncedUpdate"
                 placeholder="Filter"
-                class="bg-surface-raised border border-edge-strong text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-indigo-500"
+                class="bg-surface-raised border border-edge-strong text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent"
               />
             </div>
           </div>
 
           <!-- Utility Column - not shown in trash mode -->
           <div v-if="!isTrashMode && showUtilityColumn" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
-            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">UTILITY</h4>
+            <h4 class="m-0 text-xs font-semibold text-content-secondary">Utility</h4>
             <div class="flex flex-col gap-2">
               <div
                 v-if="showImportedRow"
@@ -607,7 +607,7 @@
 
           <!-- Resolution Column - not shown in trash mode -->
           <div v-if="!isTrashMode && visibleResolutions.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
-            <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">RESOLUTION</h4>
+            <h4 class="m-0 text-xs font-semibold text-content-secondary">Resolution</h4>
             <div class="flex flex-col gap-2">
               <div
                 v-for="res in visibleResolutions"
@@ -643,7 +643,7 @@
     />
 
     <!-- Custom Date Picker Modal -->
-    <div v-if="showDatePickerModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showDatePickerModal = false">
+    <div v-if="showDatePickerModal" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="showDatePickerModal = false">
       <div class="bg-surface-raised border border-edge-strong rounded-lg p-6 w-96 max-w-[90vw]" @click.stop>
         <h3 class="text-lg font-semibold text-content mb-4">Custom Date Range</h3>
 
@@ -654,7 +654,7 @@
               type="date"
               v-model="customAfterDate"
               @keyup.enter="applyCustomDateRange"
-              class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-indigo-500 date-input"
+              class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent date-input"
             />
           </div>
 
@@ -664,7 +664,7 @@
               type="date"
               v-model="customBeforeDate"
               @keyup.enter="applyCustomDateRange"
-              class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-indigo-500 date-input"
+              class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent date-input"
             />
           </div>
         </div>
@@ -672,7 +672,7 @@
         <div class="flex gap-3 mt-6">
           <button
             @click="applyCustomDateRange"
-            class="flex-1 bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-indigo-600"
+            class="flex-1 bg-accent text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-accent/90"
           >
             Apply
           </button>

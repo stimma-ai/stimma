@@ -19,7 +19,7 @@
     <!-- Dropdown menu -->
     <div
       v-if="showDropdown"
-      class="absolute right-0 mt-2 w-48 bg-surface border border-surface-raised rounded-lg shadow-lg z-50 py-1"
+      class="absolute right-0 mt-2 w-48 bg-surface border border-surface-raised rounded-lg shadow-lg z-menu py-1"
       @click.stop
     >
       <div class="px-3 py-2 text-xs text-content-muted border-b border-surface-raised">

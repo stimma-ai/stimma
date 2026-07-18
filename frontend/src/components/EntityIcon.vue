@@ -58,9 +58,9 @@ const boxClass = computed(() => {
   }
 })
 
-// Square types: rounded-lg for sidebar rows & standard cards, a touch rounder
-// (rounded-xl) for the largest landing-card tiles.
-const radiusClass = computed(() => (props.size === 'lg' ? 'rounded-xl' : 'rounded-lg'))
+// Square types: rounded-lg for sidebar rows, standard cards, and the
+// largest landing-card tiles (rounded-xl retired per the radius scale).
+const radiusClass = computed(() => 'rounded-lg')
 
 const shapeClass = computed(() => {
   const shape = props.shape ?? (props.type === 'chat' ? 'circle' : 'rounded')

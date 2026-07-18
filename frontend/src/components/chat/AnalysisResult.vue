@@ -1,6 +1,6 @@
 <template>
   <div
-    class="analysis-result bg-surface rounded-xl border border-edge/50 transition-all duration-200"
+    class="analysis-result bg-surface rounded-lg border border-edge/50 transition-all duration-200"
     :class="expanded ? 'p-4' : 'py-2 px-3'"
   >
     <!-- Header (clickable to expand/collapse) -->

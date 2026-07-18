@@ -10,7 +10,7 @@
       @update:current-media-id="updateCurrentMediaId"
     />
 
-    <div v-show="!slideshowState.active && board" class="flex items-center gap-3 border-b border-white/10 px-6 py-3">
+    <div v-show="!slideshowState.active && board" class="flex items-center gap-3 border-b border-edge-subtle px-6 py-3">
       <div class="flex min-w-0 flex-1 items-baseline gap-3">
         <input
           v-if="isEditingBoardName || editedName"
@@ -33,7 +33,7 @@
       <div class="relative">
         <button
           ref="boardMenuButtonRef"
-          class="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-content-muted transition-colors hover:bg-white/[0.05] hover:text-content"
+          class="flex h-8 w-8 items-center justify-center rounded-lg border border-edge-subtle text-content-muted transition-colors hover:bg-overlay-subtle hover:text-content"
           title="Board actions"
           @click="toggleBoardMenu"
         >
@@ -45,7 +45,7 @@
         <div
           v-if="boardMenuOpen"
           ref="boardMenuRef"
-          class="absolute right-0 top-11 z-20 min-w-[180px] overflow-hidden rounded-xl border border-white/10 bg-surface shadow-2xl"
+          class="absolute right-0 top-11 z-menu min-w-[180px] overflow-hidden rounded-lg border border-edge-subtle bg-surface shadow-2xl"
         >
           <button
             class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
@@ -126,9 +126,9 @@
                   v-for="item in row.items"
                   :key="String(item.id)"
                   :ref="(el) => setTileRef(section.id, item, el)"
-                  class="group relative overflow-hidden rounded-xl text-left"
+                  class="group relative overflow-hidden rounded-media text-left"
                   :class="[
-                    item.__placeholder ? 'bg-white/[0.08]' : 'cursor-grab select-none bg-white/[0.04] hover:scale-[1.04] active:cursor-grabbing',
+                    item.__placeholder ? 'bg-overlay-medium' : 'cursor-grab select-none bg-overlay-subtle active:cursor-grabbing',
                     !item.__placeholder && selectedItemIds.includes(item.id) ? 'ring-[3px] ring-blue-500 ring-inset' : ''
                   ]"
                   :style="{ width: `${item._layoutWidth}px`, height: `${row.height}px` }"
@@ -162,7 +162,7 @@
                   </div>
                   <div
                     v-if="item.__placeholder"
-                    class="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-inset ring-blue-500/70"
+                    class="pointer-events-none absolute inset-0 rounded-media ring-2 ring-inset ring-blue-500/70"
                   />
                   <!-- Marker badges -->
                   <MarkerBadges
@@ -206,10 +206,10 @@
     <Transition name="fade">
       <div
         v-if="dragState.item"
-        class="pointer-events-none absolute bottom-6 left-0 right-0 z-50 flex items-center justify-center gap-3"
+        class="pointer-events-none absolute bottom-6 left-0 right-0 z-chrome flex items-center justify-center gap-3"
       >
         <div
-          class="pointer-events-auto rounded-xl border px-5 py-2.5 shadow-lg transition-all"
+          class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
           :class="dragState.newSectionHover ? 'border-blue-400 bg-blue-500 text-white scale-105 shadow-blue-500/30' : 'border-white/10 bg-zinc-800 text-zinc-200 shadow-black/40'"
           @dragenter.prevent="dragState.newSectionHover = true"
           @dragover.prevent="handleNewSectionDragOver"
@@ -224,7 +224,7 @@
           </div>
         </div>
         <div
-          class="pointer-events-auto rounded-xl border px-5 py-2.5 shadow-lg transition-all"
+          class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
           :class="dragState.removeFromBoardHover ? 'border-red-400 bg-red-500 text-white scale-105 shadow-red-500/30' : 'border-white/10 bg-zinc-800 text-zinc-200 shadow-black/40'"
           @dragenter.prevent="dragState.removeFromBoardHover = true"
           @dragover.prevent="handleRemoveFromBoardDragOver"
@@ -244,11 +244,11 @@
     <Transition name="fade">
       <div
         v-if="dragState.sectionDragId"
-        class="pointer-events-none absolute bottom-6 left-0 right-0 z-50 flex items-center justify-center gap-3"
+        class="pointer-events-none absolute bottom-6 left-0 right-0 z-chrome flex items-center justify-center gap-3"
       >
         <div
           v-if="!draggedSectionIsDefault"
-          class="pointer-events-auto rounded-xl border px-5 py-2.5 shadow-lg transition-all"
+          class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
           :class="dragState.explodeSectionHover ? 'border-blue-400 bg-blue-500 text-white scale-105 shadow-blue-500/30' : 'border-white/10 bg-zinc-800 text-zinc-200 shadow-black/40'"
           @dragenter.prevent="dragState.explodeSectionHover = true"
           @dragover.prevent="dragState.explodeSectionHover = true"
@@ -263,7 +263,7 @@
           </div>
         </div>
         <div
-          class="pointer-events-auto rounded-xl border px-5 py-2.5 shadow-lg transition-all"
+          class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
           :class="dragState.deleteSectionHover ? 'border-red-400 bg-red-500 text-white scale-105 shadow-red-500/30' : 'border-white/10 bg-zinc-800 text-zinc-200 shadow-black/40'"
           @dragenter.prevent="dragState.deleteSectionHover = true"
           @dragover.prevent="dragState.deleteSectionHover = true"

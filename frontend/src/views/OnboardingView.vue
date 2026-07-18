@@ -56,8 +56,8 @@
       <button
         @click="handleGetStarted"
         :disabled="loading"
-        class="w-full max-w-[320px] px-[18px] py-[13px] rounded-xl bg-blue-500 text-white flex items-center justify-center gap-2 transition-all hover:bg-blue-400 active:bg-blue-600 disabled:opacity-60"
-        style="box-shadow: 0 2px 14px rgba(59,130,246,0.22);"
+        class="w-full max-w-[320px] px-[18px] py-[13px] rounded-md bg-accent text-white flex items-center justify-center gap-2 transition-all hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
+        style="box-shadow: 0 2px 14px rgb(var(--color-accent-rgb) / 0.22);"
       >
         <span class="text-sm font-semibold whitespace-nowrap">Get started</span>
         <span class="text-[15px] opacity-85 flex-shrink-0">→</span>

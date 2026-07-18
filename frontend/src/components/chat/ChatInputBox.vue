@@ -22,7 +22,7 @@
     </Transition>
 
     <!-- Rounded input container -->
-    <div class="bg-surface border border-edge rounded-2xl pt-1 overflow-hidden">
+    <div class="bg-surface border border-edge rounded-lg pt-1 overflow-hidden">
       <!-- Optional header above attachments — used by FlowView to render
            the context-reference tray. The unavailable state replaces the
            whole typing region, including empty context. -->
@@ -55,7 +55,7 @@
       <!-- Action bar -->
       <div
         class="flex items-center justify-between px-3 pb-2 pt-2"
-        :class="agentUnavailable ? 'border-t border-white/[0.035]' : ''"
+        :class="agentUnavailable ? 'border-t border-edge-subtle' : ''"
       >
         <!-- Left: model picker + upload button -->
         <div class="flex items-center gap-1">
@@ -66,7 +66,7 @@
           <button
             :disabled="agentUnavailable"
             @click="openUploadPicker"
-            class="w-8 h-8 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-white/[0.05] transition-colors disabled:pointer-events-none disabled:opacity-50"
+            class="w-8 h-8 flex items-center justify-center rounded-full text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors disabled:pointer-events-none disabled:opacity-50"
             title="Add image"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">

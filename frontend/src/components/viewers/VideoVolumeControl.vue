@@ -20,7 +20,7 @@
     <!-- Volume popup with slider + mute -->
     <div
       v-if="showSlider"
-      class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-2 flex flex-col items-center gap-2 bg-black/70 backdrop-blur-xl rounded-xl border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.4)] z-50"
+      class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-2 flex flex-col items-center gap-2 bg-black/70 backdrop-blur-xl rounded-lg border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.4)] z-menu"
       @mousedown.stop
       @click.stop
     >

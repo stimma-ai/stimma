@@ -74,7 +74,7 @@
                 <div
                   v-if="openContextMenu === stimpack.name"
                   @mousedown.stop
-                  class="absolute right-0 top-full mt-1 bg-surface border border-edge rounded-lg shadow-xl z-[10030] w-44 py-1 overflow-hidden"
+                  class="absolute right-0 top-full mt-1 bg-surface border border-edge rounded-lg shadow-xl z-menu w-44 py-1 overflow-hidden"
                 >
                   <div
                     v-if="stimpack.is_dev"
@@ -166,10 +166,10 @@
       <Transition name="modal">
         <div
           v-if="showCatalog"
-          class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+          class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
           @click.self="showCatalog = false"
         >
-          <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[920px] max-w-[92vw] h-[80vh] max-h-[820px] flex flex-col overflow-hidden">
+          <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[920px] max-w-[92vw] h-[80vh] max-h-[820px] flex flex-col overflow-hidden">
             <!-- Header -->
             <div class="flex items-center justify-between px-6 py-4 border-b border-edge">
               <div>
@@ -193,7 +193,7 @@
                 @input="loadCatalog()"
                 type="text"
                 placeholder="Search stimpacks..."
-                class="flex-1 px-3 py-2 text-sm bg-base border border-edge rounded-lg text-content placeholder-content-muted focus:outline-none focus:border-blue-500/50"
+                class="flex-1 px-3 py-2 text-sm bg-base border border-edge rounded-lg text-content placeholder-content-muted focus:outline-none focus:border-accent"
               />
               <label
                 title="Install from a .md or .zip file..."
@@ -215,7 +215,7 @@
                 <div
                   v-for="stimpack in catalogStimpacks"
                   :key="stimpack.name"
-                  class="group border rounded-2xl p-5 transition-all duration-200"
+                  class="group border rounded-lg p-5 transition-all duration-200"
                   :class="installedNames.has(stimpack.name)
                     ? 'border-edge'
                     : 'border-edge hover:border-edge-strong'"
@@ -227,7 +227,7 @@
                       v-if="!installedNames.has(stimpack.name)"
                       @click="handleInstallStimpack(stimpack)"
                       :disabled="installingStimpack === stimpack.name"
-                      class="flex-shrink-0 px-2.5 py-1 text-[11px] font-medium text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-600 border border-blue-500/20 hover:border-blue-500 rounded-lg transition-all disabled:opacity-50"
+                      class="flex-shrink-0 px-2.5 py-1 text-[11px] font-medium text-accent hover:text-white bg-accent/10 hover:bg-accent rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {{ installingStimpack === stimpack.name ? '...' : 'Install' }}
                     </button>
@@ -310,10 +310,10 @@
       <Transition name="modal">
         <div
           v-if="validationResult"
-          class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+          class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
           @click.self="validationResult = null"
         >
-          <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[560px] max-w-[90vw] max-h-[70vh] flex flex-col overflow-hidden">
+          <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[560px] max-w-[90vw] max-h-[70vh] flex flex-col overflow-hidden">
             <div class="flex items-center justify-between px-5 py-3.5 border-b border-edge">
               <div class="flex items-center gap-2">
                 <span class="text-sm font-semibold text-content">Validation</span>

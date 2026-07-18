@@ -11,14 +11,14 @@
 
       <div
         v-if="setupRequired && !wizard"
-        class="mb-5 flex w-full items-center gap-3 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3"
+        class="mb-5 flex w-full items-center gap-3 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-4 py-3"
       >
         <span class="h-2 w-2 shrink-0 rounded-full bg-yellow-400"></span>
         <p class="text-sm text-content-secondary">Connect a chat model to use chat, the agent, and AI-assisted features.</p>
       </div>
 
       <div class="space-y-0.5">
-        <button type="button" class="group flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]" @click="cloudStatus === 'not_logged_in' ? handleCloudConnect() : cloudNeedsCredits ? openAddCredits() : openStimmaAccount()">
+        <button type="button" class="group flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle" @click="cloudStatus === 'not_logged_in' ? handleCloudConnect() : cloudNeedsCredits ? openAddCredits() : openStimmaAccount()">
           <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary" aria-hidden="true">
             <div class="h-7 w-7 bg-current [mask-image:url('/logo.png')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.png')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"></div>
           </div>
@@ -52,7 +52,7 @@
           :key="provider.id || provider.kind"
           type="button"
           @click="openProvider(provider)"
-          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]"
+          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle"
         >
           <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
             <ProviderBrandIcon :provider="provider.kind" size="md" />
@@ -73,7 +73,7 @@
           :key="provider.id"
           type="button"
           @click="openProvider(provider)"
-          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]"
+          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle"
         >
           <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
             <ProviderBrandIcon provider="local" size="md" />
@@ -93,7 +93,7 @@
           v-if="legacyProvider"
           type="button"
           @click="openLegacyProvider"
-          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]"
+          class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle"
         >
           <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
             <ProviderBrandIcon provider="local" size="md" />
@@ -129,7 +129,7 @@
     <!-- Add OpenAI-compatible endpoint -->
     <div v-else-if="addOpen" class="-m-6 min-h-full" @keydown.escape.stop="closeAddProvider">
           <div class="flex items-center gap-3 px-6 pb-2 pt-4">
-            <button type="button" @click="closeAddProvider" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-content-secondary hover:bg-white/[0.05] hover:text-content">
+            <button type="button" @click="closeAddProvider" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-content-secondary hover:bg-overlay-subtle hover:text-content">
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
             </button>
             <div>
@@ -142,15 +142,15 @@
             <div class="space-y-4">
               <label class="block">
                 <span class="mb-1 block text-xs text-content-tertiary">Name <span class="text-content-muted">(optional)</span></span>
-                <input v-model="addDraft.name" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" placeholder="Studio Mac" />
+                <input v-model="addDraft.name" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" placeholder="Studio Mac" />
               </label>
               <label class="block">
                 <span class="mb-1 block text-xs text-content-tertiary">Endpoint URL</span>
-                <input v-model="addDraft.base_url" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" placeholder="http://localhost:1234/v1" />
+                <input v-model="addDraft.base_url" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" placeholder="http://localhost:1234/v1" />
               </label>
               <label class="block">
                 <span class="mb-1 block text-xs text-content-tertiary">API key <span class="text-content-muted">(optional)</span></span>
-                <input v-model="addDraft.api_key" type="password" autocomplete="off" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" placeholder="Leave empty if not required" />
+                <input v-model="addDraft.api_key" type="password" autocomplete="off" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" placeholder="Leave empty if not required" />
               </label>
             </div>
 
@@ -159,7 +159,7 @@
 
           <div class="flex items-center justify-between px-6 pb-4 pt-2">
             <button type="button" @click="closeAddProvider" class="text-xs text-content-secondary hover:text-content">Cancel</button>
-            <button type="button" @click="advanceAddProvider" :disabled="addSaving" class="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50">
+            <button type="button" @click="advanceAddProvider" :disabled="addSaving" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">
               {{ addSaving ? 'Checking…' : 'Continue' }}
             </button>
           </div>
@@ -168,7 +168,7 @@
     <!-- Provider settings -->
     <div v-else-if="managerOpen" class="-m-6 min-h-full" @keydown.escape.stop="managerBack">
           <div class="flex items-center gap-3 px-6 pb-2 pt-4">
-            <button type="button" @click="managerBack" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-content-secondary hover:bg-white/[0.05] hover:text-content">
+            <button type="button" @click="managerBack" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-content-secondary hover:bg-overlay-subtle hover:text-content">
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
             </button>
             <div v-if="selectedManagerModel" class="flex min-w-0 flex-1 items-center gap-3">
@@ -193,10 +193,10 @@
 
           <div ref="managerBody" class="p-6">
             <div v-if="modelAddStep === 'choose'" class="space-y-3">
-              <input v-model="modelSearch" type="search" autofocus placeholder="Search models…" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content placeholder:text-content-muted focus:border-blue-500 focus:outline-none" />
+              <input v-model="modelSearch" type="search" autofocus placeholder="Search models…" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content placeholder:text-content-muted focus:border-accent focus:outline-none" />
               <div v-if="managerLoadingModels" class="py-10 text-center text-sm text-content-muted">Loading models…</div>
               <div v-else-if="availableProviderModels.length" class="space-y-0.5">
-                <button v-for="model in availableProviderModels" :key="model.id" type="button" @click="chooseProviderModel(model)" class="flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-white/[0.025]">
+                <button v-for="model in availableProviderModels" :key="model.id" type="button" @click="chooseProviderModel(model)" class="flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-overlay-subtle">
                   <ModelVendorIcon :model="model" size="md" />
                   <div class="min-w-0 flex-1"><div class="truncate text-sm font-medium text-content">{{ model.name }}</div><div class="mt-0.5 truncate text-[11px] text-content-muted">{{ model.id }}</div></div>
                   <ChevronIcon />
@@ -216,12 +216,12 @@
                 </p>
                 <div v-if="activeProvider.api_key_set && !editingProviderKey" class="mt-4 flex items-center gap-2">
                   <input type="text" value="••••••••••••••••" disabled aria-label="Saved API key" class="min-w-0 flex-1 cursor-not-allowed rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm tracking-wider text-content-muted opacity-70" />
-                  <button type="button" @click="beginProviderKeyEdit" class="rounded-md px-3 py-2 text-sm text-blue-400 hover:bg-white/[0.05] hover:text-blue-300">Change key</button>
+                  <button type="button" @click="beginProviderKeyEdit" class="rounded-md px-3 py-2 text-sm text-blue-400 hover:bg-overlay-subtle hover:text-blue-300">Change key</button>
                 </div>
                 <div v-else class="mt-4 flex items-center gap-2">
-                  <input v-model="providerKeyDraft" type="password" autocomplete="off" class="min-w-0 flex-1 rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" :placeholder="activeProvider.api_key_set ? '••••••••••••' : 'Paste API key'" />
-                  <button type="button" @click="saveProviderConnection" :disabled="managerSaving || !providerKeyDraft" class="rounded-md bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50">{{ activeProvider.api_key_set ? 'Save' : 'Connect' }}</button>
-                  <button v-if="activeProvider.api_key_set" type="button" @click="cancelProviderKeyEdit" :disabled="managerSaving" class="rounded-md px-3 py-2 text-sm text-content-secondary hover:bg-white/[0.05] hover:text-content disabled:opacity-50">Cancel</button>
+                  <input v-model="providerKeyDraft" type="password" autocomplete="off" class="min-w-0 flex-1 rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" :placeholder="activeProvider.api_key_set ? '••••••••••••' : 'Paste API key'" />
+                  <button type="button" @click="saveProviderConnection" :disabled="managerSaving || !providerKeyDraft" class="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ activeProvider.api_key_set ? 'Save' : 'Connect' }}</button>
+                  <button v-if="activeProvider.api_key_set" type="button" @click="cancelProviderKeyEdit" :disabled="managerSaving" class="rounded-md px-3 py-2 text-sm text-content-secondary hover:bg-overlay-subtle hover:text-content disabled:opacity-50">Cancel</button>
                 </div>
                 <p v-if="managerError" class="mt-2 text-xs text-red-400">{{ managerError }}</p>
               </section>
@@ -229,19 +229,19 @@
               <div v-else class="grid gap-3 sm:grid-cols-2">
                 <label class="block">
                   <span class="mb-1 block text-xs text-content-tertiary">Name</span>
-                  <input v-model="activeProvider.name" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" />
+                  <input v-model="activeProvider.name" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" />
                 </label>
                 <label class="block">
                   <span class="mb-1 block text-xs text-content-tertiary">Endpoint URL</span>
-                  <input v-model="activeProvider.base_url" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" />
+                  <input v-model="activeProvider.base_url" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" />
                 </label>
                 <label class="block sm:col-span-2">
                   <span class="mb-1 block text-xs text-content-tertiary">API key <span class="text-content-muted">(optional)</span></span>
-                  <input v-model="providerKeyDraft" type="password" autocomplete="off" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" :placeholder="activeProvider.api_key_set ? 'Leave blank to keep the current key' : 'Leave empty if not required'" />
+                  <input v-model="providerKeyDraft" type="password" autocomplete="off" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" :placeholder="activeProvider.api_key_set ? 'Leave blank to keep the current key' : 'Leave empty if not required'" />
                 </label>
               </div>
               <div v-if="!isRemoteProvider(activeProvider)" class="mt-3 flex items-center gap-3">
-                <button type="button" @click="saveProviderConnection" :disabled="managerSaving" class="rounded-md bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-400 disabled:opacity-50">{{ managerSaving ? 'Checking…' : 'Save connection' }}</button>
+                <button type="button" @click="saveProviderConnection" :disabled="managerSaving" class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ managerSaving ? 'Checking…' : 'Save connection' }}</button>
                 <button type="button" @click="testProvider(activeProvider)" :disabled="testingId === activeProvider.id" class="text-xs text-content-secondary hover:text-content disabled:opacity-50">{{ testingId === activeProvider.id ? 'Testing…' : 'Check connection' }}</button>
                 <span v-if="activeProvider.last_tested_at" class="text-[11px] text-content-muted">Tested {{ timeAgo(activeProvider.last_tested_at) }}</span>
               </div>
@@ -261,7 +261,7 @@
                     :type="activeManager === 'stimma' ? undefined : 'button'"
                     @click="activeManager !== 'stimma' && openModelSettings(model)"
                     class="flex w-full items-center gap-3 px-1 py-3 text-left"
-                    :class="activeManager === 'stimma' ? '' : 'hover:bg-white/[0.025]'"
+                    :class="activeManager === 'stimma' ? '' : 'hover:bg-overlay-subtle'"
                   >
                     <ModelVendorIcon :model="model" size="md" />
                     <div class="min-w-0 flex-1">
@@ -312,7 +312,7 @@
                       </label>
                       <label v-if="isFlexibleProvider(activeProvider)" class="mt-3 block">
                         <span class="mb-1 block text-[11px] text-content-tertiary">Additional instructions</span>
-                        <textarea v-model="modelPrompt(model).extra_system_prompt" rows="3" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 text-xs text-content focus:border-blue-500 focus:outline-none" placeholder="Appended to the system prompt for this model." />
+                        <textarea v-model="modelPrompt(model).extra_system_prompt" rows="3" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 text-xs text-content focus:border-accent focus:outline-none" placeholder="Appended to the system prompt for this model." />
                       </label>
                     </div>
 
@@ -320,11 +320,11 @@
                       <div class="grid gap-3 sm:grid-cols-2">
                         <label class="block">
                           <span class="mb-1 block text-[11px] text-content-tertiary">Display name</span>
-                          <input v-model="model.name" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 text-xs text-content focus:border-blue-500 focus:outline-none" />
+                          <input v-model="model.name" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 text-xs text-content focus:border-accent focus:outline-none" />
                         </label>
                         <label class="block">
                           <span class="mb-1 block text-[11px] text-content-tertiary">Context window</span>
-                          <input v-model.number="model.max_context_tokens" type="number" min="1024" step="1024" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 text-xs text-content focus:border-blue-500 focus:outline-none" />
+                          <input v-model.number="model.max_context_tokens" type="number" min="1024" step="1024" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 text-xs text-content focus:border-accent focus:outline-none" />
                         </label>
                       </div>
                       <label v-if="isFlexibleProvider(activeProvider)" class="block">
@@ -357,7 +357,7 @@
                       <div v-if="model.reasoning.mode !== 'none'" class="grid gap-3 sm:grid-cols-2">
                         <label class="block">
                           <span class="mb-1 block text-[11px] text-content-tertiary">Reasoning levels</span>
-                          <input :value="model.reasoning.levels.join(', ')" @change="setReasoningLevels(model, $event.target.value)" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 text-xs text-content focus:border-blue-500 focus:outline-none" />
+                          <input :value="model.reasoning.levels.join(', ')" @change="setReasoningLevels(model, $event.target.value)" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 text-xs text-content focus:border-accent focus:outline-none" />
                         </label>
                         <label class="block">
                           <span class="mb-1 block text-[11px] text-content-tertiary">Chat default</span>
@@ -367,13 +367,13 @@
 
                       <label v-if="isFlexibleProvider(activeProvider)" class="block">
                         <span class="mb-1 block text-[11px] text-content-tertiary">Extra request body · JSON</span>
-                        <textarea :value="extraBodyText(model)" @input="setExtraBody(model, $event.target.value)" rows="3" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 font-mono text-xs text-content focus:border-blue-500 focus:outline-none" placeholder="{}" />
+                        <textarea :value="extraBodyText(model)" @input="setExtraBody(model, $event.target.value)" rows="3" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 font-mono text-xs text-content focus:border-accent focus:outline-none" placeholder="{}" />
                         <span v-if="extraBodyErrors[model.id]" class="mt-1 block text-[11px] text-red-400">Invalid JSON object</span>
                       </label>
                     </template>
 
                     <p v-if="managerError" class="text-xs text-red-400">{{ managerError }}</p>
-                    <button v-if="isFlexibleProvider(activeProvider)" type="button" @click="saveModelSettings(model)" :disabled="managerSaving || Boolean(extraBodyErrors[model.id])" class="rounded-md bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-400 disabled:opacity-50">{{ managerSaving ? 'Saving…' : 'Save model settings' }}</button>
+                    <button v-if="isFlexibleProvider(activeProvider)" type="button" @click="saveModelSettings(model)" :disabled="managerSaving || Boolean(extraBodyErrors[model.id])" class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ managerSaving ? 'Saving…' : 'Save model settings' }}</button>
                     </template>
                   </div>
                 </div>
@@ -395,7 +395,7 @@
     <!-- Existing local endpoint: preserve the proven endpoint workflow. -->
     <div v-else-if="legacyOpen" class="-m-6 min-h-full" @keydown.escape.stop="closeLegacyProvider">
           <div class="flex items-center gap-3 px-6 pb-2 pt-4">
-            <button type="button" @click="closeLegacyProvider" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-content-secondary hover:bg-white/[0.05] hover:text-content">
+            <button type="button" @click="closeLegacyProvider" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-content-secondary hover:bg-overlay-subtle hover:text-content">
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
             </button>
             <div class="min-w-0">
@@ -407,16 +407,16 @@
             <div class="grid gap-3 sm:grid-cols-2">
               <label class="block sm:col-span-2">
                 <span class="mb-1 block text-xs text-content-tertiary">Endpoint URL</span>
-                <input v-model="legacyDraft.url" @blur="scheduleLegacyProbe" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" />
+                <input v-model="legacyDraft.url" @blur="scheduleLegacyProbe" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" />
               </label>
               <label class="block">
                 <span class="mb-1 block text-xs text-content-tertiary">API key <span class="text-content-muted">(optional)</span></span>
-                <input v-model="legacyKeyDraft" type="password" autocomplete="off" @blur="scheduleLegacyProbe" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" :placeholder="legacyDraft.api_key_set ? 'Leave blank to keep current key' : 'Leave empty if not required'" />
+                <input v-model="legacyKeyDraft" type="password" autocomplete="off" @blur="scheduleLegacyProbe" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" :placeholder="legacyDraft.api_key_set ? 'Leave blank to keep current key' : 'Leave empty if not required'" />
               </label>
               <label class="block">
                 <span class="mb-1 block text-xs text-content-tertiary">Model</span>
                 <SettingsDropdown v-if="legacyModels.length" v-model="legacyDraft.model" control :options="legacyModels.map(model => ({ value: model, label: model }))" @update:model-value="scheduleLegacyProbe" />
-                <input v-else v-model="legacyDraft.model" @blur="scheduleLegacyProbe" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" />
+                <input v-else v-model="legacyDraft.model" @blur="scheduleLegacyProbe" class="w-full rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" />
               </label>
             </div>
 
@@ -449,7 +449,7 @@
               </label>
               <label class="mt-3 block">
                 <span class="mb-1 block text-[11px] text-content-tertiary">Additional instructions</span>
-                <textarea v-model="legacyDraft.extra_system_prompt" rows="3" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 text-xs text-content focus:border-blue-500 focus:outline-none" placeholder="Appended to the system prompt for this model." />
+                <textarea v-model="legacyDraft.extra_system_prompt" rows="3" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 text-xs text-content focus:border-accent focus:outline-none" placeholder="Appended to the system prompt for this model." />
               </label>
             </div>
 
@@ -474,7 +474,7 @@
             <label class="block py-2">
               <span class="text-xs font-medium text-content">Extra request body</span>
               <span class="mb-2 mt-0.5 block text-[11px] text-content-muted">Merged into every request for this model.</span>
-              <textarea v-model="legacyExtraBodyText" rows="3" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 font-mono text-xs text-content focus:border-blue-500 focus:outline-none" placeholder='{ "repetition_penalty": 1.05 }' />
+              <textarea v-model="legacyExtraBodyText" rows="3" class="w-full rounded-md border border-edge bg-surface-raised px-2.5 py-2 font-mono text-xs text-content focus:border-accent focus:outline-none" placeholder='{ "repetition_penalty": 1.05 }' />
               <span v-if="legacyExtraBodyError" class="mt-1 block text-[11px] text-red-400">{{ legacyExtraBodyError }}</span>
             </label>
             <p v-if="legacyActionError" class="text-xs text-red-400">{{ legacyActionError }}</p>
@@ -483,7 +483,7 @@
             <button type="button" @click="removeLegacyProvider" :disabled="legacySaving" class="inline-flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 disabled:opacity-50">
               <TrashIcon /> Remove endpoint
             </button>
-            <button type="button" @click="saveLegacyEndpoint" :disabled="legacySaving || Boolean(legacyExtraBodyError)" class="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:opacity-50">{{ legacySaving ? 'Saving…' : 'Save' }}</button>
+            <button type="button" @click="saveLegacyEndpoint" :disabled="legacySaving || Boolean(legacyExtraBodyError)" class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed">{{ legacySaving ? 'Saving…' : 'Save' }}</button>
           </div>
     </div>
 

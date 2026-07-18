@@ -91,7 +91,7 @@
               >
                 <div :class="[
                   'w-6 h-6 bg-black/60 backdrop-blur-md border-2 rounded-md flex items-center justify-center transition-all cursor-pointer',
-                  isSelected(assetIdOf(rowItem)) ? 'bg-blue-500 border-blue-500' : 'border-edge-strong hover:border-edge-strong'
+                  isSelected(assetIdOf(rowItem)) ? 'bg-selection border-selection' : 'border-edge-strong hover:border-edge-strong'
                 ]">
                   <svg v-if="isSelected(assetIdOf(rowItem))" class="w-4 h-4 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />

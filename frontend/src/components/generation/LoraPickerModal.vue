@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div
-      class="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]"
+      class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal"
       @click="$emit('close')"
       @keydown.escape="$emit('close')"
     >
@@ -28,16 +28,16 @@
               v-if="uploadConfig"
               @click="fileInputRef?.click()"
               type="button"
-              class="text-[10px] uppercase tracking-wider text-content-muted/50 hover:text-blue-500 transition-colors"
-            >upload</button>
+              class="text-xs font-semibold text-content-secondary hover:text-blue-500 transition-colors"
+            >Upload</button>
             <button
               @click="$emit('toggle-raw')"
               type="button"
               :class="[
-                'text-[10px] uppercase tracking-wider transition-colors',
-                showRaw ? 'text-blue-500' : 'text-content-muted/50 hover:text-content-muted'
+                'text-xs font-semibold transition-colors',
+                showRaw ? 'text-blue-500' : 'text-content-secondary hover:text-content'
               ]"
-            >raw</button>
+            >Raw</button>
             <button
               @click="$emit('close')"
               type="button"
@@ -66,7 +66,7 @@
               v-model="searchQuery"
               type="text"
               placeholder="Search LoRAs..."
-              class="w-full pl-10 pr-4 py-2.5 bg-surface-overlay border border-surface-raised rounded-lg text-content-secondary text-sm focus:outline-none focus:border-blue-500 transition-colors"
+              class="w-full pl-10 pr-4 py-2.5 bg-surface-overlay border border-surface-raised rounded-lg text-content-secondary text-sm focus:outline-none focus:border-accent transition-colors"
               @keydown.enter="addSelected"
               @keydown.escape="$emit('close')"
               @keydown.down.prevent="navigateDown"

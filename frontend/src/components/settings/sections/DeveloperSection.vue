@@ -15,7 +15,7 @@
         <button
           @click="toggleDeveloperMode"
           :class="[
-            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-surface',
+            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface',
             localDevMode ? 'bg-blue-600' : 'bg-surface-hover'
           ]"
         >
@@ -39,7 +39,7 @@
           <button
             @click="toggleHidePrices"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-surface',
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface',
               hidePricesRef ? 'bg-blue-600' : 'bg-surface-hover'
             ]"
           >
@@ -61,7 +61,7 @@
           <button
             @click="toggleHideAccount"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-surface',
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface',
               hideAccountRef ? 'bg-blue-600' : 'bg-surface-hover'
             ]"
           >
@@ -83,7 +83,7 @@
           <button
             @click="toggleForceFfmpegMissing"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-surface',
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface',
               localForceFfmpegMissing ? 'bg-blue-600' : 'bg-surface-hover'
             ]"
           >
@@ -195,8 +195,8 @@
     />
 
     <!-- Request Metrics Modal -->
-    <div v-if="showRequestMetricsModal" class="fixed inset-0 z-[10030] bg-overlay-backdrop backdrop-blur-sm p-4 flex flex-col" @click.self="closeRequestMetricsModal">
-      <div class="w-full h-full bg-surface border border-edge rounded-xl shadow-2xl flex flex-col overflow-hidden">
+    <div v-if="showRequestMetricsModal" class="fixed inset-0 z-modal bg-overlay-backdrop backdrop-blur-sm p-4 flex flex-col" @click.self="closeRequestMetricsModal">
+      <div class="w-full h-full bg-surface border border-edge rounded-lg shadow-2xl flex flex-col overflow-hidden">
         <div class="px-5 py-4 border-b border-edge flex items-center justify-between">
           <div>
             <h3 class="text-base font-semibold text-content">Request Latency Metrics</h3>
@@ -219,12 +219,12 @@
             v-model="metricsSearch"
             type="text"
             placeholder="Filter by method or path"
-            class="w-[320px] max-w-full bg-surface-raised border border-edge rounded px-2.5 py-1.5 text-xs text-content focus:outline-none focus:border-blue-500"
+            class="w-[320px] max-w-full bg-surface-raised border border-edge rounded px-2.5 py-1.5 text-xs text-content focus:outline-none focus:border-accent"
           />
           <select
             v-model="metricsSortBy"
             @change="loadRequestMetrics"
-            class="bg-surface-raised border border-edge rounded px-2 py-1.5 text-xs text-content focus:outline-none focus:border-blue-500"
+            class="bg-surface-raised border border-edge rounded px-2 py-1.5 text-xs text-content focus:outline-none focus:border-accent"
           >
             <option value="p95_ms">Sort: p95</option>
             <option value="p99_ms">Sort: p99</option>
@@ -304,7 +304,7 @@
                 <td class="px-3 py-2 text-right">
                   <span
                     class="inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded border"
-                    :class="row.status_5xx > 0 ? 'bg-red-500/15 border-red-500/50 text-red-500' : 'bg-white/[0.05] border-white/10 text-[#888]'"
+                    :class="row.status_5xx > 0 ? 'bg-red-500/15 border-red-500/50 text-red-500' : 'border-edge-subtle bg-overlay-light text-content-tertiary'"
                   >
                     {{ row.status_5xx }}
                   </span>

@@ -3,10 +3,10 @@
     <Transition name="modal">
       <div
         v-if="show"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="cancel"
       >
-        <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[500px] max-w-[90vw] overflow-hidden">
+        <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[500px] max-w-[90vw] overflow-hidden">
           <!-- Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-edge">
             <h2 class="text-lg font-semibold text-content">Add Folder</h2>
@@ -33,7 +33,7 @@
                 ref="inputRef"
                 v-model="folderPath"
                 type="text"
-                class="w-full px-3 py-2 bg-surface-raised border border-edge rounded-lg text-content placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                class="w-full px-3 py-2 bg-surface-raised border border-edge rounded-lg text-content placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                 placeholder="/path/to/media/folder"
                 @keydown.enter="submit"
                 @keydown.escape="cancel"
@@ -52,7 +52,7 @@
             <button
               @click="submit"
               :disabled="!folderPath.trim()"
-              class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-500 disabled:bg-surface-raised disabled:text-content-muted text-white rounded-lg transition-colors"
+              class="px-4 py-2 text-sm font-medium bg-accent hover:bg-accent/90 disabled:bg-surface-raised disabled:text-content-muted disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md transition-colors"
             >
               Add Folder
             </button>

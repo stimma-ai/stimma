@@ -2,7 +2,7 @@
   <div :class="modalMode ? 'flex flex-col h-full' : 'space-y-2 mb-6 overflow-x-hidden'" data-drop-zone="mask-editor">
     <!-- Label row (hidden in modal mode) -->
     <div v-if="!modalMode">
-      <label class="text-xs font-medium text-content-muted uppercase tracking-wide">Source Image</label>
+      <label class="text-xs font-semibold text-content-secondary">Source image</label>
     </div>
 
     <!-- Toolbar (always visible, disabled when no image) -->
@@ -124,7 +124,7 @@
         v-model.number="expandContractPercent"
         :disabled="!hasImage || !hasMask()"
         :class="[
-          'h-full bg-surface border border-surface-raised rounded px-2 text-xs focus:outline-none focus:border-blue-500/50',
+          'h-full bg-surface border border-surface-raised rounded px-2 text-xs focus:outline-none focus:border-accent',
           hasImage && hasMask() ? 'text-content-secondary' : 'text-content-muted cursor-not-allowed opacity-50'
         ]"
       >

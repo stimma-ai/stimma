@@ -9,7 +9,7 @@
       <button
         @click="$emit('submit')"
         :disabled="!canSubmit || isSubmitting"
-        class="px-4 py-3 bg-blue-500 rounded-lg text-white text-base font-semibold cursor-pointer transition-colors disabled:bg-[#1a2a3a] disabled:cursor-not-allowed disabled:opacity-50 hover:bg-blue-600 flex items-center justify-center gap-2"
+        class="px-4 py-3 bg-accent hover:bg-accent/90 rounded-lg text-white text-base font-semibold cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         <span v-if="isSubmitting">Submitting...</span>
         <template v-else>
@@ -54,7 +54,7 @@
         <Transition name="fade">
           <div
             v-if="showOptionsMenu"
-            class="absolute right-0 top-10 z-50"
+            class="absolute right-0 top-10 z-menu"
             @click.stop
           >
             <ToolMenu

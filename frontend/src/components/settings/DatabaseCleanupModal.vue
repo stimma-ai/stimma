@@ -2,10 +2,10 @@
   <Teleport to="body">
     <div
       v-if="show"
-      class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop p-4 backdrop-blur-sm"
+      class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop p-4 backdrop-blur-sm"
       @click.self="close"
     >
-      <div class="flex max-h-[90vh] w-[860px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-edge bg-surface shadow-2xl">
+      <div class="flex max-h-[90vh] w-[860px] max-w-[95vw] flex-col overflow-hidden rounded-lg border border-edge bg-surface shadow-2xl">
         <div class="flex items-start justify-between border-b border-edge px-6 py-4">
           <div>
             <h2 class="text-lg font-semibold text-content">Database maintenance</h2>
@@ -24,7 +24,7 @@
         </div>
 
         <div class="flex-1 space-y-4 overflow-y-auto p-6">
-          <div class="rounded-lg border border-white/10 bg-white/[0.05] p-4 text-sm text-content-secondary">
+          <div class="rounded-lg border border-edge-subtle bg-overlay-light p-4 text-sm text-content-secondary">
             <p>This tool analyzes historical SQLite foreign-key debris. Analysis is read-only and cleanup never runs automatically.</p>
             <p class="mt-2 text-xs text-content-tertiary">It does not delete Assets, Media, revisions, StorageObjects, managed files, or source files. It does not reconstruct lineage or run VACUUM.</p>
           </div>
@@ -89,7 +89,7 @@
                       <td class="px-3 py-3">
                         <span
                           class="inline-flex rounded border px-2 py-0.5"
-                          :class="group.repairable ? 'border-blue-500/50 bg-blue-500/15 text-blue-500' : 'border-white/10 bg-white/[0.05] text-[#888]'"
+                          :class="group.repairable ? 'border-blue-500/50 bg-blue-500/15 text-blue-500' : 'border-edge-subtle bg-overlay-light text-content-tertiary'"
                         >
                           {{ findingHandlingLabel(group) }}
                         </span>
@@ -125,7 +125,7 @@
           </button>
           <button
             :disabled="busy"
-            class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-40"
+            class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
             @click="maintenance.analyzeDatabase()"
           >
             {{ maintenance.analysis ? 'Analyze again' : 'Analyze database' }}

@@ -4,7 +4,7 @@
     <div
       class="flex items-center gap-1.5 h-[34px] w-[420px] rounded-lg border pl-2.5 pr-1 transition-colors"
       :class="isOpen
-        ? 'bg-surface border-blue-500/50 shadow-[0_0_0_3px_rgba(59,130,246,0.12)]'
+        ? 'bg-surface border-accent/50 shadow-[0_0_0_3px_rgba(var(--color-accent-rgb),0.12)]'
         : 'bg-overlay-subtle border-edge-subtle hover:border-edge'"
     >
       <svg class="w-3.5 h-3.5 flex-shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -54,20 +54,20 @@
     <div
       v-if="isOpen && (sections.length > 0 || query.trim() || loading)"
       ref="dropdownRef"
-      class="absolute top-[calc(100%+0.5rem)] left-1/2 -translate-x-1/2 w-[560px] max-h-[70vh] overflow-y-auto custom-scrollbar bg-surface border border-edge rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.55)] z-[10000]"
+      class="absolute top-[calc(100%+0.5rem)] left-1/2 -translate-x-1/2 w-[560px] max-h-[70vh] overflow-y-auto custom-scrollbar bg-surface border border-edge rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.55)] z-menu"
     >
       <template v-for="(section, sIdx) in sections" :key="section.title">
         <div v-if="sIdx > 0" class="border-t border-edge-subtle"></div>
         <div class="py-1.5">
           <div class="flex items-center justify-between px-3.5 pt-1 pb-0.5">
-            <div class="text-[10.5px] font-semibold uppercase tracking-wider text-content-muted">
+            <div class="text-xs font-semibold text-content-secondary">
               {{ section.title }}
             </div>
             <button
               v-if="section.action"
               :data-search-idx="section.action.index"
               class="text-[11px] rounded px-1.5 py-0.5 -my-0.5 cursor-pointer transition-colors"
-              :class="section.action.index === selectedIndex ? 'bg-blue-500/15 text-blue-400' : 'text-blue-400/80 hover:text-blue-400'"
+              :class="section.action.index === selectedIndex ? 'bg-accent/15 text-accent' : 'text-accent/80 hover:text-accent'"
               @mouseenter="selectedIndex = section.action.index"
               @click="activateItem(section.action)"
             >{{ section.action.label }}</button>
@@ -80,7 +80,7 @@
               :key="item.key"
               :data-search-idx="item.index"
               class="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border transition-all cursor-pointer"
-              :class="item.index === selectedIndex ? 'border-blue-500 ring-2 ring-blue-500/40' : 'border-edge-subtle hover:border-edge-strong'"
+              :class="item.index === selectedIndex ? 'border-accent ring-2 ring-accent/40' : 'border-edge-subtle hover:border-edge-strong'"
               @mouseenter="selectedIndex = item.index"
               @click="activateItem(item)"
             >
@@ -104,7 +104,7 @@
               :key="item.key"
               :data-search-idx="item.index"
               class="w-full flex items-center gap-2.5 px-3.5 py-2 text-left cursor-pointer transition-colors"
-              :class="item.index === selectedIndex ? 'bg-blue-500/15' : 'hover:bg-overlay-subtle'"
+              :class="item.index === selectedIndex ? 'bg-accent/15' : 'hover:bg-overlay-subtle'"
               @mouseenter="selectedIndex = item.index"
               @click="activateItem(item)"
             >
@@ -113,7 +113,7 @@
                    (brand colors) per TaskTypeToolList -->
               <div
                 class="w-6 h-6 flex-shrink-0 flex items-center justify-center"
-                :class="isEscapeKind(item.kind) ? 'text-blue-400'
+                :class="isEscapeKind(item.kind) ? 'text-accent'
                   : ((item.kind === 'tool' || item.kind === 'tool-instance') && item.provider?.cloud) ? ''
                   : 'text-content-secondary'"
               >
@@ -161,10 +161,10 @@
                 <div class="flex items-center gap-1.5 min-w-0">
                   <div
                     class="text-[13px] truncate"
-                    :class="isEscapeKind(item.kind) ? 'text-blue-400' : 'text-content'"
+                    :class="isEscapeKind(item.kind) ? 'text-accent' : 'text-content'"
                   >
                     <template v-if="item.highlight">
-                      <template v-for="(seg, i) in matchSegments(item.label, query)" :key="i"><span :class="seg.match ? 'text-blue-400 font-semibold' : ''">{{ seg.text }}</span></template>
+                      <template v-for="(seg, i) in matchSegments(item.label, query)" :key="i"><span :class="seg.match ? 'text-accent font-semibold' : ''">{{ seg.text }}</span></template>
                     </template>
                     <template v-else>{{ item.label }}</template>
                   </div>

@@ -28,7 +28,7 @@
       <div
         v-if="showMenu"
         ref="menuRef"
-        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[9999] py-1 min-w-[200px] max-h-[400px] overflow-y-auto"
+        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu py-1 min-w-[200px] max-h-[400px] overflow-y-auto"
         :style="menuStyle"
       >
         <!-- Filter box -->
@@ -49,7 +49,7 @@
 
         <!-- Original tool section (if exists) -->
         <template v-if="!searchQuery.trim() && originalTool">
-          <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+          <div class="px-3 py-1.5 text-xs font-semibold text-content-secondary">
             Original
           </div>
           <button
@@ -70,8 +70,8 @@
         <!-- Active tool instances: eligible open tool tabs (incl. renamed
              stations), targeted exactly. Mirrors Send to Tool's section. -->
         <template v-if="filteredOpenInstances.length > 0">
-          <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
-            Active Tools
+          <div class="px-3 py-1.5 text-xs font-semibold text-content-secondary">
+            Active tools
           </div>
           <button
             v-for="row in filteredOpenInstances"
@@ -123,7 +123,7 @@
         <template v-else>
           <!-- Recent tools section -->
           <template v-if="recentTools.length > 0">
-            <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
+            <div class="px-3 py-1.5 text-xs font-semibold text-content-secondary">
               Recent
             </div>
             <button
@@ -144,8 +144,8 @@
 
           <!-- All tools section -->
           <div v-if="recentTools.length > 0" class="border-t border-edge-subtle my-1"></div>
-          <div class="px-3 py-1.5 text-[10px] font-semibold text-content-muted uppercase tracking-wider">
-            {{ originalTool ? 'All Tools' : 'Tools' }}
+          <div class="px-3 py-1.5 text-xs font-semibold text-content-secondary">
+            {{ originalTool ? 'All tools' : 'Tools' }}
           </div>
           <button
             v-for="tool in otherTools"

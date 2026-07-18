@@ -16,6 +16,6 @@ const props = defineProps({
 
 const toneClass = computed(() => props.tone === 'blue'
   ? 'border-blue-500/50 bg-blue-500/15'
-  : 'border-white/10 bg-white/[0.05]')
+  : 'border-edge-subtle bg-overlay-light')
 const valueClass = computed(() => props.tone === 'blue' ? 'text-blue-500' : 'text-content')
 </script>

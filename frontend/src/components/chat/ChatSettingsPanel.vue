@@ -9,7 +9,7 @@
         <!-- Additional Instructions section -->
         <div>
           <div class="flex items-center justify-between mb-1.5">
-            <h4 class="text-[11px] font-medium text-content-muted uppercase tracking-wider">Additional Instructions</h4>
+            <h4 class="text-xs font-semibold text-content-secondary">Additional instructions</h4>
             <button
               @click="showInstructionsModal = true"
               class="p-1 text-content-muted hover:text-content-secondary transition-colors"
@@ -24,7 +24,7 @@
             v-model="localInstructions"
             placeholder="Give the agent special instructions for this chat..."
             rows="6"
-            class="w-full bg-surface text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 resize-none"
+            class="w-full bg-surface text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent resize-none"
             @blur="saveInstructions"
           />
           <p class="text-[11px] text-content-muted mt-1 leading-relaxed">
@@ -36,7 +36,7 @@
              approval is "always" (global), so chat-scoped entries are the exception;
              an empty section here would be pure noise. -->
         <div v-if="configuredTools.length > 0">
-          <h4 class="text-[11px] font-medium text-content-muted uppercase tracking-wider mb-1.5">Tool Permissions for this Chat</h4>
+          <h4 class="text-xs font-semibold text-content-secondary mb-1.5">Tool permissions for this chat</h4>
           <div class="bg-surface rounded-lg border border-edge overflow-hidden">
             <ToolConfigRow
               v-for="(tool, idx) in configuredTools"

@@ -77,12 +77,12 @@
       </div>
       <div class="flex flex-wrap gap-2">
         <button
-          class="bg-overlay-subtle border border-edge text-content text-xs font-medium px-3 py-1 rounded hover:bg-overlay-hover transition-colors"
+          class="bg-overlay-subtle text-content text-xs font-medium px-3 py-1 rounded-md hover:bg-overlay-hover transition-colors"
           @click="submitErrorAction('skip')"
           v-if="taskInLoop"
         >Skip</button>
         <button
-          class="bg-overlay-subtle border border-edge text-content text-xs font-medium px-3 py-1 rounded hover:bg-overlay-hover transition-colors"
+          class="bg-overlay-subtle text-content text-xs font-medium px-3 py-1 rounded-md hover:bg-overlay-hover transition-colors"
           @click="$emit('edit-flow', task)"
         >Edit flow</button>
       </div>
@@ -104,19 +104,19 @@
       </div>
       <div class="flex flex-wrap gap-2">
         <button
-          class="bg-blue-500 text-white text-xs font-medium px-3 py-1 rounded hover:bg-blue-600 transition-colors"
+          class="bg-accent text-white text-xs font-medium px-3 py-1 rounded-md hover:bg-accent/90 transition-colors"
           @click="$emit('fix-step-with-agent', task)"
         >Ask the agent for help</button>
         <button
-          class="bg-overlay-subtle border border-edge text-content text-xs font-medium px-3 py-1 rounded hover:bg-overlay-hover transition-colors"
+          class="bg-overlay-subtle text-content text-xs font-medium px-3 py-1 rounded-md hover:bg-overlay-hover transition-colors"
           @click="submitErrorAction('retry')"
         >Retry</button>
         <button
-          class="bg-overlay-subtle border border-edge text-content text-xs font-medium px-3 py-1 rounded hover:bg-overlay-hover transition-colors"
+          class="bg-overlay-subtle text-content text-xs font-medium px-3 py-1 rounded-md hover:bg-overlay-hover transition-colors"
           @click="submitErrorAction('skip')"
         >Skip</button>
         <button
-          class="bg-overlay-subtle border border-edge text-content text-xs font-medium px-3 py-1 rounded hover:bg-overlay-hover transition-colors"
+          class="bg-overlay-subtle text-content text-xs font-medium px-3 py-1 rounded-md hover:bg-overlay-hover transition-colors"
           @click="$emit('edit-flow', task)"
         >Edit flow</button>
       </div>

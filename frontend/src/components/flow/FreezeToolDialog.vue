@@ -3,11 +3,11 @@
     <Transition name="freeze-modal">
       <div
         v-if="show"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="cancel"
         @keydown.esc="cancel"
       >
-        <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[480px] max-w-[92vw] max-h-[88vh] flex flex-col overflow-hidden">
+        <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[480px] max-w-[92vw] max-h-[88vh] flex flex-col overflow-hidden">
           <!-- Header -->
           <div class="flex items-center gap-2 px-4 py-3 border-b border-edge-subtle">
             <span class="font-semibold text-sm text-content">{{ isEdit ? 'Edit custom tool' : 'Save as Custom Tool' }}</span>
@@ -56,7 +56,7 @@
                   v-model="name"
                   type="text"
                   placeholder="Tool name"
-                  class="w-full bg-base text-content text-[12.5px] border border-edge rounded-md px-2.5 py-1.5 focus:outline-none focus:border-blue-500/60"
+                  class="w-full bg-base text-content text-[12.5px] border border-transparent rounded-md px-2.5 py-1.5 focus:outline-none focus:border-accent"
                 />
               </div>
 
@@ -67,7 +67,7 @@
                   v-model="description"
                   type="text"
                   placeholder="What does this tool do?"
-                  class="w-full bg-base text-content text-[12.5px] border border-edge rounded-md px-2.5 py-1.5 focus:outline-none focus:border-blue-500/60"
+                  class="w-full bg-base text-content text-[12.5px] border border-transparent rounded-md px-2.5 py-1.5 focus:outline-none focus:border-accent"
                 />
               </div>
 
@@ -86,7 +86,7 @@
                 </div>
                 <select
                   v-model="taskType"
-                  class="w-full bg-base text-content text-[12.5px] border border-edge rounded-md px-2.5 py-1.5 focus:outline-none focus:border-blue-500/60"
+                  class="w-full bg-base text-content text-[12.5px] border border-transparent rounded-md px-2.5 py-1.5 focus:outline-none focus:border-accent"
                 >
                   <option v-for="tt in availableTaskTypes" :key="tt" :value="tt">{{ formatTaskType(tt) }}</option>
                 </select>
@@ -107,7 +107,7 @@
                   </div>
                   <select
                     v-model="hitlPolicies[node.key]"
-                    class="bg-surface-raised border border-edge rounded-md text-content text-[11.5px] px-2 py-1 focus:outline-none focus:border-blue-500/60 flex-shrink-0"
+                    class="bg-surface-raised border border-transparent rounded-md text-content text-[11.5px] px-2 py-1 focus:outline-none focus:border-accent flex-shrink-0"
                   >
                     <option v-for="opt in node.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                   </select>
@@ -124,7 +124,7 @@
                 <label class="block text-[11px] text-content-secondary mb-1">{{ requiredOutputs.length > 1 ? outputLabel(out) : 'Output' }}</label>
                 <select
                   v-model="outputMap[out]"
-                  class="w-full bg-base text-content text-[12.5px] border border-edge rounded-md px-2.5 py-1.5 focus:outline-none focus:border-blue-500/60"
+                  class="w-full bg-base text-content text-[12.5px] border border-transparent rounded-md px-2.5 py-1.5 focus:outline-none focus:border-accent"
                 >
                   <option v-if="flowOutputNames.length === 0" :value="undefined" disabled>This flow has no outputs</option>
                   <option v-for="fo in flowOutputNames" :key="fo" :value="fo">{{ fo }}</option>
@@ -150,12 +150,12 @@
 
             <button
               @click="cancel"
-              class="text-[12px] text-content-secondary bg-surface-raised border border-edge rounded-md px-3 py-1.5 hover:bg-overlay-subtle transition-colors"
+              class="text-[12px] text-content-secondary bg-surface-raised rounded-md px-3 py-1.5 hover:bg-overlay-subtle transition-colors"
             >Cancel</button>
             <button
               @click="handleSave"
               :disabled="!canSave || saving || deleting"
-              class="text-[12px] text-white bg-blue-500 hover:bg-blue-400 rounded-md px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              class="text-[12px] text-white bg-accent hover:bg-accent/90 rounded-md px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {{ saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Save as Custom Tool') }}
             </button>

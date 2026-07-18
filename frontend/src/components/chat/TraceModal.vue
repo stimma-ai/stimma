@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div
         v-if="show"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="close"
       >
         <div class="bg-surface border border-edge rounded-lg shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col">
@@ -101,7 +101,7 @@
             <template v-else-if="trace">
               <!-- Messages -->
               <div class="space-y-3">
-                <h4 class="text-xs text-content-tertiary uppercase font-semibold">Messages Sent to LLM</h4>
+                <h4 class="text-xs font-semibold text-content-secondary">Messages sent to LLM</h4>
                 <div
                   v-for="(msg, i) in trace.messages"
                   :key="i"
@@ -143,7 +143,7 @@
 
               <!-- Response -->
               <div class="space-y-3">
-                <h4 class="text-xs text-content-tertiary uppercase font-semibold">Raw LLM Response</h4>
+                <h4 class="text-xs font-semibold text-content-secondary">Raw LLM response</h4>
                 <div class="rounded-lg border border-emerald-500/30 overflow-hidden">
                   <div
                     class="flex items-center justify-between px-3 py-2 bg-emerald-500/10 cursor-pointer"
@@ -190,7 +190,7 @@
             </button>
             <button
               @click="close"
-              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+              class="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-md font-medium"
             >
               Close
             </button>

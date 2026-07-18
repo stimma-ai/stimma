@@ -28,7 +28,7 @@
 
       <!-- Played-portion tint -->
       <div
-        class="absolute inset-y-0 left-0 bg-blue-500/15 pointer-events-none"
+        class="absolute inset-y-0 left-0 bg-accent/15 pointer-events-none"
         :style="{ width: progress + '%' }"
       />
       <!-- Playhead: only once playback has actually advanced — at progress 0 it's

@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div
         v-if="show"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="close"
       >
         <div class="bg-surface border border-edge rounded-lg shadow-2xl max-w-2xl w-full mx-4">
@@ -50,32 +50,11 @@
             </div>
 
             <!-- Job Details -->
-            <div class="space-y-3">
-              <div class="flex justify-between text-sm">
-                <span class="text-content-tertiary">Job ID</span>
-                <span class="text-content font-mono">#{{ job?.id }}</span>
-              </div>
-              <div class="flex justify-between text-sm">
-                <span class="text-content-tertiary">Tool</span>
-                <span class="text-content">{{ job?.model_name || 'N/A' }}</span>
-              </div>
-              <div v-if="params?.width && params?.height" class="flex justify-between text-sm">
-                <span class="text-content-tertiary">Dimensions</span>
-                <span class="text-content">{{ params.width }} × {{ params.height }}</span>
-              </div>
-              <div v-if="params?.seed" class="flex justify-between text-sm">
-                <span class="text-content-tertiary">Seed</span>
-                <span class="text-content font-mono">{{ params.seed }}</span>
-              </div>
-              <div v-if="job?.created_at" class="flex justify-between text-sm">
-                <span class="text-content-tertiary">Submitted</span>
-                <span class="text-content">{{ formatTime(job.created_at) }}</span>
-              </div>
-            </div>
+            <KeyValueList :rows="jobDetailRows" />
 
             <!-- Prompt (collapsible if long) -->
             <div v-if="params?.prompt">
-              <div class="text-xs text-content-tertiary uppercase font-semibold mb-2">Prompt</div>
+              <div class="text-xs font-semibold text-content-secondary mb-2">Prompt</div>
               <div class="bg-base rounded-lg p-3 text-sm text-content-secondary max-h-32 overflow-y-auto">
                 {{ params.prompt }}
               </div>
@@ -86,7 +65,7 @@
           <div class="px-6 py-4 border-t border-edge flex gap-3 justify-end">
             <button
               @click="retry"
-              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
+              class="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-md font-medium flex items-center gap-2"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
                 <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0v2.43l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clip-rule="evenodd" />
@@ -109,6 +88,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { copyToClipboard } from '../../utils/clipboard'
+import KeyValueList, { type KeyValueRow } from '../ui/KeyValueList.vue'
 
 interface Job {
   id: number
@@ -150,6 +130,23 @@ const params = computed(() => {
   } catch {
     return null
   }
+})
+
+const jobDetailRows = computed<KeyValueRow[]>(() => {
+  const rows: KeyValueRow[] = [
+    { label: 'Job ID', value: `#${props.job?.id ?? ''}` },
+    { label: 'Tool', value: props.job?.model_name || 'N/A', mono: false },
+  ]
+  if (params.value?.width && params.value?.height) {
+    rows.push({ label: 'Dimensions', value: `${params.value.width} × ${params.value.height}`, mono: false })
+  }
+  if (params.value?.seed) {
+    rows.push({ label: 'Seed', value: params.value.seed })
+  }
+  if (props.job?.created_at) {
+    rows.push({ label: 'Submitted', value: formatTime(props.job.created_at), mono: false })
+  }
+  return rows
 })
 
 function formatTime(isoString: string): string {

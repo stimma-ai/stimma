@@ -8,7 +8,7 @@
           <button
             v-if="errorMessage"
             @click="showRaw = !showRaw"
-            class="text-[11px] uppercase tracking-wide transition-colors select-none"
+            class="text-xs font-semibold transition-colors select-none"
             :class="showRaw ? 'text-blue-400' : 'text-content-muted/40 hover:text-content-muted'"
           >
             Raw

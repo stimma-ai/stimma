@@ -1,6 +1,6 @@
 <template>
   <div
-    class="bg-surface/80 rounded-xl border border-edge-subtle overflow-hidden transition-all duration-200"
+    class="bg-surface/80 rounded-lg border border-edge-subtle overflow-hidden transition-all duration-200"
     :class="expanded ? 'min-w-[400px]' : ''"
   >
     <!-- Header -->
@@ -27,7 +27,7 @@
     <div v-show="expanded" class="px-3.5 py-3 space-y-3 select-text">
       <!-- Tasks -->
       <div v-if="tasks.length">
-        <div class="text-[11px] uppercase tracking-wide text-content-muted mb-1.5">Tasks</div>
+        <div class="text-xs font-semibold text-content-secondary mb-1.5">Tasks</div>
         <div class="space-y-1">
           <div
             v-for="task in tasks"
@@ -59,7 +59,7 @@
 
       <!-- Scratchpad -->
       <div v-if="scratchpad">
-        <div class="text-[11px] uppercase tracking-wide text-content-muted mb-1.5">Scratchpad</div>
+        <div class="text-xs font-semibold text-content-secondary mb-1.5">Scratchpad</div>
         <pre class="text-sm text-content-secondary whitespace-pre-wrap font-mono leading-relaxed">{{ scratchpad }}</pre>
       </div>
     </div>

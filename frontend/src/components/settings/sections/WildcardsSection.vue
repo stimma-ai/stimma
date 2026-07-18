@@ -12,7 +12,7 @@
       <div
         v-for="(wildcard, wIndex) in localWildcards"
         :key="wildcard._id"
-        class="group px-1 py-3 hover:bg-white/[0.015]"
+        class="group px-1 py-3 hover:bg-overlay-faint"
       >
         <div class="flex items-center justify-between gap-3">
           <!-- Editable name (double-click to edit) -->
@@ -24,7 +24,7 @@
               @keydown.escape="cancelEditName"
               @blur="saveWildcardName(wIndex)"
               class="bg-surface border rounded px-2 py-0.5 text-sm text-content focus:outline-none w-40"
-              :class="nameError ? 'border-red-500' : 'border-edge focus:border-blue-500'"
+              :class="nameError ? 'border-red-500' : 'border-edge focus:border-accent'"
               placeholder="Wildcard name"
             />
             <span v-if="nameError" class="text-xs text-red-500 whitespace-nowrap">{{ nameError }}</span>
@@ -108,7 +108,7 @@
       <div
         v-for="(segment, sIndex) in localSegments"
         :key="segment._id"
-        class="group px-1 py-3 hover:bg-white/[0.015]"
+        class="group px-1 py-3 hover:bg-overlay-faint"
       >
         <div class="flex items-center justify-between gap-3">
           <div v-if="editingNameIndex === sIndex && editingNameType === 'segment'" class="flex items-center gap-2 flex-1">
@@ -119,7 +119,7 @@
               @keydown.escape="cancelEditName"
               @blur="saveSegmentName(sIndex)"
               class="bg-surface border rounded px-2 py-0.5 text-sm text-content focus:outline-none w-40"
-              :class="nameError ? 'border-red-500' : 'border-edge focus:border-blue-500'"
+              :class="nameError ? 'border-red-500' : 'border-edge focus:border-accent'"
               placeholder="Segment name"
             />
             <span v-if="nameError" class="text-xs text-red-500 whitespace-nowrap">{{ nameError }}</span>

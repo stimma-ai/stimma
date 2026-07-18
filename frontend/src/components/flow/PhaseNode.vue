@@ -76,7 +76,7 @@
         :label="displayName"
       />
       <button
-        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded border border-edge-subtle bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
+        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
         title="Re-run all steps in this section"
         @click.stop="$emit('invalidate-phase', node.path)"
       >
@@ -199,7 +199,7 @@
                 <button
                   v-if="eq.status === 'completed' || eq.status === 'failed'"
                   type="button"
-                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded border border-edge-subtle bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
+                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
                   title="Re-run this step"
                   @click.stop="$emit('invalidate-equation', eq.equation_key)"
                 >
@@ -231,11 +231,11 @@
                   <div class="text-[11px] text-red-400">This step failed.</div>
                   <div class="flex items-center gap-1.5">
                     <button
-                      class="text-[11px] px-2 py-0.5 rounded bg-blue-500 text-white hover:bg-blue-600"
+                      class="text-[11px] px-2 py-0.5 rounded-md bg-accent text-white hover:bg-accent/90"
                       @click.stop="$emit('fix-step-with-agent', eq)"
                     >Ask the agent for help</button>
                     <button
-                      class="text-[11px] px-2 py-0.5 rounded bg-overlay-subtle border border-edge-subtle text-content-muted hover:text-content hover:bg-overlay-hover"
+                      class="text-[11px] px-2 py-0.5 rounded-md bg-overlay-subtle text-content-muted hover:text-content hover:bg-overlay-hover"
                       @click.stop="$emit('invalidate-equation', eq.equation_key)"
                     >Retry ↻</button>
                   </div>
@@ -354,7 +354,7 @@
                 <button
                   v-if="eq.status === 'completed' || eq.status === 'failed'"
                   type="button"
-                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded border border-edge-subtle bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
+                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
                   title="Re-run this step"
                   @click.stop="$emit('invalidate-equation', eq.equation_key)"
                 >
@@ -393,7 +393,7 @@
                   <div v-if="eq.hitl_kind !== 'select'" class="flex justify-end">
                     <button
                       type="button"
-                      class="text-[11px] px-2 py-0.5 rounded bg-overlay-subtle border border-edge-subtle text-content-muted hover:text-content hover:bg-overlay-hover transition-colors"
+                      class="text-[11px] px-2 py-0.5 rounded-md bg-overlay-subtle text-content-muted hover:text-content hover:bg-overlay-hover transition-colors"
                       title="Redo this step — clears downstream and re-asks"
                       @click.stop="$emit('invalidate-equation', eq.equation_key)"
                     >Redo ↻</button>

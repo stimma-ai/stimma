@@ -20,7 +20,7 @@
     <Teleport to="body">
       <div
         v-if="isOpen"
-        class="fixed z-[10020] bg-surface border border-edge rounded-lg shadow-xl"
+        class="fixed z-menu bg-surface border border-edge rounded-lg shadow-xl"
         :style="dropdownStyle"
       >
         <!-- Preview header -->
@@ -61,7 +61,7 @@
                 v-model="customSvg"
                 type="text"
                 placeholder="Paste SVG code..."
-                class="flex-1 bg-surface-raised/50 border border-edge rounded-md px-2 py-1 text-xs text-content placeholder-content-muted focus:outline-none focus:border-blue-500"
+                class="flex-1 bg-surface-raised/50 border border-edge rounded-md px-2 py-1 text-xs text-content placeholder-content-muted focus:outline-none focus:border-accent"
                 @keydown.stop
                 @keydown.enter="applyCustomSvg"
               />
@@ -170,7 +170,7 @@
           </button>
           <button
             @click="apply"
-            class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md font-medium transition-colors"
+            class="px-3 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm rounded-md font-medium transition-colors"
           >
             Apply
           </button>
@@ -491,7 +491,7 @@ function apply() {
 // Close on click outside
 function handleClickOutside(event) {
   if (container.value && !container.value.contains(event.target)) {
-    const dropdowns = document.querySelectorAll('.fixed.z-\\[10020\\]')
+    const dropdowns = document.querySelectorAll('.fixed.z-menu')
     for (const dropdown of dropdowns) {
       if (dropdown.contains(event.target)) return
     }

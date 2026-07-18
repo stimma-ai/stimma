@@ -17,7 +17,7 @@
 
     <div
       v-if="showCodeIntroModal"
-      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4"
+      class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop px-4"
       @click.self="dismissCodeIntro"
     >
       <div class="w-full max-w-md rounded-lg border border-edge bg-surface shadow-2xl">
@@ -41,7 +41,7 @@
         <div class="px-5 py-3 border-t border-edge-subtle flex justify-end">
           <button
             type="button"
-            class="rounded bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600"
+            class="rounded bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90"
             @click="dismissCodeIntro"
           >
             Got it
@@ -58,7 +58,7 @@
           <input
             ref="nameInputEl"
             v-model="editingNameValue"
-            class="bg-base border border-edge rounded px-2 py-1 text-sm font-medium text-content focus:outline-none focus:border-blue-500/70 min-w-0 max-w-xs"
+            class="bg-base border border-edge rounded px-2 py-1 text-sm font-medium text-content focus:outline-none focus:border-accent min-w-0 max-w-xs"
             @blur="saveName"
             @keydown.enter.prevent="saveName"
             @keydown.esc.prevent="cancelEditName"
@@ -101,7 +101,7 @@
 
           <div
             v-if="copiesOpen"
-            class="absolute left-0 mt-1 w-72 bg-surface border border-edge rounded-lg shadow-xl z-50 py-1 max-h-80 overflow-y-auto"
+            class="absolute left-0 mt-1 w-72 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1 max-h-80 overflow-y-auto"
           >
             <button
               v-for="c in copies"
@@ -189,7 +189,7 @@
           <!-- Terse menu (only when this flow already backs a tool) -->
           <div
             v-if="linkMenuOpen && backingTools.length > 0"
-            class="absolute right-0 top-full mt-1 z-[10000] min-w-[220px] bg-surface border border-edge-subtle rounded-lg shadow-xl py-1"
+            class="absolute right-0 top-full mt-1 z-menu min-w-[220px] bg-surface border border-edge-subtle rounded-lg shadow-xl py-1"
           >
             <button
               v-for="t in backingTools"
@@ -241,7 +241,7 @@
 
           <div
             v-if="showChatMenu"
-            class="absolute right-0 mt-1 w-72 bg-surface border border-edge rounded-lg shadow-xl z-50 py-1"
+            class="absolute right-0 mt-1 w-72 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1"
           >
             <button
               @click="handleNewChatSession"
@@ -256,7 +256,7 @@
 
             <div class="border-t border-edge my-1"></div>
 
-            <div class="px-3 pt-1 pb-1 text-[10px] uppercase tracking-wider text-content-muted font-semibold">
+            <div class="px-3 pt-1 pb-1 text-xs font-semibold text-content-secondary">
               Switch to session
             </div>
             <div v-if="loadingChatSessions" class="px-3 py-2 text-xs text-content-muted italic">
@@ -318,7 +318,7 @@
           <!-- Dropdown menu -->
           <div
             v-if="showMenu"
-            class="absolute right-0 mt-1 w-44 bg-surface border border-edge rounded-lg shadow-xl z-50 py-1"
+            class="absolute right-0 mt-1 w-44 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1"
           >
             <button
               @click="doCopy"
@@ -423,7 +423,7 @@
 
               <div
                 v-if="showTabMenu"
-                class="absolute right-0 mt-1 w-48 bg-surface border border-edge rounded-lg shadow-xl z-50 py-1"
+                class="absolute right-0 mt-1 w-48 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1"
               >
                 <button
                   v-if="hasInputFields"
@@ -513,7 +513,7 @@
                         >Revert</button>
                         <button
                           type="button"
-                          class="text-[11px] px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
+                          class="text-[11px] px-2 py-1 rounded bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
                           :disabled="!inputsValid || submittingInputs"
                           @click="inputFormRef?.applyChanges()"
                           title="Apply the changed inputs to this flow"
@@ -551,7 +551,7 @@
                     <button
                       v-if="!chatPanelOpen"
                       type="button"
-                      class="mt-4 rounded-md bg-blue-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-blue-600"
+                      class="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:bg-accent/90"
                       @click="chatPanelOpen = true"
                     >
                       Open chat
@@ -630,7 +630,7 @@
                     <button
                       v-if="!chatPanelOpen"
                       type="button"
-                      class="mt-4 rounded-md bg-blue-500 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-blue-600"
+                      class="mt-4 rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:bg-accent/90"
                       @click="chatPanelOpen = true"
                     >
                       Open chat
@@ -685,7 +685,7 @@
                   >Revert</button>
                   <button
                     type="button"
-                    class="text-[11px] px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
+                    class="text-[11px] px-2 py-1 rounded bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
                     :disabled="!codeDirty || savingCode"
                     @click="saveCodeEdit"
                     title="Save program.py and re-process the flow"

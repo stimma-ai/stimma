@@ -43,7 +43,7 @@
 
       <button
         type="button"
-        class="ml-auto px-2.5 py-1.5 text-[11.5px] font-medium rounded bg-blue-500 hover:bg-blue-600 text-white transition-colors disabled:opacity-50"
+        class="ml-auto px-2.5 py-1.5 text-[11.5px] font-medium rounded-md bg-accent hover:bg-accent/90 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         :disabled="poolSize === 0"
         @click="openSheet"
       >
@@ -57,7 +57,7 @@
       <button
         v-if="hasDraft && !sheetShown"
         type="button"
-        class="px-2 py-0.5 rounded bg-overlay-subtle border border-edge-subtle text-content-muted hover:text-content hover:bg-overlay-hover"
+        class="px-2 py-0.5 rounded-md bg-overlay-subtle text-content-muted hover:text-content hover:bg-overlay-hover"
         @click="resetDraft"
       >Reset</button>
     </div>

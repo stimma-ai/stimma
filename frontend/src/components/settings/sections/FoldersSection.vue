@@ -12,7 +12,7 @@
       <div
         v-for="(folder, index) in folders"
         :key="index"
-        class="flex w-full items-center gap-4 px-1 py-3 hover:bg-white/[0.025]"
+        class="flex w-full items-center gap-4 px-1 py-3 hover:bg-overlay-subtle"
       >
         <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary">
           <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -71,7 +71,7 @@
         type="button"
         @click="addFolder"
         :disabled="saving"
-        class="flex w-full flex-col items-center gap-3 rounded-xl border border-dashed border-edge px-6 py-10 text-center transition-colors hover:border-blue-500/50 hover:bg-blue-500/[0.04] disabled:opacity-50"
+        class="flex w-full flex-col items-center gap-3 rounded-lg border border-dashed border-edge px-6 py-10 text-center transition-colors hover:border-blue-500/50 hover:bg-blue-500/[0.04] disabled:opacity-50"
       >
         <svg class="h-8 w-8 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
@@ -127,7 +127,7 @@
       <div
         v-if="openMenuIndex !== null && menuPosition"
         data-folder-menu
-        class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 min-w-[140px] z-[10010]"
+        class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 min-w-[140px] z-menu"
         :style="{ top: menuPosition.top + 'px', left: menuPosition.left + 'px' }"
       >
         <button

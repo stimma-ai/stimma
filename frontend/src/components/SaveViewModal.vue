@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="$emit('close')">
+  <div v-if="visible" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="$emit('close')">
     <div class="bg-surface-raised border border-edge-strong rounded-lg p-6 w-96 max-w-[90vw]" @click.stop>
       <h3 class="text-lg font-semibold text-content mb-4">Save View</h3>
       <p class="text-content-tertiary text-sm mb-4">Save your current filters and sort order as a named view for quick access.</p>
@@ -7,7 +7,7 @@
         v-model="viewName"
         type="text"
         placeholder="View name"
-        class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-indigo-500"
+        class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent"
         :class="{ 'border-red-500': errorMessage }"
         @keyup.enter="handleSave"
         ref="nameInput"
@@ -18,7 +18,7 @@
         <button
           @click="handleSave"
           :disabled="!viewName.trim() || saving"
-          class="flex-1 bg-indigo-500 text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="flex-1 bg-accent hover:bg-accent/90 text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {{ saving ? 'Saving...' : 'Save' }}
         </button>

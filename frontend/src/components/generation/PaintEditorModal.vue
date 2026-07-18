@@ -1,9 +1,9 @@
 <template>
   <Teleport to="body">
     <!-- Backdrop -->
-    <div v-if="modelValue" class="fixed inset-0 z-[10001] flex items-center justify-center bg-black/60 p-6">
+    <div v-if="modelValue" class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop p-6">
       <!-- Modal card -->
-      <div class="flex flex-col w-full h-full max-w-[1400px] max-h-[900px] bg-surface rounded-xl border border-edge-subtle shadow-2xl overflow-hidden">
+      <div class="flex flex-col w-full h-full max-w-[1400px] max-h-[900px] bg-surface rounded-lg border border-edge-subtle shadow-2xl overflow-hidden">
         <!-- Header -->
         <div class="flex items-center justify-between px-4 py-2 border-b border-edge-subtle flex-shrink-0">
           <h3 class="text-sm font-medium text-content">Edit Input Image</h3>

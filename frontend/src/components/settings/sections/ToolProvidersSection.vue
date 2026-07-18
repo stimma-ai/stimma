@@ -11,7 +11,7 @@
 
     <div
       v-if="setupRequired && !wizard"
-      class="mb-6 flex w-full items-center gap-3 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3"
+      class="mb-6 flex w-full items-center gap-3 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-4 py-3"
     >
       <span class="h-2 w-2 shrink-0 rounded-full bg-yellow-400"></span>
       <p class="text-sm text-content-secondary">Connect generation tools to generate media.</p>
@@ -20,7 +20,7 @@
     <div class="space-y-0.5">
       <button
         type="button"
-        class="group flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-white/[0.025]"
+        class="group flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
         @click="!isAuthenticated ? handleCloudConnect() : cloudConnectedWithoutCredits ? openAddCredits() : openProviderDetails('stimma-cloud')"
       >
         <ToolProviderBrandIcon kind="stimma" />
@@ -56,7 +56,7 @@
       <button
         v-if="comfyProviders.length === 0"
         type="button"
-        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-white/[0.025]"
+        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
         @click="openComfySetup"
       >
         <ToolProviderBrandIcon kind="comfyui" />
@@ -74,7 +74,7 @@
         v-for="provider in comfyProviders"
         :key="provider.id"
         type="button"
-        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-white/[0.025]"
+        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
         @click="openProviderDetails(provider.id)"
       >
         <ToolProviderBrandIcon :provider="provider" />
@@ -96,7 +96,7 @@
         v-for="provider in customProviders"
         :key="provider.id"
         type="button"
-        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-white/[0.025]"
+        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
         @click="openProviderDetails(provider.id)"
       >
         <ToolProviderBrandIcon :provider="provider" />
@@ -148,7 +148,7 @@
         <span class="text-xs text-content-muted">{{ toolsModal.tools.length }} tool{{ toolsModal.tools.length === 1 ? '' : 's' }}</span>
       </div>
 
-      <input v-model="toolsFilter" type="search" placeholder="Search tools" class="mb-5 w-full border border-edge bg-surface-raised px-3 py-2.5 text-sm text-content placeholder:text-content-muted focus:border-blue-500 focus:outline-none" />
+      <input v-model="toolsFilter" type="search" placeholder="Search tools" class="mb-5 w-full border border-edge bg-surface-raised px-3 py-2.5 text-sm text-content placeholder:text-content-muted focus:border-accent focus:outline-none" />
 
       <div v-if="toolsModal.loading" class="py-10 text-center text-sm text-content-tertiary">Loading tools…</div>
       <div v-else-if="filteredTools.length === 0" class="py-10 text-center text-sm text-content-tertiary">
@@ -261,15 +261,15 @@
       <div v-else-if="isComfyUIProvider(selectedProvider)" class="max-w-2xl space-y-5">
         <div>
           <label class="mb-1 block text-xs text-content-tertiary">Name</label>
-          <input :value="getEditValue(selectedProvider.id, 'name') ?? selectedProvider.name" type="text" class="w-full border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none" @input="setEditValue(selectedProvider.id, 'name', $event.target.value)" @blur="saveInlineEdit(selectedProvider.id, 'name')" />
+          <input :value="getEditValue(selectedProvider.id, 'name') ?? selectedProvider.name" type="text" class="w-full border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" @input="setEditValue(selectedProvider.id, 'name', $event.target.value)" @blur="saveInlineEdit(selectedProvider.id, 'name')" />
         </div>
         <div>
           <label class="mb-1 block text-xs text-content-tertiary">WebSocket URL</label>
-          <input :value="getEditValue(selectedProvider.id, 'url') ?? selectedProvider.url ?? ''" type="text" class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" @input="setEditValue(selectedProvider.id, 'url', $event.target.value)" @blur="saveInlineEdit(selectedProvider.id, 'url')" />
+          <input :value="getEditValue(selectedProvider.id, 'url') ?? selectedProvider.url ?? ''" type="text" class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-accent focus:outline-none" @input="setEditValue(selectedProvider.id, 'url', $event.target.value)" @blur="saveInlineEdit(selectedProvider.id, 'url')" />
         </div>
         <div>
           <label class="mb-1 block text-xs text-content-tertiary">Token <span class="text-content-muted">(optional)</span></label>
-          <input :value="getEditValue(selectedProvider.id, 'auth_token') ?? selectedProvider.auth_token ?? ''" type="password" autocomplete="off" class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" @input="setEditValue(selectedProvider.id, 'auth_token', $event.target.value)" @blur="saveInlineEdit(selectedProvider.id, 'auth_token')" />
+          <input :value="getEditValue(selectedProvider.id, 'auth_token') ?? selectedProvider.auth_token ?? ''" type="password" autocomplete="off" class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-accent focus:outline-none" @input="setEditValue(selectedProvider.id, 'auth_token', $event.target.value)" @blur="saveInlineEdit(selectedProvider.id, 'auth_token')" />
         </div>
         <div class="flex justify-end">
           <button type="button" :disabled="testing" class="text-sm text-blue-500 hover:text-blue-400 disabled:opacity-50" @click="testExistingProvider(selectedProvider)">{{ testing ? 'Testing…' : 'Test connection' }}</button>
@@ -282,7 +282,7 @@
           <input
             :value="getEditValue(selectedProvider.id, 'name') ?? selectedProvider.name"
             type="text"
-            class="w-full border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-blue-500 focus:outline-none"
+            class="w-full border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none"
             @input="setEditValue(selectedProvider.id, 'name', $event.target.value)"
             @blur="saveInlineEdit(selectedProvider.id, 'name')"
           />
@@ -295,7 +295,7 @@
               :value="getEditValue(selectedProvider.id, 'api_key') ?? selectedProvider.api_key ?? '${GEMINI_API_KEY}'"
               type="text"
               placeholder="${GEMINI_API_KEY}"
-              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-accent focus:outline-none"
               @input="setEditValue(selectedProvider.id, 'api_key', $event.target.value)"
               @blur="saveInlineEdit(selectedProvider.id, 'api_key')"
             />
@@ -309,7 +309,7 @@
             <input
               :value="getEditValue(selectedProvider.id, 'command') ?? selectedProvider.command ?? ''"
               type="text"
-              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-accent focus:outline-none"
               @input="setEditValue(selectedProvider.id, 'command', $event.target.value)"
               @blur="saveInlineEdit(selectedProvider.id, 'command')"
             />
@@ -319,7 +319,7 @@
             <input
               :value="getEditValue(selectedProvider.id, 'args') ?? serializeArgs(selectedProvider.args) ?? ''"
               type="text"
-              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-accent focus:outline-none"
               @input="setEditValue(selectedProvider.id, 'args', $event.target.value)"
               @blur="saveInlineEdit(selectedProvider.id, 'args')"
             />
@@ -329,7 +329,7 @@
             <input
               :value="getEditValue(selectedProvider.id, 'working_dir') ?? selectedProvider.working_dir ?? ''"
               type="text"
-              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-accent focus:outline-none"
               @input="setEditValue(selectedProvider.id, 'working_dir', $event.target.value)"
               @blur="saveInlineEdit(selectedProvider.id, 'working_dir')"
             />
@@ -342,7 +342,7 @@
             <input
               :value="getEditValue(selectedProvider.id, 'url') ?? selectedProvider.url ?? ''"
               type="text"
-              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-accent focus:outline-none"
               @input="setEditValue(selectedProvider.id, 'url', $event.target.value)"
               @blur="saveInlineEdit(selectedProvider.id, 'url')"
             />
@@ -353,7 +353,7 @@
               :value="getEditValue(selectedProvider.id, 'auth_token') ?? selectedProvider.auth_token ?? ''"
               type="password"
               autocomplete="off"
-              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-blue-500 focus:outline-none"
+              class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-accent focus:outline-none"
               @input="setEditValue(selectedProvider.id, 'auth_token', $event.target.value)"
               @blur="saveInlineEdit(selectedProvider.id, 'auth_token')"
             />
@@ -366,7 +366,7 @@
       </div>
 
       <div v-if="selectedProvider.id !== 'stimma-cloud' || isAuthenticated" class="mt-8 max-w-2xl space-y-1">
-        <button type="button" class="flex w-full items-center gap-4 py-3 text-left hover:bg-white/[0.025]" @click="openProviderToolsPage(selectedProvider)">
+        <button type="button" class="flex w-full items-center gap-4 py-3 text-left hover:bg-overlay-subtle" @click="openProviderToolsPage(selectedProvider)">
           <div class="min-w-0 flex-1">
             <div class="text-sm font-medium text-content">Tools</div>
             <div class="mt-0.5 text-xs text-content-tertiary">{{ selectedProvider.tool_count || 0 }} available</div>
@@ -374,7 +374,7 @@
           <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" /></svg>
         </button>
 
-        <button v-if="selectedProvider.type === 'stdio' || selectedProvider.type === 'websocket'" type="button" class="flex w-full items-center gap-4 py-3 text-left hover:bg-white/[0.025]" @click="openProviderLogsPage(selectedProvider)">
+        <button v-if="selectedProvider.type === 'stdio' || selectedProvider.type === 'websocket'" type="button" class="flex w-full items-center gap-4 py-3 text-left hover:bg-overlay-subtle" @click="openProviderLogsPage(selectedProvider)">
           <div class="min-w-0 flex-1">
             <div class="text-sm font-medium text-content">Logs</div>
             <div class="mt-0.5 text-xs text-content-tertiary">Connection and provider output</div>
@@ -432,7 +432,7 @@
             <div class="min-w-0 flex-1">
               <div class="text-sm font-medium text-content">Connect</div>
               <label class="mt-4 block text-xs text-content-tertiary">ComfyUI address</label>
-              <input v-model="formData.url" type="text" class="mt-1.5 w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" />
+              <input v-model="formData.url" type="text" class="mt-1.5 w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-accent focus:outline-none" />
               <p class="mt-2 text-xs text-content-muted">The default works with ComfyUI running on this computer.</p>
             </div>
           </div>
@@ -443,7 +443,7 @@
         <div class="space-y-5">
           <div>
             <label class="mb-1 block text-xs text-content-tertiary">Name</label>
-            <input v-model="formData.name" type="text" placeholder="My provider" class="w-full border border-edge bg-surface-raised px-3 py-2.5 text-sm text-content focus:border-blue-500 focus:outline-none" />
+            <input v-model="formData.name" type="text" placeholder="My provider" class="w-full border border-edge bg-surface-raised px-3 py-2.5 text-sm text-content focus:border-accent focus:outline-none" />
             <p v-if="nameError" class="mt-1 text-xs text-red-500">{{ nameError }}</p>
           </div>
           <div>
@@ -454,13 +454,13 @@
             </div>
           </div>
           <template v-if="formData.type === 'stdio'">
-            <div><label class="mb-1 block text-xs text-content-tertiary">Command</label><input v-model="formData.command" type="text" placeholder="/path/to/tool" class="w-full border border-edge bg-surface-raised px-3 py-2.5 text-sm text-content focus:border-blue-500 focus:outline-none" /></div>
-            <div><label class="mb-1 block text-xs text-content-tertiary">Arguments</label><input v-model="formData.args" type="text" placeholder="--port 8080" class="w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" /></div>
-            <div><label class="mb-1 block text-xs text-content-tertiary">Working directory</label><input v-model="formData.working_dir" type="text" placeholder="Optional" class="w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" /></div>
+            <div><label class="mb-1 block text-xs text-content-tertiary">Command</label><input v-model="formData.command" type="text" placeholder="/path/to/tool" class="w-full border border-edge bg-surface-raised px-3 py-2.5 text-sm text-content focus:border-accent focus:outline-none" /></div>
+            <div><label class="mb-1 block text-xs text-content-tertiary">Arguments</label><input v-model="formData.args" type="text" placeholder="--port 8080" class="w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-accent focus:outline-none" /></div>
+            <div><label class="mb-1 block text-xs text-content-tertiary">Working directory</label><input v-model="formData.working_dir" type="text" placeholder="Optional" class="w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-accent focus:outline-none" /></div>
           </template>
           <template v-else>
-            <div><label class="mb-1 block text-xs text-content-tertiary">WebSocket URL</label><input v-model="formData.url" type="text" placeholder="ws://localhost:9000/stp-v1" class="w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" /></div>
-            <div><label class="mb-1 block text-xs text-content-tertiary">Token</label><input v-model="formData.auth_token" type="text" placeholder="Optional bearer token" class="w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-blue-500 focus:outline-none" /></div>
+            <div><label class="mb-1 block text-xs text-content-tertiary">WebSocket URL</label><input v-model="formData.url" type="text" placeholder="ws://localhost:9000/stp-v1" class="w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-accent focus:outline-none" /></div>
+            <div><label class="mb-1 block text-xs text-content-tertiary">Token</label><input v-model="formData.auth_token" type="text" placeholder="Optional bearer token" class="w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-accent focus:outline-none" /></div>
           </template>
         </div>
       </template>
@@ -495,12 +495,12 @@
           v-if="addMode === 'comfy'"
           type="button"
           :disabled="!canTest || testing || saving"
-          class="bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
+          class="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           @click="connectComfyProvider"
         >{{ testing ? 'Testing…' : saving ? 'Adding…' : 'Test and connect' }}</button>
         <template v-else>
           <button type="button" :disabled="!canTest || testing" class="bg-surface-raised px-4 py-2 text-sm font-medium text-content hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50" @click="testConnection">{{ testing ? 'Testing…' : 'Test connection' }}</button>
-          <button type="button" :disabled="!canSave || saving" class="bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50" @click="saveProvider">{{ saving ? 'Adding…' : 'Add provider' }}</button>
+          <button type="button" :disabled="!canSave || saving" class="bg-accent rounded-md px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50" @click="saveProvider">{{ saving ? 'Adding…' : 'Add provider' }}</button>
         </template>
         <button type="button" class="px-3 py-2 text-sm text-content-tertiary hover:text-content" @click="closeModal">Cancel</button>
       </div>
@@ -510,7 +510,7 @@
     <Teleport to="body">
       <div
         v-if="deleteConfirm"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="deleteConfirm = null"
         @keydown.escape.stop="deleteConfirm = null"
         tabindex="-1"
@@ -544,7 +544,7 @@
     <Teleport to="body">
       <div
         v-if="logsModal.provider && detailView !== 'logs'"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closeLogsModal"
         @keydown.escape.stop="closeLogsModal"
         tabindex="-1"
@@ -608,7 +608,7 @@
     <Teleport to="body">
       <div
         v-if="toolsModal.provider && detailView !== 'tools'"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closeToolsModal"
         @keydown.escape.stop="closeToolsModal"
         tabindex="-1"
@@ -664,7 +664,7 @@
               v-model="toolsFilter"
               type="text"
               placeholder="Filter tools..."
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content placeholder-content-muted focus:outline-none focus:border-blue-500"
+              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content placeholder-content-muted focus:outline-none focus:border-accent"
             />
           </div>
 
@@ -739,7 +739,7 @@
       <div
         v-if="showCloudMenu && cloudMenuPosition"
         data-cloud-menu
-        class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 min-w-[140px] z-[10010]"
+        class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 min-w-[140px] z-menu"
         :style="{ top: cloudMenuPosition.top + 'px', left: cloudMenuPosition.left + 'px' }"
       >
         <button
@@ -781,7 +781,7 @@
       <div
         v-if="openMenuProvider && menuPosition"
         data-provider-menu
-        class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 min-w-[140px] z-[10010]"
+        class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 min-w-[140px] z-menu"
         :style="{ top: menuPosition.top + 'px', left: menuPosition.left + 'px' }"
       >
         <button

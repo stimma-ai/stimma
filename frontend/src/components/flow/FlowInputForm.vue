@@ -93,7 +93,7 @@
               <input
                 :value="String(listValue(field.name)[idx] ?? '')"
                 type="text"
-                class="flex-1 min-w-0 bg-surface border border-edge rounded px-2 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500/70"
+                class="flex-1 min-w-0 bg-surface border border-transparent rounded px-2 py-1.5 text-sm text-content focus:outline-none focus:border-accent"
                 :placeholder="field.itemLabel"
                 @input="setListItem(field, idx, ($event.target as HTMLInputElement).value)"
                 @paste="(event) => onPasteList(field, idx, event)"
@@ -116,10 +116,10 @@
             <textarea
               v-model="pasteText[field.name]"
               rows="3"
-              class="w-full bg-surface border border-edge rounded px-2 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500/70"
+              class="w-full bg-surface border border-transparent rounded px-2 py-1.5 text-sm text-content focus:outline-none focus:border-accent"
               placeholder="Paste one item per line, or comma-separated items"
             />
-            <button type="button" class="px-2 py-1 rounded bg-blue-600 text-white text-[12px] hover:bg-blue-500" @click="importPastedList(field)">
+            <button type="button" class="px-2 py-1 rounded-md bg-accent text-white text-[12px] hover:bg-accent/90" @click="importPastedList(field)">
               Import
             </button>
           </div>
@@ -144,7 +144,7 @@
                     v-if="col.kind !== 'boolean'"
                     :type="col.kind === 'number' ? 'number' : 'text'"
                     :value="tableCellValue(field.name, idx, col.name)"
-                    class="w-full min-w-0 bg-surface border border-edge rounded px-2 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500/70"
+                    class="w-full min-w-0 bg-surface border border-transparent rounded px-2 py-1.5 text-sm text-content focus:outline-none focus:border-accent"
                     @input="setTableCell(field, idx, col, ($event.target as HTMLInputElement).value)"
                   />
                   <input
@@ -995,7 +995,7 @@ function isStacked(f: Field): boolean {
 function fieldInputClass(f: Field): string {
   return errors.value[f.name]
     ? 'border-red-500/60 focus:border-red-500/80'
-    : 'border-edge focus:border-blue-500/70'
+    : 'border-transparent focus:border-accent'
 }
 
 function formatOption(field: Field, opt: any): string {

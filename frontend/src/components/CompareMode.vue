@@ -2,7 +2,7 @@
   <Teleport to="body">
     <div
       ref="overlay"
-      class="fixed inset-0 bg-black flex z-[9999]"
+      class="fixed inset-0 bg-black flex z-modal"
       @keydown="handleKeyDown"
       tabindex="0"
     >
@@ -127,7 +127,7 @@
             @click="showInfoPanel = !showInfoPanel"
             :class="[
               'w-10 h-10 rounded-full flex items-center justify-center transition-colors',
-              showInfoPanel ? 'bg-blue-500 text-white' : 'bg-black/70 text-white hover:bg-black/50'
+              showInfoPanel ? 'bg-accent text-white' : 'bg-black/70 text-white hover:bg-black/50'
             ]"
             title="Toggle info panels (I)"
           >

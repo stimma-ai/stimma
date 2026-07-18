@@ -1,5 +1,5 @@
 <template>
-  <div class="segment-editor rounded-md border border-edge overflow-hidden focus-within:border-blue-500 transition-colors">
+  <div class="segment-editor rounded-md border border-edge overflow-hidden focus-within:border-accent transition-colors">
     <div ref="editorMount"></div>
 
     <!-- Bottom Action Bar -->
@@ -53,7 +53,7 @@
   <Teleport to="body">
     <div
       v-if="showHelp"
-      class="fixed inset-0 z-[10020]"
+      class="fixed inset-0 z-menu"
       @click="showHelp = false"
     >
       <div

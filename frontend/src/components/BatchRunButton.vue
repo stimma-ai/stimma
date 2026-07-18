@@ -2,7 +2,7 @@
   <div class="relative" ref="containerRef">
     <!-- Split button: main Run + caret -->
     <div
-      class="flex rounded-lg overflow-hidden bg-blue-500"
+      class="flex rounded-lg overflow-hidden bg-accent"
       :class="disabled ? 'opacity-50' : ''"
     >
       <!-- Main run button -->
@@ -10,7 +10,7 @@
         data-testid="tool-run-button"
         @click="emit('run')"
         :disabled="disabled"
-        class="px-4 py-2 text-white text-sm font-semibold transition-colors hover:bg-blue-600 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        class="px-4 py-2 text-white text-sm font-semibold transition-colors hover:bg-accent/90 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         :class="disabled ? 'cursor-not-allowed' : 'cursor-pointer'"
       >
         <span>{{ mediaBatchCount ? 'Run Batch' : 'Run' }}</span>
@@ -32,7 +32,7 @@
       <!-- Caret: opens batch-size popover -->
       <button
         @click.stop="togglePopover"
-        class="px-2 py-2 text-white cursor-pointer transition-colors hover:bg-blue-600 flex items-center"
+        class="px-2 py-2 text-white cursor-pointer transition-colors hover:bg-accent/90 flex items-center"
         title="Batch size"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
@@ -45,7 +45,7 @@
     <!-- Batch-size popover -->
     <div
       v-if="showPopover"
-      class="absolute left-0 mt-2 w-60 bg-surface border border-edge rounded-xl shadow-lg z-50 p-3.5"
+      class="absolute left-0 mt-2 w-60 bg-surface border border-edge rounded-lg shadow-lg z-menu p-3.5"
       @click.stop
     >
       <div class="text-sm font-semibold text-content">{{ mediaBatchCount ? 'Repeat batch' : 'Batch size' }}</div>

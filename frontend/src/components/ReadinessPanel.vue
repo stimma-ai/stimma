@@ -9,14 +9,14 @@
       <div
         v-if="panelVisible"
         data-testid="readiness-panel"
-        class="fixed inset-0 z-[10005] flex items-center justify-center bg-black/65 p-6 backdrop-blur-sm"
+        class="fixed inset-0 z-top flex items-center justify-center bg-overlay-backdrop p-6 backdrop-blur-sm"
       >
-        <section class="relative flex h-[820px] max-h-[94vh] w-[1180px] max-w-[96vw] flex-col overflow-hidden rounded-2xl border border-edge bg-surface shadow-2xl">
+        <section class="relative flex h-[820px] max-h-[94vh] w-[1180px] max-w-[96vw] flex-col overflow-hidden rounded-lg border border-edge bg-surface shadow-2xl">
           <button
             type="button"
             data-testid="readiness-dismiss"
             aria-label="Close"
-            class="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-content-tertiary hover:bg-white/[0.05] hover:text-content"
+            class="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-content-tertiary hover:bg-overlay-subtle hover:text-content"
             @click="dismissWizard"
           >
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
@@ -51,7 +51,7 @@
               <div class="relative mt-9 grid grid-cols-[1fr_auto_1fr] items-start gap-8">
                 <!-- Chat models -->
                 <div class="min-w-0 w-full max-w-[350px] justify-self-end text-right">
-                  <h3 class="text-xs font-bold uppercase tracking-[0.13em] text-content">Chat Models</h3>
+                  <h3 class="text-xs font-semibold text-content-secondary">Chat models</h3>
                   <p class="mt-1.5 text-xs leading-relaxed text-content-secondary">Run chat, the agent, and prompt enhancement.</p>
                   <div class="mt-3 flex flex-wrap justify-end gap-1.5">
                     <WizardBrandChip v-for="chip in chatChips" :key="chip.label" :chip="chip" side="chat" />
@@ -66,7 +66,7 @@
 
                 <!-- Generation tools -->
                 <div class="min-w-0 w-full max-w-[350px] justify-self-start">
-                  <h3 class="text-xs font-bold uppercase tracking-[0.13em] text-content">Generation Tools</h3>
+                  <h3 class="text-xs font-semibold text-content-secondary">Generation tools</h3>
                   <p class="mt-1.5 text-xs leading-relaxed text-content-secondary">Create and edit images, video, and audio.</p>
                   <div class="mt-3 flex flex-wrap gap-1.5">
                     <WizardBrandChip v-for="chip in genChips" :key="chip.label" :chip="chip" side="gen" />
@@ -81,10 +81,10 @@
             <!-- STEP 1 · chat models -->
             <div v-else-if="step === 'llm'" class="min-h-0 flex-1 overflow-y-auto px-10 py-9">
               <div class="max-w-3xl">
-                <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-content-tertiary">Step 1 of 3 · Chat models</div>
+                <div class="text-xs font-semibold text-content-secondary">Step 1 of 3 · Chat models</div>
                 <h1 class="mt-2 text-2xl font-semibold tracking-tight text-content">Connect a chat model</h1>
                 <p class="mt-2 text-sm text-content-secondary">Chat models power chat, the agent, and AI-assisted features.</p>
-                <div v-if="llmReady" class="mt-5 flex items-center gap-3 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3">
+                <div v-if="llmReady" class="mt-5 flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3">
                   <svg class="h-4 w-4 shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                   <p class="text-sm text-content-secondary">You're all set. Continue, or add more providers below.</p>
                 </div>
@@ -101,10 +101,10 @@
             <!-- STEP 2 · generation tools -->
             <div v-else-if="step === 'generation'" class="min-h-0 flex-1 overflow-y-auto px-10 py-9">
               <div class="max-w-3xl">
-                <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-content-tertiary">Step 2 of 3 · Generation tools</div>
+                <div class="text-xs font-semibold text-content-secondary">Step 2 of 3 · Generation tools</div>
                 <h1 class="mt-2 text-2xl font-semibold tracking-tight text-content">Connect generation tools</h1>
                 <p class="mt-2 text-sm text-content-secondary">Generation tools create and edit images, video, and audio.</p>
-                <div v-if="generationReady" class="mt-5 flex items-center gap-3 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3">
+                <div v-if="generationReady" class="mt-5 flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3">
                   <svg class="h-4 w-4 shrink-0 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                   <p class="text-sm text-content-secondary">You're all set. Continue, or add more providers below.</p>
                 </div>
@@ -124,7 +124,7 @@
             <!-- STEP 3 · folders -->
             <div v-else-if="step === 'folders'" class="min-h-0 flex-1 overflow-y-auto px-10 py-9">
               <div class="max-w-3xl">
-                <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-content-tertiary">Step 3 of 3 · Your library</div>
+                <div class="text-xs font-semibold text-content-secondary">Step 3 of 3 · Your library</div>
                 <h1 class="mt-2 text-2xl font-semibold tracking-tight text-content">Add your image folders</h1>
                 <p class="mt-2 text-sm text-content-secondary">
                   Add folders of AI artwork you've made — ComfyUI outputs, Midjourney downloads, photos,
@@ -169,7 +169,7 @@
                 </p>
                 <button
                   type="button"
-                  class="mt-7 rounded-lg bg-blue-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/15 hover:bg-blue-400"
+                  class="mt-7 rounded-md bg-accent hover:bg-accent/90 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent/15"
                   @click="goToStep(llmReady ? 'generation' : 'llm')"
                 >
                   Go back
@@ -182,7 +182,7 @@
               <button
                 v-if="step !== 'welcome'"
                 type="button"
-                class="rounded-lg px-4 py-2.5 text-sm font-medium text-content-tertiary hover:bg-white/[0.05] hover:text-content"
+                class="rounded-lg px-4 py-2.5 text-sm font-medium text-content-tertiary hover:bg-overlay-subtle hover:text-content"
                 @click="goBack"
               >
                 Back
@@ -192,7 +192,7 @@
                 class="rounded-lg px-5 py-2.5 text-sm font-semibold text-white"
                 :class="step === 'complete' && allReady
                   ? 'bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 shadow-lg shadow-cyan-500/15 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400'
-                  : 'bg-blue-500 shadow-lg shadow-blue-500/15 hover:bg-blue-400'"
+                  : 'bg-accent hover:bg-accent/90 shadow-lg shadow-accent/15'"
                 @click="handlePrimaryAction"
               >
                 {{ primaryActionLabel }}

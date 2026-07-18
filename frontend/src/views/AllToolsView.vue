@@ -24,7 +24,7 @@
           <!-- Dropdown menu -->
           <div
             v-if="providerDropdownOpen"
-            class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-xl z-50 min-w-[180px] py-1"
+            class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu min-w-[180px] py-1"
           >
             <button
               v-for="provider in availableProviders"
@@ -59,7 +59,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search tools..."
-            class="bg-overlay-subtle border border-edge-subtle rounded-lg pl-9 pr-3 py-1.5 text-sm text-content-secondary placeholder-white/30 focus:outline-none focus:border-blue-500/50 w-48"
+            class="bg-overlay-subtle border border-edge-subtle rounded-lg pl-9 pr-3 py-1.5 text-sm text-content-secondary placeholder-white/30 focus:outline-none focus:border-accent w-48"
           />
         </div>
       </div>
@@ -116,7 +116,7 @@
         <div v-for="group in groupedByTask" :key="group.taskType">
           <!-- Task type header -->
           <div class="mb-3">
-            <h2 class="text-xs font-medium text-content-muted uppercase tracking-wide">
+            <h2 class="text-xs font-semibold text-content-secondary">
               {{ formatTaskType(group.taskType) }}
             </h2>
           </div>
@@ -198,7 +198,7 @@
       <div
         v-if="toolMenu.visible"
         ref="toolMenuRef"
-        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-[9999] py-1 min-w-[160px]"
+        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu py-1 min-w-[160px]"
         :style="{ left: toolMenu.x + 'px', top: toolMenu.y + 'px' }"
       >
         <button

@@ -33,8 +33,8 @@
           :key="scale"
           @click="scaleFactor = scale"
           :class="compact
-            ? ['px-2 py-0.5 text-xs rounded transition-colors', scaleFactor === scale ? 'bg-blue-500 text-white' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover']
-            : ['px-3 py-1.5 text-sm font-medium rounded transition-colors', scaleFactor === scale ? 'bg-blue-500 text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-light']"
+            ? ['px-2 py-0.5 text-xs rounded transition-colors', scaleFactor === scale ? 'bg-accent text-white' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover']
+            : ['px-3 py-1.5 text-sm font-medium rounded transition-colors', scaleFactor === scale ? 'bg-accent text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-light']"
         >
           {{ scale }}x
         </button>
@@ -75,8 +75,8 @@
           :key="preset.value"
           @click="targetResolution = preset.value"
           :class="compact
-            ? ['px-2 py-0.5 text-xs rounded transition-colors', targetResolution === preset.value ? 'bg-blue-500 text-white' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover']
-            : ['px-3 py-1.5 text-sm font-medium rounded transition-colors', targetResolution === preset.value ? 'bg-blue-500 text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-light']"
+            ? ['px-2 py-0.5 text-xs rounded transition-colors', targetResolution === preset.value ? 'bg-accent text-white' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover']
+            : ['px-3 py-1.5 text-sm font-medium rounded transition-colors', targetResolution === preset.value ? 'bg-accent text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-light']"
         >
           {{ preset.label }}
         </button>

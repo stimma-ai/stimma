@@ -1,11 +1,11 @@
 <template>
   <Teleport to="body">
     <!-- Click-catcher -->
-    <div class="fixed inset-0 z-[10000]" @click="$emit('close')" />
+    <div class="fixed inset-0 z-menu" @click="$emit('close')" />
 
     <div
       ref="panel"
-      class="fixed z-[10001] w-[420px] bg-surface border border-edge rounded-lg shadow-xl flex flex-col overflow-hidden"
+      class="fixed z-menu w-[420px] bg-surface border border-edge rounded-lg shadow-xl flex flex-col overflow-hidden"
       :style="panelStyle"
     >
       <!-- Flat text tabs: color + underline carry the state -->
@@ -72,7 +72,7 @@
       <div class="flex items-center gap-2 px-2.5 py-2 border-t border-edge-subtle bg-overlay-faint">
         <button
           @click="$emit('browse')"
-          class="flex items-center gap-1.5 text-[11.5px] text-content-secondary bg-white/[0.05] border border-white/10 rounded-md px-2.5 py-1 hover:text-content hover:border-edge-strong transition-colors cursor-pointer"
+          class="flex items-center gap-1.5 text-[11.5px] text-content-secondary bg-overlay-light rounded-md px-2.5 py-1 hover:text-content transition-colors cursor-pointer"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />

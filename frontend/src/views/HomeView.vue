@@ -74,7 +74,7 @@
           <div v-if="isFirstRun && starterTools.length > 0" class="relative w-full max-w-[720px] mt-12">
             <div class="flex items-center gap-4 mb-4">
               <div class="h-px flex-1 bg-edge-subtle"></div>
-              <span class="text-[11px] font-medium uppercase tracking-wider text-content-muted">Or start with a tool</span>
+              <span class="text-xs font-semibold text-content-secondary">Or start with a tool</span>
               <div class="h-px flex-1 bg-edge-subtle"></div>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -122,7 +122,7 @@
           <!-- Jump back in: boards, flows, and chats merged into one recency row -->
           <div v-if="jumpBackIn.length > 0">
             <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Jump back in</h2>
+              <h2 class="text-xs font-semibold text-content-secondary">Jump back in</h2>
             </div>
             <div class="grid gap-3" :class="isCompact ? 'grid-cols-2' : 'grid-cols-3'">
               <button
@@ -133,7 +133,7 @@
                 @dragover.prevent="item.type === 'board' && (dragOverBoardId = item.id)"
                 @dragleave="item.type === 'board' && dragOverBoardId === item.id && (dragOverBoardId = null)"
                 @drop.prevent="item.type === 'board' && handleBoardDrop(item.id, $event)"
-                class="flex flex-col rounded-xl border overflow-hidden text-left bg-overlay-faint transition-all cursor-pointer"
+                class="flex flex-col rounded-lg border overflow-hidden text-left bg-overlay-faint transition-all cursor-pointer"
                 :class="item.type === 'board' && dragOverBoardId === item.id
                   ? 'border-blue-500 bg-blue-500/10'
                   : 'border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle'"
@@ -152,7 +152,7 @@
                       <div
                         v-for="(previewItem, index) in getBoardPreviewItems(item.board)"
                         :key="`${item.id}-${previewItem.id}-${index}`"
-                        class="h-full flex-shrink-0 max-w-[55%] overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint"
+                        class="h-full flex-shrink-0 max-w-[55%] overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint"
                         :style="getPreviewTileStyle(previewItem)"
                       >
                         <MediaImage
@@ -211,7 +211,7 @@
                 </div>
                 <!-- Body -->
                 <div class="px-3.5 py-3">
-                  <div class="text-[10px] font-medium uppercase tracking-wider text-content-muted">{{ jumpKindLabel(item) }}</div>
+                  <div class="text-xs font-semibold text-content-secondary">{{ jumpKindLabel(item) }}</div>
                   <div class="text-sm font-medium truncate mt-1" :class="item.name ? 'text-content' : 'text-content-muted italic'">
                     {{ item.name || jumpUntitledLabel(item) }}
                   </div>
@@ -231,7 +231,7 @@
           <!-- Library strip -->
           <div v-if="recentMedia.length > 0">
             <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Fresh from your library</h2>
+              <h2 class="text-xs font-semibold text-content-secondary">Fresh from your library</h2>
               <router-link to="/browse" class="text-xs text-content-muted hover:text-content-secondary transition-colors">
                 View all
               </router-link>
@@ -240,7 +240,7 @@
               <div
                 v-for="(media, index) in visibleMedia"
                 :key="media.id"
-                class="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                class="aspect-square rounded-media overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                 @click="openMediaSlideshow(index)"
               >
                 <MediaImage

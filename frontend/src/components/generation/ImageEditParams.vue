@@ -35,7 +35,7 @@
             type="button"
             :class="[
               'flex-shrink-0 w-8 h-4 rounded-full transition-colors relative',
-              loraRow.enabled ? 'bg-blue-500' : 'bg-surface-hover'
+              loraRow.enabled ? 'bg-accent' : 'bg-surface-hover'
             ]"
           >
             <span
@@ -69,7 +69,7 @@
             <!-- Autocomplete Dropdown -->
             <div
               v-if="loraRow.showResults && loraRow.filteredLoras && loraRow.filteredLoras.length > 0"
-              class="absolute z-[9999] w-full mt-2 bg-surface border border-surface-raised rounded-lg shadow-xl max-h-60 overflow-y-auto"
+              class="absolute z-menu w-full mt-2 bg-surface border border-surface-raised rounded-lg shadow-xl max-h-60 overflow-y-auto"
             >
               <div
                 v-for="(lora, loraIndex) in loraRow.filteredLoras"
@@ -77,7 +77,7 @@
                 @mousedown.prevent="selectLora(index, lora.name)"
                 :class="[
                   'px-3 py-2 text-sm cursor-pointer transition-colors',
-                  loraIndex === loraRow.selectedIndex ? 'bg-blue-500 text-white' : 'text-content-secondary hover:bg-surface-raised'
+                  loraIndex === loraRow.selectedIndex ? 'bg-accent text-white' : 'text-content-secondary hover:bg-surface-raised'
                 ]"
               >
                 {{ lora.name }}

@@ -36,7 +36,7 @@
           :key="item.name"
           class="px-2.5 py-1 text-[13px] rounded-md whitespace-nowrap transition-colors"
           :class="activeName === item.name
-            ? 'text-blue-400 font-medium bg-blue-500/[0.12]'
+            ? 'text-accent font-medium bg-accent/15'
             : 'text-content-tertiary hover:text-content-secondary hover:bg-overlay-faint'"
           @click="router.push({ name: item.name, params: { id: project.id } })"
         >

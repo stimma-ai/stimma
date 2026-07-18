@@ -1,6 +1,6 @@
 <template>
-  <div class="fixed inset-0 bg-black/80 flex items-center justify-center z-[10000] p-8" @click.self="close">
-    <div class="bg-surface border border-edge rounded-xl w-full max-w-[900px] max-h-[85vh] flex flex-col shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]">
+  <div class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal p-8" @click.self="close">
+    <div class="bg-surface border border-edge rounded-lg w-full max-w-[900px] max-h-[85vh] flex flex-col shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]">
       <div class="flex justify-between items-center px-6 py-4 border-b border-edge">
         <h2 class="m-0 text-lg font-semibold text-content">{{ title }}</h2>
         <button
@@ -18,7 +18,7 @@
           ref="textareaRef"
           v-model="localValue"
           :placeholder="placeholder"
-          class="flex-1 w-full min-h-[450px] bg-surface text-content text-sm border border-edge rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 resize-none"
+          class="flex-1 w-full min-h-[450px] bg-surface text-content text-sm border border-edge rounded-lg px-4 py-3 focus:outline-none focus:border-accent resize-none"
         />
         <p v-if="hint" class="text-xs text-content-muted mt-3 leading-relaxed">
           {{ hint }}
@@ -33,7 +33,7 @@
           Cancel
         </button>
         <button
-          class="bg-blue-600 text-white border-none py-2.5 px-6 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-blue-500"
+          class="bg-accent text-white border-none py-2.5 px-6 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-accent/90"
           @click="save"
         >
           Save

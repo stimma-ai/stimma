@@ -1,8 +1,8 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="visible" class="fixed inset-0 bg-black/75 flex items-center justify-center z-[10000] p-5" @click.self="close">
-        <div class="bg-surface rounded-xl max-w-[450px] w-full max-h-[80vh] flex flex-col shadow-2xl border border-edge-subtle">
+      <div v-if="visible" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal p-5" @click.self="close">
+        <div class="bg-surface rounded-lg max-w-[450px] w-full max-h-[80vh] flex flex-col shadow-2xl border border-edge-subtle">
           <!-- Header -->
           <div class="flex items-center justify-between px-5 py-4 border-b border-edge-subtle">
             <h3 class="text-content text-lg font-semibold">Manage Tags</h3>

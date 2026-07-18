@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div
         v-if="show"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="cancel"
         @keydown.esc="cancel"
         tabindex="-1"
@@ -57,12 +57,12 @@
             <div class="flex items-center gap-2">
               <button
                 type="button"
-                class="px-3 py-1.5 text-[12px] bg-surface-raised hover:bg-surface-hover border border-edge text-content rounded font-medium"
+                class="px-3 py-1.5 text-[12px] bg-surface-raised hover:bg-surface-hover text-content rounded-md font-medium"
                 @click="cancel"
               >Cancel</button>
               <button
                 type="button"
-                class="px-3 py-1.5 text-[12px] bg-blue-500 hover:bg-blue-600 text-white rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                class="px-3 py-1.5 text-[12px] bg-accent hover:bg-accent/90 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 :disabled="!ready"
                 @click="confirm"
               >{{ confirmLabel }}</button>

@@ -52,12 +52,12 @@
       <template v-if="cellState === 'awaiting'">
         <button
           type="button"
-          class="bg-blue-500 text-white border border-blue-500 text-[11px] font-medium px-2 py-1 rounded hover:bg-blue-600 transition-colors"
+          class="bg-accent text-white text-[11px] font-medium px-2 py-1 rounded-md hover:bg-accent/90 transition-colors"
           @click.stop="submitApprove(true)"
         >Approve</button>
         <button
           type="button"
-          class="bg-overlay-subtle border border-edge-subtle text-content-secondary text-[11px] font-medium px-2 py-1 rounded hover:bg-overlay-hover hover:text-content transition-colors"
+          class="bg-overlay-subtle text-content-secondary text-[11px] font-medium px-2 py-1 rounded-md hover:bg-overlay-hover hover:text-content transition-colors"
           title="Regenerate this slot"
           @click.stop="submitApprove(false)"
         >Replace</button>
@@ -76,7 +76,7 @@
       <button
         v-else-if="cellState === 'failed'"
         type="button"
-        class="text-[11px] px-2 py-1 rounded bg-overlay-subtle border border-edge-subtle text-content-muted hover:text-content hover:bg-overlay-hover transition-colors"
+        class="text-[11px] px-2 py-1 rounded-md bg-overlay-subtle text-content-muted hover:text-content hover:bg-overlay-hover transition-colors"
         @click.stop="$emit('invalidate', invalidateKey || '')"
       >Retry ↻</button>
     </div>

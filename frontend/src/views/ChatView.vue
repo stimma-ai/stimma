@@ -378,7 +378,7 @@
                                    <div v-else-if="getToolCallDetailKind(childItem) !== 'json'" class="text-sm text-content-secondary whitespace-pre-wrap break-words select-text">{{ getDelegateChildToolDetails(childItem) }}</div>
                                 </template>
                                 <div v-if="devModeRef && getToolCallResultData(childItem)" class="activity-code-block mt-1">
-                                  <div class="text-[10px] text-content-muted uppercase tracking-wider mb-0.5">Response</div>
+                                  <div class="text-xs font-semibold text-content-secondary mb-0.5">Response</div>
                                   <pre class="text-xs text-content-secondary whitespace-pre-wrap json-highlighted select-text" v-html="formatToolResultJson(childItem)"></pre>
                                 </div>
                               </div>
@@ -418,7 +418,7 @@
                            <div v-else-if="getToolCallDetailKind(actItem) !== 'json'" class="text-sm text-content-secondary whitespace-pre-wrap break-words select-text">{{ getToolCallDetails(actItem) }}</div>
                         </template>
                         <div v-if="devModeRef && getToolCallResultData(actItem)" class="activity-code-block mt-1">
-                          <div class="text-[10px] text-content-muted uppercase tracking-wider mb-0.5">Response</div>
+                          <div class="text-xs font-semibold text-content-secondary mb-0.5">Response</div>
                           <pre class="text-xs text-content-secondary whitespace-pre-wrap json-highlighted select-text" v-html="formatToolResultJson(actItem)"></pre>
                         </div>
                       </div>
@@ -725,7 +725,7 @@
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
-              <div class="rounded-xl max-w-lg overflow-hidden p-[1px] bg-gradient-to-r from-amber-500/40 via-orange-500/40 to-red-500/40">
+              <div class="rounded-lg max-w-lg overflow-hidden p-[1px] bg-gradient-to-r from-amber-500/40 via-orange-500/40 to-red-500/40">
                 <div class="bg-surface-elevated rounded-lg overflow-hidden">
                   <div class="flex items-center gap-2 px-3.5 py-2 border-b border-edge-subtle">
                     <div class="p-1 rounded-md bg-amber-500/15 flex-shrink-0">
@@ -751,7 +751,7 @@
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
-              <div class="bg-surface/80 rounded-xl border border-red-500/30 max-w-lg overflow-hidden">
+              <div class="bg-surface/80 rounded-lg border border-red-500/30 max-w-lg overflow-hidden">
                 <div class="flex items-center gap-2 px-3.5 py-2 border-b border-red-500/15 bg-red-500/[0.06]">
                   <div class="p-1 rounded-md bg-red-500/15 flex-shrink-0">
                     <ExclamationTriangleIcon class="w-3.5 h-3.5 text-red-400" />
@@ -774,7 +774,7 @@
                       v-if="item.item_metadata?.error_type?.startsWith('provider_')"
                       type="button"
                       @click="openAISettings"
-                      class="ml-2 inline-flex items-center px-2.5 py-1 rounded-md border border-white/10 bg-white/[0.05] text-content-secondary hover:text-content text-xs font-medium transition-colors"
+                      class="ml-2 inline-flex items-center px-2.5 py-1 rounded-md bg-overlay-light text-content-secondary hover:text-content text-xs font-medium transition-colors"
                     >Chat Models</button>
                   </div>
                   <ChatErrorDisclosure :raw="getRawErrorDetails(item)" />
@@ -795,7 +795,7 @@
               <!-- Plan visualization if this is a plan item -->
               <div
                 v-if="hasPlanData(item)"
-                class="bg-surface/80 rounded-xl border border-edge-subtle overflow-hidden transition-all duration-200"
+                class="bg-surface/80 rounded-lg border border-edge-subtle overflow-hidden transition-all duration-200"
                 :class="isPlanExpanded(item.id) ? 'min-w-[520px]' : ''"
               >
                 <!-- Plan header -->
@@ -816,7 +816,7 @@
                   <button
                     v-if="isPlanExpanded(item.id)"
                     @click.stop="toggleRawPlan(item.id)"
-                    class="text-[11px] uppercase tracking-wide transition-colors select-none"
+                    class="text-xs font-semibold transition-colors select-none"
                     :class="rawPlanItemIds.has(item.id) ? 'text-blue-400' : 'text-content-muted hover:text-content-secondary'"
                   >Raw</button>
                 </div>
@@ -881,7 +881,7 @@
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
-              <div class="bg-surface/80 rounded-xl border border-red-500/30 overflow-hidden">
+              <div class="bg-surface/80 rounded-lg border border-red-500/30 overflow-hidden">
                 <div class="flex items-center gap-2 px-3.5 py-2 border-b border-red-500/15 bg-red-500/[0.06]">
                   <div class="p-1 rounded-md bg-red-500/15 flex-shrink-0">
                     <ExclamationTriangleIcon class="w-3.5 h-3.5 text-red-400" />
@@ -1000,7 +1000,7 @@
                 @responded="handleHITLResponded"
               />
               <!-- Completed plan approval: show plan with approved status -->
-              <div v-else-if="parseHITLAction(item)?.type === 'plan_approval'" class="bg-surface/80 rounded-xl p-3 border border-edge-subtle">
+              <div v-else-if="parseHITLAction(item)?.type === 'plan_approval'" class="bg-surface/80 rounded-lg p-3 border border-edge-subtle">
                 <PlanApproval
                   :prompt="parseHITLAction(item)?.prompt || ''"
                   :plan-data="parseHITLAction(item)?.plan_data"
@@ -1009,7 +1009,7 @@
                 />
               </div>
               <!-- Completed v2_tool_permission: compact resolved state -->
-              <div v-else-if="parseHITLAction(item)?.type === 'v2_tool_permission'" class="bg-surface/80 rounded-xl p-3 border border-edge-subtle">
+              <div v-else-if="parseHITLAction(item)?.type === 'v2_tool_permission'" class="bg-surface/80 rounded-lg p-3 border border-edge-subtle">
                 <V2PermissionPrompt
                   :action="parseHITLAction(item)"
                   :completed="true"
@@ -1017,7 +1017,7 @@
                 />
               </div>
               <!-- Completed ask_user: compact question/answer summary -->
-              <div v-else-if="parseHITLAction(item)?.type === 'ask_user'" class="bg-surface/80 rounded-xl p-3 border border-edge-subtle">
+              <div v-else-if="parseHITLAction(item)?.type === 'ask_user'" class="bg-surface/80 rounded-lg p-3 border border-edge-subtle">
                 <AskUserPrompt
                   :action="parseHITLAction(item)"
                   :completed="true"
@@ -3834,7 +3834,7 @@ function renderMarkdown(text) {
     const language = (lang || '').toLowerCase()
     const normalized = language === 'py' ? 'python' : language === 'sh' ? 'bash' : language
     const highlighted = renderHighlightedCode(code, normalized)
-    return `<div class="rounded-xl border border-white/10 bg-black/20 p-3 overflow-x-auto my-3"><pre class="text-sm leading-6 select-text"><code>${highlighted}</code></pre></div>`
+    return `<div class="rounded-lg border border-edge-subtle bg-black/20 p-3 overflow-x-auto my-3"><pre class="text-sm leading-6 select-text"><code>${highlighted}</code></pre></div>`
   }
   renderer.image = (token) => {
     const href = typeof token === 'string' ? token : (token?.href || '')

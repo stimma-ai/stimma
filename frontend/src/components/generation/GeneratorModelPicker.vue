@@ -4,7 +4,7 @@
       type="button"
       @click="toggleDropdown"
       :disabled="disabled"
-      class="w-full px-3 py-2 bg-surface border border-surface-raised rounded-md text-content-secondary text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 text-left flex items-center justify-between"
+      class="w-full px-3 py-2 bg-surface border border-surface-raised rounded-md text-content-secondary text-sm focus:outline-none focus:border-accent disabled:opacity-50 text-left flex items-center justify-between"
     >
       <span v-if="selectedModel" class="truncate">
         <span class="text-content-muted">{{ selectedGenerator }} /</span> {{ selectedModel }}
@@ -18,7 +18,7 @@
     <!-- Dropdown -->
     <div
       v-if="isOpen"
-      class="absolute z-50 mt-1 bg-surface border border-surface-raised rounded-md shadow-lg max-h-80 overflow-y-auto min-w-[280px] w-max"
+      class="absolute z-menu mt-1 bg-surface border border-surface-raised rounded-md shadow-lg max-h-80 overflow-y-auto min-w-[280px] w-max"
     >
       <template v-for="generator in filteredGenerators" :key="generator.name">
         <!-- Generator Header -->

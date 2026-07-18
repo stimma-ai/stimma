@@ -3,10 +3,10 @@
     <Transition name="modal">
       <div
         v-if="modal.open"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="close"
       >
-        <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[560px] max-w-[92vw] max-h-[88vh] flex flex-col overflow-hidden">
+        <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[560px] max-w-[92vw] max-h-[88vh] flex flex-col overflow-hidden">
           <!-- Header -->
           <div class="flex items-center justify-between px-5 py-4 border-b border-edge">
             <h2 class="text-base font-semibold text-content">Send feedback</h2>
@@ -27,7 +27,7 @@
             </p>
 
             <!-- Message + voice -->
-            <div class="bg-surface-raised/50 border border-edge rounded-2xl pt-1 overflow-hidden">
+            <div class="bg-surface-raised/50 border border-edge rounded-lg pt-1 overflow-hidden">
               <textarea v-no-autocorrect
                 ref="textareaRef"
                 v-model="message"
@@ -90,7 +90,7 @@
             <button
               @click="submit"
               :disabled="submitting || !message.trim()"
-              class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+              class="px-4 py-2 text-sm font-medium bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md transition-colors flex items-center gap-2"
             >
               <svg v-if="submitting" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

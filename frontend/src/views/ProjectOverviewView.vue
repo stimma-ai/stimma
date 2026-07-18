@@ -44,7 +44,7 @@
         <div ref="contentRef" class="w-full max-w-[960px] pb-12 space-y-10">
           <div v-if="recentMedia.length > 0">
             <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Recents</h2>
+              <h2 class="text-xs font-semibold text-content-secondary">Recents</h2>
               <button class="text-xs text-content-muted hover:text-content-secondary transition-colors" @click="openProjectAssets">
                 View all
               </button>
@@ -54,7 +54,7 @@
               <div
                 v-for="(media, index) in visibleMedia"
                 :key="media.id"
-                class="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                class="aspect-square rounded-media overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                 @click="openMediaSlideshow(index)"
               >
                 <MediaImage
@@ -71,7 +71,7 @@
 
           <div v-if="recentBoards.length > 0">
             <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Boards</h2>
+              <h2 class="text-xs font-semibold text-content-secondary">Boards</h2>
               <button class="text-xs text-content-muted hover:text-content-secondary transition-colors" @click="openProjectBoards">
                 View all
               </button>
@@ -85,7 +85,7 @@
                 @dragover.prevent="dragOverBoardId = board.id"
                 @dragleave="dragOverBoardId === board.id && (dragOverBoardId = null)"
                 @drop.prevent="handleBoardDrop(board.id, $event)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left bg-transparent cursor-pointer"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all text-left bg-transparent cursor-pointer"
                 :class="dragOverBoardId === board.id ? 'border-blue-500 bg-blue-500/10' : 'border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle'"
               >
                 <div class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-overlay-subtle">
@@ -119,7 +119,7 @@
 
           <div v-if="recentFlows.length > 0">
             <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Flows</h2>
+              <h2 class="text-xs font-semibold text-content-secondary">Flows</h2>
               <button class="text-xs text-content-muted hover:text-content-secondary transition-colors" @click="openProjectFlows">
                 View all
               </button>
@@ -130,7 +130,7 @@
                 v-for="flow in visibleFlows"
                 :key="flow.id"
                 @click="openFlow(flow)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
               >
                 <EntityIcon type="flow" size="md" />
                 <div class="flex-1 min-w-0">
@@ -155,7 +155,7 @@
 
           <div v-if="recentChats.length > 0">
             <div class="flex items-center justify-between mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Chats</h2>
+              <h2 class="text-xs font-semibold text-content-secondary">Chats</h2>
               <button class="text-xs text-content-muted hover:text-content-secondary transition-colors" @click="openProjectChats">
                 View all
               </button>
@@ -166,7 +166,7 @@
                 v-for="chat in visibleChats"
                 :key="chat.id"
                 @click="openChat(chat)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
               >
                 <div v-if="hasChatMedia(chat)" class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden">
                   <MediaImage

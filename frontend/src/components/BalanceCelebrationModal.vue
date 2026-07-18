@@ -4,10 +4,10 @@
       <div
         v-if="celebration"
         data-testid="balance-celebration"
-        class="fixed inset-0 z-[10010] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="dismissCelebration"
       >
-        <div class="bg-surface border border-edge rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden relative">
+        <div class="bg-surface border border-edge rounded-lg shadow-2xl max-w-md w-full mx-4 overflow-hidden relative">
           <!-- Celebration hero -->
           <div class="celebration-hero px-6 pt-10 pb-8 text-center relative overflow-hidden">
             <div class="glow-base" aria-hidden="true" />

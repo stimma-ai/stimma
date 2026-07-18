@@ -21,7 +21,7 @@
           v-model="searchQuery"
           type="text"
           placeholder="Search projects..."
-          class="w-48 rounded-lg border border-edge-subtle bg-overlay-subtle py-1.5 pl-9 pr-3 text-sm text-content-secondary placeholder-white/30 focus:border-blue-500/50 focus:outline-none"
+          class="w-48 rounded-lg border border-edge-subtle bg-overlay-subtle py-1.5 pl-9 pr-3 text-sm text-content-secondary placeholder-white/30 focus:border-accent focus:outline-none"
         />
       </div>
       </div>

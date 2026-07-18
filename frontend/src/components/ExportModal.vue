@@ -3,7 +3,7 @@
     <Transition name="modal">
       <div
         v-if="show"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="$emit('close')"
       >
         <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[420px] mx-4" @click.stop>
@@ -22,7 +22,7 @@
 
             <!-- Format row -->
             <div class="flex items-center justify-between">
-              <label class="text-xs font-medium text-content-tertiary uppercase tracking-wider">Format</label>
+              <label class="text-xs font-semibold text-content-secondary">Format</label>
               <div class="flex gap-1">
                 <button
                   v-for="fmt in availableFormats"
@@ -31,7 +31,7 @@
                   :class="[
                     'px-2.5 py-1 rounded text-xs font-medium transition-colors',
                     format === fmt.value
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-accent text-white'
                       : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
                   ]"
                 >
@@ -42,14 +42,14 @@
 
             <!-- Quality row — always rendered for stable height, hidden when not applicable -->
             <div :class="['flex items-center gap-3 transition-opacity', showQuality ? 'opacity-100' : 'opacity-0 pointer-events-none']">
-              <label class="text-xs font-medium text-content-tertiary uppercase tracking-wider w-16 shrink-0">Quality</label>
+              <label class="text-xs font-semibold text-content-secondary w-16 shrink-0">Quality</label>
               <input
                 v-model.number="quality"
                 type="range"
                 min="1"
                 max="100"
                 step="1"
-                class="flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                class="flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
               >
               <span class="text-xs text-content-secondary tabular-nums w-6 text-right">{{ quality }}</span>
             </div>
@@ -59,7 +59,7 @@
               <div class="border-t border-edge-subtle" />
 
               <div class="flex items-center justify-between">
-                <label class="text-xs font-medium text-content-tertiary uppercase tracking-wider">Size</label>
+                <label class="text-xs font-semibold text-content-secondary">Size</label>
                 <div class="flex gap-1">
                   <button
                     v-for="opt in layoutScaleOptions"
@@ -68,7 +68,7 @@
                     :class="[
                       'px-2.5 py-1 rounded text-xs font-medium transition-colors',
                       layoutScaleMode === opt.value
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-accent text-white'
                         : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
                     ]"
                   >
@@ -86,7 +86,7 @@
                     min="100"
                     max="16384"
                     step="1"
-                    class="w-24 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-blue-500"
+                    class="w-24 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
                   >
                   <span class="text-xs text-content-tertiary mx-1.5">&times;</span>
                   <span class="text-xs text-content-secondary tabular-nums">{{ layoutDerivedHeight }}</span>
@@ -104,7 +104,7 @@
               <div class="border-t border-edge-subtle" />
 
               <div class="flex items-center justify-between">
-                <label class="text-xs font-medium text-content-tertiary uppercase tracking-wider">Resize</label>
+                <label class="text-xs font-semibold text-content-secondary">Resize</label>
                 <div class="flex gap-1">
                   <button
                     v-for="opt in resizeOptions"
@@ -113,7 +113,7 @@
                     :class="[
                       'px-2.5 py-1 rounded text-xs font-medium transition-colors',
                       resizeMode === opt.value
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-accent text-white'
                         : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
                     ]"
                   >
@@ -131,7 +131,7 @@
                     min="64"
                     max="16384"
                     step="64"
-                    class="w-24 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-blue-500"
+                    class="w-24 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
                   >
                   <span class="text-xs text-content-tertiary ml-2">px longest side</span>
                 </template>
@@ -143,7 +143,7 @@
                     max="16384"
                     step="1"
                     placeholder="W"
-                    class="w-20 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-blue-500"
+                    class="w-20 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
                   >
                   <span class="text-xs text-content-tertiary mx-1.5">&times;</span>
                   <input
@@ -153,7 +153,7 @@
                     max="16384"
                     step="1"
                     placeholder="H"
-                    class="w-20 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-blue-500"
+                    class="w-20 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
                   >
                   <span class="text-xs text-content-tertiary ml-1.5">px</span>
                 </template>
@@ -164,7 +164,7 @@
                     min="1"
                     max="1000"
                     step="1"
-                    class="w-20 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-blue-500"
+                    class="w-20 px-2.5 py-1 bg-surface-overlay border border-surface-raised rounded text-content-secondary text-xs focus:outline-none focus:border-accent"
                   >
                   <span class="text-xs text-content-tertiary ml-2">%</span>
                 </template>
@@ -176,7 +176,7 @@
               <div class="border-t border-edge-subtle" />
 
               <div class="flex items-center justify-between">
-                <label class="text-xs font-medium text-content-tertiary uppercase tracking-wider">Resolution</label>
+                <label class="text-xs font-semibold text-content-secondary">Resolution</label>
                 <div class="flex gap-1">
                   <button
                     v-for="res in videoResolutions"
@@ -185,7 +185,7 @@
                     :class="[
                       'px-2.5 py-1 rounded text-xs font-medium transition-colors',
                       videoResolution === res.value
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-accent text-white'
                         : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised border border-surface-raised'
                     ]"
                   >
@@ -203,7 +203,7 @@
                 <input
                   v-model="stripMetadata"
                   type="checkbox"
-                  class="w-3.5 h-3.5 rounded border-surface-raised bg-surface-overlay accent-blue-500"
+                  class="w-3.5 h-3.5 rounded border-surface-raised bg-surface-overlay accent-accent"
                 >
                 <span class="text-xs text-content-secondary">Strip metadata</span>
               </label>
@@ -225,8 +225,8 @@
               :class="[
                 'px-4 py-2 rounded text-sm font-medium transition-colors',
                 exporting
-                  ? 'bg-blue-500/50 text-white/50 cursor-not-allowed'
-                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  ? 'bg-accent/50 text-white/50 cursor-not-allowed'
+                  : 'bg-accent hover:bg-accent/90 text-white'
               ]"
             >
               {{ exporting ? 'Exporting...' : exportButtonLabel }}

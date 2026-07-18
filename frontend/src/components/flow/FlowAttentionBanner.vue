@@ -27,19 +27,19 @@
           <div class="mt-2 flex flex-wrap items-center gap-1.5">
             <button
               v-if="error"
-              class="text-[12px] px-2.5 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="text-[12px] px-2.5 py-1 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
               :disabled="fixing"
               @click="$emit('fix')"
             >{{ fixing ? 'Sending…' : 'Ask the assistant to fix it' }}</button>
             <button
               v-else-if="blocked"
-              class="text-[12px] px-2.5 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="text-[12px] px-2.5 py-1 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
               :disabled="fixing"
               @click="$emit('unblock')"
             >{{ fixing ? 'Sending…' : 'Ask the assistant' }}</button>
             <button
               v-if="blocked && canPause"
-              class="text-[12px] px-2 py-1 rounded bg-overlay-subtle border border-edge text-content hover:bg-overlay-hover"
+              class="text-[12px] px-2 py-1 rounded-md bg-overlay-subtle text-content hover:bg-overlay-hover"
               @click="$emit('pause')"
             >Pause</button>
           </div>

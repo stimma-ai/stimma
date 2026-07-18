@@ -1,5 +1,5 @@
 <template>
-  <div class="hitl-container bg-surface/80 rounded-xl p-4 border border-edge/50 min-w-[420px]">
+  <div class="hitl-container bg-surface/80 rounded-lg p-4 border border-edge/50 min-w-[420px]">
     <!-- Render appropriate component based on action type -->
     <RetryPrompt
       v-if="action.type === 'retry'"

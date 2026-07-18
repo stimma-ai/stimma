@@ -3,9 +3,9 @@
     <Transition name="modal">
       <div
         v-if="show"
-        class="fixed inset-0 z-[10030] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
       >
-        <div class="bg-surface border border-edge rounded-xl shadow-2xl w-[520px] max-w-[92vw] max-h-[85vh] flex flex-col">
+        <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[520px] max-w-[92vw] max-h-[85vh] flex flex-col">
           <!-- Header -->
           <div class="px-5 py-4 border-b border-edge">
             <h2 class="text-base font-semibold text-content">{{ title }}</h2>
@@ -28,7 +28,7 @@
             >Always send</button>
             <button
               @click="$emit('send-once')"
-              class="px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white text-sm font-medium rounded-lg transition-colors"
+              class="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-medium rounded-md transition-colors"
             >{{ subject === 'thumbs' ? 'Send this once' : 'Send once' }}</button>
           </div>
         </div>

@@ -72,13 +72,13 @@
     <div class="w-[230px] flex-shrink-0 border-l border-edge-subtle flex flex-col">
       <!-- Tools section -->
       <div class="px-3 py-3 border-b border-edge-subtle">
-        <h4 class="text-[10px] font-bold uppercase tracking-wider text-content-tertiary mb-2">Tools</h4>
+        <h4 class="text-xs font-semibold text-content-secondary mb-2">Tools</h4>
         <div class="flex items-center gap-1">
           <button
             @click="activeTool = 'brush'"
             :class="[
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
-              activeTool === 'brush' ? 'bg-blue-500 text-white' : 'text-content hover:bg-black/10 dark:hover:bg-white/10'
+              activeTool === 'brush' ? 'bg-accent text-white' : 'text-content hover:bg-overlay-subtle'
             ]"
             title="Brush"
           >
@@ -88,7 +88,7 @@
             @click="activeTool = 'eyedropper'"
             :class="[
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
-              activeTool === 'eyedropper' ? 'bg-blue-500 text-white' : 'text-content hover:bg-black/10 dark:hover:bg-white/10'
+              activeTool === 'eyedropper' ? 'bg-accent text-white' : 'text-content hover:bg-overlay-subtle'
             ]"
             title="Eyedropper (sample color from image)"
           >
@@ -98,7 +98,7 @@
             @click="activeTool = 'eraser'"
             :class="[
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
-              activeTool === 'eraser' ? 'bg-blue-500 text-white' : 'text-content hover:bg-black/10 dark:hover:bg-white/10'
+              activeTool === 'eraser' ? 'bg-accent text-white' : 'text-content hover:bg-overlay-subtle'
             ]"
             title="Eraser"
           >
@@ -118,7 +118,7 @@
             :class="[
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
               undoCount > 0
-                ? 'text-content hover:bg-black/10 dark:hover:bg-white/10'
+                ? 'text-content hover:bg-overlay-subtle'
                 : 'text-black/20 dark:text-white/20 cursor-not-allowed'
             ]"
             title="Undo"
@@ -131,7 +131,7 @@
             :class="[
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
               redoCount > 0
-                ? 'text-content hover:bg-black/10 dark:hover:bg-white/10'
+                ? 'text-content hover:bg-overlay-subtle'
                 : 'text-black/20 dark:text-white/20 cursor-not-allowed'
             ]"
             title="Redo"
@@ -143,12 +143,12 @@
 
       <!-- Color section -->
       <div class="px-3 py-3 border-b border-edge-subtle">
-        <h4 class="text-[10px] font-bold uppercase tracking-wider text-content-tertiary mb-2">Color</h4>
+        <h4 class="text-xs font-semibold text-content-secondary mb-2">Color</h4>
         <!-- Current color -->
         <div class="flex items-center gap-2 mb-2.5">
           <div
             class="w-8 h-8 rounded-md border-2 flex-shrink-0"
-            :class="isCustomColor ? 'border-blue-500 ring-1 ring-blue-500' : 'border-black/15 dark:border-white/15'"
+            :class="isCustomColor ? 'border-blue-500 ring-1 ring-blue-500' : 'border-edge-subtle'"
             :style="{ backgroundColor: activeColor }"
             title="Current color"
           />
@@ -160,7 +160,7 @@
             :key="color"
             @click="activeColor = color"
             class="w-6 h-6 rounded border-2 transition-transform hover:scale-110 flex-shrink-0"
-            :class="activeColor === color ? 'border-blue-500 scale-110 ring-1 ring-blue-500' : 'border-black/15 dark:border-white/15'"
+            :class="activeColor === color ? 'border-blue-500 scale-110 ring-1 ring-blue-500' : 'border-edge-subtle'"
             :style="{ backgroundColor: color }"
             :title="color"
           />
@@ -169,7 +169,7 @@
 
       <!-- Brush section -->
       <div class="px-3 py-3 border-b border-edge-subtle">
-        <h4 class="text-[10px] font-bold uppercase tracking-wider text-content-tertiary mb-2">Brush</h4>
+        <h4 class="text-xs font-semibold text-content-secondary mb-2">Brush</h4>
         <div class="flex items-center gap-1.5 mb-2">
           <span class="text-[11px] text-content-muted w-10">Size</span>
           <input
@@ -202,7 +202,7 @@
       <div class="px-3 py-3">
         <button
           @click="$emit('done')"
-          class="w-full py-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold transition-colors"
+          class="w-full py-2 rounded-md bg-accent hover:bg-accent/90 text-white text-xs font-semibold transition-colors"
         >
           Done
         </button>

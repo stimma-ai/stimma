@@ -64,10 +64,10 @@
         <div v-else class="w-5 h-5 border-2 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin"></div>
 
         <transition name="expand">
-          <div v-if="isExpanded && statsLoading" class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge rounded-lg p-4 min-w-[400px] shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-[10000]">
+          <div v-if="isExpanded && statsLoading" class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge rounded-lg p-4 min-w-[400px] shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-menu">
             <div class="p-8 text-center text-content-muted text-sm">Loading progress data...</div>
           </div>
-          <div v-else-if="isExpanded" class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge rounded-lg p-4 min-w-[400px] shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-[10000]">
+          <div v-else-if="isExpanded" class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge rounded-lg p-4 min-w-[400px] shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-menu">
             <div v-if="deleteSummary" class="mb-4 pb-4 border-b border-surface-raised">
               <div class="flex justify-between items-center mb-2">
                 <span class="flex items-center gap-2 text-sm font-semibold text-content">
@@ -142,7 +142,7 @@
                 </div>
               </div>
               <div v-if="stats.metadata?.failed > 0" class="flex gap-2 flex-wrap">
-                <span class="text-[0.6875rem] px-2 py-1 rounded bg-red-500/20 text-red-500 border border-red-500/30 font-medium cursor-pointer transition-all hover:scale-105 hover:opacity-80" @click.stop="showFailedItems('metadata')">
+                <span class="text-[0.6875rem] px-2 py-1 rounded bg-red-500/20 text-red-500 border border-red-500/30 font-medium cursor-pointer transition-all hover:opacity-80" @click.stop="showFailedItems('metadata')">
                   {{ stats.metadata.failed }} failed
                 </span>
               </div>
@@ -171,7 +171,7 @@
                 </div>
               </div>
               <div v-if="stats.clip?.failed > 0" class="flex gap-2 flex-wrap">
-                <span class="text-[0.6875rem] px-2 py-1 rounded bg-red-500/20 text-red-500 border border-red-500/30 font-medium cursor-pointer transition-all hover:scale-105 hover:opacity-80" @click.stop="showFailedItems('clip')">
+                <span class="text-[0.6875rem] px-2 py-1 rounded bg-red-500/20 text-red-500 border border-red-500/30 font-medium cursor-pointer transition-all hover:opacity-80" @click.stop="showFailedItems('clip')">
                   {{ stats.clip.failed }} failed
                 </span>
               </div>
@@ -200,7 +200,7 @@
                 </div>
               </div>
               <div v-if="stats.face_detection?.failed > 0" class="flex gap-2 flex-wrap">
-                <span class="text-[0.6875rem] px-2 py-1 rounded bg-red-500/20 text-red-500 border border-red-500/30 font-medium cursor-pointer transition-all hover:scale-105 hover:opacity-80" @click.stop="showFailedItems('face_detection')">
+                <span class="text-[0.6875rem] px-2 py-1 rounded bg-red-500/20 text-red-500 border border-red-500/30 font-medium cursor-pointer transition-all hover:opacity-80" @click.stop="showFailedItems('face_detection')">
                   {{ stats.face_detection.failed }} failed
                 </span>
               </div>
@@ -229,7 +229,7 @@
                 </div>
               </div>
               <div v-if="stats.vlm_caption?.failed > 0" class="flex gap-2 flex-wrap">
-                <span class="text-[0.6875rem] px-2 py-1 rounded bg-red-500/20 text-red-500 border border-red-500/30 font-medium cursor-pointer transition-all hover:scale-105 hover:opacity-80" @click.stop="showFailedItems('vlm_caption')">
+                <span class="text-[0.6875rem] px-2 py-1 rounded bg-red-500/20 text-red-500 border border-red-500/30 font-medium cursor-pointer transition-all hover:opacity-80" @click.stop="showFailedItems('vlm_caption')">
                   {{ stats.vlm_caption.failed }} failed
                 </span>
               </div>
@@ -320,7 +320,7 @@
         <transition name="dropdown">
           <div
             v-if="profileMenuOpen"
-            class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-[10000] min-w-[220px] overflow-hidden"
+            class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-menu min-w-[220px] overflow-hidden"
           >
             <div class="py-1">
               <div
@@ -376,7 +376,7 @@
 
     <!-- Failed Items Modal -->
     <Teleport to="body">
-      <div v-if="showModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[20000]" @click="closeModal">
+      <div v-if="showModal" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click="closeModal">
         <div class="bg-surface border border-edge rounded-lg max-w-[800px] w-[90%] max-h-[80vh] flex flex-col shadow-[0_20px_40px_rgba(0,0,0,0.5)]" @click.stop>
           <div class="flex justify-between items-center p-6 border-b border-edge">
             <h2 class="m-0 text-xl font-semibold text-content">{{ modalTitle }}</h2>
@@ -384,7 +384,7 @@
               <!-- Retry All button -->
               <button
                 v-if="failedItems.length > 0 && !loadingFailed"
-                class="flex items-center gap-2 bg-gradient-to-br from-green-500 to-green-600 border-none text-white px-4 py-2 rounded-md text-sm font-semibold cursor-pointer transition-all hover:from-green-600 hover:to-green-700 hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(76,175,80,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+                class="flex items-center gap-2 bg-gradient-to-br from-green-500 to-green-600 border-none text-white px-4 py-2 rounded-md text-sm font-semibold cursor-pointer transition-all hover:from-green-600 hover:to-green-700 hover:shadow-[0_4px_12px_rgba(76,175,80,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
                 @click="retryAll"
                 :disabled="retrying || trashing"
               >

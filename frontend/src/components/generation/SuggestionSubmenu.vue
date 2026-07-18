@@ -2,19 +2,19 @@
   <Teleport to="body">
     <div
       v-if="visible"
-      class="fixed inset-0 z-[9998]"
+      class="fixed inset-0 z-menu"
       @click="emit('close')"
       @keydown.escape="emit('close')"
     >
       <!-- Card popover -->
       <div
         ref="cardRef"
-        class="absolute z-[9999] suggestion-submenu-card rounded-lg border border-edge p-3 max-w-[340px]"
+        class="absolute z-menu suggestion-submenu-card rounded-lg border border-edge p-3 max-w-[340px]"
         :style="menuStyle"
         @click.stop
       >
         <!-- Category header -->
-        <div class="text-[10px] font-medium uppercase tracking-wider text-content-muted mb-2 px-0.5 text-center">
+        <div class="text-xs font-semibold text-content-secondary mb-2 px-0.5 text-center">
           {{ label }}
         </div>
 

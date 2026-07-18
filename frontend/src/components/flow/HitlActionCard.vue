@@ -75,13 +75,13 @@
           <button
             type="button"
             aria-pressed="false"
-            class="flex-1 min-w-0 bg-blue-500 text-white border border-blue-500 text-[10px] font-medium px-1 py-0.5 rounded hover:bg-blue-600 transition-colors truncate"
+            class="flex-1 min-w-0 bg-accent text-white text-[10px] font-medium px-1 py-0.5 rounded-md hover:bg-accent/90 transition-colors truncate"
             title="Approve"
             @click.stop="$emit('approve', true)"
           >Approve</button>
           <button
             type="button"
-            class="flex-1 min-w-0 bg-overlay-subtle border border-edge-subtle text-content-secondary text-[10px] font-medium px-1 py-0.5 rounded hover:bg-overlay-hover hover:text-content transition-colors truncate"
+            class="flex-1 min-w-0 bg-overlay-subtle text-content-secondary text-[10px] font-medium px-1 py-0.5 rounded-md hover:bg-overlay-hover hover:text-content transition-colors truncate"
             title="Replace — regenerates this candidate"
             @click.stop="$emit('approve', false)"
           >Replace</button>
@@ -101,7 +101,7 @@
         <button
           v-else-if="state === 'failed'"
           type="button"
-          class="text-[10px] px-1.5 py-0.5 rounded bg-overlay-subtle border border-edge-subtle text-content-muted hover:text-content hover:bg-overlay-hover transition-colors"
+          class="text-[10px] px-1.5 py-0.5 rounded-md bg-overlay-subtle text-content-muted hover:text-content hover:bg-overlay-hover transition-colors"
           @click.stop="$emit('retry')"
         >Retry ↻</button>
       </template>

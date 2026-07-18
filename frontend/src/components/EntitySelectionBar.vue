@@ -7,7 +7,7 @@
           <!-- Clear selection button (X) -->
           <button
             @click="$emit('clear')"
-            class="flex items-center justify-center w-7 h-7 rounded hover:bg-white/10 transition-colors text-content-muted hover:text-content"
+            class="flex items-center justify-center w-7 h-7 rounded hover:bg-overlay-medium transition-colors text-content-muted hover:text-content"
             title="Clear selection"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -66,7 +66,7 @@ defineEmits(['clear', 'select-all', 'delete'])
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 100;
+  z-index: 30; /* z-chrome: in-page floating chrome */
   background: var(--color-surface);
   border: 1px solid var(--color-edge-subtle);
   border-radius: 12px;

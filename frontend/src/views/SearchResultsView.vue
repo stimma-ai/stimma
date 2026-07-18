@@ -41,7 +41,7 @@
           <section v-for="s in 2" :key="`skc-${s}`">
             <div class="h-3 w-24 rounded bg-overlay-subtle animate-pulse mb-4"></div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              <div v-for="i in 3" :key="i" class="h-[62px] rounded-xl bg-overlay-subtle animate-pulse"></div>
+              <div v-for="i in 3" :key="i" class="h-[62px] rounded-lg bg-overlay-subtle animate-pulse"></div>
             </div>
           </section>
           <section v-for="s in 2" :key="`ska-${s}`">
@@ -84,7 +84,7 @@
           <!-- Tools -->
           <section v-if="toolResults.length > 0">
             <div class="flex items-baseline gap-2.5 mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">Tools</h2>
+              <h2 class="text-xs font-semibold text-content-secondary">Tools</h2>
               <span class="text-[11px] text-content-muted/70">{{ toolResults.length }}</span>
               <router-link
                 :to="{ name: 'all-tools', query: { q } }"
@@ -96,7 +96,7 @@
                 v-for="tool in toolResults"
                 :key="tool.full_tool_id"
                 @click="open('tool', tool)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
               >
                 <ToolIcon :tool="tool" size="md" :ring="false" />
                 <div class="flex-1 min-w-0">
@@ -116,7 +116,7 @@
           <!-- Entity sections -->
           <section v-for="section in entitySections" :key="section.title">
             <div class="flex items-baseline gap-2.5 mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">{{ section.title }}</h2>
+              <h2 class="text-xs font-semibold text-content-secondary">{{ section.title }}</h2>
               <span class="text-[11px] text-content-muted/70">{{ section.hits.length }}</span>
               <router-link
                 v-if="section.viewAll"
@@ -130,10 +130,10 @@
                 :key="hit.id"
                 @click="open(section.kind, hit)"
                 @contextmenu="handleEntityContextMenu($event, section.kind, hit)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
               >
                 <!-- Chat/board previews, same treatment as the home screen & sidebar -->
-                <div v-if="section.kind === 'chat' && hit.thumbnail" class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden">
+                <div v-if="section.kind === 'chat' && hit.thumbnail" class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden">
                   <MediaImage
                     :media-id="hit.thumbnail.media_id"
                     :file-hash="hit.thumbnail.file_hash || undefined"
@@ -145,7 +145,7 @@
                     class="w-full h-full object-cover"
                   />
                 </div>
-                <div v-else-if="section.kind === 'board' && hit.preview_items?.length" class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-overlay-subtle">
+                <div v-else-if="section.kind === 'board' && hit.preview_items?.length" class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden bg-overlay-subtle">
                   <div class="grid grid-cols-2 gap-[1px] w-full h-full">
                     <MediaImage
                       v-for="item in hit.preview_items.slice(0, 4)"
@@ -185,11 +185,11 @@
           <!-- Working chat/run results stay discoverable without filling All Assets. -->
           <section v-if="contextualGroups.length > 0">
             <div class="mb-3 flex items-baseline gap-2.5">
-              <h2 class="text-xs font-medium uppercase tracking-wider text-content-muted">In chats and runs</h2>
+              <h2 class="text-xs font-semibold text-content-secondary">In chats and runs</h2>
               <span class="text-[11px] text-content-muted/70">{{ contextualCount }}</span>
             </div>
             <div class="space-y-3">
-              <div v-for="group in contextualGroups" :key="`${group.root_kind}:${group.root_id}`" class="rounded-xl border border-white/10 bg-white/[0.05] p-3">
+              <div v-for="group in contextualGroups" :key="`${group.root_kind}:${group.root_id}`" class="rounded-lg border border-edge-subtle bg-overlay-light p-3">
                 <div class="mb-2 flex items-center justify-between gap-3">
                   <button class="truncate bg-transparent text-left text-xs font-medium text-content-secondary hover:text-content" @click="openContextualRoot(group)">
                     {{ contextualRootLabel(group) }}
@@ -199,7 +199,7 @@
                   <div
                     v-for="media in group.items"
                     :key="media.id"
-                    class="group relative aspect-square cursor-pointer overflow-hidden rounded-lg bg-black/20"
+                    class="group relative aspect-square cursor-pointer overflow-hidden rounded-media bg-matte"
                     @click="openContextualRoot(group)"
                   >
                     <MediaImage
@@ -235,7 +235,7 @@
                screen's sections), never shown as dead bands. -->
           <section v-for="assetSection in assetSections" :key="assetSection.key">
             <div class="flex items-baseline gap-2.5 mb-3">
-              <h2 class="text-xs font-medium text-content-muted uppercase tracking-wider">{{ assetSection.title }}</h2>
+              <h2 class="text-xs font-semibold text-content-secondary">{{ assetSection.title }}</h2>
               <span class="text-[11px] text-content-muted/70">{{ assetSection.items.length }}</span>
               <router-link
                 :to="{ name: 'browse', query: assetSection.browseQuery }"
@@ -246,7 +246,7 @@
               <div
                 v-for="(media, index) in assetSection.items"
                 :key="media.id"
-                class="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                class="aspect-square rounded-media overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                 @click="openAssetFromGrid(assetSection.key, index)"
               >
                 <MediaImage

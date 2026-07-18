@@ -12,7 +12,7 @@
       <div
         v-for="profile in profiles"
         :key="profile.id"
-        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-white/[0.025]"
+        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle"
         :class="{ 'cursor-pointer': profile.id !== currentProfileId }"
         @click="profile.id !== currentProfileId && switchToProfile(profile.id)"
       >
@@ -61,7 +61,7 @@
     <Teleport to="body">
       <div
         v-if="showCreateModal"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closeCreateModal"
         @keydown.escape.stop="closeCreateModal"
         tabindex="-1"
@@ -78,7 +78,7 @@
               ref="newProfileInput"
               type="text"
               placeholder="Profile name"
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500"
+              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent"
               @keydown.enter="createProfile"
             />
             <p v-if="nameError" class="text-xs text-red-500 mt-1">{{ nameError }}</p>
@@ -95,7 +95,7 @@
             <button
               @click="createProfile"
               :disabled="!canCreate || saving"
-              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+              class="px-4 py-2 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md font-medium transition-colors"
             >
               {{ saving ? 'Creating...' : 'Create' }}
             </button>
@@ -108,7 +108,7 @@
     <Teleport to="body">
       <div
         v-if="renameProfile"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closeRenameModal"
         @keydown.escape.stop="closeRenameModal"
         tabindex="-1"
@@ -125,7 +125,7 @@
               ref="renameProfileInput"
               type="text"
               placeholder="Profile name"
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500"
+              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent"
               @keydown.enter="submitRename"
             />
             <p v-if="renameError" class="text-xs text-red-500 mt-1">{{ renameError }}</p>
@@ -142,7 +142,7 @@
             <button
               @click="submitRename"
               :disabled="!canRename || saving"
-              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+              class="px-4 py-2 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md font-medium transition-colors"
             >
               {{ saving ? 'Renaming...' : 'Rename' }}
             </button>
@@ -155,7 +155,7 @@
     <Teleport to="body">
       <div
         v-if="deleteConfirm"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="deleteConfirm = null"
         @keydown.escape.stop="deleteConfirm = null"
         tabindex="-1"
@@ -214,7 +214,7 @@
     <Teleport to="body">
       <div
         v-if="pinSettingsProfile"
-        class="fixed inset-0 z-[10020] flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
+        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
         @click.self="closePinSettings"
         @keydown.escape.stop="closePinSettings"
         tabindex="-1"
@@ -246,7 +246,7 @@
               <button
                 v-if="!pinSettingsProfile.has_pin"
                 @click="showSetPinForm = true"
-                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded font-medium transition-colors"
+                class="px-3 py-1.5 bg-accent hover:bg-accent/90 text-white text-sm rounded-md font-medium transition-colors"
               >
                 Set PIN
               </button>
@@ -276,7 +276,7 @@
               inputmode="numeric"
               maxlength="20"
               placeholder="Enter new PIN"
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 mb-2"
+              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent mb-2"
               @keydown.enter="submitSetPin"
             />
             <label class="block text-xs text-content-tertiary mb-1">Confirm PIN</label>
@@ -286,7 +286,7 @@
               inputmode="numeric"
               maxlength="20"
               placeholder="Confirm PIN"
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 mb-2"
+              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent mb-2"
               @keydown.enter="submitSetPin"
             />
             <p v-if="pinError" class="text-xs text-red-500 mb-2">{{ pinError }}</p>
@@ -300,7 +300,7 @@
               <button
                 @click="submitSetPin"
                 :disabled="!canSetPin || savingPin"
-                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm rounded font-medium transition-colors"
+                class="px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm rounded-md font-medium transition-colors"
               >
                 {{ savingPin ? 'Setting...' : 'Set PIN' }}
               </button>
@@ -316,7 +316,7 @@
               inputmode="numeric"
               maxlength="20"
               placeholder="Enter current PIN"
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 mb-2"
+              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent mb-2"
             />
             <label class="block text-xs text-content-tertiary mb-1">New PIN (4-20 characters)</label>
             <input
@@ -325,7 +325,7 @@
               inputmode="numeric"
               maxlength="20"
               placeholder="Enter new PIN"
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 mb-2"
+              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent mb-2"
             />
             <label class="block text-xs text-content-tertiary mb-1">Confirm New PIN</label>
             <input
@@ -334,7 +334,7 @@
               inputmode="numeric"
               maxlength="20"
               placeholder="Confirm new PIN"
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 mb-2"
+              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent mb-2"
               @keydown.enter="submitChangePin"
             />
             <p v-if="pinError" class="text-xs text-red-500 mb-2">{{ pinError }}</p>
@@ -348,7 +348,7 @@
               <button
                 @click="submitChangePin"
                 :disabled="!canChangePin || savingPin"
-                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm rounded font-medium transition-colors"
+                class="px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm rounded-md font-medium transition-colors"
               >
                 {{ savingPin ? 'Changing...' : 'Change PIN' }}
               </button>
@@ -365,7 +365,7 @@
               inputmode="numeric"
               maxlength="20"
               placeholder="Enter current PIN"
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-blue-500 mb-2"
+              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent mb-2"
               @keydown.enter="submitRemovePin"
             />
             <p v-if="pinError" class="text-xs text-red-500 mb-2">{{ pinError }}</p>
@@ -422,7 +422,7 @@
       <div
         v-if="openMenuId && menuPosition"
         data-profile-menu
-        class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 w-40 z-[10010]"
+        class="fixed bg-surface border border-edge rounded-lg shadow-lg py-1 w-40 z-menu"
         :style="{ top: menuPosition.top + 'px', left: menuPosition.left + 'px' }"
       >
         <!-- Move Up -->

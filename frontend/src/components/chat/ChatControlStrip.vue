@@ -9,7 +9,7 @@
         @blur="saveName"
         @keydown.enter="saveName"
         @keydown.escape="cancelEditName"
-        class="text-sm font-medium bg-surface text-content px-2 py-1 rounded border border-edge focus:outline-none focus:border-blue-500"
+        class="text-sm font-medium bg-surface text-content px-2 py-1 rounded border border-edge focus:outline-none focus:border-accent"
       />
       <span
         v-else-if="chatName"
@@ -101,7 +101,7 @@
         <!-- Dropdown menu -->
         <div
           v-if="showMenu"
-          class="absolute right-0 mt-1 w-44 bg-surface border border-edge rounded-lg shadow-xl z-50 py-1"
+          class="absolute right-0 mt-1 w-44 bg-surface border border-edge rounded-lg shadow-xl z-menu py-1"
         >
           <button
             @click="handleClone"
