@@ -3,7 +3,7 @@
     <button
       ref="buttonRef"
       @click="toggleDropdown"
-      class="flex items-center gap-2 px-3 py-2 bg-overlay-subtle border border-edge-subtle rounded-md text-content-tertiary text-sm hover:bg-overlay-light hover:text-content transition-colors duration-150 whitespace-nowrap"
+      class="flex items-center gap-2 px-2.5 py-2 rounded-md text-content-secondary text-sm hover:bg-overlay-subtle hover:text-content transition-colors duration-150 whitespace-nowrap"
     >
       <!-- Aspect ratio preview rectangle -->
       <span

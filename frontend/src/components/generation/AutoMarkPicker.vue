@@ -5,12 +5,12 @@
       :key="marker.id"
       @click="toggleMarker(marker.id)"
       :class="[
-        'w-10 h-10 rounded-md cursor-pointer transition-all border flex items-center justify-center',
+        'w-9 h-9 rounded-md cursor-pointer transition-all flex items-center justify-center',
         isSelected(marker.id)
-          ? 'bg-opacity-30 border-opacity-100'
-          : 'bg-overlay-subtle border-edge-subtle text-content-tertiary hover:bg-overlay-light hover:text-content'
+          ? 'bg-opacity-30'
+          : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
       ]"
-      :style="isSelected(marker.id) ? { backgroundColor: marker.color + '33', borderColor: marker.color, color: marker.color } : {}"
+      :style="isSelected(marker.id) ? { backgroundColor: marker.color + '33', color: marker.color } : {}"
       :title="marker.name"
     >
       <span v-html="sanitizeSvg(marker.icon_svg)" class="w-4 h-4 flex-shrink-0 icon-container"></span>

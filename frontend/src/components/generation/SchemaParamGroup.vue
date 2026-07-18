@@ -26,8 +26,8 @@
             <!-- Seed control with randomize checkbox -->
             <div v-if="param.control === 'seed'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                <div v-if="paramDescription(param, constraintState(param))" class="text-xs mt-0.5" :class="constraintState(param).disabled ? 'text-amber-500/80' : 'text-content-muted'">{{ paramDescription(param, constraintState(param)) }}</div>
+                <div class="text-sm text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <div class="flex items-center justify-end gap-3 flex-wrap">
                 <input v-no-autocorrect
@@ -52,8 +52,8 @@
             <!-- Enum/Select -->
             <div v-else-if="param.enum" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                <div v-if="paramDescription(param, constraintState(param))" class="text-xs mt-0.5" :class="constraintState(param).disabled ? 'text-amber-500/80' : 'text-content-muted'">{{ paramDescription(param, constraintState(param)) }}</div>
+                <div class="text-sm text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <div class="min-w-0 max-w-[45%] flex-shrink-0">
                 <SettingsDropdown
@@ -64,50 +64,29 @@
                 />
               </div>
             </div>
-            <!-- Number/Slider -->
-            <div v-else-if="param.type === 'number' || param.type === 'integer'" :class="['flex items-center justify-between gap-4', rowPad]">
-              <div class="min-w-0 flex-1">
-                <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                <div v-if="paramDescription(param, constraintState(param))" class="text-xs mt-0.5" :class="constraintState(param).disabled ? 'text-amber-500/80' : 'text-content-muted'">{{ paramDescription(param, constraintState(param)) }}</div>
-              </div>
-              <div class="flex min-w-0 w-[45%] max-w-[360px] flex-shrink-0 items-center justify-end gap-2">
-                <input v-no-autocorrect
-                  type="range"
-                  :value="values[param.name] ?? param.default"
-                  @input="emitParam(param.name, Number(($event.target as HTMLInputElement).value))"
+            <!-- Number: compact value row — drag the mono value to scrub,
+                 click to type (the mock's ValueRow grammar; no slider). -->
+            <div v-else-if="param.type === 'number' || param.type === 'integer'" class="py-2">
+              <div class="flex items-center justify-between gap-4">
+                <div class="text-sm text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <ScrubValue
+                  :model-value="Number(values[param.name] ?? param.default ?? 0)"
+                  @update:model-value="emitParam(param.name, $event)"
                   :min="param.minimum ?? 0"
                   :max="param.maximum ?? 100"
                   :step="param.step ?? (param.type === 'integer' ? 1 : 0.1)"
                   :disabled="constraintState(param).disabled"
-                  class="min-w-24 flex-1 h-1 bg-overlay-subtle rounded-full appearance-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0"
+                  :non-default="(values[param.name] ?? param.default) !== param.default"
+                  :format="(v: number) => formatGenericParamValue(param, v)"
                 />
-                <input v-no-autocorrect
-                  v-if="editingParam === param.name"
-                  type="text"
-                  :value="values[param.name] ?? param.default"
-                  @blur="commitParamEdit(param, $event)"
-                  @keydown.enter="commitParamEdit(param, $event)"
-                  @keydown.escape="editingParam = null"
-                  class="w-16 flex-shrink-0 text-sm font-mono tabular-nums text-content bg-overlay-subtle border border-transparent rounded-md px-2 py-1 text-right focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
-                  ref="paramEditInput"
-                />
-                <span
-                  v-else
-                  @dblclick="!constraintState(param).disabled && startParamEdit(param.name)"
-                  class="w-12 flex-shrink-0 text-sm font-mono tabular-nums text-right select-none"
-                  :class="[
-                    constraintState(param).disabled ? 'opacity-40 cursor-not-allowed text-content-tertiary' : 'cursor-text',
-                    !constraintState(param).disabled && (values[param.name] ?? param.default) !== param.default ? 'text-accent hover:text-accent/80' : 'text-content-tertiary hover:text-content-secondary'
-                  ]"
-                  :title="constraintState(param).disabled ? '' : 'Double-click to edit'"
-                >{{ formatGenericParamValue(param, values[param.name] ?? param.default) }}</span>
               </div>
+              <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
             </div>
             <!-- Boolean/Checkbox -->
             <div v-else-if="param.type === 'boolean'" :class="['flex items-center justify-between gap-4', rowPad]">
-              <div class="w-[55%] flex-shrink-0">
-                <div class="text-sm font-medium text-content">{{ param.label }}</div>
-                <div v-if="paramDescription(param, constraintState(param))" class="text-xs mt-0.5" :class="constraintState(param).disabled ? 'text-amber-500/80' : 'text-content-muted'">{{ paramDescription(param, constraintState(param)) }}</div>
+              <div class="min-w-0 flex-1">
+                <div class="text-sm text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <input v-no-autocorrect
                 type="checkbox"
@@ -153,8 +132,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, ref } from 'vue'
 import SettingsDropdown from '../ui/SettingsDropdown.vue'
+import ScrubValue from '../ui/ScrubValue.vue'
 import type { GenericParam, GenericParamGroup } from '../../composables/useToolSchemaFeatures'
 import { resolveParamConstraints, isSectionHidden, type ParamConstraintState } from '../../utils/paramConstraints'
 
@@ -177,7 +157,7 @@ const props = defineProps<{
   onToggleGroupCollapsed?: (groupLabel: string | null) => void
 }>()
 
-const rowPad = computed(() => (props.flat ? 'px-1 py-2' : 'px-1 py-2.5'))
+const rowPad = computed(() => (props.flat ? 'px-0 py-2' : 'px-0 py-2'))
 
 const emit = defineEmits<{
   (e: 'update:param', name: string, value: any): void
@@ -224,36 +204,6 @@ function toggleCollapsed(groupLabel: string | null) {
   }
   if (!groupLabel) return
   internalCollapsed.value[groupLabel] = !isCollapsed(groupLabel)
-}
-
-// --- Inline numeric editing --------------------------------------------------
-const editingParam = ref<string | null>(null)
-const paramEditInput = ref<HTMLInputElement[] | null>(null)
-
-function startParamEdit(paramName: string) {
-  editingParam.value = paramName
-  nextTick(() => {
-    const input = paramEditInput.value?.[0]
-    if (input) {
-      input.focus()
-      input.select()
-    }
-  })
-}
-
-function commitParamEdit(param: GenericParam, event: Event) {
-  const input = event.target as HTMLInputElement
-  const rawValue = input.value.replace(/%$/, '')
-  const numValue = Number(rawValue)
-
-  if (!isNaN(numValue)) {
-    const min = param.minimum ?? 0
-    const max = param.maximum ?? 100
-    const clamped = Math.max(min, Math.min(max, numValue))
-    emitParam(param.name, param.type === 'integer' ? Math.round(clamped) : clamped)
-  }
-
-  editingParam.value = null
 }
 
 // --- Formatting ---------------------------------------------------------------

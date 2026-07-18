@@ -4,7 +4,7 @@
       ref="buttonRef"
       @click="toggleDropdown"
       :disabled="disabled"
-      class="flex items-center gap-2 px-3 py-2 bg-overlay-subtle border border-edge-subtle rounded-md text-content-tertiary text-sm hover:bg-overlay-light hover:text-content transition-colors duration-150 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+      class="flex items-center gap-2 px-2.5 py-2 rounded-md text-content-secondary text-sm hover:bg-overlay-subtle hover:text-content transition-colors duration-150 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
     >
       <span class="font-mono tabular-nums">{{ megapixels.toFixed(1) }}MP</span>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-content-muted">
