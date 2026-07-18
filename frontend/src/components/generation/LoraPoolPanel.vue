@@ -1,7 +1,7 @@
 <template>
   <div class="my-6">
     <!-- Header with label, add button, filter, and overflow menu -->
-    <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center justify-between pb-1.5 border-b border-edge-subtle mb-2">
       <span class="text-xs font-semibold text-content-secondary">LoRAs</span>
       <div class="flex items-center gap-2">
         <!-- +Add button -->

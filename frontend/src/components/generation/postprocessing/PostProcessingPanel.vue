@@ -1,7 +1,7 @@
 <template>
   <div class="mb-6">
     <!-- Panel header -->
-    <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center justify-between pb-1.5 border-b border-edge-subtle mb-2">
       <span class="text-xs font-semibold text-content-secondary">Post-processing</span>
       <label v-if="chain.steps.length" class="inline-flex items-center gap-2 cursor-pointer">
         <span class="text-xs text-content-tertiary">{{ chain.enabled ? 'On' : 'Off' }}</span>

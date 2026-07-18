@@ -9,7 +9,7 @@
           v-if="paramGroup.collapsible && !disableCollapse"
           @click="toggleCollapsed(paramGroup.group)"
           type="button"
-          class="flex items-center gap-2 text-xs font-semibold text-content-secondary hover:text-content transition-colors duration-150"
+          class="flex items-center gap-2 text-xs font-semibold text-content-secondary hover:text-content transition-colors duration-150 focus:outline-none focus-visible:ring-2 ring-accent/60 rounded"
         >
           <span :class="['transition-transform duration-150 text-[10px]', isCollapsed(paramGroup.group) ? '' : 'rotate-90']">&#9654;</span>
           {{ displayGroupLabel(paramGroup.label) }}
