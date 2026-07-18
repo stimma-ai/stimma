@@ -33,7 +33,7 @@
       <div class="relative">
         <button
           ref="boardMenuButtonRef"
-          class="flex h-8 w-8 items-center justify-center rounded-lg border border-edge-subtle text-content-muted transition-colors hover:bg-overlay-subtle hover:text-content"
+          class="flex h-8 w-8 items-center justify-center rounded-md border border-edge-subtle text-content-muted transition-colors hover:bg-overlay-subtle hover:text-content"
           title="Board actions"
           @click="toggleBoardMenu"
         >
@@ -128,8 +128,8 @@
                   :ref="(el) => setTileRef(section.id, item, el)"
                   class="group relative overflow-hidden rounded-media text-left"
                   :class="[
-                    item.__placeholder ? 'bg-overlay-medium' : 'cursor-grab select-none bg-overlay-subtle active:cursor-grabbing',
-                    !item.__placeholder && selectedItemIds.includes(item.id) ? 'ring-[3px] ring-blue-500 ring-inset' : ''
+                    item.__placeholder ? 'bg-overlay-medium' : 'cursor-grab select-none bg-matte active:cursor-grabbing',
+                    !item.__placeholder && selectedItemIds.includes(item.id) ? 'ring-2 ring-selection ring-inset' : ''
                   ]"
                   :style="{ width: `${item._layoutWidth}px`, height: `${row.height}px` }"
                   @click="!item.__placeholder && handleItemClick(section, item, $event)"
@@ -162,7 +162,7 @@
                   </div>
                   <div
                     v-if="item.__placeholder"
-                    class="pointer-events-none absolute inset-0 rounded-media ring-2 ring-inset ring-blue-500/70"
+                    class="pointer-events-none absolute inset-0 rounded-media ring-2 ring-inset ring-selection/70"
                   />
                   <!-- Marker badges -->
                   <MarkerBadges
@@ -181,7 +181,7 @@
                   >
                     <div :class="[
                       'w-6 h-6 bg-black/60 backdrop-blur-md border-2 rounded-md flex items-center justify-center transition-all cursor-pointer',
-                      selectedItemIds.includes(item.id) ? 'bg-blue-500 border-blue-500' : 'border-edge-strong hover:border-edge-strong'
+                      selectedItemIds.includes(item.id) ? 'bg-selection border-selection' : 'border-edge-strong hover:border-edge-strong'
                     ]">
                       <svg v-if="selectedItemIds.includes(item.id)" class="w-4 h-4 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />

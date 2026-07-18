@@ -1,7 +1,7 @@
 <template>
   <div class="flex h-full flex-col bg-base">
     <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
-      <span class="text-xl font-semibold leading-none text-content">Boards</span>
+      <h1 class="text-xl font-semibold leading-none text-content">Boards</h1>
 
       <div class="flex items-center gap-3">
         <button
@@ -82,7 +82,7 @@
         <button
           v-for="board in filteredBoards"
           :key="board.id"
-          class="group overflow-hidden rounded-lg border border-edge-subtle bg-transparent text-left transition-all hover:border-edge-strong hover:bg-overlay-subtle"
+          class="group overflow-hidden rounded-lg border border-edge-subtle bg-transparent text-left transition-colors hover:bg-overlay-faint"
           @click="openBoard(board.id)"
           @contextmenu="handleBoardContextMenu($event, board)"
         >
@@ -100,7 +100,7 @@
                   <div
                     v-for="(item, index) in column"
                     :key="`${board.id}-${columnIndex}-${item.id}-${index}`"
-                    class="overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint"
+                    class="overflow-hidden rounded-media bg-overlay-faint"
                     :style="getPreviewTileStyle(item)"
                   >
                     <MediaImage
@@ -138,8 +138,8 @@
                 {{ board.name || 'Name this board...' }}
               </h2>
             </div>
-            <p class="mt-0.5 text-xs text-content-muted truncate">
-              {{ formatBoardMeta(board) }}
+            <p class="mt-0.5 text-xs text-content-tertiary truncate">
+              <span class="font-mono tabular-nums">{{ board.asset_count || 0 }}</span> {{ (board.asset_count || 0) === 1 ? 'item' : 'items' }}<span v-if="board.updated_at"> &bull; Updated {{ formatRelativeTime(board.updated_at) }}</span>
             </p>
           </div>
         </button>

@@ -34,7 +34,7 @@
     <!-- Trash Header (only in trash mode) -->
     <div v-if="isTrashMode" class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
       <div class="flex flex-col gap-1">
-        <span class="text-xl font-semibold leading-none text-content">Trash</span>
+        <h1 class="text-xl font-semibold leading-none text-content">Trash</h1>
         <p class="text-sm text-content-tertiary">
           {{ trashHeaderSubtitle }}
         </p>

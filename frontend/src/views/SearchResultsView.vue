@@ -47,7 +47,7 @@
           <section v-for="s in 2" :key="`ska-${s}`">
             <div class="h-3 w-32 rounded bg-overlay-subtle animate-pulse mb-4"></div>
             <div class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
-              <div v-for="i in 16" :key="i" class="aspect-square rounded-lg bg-overlay-subtle animate-pulse"></div>
+              <div v-for="i in 16" :key="i" class="aspect-square rounded-media bg-overlay-subtle animate-pulse"></div>
             </div>
           </section>
         </div>
@@ -96,7 +96,7 @@
                 v-for="tool in toolResults"
                 :key="tool.full_tool_id"
                 @click="open('tool', tool)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:bg-overlay-faint transition-colors text-left bg-transparent cursor-pointer"
               >
                 <ToolIcon :tool="tool" size="md" :ring="false" />
                 <div class="flex-1 min-w-0">
@@ -130,7 +130,7 @@
                 :key="hit.id"
                 @click="open(section.kind, hit)"
                 @contextmenu="handleEntityContextMenu($event, section.kind, hit)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:bg-overlay-faint transition-colors text-left bg-transparent cursor-pointer"
               >
                 <!-- Chat/board previews, same treatment as the home screen & sidebar -->
                 <div v-if="section.kind === 'chat' && hit.thumbnail" class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden">
@@ -246,7 +246,7 @@
               <div
                 v-for="(media, index) in assetSection.items"
                 :key="media.id"
-                class="aspect-square rounded-media overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                class="aspect-square rounded-media overflow-hidden cursor-pointer bg-matte hover:opacity-80 transition-opacity"
                 @click="openAssetFromGrid(assetSection.key, index)"
               >
                 <MediaImage

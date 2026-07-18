@@ -1,9 +1,9 @@
 <template>
   <div class="flex-1 flex flex-col overflow-hidden w-full min-w-0">
     <!-- Loading state -->
-    <div v-if="initialLoading" class="flex-1 p-2 overflow-hidden">
+    <div v-if="initialLoading" class="flex-1 p-2 overflow-hidden bg-matte">
       <div class="grid grid-cols-6 gap-2 loading-grid">
-        <div v-for="i in 18" :key="i" class="loading-skeleton aspect-square rounded-lg w-full h-auto"></div>
+        <div v-for="i in 18" :key="i" class="loading-skeleton aspect-square rounded-media w-full h-auto"></div>
       </div>
     </div>
 
@@ -22,7 +22,7 @@
       :items="allItems"
       :item-size="itemHeight"
       :buffer="bufferSize"
-      class="flex-1 min-w-0 overflow-y-scroll overflow-x-hidden media-grid-container custom-scrollbar pt-2"
+      class="flex-1 min-w-0 overflow-y-scroll overflow-x-hidden media-grid-container custom-scrollbar pt-2 bg-matte"
       @scroll="handleScroll"
       @contextmenu.prevent="handleContainerContextMenu"
       key-field="id"
@@ -31,7 +31,7 @@
         <!-- Placeholder for loading items -->
         <div v-if="item.isPlaceholder" class="overflow-visible box-border w-full min-w-0" :style="rowStyle">
           <div class="grid min-w-0" :style="gridStyle">
-            <div v-for="i in itemsPerRow" :key="`placeholder-${item.startIndex}-${i}`" class="grid-cell-placeholder relative aspect-square bg-surface-raised rounded-lg overflow-hidden cursor-pointer flex items-center justify-center">
+            <div v-for="i in itemsPerRow" :key="`placeholder-${item.startIndex}-${i}`" class="grid-cell-placeholder relative aspect-square bg-surface-raised rounded-media overflow-hidden cursor-pointer flex items-center justify-center">
               <div class="loading-skeleton w-6 h-6 border-2 border-edge border-t-zinc-600 rounded-full"></div>
             </div>
           </div>
@@ -45,9 +45,9 @@
               :key="assetIdOf(rowItem)"
               :data-testid="`media-grid-item-${assetIdOf(rowItem)}`"
               :class="[
-                'group grid-cell relative aspect-square bg-surface-raised rounded-lg cursor-pointer border border-edge',
-                { 'multi-select-mode': multiSelectMode, 'selected ring-[3px] ring-blue-500 ring-inset': isSelected(assetIdOf(rowItem)) },
-                { 'context-target ring-2 ring-blue-500/40': contextTargetId === assetIdOf(rowItem) && !isSelected(assetIdOf(rowItem)) }
+                'group grid-cell relative aspect-square bg-matte rounded-media cursor-pointer',
+                { 'multi-select-mode': multiSelectMode, 'selected ring-2 ring-selection ring-inset': isSelected(assetIdOf(rowItem)) },
+                { 'context-target ring-2 ring-selection/40': contextTargetId === assetIdOf(rowItem) && !isSelected(assetIdOf(rowItem)) }
               ]"
               draggable="true"
               @click.stop="handleItemClick(assetIdOf(rowItem), rowItem._gridIndex, $event)"
@@ -61,7 +61,7 @@
               @dragstart="handleDragStart($event, rowItem)"
               @dragend="handleGridDragEnd"
             >
-              <div class="w-full h-full overflow-hidden rounded-lg">
+              <div class="w-full h-full overflow-hidden rounded-media">
                 <AppImage
                   :src="getThumbnailUrl(rowItem.file_hash, GRID_THUMBNAIL_SIZE)"
                   :alt="rowItem.vlm_caption || 'Media item'"
@@ -439,9 +439,9 @@ const emptySpaceMenuActions = computed(() => {
 const GRID_SIDE_PADDING_PX = 16 // px-2 -> 8px left + 8px right
 // CSS grid rounds fractional square tile widths to physical pixels. The virtual
 // row stride needs a small compensation so the measured row gap matches the
-// 8px column gap on 2x displays.
-const ROW_VERTICAL_GUTTER_PX = 10.5
-const GRID_GAP_PX = 8 // gap-2
+// column gap on 2x displays.
+const ROW_VERTICAL_GUTTER_PX = 4.5
+const GRID_GAP_PX = 2 // Atelier contact-sheet gutter (gap-0.5)
 const GRID_THUMBNAIL_SIZE = 512
 const itemsPerRow = ref(6) // Will be calculated based on window width
 const itemHeight = ref(220) // Height of each virtual row (item width + vertical gutter)
@@ -1829,7 +1829,6 @@ onActivated(async () => {
 
 <style scoped>
 .grid-cell {
-  transition: transform 0.2s, box-shadow 0.2s;
   user-select: none;
   /* Prevent white artifact lines at rounded corners from subpixel rendering */
   -webkit-backface-visibility: hidden;
@@ -1848,18 +1847,8 @@ onActivated(async () => {
   background: transparent !important;
 }
 
-.grid-cell:hover {
-  transform: scale(1.03) translateZ(0);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
-  z-index: 10;
-  position: relative;
-}
-
-.grid-cell.multi-select-mode:hover {
-  transform: scale(1.015) translateZ(0);
-}
-
-/* Allow scaled cards to escape row wrappers in virtual scroller */
+/* No hover-scale/translate per Atelier motion rules — hover affordance is the
+   overlay controls fading in, not the tile moving. */
 :deep(.vue-recycle-scroller__item-wrapper) {
   overflow: visible;
 }

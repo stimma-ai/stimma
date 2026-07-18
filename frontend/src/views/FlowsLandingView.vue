@@ -2,7 +2,7 @@
   <div class="h-full flex flex-col bg-base">
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-5 border-b border-edge-subtle">
-      <span class="text-xl font-semibold leading-none text-content">Flows</span>
+      <h1 class="text-xl font-semibold leading-none text-content">Flows</h1>
 
       <div class="flex items-center gap-3">
         <button

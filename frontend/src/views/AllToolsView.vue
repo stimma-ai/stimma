@@ -126,10 +126,10 @@
             <div
               v-for="tool in group.tools"
               :key="tool.full_tool_id"
-              class="relative group rounded-lg p-[18px] h-[136px] flex flex-col justify-between transition-all cursor-pointer"
+              class="relative group rounded-lg p-[18px] h-[136px] flex flex-col justify-between transition-colors cursor-pointer"
               :class="[
                 tool.availability !== 'available' ? 'opacity-40 pointer-events-none' : '',
-                isStimmaCloudTool(tool) ? 'bg-overlay-faint stimma-cloud-border hover:bg-overlay-subtle' : 'bg-overlay-faint border border-edge-subtle hover:bg-overlay-subtle hover:border-edge'
+                isStimmaCloudTool(tool) ? 'bg-overlay-faint stimma-cloud-border hover:bg-overlay-subtle' : 'bg-transparent border border-edge-subtle hover:bg-overlay-faint'
               ]"
               @click="openTool(tool)"
               @contextmenu.prevent="isUserTool(tool) ? openToolMenu($event, tool) : null"

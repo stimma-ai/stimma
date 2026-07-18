@@ -1,7 +1,7 @@
 <template>
   <div class="flex h-full flex-col bg-base">
     <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
-      <span class="text-xl font-semibold leading-none text-content">Projects</span>
+      <h1 class="text-xl font-semibold leading-none text-content">Projects</h1>
 
       <div class="flex items-center gap-3">
         <button
@@ -41,7 +41,7 @@
         <button
           v-for="project in filteredProjects"
           :key="project.id"
-          class="group rounded-lg border border-edge-subtle bg-overlay-faint p-5 text-left transition-all hover:border-edge hover:bg-overlay-subtle"
+          class="group rounded-lg border border-edge-subtle bg-transparent p-5 text-left transition-colors hover:bg-overlay-faint"
           @click="handleCardClick($event, project)"
           @contextmenu="handleProjectContextMenu($event, project)"
         >
@@ -70,14 +70,14 @@
               >
                 {{ project.name || 'Name this project...' }}
               </h2>
-              <p class="mt-0.5 text-xs text-content-muted">
+              <p class="mt-0.5 text-xs font-mono tabular-nums text-content-tertiary">
                 Updated {{ formatRelativeTime(project.updated_at) }}
               </p>
             </div>
           </div>
 
           <!-- Stats with icons -->
-          <div class="mt-4 flex items-center gap-4 text-xs text-content-muted">
+          <div class="mt-4 flex items-center gap-4 text-xs font-mono tabular-nums text-content-tertiary">
             <span class="flex items-center gap-1.5">
               <!-- Image stack icon -->
               <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
