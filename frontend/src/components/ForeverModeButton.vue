@@ -1,10 +1,11 @@
 <template>
   <div class="relative" ref="containerRef">
-    <!-- Split Button -->
+    <!-- Split button: always a contained control (a split dropdown needs a
+         body); idle = secondary, armed = accent wash. -->
     <div
       :class="[
-        'flex rounded-lg overflow-hidden transition-colors',
-        isActive ? 'bg-accent/15 ring-1 ring-accent/40' : ''
+        'flex rounded-md overflow-hidden transition-colors',
+        isActive ? 'bg-accent/15 ring-1 ring-accent/40' : 'bg-surface-raised'
       ]"
     >
       <!-- Main button (start/stop) -->
@@ -12,7 +13,7 @@
         @click="handleMainClick"
         :class="[
           'px-3 py-2 text-sm font-semibold cursor-pointer transition-colors',
-          isActive ? 'text-accent-hi hover:bg-accent/20' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'
+          isActive ? 'text-accent-hi hover:bg-accent/20' : 'text-content-secondary hover:bg-surface-hover hover:text-content'
         ]"
         :title="isActive ? 'Stop forever mode' : 'Start forever mode'"
       >
@@ -20,14 +21,14 @@
       </button>
 
       <!-- Divider -->
-      <div v-if="isActive" class="w-px bg-accent/30"></div>
+      <div :class="['w-px', isActive ? 'bg-accent/30' : 'bg-edge']"></div>
 
       <!-- Dropdown chevron (settings) -->
       <button
         @click.stop="handleChevronClick"
         :class="[
           'px-2 py-2 cursor-pointer transition-colors flex items-center',
-          isActive ? 'text-accent-hi hover:bg-accent/20' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'
+          isActive ? 'text-accent-hi hover:bg-accent/20' : 'text-content-secondary hover:bg-surface-hover hover:text-content'
         ]"
         title="Forever mode settings"
       >

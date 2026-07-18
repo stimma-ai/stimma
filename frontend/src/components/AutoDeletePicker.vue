@@ -61,12 +61,12 @@ const buttonClasses = computed(() => {
   const base = 'cursor-pointer transition-colors flex items-center justify-center gap-1.5'
   const sizeClasses = props.size === 'small'
     ? 'px-2.5 h-7 rounded text-xs font-medium'
-    : 'px-3 py-2 rounded-lg text-sm font-semibold'
+    : 'px-3 py-2 rounded-md text-sm font-semibold'
   const colorClasses = props.modelValue !== 'never'
-    ? 'bg-selection/15 text-selection'
+    ? 'bg-accent/15 text-accent-hi'
     : props.size === 'small'
       ? 'text-content-tertiary hover:text-content hover:bg-surface'
-      : 'bg-surface-raised hover:bg-surface-hover text-content'
+      : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'
   return `${base} ${sizeClasses} ${colorClasses}`
 })
 const emit = defineEmits<{

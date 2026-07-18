@@ -2,7 +2,7 @@
   <div class="relative" ref="containerRef">
     <!-- Split button: main Run + caret -->
     <div
-      class="flex rounded-lg overflow-hidden bg-accent"
+      class="flex rounded-md overflow-hidden bg-accent"
       :class="disabled ? 'opacity-50' : ''"
     >
       <!-- Main run button -->

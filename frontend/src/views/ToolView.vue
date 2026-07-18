@@ -299,7 +299,7 @@
                  (image primary, steer by chat). -->
             <button
               @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
-              class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-lg"
+              class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md"
               :class="layoutMode === 'stage' ? 'bg-accent/15 text-accent-hi' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
               :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Studio — controls primary'"
             >
@@ -311,7 +311,7 @@
             <div v-if="jobsManager" class="relative flex items-center">
               <button
                 @click="stageMenuOpen = !stageMenuOpen"
-                class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-lg text-content-secondary hover:bg-overlay-subtle hover:text-content"
+                class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md text-content-secondary hover:bg-overlay-subtle hover:text-content"
                 title="Queue options"
               >
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
