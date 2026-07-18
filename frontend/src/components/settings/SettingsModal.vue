@@ -171,7 +171,6 @@
               </template>
             </div>
           </div>
-    </div>
   </Modal>
 
   <!-- PIN Entry Modal for locked profiles -->

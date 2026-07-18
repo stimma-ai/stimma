@@ -128,7 +128,7 @@
 import { computed } from 'vue'
 import type { MockBodyNode, MockStatus } from './foreachMockData'
 import { aggregateCounts } from './foreachMockData'
-import { dotClass, textClass, cardFrameClass, tileBgClass, type StatusBucket } from '@/utils/statusColors'
+import { dotClass, textClass, cardFrameClass, tileBgClass, type StatusBucket } from '../../../utils/statusColors'
 
 // Maps this node's own status vocabulary onto the shared statusColors.ts
 // bucket type; actual colors always come from the shared exports below.
