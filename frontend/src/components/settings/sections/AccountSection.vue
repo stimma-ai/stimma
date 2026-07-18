@@ -85,7 +85,7 @@
         <div class="ml-auto flex shrink-0 items-center gap-4 text-[13.5px]">
           <button
             @click="openDashboard"
-            class="font-medium text-blue-500 transition-colors hover:text-blue-400"
+            class="font-medium text-accent transition-colors hover:text-accent/90"
           >
             Open dashboard
           </button>

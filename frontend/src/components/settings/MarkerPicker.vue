@@ -49,7 +49,7 @@
                 :key="icon.ref"
                 @click="selectIcon(icon.ref)"
                 class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-hover transition-colors"
-                :class="{ 'bg-blue-500/20 ring-1 ring-blue-500': localIcon === icon.ref }"
+                :class="{ 'bg-accent/20 ring-1 ring-accent': localIcon === icon.ref }"
                 :title="icon.name"
               >
                 <component :is="getIconComponent(icon.ref)" class="w-5 h-5 text-content-tertiary" />

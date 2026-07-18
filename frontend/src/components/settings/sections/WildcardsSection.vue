@@ -85,13 +85,13 @@
       <button
         type="button"
         @click="addWildcard"
-        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-blue-500/[0.04]"
+        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04]"
       >
-        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent">
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-sm font-medium text-blue-400">Add Wildcard</div>
+          <div class="text-sm font-medium text-accent">Add Wildcard</div>
         </div>
       </button>
     </div>
@@ -157,13 +157,13 @@
       <button
         type="button"
         @click="addSegment"
-        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-blue-500/[0.04]"
+        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04]"
       >
-        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent">
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-sm font-medium text-blue-400">Add Segment</div>
+          <div class="text-sm font-medium text-accent">Add Segment</div>
         </div>
       </button>
     </div>

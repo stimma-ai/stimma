@@ -20,7 +20,7 @@
           v-model="localInstructions"
           placeholder="Give the agent default instructions..."
           rows="6"
-          class="mt-3 w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent resize-none"
+          class="mt-3 w-full bg-overlay-subtle text-content text-sm border border-transparent rounded-md px-3 py-2 focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40 resize-none"
           @blur="saveInstructions"
         />
       </div>
@@ -35,7 +35,7 @@
           v-model="localMemory"
           placeholder="No memories yet..."
           rows="6"
-          class="mt-3 w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent resize-none"
+          class="mt-3 w-full bg-overlay-subtle text-content text-sm border border-transparent rounded-md px-3 py-2 focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40 resize-none"
           @blur="saveMemory"
         />
       </div>

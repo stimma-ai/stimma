@@ -47,8 +47,8 @@
           </div>
 
           <template v-else-if="maintenance.analysis">
-            <div v-if="maintenance.result" class="rounded-lg border border-blue-500/50 bg-blue-500/15 p-4">
-              <p class="text-sm font-medium text-blue-500">Cleanup complete</p>
+            <div v-if="maintenance.result" class="rounded-lg border border-accent/50 bg-accent/15 p-4">
+              <p class="text-sm font-medium text-accent">Cleanup complete</p>
               <p class="mt-1 text-sm text-content-secondary">
                 Repaired {{ number(maintenance.result.repaired_count) }} of {{ number(maintenance.result.before.total_findings) }} findings.
                 {{ number(maintenance.result.after.total_findings) }} remain report only.
@@ -89,7 +89,7 @@
                       <td class="px-3 py-3">
                         <span
                           class="inline-flex rounded border px-2 py-0.5"
-                          :class="group.repairable ? 'border-blue-500/50 bg-blue-500/15 text-blue-500' : 'border-edge-subtle bg-overlay-light text-content-tertiary'"
+                          :class="group.repairable ? 'border-accent/50 bg-accent/15 text-accent' : 'border-edge-subtle bg-overlay-light text-content-tertiary'"
                         >
                           {{ findingHandlingLabel(group) }}
                         </span>

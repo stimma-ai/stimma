@@ -25,7 +25,7 @@
             <!-- Scanning indicator -->
             <svg
               v-if="rescanning === index"
-              class="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0"
+              class="w-3.5 h-3.5 text-accent animate-spin flex-shrink-0"
               viewBox="0 0 24 24"
               fill="none"
             >
@@ -71,13 +71,13 @@
         type="button"
         @click="addFolder"
         :disabled="saving"
-        class="flex w-full flex-col items-center gap-3 rounded-lg border border-dashed border-edge px-6 py-10 text-center transition-colors hover:border-blue-500/50 hover:bg-blue-500/[0.04] disabled:opacity-50"
+        class="flex w-full flex-col items-center gap-3 rounded-lg border border-dashed border-edge px-6 py-10 text-center transition-colors hover:border-accent/50 hover:bg-accent/[0.04] disabled:opacity-50"
       >
         <svg class="h-8 w-8 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
         </svg>
         <div>
-          <div class="text-sm font-medium text-blue-400">Add Folder</div>
+          <div class="text-sm font-medium text-accent">Add Folder</div>
           <div class="mt-1 text-xs text-content-tertiary">Choose a folder to scan into your library — read-only, your files are never changed.</div>
         </div>
       </button>
@@ -88,13 +88,13 @@
         type="button"
         @click="addFolder"
         :disabled="saving"
-        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-blue-500/[0.04] disabled:opacity-50"
+        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04] disabled:opacity-50"
       >
-        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent">
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-sm font-medium text-blue-400">Add Folder</div>
+          <div class="text-sm font-medium text-accent">Add Folder</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">Scan an external folder for media, read-only.</div>
         </div>
       </button>

@@ -25,7 +25,7 @@
           :class="[
             'text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors',
             monospaceEnabled
-              ? 'text-blue-500 bg-blue-500/10 font-mono'
+              ? 'text-accent bg-accent/10 font-mono'
               : 'text-content-muted hover:text-content-secondary'
           ]"
           :title="monospaceEnabled ? 'Switch to proportional font' : 'Switch to monospace font'"

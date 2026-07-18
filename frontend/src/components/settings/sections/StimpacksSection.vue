@@ -46,9 +46,9 @@
       <!-- Drag overlay -->
       <div
         v-if="isDragging"
-        class="mt-6 flex items-center justify-center rounded-lg border-2 border-dashed border-blue-500/50 bg-blue-500/5 py-12"
+        class="mt-6 flex items-center justify-center rounded-lg border-2 border-dashed border-accent/50 bg-accent/5 py-12"
       >
-        <p class="text-sm text-blue-400">Drop .md or .zip file to install stimpack</p>
+        <p class="text-sm text-accent">Drop .md or .zip file to install stimpack</p>
       </div>
 
       <!-- Installed stimpacks grid -->
@@ -137,7 +137,7 @@
               </span>
               <span
                 v-if="stimpack.is_dev"
-                class="ml-2 rounded-full border border-blue-500/40 bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-400"
+                class="ml-2 rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent"
               >
                 Dev
               </span>

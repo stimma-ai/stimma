@@ -55,13 +55,13 @@
         type="button"
         @click="addMarker"
         :disabled="saving"
-        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-blue-500/[0.04] disabled:opacity-50"
+        class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04] disabled:opacity-50"
       >
-        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent">
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-sm font-medium text-blue-400">Add Marker</div>
+          <div class="text-sm font-medium text-accent">Add Marker</div>
         </div>
       </button>
     </div>

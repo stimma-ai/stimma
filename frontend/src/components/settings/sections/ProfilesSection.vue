@@ -16,7 +16,7 @@
         :class="{ 'cursor-pointer': profile.id !== currentProfileId }"
         @click="profile.id !== currentProfileId && switchToProfile(profile.id)"
       >
-        <div class="flex h-9 w-9 shrink-0 items-center justify-center" :class="profile.id === currentProfileId ? 'text-blue-400' : 'text-content-secondary'">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center" :class="profile.id === currentProfileId ? 'text-accent' : 'text-content-secondary'">
           <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
           </svg>
@@ -27,7 +27,7 @@
             {{ profile.media_count?.toLocaleString() || 0 }} media file{{ profile.media_count !== 1 ? 's' : '' }}<template v-if="profile.has_pin"> · PIN</template>
           </div>
         </div>
-        <div v-if="profile.id === currentProfileId" class="shrink-0 text-xs text-blue-400">Current</div>
+        <div v-if="profile.id === currentProfileId" class="shrink-0 text-xs text-accent">Current</div>
         <button
           :ref="el => setMenuButtonRef(profile.id, el)"
           @click.stop="toggleProfileMenu(profile.id)"
@@ -46,12 +46,12 @@
       </div>
 
       <!-- Create profile row -->
-      <button type="button" @click="openCreateModal" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-blue-500/[0.04]">
-        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400">
+      <button type="button" @click="openCreateModal" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04]">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent">
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-sm font-medium text-blue-400">Create Profile</div>
+          <div class="text-sm font-medium text-accent">Create Profile</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">Start a separate library with its own markers and settings.</div>
         </div>
       </button>
@@ -231,7 +231,7 @@
               <div class="flex items-center gap-2">
                 <svg
                   class="w-5 h-5"
-                  :class="pinSettingsProfile.has_pin ? 'text-blue-500' : 'text-content-muted'"
+                  :class="pinSettingsProfile.has_pin ? 'text-accent' : 'text-content-muted'"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -398,7 +398,7 @@
                 min="1"
                 max="60"
                 step="1"
-                class="flex-1 h-2 bg-surface-raised rounded-lg appearance-none cursor-pointer accent-blue-500"
+                class="flex-1 h-2 bg-surface-raised rounded-lg appearance-none cursor-pointer accent-accent"
               />
               <span class="text-sm text-content w-20 text-right">{{ pinIdleTimeout }} min</span>
             </div>

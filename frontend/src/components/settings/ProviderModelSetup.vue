@@ -10,7 +10,7 @@
             <span v-else class="text-content-muted">Not tested</span>
           </div>
         </div>
-        <button type="button" @click="$emit('test')" :disabled="testing" class="shrink-0 rounded-md border border-blue-500/50 bg-blue-500/15 px-3 py-1.5 text-xs font-medium text-blue-400 hover:bg-blue-500/20 disabled:opacity-50">
+        <button type="button" @click="$emit('test')" :disabled="testing" class="shrink-0 rounded-md border border-accent/50 bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/20 disabled:opacity-50">
           {{ testing ? 'Testing…' : tested ? 'Re-test' : 'Run tests' }}
         </button>
       </div>
@@ -68,8 +68,8 @@
               <div class="mt-0.5 text-[11px] text-content-muted">How thinking is toggled per request.</div>
             </div>
             <div class="inline-flex overflow-hidden rounded-md border border-edge text-[11px]">
-              <button type="button" @click="setReasoningSource('auto')" class="px-2 py-1" :class="model.reasoning_control_source !== 'manual' ? 'bg-blue-500/15 text-blue-400' : 'text-content-tertiary'">Auto</button>
-              <button type="button" @click="setReasoningSource('manual')" class="px-2 py-1" :class="model.reasoning_control_source === 'manual' ? 'bg-blue-500/15 text-blue-400' : 'text-content-tertiary'">Manual</button>
+              <button type="button" @click="setReasoningSource('auto')" class="px-2 py-1" :class="model.reasoning_control_source !== 'manual' ? 'bg-accent/15 text-accent' : 'text-content-tertiary'">Auto</button>
+              <button type="button" @click="setReasoningSource('manual')" class="px-2 py-1" :class="model.reasoning_control_source === 'manual' ? 'bg-accent/15 text-accent' : 'text-content-tertiary'">Manual</button>
             </div>
           </div>
           <div v-if="model.reasoning_control_source !== 'manual'" class="mt-2 text-[11px] text-content-tertiary">
@@ -83,7 +83,7 @@
             <label class="text-xs font-medium text-content">Context window</label>
             <span class="text-xs tabular-nums text-content-secondary">{{ contextLabel }}</span>
           </div>
-          <input v-model.number="model.max_context_tokens" type="range" min="32768" max="1048576" step="32768" @change="changed" class="w-full accent-blue-500" />
+          <input v-model.number="model.max_context_tokens" type="range" min="32768" max="1048576" step="32768" @change="changed" class="w-full accent-accent" />
           <p class="mt-1 text-[11px] text-content-muted">Match the model's configured context length. Stimma compacts history at about 80% of this.</p>
         </div>
 
