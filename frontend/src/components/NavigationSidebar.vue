@@ -49,7 +49,7 @@
             class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-medium transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
             :class="[
               activeTab === 'home' ? '!bg-overlay-hover !text-content' : '',
-              dragHoverStimmaHome ? '!bg-accent/10 !text-content ring-1 ring-accent/50' : ''
+              dragHoverStimmaHome ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
             ]"
             title="Stimma (drag media here to attach)"
           >
@@ -127,7 +127,7 @@
               class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
               :class="[
                 activeTab === 'boards' ? '!bg-overlay-hover !text-content' : '',
-                dragHoverNewBoard ? '!bg-accent/10 !text-content ring-1 ring-accent/50' : ''
+                dragHoverNewBoard ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
               title="Boards (drag media here to create new)"
             >
@@ -160,7 +160,7 @@
               class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
               :class="[
                 activeTab === 'chats' ? '!bg-overlay-hover !text-content' : '',
-                dragHoverNewChat ? '!bg-accent/10 !text-content ring-1 ring-accent/50' : ''
+                dragHoverNewChat ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
               title="Chats (drag media here to create new)"
             >
@@ -192,7 +192,7 @@
               class="flex items-center gap-2.5 px-3 py-1.5 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent w-full text-left"
               :class="[
                 activeTab === 'flows' ? '!bg-overlay-hover !text-content' : '',
-                dragHoverNewFlow ? '!bg-accent/10 !text-content ring-1 ring-accent/50' : ''
+                dragHoverNewFlow ? '!bg-accent/10 !text-content ring-1 ring-accent' : ''
               ]"
               title="Flows (drag media here to create new)"
             >
@@ -241,6 +241,9 @@
           <div v-if="pinnedTabs.length > 0 || openTabs.length > 0" class="mt-3">
             <div class="mx-3 mb-2 border-t border-edge-subtle"></div>
 
+            <!-- Pinned/open micro-labels replace the old dashed separator -->
+            <div v-if="pinnedTabs.length > 0" class="px-3 pt-1 pb-1 text-xs font-semibold text-content-secondary">Pinned</div>
+
             <!-- Pinned tabs -->
             <div
               v-for="(tab, index) in pinnedTabs"
@@ -255,7 +258,7 @@
               <!-- Drop indicator line -->
               <div
                 v-if="tabReorderDropTarget?.index === index && tabReorderDropTarget?.group === 'pinned'"
-                class="absolute left-0 right-0 h-0.5 bg-accent -top-px z-10"
+                class="absolute left-0 right-0 h-0.5 bg-accent-hi -top-px z-10"
               ></div>
               <button
                 @click="navigateToTab(tab)"
@@ -267,7 +270,7 @@
                 class="flex items-center gap-2.5 px-3 py-2 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full"
                 :class="[
                   isTabActive(tab) ? '!bg-overlay-hover !text-content' : '',
-                  dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent/50') : '',
+                  dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : ''
                 ]"
@@ -276,9 +279,9 @@
               >
                 <!-- Inline rename -->
                 <template v-if="editingItem?.tabId === tab.id">
-                  <MediaImage v-if="tab.type === 'editor' && tab.editorMediaId" :media-id="Number(tab.editorMediaId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <MediaImage v-else-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
+                  <MediaImage v-if="tab.type === 'editor' && tab.editorMediaId" :media-id="Number(tab.editorMediaId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
                     <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
                       <div
                         v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
@@ -288,7 +291,7 @@
                         <div
                           v-for="(item, index) in column"
                           :key="`${tab.id}-rename-board-item-${columnIndex}-${item.id}-${index}`"
-                          class="overflow-hidden rounded bg-overlay-subtle"
+                          class="overflow-hidden rounded-media bg-overlay-subtle"
                           :style="getBoardPreviewTileStyle(item)"
                         >
                           <MediaImage
@@ -316,7 +319,7 @@
                     <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
                   <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
@@ -332,9 +335,9 @@
                 </template>
                 <!-- Normal display -->
                 <template v-else>
-                  <MediaImage v-if="tab.type === 'editor' && tab.editorMediaId" :media-id="Number(tab.editorMediaId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <MediaImage v-else-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
+                  <MediaImage v-if="tab.type === 'editor' && tab.editorMediaId" :media-id="Number(tab.editorMediaId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
                     <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
                       <div
                         v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
@@ -344,7 +347,7 @@
                         <div
                           v-for="(item, index) in column"
                           :key="`${tab.id}-board-item-${columnIndex}-${item.id}-${index}`"
-                          class="overflow-hidden rounded bg-overlay-subtle"
+                          class="overflow-hidden rounded-media bg-overlay-subtle"
                           :style="getBoardPreviewTileStyle(item)"
                         >
                           <MediaImage
@@ -372,7 +375,7 @@
                     <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
                   <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
@@ -398,7 +401,7 @@
                     </div>
                     <span
                       v-if="tab.projectName"
-                      class="flex-shrink-0 text-[10px] text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
+                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
                     >{{ tab.projectName }}</span>
                   </div>
 
@@ -414,7 +417,7 @@
                     </div>
                     <span
                       v-if="getBoardProjectName(tab.entityId)"
-                      class="flex-shrink-0 text-[10px] text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
+                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
                     >{{ getBoardProjectName(tab.entityId) }}</span>
                   </div>
 
@@ -452,7 +455,7 @@
                     </div>
                     <span
                       v-if="getChatProjectName(tab.entityId)"
-                      class="flex-shrink-0 text-[10px] text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
+                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
                     >{{ getChatProjectName(tab.entityId) }}</span>
                   </div>
 
@@ -471,7 +474,7 @@
                     </div>
                     <span
                       v-if="getChatProjectName(tab.entityId)"
-                      class="flex-shrink-0 text-[10px] text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
+                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
                     >{{ getChatProjectName(tab.entityId) }}</span>
                   </div>
 
@@ -511,16 +514,18 @@
                   >
                     Name this board...
                   </span>
-                  <span
+                  <StatusDot
                     v-if="isTabGenerating(tab) && tab.type !== 'flow'"
-                    class="w-2.5 h-2.5 border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0 self-center"
-                  ></span>
-                  <span
+                    bucket="running"
+                    pulse
+                    class="self-center"
+                  />
+                  <StatusDot
                     v-else-if="unseenKindFor(tab.id)"
-                    class="w-2 h-2 rounded-full flex-shrink-0 self-center"
-                    :class="unseenKindFor(tab.id) === 'error' ? 'bg-red-500' : 'bg-blue-500'"
+                    :bucket="unseenKindFor(tab.id) === 'error' ? 'failed' : 'running'"
+                    class="self-center"
                     :title="unseenKindFor(tab.id) === 'error' ? 'Finished with errors since you last looked' : 'Finished since you last looked'"
-                  ></span>
+                  />
                 </template>
               </button>
               <!-- Unavailable indicator (warning triangle), same slot a close X would use -->
@@ -544,12 +549,13 @@
             >
               <div
                 v-if="tabReorderDropTarget?.index === pinnedTabs.length && tabReorderDropTarget?.group === 'pinned'"
-                class="absolute left-0 right-0 h-0.5 bg-accent top-0 z-10"
+                class="absolute left-0 right-0 h-0.5 bg-accent-hi top-0 z-10"
               ></div>
             </div>
 
-            <!-- Separator between pinned and open tabs -->
-            <div v-if="pinnedTabs.length > 0 && openTabs.length > 0" class="mx-3 my-1 border-t border-dashed border-edge-subtle"></div>
+            <!-- Separator + micro-label between pinned and open tabs -->
+            <div v-if="pinnedTabs.length > 0 && openTabs.length > 0" class="mx-3 my-1 border-t border-edge-subtle"></div>
+            <div v-if="openTabs.length > 0" class="px-3 pt-3 pb-1 text-xs font-semibold text-content-secondary">Open</div>
 
             <!-- Open (unpinned) tabs -->
             <div
@@ -565,7 +571,7 @@
               <!-- Drop indicator line -->
               <div
                 v-if="tabReorderDropTarget?.index === index && tabReorderDropTarget?.group === 'open'"
-                class="absolute left-0 right-0 h-0.5 bg-accent -top-px z-10"
+                class="absolute left-0 right-0 h-0.5 bg-accent-hi -top-px z-10"
               ></div>
               <button
                 @click="navigateToTab(tab)"
@@ -577,7 +583,7 @@
                 class="flex items-center gap-3 px-3 rounded text-content-secondary no-underline text-sm font-normal transition-all cursor-pointer whitespace-nowrap relative hover:bg-overlay-subtle hover:text-content border-none bg-transparent text-left w-full group-hover:pr-7"
                 :class="[
                   isTabActive(tab) ? '!bg-overlay-hover !text-content' : '',
-                  dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent/50') : '',
+                  dragHoverTabId === tab.id ? (tab.type === 'tool' && dragAddModifier ? '!bg-green-500/20 !text-content ring-1 ring-green-500/50' : '!bg-accent/10 !text-content ring-1 ring-accent') : '',
                   tab.type === 'tool' && !isToolCompatible(tab.entityId) ? 'opacity-50' : '',
                   isTabToolUnavailable(tab) ? 'pr-7 opacity-70 group-hover:opacity-100' : '',
                   tab.type === 'tool' ? 'py-1.5' : 'py-2'
@@ -587,9 +593,9 @@
               >
                 <!-- Inline rename -->
                 <template v-if="editingItem?.tabId === tab.id">
-                  <MediaImage v-if="tab.type === 'editor' && tab.editorMediaId" :media-id="Number(tab.editorMediaId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <MediaImage v-else-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
+                  <MediaImage v-if="tab.type === 'editor' && tab.editorMediaId" :media-id="Number(tab.editorMediaId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
                     <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
                       <div
                         v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
@@ -599,7 +605,7 @@
                         <div
                           v-for="(item, index) in column"
                           :key="`${tab.id}-rename-open-board-item-${columnIndex}-${item.id}-${index}`"
-                          class="overflow-hidden rounded bg-overlay-subtle"
+                          class="overflow-hidden rounded-media bg-overlay-subtle"
                           :style="getBoardPreviewTileStyle(item)"
                         >
                           <MediaImage
@@ -627,7 +633,7 @@
                     <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
                   <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
@@ -643,9 +649,9 @@
                 </template>
                 <!-- Normal display -->
                 <template v-else>
-                  <MediaImage v-if="tab.type === 'editor' && tab.editorMediaId" :media-id="Number(tab.editorMediaId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <MediaImage v-else-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded flex-shrink-0" img-class="w-full h-full object-cover" />
-                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
+                  <MediaImage v-if="tab.type === 'editor' && tab.editorMediaId" :media-id="Number(tab.editorMediaId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'lineage'" :media-id="Number(tab.editorMediaId || tab.entityId)" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <div v-else-if="tab.type === 'board'" class="w-8 h-8 overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint p-0.5 flex-shrink-0">
                     <div v-if="getBoardPreviewItems(tab.entityId).length > 0" class="flex h-full items-start gap-0.5">
                       <div
                         v-for="(column, columnIndex) in getBoardPreviewColumns(tab.entityId)"
@@ -655,7 +661,7 @@
                         <div
                           v-for="(item, index) in column"
                           :key="`${tab.id}-open-board-item-${columnIndex}-${item.id}-${index}`"
-                          class="overflow-hidden rounded bg-overlay-subtle"
+                          class="overflow-hidden rounded-media bg-overlay-subtle"
                           :style="getBoardPreviewTileStyle(item)"
                         >
                           <MediaImage
@@ -683,7 +689,7 @@
                     <div class="w-7 h-7"><ToolIcon :tool="getToolForIcon(tab.entityId)" bare :ring="false" /></div>
                   </div>
 
-                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-full flex-shrink-0" img-class="w-full h-full object-cover" />
+                  <MediaImage v-else-if="tab.type === 'chat' && getChatMetadata(tab.entityId)?.thumbnail_media_id" :media-id="getChatMetadata(tab.entityId).thumbnail_media_id" thumbnail :thumbnail-size="64" :draggable="false" :enable-context-menu="false" container-class="w-8 h-8 rounded-media flex-shrink-0" img-class="w-full h-full object-cover" />
                   <EntityIcon v-else-if="tab.type === 'chat'" type="chat" />
                   <EntityIcon v-else-if="tab.type === 'flow'" type="flow" />
                   <component v-else :is="getTabIcon(tab)" class="w-4 h-4 flex-shrink-0" />
@@ -709,7 +715,7 @@
                     </div>
                     <span
                       v-if="tab.projectName"
-                      class="flex-shrink-0 text-[10px] text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
+                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
                     >{{ tab.projectName }}</span>
                   </div>
 
@@ -725,7 +731,7 @@
                     </div>
                     <span
                       v-if="getBoardProjectName(tab.entityId)"
-                      class="flex-shrink-0 text-[10px] text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
+                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
                     >{{ getBoardProjectName(tab.entityId) }}</span>
                   </div>
 
@@ -763,7 +769,7 @@
                     </div>
                     <span
                       v-if="getChatProjectName(tab.entityId)"
-                      class="flex-shrink-0 text-[10px] text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
+                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
                     >{{ getChatProjectName(tab.entityId) }}</span>
                   </div>
 
@@ -782,7 +788,7 @@
                     </div>
                     <span
                       v-if="getChatProjectName(tab.entityId)"
-                      class="flex-shrink-0 text-[10px] text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
+                      class="flex-shrink-0 text-[10px] font-mono text-content-tertiary bg-overlay-subtle rounded px-1.5 py-0.5 truncate max-w-[80px]"
                     >{{ getChatProjectName(tab.entityId) }}</span>
                   </div>
 
@@ -822,16 +828,18 @@
                   >
                     Name this board...
                   </span>
-                  <span
+                  <StatusDot
                     v-if="isTabGenerating(tab) && tab.type !== 'flow'"
-                    class="w-2.5 h-2.5 border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0 self-center"
-                  ></span>
-                  <span
+                    bucket="running"
+                    pulse
+                    class="self-center"
+                  />
+                  <StatusDot
                     v-else-if="unseenKindFor(tab.id)"
-                    class="w-2 h-2 rounded-full flex-shrink-0 self-center"
-                    :class="unseenKindFor(tab.id) === 'error' ? 'bg-red-500' : 'bg-blue-500'"
+                    :bucket="unseenKindFor(tab.id) === 'error' ? 'failed' : 'running'"
+                    class="self-center"
                     :title="unseenKindFor(tab.id) === 'error' ? 'Finished with errors since you last looked' : 'Finished since you last looked'"
-                  ></span>
+                  />
                 </template>
               </button>
               <!-- Unavailable indicator (warning triangle); hidden on hover so the close X
@@ -866,7 +874,7 @@
             >
               <div
                 v-if="tabReorderDropTarget?.index === openTabs.length && tabReorderDropTarget?.group === 'open'"
-                class="absolute left-0 right-0 h-0.5 bg-accent top-0 z-10"
+                class="absolute left-0 right-0 h-0.5 bg-accent-hi top-0 z-10"
               ></div>
             </div>
           </div>
@@ -896,7 +904,7 @@
               </div>
               <div class="min-w-0 flex flex-col leading-tight">
                 <span class="text-[13px] text-content truncate">{{ accountName }}</span>
-                <span v-if="accountBalance" class="text-[11px] text-content-muted tabular-nums">{{ accountBalance }}</span>
+                <span v-if="accountBalance" class="text-[11px] font-mono text-content-muted tabular-nums">{{ accountBalance }}</span>
               </div>
             </button>
             <FeedbackFooterButton />
@@ -932,7 +940,7 @@
         <!-- Resize handle (desktop only) -->
         <div
           v-if="!isMobile"
-          class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/50 transition-colors z-10"
+          class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/40 transition-colors z-10"
           @mousedown.stop="startResize"
         ></div>
 
@@ -1016,6 +1024,7 @@ import { isTauri } from '../apiConfig'
 import { MediaImage } from './media'
 import ToolIcon from './tools/ToolIcon.vue'
 import EntityIcon from './EntityIcon.vue'
+import StatusDot from './ui/StatusDot.vue'
 import WorkspaceTabsContextMenu from './WorkspaceTabsContextMenu.vue'
 // @ts-expect-error - distribution-aliased Vue component (see vite.config.js)
 import FeedbackFooterButton from '@stimma/feedback-footer-button'

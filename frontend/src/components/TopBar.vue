@@ -72,9 +72,9 @@
               <div class="flex justify-between items-center mb-2">
                 <span class="flex items-center gap-2 text-sm font-semibold text-content">
                   {{ deleteSummary.status === 'completed' ? 'Deletion Complete' : deleteSummary.status === 'failed' ? 'Deletion Failed' : 'Permanently Deleting' }}
-                  <span v-if="deleteSummary.status === 'running'" class="w-3 h-3 border-2 border-edge border-t-white/80 rounded-full animate-spin"></span>
+                  <Spinner v-if="deleteSummary.status === 'running'" size="sm" hue="border-t-white/80" />
                 </span>
-                <span class="text-xs text-content-tertiary">
+                <span class="text-xs font-mono tabular-nums text-content-tertiary">
                   <span class="text-red-400 font-semibold">{{ deleteDoneCount }}</span> /
                   <span class="text-content-muted">{{ deleteTotalCount }}</span>
                 </span>
@@ -129,9 +129,9 @@
               <div class="flex justify-between items-center mb-2">
                 <span class="flex items-center gap-2 text-sm font-semibold text-content">
                   Processing Media
-                  <span v-if="stats.metadata?.processing > 0" class="w-3 h-3 border-2 border-edge border-t-white/80 rounded-full animate-spin"></span>
+                  <Spinner v-if="stats.metadata?.processing > 0" size="sm" hue="border-t-white/80" />
                 </span>
-                <span class="text-xs text-content-tertiary">
+                <span class="text-xs font-mono tabular-nums text-content-tertiary">
                   <span class="text-green-500 font-semibold">{{ stats.metadata?.completed || 0 }}</span> /
                   <span class="text-content-muted">{{ getTotalForPhase('metadata') }}</span>
                 </span>
@@ -158,9 +158,9 @@
                     <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
                   </svg>
                   <!-- Spinner when actively processing -->
-                  <span v-else-if="stats.clip?.processing > 0" class="w-3 h-3 border-2 border-edge border-t-white/80 rounded-full animate-spin"></span>
+                  <Spinner v-else-if="stats.clip?.processing > 0" size="sm" hue="border-t-white/80" />
                 </span>
-                <span class="text-xs text-content-tertiary">
+                <span class="text-xs font-mono tabular-nums text-content-tertiary">
                   <span class="text-green-500 font-semibold">{{ stats.clip?.completed || 0 }}</span> /
                   <span class="text-content-muted">{{ getTotalForPhase('clip') }}</span>
                 </span>
@@ -187,9 +187,9 @@
                     <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
                   </svg>
                   <!-- Spinner when actively processing -->
-                  <span v-else-if="stats.face_detection?.processing > 0" class="w-3 h-3 border-2 border-edge border-t-white/80 rounded-full animate-spin"></span>
+                  <Spinner v-else-if="stats.face_detection?.processing > 0" size="sm" hue="border-t-white/80" />
                 </span>
-                <span class="text-xs text-content-tertiary">
+                <span class="text-xs font-mono tabular-nums text-content-tertiary">
                   <span class="text-green-500 font-semibold">{{ stats.face_detection?.completed || 0 }}</span> /
                   <span class="text-content-muted">{{ getTotalForPhase('face_detection') }}</span>
                 </span>
@@ -216,9 +216,9 @@
                     <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
                   </svg>
                   <!-- Spinner when actively processing -->
-                  <span v-else-if="stats.vlm_caption?.processing > 0" class="w-3 h-3 border-2 border-edge border-t-white/80 rounded-full animate-spin"></span>
+                  <Spinner v-else-if="stats.vlm_caption?.processing > 0" size="sm" hue="border-t-white/80" />
                 </span>
-                <span class="text-xs text-content-tertiary">
+                <span class="text-xs font-mono tabular-nums text-content-tertiary">
                   <span class="text-green-500 font-semibold">{{ stats.vlm_caption?.completed || 0 }}</span> /
                   <span class="text-content-muted">{{ getTotalForPhase('vlm_caption') }}</span>
                 </span>
@@ -245,7 +245,7 @@
                 <svg v-if="!rescanning" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                 </svg>
-                <div v-else class="w-4 h-4 border-2 border-edge-strong border-t-white rounded-full animate-spin"></div>
+                <Spinner v-else size="md" hue="border-t-white" />
                 <span>Rescan files</span>
               </button>
               <button
@@ -275,18 +275,15 @@
         :class="[
           updateState === 'restart'
             ? 'bg-green-500/15 border-green-500/50 text-green-400 hover:bg-green-500/25'
-            : 'bg-blue-500/15 border-blue-500/50 text-blue-400',
-          updateState === 'available' || updateState === 'whatsnew' ? 'hover:bg-blue-500/25' : '',
+            : 'bg-accent/15 border-accent/50 text-accent-hi',
+          updateState === 'available' || updateState === 'whatsnew' ? 'hover:bg-accent/25' : '',
           updateState === 'downloading' ? 'cursor-default' : '',
         ]"
         :style="{ width: updatePillExpanded ? updatePillWidth : '28px' }"
         :title="updatePillLabel"
       >
         <span class="flex-none w-[26px] flex items-center justify-center">
-          <div
-            v-if="updateState === 'downloading'"
-            class="w-3.5 h-3.5 border-2 border-blue-400/40 border-t-blue-400 rounded-full animate-spin"
-          ></div>
+          <Spinner v-if="updateState === 'downloading'" size="sm" />
           <svg v-else-if="updateState === 'restart'" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
           </svg>
@@ -405,7 +402,7 @@
                 <svg v-if="!trashing" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                 </svg>
-                <div v-else class="w-4 h-4 border-2 border-edge-strong border-t-white rounded-full animate-spin"></div>
+                <Spinner v-else size="md" hue="border-t-white" />
                 <span>Trash All</span>
               </button>
               <button class="bg-transparent border-none text-content-tertiary cursor-pointer p-1 flex items-center transition-colors hover:text-content" @click="closeModal">
@@ -485,6 +482,7 @@ import { useReleaseNotes } from '../composables/useReleaseNotes'
 import WhatsNewModal from './WhatsNewModal.vue'
 import { captioningEnabledRef } from '../appConfig'
 import GlobalSearchBox from './search/GlobalSearchBox.vue'
+import Spinner from './ui/Spinner.vue'
 
 const router = useRouter()
 const route = useRoute()

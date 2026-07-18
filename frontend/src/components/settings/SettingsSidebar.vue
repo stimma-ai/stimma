@@ -79,7 +79,7 @@
           >{{ section.label }}</span>
           <span
             v-if="sectionNeedsSetup(section.id)"
-            class="ml-auto h-2 w-2 shrink-0 rounded-full bg-yellow-400 ring-2 ring-yellow-400/15"
+            class="ml-auto h-2 w-2 shrink-0 rounded-full bg-amber-400 ring-2 ring-yellow-400/15"
             :title="section.id === 'ai-services' ? 'Chat model setup required' : 'Generation provider setup required'"
           ></span>
         </button>
