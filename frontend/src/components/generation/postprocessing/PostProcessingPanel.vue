@@ -60,13 +60,11 @@
          auto-enables the chain, and an opacity ancestor would composite the
          dropdown translucently over the controls behind it. -->
     <div class="relative" :class="chain.steps.length ? 'mt-2' : ''" @dragover.prevent="onDragOver($event, chain.steps.length)" @drop.prevent="onDrop(chain.steps.length)">
-      <!-- Ghost text row; dashed drop-target chrome appears ONLY during a drag -->
+      <!-- Ghost text row, always. During reorder drags the insert line above
+           marks the end-drop position — Add step never dresses up as a target. -->
       <button
         type="button"
-        :class="[
-          'w-full flex items-center gap-1.5 rounded-md px-1 py-1.5 text-xs text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors',
-          drag.active ? 'border border-dashed border-accent/50 justify-center' : ''
-        ]"
+        class="w-full flex items-center gap-1.5 rounded-md px-1 py-1.5 text-xs text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
         @click="toggleAddMenu"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">

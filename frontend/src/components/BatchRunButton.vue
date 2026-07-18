@@ -42,22 +42,34 @@
     <!-- Batch-size popover -->
     <div
       v-if="showPopover"
-      class="absolute left-0 mt-2 w-60 bg-surface border border-edge rounded-lg shadow-lg z-menu p-3.5"
+      class="absolute left-0 mt-2 w-72 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu p-4"
       @click.stop
     >
       <div class="text-sm font-semibold text-content">{{ mediaBatchCount ? 'Repeat batch' : 'Batch size' }}</div>
-      <p class="text-xs text-content-muted mb-3.5">
+      <p class="text-xs text-content-muted mb-3">
         {{ mediaBatchCount ? `Run the ${mediaBatchCount}-item batch this many times.` : 'Queue this many generations per run.' }}
       </p>
 
-      <!-- Stepper -->
-      <div class="flex items-center justify-between gap-3">
-        <span class="text-sm text-content-secondary">{{ mediaBatchCount ? 'Batch repeats' : 'Images per run' }}</span>
-        <div class="flex items-center bg-base border border-edge rounded-lg overflow-hidden">
+      <!-- One control row: segmented presets are the picker; stepper covers
+           in-between values. Label sits above so nothing wraps. -->
+      <div class="text-xs text-content-tertiary mb-1.5">{{ mediaBatchCount ? 'Batch repeats' : 'Images per run' }}</div>
+      <div class="flex items-center gap-2">
+        <div class="flex flex-1 bg-overlay-faint rounded-md p-0.5 gap-0.5">
+          <button
+            v-for="preset in PRESETS"
+            :key="preset"
+            @click="setSize(preset)"
+            class="flex-1 h-7 rounded-[5px] text-xs font-semibold font-mono tabular-nums transition-colors cursor-pointer"
+            :class="batchSize === preset
+              ? 'bg-accent/15 text-accent-hi'
+              : 'text-content-secondary hover:text-content'"
+          >{{ preset }}</button>
+        </div>
+        <div class="flex items-center bg-overlay-subtle rounded-md overflow-hidden">
           <button
             @click="setSize(batchSize - 1)"
             :disabled="batchSize <= MIN"
-            class="w-8 h-8 text-content-secondary text-lg leading-none transition-colors hover:bg-surface-hover hover:text-content disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            class="w-7 h-7 text-content-secondary leading-none transition-colors hover:bg-surface-hover hover:text-content disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
           >−</button>
           <input
             :value="batchSize"
@@ -65,30 +77,17 @@
             @keydown.enter="commitInput"
             type="number"
             :min="MIN" :max="MAX"
-            class="w-11 h-8 bg-transparent text-content text-sm font-semibold text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            class="w-9 h-7 bg-transparent text-content text-sm font-mono tabular-nums font-medium text-center focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           <button
             @click="setSize(batchSize + 1)"
             :disabled="batchSize >= MAX"
-            class="w-8 h-8 text-content-secondary text-lg leading-none transition-colors hover:bg-surface-hover hover:text-content disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            class="w-7 h-7 text-content-secondary leading-none transition-colors hover:bg-surface-hover hover:text-content disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
           >+</button>
         </div>
       </div>
 
-      <!-- Quick presets -->
-      <div class="flex gap-1.5 mt-3.5">
-        <button
-          v-for="preset in PRESETS"
-          :key="preset"
-          @click="setSize(preset)"
-          class="flex-1 h-7 rounded-lg text-xs font-semibold border transition-colors cursor-pointer"
-          :class="batchSize === preset
-            ? 'bg-selection/15 border-selection/50 text-selection'
-            : 'bg-surface-raised border-edge-subtle text-content-secondary hover:bg-surface-hover hover:text-content'"
-        >{{ preset }}</button>
-      </div>
-
-      <p class="text-[11px] text-content-muted mt-3.5 leading-snug">
+      <p class="text-[11px] text-content-muted mt-3 leading-snug">
         <template v-if="mediaBatchCount">
           Each repeat runs all {{ mediaBatchCount }} batch items with the current settings.
         </template>

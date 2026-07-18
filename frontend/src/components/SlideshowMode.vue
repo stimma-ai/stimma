@@ -809,7 +809,7 @@
           @click="toggleRandomize"
           :class="[
             'bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white',
-            { '!text-[#ec4899] hover:!text-[#f472b6]': isRandomized }
+            { '!text-live hover:!text-live/80': isRandomized }
           ]"
           title="Toggle Shuffle (r)"
         >
@@ -821,7 +821,7 @@
           @click="toggleSlideshow"
           :class="[
             'bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white',
-            { '!text-[#ec4899] hover:!text-[#f472b6]': isPlaying }
+            { '!text-live hover:!text-live/80': isPlaying }
           ]"
           :title="isPlaying ? 'Pause (space)' : 'Play slideshow (space)'"
         >
@@ -834,7 +834,7 @@
           @click="toggleLoop"
           :class="[
             'text-base text-white/60 cursor-pointer transition-all bg-transparent border-none p-1.5 rounded-md leading-none flex items-center justify-center w-8',
-            { '!text-[#ec4899] hover:!text-[#f472b6]': loopEnabled },
+            { '!text-live hover:!text-live/80': loopEnabled },
             'hover:bg-white/10 hover:text-white'
           ]"
           title="Toggle Loop (l)"
@@ -854,7 +854,7 @@
             @click="toggleMute"
             :class="[
               'bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all',
-              { '!text-[#ec4899] hover:!text-[#f472b6]': !isMuted },
+              { '!text-live hover:!text-live/80': !isMuted },
               'hover:bg-white/10 hover:text-white'
             ]"
             title="Mute/unmute (m) — hover for volume"
@@ -880,7 +880,7 @@
                 @click="toggleMute"
                 :class="[
                   'bg-transparent border-none cursor-pointer p-1 flex items-center justify-center rounded-md transition-all',
-                  isMuted ? 'text-white/40 hover:text-white' : 'text-[#ec4899] hover:text-[#f472b6]'
+                  isMuted ? 'text-white/40 hover:text-white' : 'text-live hover:text-live/80'
                 ]"
               >
                 <SpeakerXMarkIcon v-if="isMuted" class="w-4 h-4" />
@@ -911,7 +911,7 @@
                 @click="toggleMute"
                 :class="[
                   'bg-transparent border-none cursor-pointer p-1 flex items-center justify-center rounded-md transition-all',
-                  isMuted ? 'text-white/40 hover:text-white' : 'text-[#ec4899] hover:text-[#f472b6]'
+                  isMuted ? 'text-white/40 hover:text-white' : 'text-live hover:text-live/80'
                 ]"
               >
                 <SpeakerXMarkIcon v-if="isMuted" class="w-4 h-4" />
@@ -972,7 +972,7 @@
           @click="toggleFocusMode"
           :class="[
             'bg-transparent border-none text-white/60 cursor-pointer p-1.5 flex items-center justify-center rounded-md transition-all hover:bg-white/10 hover:text-white',
-            { '!text-[#ec4899] hover:!text-[#f472b6]': focusMode }
+            { '!text-live hover:!text-live/80': focusMode }
           ]"
           title="Toggle Focus Mode (f)"
         >

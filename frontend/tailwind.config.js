@@ -53,6 +53,9 @@ export default {
           hi: 'rgb(var(--color-accent-hi-rgb) / <alpha-value>)',
         },
         selection: 'rgb(var(--color-selection-rgb) / <alpha-value>)',
+        // live = autonomous/continuous operation states (forever mode,
+        // transport toggles). Fun on purpose; never a resting control.
+        live: 'rgb(var(--color-live-rgb) / <alpha-value>)',
         matte: 'rgb(var(--color-matte-rgb) / <alpha-value>)',
         content: {
           DEFAULT: 'rgb(var(--color-text-primary-rgb) / <alpha-value>)',

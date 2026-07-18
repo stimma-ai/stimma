@@ -9,7 +9,7 @@
         'w-8 h-8 rounded-lg flex items-center justify-center transition-all',
         videoMuted
           ? 'bg-black/40 hover:bg-black/60 text-white/50 hover:text-white'
-          : 'bg-black/40 hover:bg-black/60 text-[#ec4899] hover:text-[#f472b6]'
+          : 'bg-black/40 hover:bg-black/60 text-live hover:text-live/80'
       ]"
       title="Mute/unmute — hover for volume"
     >
@@ -38,7 +38,7 @@
         @click.stop="toggleVideoMute"
         :class="[
           'bg-transparent border-none cursor-pointer p-1 flex items-center justify-center rounded-md transition-all',
-          videoMuted ? 'text-white/40 hover:text-white' : 'text-[#ec4899] hover:text-[#f472b6]'
+          videoMuted ? 'text-white/40 hover:text-white' : 'text-live hover:text-live/80'
         ]"
       >
         <SpeakerXMarkIcon v-if="videoMuted" class="w-4 h-4" />
