@@ -24,7 +24,7 @@
     <div class="text-sm font-medium text-content">{{ action.prompt }}</div>
 
     <div v-if="groupedQuestions.length > 0" class="space-y-4">
-      <div class="rounded-lg border border-edge-subtle bg-overlay-subtle overflow-hidden">
+      <div class="rounded-lg bg-overlay-subtle overflow-hidden">
         <div class="flex gap-1.5 p-2 overflow-x-auto scrollbar-hide">
           <button
             v-for="(question, index) in groupedQuestions"

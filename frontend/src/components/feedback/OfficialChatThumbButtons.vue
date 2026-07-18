@@ -4,7 +4,7 @@
     :disabled="!thumbsEnabled"
     class="p-1 rounded transition-colors"
     :class="thumbsEnabled
-      ? 'text-content-muted hover:text-blue-500 hover:bg-blue-500/10'
+      ? 'text-content-muted hover:text-accent hover:bg-accent/10'
       : 'text-content-muted/40 cursor-default'"
     :title="thumbsDisabledReason || 'Good response - send feedback'"
   >

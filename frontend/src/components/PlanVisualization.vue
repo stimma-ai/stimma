@@ -34,15 +34,15 @@
           <div class="flex items-center gap-2 px-3 py-2" :class="getNodeHeaderBg(node)">
             <!-- Status indicator -->
             <span class="shrink-0">
-              <span v-if="getNodeStatus(node.id) === 'pending'" class="inline-block w-2 h-2 rounded-full bg-zinc-400"/>
+              <span v-if="getNodeStatus(node.id) === 'pending'" class="inline-block w-2 h-2 rounded-full" :class="dotClass('queued')"/>
               <Spinner v-else-if="getNodeStatus(node.id) === 'running'" size="sm" :hue="getNodeSpinnerHue(node)" />
-              <svg v-else-if="getNodeStatus(node.id) === 'completed'" class="w-4 h-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+              <svg v-else-if="getNodeStatus(node.id) === 'completed'" class="w-4 h-4" :class="textClass('done')" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
               </svg>
-              <svg v-else-if="getNodeStatus(node.id) === 'failed'" class="w-4 h-4 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+              <svg v-else-if="getNodeStatus(node.id) === 'failed'" class="w-4 h-4" :class="textClass('failed')" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
               </svg>
-              <svg v-else-if="getNodeStatus(node.id) === 'paused'" class="w-4 h-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+              <svg v-else-if="getNodeStatus(node.id) === 'paused'" class="w-4 h-4" :class="textClass('paused')" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
               </svg>
             </span>
@@ -207,15 +207,15 @@
               <div class="flex items-center gap-2 px-3 py-2" :class="getNodeHeaderBg(child)">
                 <!-- Status indicator -->
                 <span class="shrink-0">
-                  <span v-if="getNodeStatus(child.id) === 'pending'" class="inline-block w-2 h-2 rounded-full bg-zinc-400"/>
+                  <span v-if="getNodeStatus(child.id) === 'pending'" class="inline-block w-2 h-2 rounded-full" :class="dotClass('queued')"/>
                   <Spinner v-else-if="getNodeStatus(child.id) === 'running'" size="sm" :hue="getNodeSpinnerHue(child)" />
-                  <svg v-else-if="getNodeStatus(child.id) === 'completed'" class="w-4 h-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+                  <svg v-else-if="getNodeStatus(child.id) === 'completed'" class="w-4 h-4" :class="textClass('done')" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                   </svg>
-                  <svg v-else-if="getNodeStatus(child.id) === 'failed'" class="w-4 h-4 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                  <svg v-else-if="getNodeStatus(child.id) === 'failed'" class="w-4 h-4" :class="textClass('failed')" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
                   </svg>
-                  <svg v-else-if="getNodeStatus(child.id) === 'paused'" class="w-4 h-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                  <svg v-else-if="getNodeStatus(child.id) === 'paused'" class="w-4 h-4" :class="textClass('paused')" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
                   </svg>
                 </span>
@@ -352,15 +352,15 @@
                   <div class="flex items-center gap-2 px-3 py-2" :class="getNodeHeaderBg(grandchild)">
                     <!-- Status indicator -->
                     <span class="shrink-0">
-                      <span v-if="getNodeStatus(grandchild.id) === 'pending'" class="inline-block w-2 h-2 rounded-full bg-zinc-400"/>
+                      <span v-if="getNodeStatus(grandchild.id) === 'pending'" class="inline-block w-2 h-2 rounded-full" :class="dotClass('queued')"/>
                       <Spinner v-else-if="getNodeStatus(grandchild.id) === 'running'" size="sm" :hue="getNodeSpinnerHue(grandchild)" />
-                      <svg v-else-if="getNodeStatus(grandchild.id) === 'completed'" class="w-4 h-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+                      <svg v-else-if="getNodeStatus(grandchild.id) === 'completed'" class="w-4 h-4" :class="textClass('done')" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                       </svg>
-                      <svg v-else-if="getNodeStatus(grandchild.id) === 'failed'" class="w-4 h-4 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                      <svg v-else-if="getNodeStatus(grandchild.id) === 'failed'" class="w-4 h-4" :class="textClass('failed')" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
                       </svg>
-                      <svg v-else-if="getNodeStatus(grandchild.id) === 'paused'" class="w-4 h-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                      <svg v-else-if="getNodeStatus(grandchild.id) === 'paused'" class="w-4 h-4" :class="textClass('paused')" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
                       </svg>
                     </span>
@@ -481,6 +481,7 @@ import { MediaImage } from './media'
 import ToolIcon from './tools/ToolIcon.vue'
 import Spinner from './ui/Spinner.vue'
 import { useTheme } from '../composables/useTheme'
+import { dotClass, textClass } from '../utils/statusColors'
 
 const { resolvedTheme } = useTheme()
 const isLight = computed(() => resolvedTheme.value === 'light')

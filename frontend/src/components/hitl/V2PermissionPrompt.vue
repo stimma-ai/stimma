@@ -37,7 +37,7 @@
         <div v-if="taskTypeLabel" class="inline-flex items-center rounded-full border border-edge-subtle bg-surface-raised px-2 py-0.5 text-[11px] leading-none text-content-muted">
           <span>{{ taskTypeLabel }}</span>
         </div>
-        <button v-if="hasCodeReview" @click="reviewModalOpen = true" class="text-[11px] text-blue-400 hover:text-blue-300 transition-colors">
+        <button v-if="hasCodeReview" @click="reviewModalOpen = true" class="text-[11px] text-accent hover:text-accent/80 transition-colors">
           Review
         </button>
       </div>
@@ -100,7 +100,7 @@
         </button>
         <div
           v-if="allowMenuOpen"
-          class="absolute right-0 top-full mt-1 w-44 bg-surface border border-edge-subtle rounded-lg shadow-lg overflow-hidden z-50"
+          class="absolute right-0 top-full mt-1 w-44 bg-surface border border-edge-subtle rounded-lg shadow-lg overflow-hidden z-menu"
         >
           <button
             @click="handleAllow('once')"
@@ -111,18 +111,18 @@
           <button
             @click="handleAllow('chat')"
             class="w-full px-3 py-2 text-left text-sm text-content transition-colors flex items-center justify-between"
-            :class="defaultScope === 'chat' ? 'bg-blue-600/20 hover:bg-blue-600/30' : 'hover:bg-overlay-light'"
+            :class="defaultScope === 'chat' ? 'bg-accent/20 hover:bg-accent/30' : 'hover:bg-overlay-light'"
           >
             For this Chat
-            <span v-if="defaultScope === 'chat'" class="text-[10px] text-blue-500">Default</span>
+            <span v-if="defaultScope === 'chat'" class="text-[10px] text-accent">Default</span>
           </button>
           <button
             v-if="allowGlobal"
             @click="handleAllow('always')"
-            class="w-full px-3 py-2 text-left text-sm text-content bg-blue-600/20 hover:bg-blue-600/30 transition-colors flex items-center justify-between"
+            class="w-full px-3 py-2 text-left text-sm text-content bg-accent/20 hover:bg-accent/30 transition-colors flex items-center justify-between"
           >
             Always Allow
-            <span class="text-[10px] text-blue-500">Default</span>
+            <span class="text-[10px] text-accent">Default</span>
           </button>
         </div>
       </div>

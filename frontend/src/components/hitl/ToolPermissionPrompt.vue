@@ -20,7 +20,7 @@
             <button
               @click="toggleDropdown"
               :disabled="loadingTools"
-              class="flex items-center gap-1.5 bg-surface text-content text-sm border border-edge rounded-lg pl-3 pr-2 py-1.5 hover:border-edge transition-colors cursor-pointer"
+              class="flex items-center gap-1.5 bg-overlay-subtle text-content text-sm rounded-md pl-3 pr-2 py-1.5 hover:bg-overlay-light transition-colors cursor-pointer"
             >
               <div v-if="loadingTools" class="text-content-muted">Loading...</div>
               <div v-else class="text-left">
@@ -50,7 +50,7 @@
                   v-model="toolSearch"
                   type="text"
                   placeholder="Search tools..."
-                  class="w-full bg-surface text-content text-sm border border-edge rounded-lg px-3 py-1.5 focus:outline-none focus:border-edge"
+                  class="w-full bg-overlay-subtle text-content text-sm border border-transparent rounded-md px-3 py-1.5 focus:outline-none focus:border-accent"
                   @click.stop
                 />
               </div>

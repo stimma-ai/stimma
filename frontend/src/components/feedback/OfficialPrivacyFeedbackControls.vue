@@ -15,7 +15,7 @@
         @click="setFeedbackConsent(row.subject, option)"
         class="rounded-md px-2.5 py-1 text-xs capitalize transition-colors"
         :class="row.value === option
-          ? 'bg-blue-500/15 text-blue-400'
+          ? 'bg-accent/15 text-accent'
           : 'text-content-tertiary hover:text-content'"
       >{{ option }}</button>
     </div>
