@@ -243,6 +243,8 @@ body {
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-full: 9999px;
+  /* Atelier: media is never rounded like chrome — tiles/viewers only. */
+  --radius-media: 2px;
 
   /* Slider thumb colors (used in pseudo-elements that can't use Tailwind classes) */
   --slider-thumb: rgb(99 102 241); /* indigo-500 */
@@ -302,6 +304,20 @@ body {
   /* Slideshow — matt stays pure black for distraction-free viewing. */
   --color-slideshow-matt: #000000;
   --color-surface-elevated: rgba(19,23,32,0.95);
+
+  /* Atelier accents (see plans/reskin/STANDARDS.md outside this repo).
+     accent      = THE interactive accent (fills: buttons, toggles-on).
+     accent-hi   = brightened accent for text/icons/rings on dark grounds.
+     selection   = selected-state accent (indigo family). Selection ≠ action.
+     matte       = media matte behind tiles/viewers. */
+  --color-accent-rgb: 18 166 150;
+  --color-accent: rgb(var(--color-accent-rgb));
+  --color-accent-hi-rgb: 47 208 187;
+  --color-accent-hi: rgb(var(--color-accent-hi-rgb));
+  --color-selection-rgb: 129 140 248;
+  --color-selection: rgb(var(--color-selection-rgb));
+  --color-matte-rgb: 8 9 12;
+  --color-matte: rgb(var(--color-matte-rgb));
 
   /* Lineage */
   --color-lineage-edge: #2e3645;
@@ -418,6 +434,16 @@ body {
   /* Slideshow */
   --color-slideshow-matt: #f5f5f5;
   --color-surface-elevated: rgba(255,255,255,0.95);
+
+  /* Atelier accents (light: site CTA teal; selection indigo-500; paper matte) */
+  --color-accent-rgb: 13 148 136;
+  --color-accent: rgb(var(--color-accent-rgb));
+  --color-accent-hi-rgb: 13 148 136;
+  --color-accent-hi: rgb(var(--color-accent-hi-rgb));
+  --color-selection-rgb: 99 102 241;
+  --color-selection: rgb(var(--color-selection-rgb));
+  --color-matte-rgb: 241 239 235;
+  --color-matte: rgb(var(--color-matte-rgb));
 
   /* Lineage */
   --color-lineage-edge: #c4c4c8;

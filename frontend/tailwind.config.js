@@ -16,6 +16,8 @@ export default {
       '2xl': 'var(--radius-lg)',
       '3xl': 'var(--radius-lg)',
       full: 'var(--radius-full)',
+      // Atelier: media tiles/viewers only — the artwork stays square.
+      media: 'var(--radius-media)',
     },
     extend: {
       fontFamily: {
@@ -42,6 +44,16 @@ export default {
         slideshow: {
           matt: 'var(--color-slideshow-matt)',
         },
+        // Atelier accents. accent = THE interactive accent (fills);
+        // accent-hi = brightened variant for text/icons/rings on dark;
+        // selection = selected-state indigo (selection ≠ action);
+        // matte = media matte behind tiles/viewers.
+        accent: {
+          DEFAULT: 'rgb(var(--color-accent-rgb) / <alpha-value>)',
+          hi: 'rgb(var(--color-accent-hi-rgb) / <alpha-value>)',
+        },
+        selection: 'rgb(var(--color-selection-rgb) / <alpha-value>)',
+        matte: 'rgb(var(--color-matte-rgb) / <alpha-value>)',
         content: {
           DEFAULT: 'rgb(var(--color-text-primary-rgb) / <alpha-value>)',
           secondary: 'rgb(var(--color-text-secondary-rgb) / <alpha-value>)',
@@ -101,6 +113,17 @@ export default {
           'create-tint':  'var(--color-flow-type-create-tint)',
           'create-strong':'var(--color-flow-type-create-strong)',
         },
+      },
+      // Atelier z-scale — the ONLY sanctioned z-index values. Arbitrary
+      // z-[NNNN] is banned in new code; migrate stragglers onto these tiers.
+      zIndex: {
+        chrome: '30',    // sticky headers, in-page floating chrome
+        menu: '100',     // context menus, dropdowns, popovers, pickers
+        submenu: '110',  // hover submenus of the above
+        modal: '200',    // modal dialogs + their backdrops
+        confirm: '210',  // confirm launched from within a modal
+        toast: '300',    // toasts
+        top: '400',      // boot/first-run overlays only
       },
       // Soft pulse for "your turn" status dots — Tailwind's built-in
       // `animate-pulse` (50% opacity dip) is too aggressive for a 10px

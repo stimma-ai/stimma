@@ -94,38 +94,32 @@
         </div>
       </div>
 
-      <!-- Prompt -->
-      <div v-if="genStep?.prompt" class="bg-overlay-subtle p-2 rounded">
+      <!-- Prompt: read-only prose is typeset, never boxed like a form field -->
+      <div v-if="genStep?.prompt">
         <div class="text-content-tertiary text-xs mb-1">Prompt</div>
-        <p class="text-content-secondary text-xs leading-relaxed m-0">{{ genStep.prompt }}</p>
+        <p class="text-content-secondary text-xs leading-relaxed m-0 select-text">{{ genStep.prompt }}</p>
       </div>
       <!-- Fallback: extracted_prompt when no gen metadata -->
-      <div v-else-if="media.extracted_prompt" class="bg-overlay-subtle p-2 rounded">
+      <div v-else-if="media.extracted_prompt">
         <div class="text-content-tertiary text-xs mb-1">Prompt</div>
-        <p class="text-content-secondary text-xs leading-relaxed m-0">{{ media.extracted_prompt }}</p>
+        <p class="text-content-secondary text-xs leading-relaxed m-0 select-text">{{ media.extracted_prompt }}</p>
       </div>
 
       <!-- Negative prompt -->
-      <div v-if="genStep?.negative_prompt" class="bg-overlay-subtle p-2 rounded">
+      <div v-if="genStep?.negative_prompt">
         <div class="text-content-tertiary text-xs mb-1">Negative Prompt</div>
-        <p class="text-content-secondary text-xs leading-relaxed m-0">{{ genStep.negative_prompt }}</p>
+        <p class="text-content-secondary text-xs leading-relaxed m-0 select-text">{{ genStep.negative_prompt }}</p>
       </div>
 
       <!-- Caption -->
-      <div v-if="media.vlm_caption" class="bg-overlay-subtle p-2 rounded">
+      <div v-if="media.vlm_caption">
         <div class="text-content-tertiary text-xs mb-1">Description</div>
-        <p class="text-content-secondary text-xs leading-relaxed m-0">{{ media.vlm_caption }}</p>
-      </div>
-
-      <!-- Generated timestamp -->
-      <div v-if="genStep?.generated_at" class="bg-overlay-subtle p-2 rounded">
-        <div class="text-content-tertiary text-xs mb-0.5">Generated</div>
-        <div class="text-content text-xs">{{ formatDate(genStep.generated_at) }}</div>
+        <p class="text-content-secondary text-xs leading-relaxed m-0 select-text">{{ media.vlm_caption }}</p>
       </div>
 
       <!-- Flow origin -->
-      <div v-if="flowLineage?.flow_id" class="bg-overlay-subtle p-2 rounded">
-        <div class="text-content-tertiary text-xs mb-0.5">Flow</div>
+      <div v-if="flowLineage?.flow_id" class="flex items-baseline justify-between gap-4 py-1.5 border-b border-edge-subtle">
+        <span class="text-xs text-content-tertiary flex-shrink-0">Flow</span>
         <button
           class="text-blue-400 hover:underline text-xs truncate"
           :title="flowLineage.phase_path?.join(' / ') || ''"
@@ -136,20 +130,10 @@
         </button>
       </div>
 
-      <!-- Parameters grid -->
-      <div v-if="genStep?.model || displayParams.length > 0" class="grid grid-cols-2 gap-1.5 text-xs">
-        <div v-if="genStep?.model" class="bg-overlay-subtle p-2 rounded">
-          <div class="text-content-tertiary mb-0.5">Model</div>
-          <div class="text-content">{{ genStep.model }}</div>
-        </div>
-        <div
-          v-for="param in displayParams"
-          :key="param.label"
-          :class="['bg-overlay-subtle p-2 rounded', param.fullWidth ? 'col-span-2' : '']"
-        >
-          <div class="text-content-tertiary mb-0.5">{{ param.label }}</div>
-          <div :class="['text-content', param.fullWidth ? 'break-all text-xs' : '']">{{ param.value }}</div>
-        </div>
+      <!-- Generation facts: typeset key·value, not field tiles -->
+      <div v-if="genStep?.model || displayParams.length > 0 || genStep?.generated_at">
+        <div class="text-xs font-semibold text-content-secondary mb-1">Generation</div>
+        <KeyValueList :rows="generationRows" />
       </div>
 
       <!-- LoRAs -->
@@ -191,44 +175,9 @@
       </div>
 
       <!-- File Info -->
-      <div class="text-xs text-content-tertiary font-semibold uppercase tracking-wider mt-1">File</div>
-      <div v-if="media.file_path" class="bg-overlay-subtle p-2 rounded text-xs">
-        <div class="text-content-tertiary mb-0.5">Name</div>
-        <div class="text-content break-words">{{ media.file_path.split('/').pop() }}</div>
-      </div>
-      <div class="grid grid-cols-2 gap-1.5 text-xs">
-        <div class="bg-overlay-subtle p-2 rounded">
-          <div class="text-content-tertiary mb-0.5">Format</div>
-          <div class="text-content uppercase">{{ media.file_format }}</div>
-        </div>
-        <div v-if="media.file_size" class="bg-overlay-subtle p-2 rounded">
-          <div class="text-content-tertiary mb-0.5">Size</div>
-          <div class="text-content">{{ formatFileSize(media.file_size) }}</div>
-        </div>
-        <div v-if="media.width > 0" class="bg-overlay-subtle p-2 rounded">
-          <div class="text-content-tertiary mb-0.5">Resolution</div>
-          <div class="text-content">{{ media.width }} &times; {{ media.height }}</div>
-        </div>
-        <div v-if="media.duration" class="bg-overlay-subtle p-2 rounded">
-          <div class="text-content-tertiary mb-0.5">Duration</div>
-          <div class="text-content">{{ formatDuration(media.duration) }}</div>
-        </div>
-        <div v-if="media.audio_sample_rate" class="bg-overlay-subtle p-2 rounded">
-          <div class="text-content-tertiary mb-0.5">Sample Rate</div>
-          <div class="text-content">{{ formatSampleRate(media.audio_sample_rate) }}</div>
-        </div>
-        <div v-if="media.audio_bit_depth" class="bg-overlay-subtle p-2 rounded">
-          <div class="text-content-tertiary mb-0.5">Bit Depth</div>
-          <div class="text-content">{{ media.audio_bit_depth }}-bit</div>
-        </div>
-        <div v-if="media.audio_channels" class="bg-overlay-subtle p-2 rounded">
-          <div class="text-content-tertiary mb-0.5">Channels</div>
-          <div class="text-content">{{ formatChannels(media.audio_channels) }}</div>
-        </div>
-        <div v-if="media.created_date" class="bg-overlay-subtle p-2 rounded">
-          <div class="text-content-tertiary mb-0.5">Created</div>
-          <div class="text-content">{{ formatDate(media.created_date) }}</div>
-        </div>
+      <div>
+        <div class="text-xs font-semibold text-content-secondary mb-1 mt-1">File</div>
+        <KeyValueList :rows="fileRows" />
       </div>
     </div>
   </div>
@@ -237,6 +186,7 @@
 <script setup>
 import { computed, watch, onMounted } from 'vue'
 import { MediaImage } from './index'
+import KeyValueList from '../ui/KeyValueList.vue'
 import { useMarkers } from '../../composables/useMarkers'
 import { getFilterDisplayLabel } from '@stimma/image-editor'
 import { sanitizeSvg } from '../../utils/sanitizeHtml'
@@ -377,6 +327,32 @@ const displayParams = computed(() => {
     result.push({ label: 'Post-processing', value: names.join(' → '), fullWidth: true })
   }
   return result
+})
+
+// Atelier KeyValueList rows — facts voice (mono), model/tool names stay sans.
+const generationRows = computed(() => {
+  const rows = []
+  if (genStep.value?.model) rows.push({ label: 'Model', value: genStep.value.model, mono: false, truncate: true })
+  for (const p of displayParams.value) {
+    rows.push({ label: p.label, value: p.value, truncate: p.fullWidth })
+  }
+  if (genStep.value?.generated_at) rows.push({ label: 'Generated', value: formatDate(genStep.value.generated_at) })
+  return rows
+})
+
+const fileRows = computed(() => {
+  const m = props.media
+  const rows = []
+  if (m.file_path) rows.push({ label: 'Name', value: m.file_path.split('/').pop(), truncate: true })
+  if (m.file_format) rows.push({ label: 'Format', value: String(m.file_format).toUpperCase() })
+  if (m.file_size) rows.push({ label: 'Size', value: formatFileSize(m.file_size) })
+  if (m.width > 0) rows.push({ label: 'Resolution', value: `${m.width} × ${m.height}` })
+  if (m.duration) rows.push({ label: 'Duration', value: formatDuration(m.duration) })
+  if (m.audio_sample_rate) rows.push({ label: 'Sample rate', value: formatSampleRate(m.audio_sample_rate) })
+  if (m.audio_bit_depth) rows.push({ label: 'Bit depth', value: `${m.audio_bit_depth}-bit` })
+  if (m.audio_channels) rows.push({ label: 'Channels', value: formatChannels(m.audio_channels), mono: false })
+  if (m.created_date) rows.push({ label: 'Created', value: formatDate(m.created_date) })
+  return rows
 })
 
 const genMetaLoras = computed(() => {
