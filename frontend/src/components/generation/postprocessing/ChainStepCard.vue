@@ -6,6 +6,9 @@
       'group relative border-b border-edge-subtle last:border-b-0 transition-colors',
       dragging ? 'opacity-30' : '',
     ]"
+    draggable="true"
+    @dragstart="$emit('grip-dragstart', $event)"
+    @dragend="$emit('grip-dragend')"
   >
     <div class="flex items-center gap-1.5 py-1.5">
       <!-- Enable dot (click toggles; amber = needs attention) -->
@@ -19,15 +22,6 @@
         <span v-else-if="step.enabled" class="w-2.5 h-2.5 rounded-full bg-accent-hi" />
         <span v-else class="w-2.5 h-2.5 rounded-full border border-content-muted" />
       </button>
-
-      <!-- Tool identity (tool steps only — models earn an icon, filters don't) -->
-      <ToolIcon
-        v-if="step.kind === 'tool'"
-        :tool="{ id: step.tool_id, full_tool_id: step.tool_id, task_type: step.task_type }"
-        size="sm"
-        :ring="false"
-        class="shrink-0"
-      />
 
       <!-- Name + inline subtitle; click expands settings -->
       <button
@@ -67,13 +61,7 @@
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
           </svg>
         </button>
-        <span
-          class="text-content-muted text-[10px] cursor-grab touch-none"
-          draggable="true"
-          title="Drag to reorder"
-          @dragstart="$emit('grip-dragstart', $event)"
-          @dragend="$emit('grip-dragend')"
-        >⠿</span>
+        
       </div>
     </div>
 
@@ -87,7 +75,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import MediaImage from '../../media/MediaImage.vue'
-import ToolIcon from '../../tools/ToolIcon.vue'
 import type { ChainStep } from '../../../utils/postProcessingChain'
 
 const props = defineProps<{

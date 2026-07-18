@@ -121,7 +121,7 @@
   </div>
 
   <!-- Normal app with sidebar and topbar -->
-  <div v-else class="w-full h-screen flex overflow-clip bg-base">
+  <div v-else v-scroll-guard class="w-full h-screen flex overflow-hidden bg-base">
     <!-- Sidebar - fixed on wide screens, overlay on narrow -->
     <NavigationSidebar
       :is-open="sidebarOpen"
@@ -138,7 +138,7 @@
     />
 
     <!-- Main area (header + content) -->
-    <div class="flex-1 flex flex-col overflow-clip">
+    <div v-scroll-guard class="flex-1 flex flex-col overflow-hidden">
       <!-- Static top bar -->
       <TopBar
         class="top-bar"
@@ -152,7 +152,7 @@
       />
 
       <!-- Page content -->
-      <div class="flex-1 overflow-clip flex flex-col relative">
+      <div v-scroll-guard class="flex-1 overflow-hidden flex flex-col relative">
         <router-view v-slot="{ Component, route }">
           <!-- Keep views alive to preserve state when navigating between tabs -->
           <!-- Use unique keys so each tool/chat gets its own cached instance -->
@@ -172,6 +172,18 @@ import axios from 'axios'
 import { useTelemetry } from './composables/useTelemetry'
 import { ref, computed, onMounted, onUnmounted, nextTick, provide, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+
+// Shell scroll guard: overflow-hidden containers can still be displaced by
+// native focus scrolling (no scrollbar exists to recover, so the app "breaks"
+// and looks shifted/unscrollable). Snap any displacement back immediately.
+// Registered as a local directive: v-scroll-guard.
+const vScrollGuard = {
+  mounted(el) {
+    el.__scrollGuard = () => { if (el.scrollTop) el.scrollTop = 0; if (el.scrollLeft) el.scrollLeft = 0 }
+    el.addEventListener('scroll', el.__scrollGuard, { passive: true })
+  },
+  unmounted(el) { el.removeEventListener('scroll', el.__scrollGuard) },
+}
 import NavigationSidebar from './components/NavigationSidebar.vue'
 import Spinner from './components/ui/Spinner.vue'
 import ProjectScopeBar from './components/ProjectScopeBar.vue'
@@ -924,6 +936,18 @@ function handleOpenSettings(e) {
 }
 
 onMounted(async () => {
+  // Guard the root scrolling element the same way as the shell divs.
+  const rootGuard = () => {
+    const d = document.scrollingElement || document.documentElement
+    if (d.scrollTop) d.scrollTop = 0
+    if (d.scrollLeft) d.scrollLeft = 0
+    const app = document.getElementById('app')
+    if (app && app.scrollTop) app.scrollTop = 0
+    if (app && app.scrollLeft) app.scrollLeft = 0
+  }
+  window.addEventListener('scroll', rootGuard, { passive: true })
+  document.getElementById('app')?.addEventListener('scroll', rootGuard, { passive: true })
+
   window.addEventListener('resize', handleResize)
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('pin-auto-locked', handleAutoLock)

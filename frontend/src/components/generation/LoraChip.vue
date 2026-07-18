@@ -29,48 +29,41 @@
       </div>
     </div>
 
-    <!-- Hover controls: LEFT of the weight so the value column stays on the
-         panel right rail -->
-    <div class="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop @pointerdown.stop>
-      <button
-        @click.stop="$emit('remove')"
-        type="button"
-        class="w-4 h-4 flex items-center justify-center text-content-muted hover:!text-red-500"
-        title="Remove"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
-          <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-        </svg>
-      </button>
-      <button
-        @click.stop="decrementWeight"
-        type="button"
-        class="w-4 h-4 flex items-center justify-center text-[10px] text-content-tertiary hover:text-content"
-      >−</button>
-      <button
-        @click.stop="incrementWeight"
-        type="button"
-        class="w-4 h-4 flex items-center justify-center text-[10px] text-content-tertiary hover:text-content"
-      >+</button>
-    </div>
-
-    <!-- Weight: mono value on the right rail -->
-    <input v-no-autocorrect
-      type="text"
-      :value="formattedWeight"
-      @click.stop
+    <!-- Weight cluster: − value + (hover reveals the steppers), ✕ far right.
+         The whole row drags (root pointerdown); no grab handle needed. -->
+    <button
+      @click.stop="decrementWeight"
       @pointerdown.stop
-      @input="onWeightInput"
-      @blur="onWeightBlur"
-      @keydown.enter="($event.target as HTMLInputElement).blur()"
-      :class="[
-        'w-10 shrink-0 text-xs font-mono tabular-nums text-right bg-transparent border-none outline-none',
-        unavailable ? 'text-content-muted' : (item.weight !== 1 ? 'text-accent-hi' : 'text-content-secondary')
-      ]"
-    />
-
-    <!-- Drag handle -->
-    <span class="opacity-0 group-hover:opacity-100 shrink-0 text-content-muted text-[10px] cursor-grab transition-opacity">⠿</span>
+      type="button"
+      class="shrink-0 w-4 h-4 flex items-center justify-center text-[11px] text-content-tertiary hover:text-content opacity-0 group-hover:opacity-100 transition-opacity"
+    >−</button>
+    <span @pointerdown.stop @click.stop class="shrink-0">
+      <ScrubValue
+        :model-value="item.weight"
+        @update:model-value="emitWeight"
+        :min="0" :max="10" :step="0.05"
+        :disabled="unavailable"
+        :non-default="Math.abs(item.weight - 1) > 0.001"
+        :format="(v: number) => v.toFixed(2)"
+      />
+    </span>
+    <button
+      @click.stop="incrementWeight"
+      @pointerdown.stop
+      type="button"
+      class="shrink-0 w-4 h-4 flex items-center justify-center text-[11px] text-content-tertiary hover:text-content opacity-0 group-hover:opacity-100 transition-opacity"
+    >+</button>
+    <button
+      @click.stop="$emit('remove')"
+      @pointerdown.stop
+      type="button"
+      class="shrink-0 w-4 h-4 flex items-center justify-center text-content-muted hover:!text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+      title="Remove"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
+        <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+      </svg>
+    </button>
   </div>
 </template>
 
@@ -78,6 +71,7 @@
 import { computed, ref } from 'vue'
 import type { LoraPoolItem } from '../../composables/useLoraPool'
 import { getDirectoryPath } from '../../composables/useLoraDisplayNames'
+import ScrubValue from '../ui/ScrubValue.vue'
 import type { LoraDisplayName } from '../../composables/useLoraDisplayNames'
 
 interface Props {
@@ -114,6 +108,10 @@ const formattedWeight = computed(() => {
   return props.item.weight.toFixed(2)
 })
 
+function emitWeight(v: number) {
+  emit('update-weight', Math.round(v * 100) / 100)
+}
+
 function incrementWeight() {
   const newWeight = Math.min(10, props.item.weight + 0.05)
   emit('update-weight', Math.round(newWeight * 100) / 100)
@@ -124,22 +122,6 @@ function decrementWeight() {
   emit('update-weight', Math.round(newWeight * 100) / 100)
 }
 
-let pendingValue = ''
-
-function onWeightInput(event: Event) {
-  pendingValue = (event.target as HTMLInputElement).value
-}
-
-function onWeightBlur(event: Event) {
-  const input = event.target as HTMLInputElement
-  const value = parseFloat(pendingValue || input.value)
-  if (!isNaN(value)) {
-    const clamped = Math.max(0, Math.min(10, value))
-    emit('update-weight', Math.round(clamped * 100) / 100)
-  }
-  input.value = formattedWeight.value
-  pendingValue = ''
-}
 
 // Drag: emit intent on pointerdown, parent decides when to start drag
 const suppressClick = ref(false)

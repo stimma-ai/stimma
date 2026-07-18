@@ -8,7 +8,7 @@
     @drop.prevent="onDrop($event)"
   >
     <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2 pb-1.5 border-b border-edge-subtle mb-2">
+      <div class="flex items-center gap-2 pb-1 mb-1.5">
         <label class="text-xs font-semibold text-content-secondary">{{ displayLabel }}</label>
         <span v-if="props.description" class="text-xs text-content-muted">{{ props.description }}</span>
       </div>

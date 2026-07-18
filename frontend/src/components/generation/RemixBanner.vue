@@ -1,7 +1,7 @@
 <template>
   <!-- Dismissed interstitial: compact notice with restore -->
-  <div v-if="dismissed" class="relative mb-3 border-b border-edge-subtle overflow-hidden">
-    <div class="flex items-center gap-3 px-1 py-2">
+  <div v-if="dismissed" class="relative mb-3 rounded-md bg-overlay-faint overflow-hidden">
+    <div class="flex items-center gap-3 px-2.5 py-2">
       <div class="text-xs text-content-muted flex-1">
         Remix cleared — prompt changed significantly
       </div>
@@ -27,8 +27,8 @@
   </div>
 
   <!-- Normal remix banner: hairline row, no filled banner -->
-  <div v-else class="relative mb-3 border-b border-edge-subtle pb-3">
-    <div class="flex items-start gap-3 pt-1">
+  <div v-else class="relative mb-3 rounded-md bg-overlay-faint p-2.5">
+    <div class="flex items-start gap-3">
       <div
         class="flex-shrink-0 w-14 h-14 rounded-media bg-matte overflow-hidden hover:ring-1 hover:ring-purple-400/60 transition-shadow duration-150 cursor-pointer"
         draggable="true"

@@ -4,7 +4,7 @@
     <template v-if="!isSectionHidden(paramGroup.hiddenWhen, values)">
     <div :class="flat ? 'mb-3 last:mb-0' : 'mb-6 last:mb-0'">
       <!-- Group header - collapsible if paramGroup.collapsible is true -->
-      <div v-if="paramGroup.label" class="mb-3">
+      <div v-if="paramGroup.label" class="mb-1">
         <button
           v-if="paramGroup.collapsible && !disableCollapse"
           @click="toggleCollapsed(paramGroup.group)"
@@ -19,7 +19,7 @@
       <!-- Parameters list (settings-style: label+desc on left, control on right) -->
       <!-- Atelier: ONE hairline under the group label; rows separate by
            whitespace (per-row rules read as a wall of <hr>s on two-line rows). -->
-      <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" :class="['divide-y divide-edge-subtle', paramGroup.label ? 'border-t border-edge-subtle' : '']">
+      <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" class="divide-y divide-edge-subtle">
         <template v-for="param in paramGroup.params" :key="param.name">
           <!-- Skip if visibleWhen condition not met, or a hide constraint is active -->
           <template v-if="(!param.visibleWhen || values[param.visibleWhen.param] === param.visibleWhen.value) && !constraintState(param).hidden">

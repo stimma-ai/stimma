@@ -75,7 +75,7 @@
            teleported up from the controls scope into #tool-header-slot so it
            sits above both columns regardless of the Studio/Stage layout. -->
       <div v-show="!slideshowState.active" class="flex-1 min-w-0 flex flex-col min-h-0">
-        <div id="tool-header-slot" class="flex-none m-3 mb-0 rounded-lg border border-edge-subtle bg-surface px-4 pt-3.5 pb-3"></div>
+        <div id="tool-header-slot" class="flex-none m-3 mb-0 rounded-lg border border-edge-subtle bg-surface px-4 pt-3 pb-2.5"></div>
         <div class="flex-1 min-w-0 flex min-h-0">
 
       <!-- Generation Controls. In Studio mode the primary column (left, wide); in
@@ -148,7 +148,7 @@
         </div>
         <!-- Subtitle: Provider, task types. Renamed instances condense the
              tool name onto this row (mirrors the sidebar row contract). -->
-        <div class="font-mono text-[10.5px] mt-1 mb-6 flex items-center gap-1.5 text-content-tertiary">
+        <div class="font-mono text-[10.5px] mt-1 mb-3 flex items-center gap-1.5 text-content-tertiary">
           <template v-if="instanceCustomName">
             <span>{{ tool.name }}</span>
             <span>·</span>
@@ -225,7 +225,7 @@
         </div>
 
         <!-- Row 2: Resolution + Markers | Generate + Forever + Auto-delete -->
-        <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center justify-between border-t border-edge-subtle pt-2.5">
           <div class="flex items-center gap-3">
             <!-- Constrained resolution picker (for tools with x-allowed-dimensions) -->
             <ConstrainedResolutionPicker
@@ -645,10 +645,10 @@
            Stays mounted across the toggle so the matte/image tween smoothly. -->
       <div
         v-if="jobsManager"
-        class="order-3 flex-1 min-w-0 flex min-h-0 relative items-start justify-center bg-matte overflow-hidden"
+        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden p-3 pb-2"
       >
         <!-- Empty state -->
-        <div v-if="!stageCurrentJob" class="self-center flex flex-col items-center gap-3 text-content-muted">
+        <div v-if="!stageCurrentJob" class="flex-1 self-center flex flex-col items-center justify-center gap-3 text-content-muted">
           <Spinner v-if="stageHasPending" size="lg" />
           <span class="text-sm">{{ stageHasPending ? 'Generating…' : 'No images yet' }}</span>
         </div>
@@ -661,7 +661,7 @@
              aspect-ratio work. Container forced transparent so the matte shows. -->
         <div
           v-else
-          class="absolute inset-0 rounded-media overflow-hidden cursor-zoom-in"
+          class="relative flex-1 min-h-0 rounded-media overflow-hidden cursor-zoom-in"
           @click="openSlideshow(stageCurrentJob)"
           title="Open in slideshow"
         >
@@ -709,49 +709,19 @@
           />
         </div>
 
-        <!-- Jump to newest (top-left) when viewing an older image -->
+        <!-- Jump to newest (top-left, on the image) -->
         <button
           v-if="stageCurrentJob && !stageOnNewest"
           @click.stop="stagePinnedMediaId = null"
-          class="absolute top-4 left-4 z-10 flex items-center gap-1.5 bg-black/55 backdrop-blur-sm text-white text-[11px] px-3 py-1.5 rounded hover:bg-black/70 transition-colors"
+          class="absolute top-5 left-5 z-10 flex items-center gap-1.5 bg-black/55 backdrop-blur-sm text-white font-mono text-[11px] px-3 py-1.5 rounded hover:bg-black/70 transition-colors"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
           Jump to newest
         </button>
 
-        <!-- Auto-delete time remaining for the hero image. Stage strips hide this
-             to keep thumbnails uncluttered. -->
-        <div
-          v-if="stageAutoDeleteTime"
-          :class="[
-            'absolute left-4 z-10 h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/55 backdrop-blur-sm rounded text-[11px] font-mono font-bold text-[#FFC107]',
-            stageCurrentJob && !stageOnNewest ? 'top-14' : 'top-4'
-          ]"
-          title="Auto-trash time remaining"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5">
-            <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
-          </svg>
-          <span class="leading-none whitespace-nowrap">{{ stageAutoDeleteTime }}</span>
-        </div>
-
-        <!-- Generation time/details for the hero image. Stage strips hide this
-             to keep thumbnails uncluttered. -->
-        <button
-          v-if="stageCurrentJob"
-          @click.stop="showJobInfo(stageCurrentJob)"
-          class="absolute top-4 right-4 z-10 h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/55 backdrop-blur-sm hover:bg-accent/80 rounded text-[11px] font-mono font-bold text-white transition-colors"
-          title="Generation details"
-        >
-          <span v-if="stageGenerationTime">{{ stageGenerationTime }}s</span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
-          </svg>
-        </button>
-
-        <!-- Per-image marker toggles for the hero image. -->
-        <template v-if="stageCurrentJob">
-          <div v-if="stageMarkers.length" class="absolute bottom-4 left-4 z-10 flex gap-1">
+        <!-- Control bar beneath the image: markers · facts | volume · remix · trash -->
+        <div v-if="stageCurrentJob" class="flex-none flex items-center gap-1.5 pt-2">
+          <template v-if="stageMarkers.length">
             <button
               v-for="marker in stageMarkers"
               :key="marker.id"
@@ -762,30 +732,53 @@
             >
               <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
             </button>
-          </div>
-        </template>
+          </template>
 
-        <!-- Volume + trash + remix actions for the hero image (bottom right). -->
-        <div v-if="stageCurrentJob && stageCurrentMediaId != null" class="absolute bottom-4 right-4 z-10 flex gap-1">
-          <VideoVolumeControl v-if="outputsVideo" scope="toolview" @click.stop />
+          <!-- Facts: generation time/details + auto-delete countdown -->
           <button
-            @click.stop="handleRemixMedia(stageCurrentMediaId)"
-            class="w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-accent/80 text-white/50 hover:text-white transition-all"
-            title="Remix: load this image's settings"
+            @click.stop="showJobInfo(stageCurrentJob)"
+            class="h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/55 backdrop-blur-sm hover:bg-accent/80 rounded text-[11px] font-mono text-white/80 hover:text-white transition-colors"
+            title="Generation details"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
+            <span v-if="stageGenerationTime">{{ stageGenerationTime }}s</span>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
             </svg>
           </button>
-          <button
-            @click.stop="handleTrashMedia({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id })"
-            class="w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-red-500/80 text-white/50 hover:text-white transition-all"
-            title="Move to Trash"
+          <div
+            v-if="stageAutoDeleteTime"
+            class="h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/55 backdrop-blur-sm rounded text-[11px] font-mono text-amber-300/90"
+            title="Auto-trash time remaining"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3.5 h-3.5">
+              <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
             </svg>
-          </button>
+            <span class="leading-none whitespace-nowrap">{{ stageAutoDeleteTime }}</span>
+          </div>
+
+          <span class="flex-1"></span>
+
+          <div v-if="stageCurrentMediaId != null" class="flex gap-1">
+            <VideoVolumeControl v-if="outputsVideo" scope="toolview" @click.stop />
+            <button
+              @click.stop="handleRemixMedia(stageCurrentMediaId)"
+              class="w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-accent/80 text-white/50 hover:text-white transition-all"
+              title="Remix: load this image's settings"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
+              </svg>
+            </button>
+            <button
+              @click.stop="handleTrashMedia({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id })"
+              class="w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-red-500/80 text-white/50 hover:text-white transition-all"
+              title="Move to Trash"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
