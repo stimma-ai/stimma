@@ -41,7 +41,7 @@
       <ScrubValue
         :model-value="item.weight"
         @update:model-value="emitWeight"
-        :min="0" :max="10" :step="0.05"
+        :min="-10" :max="10" :step="0.05"
         :disabled="unavailable"
         :non-default="Math.abs(item.weight - 1) > 0.001"
         :format="(v: number) => v.toFixed(2)"
@@ -118,7 +118,7 @@ function incrementWeight() {
 }
 
 function decrementWeight() {
-  const newWeight = Math.max(0, props.item.weight - 0.05)
+  const newWeight = Math.max(-10, props.item.weight - 0.05)
   emit('update-weight', Math.round(newWeight * 100) / 100)
 }
 
