@@ -1,14 +1,16 @@
 <template>
   <div class="flow-input-form" @keydown.capture="onCommitShortcut">
-    <div v-if="fields.length === 0" class="text-[12px] text-content-muted italic">
+    <div v-if="fields.length === 0" class="text-xs text-content-muted italic">
       This flow has no inputs yet. Ask the assistant to add the inputs you want to vary.
     </div>
 
-    <div v-else class="rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]">
+    <!-- Hairline budget: multi-line field rows separate by whitespace only;
+         the compact single-line list rows below keep their per-row rules. -->
+    <div v-else>
       <!-- Resolution-family pickers — same controls ToolView uses, so the flow
            and the tool it freezes into look identical. -->
-      <div v-if="res.allowedDimensions" class="px-4 py-3">
-        <label class="block text-sm font-medium text-content mb-2">Resolution</label>
+      <div v-if="res.allowedDimensions" class="py-2.5">
+        <label class="block text-xs font-semibold text-content-secondary mb-2">Resolution</label>
         <ConstrainedResolutionPicker
           :allowed-dimensions="res.allowedDimensions"
           :width="numVal('width', res.allowedDimensions[0][0])"
@@ -16,8 +18,8 @@
           @update="setDims"
         />
       </div>
-      <div v-else-if="res.hasWidthHeight && !res.hasMegapixels" class="px-4 py-3">
-        <label class="block text-sm font-medium text-content mb-2">Resolution</label>
+      <div v-else-if="res.hasWidthHeight && !res.hasMegapixels" class="py-2.5">
+        <label class="block text-xs font-semibold text-content-secondary mb-2">Resolution</label>
         <ResolutionPicker
           :width="numVal('width', 1024)"
           :height="numVal('height', 1024)"
@@ -26,8 +28,8 @@
         />
       </div>
 
-      <div v-if="res.hasAspectRatio" class="px-4 py-3">
-        <label class="block text-sm font-medium text-content mb-2">Aspect ratio</label>
+      <div v-if="res.hasAspectRatio" class="py-2.5">
+        <label class="block text-xs font-semibold text-content-secondary mb-2">Aspect ratio</label>
         <GeminiResolutionPicker
           :aspect-ratio="String(values.aspect_ratio ?? '1:1')"
           :image-size="String(values.image_size ?? '1K')"
@@ -37,8 +39,8 @@
         />
       </div>
 
-      <div v-if="res.hasMegapixels" class="px-4 py-3">
-        <label class="block text-sm font-medium text-content mb-2">Megapixels</label>
+      <div v-if="res.hasMegapixels" class="py-2.5">
+        <label class="block text-xs font-semibold text-content-secondary mb-2">Megapixels</label>
         <MegapixelsPicker
           :model-value="numVal('megapixels', 1)"
           :min-megapixels="megapixelsMin"
@@ -47,8 +49,8 @@
         />
       </div>
 
-      <div v-if="res.showUpscalePicker" class="px-4 py-3">
-        <label class="block text-sm font-medium text-content mb-2">Upscale</label>
+      <div v-if="res.showUpscalePicker" class="py-2.5">
+        <label class="block text-xs font-semibold text-content-secondary mb-2">Upscale</label>
         <UpscaleResolutionPicker
           v-model="upscaleModel"
           :support-scale-factor="res.hasScaleFactor"
@@ -59,14 +61,14 @@
     <div
       v-for="field in visibleFields"
       :key="field.name"
-      class="px-4 py-3"
+      class="py-2.5"
     >
       <div :class="isStacked(field) ? '' : 'flex items-center justify-between gap-4'">
       <div :class="isStacked(field) ? 'mb-2' : 'min-w-0 flex-1'">
-        <label class="block text-sm font-medium text-content" :title="field.label">
+        <label class="block text-sm text-content" :title="field.label">
           {{ field.label }}<span v-if="field.required" class="text-red-400 ml-0.5">*</span>
         </label>
-        <div v-if="field.description" class="text-xs text-content-muted mt-0.5 leading-snug">
+        <div v-if="field.description" class="text-xs text-content-tertiary mt-0.5 leading-snug">
           {{ field.description }}
         </div>
       </div>
@@ -74,7 +76,7 @@
         <select
           v-if="field.kind === 'enum'"
           v-model="values[field.name]"
-          class="w-56 max-w-full bg-base border rounded px-2 py-1.5 text-sm text-content focus:outline-none"
+          class="w-56 max-w-full bg-overlay-subtle border border-transparent rounded-md px-3 py-2 text-sm text-content focus:outline-none focus-visible:ring-2 ring-accent/40"
           :class="fieldInputClass(field)"
         >
           <option v-for="opt in field.options" :key="String(opt)" :value="opt">{{ formatOption(field, opt) }}</option>
@@ -82,44 +84,43 @@
 
         <div
           v-else-if="field.kind === 'list'"
-          class="w-full bg-base border rounded p-2 text-sm transition-colors"
-          :class="fieldInputClass(field)"
+          class="w-full text-sm"
         >
-          <div v-if="listValue(field.name).length === 0" class="text-content-muted text-center py-2 italic">
+          <div v-if="listValue(field.name).length === 0" class="text-content-muted text-center py-2 italic text-xs">
             No items yet.
           </div>
-          <div v-else class="space-y-1.5">
-            <div v-for="(_item, idx) in listValue(field.name)" :key="idx" class="flex items-center gap-1.5">
+          <div v-else class="divide-y divide-edge-subtle">
+            <div v-for="(_item, idx) in listValue(field.name)" :key="idx" class="group flex items-center gap-1.5 py-1.5">
               <input
                 :value="String(listValue(field.name)[idx] ?? '')"
                 type="text"
-                class="flex-1 min-w-0 bg-surface border border-transparent rounded px-2 py-1.5 text-sm text-content focus:outline-none focus:border-accent"
+                class="flex-1 min-w-0 bg-overlay-subtle border border-transparent rounded-md px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
                 :placeholder="field.itemLabel"
                 @input="setListItem(field, idx, ($event.target as HTMLInputElement).value)"
                 @paste="(event) => onPasteList(field, idx, event)"
               />
-              <button type="button" class="w-7 h-7 rounded border border-edge text-content-muted hover:text-content hover:bg-overlay-subtle" title="Move up" @click="moveListItem(field.name, idx, -1)">↑</button>
-              <button type="button" class="w-7 h-7 rounded border border-edge text-content-muted hover:text-content hover:bg-overlay-subtle" title="Move down" @click="moveListItem(field.name, idx, 1)">↓</button>
-              <button type="button" class="w-7 h-7 rounded border border-edge text-content-muted hover:text-red-400 hover:bg-overlay-subtle" title="Remove" @click="removeListItem(field.name, idx)">×</button>
+              <button type="button" class="w-6 h-6 flex-shrink-0 rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle opacity-0 group-hover:opacity-100 transition-opacity" title="Move up" @click="moveListItem(field.name, idx, -1)">↑</button>
+              <button type="button" class="w-6 h-6 flex-shrink-0 rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle opacity-0 group-hover:opacity-100 transition-opacity" title="Move down" @click="moveListItem(field.name, idx, 1)">↓</button>
+              <button type="button" class="w-6 h-6 flex-shrink-0 rounded-md text-content-tertiary hover:text-red-400 hover:bg-overlay-subtle opacity-0 group-hover:opacity-100 transition-opacity" title="Remove" @click="removeListItem(field.name, idx)">×</button>
             </div>
           </div>
-          <div class="mt-2 flex flex-wrap items-center gap-2">
-            <button type="button" class="px-2 py-1 rounded border border-edge text-[12px] text-content-secondary hover:bg-overlay-subtle" @click="addListItem(field)">
-              Add {{ field.itemLabel.toLowerCase() }}
+          <div class="mt-2 flex flex-wrap items-center gap-3">
+            <button type="button" class="text-xs text-content-secondary hover:text-content" @click="addListItem(field)">
+              + Add {{ field.itemLabel.toLowerCase() }}
             </button>
-            <button type="button" class="px-2 py-1 rounded border border-edge text-[12px] text-content-secondary hover:bg-overlay-subtle" @click="showPaste[field.name] = !showPaste[field.name]">
+            <button type="button" class="text-xs text-content-secondary hover:text-content" @click="showPaste[field.name] = !showPaste[field.name]">
               Paste items
             </button>
-            <span class="text-[11px] text-content-tertiary">{{ listValue(field.name).length }} item{{ listValue(field.name).length === 1 ? '' : 's' }}</span>
+            <span class="text-xs font-mono tabular-nums text-content-tertiary">{{ listValue(field.name).length }} item{{ listValue(field.name).length === 1 ? '' : 's' }}</span>
           </div>
           <div v-if="showPaste[field.name]" class="mt-2 space-y-1.5">
             <textarea
               v-model="pasteText[field.name]"
               rows="3"
-              class="w-full bg-surface border border-transparent rounded px-2 py-1.5 text-sm text-content focus:outline-none focus:border-accent"
+              class="w-full bg-overlay-subtle border border-transparent rounded-md px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
               placeholder="Paste one item per line, or comma-separated items"
             />
-            <button type="button" class="px-2 py-1 rounded-md bg-accent text-white text-[12px] hover:bg-accent/90" @click="importPastedList(field)">
+            <button type="button" class="px-3 py-1.5 rounded-md bg-accent text-white text-xs hover:bg-accent/90" @click="importPastedList(field)">
               Import
             </button>
           </div>
@@ -127,24 +128,23 @@
 
         <div
           v-else-if="field.kind === 'table'"
-          class="w-full bg-base border rounded p-2 text-sm transition-colors overflow-x-auto"
-          :class="fieldInputClass(field)"
+          class="w-full text-sm overflow-x-auto"
         >
           <table class="w-full min-w-[420px] border-collapse">
             <thead>
-              <tr class="text-left text-[11px] text-content-muted">
-                <th v-for="col in field.columns" :key="col.name" class="font-medium pb-1 pr-2">{{ col.label }}</th>
-                <th class="w-20 pb-1"></th>
+              <tr class="text-left text-xs text-content-tertiary">
+                <th v-for="col in field.columns" :key="col.name" class="font-normal pb-1.5 pr-2 border-b border-edge-subtle">{{ col.label }}</th>
+                <th class="w-16 pb-1.5 border-b border-edge-subtle"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(_row, idx) in listValue(field.name)" :key="idx">
-                <td v-for="col in field.columns" :key="col.name" class="pr-2 py-1 align-top">
+              <tr v-for="(_row, idx) in listValue(field.name)" :key="idx" class="group border-b border-edge-subtle last:border-0">
+                <td v-for="col in field.columns" :key="col.name" class="pr-2 py-1.5 align-top">
                   <input
                     v-if="col.kind !== 'boolean'"
                     :type="col.kind === 'number' ? 'number' : 'text'"
                     :value="tableCellValue(field.name, idx, col.name)"
-                    class="w-full min-w-0 bg-surface border border-transparent rounded px-2 py-1.5 text-sm text-content focus:outline-none focus:border-accent"
+                    class="w-full min-w-0 bg-overlay-subtle border border-transparent rounded-md px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
                     @input="setTableCell(field, idx, col, ($event.target as HTMLInputElement).value)"
                   />
                   <input
@@ -155,23 +155,23 @@
                     @change="setTableCell(field, idx, col, ($event.target as HTMLInputElement).checked)"
                   />
                 </td>
-                <td class="py-1 align-top">
-                  <div class="flex items-center gap-1">
-                    <button type="button" class="w-7 h-7 rounded border border-edge text-content-muted hover:text-content hover:bg-overlay-subtle" title="Move up" @click="moveListItem(field.name, idx, -1)">↑</button>
-                    <button type="button" class="w-7 h-7 rounded border border-edge text-content-muted hover:text-red-400 hover:bg-overlay-subtle" title="Remove" @click="removeListItem(field.name, idx)">×</button>
+                <td class="py-1.5 align-top">
+                  <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button type="button" class="w-6 h-6 rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle" title="Move up" @click="moveListItem(field.name, idx, -1)">↑</button>
+                    <button type="button" class="w-6 h-6 rounded-md text-content-tertiary hover:text-red-400 hover:bg-overlay-subtle" title="Remove" @click="removeListItem(field.name, idx)">×</button>
                   </div>
                 </td>
               </tr>
             </tbody>
           </table>
-          <div v-if="listValue(field.name).length === 0" class="text-content-muted text-center py-2 italic">
+          <div v-if="listValue(field.name).length === 0" class="text-content-muted text-center py-2 italic text-xs">
             No rows yet.
           </div>
-          <div class="mt-2 flex items-center gap-2">
-            <button type="button" class="px-2 py-1 rounded border border-edge text-[12px] text-content-secondary hover:bg-overlay-subtle" @click="addTableRow(field)">
-              Add row
+          <div class="mt-2 flex items-center gap-3">
+            <button type="button" class="text-xs text-content-secondary hover:text-content" @click="addTableRow(field)">
+              + Add row
             </button>
-            <span class="text-[11px] text-content-tertiary">{{ listValue(field.name).length }} row{{ listValue(field.name).length === 1 ? '' : 's' }}</span>
+            <span class="text-xs font-mono tabular-nums text-content-tertiary">{{ listValue(field.name).length }} row{{ listValue(field.name).length === 1 ? '' : 's' }}</span>
           </div>
         </div>
 
@@ -180,7 +180,7 @@
           <input
             v-model.number="values[field.name]"
             type="number"
-            class="w-32 bg-base border rounded px-2 py-1.5 text-sm text-content focus:outline-none"
+            class="w-32 bg-overlay-subtle border border-transparent rounded-md px-3 py-2 text-sm font-mono tabular-nums text-content focus:outline-none focus-visible:ring-2 ring-accent/40"
             :class="fieldInputClass(field)"
             :min="field.min"
             :max="field.max"
@@ -188,11 +188,11 @@
           />
           <button
             type="button"
-            class="flex items-center justify-center w-8 h-8 rounded-md border border-edge bg-overlay-subtle text-content-secondary hover:text-content hover:bg-overlay-hover transition-colors"
+            class="flex items-center justify-center w-8 h-8 rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors"
             title="Roll a new seed"
             @click="rerollSeed(field)"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor" class="w-4 h-4">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4">
               <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
               <circle cx="8.5" cy="8.5" r="1.15" fill="currentColor" stroke="none" />
               <circle cx="15.5" cy="8.5" r="1.15" fill="currentColor" stroke="none" />
@@ -208,7 +208,7 @@
             v-if="field.control === 'slider'"
             v-model.number="values[field.name]"
             type="range"
-            class="w-48 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+            class="w-48 h-1 bg-overlay-subtle rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
             :min="field.min ?? 0"
             :max="field.max ?? 100"
             :step="field.step ?? (field.type === 'int' ? 1 : 0.1)"
@@ -216,7 +216,7 @@
           <input
             v-model.number="values[field.name]"
             type="number"
-            class="w-32 bg-base border rounded px-2 py-1.5 text-sm text-content focus:outline-none"
+            class="w-32 bg-overlay-subtle border border-transparent rounded-md px-3 py-2 text-sm font-mono tabular-nums text-content focus:outline-none focus-visible:ring-2 ring-accent/40"
             :class="fieldInputClass(field)"
             :min="field.min"
             :max="field.max"
@@ -228,12 +228,12 @@
           v-else-if="field.kind === 'boolean'"
           v-model="values[field.name]"
           type="checkbox"
-          class="w-4 h-4 rounded"
+          class="w-4 h-4 rounded accent-accent"
         />
 
         <div
           v-else-if="field.kind === 'media'"
-          class="w-20 h-20 relative group bg-base border rounded overflow-hidden flex-shrink-0 transition-colors"
+          class="w-20 h-20 relative group rounded-media bg-matte overflow-hidden flex-shrink-0 transition-colors"
           :class="mediaTileClass(field)"
           @dragover.prevent="() => (dragHover[field.name] = true)"
           @dragleave="() => (dragHover[field.name] = false)"
@@ -251,17 +251,17 @@
             <MediaImage :mediaId="values[field.name]" :contain="true" container-class="w-full h-full" />
             <button
               type="button"
-              class="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
+              class="absolute top-1 right-1 w-6 h-6 bg-black/55 backdrop-blur hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
               @click.prevent="values[field.name] = null"
               title="Remove"
             >×</button>
             <button
               type="button"
-              class="absolute bottom-1 right-1 w-6 h-6 bg-black/60 hover:bg-blue-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
+              class="absolute bottom-1 right-1 w-6 h-6 bg-black/55 backdrop-blur hover:bg-accent/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
               title="Replace from library"
               @click.prevent="openPicker(field, false, $event)"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-3.5 h-3.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
               </svg>
             </button>
@@ -270,7 +270,7 @@
 
         <div
           v-else-if="field.kind === 'media_list'"
-          class="w-full bg-base border rounded p-2 text-[13px] transition-colors"
+          class="w-full text-sm transition-colors rounded-md"
           :class="mediaTileClass(field)"
           @dragover.prevent="() => (dragHover[field.name] = true)"
           @dragleave="() => (dragHover[field.name] = false)"
@@ -278,7 +278,7 @@
         >
           <div class="flex flex-wrap gap-2">
             <div v-for="(mid, idx) in (values[field.name] || [])" :key="mid" class="relative group">
-              <MediaImage :mediaId="mid" :contain="true" container-class="w-12 h-12 rounded" />
+              <MediaImage :mediaId="mid" :contain="true" container-class="w-12 h-12 rounded-media" />
               <button
                 type="button"
                 class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
@@ -288,13 +288,13 @@
             </div>
             <button
               type="button"
-              class="w-12 h-12 rounded border border-dashed border-edge text-content-muted hover:text-content-secondary hover:border-edge-strong hover:bg-overlay-subtle flex items-center justify-center text-lg cursor-pointer transition-colors"
+              class="w-12 h-12 rounded-media border border-dashed border-edge text-content-muted hover:text-content-secondary hover:border-edge-strong hover:bg-overlay-subtle flex items-center justify-center text-lg cursor-pointer transition-colors"
               title="Add from library"
               @click="openPicker(field, true, $event)"
             >+</button>
             <span
               v-if="!(values[field.name] && values[field.name].length)"
-              class="self-center text-content-muted italic text-[12px]"
+              class="self-center text-content-muted italic text-xs"
             >Click + or drop media items here.</span>
           </div>
         </div>
@@ -303,7 +303,7 @@
           v-else-if="field.kind === 'text' && (field.lines > 1 || field.control === 'textarea')"
           v-model="values[field.name]"
           :rows="field.lines"
-          class="w-full bg-base border rounded px-2 py-1.5 text-sm text-content focus:outline-none resize-y"
+          class="w-full bg-overlay-subtle border border-transparent rounded-md px-3 py-2 text-sm text-content focus:outline-none focus-visible:ring-2 ring-accent/40 resize-y"
           :class="fieldInputClass(field)"
           :placeholder="field.description || ''"
         />
@@ -324,13 +324,13 @@
           v-else
           v-model="values[field.name]"
           type="text"
-          class="w-full bg-base border rounded px-2 py-1.5 text-sm text-content focus:outline-none"
+          class="w-full bg-overlay-subtle border border-transparent rounded-md px-3 py-2 text-sm text-content focus:outline-none focus-visible:ring-2 ring-accent/40"
           :class="fieldInputClass(field)"
           :placeholder="field.description || ''"
         />
       </div>
       </div>
-      <div v-if="errors[field.name]" class="text-[11px] text-red-400 mt-1.5">
+      <div v-if="errors[field.name]" class="text-xs text-red-400 mt-1.5">
         {{ errors[field.name] }}
       </div>
     </div>
@@ -908,9 +908,9 @@ function acceptsDraggedType(f: Field): boolean {
 }
 
 function mediaTileClass(f: Field): string {
-  if (dragHover[f.name]) return 'border-blue-500/70 bg-blue-500/5'
-  if (acceptsDraggedType(f)) return 'border-blue-500/40 bg-blue-500/[0.03]'
-  return fieldInputClass(f)
+  if (dragHover[f.name]) return 'ring-1 ring-accent/50 bg-accent/10'
+  if (acceptsDraggedType(f)) return 'ring-1 ring-accent/30'
+  return ''
 }
 
 function removeMediaAt(name: string, idx: number) {
@@ -995,7 +995,7 @@ function isStacked(f: Field): boolean {
 function fieldInputClass(f: Field): string {
   return errors.value[f.name]
     ? 'border-red-500/60 focus:border-red-500/80'
-    : 'border-transparent focus:border-accent'
+    : 'focus:border-accent'
 }
 
 function formatOption(field: Field, opt: any): string {
