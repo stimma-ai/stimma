@@ -1,81 +1,62 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="show"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="cancel"
-        @keydown.esc="cancel"
-        tabindex="-1"
-        ref="rootEl"
-      >
-        <div
-          class="bg-surface border border-edge rounded-lg shadow-2xl w-full max-w-5xl mx-4 my-8 max-h-[90vh] flex flex-col"
-        >
-          <!-- Header: instructions + progress badge -->
-          <div class="px-5 py-3 border-b border-edge flex items-start gap-3">
-            <div class="flex-1 min-w-0">
-              <h3 class="text-[14px] font-semibold text-content">{{ titleText }}</h3>
-              <p
-                v-if="instructions"
-                class="text-[12px] text-content-secondary mt-1 whitespace-pre-wrap"
-              >{{ instructions }}</p>
-            </div>
-            <span
-              class="flex-shrink-0 inline-flex items-center rounded-full border border-edge-subtle bg-surface-raised px-2.5 py-1 text-[11px] font-medium text-content-secondary"
-            >{{ progressText }}</span>
-          </div>
-
-          <!-- Body: candidate grid -->
-          <div class="flex-1 overflow-y-auto px-4 py-3">
-            <div
-              v-if="normalized.length === 0"
-              class="flex items-center justify-center py-8 text-[12px] text-content-muted italic"
-            >No candidates available.</div>
-            <div
-              v-else
-              class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"
-            >
-              <HitlActionCard
-                v-for="c in normalized"
-                :key="c.key"
-                :media-id="c.mediaId"
-                :media-url="c.mediaUrl"
-                :mode="count === 1 ? 'select-single' : 'select-multi'"
-                :state="isPicked(c) ? 'selected' : 'idle'"
-                :label="c.label"
-                @select="toggle(c)"
-              />
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <div class="px-5 py-3 border-t border-edge flex items-center justify-between gap-3">
-            <span class="text-[11px] text-content-muted">
-              {{ footerHint }}
-            </span>
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                class="px-3 py-1.5 text-[12px] bg-surface-raised hover:bg-surface-hover text-content rounded-md font-medium"
-                @click="cancel"
-              >Cancel</button>
-              <button
-                type="button"
-                class="px-3 py-1.5 text-[12px] bg-accent hover:bg-accent/90 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                :disabled="!ready"
-                @click="confirm"
-              >{{ confirmLabel }}</button>
-            </div>
-          </div>
+  <Modal
+    :show="show"
+    size="custom"
+    custom-class="w-full max-w-5xl mx-4 my-8 max-h-[90vh] flex flex-col"
+    @close="cancel"
+  >
+    <template #header>
+      <div class="flex items-start gap-3">
+        <div class="flex-1 min-w-0">
+          <h3 class="text-[14px] font-semibold text-content">{{ titleText }}</h3>
+          <p
+            v-if="instructions"
+            class="text-[12px] text-content-secondary mt-1 whitespace-pre-wrap"
+          >{{ instructions }}</p>
         </div>
+        <span
+          class="flex-shrink-0 inline-flex items-center rounded-full border border-edge-subtle bg-surface-raised px-2.5 py-1 text-[11px] font-medium text-content-secondary"
+        >{{ progressText }}</span>
       </div>
-    </Transition>
-  </Teleport>
+    </template>
+
+    <!-- Body: candidate grid -->
+    <div class="flex-1 overflow-y-auto px-4 py-3">
+      <div
+        v-if="normalized.length === 0"
+        class="flex items-center justify-center py-8 text-[12px] text-content-muted italic"
+      >No candidates available.</div>
+      <div
+        v-else
+        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2"
+      >
+        <HitlActionCard
+          v-for="c in normalized"
+          :key="c.key"
+          :media-id="c.mediaId"
+          :media-url="c.mediaUrl"
+          :mode="count === 1 ? 'select-single' : 'select-multi'"
+          :state="isPicked(c) ? 'selected' : 'idle'"
+          :label="c.label"
+          @select="toggle(c)"
+        />
+      </div>
+    </div>
+
+    <template #footer>
+      <span class="text-[11px] text-content-muted mr-auto">
+        {{ footerHint }}
+      </span>
+      <Button variant="secondary" size="sm" @click="cancel">Cancel</Button>
+      <Button variant="primary" size="sm" :disabled="!ready" @click="confirm">{{ confirmLabel }}</Button>
+    </template>
+  </Modal>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch } from 'vue'
+import Modal from '../ui/Modal.vue'
+import Button from '../ui/Button.vue'
 import HitlActionCard from './HitlActionCard.vue'
 import {
   normalizeCandidate,
@@ -108,7 +89,6 @@ const emit = defineEmits<{
   (e: 'confirm', resolution: any): void
 }>()
 
-const rootEl = ref<HTMLElement | null>(null)
 const draftValues = ref<any[]>([])
 
 const normalized = computed<NormalizedCandidate[]>(() =>
@@ -170,29 +150,6 @@ function cancel() {
 watch(() => [props.show, props.initialSelection], () => {
   if (props.show) {
     draftValues.value = [...props.initialSelection]
-    nextTick(() => rootEl.value?.focus())
   }
 }, { immediate: true, deep: true })
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active .bg-surface,
-.modal-leave-active .bg-surface {
-  transition: transform 0.15s ease;
-}
-
-.modal-enter-from .bg-surface,
-.modal-leave-to .bg-surface {
-  transform: scale(0.97);
-}
-</style>

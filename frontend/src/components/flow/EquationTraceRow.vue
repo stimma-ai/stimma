@@ -11,9 +11,11 @@
       <!-- Status icon — carries the full state vocabulary (no separate
            right-rail label). Each non-pending status has its own glyph + color
            so a row can be triaged from the leftmost column alone. -->
-      <span
+      <Spinner
         v-if="equation.status === 'computing' && !isPaused"
-        class="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin flex-shrink-0"
+        size="sm"
+        hue="border-t-blue-400"
+        class="flex-shrink-0"
         :title="'Running'"
       />
       <span
@@ -189,6 +191,7 @@ import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import type { FlowEquation } from '../../composables/useFlowsApi'
 import { useProvidersApi } from '../../composables/useProvidersApi'
+import Spinner from '../ui/Spinner.vue'
 import { useFlowExpandState } from '../../composables/useFlowExpandState'
 import FlowMediaTile from './FlowMediaTile.vue'
 import EquationTraceBody from './EquationTraceBody.vue'

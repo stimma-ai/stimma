@@ -1,65 +1,61 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="celebration"
-        data-testid="balance-celebration"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="dismissCelebration"
-      >
-        <div class="bg-surface border border-edge rounded-lg shadow-2xl max-w-md w-full mx-4 overflow-hidden relative">
-          <!-- Celebration hero -->
-          <div class="celebration-hero px-6 pt-10 pb-8 text-center relative overflow-hidden">
-            <div class="glow-base" aria-hidden="true" />
-            <span
-              v-for="mote in motes"
-              :key="mote.id"
-              class="mote"
-              :style="mote.style"
-              aria-hidden="true"
-            />
-            <div class="relative">
-              <div class="badge mx-auto w-14 h-14 relative">
-                <div class="pulse" aria-hidden="true" />
-                <svg class="w-full h-full overflow-visible" viewBox="0 0 60 60" fill="none">
-                  <defs>
-                    <linearGradient id="celebration-cloud-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stop-color="#0d9488" />
-                      <stop offset="50%" stop-color="#06b6d4" />
-                      <stop offset="100%" stop-color="#6366f1" />
-                    </linearGradient>
-                  </defs>
-                  <circle class="ring" cx="30" cy="30" r="28" stroke="url(#celebration-cloud-grad)" />
-                  <path class="tick" d="M18 31 l8 8 l16 -18" stroke="url(#celebration-cloud-grad)" />
-                </svg>
-              </div>
-              <h3 class="stagger stagger-1 mt-5 text-xl font-semibold text-content tracking-tight">
-                Your <span class="stimma-cloud-text whitespace-nowrap">Stimma account</span> is ready
-              </h3>
-              <p class="stagger stagger-2 mt-1.5 mx-auto max-w-[340px] text-sm text-content-secondary leading-relaxed">
-                {{ balanceLine }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <div class="stagger stagger-3 px-6 py-5 border-t border-edge flex justify-center">
-            <button
-              data-testid="celebration-dismiss"
-              @click="dismissCelebration"
-              class="px-6 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded-lg text-sm font-semibold transition-all"
-            >
-              Start creating
-            </button>
-          </div>
+  <Modal
+    :show="!!celebration"
+    size="custom"
+    custom-class="max-w-md w-full overflow-hidden relative"
+    @close="dismissCelebration"
+  >
+    <!-- Celebration hero -->
+    <div data-testid="balance-celebration" class="celebration-hero px-6 pt-10 pb-8 text-center relative overflow-hidden">
+      <div class="glow-base" aria-hidden="true" />
+      <span
+        v-for="mote in motes"
+        :key="mote.id"
+        class="mote"
+        :style="mote.style"
+        aria-hidden="true"
+      />
+      <div class="relative">
+        <div class="badge mx-auto w-14 h-14 relative">
+          <div class="pulse" aria-hidden="true" />
+          <svg class="w-full h-full overflow-visible" viewBox="0 0 60 60" fill="none">
+            <defs>
+              <linearGradient id="celebration-cloud-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#0d9488" />
+                <stop offset="50%" stop-color="#06b6d4" />
+                <stop offset="100%" stop-color="#6366f1" />
+              </linearGradient>
+            </defs>
+            <circle class="ring" cx="30" cy="30" r="28" stroke="url(#celebration-cloud-grad)" />
+            <path class="tick" d="M18 31 l8 8 l16 -18" stroke="url(#celebration-cloud-grad)" />
+          </svg>
         </div>
+        <h3 class="stagger stagger-1 mt-5 text-xl font-semibold text-content tracking-tight">
+          Your <span class="stimma-cloud-text whitespace-nowrap">Stimma account</span> is ready
+        </h3>
+        <p class="stagger stagger-2 mt-1.5 mx-auto max-w-[340px] text-sm text-content-secondary leading-relaxed">
+          {{ balanceLine }}
+        </p>
       </div>
-    </Transition>
-  </Teleport>
+    </div>
+
+    <template #footer>
+      <div class="stagger stagger-3 w-full flex justify-center">
+        <button
+          data-testid="celebration-dismiss"
+          @click="dismissCelebration"
+          class="px-6 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 text-white rounded-lg text-sm font-semibold transition-all"
+        >
+          Start creating
+        </button>
+      </div>
+    </template>
+  </Modal>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import Modal from './ui/Modal.vue'
 import { useBalanceCelebration } from '../composables/useAccountEvents'
 import { formatBalance } from '../composables/useCloudAccount'
 
@@ -210,25 +206,5 @@ const motes = MOTES.map((m, i) => ({
     animation-duration: 0.01s !important;
     animation-delay: 0s !important;
   }
-}
-
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active .bg-surface,
-.modal-leave-active .bg-surface {
-  transition: transform 0.15s ease;
-}
-
-.modal-enter-from .bg-surface,
-.modal-leave-to .bg-surface {
-  transform: scale(0.95);
 }
 </style>

@@ -1,16 +1,13 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="visible" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal p-5" @click.self="close">
-        <div class="bg-surface rounded-lg max-w-[450px] w-full max-h-[80vh] flex flex-col shadow-2xl border border-edge-subtle">
-          <!-- Header -->
-          <div class="flex items-center justify-between px-5 py-4 border-b border-edge-subtle">
-            <h3 class="text-content text-lg font-semibold">Manage Tags</h3>
-            <span class="text-content-tertiary text-sm">{{ targetIds.length }} item{{ targetIds.length !== 1 ? 's' : '' }}</span>
-          </div>
+  <Modal :show="visible" size="custom" custom-class="max-w-[450px] w-full" :close-on-backdrop="!saving" :close-on-esc="!saving" @close="close">
+    <template #header>
+      <div class="flex items-center justify-between">
+        <h3 class="text-content text-lg font-semibold">Manage Tags</h3>
+        <span class="text-content-tertiary text-sm">{{ targetIds.length }} item{{ targetIds.length !== 1 ? 's' : '' }}</span>
+      </div>
+    </template>
 
-          <!-- Body -->
-          <div class="px-5 py-4 overflow-y-auto flex-1 flex flex-col gap-3">
+    <div class="px-5 py-4 max-h-[80vh] overflow-y-auto flex-1 flex flex-col gap-3">
             <!-- Filter input -->
             <div class="relative flex items-center">
               <svg class="absolute left-3 w-4 h-4 text-content-muted pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -86,32 +83,23 @@
             <div v-if="error" class="py-2.5 px-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-500 text-sm">
               {{ error }}
             </div>
-          </div>
+    </div>
 
-          <!-- Footer -->
-          <div class="flex gap-3 px-5 py-4 border-t border-edge-subtle justify-end">
-            <button
-              class="px-4 py-2 rounded-md text-sm font-medium text-content-tertiary hover:text-content hover:bg-overlay-light transition-colors"
-              @click="close"
-            >
-              Cancel
-            </button>
-            <button
-              class="px-4 py-2 rounded-md text-sm font-medium bg-surface-hover hover:bg-surface-active text-content transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              @click="save"
-              :disabled="saving || !hasChanges"
-            >
-              {{ saving ? 'Saving...' : 'Save' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+    <template #footer>
+      <Button variant="ghost" @click="close">
+        Cancel
+      </Button>
+      <Button variant="secondary" :disabled="saving || !hasChanges" @click="save">
+        {{ saving ? 'Saving...' : 'Save' }}
+      </Button>
+    </template>
+  </Modal>
 </template>
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
+import Modal from './ui/Modal.vue'
+import Button from './ui/Button.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
 import { assetIdOf } from '../utils/assetIdentity'
@@ -412,26 +400,3 @@ watch(() => props.visible, (visible) => {
   }
 })
 </script>
-
-<style scoped>
-/* Modal transitions */
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active > div,
-.modal-leave-active > div {
-  transition: transform 0.2s ease;
-}
-
-.modal-enter-from > div,
-.modal-leave-to > div {
-  transform: scale(0.95);
-}
-</style>

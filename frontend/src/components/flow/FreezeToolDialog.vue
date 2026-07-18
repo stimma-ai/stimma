@@ -1,27 +1,21 @@
 <template>
-  <Teleport to="body">
-    <Transition name="freeze-modal">
-      <div
-        v-if="show"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="cancel"
-        @keydown.esc="cancel"
-      >
-        <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[480px] max-w-[92vw] max-h-[88vh] flex flex-col overflow-hidden">
-          <!-- Header -->
-          <div class="flex items-center gap-2 px-4 py-3 border-b border-edge-subtle">
-            <span class="font-semibold text-sm text-content">{{ isEdit ? 'Edit custom tool' : 'Save as Custom Tool' }}</span>
-            <div class="flex-1"></div>
-            <button
-              @click="cancel"
-              class="w-7 h-7 flex items-center justify-center text-content-muted hover:text-content hover:bg-overlay-subtle rounded-md transition-colors flex-shrink-0"
-              title="Close"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+  <Modal
+    :show="show"
+    size="custom"
+    custom-class="w-[480px] max-w-[92vw] max-h-[88vh] flex flex-col overflow-hidden"
+    @close="cancel"
+  >
+    <template #header>
+      <div class="flex items-center gap-2">
+        <span class="font-semibold text-sm text-content">{{ isEdit ? 'Edit custom tool' : 'Save as Custom Tool' }}</span>
+        <div class="flex-1"></div>
+        <IconButton title="Close" @click="cancel">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </IconButton>
+      </div>
+    </template>
 
           <!-- Body -->
           <div class="flex-1 overflow-y-auto px-4 py-4">
@@ -133,42 +127,34 @@
             </template>
           </div>
 
-          <!-- Footer -->
-          <div class="flex items-center gap-2 px-4 py-3 border-t border-edge-subtle bg-surface-raised">
-            <button
-              v-if="isEdit"
-              @click="handleDelete"
-              :disabled="saving || deleting"
-              class="text-[11px] text-red-400 hover:text-red-300 mr-auto flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-              </svg>
-              {{ deleting ? 'Deleting…' : 'Delete tool' }}
-            </button>
-            <div v-else class="flex-1"></div>
+    <template #footer>
+      <button
+        v-if="isEdit"
+        @click="handleDelete"
+        :disabled="saving || deleting"
+        class="text-[11px] text-red-400 hover:text-red-300 mr-auto flex items-center gap-1.5 disabled:opacity-50"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+        </svg>
+        {{ deleting ? 'Deleting…' : 'Delete tool' }}
+      </button>
+      <div v-else class="flex-1"></div>
 
-            <button
-              @click="cancel"
-              class="text-[12px] text-content-secondary bg-surface-raised rounded-md px-3 py-1.5 hover:bg-overlay-subtle transition-colors"
-            >Cancel</button>
-            <button
-              @click="handleSave"
-              :disabled="!canSave || saving || deleting"
-              class="text-[12px] text-white bg-accent hover:bg-accent/90 rounded-md px-3 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {{ saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Save as Custom Tool') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+      <Button variant="secondary" size="sm" @click="cancel">Cancel</Button>
+      <Button variant="primary" size="sm" :disabled="!canSave || saving || deleting" @click="handleSave">
+        {{ saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Save as Custom Tool') }}
+      </Button>
+    </template>
+  </Modal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, reactive, watch, nextTick } from 'vue'
 import axios from 'axios'
+import Modal from '../ui/Modal.vue'
+import Button from '../ui/Button.vue'
+import IconButton from '../ui/IconButton.vue'
 import { getApiBase } from '../../apiConfig'
 import { useToasts } from '../../composables/useToasts'
 import { useProvidersApi } from '../../composables/useProvidersApi'
@@ -581,22 +567,3 @@ async function handleDelete() {
   }
 }
 </script>
-
-<style scoped>
-.freeze-modal-enter-active,
-.freeze-modal-leave-active {
-  transition: opacity 0.15s ease;
-}
-.freeze-modal-enter-from,
-.freeze-modal-leave-to {
-  opacity: 0;
-}
-.freeze-modal-enter-active > div,
-.freeze-modal-leave-active > div {
-  transition: transform 0.15s ease;
-}
-.freeze-modal-enter-from > div,
-.freeze-modal-leave-to > div {
-  transform: scale(0.96);
-}
-</style>

@@ -1,44 +1,41 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="show"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-      >
-        <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[520px] max-w-[92vw] max-h-[85vh] flex flex-col">
-          <!-- Header -->
-          <div class="px-5 py-4 border-b border-edge">
-            <h2 class="text-base font-semibold text-content">{{ title }}</h2>
-          </div>
+  <Modal
+    :show="show"
+    size="custom"
+    custom-class="w-[520px] max-w-[92vw] max-h-[85vh] flex flex-col overflow-hidden"
+    :close-on-backdrop="false"
+    :close-on-esc="false"
+  >
+    <template #header>
+      <h2 class="text-base font-semibold text-content">{{ title }}</h2>
+    </template>
 
-          <!-- Body -->
-          <div class="flex-1 overflow-y-auto px-5 py-4">
-            <p class="text-sm text-content-secondary leading-relaxed">{{ bodyText }}</p>
-          </div>
+    <!-- Body -->
+    <div class="flex-1 overflow-y-auto px-5 py-4">
+      <p class="text-sm text-content-secondary leading-relaxed">{{ bodyText }}</p>
+    </div>
 
-          <!-- Footer: one-time consent is primary; persistent consent is explicit. -->
-          <div class="flex items-center justify-end gap-3 px-5 py-3.5 border-t border-edge">
-            <button
-              @click="$emit('dont-send')"
-              class="px-3.5 py-2 text-sm text-content-secondary hover:text-content hover:bg-overlay-subtle rounded-lg transition-colors"
-            >Don't send</button>
-            <button
-              @click="$emit('always-send')"
-              class="px-3.5 py-2 rounded-lg border border-edge bg-surface hover:bg-overlay-subtle text-content text-sm font-medium transition-colors"
-            >Always send</button>
-            <button
-              @click="$emit('send-once')"
-              class="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-medium rounded-md transition-colors"
-            >{{ subject === 'thumbs' ? 'Send this once' : 'Send once' }}</button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+    <!-- Footer: one-time consent is primary; persistent consent is explicit. -->
+    <template #footer>
+      <button
+        @click="$emit('dont-send')"
+        class="px-3.5 py-2 text-sm text-content-secondary hover:text-content hover:bg-overlay-subtle rounded-lg transition-colors"
+      >Don't send</button>
+      <button
+        @click="$emit('always-send')"
+        class="px-3.5 py-2 rounded-lg border border-edge bg-surface hover:bg-overlay-subtle text-content text-sm font-medium transition-colors"
+      >Always send</button>
+      <button
+        @click="$emit('send-once')"
+        class="px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-medium rounded-md transition-colors"
+      >{{ subject === 'thumbs' ? 'Send this once' : 'Send once' }}</button>
+    </template>
+  </Modal>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import Modal from '../ui/Modal.vue'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -66,14 +63,3 @@ const bodyText = computed(() => {
 })
 
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.15s ease;
-}
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-</style>

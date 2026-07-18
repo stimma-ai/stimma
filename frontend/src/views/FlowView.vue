@@ -111,7 +111,7 @@
             >
               <span class="truncate flex-1">{{ c.name || `Flow #${c.id}` }}</span>
               <span
-                class="px-1.5 py-0.5 text-[10px] rounded uppercase tracking-wider flex-shrink-0"
+                class="px-1.5 py-0.5 text-[10px] rounded flex-shrink-0"
                 :class="copyStateBadge(c.execution_state)"
               >{{ c.execution_state }}</span>
             </button>
@@ -149,7 +149,7 @@
         </button>
         <button
           v-if="showResumeButton"
-          class="w-9 h-9 flex items-center justify-center rounded-md bg-blue-500/20 border border-blue-500/40 text-blue-400 hover:bg-blue-500/30 transition-colors"
+          class="w-9 h-9 flex items-center justify-center rounded-md bg-accent/20 border border-accent/40 text-accent hover:bg-accent/30 transition-colors"
           title="Resume"
           @click="doPlay"
         >

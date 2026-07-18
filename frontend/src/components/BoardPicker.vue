@@ -1,19 +1,20 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="visible" class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop p-5" @click.self="close">
-        <div class="flex max-h-[80vh] w-full max-w-[520px] flex-col rounded-lg border border-edge-subtle bg-surface shadow-2xl">
-          <div class="flex items-center justify-between border-b border-edge-subtle px-5 py-4">
-            <h2 class="text-lg font-semibold text-content">Add to Board</h2>
-            <button
-              class="rounded p-1 text-content-tertiary transition-colors hover:bg-overlay-light hover:text-content"
-              @click="close"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
-                <path d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+  <Modal
+    :show="visible"
+    size="custom"
+    custom-class="flex max-h-[80vh] w-full max-w-[520px] flex-col"
+    @close="close"
+  >
+    <template #header>
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-content">Add to Board</h2>
+        <IconButton @click="close">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+            <path d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </IconButton>
+      </div>
+    </template>
 
           <div class="flex gap-2 border-b border-edge-subtle px-5 py-4">
             <input
@@ -70,29 +71,22 @@
             </button>
           </div>
 
-          <div class="flex justify-end gap-2 border-t border-edge-subtle px-5 py-4">
-            <button
-              class="rounded-md px-4 py-2 text-sm font-medium text-content-tertiary transition-colors hover:bg-overlay-light hover:text-content"
-              @click="close"
-            >
-              Cancel
-            </button>
-            <button
-              class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="!selectedBoardId || saving"
-              @click="saveChanges"
-            >
-              {{ saving ? 'Saving...' : 'Add to Board' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+    <template #footer>
+      <Button variant="ghost" @click="close">
+        Cancel
+      </Button>
+      <Button variant="primary" :disabled="!selectedBoardId || saving" @click="saveChanges">
+        {{ saving ? 'Saving...' : 'Add to Board' }}
+      </Button>
+    </template>
+  </Modal>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
+import Modal from './ui/Modal.vue'
+import Button from './ui/Button.vue'
+import IconButton from './ui/IconButton.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'
 
@@ -162,25 +156,3 @@ watch(() => props.visible, (visible) => {
   if (visible) loadBoards()
 })
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active > div,
-.modal-leave-active > div {
-  transition: transform 0.2s ease;
-}
-
-.modal-enter-from > div,
-.modal-leave-to > div {
-  transform: scale(0.95);
-}
-</style>

@@ -110,54 +110,55 @@
     </Teleport>
 
     <!-- Save Preset Modal -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="showSaveModal" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="showSaveModal = false">
-          <div class="bg-surface border border-edge-subtle rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 class="text-lg font-semibold text-content mb-4">Save Preset</h3>
+    <Modal :show="showSaveModal" size="sm" @close="showSaveModal = false">
+      <template #header>
+        <h3 class="text-lg font-semibold text-content">Save Preset</h3>
+      </template>
+
+      <div class="px-6 py-5">
+        <input v-no-autocorrect
+          ref="nameInputRef"
+          v-model="newPresetName"
+          type="text"
+          placeholder="Preset name"
+          class="w-full bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40 mb-4"
+          @keyup.enter="confirmSavePreset"
+        />
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-2 text-sm text-content-secondary cursor-pointer">
             <input v-no-autocorrect
-              ref="nameInputRef"
-              v-model="newPresetName"
-              type="text"
-              placeholder="Preset name"
-              class="w-full bg-surface-overlay border border-edge-subtle text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent mb-4"
-              @keyup.enter="confirmSavePreset"
+              type="checkbox"
+              v-model="pinNewPreset"
+              class="w-4 h-4 rounded border-edge bg-overlay-subtle text-accent focus:ring-accent"
             />
-            <div class="flex items-center gap-3 mb-4">
-              <label class="flex items-center gap-2 text-sm text-content-secondary cursor-pointer">
-                <input v-no-autocorrect
-                  type="checkbox"
-                  v-model="pinNewPreset"
-                  class="w-4 h-4 rounded border-edge bg-overlay-subtle text-accent focus:ring-accent"
-                />
-                Pin to presets
-              </label>
-            </div>
-            <div class="flex justify-end gap-3">
-              <button
-                @click="showSaveModal = false"
-                class="px-4 py-2 text-content-secondary hover:text-content transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                @click="confirmSavePreset"
-                :disabled="!newPresetName.trim() || saving"
-                class="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {{ saving ? 'Saving...' : 'Save' }}
-              </button>
-            </div>
-          </div>
+            Pin to presets
+          </label>
         </div>
-      </Transition>
-    </Teleport>
+      </div>
+
+      <template #footer>
+        <button
+          @click="showSaveModal = false"
+          class="px-4 py-2 text-content-secondary hover:text-content transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          @click="confirmSavePreset"
+          :disabled="!newPresetName.trim() || saving"
+          class="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {{ saving ? 'Saving...' : 'Save' }}
+        </button>
+      </template>
+    </Modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch, onUnmounted, computed } from 'vue'
 import { usePresetsApi, type Preset, type PresetState } from '../../composables/usePresetsApi'
+import Modal from '../ui/Modal.vue'
 
 const props = defineProps<{
   toolId: string  // Full tool ID (provider:tool format)

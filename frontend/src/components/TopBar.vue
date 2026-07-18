@@ -372,90 +372,89 @@
     </div>
 
     <!-- Failed Items Modal -->
-    <Teleport to="body">
-      <div v-if="showModal" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click="closeModal">
-        <div class="bg-surface border border-edge rounded-lg max-w-[800px] w-[90%] max-h-[80vh] flex flex-col shadow-[0_20px_40px_rgba(0,0,0,0.5)]" @click.stop>
-          <div class="flex justify-between items-center p-6 border-b border-edge">
-            <h2 class="m-0 text-xl font-semibold text-content">{{ modalTitle }}</h2>
-            <div class="flex gap-3 items-center">
-              <!-- Retry All button -->
-              <button
-                v-if="failedItems.length > 0 && !loadingFailed"
-                class="flex items-center gap-2 bg-gradient-to-br from-green-500 to-green-600 border-none text-white px-4 py-2 rounded-md text-sm font-semibold cursor-pointer transition-all hover:from-green-600 hover:to-green-700 hover:shadow-[0_4px_12px_rgba(76,175,80,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
-                @click="retryAll"
-                :disabled="retrying || trashing"
-              >
-                <svg v-if="!retrying" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                </svg>
-                <span v-if="retrying">Retrying...</span>
-                <span v-else>Retry All</span>
-              </button>
-              <!-- Move to Trash button -->
-              <button
-                v-if="failedItems.length > 0 && !loadingFailed"
-                class="flex items-center gap-2 bg-overlay-subtle border border-edge text-content-secondary px-3 py-2 rounded-md text-sm cursor-pointer transition-all hover:bg-overlay-light hover:text-content hover:border-edge-strong disabled:opacity-50 disabled:cursor-not-allowed"
-                @click="trashAll"
-                :disabled="retrying || trashing"
-                title="Move all failed items to trash"
-              >
-                <svg v-if="!trashing" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                </svg>
-                <Spinner v-else size="md" hue="border-t-white" />
-                <span>Trash All</span>
-              </button>
-              <button class="bg-transparent border-none text-content-tertiary cursor-pointer p-1 flex items-center transition-colors hover:text-content" @click="closeModal">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+    <Modal :show="showModal" size="custom" custom-class="max-w-[800px] w-[90%] max-h-[80vh] flex flex-col" @close="closeModal">
+      <template #header>
+        <div class="flex justify-between items-center">
+          <h2 class="m-0 text-xl font-semibold text-content">{{ modalTitle }}</h2>
+          <div class="flex gap-3 items-center">
+            <!-- Retry All button -->
+            <button
+              v-if="failedItems.length > 0 && !loadingFailed"
+              class="flex items-center gap-2 bg-gradient-to-br from-green-500 to-green-600 border-none text-white px-4 py-2 rounded-md text-sm font-semibold cursor-pointer transition-all hover:from-green-600 hover:to-green-700 hover:shadow-[0_4px_12px_rgba(76,175,80,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+              @click="retryAll"
+              :disabled="retrying || trashing"
+            >
+              <svg v-if="!retrying" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+              <span v-if="retrying">Retrying...</span>
+              <span v-else>Retry All</span>
+            </button>
+            <!-- Move to Trash button -->
+            <button
+              v-if="failedItems.length > 0 && !loadingFailed"
+              class="flex items-center gap-2 bg-overlay-subtle border border-edge text-content-secondary px-3 py-2 rounded-md text-sm cursor-pointer transition-all hover:bg-overlay-light hover:text-content hover:border-edge-strong disabled:opacity-50 disabled:cursor-not-allowed"
+              @click="trashAll"
+              :disabled="retrying || trashing"
+              title="Move all failed items to trash"
+            >
+              <svg v-if="!trashing" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              </svg>
+              <Spinner v-else size="md" hue="border-t-white" />
+              <span>Trash All</span>
+            </button>
+            <button class="bg-transparent border-none text-content-tertiary cursor-pointer p-1 flex items-center transition-colors hover:text-content" @click="closeModal">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <div class="p-6 overflow-y-auto flex-1">
-            <div v-if="loadingFailed" class="text-center text-content-tertiary p-8 text-sm">Loading failed items...</div>
-            <div v-else-if="failedItems.length === 0" class="text-center text-content-tertiary p-8 text-sm">No failed items found.</div>
-            <div v-else class="flex flex-col gap-4">
-              <div v-for="item in failedItems" :key="item.id" class="bg-overlay-subtle border border-edge rounded-lg p-4 flex gap-4">
-                <!-- Thumbnail -->
-                <div class="w-12 h-12 flex-shrink-0 rounded-md overflow-hidden bg-surface-raised">
-                  <img
-                    v-if="item.file_hash"
-                    :src="getThumbnailUrl(item.file_hash, 64)"
-                    :class="['w-full h-full object-cover', item.has_alpha !== false ? 'bg-checker' : '']"
-                    @error="$event.target.style.display = 'none'"
-                  />
-                  <div v-else class="w-full h-full flex items-center justify-center text-content-muted">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                    </svg>
-                  </div>
-                </div>
-                <!-- Content -->
-                <div class="flex-1 min-w-0">
-                  <div class="flex justify-between items-start gap-3 mb-2">
-                    <span class="font-semibold text-content text-sm">{{ getFileName(item.file_path) }}</span>
-                    <button
-                      class="flex items-center gap-1.5 bg-gradient-to-br from-green-500 to-green-600 border-none text-white px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer transition-all hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                      @click="retryItem(item.id)"
-                      :disabled="retrying || trashing"
-                      title="Retry this item"
-                    >
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                      </svg>
-                      Retry
-                    </button>
-                  </div>
-                  <div class="text-red-500 text-xs font-mono bg-red-500/10 px-2.5 py-1.5 rounded border-l-2 border-red-500 mb-2">{{ item.error || 'Unknown error' }}</div>
-                  <div class="text-xs text-content-muted font-mono truncate" :title="item.file_path">{{ item.file_path }}</div>
-                </div>
+        </div>
+      </template>
+
+      <div class="p-6 overflow-y-auto flex-1">
+        <div v-if="loadingFailed" class="text-center text-content-tertiary p-8 text-sm">Loading failed items...</div>
+        <div v-else-if="failedItems.length === 0" class="text-center text-content-tertiary p-8 text-sm">No failed items found.</div>
+        <div v-else class="flex flex-col gap-4">
+          <div v-for="item in failedItems" :key="item.id" class="bg-overlay-subtle border border-edge rounded-lg p-4 flex gap-4">
+            <!-- Thumbnail -->
+            <div class="w-12 h-12 flex-shrink-0 rounded-md overflow-hidden bg-surface-raised">
+              <img
+                v-if="item.file_hash"
+                :src="getThumbnailUrl(item.file_hash, 64)"
+                :class="['w-full h-full object-cover', item.has_alpha !== false ? 'bg-checker' : '']"
+                @error="$event.target.style.display = 'none'"
+              />
+              <div v-else class="w-full h-full flex items-center justify-center text-content-muted">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                </svg>
               </div>
+            </div>
+            <!-- Content -->
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-start gap-3 mb-2">
+                <span class="font-semibold text-content text-sm">{{ getFileName(item.file_path) }}</span>
+                <button
+                  class="flex items-center gap-1.5 bg-gradient-to-br from-green-500 to-green-600 border-none text-white px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer transition-all hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                  @click="retryItem(item.id)"
+                  :disabled="retrying || trashing"
+                  title="Retry this item"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                  </svg>
+                  Retry
+                </button>
+              </div>
+              <div class="text-red-500 text-xs font-mono bg-red-500/10 px-2.5 py-1.5 rounded border-l-2 border-red-500 mb-2">{{ item.error || 'Unknown error' }}</div>
+              <div class="text-xs text-content-muted font-mono truncate" :title="item.file_path">{{ item.file_path }}</div>
             </div>
           </div>
         </div>
       </div>
-    </Teleport>
+    </Modal>
 
     <WhatsNewModal
       :show="whatsNewOpen"
@@ -483,6 +482,7 @@ import WhatsNewModal from './WhatsNewModal.vue'
 import { captioningEnabledRef } from '../appConfig'
 import GlobalSearchBox from './search/GlobalSearchBox.vue'
 import Spinner from './ui/Spinner.vue'
+import Modal from './ui/Modal.vue'
 
 const router = useRouter()
 const route = useRoute()

@@ -9,9 +9,11 @@
     ]"
   >
     <div class="flex items-start gap-2">
-      <span
+      <Spinner
         v-if="agentBusy"
-        class="w-3.5 h-3.5 flex-shrink-0 mt-1 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"
+        size="sm"
+        hue="border-t-blue-400"
+        class="flex-shrink-0 mt-1"
       />
       <svg v-else class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
@@ -61,6 +63,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import Spinner from '../ui/Spinner.vue'
 
 const props = defineProps<{
   error: {

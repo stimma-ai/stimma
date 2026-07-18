@@ -1,21 +1,20 @@
 <template>
-  <Teleport to="body">
-    <!-- Backdrop -->
-    <div v-if="modelValue" class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop p-6">
-      <!-- Modal card -->
-      <div class="flex flex-col w-full h-full max-w-[1400px] max-h-[900px] bg-surface rounded-lg border border-edge-subtle shadow-2xl overflow-hidden">
-        <!-- Header -->
-        <div class="flex items-center justify-between px-4 py-2 border-b border-edge-subtle flex-shrink-0">
-          <h3 class="text-sm font-medium text-content">Crop Input Image</h3>
-          <button
-            @click="cancel"
-            class="p-1 rounded text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
-          >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+  <Modal
+    :show="modelValue"
+    size="custom"
+    custom-class="w-full h-full max-w-[1400px] max-h-[900px] flex flex-col overflow-hidden"
+    @close="cancel"
+  >
+    <template #header>
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-medium text-content">Crop Input Image</h3>
+        <IconButton @click="cancel">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </IconButton>
+      </div>
+    </template>
 
         <!-- Crop surface -->
         <div ref="containerRef" class="flex-1 min-h-0 relative bg-base overflow-hidden">
@@ -84,9 +83,7 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </Teleport>
+  </Modal>
 </template>
 
 <script setup lang="ts">
@@ -96,6 +93,8 @@
 // rect — plus an optional rect rotation in clockwise degrees — that the backend
 // prep pipeline applies AFTER flip/rotate and BEFORE scale.
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import Modal from '../ui/Modal.vue'
+import IconButton from '../ui/IconButton.vue'
 import Spinner from '../ui/Spinner.vue'
 
 export interface CropRect {
@@ -682,17 +681,11 @@ watch(() => props.modelValue, (open) => {
 
 watch([containerSize, imageLoaded, rotationDeg], () => render())
 
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && props.modelValue) cancel()
-}
-
 onMounted(() => {
-  document.addEventListener('keydown', handleKeydown)
   if (props.modelValue) openSession()
 })
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown)
   closeSession()
 })
 

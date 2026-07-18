@@ -46,7 +46,7 @@
       </button>
 
       <span v-else-if="state === 'pending'" class="flex items-center gap-2 text-[11px] text-content-muted">
-        <span class="w-3 h-3 border-2 border-content-muted/60 border-t-transparent rounded-full animate-spin" />
+        <Spinner size="sm" hue="border-t-content-muted/60" />
         <span>Waiting…</span>
       </span>
 
@@ -61,6 +61,8 @@
 </template>
 
 <script setup lang="ts">
+import Spinner from '../ui/Spinner.vue'
+
 interface Props {
   state: 'awaiting' | 'approved' | 'pending' | 'failed'
   bottomOffset?: number

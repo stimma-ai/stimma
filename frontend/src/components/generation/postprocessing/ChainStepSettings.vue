@@ -90,7 +90,7 @@
             :min="schemaProp('megapixels')?.minimum ?? 0.25"
             :max="schemaProp('megapixels')?.maximum ?? 4"
             :step="schemaProp('megapixels')?.['x-step'] ?? 0.25"
-            class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+            class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
           />
           <span class="w-10 flex-shrink-0 text-sm text-content-tertiary text-right select-none">
             {{ step.settings.megapixels ?? schemaDefault('megapixels') ?? 1 }}
@@ -118,7 +118,7 @@
             :min="durationConfig.min"
             :max="durationConfig.max"
             :step="durationConfig.step"
-            class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+            class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
           />
           <span class="w-10 flex-shrink-0 text-sm text-content-tertiary text-right select-none">
             {{ Number(step.settings.duration ?? videoParamDefaults.duration).toFixed(1) }}s
@@ -174,7 +174,7 @@
             :min="param.min ?? 0"
             :max="param.max ?? 100"
             :step="param.step ?? 1"
-            class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+            class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
           />
           <span class="w-10 flex-shrink-0 text-sm text-content-tertiary text-right select-none">
             {{ step.settings[param.name] ?? param.default }}

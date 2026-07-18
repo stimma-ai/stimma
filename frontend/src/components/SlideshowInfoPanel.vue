@@ -198,7 +198,7 @@
           <button
             v-if="chatInfo && !chatInfo.error"
             @click="$emit('jump-to-chat', chatInfo.id)"
-            class="w-full flex items-center gap-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded text-blue-500 hover:text-blue-600 text-sm transition-colors"
+            class="w-full flex items-center gap-2 px-3 py-2 bg-accent/20 hover:bg-accent/30 border border-accent/30 rounded text-accent hover:text-accent-hi text-sm transition-colors"
           >
             <ChatBubbleLeftRightIcon class="w-4 h-4" />
             <span class="truncate">{{ chatInfo.name }}</span>
@@ -499,7 +499,7 @@
                   <button
                     v-if="version.id !== currentRevisionId"
                     class="rounded px-2 py-1 text-[11px]"
-                    :class="confirmRestoreId === version.id ? 'bg-blue-500 text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-hover'"
+                    :class="confirmRestoreId === version.id ? 'bg-accent text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-hover'"
                     @click="requestRestore(version)"
                   >{{ confirmRestoreId === version.id ? 'Confirm restore' : 'Restore as latest' }}</button>
                 </div>
@@ -672,15 +672,15 @@
         <h4 class="m-0 mb-1 text-xs font-semibold text-content-secondary">Processing status</h4>
         <div>
           <div class="flex items-center gap-2 py-1.5 border-b border-edge-subtle">
-            <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', getStatusClass(currentItem.clip_status)]"></span>
+            <StatusDot :bucket="processingStatusBucket(currentItem.clip_status)" :pulse="isProcessingStatusPulsing(currentItem.clip_status)" />
             <span class="text-xs text-content-tertiary">Visual indexing</span>
           </div>
           <div class="flex items-center gap-2 py-1.5 border-b border-edge-subtle last:border-b-0">
-            <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', getStatusClass(currentItem.face_detection_status)]"></span>
+            <StatusDot :bucket="processingStatusBucket(currentItem.face_detection_status)" :pulse="isProcessingStatusPulsing(currentItem.face_detection_status)" />
             <span class="text-xs text-content-tertiary">Face analysis</span>
           </div>
           <div v-if="captioningEnabledRef" class="flex items-center gap-2 py-1.5">
-            <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', getStatusClass(currentItem.vlm_caption_status)]"></span>
+            <StatusDot :bucket="processingStatusBucket(currentItem.vlm_caption_status)" :pulse="isProcessingStatusPulsing(currentItem.vlm_caption_status)" />
             <span class="text-xs text-content-tertiary">Visual analysis</span>
           </div>
         </div>
@@ -771,6 +771,7 @@ import SendToChatMenu from './SendToChatMenu.vue'
 import InspireMenu from './InspireMenu.vue'
 import { AppImage, MediaImage } from './media'
 import KeyValueList from './ui/KeyValueList.vue'
+import StatusDot from './ui/StatusDot.vue'
 import { captioningEnabledRef } from '../appConfig'
 import { getApiBase } from '../apiConfig'
 import { getCurrentProfileId } from '../composables/useProfile'
@@ -1559,20 +1560,28 @@ function formatStepParamValue(key, value) {
   return String(value)
 }
 
-function getStatusClass(status) {
+// Local status vocabulary (clip_status/face_detection_status/vlm_caption_status)
+// mapped onto the shared StatusBucket vocabulary — colors always come from
+// statusColors.ts via StatusDot (STANDARDS.md §1.9); this only knows the
+// mapping, never a color.
+function processingStatusBucket(status) {
   switch (status) {
     case 'completed':
-      return 'status-completed'
+      return 'done'
     case 'processing':
-      return 'status-processing'
+      return 'running'
     case 'reprocessing':
-      return 'status-reprocessing'
+      return 'special'
     case 'failed':
-      return 'status-failed'
+      return 'failed'
     case 'pending':
     default:
-      return 'status-pending'
+      return 'queued'
   }
+}
+
+function isProcessingStatusPulsing(status) {
+  return status === 'processing' || status === 'reprocessing'
 }
 
 function getFilename(filePath) {
@@ -1631,38 +1640,6 @@ defineExpose({
 .sidebar-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
-}
-
-/* Status dot classes */
-.status-completed {
-  @apply bg-green-500 shadow-[0_0_0_2px_rgba(34,197,94,0.2)];
-}
-
-.status-processing {
-  @apply bg-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.2)];
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.status-reprocessing {
-  @apply bg-purple-500 shadow-[0_0_0_2px_rgba(168,85,247,0.2)];
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.status-failed {
-  @apply bg-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.2)];
-}
-
-.status-pending {
-  @apply bg-gray-500 shadow-[0_0_0_2px_rgba(107,114,128,0.2)];
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
 }
 
 /* Component pill wrappers (InspireMenu, SendToToolMenu) - scale to fill */

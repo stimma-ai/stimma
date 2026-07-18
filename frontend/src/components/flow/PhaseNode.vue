@@ -141,9 +141,11 @@
                 @keydown.enter.prevent="toggleInfoExpanded(eq)"
                 @keydown.space.prevent="toggleInfoExpanded(eq)"
               >
-                <span
+                <Spinner
                   v-if="eq.status === 'computing' && !isPaused"
-                  class="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin flex-shrink-0"
+                  size="sm"
+                  hue="border-t-teal-400"
+                  class="flex-shrink-0"
                 />
                 <span v-else-if="eq.status === 'computing' && isPaused" class="text-amber-400/80 text-[11px] flex-shrink-0">⏸</span>
                 <svg

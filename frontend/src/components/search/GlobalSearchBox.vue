@@ -13,7 +13,7 @@
       <!-- Project scope chip (seeded from the current project; ✕ or Backspace-on-empty removes) -->
       <button
         v-if="scopeProject"
-        class="flex-shrink-0 flex items-center gap-1 max-w-[150px] pl-1.5 pr-1 py-[3px] rounded-md bg-blue-500/15 border border-blue-500/50 text-blue-400 text-[11px] leading-none cursor-pointer hover:bg-blue-500/25 transition-colors"
+        class="flex-shrink-0 flex items-center gap-1 max-w-[150px] pl-1.5 pr-1 py-[3px] rounded-md bg-accent/15 border border-accent/50 text-accent text-[11px] leading-none cursor-pointer hover:bg-accent/25 transition-colors"
         title="Remove project scope (Backspace)"
         @click="clearScope"
       >

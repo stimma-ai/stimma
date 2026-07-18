@@ -144,39 +144,33 @@
     </div>
 
     <!-- Detail modal -->
-    <Teleport to="body">
-      <div
-        v-if="selectedNode"
-        ref="modalRef"
-        tabindex="-1"
-        class="fixed inset-0 z-modal flex items-center justify-center p-6 outline-none"
-        @click.self="selectedNodeId = null"
-        @keydown.stop="onModalKeydown"
-      >
-        <div class="absolute inset-0 bg-overlay-backdrop backdrop-blur-sm" @click="selectedNodeId = null" />
+    <Modal
+      :show="!!selectedNode"
+      size="custom"
+      custom-class="w-[1100px] max-w-[calc(100vw-3rem)] h-[75vh]"
+      @close="selectedNodeId = null"
+    >
+      <div class="relative w-full h-full overflow-hidden flex">
+        <!-- Close -->
+        <button
+          class="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-overlay-strong text-content-tertiary hover:text-content hover:bg-overlay-medium transition-colors"
+          @click="selectedNodeId = null"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
 
-        <div class="relative bg-surface border border-edge-subtle rounded-lg shadow-2xl overflow-hidden flex" style="width: 1100px; height: 75vh">
-          <!-- Close -->
-          <button
-            class="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-overlay-strong text-content-tertiary hover:text-content hover:bg-overlay-medium transition-colors"
-            @click="selectedNodeId = null"
-          >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-
-          <ImageDetailsCard
-            :media="selectedNodeMedia"
-            :source-inputs="selectedSourceInputs"
-            :parent-nodes="selectedParentNodes"
-            :child-nodes="selectedChildNodes"
-            @navigate="selectedNodeId = $event"
-            @open-flow="openFlow"
-          />
-        </div>
+        <ImageDetailsCard
+          :media="selectedNodeMedia"
+          :source-inputs="selectedSourceInputs"
+          :parent-nodes="selectedParentNodes"
+          :child-nodes="selectedChildNodes"
+          @navigate="selectedNodeId = $event"
+          @open-flow="openFlow"
+        />
       </div>
-    </Teleport>
+    </Modal>
 
     <!-- Minimap -->
     <div
@@ -266,6 +260,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import * as dagre from '@dagrejs/dagre'
 import { MediaImage } from './media'
+import Modal from './ui/Modal.vue'
 import ImageDetailsCard from './media/ImageDetailsCard.vue'
 import { useMarkers } from '../composables/useMarkers'
 import { useProvidersApi } from '../composables/useProvidersApi'
@@ -318,8 +313,13 @@ const navBackStack = []
 const navForwardStack = []
 watch(selectedNodeId, (id) => {
   if (id) focusedNodeId.value = id
-  // Focus the modal so it receives keyboard events
-  nextTick(() => modalRef.value?.focus())
+  // Modal.vue owns focus trap + Esc-to-close; we only need the d-pad
+  // arrow-key navigation wired up while the detail modal is open.
+  if (id) {
+    window.addEventListener('keydown', onModalArrowKeydown)
+  } else {
+    window.removeEventListener('keydown', onModalArrowKeydown)
+  }
 })
 watch(focusedNodeId, (id) => {
   if (id != null) emit('focus-changed', id)
@@ -327,7 +327,6 @@ watch(focusedNodeId, (id) => {
 let fetchedForMediaId = null
 
 // Refs
-const modalRef = ref(null)
 const canvasRef = ref(null)
 const panX = ref(0)
 const panY = ref(0)
@@ -966,16 +965,14 @@ function navigateDpad(direction) {
   }
 }
 
-function onModalKeydown(e) {
+function onModalArrowKeydown(e) {
   const dirMap = { ArrowRight: 'right', ArrowLeft: 'left', ArrowDown: 'down', ArrowUp: 'up' }
   const dir = dirMap[e.key]
   if (dir) {
     e.preventDefault()
     navigateDpad(dir)
-  } else if (e.key === 'Escape') {
-    e.preventDefault()
-    selectedNodeId.value = null
   }
+  // Escape is handled by Modal.vue's own closeOnEsc.
 }
 
 defineExpose({
@@ -998,5 +995,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('mouseup', onPanEnd)
   window.removeEventListener('mousemove', onMinimapMouseMove)
   window.removeEventListener('mouseup', onMinimapMouseUp)
+  window.removeEventListener('keydown', onModalArrowKeydown)
 })
 </script>

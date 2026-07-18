@@ -1,50 +1,49 @@
 <template>
-  <div class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal p-8" @click.self="close">
-    <div class="bg-surface border border-edge rounded-lg w-full max-w-[900px] max-h-[85vh] flex flex-col shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]">
-      <div class="flex justify-between items-center px-6 py-4 border-b border-edge">
+  <Modal
+    :show="true"
+    size="custom"
+    custom-class="max-w-[900px] w-full max-h-[85vh] flex flex-col"
+    @close="close"
+  >
+    <template #header>
+      <div class="flex justify-between items-center">
         <h2 class="m-0 text-lg font-semibold text-content">{{ title }}</h2>
-        <button
-          class="bg-transparent border-none text-content-tertiary cursor-pointer p-2 flex items-center justify-center rounded transition-all hover:bg-overlay-light hover:text-content"
-          @click="close"
-        >
+        <IconButton @click="close">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
-        </button>
+        </IconButton>
       </div>
+    </template>
 
-      <div class="flex-1 p-6 overflow-hidden flex flex-col">
-        <textarea
-          ref="textareaRef"
-          v-model="localValue"
-          :placeholder="placeholder"
-          class="flex-1 w-full min-h-[450px] bg-surface text-content text-sm border border-edge rounded-lg px-4 py-3 focus:outline-none focus:border-accent resize-none"
-        />
-        <p v-if="hint" class="text-xs text-content-muted mt-3 leading-relaxed">
-          {{ hint }}
-        </p>
-      </div>
-
-      <div class="px-6 py-4 border-t border-edge flex justify-end gap-3">
-        <button
-          class="bg-surface-raised text-content border-none py-2.5 px-6 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-surface-hover"
-          @click="close"
-        >
-          Cancel
-        </button>
-        <button
-          class="bg-accent text-white border-none py-2.5 px-6 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-accent/90"
-          @click="save"
-        >
-          Save
-        </button>
-      </div>
+    <div class="flex-1 p-6 overflow-hidden flex flex-col">
+      <textarea
+        ref="textareaRef"
+        v-model="localValue"
+        :placeholder="placeholder"
+        class="flex-1 w-full min-h-[450px] bg-surface text-content text-sm border border-edge rounded-lg px-4 py-3 focus:outline-none focus:border-accent resize-none"
+      />
+      <p v-if="hint" class="text-xs text-content-muted mt-3 leading-relaxed">
+        {{ hint }}
+      </p>
     </div>
-  </div>
+
+    <template #footer>
+      <Button variant="secondary" @click="close">
+        Cancel
+      </Button>
+      <Button variant="primary" @click="save">
+        Save
+      </Button>
+    </template>
+  </Modal>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
+import Modal from '../ui/Modal.vue'
+import Button from '../ui/Button.vue'
+import IconButton from '../ui/IconButton.vue'
 
 const props = defineProps<{
   modelValue: string

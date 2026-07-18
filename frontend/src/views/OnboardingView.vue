@@ -4,42 +4,45 @@
   >
     <!-- Theme picker — upper right -->
     <div class="absolute top-4 right-4 flex items-center gap-0.5 p-1 bg-surface-raised rounded-lg border border-edge">
-      <button
-        @click="selectTheme('light')"
-        class="flex items-center justify-center w-7 h-7 rounded transition-all border"
-        :class="currentTheme === 'light'
-          ? 'bg-blue-500/15 border-blue-500/50 text-blue-500'
-          : 'bg-transparent border-transparent text-content-muted hover:text-content'"
-        title="Light"
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
-        </svg>
-      </button>
-      <button
-        @click="selectTheme('dark')"
-        class="flex items-center justify-center w-7 h-7 rounded transition-all border"
-        :class="currentTheme === 'dark'
-          ? 'bg-blue-500/15 border-blue-500/50 text-blue-500'
-          : 'bg-transparent border-transparent text-content-muted hover:text-content'"
-        title="Dark"
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
-        </svg>
-      </button>
-      <button
-        @click="selectTheme('system')"
-        class="flex items-center justify-center w-7 h-7 rounded transition-all border"
-        :class="currentTheme === 'system'
-          ? 'bg-blue-500/15 border-blue-500/50 text-blue-500'
-          : 'bg-transparent border-transparent text-content-muted hover:text-content'"
-        title="System"
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
-        </svg>
-      </button>
+      <Tooltip text="Light">
+        <button
+          @click="selectTheme('light')"
+          class="flex items-center justify-center w-7 h-7 rounded-md transition-colors duration-150 border focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+          :class="currentTheme === 'light'
+            ? 'bg-accent/15 border-accent/50 text-accent'
+            : 'bg-transparent border-transparent text-content-muted hover:text-content'"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+          </svg>
+        </button>
+      </Tooltip>
+      <Tooltip text="Dark">
+        <button
+          @click="selectTheme('dark')"
+          class="flex items-center justify-center w-7 h-7 rounded-md transition-colors duration-150 border focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+          :class="currentTheme === 'dark'
+            ? 'bg-accent/15 border-accent/50 text-accent'
+            : 'bg-transparent border-transparent text-content-muted hover:text-content'"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+          </svg>
+        </button>
+      </Tooltip>
+      <Tooltip text="System">
+        <button
+          @click="selectTheme('system')"
+          class="flex items-center justify-center w-7 h-7 rounded-md transition-colors duration-150 border focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+          :class="currentTheme === 'system'
+            ? 'bg-accent/15 border-accent/50 text-accent'
+            : 'bg-transparent border-transparent text-content-muted hover:text-content'"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
+          </svg>
+        </button>
+      </Tooltip>
     </div>
 
     <!-- Main content -->
@@ -89,17 +92,10 @@
           Share usage telemetry to help improve Stimma.
           <a @click.prevent="openUrl(learnMoreUrl)" href="#" class="text-content-secondary underline underline-offset-2 hover:text-content transition-colors">Learn&nbsp;more.</a>
         </span>
-        <label class="relative cursor-pointer flex-shrink-0" style="width: 32px; height: 18px;">
-          <input type="checkbox" v-model="shareAnalytics" class="opacity-0 absolute w-0 h-0">
-          <div
-            class="absolute inset-0 rounded-full transition-all duration-200"
-            :style="shareAnalytics ? 'background: linear-gradient(90deg, #0d9488, #06b6d4)' : 'background: var(--color-overlay-light)'"
-          ></div>
-          <div
-            class="absolute rounded-full bg-white transition-transform duration-200"
-            style="top: 2px; width: 14px; height: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.2);"
-            :style="shareAnalytics ? 'transform: translateX(14px)' : 'transform: translateX(2px)'"
-          ></div>
+        <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 w-8 h-[18px]">
+          <input type="checkbox" v-model="shareAnalytics" class="peer sr-only">
+          <div class="absolute inset-0 rounded-full bg-overlay-subtle peer-checked:bg-accent transition-colors duration-150"></div>
+          <div class="absolute left-0.5 top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-transform duration-150 peer-checked:translate-x-3.5"></div>
         </label>
       </div>
 
@@ -127,6 +123,7 @@ import { useSettingsApi } from '../composables/useSettingsApi'
 import { useTelemetry } from '../composables/useTelemetry'
 import { useReadiness } from '../composables/useReadiness'
 import RedeemCodeLink from '../components/RedeemCodeLink.vue'
+import Tooltip from '../components/ui/Tooltip.vue'
 
 const router = useRouter()
 const { track } = useTelemetry()

@@ -40,7 +40,7 @@
          same visual rhythm in the timeline. -->
     <div v-if="task.task_type === 'select'">
       <div v-if="selectCandidatesRaw.length === 0" class="flex items-center gap-2 py-2 text-[12px] text-content-muted">
-        <span class="w-3.5 h-3.5 border border-content-muted border-t-transparent rounded-full animate-spin flex-shrink-0"></span>
+        <Spinner size="sm" hue="border-t-content-muted" class="flex-shrink-0" />
         Waiting for results to be ready…
       </div>
       <HitlSelectInline
@@ -70,7 +70,7 @@
     <!-- Waiting for tool -->
     <div v-else-if="task.task_type === 'waiting_for_tool'" class="space-y-2">
       <div class="bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 text-[12px] text-amber-400 flex items-start gap-2">
-        <span class="w-3.5 h-3.5 border border-amber-400 border-t-transparent rounded-full animate-spin flex-shrink-0 mt-0.5"></span>
+        <Spinner size="sm" hue="border-t-amber-400" class="flex-shrink-0 mt-0.5" />
         <div class="whitespace-pre-wrap flex-1">
           <span v-if="waitingToolId">Waiting for tool <code class="text-amber-300">{{ waitingToolId }}</code> to become available.</span>
           <span v-else>Waiting for a tool to become available.</span>
@@ -142,6 +142,7 @@ import { ref, computed } from 'vue'
 import HitlActionCard from './HitlActionCard.vue'
 import HitlSelectInline from './HitlSelectInline.vue'
 import StatusDot from '../ui/StatusDot.vue'
+import Spinner from '../ui/Spinner.vue'
 import type { FlowTask } from '../../composables/useFlowsApi'
 import { parseFlowError } from '../../utils/flowErrors'
 import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'

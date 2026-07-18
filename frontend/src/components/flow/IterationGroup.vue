@@ -13,9 +13,11 @@
       <!-- Aggregate status glyph — carries the full state vocabulary alone
            (no separate right-rail label). Distinct glyph + color per state so
            a rolled-up row is triagable from the leftmost column. -->
-      <span
+      <Spinner
         v-if="aggregateStatus === 'computing'"
-        class="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin flex-shrink-0"
+        size="sm"
+        hue="border-t-blue-400"
+        class="flex-shrink-0"
         :title="'Running'"
       />
       <span
@@ -291,6 +293,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import Spinner from '../ui/Spinner.vue'
 import type { IterationGroupItem, GroupedIteration } from '../../composables/useFlowGrouping'
 import type { FlowEquation, FlowTask } from '../../composables/useFlowsApi'
 import { useFlowExpandState } from '../../composables/useFlowExpandState'

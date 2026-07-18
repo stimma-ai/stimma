@@ -137,7 +137,7 @@
                 @drop.prevent="item.type === 'board' && handleBoardDrop(item.id, $event)"
                 class="flex flex-col rounded-lg border overflow-hidden text-left bg-transparent transition-colors cursor-pointer"
                 :class="item.type === 'board' && dragOverBoardId === item.id
-                  ? 'border-blue-500 bg-blue-500/10'
+                  ? 'border-transparent ring-1 ring-accent/50 bg-accent/10'
                   : 'border-edge-subtle hover:bg-overlay-faint'"
               >
                 <!-- Art -->

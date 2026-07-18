@@ -62,10 +62,10 @@
           />
         </div>
         <div class="flex-1 min-w-0 text-[11.5px] text-content-muted truncate tabular-nums">
-          <span v-if="counts.completed > 0" class="text-green-400/90">{{ counts.completed }} ok</span>
-          <span v-if="counts.computing > 0" class="ml-2 text-blue-400/90">{{ counts.computing }} running</span>
-          <span v-if="counts.awaiting_input > 0" class="ml-2 text-purple-400">{{ counts.awaiting_input }} your turn</span>
-          <span v-if="counts.failed > 0" class="ml-2 text-red-400/90">{{ counts.failed }} err</span>
+          <span v-if="counts.completed > 0" :class="textClass('done')">{{ counts.completed }} ok</span>
+          <span v-if="counts.computing > 0" class="ml-2" :class="textClass('running')">{{ counts.computing }} running</span>
+          <span v-if="counts.awaiting_input > 0" class="ml-2" :class="textClass('awaiting')">{{ counts.awaiting_input }} your turn</span>
+          <span v-if="counts.failed > 0" class="ml-2" :class="textClass('failed')">{{ counts.failed }} err</span>
           <span v-if="counts.pending > 0" class="ml-2 text-content-muted/70">{{ counts.pending }} pending</span>
         </div>
         <div class="flex-shrink-0 flex items-center gap-1">
@@ -169,6 +169,22 @@ import { computed, ref } from 'vue'
 import ForeachBodyNode from './ForeachBodyNode.vue'
 import type { MockForeachGroup, MockStatus } from './foreachMockData'
 import { aggregateCounts, rollupIteration } from './foreachMockData'
+import { dotClass, textClass, type StatusBucket } from '../../../utils/statusColors'
+
+// Maps this node's own status vocabulary onto the shared statusColors.ts
+// bucket type (mirrors ForeachBodyNode.vue's mockStatusToBucket); actual
+// colors always come from the shared exports below.
+function mockStatusToBucket(s: MockStatus): StatusBucket {
+  switch (s) {
+    case 'completed':      return 'done'
+    case 'computing':      return 'running'
+    case 'awaiting_input': return 'awaiting'
+    case 'failed':          return 'failed'
+    case 'skipped':         return 'skipped'
+    case 'pending':
+    default:                return 'queued'
+  }
+}
 
 interface Props {
   group: MockForeachGroup
@@ -301,14 +317,6 @@ const filterChips = computed<Array<{ id: FilterId; label: string; count: number 
 
 // --- Summary bar ---
 const STATUS_ORDER: MockStatus[] = ['completed', 'computing', 'awaiting_input', 'failed', 'pending', 'skipped']
-const STATUS_CLASS: Record<MockStatus, string> = {
-  completed: 'bg-green-500',
-  computing: 'bg-blue-500',
-  awaiting_input: 'bg-purple-500',
-  failed: 'bg-red-500',
-  pending: 'bg-zinc-500/50',
-  skipped: 'bg-zinc-600/60',
-}
 
 const summaryBarSegments = computed(() => {
   const total = props.group.count || 1
@@ -316,7 +324,7 @@ const summaryBarSegments = computed(() => {
     .filter((s) => counts.value[s] > 0)
     .map((s) => ({
       key: s,
-      class: STATUS_CLASS[s],
+      class: dotClass(mockStatusToBucket(s)),
       pct: (counts.value[s] / total) * 100,
     }))
 })
@@ -347,7 +355,7 @@ const blocks = computed<Block[]>(() => {
   const arr = iterationStatuses.value
   const filterActive = activeFilter.value !== 'all'
   return arr.map((s, i) => {
-    const base = STATUS_CLASS[s]
+    const base = dotClass(mockStatusToBucket(s))
     const matches = matchesFilter(s, activeFilter.value)
     return {
       key: `bl-${i}`,

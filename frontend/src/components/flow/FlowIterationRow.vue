@@ -23,7 +23,7 @@
         class="flex-shrink-0 w-7 flex items-start justify-center pt-2 border-r border-edge-subtle"
       >
         <template v-if="iteration.status === 'computing'">
-          <div class="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+          <Spinner size="sm" hue="border-t-blue-400" />
         </template>
         <svg
           v-else-if="iteration.status === 'failed'"
@@ -104,6 +104,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import Spinner from '../ui/Spinner.vue'
 import FlowResultPreview from './FlowResultPreview.vue'
 import FlowRefButton from './FlowRefButton.vue'
 import type { GroupedIteration } from '../../composables/useFlowGrouping'

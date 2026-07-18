@@ -11,10 +11,10 @@
     />
 
     <div v-else class="h-full overflow-y-auto custom-scrollbar">
-      <div class="min-h-full flex flex-col items-center px-8 lg:px-16 pt-8" :class="loaded ? 'opacity-100' : 'opacity-0'" style="transition: opacity 0.15s ease-in">
+      <div class="min-h-full flex flex-col items-center px-8 lg:px-16 pt-8 transition-opacity duration-150 ease-in" :class="loaded ? 'opacity-100' : 'opacity-0'">
 
         <div class="flex-1 flex flex-col items-center justify-center w-full">
-          <h1 class="text-3xl font-semibold text-content mb-10">{{ heroTitle }}</h1>
+          <h1 class="text-3xl font-semibold text-content font-brand mb-10">{{ heroTitle }}</h1>
 
           <div class="w-full max-w-[720px]">
             <ChatInputBox
@@ -85,7 +85,7 @@
                 @dragover.prevent="dragOverBoardId = board.id"
                 @dragleave="dragOverBoardId === board.id && (dragOverBoardId = null)"
                 @drop.prevent="handleBoardDrop(board.id, $event)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all text-left bg-transparent cursor-pointer"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors duration-150 text-left bg-transparent cursor-pointer"
                 :class="dragOverBoardId === board.id ? 'border-transparent ring-1 ring-accent/50 bg-accent/10' : 'border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle'"
               >
                 <div class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-overlay-subtle">
@@ -130,7 +130,7 @@
                 v-for="flow in visibleFlows"
                 :key="flow.id"
                 @click="openFlow(flow)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-colors duration-150 text-left bg-transparent cursor-pointer"
               >
                 <EntityIcon type="flow" size="md" />
                 <div class="flex-1 min-w-0">
@@ -166,7 +166,7 @@
                 v-for="chat in visibleChats"
                 :key="chat.id"
                 @click="openChat(chat)"
-                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-all text-left bg-transparent cursor-pointer"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle transition-colors duration-150 text-left bg-transparent cursor-pointer"
               >
                 <div v-if="hasChatMedia(chat)" class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden">
                   <MediaImage

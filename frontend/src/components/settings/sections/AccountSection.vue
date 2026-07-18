@@ -23,7 +23,7 @@
 
         <div class="mb-16 grid grid-cols-3 gap-10 text-center">
           <div>
-            <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-teal-600/10 via-cyan-500/10 to-indigo-500/10">
+            <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg border border-edge-subtle bg-gradient-to-br from-teal-600/10 via-cyan-500/10 to-indigo-500/10">
               <svg class="h-5 w-5 text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
               </svg>
@@ -35,7 +35,7 @@
           </div>
 
           <div>
-            <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-teal-600/10 via-cyan-500/10 to-indigo-500/10">
+            <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg border border-edge-subtle bg-gradient-to-br from-teal-600/10 via-cyan-500/10 to-indigo-500/10">
               <svg class="h-5 w-5 text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
               </svg>
@@ -47,7 +47,7 @@
           </div>
 
           <div>
-            <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-teal-600/10 via-cyan-500/10 to-indigo-500/10">
+            <div class="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-lg border border-edge-subtle bg-gradient-to-br from-teal-600/10 via-cyan-500/10 to-indigo-500/10">
               <svg class="h-5 w-5 text-content-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
               </svg>
@@ -102,8 +102,8 @@
       <div class="mt-10 rounded-[14px] p-[1px] bg-gradient-to-r from-teal-600/35 via-cyan-500/20 to-indigo-500/35">
         <div class="flex items-center gap-7 rounded-[13px] bg-surface px-[30px] py-7">
           <div class="shrink-0">
-            <div class="stimma-cloud-text mb-1.5 text-[11px] font-semibold uppercase tracking-[0.1em]">Credits</div>
-            <div v-if="isFirstLoad" class="h-10 w-32 animate-pulse rounded bg-white/10"></div>
+            <div class="stimma-cloud-text mb-1.5 text-xs font-semibold">Credits</div>
+            <div v-if="isFirstLoad" class="h-10 w-32 animate-pulse rounded bg-overlay-light"></div>
             <div v-else-if="cloudError && !cloudUser" class="text-[40px] font-semibold leading-[1.05] tracking-tight text-content-muted">—</div>
             <div v-else class="text-[40px] font-semibold leading-[1.05] tracking-tight text-content">
               {{ formatBalance(cloudUser?.credits) }}
@@ -112,7 +112,7 @@
           <p class="ml-auto max-w-[300px] text-[13px] leading-5 text-content-tertiary">
             Use your credits for hosted image and video generation and LLM services.
           </p>
-          <div v-if="isFirstLoad" class="h-9 w-28 shrink-0 animate-pulse rounded-lg bg-white/10"></div>
+          <div v-if="isFirstLoad" class="h-9 w-28 shrink-0 animate-pulse rounded-lg bg-overlay-light"></div>
           <button
             v-else-if="!cloudError || cloudUser"
             @click="addBalance"
@@ -151,7 +151,7 @@
           <div>
             <dt class="text-xs text-content-tertiary">Member since</dt>
             <dd class="mt-1">
-              <div v-if="isFirstLoad" class="h-4 w-28 animate-pulse rounded bg-white/10"></div>
+              <div v-if="isFirstLoad" class="h-4 w-28 animate-pulse rounded bg-overlay-light"></div>
               <div v-else-if="cloudUser?.createdAt" class="text-sm text-content">{{ formatDate(cloudUser.createdAt) }}</div>
               <div v-else class="text-sm text-content-muted">—</div>
             </dd>

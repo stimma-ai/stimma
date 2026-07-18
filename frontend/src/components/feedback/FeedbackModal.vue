@@ -1,102 +1,94 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="modal.open"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="close"
-      >
-        <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[560px] max-w-[92vw] max-h-[88vh] flex flex-col overflow-hidden">
-          <!-- Header -->
-          <div class="flex items-center justify-between px-5 py-4 border-b border-edge">
-            <h2 class="text-base font-semibold text-content">Send feedback</h2>
-            <button
-              @click="close"
-              class="w-8 h-8 flex items-center justify-center text-content-tertiary hover:text-content hover:bg-surface-raised rounded-lg transition-colors"
-            >
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+  <Modal
+    :show="modal.open"
+    size="custom"
+    custom-class="w-[560px] max-w-[92vw] max-h-[88vh] flex flex-col overflow-hidden"
+    @close="close"
+  >
+    <template #header>
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-semibold text-content">Send feedback</h2>
+        <IconButton aria-label="Close" title="Close" @click="close">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </IconButton>
+      </div>
+    </template>
 
-          <!-- Body -->
-          <div class="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-            <p class="text-xs text-content-tertiary">
-              Tell us what you think — it goes straight to the team.
-            </p>
+    <!-- Body -->
+    <div class="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+      <p class="text-xs text-content-tertiary">
+        Tell us what you think — it goes straight to the team.
+      </p>
 
-            <!-- Message + voice -->
-            <div class="bg-surface-raised/50 border border-edge rounded-lg pt-1 overflow-hidden">
-              <textarea v-no-autocorrect
-                ref="textareaRef"
-                v-model="message"
-                :rows="5"
-                placeholder="What's working, what isn't, what you wish Stimma did…"
-                class="w-full bg-transparent text-content text-sm px-3 pt-2 pb-1 focus:outline-none resize-none block"
-                @keydown="onTextareaKeydown"
-                @keyup="onTextareaKeyup"
-              />
-              <div class="flex items-center justify-between px-2 pb-1.5">
-                <VoiceInputButton
-                  ref="voiceBtn"
-                  icon-class="w-4 h-4"
-                  :get-text="getText"
-                  :set-text="setText"
-                  :focus="focusTextarea"
-                  surface="feedback"
-                />
-                <span class="text-[10px] text-content-muted pr-1">{{ message.length > 0 ? `${message.length} chars` : '' }}</span>
-              </div>
-            </div>
-
-            <!-- Attachment checkboxes -->
-            <div class="space-y-2.5">
-              <label class="flex items-start gap-2.5 cursor-pointer">
-                <input type="checkbox" v-model="includeLogs" class="mt-0.5 accent-blue-500 w-3.5 h-3.5 shrink-0" />
-                <div class="min-w-0">
-                  <div class="text-xs text-content">Include logs</div>
-                  <div class="text-[11px] text-content-muted mt-0.5">The last 200 lines of the app log.</div>
-                </div>
-              </label>
-              <label class="flex items-start gap-2.5 cursor-pointer">
-                <input type="checkbox" v-model="includeScreenshot" @change="onScreenshotToggle" class="mt-0.5 accent-blue-500 w-3.5 h-3.5 shrink-0" />
-                <div class="min-w-0 flex-1">
-                  <div class="text-xs text-content flex items-center gap-1.5">
-                    <span>Include screenshot</span>
-                    <Spinner v-if="capturingScreenshot" size="sm" hue="border-t-content-muted" />
-                    <svg v-else-if="screenshotDataUrl" class="w-3 h-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                    </svg>
-                  </div>
-                  <div class="text-[11px] text-content-muted mt-0.5">A capture of the app window as it looks right now.</div>
-                  <div v-if="screenshotError" class="text-[11px] text-red-400 mt-1">Couldn't capture a screenshot — your feedback will be sent without one.</div>
-                </div>
-              </label>
-            </div>
-
-            <p v-if="error" class="text-xs text-red-500">{{ error }}</p>
-          </div>
-
-          <!-- Footer -->
-          <div class="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-edge">
-            <button
-              @click="close"
-              class="px-3.5 py-2 text-sm text-content-secondary hover:text-content hover:bg-overlay-subtle rounded-lg transition-colors"
-            >Cancel</button>
-            <button
-              @click="submit"
-              :disabled="submitting || !message.trim()"
-              class="px-4 py-2 text-sm font-medium bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md transition-colors flex items-center gap-2"
-            >
-              <Spinner v-if="submitting" size="sm" hue="border-t-white" />
-              <span>{{ submitting ? 'Sending…' : 'Send feedback' }}</span>
-            </button>
-          </div>
+      <!-- Message + voice -->
+      <div class="bg-surface-raised/50 border border-edge rounded-lg pt-1 overflow-hidden">
+        <textarea v-no-autocorrect
+          ref="textareaRef"
+          v-model="message"
+          :rows="5"
+          placeholder="What's working, what isn't, what you wish Stimma did…"
+          class="w-full bg-transparent text-content text-sm px-3 pt-2 pb-1 focus:outline-none resize-none block"
+          @keydown="onTextareaKeydown"
+          @keyup="onTextareaKeyup"
+        />
+        <div class="flex items-center justify-between px-2 pb-1.5">
+          <VoiceInputButton
+            ref="voiceBtn"
+            icon-class="w-4 h-4"
+            :get-text="getText"
+            :set-text="setText"
+            :focus="focusTextarea"
+            surface="feedback"
+          />
+          <span class="text-[10px] text-content-muted pr-1">{{ message.length > 0 ? `${message.length} chars` : '' }}</span>
         </div>
       </div>
-    </Transition>
-  </Teleport>
+
+      <!-- Attachment checkboxes -->
+      <div class="space-y-2.5">
+        <label class="flex items-start gap-2.5 cursor-pointer">
+          <input type="checkbox" v-model="includeLogs" class="mt-0.5 accent-blue-500 w-3.5 h-3.5 shrink-0" />
+          <div class="min-w-0">
+            <div class="text-xs text-content">Include logs</div>
+            <div class="text-[11px] text-content-muted mt-0.5">The last 200 lines of the app log.</div>
+          </div>
+        </label>
+        <label class="flex items-start gap-2.5 cursor-pointer">
+          <input type="checkbox" v-model="includeScreenshot" @change="onScreenshotToggle" class="mt-0.5 accent-blue-500 w-3.5 h-3.5 shrink-0" />
+          <div class="min-w-0 flex-1">
+            <div class="text-xs text-content flex items-center gap-1.5">
+              <span>Include screenshot</span>
+              <Spinner v-if="capturingScreenshot" size="sm" hue="border-t-content-muted" />
+              <svg v-else-if="screenshotDataUrl" class="w-3 h-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </div>
+            <div class="text-[11px] text-content-muted mt-0.5">A capture of the app window as it looks right now.</div>
+            <div v-if="screenshotError" class="text-[11px] text-red-400 mt-1">Couldn't capture a screenshot — your feedback will be sent without one.</div>
+          </div>
+        </label>
+      </div>
+
+      <p v-if="error" class="text-xs text-red-500">{{ error }}</p>
+    </div>
+
+    <template #footer>
+      <button
+        @click="close"
+        class="px-3.5 py-2 text-sm text-content-secondary hover:text-content hover:bg-overlay-subtle rounded-lg transition-colors"
+      >Cancel</button>
+      <button
+        @click="submit"
+        :disabled="submitting || !message.trim()"
+        class="px-4 py-2 text-sm font-medium bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md transition-colors flex items-center gap-2"
+      >
+        <Spinner v-if="submitting" size="sm" hue="border-t-white" />
+        <span>{{ submitting ? 'Sending…' : 'Send feedback' }}</span>
+      </button>
+    </template>
+  </Modal>
 </template>
 
 <script setup>
@@ -107,6 +99,8 @@ import { useFeedback } from '../../composables/useFeedback'
 import { addToast } from '../../composables/useToasts'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
 import Spinner from '../ui/Spinner.vue'
+import Modal from '../ui/Modal.vue'
+import IconButton from '../ui/IconButton.vue'
 
 const { modal, closeModal } = useFeedback()
 
@@ -290,14 +284,3 @@ async function submit() {
   }
 }
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.15s ease;
-}
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-</style>

@@ -4,24 +4,15 @@
     <div v-if="isModified && !slideshowActive" class="bg-amber-400/20 border-b border-amber-500/30 px-6 py-2 flex items-center justify-between gap-4 flex-shrink-0">
       <span class="text-content-secondary text-sm whitespace-nowrap">Saved view "{{ savedViewName }}" modified</span>
       <div class="flex items-center gap-2 flex-shrink-0">
-        <button
-          @click="restoreOriginal"
-          class="px-3 py-1 text-sm text-content-secondary hover:text-content border border-edge hover:border-edge-strong rounded transition-colors whitespace-nowrap"
-        >
+        <Button variant="secondary" size="sm" class="whitespace-nowrap" @click="restoreOriginal">
           Restore
-        </button>
-        <button
-          @click="saveChanges"
-          class="px-3 py-1 text-sm text-white bg-accent hover:bg-accent/90 rounded-md transition-colors whitespace-nowrap"
-        >
+        </Button>
+        <Button size="sm" class="whitespace-nowrap" @click="saveChanges">
           Save
-        </button>
-        <button
-          @click="showSaveAsModal = true"
-          class="px-3 py-1 text-sm text-content-secondary hover:text-content border border-edge hover:border-edge-strong rounded transition-colors whitespace-nowrap"
-        >
+        </Button>
+        <Button variant="secondary" size="sm" class="whitespace-nowrap" @click="showSaveAsModal = true">
           Save As
-        </button>
+        </Button>
       </div>
     </div>
 
@@ -43,89 +34,60 @@
     </div>
 
     <!-- Save As New Modal -->
-    <div v-if="showSaveAsModal" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="showSaveAsModal = false">
-      <div class="bg-surface-raised border border-edge-strong rounded-lg p-6 w-96 max-w-[90vw]" @click.stop>
-        <h3 class="text-lg font-semibold text-content mb-4">Save As New View</h3>
+    <Modal :show="showSaveAsModal" size="sm" @close="showSaveAsModal = false">
+      <template #header>
+        <h3 class="text-lg font-semibold text-content">Save As New View</h3>
+      </template>
+      <div class="px-6 py-5">
         <input v-no-autocorrect
           v-model="newViewName"
           type="text"
           placeholder="View name"
-          class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent mb-4"
+          class="w-full bg-overlay-subtle text-content px-3 py-2 rounded-md text-sm border border-transparent placeholder:text-content-muted focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
           @keyup.enter="saveAsNew"
           ref="saveAsInput"
         />
-        <div class="flex gap-3">
-          <button
-            @click="saveAsNew"
-            :disabled="!newViewName.trim()"
-            class="flex-1 bg-accent text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Save
-          </button>
-          <button
-            @click="showSaveAsModal = false"
-            class="flex-1 bg-transparent border border-edge-strong text-content-secondary px-4 py-2 rounded-md text-sm cursor-pointer transition-all hover:bg-overlay-subtle"
-          >
-            Cancel
-          </button>
-        </div>
       </div>
-    </div>
+      <template #footer>
+        <Button variant="secondary" @click="showSaveAsModal = false">Cancel</Button>
+        <Button :disabled="!newViewName.trim()" @click="saveAsNew">Save</Button>
+      </template>
+    </Modal>
 
     <!-- Delete Confirmation Modal -->
-    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="showDeleteConfirm = false">
-      <div class="bg-surface-raised border border-edge-strong rounded-lg p-6 w-96 max-w-[90vw]" @click.stop>
-        <h3 class="text-lg font-semibold text-content mb-2">Delete View</h3>
-        <p class="text-content-secondary text-sm mb-4">Are you sure you want to delete "{{ savedViewName }}"? This action cannot be undone.</p>
-        <div class="flex gap-3">
-          <button
-            @click="deleteView"
-            class="flex-1 bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-red-700"
-          >
-            Delete
-          </button>
-          <button
-            @click="showDeleteConfirm = false"
-            class="flex-1 bg-transparent border border-edge-strong text-content-secondary px-4 py-2 rounded-md text-sm cursor-pointer transition-all hover:bg-overlay-subtle"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      :show="showDeleteConfirm"
+      title="Delete View"
+      confirm-label="Delete"
+      danger
+      @confirm="deleteView"
+      @cancel="showDeleteConfirm = false"
+    >
+      Are you sure you want to delete "{{ savedViewName }}"? This action cannot be undone.
+    </ConfirmDialog>
 
     <!-- Rename Modal -->
-    <div v-if="showRenameModal" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="showRenameModal = false">
-      <div class="bg-surface-raised border border-edge-strong rounded-lg p-6 w-96 max-w-[90vw]" @click.stop>
-        <h3 class="text-lg font-semibold text-content mb-4">Rename View</h3>
+    <Modal :show="showRenameModal" size="sm" @close="showRenameModal = false">
+      <template #header>
+        <h3 class="text-lg font-semibold text-content">Rename View</h3>
+      </template>
+      <div class="px-6 py-5">
         <input v-no-autocorrect
           v-model="renameViewName"
           type="text"
           placeholder="View name"
-          class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent"
-          :class="{ 'border-red-500': renameError }"
+          class="w-full bg-overlay-subtle text-content px-3 py-2 rounded-md text-sm border placeholder:text-content-muted focus-visible:ring-2 ring-accent/40 outline-none"
+          :class="renameError ? 'border-red-500' : 'border-transparent focus:border-accent'"
           @keyup.enter="renameView"
           ref="renameInput"
         />
-        <p v-if="renameError" class="text-red-500 text-sm mt-1 mb-3">{{ renameError }}</p>
-        <div v-else class="mb-4"></div>
-        <div class="flex gap-3">
-          <button
-            @click="renameView"
-            :disabled="!renameViewName.trim() || renaming"
-            class="flex-1 bg-accent text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {{ renaming ? 'Renaming...' : 'Rename' }}
-          </button>
-          <button
-            @click="showRenameModal = false"
-            class="flex-1 bg-transparent border border-edge-strong text-content-secondary px-4 py-2 rounded-md text-sm cursor-pointer transition-all hover:bg-overlay-subtle"
-          >
-            Cancel
-          </button>
-        </div>
+        <p v-if="renameError" class="text-red-400 text-xs mt-1.5">{{ renameError }}</p>
       </div>
-    </div>
+      <template #footer>
+        <Button variant="secondary" @click="showRenameModal = false">Cancel</Button>
+        <Button :disabled="!renameViewName.trim() || renaming" :loading="renaming" @click="renameView">Rename</Button>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -136,6 +98,9 @@ import BrowseGridView from './BrowseGridView.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useTabNavigation } from '../composables/useTabNavigation'
 import { cloneDefaultBrowseFilters, normalizeBrowseFilters } from '../constants/browseFilters'
+import Modal from '../components/ui/Modal.vue'
+import Button from '../components/ui/Button.vue'
+import ConfirmDialog from '../components/ui/ConfirmDialog.vue'
 
 const route = useRoute()
 const router = useRouter()

@@ -11,11 +11,11 @@
       @drop="handleLandingDrop"
     >
       <div class="text-center max-w-md px-6 pointer-events-none">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-16 h-16 mx-auto mb-6 text-blue-500">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-16 h-16 mx-auto mb-6 text-accent">
           <path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32l8.4-8.4z" />
           <path d="M5.25 5.25a3 3 0 00-3 3v10.5a3 3 0 003 3h10.5a3 3 0 003-3V13.5a.75.75 0 00-1.5 0v5.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5V8.25a1.5 1.5 0 011.5-1.5h5.25a.75.75 0 000-1.5H5.25z" />
         </svg>
-        <h2 class="text-xl font-semibold text-content mb-3">Edit Image</h2>
+        <h2 class="text-xl font-semibold text-content font-brand mb-3">Edit Image</h2>
         <p class="text-content-tertiary mb-6 leading-relaxed">
           A powerful non-destructive editor for your images. Crop, adjust colors, apply filters, add annotations, and retouch photos.
         </p>
@@ -40,7 +40,7 @@
     <div v-show="mediaId || imageUrl" class="flex-1 min-h-0 relative">
       <div
         v-if="targetAssetId && (isEditingOlderVersion || newerVersionArrived)"
-        class="absolute left-1/2 top-3 z-20 flex max-w-[680px] -translate-x-1/2 items-center gap-3 rounded-lg border border-amber-500/50 bg-zinc-950/95 px-4 py-2 text-xs text-amber-200 shadow-xl"
+        class="absolute left-1/2 top-3 z-chrome flex max-w-[680px] -translate-x-1/2 items-center gap-3 rounded-lg border border-amber-500/40 bg-surface-raised px-4 py-2 text-xs text-amber-400 shadow-lg"
       >
         <span>
           {{ newerVersionArrived
@@ -48,18 +48,15 @@
             : `You opened version ${baseVersionNumber}. Save will branch from it and make the result latest; newer versions remain in history.` }}
         </span>
       </div>
-      <div v-show="loading" class="absolute inset-0 flex items-center justify-center z-10">
+      <div v-show="loading" class="absolute inset-0 flex items-center justify-center z-chrome">
         <div class="text-content-tertiary">Loading editor...</div>
       </div>
-      <div v-show="error" class="absolute inset-0 flex items-center justify-center z-10">
+      <div v-show="error" class="absolute inset-0 flex items-center justify-center z-chrome">
         <div class="text-center">
-          <div class="text-red-500 mb-2">{{ error }}</div>
-          <button
-            @click="loadImage"
-            class="px-4 py-2 bg-overlay-light hover:bg-overlay-strong text-content rounded transition-colors"
-          >
+          <div class="text-red-400 mb-2">{{ error }}</div>
+          <Button variant="secondary" @click="loadImage">
             Retry
-          </button>
+          </Button>
         </div>
       </div>
       <StimmaEditor
@@ -77,7 +74,7 @@
       >
         <!-- Custom toolbar controls via slot - Auto-markers + Save buttons -->
         <template #toolbar-end>
-          <div style="display: flex; align-items: center; gap: 0.25rem; margin-left: auto;">
+          <div class="flex items-center gap-1 ml-auto">
             <AutoMarkPicker
               :markers="availableMarkers"
               v-model="editorAutoMarkerIds"
@@ -85,39 +82,12 @@
             <span v-if="hasChanges" class="px-2 text-xs text-content-muted">{{ draftStatus }}</span>
             <div class="stimma-toolbar__divider"></div>
             <!-- Save button - creates new edited version -->
-            <button
-              @click="handleSave()"
-              :disabled="saving || !hasChanges"
-              :style="{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.5rem 1rem',
-                backgroundColor: (saving || !hasChanges) ? 'rgba(37, 99, 235, 0.5)' : '#2563eb',
-                color: 'white',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                borderRadius: '0.375rem',
-                border: 'none',
-                cursor: (saving || !hasChanges) ? 'not-allowed' : 'pointer',
-                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)',
-              }"
-              @mouseenter="$event.target.style.backgroundColor = (saving || !hasChanges) ? 'rgba(37, 99, 235, 0.5)' : '#1d4ed8'"
-              @mouseleave="$event.target.style.backgroundColor = (saving || !hasChanges) ? 'rgba(37, 99, 235, 0.5)' : '#2563eb'"
-            >
-              <svg v-if="saving" style="width: 1rem; height: 1rem; animation: spin 1s linear infinite;" fill="none" viewBox="0 0 24 24">
-                <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span>{{ saving ? 'Saving...' : 'Save' }}</span>
-            </button>
-            <button
-              class="flex items-center rounded-md border border-edge-strong bg-overlay-light px-3 py-2 text-sm font-medium text-content transition-colors hover:bg-overlay-strong disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="saving || !hasChanges"
-              @click="handleSave(true)"
-            >
+            <Button :loading="saving" :disabled="!hasChanges" @click="handleSave()">
+              Save
+            </Button>
+            <Button variant="secondary" :disabled="saving || !hasChanges" @click="handleSave(true)">
               Save as new item
-            </button>
+            </Button>
           </div>
         </template>
       </StimmaEditor>
@@ -168,6 +138,7 @@ import { loadProfiles } from '../composables/useProfile'
 import { makeStorageKey, makeProfileKey } from '../utils/storageKeys'
 import { useTheme } from '../composables/useTheme'
 import AutoMarkPicker from '../components/generation/AutoMarkPicker.vue'
+import Button from '../components/ui/Button.vue'
 import axios from 'axios'
 import { useTelemetry } from '../composables/useTelemetry'
 import { addToast } from '../composables/useToasts'
@@ -1034,10 +1005,3 @@ watch(() => props.mediaId, (newId, oldId) => {
   }
 })
 </script>
-
-<style scoped>
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-</style>

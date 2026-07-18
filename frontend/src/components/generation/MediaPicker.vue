@@ -738,7 +738,7 @@
         :class="[
           'bg-surface border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer flex-shrink-0',
           reorderable ? 'w-[17rem] h-[9.5rem]' : (accept === 'audio' ? 'w-[26.5rem] h-[7rem]' : 'w-[26.5rem] h-[18.5rem]'),
-          isDragging || pickerPopoverOpen ? 'border-blue-500 bg-blue-500/10' : 'border-edge hover:border-blue-500 hover:bg-surface'
+          isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10 border-transparent' : 'border-edge hover:border-accent hover:bg-surface'
         ]"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-content-muted">
@@ -798,32 +798,28 @@
     />
 
     <!-- Full-screen preview modal for preprocessed images -->
-    <Teleport to="body">
-      <div
-        v-if="previewModalUrl"
-        class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal"
-        @click="previewModalUrl = ''"
-        @keydown.esc="previewModalUrl = ''"
-        tabindex="0"
-        ref="previewModalRef"
-      >
-        <div class="relative max-w-[90vw] max-h-[90vh]">
-          <img
-            :src="previewModalUrl"
-            class="max-w-full max-h-[90vh] object-contain"
-            @click.stop
-          />
-          <button
-            @click="previewModalUrl = ''"
-            class="absolute top-2 right-2 bg-black/60 text-white rounded-full p-2 hover:bg-black/80 border-none cursor-pointer"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-              <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-            </svg>
-          </button>
-        </div>
+    <Modal
+      :show="!!previewModalUrl"
+      size="custom"
+      custom-class="max-w-[90vw] w-auto"
+      @close="previewModalUrl = ''"
+    >
+      <div class="relative max-h-[90vh]">
+        <img
+          :src="previewModalUrl"
+          class="max-w-full max-h-[90vh] object-contain"
+          @click.stop
+        />
+        <button
+          @click="previewModalUrl = ''"
+          class="absolute top-2 right-2 bg-black/60 text-white rounded-full p-2 hover:bg-black/80 border-none cursor-pointer"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+          </svg>
+        </button>
       </div>
-    </Teleport>
+    </Modal>
 
     <!-- Crop editor modal -->
     <CropEditorModal
@@ -849,7 +845,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, nextTick, onBeforeUnmount, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onBeforeUnmount, onMounted } from 'vue'
 import axios from 'axios'
 import { ArrowDownOnSquareIcon, Square3Stack3DIcon } from '@heroicons/vue/24/outline'
 import { useMediaApi } from '../../composables/useMediaApi'
@@ -870,6 +866,7 @@ import { recordMediaInputUse, removeRecentMediaInput, type RecentInputKind } fro
 import { removeRecentMediaPick } from '../../composables/useRecentMediaPicks'
 import { getMediaType } from '../../utils/mediaTypes'
 import Spinner from '../ui/Spinner.vue'
+import Modal from '../ui/Modal.vue'
 
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl } = useMediaApi()
 const { extractFrame } = useVideoFrameExtraction()
@@ -1307,13 +1304,6 @@ function onPopoverBrowse() {
 }
 
 const previewModalUrl = ref('')
-const previewModalRef = ref<HTMLElement | null>(null)
-
-watch(previewModalUrl, (url) => {
-  if (url) {
-    nextTick(() => previewModalRef.value?.focus())
-  }
-})
 
 function onItemClick(item: MediaItem) {
   if (props.accept !== 'image') return

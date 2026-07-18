@@ -129,50 +129,36 @@
     </div>
   </div>
 
-  <Teleport to="body">
-    <Transition
-      enter-active-class="transition duration-150 ease-out"
-      enter-from-class="opacity-0"
-      enter-to-class="opacity-100"
-      leave-active-class="transition duration-100 ease-in"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
-    >
-      <div
-        v-if="reviewModalOpen"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm p-4"
-        @click.self="reviewModalOpen = false"
-      >
-        <div class="flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg shadow-2xl" :class="modalPanelClass">
-          <div class="flex items-center justify-between px-5 py-3" :class="modalHeaderClass">
-            <h3 class="truncate text-sm font-medium" :class="modalTitleClass">{{ displayName }}</h3>
-            <button
-              @click="reviewModalOpen = false"
-              class="rounded-lg p-2 transition-colors"
-              :class="modalCloseButtonClass"
-            >
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div class="overflow-auto px-5 py-4" :class="modalBodyClass">
-            <pre class="min-w-max rounded-lg border p-4 text-sm leading-6 select-text" :class="codeBlockClass"><code v-html="highlightedCodeHtml" /></pre>
-          </div>
-
-          <div class="flex justify-end px-5 py-4" :class="modalFooterClass">
-            <button
-              @click="reviewModalOpen = false"
-              class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+  <Modal
+    :show="reviewModalOpen"
+    size="custom"
+    custom-class="max-w-5xl w-full max-h-[85vh] flex flex-col overflow-hidden"
+    @close="reviewModalOpen = false"
+  >
+    <template #header>
+      <div class="flex items-center justify-between">
+        <h3 class="truncate text-sm font-medium text-content">{{ displayName }}</h3>
+        <IconButton @click="reviewModalOpen = false">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </IconButton>
       </div>
-    </Transition>
-  </Teleport>
+    </template>
+
+    <div class="flex-1 min-h-0 overflow-auto px-5 py-4">
+      <pre class="min-w-max rounded-lg border p-4 text-sm leading-6 select-text" :class="codeBlockClass"><code v-html="highlightedCodeHtml" /></pre>
+    </div>
+
+    <template #footer>
+      <button
+        @click="reviewModalOpen = false"
+        class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90"
+      >
+        Close
+      </button>
+    </template>
+  </Modal>
 </template>
 
 <script setup lang="ts">

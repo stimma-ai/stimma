@@ -41,9 +41,10 @@
         v-else
         class="absolute inset-0 flex items-center justify-center"
       >
-        <span
+        <Spinner
           v-if="state === 'awaiting' || state === 'pending'"
-          class="w-4 h-4 border-2 border-content-muted/60 border-t-transparent rounded-full animate-spin"
+          size="md"
+          hue="border-t-content-muted/60"
         />
         <svg
           v-else-if="state === 'failed'"
@@ -140,6 +141,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import Spinner from '../ui/Spinner.vue'
 import FlowMediaTile from './FlowMediaTile.vue'
 
 type Mode = 'approve' | 'select-single' | 'select-multi'

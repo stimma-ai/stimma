@@ -33,7 +33,7 @@
           :class="[
             'w-full px-3 py-2 pl-6 text-left text-sm transition-colors flex items-center justify-between gap-2',
             isSelected(generator.name, model.name)
-              ? 'bg-blue-500/20 text-blue-500'
+              ? 'bg-accent-selection/15 text-accent-selection'
               : 'text-content hover:bg-surface-raised/50'
           ]"
         >

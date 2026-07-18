@@ -17,11 +17,11 @@
         <!-- Batch count badge when >1, else the keyboard hint -->
         <span
           v-if="mediaBatchCount"
-          class="font-mono tabular-nums text-[10px] bg-white/20 rounded px-1.5 py-px leading-none"
+          class="font-mono tabular-nums text-[10px] bg-overlay-strong rounded px-1.5 py-px leading-none"
         >{{ mediaBatchCount }}{{ batchSize > 1 ? ` ×${batchSize}` : '' }}</span>
         <span
           v-else-if="batchSize > 1"
-          class="font-mono tabular-nums text-[10px] bg-white/20 rounded px-1.5 py-px leading-none"
+          class="font-mono tabular-nums text-[10px] bg-overlay-strong rounded px-1.5 py-px leading-none"
         >×{{ batchSize }}</span>
         <span v-else class="text-xs opacity-70 font-normal">{{ isMac ? '⌘↵' : 'Ctrl+↵' }}</span>
       </button>
@@ -29,7 +29,7 @@
       <!-- Caret: opens batch-size popover -->
       <button
         @click.stop="togglePopover"
-        class="px-2 py-2 text-white cursor-pointer transition-colors hover:bg-accent/90 flex items-center border-l border-white/25"
+        class="px-2 py-2 text-white cursor-pointer transition-colors hover:bg-accent/90 flex items-center border-l border-edge-subtle"
         title="Batch size"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"

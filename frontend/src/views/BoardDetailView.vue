@@ -92,7 +92,7 @@
                 v-model="sectionNames[section.id]"
                 :ref="(el) => setSectionInputRef(section.id, el)"
                 :style="{ width: getSectionLabelWidth(section) }"
-                class="rounded-full border border-black/5 bg-white/95 px-3 py-1 text-left text-xs font-medium text-zinc-500 shadow-sm outline-none dark:border-white/10 dark:bg-zinc-900/95 dark:text-content-secondary dark:shadow-none"
+                class="rounded-full border border-edge-subtle bg-surface-raised px-3 py-1 text-left text-xs font-medium text-content-secondary shadow-sm outline-none"
                 @blur="saveSection(section)"
                 @keydown.enter.prevent="saveSection(section)"
                 @keydown.esc.prevent="cancelSectionEdit(section)"
@@ -100,7 +100,7 @@
               <button
                 v-else
                 :style="{ width: getSectionLabelWidth(section) }"
-                class="rounded-full border border-black/5 bg-white/95 px-3 py-1 text-left text-xs font-medium text-zinc-500 shadow-sm transition-colors hover:border-black/10 hover:bg-white dark:border-white/10 dark:bg-zinc-900/95 dark:text-content-secondary dark:shadow-none dark:hover:border-white/20 dark:hover:bg-zinc-800"
+                class="rounded-full border border-edge-subtle bg-surface-raised px-3 py-1 text-left text-xs font-medium text-content-secondary shadow-sm transition-colors hover:border-edge hover:bg-surface-hover"
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>

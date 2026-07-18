@@ -604,7 +604,7 @@
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
-              <div class="rounded-xl max-w-xs overflow-hidden p-[1px] bg-gradient-to-r from-teal-600/40 via-cyan-500/40 to-indigo-500/40">
+              <div class="rounded-lg max-w-xs overflow-hidden p-[1px] bg-gradient-to-r from-teal-600/40 via-cyan-500/40 to-indigo-500/40">
                 <div class="bg-surface-elevated rounded-lg overflow-hidden">
                   <div class="flex items-center gap-2 px-3.5 py-2 border-b border-edge-subtle">
                     <div class="p-1 rounded-md bg-teal-600/15 flex-shrink-0">
@@ -651,7 +651,7 @@
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
-              <div class="rounded-xl max-w-xs overflow-hidden p-[1px] bg-gradient-to-r from-teal-600/40 via-cyan-500/40 to-indigo-500/40">
+              <div class="rounded-lg max-w-xs overflow-hidden p-[1px] bg-gradient-to-r from-teal-600/40 via-cyan-500/40 to-indigo-500/40">
                 <div class="bg-surface-elevated rounded-lg overflow-hidden">
                   <div class="flex items-center gap-2 px-3.5 py-2 border-b border-edge-subtle">
                     <div class="p-1 rounded-md bg-teal-600/15 flex-shrink-0">
@@ -694,7 +694,7 @@
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
-              <div class="rounded-xl max-w-lg overflow-hidden p-[1px] bg-gradient-to-r from-teal-600/40 via-cyan-500/40 to-indigo-500/40">
+              <div class="rounded-lg max-w-lg overflow-hidden p-[1px] bg-gradient-to-r from-teal-600/40 via-cyan-500/40 to-indigo-500/40">
                 <div class="bg-surface-elevated rounded-lg overflow-hidden">
                   <div class="flex items-center gap-2 px-3.5 py-2 border-b border-edge-subtle">
                     <div class="p-1 rounded-md bg-teal-600/15 flex-shrink-0">

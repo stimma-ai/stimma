@@ -34,7 +34,7 @@ import {
   stringifyStpPayload,
 } from '../../utils/stpPayload'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
-import { mapJobStatus, textClass, dotClass } from '../../utils/statusColors'
+import { mapJobStatus, textClass, dotClass, bgClass } from '../../utils/statusColors'
 import GenerationDetailsModal, { type InputEntry } from './GenerationDetailsModal.vue'
 
 interface Job {
@@ -302,11 +302,11 @@ function placeholderBody(status?: string | null): string {
 }
 
 function placeholderClass(status?: string | null): string {
-  switch (status) {
-    case 'failed': return 'bg-red-500/5 text-red-400'
-    case 'processing': return 'bg-blue-500/5 text-blue-400'
-    default: return 'bg-overlay-faint text-content-muted'
+  if (!status || (status !== 'failed' && status !== 'processing')) {
+    return 'bg-overlay-faint text-content-muted'
   }
+  const bucket = mapJobStatus(status)
+  return `${bgClass(bucket)} ${textClass(bucket)}`
 }
 
 function placeholderIconPath(status?: string | null): string {

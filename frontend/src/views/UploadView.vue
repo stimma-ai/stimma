@@ -18,9 +18,9 @@
 
     <!-- Drop target area — flex-1 so it fills available space and shrinks when grid is present -->
     <div
-      class="w-full max-w-2xl flex-1 min-h-0 flex flex-col items-center justify-center gap-4 border-2 border-dashed rounded-lg transition-all duration-200 relative"
+      class="w-full max-w-2xl flex-1 min-h-0 flex flex-col items-center justify-center gap-4 border-2 border-dashed rounded-lg transition-colors duration-150 relative"
       :class="isDragging
-        ? 'border-blue-500 bg-blue-500/10 scale-[1.02]'
+        ? 'border-accent ring-1 ring-accent/50 bg-accent/10'
         : 'border-edge bg-overlay-faint hover:border-edge-strong hover:bg-overlay-subtle'"
     >
       <!-- Auto-mark options (top right) -->
@@ -33,12 +33,12 @@
 
       <!-- Upload icon -->
       <div
-        class="w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200"
-        :class="isDragging ? 'bg-blue-500/20' : 'bg-overlay-subtle'"
+        class="w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-150"
+        :class="isDragging ? 'bg-accent/15' : 'bg-overlay-subtle'"
       >
         <svg
-          class="w-8 h-8 transition-colors duration-200"
-          :class="isDragging ? 'text-blue-500' : 'text-content-muted'"
+          class="w-8 h-8 transition-colors duration-150"
+          :class="isDragging ? 'text-accent' : 'text-content-muted'"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -58,12 +58,9 @@
       </div>
 
       <!-- Browse button -->
-      <button
-        class="px-6 py-2.5 bg-accent hover:bg-accent/90 text-white font-medium rounded-md transition-colors"
-        @click="openFilePicker"
-      >
+      <Button @click="openFilePicker">
         Browse Files
-      </button>
+      </Button>
       <input v-no-autocorrect
         ref="fileInput"
         type="file"
@@ -93,20 +90,20 @@
             </div>
             <span class="text-content font-medium">{{ statusText }}</span>
           </div>
-          <button
+          <Button
             v-if="!progress.isUploading"
-            class="text-sm text-content-tertiary hover:text-content-secondary transition-colors"
+            variant="ghost"
+            size="sm"
             @click="clearAll"
           >
             Clear
-          </button>
+          </Button>
         </div>
-        <div class="h-1.5 bg-overlay-light rounded-full overflow-hidden mb-3">
-          <div
-            class="h-full transition-all duration-300 rounded-full"
-            :class="progress.failed > 0 && !progress.isUploading ? 'bg-red-500' : 'bg-blue-500'"
-            :style="{ width: percentComplete + '%' }"
-          ></div>
+        <div class="mb-3">
+          <ProgressBar
+            :value="percentComplete"
+            :hue="progress.failed > 0 && !progress.isUploading ? 'bg-red-500' : undefined"
+          />
         </div>
       </div>
 
@@ -139,6 +136,8 @@ import { AutoMarkPicker } from '../components/generation'
 import { AppImage } from '../components/media'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import Spinner from '../components/ui/Spinner.vue'
+import Button from '../components/ui/Button.vue'
+import ProgressBar from '../components/ui/ProgressBar.vue'
 
 const router = useRouter()
 const route = useRoute()

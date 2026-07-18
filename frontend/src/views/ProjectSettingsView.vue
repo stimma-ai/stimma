@@ -4,11 +4,11 @@
 
       <!-- Name -->
       <div class="mb-6">
-        <h4 class="text-sm font-medium text-content-secondary mb-3">Name</h4>
+        <h4 class="text-xs font-semibold text-content-secondary mb-3">Name</h4>
         <input
           v-model="localName"
           type="text"
-          class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent"
+          class="w-full bg-overlay-subtle text-content text-sm rounded-md px-3 py-2 border border-transparent placeholder:text-content-muted focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
           placeholder="Untitled Project"
           @blur="saveGeneral"
         />
@@ -16,19 +16,19 @@
 
       <!-- Agent Instructions -->
       <div class="mb-6">
-        <h4 class="text-sm font-medium text-content-secondary mb-3">Agent Instructions</h4>
+        <h4 class="text-xs font-semibold text-content-secondary mb-3">Agent Instructions</h4>
         <textarea
           v-model="localInstructions"
           placeholder="Give the agent project-specific instructions..."
           rows="6"
-          class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent resize-none"
+          class="w-full bg-overlay-subtle text-content text-sm rounded-md px-3 py-2 border border-transparent placeholder:text-content-muted focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none resize-none"
           @blur="saveAgentConfig"
         />
       </div>
 
       <!-- Memory -->
       <div class="mb-6">
-        <h4 class="text-sm font-medium text-content-secondary mb-1">Memory</h4>
+        <h4 class="text-xs font-semibold text-content-secondary mb-1">Memory</h4>
         <p class="text-xs text-content-tertiary mb-3">
           Persistent context the agent remembers for this project. The agent can also update this.
         </p>
@@ -36,7 +36,7 @@
           v-model="localMemory"
           placeholder="No memories yet..."
           rows="6"
-          class="w-full bg-base text-content text-sm border border-edge rounded-lg px-3 py-2 focus:outline-none focus:border-accent resize-none"
+          class="w-full bg-overlay-subtle text-content text-sm rounded-md px-3 py-2 border border-transparent placeholder:text-content-muted focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none resize-none"
           @blur="saveMemory"
         />
       </div>
@@ -45,8 +45,8 @@
            as the chat panel — the default approval is global, so project-scoped
            entries are the exception, not the norm). -->
       <div v-if="configuredTools.length > 0" class="mb-6">
-        <h4 class="text-sm font-medium text-content-secondary mb-2">Tool Permissions for this Project</h4>
-        <div class="bg-surface-overlay border border-edge rounded-lg overflow-hidden">
+        <h4 class="text-xs font-semibold text-content-secondary mb-2">Tool Permissions for this Project</h4>
+        <div class="border border-edge-subtle rounded-lg overflow-hidden">
           <ToolConfigRow
             v-for="(tool, idx) in configuredTools"
             :key="tool.full_tool_id"
@@ -63,17 +63,14 @@
       <!-- Delete Project -->
       <div class="mt-10 flex items-start justify-between gap-4">
         <div>
-          <h4 class="text-sm font-medium text-content-secondary">Delete Project</h4>
+          <h4 class="text-xs font-semibold text-red-400">Delete Project</h4>
           <p class="mt-1 text-xs text-content-tertiary">
             Delete this project, its boards, and chats. Assets will remain in All Assets.
           </p>
         </div>
-        <button
-          class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/15 flex-shrink-0"
-          @click="openDeleteProjectModal"
-        >
+        <Button variant="danger-ghost" class="flex-shrink-0" @click="openDeleteProjectModal">
           Delete
-        </button>
+        </Button>
       </div>
 
     </div>
@@ -95,6 +92,7 @@ import { computed, ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import ToolConfigRow from '../components/chat/ToolConfigRow.vue'
+import Button from '../components/ui/Button.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useProvidersApi } from '../composables/useProvidersApi'
 
