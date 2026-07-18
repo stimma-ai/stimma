@@ -338,7 +338,7 @@ const WizardBrandChip = defineComponent({
       }
       const tile = props.chip.svg
         ? h('span', {
-            class: 'flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-white/[0.06] [&_svg]:h-[13px] [&_svg]:w-[13px]',
+            class: 'flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-overlay-subtle [&_svg]:h-[13px] [&_svg]:w-[13px]',
             style: props.chip.color ? { color: props.chip.color } : { color: '#e8eaf0' },
             innerHTML: sanitizeSvg(props.chip.svg),
           })

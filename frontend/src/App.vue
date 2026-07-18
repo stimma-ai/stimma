@@ -21,7 +21,7 @@
     <FeedbackRoot />
 
   <!-- Full-screen lock screen when PIN is required -->
-  <div v-if="isLocked" class="fixed inset-0 z-[10050] bg-surface-overlay">
+  <div v-if="isLocked" class="fixed inset-0 z-top bg-surface-overlay">
     <!-- Draggable title bar region -->
     <div class="absolute top-0 left-0 right-0 h-14" data-tauri-drag-region />
     <!-- Profile switcher in top-right corner -->
@@ -43,7 +43,7 @@
         <transition name="dropdown">
           <div
             v-if="lockScreenProfileDropdownOpen"
-            class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-[10060] min-w-[200px] overflow-hidden"
+            class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-menu min-w-[200px] overflow-hidden"
           >
             <div class="py-1">
               <button
@@ -73,8 +73,8 @@
       <div class="w-80">
         <!-- Lock icon and title -->
         <div class="text-center mb-6">
-          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/20 flex items-center justify-center">
-            <svg class="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-accent/20 flex items-center justify-center">
+            <svg class="w-8 h-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
             </svg>
           </div>
@@ -92,7 +92,7 @@
             inputmode="numeric"
             pattern="[0-9]*"
             maxlength="20"
-            class="w-full px-4 py-3 bg-base border border-edge rounded-lg text-content text-center text-xl tracking-widest focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            class="w-full px-4 py-3 bg-base border border-edge rounded-lg text-content text-center text-xl tracking-widest focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
             placeholder="PIN"
             autocomplete="off"
             @keydown.enter="submitLockScreenPin"
@@ -103,7 +103,7 @@
           <button
             @click="submitLockScreenPin"
             :disabled="!lockScreenPin || lockScreenSubmitting"
-            class="w-full mt-3 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+            class="w-full mt-3 px-4 py-2.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
           >
             <svg v-if="lockScreenSubmitting" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

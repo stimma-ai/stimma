@@ -24,7 +24,7 @@
         <div
           v-for="(item, index) in items"
           :key="mediaIdOf(item.resolved) || index"
-          class="group w-48 h-48 bg-base rounded overflow-hidden cursor-pointer transition-all relative hover:ring-2 hover:ring-cyan-400"
+          class="group w-48 h-48 bg-base rounded overflow-hidden cursor-pointer transition-all relative hover:ring-2 hover:ring-selection/60"
           :draggable="!!item.resolved"
           @click="selectItem(index, item)"
           @dragstart="handleItemDragStart($event, item.resolved)"

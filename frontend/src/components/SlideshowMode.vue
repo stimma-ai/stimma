@@ -2,14 +2,14 @@
   <div
     ref="overlay"
     data-drop-zone
-    :class="inline ? 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-[9998]' : 'fixed inset-0 bg-slideshow-matt flex z-[9999]'"
+    :class="inline ? 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-top' : 'fixed inset-0 bg-slideshow-matt flex z-top'"
     @dragover.prevent
     @drop.prevent
   >
-    <!-- Draggable region for moving the window (below buttons at z-[10000]) -->
+    <!-- Draggable region for moving the window (below the floating chrome buttons) -->
     <div
       data-tauri-drag-region
-      class="absolute top-0 left-0 right-0 h-14 z-[9999]"
+      class="absolute top-0 left-0 right-0 h-14 z-chrome"
       style="-webkit-app-region: drag"
     />
 
@@ -67,7 +67,7 @@
     <!-- Back button (when viewing source image) -->
     <button
       v-if="!focusMode && isViewingSource"
-      class="absolute top-4 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-4 h-12 rounded-full cursor-pointer z-[10000] transition-all hover:bg-black/60 flex items-center gap-2"
+      class="absolute top-4 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-4 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60 flex items-center gap-2"
       @click="goBackFromSource"
       title="Back to original image"
     >
@@ -80,7 +80,7 @@
     <!-- Exit Set button (when browsing inside a set) -->
     <button
       v-if="!focusMode && isViewingSet"
-      class="absolute top-4 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-4 h-12 rounded-full cursor-pointer z-[10000] transition-all hover:bg-black/60 flex items-center gap-2"
+      class="absolute top-4 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-4 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60 flex items-center gap-2"
       @click="exitSetView"
       title="Exit set and return to main slideshow"
     >
@@ -94,7 +94,7 @@
     <!-- Visible even in focus mode so user can navigate back -->
     <button
       v-if="isViewingGrid"
-      class="absolute top-4 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-4 h-12 rounded-full cursor-pointer z-[10000] transition-all hover:bg-black/60 flex items-center gap-2"
+      class="absolute top-4 left-4 bg-black/40 backdrop-blur-md border-none text-white text-sm px-4 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60 flex items-center gap-2"
       @click="exitGridView"
       title="Return to grid overview (Esc)"
     >
@@ -108,7 +108,7 @@
     <!-- Visible even in focus mode so user can see position and navigate back -->
     <div
       v-if="isViewingGrid && currentGridView"
-      class="absolute top-4 -translate-x-1/2 z-[10000] flex flex-col items-center"
+      class="absolute top-4 -translate-x-1/2 z-chrome flex flex-col items-center"
       :style="{ left: (showSidebar && !focusMode) ? 'calc(50% - 192px)' : '50%' }"
     >
       <!-- Compact pill indicator with editable title -->
@@ -155,7 +155,7 @@
     <div
       v-if="!focusMode && isViewingSet && currentSetView"
       ref="setTitleContainer"
-      class="absolute top-4 -translate-x-1/2 z-[10000] bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
+      class="absolute top-4 -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
       :class="[
         !currentSetView.title ? 'cursor-text' : (isEditingSetTitle ? 'cursor-text' : 'cursor-pointer')
       ]"
@@ -195,7 +195,7 @@
     <div
       v-if="!focusMode && isSet && !isViewingSet"
       ref="setOverviewTitleContainer"
-      class="absolute top-4 -translate-x-1/2 z-[10000] bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
+      class="absolute top-4 -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
       :class="[
         !setOverviewData?.title ? 'cursor-text' : (isEditingSetOverviewTitle ? 'cursor-text' : 'cursor-pointer')
       ]"
@@ -235,7 +235,7 @@
     <div
       v-if="!focusMode && isGrid && !isViewingGrid"
       ref="gridOverviewTitleContainer"
-      class="absolute top-4 -translate-x-1/2 z-[10000] bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
+      class="absolute top-4 -translate-x-1/2 z-chrome bg-black/40 backdrop-blur-md px-5 h-12 rounded-full flex items-center justify-center"
       :class="[
         !gridOverviewData?.title ? 'cursor-text' : (isEditingGridOverviewTitle ? 'cursor-text' : 'cursor-pointer')
       ]"
@@ -274,7 +274,7 @@
     <!-- Compare button (when viewing grid overview) -->
     <div
       v-if="!focusMode && isGrid && !isViewingGrid"
-      class="absolute top-4 h-12 z-[10000] flex items-center"
+      class="absolute top-4 h-12 z-chrome flex items-center"
       :style="{ right: (showSidebar && !focusMode) ? '468px' : '84px' }"
     >
       <!-- Initial compare button (not in compare mode) -->
@@ -327,10 +327,10 @@
     </div>
 
     <!-- Close button -->
-    <button class="absolute top-4 bg-black/40 backdrop-blur-md border-none text-white text-[2rem] w-12 h-12 rounded-full cursor-pointer z-[10002] transition-all hover:bg-black/60" :style="{ right: (showSidebar && !focusMode) ? '400px' : '16px' }" @click="handleCloseClick" title="Close slideshow">✕</button>
+    <button class="absolute top-4 bg-black/40 backdrop-blur-md border-none text-white text-[2rem] w-12 h-12 rounded-full cursor-pointer z-chrome transition-all hover:bg-black/60" :style="{ right: (showSidebar && !focusMode) ? '400px' : '16px' }" @click="handleCloseClick" title="Close slideshow">✕</button>
 
     <!-- Caption (bottom) -->
-    <div v-if="currentItem && showCaption && currentItem.vlm_caption && captioningEnabledRef" class="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-md px-8 py-6 text-white text-sm leading-normal z-[10000]">
+    <div v-if="currentItem && showCaption && currentItem.vlm_caption && captioningEnabledRef" class="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-md px-8 py-6 text-white text-sm leading-normal z-chrome">
       {{ currentItem.vlm_caption }}
     </div>
 
@@ -364,7 +364,7 @@
         @select-cell="handleGridCellSelect"
         @selection-change="handleGridSelectionChange"
         @loaded="handleGridOverviewLoaded"
-        class="absolute inset-0 z-[1]"
+        class="absolute inset-0 z-chrome"
       />
 
       <!-- Wrapper fills container; w-full h-full + object-contain scales to fit -->
@@ -407,7 +407,7 @@
           :media-id="mediaIdOf(displayItem)"
           @select-item="handleSetItemSelect"
           @loaded="handleSetOverviewLoaded"
-          class="absolute inset-0 z-[1]"
+          class="absolute inset-0 z-chrome"
         />
 
         <!-- Layout viewer -->
@@ -415,7 +415,7 @@
           v-else-if="isLayout"
           :key="`layout-${displayItem?.id}-${refreshKey}`"
           :media-id="mediaIdOf(displayItem)"
-          class="absolute inset-0 z-[1]"
+          class="absolute inset-0 z-chrome"
         />
 
         <!-- Video -->
@@ -529,7 +529,7 @@
         @click.stop="userPrevious"
         @contextmenu="handleContextMenu($event, displayItem)"
         :class="[
-          'absolute left-0 flex items-center justify-start cursor-pointer z-[9999] group bg-transparent border-none',
+          'absolute left-0 flex items-center justify-start cursor-pointer z-chrome group bg-transparent border-none',
           isGrid ? 'w-12 h-24 top-1/2 -translate-y-1/2' : 'w-48 top-20 bottom-0'
         ]"
         title="Previous (← or A)"
@@ -547,7 +547,7 @@
         @click.stop="userNext"
         @contextmenu="handleContextMenu($event, displayItem)"
         :class="[
-          'absolute right-0 flex items-center justify-end cursor-pointer z-[9999] group bg-transparent border-none',
+          'absolute right-0 flex items-center justify-end cursor-pointer z-chrome group bg-transparent border-none',
           isGrid ? 'w-12 h-24 top-1/2 -translate-y-1/2' : 'w-48 top-20 bottom-0'
         ]"
         title="Next (→ or D)"
@@ -577,7 +577,7 @@
     <div
       v-if="showImageStrip && !focusMode && props.showThumbnailStrip && !isViewingGrid"
       :class="inline ? 'absolute' : 'fixed'"
-      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-[9998] transition-all duration-300 py-2 px-2"
+      class="bottom-0 left-0 bg-surface-elevated backdrop-blur-[10px] border-t border-edge-subtle z-chrome transition-all duration-300 py-2 px-2"
       :style="{
         height: `${STRIP_HEIGHT}px`,
         right: (showSidebar && !focusMode) ? `${SIDEBAR_WIDTH}px` : '0px'
@@ -591,7 +591,7 @@
           style="height: 104px;"
           @contextmenu="handleContextMenu($event, currentItem)"
         >
-          <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] bg-black rounded overflow-hidden border border-edge ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-elevated">
+          <div v-if="currentItem.file_hash" class="w-[96px] h-[96px] bg-black rounded overflow-hidden border border-edge ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated">
             <MediaImage
               :media-id="mediaIdOf(currentItem)"
               :file-hash="currentItem.file_hash"
@@ -629,7 +629,7 @@
         >
           <div
             class="w-[96px] h-[96px] bg-black rounded overflow-hidden border border-edge transition-all"
-            :class="index === setViewIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-blue-400 hover:brightness-110'"
+            :class="index === setViewIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-selection/60 hover:brightness-110'"
           >
             <MediaImage
               :media-id="mediaIdOf(item)"
@@ -691,7 +691,7 @@
             <div
               v-else-if="item.file_hash"
               class="w-[96px] h-[96px] bg-black rounded overflow-hidden border border-edge transition-all"
-              :class="index === currentIndex ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-blue-400 hover:brightness-110'"
+              :class="index === currentIndex ? 'ring-2 ring-selection ring-offset-2 ring-offset-surface-elevated' : 'ring-2 ring-transparent hover:ring-selection/60 hover:brightness-110'"
             >
               <MediaImage
                 :media-id="mediaIdOf(item)"
@@ -728,7 +728,7 @@
     <!-- Grid Mini-Map (bottom-left corner, shows position within grid) -->
     <div
       v-if="isViewingGrid && miniMapConfig"
-      class="absolute bottom-4 left-4 z-[10000] flex flex-col items-start gap-1"
+      class="absolute bottom-4 left-4 z-chrome flex flex-col items-start gap-1"
     >
       <!-- Column header (above mini-map) -->
       <div
@@ -790,7 +790,7 @@
     <div
       ref="controlBar"
       :class="[
-        'absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-[10000] shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
+        'absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 z-chrome shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-200 select-none',
         { 'cursor-grabbing !transition-none': isDragging },
         { '!bg-black/60': isHovered },
         { 'cursor-grab': !isDragging },
@@ -868,7 +868,7 @@
             v-if="showVolumeSlider"
             ref="volumeSliderRef"
             :class="[
-              'absolute bg-black/70 backdrop-blur-xl rounded-lg border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.4)] z-[10001]',
+              'absolute bg-black/70 backdrop-blur-xl rounded-lg border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.4)] z-menu',
               controlBarOrientation === 'vertical'
                 ? 'left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-2 flex items-center gap-2'
                 : 'bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-2 flex flex-col items-center gap-2'
@@ -1034,7 +1034,7 @@
          live playhead, same treatment as the prep frame picker. Toggle with V. -->
     <div
       v-if="isVideo && showVideoTransport"
-      class="absolute z-[10000] flex items-center gap-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] select-none w-[620px]"
+      class="absolute z-chrome flex items-center gap-2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg px-3 py-1.5 shadow-[0_4px_20px_rgba(0,0,0,0.3)] select-none w-[620px]"
       :style="transportBarStyle"
       @mousedown.stop
       @dblclick.stop
@@ -1099,7 +1099,7 @@
     <!-- Project Picker Modal -->
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="showProjectPicker" class="fixed inset-0 z-[10000] flex items-center justify-center bg-overlay-backdrop p-5" @click.self="closeProjectPicker">
+        <div v-if="showProjectPicker" class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop p-5" @click.self="closeProjectPicker">
           <div class="flex max-h-[80vh] w-full max-w-[400px] flex-col rounded-lg border border-edge-subtle bg-surface shadow-2xl">
             <div class="flex items-center justify-between border-b border-edge-subtle px-5 py-4">
               <h2 class="text-lg font-semibold text-content">Projects</h2>
@@ -6005,38 +6005,6 @@ async function toggleMarker(markerId) {
 .sidebar-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
-}
-
-/* Status dot classes */
-.status-completed {
-  @apply bg-green-500 shadow-[0_0_0_2px_rgba(34,197,94,0.2)];
-}
-
-.status-processing {
-  @apply bg-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.2)];
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.status-reprocessing {
-  @apply bg-purple-500 shadow-[0_0_0_2px_rgba(168,85,247,0.2)];
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.status-failed {
-  @apply bg-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.2)];
-}
-
-.status-pending {
-  @apply bg-gray-500 shadow-[0_0_0_2px_rgba(107,114,128,0.2)];
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
 }
 
 /* Slide transition */

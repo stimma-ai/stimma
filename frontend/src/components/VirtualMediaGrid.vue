@@ -502,14 +502,6 @@ function calculateItemsPerRow() {
   // Row height = square item height + row vertical gutter (py-2 top+bottom)
   const newItemHeight = actualItemWidth + ROW_VERTICAL_GUTTER_PX
 
-  console.log('Grid calc:', {
-    scrollerWidth,
-    gridWidth,
-    itemsPerRow: newItemsPerRow,
-    actualItemWidth,
-    itemHeight: newItemHeight
-  })
-
   // Check if items per row changed - if so, we need to rebuild everything
   const itemsPerRowChanged = newItemsPerRow !== itemsPerRow.value
 
@@ -613,11 +605,8 @@ async function loadPage(pageNumber) {
     if (loadedPages.value.has(pageKey)) {
       return // Already loaded
     }
-    const startTime = performance.now()
-    console.log(`[loadPage] START page ${pageNumber} (via mediaList)`)
     try {
       await props.mediaList.loadPage(pageNumber, 200)
-      console.log(`[loadPage] DONE page ${pageNumber} in ${(performance.now() - startTime).toFixed(0)}ms`)
       // Rebuild rows after loading
       buildRows()
     } catch (error) {
@@ -634,12 +623,9 @@ async function loadPage(pageNumber) {
 
   localLoadedPages.value.add(localPageKey)
 
-  const startTime = performance.now()
-  console.log(`[loadPage] START page ${pageNumber} (local)`)
   try {
     const pageSize = 200
     const items = await props.pageProvider(pageNumber, pageSize)
-    console.log(`[loadPage] DONE page ${pageNumber} in ${(performance.now() - startTime).toFixed(0)}ms, got ${items.length} items`)
 
     // Cache items by their index
     const startIndex = pageNumber * pageSize
@@ -707,15 +693,10 @@ async function loadVisiblePages() {
 
   // Load pages in parallel (not sequentially)
   const pagesToLoad = []
-  const pagesNeeded = []
   for (let page = startPage; page <= endPage; page++) {
     if (!loadedPages.value.has(`${page}:${pageSize}`)) {
-      pagesNeeded.push(page)
       pagesToLoad.push(loadPage(page))
     }
-  }
-  if (pagesNeeded.length > 0) {
-    console.log(`[scroll] scrollTop=${scrollTop} rows=${startRow}-${endRow} need pages: ${pagesNeeded.join(',')} (already loaded: ${[...loadedPages.value].join(',')})`)
   }
   await Promise.all(pagesToLoad)
 }

@@ -83,7 +83,7 @@
                         ? 'ring-2 ring-selection ring-inset'
                         : isSelectedCell(rowIdx - 1, colIdx - 1)
                           ? 'ring-2 ring-selection ring-inset'
-                          : 'hover:ring-2 hover:ring-cyan-400'
+                          : 'hover:ring-2 hover:ring-selection/60'
                     ]"
                     @click="selectCell(rowIdx - 1, colIdx - 1)"
                   >

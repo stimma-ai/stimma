@@ -29,7 +29,7 @@
       <!-- Recording pulse dot -->
       <span
         v-if="isRecording"
-        class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 animate-pulse"
+        class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 animate-pulse-soft"
       />
     </button>
 
@@ -112,8 +112,8 @@ async function onLeave() {
 
 const buttonClass = computed(() => {
   if (isRecording.value) return 'bg-red-500/15 text-red-400 hover:bg-red-500/25'
-  if (state.value === 'error') return 'text-red-400 hover:bg-white/[0.05]'
-  return 'text-content-muted hover:text-content-secondary hover:bg-white/[0.05]'
+  if (state.value === 'error') return 'text-red-400 hover:bg-overlay-subtle'
+  return 'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
 })
 
 const title = computed(() => {

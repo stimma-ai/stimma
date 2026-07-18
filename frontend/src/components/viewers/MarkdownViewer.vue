@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full h-full overflow-auto p-8" :class="isDark ? 'bg-[#1e293b]' : 'bg-white'">
+  <div class="w-full h-full overflow-auto p-8 bg-surface-raised">
     <div v-if="loading" class="flex items-center justify-center h-full text-content-tertiary">
       Loading...
     </div>

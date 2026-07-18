@@ -47,7 +47,7 @@
         @click="seek"
       >
         <div
-          class="h-full bg-gradient-to-r from-purple-500 to-cyan-400 transition-all"
+          class="h-full bg-accent transition-all"
           :style="{ width: `${progress}%` }"
         />
       </div>
@@ -71,7 +71,7 @@
 
       <button
         @click="togglePlay"
-        class="w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 to-cyan-400 text-white flex items-center justify-center hover:opacity-90 transition-opacity"
+        class="w-16 h-16 rounded-full bg-accent text-white flex items-center justify-center hover:bg-accent/90 transition-colors"
       >
         <svg v-if="!isPlaying" class="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24">
           <path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
@@ -112,7 +112,7 @@
         min="0"
         max="1"
         step="0.1"
-        class="w-20 accent-purple-500"
+        class="w-20 accent-accent"
       />
     </div>
   </div>
