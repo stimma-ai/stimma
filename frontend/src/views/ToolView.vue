@@ -1899,7 +1899,9 @@ function startAvailabilityPolling() {
 const browserGuidKey = makeGlobalKey('browser_guid')
 let tabGuid = localStorage.getItem(browserGuidKey)
 if (!tabGuid) {
-  tabGuid = crypto.randomUUID()
+  // crypto.randomUUID is secure-context-only; fall back for plain-http
+  // origins (e.g. dev server viewed through a LAN/proxy hostname).
+  tabGuid = globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`
   localStorage.setItem(browserGuidKey, tabGuid)
 }
 
