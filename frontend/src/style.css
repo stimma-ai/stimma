@@ -637,3 +637,62 @@ select option {
   grid-template-rows: 1fr;
   opacity: 1;
 }
+
+/* ============================================
+   Canonical Vue <Transition> vocabulary (STANDARDS.md §1.7)
+   ============================================
+   Named transitions come from THIS stylesheet only — per-component scoped
+   copies (`fade`/`modal` re-pasted into ~20 files) are drift, not variants.
+   Do not delete those scoped copies as part of unrelated changes; they are
+   harmless duplicates queued for removal when each component migrates onto
+   ui/Modal.vue or this global class directly. New code must use these
+   names and must not invent one-off transition names. */
+
+/* fade — simple opacity fade, no motion. Used for dropdown/menu content
+   that doesn't have its own dedicated transition, tooltips, etc. */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 150ms ease-out;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* modal — backdrop fade + card scale(0.98 → 1). One timing for the whole
+   modal family (dialogs, confirms): 150ms ease-out in, 120ms ease-in out. */
+.modal-enter-active {
+  transition: opacity 150ms ease-out;
+}
+.modal-enter-active > * {
+  transition: opacity 150ms ease-out, transform 150ms ease-out;
+}
+.modal-leave-active {
+  transition: opacity 120ms ease-in;
+}
+.modal-leave-active > * {
+  transition: opacity 120ms ease-in, transform 120ms ease-in;
+}
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+.modal-enter-from > *,
+.modal-leave-to > * {
+  opacity: 0;
+  transform: scale(0.98);
+}
+
+/* menu — context menus, dropdowns, popovers: fast fade+scale in, faster
+   out. Distinct timing from `modal` per STANDARDS.md §1.7. */
+.menu-enter-active {
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
+}
+.menu-leave-active {
+  transition: opacity 80ms ease-in, transform 80ms ease-in;
+}
+.menu-enter-from,
+.menu-leave-to {
+  opacity: 0;
+  transform: scale(0.96);
+}
