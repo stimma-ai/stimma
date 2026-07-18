@@ -36,7 +36,7 @@
           <div
             v-for="mid in previewMediaIds"
             :key="mid"
-            class="overflow-hidden rounded-lg border border-edge-subtle bg-overlay-subtle"
+            class="overflow-hidden rounded-media bg-matte"
           >
             <FlowMediaTile
               :media-id="mid"
@@ -90,6 +90,7 @@ import { shouldShowEquationDuration } from '../../utils/equationDuration'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
 import GenerationDetailsModal, { type InputEntry } from '../generation/GenerationDetailsModal.vue'
 import FlowMediaTile from './FlowMediaTile.vue'
+import { mapEquationStatus, textClass, dotClass, rowBgClass } from '../../utils/statusColors'
 
 interface Props {
   iteration: GroupedIteration | null
@@ -213,11 +214,9 @@ function placeholderBody(status?: string | null): string {
 }
 
 function placeholderClass(status?: string | null): string {
-  switch (status) {
-    case 'failed': return 'bg-red-500/5 text-red-400'
-    case 'computing': return 'bg-blue-500/5 text-blue-400'
-    default: return 'bg-overlay-faint text-content-muted'
-  }
+  const bucket = mapEquationStatus(status)
+  if (bucket === 'queued') return 'bg-overlay-faint text-content-muted'
+  return `${rowBgClass(bucket)} ${textClass(bucket)}`
 }
 
 function placeholderIconPath(status?: string | null): string {
@@ -496,25 +495,10 @@ function statusTextFor(status?: string | null): string {
 }
 
 function statusClassFor(status?: string | null): string {
-  switch (status) {
-    case 'completed': return 'text-green-500'
-    case 'failed': return 'text-red-400'
-    case 'computing': return 'text-blue-400'
-    case 'awaiting_input': return 'text-purple-400'
-    case 'skipped': return 'text-content-muted'
-    case 'invalidated': return 'text-yellow-400'
-    default: return 'text-content-muted'
-  }
+  return textClass(mapEquationStatus(status))
 }
 
 function dotClassFor(status?: string | null): string {
-  switch (status) {
-    case 'completed': return 'bg-green-500'
-    case 'failed': return 'bg-red-400'
-    case 'computing': return 'bg-blue-400'
-    case 'awaiting_input': return 'bg-purple-400'
-    case 'invalidated': return 'bg-yellow-400'
-    default: return 'bg-content-muted'
-  }
+  return dotClass(mapEquationStatus(status))
 }
 </script>

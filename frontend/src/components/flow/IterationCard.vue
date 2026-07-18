@@ -1,7 +1,7 @@
 <template>
   <div
-    class="relative rounded-md border overflow-hidden transition group/iteration-card"
-    :class="[rootClass, isRunning ? 'cursor-default' : 'cursor-pointer', isEchoed ? 'ring-2 ring-blue-500/60' : '']"
+    class="relative border overflow-hidden transition group/iteration-card"
+    :class="[primaryMediaId ? 'rounded-media' : 'rounded-md', rootClass, isRunning ? 'cursor-default' : 'cursor-pointer', isEchoed ? 'ring-2 ring-blue-500/60' : '']"
     :title="cardTitle"
     :role="isRunning ? undefined : 'button'"
     :tabindex="isRunning ? undefined : 0"
@@ -146,6 +146,7 @@ import type { GroupedIteration } from '../../composables/useFlowGrouping'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'
 import { shouldShowEquationDuration } from '../../utils/equationDuration'
 import { parseFlowError } from '../../utils/flowErrors'
+import { mapEquationStatus, mapBlockReason, cardFrameClass, tileBgClass } from '../../utils/statusColors'
 
 interface Props {
   iteration: GroupedIteration
@@ -228,22 +229,13 @@ const tileAspectClass = computed(() => 'aspect-square w-full')
 
 // Background tint for no-media states — keeps the card meaningful at a glance.
 // Pending tiles get a faint reason-specific tint so the icon isn't carrying
-// the full signal alone.
+// the full signal alone. Colors come from statusColors.ts (STANDARDS §1.9);
+// pending routes its blockReason through the same bucket vocabulary at
+// reduced ("dimmed") opacity.
 const placeholderBgClass = computed(() => {
   const status = props.iteration.status
-  if (status === 'failed') return 'bg-red-500/10'
-  if (status === 'awaiting_input') return 'bg-purple-500/10'
-  if (status === 'completed') return 'bg-overlay-faint'
-  if (status === 'pending') {
-    switch (props.iteration.blockReason) {
-      case 'human': return 'bg-purple-500/[0.06]'
-      case 'error': return 'bg-red-500/[0.06]'
-      case 'tool':  return 'bg-amber-500/[0.06]'
-      case 'cap':   return 'bg-blue-500/[0.06]'
-      default:      return 'bg-overlay-faint'
-    }
-  }
-  return 'bg-overlay-faint'
+  if (status === 'pending') return tileBgClass(mapBlockReason(props.iteration.blockReason), true)
+  return tileBgClass(mapEquationStatus(status))
 })
 
 // Border / ring color. Actionable (this node awaiting human) wins because
@@ -251,21 +243,10 @@ const placeholderBgClass = computed(() => {
 // tiles use a desaturated form of the same color family so they read as
 // related-but-not-actionable.
 const rootClass = computed(() => {
-  const base = 'border-edge-subtle hover:border-content-muted/60'
-  if (props.iteration.isActionable) return 'border-purple-500/50 ring-1 ring-purple-500/30'
-  if (props.iteration.hasError) return 'border-red-500/50'
-  if (props.iteration.status === 'computing') return 'border-blue-500/40'
-  if (props.iteration.status === 'awaiting_input') return 'border-purple-500/50 ring-1 ring-purple-500/30'
-  if (props.iteration.status === 'pending') {
-    switch (props.iteration.blockReason) {
-      case 'human': return 'border-purple-500/25 hover:border-purple-500/40'
-      case 'error': return 'border-red-500/25 hover:border-red-500/40'
-      case 'tool':  return 'border-amber-500/30 hover:border-amber-500/45'
-      case 'cap':   return 'border-blue-500/25 hover:border-blue-500/40'
-      default:      return base
-    }
-  }
-  return base
+  if (props.iteration.isActionable) return cardFrameClass('awaiting')
+  if (props.iteration.hasError) return cardFrameClass('failed')
+  if (props.iteration.status === 'pending') return cardFrameClass(mapBlockReason(props.iteration.blockReason), true)
+  return cardFrameClass(mapEquationStatus(props.iteration.status))
 })
 
 // Tooltip on the placeholder so the reason is discoverable on hover.

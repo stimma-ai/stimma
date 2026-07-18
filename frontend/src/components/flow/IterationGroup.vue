@@ -305,6 +305,7 @@ import FlowIterationModal from './FlowIterationModal.vue'
 import FlowRefButton from './FlowRefButton.vue'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
+import { dotClass } from '../../utils/statusColors'
 
 interface Props {
   group: IterationGroupItem
@@ -622,13 +623,13 @@ const headerThumbs = computed<HeaderThumb[]>(() => {
 })
 
 function ribbonCellClass(it: GroupedIteration): string {
-  if (it.isActionable) return 'bg-purple-400'
+  if (it.isActionable) return dotClass('awaiting')
   switch (it.status) {
-    case 'failed':    return 'bg-red-400'
-    case 'computing': return 'bg-blue-400 animate-pulse'
-    case 'completed': return 'bg-green-400'
-    case 'skipped':   return 'bg-content-muted/50'
-    default:          return 'bg-white/15'
+    case 'failed':    return dotClass('failed')
+    case 'computing': return `${dotClass('running')} animate-pulse-soft`
+    case 'completed': return dotClass('done')
+    case 'skipped':   return dotClass('skipped')
+    default:          return 'bg-overlay-subtle'
   }
 }
 

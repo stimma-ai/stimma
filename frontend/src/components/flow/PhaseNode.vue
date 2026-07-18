@@ -145,7 +145,7 @@
                   v-if="eq.status === 'computing' && !isPaused"
                   class="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin flex-shrink-0"
                 />
-                <span v-else-if="eq.status === 'computing' && isPaused" class="text-yellow-400/80 text-[11px] flex-shrink-0">⏸</span>
+                <span v-else-if="eq.status === 'computing' && isPaused" class="text-amber-400/80 text-[11px] flex-shrink-0">⏸</span>
                 <svg
                   v-else-if="eq.status === 'completed'"
                   class="w-4 h-4 text-green-500 flex-shrink-0"

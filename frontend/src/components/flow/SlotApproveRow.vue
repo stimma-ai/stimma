@@ -91,6 +91,7 @@ import {
   type GroupedIteration,
 } from '../../composables/useFlowGrouping'
 import type { FlowEquation, FlowTask } from '../../composables/useFlowsApi'
+import { cardFrameClass, rowBgClass } from '../../utils/statusColors'
 
 interface Props {
   approveEquation: FlowEquation | null
@@ -169,10 +170,12 @@ function unapprove() {
   }
 }
 
+// 'approved' stays a literal blue frame — that's the app's selection-accent
+// convention (STANDARDS §1.8 filter-state pair), not a status bucket.
 const frameClass = computed(() => {
   switch (cellState.value) {
-    case 'failed':   return 'border-red-500/50 bg-red-500/5'
-    case 'awaiting': return 'border-purple-500/50 ring-1 ring-purple-500/30 bg-purple-500/5'
+    case 'failed':   return `${cardFrameClass('failed')} ${rowBgClass('failed')}`
+    case 'awaiting': return `${cardFrameClass('awaiting')} ${rowBgClass('awaiting')}`
     case 'approved': return 'border-blue-500/30 bg-overlay-faint'
     default:         return 'border-edge-subtle'
   }

@@ -26,10 +26,10 @@
           <div class="truncate text-[14px] font-semibold text-content">{{ title }}</div>
           <span
             v-if="statusLabel"
-            class="flex-shrink-0 text-[10.5px] font-semibold uppercase tracking-wide tabular-nums px-1.5 py-0.5 rounded"
+            class="flex-shrink-0 text-[10.5px] font-semibold px-1.5 py-0.5 rounded"
             :class="statusBadgeClass"
           >{{ statusLabel }}</span>
-          <span v-if="durationLabel" class="flex-shrink-0 text-[11px] text-content-muted tabular-nums">{{ durationLabel }}</span>
+          <span v-if="durationLabel" class="flex-shrink-0 font-mono text-[11px] text-content-tertiary tabular-nums">{{ durationLabel }}</span>
         </div>
         <div
           v-if="headerSubtitle"
@@ -321,12 +321,12 @@
               :class="b.chipClass"
             >
               <span class="w-1.5 h-1.5 rounded-full" :class="b.dotClass" />
-              <span class="tabular-nums">{{ b.count }}</span>
+              <span class="font-mono tabular-nums">{{ b.count }}</span>
               <span>{{ b.label }}</span>
             </span>
           </div>
           <div v-if="totalDurationLabel" class="text-[11.5px] text-content-muted">
-            Total compute time: <span class="text-content tabular-nums">{{ totalDurationLabel }}</span>
+            Total compute time: <span class="font-mono text-content-tertiary tabular-nums">{{ totalDurationLabel }}</span>
           </div>
           <div v-if="failedIterIdxs.length > 0">
             <div class="text-xs font-semibold text-content-secondary mb-1">Failed iterations</div>
@@ -457,6 +457,7 @@ import FlowInputForm from './FlowInputForm.vue'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'
 import { shouldShowEquationDuration } from '../../utils/equationDuration'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
+import { bgClass, textClass, dotClass, mapEquationStatus, rowBgClass } from '../../utils/statusColors'
 
 interface Props {
   equation: FlowEquation | null
@@ -762,47 +763,50 @@ const refTarget = computed<{ kind: 'equation' | 'iteration'; key: string } | nul
 })
 
 // ---- Status badge ----
+// Sentence case (STANDARDS §1.5: the all-caps micro-label device is
+// retired app-wide). Label vocabulary/branching is unchanged — only the
+// casing and the resulting badge color (now sourced from statusColors.ts)
+// changed.
 const statusLabel = computed<string | null>(() => {
   if (props.superNode && props.focusedIterIdx == null) {
     const stats = statusBuckets.value
-    if (stats.length === 0) return 'EMPTY'
-    if (stats.find((s) => s.label === 'Failed')) return 'HAS FAILURES'
-    if (stats.find((s) => s.label === 'Your turn')) return 'YOUR TURN'
-    if (stats.find((s) => s.label === 'Running')) return 'RUNNING'
-    if (stats.find((s) => s.label === 'Done')?.count === props.superNode!.iterCount) return 'DONE'
-    return 'PENDING'
+    if (stats.length === 0) return 'Empty'
+    if (stats.find((s) => s.label === 'Failed')) return 'Has failures'
+    if (stats.find((s) => s.label === 'Your turn')) return 'Your turn'
+    if (stats.find((s) => s.label === 'Running')) return 'Running'
+    if (stats.find((s) => s.label === 'Done')?.count === props.superNode!.iterCount) return 'Done'
+    return 'Pending'
   }
   if (focusedSlotIteration.value) {
     switch (slotState.value) {
-      case 'awaiting':   return 'YOUR TURN'
-      case 'approved':   return 'APPROVED'
-      case 'computing':  return 'RUNNING'
-      case 'failed':     return 'FAILED'
-      default:           return 'PENDING'
+      case 'awaiting':   return 'Your turn'
+      case 'approved':   return 'Approved'
+      case 'computing':  return 'Running'
+      case 'failed':     return 'Failed'
+      default:           return 'Pending'
     }
   }
   switch (focusEquation.value?.status) {
-    case 'completed':      return 'DONE'
-    case 'computing':      return 'RUNNING'
-    case 'failed':         return 'FAILED'
-    case 'awaiting_input': return 'YOUR TURN'
-    case 'skipped':        return 'SKIPPED'
-    case 'invalidated':    return 'STALE'
-    case 'pending':        return 'QUEUED'
+    case 'completed':      return 'Done'
+    case 'computing':      return 'Running'
+    case 'failed':         return 'Failed'
+    case 'awaiting_input': return 'Your turn'
+    case 'skipped':        return 'Skipped'
+    case 'invalidated':    return 'Stale'
+    case 'pending':        return 'Queued'
     default:               return null
   }
 })
 
 const statusBadgeClass = computed<string>(() => {
-  const l = statusLabel.value
-  switch (l) {
-    case 'DONE':
-    case 'APPROVED':     return 'bg-green-500/15 text-green-400'
-    case 'RUNNING':      return 'bg-blue-500/15 text-blue-400'
-    case 'FAILED':
-    case 'HAS FAILURES': return 'bg-red-500/15 text-red-400'
-    case 'YOUR TURN':    return 'bg-purple-500/15 text-purple-400'
-    case 'STALE':        return 'bg-yellow-500/15 text-yellow-400'
+  switch (statusLabel.value) {
+    case 'Done':
+    case 'Approved':     return `${bgClass('done')} ${textClass('done')}`
+    case 'Running':      return `${bgClass('running')} ${textClass('running')}`
+    case 'Failed':
+    case 'Has failures': return `${bgClass('failed')} ${textClass('failed')}`
+    case 'Your turn':    return `${bgClass('awaiting')} ${textClass('awaiting')}`
+    case 'Stale':        return `${bgClass('warning')} ${textClass('warning')}`
     default:             return 'bg-overlay-subtle text-content-muted'
   }
 })
@@ -1216,25 +1220,11 @@ function statusTextFor(status?: string | null): string {
 }
 
 function statusClassFor(status?: string | null): string {
-  switch (status) {
-    case 'completed': return 'text-green-500'
-    case 'failed': return 'text-red-400'
-    case 'computing': return 'text-blue-400'
-    case 'awaiting_input': return 'text-purple-400'
-    case 'invalidated': return 'text-yellow-400'
-    default: return 'text-content-muted'
-  }
+  return textClass(mapEquationStatus(status))
 }
 
 function dotClassFor(status?: string | null): string {
-  switch (status) {
-    case 'completed': return 'bg-green-500'
-    case 'failed': return 'bg-red-400'
-    case 'computing': return 'bg-blue-400'
-    case 'awaiting_input': return 'bg-purple-400'
-    case 'invalidated': return 'bg-yellow-400'
-    default: return 'bg-content-muted'
-  }
+  return dotClass(mapEquationStatus(status))
 }
 
 function placeholderTitle(status?: string | null): string {
@@ -1252,11 +1242,9 @@ function placeholderBody(status?: string | null): string {
 }
 
 function placeholderClass(status?: string | null): string {
-  switch (status) {
-    case 'failed': return 'bg-red-500/5 text-red-400'
-    case 'computing': return 'bg-blue-500/5 text-blue-400'
-    default: return 'bg-overlay-faint text-content-muted'
-  }
+  const bucket = mapEquationStatus(status)
+  if (bucket === 'queued') return 'bg-overlay-faint text-content-muted'
+  return `${rowBgClass(bucket)} ${textClass(bucket)}`
 }
 
 function placeholderIconPath(status?: string | null): string {
@@ -1373,13 +1361,17 @@ const statusBuckets = computed(() => {
     else if (s === 'skipped') counts.skipped++
     else counts.pending++
   }
+  // Chip border+bg stay a bespoke bordered-pill treatment (not one of the
+  // shared row/badge opacity maps); dot + text colors route through
+  // statusColors.ts. `animate-pulse` on a status dot is a banned pattern
+  // (STANDARDS §4) — the running chip's dot uses pulse-soft instead.
   return [
-    { label: 'Done',      count: counts.completed, chipClass: 'border-green-500/40 bg-green-500/10 text-green-400',     dotClass: 'bg-green-500' },
-    { label: 'Running',   count: counts.computing, chipClass: 'border-blue-500/40 bg-blue-500/10 text-blue-400',        dotClass: 'bg-blue-500 animate-pulse' },
-    { label: 'Your turn', count: counts.awaiting,  chipClass: 'border-purple-500/40 bg-purple-500/10 text-purple-400',  dotClass: 'bg-purple-500' },
-    { label: 'Failed',    count: counts.failed,    chipClass: 'border-red-500/40 bg-red-500/10 text-red-400',           dotClass: 'bg-red-500' },
-    { label: 'Pending',   count: counts.pending,   chipClass: 'border-edge-subtle bg-overlay-subtle text-content-muted', dotClass: 'bg-zinc-500/60' },
-    { label: 'Skipped',   count: counts.skipped,   chipClass: 'border-edge-subtle bg-overlay-subtle text-content-muted/80', dotClass: 'bg-zinc-600/50' },
+    { label: 'Done',      count: counts.completed, chipClass: `border-green-500/40 ${bgClass('done')} ${textClass('done')}`,     dotClass: dotClass('done') },
+    { label: 'Running',   count: counts.computing, chipClass: `border-blue-500/40 ${bgClass('running')} ${textClass('running')}`, dotClass: `${dotClass('running')} animate-pulse-soft` },
+    { label: 'Your turn', count: counts.awaiting,  chipClass: `border-purple-500/40 ${bgClass('awaiting')} ${textClass('awaiting')}`, dotClass: dotClass('awaiting') },
+    { label: 'Failed',    count: counts.failed,    chipClass: `border-red-500/40 ${bgClass('failed')} ${textClass('failed')}`,    dotClass: dotClass('failed') },
+    { label: 'Pending',   count: counts.pending,   chipClass: 'border-edge-subtle bg-overlay-subtle text-content-muted', dotClass: dotClass('queued') },
+    { label: 'Skipped',   count: counts.skipped,   chipClass: 'border-edge-subtle bg-overlay-subtle text-content-muted/80', dotClass: dotClass('skipped') },
   ].filter((b) => b.count > 0)
 })
 

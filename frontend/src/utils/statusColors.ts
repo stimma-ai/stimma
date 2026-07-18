@@ -127,6 +127,89 @@ export function mapEquationStatus(status: string | null | undefined): StatusBuck
   }
 }
 
+// A pending GroupedIteration's blockReason (why it hasn't started) — a
+// second dimension layered on top of 'pending' status in IterationCard /
+// FlowIterationRow / SlotApproveRow. Mapped to the same bucket vocabulary so
+// a pending row's tint still comes from one map: 'human' reads as the
+// upstream HITL it's waiting on (awaiting/purple), 'error' as the upstream
+// failure it's blocked behind (failed/red), 'tool' as the non-fatal
+// provider wait (warning/amber), 'cap' as "ready, just waiting for a slot"
+// (running/blue, dimmed), and plain upstream compute as the default queued
+// (zinc).
+export type BlockReason = 'human' | 'error' | 'tool' | 'cap' | 'compute' | null | undefined
+export function mapBlockReason(reason: BlockReason): StatusBucket {
+  switch (reason) {
+    case 'human': return 'awaiting'
+    case 'error': return 'failed'
+    case 'tool':  return 'warning'
+    case 'cap':   return 'running'
+    default:      return 'queued'
+  }
+}
+
+// Card/row border+ring frame for iteration tiles and rows (IterationCard,
+// FlowIterationRow, SlotApproveRow) — grandfathered as the media-tile
+// exception to the depth-budget rule (STANDARDS §3.1 follow-up), so the
+// card structure and opacity levels stay; only the bucket→color mapping is
+// centralized here. `dimmed` is for a pending row whose blockReason echoes
+// an upstream bucket at reduced opacity (nothing to act on yet).
+const CARD_FRAME_STRONG: Record<StatusBucket, string> = {
+  queued:   'border-edge-subtle hover:border-content-muted/60',
+  running:  'border-blue-500/40',
+  special:  'border-purple-500/50 ring-1 ring-purple-500/30',
+  awaiting: 'border-purple-500/50 ring-1 ring-purple-500/30',
+  done:     'border-edge-subtle hover:border-content-muted/60',
+  failed:   'border-red-500/50',
+  warning:  'border-amber-500/30 hover:border-amber-500/45',
+  paused:   'border-amber-500/30 hover:border-amber-500/45',
+  skipped:  'border-edge-subtle hover:border-content-muted/60',
+}
+const CARD_FRAME_DIMMED: Record<StatusBucket, string> = {
+  queued:   'border-edge-subtle hover:border-content-muted/60',
+  running:  'border-blue-500/25 hover:border-blue-500/40',
+  special:  'border-purple-500/25 hover:border-purple-500/40',
+  awaiting: 'border-purple-500/25 hover:border-purple-500/40',
+  done:     'border-edge-subtle hover:border-content-muted/60',
+  failed:   'border-red-500/25 hover:border-red-500/40',
+  warning:  'border-amber-500/30 hover:border-amber-500/45',
+  paused:   'border-amber-500/30 hover:border-amber-500/45',
+  skipped:  'border-edge-subtle hover:border-content-muted/60',
+}
+export function cardFrameClass(bucket: StatusBucket, dimmed = false): string {
+  return dimmed ? CARD_FRAME_DIMMED[bucket] : CARD_FRAME_STRONG[bucket]
+}
+
+// Tile placeholder background (IterationCard's no-media state) — /10 for
+// the row's own state, a faint /[0.06] for a dimmed pending tile.
+const TILE_BG_STRONG: Record<StatusBucket, string> = {
+  queued: 'bg-overlay-faint', running: 'bg-overlay-faint', special: 'bg-purple-500/10',
+  awaiting: 'bg-purple-500/10', done: 'bg-overlay-faint', failed: 'bg-red-500/10',
+  warning: 'bg-overlay-faint', paused: 'bg-overlay-faint', skipped: 'bg-overlay-faint',
+}
+const TILE_BG_DIMMED: Record<StatusBucket, string> = {
+  queued: 'bg-overlay-faint', running: 'bg-blue-500/[0.06]', special: 'bg-purple-500/[0.06]',
+  awaiting: 'bg-purple-500/[0.06]', done: 'bg-overlay-faint', failed: 'bg-red-500/[0.06]',
+  warning: 'bg-amber-500/[0.06]', paused: 'bg-amber-500/[0.06]', skipped: 'bg-overlay-faint',
+}
+export function tileBgClass(bucket: StatusBucket, dimmed = false): string {
+  return dimmed ? TILE_BG_DIMMED[bucket] : TILE_BG_STRONG[bucket]
+}
+
+// Row wash background (FlowIterationRow's full-width body, SlotApproveRow's
+// frame) — /5 for the row's own state, a faint /[0.04] for a dimmed
+// pending row.
+const ROW_BG_STRONG: Record<StatusBucket, string> = {
+  queued: '', running: 'bg-blue-500/5', special: 'bg-purple-500/5', awaiting: 'bg-purple-500/5',
+  done: '', failed: 'bg-red-500/5', warning: 'bg-amber-500/5', paused: 'bg-amber-500/5', skipped: '',
+}
+const ROW_BG_DIMMED: Record<StatusBucket, string> = {
+  queued: '', running: 'bg-blue-500/[0.04]', special: 'bg-purple-500/[0.04]', awaiting: 'bg-purple-500/[0.04]',
+  done: '', failed: 'bg-red-500/[0.04]', warning: 'bg-amber-500/[0.04]', paused: 'bg-amber-500/[0.04]', skipped: '',
+}
+export function rowBgClass(bucket: StatusBucket, dimmed = false): string {
+  return dimmed ? ROW_BG_DIMMED[bucket] : ROW_BG_STRONG[bucket]
+}
+
 // Flow status vocabulary, as derived by useFlowStatus.ts's
 // deriveFlowStatusLabel: Idle / Paused / Running / Your Turn / Waiting /
 // Error / Done. 'Waiting' is the upstream-blocked-on-a-missing-tool case —

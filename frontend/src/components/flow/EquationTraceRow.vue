@@ -18,7 +18,7 @@
       />
       <span
         v-else-if="equation.status === 'computing' && isPaused"
-        class="text-yellow-400/80 text-[11px] flex-shrink-0"
+        class="text-amber-400/80 text-[11px] flex-shrink-0"
         :title="'Paused'"
       >⏸</span>
       <svg
@@ -44,7 +44,7 @@
       />
       <svg
         v-else-if="equation.status === 'invalidated'"
-        class="w-3.5 h-3.5 text-yellow-500 flex-shrink-0"
+        class="w-3.5 h-3.5 text-amber-500 flex-shrink-0"
         fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
       >
         <title>Stale — needs re-run</title>

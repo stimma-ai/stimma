@@ -73,11 +73,11 @@
       >
         <span
           v-if="iterIndexLabel"
-          class="text-[10px] tabular-nums text-content-muted/80 mt-0.5"
+          class="font-mono text-[10px] tabular-nums text-content-tertiary/80 mt-0.5"
         >#{{ iterIndexLabel }}</span>
         <span
           v-if="durationLabel"
-          class="text-[10px] tabular-nums text-content-muted mt-0.5"
+          class="font-mono text-[10px] tabular-nums text-content-tertiary mt-0.5"
         >{{ durationLabel }}</span>
         <button
           v-if="invalidateKey"
@@ -110,6 +110,7 @@ import type { GroupedIteration } from '../../composables/useFlowGrouping'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'
 import { shouldShowEquationDuration } from '../../utils/equationDuration'
 import { parseFlowError } from '../../utils/flowErrors'
+import { mapEquationStatus, mapBlockReason, cardFrameClass, rowBgClass } from '../../utils/statusColors'
 
 interface Props {
   iteration: GroupedIteration
@@ -204,41 +205,19 @@ const durationLabel = computed<string | null>(() => {
   return secs ? `${mins}m ${secs}s` : `${mins}m`
 })
 
-// Background tint mirrors the tile placeholder's reason-specific
-// shading so a row stack reads with the same color vocabulary as a
-// tile grid (purple = waiting on you, red = failed, etc.).
+// Background tint mirrors IterationCard's reason-specific shading so a row
+// stack reads with the same color vocabulary as a tile grid (purple =
+// waiting on you, red = failed, etc.). Colors come from statusColors.ts.
 const bodyBgClass = computed<string>(() => {
   const status = props.iteration.status
-  if (status === 'failed') return 'bg-red-500/5'
-  if (status === 'awaiting_input') return 'bg-purple-500/5'
-  if (status === 'computing') return 'bg-blue-500/5'
-  if (status === 'pending') {
-    switch (props.iteration.blockReason) {
-      case 'human': return 'bg-purple-500/[0.04]'
-      case 'error': return 'bg-red-500/[0.04]'
-      case 'tool':  return 'bg-amber-500/[0.04]'
-      case 'cap':   return 'bg-blue-500/[0.04]'
-      default:      return ''
-    }
-  }
-  return ''
+  if (status === 'pending') return rowBgClass(mapBlockReason(props.iteration.blockReason), true)
+  return rowBgClass(mapEquationStatus(status))
 })
 
 const rootClass = computed(() => {
-  const base = 'border-edge-subtle hover:border-content-muted/60'
-  if (props.iteration.isActionable) return 'border-purple-500/50 ring-1 ring-purple-500/30'
-  if (props.iteration.hasError) return 'border-red-500/50'
-  if (props.iteration.status === 'computing') return 'border-blue-500/40'
-  if (props.iteration.status === 'awaiting_input') return 'border-purple-500/50 ring-1 ring-purple-500/30'
-  if (props.iteration.status === 'pending') {
-    switch (props.iteration.blockReason) {
-      case 'human': return 'border-purple-500/25 hover:border-purple-500/40'
-      case 'error': return 'border-red-500/25 hover:border-red-500/40'
-      case 'tool':  return 'border-amber-500/30 hover:border-amber-500/45'
-      case 'cap':   return 'border-blue-500/25 hover:border-blue-500/40'
-      default:      return base
-    }
-  }
-  return base
+  if (props.iteration.isActionable) return cardFrameClass('awaiting')
+  if (props.iteration.hasError) return cardFrameClass('failed')
+  if (props.iteration.status === 'pending') return cardFrameClass(mapBlockReason(props.iteration.blockReason), true)
+  return cardFrameClass(mapEquationStatus(props.iteration.status))
 })
 </script>

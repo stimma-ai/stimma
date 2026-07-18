@@ -16,26 +16,29 @@
       Showing saved step details.
     </div>
 
-    <!-- LLM trace -->
+    <!-- LLM trace — labeled text panes, hairline-separated. No box-in-wash:
+         this body already renders inside the row's wash inset. -->
     <template v-if="trace.equation_type === 'llm_call'">
       <div v-if="trace.model" class="text-[11px] text-content-muted">
         Model: <span class="text-content font-mono">{{ trace.model }}</span>
       </div>
-      <div v-if="trace.system || trace.system_template">
-        <div class="text-xs font-semibold text-content-secondary mb-0.5">
-          {{ trace.detail_availability === 'serialized' ? 'System template' : 'System' }}
+      <div class="divide-y divide-edge-subtle">
+        <div v-if="trace.system || trace.system_template" class="py-2 first:pt-0">
+          <div class="text-xs text-content-tertiary mb-1">
+            {{ trace.detail_availability === 'serialized' ? 'System template' : 'System' }}
+          </div>
+          <pre class="text-[11px] font-mono text-content-secondary whitespace-pre-wrap select-text" :class="scrollBlockClass('max-h-48')">{{ trace.system || trace.system_template }}</pre>
         </div>
-        <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5 select-text" :class="scrollBlockClass('max-h-48')">{{ trace.system || trace.system_template }}</pre>
-      </div>
-      <div>
-        <div class="text-xs font-semibold text-content-secondary mb-0.5">
-          {{ trace.detail_availability === 'serialized' ? 'Prompt template' : 'Prompt' }}
+        <div class="py-2 first:pt-0">
+          <div class="text-xs text-content-tertiary mb-1">
+            {{ trace.detail_availability === 'serialized' ? 'Prompt template' : 'Prompt' }}
+          </div>
+          <pre class="text-[11px] font-mono text-content-secondary whitespace-pre-wrap select-text" :class="scrollBlockClass('max-h-64')">{{ trace.prompt || trace.prompt_template || '(empty)' }}</pre>
         </div>
-        <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5 select-text" :class="scrollBlockClass('max-h-64')">{{ trace.prompt || trace.prompt_template || '(empty)' }}</pre>
-      </div>
-      <div v-if="trace.result !== undefined && trace.result !== null">
-        <div class="text-xs font-semibold text-content-secondary mb-0.5">Response</div>
-        <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5 select-text" :class="scrollBlockClass('max-h-64')">{{ formatResult(trace.result) }}</pre>
+        <div v-if="trace.result !== undefined && trace.result !== null" class="py-2 last:pb-0">
+          <div class="text-xs text-content-tertiary mb-1">Response</div>
+          <pre class="text-[11px] font-mono text-content-secondary whitespace-pre-wrap select-text" :class="scrollBlockClass('max-h-64')">{{ formatResult(trace.result) }}</pre>
+        </div>
       </div>
     </template>
 
@@ -53,9 +56,9 @@
         <div v-if="codeBodyLine" class="text-[12px] text-content">{{ codeBodyLine }}</div>
         <div
           v-if="codeResultValue !== undefined && codeResultValue !== null"
-          class="rounded-md border border-edge-subtle bg-overlay-faint px-3 py-2"
+          :class="codeBodyLine ? 'mt-2 pt-2 border-t border-edge-subtle' : ''"
         >
-          <div class="text-xs font-semibold text-content-secondary mb-1">Result</div>
+          <div class="text-xs text-content-tertiary mb-1">Result</div>
           <FlowResultPreview
             :value="codeResultValue"
             :max-lines="10"
@@ -73,7 +76,7 @@
         <div
           v-for="i in outputPlaceholderCount"
           :key="i"
-          class="w-24 h-24 rounded-md border border-edge-subtle overflow-hidden bg-overlay-subtle flex items-center justify-center"
+          class="w-24 h-24 rounded-media overflow-hidden bg-matte flex items-center justify-center"
         >
           <FlowMediaTile
             v-if="toolResultMediaIds[i - 1] != null"
@@ -91,7 +94,7 @@
           />
           <span
             v-else-if="equation.status === 'computing' && isPaused"
-            class="text-yellow-400/80 text-[13px]"
+            class="text-amber-400/80 text-[13px]"
           >⏸</span>
           <svg
             v-else-if="equation.status === 'failed'"
@@ -134,7 +137,7 @@
           :href="r.source || r.image_url"
           target="_blank"
           rel="noopener noreferrer"
-          class="block w-20 h-20 rounded border border-edge-subtle overflow-hidden bg-overlay-subtle hover:border-edge transition-colors"
+          class="block w-20 h-20 rounded-media overflow-hidden bg-matte hover:ring-1 hover:ring-edge transition-colors"
           :title="r.title || r.source || ''"
         >
           <AppImage
@@ -187,12 +190,12 @@
         {{ assemblyInfo }}
       </div>
       <div v-if="toolResultMediaIds.length > 0">
-        <div class="text-xs font-semibold text-content-secondary mb-0.5">Result</div>
+        <div class="text-xs text-content-tertiary mb-1">Result</div>
         <div class="flex flex-wrap gap-2">
           <div
             v-for="mid in toolResultMediaIds"
             :key="mid"
-            class="w-32 h-32 rounded-md border border-edge-subtle overflow-hidden bg-overlay-subtle"
+            class="w-32 h-32 rounded-media overflow-hidden bg-matte"
           >
             <FlowMediaTile
               :media-id="mid"
@@ -213,7 +216,7 @@
         <div
           v-for="mid in toolResultMediaIds"
           :key="mid"
-          class="w-48 h-48 rounded-md border border-edge-subtle overflow-hidden bg-overlay-subtle"
+          class="w-48 h-48 rounded-media overflow-hidden bg-matte"
         >
           <FlowMediaTile
             :media-id="mid"
@@ -234,8 +237,8 @@
         Format: <span class="text-content font-mono">{{ documentFormat }}</span>
       </div>
       <div v-if="documentContent">
-        <div class="text-xs font-semibold text-content-secondary mb-0.5">Preview</div>
-        <pre class="text-[11px] whitespace-pre-wrap font-mono bg-overlay-subtle rounded px-2 py-1.5 select-text" :class="scrollBlockClass('max-h-64')">{{ documentContent }}</pre>
+        <div class="text-xs text-content-tertiary mb-1">Preview</div>
+        <pre class="text-[11px] font-mono text-content-secondary whitespace-pre-wrap select-text" :class="scrollBlockClass('max-h-64')">{{ documentContent }}</pre>
       </div>
       <div v-else-if="toolResultMediaIds.length > 0" class="text-[11px] text-content-muted italic">
         Saved as media #{{ toolResultMediaIds[0] }}.
