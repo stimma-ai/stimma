@@ -5,18 +5,13 @@
       <p class="mt-1 text-xs text-content-tertiary">Debug tools and developer options</p>
     </div>
 
-    <div class="mt-8 space-y-9">
-      <!-- Developer Mode Toggle -->
-      <div class="flex items-start justify-between gap-6">
-        <div class="min-w-0 max-w-xl">
-          <h4 class="text-sm font-medium text-content">Developer Mode</h4>
-          <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Show debug tools and additional developer options throughout the UI</p>
-        </div>
+    <div class="mt-6 max-w-[680px]">
+      <SettingRow label="Developer Mode" description="Show debug tools and additional developer options throughout the UI">
         <button
           @click="toggleDeveloperMode"
           :class="[
-            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface',
-            localDevMode ? 'bg-blue-600' : 'bg-surface-hover'
+            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 ring-accent/60 ring-offset-1 ring-offset-surface',
+            localDevMode ? 'bg-accent' : 'bg-surface-hover'
           ]"
         >
           <span
@@ -26,21 +21,17 @@
             ]"
           />
         </button>
-      </div>
+      </SettingRow>
 
       <!-- Dev-only tools -->
       <template v-if="localDevMode">
         <!-- Hide Prices Toggle (for marketing screenshots) -->
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0 max-w-xl">
-            <h4 class="text-sm font-medium text-content">Hide Prices</h4>
-            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Hide all price/cost display throughout the UI</p>
-          </div>
+        <SettingRow label="Hide Prices" description="Hide all price/cost display throughout the UI">
           <button
             @click="toggleHidePrices"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface',
-              hidePricesRef ? 'bg-blue-600' : 'bg-surface-hover'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 ring-accent/60 ring-offset-1 ring-offset-surface',
+              hidePricesRef ? 'bg-accent' : 'bg-surface-hover'
             ]"
           >
             <span
@@ -50,19 +41,15 @@
               ]"
             />
           </button>
-        </div>
+        </SettingRow>
 
         <!-- Hide Account Toggle (for marketing screenshots) -->
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0 max-w-xl">
-            <h4 class="text-sm font-medium text-content">Hide Account</h4>
-            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Show the signed-out sidebar footer instead of the account chip</p>
-          </div>
+        <SettingRow label="Hide Account" description="Show the signed-out sidebar footer instead of the account chip">
           <button
             @click="toggleHideAccount"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface',
-              hideAccountRef ? 'bg-blue-600' : 'bg-surface-hover'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 ring-accent/60 ring-offset-1 ring-offset-surface',
+              hideAccountRef ? 'bg-accent' : 'bg-surface-hover'
             ]"
           >
             <span
@@ -72,19 +59,15 @@
               ]"
             />
           </button>
-        </div>
+        </SettingRow>
 
         <!-- Force FFmpeg Missing Toggle (for taking screenshots of the warning UI) -->
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0 max-w-xl">
-            <h4 class="text-sm font-medium text-content">Force FFmpeg Missing</h4>
-            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Pretend FFmpeg isn't installed, to preview the missing-FFmpeg warning</p>
-          </div>
+        <SettingRow label="Force FFmpeg Missing" description="Pretend FFmpeg isn't installed, to preview the missing-FFmpeg warning">
           <button
             @click="toggleForceFfmpegMissing"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface',
-              localForceFfmpegMissing ? 'bg-blue-600' : 'bg-surface-hover'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 ring-accent/60 ring-offset-1 ring-offset-surface',
+              localForceFfmpegMissing ? 'bg-accent' : 'bg-surface-hover'
             ]"
           >
             <span
@@ -94,98 +77,35 @@
               ]"
             />
           </button>
-        </div>
+        </SettingRow>
 
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0 max-w-xl">
-            <h4 class="text-sm font-medium text-content">Request Metrics</h4>
-            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Inspect endpoint latency percentiles for recent requests</p>
-          </div>
-          <button
-            @click="openRequestMetricsModal"
-            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
-          >
-            Open Request Metrics
-          </button>
-        </div>
+        <SettingRow label="Request Metrics" description="Inspect endpoint latency percentiles for recent requests">
+          <Button variant="ghost" size="sm" @click="openRequestMetricsModal">Open Request Metrics</Button>
+        </SettingRow>
 
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0 max-w-xl">
-            <h4 class="text-sm font-medium text-content">Reset Welcome Screen</h4>
-            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Clear the welcome screen completion flag and show it again</p>
-          </div>
-          <button
-            @click="resetOnboarding"
-            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
-          >
-            Show Welcome Screen
-          </button>
-        </div>
+        <SettingRow label="Reset Welcome Screen" description="Clear the welcome screen completion flag and show it again">
+          <Button variant="ghost" size="sm" @click="resetOnboarding">Show Welcome Screen</Button>
+        </SettingRow>
 
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0 max-w-xl">
-            <h4 class="text-sm font-medium text-content">Run Setup Wizard</h4>
-            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Clear the shown-once flag and open the AI setup wizard</p>
-          </div>
-          <button
-            @click="runSetupWizard"
-            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
-          >
-            Run Wizard
-          </button>
-        </div>
+        <SettingRow label="Run Setup Wizard" description="Clear the shown-once flag and open the AI setup wizard">
+          <Button variant="ghost" size="sm" @click="runSetupWizard">Run Wizard</Button>
+        </SettingRow>
 
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0 max-w-xl">
-            <h4 class="text-sm font-medium text-content">Preview What's New</h4>
-            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Show the What's New pill with the latest published release notes</p>
-          </div>
-          <button
-            @click="previewWhatsNew"
-            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
-          >
-            Show Pill
-          </button>
-        </div>
+        <SettingRow label="Preview What's New" description="Show the What's New pill with the latest published release notes">
+          <Button variant="ghost" size="sm" @click="previewWhatsNew">Show Pill</Button>
+        </SettingRow>
 
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0 max-w-xl">
-            <h4 class="text-sm font-medium text-content">Replay First-Run Tour</h4>
-            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Run the sidebar coachmark tour again (Chats, Tools, Feedback)</p>
-          </div>
-          <button
-            @click="replayTour"
-            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
-          >
-            Replay Tour
-          </button>
-        </div>
+        <SettingRow label="Replay First-Run Tour" description="Run the sidebar coachmark tour again (Chats, Tools, Feedback)">
+          <Button variant="ghost" size="sm" @click="replayTour">Replay Tour</Button>
+        </SettingRow>
 
-        <div v-if="isTauri()" class="flex items-start justify-between gap-6">
-          <div class="min-w-0 max-w-xl">
-            <h4 class="text-sm font-medium text-content">Set Window Size to 1440×900</h4>
-            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Resize the window to a logical 1440×900</p>
-          </div>
-          <button
-            @click="setWindowSize1440x900"
-            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
-          >
-            Set 1440×900
-          </button>
-        </div>
+        <SettingRow v-if="isTauri()" label="Set Window Size to 1440×900" description="Resize the window to a logical 1440×900">
+          <Button variant="ghost" size="sm" @click="setWindowSize1440x900">Set 1440×900</Button>
+        </SettingRow>
 
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0 max-w-xl">
-            <h4 class="text-sm font-medium text-content">Database maintenance</h4>
-            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Analyze and safely clean historical SQLite foreign-key debris for the current profile</p>
-          </div>
-          <button
-            class="shrink-0 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
-            @click="showDatabaseCleanupModal = true"
-          >
-            Open maintenance
-          </button>
-        </div>
+        <SettingRow label="Database maintenance" description="Analyze and safely clean historical SQLite foreign-key debris for the current profile">
+          <Button variant="ghost" size="sm" @click="showDatabaseCleanupModal = true">Open maintenance</Button>
+        </SettingRow>
       </template>
     </div>
 
@@ -242,7 +162,7 @@
           <button
             @click="toggleAutoRefresh"
             class="px-3 py-1.5 text-xs font-medium rounded border transition-all"
-            :class="metricsAutoRefresh ? 'bg-blue-500/15 border-blue-500/50 text-blue-500' : 'bg-surface-raised border-edge text-content-secondary hover:border-edge hover:bg-surface'"
+            :class="metricsAutoRefresh ? 'bg-accent/15 border-accent/50 text-accent' : 'bg-surface-raised border-edge text-content-secondary hover:border-edge hover:bg-surface'"
           >
             Auto-refresh {{ metricsAutoRefresh ? 'On' : 'Off' }}
           </button>
@@ -332,6 +252,8 @@ import { makeGlobalKey } from '../../../utils/storageKeys'
 import { hideAccountRef, hidePricesRef, setHideAccount, setHidePrices } from '../../../appConfig'
 import { isTauri } from '../../../apiConfig'
 import DatabaseCleanupModal from '../DatabaseCleanupModal.vue'
+import SettingRow from '../SettingRow.vue'
+import Button from '../../ui/Button.vue'
 
 const props = defineProps({
   developerMode: {

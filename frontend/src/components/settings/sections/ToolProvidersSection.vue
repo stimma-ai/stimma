@@ -11,9 +11,9 @@
 
     <div
       v-if="setupRequired && !wizard"
-      class="mb-6 flex w-full items-center gap-3 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-4 py-3"
+      class="mb-6 flex w-full items-center gap-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3"
     >
-      <span class="h-2 w-2 shrink-0 rounded-full bg-yellow-400"></span>
+      <span class="h-2 w-2 shrink-0 rounded-full bg-amber-400"></span>
       <p class="text-sm text-content-secondary">Connect generation tools to generate media.</p>
     </div>
 
@@ -627,7 +627,7 @@
                   <span v-if="toolsModal.provider.queue_status" class="ml-2">
                     <span class="text-content-muted">|</span>
                     <span class="text-green-500 ml-2">running:</span> {{ toolsModal.provider.queue_status.running ?? 0 }}
-                    <span class="text-yellow-400 ml-2">queued:</span> {{ toolsModal.provider.queue_status.queued ?? 0 }}
+                    <span class="text-amber-400 ml-2">queued:</span> {{ toolsModal.provider.queue_status.queued ?? 0 }}
                     <span class="text-content-tertiary ml-2">capacity:</span> {{ toolsModal.provider.queue_status.capacity ?? 0 }}
                   </span>
                 </div>
@@ -936,7 +936,7 @@ const cloudRowStatusLabel = computed(() => {
   return providerStatusLabel(cloudProvider.value)
 })
 const cloudRowStatusClass = computed(() => {
-  if (cloudConnectedWithoutCredits.value) return 'text-yellow-400'
+  if (cloudConnectedWithoutCredits.value) return 'text-amber-400'
   if (cloudReady.value) return 'text-green-400'
   return providerRowStatusClass(cloudProvider.value)
 })
@@ -1009,9 +1009,9 @@ const formattedSelectedProviderError = computed(() => formatToolProviderConnecti
 function providerStatusDotClass(provider) {
   if (!provider || provider.enabled === false) return 'bg-zinc-500'
   if (provider.status === 'connected') return 'bg-green-500'
-  if (provider.status === 'connecting') return 'bg-yellow-400'
+  if (provider.status === 'connecting') return 'bg-amber-400'
   if (isProviderConnectionError(provider)) return 'bg-red-500'
-  if (provider.status === 'disconnected') return 'bg-yellow-400'
+  if (provider.status === 'disconnected') return 'bg-amber-400'
   return 'bg-zinc-500'
 }
 
@@ -1045,7 +1045,7 @@ function providerConnectionErrorTitle(provider) {
 
 function providerRowStatusClass(provider) {
   if (provider?.enabled === false) return 'text-content-muted'
-  if (provider?.status === 'connecting') return 'text-yellow-300'
+  if (provider?.status === 'connecting') return 'text-amber-300'
   if (isProviderConnectionError(provider)) return 'text-red-400'
   return 'text-content-muted'
 }
@@ -1080,7 +1080,7 @@ function providerConnectionStatus(provider) {
 function providerConnectionStatusClass(provider) {
   if (provider?.enabled === false) return 'text-content-muted'
   if (provider?.status === 'connected') return 'text-green-400'
-  if (provider?.status === 'connecting') return 'text-yellow-300'
+  if (provider?.status === 'connecting') return 'text-amber-300'
   if (isProviderConnectionError(provider)) return 'text-red-400'
   return provider?.id === 'stimma-cloud' && !isAuthenticated.value ? 'text-blue-400' : 'text-content-muted'
 }

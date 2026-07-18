@@ -6,51 +6,42 @@
       </div>
     </div>
 
-    <div class="mt-8 space-y-9">
-      <div v-if="isOfficial" class="flex items-start justify-between gap-4">
-        <div class="min-w-0 max-w-xl">
-          <h4 class="text-sm font-medium text-content">Usage Analytics</h4>
-          <p class="mt-1 text-xs leading-relaxed text-content-tertiary">
-            Help improve Stimma with first-party usage telemetry. Events do not include prompts, files, images, generation parameters, file names, or content you create. If you are signed in, telemetry can be associated with your Stimma account.
-          </p>
-          <p v-if="privacyLockdownActive" class="mt-1 text-xs text-content-tertiary">
-            Privacy Lockdown is active. Usage telemetry and Stimma services are disabled.
-          </p>
-        </div>
+    <div class="mt-6 max-w-[680px]">
+      <SettingRow v-if="isOfficial" label="Usage Analytics">
+        <template #description>
+          Help improve Stimma with first-party usage telemetry. Events do not include prompts, files, images, generation parameters, file names, or content you create. If you are signed in, telemetry can be associated with your Stimma account.
+          <span v-if="privacyLockdownActive" class="block mt-1">Privacy Lockdown is active. Usage telemetry and Stimma services are disabled.</span>
+        </template>
         <button
           @click="toggleTelemetry"
           :disabled="telemetrySaving || privacyLockdownActive"
           :aria-pressed="localTelemetryEnabled && !privacyLockdownActive"
-          class="relative ml-4 inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-60"
-          :class="localTelemetryEnabled && !privacyLockdownActive ? 'bg-blue-600' : 'bg-surface-hover'"
+          class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 ring-accent/60 ring-offset-1 ring-offset-surface disabled:opacity-60"
+          :class="localTelemetryEnabled && !privacyLockdownActive ? 'bg-accent' : 'bg-surface-hover'"
         >
           <span
             class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
             :class="localTelemetryEnabled && !privacyLockdownActive ? 'translate-x-5' : 'translate-x-0'"
           />
         </button>
-      </div>
-      <div v-else>
-        <h4 class="text-sm font-medium text-content">Usage Analytics</h4>
-        <p class="mt-0.5 text-xs leading-relaxed text-content-tertiary">
-          Telemetry is disabled in source builds and cannot send events.
-        </p>
+      </SettingRow>
+      <div v-else class="py-2.5 border-b border-edge-subtle">
+        <span class="block text-[13px] text-content">Usage Analytics</span>
+        <span class="block text-[11.5px] text-content-tertiary mt-0.5">Telemetry is disabled in source builds and cannot send events.</span>
       </div>
 
-      <div v-if="isOfficial">
-        <h4 class="text-sm font-medium text-content">Feedback Sharing</h4>
+      <div v-if="isOfficial" class="pt-4">
+        <div class="text-xs font-semibold text-content-secondary">Feedback Sharing</div>
         <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">
           Thumbs ratings include the conversation. Crash reports include the error, stack trace, and recent log lines.
         </p>
-        <div class="mt-6 space-y-5">
+        <div class="mt-4 space-y-5">
           <PrivacyFeedbackControls />
         </div>
       </div>
-      <div v-else>
-        <h4 class="text-sm font-medium text-content">Feedback Sharing</h4>
-        <p class="mt-0.5 text-xs leading-relaxed text-content-tertiary">
-          Sharing feedback is disabled in source builds.
-        </p>
+      <div v-else class="py-2.5">
+        <span class="block text-[13px] text-content">Feedback Sharing</span>
+        <span class="block text-[11.5px] text-content-tertiary mt-0.5">Sharing feedback is disabled in source builds.</span>
       </div>
     </div>
   </div>
@@ -61,6 +52,7 @@ import { ref, watch } from 'vue'
 import { getApiBase } from '../../../apiConfig'
 import { isOfficialBuild } from '../../../distribution'
 import PrivacyFeedbackControls from '@stimma/privacy-feedback-controls'
+import SettingRow from '../SettingRow.vue'
 
 const props = defineProps({
   telemetryEnabled: {

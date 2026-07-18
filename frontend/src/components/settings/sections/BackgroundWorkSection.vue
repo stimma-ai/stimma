@@ -9,89 +9,81 @@
       </p>
     </div>
 
-    <div class="mt-8 space-y-9">
+    <div class="mt-6 max-w-[680px]">
       <!-- Face Detection -->
-      <div>
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0 max-w-xl">
-            <h4 class="text-sm font-medium text-content">Face Detection</h4>
-            <p class="mt-1 text-xs leading-relaxed text-content-tertiary">
-              Automatically locates faces in your images. You can see detected faces on the Media Info pane, and face information is made available to the Chat system.
-            </p>
-          </div>
-          <label class="relative ml-4 inline-flex flex-shrink-0 cursor-pointer items-center">
-            <input
-              type="checkbox"
-              :checked="localSettings.face_detection.enabled"
-              @change="updateSetting('face_detection', 'enabled', $event.target.checked)"
-              class="sr-only peer"
-            />
-            <div class="w-9 h-5 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-          </label>
-        </div>
+      <SettingRow
+        label="Face Detection"
+        description="Automatically locates faces in your images. You can see detected faces on the Media Info pane, and face information is made available to the Chat system."
+      >
+        <label class="relative inline-flex flex-shrink-0 cursor-pointer items-center">
+          <input
+            type="checkbox"
+            :checked="localSettings.face_detection.enabled"
+            @change="updateSetting('face_detection', 'enabled', $event.target.checked)"
+            class="sr-only peer"
+          />
+          <div class="w-9 h-5 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent"></div>
+        </label>
+      </SettingRow>
 
-        <div v-if="localSettings.face_detection.enabled" class="mt-5 max-w-xl space-y-4 pl-4">
-          <div>
-            <label class="mb-1 block text-xs text-content-tertiary">
-              Parallelism: {{ localSettings.face_detection.parallelism }}
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="16"
-              :value="localSettings.face_detection.parallelism"
-              @input="updateSetting('face_detection', 'parallelism', parseInt($event.target.value))"
-              class="w-full accent-blue-500"
-            />
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-content-tertiary">
-              Confidence Threshold: {{ localSettings.face_detection.min_confidence.toFixed(2) }}
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              :value="localSettings.face_detection.min_confidence"
-              @input="updateSetting('face_detection', 'min_confidence', parseFloat($event.target.value))"
-              class="w-full accent-blue-500"
-            />
-          </div>
-          <div>
-            <label class="mb-1 block text-xs text-content-tertiary">
-              Max Faces to detect: {{ localSettings.face_detection.max_faces }}
-            </label>
-            <input
-              type="range"
-              min="1"
-              max="50"
-              :value="localSettings.face_detection.max_faces"
-              @input="updateSetting('face_detection', 'max_faces', parseInt($event.target.value))"
-              class="w-full accent-blue-500"
-            />
-          </div>
+      <div v-if="localSettings.face_detection.enabled" class="py-2.5 pl-4 space-y-4 border-b border-edge-subtle">
+        <div>
+          <label class="mb-1 block text-xs text-content-tertiary">
+            Parallelism: {{ localSettings.face_detection.parallelism }}
+          </label>
+          <input
+            type="range"
+            min="1"
+            max="16"
+            :value="localSettings.face_detection.parallelism"
+            @input="updateSetting('face_detection', 'parallelism', parseInt($event.target.value))"
+            class="w-full accent-accent"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-content-tertiary">
+            Confidence Threshold: {{ localSettings.face_detection.min_confidence.toFixed(2) }}
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            :value="localSettings.face_detection.min_confidence"
+            @input="updateSetting('face_detection', 'min_confidence', parseFloat($event.target.value))"
+            class="w-full accent-accent"
+          />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs text-content-tertiary">
+            Max Faces to detect: {{ localSettings.face_detection.max_faces }}
+          </label>
+          <input
+            type="range"
+            min="1"
+            max="50"
+            :value="localSettings.face_detection.max_faces"
+            @input="updateSetting('face_detection', 'max_faces', parseInt($event.target.value))"
+            class="w-full accent-accent"
+          />
         </div>
       </div>
 
       <!-- Visual Indexing -->
-      <div class="flex items-start justify-between gap-6">
-        <div class="min-w-0 max-w-xl">
-          <h4 class="text-sm font-medium text-content">Visual Indexing</h4>
-          <p class="mt-1 text-xs leading-relaxed text-content-tertiary">
-            Creates a visual fingerprint for each image. This enables natural language search and browsing similar images.
-          </p>
-        </div>
-        <label class="relative ml-4 inline-flex flex-shrink-0 cursor-pointer items-center">
+      <SettingRow
+        label="Visual Indexing"
+        description="Creates a visual fingerprint for each image. This enables natural language search and browsing similar images."
+      >
+        <label class="relative inline-flex flex-shrink-0 cursor-pointer items-center">
           <input
             type="checkbox"
             :checked="localSettings.clip.enabled"
             @change="updateSetting('clip', 'enabled', $event.target.checked)"
             class="sr-only peer"
           />
-          <div class="w-9 h-5 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+          <div class="w-9 h-5 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent"></div>
         </label>
-      </div>
+      </SettingRow>
     </div>
 
     <!-- Saving indicator -->
@@ -103,6 +95,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import SettingRow from '../SettingRow.vue'
 
 const props = defineProps({
   backgroundWork: {

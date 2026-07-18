@@ -8,7 +8,7 @@
           <span class="font-brand lowercase tracking-[0.12em] text-xl font-semibold text-content">stimma</span>
           <span
             v-if="channelBadge"
-            class="px-2 py-0.5 rounded text-xs font-medium bg-blue-500/15 text-blue-500"
+            class="px-2 py-0.5 rounded text-xs font-medium bg-accent/15 text-accent"
           >
             {{ channelBadge }}
           </span>
@@ -40,7 +40,7 @@
     <div class="rounded-lg border border-edge bg-surface px-4 py-3.5">
       <div class="flex items-center gap-3">
         <template v-if="updatesBlockedByPrivacyLockdown">
-          <div class="w-2 h-2 rounded-full bg-content-muted shrink-0 shadow-[0_0_0_4px_rgba(148,163,184,0.12)]"></div>
+          <StatusDot bucket="queued" />
           <div class="flex-1 min-w-0">
             <div class="text-sm text-content">Updates are paused</div>
             <div class="text-xs text-content-muted mt-0.5">
@@ -50,70 +50,57 @@
         </template>
 
         <template v-else-if="!updatesEnabled">
-          <div class="w-2 h-2 rounded-full bg-content-muted shrink-0 shadow-[0_0_0_4px_rgba(148,163,184,0.12)]"></div>
+          <StatusDot bucket="queued" />
           <div class="flex-1 min-w-0">
             <div class="text-sm text-content">Updates are not available in this build</div>
           </div>
         </template>
 
         <template v-else-if="isChecking">
-          <div class="w-4 h-4 border-2 border-content-muted border-t-blue-500 rounded-full animate-spin shrink-0"></div>
+          <div class="w-4 h-4 border-2 border-content-muted border-t-accent rounded-full animate-spin shrink-0"></div>
           <div class="flex-1 min-w-0 text-sm text-content-tertiary">Checking for updates...</div>
         </template>
 
         <template v-else-if="isDownloading">
-          <div class="w-2 h-2 rounded-full bg-blue-500 shrink-0 shadow-[0_0_0_4px_rgba(59,130,246,0.15)]"></div>
+          <StatusDot bucket="running" pulse />
           <div class="flex-1 min-w-0">
             <div class="text-sm text-content">Installing update...</div>
           </div>
         </template>
 
         <template v-else-if="pendingRestart">
-          <div class="w-2 h-2 rounded-full bg-blue-500 shrink-0 shadow-[0_0_0_4px_rgba(59,130,246,0.15)]"></div>
+          <StatusDot bucket="running" />
           <div class="flex-1 min-w-0">
             <div class="text-sm text-content">Version {{ stagedVersion }} is ready</div>
             <div class="text-xs text-content-muted mt-0.5">
               {{ pendingApply === 'install' ? 'Restart Stimma to install' : 'Restart Stimma to finish installing' }}
             </div>
           </div>
-          <button
-            @click="restartToApply()"
-            class="px-3 py-1.5 bg-accent hover:bg-accent/90 text-white rounded-md text-sm font-medium transition-colors"
-          >
+          <Button size="sm" @click="restartToApply()">
             {{ pendingApply === 'install' ? 'Restart & Install' : 'Restart Now' }}
-          </button>
+          </Button>
         </template>
 
         <template v-else-if="availableUpdate">
-          <div class="w-2 h-2 rounded-full bg-blue-500 shrink-0 shadow-[0_0_0_4px_rgba(59,130,246,0.15)]"></div>
+          <StatusDot bucket="running" />
           <div class="flex-1 min-w-0">
             <div class="text-sm text-content">Version {{ availableUpdate.version }} is available</div>
             <div v-if="lastCheckedAt" class="text-xs text-content-muted mt-0.5">
               Checked {{ formatRelativeTime(lastCheckedAt) }}
             </div>
           </div>
-          <button
-            @click="downloadAndInstallUpdate()"
-            class="px-3 py-1.5 bg-accent hover:bg-accent/90 text-white rounded-md text-sm font-medium transition-colors"
-          >
-            Install Update
-          </button>
+          <Button size="sm" @click="downloadAndInstallUpdate()">Install Update</Button>
         </template>
 
         <template v-else>
-          <div class="w-2 h-2 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_0_4px_rgba(52,211,153,0.12)]"></div>
+          <StatusDot bucket="done" />
           <div class="flex-1 min-w-0">
             <div class="text-sm text-content">You're on the latest version</div>
             <div v-if="lastCheckedAt" class="text-xs text-content-muted mt-0.5">
               Checked {{ formatRelativeTime(lastCheckedAt) }}
             </div>
           </div>
-          <button
-            @click="checkForUpdates('manual')"
-            class="px-3 py-1.5 rounded-lg border border-edge bg-surface hover:bg-overlay-subtle text-content text-sm font-medium transition-colors"
-          >
-            Check Now
-          </button>
+          <Button variant="secondary" size="sm" @click="checkForUpdates('manual')">Check Now</Button>
         </template>
       </div>
     </div>
@@ -130,7 +117,7 @@
           class="rounded-lg border px-3.5 py-3 text-left transition-colors"
           :class="[
             policy === option.value
-              ? 'border-blue-500/50 bg-blue-500/15'
+              ? 'border-accent/50 bg-accent/15'
               : 'border-edge bg-surface hover:bg-overlay-subtle',
             updatesBlockedByPrivacyLockdown ? 'cursor-not-allowed opacity-60' : '',
           ]"
@@ -138,9 +125,9 @@
           <div class="flex items-center gap-2">
             <div
               class="w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0"
-              :class="policy === option.value ? 'border-blue-500' : 'border-content-muted'"
+              :class="policy === option.value ? 'border-accent' : 'border-content-muted'"
             >
-              <div v-if="policy === option.value" class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+              <div v-if="policy === option.value" class="w-1.5 h-1.5 rounded-full bg-accent"></div>
             </div>
             <span class="text-sm font-medium text-content">{{ option.label }}</span>
           </div>
@@ -157,7 +144,7 @@
           v-for="link in resourceLinks"
           :key="link.url"
           @click="openExternal(link.url)"
-          class="w-full flex items-center gap-3 px-2 py-2.5 text-left rounded-lg hover:bg-overlay-subtle transition-colors"
+          class="w-full flex items-center gap-3 px-2 py-2.5 text-left rounded-md hover:bg-overlay-subtle transition-colors duration-150"
         >
           <svg class="w-4 h-4 text-content-tertiary shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" v-html="link.icon"></svg>
           <div class="flex-1 min-w-0">
@@ -188,6 +175,8 @@ import { getVersion } from '@tauri-apps/api/app'
 import { useAppUpdater } from '../../../composables/useAppUpdater'
 import { useCloudAccount } from '../../../composables/useCloudAccount'
 import { COMMIT_HASH } from '../../../distribution'
+import StatusDot from '../../ui/StatusDot.vue'
+import Button from '../../ui/Button.vue'
 
 const {
   channel,

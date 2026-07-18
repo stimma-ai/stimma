@@ -11,9 +11,9 @@
 
       <div
         v-if="setupRequired && !wizard"
-        class="mb-5 flex w-full items-center gap-3 rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-4 py-3"
+        class="mb-5 flex w-full items-center gap-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3"
       >
-        <span class="h-2 w-2 shrink-0 rounded-full bg-yellow-400"></span>
+        <span class="h-2 w-2 shrink-0 rounded-full bg-amber-400"></span>
         <p class="text-sm text-content-secondary">Connect a chat model to use chat, the agent, and AI-assisted features.</p>
       </div>
 
@@ -40,7 +40,7 @@
             <span class="h-4 w-4 shrink-0" aria-hidden="true"></span>
           </template>
           <template v-else>
-            <div class="min-w-20 shrink-0 text-right text-xs" :class="cloudStatus !== 'available' ? 'text-red-400' : cloudNeedsCredits ? 'text-yellow-400' : 'text-green-400'">
+            <div class="min-w-20 shrink-0 text-right text-xs" :class="cloudStatus !== 'available' ? 'text-red-400' : cloudNeedsCredits ? 'text-amber-400' : 'text-green-400'">
               {{ cloudStatus !== 'available' ? 'Unavailable' : cloudNeedsCredits ? 'Add credits' : `Ready · ${cloudModels.length} model${cloudModels.length === 1 ? '' : 's'}` }}
             </div>
             <ChevronIcon />

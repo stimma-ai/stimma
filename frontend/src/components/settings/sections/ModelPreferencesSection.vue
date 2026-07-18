@@ -7,79 +7,59 @@
         </div>
       </div>
 
-      <div class="mt-8 space-y-9">
-        <div>
-          <div class="flex items-center justify-between gap-6">
-            <div class="min-w-0 max-w-md">
-              <h4 class="text-sm font-medium text-content">Theme</h4>
-              <p class="mt-1 text-xs leading-relaxed text-content-tertiary">How Stimma looks on this device.</p>
-            </div>
-            <div class="flex shrink-0 items-center gap-1.5">
-              <button
-                v-for="option in THEME_OPTIONS"
-                :key="option.value"
-                @click="selectTheme(option.value)"
-                class="flex items-center gap-1.5 px-3 h-8 rounded-md transition-all border text-xs font-medium"
-                :class="themePreference === option.value
-                  ? 'bg-blue-500/15 border-blue-500/50 text-blue-500'
-                  : 'bg-surface-raised border-edge text-content-tertiary hover:text-content hover:border-edge-strong'"
-              >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" :d="option.icon" />
-                </svg>
-                {{ option.label }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div class="flex items-center justify-between gap-6">
-            <div class="min-w-0 max-w-md">
-              <h4 class="text-sm font-medium text-content">LLM for Quick Tasks</h4>
-              <p class="mt-1 text-xs leading-relaxed text-content-tertiary">Prompt cleanup, chat names, and other background work.</p>
-            </div>
-            <div v-if="quickTaskOptions.length" class="shrink-0">
-              <SettingsDropdown
-                control
-                fill
-                class="w-72"
-                :menu-width="320"
-                :model-value="selectedQuickTaskValue"
-                :options="quickTaskOptions"
-                placeholder="Choose a model"
-                @update:model-value="saveQuickTaskModel"
-              />
-            </div>
-            <div v-else class="w-72 py-2 text-sm text-content-muted">No models available</div>
-          </div>
-        </div>
-
-        <div v-if="voiceSupported">
-          <div class="flex items-center justify-between gap-6">
-            <div class="min-w-0 max-w-md">
-              <h4 class="text-sm font-medium text-content">Voice Input Model</h4>
-              <p class="mt-1 text-xs leading-relaxed text-content-tertiary">
-                Processed on this device. <template v-if="!voiceModelReady"> {{ privacyLockdownActive ? 'Downloads are off during Privacy Lockdown.' : 'Downloads on first use.' }}</template>
-              </p>
-            </div>
-            <div class="flex shrink-0 items-center gap-2">
-              <svg v-if="voiceModelReady" class="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+      <div class="mt-6 max-w-[680px]">
+        <SettingRow label="Theme" description="How Stimma looks on this device.">
+          <div class="flex items-center gap-1.5">
+            <button
+              v-for="option in THEME_OPTIONS"
+              :key="option.value"
+              @click="selectTheme(option.value)"
+              class="flex items-center gap-1.5 px-3 h-8 rounded-md transition-colors duration-150 border text-xs font-medium"
+              :class="themePreference === option.value
+                ? 'bg-accent/15 border-accent/50 text-accent'
+                : 'bg-surface-raised border-edge text-content-tertiary hover:text-content hover:border-edge-strong'"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" :d="option.icon" />
               </svg>
-              <SettingsDropdown
-                v-model="voiceModel"
-                control
-                compact
-                fill
-                hide-trigger-details
-                class="w-72"
-                :menu-width="320"
-                :options="voiceModelOptions"
-              />
-            </div>
+              {{ option.label }}
+            </button>
           </div>
-        </div>
+        </SettingRow>
+
+        <SettingRow label="LLM for Quick Tasks" description="Prompt cleanup, chat names, and other background work.">
+          <SettingsDropdown
+            v-if="quickTaskOptions.length"
+            control
+            fill
+            class="w-72"
+            :menu-width="320"
+            :model-value="selectedQuickTaskValue"
+            :options="quickTaskOptions"
+            placeholder="Choose a model"
+            @update:model-value="saveQuickTaskModel"
+          />
+          <span v-else class="w-72 text-right text-sm text-content-muted">No models available</span>
+        </SettingRow>
+
+        <SettingRow v-if="voiceSupported" label="Voice Input Model">
+          <template #description>
+            Processed on this device. <span v-if="!voiceModelReady">{{ privacyLockdownActive ? 'Downloads are off during Privacy Lockdown.' : 'Downloads on first use.' }}</span>
+          </template>
+          <svg v-if="voiceModelReady" class="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          <SettingsDropdown
+            v-model="voiceModel"
+            control
+            compact
+            fill
+            hide-trigger-details
+            class="w-72"
+            :menu-width="320"
+            :options="voiceModelOptions"
+          />
+        </SettingRow>
       </div>
     </section>
   </div>
@@ -95,6 +75,7 @@ import { useTheme } from '../../../composables/useTheme'
 import { useSettingsApi } from '../../../composables/useSettingsApi'
 import { VOICE_MODELS, voiceModel, isModelReady, supported as voiceSupported } from '../../../composables/useVoiceInput'
 import SettingsDropdown from '../../ui/SettingsDropdown.vue'
+import SettingRow from '../SettingRow.vue'
 import { resolveModelVendorId } from '../../../utils/modelVendors'
 
 const { selectableModels, quickTaskModel, fetchModels } = useAvailableModels()
