@@ -39,8 +39,8 @@
           {{ err.equationDisplayName || err.equationKey }}
         </span>
         <span
-          class="flex-shrink-0 font-mono text-[11px]"
-          :class="err.line ? 'text-blue-400' : 'text-content-muted'"
+          class="flex-shrink-0 font-mono text-[11px] tabular-nums"
+          :class="err.line ? 'text-blue-400' : 'text-content-tertiary'"
         >
           program.py<template v-if="err.line">:{{ err.line }}</template>
         </span>

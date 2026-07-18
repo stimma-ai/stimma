@@ -1,60 +1,51 @@
 <template>
   <div
     class="phase-node"
-    :class="isTopLevelPhase ? 'rounded-lg border border-edge-subtle overflow-hidden bg-base' : ''"
+    :class="isTopLevelPhase ? 'border-t border-edge-subtle pt-3 first:border-t-0 first:pt-0' : ''"
   >
-    <!-- Header row. Always-expanded: no chevron, no click toggle. Right-aligned
-         columns (status, ratio, duration, re-run) are order-stable across
-         phases so eyes track down the list rather than reparse each row. -->
+    <!-- Header row. Always-expanded: no chevron, no click toggle. Structure =
+         indentation + a status rail, never a nested box (STANDARDS §3.1):
+         mono phase index + title + StatusDot, mono rollup right. -->
     <div
       v-if="node.name || depth > 0"
-      class="relative flex items-center gap-2 group"
+      class="relative flex items-baseline gap-2.5 group"
       :class="[
-        isTopLevelPhase
-          ? 'px-3 py-2 bg-overlay-subtle border-b border-edge-subtle'
-          : 'py-1.5 px-2 rounded',
+        isTopLevelPhase ? 'pb-2' : 'py-1.5 px-2 rounded',
         phaseIsEchoed ? 'ring-1 ring-blue-500/40 bg-blue-500/5' : '',
       ]"
     >
       <span
         v-if="isTopLevelPhase && phaseIndex != null"
-        class="flex-shrink-0 text-[11.5px] text-content-muted tabular-nums"
-      >{{ String(phaseIndex).padStart(2, '0') }}</span>
-      <span class="text-[14px] font-semibold text-content truncate">{{ displayName }}</span>
+        class="flex-shrink-0 font-mono text-[10px] text-content-muted"
+      >PHASE {{ phaseIndex }}</span>
+      <span
+        class="text-content truncate"
+        :class="isTopLevelPhase ? 'text-[13.5px] font-semibold' : 'text-[14px] font-semibold'"
+      >{{ displayName }}</span>
 
-      <!-- Phase status — icon + uppercase label, inline with the title. One
-           glanceable token per state (Running / Your Turn / Error / Waiting)
-           keeps the header tidy. "Done" is intentionally silent — the row's
-           duration + full ratio already convey completion. -->
+      <StatusDot :bucket="phaseStatusBucket" :pulse="phaseStatus.kind === 'tasks' || phaseStatus.kind === 'running'" />
+
+      <!-- Phase status label — kept for the states that need more than a
+           color (Running / Your Turn / Error / Waiting); "Done" is
+           intentionally silent since the dot + duration already say it. -->
       <span
         v-if="phaseStatus.kind === 'running'"
-        class="flex-shrink-0 flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-wide text-blue-500"
+        class="flex-shrink-0 flex items-center gap-1 text-[10.5px] font-medium text-blue-500"
       >
-        <span v-if="isPaused" class="text-[11px] text-yellow-500">⏸</span>
-        <span v-else class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <span v-if="isPaused" class="text-[11px] text-amber-500">⏸</span>
         <span>Running</span>
       </span>
       <span
         v-else-if="phaseStatus.kind === 'tasks'"
-        class="flex-shrink-0 flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-wide text-purple-500"
-      >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-        </svg>
-        <span>Your Turn</span>
-      </span>
+        class="flex-shrink-0 text-[10.5px] font-medium text-purple-500"
+      >Your Turn</span>
       <span
         v-else-if="phaseStatus.kind === 'error'"
-        class="flex-shrink-0 flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-wide text-red-500"
-      >
-        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM9.53 8.47a.75.75 0 00-1.06 1.06L10.94 12l-2.47 2.47a.75.75 0 101.06 1.06L12 13.06l2.47 2.47a.75.75 0 101.06-1.06L13.06 12l2.47-2.47a.75.75 0 10-1.06-1.06L12 10.94 9.53 8.47z" />
-        </svg>
-        <span>{{ phaseStatus.label }}</span>
-      </span>
+        class="flex-shrink-0 text-[10.5px] font-medium text-red-500"
+      >{{ phaseStatus.label }}</span>
       <span
         v-else-if="phaseStatus.kind === 'waiting'"
-        class="flex-shrink-0 text-[10.5px] font-semibold uppercase tracking-wide text-content-muted"
+        class="flex-shrink-0 text-[10.5px] font-medium text-content-muted"
       >Waiting</span>
 
       <span class="flex-1"></span>
@@ -64,11 +55,11 @@
            visible so users don't have to hover-hunt to retry. -->
       <span
         v-if="phaseRatioLabel"
-        class="flex-shrink-0 text-[11.5px] text-content-muted tabular-nums"
+        class="flex-shrink-0 font-mono text-[11px] text-content-tertiary tabular-nums"
       >{{ phaseRatioLabel }}</span>
       <span
         v-if="phaseDurationLabel"
-        class="flex-shrink-0 text-[11.5px] text-content-muted tabular-nums w-14 text-right"
+        class="flex-shrink-0 font-mono text-[11px] text-content-tertiary tabular-nums w-14 text-right"
       >{{ phaseDurationLabel }}</span>
       <FlowRefButton
         :ref-key="phaseRefKey"
@@ -76,7 +67,7 @@
         :label="displayName"
       />
       <button
-        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
+        class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-muted hover:text-content hover:bg-overlay-hover"
         title="Re-run all steps in this section"
         @click.stop="$emit('invalidate-phase', node.path)"
       >
@@ -95,8 +86,14 @@
       />
     </div>
 
-    <!-- Contents — phases are always expanded. -->
-    <div :class="isTopLevelPhase ? '' : (depth > 0 ? 'ml-4 pl-3' : '')">
+    <!-- Contents — phases are always expanded. Steps sit on a rail: 2px
+         border indented under the phase header (STANDARDS §3.1), never a
+         nested box. -->
+    <div
+      :class="isTopLevelPhase
+        ? 'border-l-2 border-edge-subtle ml-1 pl-4'
+        : (depth > 0 ? 'ml-4 pl-3' : '')"
+    >
 
         <!-- Unified step list: info, LLM, code, tool, and HITL live in one
              ordered stream. Foreach iterations collapse into a single
@@ -130,14 +127,11 @@
             <template v-else-if="item.kind === 'equation'">
             <template v-for="eq in [item.eq]" :key="eq.equation_key">
 
-            <!-- Info row -->
+            <!-- Info row — flat, no nested box; the phase rail already frames it. -->
             <div
               v-if="eq.equation_type === 'info'"
               class="group"
-              :class="[
-                isTopLevelPhase ? infoRowBgClass(eq) : 'rounded border overflow-hidden ' + infoRowBorderClass(eq),
-                isEqEchoed(eq) ? 'ring-1 ring-blue-500/40 bg-blue-500/5' : '',
-              ]"
+              :class="isEqEchoed(eq) ? 'ring-1 ring-blue-500/40 bg-blue-500/5 rounded' : ''"
             >
               <div
                 role="button"
@@ -184,11 +178,11 @@
                 </div>
 
                 <span
-                  class="flex-shrink-0 text-[10.5px] font-semibold uppercase tracking-wide tabular-nums w-[72px] text-right"
+                  class="flex-shrink-0 font-mono text-[10.5px] font-semibold uppercase tracking-wide tabular-nums w-[72px] text-right"
                   :class="equationStatusColor(eq)"
                 >{{ equationStatusLabel(eq) || '' }}</span>
                 <span
-                  class="flex-shrink-0 text-[11.5px] text-content-muted tabular-nums w-14 text-right"
+                  class="flex-shrink-0 font-mono text-[11px] text-content-tertiary tabular-nums w-14 text-right"
                 >{{ equationDurationLabel(eq) || '' }}</span>
                 <FlowRefButton
                   :ref-key="eq.equation_key"
@@ -199,7 +193,7 @@
                 <button
                   v-if="eq.status === 'completed' || eq.status === 'failed'"
                   type="button"
-                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
+                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-muted hover:text-content hover:bg-overlay-hover"
                   title="Re-run this step"
                   @click.stop="$emit('invalidate-equation', eq.equation_key)"
                 >
@@ -210,12 +204,10 @@
                 <span v-else class="flex-shrink-0 w-6 h-6" aria-hidden="true" />
               </div>
 
+              <!-- Expanded = the ONE wash inset, deepest level only (§3.1). -->
               <Transition name="flow-expand">
               <div v-if="isInfoExpanded(eq)">
-              <div
-                class="border-t px-3 py-2 space-y-2"
-                :class="infoExpandedBorderClass(eq)"
-              >
+              <div class="bg-overlay-faint rounded-md p-2 my-1 space-y-2">
                 <div
                   v-if="eq.status === 'completed' && infoMarkdown(eq)"
                   class="info-prose text-[12.5px] text-content leading-relaxed break-words select-text"
@@ -293,13 +285,15 @@
             <!-- HITL row — same chrome as trace rows (status icon, title,
                  status label, chevron). Expanded content depends on kind +
                  status. -->
+            <!-- HITL row — flat, same chrome as an info row. The actionable
+                 ("Your Turn") state doesn't raise the row itself; TaskCard
+                 below is the one raised surface for the actual controls
+                 (STANDARDS §3.1: elevation = actionability, two containments
+                 total in the tree). -->
             <div
               v-else
               class="group"
-              :class="[
-                isTopLevelPhase ? hitlRowBgClass(eq) : 'rounded border overflow-hidden ' + hitlRowBorderClass(eq),
-                isEqEchoed(eq) ? 'ring-1 ring-blue-500/40 bg-blue-500/5' : '',
-              ]"
+              :class="isEqEchoed(eq) ? 'ring-1 ring-blue-500/40 bg-blue-500/5 rounded' : ''"
             >
               <div
                 :role="isHitlLockedOpen(eq) ? undefined : 'button'"
@@ -318,9 +312,10 @@
                 >
                   <path fill-rule="evenodd" clip-rule="evenodd" d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm4.03-12.97a.75.75 0 00-1.06-1.06l-4.72 4.72-2.22-2.22a.75.75 0 10-1.06 1.06l2.75 2.75a.75.75 0 001.06 0l5.25-5.25z" />
                 </svg>
-                <span
+                <StatusDot
                   v-else-if="isEquationActionable(eq) && getTasksForEquation(eq.equation_key).length > 0"
-                  class="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0"
+                  bucket="awaiting"
+                  pulse
                 />
                 <span
                   v-else-if="isEquationActionable(eq)"
@@ -339,11 +334,11 @@
                 </div>
 
                 <span
-                  class="flex-shrink-0 text-[10.5px] font-semibold uppercase tracking-wide tabular-nums w-[72px] text-right"
+                  class="flex-shrink-0 font-mono text-[10.5px] font-semibold uppercase tracking-wide tabular-nums w-[72px] text-right"
                   :class="equationStatusColor(eq)"
                 >{{ equationStatusLabel(eq) || '' }}</span>
                 <span
-                  class="flex-shrink-0 text-[11.5px] text-content-muted tabular-nums w-14 text-right"
+                  class="flex-shrink-0 font-mono text-[11px] text-content-tertiary tabular-nums w-14 text-right"
                 >{{ equationDurationLabel(eq) || '' }}</span>
                 <FlowRefButton
                   :ref-key="eq.equation_key"
@@ -354,7 +349,7 @@
                 <button
                   v-if="eq.status === 'completed' || eq.status === 'failed'"
                   type="button"
-                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md bg-base text-content-muted hover:text-content hover:bg-overlay-hover"
+                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-content-muted hover:text-content hover:bg-overlay-hover"
                   title="Re-run this step"
                   @click.stop="$emit('invalidate-equation', eq.equation_key)"
                 >
@@ -365,12 +360,15 @@
                 <span v-else class="flex-shrink-0 w-6 h-6" aria-hidden="true" />
               </div>
 
-              <!-- Expanded content -->
+              <!-- Expanded content. Actionable-with-task defers all elevation
+                   to TaskCard (the one raised surface); every other state
+                   uses the standard wash inset. -->
               <Transition name="flow-expand">
               <div v-if="isHitlExpanded(eq)">
               <div
-                class="border-t px-3 py-2 space-y-2"
-                :class="hitlExpandedBorderClass(eq)"
+                :class="(isEquationActionable(eq) && getTasksForEquation(eq.equation_key).length > 0)
+                  ? 'my-1 space-y-2'
+                  : 'bg-overlay-faint rounded-md p-2 my-1 space-y-2'"
               >
                 <!-- Completed: show kind-specific details -->
                 <template v-if="eq.status === 'completed'">
@@ -489,6 +487,8 @@ import { useFlowExpandState } from '../../composables/useFlowExpandState'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'
 import { renderSafeMarkdown } from '../../utils/sanitizeHtml'
 import { equationDurationMs, formatEquationDurationMs } from '../../utils/equationDuration'
+import StatusDot from '../ui/StatusDot.vue'
+import { textClass, mapEquationStatus, type StatusBucket } from '../../utils/statusColors'
 
 interface Props {
   node: PhaseNodeType
@@ -620,6 +620,18 @@ const phaseStatus = computed(() => {
   if (waitingTool > 0) return { kind: 'waiting', label: 'Waiting for tool' }
   if (completed > 0) return { kind: 'done', label: 'Done' }
   return { kind: 'empty', label: '' }
+})
+
+// StatusDot bucket for the phase header dot (STANDARDS §1.9).
+const phaseStatusBucket = computed<StatusBucket>(() => {
+  switch (phaseStatus.value.kind) {
+    case 'error':   return 'failed'
+    case 'tasks':   return 'awaiting'
+    case 'running': return 'running'
+    case 'waiting': return 'warning'
+    case 'done':    return 'done'
+    default:        return 'queued'
+  }
 })
 
 // True if anything in this phase's subtree would actually render. Mirrors
@@ -891,17 +903,10 @@ function isInfoExpanded(eq: FlowEquation): boolean {
 function toggleInfoExpanded(eq: FlowEquation) {
   expandState.toggle('info', eq.equation_key, isInfoExpanded(eq))
 }
-function infoRowBorderClass(eq: FlowEquation): string {
-  if (eq.status === 'failed') return 'border-red-500/40 bg-red-500/5'
-  if (eq.status === 'computing') return 'border-teal-500/30 bg-teal-500/5'
-  if (eq.status === 'completed') return 'border-edge-subtle bg-overlay-faint'
-  return 'border-edge-subtle'
-}
-// Bg-only variant for rows inside a top-level phase card (the card owns the
-// border; rows only convey status via a subtle tint).
-// Shared row-column helpers: uppercase status label, color, and duration.
-// Info rows and HITL rows both render the same right-column set, so these
-// helpers replace what used to be per-row conditional switches.
+// Shared row-column helpers: uppercase status label + color, and duration.
+// Info rows and HITL rows both render the same right-column set. Color comes
+// from statusColors.ts (STANDARDS §1.9) via mapEquationStatus — never an
+// inline status→color switch.
 function equationStatusLabel(eq: FlowEquation): string | null {
   switch (eq.status) {
     case 'completed':      return null
@@ -916,30 +921,11 @@ function equationStatusLabel(eq: FlowEquation): string | null {
   }
 }
 function equationStatusColor(eq: FlowEquation): string {
-  switch (eq.status) {
-    case 'completed':      return 'text-green-500'
-    case 'computing':      return 'text-blue-500'
-    case 'failed':         return 'text-red-500'
-    case 'awaiting_input': return 'text-purple-500'
-    case 'waiting_for_tool': return 'text-amber-500'
-    case 'invalidated':    return 'text-yellow-500'
-    default:               return 'text-content-muted'
-  }
+  return textClass(mapEquationStatus(eq.status))
 }
 function equationDurationLabel(eq: FlowEquation): string | null {
   const ms = equationDurationMs(eq)
   return formatEquationDurationMs(ms)
-}
-
-function infoRowBgClass(eq: FlowEquation): string {
-  if (eq.status === 'failed') return 'bg-red-500/5'
-  if (eq.status === 'computing') return 'bg-teal-500/5'
-  return ''
-}
-function infoExpandedBorderClass(eq: FlowEquation): string {
-  if (eq.status === 'failed') return 'border-red-500/20'
-  if (eq.status === 'computing') return 'border-teal-500/20'
-  return 'border-edge-subtle'
 }
 
 function getTasksForEquation(key: string): FlowTask[] {
@@ -1003,26 +989,6 @@ function hitlSubtitle(eq: FlowEquation): string | null {
   if (eq.status === 'completed') return null
   if (!isEquationActionable(eq)) return null
   return eq.display_name || hitlKindLabel(eq.hitl_kind)
-}
-
-function hitlRowBorderClass(eq: FlowEquation): string {
-  if (eq.status === 'completed') return 'border-edge-subtle bg-overlay-faint'
-  if (isEquationActionable(eq) && getTasksForEquation(eq.equation_key).length > 0) {
-    return 'border-purple-500/40 bg-purple-500/5'
-  }
-  return 'border-edge-subtle'
-}
-// Bg-only variant for rows inside a top-level phase card.
-function hitlRowBgClass(eq: FlowEquation): string {
-  if (isEquationActionable(eq) && getTasksForEquation(eq.equation_key).length > 0) {
-    return 'bg-purple-500/5'
-  }
-  return ''
-}
-
-function hitlExpandedBorderClass(eq: FlowEquation): string {
-  if (isEquationActionable(eq) && getTasksForEquation(eq.equation_key).length > 0) return 'border-purple-500/20'
-  return 'border-edge-subtle'
 }
 
 // Past-tense summary for a completed HITL equation. Drives the row label so

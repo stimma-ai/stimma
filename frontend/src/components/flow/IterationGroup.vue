@@ -1,5 +1,5 @@
 <template>
-  <div class="group" :class="[rootBorderClass, groupIsEchoed ? 'ring-1 ring-blue-500/40 bg-blue-500/5' : '']">
+  <div class="group" :class="[aggregateStatus === 'pending' || aggregateStatus === 'queued' ? 'opacity-55' : '', groupIsEchoed ? 'ring-1 ring-blue-500/40 bg-blue-500/5 rounded' : '']">
     <!-- Header row — same chrome as individual trace rows -->
     <div
       :role="lockedOpen ? undefined : 'button'"
@@ -113,7 +113,7 @@
            column that used to sit here is gone now that each aggregate state
            has its own leftmost icon (purple pulse, clock, etc.). -->
       <span
-        class="flex-shrink-0 text-[11.5px] text-content-muted tabular-nums w-14 text-right"
+        class="flex-shrink-0 font-mono text-[11px] text-content-tertiary tabular-nums w-14 text-right"
       >{{ totalDurationLabel || '' }}</span>
       <FlowRefButton
         v-if="groupRefKey"
@@ -148,7 +148,7 @@
          without a clear right default). -->
     <Transition name="flow-expand">
     <div v-if="expanded">
-    <div class="border-t border-edge-subtle bg-overlay-faint">
+    <div class="bg-overlay-faint rounded-md my-1">
       <!-- Optional instructions strip — meaningful only for hitl-approve
            groups (auto-injected by hitl.approve). Lives inside the body so
            expand/collapse follows the row's lock-open state. -->
@@ -428,17 +428,6 @@ const invalidateTargetKey = computed<string | null>(() => {
   if (props.group.foreach?.equation_key) return props.group.foreach.equation_key
   if (props.group.groupKey) return props.group.groupKey
   return null
-})
-
-// Status tint on the row background; rounding + border now come from the
-// enclosing phase card, so rollups read as one of many rows in a list.
-const rootBorderClass = computed(() => {
-  switch (aggregateStatus.value) {
-    case 'failed':    return 'bg-red-500/5'
-    case 'computing': return 'bg-blue-500/5'
-    case 'actionable': return 'bg-purple-500/5'
-    default:          return ''
-  }
 })
 
 // Surfaces *exceptions* to the happy path — failures and pending HITL — as

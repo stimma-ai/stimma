@@ -105,6 +105,28 @@ export function mapJobStatus(s: string): StatusBucket {
   }
 }
 
+// Equation status vocabulary (FlowEquation.status), shared by the flow
+// panel components (PhaseNode, EquationTraceRow, IterationGroup,
+// GraphInspectPanel, TaskCard) so a step's status color is derived in one
+// place instead of five duplicated switches. 'invalidated' (stale, needs
+// re-run) and 'waiting_for_tool' both read as non-fatal trouble → warning
+// (amber); 'pending' reads as queued (zinc) regardless of whether it's
+// ready-to-schedule or still blocked upstream — callers needing that
+// distinction layer it on top (see isQueued in EquationTraceRow).
+export function mapEquationStatus(status: string | null | undefined): StatusBucket {
+  switch (status) {
+    case 'completed':       return 'done'
+    case 'computing':       return 'running'
+    case 'failed':          return 'failed'
+    case 'awaiting_input':  return 'awaiting'
+    case 'waiting_for_tool':
+    case 'invalidated':     return 'warning'
+    case 'skipped':         return 'skipped'
+    case 'pending':
+    default:                return 'queued'
+  }
+}
+
 // Flow status vocabulary, as derived by useFlowStatus.ts's
 // deriveFlowStatusLabel: Idle / Paused / Running / Your Turn / Waiting /
 // Error / Done. 'Waiting' is the upstream-blocked-on-a-missing-tool case —

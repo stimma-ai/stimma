@@ -1,8 +1,8 @@
 <template>
   <div
-    class="bg-overlay-subtle border rounded-lg px-3 py-2.5 transition-all"
+    class="bg-surface-raised rounded-lg shadow-lg px-3 py-3 transition-all"
     :class="[
-      focused ? 'border-blue-500 ring-1 ring-blue-500/50' : 'border-edge',
+      focused ? 'ring-2 ring-blue-500/60' : '',
       resolving ? 'opacity-60 pointer-events-none' : '',
     ]"
     :data-task-id="task.task_id"
@@ -12,8 +12,9 @@
   >
     <!-- Header: type + phase + unblocks -->
     <div class="flex items-center gap-2 mb-2">
+      <StatusDot v-if="task.task_type !== 'error'" bucket="awaiting" pulse />
       <span
-        class="text-[10px] uppercase font-semibold tracking-wide px-1.5 py-0.5 rounded"
+        class="font-mono text-[10px] uppercase font-semibold tracking-wide px-1.5 py-0.5 rounded"
         :class="typeBadgeClass"
       >{{ taskTypeLabel }}</span>
       <span v-if="task.phase_path?.length" class="text-[11px] text-content-muted truncate">
@@ -140,6 +141,7 @@
 import { ref, computed } from 'vue'
 import HitlActionCard from './HitlActionCard.vue'
 import HitlSelectInline from './HitlSelectInline.vue'
+import StatusDot from '../ui/StatusDot.vue'
 import type { FlowTask } from '../../composables/useFlowsApi'
 import { parseFlowError } from '../../utils/flowErrors'
 import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'

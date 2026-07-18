@@ -1,5 +1,5 @@
 <template>
-  <div class="group relative" :class="[rowBorderClass, isEchoed ? 'ring-1 ring-blue-500/40 bg-blue-500/5' : '']">
+  <div class="group relative" :class="[rowOpacityClass, isEchoed ? 'ring-1 ring-blue-500/40 bg-blue-500/5 rounded' : '']">
     <div
       role="button"
       tabindex="0"
@@ -37,10 +37,10 @@
         <title>Failed</title>
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
       </svg>
-      <span
+      <StatusDot
         v-else-if="equation.status === 'awaiting_input'"
-        class="w-2.5 h-2.5 rounded-full bg-purple-500 flex-shrink-0 animate-pulse-soft"
-        :title="'Your Turn'"
+        bucket="awaiting"
+        pulse
       />
       <svg
         v-else-if="equation.status === 'invalidated'"
@@ -138,7 +138,7 @@
            leftmost icon (purple pulse for Your Turn, clock for Queued, etc.),
            so the right rail no longer carries redundant text. -->
       <span
-        class="flex-shrink-0 text-[11.5px] text-content-muted tabular-nums w-14 text-right"
+        class="flex-shrink-0 font-mono text-[11px] text-content-tertiary tabular-nums w-14 text-right"
       >{{ durationLabel || '' }}</span>
       <FlowRefButton
         :ref-key="equation.equation_key"
@@ -168,7 +168,7 @@
 
     <Transition name="flow-expand">
       <div v-if="expanded">
-        <div class="border-t px-3 py-2 space-y-2" :class="expandedBorderClass">
+        <div class="bg-overlay-faint rounded-md p-2 my-1 space-y-2">
           <EquationTraceBody
             :equation="equation"
             :flow-id="flowId"
@@ -192,6 +192,7 @@ import { useProvidersApi } from '../../composables/useProvidersApi'
 import { useFlowExpandState } from '../../composables/useFlowExpandState'
 import FlowMediaTile from './FlowMediaTile.vue'
 import EquationTraceBody from './EquationTraceBody.vue'
+import StatusDot from '../ui/StatusDot.vue'
 import { TASK_TYPE_LABELS } from '../../utils/taskTypeIcons'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
 import { equationIsReadyToSchedule } from '../../composables/useFlowGrouping'
@@ -415,23 +416,10 @@ const isQueued = computed<boolean>(() => {
   return equationIsReadyToSchedule(props.equation, props.equationsByKey)
 })
 
-// Status tint painted on the row background; the surrounding phase card
-// provides the border + rounding so rows no longer carry their own outline.
-const rowBorderClass = computed(() => {
-  switch (props.equation.status) {
-    case 'failed':    return 'bg-red-500/5'
-    case 'computing': return 'bg-blue-500/5'
-    default:          return ''
-  }
-})
-
-const expandedBorderClass = computed(() => {
-  switch (props.equation.status) {
-    case 'failed':    return 'border-red-500/20'
-    case 'computing': return 'border-blue-500/20'
-    default:          return 'border-edge-subtle'
-  }
-})
+// Elevation = actionability (STANDARDS §3.1): rows stay flat regardless of
+// status — the leftmost icon + pulsing dot already carry running/failed/
+// awaiting signal. Pending rows dim to read as not-yet-relevant.
+const rowOpacityClass = computed(() => (props.equation.status === 'pending' ? 'opacity-55' : ''))
 
 function toggle() {
   expandState.toggle('trace', props.equation.equation_key, expanded.value)
