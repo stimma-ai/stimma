@@ -26,12 +26,12 @@
 
     <div v-if="currentItem" class="p-3 overflow-y-auto overflow-x-hidden">
       <!-- Actions -->
-      <h4 class="m-0 mb-2 text-xs uppercase tracking-wider text-content-tertiary font-semibold">Actions</h4>
+      <h4 class="m-0 mb-2 text-xs font-semibold text-content-secondary">Actions</h4>
       <div class="flex flex-col gap-1.5 mb-6">
         <template v-if="isTrashView || isCurrentItemTrashed">
           <button
             @click="$emit('restore')"
-            class="w-full bg-overlay-subtle border border-edge-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-lg text-xs font-medium transition-all hover:bg-green-500/10 hover:border-green-500/50"
+            class="w-full bg-overlay-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-md text-xs font-medium transition-all hover:bg-green-500/15"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-emerald-500">
               <path fill-rule="evenodd" d="M2 4.25A2.25 2.25 0 014.25 2h6.5A2.25 2.25 0 0113 4.25V5.5H9.25A3.75 3.75 0 005.5 9.25v6.08a3.75 3.75 0 01-3.5.67V4.25zM9.25 7A2.25 2.25 0 007 9.25v6.5A2.25 2.25 0 009.25 18h6.5A2.25 2.25 0 0018 15.75v-6.5A2.25 2.25 0 0015.75 7h-6.5z" clip-rule="evenodd" />
@@ -40,7 +40,7 @@
           </button>
           <button
             @click="$emit('permanent-delete')"
-            class="w-full bg-overlay-subtle border border-edge-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-lg text-xs font-medium transition-all hover:bg-red-500/10 hover:border-red-500/50"
+            class="w-full bg-overlay-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-md text-xs font-medium transition-all hover:bg-red-500/15"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-red-500">
               <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
@@ -65,7 +65,7 @@
           <button
             v-if="currentItem"
             @click="$emit('share-to-cloud')"
-            class="w-full bg-overlay-subtle border border-edge-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-lg text-xs font-medium transition-all hover:bg-overlay-light hover:border-edge"
+            class="w-full bg-overlay-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-md text-xs font-medium transition-all hover:bg-overlay-light"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-violet-500 flex-shrink-0">
               <path d="M13 4.5a2.5 2.5 0 1 1 .702 1.737L6.97 9.604a2.518 2.518 0 0 1 0 .792l6.733 3.367a2.5 2.5 0 1 1-.671 1.341l-6.733-3.367a2.5 2.5 0 1 1 0-3.475l6.733-3.366A2.52 2.52 0 0 1 13 4.5Z" />
@@ -76,7 +76,7 @@
           <div class="flex w-full gap-px">
             <button
               @click="$emit('download')"
-              class="flex-1 bg-overlay-subtle border border-edge-subtle border-r-0 text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-l-lg text-xs font-medium transition-all hover:bg-overlay-light hover:border-edge"
+              class="flex-1 bg-overlay-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-l-md text-xs font-medium transition-all hover:bg-overlay-light"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-content-tertiary flex-shrink-0">
                 <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
@@ -86,7 +86,7 @@
             </button>
             <button
               @click="$emit('download-original')"
-              class="bg-overlay-subtle border border-edge-subtle border-l-0 text-content-tertiary cursor-pointer px-2 py-2 flex items-center rounded-r-lg text-xs transition-all hover:bg-overlay-light hover:text-content"
+              class="bg-overlay-subtle text-content-tertiary cursor-pointer px-2 py-2 flex items-center rounded-r-md text-xs transition-all hover:bg-overlay-light hover:text-content ml-px"
               title="Download original"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
@@ -98,7 +98,7 @@
           <button
             ref="moreButtonRef"
             @click.stop="openContextMenu($event)"
-            class="w-full bg-overlay-subtle border border-edge-subtle text-content-secondary cursor-pointer px-3 py-2 flex items-center gap-2 rounded-lg text-xs font-medium transition-all hover:bg-overlay-light hover:text-content"
+            class="w-full bg-overlay-subtle text-content-secondary cursor-pointer px-3 py-2 flex items-center gap-2 rounded-md text-xs font-medium transition-all hover:bg-overlay-light hover:text-content"
             title="More actions"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0">
@@ -111,7 +111,7 @@
 
       <!-- Organization section -->
       <div class="mb-6">
-        <h4 class="m-0 mb-2 text-xs uppercase tracking-wider text-content-tertiary font-semibold">Organization</h4>
+        <h4 class="m-0 mb-2 text-xs font-semibold text-content-secondary">Organization</h4>
         <div v-if="!isTrashView && !isCurrentItemTrashed" class="flex items-center gap-1.5 flex-wrap text-xs">
           <a
             v-for="project in mediaProjects"
@@ -193,7 +193,7 @@
 
       <!-- Chat Source (if generated via chat) -->
       <div v-if="currentItem.chat_item_id" class="mb-4">
-        <h4 class="m-0 mb-2 text-xs uppercase tracking-wider text-content-tertiary font-semibold">Source</h4>
+        <h4 class="m-0 mb-2 text-xs font-semibold text-content-secondary">Source</h4>
         <div class="space-y-2">
           <button
             v-if="chatInfo && !chatInfo.error"
@@ -223,7 +223,7 @@
       <!-- Lineage (MOVED UP - now right after org/divider) -->
       <div v-if="effectiveGenerationHistory.length > 0" class="mb-6">
         <div class="flex items-center justify-between mb-3">
-          <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold flex items-center gap-2">
+          <h4 class="m-0 text-xs font-semibold text-content-secondary flex items-center gap-2">
             Lineage
           </h4>
           <button
@@ -388,8 +388,8 @@
                 </div>
               </div>
 
-              <!-- Prompt -->
-              <div v-if="step.prompt" class="bg-overlay-subtle p-2 rounded">
+              <!-- Prompt: typeset, not boxed -->
+              <div v-if="step.prompt">
                 <div class="flex items-center justify-between mb-1">
                   <span class="text-content-tertiary text-xs">Prompt</span>
                   <button
@@ -403,7 +403,7 @@
               </div>
 
               <!-- Negative Prompt -->
-              <div v-if="step.negative_prompt" class="bg-overlay-subtle p-2 rounded">
+              <div v-if="step.negative_prompt">
                 <div class="flex items-center justify-between mb-1">
                   <span class="text-content-tertiary text-xs">Negative Prompt</span>
                   <button
@@ -416,33 +416,11 @@
                 <p class="text-content-secondary text-xs leading-relaxed m-0 select-text">{{ step.negative_prompt }}</p>
               </div>
 
-              <!-- Timestamp (standalone for generated items) -->
-              <div v-if="step.generated_at && !step.is_imported" class="bg-overlay-subtle p-2 rounded">
-                <div class="text-content-tertiary text-xs mb-0.5">Generated</div>
-                <div class="text-content text-xs select-text">{{ formatRelativeTime(step.generated_at) }}</div>
-              </div>
+              <!-- Facts: typeset key·value rows -->
+              <KeyValueList :rows="stepFactRows(step)" />
 
-              <!-- Parameters Grid (generic display of all params) -->
-              <div class="grid grid-cols-2 gap-2 text-xs">
-                <!-- Imported timestamp (in grid) -->
-                <div v-if="step.generated_at && step.is_imported" class="bg-overlay-subtle p-2 rounded">
-                  <div class="text-content-tertiary mb-0.5">Imported</div>
-                  <div class="text-content select-text">{{ formatRelativeTime(step.generated_at) }}</div>
-                </div>
-                <div v-if="step.model" class="bg-overlay-subtle p-2 rounded">
-                  <div class="text-content-tertiary mb-0.5">Model</div>
-                  <div class="text-content select-text">{{ step.model }}</div>
-                </div>
-                <!-- Generic parameter display -->
-                <div
-                  v-for="param in getDisplayableStepParams(step.parameters)"
-                  :key="param.label"
-                  :class="['bg-overlay-subtle p-2 rounded', param.fullWidth ? 'col-span-2' : '']"
-                >
-                  <div class="text-content-tertiary mb-0.5">{{ param.label }}</div>
-                  <div :class="['text-content select-text', param.fullWidth ? 'break-all text-xs' : '']">{{ param.value }}</div>
-                </div>
-              </div>
+              <!-- Generic parameter display -->
+              <KeyValueList :rows="stepParamRows(step)" />
 
               <!-- LoRAs (handle both 'loras' and legacy 'selected_loras' field names) -->
               <div v-if="(step.parameters?.loras || step.parameters?.selected_loras)?.length > 0" class="bg-overlay-subtle p-2 rounded">
@@ -479,7 +457,7 @@
           class="flex w-full items-center justify-between bg-transparent p-0 text-left"
           @click="versionsExpanded = !versionsExpanded"
         >
-          <h4 class="m-0 text-xs font-semibold uppercase tracking-wider text-content-tertiary">
+          <h4 class="m-0 text-xs font-semibold text-content-secondary">
             Versions <span class="normal-case tracking-normal text-content-muted">{{ versions.length }}</span>
           </h4>
           <span class="text-xs text-content-muted">{{ versionsExpanded ? 'Hide' : 'Show' }}</span>
@@ -538,7 +516,7 @@
       <!-- Made From This (descendants/derivatives) -->
       <div v-if="descendants.length > 0" class="mb-6">
         <div class="flex items-center justify-between mb-3">
-          <h4 class="m-0 text-xs uppercase tracking-wider text-content-tertiary font-semibold">
+          <h4 class="m-0 text-xs font-semibold text-content-secondary">
             Made From This
           </h4>
           <button
@@ -570,7 +548,7 @@
 
       <!-- Remixes (images that were remixed from this one) -->
       <div v-if="inspiredDescendants.length > 0" class="mb-6">
-        <h4 class="m-0 mb-3 text-xs uppercase tracking-wider text-content-tertiary font-semibold">
+        <h4 class="m-0 mb-3 text-xs font-semibold text-content-secondary">
           Remixes
         </h4>
         <div class="flex flex-wrap gap-2">
@@ -589,7 +567,7 @@
 
       <!-- Remix Of (the source that this image was remixed from) -->
       <div v-if="inspiredByInfo" class="mb-6">
-        <h4 class="m-0 mb-3 text-xs uppercase tracking-wider text-content-tertiary font-semibold">
+        <h4 class="m-0 mb-3 text-xs font-semibold text-content-secondary">
           Remix Of
         </h4>
         <div class="flex flex-wrap gap-2">
@@ -605,7 +583,7 @@
 
       <!-- Prompt (only show if no generation history) -->
       <div v-if="currentItem.extracted_prompt && effectiveGenerationHistory.length === 0" class="mb-8 last:mb-0">
-        <h4 class="m-0 mb-3 text-sm uppercase tracking-wider text-content-tertiary font-semibold flex items-center justify-between">
+        <h4 class="m-0 mb-3 text-xs font-semibold text-content-secondary flex items-center justify-between">
           <span>Prompt</span>
           <button
             @click="copyToClipboard(currentItem.extracted_prompt)"
@@ -620,7 +598,7 @@
 
       <!-- AI Description -->
       <div v-if="currentItem.vlm_caption && captioningEnabledRef" class="mb-8 last:mb-0">
-        <h4 class="m-0 mb-3 text-sm uppercase tracking-wider text-content-tertiary font-semibold flex items-center justify-between">
+        <h4 class="m-0 mb-3 text-xs font-semibold text-content-secondary flex items-center justify-between">
           <span>AI Description</span>
           <button
             @click="copyToClipboard(currentItem.vlm_caption)"
@@ -635,7 +613,7 @@
 
       <!-- Detected Faces -->
       <div v-if="faces.length > 0" class="mb-8 last:mb-0">
-        <h4 class="m-0 mb-3 text-sm uppercase tracking-wider text-content-tertiary font-semibold">
+        <h4 class="m-0 mb-3 text-xs font-semibold text-content-secondary">
           Detected Faces ({{ faces.length }})
         </h4>
         <div class="grid grid-cols-1 gap-2">
@@ -669,7 +647,7 @@
 
       <!-- Keywords -->
       <div v-if="keywordsArray.length > 0 && captioningEnabledRef" class="mb-8 last:mb-0">
-        <h4 class="m-0 mb-3 text-sm uppercase tracking-wider text-content-tertiary font-semibold">Keywords</h4>
+        <h4 class="m-0 mb-3 text-xs font-semibold text-content-secondary">Keywords</h4>
         <div class="flex flex-wrap gap-1.5">
           <span
             v-for="keyword in keywordsArray"
@@ -685,72 +663,25 @@
 
       <!-- File -->
       <div class="mb-6">
-        <h4 class="m-0 mb-2 text-xs uppercase tracking-wider text-content-tertiary font-semibold">File</h4>
-        <div class="space-y-2 select-text">
-          <div v-if="currentItem.file_path" class="bg-overlay-subtle p-2 rounded text-xs">
-            <div class="text-content-tertiary mb-0.5">Name</div>
-            <div class="text-content break-words text-xs">{{ currentItem.file_path.split('/').pop() }}</div>
-          </div>
-          <div v-if="currentItem.file_path" class="bg-overlay-subtle p-2 rounded text-xs">
-            <div class="text-content-tertiary mb-0.5">Path</div>
-            <div class="text-content-tertiary font-mono break-all text-xs">{{ currentItem.file_path }}</div>
-          </div>
-          <div class="grid grid-cols-2 gap-2 text-xs">
-            <div class="bg-overlay-subtle p-2 rounded">
-              <div class="text-content-tertiary mb-0.5">Format</div>
-              <div class="text-content text-xs">{{ formatFileFormat(currentItem.file_format) }}</div>
-            </div>
-            <div class="bg-overlay-subtle p-2 rounded">
-              <div class="text-content-tertiary mb-0.5">Size</div>
-              <div class="text-content text-xs">{{ formatFileSize(currentItem.file_size) }}</div>
-            </div>
-            <div v-if="currentItem.width > 0 && currentItem.height > 0" class="bg-overlay-subtle p-2 rounded">
-              <div class="text-content-tertiary mb-0.5">Resolution</div>
-              <div class="text-content text-xs">{{ currentItem.width }} &times; {{ currentItem.height }}</div>
-            </div>
-            <div v-if="currentItem.duration" class="bg-overlay-subtle p-2 rounded">
-              <div class="text-content-tertiary mb-0.5">Duration</div>
-              <div class="text-content text-xs">{{ formatDuration(currentItem.duration) }}</div>
-            </div>
-            <div v-if="currentItem.audio_sample_rate" class="bg-overlay-subtle p-2 rounded">
-              <div class="text-content-tertiary mb-0.5">Sample Rate</div>
-              <div class="text-content text-xs">{{ formatSampleRate(currentItem.audio_sample_rate) }}</div>
-            </div>
-            <div v-if="currentItem.audio_bit_depth" class="bg-overlay-subtle p-2 rounded">
-              <div class="text-content-tertiary mb-0.5">Bit Depth</div>
-              <div class="text-content text-xs">{{ currentItem.audio_bit_depth }}-bit</div>
-            </div>
-            <div v-if="currentItem.audio_channels" class="bg-overlay-subtle p-2 rounded">
-              <div class="text-content-tertiary mb-0.5">Channels</div>
-              <div class="text-content text-xs">{{ formatChannels(currentItem.audio_channels) }}</div>
-            </div>
-            <div v-if="currentItem.audio_bitrate" class="bg-overlay-subtle p-2 rounded">
-              <div class="text-content-tertiary mb-0.5">Bitrate</div>
-              <div class="text-content text-xs">{{ formatBitrate(currentItem.audio_bitrate) }}</div>
-            </div>
-            <div v-if="currentItem.created_date" class="bg-overlay-subtle p-2 rounded">
-              <div class="text-content-tertiary mb-0.5">Created</div>
-              <div class="text-content text-xs">{{ formatDate(currentItem.created_date) }}</div>
-            </div>
-          </div>
-        </div>
+        <h4 class="m-0 mb-1 text-xs font-semibold text-content-secondary">File</h4>
+        <KeyValueList :rows="fileInfoRows" />
       </div>
 
       <!-- Processing Status (only for visual media - images and videos) -->
       <div v-if="isVisualMedia" class="mb-8 last:mb-0">
-        <h4 class="m-0 mb-3 text-sm uppercase tracking-wider text-content-tertiary font-semibold">Processing Status</h4>
-        <div class="grid grid-cols-2 gap-2">
-          <div class="flex items-center gap-1.5 px-2 py-1.5 bg-overlay-subtle rounded">
+        <h4 class="m-0 mb-1 text-xs font-semibold text-content-secondary">Processing status</h4>
+        <div>
+          <div class="flex items-center gap-2 py-1.5 border-b border-edge-subtle">
             <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', getStatusClass(currentItem.clip_status)]"></span>
-            <span class="text-xs text-content-tertiary font-medium">Visual Indexing</span>
+            <span class="text-xs text-content-tertiary">Visual indexing</span>
           </div>
-          <div class="flex items-center gap-1.5 px-2 py-1.5 bg-overlay-subtle rounded">
+          <div class="flex items-center gap-2 py-1.5 border-b border-edge-subtle last:border-b-0">
             <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', getStatusClass(currentItem.face_detection_status)]"></span>
-            <span class="text-xs text-content-tertiary font-medium">Face Analysis</span>
+            <span class="text-xs text-content-tertiary">Face analysis</span>
           </div>
-          <div v-if="captioningEnabledRef" class="flex items-center gap-1.5 px-2 py-1.5 bg-overlay-subtle rounded">
+          <div v-if="captioningEnabledRef" class="flex items-center gap-2 py-1.5">
             <span :class="['w-1.5 h-1.5 rounded-full flex-shrink-0', getStatusClass(currentItem.vlm_caption_status)]"></span>
-            <span class="text-xs text-content-tertiary font-medium">Visual Analysis</span>
+            <span class="text-xs text-content-tertiary">Visual analysis</span>
           </div>
         </div>
       </div>
@@ -839,6 +770,7 @@ import SendToToolMenu from './SendToToolMenu.vue'
 import SendToChatMenu from './SendToChatMenu.vue'
 import InspireMenu from './InspireMenu.vue'
 import { AppImage, MediaImage } from './media'
+import KeyValueList from './ui/KeyValueList.vue'
 import { captioningEnabledRef } from '../appConfig'
 import { getApiBase } from '../apiConfig'
 import { getCurrentProfileId } from '../composables/useProfile'
@@ -1129,6 +1061,39 @@ const keywordsArray = computed(() => {
   if (!props.currentItem || !props.currentItem.keywords) return []
   if (Array.isArray(props.currentItem.keywords)) return props.currentItem.keywords
   return props.currentItem.keywords.split(',').map(k => k.trim()).filter(k => k)
+})
+
+// Atelier generation-step facts as KeyValueList rows
+function stepFactRows(step) {
+  const rows = []
+  if (step.generated_at && !step.is_imported) rows.push({ label: 'Generated', value: formatRelativeTime(step.generated_at) })
+  if (step.generated_at && step.is_imported) rows.push({ label: 'Imported', value: formatRelativeTime(step.generated_at) })
+  if (step.model) rows.push({ label: 'Model', value: step.model, mono: false, truncate: true })
+  return rows
+}
+function stepParamRows(step) {
+  return getDisplayableStepParams(step.parameters).map(p => ({
+    label: p.label, value: p.value, truncate: p.fullWidth,
+  }))
+}
+
+// Atelier typeset file facts (KeyValueList) — replaces the field-tile grid
+const fileInfoRows = computed(() => {
+  const m = props.currentItem
+  if (!m) return []
+  const rows = []
+  if (m.file_path) rows.push({ label: 'Name', value: m.file_path.split('/').pop(), truncate: true })
+  if (m.file_path) rows.push({ label: 'Path', value: m.file_path, truncate: true })
+  if (m.file_format) rows.push({ label: 'Format', value: formatFileFormat(m.file_format) })
+  if (m.file_size) rows.push({ label: 'Size', value: formatFileSize(m.file_size) })
+  if (m.width > 0 && m.height > 0) rows.push({ label: 'Resolution', value: `${m.width} × ${m.height}` })
+  if (m.duration) rows.push({ label: 'Duration', value: formatDuration(m.duration) })
+  if (m.audio_sample_rate) rows.push({ label: 'Sample rate', value: formatSampleRate(m.audio_sample_rate) })
+  if (m.audio_bit_depth) rows.push({ label: 'Bit depth', value: `${m.audio_bit_depth}-bit` })
+  if (m.audio_channels) rows.push({ label: 'Channels', value: formatChannels(m.audio_channels), mono: false })
+  if (m.audio_bitrate) rows.push({ label: 'Bitrate', value: formatBitrate(m.audio_bitrate) })
+  if (m.created_date) rows.push({ label: 'Created', value: formatDate(m.created_date) })
+  return rows
 })
 
 // Parse generation metadata for internal use (when generationHistory not provided)
