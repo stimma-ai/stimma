@@ -1,10 +1,9 @@
 <template>
   <div
     :class="[
-      'group relative aspect-square rounded-lg overflow-hidden transition-transform cursor-pointer hover:scale-105',
-      imageMode === 'fit' ? 'bg-surface-raised' : '',
+      'group relative aspect-square rounded-media overflow-hidden cursor-pointer bg-matte',
       currentMediaId != null && job.result_media_id === currentMediaId
-        ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-surface-overlay'
+        ? 'ring-2 ring-selection ring-inset'
         : ''
     ]"
     @click="handleJobClick"
@@ -64,17 +63,17 @@
       <div class="w-8 h-8 border-2 border-edge border-t-blue-500 rounded-full animate-spin"></div>
     </div>
     <!-- Auto-delete time remaining badge (upper left) -->
-    <div v-if="!compactOverlays && job.expires_at && formatRemainingTime(job.expires_at)" class="absolute top-2 left-2 z-[5] bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1">
+    <div v-if="!compactOverlays && job.expires_at && formatRemainingTime(job.expires_at)" class="absolute top-2 left-2 z-[5] bg-black/55 backdrop-blur-sm rounded px-1.5 py-1 flex items-center gap-1">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3 text-amber-400">
         <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
       </svg>
-      <span class="text-xs font-semibold text-amber-400 leading-none whitespace-nowrap">{{ formatRemainingTime(job.expires_at) }}</span>
+      <span class="text-[11px] font-mono font-semibold text-amber-400 leading-none whitespace-nowrap">{{ formatRemainingTime(job.expires_at) }}</span>
     </div>
     <!-- Gen-time + info (upper right): click opens generation details -->
     <button
       v-if="!compactOverlays"
       @click.stop="$emit('show-job-info', job)"
-      class="absolute top-2 right-2 z-[10] h-7 flex items-center justify-center gap-1 px-2 bg-black/80 backdrop-blur-md hover:bg-blue-500/80 rounded text-xs font-bold text-white transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+      class="absolute top-2 right-2 z-[10] h-7 flex items-center justify-center gap-1 px-2 bg-black/55 backdrop-blur-sm hover:bg-accent/80 rounded text-[11px] font-mono font-bold text-white transition-colors"
       title="Generation details"
     >
       <span v-if="getGenerationTime(job)">{{ getGenerationTime(job) }}s</span>
@@ -89,10 +88,10 @@
         :key="marker.id"
         @click.stop="$emit('toggle-marker', { mediaId: job.result_media_id, assetId: job.result_asset_id, marker })"
         :class="[
-          'w-7 h-7 rounded-md flex items-center justify-center transition-all border-2',
+          'w-7 h-7 rounded backdrop-blur-sm flex items-center justify-center transition-all border-2',
           hasMarker(job.result_media_id, marker.id)
-            ? 'bg-black/80'
-            : 'bg-black/40 border-transparent hover:bg-black/60 text-white/50 hover:text-white'
+            ? 'bg-black/55'
+            : 'bg-black/55 border-transparent hover:bg-black/70 text-white/50 hover:text-white'
         ]"
         :style="hasMarker(job.result_media_id, marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
         :title="hasMarker(job.result_media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
@@ -104,7 +103,7 @@
     <div v-if="!compactOverlays && job.result_media_id" class="absolute bottom-2 right-2 z-[10] flex gap-0.5">
       <button
         @click.stop="$emit('remix-media', job.result_media_id)"
-        class="w-7 h-7 rounded-md flex items-center justify-center bg-black/40 hover:bg-blue-500/80 text-white/50 hover:text-white transition-all"
+        class="w-7 h-7 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-accent/80 text-white/50 hover:text-white transition-all"
         title="Remix: load this image's settings"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
@@ -113,7 +112,7 @@
       </button>
       <button
         @click.stop="$emit('trash-media', { mediaId: job.result_media_id, assetId: job.result_asset_id })"
-        class="w-7 h-7 rounded-md flex items-center justify-center bg-black/40 hover:bg-red-500/80 text-white/50 hover:text-white transition-all"
+        class="w-7 h-7 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-red-500/80 text-white/50 hover:text-white transition-all"
         title="Move to Trash"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">

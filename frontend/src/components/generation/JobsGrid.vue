@@ -6,7 +6,7 @@
     <div v-if="jobs.length === 0 && activeChainRuns.length === 0 && waitingSlotCount === 0" class="text-center py-12 px-4 text-content-muted">
       <p>{{ emptyMessage }}</p>
     </div>
-    <div v-else class="flex flex-col gap-4">
+    <div v-else class="flex flex-col gap-2">
       <!-- In-flight progress: slim landscape bars docked at the top of the
            results area — one per job/batch/chain, stacked newest-first so
            finishing work flows into the completed list below. -->
@@ -95,9 +95,9 @@
 
         <!-- Completed batch output set - set tile -->
         <template v-if="item.type === 'completed-batch'">
-          <div class="grid grid-cols-1 gap-4">
+          <div class="grid grid-cols-1">
             <div
-              class="group relative aspect-square rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform bg-surface"
+              class="group relative aspect-square rounded-media overflow-hidden cursor-pointer bg-matte"
               @click="$emit('job-click', { status: 'completed', result_media_id: item.batch.output_set_id, is_set: true, set_data: item.batch.output_set_data })"
             >
               <MediaImage
@@ -109,15 +109,15 @@
                 alt="Batch output set"
                 container-class="w-full h-full"
               />
-              <div v-if="item.batch.expires_at && formatRemainingTime(item.batch.expires_at)" class="absolute top-2 left-2 z-[5] rounded-md bg-black/60 px-1.5 py-1 backdrop-blur-md">
-                <span class="text-xs font-semibold leading-none text-amber-500">{{ formatRemainingTime(item.batch.expires_at) }}</span>
+              <div v-if="item.batch.expires_at && formatRemainingTime(item.batch.expires_at)" class="absolute top-2 left-2 z-[5] rounded bg-black/55 px-1.5 py-1 backdrop-blur-sm">
+                <span class="text-[11px] font-mono font-semibold leading-none text-amber-400">{{ formatRemainingTime(item.batch.expires_at) }}</span>
               </div>
               <!-- Set badge overlay (upper right, matching browser) -->
-              <div class="absolute top-2 right-2 z-[5] bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1">
-                <svg class="w-4 h-4 flex-shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <div class="absolute top-2 right-2 z-[5] bg-black/55 backdrop-blur-sm rounded px-1.5 py-1 flex items-center gap-1">
+                <svg class="w-4 h-4 flex-shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3" />
                 </svg>
-                <span class="text-xs font-semibold text-content leading-none">{{ item.batch.output_set_member_count || item.batch.completed }}</span>
+                <span class="text-[11px] font-mono font-semibold text-white leading-none">{{ item.batch.output_set_member_count || item.batch.completed }}</span>
               </div>
               <!-- Marker toggle buttons (bottom left) -->
               <div v-if="!compactOverlays && item.batch.output_set_id && markers.length > 0" class="absolute bottom-2 left-2 z-[10] flex gap-0.5">
@@ -126,10 +126,10 @@
                   :key="marker.id"
                   @click.stop="$emit('toggle-marker', { mediaId: item.batch.output_set_id, assetId: item.batch.result_asset_id, marker })"
                   :class="[
-                    'w-7 h-7 rounded-md flex items-center justify-center transition-all border-2',
+                    'w-7 h-7 rounded backdrop-blur-sm flex items-center justify-center transition-all border-2',
                     hasMarker(item.batch.output_set_id, marker.id)
-                      ? 'bg-black/80'
-                      : 'bg-black/40 border-transparent hover:bg-black/60 text-white/50 hover:text-white'
+                      ? 'bg-black/55'
+                      : 'bg-black/55 border-transparent hover:bg-black/70 text-white/50 hover:text-white'
                   ]"
                   :style="hasMarker(item.batch.output_set_id, marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
                   :title="hasMarker(item.batch.output_set_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
@@ -142,8 +142,8 @@
                 v-if="item.batch.output_set_title"
                 class="absolute bottom-2 left-0 right-0 flex justify-center z-[5] pointer-events-none"
               >
-                <div class="bg-black/60 backdrop-blur-md rounded-full px-2.5 py-1 truncate max-w-[calc(100%-16px)]">
-                  <span class="text-xs font-medium text-content">{{ item.batch.output_set_title }}</span>
+                <div class="bg-black/55 backdrop-blur-sm rounded px-2.5 py-1 truncate max-w-[calc(100%-16px)]">
+                  <span class="text-[11px] text-white font-medium">{{ item.batch.output_set_title }}</span>
                 </div>
               </div>
             </div>
@@ -182,7 +182,7 @@
 
         <!-- Completed individual job - image tile -->
         <template v-else-if="item.type === 'completed-job'">
-          <div class="grid grid-cols-1 gap-4">
+          <div class="grid grid-cols-1">
             <JobTile
               :job="item.job"
               :is-video="jobIsVideo(item.job)"

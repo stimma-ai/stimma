@@ -97,7 +97,7 @@
         <Teleport defer to="#tool-header-slot">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3 min-w-0">
-            <div class="w-8 h-8 flex items-center justify-center flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
+            <div class="w-7 h-7 rounded-md bg-accent/12 flex items-center justify-center flex-shrink-0 text-accent-hi p-1.5"><ToolIcon :tool="tool" bare :ring="false" /></div>
             <HopToToolMenu
               :source-tool-id="tool.full_tool_id"
               :tool-name="tool.name"
@@ -148,7 +148,7 @@
         </div>
         <!-- Subtitle: Provider, task types. Renamed instances condense the
              tool name onto this row (mirrors the sidebar row contract). -->
-        <div class="text-xs mt-1 mb-6 flex items-center gap-1.5 text-content-muted">
+        <div class="font-mono text-[10.5px] mt-1 mb-6 flex items-center gap-1.5 text-content-tertiary">
           <template v-if="instanceCustomName">
             <span>{{ tool.name }}</span>
             <span>·</span>
@@ -203,18 +203,18 @@
         <!-- Resolution auto-change notification -->
         <div
           v-if="resAutoChange"
-          class="flex items-center gap-3 mb-2 px-3 py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/5 text-[11px]"
+          class="flex items-center gap-3 mb-2 px-3 py-1.5 rounded-lg border border-accent/30 bg-accent/5 text-[11px]"
         >
           <span class="text-content-secondary flex-1">
             Size changed to <span class="font-medium text-content">{{ resAutoChange.newWidth }}×{{ resAutoChange.newHeight }}</span>
           </span>
           <button
             @click="resAutoChangeKeepArea"
-            class="text-blue-500 hover:text-blue-400 font-medium whitespace-nowrap"
+            class="text-accent-hi hover:text-accent font-medium whitespace-nowrap"
           >Keep {{ resAutoChangeOldAreaLabel }} area</button>
           <button
             @click="resAutoChangeRevert"
-            class="text-blue-500 hover:text-blue-400 font-medium whitespace-nowrap"
+            class="text-accent-hi hover:text-accent font-medium whitespace-nowrap"
           >Restore previous size</button>
           <button
             @click="resAutoChange = null"
@@ -300,7 +300,7 @@
             <button
               @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
               class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-lg"
-              :class="layoutMode === 'stage' ? 'bg-blue-500/15 text-blue-500' : 'bg-surface-raised hover:bg-surface-hover text-content'"
+              :class="layoutMode === 'stage' ? 'bg-accent/15 text-accent-hi' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
               :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Studio — controls primary'"
             >
               <PhotoIcon class="w-5 h-5" />
@@ -311,7 +311,7 @@
             <div v-if="jobsManager" class="relative flex items-center">
               <button
                 @click="stageMenuOpen = !stageMenuOpen"
-                class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-lg bg-surface-raised hover:bg-surface-hover text-content"
+                class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-lg text-content-secondary hover:bg-overlay-subtle hover:text-content"
                 title="Queue options"
               >
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
@@ -321,11 +321,11 @@
                 <template v-if="isFromScratch">
                   <button
                     @click="setImageMode('fit'); stageMenuOpen = false"
-                    :class="['w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors', uiState.imageMode === 'fit' ? 'text-blue-500' : 'text-content-secondary']"
+                    :class="['w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors', uiState.imageMode === 'fit' ? 'text-accent-hi' : 'text-content-secondary']"
                   ><span class="w-4">{{ uiState.imageMode === 'fit' ? '✓' : '' }}</span>Fit</button>
                   <button
                     @click="setImageMode('cover'); stageMenuOpen = false"
-                    :class="['w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors', uiState.imageMode === 'cover' ? 'text-blue-500' : 'text-content-secondary']"
+                    :class="['w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors', uiState.imageMode === 'cover' ? 'text-accent-hi' : 'text-content-secondary']"
                   ><span class="w-4">{{ uiState.imageMode === 'cover' ? '✓' : '' }}</span>Cover</button>
                   <div class="border-t border-edge-subtle my-1"></div>
                 </template>
@@ -645,7 +645,7 @@
            Stays mounted across the toggle so the matte/image tween smoothly. -->
       <div
         v-if="jobsManager"
-        class="order-3 flex-1 min-w-0 flex min-h-0 relative items-center justify-center bg-slideshow-matt overflow-hidden"
+        class="order-3 flex-1 min-w-0 flex min-h-0 relative items-center justify-center bg-matte overflow-hidden"
       >
         <!-- Empty state -->
         <div v-if="!stageCurrentJob" class="flex flex-col items-center gap-3 text-content-muted">
@@ -661,7 +661,7 @@
              aspect-ratio work. Container forced transparent so the matte shows. -->
         <div
           v-else
-          class="absolute inset-0 cursor-zoom-in"
+          class="absolute inset-0 rounded-media overflow-hidden cursor-zoom-in"
           @click="openSlideshow(stageCurrentJob)"
           title="Open in slideshow"
         >
@@ -713,7 +713,7 @@
         <button
           v-if="stageCurrentJob && !stageOnNewest"
           @click.stop="stagePinnedMediaId = null"
-          class="absolute top-4 left-4 z-10 flex items-center gap-1.5 bg-black/55 backdrop-blur-md text-white text-xs px-3 py-1.5 rounded-full hover:bg-black/75 transition-colors"
+          class="absolute top-4 left-4 z-10 flex items-center gap-1.5 bg-black/55 backdrop-blur-sm text-white text-[11px] px-3 py-1.5 rounded hover:bg-black/70 transition-colors"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
           Jump to newest
@@ -724,7 +724,7 @@
         <div
           v-if="stageAutoDeleteTime"
           :class="[
-            'absolute left-4 z-10 h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/70 backdrop-blur-md rounded text-xs font-bold text-[#FFC107] shadow-[0_2px_8px_rgba(0,0,0,0.45)]',
+            'absolute left-4 z-10 h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/55 backdrop-blur-sm rounded text-[11px] font-mono font-bold text-[#FFC107]',
             stageCurrentJob && !stageOnNewest ? 'top-14' : 'top-4'
           ]"
           title="Auto-trash time remaining"
@@ -740,7 +740,7 @@
         <button
           v-if="stageCurrentJob"
           @click.stop="showJobInfo(stageCurrentJob)"
-          class="absolute top-4 right-4 z-10 h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/70 backdrop-blur-md hover:bg-blue-500/80 rounded text-xs font-bold text-white transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.45)]"
+          class="absolute top-4 right-4 z-10 h-8 flex items-center justify-center gap-1.5 px-2.5 bg-black/55 backdrop-blur-sm hover:bg-accent/80 rounded text-[11px] font-mono font-bold text-white transition-colors"
           title="Generation details"
         >
           <span v-if="stageGenerationTime">{{ stageGenerationTime }}s</span>
@@ -756,7 +756,7 @@
               v-for="marker in stageMarkers"
               :key="marker.id"
               @click.stop="handleToggleMarker({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id, marker })"
-              :class="['w-8 h-8 rounded-lg flex items-center justify-center transition-all border-2', stageHasMarker(marker.id) ? 'bg-black/80' : 'bg-black/40 border-transparent hover:bg-black/60 text-white/50 hover:text-white']"
+              :class="['w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center transition-all border-2', stageHasMarker(marker.id) ? 'bg-black/55' : 'bg-black/55 border-transparent hover:bg-black/70 text-white/50 hover:text-white']"
               :style="stageHasMarker(marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
               :title="stageHasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
             >
@@ -770,7 +770,7 @@
           <VideoVolumeControl v-if="outputsVideo" scope="toolview" @click.stop />
           <button
             @click.stop="handleRemixMedia(stageCurrentMediaId)"
-            class="w-8 h-8 rounded-lg flex items-center justify-center bg-black/40 hover:bg-blue-500/80 text-white/50 hover:text-white transition-all"
+            class="w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-accent/80 text-white/50 hover:text-white transition-all"
             title="Remix: load this image's settings"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
@@ -779,7 +779,7 @@
           </button>
           <button
             @click.stop="handleTrashMedia({ mediaId: stageCurrentMediaId, assetId: stageCurrentJob.result_asset_id })"
-            class="w-8 h-8 rounded-lg flex items-center justify-center bg-black/40 hover:bg-red-500/80 text-white/50 hover:text-white transition-all"
+            class="w-8 h-8 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-red-500/80 text-white/50 hover:text-white transition-all"
             title="Move to Trash"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
@@ -795,7 +795,7 @@
            pins the thumbnail to the hero (current-media-id highlights it). -->
       <div
         v-if="jobsManager"
-        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-surface-overlay border-l transition-[width,padding,border-color] duration-300 ease-out"
+        class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out"
         :class="[
           layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent p-4',
           stageResizing ? '!transition-none' : ''

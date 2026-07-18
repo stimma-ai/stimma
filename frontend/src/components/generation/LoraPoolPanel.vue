@@ -9,7 +9,7 @@
           v-if="availableLoras.length > 0 || uploadConfig"
           @click="showModal = true"
           type="button"
-          class="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] text-content-muted/50 hover:text-blue-500 transition-colors leading-none"
+          class="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] text-content-muted/50 hover:text-accent-hi transition-colors leading-none"
           title="Add LoRA"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
@@ -127,9 +127,9 @@
           v-if="drag.type === 'chip' && drag.active"
           data-new-group-zone
           :class="[
-            'rounded-lg border-2 border-dashed px-3 py-3 text-center text-xs transition-colors',
+            'rounded-md border-2 border-dashed px-3 py-3 text-center text-xs transition-colors',
             drag.newGroupHover
-              ? 'border-blue-500 bg-blue-500/10 text-blue-500'
+              ? 'border-accent bg-accent/10 text-accent-hi'
               : 'border-edge-subtle text-content-muted/50'
           ]"
         >
@@ -139,7 +139,7 @@
         <!-- Empty state -->
         <div
           v-if="!hasAnyItems"
-          class="rounded-lg border border-edge-subtle bg-overlay-faint px-3 py-2 text-sm text-content-muted"
+          class="py-2 text-sm text-content-muted"
         >
           {{ availableLoras.length === 0 ? 'No LoRAs available' : 'No LoRAs selected' }}
         </div>

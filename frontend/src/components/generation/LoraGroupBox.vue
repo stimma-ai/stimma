@@ -1,14 +1,9 @@
 <template>
-  <div
-    :class="[
-      'rounded-lg border transition-colors',
-      'border-edge-subtle bg-overlay-faint'
-    ]"
-  >
-    <!-- Group header -->
+  <div>
+    <!-- Group header: micro-label row -->
     <div
       v-if="!hideHeader"
-      class="flex items-center gap-1.5 px-2.5 py-1.5 cursor-grab active:cursor-grabbing"
+      class="flex items-center gap-1.5 py-1 cursor-grab active:cursor-grabbing"
       @pointerdown="onHeaderPointerDown"
     >
       <!-- Editable title -->
@@ -17,7 +12,7 @@
         ref="titleInput"
         v-model="editLabel"
         type="text"
-        class="flex-1 min-w-0 text-[11px] font-medium uppercase tracking-wide text-content-muted bg-transparent border-none outline-none focus:text-content"
+        class="flex-1 min-w-0 text-xs font-semibold text-content-secondary bg-transparent border-none outline-none focus:text-content"
         placeholder="Group name..."
         @blur="commitRename"
         @keydown.enter="commitRename"
@@ -28,10 +23,10 @@
       <span
         v-else
         :class="[
-          'flex-1 min-w-0 text-[11px] tracking-wide truncate cursor-text',
+          'flex-1 min-w-0 truncate cursor-text',
           group.label
-            ? 'font-medium uppercase text-content-muted'
-            : 'italic text-content-muted/50'
+            ? 'text-xs font-semibold text-content-secondary'
+            : 'text-xs italic text-content-muted'
         ]"
         @click.stop="!fixedLabel && startRename()"
       >{{ group.label || 'Name this group...' }}</span>
@@ -49,15 +44,16 @@
         </svg>
       </button>
     </div>
+    <div v-if="!hideHeader" class="border-b border-edge-subtle mb-0.5" />
 
-    <!-- Chips container -->
-    <div :class="['grid gap-1.5 px-2 pb-2', hideHeader ? 'pt-2' : '']" :style="{ gridTemplateColumns: `repeat(auto-fill, minmax(${chipMinWidth}px, 1fr))` }">
+    <!-- Rows container: full-width vertical stack, no chip-grid wrapping -->
+    <div class="flex flex-col">
       <slot />
 
       <!-- Empty state -->
       <div
         v-if="group.items.length === 0"
-        class="col-span-full py-3 text-center text-[11px] text-content-muted/50"
+        class="py-3 text-center text-[11px] text-content-muted/50"
       >
         Drag LoRAs here
       </div>
@@ -74,7 +70,7 @@ interface Props {
   groupIndex: number
   hideHeader?: boolean
   fixedLabel?: boolean  // If true, label is not editable
-  chipMinWidth?: number // Min chip width in px for grid sizing
+  chipMinWidth?: number // Unused post-reskin (rows are full-width); kept for prop compatibility
 }
 
 const props = withDefaults(defineProps<Props>(), {

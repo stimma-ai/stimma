@@ -24,7 +24,7 @@
         @click="$emit('toggle-forever')"
         :class="[
           'px-4 py-3 rounded-lg text-base font-semibold cursor-pointer transition-colors flex items-center justify-center gap-2',
-          foreverMode ? 'bg-pink-500 text-white hover:bg-pink-600' : 'bg-surface-raised text-content hover:bg-surface-hover'
+          foreverMode ? 'bg-accent/15 text-accent-hi ring-1 ring-accent/40' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'
         ]"
         :title="foreverMode ? 'Forever mode active - click to stop' : 'Enable forever mode'"
       >

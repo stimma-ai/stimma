@@ -3,8 +3,8 @@
     <!-- Split Button -->
     <div
       :class="[
-        'flex rounded-lg overflow-hidden',
-        isActive ? 'bg-pink-500' : 'bg-surface-raised'
+        'flex rounded-lg overflow-hidden transition-colors',
+        isActive ? 'bg-accent/15 ring-1 ring-accent/40' : ''
       ]"
     >
       <!-- Main button (start/stop) -->
@@ -12,7 +12,7 @@
         @click="handleMainClick"
         :class="[
           'px-3 py-2 text-sm font-semibold cursor-pointer transition-colors',
-          isActive ? 'text-white hover:bg-pink-600' : 'text-content hover:bg-surface-hover'
+          isActive ? 'text-accent-hi hover:bg-accent/20' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'
         ]"
         :title="isActive ? 'Stop forever mode' : 'Start forever mode'"
       >
@@ -20,14 +20,14 @@
       </button>
 
       <!-- Divider -->
-      <div :class="['w-px', isActive ? 'bg-pink-400' : 'bg-surface-hover']"></div>
+      <div v-if="isActive" class="w-px bg-accent/30"></div>
 
       <!-- Dropdown chevron (settings) -->
       <button
         @click.stop="handleChevronClick"
         :class="[
           'px-2 py-2 cursor-pointer transition-colors flex items-center',
-          isActive ? 'text-white hover:bg-pink-600' : 'text-content hover:bg-surface-hover'
+          isActive ? 'text-accent-hi hover:bg-accent/20' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'
         ]"
         title="Forever mode settings"
       >
