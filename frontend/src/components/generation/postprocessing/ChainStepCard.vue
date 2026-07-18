@@ -1,74 +1,49 @@
 <template>
-  <!-- Atelier: a chain step is a hairline row, not a card. The 3px rail
-       carries type identity; incompatible turns it amber (was a border). -->
+  <!-- Chain step = the LoRA row grammar: enable dot · name · inline subtitle ·
+       hover controls · hairline. Row click expands; dot click toggles. -->
   <div
     :class="[
-      'relative border-b border-edge-subtle last:border-b-0 transition-colors',
+      'group relative border-b border-edge-subtle last:border-b-0 transition-colors',
       dragging ? 'opacity-30' : '',
     ]"
   >
-    <div
-      :class="[
-        'absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r',
-        incompatible ? 'bg-amber-500/70' : step.kind === 'tool' ? 'bg-purple-500/70' : 'bg-overlay-strong',
-        step.enabled ? '' : 'opacity-40',
-      ]"
-    ></div>
-
-    <div :class="['flex items-center gap-2.5 pl-2.5 pr-0 py-2', step.enabled ? '' : 'opacity-50']">
-      <!-- Drag grip -->
-      <span
-        class="cursor-grab text-content-muted/40 hover:text-content-muted touch-none"
-        draggable="true"
-        @dragstart="$emit('grip-dragstart', $event)"
-        @dragend="$emit('grip-dragend')"
-        title="Drag to reorder"
+    <div class="flex items-center gap-1.5 py-1.5">
+      <!-- Enable dot (click toggles; amber = needs attention) -->
+      <button
+        type="button"
+        class="shrink-0 w-3 flex items-center justify-center"
+        :title="step.enabled ? 'Disable step' : 'Enable step'"
+        @click.stop="$emit('set-enabled', !step.enabled)"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-          <path d="M7 4a1 1 0 110-2 1 1 0 010 2zm6 0a1 1 0 110-2 1 1 0 010 2zM7 11a1 1 0 110-2 1 1 0 010 2zm6 0a1 1 0 110-2 1 1 0 010 2zM7 18a1 1 0 110-2 1 1 0 010 2zm6 0a1 1 0 110-2 1 1 0 010 2z" />
-        </svg>
-      </span>
+        <span v-if="incompatible || unavailable" class="w-2.5 h-2.5 rounded-full bg-amber-400" />
+        <span v-else-if="step.enabled" class="w-2.5 h-2.5 rounded-full bg-accent-hi" />
+        <span v-else class="w-2.5 h-2.5 rounded-full border border-content-muted" />
+      </button>
 
-      <!-- Type icon: standard task-type treatment for tools, neutral for filters -->
+      <!-- Tool identity (tool steps only — models earn an icon, filters don't) -->
       <ToolIcon
         v-if="step.kind === 'tool'"
         :tool="{ id: step.tool_id, full_tool_id: step.tool_id, task_type: step.task_type }"
-        size="md"
+        size="sm"
         :ring="false"
+        class="shrink-0"
       />
-      <div
-        v-else
-        class="w-[30px] h-[30px] rounded-md flex items-center justify-center flex-shrink-0 bg-overlay-light text-content-tertiary"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
-        </svg>
-      </div>
 
-      <!-- Name + sub row (provider badge for tools, settings summary for filters) -->
+      <!-- Name + inline subtitle; click expands settings -->
       <button
         type="button"
-        class="flex-1 min-w-0 text-left"
+        :class="['flex-1 min-w-0 text-left flex items-baseline gap-1.5', step.enabled ? '' : 'opacity-50']"
         @click="$emit('toggle-expanded')"
       >
-        <div class="text-[13px] font-medium text-content truncate flex items-center gap-1.5">
-          {{ title }}
-          <span v-if="unavailable" class="text-[10px] font-medium text-amber-500">unavailable</span>
-        </div>
-        <div class="text-[11px] text-content-muted truncate mt-0.5 flex items-center gap-1.5">
-          <template v-if="incompatible">
-            <span class="text-amber-500">Needs {{ neededInput }} input — will be skipped</span>
-          </template>
+        <span class="text-[13px] text-content truncate" :class="step.enabled ? 'font-medium' : ''">{{ title }}</span>
+        <span v-if="unavailable" class="shrink-0 text-[10px] font-medium text-amber-500">unavailable</span>
+        <span class="min-w-0 truncate text-[11px] text-content-muted">
+          <template v-if="incompatible"><span class="text-amber-500">Needs {{ neededInput }} input — skipped</span></template>
           <template v-else-if="step.kind === 'tool' && provider">
-            <!-- Standard provider treatment (same as the sidebar): plain text,
-                 gradient-colored for Stimma Cloud -->
-            <span
-              class="truncate text-[11px]"
-              :class="provider.isStimmaCloud ? 'stimma-cloud-text font-medium' : 'text-content-muted'"
-            >{{ provider.name }}</span>
+            <span :class="provider.isStimmaCloud ? 'stimma-cloud-text font-medium' : ''">{{ provider.name }}</span>
           </template>
           <template v-else-if="step.kind === 'filter'">{{ summary }}</template>
-        </div>
+        </span>
       </button>
 
       <!-- Output thumbnail (when the step has run) -->
@@ -77,62 +52,40 @@
         :media-id="thumbMediaId"
         :thumbnail="true"
         :size="128"
-        class="w-[34px] h-[34px] rounded-media object-cover flex-shrink-0"
+        class="w-6 h-6 rounded-media object-cover shrink-0"
       />
 
-      <!-- Expand chevron -->
-      <button
-        type="button"
-        class="w-6 h-6 flex items-center justify-center rounded text-content-muted/60 hover:text-content-secondary transition-colors"
-        @click="$emit('toggle-expanded')"
-        :title="expanded ? 'Collapse' : 'Expand'"
-      >
-        <span :class="['transition-transform text-[10px]', expanded ? 'rotate-90' : '']">&#9654;</span>
-      </button>
-
-      <!-- Per-step enable toggle -->
-      <label class="inline-flex items-center cursor-pointer flex-shrink-0" @click.stop>
-        <input
-          type="checkbox"
-          :checked="step.enabled"
-          @change="$emit('set-enabled', ($event.target as HTMLInputElement).checked)"
-          class="sr-only peer"
-        >
-        <div class="relative w-7 h-4 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-3 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-accent"></div>
-      </label>
-
-      <!-- Kebab → Remove -->
-      <div class="relative flex-shrink-0">
+      <!-- Hover controls: remove + drag grip (right, like LoRA rows) -->
+      <div class="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           type="button"
-          class="w-6 h-6 flex items-center justify-center rounded text-content-muted/50 hover:text-content-secondary transition-colors"
-          @click.stop="onKebabClick"
-          title="More options"
+          class="w-4 h-4 flex items-center justify-center text-content-muted hover:!text-red-500"
+          title="Remove step"
+          @click.stop="$emit('remove')"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-            <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
+            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
           </svg>
         </button>
-        <ActionMenu
-          v-if="menu.visible"
-          :x="menu.x"
-          :y="menu.y"
-          :actions="menuActions"
-          @close="menu.visible = false"
-        />
+        <span
+          class="text-content-muted text-[10px] cursor-grab touch-none"
+          draggable="true"
+          title="Drag to reorder"
+          @dragstart="$emit('grip-dragstart', $event)"
+          @dragend="$emit('grip-dragend')"
+        >⠿</span>
       </div>
     </div>
 
-    <!-- Expanded settings: the wash-inset disclosure (deepest containment) -->
-    <div v-if="expanded" class="bg-overlay-faint rounded-md mx-1 mb-2 px-3 py-2">
+    <!-- Expanded settings: the wash-inset disclosure -->
+    <div v-if="expanded" class="bg-overlay-faint rounded-md mb-2 px-3 py-2">
       <slot name="settings"></slot>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
-import ActionMenu from '../../ActionMenu.vue'
+import { computed } from 'vue'
 import MediaImage from '../../media/MediaImage.vue'
 import ToolIcon from '../../tools/ToolIcon.vue'
 import type { ChainStep } from '../../../utils/postProcessingChain'
@@ -159,23 +112,6 @@ const emit = defineEmits<{
   (e: 'grip-dragend'): void
 }>()
 
-const menu = reactive({ visible: false, x: 0, y: 0 })
 
-function onKebabClick(ev: MouseEvent) {
-  menu.x = ev.clientX
-  menu.y = ev.clientY
-  menu.visible = true
-}
 
-const menuActions = computed(() => [
-  {
-    id: 'remove',
-    label: 'Remove',
-    danger: true,
-    action: () => {
-      menu.visible = false
-      emit('remove')
-    },
-  },
-])
 </script>

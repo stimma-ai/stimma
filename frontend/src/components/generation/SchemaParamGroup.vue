@@ -19,7 +19,7 @@
       <!-- Parameters list (settings-style: label+desc on left, control on right) -->
       <!-- Atelier: ONE hairline under the group label; rows separate by
            whitespace (per-row rules read as a wall of <hr>s on two-line rows). -->
-      <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" :class="paramGroup.label ? 'border-t border-edge-subtle pt-1' : ''">
+      <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" :class="['divide-y divide-edge-subtle', paramGroup.label ? 'border-t border-edge-subtle' : '']">
         <template v-for="param in paramGroup.params" :key="param.name">
           <!-- Skip if visibleWhen condition not met, or a hide constraint is active -->
           <template v-if="(!param.visibleWhen || values[param.visibleWhen.param] === param.visibleWhen.value) && !constraintState(param).hidden">
