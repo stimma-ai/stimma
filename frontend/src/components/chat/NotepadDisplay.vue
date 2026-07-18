@@ -43,7 +43,7 @@
               </span>
               <ExclamationCircleIcon v-else-if="task.status === 'failed'" class="w-4 h-4 text-red-500" />
               <span v-else class="inline-flex h-4 w-4 items-center justify-center">
-                <span class="rounded-full h-2 w-2 border border-white/20"></span>
+                <span class="rounded-full h-2 w-2 border border-edge"></span>
               </span>
             </span>
             <!-- Task text -->

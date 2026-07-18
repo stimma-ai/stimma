@@ -457,7 +457,7 @@
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
-              <div class="bg-blue-600 text-white rounded-lg px-4 py-2">
+              <div class="bg-surface-raised text-content rounded-lg px-4 py-2">
                 <!-- Attachments -->
                 <div v-if="getMessageAttachments(item).length > 0" class="flex gap-2 mb-2">
                   <div
@@ -519,7 +519,7 @@
                     @blur="cancelEditing"
                     @input="autoResizeEditTextarea"
                     :style="{ minWidth: editingMinSize.width + 'px', minHeight: editingMinSize.height + 'px' }"
-                    class="w-full bg-blue-700 text-white rounded px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-edge-strong"
+                    class="w-full bg-overlay-subtle text-content rounded-md px-3 py-2 resize-none focus:outline-none focus-visible:ring-2 ring-accent/60"
                   ></textarea>
                   <!-- Normal text display -->
                   <span v-else class="whitespace-pre-wrap break-words select-text">{{ getMessageBodyText(item) }}</span>
@@ -568,7 +568,7 @@
                 </template>
                 <div
                   v-if="getDisplayText(item)"
-                  class="bg-surface text-content rounded-lg px-4 py-2 prose prose-sm max-w-none select-text"
+                  class="bg-surface border border-edge-subtle text-content rounded-lg px-4 py-2 prose prose-sm max-w-none select-text"
                 >
                   <template v-for="(seg, segIdx) in parseMarkdownSegments(getDisplayText(item))" :key="segIdx">
                     <span v-if="seg.type === 'html'" v-html="seg.content"></span>
@@ -4110,7 +4110,7 @@ function startEditing(item) {
   if (item.item_type !== 'user_message' || !item.message_text) return
 
   // Capture original bubble size before switching to edit mode
-  const bubble = document.querySelector(`[data-item-id="${item.id}"] .bg-blue-600`)
+  const bubble = document.querySelector(`[data-item-id="${item.id}"] .bg-surface-raised`)
   if (bubble) {
     const rect = bubble.getBoundingClientRect()
     editingMinSize.value = { width: Math.max(200, rect.width), height: Math.max(60, rect.height) }
@@ -5525,26 +5525,20 @@ watch(wsConnected, (connected, wasConnected) => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px 5px 8px;
-  border-radius: 9999px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 6px;
   cursor: pointer;
   user-select: none;
   font-size: 13px;
   line-height: 1.3;
   color: var(--color-text-secondary, #9ca3af);
-  background: var(--color-surface, rgba(255,255,255,0.04));
-  border: 1px solid var(--color-edge-subtle, rgba(255,255,255,0.06));
-  transition: all 0.15s ease;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 .activity-summary:hover {
-  background: var(--color-surface-raised, rgba(255,255,255,0.08));
-  border-color: var(--color-edge, rgba(255,255,255,0.1));
+  background: var(--color-overlay-faint, rgba(255,255,255,0.04));
   color: var(--color-text-primary, #e5e7eb);
-}
-
-.activity-group--running .activity-summary {
-  border-color: rgba(96, 165, 250, 0.2);
-  background: rgba(96, 165, 250, 0.04);
 }
 
 .activity-chevron {
@@ -5559,13 +5553,9 @@ watch(wsConnected, (connected, wasConnected) => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #60a5fa;
+  background: #3b82f6; /* blue-500 — running bucket, statusColors.ts */
   flex-shrink: 0;
-  animation: activityPulse 1.5s ease-in-out infinite;
-}
-@keyframes activityPulse {
-  0%, 100% { opacity: 0.4; transform: scale(0.85); }
-  50% { opacity: 1; transform: scale(1.1); }
+  animation: pulse-soft 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .activity-tool-list {
@@ -5577,6 +5567,8 @@ watch(wsConnected, (connected, wasConnected) => {
 }
 
 .activity-tool-name {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -5596,22 +5588,24 @@ watch(wsConnected, (connected, wasConnected) => {
 }
 
 .activity-failed-badge {
+  font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #f87171;
+  color: #f87171; /* red-400 — failed bucket, statusColors.ts */
   padding: 1px 6px;
-  border-radius: 9999px;
+  border-radius: 4px;
   background: rgba(248, 113, 113, 0.1);
 }
 
 .activity-running-badge {
+  font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 10px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #60a5fa;
+  color: #60a5fa; /* blue-400 — running bucket, statusColors.ts */
 }
 
 /* Timeline — tree-line connector style */
@@ -5710,13 +5704,16 @@ watch(wsConnected, (connected, wasConnected) => {
 }
 
 .activity-step-name {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
   font-weight: 500;
   color: var(--color-text-primary, #e5e7eb);
 }
 
 .activity-step-preview {
-  color: var(--color-text-muted, #6b7280);
-  font-size: 12px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--color-text-tertiary, #6b7280);
+  font-size: 11px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5724,19 +5721,18 @@ watch(wsConnected, (connected, wasConnected) => {
   max-width: 350px;
 }
 
+/* Expanded detail: hairline row, not a nested fill box (STANDARDS.md §1.4
+   depth budget — the code block below is the one fill in this stack). */
 .activity-step-content {
-  margin: 4px 0 8px 4px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background: var(--color-surface, rgba(255,255,255,0.03));
-  border: 1px solid var(--color-edge-subtle, rgba(255,255,255,0.04));
+  margin: 2px 0 6px 4px;
+  padding: 8px 4px 4px;
+  border-top: 1px solid var(--color-edge-subtle, rgba(255,255,255,0.06));
   max-height: 300px;
   overflow-y: auto;
 }
 
 .activity-code-block {
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px;
   background: rgba(0,0,0,0.2);
   padding: 10px 12px;
   overflow-x: auto;
@@ -5745,17 +5741,10 @@ watch(wsConnected, (connected, wasConnected) => {
 /* Light theme overrides */
 [data-theme="light"] .activity-summary {
   color: #6b7280;
-  background: #f9fafb;
-  border-color: #e5e7eb;
 }
 [data-theme="light"] .activity-summary:hover {
   background: #f3f4f6;
-  border-color: #d1d5db;
   color: #374151;
-}
-[data-theme="light"] .activity-group--running .activity-summary {
-  border-color: rgba(59, 130, 246, 0.2);
-  background: rgba(59, 130, 246, 0.03);
 }
 [data-theme="light"] .activity-step-connector::before,
 [data-theme="light"] .activity-step-branch {
@@ -5774,11 +5763,9 @@ watch(wsConnected, (connected, wasConnected) => {
   background: #f3f4f6;
 }
 [data-theme="light"] .activity-step-content {
-  background: #f9fafb;
   border-color: #e5e7eb;
 }
 [data-theme="light"] .activity-code-block {
   background: #f3f4f6;
-  border-color: #e5e7eb;
 }
 </style>

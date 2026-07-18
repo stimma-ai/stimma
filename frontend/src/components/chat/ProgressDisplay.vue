@@ -11,13 +11,7 @@
     </div>
 
     <!-- Progress bar -->
-    <div class="w-full h-1.5 bg-surface-raised rounded-full overflow-hidden">
-      <div
-        class="h-full rounded-full transition-all duration-300 ease-out"
-        :class="barColorClass"
-        :style="{ width: progressPercent + '%' }"
-      />
-    </div>
+    <ProgressBar :value="progressPercent" :hue="barColorClass" />
 
     <!-- Status text for non-normal states -->
     <div v-if="displayData.status === 'cancelled'" class="mt-1.5">
@@ -68,6 +62,8 @@
 <script setup>
 import { computed, ref, onMounted, watch, nextTick } from 'vue'
 import { MediaImage } from '../media'
+import ProgressBar from '../ui/ProgressBar.vue'
+import { dotClass } from '../../utils/statusColors'
 
 const props = defineProps({
   displayData: {
@@ -95,15 +91,21 @@ const progressPercent = computed(() => {
   return Math.round((props.displayData.current / props.displayData.total) * 100)
 })
 
-const barColorClass = computed(() => {
+// Status → bucket per STANDARDS.md §1.9 (statusColors.ts is the single
+// source of truth): cancelled/timed_out are non-fatal trouble (warning),
+// completed is terminal success (done), error is terminal failure (failed),
+// everything else (in_progress) is running.
+const statusBucket = computed(() => {
   switch (props.displayData.status) {
-    case 'completed': return 'bg-green-500'
+    case 'completed': return 'done'
     case 'cancelled':
-    case 'timed_out': return 'bg-amber-500'
-    case 'error': return 'bg-red-500'
-    default: return 'bg-blue-500'
+    case 'timed_out': return 'warning'
+    case 'error': return 'failed'
+    default: return 'running'
   }
 })
+
+const barColorClass = computed(() => dotClass(statusBucket.value))
 
 function checkOverflow() {
   if (!gridRef.value) return

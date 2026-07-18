@@ -38,7 +38,7 @@
         @click="$emit('toggle-settings-panel')"
         class="w-7 h-7 flex items-center justify-center rounded transition-colors"
         :class="settingsPanelVisible
-          ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30'
+          ? 'text-accent bg-accent/15 hover:bg-accent/20'
           : 'text-content-muted hover:text-content-secondary hover:bg-surface'"
         title="Toggle settings panel"
       >

@@ -40,10 +40,7 @@
           >
             <div class="min-w-0 mr-2">
               <div class="flex items-center gap-2">
-                <span
-                  class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                  :class="isActive(skill) ? 'bg-blue-500' : 'bg-white/10'"
-                />
+                <StatusDot :bucket="isActive(skill) ? 'special' : 'skipped'" />
                 <span
                   class="text-xs leading-4"
                   :class="isActive(skill) ? 'text-content font-medium' : 'text-content-secondary'"
@@ -72,6 +69,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { BookOpenIcon } from '@heroicons/vue/24/outline'
+import StatusDot from '../ui/StatusDot.vue'
 
 interface SkillEntry {
   qualified_name: string

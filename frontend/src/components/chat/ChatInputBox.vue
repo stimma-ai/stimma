@@ -10,9 +10,9 @@
     <Transition name="fade">
       <div
         v-if="dragging && !agentUnavailable"
-        class="pointer-events-none absolute inset-0 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-blue-500"
+        class="pointer-events-none absolute inset-0 bg-accent/10 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-accent/50"
       >
-        <div class="flex flex-col items-center gap-2 text-blue-500">
+        <div class="flex flex-col items-center gap-2 text-accent">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
           </svg>
