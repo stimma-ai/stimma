@@ -128,6 +128,21 @@
 import { computed } from 'vue'
 import type { MockBodyNode, MockStatus } from './foreachMockData'
 import { aggregateCounts } from './foreachMockData'
+import { dotClass, textClass, cardFrameClass, tileBgClass, type StatusBucket } from '@/utils/statusColors'
+
+// Maps this node's own status vocabulary onto the shared statusColors.ts
+// bucket type; actual colors always come from the shared exports below.
+function mockStatusToBucket(s: MockStatus | null): StatusBucket | null {
+  switch (s) {
+    case 'completed':      return 'done'
+    case 'computing':      return 'running'
+    case 'failed':         return 'failed'
+    case 'awaiting_input': return 'awaiting'
+    case 'pending':        return 'queued'
+    case 'skipped':        return 'skipped'
+    default:               return null
+  }
+}
 
 interface Props {
   node: MockBodyNode
@@ -156,15 +171,12 @@ const DOMINANCE: Record<MockStatus | 'null', number> = {
 }
 
 function segClass(s: MockStatus | null): string {
-  switch (s) {
-    case 'completed':      return 'bg-green-500'
-    case 'computing':      return 'bg-blue-500 animate-pulse'
-    case 'failed':         return 'bg-red-500'
-    case 'awaiting_input': return 'bg-purple-500'
-    case 'pending':        return 'bg-zinc-500/40'
-    case 'skipped':        return 'bg-zinc-600/50'
-    default:               return 'bg-transparent'
-  }
+  const bucket = mockStatusToBucket(s)
+  if (bucket === null) return 'bg-transparent'
+  if (bucket === 'running') return `${dotClass(bucket)} pulse-soft`
+  if (bucket === 'queued') return 'bg-zinc-500/40'
+  if (bucket === 'skipped') return 'bg-zinc-600/50'
+  return dotClass(bucket)
 }
 
 const ribbonSegments = computed(() => {
@@ -231,7 +243,7 @@ const summaryDotClass = computed(() => {
   const c = counts.value
   if (c.failed > 0) return 'bg-red-500'
   if (c.awaiting_input > 0) return 'bg-purple-500'
-  if (c.computing > 0) return 'bg-blue-500 animate-pulse'
+  if (c.computing > 0) return 'bg-blue-500 pulse-soft'
   if (c.pending > 0) return 'bg-zinc-500/60'
   if (c.completed > 0) return 'bg-green-500'
   return 'bg-zinc-600/40'
@@ -273,16 +285,11 @@ const focusedDuration = computed<string | null>(() => {
 
 const focusedTileClass = computed(() => {
   const s = focusedStatus.value
-  switch (s) {
-    case 'completed':      return 'border-green-500/40 bg-green-500/5'
-    case 'computing':      return 'border-blue-500/40 bg-blue-500/5'
-    case 'failed':         return 'border-red-500/40 bg-red-500/10'
-    case 'awaiting_input': return 'border-purple-500/40 bg-purple-500/10'
-    case 'pending':        return 'border-edge-subtle bg-overlay-faint'
-    case 'skipped':        return 'border-edge-subtle bg-overlay-faint opacity-60'
-    case null:             return 'border-dashed border-edge-subtle bg-transparent opacity-50'
-    default:               return 'border-edge-subtle bg-overlay-faint'
-  }
+  if (s === null) return 'border-dashed border-edge-subtle bg-transparent opacity-50'
+  const bucket = mockStatusToBucket(s)
+  if (bucket === null) return 'border-edge-subtle bg-overlay-faint'
+  const opacity = bucket === 'skipped' ? ' opacity-60' : ''
+  return `${cardFrameClass(bucket)} ${tileBgClass(bucket)}${opacity}`
 })
 
 const focusedStatusLabel = computed(() => {
@@ -300,14 +307,8 @@ const focusedStatusLabel = computed(() => {
 })
 
 const focusedLabelClass = computed(() => {
-  const s = focusedStatus.value
-  switch (s) {
-    case 'computing':      return 'text-blue-400/90'
-    case 'completed':      return 'text-green-400/80'
-    case 'failed':         return 'text-red-400/90'
-    case 'awaiting_input': return 'text-purple-400'
-    default:               return 'text-content-muted/70'
-  }
+  const bucket = mockStatusToBucket(focusedStatus.value)
+  return bucket ? textClass(bucket) : 'text-content-muted/70'
 })
 
 // --- Card style ---

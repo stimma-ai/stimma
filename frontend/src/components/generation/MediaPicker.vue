@@ -60,7 +60,7 @@
                   preserve-previous-on-src-change
                 />
                 <!-- Set badge overlay (upper right, matching browser style) -->
-                <div class="absolute top-2 right-2 z-[5]">
+                <div class="absolute top-2 right-2 z-chrome">
                   <div class="bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1">
                     <svg class="w-4 h-4 flex-shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3" />
@@ -150,7 +150,7 @@
               </div>
 
               <!-- Batch count badge (stack indicator) -->
-              <div v-if="batchMode" class="absolute top-2 left-2 z-[5]">
+              <div v-if="batchMode" class="absolute top-2 left-2 z-chrome">
                 <div class="bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1">
                   <svg class="w-4 h-4 flex-shrink-0 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
                   <span class="text-xs font-semibold text-content leading-none">{{ items.length }}</span>
@@ -161,7 +161,7 @@
               <button
                 v-if="batchMode"
                 @click.stop="clearItems"
-                class="absolute top-1 right-1 z-[6] w-6 h-6 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                class="absolute top-1 right-1 z-chrome w-6 h-6 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 title="Clear"
                 aria-label="Clear"
               >
@@ -183,7 +183,7 @@
 
               <!-- Slot-label badge (named-slot mode, e.g. Start / End) -->
               <div v-if="!batchMode && useSlotLabels" class="absolute top-1 left-1 px-1.5 h-5 flex items-center justify-center bg-black/70 rounded pointer-events-none">
-                <span class="text-[10px] uppercase tracking-wide text-white font-semibold leading-none">{{ slotBadge(index) }}</span>
+                <span class="text-[10px] text-white font-semibold leading-none">{{ slotBadge(index) }}</span>
               </div>
 
               <!-- Order badge (only meaningful once there's more than one item to order) -->
@@ -197,7 +197,7 @@
               <!-- Frame-grab badge: this still came from a video, at this timestamp -->
               <div
                 v-if="item._videoSource"
-                class="absolute bottom-1 left-1 z-[5] bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1 pointer-events-none"
+                class="absolute bottom-1 left-1 z-chrome bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1 pointer-events-none"
                 :title="`Frame from ${item._videoSource.filename}`"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-white">
@@ -307,10 +307,10 @@
                     {{ getFlipStatusText(item) }}
                   </span>
                   <div class="w-3 h-3 flex-shrink-0">
-                    <div
-                      v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'flip'"
-                      class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin"
-                    ></div>
+                    <Spinner
+                        v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'flip'"
+                        size="sm"
+                      />
                     <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'flip' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                   </div>
                 </div>
@@ -368,10 +368,10 @@
                   <span v-if="hasCrop(item)" class="text-[10px] tabular-nums text-blue-400 font-medium">
                     {{ getCropStatusText(item) }}
                   </span>
-                  <div
+                  <Spinner
                     v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'crop'"
-                    class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin flex-shrink-0"
-                  ></div>
+                    size="sm"
+                  />
                   <button
                     v-if="hasCrop(item)"
                     @click="resetCrop(item.originalIndex)"
@@ -404,10 +404,10 @@
                     {{ getScaleStatusText(item) }}
                   </span>
                   <div class="w-3 h-3 flex-shrink-0">
-                    <div
-                      v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'scale'"
-                      class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin"
-                    ></div>
+                    <Spinner
+                        v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'scale'"
+                        size="sm"
+                      />
                     <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'scale' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                   </div>
                 </div>
@@ -562,10 +562,10 @@
                     {{ item._preprocessor ? (controlnetLabels[item._preprocessor] || item._preprocessor) : 'Original' }}
                   </span>
                   <div class="w-3 h-3 flex-shrink-0">
-                    <div
-                      v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'preprocess'"
-                      class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin"
-                    ></div>
+                    <Spinner
+                        v-if="delayedProcessingIndex === item.originalIndex && delayedProcessingReason === 'preprocess'"
+                        size="sm"
+                      />
                     <svg v-else class="w-3 h-3 text-content-muted transition-transform" :class="{ 'rotate-180': openPrepPanel[item.originalIndex] === 'preprocess' }" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
                   </div>
                 </div>
@@ -771,7 +771,7 @@
 
     <!-- Loading indicator: absolute overlay so it never reflows the layout -->
     <div v-if="isUploading" class="absolute top-0 right-0 z-10 flex items-center gap-1.5 bg-black/60 backdrop-blur-md rounded-md px-2 py-1 pointer-events-none">
-      <div class="w-3 h-3 border-2 border-edge border-t-blue-500 rounded-full animate-spin"></div>
+      <Spinner size="sm" />
       <span class="text-[10px] text-content-muted">Working…</span>
     </div>
 
@@ -869,6 +869,7 @@ import MediaPickerPopover from './MediaPickerPopover.vue'
 import { recordMediaInputUse, removeRecentMediaInput, type RecentInputKind } from '../../composables/useRecentMediaInputs'
 import { removeRecentMediaPick } from '../../composables/useRecentMediaPicks'
 import { getMediaType } from '../../utils/mediaTypes'
+import Spinner from '../ui/Spinner.vue'
 
 const { getMediaItem, getMediaFileUrl, getThumbnailUrl } = useMediaApi()
 const { extractFrame } = useVideoFrameExtraction()

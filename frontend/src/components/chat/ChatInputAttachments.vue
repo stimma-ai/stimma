@@ -3,7 +3,7 @@
     <div
       v-for="(attachment, index) in attachments"
       :key="attachment.id || index"
-      class="relative w-16 h-16 bg-surface-raised rounded overflow-hidden group flex-shrink-0"
+      class="relative w-16 h-16 bg-matte rounded-media overflow-hidden group flex-shrink-0"
     >
       <!-- Library media (has media_id) - draggable with context menu -->
       <MediaImage
@@ -23,7 +23,7 @@
       <!-- Remove button -->
       <button
         @click="removeAttachment(index)"
-        class="absolute top-0.5 right-0.5 w-5 h-5 bg-black/70 hover:bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        class="absolute top-0.5 right-0.5 w-5 h-5 bg-black/55 backdrop-blur-sm hover:bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-colors z-10 focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content">
           <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />

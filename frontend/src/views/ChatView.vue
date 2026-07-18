@@ -247,7 +247,7 @@
                 <span v-if="getActivityGroupSummary(getActivityGroup(item.id)).hasRunningThinking" class="activity-thinking" :class="{ 'activity-thinking--solo': getActivityGroupSummary(getActivityGroup(item.id)).toolNames.length === 0 }">
                     <span class="thinking-dots">thinking</span>
                 </span>
-                <span v-if="getActivityGroupSummary(getActivityGroup(item.id)).hasFailed && !getActivityGroupSummary(getActivityGroup(item.id)).isRunning && isLastActivityGroup(getActivityGroup(item.id))" class="activity-failed-badge">failed</span>
+                <span v-if="getActivityGroupSummary(getActivityGroup(item.id)).hasFailed && !getActivityGroupSummary(getActivityGroup(item.id)).isRunning && isLastActivityGroup(getActivityGroup(item.id))" :class="ACTIVITY_FAILED_BADGE_CLASS">failed</span>
               </div>
 
               <!-- Expanded timeline -->
@@ -296,8 +296,8 @@
                         class="activity-step-preview hover:underline cursor-pointer"
                       >{{ actItem.tool_args.url }}</a>
                       <span v-else-if="devModeRef && getToolCallPreview(actItem)" class="activity-step-preview">{{ getToolCallPreview(actItem) }}</span>
-                      <span v-if="getToolCallStatus(actItem) === 'failed'" class="activity-failed-badge">failed</span>
-                      <span v-if="getToolCallStatus(actItem) === 'running'" class="activity-running-badge">running</span>
+                      <span v-if="getToolCallStatus(actItem) === 'failed'" :class="ACTIVITY_FAILED_BADGE_CLASS">failed</span>
+                      <span v-if="getToolCallStatus(actItem) === 'running'" :class="ACTIVITY_RUNNING_BADGE_CLASS">running</span>
                     </div>
 
                   <!-- Tool call step: delegate gets nested subagent activity -->
@@ -311,15 +311,15 @@
                         </span>
                         <span
                           v-if="getToolCallStatus(actItem) === 'failed'"
-                          class="activity-failed-badge"
+                          :class="ACTIVITY_FAILED_BADGE_CLASS"
                         >failed</span>
                         <span
                           v-if="getToolCallStatus(actItem) === 'running' && !getDelegateActivitySummary(actItem.id).isRunning"
-                          class="activity-running-badge"
+                          :class="ACTIVITY_RUNNING_BADGE_CLASS"
                         >running</span>
                         <span
                           v-if="getDelegateActivitySummary(actItem.id).isRunning"
-                          class="activity-running-badge"
+                          :class="ACTIVITY_RUNNING_BADGE_CLASS"
                         >running</span>
                       </summary>
                       <!-- Nested subagent activity — continues the tree structure -->
@@ -361,8 +361,8 @@
                               <summary class="activity-step-summary">
                                 <span class="activity-step-name">{{ getToolCallDisplayName(childItem) }}</span>
                                 <span v-if="devModeRef && getToolCallPreview(childItem)" class="activity-step-preview">{{ getToolCallPreview(childItem) }}</span>
-                                <span v-if="getDelegateChildToolStatus(childItem, getChildItems(actItem.id)) === 'failed'" class="activity-failed-badge">failed</span>
-                                <span v-if="getDelegateChildToolStatus(childItem, getChildItems(actItem.id)) === 'running'" class="activity-running-badge">running</span>
+                                <span v-if="getDelegateChildToolStatus(childItem, getChildItems(actItem.id)) === 'failed'" :class="ACTIVITY_FAILED_BADGE_CLASS">failed</span>
+                                <span v-if="getDelegateChildToolStatus(childItem, getChildItems(actItem.id)) === 'running'" :class="ACTIVITY_RUNNING_BADGE_CLASS">running</span>
                               </summary>
                               <div v-if="getDelegateChildToolDetails(childItem) || getDelegateChildToolStatus(childItem, getChildItems(actItem.id)) === 'failed' || (devModeRef && getToolCallResultData(childItem))" class="activity-step-content">
                                 <div v-if="getDelegateChildToolStatus(childItem, getChildItems(actItem.id)) === 'failed'" class="text-sm text-red-400/80 mb-1">
@@ -397,11 +397,11 @@
                         <span v-if="devModeRef && getToolCallPreview(actItem)" class="activity-step-preview">{{ getToolCallPreview(actItem) }}</span>
                         <span
                           v-if="getToolCallStatus(actItem) === 'failed'"
-                          class="activity-failed-badge"
+                          :class="ACTIVITY_FAILED_BADGE_CLASS"
                         >failed</span>
                         <span
                           v-if="getToolCallStatus(actItem) === 'running'"
-                          class="activity-running-badge"
+                          :class="ACTIVITY_RUNNING_BADGE_CLASS"
                         >running</span>
                       </summary>
                       <div v-if="getToolCallDetails(actItem) || getToolCallStatus(actItem) === 'failed' || (devModeRef && getToolCallResultData(actItem))" class="activity-step-content">
@@ -428,7 +428,7 @@
                       <span v-if="devModeRef && getToolCallPreview(actItem)" class="activity-step-preview">{{ getToolCallPreview(actItem) }}</span>
                       <span
                         v-if="getToolCallStatus(actItem) === 'running'"
-                        class="activity-running-badge"
+                        :class="ACTIVITY_RUNNING_BADGE_CLASS"
                       >running</span>
                     </div>
                   </template>
@@ -854,7 +854,7 @@
                   <ChevronRightIcon class="activity-chevron" />
                   <span v-if="getToolCallStatus(item) === 'running'" class="activity-pulse"></span>
                   <span class="activity-tool-name">{{ getToolCallDisplayName(item) }}</span>
-                  <span v-if="getToolCallStatus(item) === 'failed'" class="activity-failed-badge">failed</span>
+                  <span v-if="getToolCallStatus(item) === 'failed'" :class="ACTIVITY_FAILED_BADGE_CLASS">failed</span>
                 </summary>
                 <div v-if="getToolCallDetails(item)" class="activity-step-content mt-1">
                   <div v-if="getToolCallDetailKind(item) === 'code'" class="activity-code-block">
@@ -1361,6 +1361,12 @@ import { getApiBase, isTauri } from '../apiConfig'
 import { useCloudAccount } from '../composables/useCloudAccount'
 import { usePrivacyLockdown } from '../composables/usePrivacyLockdown'
 import { getCachedPin } from '../composables/usePinLock'
+import { textClass, bgClass } from '../utils/statusColors'
+
+// Activity-log status badges ("failed" / "running") — colors come from
+// statusColors.ts's shared red/blue buckets, not a locally duplicated switch.
+const ACTIVITY_FAILED_BADGE_CLASS = `font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded ${bgClass('failed')} ${textClass('failed')}`
+const ACTIVITY_RUNNING_BADGE_CLASS = `font-mono text-[10px] font-medium ${textClass('running')}`
 // Component name for KeepAlive
 defineOptions({
   name: 'ChatView'
@@ -5585,27 +5591,6 @@ watch(wsConnected, (connected, wasConnected) => {
 }
 .activity-thinking--solo::before {
   display: none;
-}
-
-.activity-failed-badge {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #f87171; /* red-400 — failed bucket, statusColors.ts */
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(248, 113, 113, 0.1);
-}
-
-.activity-running-badge {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 10px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #60a5fa; /* blue-400 — running bucket, statusColors.ts */
 }
 
 /* Timeline — tree-line connector style */

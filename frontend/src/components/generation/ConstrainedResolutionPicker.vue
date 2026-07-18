@@ -3,7 +3,7 @@
     <button
       ref="buttonRef"
       @click="toggleDropdown"
-      class="flex items-center gap-2 px-3 py-2 bg-surface border border-surface-raised rounded-md text-content-secondary text-sm hover:bg-surface-raised transition-colors whitespace-nowrap"
+      class="flex items-center gap-2 px-3 py-2 bg-overlay-subtle border border-edge-subtle rounded-md text-content-tertiary text-sm hover:bg-overlay-light hover:text-content transition-colors duration-150 whitespace-nowrap"
     >
       <!-- Aspect ratio preview rectangle -->
       <span
@@ -19,7 +19,7 @@
     <!-- Dropdown Menu -->
     <div
       v-if="showDropdown"
-      class="fixed bg-surface border border-surface-raised rounded-lg shadow-lg z-menu p-3 space-y-2"
+      class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu p-3 space-y-2"
       :style="dropdownStyle"
       @click.stop
     >
@@ -29,10 +29,10 @@
           :key="group.label"
           @click="selectGroup(group)"
           :class="[
-            'px-2 py-1 rounded text-xs font-medium transition-colors',
+            'px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150',
             isGroupSelected(group)
               ? 'bg-accent text-white'
-              : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised'
+              : 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light'
           ]"
         >
           {{ group.label }}
@@ -45,10 +45,10 @@
           :key="`${pair[0]}x${pair[1]}`"
           @click="selectPair(pair)"
           :class="[
-            'px-2 py-1 rounded text-xs font-medium transition-colors',
+            'px-2 py-1 rounded-md text-xs font-medium font-mono tabular-nums transition-colors duration-150',
             width === pair[0] && height === pair[1]
               ? 'bg-accent/60 text-white'
-              : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised'
+              : 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light'
           ]"
         >
           {{ pair[0] }}&times;{{ pair[1] }}

@@ -80,7 +80,7 @@
       <div v-if="showProgress">
         <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-3">
-            <div v-if="progress.isUploading" class="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+            <Spinner v-if="progress.isUploading" size="md" />
             <div v-else-if="progress.failed === 0" class="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
               <svg class="w-3 h-3 text-content" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
@@ -138,6 +138,7 @@ import { useSlideshow } from '../composables/useSlideshow'
 import { AutoMarkPicker } from '../components/generation'
 import { AppImage } from '../components/media'
 import SlideshowMode from '../components/SlideshowMode.vue'
+import Spinner from '../components/ui/Spinner.vue'
 
 const router = useRouter()
 const route = useRoute()

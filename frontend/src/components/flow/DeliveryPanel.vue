@@ -1,17 +1,17 @@
 <template>
   <div v-if="groups.length > 0">
     <div class="flex items-center gap-2 py-2.5">
-      <span class="text-[15px] font-semibold text-content tracking-wide">Outputs</span>
+      <span class="text-sm font-semibold text-content">Outputs</span>
     </div>
 
-    <div class="py-3 space-y-3">
+    <div class="py-1 space-y-4">
       <div
         v-for="group in groups"
         :key="group.key"
-        class="rounded-md border border-edge-subtle bg-base overflow-hidden"
+        class="border-t border-edge-subtle first:border-t-0 pt-3 first:pt-0"
       >
-        <div class="flex items-center gap-2 px-3 py-2 bg-overlay-subtle border-b border-edge-subtle">
-          <span class="text-[13px] font-semibold text-content truncate">{{ group.label }}</span>
+        <div class="flex items-center gap-2 px-2 pb-1.5">
+          <span class="text-xs font-semibold text-content-secondary truncate">{{ group.label }}</span>
         </div>
 
         <!-- Text-shaped outputs (llm() strings, code() returning a value) get

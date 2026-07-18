@@ -64,10 +64,7 @@
                 <div class="min-w-0 flex-1">
                   <div class="text-xs text-content flex items-center gap-1.5">
                     <span>Include screenshot</span>
-                    <svg v-if="capturingScreenshot" class="w-3 h-3 animate-spin text-content-muted" viewBox="0 0 24 24" fill="none">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
+                    <Spinner v-if="capturingScreenshot" size="sm" hue="border-t-content-muted" />
                     <svg v-else-if="screenshotDataUrl" class="w-3 h-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                     </svg>
@@ -92,10 +89,7 @@
               :disabled="submitting || !message.trim()"
               class="px-4 py-2 text-sm font-medium bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md transition-colors flex items-center gap-2"
             >
-              <svg v-if="submitting" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-              </svg>
+              <Spinner v-if="submitting" size="sm" hue="border-t-white" />
               <span>{{ submitting ? 'Sending…' : 'Send feedback' }}</span>
             </button>
           </div>
@@ -112,6 +106,7 @@ import { getApiBase } from '../../apiConfig'
 import { useFeedback } from '../../composables/useFeedback'
 import { addToast } from '../../composables/useToasts'
 import VoiceInputButton from '../voice/VoiceInputButton.vue'
+import Spinner from '../ui/Spinner.vue'
 
 const { modal, closeModal } = useFeedback()
 

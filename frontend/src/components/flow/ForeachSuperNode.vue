@@ -1,7 +1,7 @@
 <template>
   <div
     ref="rootRef"
-    class="relative group rounded-xl border border-slate-400/55 bg-overlay-light overflow-hidden outline-none transition-shadow hover:border-slate-400/75 hover:shadow-md"
+    class="relative group rounded-lg border border-slate-400/55 bg-overlay-light overflow-hidden outline-none transition-shadow hover:border-slate-400/75 hover:shadow-md"
     :class="[
       (selected && focusedIdx === null) ? 'ring-2 ring-blue-400' : '',
       (!(selected && focusedIdx === null) && groupIsEchoed) ? 'ring-1 ring-blue-500/40' : '',

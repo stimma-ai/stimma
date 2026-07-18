@@ -43,7 +43,7 @@
                 v-else
                 v-model="localPath"
                 type="text"
-                class="w-full px-3 py-2 bg-surface-raised border border-edge rounded-lg text-content placeholder-content-muted text-sm focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+                class="w-full px-3 py-2 bg-overlay-subtle border border-transparent rounded-md text-content placeholder:text-content-muted text-sm outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
                 placeholder="/path/to/media/folder"
               />
             </div>
@@ -53,7 +53,7 @@
               <label class="block text-sm font-medium text-content-secondary mb-2">Scan Interval</label>
               <select
                 v-model="localRefreshInterval"
-                class="w-full px-3 py-2 bg-surface-raised border border-edge rounded-lg text-content text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                class="w-full px-3 py-2 bg-overlay-subtle border border-transparent rounded-md text-content text-sm outline-none focus-visible:ring-2 ring-accent/40"
               >
                 <option :value="60">Every 1 minute</option>
                 <option :value="300">Every 5 minutes</option>

@@ -5,7 +5,7 @@
        card red (which becomes a wall when many failures stack). -->
   <div
     :class="[
-      'group relative overflow-hidden rounded-lg border border-edge bg-surface-raised',
+      'group relative overflow-hidden rounded-lg border border-edge-subtle bg-surface-raised',
       compact ? 'flex flex-col gap-1.5 px-2 py-2' : 'flex items-start gap-2.5 px-3 py-2.5',
     ]"
   >
@@ -30,7 +30,7 @@
         <button
           v-if="showRetry"
           @click.stop="$emit('retry')"
-          class="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded bg-blue-500/15 border border-blue-500/50 text-blue-500 hover:bg-blue-500/30 text-[11px] font-medium transition-colors"
+          class="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-md bg-accent/15 text-accent hover:bg-accent/25 text-[11px] font-medium transition-colors duration-150"
           title="Retry"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
@@ -40,7 +40,7 @@
         </button>
         <button
           @click.stop="$emit('dismiss')"
-          class="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded text-content-muted/60 hover:text-content-secondary hover:bg-surface-hover transition-colors"
+          class="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-md text-content-muted/60 hover:text-content-secondary hover:bg-overlay-subtle transition-colors duration-150"
           title="Dismiss"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
@@ -70,7 +70,7 @@
         <button
           v-if="showRetry"
           @click.stop="$emit('retry')"
-          class="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-500/15 border border-blue-500/50 text-blue-500 hover:bg-blue-500/30 text-[11px] font-medium transition-colors"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-md bg-accent/15 text-accent hover:bg-accent/25 text-[11px] font-medium transition-colors duration-150"
           title="Retry the failed step"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
@@ -80,7 +80,7 @@
         </button>
         <button
           @click.stop="$emit('dismiss')"
-          class="w-6 h-6 flex items-center justify-center rounded text-content-muted/60 hover:text-content-secondary hover:bg-surface-hover transition-colors"
+          class="w-6 h-6 flex items-center justify-center rounded-md text-content-muted/60 hover:text-content-secondary hover:bg-overlay-subtle transition-colors duration-150"
           title="Dismiss"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">

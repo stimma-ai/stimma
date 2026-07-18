@@ -11,10 +11,7 @@
       :class="buttonClass"
     >
       <!-- Downloading / finalizing: spinner -->
-      <svg v-if="isBusy" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" />
-        <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.4 0 0 5.4 0 12h4z" />
-      </svg>
+      <Spinner v-if="isBusy" size="md" />
 
       <!-- Recording: stop square -->
       <svg v-else-if="isRecording" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
@@ -43,6 +40,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useVoiceInput } from '../../composables/useVoiceInput'
+import Spinner from '../ui/Spinner.vue'
 
 const props = withDefaults(
   defineProps<{

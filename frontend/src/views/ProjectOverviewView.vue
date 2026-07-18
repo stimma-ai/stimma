@@ -86,7 +86,7 @@
                 @dragleave="dragOverBoardId === board.id && (dragOverBoardId = null)"
                 @drop.prevent="handleBoardDrop(board.id, $event)"
                 class="flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all text-left bg-transparent cursor-pointer"
-                :class="dragOverBoardId === board.id ? 'border-blue-500 bg-blue-500/10' : 'border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle'"
+                :class="dragOverBoardId === board.id ? 'border-transparent ring-1 ring-accent/50 bg-accent/10' : 'border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle'"
               >
                 <div class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-overlay-subtle">
                   <div v-if="getBoardPreviewItems(board).length > 0" class="grid grid-cols-2 gap-[1px] w-full h-full">

@@ -1,11 +1,13 @@
 <template>
   <div class="relative">
     <!-- Main Prompt Editor -->
-    <div class="relative rounded-md border border-surface-raised focus-within:border-blue-500 transition-colors">
+    <div class="relative rounded-md border border-edge-subtle focus-within:border-accent transition-colors">
       <div ref="editorMount"></div>
 
-      <!-- Bottom Action Bar (flows below textarea) -->
-      <div class="px-3 py-1.5 flex items-center justify-between bg-surface rounded-b-md border-t border-surface-raised">
+      <!-- Bottom Action Bar (flows below textarea): a single quiet ghost row
+           (STANDARDS §3.3). Every control here is monochrome text/icons, 11px,
+           no pills — the AI sparkle is the only colored glyph in the bar. -->
+      <div class="px-3 py-1.5 flex items-center justify-between bg-surface rounded-b-md border-t border-edge-subtle">
         <!-- Left: generate-time prompt pipeline (hidden in flow context — flows
              execute the literal prompt, so rewriting it would diverge from the
              declared input). Reads left→right: Enhance Prompt → Translate Prompt.
@@ -18,7 +20,7 @@
             :class="[
               'flex items-center gap-1.5 text-[11px] transition-colors',
               promptOptions.autoImprove.enabled
-                ? 'text-purple-500'
+                ? 'text-content'
                 : 'text-content-muted hover:text-content-secondary'
             ]"
             title="Enhance the prompt with AI when generating"
@@ -37,7 +39,7 @@
               :class="[
                 'flex items-center gap-1.5 text-[11px] transition-colors',
                 translateActive
-                  ? 'text-blue-500'
+                  ? 'text-content'
                   : 'text-content-muted hover:text-content-secondary'
               ]"
               :title="translateActive
@@ -56,7 +58,7 @@
               <div
                 v-if="showTranslateMenu"
                 ref="translateMenuEl"
-                class="fixed py-1 bg-surface border border-surface-raised rounded-lg shadow-xl z-menu w-48 max-h-80 overflow-y-auto"
+                class="fixed py-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-48 max-h-80 overflow-y-auto"
                 :style="{ left: translateMenuPos.left + 'px', bottom: translateMenuPos.bottom + 'px' }"
               >
                 <div class="px-3 pt-1 pb-1.5 text-xs font-semibold text-content-secondary">
@@ -64,25 +66,25 @@
                 </div>
                 <button
                   @click="setTranslate(null)"
-                  class="w-full text-left px-3 py-1.5 text-[12px] flex items-center justify-between gap-2 hover:bg-surface-raised transition-colors"
-                  :class="!translateActive ? 'text-blue-500' : 'text-content-secondary'"
+                  class="w-full text-left px-3 py-1.5 text-[12px] flex items-center justify-between gap-2 hover:bg-overlay-subtle transition-colors"
+                  :class="!translateActive ? 'text-accent' : 'text-content-secondary'"
                 >
                   <span>Off</span>
                   <CheckIcon v-if="!translateActive" class="w-3.5 h-3.5 shrink-0" />
                 </button>
-                <div class="border-t border-surface-raised my-1"></div>
+                <div class="border-t border-edge-subtle my-1"></div>
                 <button
                   v-for="lang in PROMPT_LANGUAGES"
                   :key="lang.code"
                   @click="setTranslate(lang.code)"
-                  class="w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-surface-raised transition-colors"
-                  :class="translateActive && activeLanguageCode === lang.code ? 'text-blue-500' : 'text-content-secondary'"
+                  class="w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-overlay-subtle transition-colors"
+                  :class="translateActive && activeLanguageCode === lang.code ? 'text-accent' : 'text-content-secondary'"
                 >
                   <span class="flex flex-col leading-tight">
                     <span class="text-[12px]">{{ lang.label }}</span>
                     <span
                       class="text-[10px]"
-                      :class="translateActive && activeLanguageCode === lang.code ? 'text-blue-500/70' : 'text-content-tertiary'"
+                      :class="translateActive && activeLanguageCode === lang.code ? 'text-accent/70' : 'text-content-tertiary'"
                     >{{ lang.english }}</span>
                   </span>
                   <CheckIcon v-if="translateActive && activeLanguageCode === lang.code" class="w-3.5 h-3.5 shrink-0" />
@@ -99,9 +101,9 @@
           <button
             @click="toggleVim"
             :class="[
-              'text-[10px] font-mono font-medium px-1.5 py-0.5 rounded transition-colors',
+              'text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-md transition-colors',
               vimEnabled
-                ? 'text-green-500 bg-green-500/10'
+                ? 'text-content hover:bg-overlay-subtle'
                 : 'text-content-muted hover:text-content-secondary'
             ]"
             :title="vimEnabled ? 'Switch to regular keybindings' : 'Switch to Vim keybindings'"
@@ -113,9 +115,9 @@
           <button
             @click="toggleMonospace"
             :class="[
-              'text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors',
+              'text-[10px] font-medium px-1.5 py-0.5 rounded-md transition-colors',
               monospaceEnabled
-                ? 'text-blue-500 bg-blue-500/10 font-mono'
+                ? 'text-content font-mono hover:bg-overlay-subtle'
                 : 'text-content-muted hover:text-content-secondary'
             ]"
             :title="monospaceEnabled ? 'Switch to proportional font' : 'Switch to monospace font'"
@@ -128,8 +130,8 @@
             <button
               @click="showHelp = !showHelp"
               :class="[
-                'text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors',
-                showHelp ? 'text-content-secondary bg-surface-raised' : 'text-content-muted hover:text-content-secondary'
+                'text-[10px] font-medium px-1.5 py-0.5 rounded-md transition-colors',
+                showHelp ? 'text-content hover:bg-overlay-subtle' : 'text-content-muted hover:text-content-secondary'
               ]"
               title="Prompt syntax help"
             >
@@ -139,7 +141,7 @@
             <!-- Help popover -->
             <div
               v-if="showHelp"
-              class="absolute top-full right-0 mt-2 p-4 bg-surface border border-surface-raised rounded-lg shadow-xl z-menu w-80"
+              class="absolute top-full right-0 mt-2 p-4 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-80"
             >
               <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-1.5">
@@ -194,12 +196,12 @@
               </div>
 
               <!-- Divider -->
-              <div v-if="!hideAutoImprove" class="border-t border-surface-raised my-3"></div>
+              <div v-if="!hideAutoImprove" class="border-t border-edge-subtle my-3"></div>
 
               <!-- Enhance Prompt -->
               <div v-if="!hideAutoImprove">
                 <div class="flex items-center gap-1.5 mb-1">
-                  <WandSparklesIcon class="w-3 h-3 text-purple-500" />
+                  <WandSparklesIcon class="w-3 h-3 text-accent" />
                   <span class="text-xs font-medium text-content-secondary">Enhance Prompt</span>
                 </div>
                 <p class="text-xs text-content-tertiary leading-relaxed">
@@ -211,15 +213,16 @@
 
           <!-- AI Sparkle Button — toggles the inline prompt-only chat. Hidden when
                externalChat is set (ToolView renders a page-level chat in its dock,
-               so a per-prompt sparkle would be redundant + visually awkward). -->
+               so a per-prompt sparkle would be redundant + visually awkward).
+               The sparkle is the one colored (accent) glyph in this bar. -->
           <button
             v-if="!externalChat"
             @click="toggleExpanded"
             :class="[
-              'p-1 rounded transition-colors',
+              'p-1 rounded-md transition-colors',
               expanded
-                ? 'text-purple-500 bg-purple-500/20 hover:bg-purple-500/30'
-                : 'text-content-muted hover:text-purple-500 hover:bg-surface-raised'
+                ? 'text-accent bg-accent/15 hover:bg-accent/20'
+                : 'text-content-muted hover:text-accent hover:bg-overlay-subtle'
             ]"
             title="AI Prompt Enhancement"
           >
@@ -234,7 +237,7 @@
          in the dock instead, so this branch never renders there. -->
     <div
       v-if="!externalChat && expanded"
-      class="mt-2 p-3 bg-surface-overlay border border-surface-raised rounded-md"
+      class="mt-2 p-3 bg-surface-overlay border border-edge-subtle rounded-md"
     >
       <PromptAgentChat
         :editor="selfHandle"

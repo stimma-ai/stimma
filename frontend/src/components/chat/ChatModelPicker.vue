@@ -77,7 +77,7 @@
               autocomplete="off"
               aria-label="Search models"
               placeholder="Search models…"
-              class="w-full rounded-md border border-transparent bg-overlay-subtle py-2 pl-9 pr-8 text-sm text-content placeholder:text-content-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+              class="w-full rounded-md border border-transparent bg-overlay-subtle py-2 pl-9 pr-8 text-sm text-content placeholder:text-content-muted focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             />
             <button
               v-if="searchQuery"

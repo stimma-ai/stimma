@@ -37,9 +37,8 @@
             <!-- Status icon -->
             <span class="flex-shrink-0 mt-0.5">
               <CheckCircleIcon v-if="task.status === 'done'" class="w-4 h-4 text-green-500" />
-              <span v-else-if="task.status === 'in_progress'" class="relative flex h-4 w-4 items-center justify-center">
-                <span class="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-blue-400 opacity-50"></span>
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+              <span v-else-if="task.status === 'in_progress'" class="flex h-4 w-4 items-center justify-center">
+                <StatusDot bucket="running" pulse />
               </span>
               <ExclamationCircleIcon v-else-if="task.status === 'failed'" class="w-4 h-4 text-red-500" />
               <span v-else class="inline-flex h-4 w-4 items-center justify-center">
@@ -70,6 +69,7 @@
 import { computed, ref } from 'vue'
 import { CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/vue/20/solid'
 import { ClipboardDocumentListIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
+import StatusDot from '../ui/StatusDot.vue'
 
 const props = defineProps({
   tasks: { type: Array, default: () => [] },

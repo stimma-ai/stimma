@@ -28,25 +28,18 @@
 
     <!-- Show more button when there are hidden rows -->
     <div v-if="hasMoreRows" class="mt-3 flex justify-center">
-      <button
-        @click="showMore"
-        class="text-xs px-4 py-1.5 bg-surface-raised hover:bg-surface-hover text-content-secondary rounded transition-colors"
-      >
+      <Button variant="secondary" size="sm" @click="showMore">
         Show more
-      </button>
+      </Button>
     </div>
 
     <!-- Footer: retry button and actions slot -->
     <div class="mt-3 flex items-center justify-between">
       <!-- Retry all failed button (left side) -->
       <div class="flex items-center gap-2.5">
-        <button
-          v-if="failedCount > 1"
-          @click="retryAllFailed"
-          class="text-xs px-3 py-1.5 bg-surface-raised hover:bg-surface-hover text-content-secondary rounded transition-colors"
-        >
+        <Button v-if="failedCount > 1" variant="secondary" size="sm" @click="retryAllFailed">
           Retry All Failed ({{ failedCount }})
-        </button>
+        </Button>
         <span
           v-if="showRole === 'intermediate'"
           class="text-[11px] text-content-muted"
@@ -62,6 +55,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import MediaDisplayRow from './MediaDisplayRow.vue'
+import Button from '../ui/Button.vue'
 import { getCurrentProfileId } from '../../composables/useProfile'
 
 const props = defineProps({

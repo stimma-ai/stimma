@@ -4,11 +4,11 @@
       ref="buttonRef"
       @click="toggleDropdown"
       :disabled="disabled"
-      class="flex items-center gap-2 px-3 py-2 bg-surface border border-surface-raised rounded-md text-content-secondary text-sm hover:bg-surface-raised transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+      class="flex items-center gap-2 px-3 py-2 bg-overlay-subtle border border-edge-subtle rounded-md text-content-tertiary text-sm hover:bg-overlay-light hover:text-content transition-colors duration-150 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
     >
       <!-- Aspect ratio preview rectangle -->
       <span
-        class="border border-[#6b7280] bg-surface-raised flex-shrink-0"
+        class="border border-edge bg-surface-raised flex-shrink-0"
         :style="aspectPreviewStyle"
       ></span>
       <span>{{ displayText }}</span>
@@ -21,7 +21,7 @@
     <!-- Dropdown Menu -->
     <div
       v-if="showDropdown"
-      class="fixed bg-surface border border-surface-raised rounded-lg shadow-lg z-menu p-3 space-y-3"
+      class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu p-3 space-y-3"
       :style="dropdownStyle"
       @click.stop
     >
@@ -32,10 +32,10 @@
           :key="ar"
           @click="selectAspectRatio(ar)"
           :class="[
-            'px-2 py-1 rounded text-xs font-medium transition-colors',
+            'px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150',
             aspectRatio === ar
               ? 'bg-accent text-white'
-              : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised'
+              : 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light'
           ]"
         >
           {{ ar }}
@@ -49,10 +49,10 @@
           :key="ar"
           @click="selectAspectRatio(ar)"
           :class="[
-            'px-2 py-1 rounded text-xs font-medium transition-colors',
+            'px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150',
             aspectRatio === ar
               ? 'bg-accent text-white'
-              : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised'
+              : 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light'
           ]"
         >
           {{ ar }}
@@ -68,10 +68,10 @@
             :key="size"
             @click="selectImageSize(size)"
             :class="[
-              'px-2 py-1 rounded text-xs font-medium transition-colors',
+              'px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150',
               imageSize === size
                 ? 'bg-accent text-white'
-                : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised'
+                : 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light'
             ]"
           >
             {{ size }}

@@ -88,9 +88,9 @@
             :contain="true"
             container-class="w-full h-full"
           />
-          <div
+          <Spinner
             v-else-if="equation.status === 'computing' && !isPaused"
-            class="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"
+            hue="border-t-blue-400"
           />
           <span
             v-else-if="equation.status === 'computing' && isPaused"
@@ -278,7 +278,7 @@
       class="rounded border border-amber-500/40 bg-overlay-light text-[11px] font-mono text-content-secondary"
     >
       <div class="flex items-center gap-2 px-2.5 py-1.5 border-b border-amber-500/30">
-        <span class="text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-sm">Dev</span>
+        <span class="text-[9px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-sm">Dev</span>
         <span class="text-content-muted">raw step error</span>
         <span class="flex-1" />
         <span class="text-content-muted truncate">{{ equation.equation_key }}</span>
@@ -300,6 +300,7 @@ import { parseFlowError } from '../../utils/flowErrors'
 import FlowMediaTile from './FlowMediaTile.vue'
 import FlowResultPreview from './FlowResultPreview.vue'
 import AppImage from '../media/AppImage.vue'
+import Spinner from '../ui/Spinner.vue'
 
 interface Props {
   equation: FlowEquation

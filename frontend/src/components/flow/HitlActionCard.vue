@@ -113,8 +113,8 @@
           :aria-pressed="state === 'selected'"
           class="flex-1 min-w-0 text-[10px] font-medium px-1 py-0.5 rounded transition-colors truncate"
           :class="state === 'selected'
-            ? 'bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25'
-            : 'bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25'"
+            ? 'bg-selection/15 border border-selection/50 text-selection hover:bg-selection/25'
+            : 'bg-overlay-subtle border border-edge-subtle text-content-secondary hover:bg-overlay-hover'"
           @mousedown.prevent
           @click.stop="$emit('select')"
         >{{ state === 'selected' ? 'Selected' : 'Use This' }}</button>
@@ -128,8 +128,8 @@
           :aria-pressed="state === 'selected'"
           class="flex-1 min-w-0 text-[10px] font-medium px-1 py-0.5 rounded transition-colors truncate"
           :class="state === 'selected'
-            ? 'bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25'
-            : 'bg-blue-500/15 border border-blue-500/50 text-blue-400 hover:bg-blue-500/25'"
+            ? 'bg-selection/15 border border-selection/50 text-selection hover:bg-selection/25'
+            : 'bg-overlay-subtle border border-edge-subtle text-content-secondary hover:bg-overlay-hover'"
           @mousedown.prevent
           @click.stop="$emit('select')"
         >{{ state === 'selected' ? 'Selected' : 'Pick' }}</button>

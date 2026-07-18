@@ -5,10 +5,10 @@
       @click="toggleDropdown"
       :disabled="disabled"
       :class="[
-        'flex items-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+        'flex items-center gap-2 font-medium transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed',
         compact
-          ? 'px-2.5 h-7 rounded text-xs text-content-tertiary hover:text-content hover:bg-surface'
-          : 'px-3 h-10 rounded-lg border border-edge-subtle bg-overlay-subtle text-sm text-content-tertiary hover:bg-overlay-light hover:text-content'
+          ? 'px-2.5 h-7 rounded-md text-xs text-content-tertiary hover:text-content hover:bg-overlay-subtle'
+          : 'px-3 h-10 rounded-md border border-edge-subtle bg-overlay-subtle text-sm text-content-tertiary hover:bg-overlay-light hover:text-content'
       ]"
     >
       <!-- Aspect ratio preview rectangle -->
@@ -35,27 +35,27 @@
     <!-- Dropdown Menu -->
     <div
       v-if="showDropdown"
-      class="fixed bg-surface border border-edge rounded-lg shadow-xl z-menu p-3 space-y-3"
+      class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu p-3 space-y-3"
       :style="dropdownStyle"
       @click.stop
     >
       <!-- Mode Switcher -->
-      <div class="flex bg-base rounded p-0.5 gap-0.5">
+      <div class="flex bg-overlay-subtle rounded-md p-0.5 gap-0.5">
         <button
           @click="mode = 'aspect'"
           :class="[
-            'flex-1 px-2 py-1 rounded text-xs font-medium transition-colors',
+            'flex-1 px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150',
             mode === 'aspect'
-              ? 'bg-surface-raised text-content'
+              ? 'bg-accent/15 text-accent'
               : 'text-content-muted hover:text-content-secondary'
           ]"
         >Aspect</button>
         <button
           @click="mode = 'manual'"
           :class="[
-            'flex-1 px-2 py-1 rounded text-xs font-medium transition-colors',
+            'flex-1 px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150',
             mode === 'manual'
-              ? 'bg-surface-raised text-content'
+              ? 'bg-accent/15 text-accent'
               : 'text-content-muted hover:text-content-secondary'
           ]"
         >Manual</button>
@@ -70,10 +70,10 @@
             :key="ar.label"
             @click="selectAspectRatio(ar.label)"
             :class="[
-              'px-2 py-1 rounded text-xs font-medium transition-colors',
+              'px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150',
               selectedAspectRatio === ar.label
                 ? 'bg-accent/15 text-accent'
-                : 'bg-base text-content-tertiary hover:bg-surface-raised hover:text-content'
+                : 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light hover:text-content'
             ]"
           >
             {{ ar.label }}
@@ -89,9 +89,9 @@
             min="0.5"
             max="4.0"
             step="0.1"
-            class="w-32 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
+            class="w-32 h-1 bg-overlay-subtle rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0"
           >
-          <span class="text-xs text-content-muted whitespace-nowrap">{{ megapixels.toFixed(1) }}MP</span>
+          <span class="text-xs font-mono tabular-nums text-content-muted whitespace-nowrap">{{ megapixels.toFixed(1) }}MP</span>
         </div>
       </template>
 
@@ -105,7 +105,7 @@
             step="64"
             min="256"
             max="2048"
-            class="w-20 px-2 py-1 bg-base border border-edge rounded text-content text-xs focus:outline-none focus:border-edge"
+            class="w-20 px-2 py-1.5 bg-overlay-subtle border border-transparent rounded-md text-content font-mono tabular-nums text-xs focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
           >
           <span class="text-content-muted">×</span>
           <input v-no-autocorrect
@@ -115,11 +115,11 @@
             step="64"
             min="256"
             max="2048"
-            class="w-20 px-2 py-1 bg-base border border-edge rounded text-content text-xs focus:outline-none focus:border-edge"
+            class="w-20 px-2 py-1.5 bg-overlay-subtle border border-transparent rounded-md text-content font-mono tabular-nums text-xs focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
           >
           <button
             @click="swapDimensions"
-            class="p-1 bg-surface-raised hover:bg-surface-hover rounded text-content-tertiary text-xs"
+            class="p-1 bg-overlay-subtle hover:bg-overlay-light rounded-md text-content-tertiary text-xs transition-colors duration-150"
             title="Swap"
           >⇄</button>
         </div>
@@ -325,10 +325,10 @@ function setAutoChangeLock(mode: 'none' | 'area' | 'size') {
 
 function autoLockButtonClass(active: boolean) {
   return [
-    'rounded px-2.5 py-1.5 text-left text-xs font-medium transition-colors',
+    'rounded-md px-2.5 py-1.5 text-left text-xs font-medium transition-colors duration-150',
     active
       ? 'bg-accent/15 text-accent ring-1 ring-accent/30'
-      : 'bg-base text-content-secondary hover:bg-surface-raised hover:text-content'
+      : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-light hover:text-content'
   ]
 }
 

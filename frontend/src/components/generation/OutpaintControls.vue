@@ -9,7 +9,7 @@
       <div>
         <div class="flex items-center justify-between mb-1">
           <label class="text-xs text-content-muted">Top</label>
-          <span class="text-xs text-content-muted">{{ paddingTop }}%</span>
+          <span class="text-xs font-mono tabular-nums text-content-muted">{{ paddingTop }}%</span>
         </div>
         <input v-no-autocorrect
           type="range"
@@ -17,7 +17,7 @@
           :min="0"
           :max="100"
           :step="1"
-          class="w-full h-2 bg-surface-raised rounded-lg appearance-none cursor-pointer slider"
+          class="w-full h-1.5 bg-overlay-subtle rounded-full appearance-none cursor-pointer slider"
         />
       </div>
 
@@ -25,7 +25,7 @@
       <div>
         <div class="flex items-center justify-between mb-1">
           <label class="text-xs text-content-muted">Bottom</label>
-          <span class="text-xs text-content-muted">{{ paddingBottom }}%</span>
+          <span class="text-xs font-mono tabular-nums text-content-muted">{{ paddingBottom }}%</span>
         </div>
         <input v-no-autocorrect
           type="range"
@@ -33,7 +33,7 @@
           :min="0"
           :max="100"
           :step="1"
-          class="w-full h-2 bg-surface-raised rounded-lg appearance-none cursor-pointer slider"
+          class="w-full h-1.5 bg-overlay-subtle rounded-full appearance-none cursor-pointer slider"
         />
       </div>
 
@@ -41,7 +41,7 @@
       <div>
         <div class="flex items-center justify-between mb-1">
           <label class="text-xs text-content-muted">Left</label>
-          <span class="text-xs text-content-muted">{{ paddingLeft }}%</span>
+          <span class="text-xs font-mono tabular-nums text-content-muted">{{ paddingLeft }}%</span>
         </div>
         <input v-no-autocorrect
           type="range"
@@ -49,7 +49,7 @@
           :min="0"
           :max="100"
           :step="1"
-          class="w-full h-2 bg-surface-raised rounded-lg appearance-none cursor-pointer slider"
+          class="w-full h-1.5 bg-overlay-subtle rounded-full appearance-none cursor-pointer slider"
         />
       </div>
 
@@ -57,7 +57,7 @@
       <div>
         <div class="flex items-center justify-between mb-1">
           <label class="text-xs text-content-muted">Right</label>
-          <span class="text-xs text-content-muted">{{ paddingRight }}%</span>
+          <span class="text-xs font-mono tabular-nums text-content-muted">{{ paddingRight }}%</span>
         </div>
         <input v-no-autocorrect
           type="range"
@@ -65,18 +65,18 @@
           :min="0"
           :max="100"
           :step="1"
-          class="w-full h-2 bg-surface-raised rounded-lg appearance-none cursor-pointer slider"
+          class="w-full h-1.5 bg-overlay-subtle rounded-full appearance-none cursor-pointer slider"
         />
       </div>
     </div>
 
     <!-- Output dimensions preview -->
     <div v-if="inputWidth && inputHeight && outputDimensions" class="pt-3 border-t border-edge-subtle flex items-center justify-center gap-3 text-sm">
-      <span class="text-content-tertiary">{{ inputWidth }} × {{ inputHeight }}</span>
+      <span class="font-mono tabular-nums text-content-tertiary">{{ inputWidth }} × {{ inputHeight }}</span>
       <svg class="w-4 h-4 text-content-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
       </svg>
-      <span class="text-blue-500 font-medium">{{ outputDimensions.width }} × {{ outputDimensions.height }}</span>
+      <span class="font-mono tabular-nums text-accent font-medium">{{ outputDimensions.width }} × {{ outputDimensions.height }}</span>
     </div>
   </div>
 </template>
@@ -151,42 +151,42 @@ const outputDimensions = computed(() => {
 
 .slider::-webkit-slider-thumb {
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  @apply bg-blue-500;
+  background: rgb(var(--color-accent-rgb));
   cursor: pointer;
-  transition: background 0.2s;
-  margin-top: -4px;
+  transition: background 0.15s;
+  margin-top: -3.25px;
 }
 
 .slider::-webkit-slider-thumb:hover {
-  @apply bg-blue-600;
+  background: rgb(var(--color-accent-rgb) / 0.9);
 }
 
 .slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  @apply bg-blue-500;
+  background: rgb(var(--color-accent-rgb));
   cursor: pointer;
   border: none;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
 
 .slider::-moz-range-thumb:hover {
-  @apply bg-blue-600;
+  background: rgb(var(--color-accent-rgb) / 0.9);
 }
 
 .slider::-webkit-slider-runnable-track {
-  background: var(--color-surface-raised);
-  border-radius: 4px;
-  height: 8px;
+  background: transparent;
+  border-radius: 999px;
+  height: 6px;
 }
 
 .slider::-moz-range-track {
-  background: var(--color-surface-raised);
-  border-radius: 4px;
-  height: 8px;
+  background: transparent;
+  border-radius: 999px;
+  height: 6px;
 }
 </style>

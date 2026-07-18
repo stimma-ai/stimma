@@ -1,55 +1,49 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="show"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="close"
-      >
-        <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[920px] max-w-[90vw] h-[900px] max-h-[90vh] flex flex-col overflow-hidden">
-          <!-- Header -->
-          <div class="flex items-center justify-between px-6 py-4 border-b border-edge">
-            <h2 class="text-lg font-semibold text-content">Settings</h2>
-            <button
-              @click="close"
-              class="w-8 h-8 flex items-center justify-center text-content-tertiary hover:text-content hover:bg-surface-raised rounded-lg transition-colors"
-            >
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+  <Modal
+    :show="show"
+    size="custom"
+    custom-class="w-[920px] max-w-[90vw] h-[900px] max-h-[90vh] flex flex-col overflow-hidden"
+    :close-on-esc="false"
+    @close="close"
+  >
+    <template #header>
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-content">Settings</h2>
+        <IconButton aria-label="Close" title="Close" @click="close">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </IconButton>
+      </div>
+    </template>
 
-          <!-- Content -->
-          <div class="flex flex-1 overflow-hidden">
-            <!-- Sidebar -->
-            <SettingsSidebar
-              :active-section="activeSection"
-              :profiles="settings?.profiles || []"
-              :current-profile-id="currentProfileId"
-              :llm-setup-required="llmSetupRequired"
-              :generation-setup-required="generationSetupRequired"
-              @select="activeSection = $event"
-              @switch-profile="handleProfileSwitch"
-            />
+    <!-- Content -->
+    <div class="flex flex-1 overflow-hidden">
+      <!-- Sidebar -->
+      <SettingsSidebar
+        :active-section="activeSection"
+        :profiles="settings?.profiles || []"
+        :current-profile-id="currentProfileId"
+        :llm-setup-required="llmSetupRequired"
+        :generation-setup-required="generationSetupRequired"
+        @select="activeSection = $event"
+        @switch-profile="handleProfileSwitch"
+      />
 
-            <!-- Main content area -->
-            <div class="flex-1 overflow-y-auto p-6">
-              <!-- Loading state -->
-              <div v-if="loading" class="flex items-center justify-center h-full">
-                <div class="w-6 h-6 border-2 border-edge border-t-content-secondary rounded-full animate-spin"></div>
-              </div>
+      <!-- Main content area -->
+      <div class="flex-1 overflow-y-auto p-6">
+        <!-- Loading state -->
+        <div v-if="loading" class="flex items-center justify-center h-full">
+          <Spinner size="md" />
+        </div>
 
-              <!-- Error state -->
-              <div v-else-if="error" class="text-center py-12">
-                <p class="text-red-500 mb-4">{{ error }}</p>
-                <button
-                  @click="loadSettings"
-                  class="px-4 py-2 bg-surface-raised hover:bg-surface-hover text-content rounded-lg font-medium"
-                >
-                  Retry
-                </button>
-              </div>
+        <!-- Error state -->
+        <div v-else-if="error" class="text-center py-12">
+          <p class="text-red-500 mb-4">{{ error }}</p>
+          <Button variant="secondary" @click="loadSettings">
+            Retry
+          </Button>
+        </div>
 
               <!-- Profiles Section -->
               <template v-else-if="activeSection === 'profiles'">
@@ -177,19 +171,17 @@
               </template>
             </div>
           </div>
-        </div>
-      </div>
-    </Transition>
+    </div>
+  </Modal>
 
-    <!-- PIN Entry Modal for locked profiles -->
-    <PinEntryModal
-      :show="showPinModal"
-      :profile-name="pinModalProfileName"
-      :error="pinModalError"
-      @submit="submitPin"
-      @cancel="cancelPinEntry"
-    />
-  </Teleport>
+  <!-- PIN Entry Modal for locked profiles -->
+  <PinEntryModal
+    :show="showPinModal"
+    :profile-name="pinModalProfileName"
+    :error="pinModalError"
+    @submit="submitPin"
+    @cancel="cancelPinEntry"
+  />
 </template>
 
 <script setup>
@@ -219,6 +211,10 @@ import DeveloperSection from './sections/DeveloperSection.vue'
 import AgentSection from './sections/AgentSection.vue'
 import WildcardsSection from './sections/WildcardsSection.vue'
 import PinEntryModal from '../PinEntryModal.vue'
+import Modal from '../ui/Modal.vue'
+import IconButton from '../ui/IconButton.vue'
+import Button from '../ui/Button.vue'
+import Spinner from '../ui/Spinner.vue'
 import { setWildcards, setSegments } from '../../composables/useWildcards'
 import { preserveConnectingToolProviderStatuses, toolProviderUpdateStartsConnection } from '../../utils/toolProviderBrands'
 
@@ -694,25 +690,3 @@ watch(() => props.show, (isOpen) => {
   }
 })
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active > div,
-.modal-leave-active > div {
-  transition: transform 0.15s ease;
-}
-
-.modal-enter-from > div,
-.modal-leave-to > div {
-  transform: scale(0.95);
-}
-</style>

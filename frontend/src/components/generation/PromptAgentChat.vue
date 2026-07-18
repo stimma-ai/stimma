@@ -19,7 +19,7 @@
           ]"
         >
           <div :class="[
-            'text-[10px] font-medium uppercase tracking-wide mb-1.5',
+            'text-[10px] font-medium mb-1.5',
             entry.role === 'user' ? 'text-blue-500' : entry.role === 'tool' ? 'text-content-muted' : 'text-purple-500 dark:text-purple-400'
           ]">
             {{ entry.role === 'user' ? '→ You' : entry.role === 'tool' ? '⚙ Tool result' : '✦ Assistant' }}
@@ -60,7 +60,7 @@
             ]"
           >
             <div :class="[
-              'text-[10px] font-medium uppercase tracking-wide mb-1.5',
+              'text-[10px] font-medium mb-1.5',
               entry.type === 'request' ? 'text-blue-500' : 'text-green-600 dark:text-green-500'
             ]">
               {{ entry.type === 'request' ? '→ Request' : '← Response' }}
@@ -109,7 +109,7 @@
         >
           <div class="flex items-center justify-between mb-1.5">
             <span :class="[
-              'text-[10px] font-medium uppercase tracking-wide',
+              'text-[10px] font-medium',
               entry.type === 'request' ? 'text-blue-500' : 'text-green-500'
             ]">
               {{ entry.type === 'request' ? '→ Request' : '← Response' }}
@@ -302,10 +302,7 @@
           class="w-8 h-8 flex items-center justify-center rounded-full bg-content text-surface transition-colors disabled:opacity-30"
           :title="feedbackBusy() ? 'Working…' : 'Send'"
         >
-          <svg v-if="feedbackBusy()" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+          <Spinner v-if="feedbackBusy()" size="md" hue="border-t-surface" />
           <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
             <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" transform="rotate(-90 12 12)" />
           </svg>
@@ -367,17 +364,14 @@
           :class="[
             'px-2.5 py-1 rounded-full text-xs transition-all duration-200',
             loadingOptionsByCategory[item.category]
-              ? 'bg-surface-raised text-content-muted animate-pulse cursor-wait'
+              ? 'bg-surface-raised text-content-muted shimmer cursor-wait'
               : activeSubmenu?.label === item.label
-                ? 'bg-blue-500/30 ring-1 ring-blue-500 text-blue-500 relative z-[60]'
+                ? 'bg-blue-500/30 ring-1 ring-blue-500 text-blue-500 relative z-menu'
                 : getCategoryClass(item.category)
           ]"
         >
           {{ item.label }}
-          <svg v-if="loadingOptionsByCategory[item.category]" class="w-3 h-3 ml-0.5 inline animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+          <Spinner v-if="loadingOptionsByCategory[item.category]" size="sm" class="ml-0.5 inline" />
           <ChevronDownIcon v-else-if="item.subitems && item.subitems.length > 0" class="w-3 h-3 ml-0.5 text-content-tertiary inline" />
         </button>
         <!-- Refresh pill at end — recomputes the sections AND their options. -->
@@ -431,10 +425,7 @@
           class="px-3 py-1 text-xs bg-overlay-light hover:bg-overlay-medium rounded text-content-secondary hover:text-content transition-colors disabled:opacity-50"
         >
           <span v-if="isLoadingIdeas" class="flex items-center gap-1.5">
-            <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+            <Spinner size="sm" />
             Retrying...
           </span>
           <span v-else>Retry</span>
@@ -514,6 +505,7 @@ import { useAuth } from '../../composables/useAuth'
 import { useCloudAccount } from '../../composables/useCloudAccount'
 import { useAgentModelAvailability } from '../../composables/useAgentModelAvailability'
 import { isTauri } from '../../apiConfig'
+import Spinner from '../ui/Spinner.vue'
 
 interface Message {
   role: 'user' | 'assistant'

@@ -35,10 +35,7 @@
             <!-- Status indicator -->
             <span class="shrink-0">
               <span v-if="getNodeStatus(node.id) === 'pending'" class="inline-block w-2 h-2 rounded-full bg-zinc-400"/>
-              <svg v-else-if="getNodeStatus(node.id) === 'running'" class="w-4 h-4 animate-spin" :class="getNodeIconColor(node)" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-opacity="0.3"/>
-                <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-              </svg>
+              <Spinner v-else-if="getNodeStatus(node.id) === 'running'" size="sm" :hue="getNodeSpinnerHue(node)" />
               <svg v-else-if="getNodeStatus(node.id) === 'completed'" class="w-4 h-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
               </svg>
@@ -211,10 +208,7 @@
                 <!-- Status indicator -->
                 <span class="shrink-0">
                   <span v-if="getNodeStatus(child.id) === 'pending'" class="inline-block w-2 h-2 rounded-full bg-zinc-400"/>
-                  <svg v-else-if="getNodeStatus(child.id) === 'running'" class="w-4 h-4 animate-spin" :class="getNodeIconColor(child)" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-opacity="0.3"/>
-                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-                  </svg>
+                  <Spinner v-else-if="getNodeStatus(child.id) === 'running'" size="sm" :hue="getNodeSpinnerHue(child)" />
                   <svg v-else-if="getNodeStatus(child.id) === 'completed'" class="w-4 h-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                   </svg>
@@ -359,10 +353,7 @@
                     <!-- Status indicator -->
                     <span class="shrink-0">
                       <span v-if="getNodeStatus(grandchild.id) === 'pending'" class="inline-block w-2 h-2 rounded-full bg-zinc-400"/>
-                      <svg v-else-if="getNodeStatus(grandchild.id) === 'running'" class="w-4 h-4 animate-spin" :class="getNodeIconColor(grandchild)" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-opacity="0.3"/>
-                        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-                      </svg>
+                      <Spinner v-else-if="getNodeStatus(grandchild.id) === 'running'" size="sm" :hue="getNodeSpinnerHue(grandchild)" />
                       <svg v-else-if="getNodeStatus(grandchild.id) === 'completed'" class="w-4 h-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                       </svg>
@@ -488,6 +479,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { MediaImage } from './media'
 import ToolIcon from './tools/ToolIcon.vue'
+import Spinner from './ui/Spinner.vue'
 import { useTheme } from '../composables/useTheme'
 
 const { resolvedTheme } = useTheme()
@@ -1151,6 +1143,23 @@ function getNodeIconColor(node) {
     case 'map': return light ? 'text-cyan-600' : 'text-cyan-500'
     case 'filter': return light ? 'text-emerald-600' : 'text-emerald-500'
     default: return 'text-content-tertiary'
+  }
+}
+
+// Border-t-* variant of getNodeIconColor for the running-state Spinner's
+// `hue` prop, which needs a full literal class (a runtime-built string from
+// getNodeIconColor's text-* classes would be purged by Tailwind's scanner).
+function getNodeSpinnerHue(node) {
+  const type = node.type
+  const light = isLight.value
+  switch (type) {
+    case 'tool': return light ? 'border-t-blue-600' : 'border-t-blue-500'
+    case 'agent': return light ? 'border-t-violet-600' : 'border-t-violet-500'
+    case 'human': return light ? 'border-t-amber-600' : 'border-t-amber-500'
+    case 'loop': return light ? 'border-t-purple-600' : 'border-t-purple-500'
+    case 'map': return light ? 'border-t-cyan-600' : 'border-t-cyan-500'
+    case 'filter': return light ? 'border-t-emerald-600' : 'border-t-emerald-500'
+    default: return undefined
   }
 }
 

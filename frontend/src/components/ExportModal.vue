@@ -1,21 +1,15 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="show"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="$emit('close')"
-      >
-        <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[420px] mx-4" @click.stop>
-          <!-- Header -->
-          <div class="px-6 py-4 border-b border-edge flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-content">Export</h3>
-            <button @click="$emit('close')" class="text-content-muted hover:text-content transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+  <Modal :show="show" size="custom" custom-class="max-w-[420px] w-full" @close="$emit('close')">
+    <template #header>
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-content">Export</h3>
+        <IconButton @click="$emit('close')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </IconButton>
+      </div>
+    </template>
 
           <!-- Body — fixed structure, sections use visibility not v-if -->
           <div class="px-6 py-5 space-y-4">
@@ -211,35 +205,20 @@
 
           </div>
 
-          <!-- Footer -->
-          <div class="px-6 py-4 border-t border-edge flex gap-3 justify-end">
-            <button
-              @click="$emit('close')"
-              class="px-4 py-2 bg-surface-raised hover:bg-surface-hover text-content-secondary rounded text-sm font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              @click="handleExport"
-              :disabled="exporting"
-              :class="[
-                'px-4 py-2 rounded text-sm font-medium transition-colors',
-                exporting
-                  ? 'bg-accent/50 text-white/50 cursor-not-allowed'
-                  : 'bg-accent hover:bg-accent/90 text-white'
-              ]"
-            >
-              {{ exporting ? 'Exporting...' : exportButtonLabel }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+    <template #footer>
+      <Button variant="secondary" @click="$emit('close')">Cancel</Button>
+      <Button variant="primary" :loading="exporting" @click="handleExport">
+        {{ exporting ? 'Exporting...' : exportButtonLabel }}
+      </Button>
+    </template>
+  </Modal>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import Modal from './ui/Modal.vue'
+import IconButton from './ui/IconButton.vue'
+import Button from './ui/Button.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useTauriDownload } from '../composables/useTauriDownload'
 import axios from 'axios'
@@ -561,15 +540,3 @@ async function handleLayoutExport() {
   await downloadFromResponse(response.data, filename)
 }
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-</style>

@@ -1,13 +1,13 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="show"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="$emit('close')"
-      >
-        <div class="mx-4 flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-edge bg-surface shadow-2xl">
-          <div class="flex items-start gap-4 border-b border-edge px-5 py-4">
+  <Modal
+    :show="show"
+    size="custom"
+    custom-class="max-h-[88vh] w-full max-w-5xl flex flex-col overflow-hidden"
+    :close-on-esc="false"
+    @close="$emit('close')"
+  >
+    <template #header>
+      <div class="flex items-start gap-4">
             <div
               class="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-white"
               :class="headerIconBgClass"
@@ -86,9 +86,10 @@
                 </svg>
               </button>
             </div>
-          </div>
+      </div>
+    </template>
 
-          <div class="flex-1 overflow-y-auto px-5 py-4">
+    <div class="flex-1 overflow-y-auto px-5 py-4">
             <div class="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
               <section class="space-y-3">
                 <slot name="preview">
@@ -235,7 +236,7 @@
                   class="rounded-lg border border-amber-500/40 bg-overlay-light"
                 >
                   <div class="flex items-center gap-2 border-b border-amber-500/30 px-4 py-2.5">
-                    <span class="text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-sm">Dev</span>
+                    <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-sm">Dev</span>
                     <span class="text-[12px] text-content-muted">raw step error</span>
                   </div>
                   <div class="px-4 py-3">
@@ -287,11 +288,8 @@
 
               </section>
             </div>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+    </div>
+  </Modal>
 </template>
 
 <script setup lang="ts">
@@ -301,6 +299,7 @@ import { copyToClipboard } from '../../utils/clipboard'
 import { parseFlowError } from '../../utils/flowErrors'
 import MediaImage from '../media/MediaImage.vue'
 import KeyValueList, { type KeyValueRow } from '../ui/KeyValueList.vue'
+import Modal from '../ui/Modal.vue'
 
 export interface InputEntry {
   key: string
@@ -417,15 +416,3 @@ async function copyValue(value: string) {
   }
 }
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-</style>

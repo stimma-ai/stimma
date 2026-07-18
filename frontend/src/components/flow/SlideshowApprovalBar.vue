@@ -1,6 +1,6 @@
 <template>
   <div
-    class="absolute left-1/2 z-[10001] bg-surface backdrop-blur-md border border-edge-subtle rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.3),0_4px_8px_rgba(0,0,0,0.2)]"
+    class="absolute left-1/2 z-chrome bg-surface backdrop-blur-md border border-edge-subtle rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.3),0_4px_8px_rgba(0,0,0,0.2)]"
     :style="{ bottom: `${bottomOffset}px`, transform: 'translateX(-50%)' }"
   >
     <div class="flex items-center gap-3 px-4 py-2.5">

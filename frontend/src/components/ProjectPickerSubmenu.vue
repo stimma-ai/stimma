@@ -3,7 +3,7 @@
     <!-- Search -->
     <div class="px-2 py-1.5 border-b border-edge-subtle flex-shrink-0">
       <div class="relative">
-        <svg class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg class="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
         </svg>
         <input
@@ -21,10 +21,10 @@
       <button
         v-if="mode === 'move'"
         :disabled="creating"
-        class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+        class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         @click="handleCreateProject"
       >
-        <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
         <span>{{ creating ? 'Creating...' : 'New project' }}</span>
@@ -33,14 +33,14 @@
       <!-- "No Project" option (move mode only) -->
       <button
         v-if="mode === 'move'"
-        class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+        class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         @click="$emit('select', null)"
       >
-        <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg class="w-4 h-4 flex-shrink-0 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <span>No Project</span>
-        <svg v-if="currentProjectId == null" class="w-3.5 h-3.5 ml-auto text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+        <svg v-if="currentProjectId == null" class="w-3.5 h-3.5 ml-auto text-accent" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
       </button>
@@ -56,7 +56,7 @@
         v-for="project in filteredProjects"
         :key="project.id"
         :disabled="addingToProjectId === project.id"
-        class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-light flex items-center gap-2"
+        class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         @click="handleProjectClick(project)"
       >
         <!-- Archive box icon -->
@@ -65,7 +65,7 @@
         </svg>
         <span class="flex-1 min-w-0 truncate" :class="project.name ? '' : 'italic text-content-muted'">{{ project.name || 'Untitled' }}</span>
         <!-- Checkmark for current project (move mode only) -->
-        <svg v-if="mode === 'move' && currentProjectId === project.id" class="w-3.5 h-3.5 flex-shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+        <svg v-if="mode === 'move' && currentProjectId === project.id" class="w-3.5 h-3.5 flex-shrink-0 text-accent" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
       </button>

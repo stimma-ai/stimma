@@ -83,7 +83,7 @@
           @click="setSize(preset)"
           class="flex-1 h-7 rounded-lg text-xs font-semibold border transition-colors cursor-pointer"
           :class="batchSize === preset
-            ? 'bg-blue-500/15 border-blue-500/50 text-blue-400'
+            ? 'bg-selection/15 border-selection/50 text-selection'
             : 'bg-surface-raised border-edge-subtle text-content-secondary hover:bg-surface-hover hover:text-content'"
         >{{ preset }}</button>
       </div>

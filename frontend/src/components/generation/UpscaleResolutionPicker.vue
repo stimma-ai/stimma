@@ -1,24 +1,24 @@
 <template>
-  <div :class="compact ? '' : 'bg-surface rounded-lg p-4'">
+  <div :class="compact ? '' : 'bg-surface-raised rounded-lg p-4'">
     <div :class="['flex items-center justify-between', compact ? 'mb-2' : 'mb-4']">
       <span :class="compact ? 'text-xs font-medium text-content-tertiary' : 'text-sm font-medium text-content-secondary'">
         {{ headerLabel }}
       </span>
       <!-- Only show mode switcher if both modes are supported -->
-      <div v-if="supportScaleFactor && supportResolution" :class="compact ? 'flex gap-1 bg-surface rounded p-0.5' : 'flex gap-2'">
+      <div v-if="supportScaleFactor && supportResolution" :class="compact ? 'flex gap-1 bg-overlay-subtle rounded-md p-0.5' : 'flex gap-2'">
         <button
           @click="resolutionMode = 'relative'"
           :class="compact
-            ? ['px-3 py-1 text-xs font-medium rounded transition-colors', resolutionMode === 'relative' ? 'bg-surface-hover text-content' : 'text-content-tertiary hover:text-content']
-            : ['px-3 py-1.5 text-xs font-medium rounded transition-colors', resolutionMode === 'relative' ? 'bg-blue-500/20 text-blue-500' : 'bg-overlay-subtle text-content-tertiary hover:text-content-secondary']"
+            ? ['px-3 py-1 text-xs font-medium rounded-md transition-colors duration-150', resolutionMode === 'relative' ? 'bg-accent/15 text-accent' : 'text-content-tertiary hover:text-content']
+            : ['px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150', resolutionMode === 'relative' ? 'bg-accent/15 text-accent' : 'bg-overlay-subtle text-content-tertiary hover:text-content-secondary']"
         >
           Scale Factor
         </button>
         <button
           @click="resolutionMode = 'pixels'"
           :class="compact
-            ? ['px-3 py-1 text-xs font-medium rounded transition-colors', resolutionMode === 'pixels' ? 'bg-surface-hover text-content' : 'text-content-tertiary hover:text-content']
-            : ['px-3 py-1.5 text-xs font-medium rounded transition-colors', resolutionMode === 'pixels' ? 'bg-blue-500/20 text-blue-500' : 'bg-overlay-subtle text-content-tertiary hover:text-content-secondary']"
+            ? ['px-3 py-1 text-xs font-medium rounded-md transition-colors duration-150', resolutionMode === 'pixels' ? 'bg-accent/15 text-accent' : 'text-content-tertiary hover:text-content']
+            : ['px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150', resolutionMode === 'pixels' ? 'bg-accent/15 text-accent' : 'bg-overlay-subtle text-content-tertiary hover:text-content-secondary']"
         >
           Short Edge (px)
         </button>
@@ -33,8 +33,8 @@
           :key="scale"
           @click="scaleFactor = scale"
           :class="compact
-            ? ['px-2 py-0.5 text-xs rounded transition-colors', scaleFactor === scale ? 'bg-accent text-white' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover']
-            : ['px-3 py-1.5 text-sm font-medium rounded transition-colors', scaleFactor === scale ? 'bg-accent text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-light']"
+            ? ['px-2 py-0.5 text-xs rounded-md transition-colors duration-150', scaleFactor === scale ? 'bg-accent text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-light']
+            : ['px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-150', scaleFactor === scale ? 'bg-accent text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-light']"
         >
           {{ scale }}x
         </button>
@@ -47,11 +47,11 @@
           :max="4"
           :step="0.1"
           :class="compact
-            ? 'flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full'
-            : 'flex-1 h-2 bg-surface-raised rounded-lg appearance-none cursor-pointer slider'"
+            ? 'flex-1 h-1 bg-overlay-subtle rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0'
+            : 'flex-1 h-1.5 bg-overlay-subtle rounded-full appearance-none cursor-pointer slider'"
         />
         <template v-if="compact">
-          <span class="text-xs text-content-tertiary w-8 text-right">{{ scaleFactor }}x</span>
+          <span class="text-xs font-mono tabular-nums text-content-tertiary w-8 text-right">{{ scaleFactor }}x</span>
         </template>
         <template v-else>
           <input v-no-autocorrect
@@ -60,7 +60,7 @@
             :min="0.5"
             :max="4"
             :step="0.1"
-            class="w-16 px-2 py-1 text-sm bg-surface-raised border border-edge-subtle rounded text-content text-center"
+            class="w-16 px-2 py-1 text-sm font-mono tabular-nums bg-overlay-subtle border border-transparent rounded-md text-content text-center focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
           />
           <span class="text-xs text-content-tertiary">x</span>
         </template>
@@ -75,8 +75,8 @@
           :key="preset.value"
           @click="targetResolution = preset.value"
           :class="compact
-            ? ['px-2 py-0.5 text-xs rounded transition-colors', targetResolution === preset.value ? 'bg-accent text-white' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover']
-            : ['px-3 py-1.5 text-sm font-medium rounded transition-colors', targetResolution === preset.value ? 'bg-accent text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-light']"
+            ? ['px-2 py-0.5 text-xs rounded-md transition-colors duration-150', targetResolution === preset.value ? 'bg-accent text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-light']
+            : ['px-3 py-1.5 text-sm font-medium rounded-md transition-colors duration-150', targetResolution === preset.value ? 'bg-accent text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-light']"
         >
           {{ preset.label }}
         </button>
@@ -89,11 +89,11 @@
           :max="4320"
           :step="1"
           :class="compact
-            ? 'flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full'
-            : 'flex-1 h-2 bg-surface-raised rounded-lg appearance-none cursor-pointer slider'"
+            ? 'flex-1 h-1 bg-overlay-subtle rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0'
+            : 'flex-1 h-1.5 bg-overlay-subtle rounded-full appearance-none cursor-pointer slider'"
         />
         <template v-if="compact">
-          <span class="text-xs text-content-tertiary w-12 text-right">{{ targetResolution }}px</span>
+          <span class="text-xs font-mono tabular-nums text-content-tertiary w-12 text-right">{{ targetResolution }}px</span>
         </template>
         <template v-else>
           <input v-no-autocorrect
@@ -101,7 +101,7 @@
             v-model.number="targetResolution"
             :min="480"
             :max="4320"
-            class="w-20 px-2 py-1 text-sm bg-surface-raised border border-edge-subtle rounded text-content text-center"
+            class="w-20 px-2 py-1 text-sm font-mono tabular-nums bg-overlay-subtle border border-transparent rounded-md text-content text-center focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
           />
           <span class="text-xs text-content-tertiary">px</span>
         </template>
@@ -113,11 +113,11 @@
 
     <!-- Resolution Preview (at bottom) - only shown when input dimensions available -->
     <div v-if="inputWidth && inputHeight && outputDimensions" class="mt-4 pt-3 border-t border-edge-subtle flex items-center justify-center gap-3 text-sm">
-      <span class="text-content-tertiary">{{ inputWidth }} × {{ inputHeight }}</span>
+      <span class="font-mono tabular-nums text-content-tertiary">{{ inputWidth }} × {{ inputHeight }}</span>
       <svg class="w-4 h-4 text-content-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
       </svg>
-      <span class="text-blue-500 font-medium">{{ outputDimensions.width }} × {{ outputDimensions.height }}</span>
+      <span class="font-mono tabular-nums text-accent font-medium">{{ outputDimensions.width }} × {{ outputDimensions.height }}</span>
     </div>
   </div>
 </template>
@@ -242,42 +242,42 @@ const outputDimensions = computed(() => {
 
 .slider::-webkit-slider-thumb {
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  @apply bg-blue-500;
+  background: rgb(var(--color-accent-rgb));
   cursor: pointer;
-  transition: background 0.2s;
-  margin-top: -4px;
+  transition: background 0.15s;
+  margin-top: -3.25px;
 }
 
 .slider::-webkit-slider-thumb:hover {
-  @apply bg-blue-600;
+  background: rgb(var(--color-accent-rgb) / 0.9);
 }
 
 .slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  @apply bg-blue-500;
+  background: rgb(var(--color-accent-rgb));
   cursor: pointer;
   border: none;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
 
 .slider::-moz-range-thumb:hover {
-  @apply bg-blue-600;
+  background: rgb(var(--color-accent-rgb) / 0.9);
 }
 
 .slider::-webkit-slider-runnable-track {
-  background: var(--color-surface-raised);
-  border-radius: 4px;
-  height: 8px;
+  background: transparent;
+  border-radius: 999px;
+  height: 6px;
 }
 
 .slider::-moz-range-track {
-  background: var(--color-surface-raised);
-  border-radius: 4px;
-  height: 8px;
+  background: transparent;
+  border-radius: 999px;
+  height: 6px;
 }
 </style>

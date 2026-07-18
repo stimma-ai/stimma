@@ -36,7 +36,7 @@
       :title="placeholderTitle"
     >
       <template v-if="iteration.status === 'computing'">
-        <div class="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+        <Spinner hue="border-t-blue-400" />
       </template>
       <template v-else-if="iteration.status === 'failed'">
         <svg class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -107,7 +107,7 @@
     <button
       v-if="!isRunning"
       type="button"
-      class="absolute bottom-1 right-1 z-10 h-6 w-6 flex items-center justify-center rounded bg-black/60 text-white/85 opacity-0 transition-all hover:bg-blue-500/80 hover:text-white group-hover/iteration-card:opacity-100"
+      class="absolute bottom-1 right-1 z-10 h-6 w-6 flex items-center justify-center rounded bg-black/60 text-white/85 opacity-0 transition-all hover:bg-accent/80 hover:text-white group-hover/iteration-card:opacity-100"
       title="Show iteration details"
       @click.stop="$emit('open', iteration)"
     >
@@ -141,6 +141,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import FlowMediaTile from './FlowMediaTile.vue'
+import Spinner from '../ui/Spinner.vue'
 import FlowRefButton from './FlowRefButton.vue'
 import type { GroupedIteration } from '../../composables/useFlowGrouping'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'

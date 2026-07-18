@@ -33,7 +33,7 @@
             @keydown.enter="saveName"
             @keydown.esc.prevent="cancelEdit"
             @click.stop
-            class="text-sm text-content font-medium bg-surface-raised border border-transparent rounded px-2 py-0.5 outline-none focus:border-accent flex-1 min-w-0"
+            class="text-sm text-content font-medium bg-surface-raised border border-transparent rounded-md px-2 py-0.5 outline-none focus:border-accent focus-visible:ring-2 ring-accent/40 flex-1 min-w-0"
             placeholder="Name this flow..."
           />
         </template>
@@ -93,13 +93,13 @@
       </div>
       <span
         v-if="extraCount > 0"
-        class="ml-1.5 text-[10.5px] text-content-muted tabular-nums"
+        class="ml-1.5 text-[10.5px] font-mono text-content-muted tabular-nums"
       >+{{ extraCount }}</span>
     </div>
 
     <!-- Right side: time -->
     <div class="flex-shrink-0 flex flex-col items-end gap-1.5">
-      <span v-if="flow.updated_at" class="text-[13px] text-content-muted whitespace-nowrap">
+      <span v-if="flow.updated_at" class="text-[13px] font-mono tabular-nums text-content-muted whitespace-nowrap">
         {{ formatRelative(flow.updated_at) }}
       </span>
     </div>

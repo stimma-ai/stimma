@@ -4,9 +4,9 @@
       ref="buttonRef"
       @click="toggleDropdown"
       :disabled="disabled"
-      class="flex items-center gap-2 px-3 py-2 bg-surface border border-surface-raised rounded-md text-content-secondary text-sm hover:bg-surface-raised transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+      class="flex items-center gap-2 px-3 py-2 bg-overlay-subtle border border-edge-subtle rounded-md text-content-tertiary text-sm hover:bg-overlay-light hover:text-content transition-colors duration-150 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      <span>{{ megapixels.toFixed(1) }}MP</span>
+      <span class="font-mono tabular-nums">{{ megapixels.toFixed(1) }}MP</span>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-content-muted">
         <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
       </svg>
@@ -15,7 +15,7 @@
     <!-- Dropdown Menu -->
     <div
       v-if="showDropdown"
-      class="fixed bg-surface border border-surface-raised rounded-lg shadow-lg z-menu p-3 space-y-3"
+      class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu p-3 space-y-3"
       :style="dropdownStyle"
       @click.stop
     >
@@ -26,10 +26,10 @@
           :key="preset"
           @click="selectMegapixels(preset)"
           :class="[
-            'px-2 py-1 rounded text-xs font-medium transition-colors',
+            'px-2 py-1 rounded-md text-xs font-medium font-mono transition-colors duration-150',
             Math.abs(megapixels - preset) < 0.05
               ? 'bg-accent text-white'
-              : 'bg-surface-overlay text-content-tertiary hover:bg-surface-raised'
+              : 'bg-overlay-subtle text-content-tertiary hover:bg-overlay-light'
           ]"
         >
           {{ preset }}MP
@@ -45,9 +45,9 @@
           :min="minMegapixels"
           :max="maxMegapixels"
           step="0.1"
-          class="flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+          class="flex-1 h-1 bg-overlay-subtle rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0"
         >
-        <span class="text-xs text-content-muted whitespace-nowrap w-12 text-right">{{ megapixels.toFixed(1) }}MP</span>
+        <span class="text-xs font-mono tabular-nums text-content-muted whitespace-nowrap w-12 text-right">{{ megapixels.toFixed(1) }}MP</span>
       </div>
     </div>
   </div>

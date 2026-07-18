@@ -1,38 +1,23 @@
 <template>
-  <Teleport to="body">
-    <div
-      v-if="modelValue"
-      class="fixed inset-0 z-modal flex items-center justify-center"
-      @mousedown.self="close"
-    >
-      <!-- Backdrop -->
-      <div class="absolute inset-0 bg-overlay-backdrop" />
-
-      <!-- Modal panel -->
-      <div class="relative max-w-md w-full mx-4 bg-surface rounded-lg border border-edge-subtle shadow-2xl">
-        <!-- Header -->
-        <div class="flex items-center justify-between px-5 pt-5 pb-1">
-          <div>
-            <h2 class="text-base font-semibold text-content">Share</h2>
-            <p class="text-xs text-content-muted mt-0.5">Create a public link anyone can view</p>
-          </div>
-          <button
-            class="text-content-muted hover:text-content transition-colors"
-            @click="close"
-          >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+  <Modal :show="modelValue" size="custom" custom-class="max-w-md w-full" @close="close">
+    <template #header>
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-semibold text-content">Share</h2>
+          <p class="text-xs text-content-muted mt-0.5">Create a public link anyone can view</p>
         </div>
+        <IconButton @click="close">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </IconButton>
+      </div>
+    </template>
 
         <!-- Loading status check -->
         <div v-if="isCheckingStatus" class="px-5 pb-5 pt-3 min-h-[280px] flex items-center justify-center">
           <div class="flex items-center justify-center gap-2">
-            <svg class="w-4 h-4 animate-spin text-content-muted" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
+            <Spinner hue="border-t-content-muted" />
             <span class="text-sm text-content-muted">Loading...</span>
           </div>
         </div>
@@ -65,10 +50,7 @@
                   @keydown.enter="handleSetupIdentity"
                 />
                 <div v-if="isCheckingUsername" class="absolute right-3 top-1/2 -translate-y-1/2">
-                  <svg class="w-4 h-4 animate-spin text-content-muted" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
+                  <Spinner hue="border-t-content-muted" />
                 </div>
               </div>
               <p class="text-[11px] text-content-muted mt-1.5 px-0.5">3&ndash;24 characters, lowercase letters, numbers, hyphens, and underscores</p>
@@ -88,15 +70,7 @@
                 :disabled="isSettingUpIdentity || isCheckingUsername || !!usernameError || usernameInput.trim().length < 3"
                 @click="handleSetupIdentity"
               >
-                <svg
-                  v-if="isSettingUpIdentity"
-                  class="w-4 h-4 animate-spin"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
+                <Spinner v-if="isSettingUpIdentity" hue="border-t-white" />
                 {{ isSettingUpIdentity ? 'Setting up...' : 'Continue' }}
               </button>
             </div>
@@ -178,10 +152,7 @@
               @input="handleTitleInput"
             />
             <div v-if="suggestingTitle" class="absolute right-3 top-1/2 -translate-y-1/2">
-              <svg class="w-4 h-4 animate-spin text-content-muted" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
+              <Spinner hue="border-t-content-muted" />
             </div>
           </div>
 
@@ -200,10 +171,7 @@
           <!-- Moderation feedback — fixed-height slot to prevent layout shift -->
           <div class="mb-4 min-h-[36px]">
             <div v-if="isPreChecking" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-overlay-subtle">
-              <svg class="w-4 h-4 animate-spin text-content-muted shrink-0" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
+              <Spinner hue="border-t-content-muted" />
               <span class="text-xs text-content-muted">Checking content...</span>
             </div>
 
@@ -296,15 +264,7 @@
               :disabled="isSharing || isBlocked"
               @click="handleShare"
             >
-              <svg
-                v-if="isSharing"
-                class="w-4 h-4 animate-spin"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
+              <Spinner v-if="isSharing" hue="border-t-white" />
               <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
                 <path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z" />
                 <path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z" />
@@ -313,13 +273,14 @@
             </button>
           </div>
         </div>
-      </div>
-    </div>
-  </Teleport>
+  </Modal>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import Modal from './ui/Modal.vue'
+import IconButton from './ui/IconButton.vue'
+import Spinner from './ui/Spinner.vue'
 import { useShare } from '../composables/useShare'
 import { useAuth } from '../composables/useAuth'
 import { copyToClipboard } from '../utils/clipboard'

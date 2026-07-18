@@ -19,20 +19,16 @@
         type="button"
         :disabled="addBalancePending"
         @click="handleAddBalance"
-        class="rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400"
+        class="rounded-lg bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {{ addBalancePending ? 'Opening…' : 'Add credits' }}
       </button>
-      <button
-        type="button"
-        @click="openSettings('ai-services')"
-        class="rounded-lg border border-edge bg-transparent px-4 py-2 text-sm font-medium text-content-secondary transition-colors hover:bg-overlay-subtle hover:text-content"
-      >
+      <Button variant="secondary" @click="openSettings('ai-services')">
         Configure Chat Models
-      </button>
+      </Button>
     </div>
     <RedeemCodeLink v-if="unavailableState === 'no-balance'" class="mt-3" />
-    <p v-if="actionError" class="mt-2 text-xs text-red-500">{{ actionError }}</p>
+    <p v-if="actionError" class="mt-2 text-xs" :class="textClass('failed')">{{ actionError }}</p>
   </div>
 </template>
 
@@ -45,6 +41,8 @@ import { useCloudAccount } from '../../composables/useCloudAccount'
 import { usePrivacyLockdown } from '../../composables/usePrivacyLockdown'
 import { resolveAgentUnavailableState } from '../../utils/agentUnavailableState'
 import RedeemCodeLink from '../RedeemCodeLink.vue'
+import Button from '../ui/Button.vue'
+import { textClass } from '../../utils/statusColors'
 
 const { privacyLockdownActive } = usePrivacyLockdown()
 const { isAuthenticated } = useAuth()

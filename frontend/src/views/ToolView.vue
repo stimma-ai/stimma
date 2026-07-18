@@ -29,7 +29,7 @@
     <!-- Loading State -->
     <div v-if="isInitialLoading && !slideshowState.active" class="flex-1 flex items-center justify-center">
       <div class="flex flex-col items-center gap-4">
-        <div class="w-10 h-10 border-4 border-edge border-t-blue-500 rounded-full animate-spin"></div>
+        <Spinner size="lg" />
         <span class="text-content-muted text-sm">Loading...</span>
       </div>
     </div>
@@ -46,7 +46,7 @@
       <!-- Unavailable Overlay (semi-transparent, shows cached UI behind it) -->
       <div
         v-if="toolAvailability !== 'available'"
-        class="absolute inset-0 bg-black/50 z-40 flex items-center justify-center pointer-events-auto"
+        class="absolute inset-0 bg-overlay-backdrop backdrop-blur-sm z-modal flex items-center justify-center pointer-events-auto"
       >
         <div class="bg-surface border border-edge-subtle rounded-lg p-6 max-w-md text-center shadow-xl">
           <svg class="w-12 h-12 text-yellow-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -61,10 +61,10 @@
       <!-- Loading Generation Config Overlay -->
       <div
         v-if="loadingGenerationConfig"
-        class="absolute inset-0 bg-black/60 z-50 flex items-center justify-center pointer-events-auto"
+        class="absolute inset-0 bg-overlay-backdrop backdrop-blur-sm z-modal flex items-center justify-center pointer-events-auto"
       >
         <div class="bg-surface border border-edge-subtle rounded-lg p-6 max-w-md text-center shadow-xl">
-          <div class="w-10 h-10 border-4 border-edge border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <Spinner size="lg" hue="border-t-purple-500" class="mx-auto mb-4" />
           <h3 class="text-lg font-semibold text-content mb-2">Converting generation settings</h3>
           <p class="text-content-tertiary text-sm">
             Converting generation parameters from the source image to match this tool's parameters. This may take a moment.
@@ -649,7 +649,7 @@
       >
         <!-- Empty state -->
         <div v-if="!stageCurrentJob" class="flex flex-col items-center gap-3 text-content-muted">
-          <div v-if="stageHasPending" class="w-10 h-10 border-4 border-edge border-t-blue-500 rounded-full animate-spin"></div>
+          <Spinner v-if="stageHasPending" size="lg" />
           <span class="text-sm">{{ stageHasPending ? 'Generating…' : 'No images yet' }}</span>
         </div>
 
@@ -952,6 +952,7 @@ import { createDragPreview, handleDragEnd as handleHeroDragEnd } from '../compos
 import { useToolAutoDeleteDuration } from '../composables/useToolAutoDeleteDuration'
 import { usePromptWarmPool } from '../composables/usePromptWarmPool'
 import { useTabNavigation } from '../composables/useTabNavigation'
+import Spinner from '../components/ui/Spinner.vue'
 import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShortcuts'
 import { useMediaApi } from '../composables/useMediaApi'
 import { useAssetApi } from '../composables/useAssetApi'

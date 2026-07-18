@@ -27,7 +27,7 @@
           </svg>
         </span>
         <span
-          class="flex-shrink-0 px-1 py-px rounded text-[9px] font-mono uppercase tracking-wider"
+          class="flex-shrink-0 px-1 py-px rounded text-[9px] font-mono"
           :class="badgeClass(err.source)"
         >{{ sourceLabel(err.source) }}</span>
         <span class="flex-1 min-w-0 truncate text-content-secondary">{{ err.summary || err.message }}</span>

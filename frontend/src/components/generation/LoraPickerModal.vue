@@ -13,7 +13,7 @@
         <div class="flex items-center justify-between p-4 border-b border-surface-raised">
           <div class="flex items-center gap-2">
             <h3 class="text-lg font-semibold text-content">Add LoRA</h3>
-            <div v-if="isRefreshing || isUploading" class="w-4 h-4 border-2 border-edge border-t-blue-500 rounded-full animate-spin"></div>
+            <Spinner v-if="isRefreshing || isUploading" size="md" />
           </div>
           <div class="flex items-center gap-3">
             <input
@@ -96,7 +96,7 @@
             v-if="isUploading"
             class="mb-2 rounded-lg border border-blue-500/30 bg-blue-500/5 px-3 py-2 flex items-center gap-2.5"
           >
-            <div class="w-3.5 h-3.5 border-2 border-edge border-t-blue-500 rounded-full animate-spin flex-shrink-0"></div>
+            <Spinner size="sm" />
             <div class="flex-1 min-w-0">
               <div class="text-xs text-content-muted mb-1 truncate">{{ uploadFileName || 'Uploading LoRA...' }}</div>
               <div class="h-1 bg-surface-raised rounded-full overflow-hidden">
@@ -173,6 +173,7 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import type { LoraPoolItem, LoraOption } from '../../composables/useLoraPool'
 import { computeDisplayNames, getRawDisplayName, getRawFileName, getDirectoryPath } from '../../composables/useLoraDisplayNames'
 import { addToast } from '../../composables/useToasts'
+import Spinner from '../ui/Spinner.vue'
 
 interface Props {
   availableLoras: LoraOption[]

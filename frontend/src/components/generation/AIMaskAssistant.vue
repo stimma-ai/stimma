@@ -1,9 +1,9 @@
 <template>
   <div class="w-full mb-6">
     <!-- Container matching AIPromptEditor style -->
-    <div class="p-3 bg-surface-overlay border border-surface-raised rounded-md">
+    <div class="p-3 bg-surface-overlay border border-edge-subtle rounded-md">
       <!-- Debug Panel (above input) -->
-      <div v-if="showDebug" class="mb-3 bg-surface-overlay border border-surface-raised rounded-lg overflow-hidden">
+      <div v-if="showDebug" class="mb-3 bg-surface-overlay border border-edge-subtle rounded-lg overflow-hidden">
         <div class="max-h-80 overflow-y-auto p-3 space-y-3">
           <div v-if="debugHistory.length === 0" class="text-xs text-content-muted italic py-4 text-center">
             Submit a command to see requests/responses
@@ -49,7 +49,7 @@
             <div class="text-content-secondary whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{{ entry.content }}</div>
           </div>
         </div>
-        <div class="px-3 py-2 border-t border-surface-raised flex justify-end">
+        <div class="px-3 py-2 border-t border-edge-subtle flex justify-end">
           <button
             @click="clearDebugHistory"
             class="text-[10px] text-content-muted hover:text-red-500 transition-colors"
@@ -68,7 +68,7 @@
           @keydown="handleKeydown"
           type="text"
           placeholder="e.g., mask the lights, unmask the plant, expand, shrink, invert, clear, ..."
-          class="flex-1 bg-surface border border-surface-raised rounded-md px-3 py-2 text-sm text-content-secondary placeholder-content-muted focus:outline-none focus:border-accent"
+          class="flex-1 bg-surface border border-edge-subtle rounded-md px-3 py-2 text-sm text-content-secondary placeholder-content-muted focus:outline-none focus:border-accent"
         />
         <button
           @click="handleSubmit"
@@ -76,7 +76,7 @@
           class="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
         >
           <span v-if="isProcessing" class="flex items-center gap-1.5">
-            <div class="w-3 h-3 border-2 border-edge-strong border-t-white rounded-full animate-spin"></div>
+            <Spinner size="sm" hue="border-t-white" />
             <span v-if="messageQueue.length > 0" class="text-xs opacity-70">+{{ messageQueue.length }}</span>
           </span>
           <span v-else>Apply</span>
@@ -89,7 +89,7 @@
             'px-3 py-2 rounded-md text-sm font-medium transition-colors border',
             showDebug
               ? 'bg-surface-raised text-content border-edge'
-              : 'bg-surface text-content-tertiary border-surface-raised hover:text-content hover:border-edge'
+              : 'bg-surface text-content-tertiary border-edge-subtle hover:text-content hover:border-edge'
           ]"
           title="Show debug log"
         >
@@ -111,6 +111,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import axios from 'axios'
+import Spinner from '../ui/Spinner.vue'
 
 const API_BASE = '/api'
 

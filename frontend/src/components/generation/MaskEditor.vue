@@ -8,12 +8,12 @@
     <!-- Toolbar (always visible, disabled when no image) -->
     <div :class="['flex items-center gap-2 h-8 flex-shrink-0', modalMode ? 'mb-4' : '']">
       <!-- Undo/Redo buttons -->
-      <div class="flex h-full bg-surface rounded">
+      <div class="flex h-full bg-surface rounded-md">
         <button
           @click="undo"
           :disabled="!hasImage || undoStack.length === 0"
           :class="[
-            'h-full px-2 rounded-l transition-colors flex items-center',
+            'h-full px-2 rounded-l-md transition-colors flex items-center',
             hasImage && undoStack.length > 0
               ? 'text-content-muted hover:text-content-secondary'
               : 'text-content-muted cursor-not-allowed'
@@ -26,7 +26,7 @@
           @click="redo"
           :disabled="!hasImage || redoStack.length === 0"
           :class="[
-            'h-full px-2 rounded-r transition-colors flex items-center',
+            'h-full px-2 rounded-r-md transition-colors flex items-center',
             hasImage && redoStack.length > 0
               ? 'text-content-muted hover:text-content-secondary'
               : 'text-content-muted cursor-not-allowed'
@@ -38,17 +38,17 @@
       </div>
 
       <!-- Divider -->
-      <div class="w-px h-full bg-surface-raised"></div>
+      <div class="w-px h-full bg-edge-subtle"></div>
 
       <!-- Paint/Erase toggle -->
-      <div class="flex h-full bg-surface rounded">
+      <div class="flex h-full bg-surface rounded-md">
         <button
           @click="paintMode = 'paint'"
           :disabled="!hasImage"
           :class="[
-            'h-full px-2 rounded-l transition-colors flex items-center',
+            'h-full px-2 rounded-l-md transition-colors flex items-center',
             !hasImage ? 'text-content-muted cursor-not-allowed' :
-            paintMode === 'paint' ? 'bg-blue-500/20 text-blue-500' : 'text-content-muted hover:text-content-secondary'
+            paintMode === 'paint' ? 'bg-accent/15 text-accent' : 'text-content-muted hover:text-content-secondary'
           ]"
           title="Paint mask (areas to inpaint)"
         >
@@ -58,9 +58,9 @@
           @click="paintMode = 'erase'"
           :disabled="!hasImage"
           :class="[
-            'h-full px-2 rounded-r transition-colors flex items-center',
+            'h-full px-2 rounded-r-md transition-colors flex items-center',
             !hasImage ? 'text-content-muted cursor-not-allowed' :
-            paintMode === 'erase' ? 'bg-blue-500/20 text-blue-500' : 'text-content-muted hover:text-content-secondary'
+            paintMode === 'erase' ? 'bg-accent/15 text-accent' : 'text-content-muted hover:text-content-secondary'
           ]"
           title="Erase mask"
         >
@@ -90,7 +90,7 @@
         @click="contractMask(expandContractPercent)"
         :disabled="!hasImage || !hasMask()"
         :class="[
-          'h-full px-2 rounded bg-surface transition-colors flex items-center',
+          'h-full px-2 rounded-md bg-surface transition-colors flex items-center',
           hasImage && hasMask() ? 'text-content-muted hover:text-content-secondary' : 'text-content-muted cursor-not-allowed'
         ]"
         :title="`Contract mask by ${expandContractPercent}%`"
@@ -107,7 +107,7 @@
         @click="expandMask(expandContractPercent)"
         :disabled="!hasImage || !hasMask()"
         :class="[
-          'h-full px-2 rounded bg-surface transition-colors flex items-center',
+          'h-full px-2 rounded-md bg-surface transition-colors flex items-center',
           hasImage && hasMask() ? 'text-content-muted hover:text-content-secondary' : 'text-content-muted cursor-not-allowed'
         ]"
         :title="`Expand mask by ${expandContractPercent}%`"
@@ -124,7 +124,7 @@
         v-model.number="expandContractPercent"
         :disabled="!hasImage || !hasMask()"
         :class="[
-          'h-full bg-surface border border-surface-raised rounded px-2 text-xs focus:outline-none focus:border-accent',
+          'h-full bg-surface border border-edge-subtle rounded-md px-2 text-xs focus:outline-none focus:border-accent',
           hasImage && hasMask() ? 'text-content-secondary' : 'text-content-muted cursor-not-allowed opacity-50'
         ]"
       >
@@ -141,14 +141,14 @@
       </select>
 
       <!-- Divider -->
-      <div class="w-px h-full bg-surface-raised"></div>
+      <div class="w-px h-full bg-edge-subtle"></div>
 
       <!-- Invert mask button -->
       <button
         @click="invertMask"
         :disabled="!hasImage"
         :class="[
-          'h-full px-3 rounded bg-surface transition-colors text-xs',
+          'h-full px-3 rounded-md bg-surface transition-colors text-xs',
           hasImage ? 'text-content-muted hover:text-content-secondary' : 'text-content-muted cursor-not-allowed'
         ]"
         title="Invert mask"
@@ -161,7 +161,7 @@
         @click="clearMask"
         :disabled="!hasImage"
         :class="[
-          'h-full px-3 rounded bg-surface transition-colors text-xs',
+          'h-full px-3 rounded-md bg-surface transition-colors text-xs',
           hasImage ? 'text-content-muted hover:text-content-secondary' : 'text-content-muted cursor-not-allowed'
         ]"
         title="Clear mask"
@@ -171,14 +171,14 @@
 
       <!-- Divider and expand button (only in inline mode) -->
       <template v-if="!modalMode">
-        <div class="w-px h-full bg-surface-raised"></div>
+        <div class="w-px h-full bg-edge-subtle"></div>
 
         <!-- Expand to modal button -->
         <button
           @click="openExpandedModal"
           :disabled="!hasImage"
           :class="[
-            'h-full px-2 rounded bg-surface transition-colors',
+            'h-full px-2 rounded-md bg-surface transition-colors',
             hasImage ? 'text-content-muted hover:text-content-secondary' : 'text-content-muted cursor-not-allowed'
           ]"
           title="Edit in large view"
@@ -195,9 +195,9 @@
       <div v-if="hasImage" class="relative flex-shrink" :class="modalMode ? 'h-full w-full flex items-center justify-center' : ''">
         <div
           ref="canvasContainer"
-          class="relative bg-surface-overlay border border-surface-raised rounded-lg overflow-hidden cursor-crosshair flex-shrink"
+          class="relative bg-matte border border-edge-subtle rounded-media overflow-hidden cursor-crosshair flex-shrink"
           :class="[
-            { 'border-blue-500 border-2': isDragging },
+            { 'ring-1 ring-accent/50 bg-accent/10': isDragging },
             modalMode ? 'max-w-full max-h-full' : ''
           ]"
           :style="modalMode
@@ -257,8 +257,8 @@
         @dragleave.stop="onDragLeave"
         @drop.prevent.stop="onDrop"
         :class="[
-          'w-64 h-64 bg-surface-overlay border rounded-lg cursor-pointer flex flex-col items-center justify-center gap-2 transition-colors',
-          isDragging ? 'border-blue-500 border-2' : 'border-surface-raised hover:border-edge'
+          'w-64 h-64 bg-matte border rounded-media cursor-pointer flex flex-col items-center justify-center gap-2 transition-colors',
+          isDragging ? 'ring-1 ring-accent/50 bg-accent/10 border-edge-subtle' : 'border-edge-subtle hover:border-edge'
         ]"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-content-muted">
@@ -270,7 +270,7 @@
 
     <!-- Loading indicator -->
     <div v-if="isUploading" class="flex items-center gap-2 text-sm text-content-muted">
-      <div class="w-4 h-4 border-2 border-edge border-t-blue-500 rounded-full animate-spin"></div>
+      <Spinner size="sm" />
       <span>Uploading...</span>
     </div>
 
@@ -295,6 +295,7 @@ import { getApiBase } from '../../apiConfig'
 import { makeProfileKey } from '../../utils/storageKeys'
 import type { MaskFormat } from '../../composables/useToolSchemaFeatures'
 import PaintToolIcon from './PaintToolIcon.vue'
+import Spinner from '../ui/Spinner.vue'
 
 const API_BASE = '/api'
 const { getMediaItem, getMediaFileUrl } = useMediaApi()
@@ -1375,27 +1376,27 @@ defineExpose({
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  @apply bg-blue-500;
+  @apply bg-accent;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .slider::-webkit-slider-thumb:hover {
-  @apply bg-blue-600;
+  @apply bg-accent/90;
 }
 
 .slider::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  @apply bg-blue-500;
+  @apply bg-accent;
   cursor: pointer;
   border: none;
   transition: background 0.2s;
 }
 
 .slider::-moz-range-thumb:hover {
-  @apply bg-blue-600;
+  @apply bg-accent/90;
 }
 
 .slider::-moz-range-track {

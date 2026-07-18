@@ -4,7 +4,7 @@
     <div
       class="flex items-center gap-1.5 h-[34px] w-[420px] rounded-lg border pl-2.5 pr-1 transition-colors"
       :class="isOpen
-        ? 'bg-surface border-accent/50 shadow-[0_0_0_3px_rgba(var(--color-accent-rgb),0.12)]'
+        ? 'bg-surface border-accent/50 ring-2 ring-accent/40'
         : 'bg-overlay-subtle border-edge-subtle hover:border-edge'"
     >
       <svg class="w-3.5 h-3.5 flex-shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -54,7 +54,7 @@
     <div
       v-if="isOpen && (sections.length > 0 || query.trim() || loading)"
       ref="dropdownRef"
-      class="absolute top-[calc(100%+0.5rem)] left-1/2 -translate-x-1/2 w-[560px] max-h-[70vh] overflow-y-auto custom-scrollbar bg-surface border border-edge rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.55)] z-menu"
+      class="absolute top-[calc(100%+0.5rem)] left-1/2 -translate-x-1/2 w-[560px] max-h-[70vh] overflow-y-auto custom-scrollbar bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu"
     >
       <template v-for="(section, sIdx) in sections" :key="section.title">
         <div v-if="sIdx > 0" class="border-t border-edge-subtle"></div>
@@ -161,7 +161,7 @@
                 <div class="flex items-center gap-1.5 min-w-0">
                   <div
                     class="text-[13px] truncate"
-                    :class="isEscapeKind(item.kind) ? 'text-accent' : 'text-content'"
+                    :class="isEscapeKind(item.kind) ? 'text-accent' : item.index === selectedIndex ? 'text-accent-hi' : 'text-content'"
                   >
                     <template v-if="item.highlight">
                       <template v-for="(seg, i) in matchSegments(item.label, query)" :key="i"><span :class="seg.match ? 'text-accent font-semibold' : ''">{{ seg.text }}</span></template>

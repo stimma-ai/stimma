@@ -29,7 +29,7 @@
             @pointercancel="onPointerUp"
           />
           <div v-if="!imageLoaded" class="absolute inset-0 flex items-center justify-center">
-            <div class="w-6 h-6 border-2 border-edge border-t-blue-500 rounded-full animate-spin"></div>
+            <Spinner size="lg" />
           </div>
         </div>
 
@@ -96,6 +96,7 @@
 // rect — plus an optional rect rotation in clockwise degrees — that the backend
 // prep pipeline applies AFTER flip/rotate and BEFORE scale.
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import Spinner from '../ui/Spinner.vue'
 
 export interface CropRect {
   x: number        // left, 0-1 of the flipped image

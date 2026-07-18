@@ -1,12 +1,12 @@
 <template>
   <div
     :class="[
-      'group flex gap-2 px-2 rounded-md text-sm transition-all select-none',
+      'group flex gap-2 px-2 rounded-md text-sm transition-colors duration-150 select-none hover:bg-overlay-subtle',
       showRaw && directoryPath ? 'items-start' : 'items-center',
       showRaw && directoryPath ? 'py-2' : 'min-h-10 py-1.5',
       item.enabled
         ? 'text-content'
-        : 'text-content-secondary'
+        : 'text-content-secondary opacity-50'
     ]"
     draggable="true"
     @dragstart="onDragStart"
@@ -17,7 +17,7 @@
   >
     <!-- Toggle circle -->
     <div :class="['shrink-0 w-4 h-4 flex items-center justify-center cursor-pointer', showRaw && directoryPath ? 'mt-1.5' : '']" @click.stop="$emit('toggle', $event)">
-      <div v-if="item.enabled" class="w-2.5 h-2.5 rounded-full bg-blue-500" />
+      <div v-if="item.enabled" class="w-2.5 h-2.5 rounded-full bg-accent" />
       <div v-else class="w-2.5 h-2.5 rounded-full border border-content-muted" />
     </div>
 
@@ -32,7 +32,7 @@
         <span
           v-for="chip in secondaryChips"
           :key="chip"
-          class="shrink-0 text-[10px] leading-none px-1.5 py-0.5 rounded bg-surface-raised/50 text-content-tertiary font-mono uppercase"
+          class="shrink-0 text-[10px] leading-none px-1.5 py-0.5 rounded-md bg-overlay-subtle text-content-tertiary font-mono uppercase"
         >{{ chip }}</span>
       </div>
       <div v-if="showRaw && directoryPath" class="text-[10px] text-content-muted truncate mt-0.5">
@@ -41,11 +41,11 @@
     </div>
 
     <!-- Weight stepper -->
-    <div :class="['shrink-0 flex items-center bg-surface-raised rounded-full border border-edge', showRaw && directoryPath ? 'mt-1' : '']">
+    <div :class="['shrink-0 flex items-center bg-overlay-subtle rounded-full', showRaw && directoryPath ? 'mt-1' : '']">
       <button
         @click.stop="decrementWeight"
         type="button"
-        class="w-5 h-5 flex items-center justify-center text-xs text-content-secondary hover:bg-surface-hover rounded-l-full transition-colors"
+        class="w-5 h-5 flex items-center justify-center text-xs text-content-secondary hover:bg-overlay-light rounded-l-full transition-colors duration-150"
       >-</button>
       <input v-no-autocorrect
         type="text"
@@ -54,12 +54,12 @@
         @input="onWeightInput"
         @blur="onWeightBlur"
         @keydown.enter="($event.target as HTMLInputElement).blur()"
-        class="w-9 text-xs tabular-nums text-center bg-transparent border-none outline-none text-content"
+        :class="['w-9 text-xs font-mono tabular-nums text-center bg-transparent border-none outline-none', item.weight !== 1 ? 'text-accent' : 'text-content']"
       />
       <button
         @click.stop="incrementWeight"
         type="button"
-        class="w-5 h-5 flex items-center justify-center text-xs text-content-secondary hover:bg-surface-hover rounded-r-full transition-colors"
+        class="w-5 h-5 flex items-center justify-center text-xs text-content-secondary hover:bg-overlay-light rounded-r-full transition-colors duration-150"
       >+</button>
     </div>
 
@@ -67,7 +67,7 @@
     <button
       @click.stop="$emit('remove')"
       type="button"
-      :class="['shrink-0 w-5 h-5 flex items-center justify-center text-content-muted hover:!text-red-500 rounded-full transition-colors', showRaw && directoryPath ? 'mt-1' : '']"
+      :class="['shrink-0 w-5 h-5 flex items-center justify-center text-content-muted opacity-0 group-hover:opacity-100 hover:text-red-400 rounded-full transition-colors duration-150', showRaw && directoryPath ? 'mt-1' : '']"
       title="Remove"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">

@@ -14,7 +14,7 @@
     <button
       v-if="showInfoButton"
       type="button"
-      class="absolute bottom-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded bg-black/60 backdrop-blur-md text-white/75 hover:text-white hover:bg-blue-500/85 transition-colors"
+      class="absolute bottom-1 right-1 z-10 w-6 h-6 flex items-center justify-center rounded bg-black/55 backdrop-blur-md text-white/75 hover:text-white hover:bg-accent/85 transition-colors"
       title="Show media info"
       @click.stop="handleInfoClick"
     >

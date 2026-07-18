@@ -2,7 +2,7 @@
   <div class="flex h-full">
     <!-- Canvas area (left, fills available space) -->
     <div
-      class="flex-1 relative overflow-hidden flex items-center justify-center bg-[#111113]"
+      class="flex-1 relative overflow-hidden flex items-center justify-center bg-matte"
       ref="canvasContainer"
       @pointermove="onContainerPointerMove"
       @pointerleave="showBrushCursor = false"
@@ -47,11 +47,11 @@
         }"
       />
       <!-- Zoom controls -->
-      <div class="absolute bottom-2 left-2 flex items-center gap-0.5 bg-black/60 backdrop-blur-sm rounded-md px-1 py-1">
+      <div class="absolute bottom-2 left-2 flex items-center gap-0.5 bg-black/55 backdrop-blur-sm rounded-md px-1 py-1">
         <button
           @click="zoomOut"
           :disabled="zoomLevel <= ZOOM_MIN"
-          class="w-6 h-6 rounded flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          class="w-6 h-6 rounded-md flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
           title="Zoom out"
         >
           <PaintToolIcon name="zoomOut" />
@@ -60,7 +60,7 @@
         <button
           @click="zoomIn"
           :disabled="zoomLevel >= ZOOM_MAX"
-          class="w-6 h-6 rounded flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          class="w-6 h-6 rounded-md flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
           title="Zoom in"
         >
           <PaintToolIcon name="zoomIn" />
@@ -119,7 +119,7 @@
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
               undoCount > 0
                 ? 'text-content hover:bg-overlay-subtle'
-                : 'text-black/20 dark:text-white/20 cursor-not-allowed'
+                : 'text-content-muted opacity-40 cursor-not-allowed'
             ]"
             title="Undo"
           >
@@ -132,7 +132,7 @@
               'w-8 h-8 rounded-md flex items-center justify-center transition-colors',
               redoCount > 0
                 ? 'text-content hover:bg-overlay-subtle'
-                : 'text-black/20 dark:text-white/20 cursor-not-allowed'
+                : 'text-content-muted opacity-40 cursor-not-allowed'
             ]"
             title="Redo"
           >
@@ -148,7 +148,7 @@
         <div class="flex items-center gap-2 mb-2.5">
           <div
             class="w-8 h-8 rounded-md border-2 flex-shrink-0"
-            :class="isCustomColor ? 'border-blue-500 ring-1 ring-blue-500' : 'border-edge-subtle'"
+            :class="isCustomColor ? 'border-accent ring-1 ring-accent' : 'border-edge-subtle'"
             :style="{ backgroundColor: activeColor }"
             title="Current color"
           />
@@ -159,8 +159,8 @@
             v-for="color in presetColors"
             :key="color"
             @click="activeColor = color"
-            class="w-6 h-6 rounded border-2 transition-transform hover:scale-110 flex-shrink-0"
-            :class="activeColor === color ? 'border-blue-500 scale-110 ring-1 ring-blue-500' : 'border-edge-subtle'"
+            class="w-6 h-6 rounded border-2 flex-shrink-0"
+            :class="activeColor === color ? 'border-accent ring-1 ring-accent' : 'border-edge-subtle'"
             :style="{ backgroundColor: color }"
             :title="color"
           />
@@ -795,3 +795,51 @@ onUnmounted(() => {
   window.removeEventListener('keyup', handleKeyUp)
 })
 </script>
+
+<style scoped>
+/* .slider: the two brush sliders (Size, Hardness) reference this class but no
+   definition existed anywhere in scope, so they rendered as unstyled native
+   range inputs. Standard thumb spec (matches MaskEditor.vue), accent thumb. */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--color-surface-raised);
+  border-radius: 2px;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  @apply bg-accent;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  @apply bg-accent/90;
+}
+
+.slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  @apply bg-accent;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s;
+}
+
+.slider::-moz-range-thumb:hover {
+  @apply bg-accent/90;
+}
+
+.slider::-moz-range-track {
+  background: var(--color-surface-raised);
+  border-radius: 2px;
+  height: 4px;
+}
+</style>

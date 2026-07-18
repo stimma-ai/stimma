@@ -7,7 +7,7 @@
       @keydown="handleButtonKeydown"
       class="flex items-center gap-1.5 text-content-secondary text-sm cursor-pointer hover:text-content transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-content-secondary"
       :class="[
-        control ? 'max-w-[min(28rem,calc(100vw-2rem))] justify-between rounded-md border border-edge bg-surface-raised px-3 py-2 text-left hover:border-blue-500/50' : '',
+        control ? 'max-w-[min(28rem,calc(100vw-2rem))] justify-between rounded-md border border-edge bg-surface-raised px-3 py-2 text-left hover:border-accent/50' : '',
         control && !compact ? 'min-w-52' : '',
         fill ? 'w-full' : '',
       ]"
@@ -37,13 +37,14 @@
     <Teleport to="body">
       <div
         v-if="isOpen"
-        class="fixed inset-0 z-[10030]"
+        class="fixed inset-0 z-menu"
         @click="close"
       />
+      <Transition name="menu">
       <div
         v-if="isOpen"
         ref="dropdown"
-        class="fixed z-[10031] flex max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg border border-edge bg-surface py-1 shadow-xl"
+        class="fixed z-menu flex max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-lg border border-edge bg-surface py-1 shadow-lg"
         :style="dropdownStyle"
         role="listbox"
       >
@@ -53,7 +54,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search..."
-            class="w-full px-2 py-1 text-sm bg-overlay-faint border border-edge-subtle rounded text-content placeholder:text-content-muted focus:outline-none focus:border-blue-500/50"
+            class="w-full px-2 py-1 text-sm bg-overlay-faint border border-edge-subtle rounded text-content placeholder:text-content-muted focus:outline-none focus:border-accent/50"
             @keydown="handleDropdownKeydown"
           />
         </div>
@@ -72,9 +73,9 @@
               option.disabled
                 ? 'cursor-not-allowed text-content-muted opacity-60'
                 : index === highlightedIndex
-                  ? 'bg-blue-500/15'
+                  ? 'bg-accent/15'
                   : option.value === modelValue
-                    ? 'bg-blue-500/10'
+                    ? 'bg-accent/10'
                     : 'hover:bg-surface-raised',
             ]"
             role="option"
@@ -92,7 +93,7 @@
                 :class="option.tone === 'cloud' ? 'stimma-cloud-text font-medium' : 'text-content-muted'"
               >{{ option.description }}</span>
             </span>
-            <svg v-if="option.value === modelValue" class="h-3.5 w-3.5 shrink-0 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg v-if="option.value === modelValue" class="h-3.5 w-3.5 shrink-0 text-accent-hi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
               <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
           </button>
@@ -101,6 +102,7 @@
           </div>
         </div>
       </div>
+      </Transition>
     </Teleport>
   </div>
 </template>

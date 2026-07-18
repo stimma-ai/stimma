@@ -9,15 +9,15 @@
           v-if="paramGroup.collapsible && !disableCollapse"
           @click="toggleCollapsed(paramGroup.group)"
           type="button"
-          class="flex items-center gap-2 text-xs font-semibold text-content-secondary hover:text-content-tertiary transition-colors"
+          class="flex items-center gap-2 text-xs font-semibold text-content-secondary hover:text-content transition-colors duration-150"
         >
-          <span :class="['transition-transform text-[10px]', isCollapsed(paramGroup.group) ? '' : 'rotate-90']">&#9654;</span>
+          <span :class="['transition-transform duration-150 text-[10px]', isCollapsed(paramGroup.group) ? '' : 'rotate-90']">&#9654;</span>
           {{ paramGroup.label }}
         </button>
         <span v-else class="text-xs font-semibold text-content-secondary">{{ paramGroup.label }}</span>
       </div>
       <!-- Parameters list (settings-style: label+desc on left, control on right) -->
-      <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" :class="flat ? 'divide-y divide-white/[0.06]' : 'rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-white/[0.06]'">
+      <div v-show="disableCollapse || !paramGroup.collapsible || !isCollapsed(paramGroup.group)" :class="flat ? 'divide-y divide-edge-subtle' : 'rounded-lg border border-edge-subtle bg-overlay-faint divide-y divide-edge-subtle'">
         <template v-for="param in paramGroup.params" :key="param.name">
           <!-- Skip if visibleWhen condition not met, or a hide constraint is active -->
           <template v-if="(!param.visibleWhen || values[param.visibleWhen.param] === param.visibleWhen.value) && !constraintState(param).hidden">
@@ -33,7 +33,7 @@
                   @input="emitParam(param.name, parseIntOrNull(($event.target as HTMLInputElement).value))"
                   type="number"
                   :disabled="(values.randomizeSeed ?? true) || constraintState(param).disabled"
-                  class="w-28 sm:w-36 px-2 py-1.5 bg-base border border-edge rounded text-content text-sm disabled:opacity-40 focus:outline-none focus:border-accent"
+                  class="w-28 sm:w-36 px-3 py-1.5 bg-overlay-subtle border border-transparent rounded-md text-content font-mono tabular-nums text-sm disabled:opacity-40 focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
                 >
                 <label class="flex items-center gap-1.5 text-xs text-content-tertiary cursor-pointer">
                   <input v-no-autocorrect
@@ -41,7 +41,7 @@
                     @change="emitParam('randomizeSeed', ($event.target as HTMLInputElement).checked)"
                     type="checkbox"
                     :disabled="constraintState(param).disabled"
-                    class="w-3.5 h-3.5 rounded"
+                    class="w-3.5 h-3.5 rounded accent-[rgb(var(--color-accent-rgb))]"
                   >
                   <span>Randomize</span>
                 </label>
@@ -77,7 +77,7 @@
                   :max="param.maximum ?? 100"
                   :step="param.step ?? (param.type === 'integer' ? 1 : 0.1)"
                   :disabled="constraintState(param).disabled"
-                  class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+                  class="min-w-24 flex-1 h-1 bg-overlay-subtle rounded-full appearance-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0"
                 />
                 <input v-no-autocorrect
                   v-if="editingParam === param.name"
@@ -86,14 +86,17 @@
                   @blur="commitParamEdit(param, $event)"
                   @keydown.enter="commitParamEdit(param, $event)"
                   @keydown.escape="editingParam = null"
-                  class="w-16 flex-shrink-0 text-sm text-content-secondary bg-base border border-edge rounded px-2 py-1 text-right focus:outline-none focus:border-accent"
+                  class="w-16 flex-shrink-0 text-sm font-mono tabular-nums text-content bg-overlay-subtle border border-transparent rounded-md px-2 py-1 text-right focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
                   ref="paramEditInput"
                 />
                 <span
                   v-else
                   @dblclick="!constraintState(param).disabled && startParamEdit(param.name)"
-                  class="w-12 flex-shrink-0 text-sm text-content-tertiary text-right select-none"
-                  :class="constraintState(param).disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-text hover:text-content-secondary'"
+                  class="w-12 flex-shrink-0 text-sm font-mono tabular-nums text-right select-none"
+                  :class="[
+                    constraintState(param).disabled ? 'opacity-40 cursor-not-allowed text-content-tertiary' : 'cursor-text',
+                    !constraintState(param).disabled && (values[param.name] ?? param.default) !== param.default ? 'text-accent hover:text-accent/80' : 'text-content-tertiary hover:text-content-secondary'
+                  ]"
                   :title="constraintState(param).disabled ? '' : 'Double-click to edit'"
                 >{{ formatGenericParamValue(param, values[param.name] ?? param.default) }}</span>
               </div>
@@ -109,7 +112,7 @@
                 :checked="values[param.name] ?? param.default"
                 @change="emitParam(param.name, ($event.target as HTMLInputElement).checked)"
                 :disabled="constraintState(param).disabled"
-                class="flex-shrink-0 w-4 h-4 rounded border-edge bg-base text-accent focus:ring-accent focus:ring-offset-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                class="flex-shrink-0 w-4 h-4 rounded accent-[rgb(var(--color-accent-rgb))] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               />
             </div>
             <!-- String input (textarea for x-control: textarea, otherwise single-line) -->
@@ -127,7 +130,7 @@
                 rows="4"
                 :placeholder="paramDescription(param, constraintState(param)) || ''"
                 :disabled="constraintState(param).disabled"
-                class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm resize-y focus:outline-none focus:border-accent font-sans disabled:opacity-40 disabled:cursor-not-allowed"
+                class="w-full px-3 py-2 bg-overlay-subtle border border-transparent rounded-md text-content text-sm resize-y placeholder:text-content-muted focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none font-sans disabled:opacity-40 disabled:cursor-not-allowed"
               ></textarea>
               <input v-no-autocorrect
                 v-else
@@ -136,7 +139,7 @@
                 @input="emitParam(param.name, ($event.target as HTMLInputElement).value)"
                 :placeholder="paramDescription(param, constraintState(param))"
                 :disabled="constraintState(param).disabled"
-                class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm focus:outline-none focus:border-accent disabled:opacity-40 disabled:cursor-not-allowed"
+                class="w-full px-3 py-2 bg-overlay-subtle border border-transparent rounded-md text-content text-sm placeholder:text-content-muted focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none disabled:opacity-40 disabled:cursor-not-allowed"
               />
             </div>
           </template>

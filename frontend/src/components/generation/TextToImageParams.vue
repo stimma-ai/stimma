@@ -2,16 +2,16 @@
   <div class="space-y-4">
     <!-- LoRAs -->
     <div v-if="availableLoras.length > 0">
-      <label class="block text-sm font-medium text-content-tertiary mb-2">LoRAs</label>
+      <span class="block text-xs font-semibold text-content-secondary mb-2">LoRAs</span>
       <div class="space-y-2">
         <div
           v-for="(lora, index) in localParams.selectedLoras"
           :key="index"
-          class="flex items-center gap-2 bg-surface rounded p-2"
+          class="flex items-center gap-2"
         >
           <select
             v-model="lora.lora"
-            class="flex-1 bg-base border border-edge rounded text-content text-xs px-2 py-1"
+            class="flex-1 bg-overlay-subtle border border-transparent rounded-md text-content text-xs px-2 py-1.5 focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
           >
             <option value="">Select LoRA...</option>
             <option v-for="l in availableLoras" :key="l.name" :value="l.name">
@@ -24,21 +24,22 @@
             step="0.05"
             min="0"
             max="2"
-            class="w-16 bg-base border border-edge rounded text-content text-xs px-2 py-1"
+            class="w-16 bg-overlay-subtle border border-transparent rounded-md text-content font-mono tabular-nums text-xs px-2 py-1.5 focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
           >
-          <button
+          <IconButton
             @click="removeLora(index)"
-            class="text-content-muted hover:text-red-500"
+            variant="danger"
+            aria-label="Remove LoRA"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
               <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
             </svg>
-          </button>
+          </IconButton>
         </div>
         <button
           @click="addLora"
           type="button"
-          class="w-full py-2 text-sm text-content-muted hover:text-content-tertiary hover:bg-surface rounded transition-colors"
+          class="w-full py-2 text-sm text-content-secondary hover:text-content hover:bg-overlay-subtle rounded-md transition-colors duration-150"
         >
           + Add a LoRA
         </button>
@@ -60,6 +61,7 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue'
 import AdvancedParams from './AdvancedParams.vue'
+import IconButton from '../ui/IconButton.vue'
 
 interface LoraSelection {
   lora: string

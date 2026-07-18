@@ -29,9 +29,11 @@
       >
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
       </svg>
-      <span
+      <Spinner
         v-else
-        class="w-3 h-3 mt-1 border-2 border-content-muted/60 border-t-transparent rounded-full animate-spin"
+        size="sm"
+        hue="border-t-content-muted"
+        class="mt-1"
       />
     </div>
 
@@ -86,6 +88,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import FlowResultPreview from './FlowResultPreview.vue'
+import Spinner from '../ui/Spinner.vue'
 import {
   candidateProducerForSlot,
   type GroupedIteration,

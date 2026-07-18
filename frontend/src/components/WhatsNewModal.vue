@@ -1,32 +1,26 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="show"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="$emit('close')"
-      >
-        <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[560px] max-w-[calc(100vw-2rem)] mx-4 flex flex-col max-h-[80vh]" @click.stop>
-          <div class="px-6 py-4 border-b border-edge flex items-center justify-between flex-none">
-            <h3 class="text-lg font-semibold text-content">
-              What's New<span v-if="version" class="text-content-tertiary font-normal"> in Stimma {{ version }}</span>
-            </h3>
-            <button @click="$emit('close')" class="text-content-muted hover:text-content transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div class="px-6 py-5 overflow-y-auto whats-new-body text-sm text-content-secondary" v-html="renderedNotes"></div>
-        </div>
+  <Modal :show="show" size="custom" custom-class="w-[560px] max-w-[calc(100vw-2rem)] flex flex-col max-h-[80vh] overflow-hidden" @close="$emit('close')">
+    <template #header>
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-content">
+          What's New<span v-if="version" class="text-content-tertiary font-normal"> in Stimma {{ version }}</span>
+        </h3>
+        <IconButton @click="$emit('close')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </IconButton>
       </div>
-    </Transition>
-  </Teleport>
+    </template>
+
+    <div class="px-6 py-5 overflow-y-auto whats-new-body text-sm text-content-secondary" v-html="renderedNotes"></div>
+  </Modal>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import Modal from './ui/Modal.vue'
+import IconButton from './ui/IconButton.vue'
 import { renderSafeMarkdown } from '../utils/sanitizeHtml'
 
 const props = defineProps<{

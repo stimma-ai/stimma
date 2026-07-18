@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-2">
     <div v-if="loading" class="flex items-center gap-2 py-2 text-[11px] text-content-muted">
-      <span class="w-3 h-3 border border-content-muted border-t-transparent rounded-full animate-spin" />
+      <Spinner size="sm" />
       Loading candidates…
     </div>
     <div v-else-if="loadError" class="text-[11px] text-content-muted italic">
@@ -26,6 +26,7 @@ import { ref, computed, watch } from 'vue'
 import axios from 'axios'
 import { getApiBase } from '../../apiConfig'
 import HitlSelectInline from './HitlSelectInline.vue'
+import Spinner from '../ui/Spinner.vue'
 import type { FlowEquation } from '../../composables/useFlowsApi'
 
 interface TraceCacheEntry {

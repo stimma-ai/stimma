@@ -26,7 +26,7 @@
       <!-- Fixed-height body: three tile rows regardless of tab content -->
       <div class="h-[258px] overflow-y-auto p-2.5">
         <div v-if="loading[activeTab]" class="h-full flex items-center justify-center">
-          <div class="w-4 h-4 border-2 border-edge border-t-blue-500 rounded-full animate-spin"></div>
+          <Spinner size="md" />
         </div>
         <div v-else-if="visibleTiles.length === 0" class="h-full flex items-center justify-center">
           <span class="text-xs text-content-muted">{{ activeTabDef.emptyHint }}</span>
@@ -97,6 +97,7 @@ import { recordMediaPick, recentMediaPicks } from '../../composables/useRecentMe
 import { getMediaType } from '../../utils/mediaTypes'
 import { makeProfileKey } from '../../utils/storageKeys'
 import { mediaIdOf } from '../../utils/assetIdentity'
+import Spinner from '../ui/Spinner.vue'
 
 /**
  * Anchored popover for filling a MediaPicker slot from library media instead

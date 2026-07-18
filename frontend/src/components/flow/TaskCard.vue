@@ -14,7 +14,7 @@
     <div class="flex items-center gap-2 mb-2">
       <StatusDot v-if="task.task_type !== 'error'" bucket="awaiting" pulse />
       <span
-        class="font-mono text-[10px] uppercase font-semibold tracking-wide px-1.5 py-0.5 rounded"
+        class="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded"
         :class="typeBadgeClass"
       >{{ taskTypeLabel }}</span>
       <span v-if="task.phase_path?.length" class="text-[11px] text-content-muted truncate">
@@ -126,7 +126,7 @@
         class="rounded border border-amber-500/40 bg-overlay-light text-[11px] font-mono text-content-secondary"
       >
         <div class="flex items-center gap-2 px-2.5 py-1.5 border-b border-amber-500/30">
-          <span class="text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-sm">Dev</span>
+          <span class="text-[9px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-sm">Dev</span>
           <span class="text-content-muted">raw step error</span>
           <span class="flex-1" />
           <span class="text-content-muted truncate">{{ task.equation_key }}</span>
@@ -145,6 +145,7 @@ import StatusDot from '../ui/StatusDot.vue'
 import type { FlowTask } from '../../composables/useFlowsApi'
 import { parseFlowError } from '../../utils/flowErrors'
 import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'
+import { bgClass, textClass, type StatusBucket } from '../../utils/statusColors'
 
 interface Props {
   task: FlowTask
@@ -212,14 +213,22 @@ function submitErrorAction(action: string, value?: any) {
 }
 
 // ----- Type badge -----
-const typeBadgeClass = computed(() => {
-  switch (props.task.task_type) {
-    case 'select': return 'bg-blue-500/20 text-blue-400'
-    case 'approve': return 'bg-green-500/20 text-green-400'
-    case 'error': return 'bg-red-500/20 text-red-400'
-    case 'waiting_for_tool': return 'bg-amber-500/20 text-amber-400'
-    default: return 'bg-overlay-hover text-content-muted'
+// Task-type buckets, routed through statusColors.ts (STANDARDS 1.9) rather
+// than an inline switch of raw color classes: select reads as an open
+// decision (running/blue), approve as a settled ask (done/green), error as
+// failed (red), waiting_for_tool as non-fatal trouble (warning/amber).
+function taskTypeBucket(taskType: string): StatusBucket | null {
+  switch (taskType) {
+    case 'select': return 'running'
+    case 'approve': return 'done'
+    case 'error': return 'failed'
+    case 'waiting_for_tool': return 'warning'
+    default: return null
   }
+}
+const typeBadgeClass = computed(() => {
+  const bucket = taskTypeBucket(props.task.task_type)
+  return bucket ? `${bgClass(bucket)} ${textClass(bucket)}` : 'bg-overlay-hover text-content-muted'
 })
 
 const waitingToolId = computed<string | null>(() => {

@@ -114,7 +114,7 @@
         <button
           @click.stop="allowMenuOpen = !allowMenuOpen"
           :disabled="!selectedToolId"
-          class="px-2 py-2 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-r-md border-l border-white/20 transition-colors"
+          class="px-2 py-2 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-r-md border-l border-overlay-medium transition-colors"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />

@@ -105,15 +105,16 @@
               <ArchiveBoxIcon class="w-3.5 h-3.5 flex-shrink-0" />
               <span>Projects</span>
             </button>
-            <button
-              @click.stop="createNewProject"
-              class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Create new project"
-            >
-              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-            </button>
+            <Tooltip text="Create new project" class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                @click.stop="createNewProject"
+                class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
+              >
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            </Tooltip>
           </div>
 
           <!-- Boards landing link (with drag-drop to create new) -->
@@ -137,15 +138,16 @@
               <span>Boards</span>
             </button>
             <!-- Create new board button -->
-            <button
-              @click.stop="createNewBoard"
-              class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Create new board"
-            >
-              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-            </button>
+            <Tooltip text="Create new board" class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                @click.stop="createNewBoard"
+                class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
+              >
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            </Tooltip>
           </div>
 
           <!-- Chats landing link (with drag-drop to create new) -->
@@ -170,15 +172,16 @@
               <span>Chats</span>
             </button>
             <!-- Create new chat button -->
-            <button
-              @click.stop="createNewChat"
-              class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Create new chat"
-            >
-              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-            </button>
+            <Tooltip text="Create new chat" class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                @click.stop="createNewChat"
+                class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
+              >
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            </Tooltip>
           </div>
 
           <!-- Flows landing link -->
@@ -201,15 +204,16 @@
               </svg>
               <span>Flows</span>
             </button>
-            <button
-              @click.stop="createNewFlow"
-              class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Create new flow"
-            >
-              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-            </button>
+            <Tooltip text="Create new flow" class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                @click.stop="createNewFlow"
+                class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content hover:bg-overlay-light"
+              >
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            </Tooltip>
           </div>
 
           <!-- Tools landing link -->
@@ -854,15 +858,16 @@
                 </svg>
               </span>
               <!-- Close button (appears on hover) -->
-              <button
-                @click.stop="closeTab(tab.id)"
-                class="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-overlay-light opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Close"
-              >
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <Tooltip text="Close" class="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  @click.stop="closeTab(tab.id)"
+                  class="w-5 h-5 flex items-center justify-center rounded text-content-muted hover:text-content-secondary hover:bg-overlay-light"
+                >
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </Tooltip>
             </div>
 
             <!-- Drop zone after last open tab -->
@@ -894,33 +899,34 @@
                equal cells so it reads as a composed strip, not two orphaned
                icons at opposite corners. -->
           <template v-if="showAccountChip">
-            <button
-              @click="openAccountSettings"
-              class="flex-1 min-w-0 flex items-center gap-2.5 px-2 py-1 rounded text-left transition-colors cursor-pointer hover:bg-overlay-subtle border-none bg-transparent"
-              title="Stimma account"
-            >
-              <div class="w-7 h-7 rounded-full bg-overlay-light text-content-secondary flex items-center justify-center text-xs font-semibold uppercase flex-shrink-0">
-                {{ accountInitial }}
-              </div>
-              <div class="min-w-0 flex flex-col leading-tight">
-                <span class="text-[13px] text-content truncate">{{ accountName }}</span>
-                <span v-if="accountBalance" class="text-[11px] font-mono text-content-muted tabular-nums">{{ accountBalance }}</span>
-              </div>
-            </button>
+            <Tooltip text="Stimma account" class="flex-1 min-w-0">
+              <button
+                @click="openAccountSettings"
+                class="w-full flex items-center gap-2.5 px-2 py-1 rounded text-left transition-colors cursor-pointer hover:bg-overlay-subtle border-none bg-transparent"
+              >
+                <div class="w-7 h-7 rounded-full bg-overlay-light text-content-secondary flex items-center justify-center text-xs font-semibold uppercase flex-shrink-0">
+                  {{ accountInitial }}
+                </div>
+                <div class="min-w-0 flex flex-col leading-tight">
+                  <span class="text-[13px] text-content truncate">{{ accountName }}</span>
+                  <span v-if="accountBalance" class="text-[11px] font-mono text-content-muted tabular-nums">{{ accountBalance }}</span>
+                </div>
+              </button>
+            </Tooltip>
             <FeedbackFooterButton />
           </template>
           <FeedbackFooterButton v-if="!showAccountChip" wide />
-          <button
-            @click="openSettingsFromFooter"
-            class="h-8 flex items-center justify-center rounded text-content-tertiary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle border-none bg-transparent"
-            :class="showAccountChip ? 'w-8 flex-shrink-0' : 'flex-1'"
-            title="Settings (⌘,)"
-          >
-            <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <Tooltip text="Settings (⌘,)" :class="showAccountChip ? 'w-8 flex-shrink-0' : 'flex-1'">
+            <button
+              @click="openSettingsFromFooter"
+              class="w-full h-8 flex items-center justify-center rounded text-content-tertiary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle border-none bg-transparent"
+            >
+              <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-            </svg>
-          </button>
+              </svg>
+            </button>
+          </Tooltip>
         </div>
 
         <!-- Drop-intent hint while media is dragged over a tool tab. Absolute
@@ -1025,6 +1031,7 @@ import { MediaImage } from './media'
 import ToolIcon from './tools/ToolIcon.vue'
 import EntityIcon from './EntityIcon.vue'
 import StatusDot from './ui/StatusDot.vue'
+import Tooltip from './ui/Tooltip.vue'
 import WorkspaceTabsContextMenu from './WorkspaceTabsContextMenu.vue'
 // @ts-expect-error - distribution-aliased Vue component (see vite.config.js)
 import FeedbackFooterButton from '@stimma/feedback-footer-button'

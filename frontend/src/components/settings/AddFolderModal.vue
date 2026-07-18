@@ -33,7 +33,7 @@
                 ref="inputRef"
                 v-model="folderPath"
                 type="text"
-                class="w-full px-3 py-2 bg-surface-raised border border-edge rounded-lg text-content placeholder-content-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+                class="w-full px-3 py-2 bg-overlay-subtle border border-transparent rounded-md text-sm text-content placeholder:text-content-muted outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
                 placeholder="/path/to/media/folder"
                 @keydown.enter="submit"
                 @keydown.escape="cancel"

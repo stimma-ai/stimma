@@ -22,8 +22,8 @@
     >
       <div class="w-full max-w-md rounded-lg border border-edge bg-surface shadow-2xl">
         <div class="px-5 py-4 border-b border-edge-subtle flex items-center gap-3">
-          <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-blue-500/15 border border-blue-500/50">
-            <BoltIcon class="h-5 w-5 text-blue-500" />
+          <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent/15 border border-accent/50">
+            <BoltIcon class="h-5 w-5 text-accent" />
           </div>
           <div class="min-w-0">
             <h2 class="text-sm font-semibold text-content">You can skip the code</h2>
@@ -58,7 +58,7 @@
           <input
             ref="nameInputEl"
             v-model="editingNameValue"
-            class="bg-base border border-edge rounded px-2 py-1 text-sm font-medium text-content focus:outline-none focus:border-accent min-w-0 max-w-xs"
+            class="bg-base border border-edge rounded-md px-2 py-1 text-sm font-medium text-content focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40 min-w-0 max-w-xs"
             @blur="saveName"
             @keydown.enter.prevent="saveName"
             @keydown.esc.prevent="cancelEditName"
@@ -67,7 +67,7 @@
         <template v-else>
           <button
             v-if="flow?.name"
-            class="text-sm font-semibold text-content hover:text-blue-400 transition-colors truncate max-w-[200px]"
+            class="text-sm font-semibold text-content hover:text-accent transition-colors truncate max-w-[200px]"
             @click="startEditName"
             :title="flow.name"
           >
@@ -84,7 +84,7 @@
 
         <span v-if="parentName" class="text-[11px] text-content-muted flex-shrink-0">
           Copy of
-          <button class="text-blue-400 hover:underline" @click="openParent">{{ parentName }}</button>
+          <button class="text-accent hover:underline" @click="openParent">{{ parentName }}</button>
         </span>
 
         <div v-if="copies.length > 0" class="relative flex-shrink-0" ref="copiesRootEl">
@@ -181,7 +181,7 @@
             <!-- Top-level unsaved-changes dot. -->
             <span
               v-if="anyStale"
-              class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-blue-400 ring-2 ring-surface"
+              class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent ring-2 ring-surface"
               title="This flow has unsaved changes vs its custom tool"
             ></span>
           </button>
@@ -200,12 +200,12 @@
               :title="t.has_changes ? 'Re-snapshot this flow into the tool' : 'No changes to save'"
               @click="updateBackingTool(t)"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4 flex-shrink-0" :class="[t.has_changes ? 'text-blue-400' : 'text-content-tertiary', resyncingToolId === t.id ? 'animate-spin' : '']">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-4 h-4 flex-shrink-0" :class="[t.has_changes ? 'text-accent' : 'text-content-tertiary', resyncingToolId === t.id ? 'animate-spin' : '']">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
               </svg>
               <span class="truncate flex-1">Update {{ t.name }}</span>
               <!-- Per-row unsaved-changes dot. -->
-              <span v-if="t.has_changes" class="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span>
+              <span v-if="t.has_changes" class="w-2 h-2 rounded-full bg-accent flex-shrink-0"></span>
             </button>
             <div class="border-t border-edge-subtle my-1"></div>
             <button
@@ -225,7 +225,7 @@
           <button
             class="flex items-center gap-1.5 px-2.5 h-8 rounded-md text-xs font-medium border transition-colors"
             :class="chatPanelOpen
-              ? 'bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30'
+              ? 'bg-accent/15 text-accent border-accent/50 hover:bg-accent/25'
               : 'bg-overlay-subtle text-content border-edge hover:bg-overlay-hover'"
             title="Chat options"
             @click="toggleChatMenu"
@@ -246,7 +246,7 @@
             <button
               @click="handleNewChatSession"
               :disabled="creatingChatSession"
-              class="w-full px-3 py-1.5 text-left text-xs text-blue-400 hover:bg-blue-500/10 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="w-full px-3 py-1.5 text-left text-xs text-accent hover:bg-accent/10 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -275,7 +275,7 @@
                 @click="handleSwitchChatSession(session.id)"
                 class="w-full px-3 py-1.5 text-left text-xs transition-colors flex items-center gap-2"
                 :class="session.id === flowChatId
-                  ? 'bg-blue-500/10 text-blue-400'
+                  ? 'bg-accent/10 text-accent'
                   : 'text-content-secondary hover:bg-surface-raised'"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-3.5 h-3.5 flex-shrink-0 opacity-70">
@@ -364,14 +364,14 @@
           <button
             class="text-[12px] px-3 py-2 -mb-px border-b-2 transition-colors"
             :class="viewMode === 'compact'
-              ? 'text-blue-400 font-medium border-blue-400'
+              ? 'text-accent font-medium border-accent'
               : 'text-content-muted hover:text-content border-transparent'"
             @click="setViewMode('compact')"
           >Steps</button>
           <button
             class="text-[12px] px-3 py-2 -mb-px border-b-2 transition-colors"
             :class="viewMode === 'graph'
-              ? 'text-indigo-400 font-medium border-indigo-400'
+              ? 'text-accent font-medium border-accent'
               : 'text-content-muted hover:text-content border-transparent'"
             @click="setViewMode('graph')"
           >Workflow</button>
@@ -392,7 +392,7 @@
                   type="button"
                   class="px-2 py-0.5 transition-colors"
                   :class="graphCollapseForeach
-                    ? 'bg-indigo-500 text-white'
+                    ? 'bg-accent text-white'
                     : 'text-content-muted hover:text-content hover:bg-overlay-subtle'"
                   title="Collapse foreach iterations into a single super-node"
                   @click="graphCollapseForeach = true"
@@ -401,7 +401,7 @@
                   type="button"
                   class="px-2 py-0.5 transition-colors border-l border-edge-subtle"
                   :class="!graphCollapseForeach
-                    ? 'bg-indigo-500 text-white'
+                    ? 'bg-accent text-white'
                     : 'text-content-muted hover:text-content hover:bg-overlay-subtle'"
                   title="Show every iteration's equations as raw graph nodes"
                   @click="graphCollapseForeach = false"
@@ -441,7 +441,7 @@
                   @click="handleShowCodeIntroModal"
                   class="w-full px-3 py-1.5 text-left text-xs text-content-secondary hover:bg-surface-raised transition-colors flex items-center gap-2"
                 >
-                  <BoltIcon class="w-3.5 h-3.5 text-blue-500" />
+                  <BoltIcon class="w-3.5 h-3.5 text-accent" />
                   Show code intro
                 </button>
                 <div v-if="isDev" class="border-t border-edge my-1"></div>
@@ -501,7 +501,7 @@
                 <!-- Inputs section -->
                 <section v-if="hasInputFields">
                   <div class="flex items-center gap-2 py-1.5 min-h-[40px]">
-                    <span class="text-[15px] font-semibold text-content tracking-wide">Inputs</span>
+                    <span class="text-sm font-semibold text-content">Inputs</span>
                     <div class="ml-auto flex items-center gap-1.5">
                       <template v-if="hasInputFields && inputsDirty">
                         <button
@@ -539,7 +539,7 @@
                   class="min-h-[360px] flex items-center justify-center px-6 py-12"
                 >
                   <div class="max-w-md text-center">
-                    <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400">
+                    <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-accent/30 bg-accent/10 text-accent">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M13 3 4 14h7l-1 7 9-11h-7l1-7Z" />
                       </svg>
@@ -563,7 +563,7 @@
                     <!-- Steps section -->
                     <section>
                       <div class="flex items-center gap-2 py-2.5">
-                        <span class="text-[15px] font-semibold text-content tracking-wide">Steps</span>
+                        <span class="text-sm font-semibold text-content">Steps</span>
                       </div>
                       <div class="py-3">
                         <ConnectionError v-if="state.loadError.value" @retry="state.loadAll" />
@@ -618,7 +618,7 @@
                   class="flex h-full items-center justify-center px-6 py-12"
                 >
                   <div class="max-w-md text-center">
-                    <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400">
+                    <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-accent/30 bg-accent/10 text-accent">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M13 3 4 14h7l-1 7 9-11h-7l1-7Z" />
                       </svg>
@@ -668,7 +668,7 @@
             <div v-else-if="viewMode === 'code'" class="flex-1 min-h-0 relative flex flex-col">
               <div
                 v-if="codeDirty || savingCode"
-                class="flex items-center gap-2 px-4 py-1.5 border-y border-edge-subtle bg-blue-500/5 min-h-[40px]"
+                class="flex items-center gap-2 px-4 py-1.5 border-y border-edge-subtle bg-accent/5 min-h-[40px]"
                 :class="showFlowAttentionBanner ? '' : 'border-t-0'"
               >
                 <span class="text-[12px] text-content-secondary">
@@ -718,7 +718,7 @@
           <!-- Resize handle (inside left wrapper so the tab subheader's border extends across it) -->
           <div
             v-if="chatPanelOpen"
-            class="w-1 flex-shrink-0 cursor-col-resize select-none hover:bg-blue-500/40 active:bg-blue-500/60 transition-colors"
+            class="w-1 flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors"
             @mousedown="startChatResize"
           />
         </div>
@@ -804,6 +804,7 @@ import { devModeRef } from '../appConfig'
 import { flowMediaSlideshowKey } from '../components/flow/flowMediaSlideshow'
 import { makeStorageKey } from '../utils/storageKeys'
 import { parseFlowError } from '../utils/flowErrors'
+import { bgClass, textClass } from '../utils/statusColors'
 import { BoltIcon } from '@heroicons/vue/24/solid'
 
 const props = defineProps<{ id?: string | number }>()
@@ -1320,11 +1321,8 @@ function openCopy(c: Flow) {
 }
 
 function copyStateBadge(state: string): string {
-  switch (state) {
-    case 'running': return 'bg-blue-500/20 text-blue-400'
-    case 'paused': return 'bg-yellow-500/20 text-yellow-400'
-    default: return 'bg-overlay-hover text-content-muted'
-  }
+  const bucket = state === 'running' ? 'running' : state === 'paused' ? 'paused' : 'queued'
+  return `${bgClass(bucket)} ${textClass(bucket)}`
 }
 
 function onDocumentClick(e: MouseEvent) {

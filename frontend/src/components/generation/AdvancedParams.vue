@@ -3,9 +3,9 @@
     <button
       @click="showAdvanced = !showAdvanced"
       type="button"
-      class="flex items-center gap-2 text-xs font-semibold text-content-secondary hover:text-content-tertiary transition-colors"
+      class="flex items-center gap-2 text-xs font-semibold text-content-secondary hover:text-content transition-colors duration-150"
     >
-      <span :class="['transition-transform', showAdvanced ? 'rotate-90' : '']">&#9654;</span>
+      <span :class="['transition-transform duration-150', showAdvanced ? 'rotate-90' : '']">&#9654;</span>
       Advanced
     </button>
 
@@ -15,24 +15,24 @@
 
       <!-- Negative Prompt -->
       <div v-if="hasParam('negative_prompt')">
-        <label class="block text-xs font-medium mb-2 text-content-tertiary">Negative Prompt</label>
+        <label class="block text-xs text-content-tertiary mb-2">Negative Prompt</label>
         <textarea v-no-autocorrect
           :value="getNegativePrompt()"
           @input="updateNegativePrompt(($event.target as HTMLTextAreaElement).value)"
           rows="2"
           placeholder="What to avoid..."
-          class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm resize-y focus:outline-none focus:border-accent font-sans"
+          class="w-full px-3 py-2 bg-overlay-subtle border border-transparent rounded-md text-content text-sm resize-y placeholder:text-content-muted focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none font-sans"
         ></textarea>
       </div>
 
       <!-- Sampler & Scheduler Row -->
       <div class="grid grid-cols-2 gap-4" v-if="hasParam('sampler') || hasParam('scheduler')">
         <div v-if="hasParam('sampler')">
-          <label class="block text-xs font-medium mb-2 text-content-tertiary">Sampler</label>
+          <label class="block text-xs text-content-tertiary mb-2">Sampler</label>
           <select
             :value="modelValue.sampler"
             @change="updateParam('sampler', ($event.target as HTMLSelectElement).value)"
-            class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm"
+            class="w-full px-3 py-2 bg-overlay-subtle border border-transparent rounded-md text-content text-sm focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
           >
             <option v-for="choice in getParamChoices('sampler')" :key="choice" :value="choice">
               {{ formatChoice(choice) }}
@@ -40,11 +40,11 @@
           </select>
         </div>
         <div v-if="hasParam('scheduler')">
-          <label class="block text-xs font-medium mb-2 text-content-tertiary">Scheduler</label>
+          <label class="block text-xs text-content-tertiary mb-2">Scheduler</label>
           <select
             :value="modelValue.scheduler"
             @change="updateParam('scheduler', ($event.target as HTMLSelectElement).value)"
-            class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm"
+            class="w-full px-3 py-2 bg-overlay-subtle border border-transparent rounded-md text-content text-sm focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
           >
             <option v-for="choice in getParamChoices('scheduler')" :key="choice" :value="choice">
               {{ formatChoice(choice) }}
@@ -56,13 +56,13 @@
       <!-- Seed -->
       <div v-if="hasParam('seed')">
         <div class="flex items-center justify-between mb-2">
-          <label class="text-xs font-medium text-content-tertiary">Seed</label>
+          <label class="text-xs text-content-tertiary">Seed</label>
           <label class="flex items-center gap-1.5 text-xs text-content-muted cursor-pointer">
             <input v-no-autocorrect
               :checked="getRandomizeSeed()"
               @change="updateRandomizeSeed(($event.target as HTMLInputElement).checked)"
               type="checkbox"
-              class="w-3 h-3 rounded"
+              class="w-3.5 h-3.5 rounded accent-[rgb(var(--color-accent-rgb))]"
             >
             <span>Randomize</span>
           </label>
@@ -72,7 +72,7 @@
           @input="updateParam('seed', parseIntOrNull(($event.target as HTMLInputElement).value))"
           type="number"
           :disabled="getRandomizeSeed()"
-          class="w-full px-2 py-1.5 bg-base border border-edge rounded text-content text-sm disabled:opacity-50"
+          class="w-full px-3 py-2 bg-overlay-subtle border border-transparent rounded-md text-content font-mono tabular-nums text-sm focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none disabled:opacity-50"
         >
       </div>
 
@@ -80,8 +80,8 @@
       <div class="grid grid-cols-2 gap-4">
         <div v-for="param in sliderParams" :key="param.name">
           <div class="flex items-center justify-between mb-2">
-            <label class="text-xs font-medium text-content-tertiary">{{ param.title }}</label>
-            <span class="text-xs text-content-muted">{{ formatSliderValue(param.name, getParamValue(param.name)) }}</span>
+            <label class="text-xs text-content-tertiary">{{ param.title }}</label>
+            <span class="text-xs font-mono tabular-nums text-content-muted">{{ formatSliderValue(param.name, getParamValue(param.name)) }}</span>
           </div>
           <input v-no-autocorrect
             :value="getParamValue(param.name)"
@@ -90,7 +90,7 @@
             :min="param.min"
             :max="param.max"
             :step="param.step"
-            class="w-full h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+            class="w-full h-1 bg-overlay-subtle rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-3 [&::-moz-range-thumb]:h-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0"
           >
         </div>
       </div>

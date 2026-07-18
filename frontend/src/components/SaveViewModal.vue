@@ -1,41 +1,37 @@
 <template>
-  <div v-if="visible" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="$emit('close')">
-    <div class="bg-surface-raised border border-edge-strong rounded-lg p-6 w-96 max-w-[90vw]" @click.stop>
-      <h3 class="text-lg font-semibold text-content mb-4">Save View</h3>
+  <Modal :show="visible" size="sm" @close="$emit('close')">
+    <template #header>
+      <h3 class="text-lg font-semibold text-content">Save View</h3>
+    </template>
+
+    <div class="px-6 py-5">
       <p class="text-content-tertiary text-sm mb-4">Save your current filters and sort order as a named view for quick access.</p>
       <input v-no-autocorrect
         v-model="viewName"
         type="text"
         placeholder="View name"
-        class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent"
+        class="w-full bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
         :class="{ 'border-red-500': errorMessage }"
         @keyup.enter="handleSave"
         ref="nameInput"
       />
-      <p v-if="errorMessage" class="text-red-500 text-sm mt-1 mb-3">{{ errorMessage }}</p>
-      <div v-else class="mb-4"></div>
-      <div class="flex gap-3">
-        <button
-          @click="handleSave"
-          :disabled="!viewName.trim() || saving"
-          class="flex-1 bg-accent hover:bg-accent/90 text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {{ saving ? 'Saving...' : 'Save' }}
-        </button>
-        <button
-          @click="$emit('close')"
-          class="flex-1 bg-transparent border border-edge-strong text-content-secondary px-4 py-2 rounded-md text-sm cursor-pointer transition-all hover:bg-overlay-subtle"
-        >
-          Cancel
-        </button>
-      </div>
+      <p v-if="errorMessage" class="text-red-500 text-sm mt-1">{{ errorMessage }}</p>
     </div>
-  </div>
+
+    <template #footer>
+      <Button variant="secondary" @click="$emit('close')">Cancel</Button>
+      <Button variant="primary" :loading="saving" :disabled="!viewName.trim()" @click="handleSave">
+        {{ saving ? 'Saving...' : 'Save' }}
+      </Button>
+    </template>
+  </Modal>
 </template>
 
 <script setup>
 import { ref, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import Modal from './ui/Modal.vue'
+import Button from './ui/Button.vue'
 import { useMediaApi } from '../composables/useMediaApi'
 
 const props = defineProps({

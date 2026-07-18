@@ -1,55 +1,52 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="show"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="close"
-      >
-        <div class="bg-surface border border-edge rounded-lg shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col">
-          <!-- Header -->
-          <div class="px-6 py-4 border-b border-edge flex items-center justify-between shrink-0">
-            <div class="flex items-center gap-3">
-              <!-- Back button when viewing detail -->
-              <button
-                v-if="selectedTraceId"
-                @click="selectedTraceId = null"
-                class="p-1 -ml-1 rounded hover:bg-surface-raised/50 text-content-tertiary hover:text-content transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                  <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
-                </svg>
-              </button>
-              <div class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-purple-500">
-                  <path fill-rule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v11.5A2.25 2.25 0 004.25 18h11.5A2.25 2.25 0 0018 15.75V4.25A2.25 2.25 0 0015.75 2H4.25zM15 5.75a.75.75 0 00-1.5 0v8.5a.75.75 0 001.5 0v-8.5zm-8.5 6a.75.75 0 00-1.5 0v2.5a.75.75 0 001.5 0v-2.5zM8.584 9a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm3.58-1.25a.75.75 0 00-1.5 0v6.5a.75.75 0 001.5 0v-6.5z" clip-rule="evenodd" />
-                </svg>
-              </div>
-              <div>
-                <h3 class="text-lg font-semibold text-content">
-                  {{ selectedTraceId ? 'LLM Trace' : (toolCallId ? 'Delegate Agent Traces' : 'Sub-Agent Traces') }}
-                </h3>
-                <p v-if="selectedTraceId && trace" class="text-xs text-content-tertiary">
-                  {{ traceTypeLabel }}
-                  <span v-if="trace.model" class="text-content-muted">· {{ trace.model }}</span>
-                </p>
-                <p v-else-if="!selectedTraceId" class="text-xs text-content-tertiary">
-                  {{ toolCallId ? 'LLM conversation at each turn of the delegate subagent' : 'Debug LLM calls from planner, prompt crafter, and reference resolver' }}
-                </p>
-              </div>
-            </div>
-            <button
-              @click="close"
-              class="text-content-tertiary hover:text-content transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-              </svg>
-            </button>
+  <Modal
+    :show="show"
+    size="custom"
+    custom-class="max-w-4xl w-full max-h-[85vh] flex flex-col"
+    :close-on-esc="false"
+    @close="close"
+  >
+    <template #header>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <!-- Back button when viewing detail -->
+          <button
+            v-if="selectedTraceId"
+            @click="selectedTraceId = null"
+            class="p-1 -ml-1 rounded hover:bg-surface-raised/50 text-content-tertiary hover:text-content transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+              <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-purple-500">
+              <path fill-rule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v11.5A2.25 2.25 0 004.25 18h11.5A2.25 2.25 0 0018 15.75V4.25A2.25 2.25 0 0015.75 2H4.25zM15 5.75a.75.75 0 00-1.5 0v8.5a.75.75 0 001.5 0v-8.5zm-8.5 6a.75.75 0 00-1.5 0v2.5a.75.75 0 001.5 0v-2.5zM8.584 9a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5a.75.75 0 01.75-.75zm3.58-1.25a.75.75 0 00-1.5 0v6.5a.75.75 0 001.5 0v-6.5z" clip-rule="evenodd" />
+            </svg>
           </div>
+          <div>
+            <h3 class="text-lg font-semibold text-content">
+              {{ selectedTraceId ? 'LLM Trace' : (toolCallId ? 'Delegate Agent Traces' : 'Sub-Agent Traces') }}
+            </h3>
+            <p v-if="selectedTraceId && trace" class="text-xs text-content-tertiary">
+              {{ traceTypeLabel }}
+              <span v-if="trace.model" class="text-content-muted">· {{ trace.model }}</span>
+            </p>
+            <p v-else-if="!selectedTraceId" class="text-xs text-content-tertiary">
+              {{ toolCallId ? 'LLM conversation at each turn of the delegate subagent' : 'Debug LLM calls from planner, prompt crafter, and reference resolver' }}
+            </p>
+          </div>
+        </div>
+        <IconButton aria-label="Close" title="Close" @click="close">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+          </svg>
+        </IconButton>
+      </div>
+    </template>
 
-          <!-- Body -->
-          <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+    <!-- Body -->
+    <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             <!-- Loading state -->
             <div v-if="loading" class="flex items-center justify-center py-12">
               <svg class="w-6 h-6 animate-spin text-content-tertiary" viewBox="0 0 24 24" fill="none">
@@ -115,7 +112,7 @@
                     @click="toggleMessage(i)"
                   >
                     <div class="flex items-center gap-2">
-                      <span class="text-xs font-semibold uppercase" :class="getMessageRoleColor(msg.role)">
+                      <span class="text-xs font-semibold capitalize" :class="getMessageRoleColor(msg.role)">
                         {{ msg.role }}
                       </span>
                       <span class="text-xs text-content-muted">
@@ -150,7 +147,7 @@
                     @click="responseExpanded = !responseExpanded"
                   >
                     <div class="flex items-center gap-2">
-                      <span class="text-xs font-semibold uppercase text-emerald-500">response</span>
+                      <span class="text-xs font-semibold text-emerald-500">Response</span>
                       <span class="text-xs text-content-muted">
                         {{ formatContentLength(trace.response) }}
                       </span>
@@ -173,32 +170,27 @@
                 </div>
               </div>
             </template>
-          </div>
+    </div>
 
-          <!-- Footer -->
-          <div class="px-6 py-4 border-t border-edge flex gap-3 justify-end shrink-0">
-            <button
-              v-if="selectedTraceId && trace"
-              @click="copyTrace"
-              class="px-4 py-2 bg-surface-raised hover:bg-surface-hover text-content rounded-lg font-medium flex items-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-                <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12A1.5 1.5 0 0117 6.622V12.5a1.5 1.5 0 01-1.5 1.5h-1v-3.379a3 3 0 00-.879-2.121L10.5 5.379A3 3 0 008.379 4.5H7v-1z" />
-                <path d="M4.5 6A1.5 1.5 0 003 7.5v9A1.5 1.5 0 004.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L9.44 6.439A1.5 1.5 0 008.378 6H4.5z" />
-              </svg>
-              {{ copied ? 'Copied!' : 'Copy All' }}
-            </button>
-            <button
-              @click="close"
-              class="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-md font-medium"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+    <template #footer>
+      <Button
+        v-if="selectedTraceId && trace"
+        variant="secondary"
+        @click="copyTrace"
+      >
+        <template #icon>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+            <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12A1.5 1.5 0 0117 6.622V12.5a1.5 1.5 0 01-1.5 1.5h-1v-3.379a3 3 0 00-.879-2.121L10.5 5.379A3 3 0 008.379 4.5H7v-1z" />
+            <path d="M4.5 6A1.5 1.5 0 003 7.5v9A1.5 1.5 0 004.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L9.44 6.439A1.5 1.5 0 008.378 6H4.5z" />
+          </svg>
+        </template>
+        {{ copied ? 'Copied!' : 'Copy All' }}
+      </Button>
+      <Button variant="primary" @click="close">
+        Close
+      </Button>
+    </template>
+  </Modal>
 </template>
 
 <script setup lang="ts">
@@ -212,6 +204,9 @@ import {
 } from '@heroicons/vue/24/outline'
 import { copyToClipboard } from '../../utils/clipboard'
 import { useTheme } from '../../composables/useTheme'
+import Modal from '../ui/Modal.vue'
+import IconButton from '../ui/IconButton.vue'
+import Button from '../ui/Button.vue'
 
 const { resolvedTheme } = useTheme()
 const isLight = computed(() => resolvedTheme.value === 'light')
@@ -473,25 +468,3 @@ async function copyTrace() {
   }
 }
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active .bg-surface,
-.modal-leave-active .bg-surface {
-  transition: transform 0.15s ease;
-}
-
-.modal-enter-from .bg-surface,
-.modal-leave-to .bg-surface {
-  transform: scale(0.95);
-}
-</style>

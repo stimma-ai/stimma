@@ -4,7 +4,7 @@
     <div
       v-show="!mediaId && !imageUrl"
       class="flex-1 flex items-center justify-center transition-colors"
-      :class="isDragOver ? 'bg-blue-500/10 ring-2 ring-inset ring-blue-500/50' : ''"
+      :class="isDragOver ? 'bg-accent/10 ring-1 ring-inset ring-accent/50' : ''"
       @dragover="handleLandingDragOver"
       @dragenter="handleLandingDragEnter"
       @dragleave="handleLandingDragLeave"

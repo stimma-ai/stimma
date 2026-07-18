@@ -53,7 +53,7 @@
       >
         <div class="text-sm font-medium text-content truncate flex items-center gap-1.5">
           {{ title }}
-          <span v-if="unavailable" class="text-[10px] font-medium text-amber-500 uppercase tracking-wide">unavailable</span>
+          <span v-if="unavailable" class="text-[10px] font-medium text-amber-500">unavailable</span>
         </div>
         <div class="text-xs text-content-muted truncate mt-0.5 flex items-center gap-1.5">
           <template v-if="incompatible">

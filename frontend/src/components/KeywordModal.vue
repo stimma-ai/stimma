@@ -1,14 +1,15 @@
 <template>
-  <div class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal p-8" @click.self="close">
-    <div class="bg-surface border border-edge rounded-lg w-full max-w-[600px] max-h-[80vh] flex flex-col shadow-[0_20px_25px_-5px_rgba(0,0,0,0.5)]">
-      <div class="flex justify-between items-center px-6 py-6 border-b border-edge">
+  <Modal :show="true" size="custom" custom-class="max-w-[600px] w-full max-h-[80vh] flex flex-col overflow-hidden" @close="close">
+    <template #header>
+      <div class="flex justify-between items-center">
         <h2 class="m-0 text-xl font-semibold text-content">Keywords</h2>
-        <button class="bg-transparent border-none text-content-tertiary cursor-pointer p-2 flex items-center justify-center rounded transition-all hover:bg-overlay-light hover:text-content" @click="close">
+        <IconButton @click="close">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
-        </button>
+        </IconButton>
       </div>
+    </template>
 
       <div class="relative px-6 py-6 border-b border-edge">
         <svg class="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-content-muted pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -62,7 +63,7 @@
 
           <!-- Loading indicator for pagination -->
           <div v-if="isLoading && !isInitialLoading" class="text-center py-4 text-content-muted">
-            <div class="inline-block w-5 h-5 border-2 border-edge-strong border-t-indigo-500 rounded-full animate-spin"></div>
+            <Spinner class="inline-block" />
           </div>
 
           <!-- No results message -->
@@ -78,19 +79,24 @@
         </div>
       </div>
 
-      <div class="px-6 py-6 border-t border-edge flex justify-between items-center">
+    <template #footer>
+      <div class="w-full flex justify-between items-center">
         <span class="text-sm text-content-muted">
           <span v-if="isInitialLoading">Loading keywords...</span>
           <span v-else>{{ totalCount }} total keywords</span>
         </span>
-        <button class="bg-accent text-white border-none py-3 px-8 rounded-lg text-[15px] font-semibold cursor-pointer transition-all hover:bg-accent/90 hover:-translate-y-px hover:shadow-[0_4px_6px_-1px_rgba(99,102,241,0.3)] active:translate-y-0" @click="close">Done</button>
+        <Button variant="primary" @click="close">Done</Button>
       </div>
-    </div>
-  </div>
+    </template>
+  </Modal>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import Modal from './ui/Modal.vue'
+import IconButton from './ui/IconButton.vue'
+import Button from './ui/Button.vue'
+import Spinner from './ui/Spinner.vue'
 import { useAssetApi } from '../composables/useAssetApi'
 
 const props = defineProps({

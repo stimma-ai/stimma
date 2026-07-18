@@ -1,6 +1,6 @@
 <template>
   <div
-    class="relative rounded-xl border-2 border-dashed border-emerald-600/40 bg-emerald-500/[0.03] p-4"
+    class="relative rounded-lg border-2 border-dashed border-emerald-600/40 bg-emerald-500/[0.03] p-4"
     :style="{ backgroundImage: DOTS_BG }"
     tabindex="0"
     @keydown="onKeydown"

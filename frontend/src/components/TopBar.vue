@@ -47,7 +47,7 @@
           <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
         </svg>
         <!-- Spinner when actively processing -->
-        <div v-else-if="(isActivelyProcessing && !isPaused) || isDeleteRunning" class="w-5 h-5 border-2 border-edge-strong border-t-white/80 rounded-full animate-spin"></div>
+        <Spinner v-else-if="(isActivelyProcessing && !isPaused) || isDeleteRunning" hue="border-t-white/80" />
         <!-- Red warning triangle when there are errors -->
         <svg v-else-if="totalFailed > 0 || hasDeleteFailed" class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 24 24">
           <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
@@ -60,8 +60,8 @@
         <svg v-else-if="systemWarnings.length > 0 && totalPending === 0 && totalProcessing === 0" class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
           <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
         </svg>
-        <!-- Yellow pending indicator (pending but not processing) -->
-        <div v-else class="w-5 h-5 border-2 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin"></div>
+        <!-- Amber pending indicator (pending but not processing) -->
+        <Spinner v-else hue="border-t-amber-500" />
 
         <transition name="expand">
           <div v-if="isExpanded && statsLoading" class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge rounded-lg p-4 min-w-[400px] shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-menu">
@@ -90,7 +90,7 @@
               </div>
               <button
                 v-if="deleteSummary.status === 'failed'"
-                class="mt-3 px-3 py-1.5 rounded border border-blue-500/50 bg-blue-500/15 text-xs text-blue-400 hover:bg-blue-500/25 disabled:opacity-50"
+                class="mt-3 px-3 py-1.5 rounded border border-accent/50 bg-accent/15 text-xs text-accent hover:bg-accent/25 disabled:opacity-50"
                 :disabled="retryingDeletion"
                 @click="retryDeletion"
               >

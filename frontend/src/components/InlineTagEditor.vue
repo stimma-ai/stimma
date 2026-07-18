@@ -1,7 +1,7 @@
 <template>
   <div class="relative w-full">
     <div
-      class="flex flex-wrap gap-1 px-1.5 py-1 border border-edge-subtle rounded-md bg-surface min-h-[28px] cursor-text focus-within:border-edge-strong focus-within:ring-1 focus-within:ring-edge-subtle"
+      class="flex flex-wrap gap-1 px-1.5 py-1 border border-edge-subtle rounded-md bg-surface min-h-[28px] cursor-text focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/40"
       @click="inputRef?.focus()"
     >
       <!-- Existing tags as chips -->
@@ -34,13 +34,13 @@
     <!-- Autocomplete dropdown -->
     <div
       v-if="showSuggestions && filteredSuggestions.length > 0"
-      class="absolute top-full left-0 right-0 mt-1 bg-surface border border-edge-subtle rounded-md max-h-[200px] overflow-y-auto z-menu shadow-xl"
+      class="absolute top-full left-0 right-0 mt-1 bg-surface border border-edge-subtle rounded-lg max-h-[200px] overflow-y-auto z-menu shadow-lg py-1"
     >
       <div
         v-for="(suggestion, index) in filteredSuggestions"
         :key="suggestion.id"
-        class="px-3 py-2 cursor-pointer text-content text-sm flex justify-between items-center transition-colors"
-        :class="index === selectedSuggestionIndex ? 'bg-overlay-light' : 'hover:bg-overlay-subtle'"
+        class="px-3 py-2 cursor-pointer text-content text-xs flex justify-between items-center transition-colors"
+        :class="index === selectedSuggestionIndex ? 'bg-accent/15' : 'hover:bg-overlay-subtle'"
         @mousedown.prevent="selectSuggestion(suggestion)"
         @mouseenter="selectedSuggestionIndex = index"
       >

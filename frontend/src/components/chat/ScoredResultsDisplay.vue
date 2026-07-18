@@ -17,20 +17,20 @@
         class="relative group cursor-pointer"
       >
         <!-- Rank badge -->
-        <div class="absolute top-1 left-1 z-10 bg-black/70 text-content text-xs font-bold px-1.5 py-0.5 rounded pointer-events-none">
+        <div class="absolute top-1 left-1 z-10 bg-black/55 backdrop-blur-sm text-content text-xs font-mono font-medium px-1.5 py-0.5 rounded-md pointer-events-none">
           #{{ item.rank }}
         </div>
 
         <!-- Score badge -->
         <div
-          class="absolute top-1 right-1 z-10 text-xs font-bold px-1.5 py-0.5 rounded pointer-events-none"
+          class="absolute top-1 right-1 z-10 text-xs font-mono font-medium px-1.5 py-0.5 rounded-md pointer-events-none backdrop-blur-sm"
           :class="getScoreClass(item.total_score)"
         >
           {{ formatScore(item.total_score) }}
         </div>
 
         <!-- Image - using MediaImage for drag-drop and context menu support -->
-        <div class="aspect-square bg-surface-raised rounded overflow-hidden">
+        <div class="aspect-square bg-matte rounded-media overflow-hidden">
           <MediaImage
             :media-id="item.media_id"
             :thumbnail="true"
@@ -41,12 +41,12 @@
         </div>
 
         <!-- Error indicator -->
-        <div v-if="item.error" class="absolute inset-0 bg-red-500/15 flex items-center justify-center pointer-events-none">
-          <span class="text-red-500 text-xs font-medium">Error</span>
+        <div v-if="item.error" class="absolute inset-0 flex items-center justify-center pointer-events-none" :class="bgClass('failed')">
+          <span class="text-xs font-medium" :class="textClass('failed')">Error</span>
         </div>
 
         <!-- Score details on hover -->
-        <div class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-end text-xs pointer-events-none">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-end text-xs pointer-events-none">
           <div v-if="item.scores && Object.keys(item.scores).length > 0" class="space-y-0.5">
             <div
               v-for="(value, key) in item.scores"
@@ -54,10 +54,10 @@
               class="flex justify-between text-content-tertiary"
             >
               <span class="truncate">{{ formatKey(key) }}</span>
-              <span class="text-content font-medium">{{ value }}</span>
+              <span class="text-content font-mono font-medium">{{ value }}</span>
             </div>
           </div>
-          <div v-else-if="item.error" class="text-red-500 text-xs">
+          <div v-else-if="item.error" class="text-xs" :class="textClass('failed')">
             {{ item.error }}
           </div>
         </div>
@@ -68,6 +68,7 @@
 
 <script setup>
 import { MediaImage } from '../media'
+import { bgClass, textClass } from '../../utils/statusColors'
 
 defineProps({
   scoredData: {
@@ -85,9 +86,9 @@ function formatScore(score) {
 }
 
 function getScoreClass(score) {
-  if (score === null || score === undefined) return 'bg-gray-500/70 text-content'
+  if (score === null || score === undefined) return 'bg-zinc-500/70 text-content'
   if (score >= 0.8) return 'bg-green-500/90 text-white'
-  if (score >= 0.6) return 'bg-yellow-500/90 text-black'
+  if (score >= 0.6) return 'bg-amber-500/90 text-black'
   if (score >= 0.4) return 'bg-orange-500/90 text-white'
   return 'bg-red-500/90 text-white'
 }
@@ -97,9 +98,3 @@ function formatKey(key) {
   return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 </script>
-
-<style scoped>
-.scored-results {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-</style>

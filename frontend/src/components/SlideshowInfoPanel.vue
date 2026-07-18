@@ -1,6 +1,6 @@
 <template>
   <div
-    class="bg-surface-elevated backdrop-blur-[10px] overflow-y-auto overflow-x-visible z-[10001] flex flex-col relative sidebar-scroll order-2 transition-all duration-300"
+    class="bg-surface-elevated backdrop-blur-[10px] overflow-y-auto overflow-x-visible z-chrome flex flex-col relative sidebar-scroll order-2 transition-all duration-300"
     :class="focusMode ? 'w-0 opacity-0 pointer-events-none border-l-0' : 'w-[384px] max-w-[90vw] border-l border-edge-subtle'"
   >
     <!-- Header: markers (pinned) -->
@@ -130,7 +130,7 @@
           <button
             v-for="container in assetContainers"
             :key="`c-${container.asset_id}-${container.member_order}`"
-            class="inline-flex items-center gap-1 rounded border border-white/10 bg-white/[0.05] px-2 py-0.5 text-xs text-content-secondary transition-colors hover:bg-white/10 hover:text-content"
+            class="inline-flex items-center gap-1 rounded border border-edge-subtle bg-overlay-subtle px-2 py-0.5 text-xs text-content-secondary transition-colors hover:bg-overlay-hover hover:text-content"
             @click="$emit('navigate-to-source-media', container.media_id)"
           >
             <span class="grid h-3 w-3 grid-cols-2 gap-px">
@@ -467,11 +467,11 @@
             v-for="version in versions"
             :key="version.id"
             class="rounded-lg border p-2"
-            :class="version.id === currentRevisionId ? 'border-blue-500/50 bg-blue-500/15' : 'border-white/10 bg-white/[0.05]'"
+            :class="version.id === currentRevisionId ? 'border-blue-500/50 bg-blue-500/15' : 'border-edge-subtle bg-overlay-subtle'"
           >
             <div class="flex gap-2">
               <button
-                class="h-14 w-14 flex-shrink-0 overflow-hidden rounded border border-white/10 bg-black/20 p-0"
+                class="h-14 w-14 flex-shrink-0 overflow-hidden rounded border border-edge-subtle bg-black/20 p-0"
                 title="View this version"
                 @click="$emit('navigate-to-source-media', version.media.id)"
               >
@@ -493,13 +493,13 @@
                   <span v-if="version.parent_revision_id && version.parent_revision_id !== previousRevisionId(version)"> · branched</span>
                 </div>
                 <div class="mt-2 flex flex-wrap gap-1">
-                  <button class="rounded bg-white/[0.05] px-2 py-1 text-[11px] text-content-secondary hover:bg-white/10" @click="$emit('navigate-to-source-media', version.media.id)">View</button>
-                  <button v-if="isImageType(version.media)" class="rounded bg-white/[0.05] px-2 py-1 text-[11px] text-content-secondary hover:bg-white/10" @click="$emit('edit-image', version.media.id)">Edit from</button>
-                  <button class="rounded bg-white/[0.05] px-2 py-1 text-[11px] text-content-secondary hover:bg-white/10" @click="$emit('download-version', version.media.id)">Export</button>
+                  <button class="rounded bg-overlay-subtle px-2 py-1 text-[11px] text-content-secondary hover:bg-overlay-hover" @click="$emit('navigate-to-source-media', version.media.id)">View</button>
+                  <button v-if="isImageType(version.media)" class="rounded bg-overlay-subtle px-2 py-1 text-[11px] text-content-secondary hover:bg-overlay-hover" @click="$emit('edit-image', version.media.id)">Edit from</button>
+                  <button class="rounded bg-overlay-subtle px-2 py-1 text-[11px] text-content-secondary hover:bg-overlay-hover" @click="$emit('download-version', version.media.id)">Export</button>
                   <button
                     v-if="version.id !== currentRevisionId"
                     class="rounded px-2 py-1 text-[11px]"
-                    :class="confirmRestoreId === version.id ? 'bg-blue-500 text-white' : 'bg-white/[0.05] text-content-secondary hover:bg-white/10'"
+                    :class="confirmRestoreId === version.id ? 'bg-blue-500 text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-hover'"
                     @click="requestRestore(version)"
                   >{{ confirmRestoreId === version.id ? 'Confirm restore' : 'Restore as latest' }}</button>
                 </div>
@@ -507,7 +507,7 @@
             </div>
           </div>
           <button
-            class="w-full rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-xs text-content-secondary hover:bg-white/10 hover:text-content"
+            class="w-full rounded-lg border border-edge-subtle bg-overlay-subtle px-3 py-2 text-xs text-content-secondary hover:bg-overlay-hover hover:text-content"
             @click="$emit('download-versions', versions.map(version => version.media.id))"
           >Export all versions</button>
         </div>
@@ -691,7 +691,7 @@
     <Teleport to="body">
       <div
         v-if="showExternalImageModal"
-        class="fixed inset-0 bg-overlay-strong flex items-center justify-center z-[10002]"
+        class="fixed inset-0 bg-overlay-strong flex items-center justify-center z-modal"
         @click="showExternalImageModal = false"
       >
         <div class="relative max-w-[90vw] max-h-[90vh]">
@@ -717,7 +717,7 @@
     <Teleport to="body">
       <div
         v-if="showMetadataModal"
-        class="fixed inset-0 bg-overlay-strong flex items-center justify-center z-[10002]"
+        class="fixed inset-0 bg-overlay-strong flex items-center justify-center z-modal"
         @click="showMetadataModal = false"
       >
         <div

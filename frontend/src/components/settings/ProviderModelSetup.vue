@@ -23,7 +23,7 @@
           :class="check.classes"
           :title="check.title"
         >
-          <span v-if="testing && !check.result" class="h-2.5 w-2.5 animate-spin rounded-full border border-blue-300/30 border-t-blue-300" />
+          <Spinner v-if="testing && !check.result" size="sm" hue="border-t-blue-300" />
           <span v-else>{{ check.passed ? '✓' : '×' }}</span>
           <span>{{ check.label }}</span>
           <span v-if="check.detail" class="text-content-muted">· {{ check.detail }}</span>
@@ -109,6 +109,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import SettingsDropdown from '../ui/SettingsDropdown.vue'
+import Spinner from '../ui/Spinner.vue'
 
 const props = defineProps({
   model: { type: Object, required: true },

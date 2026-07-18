@@ -25,7 +25,7 @@
           </button>
 
           <div v-if="loading" class="flex flex-1 items-center justify-center">
-            <div class="h-6 w-6 animate-spin rounded-full border-2 border-edge border-t-content-secondary"></div>
+            <Spinner size="lg" hue="border-t-content-secondary" />
           </div>
 
           <div v-else-if="loadError" class="flex flex-1 items-center justify-center p-8 text-center">
@@ -211,6 +211,7 @@ import { useReadiness } from '../composables/useReadiness'
 import { useSettingsApi } from '../composables/useSettingsApi'
 import { useWebSocket } from '../composables/useWebSocket'
 import { addToast } from '../composables/useToasts'
+import Spinner from './ui/Spinner.vue'
 import AIServicesSection from './settings/sections/AIServicesSection.vue'
 import ToolProvidersSection from './settings/sections/ToolProvidersSection.vue'
 import FoldersSection from './settings/sections/FoldersSection.vue'
@@ -315,7 +316,7 @@ const chatChips = [
 const genChips = [
   { label: 'FLUX', svg: MODEL_MARK_SVGS.bfl },
   { label: 'Nano Banana', svg: MODEL_MARK_SVGS['nano-banana'], color: '#f9d13a' },
-  { label: 'Kling', text: 'K', tileClass: 'border border-white/20 bg-black text-[10px] font-extrabold text-[#00e676]' },
+  { label: 'Kling', text: 'K', tileClass: 'border border-edge-strong bg-black text-[10px] font-extrabold text-[#00e676]' },
   { label: 'Veo', svg: GOOGLE_GEMINI_SVG, color: '#8ab4f8' },
   { label: 'Seedream', svg: MODEL_MARK_SVGS.bytedance, color: '#4b64f4' },
   { label: 'Qwen-Image', svg: MODEL_MARK_SVGS.qwen, color: '#8b5cf6' },

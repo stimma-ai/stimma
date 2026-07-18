@@ -43,10 +43,11 @@
           </linearGradient>
         </defs>
       </svg>
+      <Transition name="menu">
       <div
         v-if="showMenu"
         ref="menuRef"
-        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-xl z-menu py-1 min-w-[220px] max-h-[400px] overflow-y-auto"
+        class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[220px] max-h-[400px] overflow-y-auto"
         :style="menuStyle"
       >
         <div v-if="loadingTools" class="px-3 py-2 text-xs text-content-tertiary">
@@ -65,7 +66,7 @@
               v-for="row in openInstances"
               :key="`hop-instance-${row.tab.id}`"
               @click="hopToInstance(row)"
-              class="w-full px-3 py-2 text-left text-sm text-content hover:bg-overlay-light flex items-center gap-2"
+              class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
             >
               <div class="w-4 h-4 flex-shrink-0" :class="isStimmaCloudTool(row.tool) ? '' : 'text-content-tertiary'">
                 <ToolIcon :tool="row.tool" size="xs" :bare="true" :ring="false" />
@@ -78,7 +79,7 @@
                 v-if="row.tab.projectName"
                 class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"
               >{{ row.tab.projectName }}</span>
-              <span class="flex-shrink-0 rounded-full bg-blue-500/15 border border-blue-500/50 text-blue-400 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide leading-none">Open</span>
+              <span class="flex-shrink-0 rounded-full bg-blue-500/15 border border-blue-500/50 text-blue-400 px-1.5 py-0.5 text-[9px] font-semibold leading-none">Open</span>
             </button>
             <div v-if="Object.keys(groupedTools).length > 0" class="border-t border-edge-subtle my-1"></div>
           </template>
@@ -98,7 +99,7 @@
               v-for="tool in groupTools"
               :key="`${taskType}-${tool.full_tool_id}`"
               @click="hopToTool(tool)"
-              class="w-full px-3 py-2 text-left text-sm text-content hover:bg-overlay-light flex items-center gap-2"
+              class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
             >
               <div class="w-4 h-4 flex-shrink-0" :class="isStimmaCloudTool(tool) ? '' : 'text-content-tertiary'">
                 <ToolIcon :tool="tool" size="xs" :bare="true" :ring="false" />
@@ -108,6 +109,7 @@
           </template>
         </template>
       </div>
+      </Transition>
     </Teleport>
   </div>
 </template>

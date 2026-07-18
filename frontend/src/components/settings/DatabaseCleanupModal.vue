@@ -30,10 +30,7 @@
           </div>
 
           <div v-if="busy" class="flex min-h-32 items-center justify-center gap-3 text-content-tertiary">
-            <svg class="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4Z" />
-            </svg>
+            <Spinner size="md" />
             <div>
               <p class="text-sm text-content">{{ maintenance.phase === 'analyzing' ? 'Analyzing database…' : 'Cleaning orphaned references…' }}</p>
               <p class="mt-0.5 text-xs">Large profiles may take a while. Keep this window open.</p>
@@ -151,6 +148,7 @@ import { useSettingsApi } from '../../composables/useSettingsApi'
 import ConfirmModal from '../ConfirmModal.vue'
 import SummaryCard from './DatabaseMaintenanceSummaryCard.vue'
 import { createDatabaseCleanupController, findingHandlingLabel } from './databaseCleanupState'
+import Spinner from '../ui/Spinner.vue'
 
 const props = defineProps({
   show: { type: Boolean, default: false },

@@ -109,18 +109,18 @@
                 alt="Batch output set"
                 container-class="w-full h-full"
               />
-              <div v-if="item.batch.expires_at && formatRemainingTime(item.batch.expires_at)" class="absolute top-2 left-2 z-[5] rounded bg-black/55 px-1.5 py-1 backdrop-blur-sm">
+              <div v-if="item.batch.expires_at && formatRemainingTime(item.batch.expires_at)" class="absolute top-2 left-2 z-chrome rounded bg-black/55 px-1.5 py-1 backdrop-blur-sm">
                 <span class="text-[11px] font-mono font-semibold leading-none text-amber-400">{{ formatRemainingTime(item.batch.expires_at) }}</span>
               </div>
               <!-- Set badge overlay (upper right, matching browser) -->
-              <div class="absolute top-2 right-2 z-[5] bg-black/55 backdrop-blur-sm rounded px-1.5 py-1 flex items-center gap-1">
+              <div class="absolute top-2 right-2 z-chrome bg-black/55 backdrop-blur-sm rounded px-1.5 py-1 flex items-center gap-1">
                 <svg class="w-4 h-4 flex-shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3" />
                 </svg>
                 <span class="text-[11px] font-mono font-semibold text-white leading-none">{{ item.batch.output_set_member_count || item.batch.completed }}</span>
               </div>
               <!-- Marker toggle buttons (bottom left) -->
-              <div v-if="!compactOverlays && item.batch.output_set_id && markers.length > 0" class="absolute bottom-2 left-2 z-[10] flex gap-0.5">
+              <div v-if="!compactOverlays && item.batch.output_set_id && markers.length > 0" class="absolute bottom-2 left-2 z-chrome flex gap-0.5">
                 <button
                   v-for="marker in markers"
                   :key="marker.id"
@@ -140,7 +140,7 @@
               <!-- Set title overlay (bottom center, matching browser) -->
               <div
                 v-if="item.batch.output_set_title"
-                class="absolute bottom-2 left-0 right-0 flex justify-center z-[5] pointer-events-none"
+                class="absolute bottom-2 left-0 right-0 flex justify-center z-chrome pointer-events-none"
               >
                 <div class="bg-black/55 backdrop-blur-sm rounded px-2.5 py-1 truncate max-w-[calc(100%-16px)]">
                   <span class="text-[11px] text-white font-medium">{{ item.batch.output_set_title }}</span>

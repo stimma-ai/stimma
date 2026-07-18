@@ -32,7 +32,7 @@
         </div>
         <template v-if="isAuthenticated">
           <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 text-right text-xs" :class="cloudRowStatusClass">
-            <ArrowPathIcon v-if="isProviderConnecting(cloudProvider)" class="h-3.5 w-3.5 animate-spin" />
+            <Spinner v-if="isProviderConnecting(cloudProvider)" size="sm" />
             <ExclamationCircleIcon v-else-if="isProviderConnectionError(cloudProvider)" class="h-4 w-4" />
             {{ cloudRowStatusLabel }}
           </div>
@@ -83,7 +83,7 @@
           <div class="mt-0.5 truncate text-xs text-content-tertiary">ComfyUI · {{ provider.url || getProviderTypeLabel(provider.type) }}</div>
         </div>
         <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-right text-xs" :class="providerRowStatusClass(provider)">
-          <ArrowPathIcon v-if="isProviderConnecting(provider)" class="h-3.5 w-3.5 animate-spin" />
+          <Spinner v-if="isProviderConnecting(provider)" size="sm" />
           <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
           {{ providerStatusLabel(provider) }}
         </div>
@@ -105,7 +105,7 @@
           <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ getProviderTypeLabel(provider.type) }}</div>
         </div>
         <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-right text-xs" :class="providerRowStatusClass(provider)">
-          <ArrowPathIcon v-if="isProviderConnecting(provider)" class="h-3.5 w-3.5 animate-spin" />
+          <Spinner v-if="isProviderConnecting(provider)" size="sm" />
           <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
           {{ providerStatusLabel(provider) }}
         </div>
@@ -185,7 +185,7 @@
         <button type="button" class="text-sm text-content-tertiary hover:text-content" @click="clearLogsDisplay">Clear</button>
       </div>
 
-      <div ref="logsContentRef" class="max-h-[60vh] min-h-72 overflow-auto bg-black/20 p-4">
+      <div ref="logsContentRef" class="max-h-[60vh] min-h-72 overflow-auto bg-overlay-medium p-4">
         <div v-if="logsModal.loading && logsModal.lines.length === 0" class="py-10 text-center text-sm text-content-tertiary">Loading logs…</div>
         <div v-else-if="logsModal.lines.length === 0" class="py-10 text-center text-sm text-content-tertiary">No logs available.</div>
         <pre v-else class="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-content-secondary select-text">{{ logsModal.lines.join('\n') }}</pre>
@@ -216,7 +216,7 @@
           </p>
         </div>
         <span class="flex items-center gap-1.5 text-xs font-medium" :class="providerConnectionStatusClass(selectedProvider)">
-          <ArrowPathIcon v-if="isProviderConnecting(selectedProvider)" class="h-3.5 w-3.5 animate-spin" />
+          <Spinner v-if="isProviderConnecting(selectedProvider)" size="sm" />
           <ExclamationCircleIcon v-else-if="isProviderConnectionError(selectedProvider)" class="h-4 w-4" />
           {{ providerConnectionStatus(selectedProvider) }}
         </span>
@@ -563,7 +563,8 @@
                 :disabled="logsModal.loading"
                 class="px-3 py-1.5 bg-surface-raised hover:bg-surface-hover disabled:opacity-50 text-content rounded font-medium text-sm transition-colors flex items-center gap-1.5"
               >
-                <svg class="w-4 h-4" :class="{ 'animate-spin': logsModal.loading }" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <Spinner v-if="logsModal.loading" size="sm" />
+                <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                 </svg>
                 Refresh
@@ -833,7 +834,8 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { ArrowPathIcon, ExclamationCircleIcon } from '@heroicons/vue/24/outline'
+import { ExclamationCircleIcon } from '@heroicons/vue/24/outline'
+import Spinner from '../../ui/Spinner.vue'
 import { useAuth } from '../../../composables/useAuth'
 import { useCloudAccount, formatBalance } from '../../../composables/useCloudAccount'
 import { copyToClipboard } from '../../../utils/clipboard'

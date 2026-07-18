@@ -61,8 +61,8 @@
             @show-job-info="$emit('show-job-info', $event)"
             @media-load-error="$emit('media-load-error', $event)"
           />
-          <div class="absolute top-2 left-2 z-[11] flex items-center gap-1 bg-black/70 rounded px-1.5 py-0.5">
-            <div class="w-3 h-3 border-2 border-edge-subtle border-t-blue-400 rounded-full animate-spin"></div>
+          <div class="absolute top-2 left-2 z-chrome flex items-center gap-1 bg-black/70 rounded px-1.5 py-0.5">
+            <Spinner size="sm" hue="border-t-blue-400" />
             <span class="text-[9px] text-white/80">post</span>
           </div>
         </div>
@@ -98,6 +98,7 @@
 <script setup lang="ts">
 import JobTile from './JobTile.vue'
 import StatusDot from '../ui/StatusDot.vue'
+import Spinner from '../ui/Spinner.vue'
 import { isVideo as isVideoMedia } from '../../utils/mediaTypes'
 
 interface Job { id: number; status: string; result_media_id?: number; result_asset_id?: number; expires_at?: string; parameters?: string }

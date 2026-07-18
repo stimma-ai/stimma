@@ -168,7 +168,7 @@
                   <MarkerBadges
                     v-if="!item.__placeholder && item.markers && item.markers.length > 0"
                     :markers="item.markers"
-                    class="absolute bottom-2 right-2 z-[6]"
+                    class="absolute bottom-2 right-2 z-chrome"
                   />
                   <!-- Selection checkbox - visible on hover or when selected -->
                   <div
@@ -210,7 +210,7 @@
       >
         <div
           class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
-          :class="dragState.newSectionHover ? 'border-blue-400 bg-blue-500 text-white scale-105 shadow-blue-500/30' : 'border-white/10 bg-zinc-800 text-zinc-200 shadow-black/40'"
+          :class="dragState.newSectionHover ? 'border-accent bg-accent text-white shadow-accent/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
           @dragenter.prevent="dragState.newSectionHover = true"
           @dragover.prevent="handleNewSectionDragOver"
           @dragleave="handleNewSectionDragLeave"
@@ -225,7 +225,7 @@
         </div>
         <div
           class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
-          :class="dragState.removeFromBoardHover ? 'border-red-400 bg-red-500 text-white scale-105 shadow-red-500/30' : 'border-white/10 bg-zinc-800 text-zinc-200 shadow-black/40'"
+          :class="dragState.removeFromBoardHover ? 'border-red-500 bg-red-600 text-white shadow-red-500/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
           @dragenter.prevent="dragState.removeFromBoardHover = true"
           @dragover.prevent="handleRemoveFromBoardDragOver"
           @dragleave="handleRemoveFromBoardDragLeave"
@@ -249,7 +249,7 @@
         <div
           v-if="!draggedSectionIsDefault"
           class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
-          :class="dragState.explodeSectionHover ? 'border-blue-400 bg-blue-500 text-white scale-105 shadow-blue-500/30' : 'border-white/10 bg-zinc-800 text-zinc-200 shadow-black/40'"
+          :class="dragState.explodeSectionHover ? 'border-accent bg-accent text-white shadow-accent/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
           @dragenter.prevent="dragState.explodeSectionHover = true"
           @dragover.prevent="dragState.explodeSectionHover = true"
           @dragleave="handleExplodeSectionDragLeave"
@@ -264,7 +264,7 @@
         </div>
         <div
           class="pointer-events-auto rounded-lg border px-5 py-2.5 shadow-lg transition-all"
-          :class="dragState.deleteSectionHover ? 'border-red-400 bg-red-500 text-white scale-105 shadow-red-500/30' : 'border-white/10 bg-zinc-800 text-zinc-200 shadow-black/40'"
+          :class="dragState.deleteSectionHover ? 'border-red-500 bg-red-600 text-white shadow-red-500/30' : 'border-edge bg-surface-raised text-content shadow-black/40'"
           @dragenter.prevent="dragState.deleteSectionHover = true"
           @dragover.prevent="dragState.deleteSectionHover = true"
           @dragleave="handleDeleteSectionDragLeave"

@@ -178,7 +178,7 @@
                 </div>
 
                 <span
-                  class="flex-shrink-0 font-mono text-[10.5px] font-semibold uppercase tracking-wide tabular-nums w-[72px] text-right"
+                  class="flex-shrink-0 font-mono text-[10.5px] font-semibold tabular-nums w-[72px] text-right"
                   :class="equationStatusColor(eq)"
                 >{{ equationStatusLabel(eq) || '' }}</span>
                 <span
@@ -259,7 +259,7 @@
                   class="rounded border border-amber-500/40 bg-overlay-light text-[11px] font-mono text-content-secondary"
                 >
                   <div class="flex items-center gap-2 px-2.5 py-1.5 border-b border-amber-500/30">
-                    <span class="text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-sm">Dev</span>
+                    <span class="text-[9px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-sm">Dev</span>
                     <span class="text-content-muted">raw step error</span>
                     <span class="flex-1" />
                     <span class="text-content-muted truncate">{{ eq.equation_key }}</span>
@@ -317,9 +317,10 @@
                   bucket="awaiting"
                   pulse
                 />
-                <span
+                <Spinner
                   v-else-if="isEquationActionable(eq)"
-                  class="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin flex-shrink-0"
+                  size="sm"
+                  hue="border-t-blue-400"
                 />
                 <span v-else class="w-2 h-2 rounded-full border border-content-muted/40 flex-shrink-0" />
 
@@ -334,7 +335,7 @@
                 </div>
 
                 <span
-                  class="flex-shrink-0 font-mono text-[10.5px] font-semibold uppercase tracking-wide tabular-nums w-[72px] text-right"
+                  class="flex-shrink-0 font-mono text-[10.5px] font-semibold tabular-nums w-[72px] text-right"
                   :class="equationStatusColor(eq)"
                 >{{ equationStatusLabel(eq) || '' }}</span>
                 <span
@@ -488,6 +489,7 @@ import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlo
 import { renderSafeMarkdown } from '../../utils/sanitizeHtml'
 import { equationDurationMs, formatEquationDurationMs } from '../../utils/equationDuration'
 import StatusDot from '../ui/StatusDot.vue'
+import Spinner from '../ui/Spinner.vue'
 import { textClass, mapEquationStatus, type StatusBucket } from '../../utils/statusColors'
 
 interface Props {

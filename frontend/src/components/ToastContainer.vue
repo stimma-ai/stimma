@@ -40,6 +40,7 @@
 <script setup lang="ts">
 import { h } from 'vue'
 import { useToasts, type ToastType } from '../composables/useToasts'
+import { textClass, type StatusBucket } from '../utils/statusColors'
 
 const { toasts, removeToast } = useToasts()
 
@@ -50,18 +51,15 @@ function handleAction(toast: any) {
   removeToast(toast.id)
 }
 
+const TOAST_BUCKET: Record<ToastType, StatusBucket> = {
+  success: 'done',
+  error: 'failed',
+  warning: 'warning',
+  info: 'running',
+}
+
 function iconColor(type: ToastType): string {
-  switch (type) {
-    case 'success':
-      return 'text-green-600 dark:text-green-500'
-    case 'error':
-      return 'text-red-600 dark:text-red-500'
-    case 'warning':
-      return 'text-amber-600 dark:text-yellow-400'
-    case 'info':
-    default:
-      return 'text-blue-600 dark:text-blue-400'
-  }
+  return textClass(TOAST_BUCKET[type] ?? 'running')
 }
 
 // Icon components for each type

@@ -4,7 +4,7 @@
     <template v-if="libraryMode && compact">
       <div
         v-if="row.output.status === 'complete' && row.output.media_id"
-        class="w-16 h-16 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all flex-shrink-0"
+        class="w-16 h-16 rounded-media overflow-hidden cursor-pointer hover:ring-2 hover:ring-accent-selection transition-colors flex-shrink-0"
         @click="$emit('view-image', row.output.media_id)"
       >
         <MediaImage
@@ -68,7 +68,7 @@
       <!-- Input image at 160px -->
       <div
         v-if="row.input.input_image"
-        class="w-[160px] h-[160px] rounded overflow-hidden cursor-pointer hover:opacity-90 transition-opacity flex-shrink-0"
+        class="w-[160px] h-[160px] rounded-media overflow-hidden cursor-pointer hover:opacity-90 transition-opacity flex-shrink-0"
         @click="$emit('view-image', row.input.input_image.media_id)"
       >
         <MediaImage
@@ -117,7 +117,7 @@
             <div
               v-for="(ref, idx) in row.input.ref_images"
               :key="idx"
-              class="w-[96px] h-[96px] rounded overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+              class="w-[96px] h-[96px] rounded-media overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
               @click="$emit('view-image', ref.media_id)"
             >
               <MediaImage

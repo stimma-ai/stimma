@@ -103,11 +103,11 @@
               <MarkerBadges
                 v-if="rowItem.markers && rowItem.markers.length > 0"
                 :markers="rowItem.markers"
-                class="absolute bottom-2 right-2 z-[6]"
+                class="absolute bottom-2 right-2 z-chrome"
               />
 
               <!-- Auto-delete time remaining badge (upper left) -->
-              <div v-if="rowItem.expires_at && formatRemainingTime(rowItem.expires_at)" class="absolute left-2 top-2 z-[5]">
+              <div v-if="rowItem.expires_at && formatRemainingTime(rowItem.expires_at)" class="absolute left-2 top-2 z-chrome">
                 <div class="bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center justify-center gap-1">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3 text-amber-500">
                     <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
@@ -120,12 +120,12 @@
 
 
               <!-- Document dog ear (upper right corner fold) -->
-              <div v-if="getMediaType(rowItem) === 'text'" class="absolute top-0 right-0 z-[5] pointer-events-none">
+              <div v-if="getMediaType(rowItem) === 'text'" class="absolute top-0 right-0 z-chrome pointer-events-none">
                 <div class="document-dog-ear"></div>
               </div>
 
               <!-- Media type badge (upper right) - only for types that need it and not hidden -->
-              <div v-if="getMediaType(rowItem) !== 'image' && getMediaType(rowItem) !== 'text'" class="absolute top-2 right-2 z-[5]">
+              <div v-if="getMediaType(rowItem) !== 'image' && getMediaType(rowItem) !== 'text'" class="absolute top-2 right-2 z-chrome">
                 <div class="bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 flex items-center gap-1">
                   <!-- Video icon -->
                   <svg v-if="getMediaType(rowItem) === 'video'" class="w-4 h-4 flex-shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -159,13 +159,13 @@
               </div>
 
               <!-- Similarity score badge -->
-              <div v-if="rowItem.similarity_score !== null && rowItem.similarity_score !== undefined" class="absolute bottom-2 left-2 z-[5] bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 text-xs font-semibold text-white">
+              <div v-if="rowItem.similarity_score !== null && rowItem.similarity_score !== undefined" class="absolute bottom-2 left-2 z-chrome bg-black/60 backdrop-blur-md rounded-md px-1.5 py-1 text-xs font-semibold text-white">
                 {{ formatSimilarity(rowItem.similarity_score) }}
               </div>
 
               <div
                 v-if="rowItem.revision_count > 1"
-                class="absolute bottom-2 left-2 z-[6] rounded-md bg-black/70 px-1.5 py-1 text-[11px] font-medium text-white opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100"
+                class="absolute bottom-2 left-2 z-chrome rounded-md bg-black/70 px-1.5 py-1 text-[11px] font-medium text-white opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100"
                 :class="rowItem.similarity_score !== null && rowItem.similarity_score !== undefined ? 'bottom-9' : ''"
               >
                 {{ rowItem.revision_count }} versions
@@ -174,7 +174,7 @@
               <!-- Set/Grid name pill (hover only) -->
               <div
                 v-if="(getMediaType(rowItem) === 'set' || getMediaType(rowItem) === 'grid') && rowItem.title"
-                class="absolute inset-0 z-[7] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                class="absolute inset-0 z-chrome flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
               >
                 <span class="bg-black/80 backdrop-blur-md rounded-lg px-3 py-1.5 text-xs font-medium text-white text-center line-clamp-2 max-w-[80%]">
                   {{ rowItem.title }}

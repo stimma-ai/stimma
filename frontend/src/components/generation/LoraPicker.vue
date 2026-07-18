@@ -1,24 +1,15 @@
 <template>
   <div class="mb-6">
     <div class="flex items-center justify-between mb-3">
-      <label class="text-sm font-medium text-content-tertiary">LoRAs</label>
+      <span class="text-xs font-semibold text-content-secondary">LoRAs</span>
       <button
         @click="$emit('refresh-loras')"
         :disabled="isRefreshing"
         type="button"
-        class="text-sm text-content-muted hover:text-content-tertiary disabled:opacity-50 flex items-center gap-1"
+        class="text-sm text-content-muted hover:text-content disabled:opacity-50 flex items-center gap-1.5 transition-colors duration-150"
         title="Refresh LoRA list from ComfyUI"
       >
-        <svg
-          v-if="isRefreshing"
-          class="animate-spin h-4 w-4"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+        <Spinner v-if="isRefreshing" size="sm" />
         <svg
           v-else
           xmlns="http://www.w3.org/2000/svg"
@@ -35,7 +26,7 @@
       <div
         v-for="(loraRow, index) in modelValue"
         :key="index"
-        class="group flex items-center gap-3 py-2 px-3 bg-surface-overlay rounded-lg hover:bg-surface transition-colors"
+        class="group flex items-center gap-3 py-2.5 border-b border-edge-subtle last:border-0 hover:bg-overlay-subtle transition-colors duration-150"
       >
         <!-- Enable/Disable Toggle -->
         <button
@@ -43,7 +34,7 @@
           type="button"
           :class="[
             'flex-shrink-0 w-8 h-4 rounded-full transition-colors relative',
-            loraRow.enabled ? 'bg-accent' : 'bg-surface-hover'
+            loraRow.enabled ? 'bg-accent' : 'bg-overlay-subtle'
           ]"
         >
           <span
@@ -77,7 +68,7 @@
               v-if="activeDropdown === index && filteredLoras.length > 0"
               ref="dropdownRef"
               :style="dropdownStyle"
-              class="fixed z-menu bg-surface border border-surface-raised rounded-lg shadow-xl max-h-60 overflow-y-auto"
+              class="fixed z-menu bg-surface border border-edge-subtle rounded-lg shadow-lg py-1 max-h-60 overflow-y-auto"
             >
               <div
                 v-for="(lora, loraIndex) in filteredLoras"
@@ -86,8 +77,8 @@
                 @mousedown.prevent="selectLora(index, lora)"
                 @mouseenter="selectedIndex = loraIndex"
                 :class="[
-                  'px-3 py-2 text-sm cursor-pointer transition-colors',
-                  loraIndex === selectedIndex ? 'bg-accent text-white' : 'text-content-secondary hover:bg-surface-raised'
+                  'px-3 py-2 text-xs cursor-pointer transition-colors duration-150',
+                  loraIndex === selectedIndex ? 'bg-accent-selection/15 text-content' : 'text-content-secondary hover:bg-overlay-subtle'
                 ]"
               >
                 {{ lora.name }}
@@ -104,8 +95,8 @@
             @blur="formatWeightOnBlur(index)"
             type="text"
             :class="[
-              'w-12 bg-transparent text-sm text-right focus:outline-none tabular-nums',
-              loraRow.enabled ? 'text-content-secondary' : 'text-content-muted'
+              'w-12 bg-transparent text-sm font-mono tabular-nums text-right focus:outline-none',
+              loraRow.weight !== 1 ? 'text-accent' : (loraRow.enabled ? 'text-content-secondary' : 'text-content-muted')
             ]"
           >
           <div class="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -126,7 +117,7 @@
         <button
           @click="removeLoraRow(index)"
           type="button"
-          class="text-content-muted hover:text-red-500 transition-colors"
+          class="text-content-muted opacity-0 group-hover:opacity-100 hover:text-red-400 transition-colors duration-150"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
             <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
@@ -138,7 +129,7 @@
         v-if="availableLoras.length > 0"
         @click="addLoraRow"
         type="button"
-        class="w-full py-2 text-sm text-content-muted hover:text-content-tertiary hover:bg-surface-overlay rounded-lg transition-colors"
+        class="w-full py-2 text-sm text-content-secondary hover:text-content hover:bg-overlay-subtle rounded-md transition-colors duration-150"
       >
         + Add a LoRA
       </button>
@@ -154,6 +145,7 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import Spinner from '../ui/Spinner.vue'
 
 export interface LoraOption {
   name: string
@@ -470,15 +462,15 @@ watch(filteredLoras, (newFiltered) => {
 }
 
 .max-h-60::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
 }
 
 .max-h-60::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--color-scrollbar-thumb);
   border-radius: 4px;
 }
 
 .max-h-60::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--color-scrollbar-thumb-hover);
 }
 </style>

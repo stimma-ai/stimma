@@ -32,7 +32,7 @@
         :class="[
           'w-full px-3 py-2 text-left text-sm transition-colors flex items-center justify-between',
           modelValue === option.value
-            ? 'bg-blue-500/20 text-blue-500'
+            ? 'bg-selection/15 text-selection'
             : 'text-content-secondary hover:bg-surface-raised'
         ]"
       >
@@ -63,7 +63,7 @@ const buttonClasses = computed(() => {
     ? 'px-2.5 h-7 rounded text-xs font-medium'
     : 'px-3 py-2 rounded-lg text-sm font-semibold'
   const colorClasses = props.modelValue !== 'never'
-    ? 'bg-blue-500/20 text-blue-500'
+    ? 'bg-selection/15 text-selection'
     : props.size === 'small'
       ? 'text-content-tertiary hover:text-content hover:bg-surface'
       : 'bg-surface-raised hover:bg-surface-hover text-content'

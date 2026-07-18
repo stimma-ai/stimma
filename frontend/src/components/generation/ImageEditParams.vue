@@ -10,7 +10,7 @@
 
     <!-- Prompt (optional) -->
     <div v-if="props.showPrompt">
-      <label class="block text-sm font-medium mb-2 text-content-tertiary">Prompt</label>
+      <span class="block text-xs font-semibold text-content-secondary mb-2">Prompt</span>
       <AIPromptEditor
         v-model="localParams.prompt"
         :rows="8"
@@ -22,12 +22,12 @@
 
     <!-- LoRA Selection -->
     <div v-if="availableLoras.length > 0" class="mb-6">
-      <label class="block text-sm font-medium text-content-tertiary mb-3">LoRAs</label>
-      <div class="space-y-2">
+      <span class="block text-xs font-semibold text-content-secondary mb-3">LoRAs</span>
+      <div class="space-y-0">
         <div
           v-for="(loraRow, index) in localParams.selected_loras"
           :key="index"
-          class="group flex items-center gap-3 py-2 px-3 bg-surface-overlay rounded-lg hover:bg-surface transition-colors"
+          class="group flex items-center gap-3 py-2.5 border-b border-edge-subtle last:border-0 hover:bg-overlay-subtle transition-colors duration-150"
         >
           <!-- Enable/Disable Toggle -->
           <button
@@ -35,7 +35,7 @@
             type="button"
             :class="[
               'flex-shrink-0 w-8 h-4 rounded-full transition-colors relative',
-              loraRow.enabled ? 'bg-accent' : 'bg-surface-hover'
+              loraRow.enabled ? 'bg-accent' : 'bg-overlay-subtle'
             ]"
           >
             <span
@@ -69,15 +69,15 @@
             <!-- Autocomplete Dropdown -->
             <div
               v-if="loraRow.showResults && loraRow.filteredLoras && loraRow.filteredLoras.length > 0"
-              class="absolute z-menu w-full mt-2 bg-surface border border-surface-raised rounded-lg shadow-xl max-h-60 overflow-y-auto"
+              class="absolute z-menu w-full mt-2 bg-surface border border-edge-subtle rounded-lg shadow-lg py-1 max-h-60 overflow-y-auto"
             >
               <div
                 v-for="(lora, loraIndex) in loraRow.filteredLoras"
                 :key="lora.name"
                 @mousedown.prevent="selectLora(index, lora.name)"
                 :class="[
-                  'px-3 py-2 text-sm cursor-pointer transition-colors',
-                  loraIndex === loraRow.selectedIndex ? 'bg-accent text-white' : 'text-content-secondary hover:bg-surface-raised'
+                  'px-3 py-2 text-xs cursor-pointer transition-colors duration-150',
+                  loraIndex === loraRow.selectedIndex ? 'bg-accent-selection/15 text-content' : 'text-content-secondary hover:bg-overlay-subtle'
                 ]"
               >
                 {{ lora.name }}
@@ -93,8 +93,8 @@
               @blur="formatWeightOnBlur(index)"
               type="text"
               :class="[
-                'w-12 bg-transparent text-sm text-right focus:outline-none tabular-nums',
-                loraRow.enabled ? 'text-content-secondary' : 'text-content-muted'
+                'w-12 bg-transparent text-sm text-right focus:outline-none font-mono tabular-nums',
+                loraRow.weight !== 1 ? 'text-accent' : (loraRow.enabled ? 'text-content-secondary' : 'text-content-muted')
               ]"
             >
             <div class="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -112,21 +112,22 @@
           </div>
 
           <!-- Remove -->
-          <button
+          <IconButton
             @click="removeLoraRow(index)"
-            type="button"
-            class="text-content-muted hover:text-red-500 transition-colors"
+            variant="danger"
+            class="opacity-0 group-hover:opacity-100"
+            aria-label="Remove LoRA"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
               <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
             </svg>
-          </button>
+          </IconButton>
         </div>
 
         <button
           @click="addLoraRow"
           type="button"
-          class="w-full py-2 text-sm text-content-muted hover:text-content-tertiary hover:bg-surface-overlay rounded-lg transition-colors"
+          class="w-full py-2 text-sm text-content-secondary hover:text-content hover:bg-overlay-subtle rounded-md transition-colors duration-150"
         >
           + Add a LoRA
         </button>
@@ -150,6 +151,7 @@ import { ref, reactive, watch } from 'vue'
 import MediaPicker from './MediaPicker.vue'
 import AdvancedParams from './AdvancedParams.vue'
 import AIPromptEditor from './AIPromptEditor.vue'
+import IconButton from '../ui/IconButton.vue'
 
 interface ReferenceImage {
   path: string
