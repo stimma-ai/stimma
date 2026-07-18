@@ -50,10 +50,10 @@
     </div>
     <div v-if="devMode && error" class="mt-2 rounded border border-amber-500/40 bg-overlay-light text-[11px] font-mono text-content-secondary">
       <div class="flex items-center gap-2 px-2.5 py-1.5 border-b border-amber-500/30">
-        <span class="text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-sm">Dev</span>
+        <span class="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-sm">Dev</span>
         <span class="text-content-muted">raw build error</span>
         <span class="flex-1" />
-        <span v-if="error.category" class="uppercase tracking-wider text-content-muted">{{ error.category }}</span>
+        <span v-if="error.category" class="text-content-muted">{{ error.category }}</span>
       </div>
       <pre class="px-2.5 py-2 whitespace-pre-wrap break-words select-text">{{ error.message }}</pre>
       <div v-if="error.suggestion" class="px-2.5 pb-2 text-content-muted">hint: {{ error.suggestion }}</div>

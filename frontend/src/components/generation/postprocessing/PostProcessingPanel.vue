@@ -19,7 +19,7 @@
     <div :class="chain.enabled ? '' : 'opacity-60'">
       <template v-for="(step, index) in chain.steps" :key="step.id">
         <!-- Insertion indicator (drag reorder) -->
-        <div v-if="drag.active && drag.overIndex === index" class="h-0.5 bg-blue-500 rounded my-1"></div>
+        <div v-if="drag.active && drag.overIndex === index" class="h-0.5 bg-accent-hi rounded my-1"></div>
         <div
           :class="index > 0 ? 'mt-1.5' : ''"
           @dragover.prevent="onDragOver($event, index)"
@@ -53,7 +53,7 @@
           </ChainStepCard>
         </div>
       </template>
-      <div v-if="drag.active && drag.overIndex === chain.steps.length" class="h-0.5 bg-blue-500 rounded my-1"></div>
+      <div v-if="drag.active && drag.overIndex === chain.steps.length" class="h-0.5 bg-accent-hi rounded my-1"></div>
     </div>
 
     <!-- Add step (dashed row) — outside the disabled-dim wrapper: adding a step
