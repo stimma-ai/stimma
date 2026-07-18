@@ -3,7 +3,7 @@
     <!-- Filter Selection Strip (Shopping Cart) -->
     <div class="flex justify-between items-center px-2 py-2 gap-2 flex-wrap">
       <!-- Left Side: Filter Toggle Button -->
-      <button class="text-content-secondary px-4 h-9 rounded-lg text-sm cursor-pointer flex items-center gap-2 transition-colors flex-shrink-0 hover:bg-overlay-subtle" @click="toggleCriteriaPanel">
+      <button class="text-content-secondary px-4 h-9 rounded-md text-sm cursor-pointer flex items-center gap-2 transition-colors flex-shrink-0 hover:bg-overlay-subtle" @click="toggleCriteriaPanel">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
         </svg>
@@ -19,7 +19,7 @@
           v-for="marker in markers"
           :key="marker.id"
           :class="[
-            'inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors cursor-pointer',
+            'inline-flex items-center justify-center w-9 h-9 rounded-md transition-colors cursor-pointer',
             isMarkerPositive(marker.id)
               ? 'bg-blue-500/15 border border-blue-500/50 text-blue-500'
               : isMarkerNegative(marker.id)
@@ -33,7 +33,7 @@
         </button>
 
         <!-- Similar Search Badge -->
-        <div v-if="hasSimilarSearchBadge" class="inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
+        <div v-if="hasSimilarSearchBadge" class="inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
           <MagnifyingGlassCircleIcon class="w-5 h-5 flex-shrink-0" />
           <span class="leading-none">{{ similarSearchBadgeLabel }}</span>
           <div
@@ -62,7 +62,7 @@
         </div>
 
         <!-- Caption Query Badge -->
-        <div v-if="localCaptionQuery && captioningEnabledRef" class="inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
+        <div v-if="localCaptionQuery && captioningEnabledRef" class="inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
           <span class="leading-none">Caption: {{ localCaptionQuery }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearCaptionQuery">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -72,7 +72,7 @@
         </div>
 
         <!-- Prompt Query Badge -->
-        <div v-if="localPromptQuery" class="inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
+        <div v-if="localPromptQuery" class="inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
           <span class="leading-none">Prompt: {{ localPromptQuery }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearPromptQuery">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -82,7 +82,7 @@
         </div>
 
         <!-- Text Similarity Badge -->
-        <div v-if="localSimilarToText" class="inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
+        <div v-if="localSimilarToText" class="inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 bg-blue-500/15 text-blue-500">
           <MagnifyingGlassCircleIcon class="w-5 h-5 flex-shrink-0" />
           <span class="leading-none">{{ localSimilarToText }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click="clearSimilarToText">
@@ -95,7 +95,7 @@
         <!-- Media Type Badges -->
         <div v-for="mediaType in allMediaTypes"
              :key="mediaType"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isMediaTypeExcluded(mediaType) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isMediaTypeExcluded(mediaType) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
              @click="toggleExcludeMediaType(mediaType)">
           <span class="leading-none">{{ { images: 'Images', videos: 'Videos', audio: 'Audio', text: 'Text', sets: 'Sets', grids: 'Grids', layouts: 'Layouts' }[mediaType] || mediaType }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeMediaType(mediaType)">
@@ -108,7 +108,7 @@
         <!-- Resolution Badges -->
         <div v-for="resolution in allResolutions"
              :key="resolution"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isResolutionExcluded(resolution) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isResolutionExcluded(resolution) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
              @click="toggleExcludeResolution(resolution)">
           <span class="leading-none">{{ resolution.charAt(0).toUpperCase() + resolution.slice(1) }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeResolution(resolution)">
@@ -122,7 +122,7 @@
         <template v-if="captioningEnabledRef">
         <div v-for="keyword in allKeywords"
              :key="keyword"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isExcluded(keyword) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isExcluded(keyword) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
              @click="toggleExcludeKeyword(keyword)">
           <span class="leading-none">{{ keyword }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeKeyword(keyword)">
@@ -136,7 +136,7 @@
         <!-- Tag Badges -->
         <div v-for="tag in allTags"
              :key="tag.id"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isTagExcluded(tag.id) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isTagExcluded(tag.id) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
              @click="toggleExcludeTag(tag.id)">
           <span class="leading-none">{{ tag.tag }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeTag(tag.id)">
@@ -150,7 +150,7 @@
         <template v-if="!isTrashMode && !inProjectScope">
           <!-- Membership existence chip: blue = in any project, red = not in any project -->
           <div v-if="projectMembership"
-               :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', projectMembership === 'none' ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+               :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', projectMembership === 'none' ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
                @click="toggleProjectMembershipSign">
             <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
             <span class="leading-none">Any Project</span>
@@ -163,7 +163,7 @@
           <!-- Specific project chips -->
           <div v-for="project in allProjects"
                :key="'proj-' + project.id"
-               :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isProjectExcluded(project.id) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+               :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isProjectExcluded(project.id) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
                @click="toggleExcludeProject(project.id)">
             <ArchiveBoxIcon class="w-4 h-4 flex-shrink-0" />
             <span class="leading-none">{{ project.name }}</span>
@@ -178,7 +178,7 @@
         <!-- Tool Badges -->
         <div v-for="tool in allTools"
              :key="tool.full_tool_id"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isToolExcluded(tool.full_tool_id) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isToolExcluded(tool.full_tool_id) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
              @click="toggleExcludeTool(tool.full_tool_id)">
           <span class="leading-none">{{ getToolName(tool) }}</span>
           <span v-if="isToolStimmaCloud(tool)" class="text-[10px] leading-none font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
@@ -193,7 +193,7 @@
         <!-- Folder Badges -->
         <div v-for="folder in allFolders"
              :key="folder"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', isFolderExcluded(folder) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', isFolderExcluded(folder) ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
              @click="toggleExcludeFolder(folder)">
           <span class="leading-none">{{ getFolderName(folder) }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="removeFolder(folder)">
@@ -205,7 +205,7 @@
 
         <!-- File Date Badge (quick ranges toggle include/exclude; custom stays blue) -->
         <div v-if="selectedDateRange"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9', dateRangeExcluded ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500', selectedDateRange !== 'custom' ? 'cursor-pointer' : '']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9', dateRangeExcluded ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500', selectedDateRange !== 'custom' ? 'cursor-pointer' : '']"
              @click="toggleExcludeDateRange">
           <span class="leading-none">{{ getDateRangeLabel() }}</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearDateRange">
@@ -217,7 +217,7 @@
 
         <!-- Imported Badge (not shown in trash mode) -->
         <div v-if="!isTrashMode && localIsImported !== null"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', localIsImported === false ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', localIsImported === false ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
              @click="toggleImportedExclusion">
           <span class="leading-none">Imported</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearImportedFilter">
@@ -229,7 +229,7 @@
 
         <!-- Unused Badge (not shown in trash mode) -->
         <div v-if="!isTrashMode && localIsUnused !== null"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', localIsUnused === false ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', localIsUnused === false ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
              @click="toggleUnusedExclusion">
           <span class="leading-none">Unused</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearUnusedFilter">
@@ -241,7 +241,7 @@
 
         <!-- Expiring Badge (not shown in trash mode) -->
         <div v-if="!isTrashMode && (localShowExpiring || localExcludeExpiring)"
-             :class="['inline-flex items-center gap-1.5 px-3 rounded-lg text-sm font-medium transition-all h-9 cursor-pointer', localExcludeExpiring ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
+             :class="['inline-flex items-center gap-1.5 px-3 rounded-md text-sm font-medium transition-all h-9 cursor-pointer', localExcludeExpiring ? 'bg-red-500/15 text-red-500' : 'bg-blue-500/15 text-blue-500']"
              @click="toggleExpiringExclusion">
           <span class="leading-none">Expiring</span>
           <button class="bg-transparent border-none text-inherit cursor-pointer p-0 flex items-center justify-center w-4 h-4 opacity-70 transition-opacity hover:opacity-100" @click.stop="clearExpiringFilter">
@@ -260,14 +260,14 @@
         <!-- Item count -->
         <span v-if="totalCount !== null" class="px-3 py-2 text-sm text-content-tertiary font-medium whitespace-nowrap">{{ itemCountText }}</span>
         <!-- Sort dropdown (not shown in trash mode - trash always sorts by deleted date) -->
-        <select v-if="!isTrashMode" v-model="localSortBy" @change="emitUpdate" class="bg-transparent text-content px-3 py-2 text-sm cursor-pointer focus:outline-none appearance-none rounded-lg pr-7 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMyA0LjVMNiA3LjVMOSA0LjUiIHN0cm9rZT0iIzg4OCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==')] bg-no-repeat bg-[right_0.5rem_center]">
+        <select v-if="!isTrashMode" v-model="localSortBy" @change="emitUpdate" class="bg-transparent text-content px-3 py-2 text-sm cursor-pointer focus:outline-none appearance-none rounded-md pr-7 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMyA0LjVMNiA3LjVMOSA0LjUiIHN0cm9rZT0iIzg4OCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==')] bg-no-repeat bg-[right_0.5rem_center]">
           <option value="similarity" :disabled="!similarSearchActive && !localSimilarToText">Similarity</option>
           <option value="created_desc">Newest First</option>
           <option value="created_asc">Oldest First</option>
           <option value="random">Random</option>
         </select>
         <!-- Shuffle button - only visible when in random mode (not in trash mode) -->
-        <button v-if="!isTrashMode && localSortBy === 'random'" @click="handleShuffle" class="px-3 py-2 cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle rounded-lg text-content-secondary hover:text-indigo-400" title="Shuffle order">
+        <button v-if="!isTrashMode && localSortBy === 'random'" @click="handleShuffle" class="px-3 py-2 cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle rounded-md text-content-secondary hover:text-accent" title="Shuffle order">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
           </svg>
@@ -277,7 +277,7 @@
         <div v-if="!isTrashMode && savedViewId" class="relative" ref="savedViewMenuRef">
           <button
             @click="showSavedViewMenu = !showSavedViewMenu"
-            class="text-content-secondary p-2 rounded-lg cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle"
+            class="text-content-secondary p-2 rounded-md cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle"
             title="View options"
           >
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -287,7 +287,7 @@
           <!-- Dropdown menu -->
           <div
             v-if="showSavedViewMenu"
-            class="absolute right-0 top-full mt-1 bg-surface-raised border border-edge-strong rounded-md shadow-lg z-menu py-1 min-w-[160px]"
+            class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[160px]"
           >
             <div class="px-4 py-2 text-xs font-semibold text-content-secondary">Saved view</div>
             <button
@@ -345,7 +345,7 @@
         <div v-if="!isTrashMode && !savedViewId && (canSaveView || hasActiveFilters)" class="relative" ref="browseMenuRef">
           <button
             @click="showBrowseMenu = !showBrowseMenu"
-            class="text-content-secondary p-2 rounded-lg cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle"
+            class="text-content-secondary p-2 rounded-md cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle"
             title="Filter options"
           >
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -354,7 +354,7 @@
           </button>
           <div
             v-if="showBrowseMenu"
-            class="absolute right-0 top-full mt-1 bg-surface-raised border border-edge-strong rounded-md shadow-lg z-menu py-1 min-w-[160px]"
+            class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[160px]"
           >
             <button
               v-if="canSaveView"
@@ -387,7 +387,7 @@
       <div v-if="showCriteriaPanel" class="border-t border-edge bg-overlay-faint relative">
         <!-- Loading spinner -->
         <div v-if="isLoading" class="absolute top-0 left-0 right-0 bottom-0 bg-surface/80 flex items-center justify-center z-10 backdrop-blur-[2px]">
-          <div class="w-8 h-8 border-[3px] border-edge border-t-indigo-500 rounded-full spinner"></div>
+          <div class="w-8 h-8 border-[3px] border-edge border-t-accent rounded-full spinner"></div>
         </div>
         <div ref="criteriaScrollContainer" class="flex gap-8 px-4 py-3 overflow-x-auto overflow-y-hidden transition-opacity" :class="{ 'opacity-50 pointer-events-none': isLoading }" @wheel="handleHorizontalScroll">
           <!-- Created Column -->
@@ -400,11 +400,11 @@
                 @click="selectDateRange(range.value)"
                 :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all',
                          selectedDateRange === range.value
-                           ? (dateRangeExcluded ? 'bg-red-500/15 border border-red-500/50 px-3' : 'bg-overlay-light border border-edge-strong px-3')
+                           ? (dateRangeExcluded ? 'bg-red-500/15 border border-red-500/50 px-3' : 'bg-overlay-light px-3')
                            : 'hover:bg-overlay-subtle']"
               >
                 <span :class="['text-sm', selectedDateRange === range.value ? (dateRangeExcluded ? 'text-red-400 font-semibold' : 'text-content font-semibold') : 'text-content-secondary']">{{ range.label }}</span>
-                <span :class="['text-xs', selectedDateRange === range.value ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.date_ranges[range.value] || 0 }})</span>
+                <span :class="['text-xs font-mono tabular-nums', selectedDateRange === range.value ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.date_ranges[range.value] || 0 }})</span>
               </button>
               <a @click="openCustomDatePicker" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
                 Custom range...
@@ -420,10 +420,10 @@
                 v-for="type in visibleMediaTypes"
                 :key="type.value"
                 @click="toggleMediaType(type.value)"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isMediaTypeSelected(type.value) }, isMediaTypeSelected(type.value) ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isMediaTypeSelected(type.value) }, isMediaTypeSelected(type.value) ? '' : 'hover:bg-overlay-subtle']"
               >
                 <span :class="['text-sm', isMediaTypeSelected(type.value) ? 'text-content font-semibold' : 'text-content-secondary']">{{ type.label }}</span>
-                <span :class="['text-xs', isMediaTypeSelected(type.value) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type[type.value] }})</span>
+                <span :class="['text-xs font-mono tabular-nums', isMediaTypeSelected(type.value) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type[type.value] }})</span>
               </div>
             </div>
           </div>
@@ -436,10 +436,10 @@
                 v-for="folder in visibleFolders"
                 :key="folder"
                 @click="toggleFolder(folder)"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isFolderSelected(folder) }, isFolderSelected(folder) ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isFolderSelected(folder) }, isFolderSelected(folder) ? '' : 'hover:bg-overlay-subtle']"
               >
                 <span :class="['text-sm', isFolderSelected(folder) ? 'text-content font-semibold' : 'text-content-secondary']">{{ getFolderName(folder) }}</span>
-                <span :class="['text-xs', isFolderSelected(folder) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.folders[folder] || 0 }})</span>
+                <span :class="['text-xs font-mono tabular-nums', isFolderSelected(folder) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.folders[folder] || 0 }})</span>
               </div>
               <a v-if="folders.length > 5" @click="showFolderModal = true" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
                 View more ({{ folders.length }})
@@ -456,10 +456,10 @@
                 v-for="tag in visibleTags"
                 :key="tag.id"
                 @click="toggleTag(tag.id)"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isTagSelected(tag.id) }, isTagSelected(tag.id) ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isTagSelected(tag.id) }, isTagSelected(tag.id) ? '' : 'hover:bg-overlay-subtle']"
               >
                 <span :class="['text-sm', isTagSelected(tag.id) ? 'text-content font-semibold' : 'text-content-secondary']">{{ tag.tag }}</span>
-                <span :class="['text-xs', isTagSelected(tag.id) ? 'text-content-tertiary' : 'text-content-muted']">({{ tag.usage_count || 0 }})</span>
+                <span :class="['text-xs font-mono tabular-nums', isTagSelected(tag.id) ? 'text-content-tertiary' : 'text-content-muted']">({{ tag.usage_count || 0 }})</span>
               </div>
               <!-- View More Link -->
               <a v-if="tags.length > 5" @click="showTagModal = true" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
@@ -485,7 +485,7 @@
                 <span :class="['text-sm', projectMembership === 'any' ? 'text-blue-400 font-semibold' : projectMembership === 'none' ? 'text-red-400 font-semibold' : 'text-content-secondary']">
                   Any Project
                 </span>
-                <span :class="['text-xs', projectMembership ? 'text-content-tertiary' : 'text-content-muted']">({{ projectMembership === 'none' ? (filterCounts.project_membership?.none || 0) : (filterCounts.project_membership?.any || 0) }})</span>
+                <span :class="['text-xs font-mono tabular-nums', projectMembership ? 'text-content-tertiary' : 'text-content-muted']">({{ projectMembership === 'none' ? (filterCounts.project_membership?.none || 0) : (filterCounts.project_membership?.any || 0) }})</span>
               </div>
               <!-- Specific projects (greyed out while "not in any project" is active) -->
               <div
@@ -494,11 +494,11 @@
                 @click="toggleProject(project.id)"
                 :class="['flex justify-between items-center gap-2 py-1.5 rounded-md transition-all',
                          projectsDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
-                         { 'bg-overlay-light border border-edge-strong px-3': isProjectSelected(project.id) },
+                         { 'bg-overlay-light px-3': isProjectSelected(project.id) },
                          (isProjectSelected(project.id) || projectsDisabled) ? '' : 'hover:bg-overlay-subtle']"
               >
                 <span :class="['text-sm truncate', isProjectSelected(project.id) ? 'text-content font-semibold' : 'text-content-secondary']" :title="project.name">{{ project.name || 'Untitled' }}</span>
-                <span :class="['text-xs flex-shrink-0', isProjectSelected(project.id) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.projects?.[project.id] || 0 }})</span>
+                <span :class="['text-xs flex-shrink-0 font-mono tabular-nums', isProjectSelected(project.id) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.projects?.[project.id] || 0 }})</span>
               </div>
               <a v-if="projects.length > 5" @click="showAllProjects = !showAllProjects" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
                 {{ showAllProjects ? 'Show less' : 'View more (' + projects.length + ')' }}
@@ -514,14 +514,14 @@
                 v-for="tool in visibleTools"
                 :key="tool.full_tool_id"
                 @click="toggleTool(tool.full_tool_id)"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isToolSelected(tool.full_tool_id) }, isToolSelected(tool.full_tool_id) ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isToolSelected(tool.full_tool_id) }, isToolSelected(tool.full_tool_id) ? '' : 'hover:bg-overlay-subtle']"
               >
                 <span class="flex items-center gap-1.5 min-w-0">
                   <span :class="['text-sm truncate', isToolSelected(tool.full_tool_id) ? 'text-content font-semibold' : 'text-content-secondary']" :title="getToolName(tool)">{{ getToolName(tool) }}</span>
                   <span v-if="isToolStimmaCloud(tool)" class="text-[10px] leading-none font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
                   <span v-else-if="getToolProvider(tool)" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full flex-shrink-0 text-content-muted bg-overlay-subtle">{{ getToolProvider(tool) }}</span>
                 </span>
-                <span :class="['text-xs flex-shrink-0', isToolSelected(tool.full_tool_id) ? 'text-content-tertiary' : 'text-content-muted']">({{ tool.count || 0 }})</span>
+                <span :class="['text-xs flex-shrink-0 font-mono tabular-nums', isToolSelected(tool.full_tool_id) ? 'text-content-tertiary' : 'text-content-muted']">({{ tool.count || 0 }})</span>
               </div>
               <a v-if="(filterCounts.tools || []).length > 5" @click="showToolModal = true" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
                 View more
@@ -538,10 +538,10 @@
                 v-for="kw in visibleKeywords"
                 :key="kw.keyword"
                 @click="toggleKeyword(kw.keyword)"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isKeywordSelected(kw.keyword) }, isKeywordSelected(kw.keyword) ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isKeywordSelected(kw.keyword) }, isKeywordSelected(kw.keyword) ? '' : 'hover:bg-overlay-subtle']"
               >
                 <span :class="['text-sm', isKeywordSelected(kw.keyword) ? 'text-content font-semibold' : 'text-content-secondary']">{{ kw.keyword }}</span>
-                <span :class="['text-xs', isKeywordSelected(kw.keyword) ? 'text-content-tertiary' : 'text-content-muted']">({{ kw.count }})</span>
+                <span :class="['text-xs font-mono tabular-nums', isKeywordSelected(kw.keyword) ? 'text-content-tertiary' : 'text-content-muted']">({{ kw.count }})</span>
               </div>
               <!-- View More Link -->
               <a v-if="topKeywords.length > 0" @click="openKeywordModal" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
@@ -560,7 +560,7 @@
                 @input="debouncedUpdate"
                 @keyup.enter="emitUpdate"
                 placeholder="Search"
-                class="bg-surface-raised border border-edge-strong text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent"
+                class="bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
               />
               <h5 class="m-0 mt-2 text-xs font-semibold text-content-secondary">Prompt filter</h5>
               <input v-no-autocorrect
@@ -568,7 +568,7 @@
                 v-model="localPromptQuery"
                 @input="debouncedUpdate"
                 placeholder="Filter"
-                class="bg-surface-raised border border-edge-strong text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent"
+                class="bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm w-full focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40"
               />
             </div>
           </div>
@@ -580,27 +580,27 @@
               <div
                 v-if="showImportedRow"
                 @click="toggleImportedFilter"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': localIsImported !== null }, localIsImported !== null ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': localIsImported !== null }, localIsImported !== null ? '' : 'hover:bg-overlay-subtle']"
               >
                 <span :class="['text-sm', localIsImported !== null ? 'text-content font-semibold' : 'text-content-secondary']">Imported</span>
-                <span :class="['text-xs', localIsImported !== null ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.imported || 0 }})</span>
+                <span :class="['text-xs font-mono tabular-nums', localIsImported !== null ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.imported || 0 }})</span>
               </div>
               <div
                 v-if="showExpiringRow"
                 @click="toggleExpiringFilter('expiring')"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isExpiringFilterSelected() }, isExpiringFilterSelected() ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isExpiringFilterSelected() }, isExpiringFilterSelected() ? '' : 'hover:bg-overlay-subtle']"
               >
                 <span :class="['text-sm', isExpiringFilterSelected() ? 'text-content font-semibold' : 'text-content-secondary']">Expiring</span>
-                <span :class="['text-xs', isExpiringFilterSelected() ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.expiring || 0 }})</span>
+                <span :class="['text-xs font-mono tabular-nums', isExpiringFilterSelected() ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.expiring || 0 }})</span>
               </div>
               <div
                 v-if="showUnusedRow"
                 @click="toggleUnusedFilter"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': localIsUnused !== null }, localIsUnused !== null ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': localIsUnused !== null }, localIsUnused !== null ? '' : 'hover:bg-overlay-subtle']"
                 title="Generated items never remixed, organized, or referenced anywhere"
               >
                 <span :class="['text-sm', localIsUnused !== null ? 'text-content font-semibold' : 'text-content-secondary']">Unused</span>
-                <span :class="['text-xs', localIsUnused !== null ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.unused || 0 }})</span>
+                <span :class="['text-xs font-mono tabular-nums', localIsUnused !== null ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.unused || 0 }})</span>
               </div>
             </div>
           </div>
@@ -613,10 +613,10 @@
                 v-for="res in visibleResolutions"
                 :key="res.value"
                 @click="toggleResolution(res.value)"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light border border-edge-strong px-3': isResolutionSelected(res.value) }, isResolutionSelected(res.value) ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isResolutionSelected(res.value) }, isResolutionSelected(res.value) ? '' : 'hover:bg-overlay-subtle']"
               >
                 <span :class="['text-sm', isResolutionSelected(res.value) ? 'text-content font-semibold' : 'text-content-secondary']">{{ res.label }}</span>
-                <span :class="['text-xs', isResolutionSelected(res.value) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.resolution[res.value] }})</span>
+                <span :class="['text-xs font-mono tabular-nums', isResolutionSelected(res.value) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.resolution[res.value] }})</span>
               </div>
             </div>
           </div>
@@ -644,7 +644,7 @@
 
     <!-- Custom Date Picker Modal -->
     <div v-if="showDatePickerModal" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="showDatePickerModal = false">
-      <div class="bg-surface-raised border border-edge-strong rounded-lg p-6 w-96 max-w-[90vw]" @click.stop>
+      <div class="bg-surface border border-edge rounded-lg p-6 w-96 max-w-[90vw] shadow-2xl" @click.stop>
         <h3 class="text-lg font-semibold text-content mb-4">Custom Date Range</h3>
 
         <div class="flex flex-col gap-4">
@@ -654,7 +654,7 @@
               type="date"
               v-model="customAfterDate"
               @keyup.enter="applyCustomDateRange"
-              class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent date-input"
+              class="w-full bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
             />
           </div>
 
@@ -664,7 +664,7 @@
               type="date"
               v-model="customBeforeDate"
               @keyup.enter="applyCustomDateRange"
-              class="w-full bg-surface border border-edge-strong text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent date-input"
+              class="w-full bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
             />
           </div>
         </div>
@@ -678,7 +678,7 @@
           </button>
           <button
             @click="showDatePickerModal = false"
-            class="flex-1 bg-transparent border border-edge-strong text-content-secondary px-4 py-2 rounded-md text-sm cursor-pointer transition-all hover:bg-overlay-subtle"
+            class="flex-1 bg-surface-raised hover:bg-surface-hover text-content-secondary px-4 py-2 rounded-md text-sm cursor-pointer transition-all"
           >
             Cancel
           </button>

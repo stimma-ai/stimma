@@ -45,7 +45,7 @@
         <div
           v-if="boardMenuOpen"
           ref="boardMenuRef"
-          class="absolute right-0 top-11 z-menu min-w-[180px] overflow-hidden rounded-lg border border-edge-subtle bg-surface shadow-2xl"
+          class="absolute right-0 top-11 z-menu min-w-[180px] overflow-hidden rounded-lg border border-edge-subtle bg-surface shadow-lg"
         >
           <button
             class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
@@ -195,7 +195,7 @@
               v-if="sectionDragCollapsed && (layoutRows[section.id] || []).length > 1"
               class="pt-1 text-center text-xs text-content-muted"
             >
-              and {{ (layoutRows[section.id] || []).slice(1).reduce((sum, r) => sum + r.items.length, 0) }} more
+              and <span class="font-mono tabular-nums">{{ (layoutRows[section.id] || []).slice(1).reduce((sum, r) => sum + r.items.length, 0) }}</span> more
             </div>
           </div>
         </section>
