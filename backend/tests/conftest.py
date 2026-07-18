@@ -55,6 +55,81 @@ llms: {}
 """
 
 
+@pytest.fixture(scope="session", autouse=True)
+def no_model_downloads():
+    """Suite-wide guard: tests must NEVER download ML model weights.
+
+    Session-scoped (not per-test) so background work that outlives a single
+    test — e.g. asset processing kicked off by an API call — is covered too.
+    Two layers:
+
+    - `model_cache._download` raises AssertionError, so any code path that
+      would fetch weights from models.stimma.ai fails fast instead of
+      silently pulling hundreds of MB into the temp cache dir. The real
+      `ensure_model()` logic above this seam (cache hits, legacy adoption,
+      privacy lockdown) still runs, so tests/test_privacy.py keeps exercising
+      the real code path.
+    - `clip_service.get_clip_service` returns a lightweight fake with the
+      same embedding contract (CLIP_EMBEDDING_DIM, normalized float32), so
+      code that encodes/compares embeddings works without ONNX runtime.
+      Tests that monkeypatch their own fakes still win: their function-scoped
+      patches apply on top of this one.
+    """
+    import numpy as np
+    import clip_service
+    import model_cache
+    from clip_service import CLIP_EMBEDDING_DIM
+
+    def forbid_download(url: str, tmp: Path) -> None:
+        raise AssertionError(
+            f"tests must not download models (attempted fetch of {url}); "
+            "patch clip_service.get_clip_service / model_cache instead"
+        )
+
+    class FakeClipService:
+        def load_model(self):
+            pass
+
+        def is_loaded(self) -> bool:
+            return True
+
+        def is_loading(self) -> bool:
+            return False
+
+        def wait_for_model(self, timeout: float = 60.0) -> bool:
+            return True
+
+        def encode_image(self, image) -> np.ndarray:
+            embedding = np.zeros(CLIP_EMBEDDING_DIM, dtype=np.float32)
+            embedding[0] = 1.0
+            return embedding
+
+        def encode_text(self, text: str) -> np.ndarray:
+            embedding = np.zeros(CLIP_EMBEDDING_DIM, dtype=np.float32)
+            embedding[0] = 1.0
+            return embedding
+
+        def compute_similarity(self, embedding1, embedding2) -> float:
+            embedding1 = embedding1 / np.linalg.norm(embedding1)
+            embedding2 = embedding2 / np.linalg.norm(embedding2)
+            return float(np.dot(embedding1, embedding2))
+
+        def find_similar(self, query_embedding, candidate_embeddings, top_k: int = 100):
+            similarities = [
+                (idx, self.compute_similarity(query_embedding, candidate))
+                for idx, candidate in enumerate(candidate_embeddings)
+            ]
+            similarities.sort(key=lambda x: x[1], reverse=True)
+            return similarities[:top_k]
+
+    fake = FakeClipService()
+    mp = pytest.MonkeyPatch()
+    mp.setattr(model_cache, "_download", forbid_download)
+    mp.setattr(clip_service, "get_clip_service", lambda *args, **kwargs: fake)
+    yield
+    mp.undo()
+
+
 def _create_app_dirs_patches(temp_dir: Path):
     """Create mock functions for app_dirs that use the temp directory."""
 

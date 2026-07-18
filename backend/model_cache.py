@@ -87,6 +87,15 @@ def _adopt_legacy(dest: Path, legacy_paths: Sequence[Path]) -> bool:
     return False
 
 
+def _download(url: str, tmp: Path) -> None:
+    """Stream `url` into `tmp`. The single network seam for this module; the
+    test suite stubs it out so tests can never download model weights."""
+    req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
+    with urllib.request.urlopen(req) as resp, open(tmp, "wb") as f:
+        while chunk := resp.read(_CHUNK):
+            f.write(chunk)
+
+
 def ensure_model(key: str, *, legacy_paths: Optional[Iterable[Path]] = None) -> Path:
     """Return a local path to model file `key`, downloading on first use.
 
@@ -117,10 +126,7 @@ def ensure_model(key: str, *, legacy_paths: Optional[Iterable[Path]] = None) -> 
         tmp = dest.with_name(f"{dest.name}.{os.getpid()}.{threading.get_ident()}.part")
         log.info(f"Downloading model {key} from {url}")
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
-            with urllib.request.urlopen(req) as resp, open(tmp, "wb") as f:
-                while chunk := resp.read(_CHUNK):
-                    f.write(chunk)
+            _download(url, tmp)
             os.replace(tmp, dest)
         except BaseException:
             # Clean up the partial file on any failure, including KeyboardInterrupt.
