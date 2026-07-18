@@ -15,8 +15,10 @@ Lockdown suppresses the fetch, so the app uses local defaults.
 Reads (``get_bool`` / ``get`` / ``has``) are synchronous dict lookups —
 cheap from any code path. The on-disk cache (``flags.json`` in the app
 data dir) seeds values before the first fetch completes, including on a
-cold start with no network. ``feature_flag_defaults.py`` provides local
-fallbacks for flags the server hasn't defined.
+cold start with no network. There is no central defaults table: every
+read site supplies its own default (``get_bool("foo", default=True)``),
+which is what applies before the first fetch, for flags the server
+doesn't define, and permanently in Privacy Lockdown.
 """
 import asyncio
 import json
@@ -29,7 +31,6 @@ import httpx
 import app_dirs
 from core.logging import get_logger
 from distribution import is_privacy_lockdown
-from feature_flag_defaults import FLAG_DEFAULTS
 
 log = get_logger(__name__)
 
@@ -78,7 +79,7 @@ class FeatureFlagClient:
 
     def get_bool(self, name: str, default: bool = False) -> bool:
         """Return whether a boolean flag is enabled."""
-        value = self._flags.get(name, FLAG_DEFAULTS.get(name, default))
+        value = self._flags.get(name, default)
         return bool(value) and value is not False
 
     # Back-compat alias for existing call sites.
@@ -87,21 +88,15 @@ class FeatureFlagClient:
 
     def get(self, name: str, default: Any = None) -> Any:
         """Return a flag value (arbitrary JSON value)."""
-        if name in self._flags:
-            return self._flags[name]
-        if name in FLAG_DEFAULTS:
-            return FLAG_DEFAULTS[name]
-        return default
+        return self._flags.get(name, default)
 
     def has(self, name: str) -> bool:
-        """Whether the flag is defined (server bag or local defaults)."""
-        return name in self._flags or name in FLAG_DEFAULTS
+        """Whether the flag is defined in the server bag."""
+        return name in self._flags
 
     def all(self) -> Dict[str, Any]:
-        """Snapshot of the effective flag dict (defaults overlaid by server)."""
-        merged = dict(FLAG_DEFAULTS)
-        merged.update(self._flags)
-        return merged
+        """Snapshot of the server flag bag."""
+        return dict(self._flags)
 
     def subscribe(
         self, callback: Callable[[Dict[str, Any]], Awaitable[None]]
@@ -130,7 +125,7 @@ class FeatureFlagClient:
         self._flags = _load_cache()
         if is_privacy_lockdown():
             log.info(
-                "feature_flags: Privacy Lockdown active, no fetch, local defaults only",
+                "feature_flags: Privacy Lockdown active, no fetch, call-site defaults only",
                 cached_count=len(self._flags),
             )
             return

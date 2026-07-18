@@ -7,12 +7,12 @@
  *
  * On startup we hydrate from localStorage so flag reads return correct
  * values before the first sidecar round-trip — no after-launch UI flicker.
- * `featureFlagDefaults.js` provides local fallbacks for flags the server
- * hasn't defined.
+ * There is no central defaults table: every read site supplies its own
+ * default (`getBool('foo', true)`), which applies before the first fetch
+ * and for flags the server doesn't define.
  */
 import { computed, reactive } from 'vue'
 import { getApiBase } from '../apiConfig'
-import { FLAG_DEFAULTS } from '../featureFlagDefaults'
 
 const STORAGE_KEY = 'stimma:flags'
 
@@ -83,23 +83,16 @@ export function useFeatureFlags() {
       if (name in state.flags) {
         return state.flags[name] !== false && Boolean(state.flags[name])
       }
-      if (name in FLAG_DEFAULTS) {
-        return Boolean(FLAG_DEFAULTS[name])
-      }
       return Boolean(defaultValue)
     })
   }
 
   function get(name, defaultValue = null) {
-    return computed(() => {
-      if (name in state.flags) return state.flags[name]
-      if (name in FLAG_DEFAULTS) return FLAG_DEFAULTS[name]
-      return defaultValue
-    })
+    return computed(() => (name in state.flags ? state.flags[name] : defaultValue))
   }
 
   function has(name) {
-    return computed(() => name in state.flags || name in FLAG_DEFAULTS)
+    return computed(() => name in state.flags)
   }
 
   function onChange(callback) {
