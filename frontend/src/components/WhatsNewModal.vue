@@ -9,7 +9,7 @@
         <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[560px] max-w-[calc(100vw-2rem)] mx-4 flex flex-col max-h-[80vh]" @click.stop>
           <div class="px-6 py-4 border-b border-edge flex items-center justify-between flex-none">
             <h3 class="text-lg font-semibold text-content">
-              What's New<span v-if="version" class="text-content-tertiary font-normal"> in {{ version }}</span>
+              What's New<span v-if="version" class="text-content-tertiary font-normal"> in Stimma {{ version }}</span>
             </h3>
             <button @click="$emit('close')" class="text-content-muted hover:text-content transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
