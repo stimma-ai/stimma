@@ -32,7 +32,7 @@
           container-class="w-full h-full"
         />
         <div v-if="!failed" class="absolute inset-0 flex items-center justify-center bg-black/30">
-          <div :class="[spinnerSize, 'border-2 border-white/30 border-t-blue-400 rounded-full animate-spin']"></div>
+          <Spinner size="sm" hue="border-t-blue-500" />
         </div>
       </template>
       <template v-else>
@@ -42,14 +42,16 @@
         >
           <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
         </svg>
-        <div
+        <Spinner
           v-else-if="status === 'processing'"
-          :class="[spinnerSize, 'border-2 border-edge-strong border-t-blue-500 rounded-full animate-spin']"
-        ></div>
-        <div
+          :size="compact ? 'sm' : 'md'"
+          hue="border-t-blue-500"
+        />
+        <Spinner
           v-else-if="status === 'enhancing'"
-          :class="[spinnerSize, 'border-2 border-edge-strong border-t-purple-500 rounded-full animate-spin']"
-        ></div>
+          :size="compact ? 'sm' : 'md'"
+          hue="border-t-purple-500"
+        />
         <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" :class="[compact ? 'w-3.5 h-3.5' : 'w-4 h-4', 'text-content-muted']">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd" />
         </svg>
@@ -89,9 +91,9 @@
               :title="seg.title"
               :class="[
                 'relative flex-1 h-full rounded-full overflow-hidden',
-                seg.status === 'done' ? 'bg-blue-500' :
-                seg.status === 'failed' ? 'bg-red-500' :
-                seg.status === 'skipped' ? 'bg-amber-500/50' :
+                seg.status === 'done' ? dotClass('done') :
+                seg.status === 'failed' ? dotClass('failed') :
+                seg.status === 'skipped' ? dotClass('skipped') :
                 seg.status === 'active' ? 'bg-blue-500/35' :
                 'bg-surface',
               ]"
@@ -126,7 +128,7 @@
         v-if="showRetry"
         @click.stop="$emit('retry')"
         :class="[
-          'flex items-center gap-1 rounded bg-blue-500/15 border border-blue-500/50 text-blue-500 hover:bg-blue-500/30 text-[11px] font-medium transition-colors',
+          'flex items-center gap-1 rounded bg-accent/15 text-accent-hi hover:bg-accent/25 text-[11px] font-medium transition-colors',
           compact ? 'w-6 h-6 justify-center' : 'px-2 py-1',
         ]"
         title="Retry the failed step"
@@ -165,6 +167,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { MediaImage } from '../../media'
+import Spinner from '../../ui/Spinner.vue'
+import { dotClass } from '../../../utils/statusColors'
 
 export type SegmentStatus = 'done' | 'active' | 'pending' | 'failed' | 'skipped'
 export interface PipelineSegment {
@@ -207,9 +211,6 @@ const props = withDefaults(defineProps<{
 const tooltip = computed(() =>
   [props.name, props.label].filter(Boolean).join(' — ')
 )
-
-// Smaller spinner in the narrow Stage rail.
-const spinnerSize = computed(() => (props.compact ? 'w-3.5 h-3.5' : 'w-[18px] h-[18px]'))
 
 // The single line shown in compact rows: the tool/step name, except for
 // determinate batches where the "N of M" count is the useful bit.

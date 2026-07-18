@@ -1,6 +1,7 @@
 <template>
   <EmptyState
     icon="warning"
+    tone="error"
     :title="errorTitle"
     :subtitle="errorSubtitle"
     :action-label="showRetry ? 'Retry' : null"

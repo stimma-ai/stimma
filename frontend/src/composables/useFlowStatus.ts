@@ -1,5 +1,6 @@
 import { computed, type Ref } from 'vue'
 import { useFlowCounts, type FlowExecutionState, type FlowStatusSummary } from './useFlowCounts'
+import { dotClass, mapFlowStatus } from '../utils/statusColors'
 
 /**
  * Shared status derivation for a flow — keeps the FlowView header and
@@ -49,16 +50,13 @@ export function deriveFlowStatusLabel(
   return 'Done'
 }
 
+// Colors route through the statusColors.ts single source of truth
+// (STANDARDS.md §1.9). Running and Your Turn are the two "live" states —
+// they get pulse-soft (never stock animate-pulse) on top of the bucket dot.
 export function flowStatusDotClass(label: FlowStatusLabel): string {
-  switch (label) {
-    case 'Running':   return 'bg-blue-400 animate-pulse'
-    case 'Your Turn': return 'bg-purple-400'
-    case 'Waiting':   return 'bg-amber-400'
-    case 'Error':     return 'bg-red-400'
-    case 'Done':      return 'bg-green-400'
-    case 'Paused':    return 'bg-yellow-400'
-    default:          return 'bg-zinc-500'
-  }
+  const base = dotClass(mapFlowStatus(label))
+  const pulse = label === 'Running' || label === 'Your Turn' ? ' animate-pulse-soft' : ''
+  return base + pulse
 }
 
 export function useFlowStatus(flowId: Ref<number | string | null | undefined>) {

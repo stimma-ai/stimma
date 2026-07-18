@@ -98,7 +98,7 @@
           @change="$emit('set-enabled', ($event.target as HTMLInputElement).checked)"
           class="sr-only peer"
         >
-        <div class="relative w-7 h-4 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-3 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
+        <div class="relative w-7 h-4 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-3 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-accent"></div>
       </label>
 
       <!-- Kebab → Remove -->
