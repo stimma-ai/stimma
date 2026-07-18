@@ -47,8 +47,10 @@ const renderedNotes = computed(() => {
 </script>
 
 <style scoped>
+/* Not text-base: this app defines a color named `base`, which wins the
+   utility-name collision and turns text-base into background-colored text. */
 .whats-new-body :deep(h2) {
-  @apply text-content font-semibold text-base mt-5 mb-2 first:mt-0;
+  @apply text-content font-semibold text-[16px] mt-5 mb-2 first:mt-0;
 }
 .whats-new-body :deep(h3) {
   @apply text-content font-medium text-sm mt-4 mb-1.5;
