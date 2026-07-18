@@ -18,11 +18,12 @@ async def test_fast_scan_prunes_app_owned_storage_from_broad_source(tmp_path: Pa
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"png")
 
-    scanned = await fast_scan_directories(
+    scanned, untrusted = await fast_scan_directories(
         [str(source)], excluded_paths=[app_data]
     )
 
     assert [item["file_path"] for item in scanned] == [str(external)]
+    assert untrusted == set()
 
 
 @pytest.mark.asyncio
@@ -32,11 +33,12 @@ async def test_fast_scan_rejects_source_inside_app_owned_storage(tmp_path: Path)
     generated.parent.mkdir(parents=True)
     generated.write_bytes(b"png")
 
-    scanned = await fast_scan_directories(
+    scanned, untrusted = await fast_scan_directories(
         [str(generated.parent)], excluded_paths=[app_data]
     )
 
     assert scanned == []
+    assert untrusted == {str(generated.parent)}
 
 
 @pytest.mark.asyncio
@@ -45,8 +47,46 @@ async def test_fast_scan_rejects_temporary_transfer_tree(tmp_path: Path):
     transfer.parent.mkdir(parents=True)
     transfer.write_bytes(b"png")
 
-    scanned = await fast_scan_directories(
+    scanned, untrusted = await fast_scan_directories(
         [str(tmp_path)], excluded_paths=[tmp_path]
     )
 
     assert scanned == []
+    assert untrusted == {str(tmp_path)}
+
+
+@pytest.mark.asyncio
+async def test_fast_scan_flags_missing_root_as_untrusted(tmp_path: Path):
+    present = tmp_path / "present"
+    present.mkdir()
+    (present / "a.png").write_bytes(b"png")
+    missing = tmp_path / "unmounted-volume"
+
+    scanned, untrusted = await fast_scan_directories(
+        [str(present), str(missing)], excluded_paths=[]
+    )
+
+    assert [item["file_path"] for item in scanned] == [str(present / "a.png")]
+    assert untrusted == {str(missing)}
+
+
+@pytest.mark.asyncio
+async def test_fast_scan_flags_unreadable_root_as_untrusted(tmp_path: Path):
+    import os
+
+    if os.geteuid() == 0:
+        pytest.skip("root bypasses directory permissions")
+
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    (locked / "a.png").write_bytes(b"png")
+    locked.chmod(0o000)
+    try:
+        scanned, untrusted = await fast_scan_directories(
+            [str(locked)], excluded_paths=[]
+        )
+    finally:
+        locked.chmod(0o755)
+
+    assert scanned == []
+    assert untrusted == {str(locked)}

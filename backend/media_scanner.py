@@ -152,7 +152,7 @@ def is_path_within_roots(path: str | Path, roots: List[str | Path]) -> bool:
 
 async def fast_scan_directories(
     paths: List[str], *, excluded_paths: Optional[List[str | Path]] = None
-) -> List[dict]:
+) -> tuple[List[dict], set[str]]:
     """
     Ultra-fast file discovery - loads all paths and basic stats into RAM.
 
@@ -168,10 +168,17 @@ async def fast_scan_directories(
         excluded_paths: App-owned roots that must never be treated as Sources
 
     Returns:
-        List of dicts with: file_path, file_size, file_format, created_date, modified_date
+        (files, untrusted_roots) where files is a list of dicts with:
+        file_path, file_size, file_format, created_date, modified_date.
+        untrusted_roots contains entries of `paths` (verbatim) whose scan
+        results must not be treated as authoritative absence — the root was
+        missing, skipped, or produced read errors (e.g. an unmounted volume
+        or a permission denial). Callers must never mark files under an
+        untrusted root as unavailable.
     """
     log.debug(f"FAST DISCOVERY: Starting ultra-fast scan of {len(paths)} path(s)")
     files = []
+    untrusted_roots: set[str] = set()
     excluded_roots = [
         Path(path).expanduser().resolve(strict=False)
         for path in (excluded_paths or [])
@@ -183,10 +190,12 @@ async def fast_scan_directories(
 
         if path_is_within_resolved_roots(path, excluded_roots):
             log.warning(f"FAST DISCOVERY: Skipping app-owned path: {path}")
+            untrusted_roots.add(path_str)
             continue
 
         if not path.exists():
             log.warning(f"FAST DISCOVERY: Path does not exist: {path}")
+            untrusted_roots.add(path_str)
             continue
 
         if path.is_file():
@@ -201,8 +210,17 @@ async def fast_scan_directories(
                     'modified_date': datetime.utcfromtimestamp(stat.st_mtime),
                 })
         elif path.is_dir():
-            # Fast directory walk - just stat() calls
-            for root, dirs, filenames in os.walk(path):
+            # Fast directory walk - just stat() calls. os.walk suppresses
+            # listdir errors by default; a root that can't be read (revoked
+            # permission, disappearing mount) must poison trust in this
+            # root's results rather than scan as silently empty.
+            def _walk_error(error: OSError, root_str: str = path_str) -> None:
+                log.warning(
+                    f"FAST DISCOVERY: Cannot read {getattr(error, 'filename', None) or root_str}: {error}"
+                )
+                untrusted_roots.add(root_str)
+
+            for root, dirs, filenames in os.walk(path, onerror=_walk_error):
                 root_path = Path(root)
                 # A Source may be a broad ancestor (even the home directory).
                 # Prune Stimma's data/cache trees before seeing staging,
@@ -260,7 +278,7 @@ async def fast_scan_directories(
                     await asyncio.sleep(0)
 
     log.debug(f"FAST DISCOVERY: Completed - found {len(files)} files in RAM")
-    return files
+    return files, untrusted_roots
 
 
 async def scan_directories(paths: List[str]) -> AsyncGenerator[Path, None]:

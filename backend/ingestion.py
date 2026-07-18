@@ -827,16 +827,28 @@ class MediaIngestion:
         import app_dirs
 
         app_owned_roots = app_dirs.get_source_excluded_roots()
-        source_roots = [
-            Path(path).expanduser().resolve(strict=False) for path in folder_paths
-        ]
         log.debug(f"FAST DISCOVERY [{profile_id}]: Scanning {len(folder_paths)} folders...")
 
         # Step 1: Scan filesystem into RAM
-        scanned_files = await fast_scan_directories(
+        scanned_files, untrusted_folder_paths = await fast_scan_directories(
             folder_paths, excluded_paths=app_owned_roots
         )
         log.debug(f"FAST DISCOVERY [{profile_id}]: Loaded {len(scanned_files)} files into RAM")
+
+        # Absence evidence is only valid from roots that scanned cleanly. An
+        # unmounted volume or unreadable folder means "source offline", never
+        # "every file under it was deleted".
+        trusted_source_roots = [
+            Path(path).expanduser().resolve(strict=False)
+            for path in folder_paths
+            if path not in untrusted_folder_paths
+        ]
+        if untrusted_folder_paths:
+            log.warning(
+                f"FAST DISCOVERY [{profile_id}]: Skipping availability sweep for "
+                f"{len(untrusted_folder_paths)} offline/unreadable folder(s): "
+                f"{sorted(untrusted_folder_paths)}"
+            )
 
         # Step 2: Get database for this profile
         db = await self._get_profile_db(profile_id)
@@ -857,30 +869,37 @@ class MediaIngestion:
             existing_files = {row[1]: (row[0], row[2]) for row in result.fetchall()}
             log.debug(f"FAST DISCOVERY [{profile_id}]: Found {len(existing_files)} existing files in DB")
 
+            # Unavailable rows keep their Media identity while a source is
+            # offline. If the exact bytes reappear (same path, size, mtime),
+            # the row is restored in place instead of re-ingested as new Media.
+            result = await session.execute(
+                select(
+                    MediaItem.id,
+                    MediaItem.file_path,
+                    MediaItem.modified_date,
+                    MediaItem.file_size,
+                )
+                .where(
+                    MediaItem.deleted_at.is_(None),
+                    MediaItem.file_unavailable.is_(True),
+                )
+                .order_by(MediaItem.id)
+            )
+            unavailable_files = {
+                row[1]: (row[0], row[2], row[3]) for row in result.fetchall()
+            }
+
             # Step 3: Diff in RAM
             new_files = []
             modified_files = []
+            restored_ids = []
             scanned_paths = set()
 
             for file_info in scanned_files:
                 file_path = file_info['file_path']
                 scanned_paths.add(file_path)
 
-                if file_path not in existing_files:
-                    # New file
-                    new_files.append({
-                        'file_path': file_path,
-                        'file_hash': '',
-                        'file_size': file_info['file_size'],
-                        'file_format': file_info['file_format'],
-                        'created_date': file_info['created_date'],
-                        'modified_date': file_info['modified_date'],
-                        'metadata_status': 'pending',
-                        'width': 0,
-                        'height': 0,
-                        'megapixels': 0.0,
-                    })
-                else:
+                if file_path in existing_files:
                     # Check if modified - use 1 second tolerance to avoid floating-point/microsecond precision issues
                     # SQLite may truncate or round microseconds, causing false positives on each scan
                     existing_id, db_mtime = existing_files[file_path]
@@ -889,8 +908,39 @@ class MediaIngestion:
                         time_diff = (file_mtime - db_mtime).total_seconds()
                         if time_diff > 1.0:  # More than 1 second newer = actually modified
                             modified_files.append((existing_id, file_info))
+                    continue
 
-            log.debug(f"FAST DISCOVERY [{profile_id}]: {len(new_files)} new, {len(modified_files)} modified")
+                if file_path in unavailable_files:
+                    unavailable_id, db_mtime, db_size = unavailable_files[file_path]
+                    file_mtime = file_info['modified_date']
+                    same_mtime = (
+                        db_mtime is not None
+                        and file_mtime is not None
+                        and abs((file_mtime - db_mtime).total_seconds()) <= 1.0
+                    )
+                    if same_mtime and db_size == file_info['file_size']:
+                        # Identical bytes at the same path: same Media identity,
+                        # flip availability back on.
+                        restored_ids.append(unavailable_id)
+                        continue
+                    # Bytes changed while offline: fall through and ingest as a
+                    # new Media identity; metadata completion advances the
+                    # existing watched-file Asset to a new Revision.
+
+                new_files.append({
+                    'file_path': file_path,
+                    'file_hash': '',
+                    'file_size': file_info['file_size'],
+                    'file_format': file_info['file_format'],
+                    'created_date': file_info['created_date'],
+                    'modified_date': file_info['modified_date'],
+                    'metadata_status': 'pending',
+                    'width': 0,
+                    'height': 0,
+                    'megapixels': 0.0,
+                })
+
+            log.debug(f"FAST DISCOVERY [{profile_id}]: {len(new_files)} new, {len(modified_files)} modified, {len(restored_ids)} restored")
 
             # Step 4: Batch insert new files
             if new_files:
@@ -942,12 +992,14 @@ class MediaIngestion:
                     ))
 
             # Step 6: Mark missing files as unavailable (SOFT - preserves user data)
-            # This protects against data loss if a folder is temporarily unavailable
+            # Only files under roots that scanned cleanly count as missing; an
+            # offline or unreadable root contributes no absence evidence, so
+            # its files keep their current availability until it returns.
             files_in_scanned_folders = set()
             for existing_path in existing_files:
                 resolved_path = Path(existing_path).expanduser().resolve(strict=False)
                 if (
-                    path_is_within_resolved_roots(resolved_path, source_roots)
+                    path_is_within_resolved_roots(resolved_path, trusted_source_roots)
                     and not path_is_within_resolved_roots(
                         resolved_path, app_owned_roots
                     )
@@ -975,10 +1027,24 @@ class MediaIngestion:
                         unavailable_count += 1
                         log.info(f"UNAVAILABLE: {file_path}")
 
-            # A reappearing path is inserted as new Media and reconciled to the
-            # existing Asset after its hash is known. Never mutate an old exact
-            # Media revision back to "available" merely because its path exists.
+            # Step 7: Restore unavailable files whose exact bytes reappeared
+            # (same path + size + mtime, matched in Step 3). Changed bytes take
+            # the new-Media path instead, so old exact revisions stay immutable.
             restored_count = 0
+            if restored_ids:
+                log.info(f"FAST DISCOVERY [{profile_id}]: Restoring {len(restored_ids)} files that reappeared...")
+                batch_size = 500
+                for i in range(0, len(restored_ids), batch_size):
+                    batch = restored_ids[i:i+batch_size]
+                    result = await session.execute(
+                        select(MediaItem).where(MediaItem.id.in_(batch))
+                    )
+                    for item in result.scalars():
+                        if item.file_unavailable:
+                            item.file_unavailable = False
+                            item.file_unavailable_since = None
+                            restored_count += 1
+                            log.info(f"RESTORED: {item.file_path}")
 
             # Step 8: Sync auto-markers for all existing files (handles config changes)
             # Only sync if any folder has markers configured
