@@ -527,14 +527,15 @@ jobs:
           # Remove this run's keychain from the search list and delete it, so the
           # user-domain search list does not accumulate dead apple-signing-*
           # keychains across releases (the cause of errSecInternalComponent).
+          # Keep OTHER runs' still-existing apple-signing keychains: stripping
+          # them here yanks a concurrent release's keychain mid-codesign. Dead
+          # entries are dropped by the [ -f ] check once their files are gone.
           REMAINING=""
           while IFS= read -r kc; do
             kc="${kc//[\" ]/}"
             [ -z "$kc" ] && continue
             [ -f "$kc" ] || continue
-            case "$kc" in
-              *apple-signing-*) continue ;;
-            esac
+            [ "$kc" = "${STIMMA_SIGNING_KEYCHAIN:-}" ] && continue
             REMAINING="$REMAINING $kc"
           done < <(security list-keychains -d user)
           security list-keychains -d user -s $REMAINING

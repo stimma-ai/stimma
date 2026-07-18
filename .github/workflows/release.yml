@@ -20,6 +20,15 @@ on:
 permissions:
   contents: write
 
+# Releases must not overlap: concurrent runs race on the self-hosted macOS
+# signer — one run's keychain cleanup strips the other's active signing
+# keychain from the search list mid-codesign (errSecInternalComponent).
+# Queue instead of cancel: a beta and its production promotion may both be
+# tagged within minutes and both must ship.
+concurrency:
+  group: release-signing
+  cancel-in-progress: false
+
 jobs:
   release-meta:
     name: Resolve release metadata
