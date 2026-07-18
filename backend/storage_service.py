@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app_dirs
@@ -292,27 +292,65 @@ async def register_external_asset(
         )
         return None, None
 
-    storage = await register_external_media(session, media=media)
     from sqlalchemy.orm import aliased
     from asset_association_service import mirror_media_associations_to_asset
     from asset_service import commit_revision, create_asset_from_media
     from database import Asset, AssetRevision
 
+    # Match trashed assets too: the user's curation is authoritative. Bytes
+    # whose Asset sits in the trash must never resurface as a fresh active
+    # Asset just because the scanner saw their file again.
     prior_media = aliased(MediaItem)
-    existing_asset = await session.scalar(
-        select(Asset)
-        .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
-        .join(prior_media, prior_media.id == AssetRevision.primary_media_id)
-        .where(
-            Asset.state == "active",
-            Asset.deleted_at.is_(None),
-            prior_media.file_path == media.file_path,
-            prior_media.id != media.id,
+    existing = (
+        await session.execute(
+            select(Asset, prior_media)
+            .join(AssetRevision, AssetRevision.id == Asset.current_revision_id)
+            .join(prior_media, prior_media.id == AssetRevision.primary_media_id)
+            .where(
+                # Trashed Assets carry deleted_at but still own their bytes;
+                # matching them prevents resurrection as a fresh active Asset.
+                or_(
+                    (Asset.state == "active") & Asset.deleted_at.is_(None),
+                    Asset.state == "trashed",
+                ),
+                prior_media.file_path == media.file_path,
+                prior_media.id != media.id,
+            )
+            .order_by(Asset.updated_at.desc())
+            .limit(1)
         )
-        .order_by(Asset.updated_at.desc())
-        .limit(1)
-    )
-    if existing_asset is None:
+    ).first()
+
+    if existing is not None:
+        existing_asset, prior_payload = existing
+        if media.file_hash and media.file_hash == prior_payload.file_hash:
+            # Identical bytes reappeared: this is availability, not history.
+            # Restore the original payload in place and drop the duplicate —
+            # unchanged files must never grow new revisions.
+            prior_payload.file_unavailable = False
+            prior_payload.file_unavailable_since = None
+            media.deleted_at = datetime.utcnow()
+            await session.flush()
+            log.info(
+                "Watched file reappeared unchanged; restored original media %s for asset %s",
+                prior_payload.id,
+                existing_asset.id,
+            )
+            return None, existing_asset
+
+    storage = await register_external_media(session, media=media)
+    if existing is not None:
+        existing_asset, _prior_payload = existing
+        await commit_revision(
+            session,
+            asset_id=existing_asset.id,
+            media_id=media.id,
+            note="Watched file changed",
+            idempotency_key=f"watched-file:{media.id}:revision",
+            allow_inactive=True,
+        )
+        asset = existing_asset
+    else:
         asset = await create_asset_from_media(
             session,
             media_id=media.id,
@@ -320,15 +358,6 @@ async def register_external_asset(
             origin_id=media.file_path,
             idempotency_key=f"watched-file:{media.id}",
         )
-    else:
-        await commit_revision(
-            session,
-            asset_id=existing_asset.id,
-            media_id=media.id,
-            note="Watched file changed",
-            idempotency_key=f"watched-file:{media.id}:revision",
-        )
-        asset = existing_asset
     await mirror_media_associations_to_asset(
         session, media_id=media.id, asset_id=asset.id
     )

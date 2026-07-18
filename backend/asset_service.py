@@ -194,14 +194,23 @@ async def commit_revision(
     parent_revision_id: Optional[int] = None,
     note: Optional[str] = None,
     idempotency_key: Optional[str] = None,
+    allow_inactive: bool = False,
 ) -> AssetRevision:
     """Save Media as a new immutable revision and make it current.
 
     Passing a non-current parent deliberately creates a branch; the new branch
     becomes current while the old revisions remain addressable.
+
+    allow_inactive lets a watched file that changed on disk advance its
+    trashed Asset's history without resurrecting it — the Asset keeps its
+    state and stays wherever the user put it.
     """
     asset = await session.get(Asset, asset_id)
-    if asset is None or asset.deleted_at is not None or asset.state != "active":
+    if asset is None:
+        raise AssetServiceError("Asset is unavailable")
+    is_active = asset.state == "active" and asset.deleted_at is None
+    is_trashed = asset.state == "trashed"
+    if not is_active and not (allow_inactive and is_trashed):
         raise AssetServiceError("Asset is unavailable")
     await _live_media(session, media_id)
 
