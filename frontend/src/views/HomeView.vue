@@ -23,30 +23,32 @@
             style="background: radial-gradient(50% 60% at 42% 45%, rgba(139, 92, 246, 0.13), transparent 70%), radial-gradient(45% 55% at 62% 50%, rgba(59, 130, 246, 0.09), transparent 70%); filter: blur(12px)"
           ></div>
 
-          <h1 class="relative font-brand text-4xl font-semibold text-content mb-3 text-center">{{ greeting }}</h1>
+          <h1 class="relative font-brand text-4xl font-bold tracking-tight text-content mb-3 text-center">{{ greeting }}</h1>
           <p class="relative text-[15px] text-content-secondary mb-10 text-center">{{ greetingSub }}</p>
 
           <div class="relative w-full max-w-[720px]">
-            <ChatInputBox
-              ref="chatInputBoxRef"
-              v-model="inputText"
-              :attachments="inputAttachments"
-              :rows="3"
-              :disabled="submitting"
-              :agent-unavailable="agentModelUnavailable"
-              @update:attachments="inputAttachments = $event"
-              @submit="submitMessage"
-            >
-              <template v-if="newChatImageUnsupported" #context-header>
-                <div class="px-4 pt-2 text-xs text-amber-500">{{ newChatImageUnsupported }}</div>
-              </template>
-              <template #model-picker>
-                <ChatModelPicker
-                  :model-slug="selectedNewChatModel"
-                  @update:model-slug="selectedNewChatModel = $event"
-                />
-              </template>
-            </ChatInputBox>
+            <div class="rounded-lg shadow-lg shadow-black/20">
+              <ChatInputBox
+                ref="chatInputBoxRef"
+                v-model="inputText"
+                :attachments="inputAttachments"
+                :rows="3"
+                :disabled="submitting"
+                :agent-unavailable="agentModelUnavailable"
+                @update:attachments="inputAttachments = $event"
+                @submit="submitMessage"
+              >
+                <template v-if="newChatImageUnsupported" #context-header>
+                  <div class="px-4 pt-2 text-xs text-amber-500">{{ newChatImageUnsupported }}</div>
+                </template>
+                <template #model-picker>
+                  <ChatModelPicker
+                    :model-slug="selectedNewChatModel"
+                    @update:model-slug="selectedNewChatModel = $event"
+                  />
+                </template>
+              </ChatInputBox>
+            </div>
 
             <!-- Tool launchers docked to the prompt (recent tools, starter picks as cold-start fill) -->
             <div v-if="!isFirstRun && launcherTools.length > 0" class="flex flex-wrap justify-center gap-2 mt-4">
@@ -133,10 +135,10 @@
                 @dragover.prevent="item.type === 'board' && (dragOverBoardId = item.id)"
                 @dragleave="item.type === 'board' && dragOverBoardId === item.id && (dragOverBoardId = null)"
                 @drop.prevent="item.type === 'board' && handleBoardDrop(item.id, $event)"
-                class="flex flex-col rounded-lg border overflow-hidden text-left bg-overlay-faint transition-all cursor-pointer"
+                class="flex flex-col rounded-lg border overflow-hidden text-left bg-transparent transition-colors cursor-pointer"
                 :class="item.type === 'board' && dragOverBoardId === item.id
                   ? 'border-blue-500 bg-blue-500/10'
-                  : 'border-edge-subtle hover:border-edge-strong hover:bg-overlay-subtle'"
+                  : 'border-edge-subtle hover:bg-overlay-faint'"
               >
                 <!-- Art -->
                 <div class="w-full h-28 bg-overlay-subtle">
@@ -222,7 +224,11 @@
                     text-class="truncate text-xs text-content-muted"
                     class="mt-0.5"
                   />
-                  <div v-else class="text-xs text-content-muted truncate mt-0.5">{{ item.sub }}</div>
+                  <div
+                    v-else
+                    class="text-xs truncate mt-0.5"
+                    :class="item.type === 'board' ? 'font-mono tabular-nums text-content-tertiary' : 'text-content-muted'"
+                  >{{ item.sub }}</div>
                 </div>
               </button>
             </div>
@@ -236,21 +242,23 @@
                 View all
               </router-link>
             </div>
-            <div class="grid gap-1.5" :style="{ gridTemplateColumns: `repeat(${mediaColumns}, 1fr)` }">
-              <div
-                v-for="(media, index) in visibleMedia"
-                :key="media.id"
-                class="aspect-square rounded-media overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-                @click="openMediaSlideshow(index)"
-              >
-                <MediaImage
-                  :media-id="mediaIdOf(media)"
-                  :file-hash="media.file_hash"
-                  :thumbnail="true"
-                  :thumbnail-size="256"
-                  container-class="w-full h-full"
-                  class="w-full h-full object-cover"
-                />
+            <div class="bg-matte rounded-lg p-2">
+              <div class="grid gap-0.5" :style="{ gridTemplateColumns: `repeat(${mediaColumns}, 1fr)` }">
+                <div
+                  v-for="(media, index) in visibleMedia"
+                  :key="media.id"
+                  class="aspect-square rounded-media overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                  @click="openMediaSlideshow(index)"
+                >
+                  <MediaImage
+                    :media-id="mediaIdOf(media)"
+                    :file-hash="media.file_hash"
+                    :thumbnail="true"
+                    :thumbnail-size="256"
+                    container-class="w-full h-full"
+                    class="w-full h-full object-cover"
+                  />
+                </div>
               </div>
             </div>
           </div>
