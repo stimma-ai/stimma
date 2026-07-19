@@ -30,7 +30,7 @@
   <div v-else class="relative mb-3">
     <div class="flex items-stretch gap-3">
       <div
-        class="flex-shrink-0 self-stretch min-h-14 rounded-media bg-matte overflow-hidden hover:ring-1 hover:ring-indigo-400/60 transition-shadow duration-150 cursor-pointer"
+        class="relative flex-shrink-0 self-stretch min-h-14 w-16 rounded-media bg-matte overflow-hidden hover:ring-1 hover:ring-indigo-400/60 transition-shadow duration-150 cursor-pointer"
         draggable="true"
         @dragstart="onDragStart"
         @dragend="handleDragEnd"
@@ -40,16 +40,16 @@
         <img
           :src="thumbnailUrl"
           alt="Inspiration source"
-          class="h-full w-auto max-w-32 object-cover pointer-events-none"
+          class="absolute inset-0 w-full h-full object-cover pointer-events-none"
         />
       </div>
 
-      <div class="min-w-0 pt-1 pr-6 overflow-hidden" style="flex: 1 1 0%;">
+      <div class="min-w-0 pt-1 pr-6 overflow-hidden flex flex-col" style="flex: 1 1 0%;">
         <div class="text-xs font-medium text-indigo-400 mb-0.5">Remix of</div>
         <div v-if="promptSnippet" class="text-[11px] text-content-muted leading-tight line-clamp-3">{{ promptSnippet }}</div>
 
         <!-- Action chips -->
-        <div class="flex flex-wrap gap-1.5 mt-2">
+        <div class="flex flex-wrap gap-1.5 mt-auto pt-2">
           <button
             @click="$emit('copy-prompt')"
             class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors duration-150 cursor-pointer bg-transparent"
