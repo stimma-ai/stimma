@@ -1,5 +1,7 @@
 <template>
-  <div class="w-full h-full overflow-hidden relative bg-base">
+  <!-- The graph canvas sits on true matte — blacker than the app chrome, so
+       the quiet cards and their media lift off it. -->
+  <div class="w-full h-full overflow-hidden relative bg-matte">
     <!-- Empty state -->
     <div v-if="layoutNodes.length === 0" class="absolute inset-0 flex items-center justify-center">
       <div class="text-center space-y-1.5">
@@ -23,6 +25,8 @@
           transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
           width: canvasW + 'px',
           height: canvasH + 'px',
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgb(var(--color-text-primary-rgb) / 0.04) 1px, transparent 0)',
+          backgroundSize: '24px 24px',
         }"
       >
         <!-- Edges (SVG layer) — z-0 to keep below nodes (z-10) -->
@@ -32,15 +36,49 @@
           :height="canvasH"
           :viewBox="`0 0 ${canvasW} ${canvasH}`"
         >
-          <path
-            v-for="(edge, i) in layoutEdges"
-            :key="i"
-            :d="edge.path"
-            fill="none"
-            :stroke="edge.stroke"
-            :stroke-width="2 / zoom"
-            stroke-linecap="round"
-            opacity="0.8"
+          <template v-for="(edge, i) in layoutEdges" :key="i">
+            <path
+              :d="edge.path"
+              fill="none"
+              :stroke="edge.active ? 'rgb(var(--color-accent-rgb))' : 'rgb(var(--color-text-primary-rgb) / 0.16)'"
+              :stroke-width="edge.active ? 1.75 : 2"
+              stroke-linecap="round"
+              :opacity="edge.active ? 0.3 : 1"
+            />
+            <!-- Active edges carry a slow accent dash — data visibly flowing
+                 into the running step. -->
+            <path
+              v-if="edge.active"
+              class="flow-edge-dash"
+              :d="edge.path"
+              fill="none"
+              stroke="rgb(var(--color-accent-rgb))"
+              :stroke-width="1.75"
+              stroke-linecap="round"
+              opacity="0.9"
+            />
+          </template>
+        </svg>
+
+        <!-- Connection points: a small socket where each wire meets a card;
+             lit accent when its wire is flowing. In their own layer ABOVE
+             the nodes so every dot straddles the card edge whole — never
+             clipped behind a card or split by a wire. -->
+        <svg
+          class="absolute inset-0 z-20 pointer-events-none"
+          :width="canvasW"
+          :height="canvasH"
+          :viewBox="`0 0 ${canvasW} ${canvasH}`"
+        >
+          <circle
+            v-for="(p, i) in layoutPorts"
+            :key="'p' + i"
+            :cx="p.x"
+            :cy="p.y"
+            r="3"
+            fill="var(--color-surface)"
+            :stroke="p.active ? 'rgb(var(--color-accent-rgb))' : 'rgb(var(--color-text-tertiary-rgb) / 0.7)'"
+            stroke-width="1.5"
           />
         </svg>
 
@@ -71,24 +109,26 @@
           :style="{ left: n.x + 'px', top: n.y + 'px', width: n.w + 'px', height: n.h + 'px' }"
           @click.stop="selectNode(n.key)"
         >
-          <!-- Opaque base layer so edges don't bleed through tinted cards -->
-          <div class="absolute inset-0 rounded-lg bg-base" />
-          <!-- Selected highlight ring -->
+          <!-- Selected highlight ring — indigo: selection ≠ action -->
           <div
             v-if="selectedKey === n.key"
-            class="absolute -inset-1 rounded-lg ring-2 ring-blue-400 pointer-events-none"
+            class="absolute -inset-1 ring-2 ring-selection pointer-events-none"
+            :class="n.h <= NODE_H_COMPACT ? 'rounded-full' : 'rounded-[14px]'"
           />
           <!-- Echo ring: lights up when the user hovers this node's chip in
                the chat context tray. Suppressed when already selected so the
                two rings don't fight for the same pixels. -->
           <div
             v-else-if="isNodeEchoed(n)"
-            class="absolute -inset-1 rounded-lg ring-1 ring-blue-500/40 pointer-events-none"
+            class="absolute -inset-1 ring-1 ring-selection/40 pointer-events-none"
+            :class="n.h <= NODE_H_COMPACT ? 'rounded-full' : 'rounded-[14px]'"
           />
           <EquationNodeCard
             :status="n.status"
-            :chip-label="typeChipLabel(n)"
-            :chip-class="typeChipClass(n)"
+            :icon="nodeVisual(n).icon"
+            :tile-class="nodeVisual(n).tileClass"
+            :compact="n.h <= NODE_H_COMPACT"
+            :hero="isHeroNode(n)"
             :title="nodeTitle(n)"
             :subtitle="nodeRuntimeLabel(n) ? null : nodeSubtitle(n)"
             :status-label="statusLabel(n)"
@@ -128,28 +168,52 @@
                   v-html="renderInfoMarkdown(infoText(n))"
                 />
               </div>
-              <!-- Media thumbnails -->
-              <div v-else-if="n.result_media_ids.length > 0" class="flex items-center gap-1">
-                <div
-                  v-for="(mid, midIdx) in n.result_media_ids.slice(0, 4)"
+              <!-- Media hero — the result IS the node's body. A single image
+                   gets the card sized to its aspect (fit-mode thumb, no
+                   cropped foreheads); multiple results render as a square
+                   strip. -->
+              <FlowMediaTile
+                v-else-if="n.result_media_ids.length === 1"
+                :media-id="n.result_media_ids[0]"
+                :media-ids="n.result_media_ids"
+                :index="0"
+                :thumbnail="true"
+                :thumbnail-size="512"
+                thumbnail-mode="fit"
+                :draggable="false"
+                container-class="w-full h-full rounded-[2px] overflow-hidden bg-matte"
+                img-class="w-full h-full object-cover"
+              />
+              <div
+                v-else-if="n.result_media_ids.length > 0"
+                class="w-full h-full flex gap-px rounded-[2px] overflow-hidden bg-matte"
+              >
+                <FlowMediaTile
+                  v-for="(mid, midIdx) in n.result_media_ids.slice(0, 3)"
                   :key="mid"
-                  class="w-8 h-8 flex-shrink-0 rounded overflow-hidden border border-edge-subtle"
+                  :media-id="mid"
+                  :media-ids="n.result_media_ids"
+                  :index="midIdx"
+                  :thumbnail="true"
+                  :thumbnail-size="256"
+                  :draggable="false"
+                  container-class="flex-1 min-w-0 h-full bg-matte"
+                  img-class="w-full h-full object-cover"
+                />
+                <div
+                  v-if="n.result_media_ids.length > 3"
+                  class="flex-none w-10 h-full flex items-center justify-center bg-overlay-subtle"
                 >
-                  <FlowMediaTile
-                    :media-id="mid"
-                    :media-ids="n.result_media_ids"
-                    :index="midIdx"
-                    :thumbnail="true"
-                    :thumbnail-size="64"
-                    :draggable="false"
-                    container-class="w-full h-full"
-                    img-class="w-full h-full object-cover"
-                  />
+                  <span class="text-[10.5px] font-mono tabular-nums text-content-muted">+{{ n.result_media_ids.length - 3 }}</span>
                 </div>
-                <span
-                  v-if="n.result_media_ids.length > 4"
-                  class="text-[10px] text-content-muted"
-                >+{{ n.result_media_ids.length - 4 }}</span>
+              </div>
+              <!-- Running with nothing to show yet: a shimmering matte block
+                   where the result will land. -->
+              <div
+                v-else-if="n.status === 'computing'"
+                class="w-full h-full rounded-[2px] bg-matte overflow-hidden relative"
+              >
+                <div class="absolute inset-0 flow-shimmer" />
               </div>
               <!-- LLM body: render the prompt template so the user sees what
                    this step is being asked, instead of an empty card. -->
@@ -158,12 +222,6 @@
                 class="text-[10.5px] leading-snug line-clamp-3 text-content-muted self-start whitespace-pre-wrap break-words"
                 :title="n.description"
               >{{ n.description }}</div>
-              <!-- Failed indicator — keep it short; the detail panel has the
-                   full treatment (ask-assistant + devMode raw error). -->
-              <div
-                v-else-if="n.status === 'failed'"
-                class="text-[10px] leading-tight line-clamp-2 self-start text-flow-fail-strong"
-              >This step failed.</div>
             </template>
             <template #footer-actions>
               <FlowRefButton
@@ -262,6 +320,7 @@ import * as dagre from '@dagrejs/dagre'
 import FlowMediaTile from './FlowMediaTile.vue'
 import type { FlowEquation, FlowTask } from '../../composables/useFlowsApi'
 import { useProvidersApi } from '../../composables/useProvidersApi'
+import { useMediaApi } from '../../composables/useMediaApi'
 import { renderSafeMarkdown } from '../../utils/sanitizeHtml'
 import {
   buildForeachSuperNodes,
@@ -274,6 +333,7 @@ import GraphInspectPanel from './GraphInspectPanel.vue'
 import FlowRefButton from './FlowRefButton.vue'
 import EquationNodeCard from './EquationNodeCard.vue'
 import { TASK_TYPE_LABELS } from '../../utils/taskTypeIcons'
+import { flowNodeVisual } from '../../utils/flowNodeVisuals'
 import { makeProfileKey } from '../../utils/storageKeys'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
@@ -495,14 +555,132 @@ function onSuperNodeClick(key: string) {
 // ---- Layout constants ----
 const NODE_W = 240
 const NODE_H = 116
+// Media-bearing nodes grow so their result renders as a hero — the pictures
+// are the canvas landmarks. Plumbing-grade scalar nodes (inputs, code
+// helpers, outputs with nothing yet) collapse to capsules.
+const NODE_H_COMPACT = 44
 const NODE_GAP_Y = 24
+
+// Capsules size to their label instead of truncating "Dog description" into
+// an ellipsis longer than the letters it saved. Text is measured with the
+// card's actual fonts; width = pill chrome (pl-2 8 + coin 24 + gap 8 +
+// text + gap 8 + glyph 16 + pr-3 12) + the measured label.
+// Chrome is padded a few px beyond the strict sum (borders, subpixel
+// rounding, webview font metric drift) — an ellipsis costs more than the
+// slack does.
+const CAPSULE_CHROME_W = 86
+const CAPSULE_MIN_W = 116
+const CAPSULE_MAX_W = 300
+const TITLE_FONT = '500 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+const SUBTITLE_FONT = '400 10.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+let measureCtx: CanvasRenderingContext2D | null = null
+function textWidth(text: string, font: string): number {
+  if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d')
+  if (!measureCtx) return text.length * 7
+  measureCtx.font = font
+  return measureCtx.measureText(text).width
+}
+function capsuleWidth(title: string, subtitle: string | null): number {
+  const w = Math.max(
+    textWidth(title, TITLE_FONT),
+    subtitle ? textWidth(subtitle, SUBTITLE_FONT) : 0,
+  )
+  return Math.round(Math.min(CAPSULE_MAX_W, Math.max(CAPSULE_MIN_W, w + CAPSULE_CHROME_W)))
+}
+
+// Hero geometry: card chrome around the media = header (~42px) + body top
+// pad (4px) + bottom mat (12px). Single-media heroes take the image's real
+// aspect ratio (clamped so extreme panoramas/portraits stay card-shaped);
+// multi-media nodes keep a fixed square strip.
+const HERO_CHROME_H = 58
+const HERO_MEDIA_W = NODE_W - 24 // px-3 each side
+const HERO_MEDIA_H_DEFAULT = 116
+const HERO_MEDIA_H_MIN = 72
+const HERO_MEDIA_H_MAX = 280
+
+// Types that read as plumbing when they carry no media: header-only capsule.
+const COMPACT_TYPES = new Set([
+  'flow_input', 'flow_output', 'code', 'control',
+  'create_set', 'create_grid', 'create_document', 'web_search', 'fetch_media',
+])
+
+function hasMedia(eq: FlowEquation): boolean {
+  return (eq.result_media_ids?.length ?? 0) > 0
+}
+
+// Dimensions for single-media heroes, fetched lazily so node height can
+// match the image's aspect. Keyed by media id; replaced wholesale on each
+// arrival so computed consumers (structuralSig) re-run.
+const heroDims = ref(new Map<number, { w: number; h: number }>())
+const heroDimsPending = new Set<number>()
+const { getMediaItem } = useMediaApi()
+function requestHeroDims(mid: number) {
+  if (heroDims.value.has(mid) || heroDimsPending.has(mid)) return
+  heroDimsPending.add(mid)
+  getMediaItem(mid)
+    .then((m: any) => {
+      if (m?.width && m?.height) {
+        const next = new Map(heroDims.value)
+        next.set(mid, { w: m.width, h: m.height })
+        heroDims.value = next
+      }
+    })
+    .catch(() => {})
+    .finally(() => heroDimsPending.delete(mid))
+}
+
+function heroMediaHeight(eq: FlowEquation): number {
+  const ids = eq.result_media_ids ?? []
+  if (ids.length !== 1) return HERO_MEDIA_H_DEFAULT
+  const dims = heroDims.value.get(ids[0])
+  if (!dims) {
+    requestHeroDims(ids[0])
+    return HERO_MEDIA_H_DEFAULT
+  }
+  const h = HERO_MEDIA_W * (dims.h / dims.w)
+  return Math.round(Math.min(HERO_MEDIA_H_MAX, Math.max(HERO_MEDIA_H_MIN, h)))
+}
+
+// Capsule label mirrors nodeTitle/nodeSubtitle for the compact types so the
+// measured width matches what actually renders.
+function capsuleLabel(eq: FlowEquation): { title: string; subtitle: string | null } {
+  const visual = flowNodeVisual(eq.equation_type, { taskType: eq.task_type ?? null })
+  let title: string
+  switch (eq.equation_type) {
+    case 'code':
+      title = eq.routing_kind
+        ? (eq.display_name || 'Code')
+        : ((eq.description && eq.description.trim()) || eq.display_name || 'Code')
+      break
+    case 'control': {
+      const tail = eq.equation_key.split('/').pop() ?? eq.equation_key
+      title = eq.display_name || (/foreach/.test(tail) ? 'Loop' : /zip/.test(tail) ? 'Combine streams' : 'Control')
+      break
+    }
+    default:
+      title = eq.display_name || shortKey(eq.equation_key)
+  }
+  const rawSub = eq.equation_type === 'code' && eq.subtitle?.trim() ? eq.subtitle : null
+  const subtitle = rawSub ?? (visual.label === title ? null : visual.label)
+  return { title, subtitle }
+}
+
+function equationSize(eq: FlowEquation): { w: number; h: number } {
+  if (hasMedia(eq)) return { w: NODE_W, h: HERO_CHROME_H + heroMediaHeight(eq) }
+  // Info nodes render markdown; LLM nodes render their prompt — keep bodies.
+  if (COMPACT_TYPES.has(eq.equation_type)) {
+    const { title, subtitle } = capsuleLabel(eq)
+    return { w: capsuleWidth(title, subtitle), h: NODE_H_COMPACT }
+  }
+  return { w: NODE_W, h: NODE_H }
+}
 
 const PADDING = 48
 
 // Super-node (foreach collapse) sizing. Keep body constants in sync with
 // ForeachSuperNode / ForeachBodyPosition.
 const SUPER_BODY_NODE_W = 240
-const SUPER_BODY_NODE_H = 120
+const SUPER_BODY_NODE_H = 176
 const SUPER_BODY_EDGE_W = 44
 const SUPER_PAD = 16
 const SUPER_HEADER_H = 26
@@ -728,7 +906,7 @@ function buildLayout() {
   function nodeSizeFor(eq: FlowEquation): { w: number; h: number } {
     const s = superNodes.value.get(eq.equation_key)
     if (s) return computeSuperSize(s)
-    return { w: NODE_W, h: NODE_H }
+    return equationSize(eq)
   }
   for (const eq of eqs) {
     const { w, h } = nodeSizeFor(eq)
@@ -769,9 +947,17 @@ function buildLayout() {
   // consumed) as spurious Output boxes on the right margin.
   const outputSources = eqs.filter(eq => eq.is_output === true)
   const syntheticEdges: SyntheticEdge[] = []
+  // Outputs mirror their producer's media, so they take the hero size when
+  // the source has results and the capsule size otherwise.
+  function outputSize(src: FlowEquation): { w: number; h: number } {
+    return hasMedia(src)
+      ? { w: NODE_W, h: HERO_CHROME_H + heroMediaHeight(src) }
+      : { w: capsuleWidth(outputDisplayName(src), 'Output'), h: NODE_H_COMPACT }
+  }
   for (const src of outputSources) {
     const outKey = OUTPUT_PREFIX + src.equation_key
-    g.setNode(outKey, { width: NODE_W, height: NODE_H })
+    const { w, h } = outputSize(src)
+    g.setNode(outKey, { width: w, height: h })
     g.setEdge(src.equation_key, outKey)
     syntheticEdges.push({ src: src.equation_key, tgt: outKey })
   }
@@ -827,12 +1013,13 @@ function buildLayout() {
   const outNodes: LayoutNode[] = outputSources.map((src) => {
     const outKey = OUTPUT_PREFIX + src.equation_key
     const pos = g.node(outKey)
+    const { w, h } = outputSize(src)
     return {
       key: outKey,
       x: outputX,
-      y: pos.y - NODE_H / 2,
-      w: NODE_W,
-      h: NODE_H,
+      y: pos.y - h / 2,
+      w,
+      h,
       is_super: false,
       equation_type: 'flow_output',
       display_name: outputDisplayName(src),
@@ -879,6 +1066,14 @@ const structuralSig = computed(() =>
       e.output_name ?? '',
       e.display_name ?? '',
       e.result_from ?? '',
+      // Capsule width is measured from the rendered label, which draws on
+      // description (code titles) and subtitle too.
+      e.description ?? '',
+      e.subtitle ?? '',
+      // Node size depends on media presence AND the hero image's aspect
+      // (heroDims), so a step completing with results — or its dimensions
+      // arriving — must trigger a re-layout.
+      hasMedia(e) ? `m${heroMediaHeight(e)}` : '',
       (e.dependencies ?? []).join(','),
     ].join('|'))
     .sort()
@@ -949,10 +1144,44 @@ const normalLayoutNodes = computed<LayoutNode[]>(() =>
 // ---- Edges ----
 interface LayoutEdge {
   path: string
-  stroke: string
+  active: boolean
 }
 
-const layoutEdges = computed<LayoutEdge[]>(() => {
+interface LayoutPort {
+  x: number
+  y: number
+  active: boolean
+}
+
+// Connection sockets — one per wire endpoint, deduped; a port is lit if any
+// wire through it is active.
+const layoutPorts = computed<LayoutPort[]>(() => {
+  const byKey = new Map<string, LayoutPort>()
+  for (const e of edgeGeometry.value) {
+    for (const p of [{ x: e.sx, y: e.sy }, { x: e.tx, y: e.ty }]) {
+      const key = `${Math.round(p.x)},${Math.round(p.y)}`
+      const prev = byKey.get(key)
+      if (prev) prev.active = prev.active || e.active
+      else byKey.set(key, { x: p.x, y: p.y, active: e.active })
+    }
+  }
+  return [...byKey.values()]
+})
+
+const layoutEdges = computed<LayoutEdge[]>(() =>
+  edgeGeometry.value.map((e) => ({ path: e.path, active: e.active })),
+)
+
+interface EdgeGeometry {
+  path: string
+  active: boolean
+  sx: number
+  sy: number
+  tx: number
+  ty: number
+}
+
+const edgeGeometry = computed<EdgeGeometry[]>(() => {
   const posMap = new Map<string, { x: number; y: number; w: number; h: number }>()
   for (const n of layout.value.nodes) posMap.set(n.key, { x: n.x, y: n.y, w: n.w, h: n.h })
 
@@ -1022,7 +1251,7 @@ const layoutEdges = computed<LayoutEdge[]>(() => {
   for (const [, group] of enterEdges)
     group.sort((a, b) => (posMap.get(a)?.y ?? 0) - (posMap.get(b)?.y ?? 0))
 
-  const edges: LayoutEdge[] = []
+  const edges: EdgeGeometry[] = []
   const portSpacing = 8
 
   for (const [tgtKey, srcs] of enterEdges) {
@@ -1058,8 +1287,7 @@ const layoutEdges = computed<LayoutEdge[]>(() => {
           ? `M ${sx} ${sy} L ${tx} ${ty}`
           : `M ${sx} ${sy} C ${sx + cx} ${sy}, ${tx - cx} ${ty}, ${tx} ${ty}`
 
-      const srcEq = props.equationsByKey.get(srcKey)
-      edges.push({ path, stroke: edgeStroke(srcEq) })
+      edges.push({ path, active: edgeActive(tgtKey), sx, sy, tx, ty })
     }
   }
 
@@ -1080,59 +1308,24 @@ function hasTask(key: string): boolean {
 }
 
 // ---- Style helpers ----
-// Type chip — small filled rounded rect in the title row. Encodes equation
-// type via the tool color (was the icon block's job in the old design).
-function typeChipClass(n: LayoutNode): string {
-  switch (n.equation_type) {
-    case 'tool_call':       return 'bg-flow-tool-tint text-flow-tool-strong'
-    case 'llm_call':
-    case 'llm_batch':
-    case 'llm_slot':        return 'bg-flow-llm-tint text-flow-llm-strong'
-    case 'code':            return 'bg-flow-code-tint text-flow-code-strong'
-    case 'hitl':            return 'bg-flow-hitl-tint text-flow-hitl-strong'
-    case 'info':            return 'bg-flow-info-tint text-flow-info-strong'
-    case 'flow_input':    return 'bg-flow-input-tint text-flow-input-strong'
-    case 'flow_output':   return 'bg-flow-output-tint text-flow-output-strong'
-    case 'control':         return 'bg-flow-control-tint text-flow-control-strong'
-    case 'create_set':
-    case 'create_grid':
-    case 'create_document': return 'bg-flow-create-tint text-flow-create-strong'
-    case 'web_search':
-    case 'fetch_media':     return 'bg-flow-tool-tint text-flow-tool-strong'
-    default: return 'bg-overlay-subtle text-content-muted'
-  }
+// Type icon tile — friendly glyph in a soft-tinted rounded square, resolved
+// by the shared flowNodeVisuals map (replaces the retired ALL-CAPS chips).
+// Tool nodes get the task-type glyph so the tile says what the step makes.
+function nodeVisual(n: LayoutNode) {
+  return flowNodeVisual(n.equation_type, { taskType: n.task_type })
+}
+
+// Hero cards: the body is media (mat + no footer). Info nodes rendering
+// markdown keep the standard body even when they carry a thumbnail.
+function isHeroNode(n: LayoutNode): boolean {
+  if (n.result_media_ids.length === 0) return false
+  return !(n.equation_type === 'info' && infoText(n))
 }
 
 function isLlm(n: LayoutNode): boolean {
   return n.equation_type === 'llm_call'
     || n.equation_type === 'llm_batch'
     || n.equation_type === 'llm_slot'
-}
-
-function typeChipLabel(n: LayoutNode): string {
-  switch (n.equation_type) {
-    case 'tool_call':     return 'TOOL'
-    case 'llm_call':
-    case 'llm_batch':
-    case 'llm_slot':      return 'LLM'
-    case 'code':          return 'CODE'
-    case 'hitl':          return 'HUMAN'
-    case 'info':          return 'NOTE'
-    case 'flow_input':  return 'INPUT'
-    case 'flow_output': return 'OUTPUT'
-    case 'control': {
-      const tail = n.key.split('/').pop() ?? n.key
-      if (/foreach/.test(tail)) return 'LOOP'
-      if (/zip/.test(tail))     return 'ZIP'
-      return 'CTRL'
-    }
-    case 'create_set':      return 'SET'
-    case 'create_grid':     return 'GRID'
-    case 'create_document': return 'DOC'
-    case 'web_search':      return 'SEARCH'
-    case 'fetch_media':     return 'FETCH'
-    default: return 'STEP'
-  }
 }
 
 function infoText(n: LayoutNode): string {
@@ -1289,7 +1482,17 @@ function nodeTitle(n: LayoutNode): string {
 //   hitl/actionable → kind label (the title says "Your turn")
 //   flow_input → none (the INPUT chip already says it)
 //   flow_output → producing step's title
+// With the ALL-CAPS type chips retired, the sentence-case type word from
+// flowNodeVisuals fills in when no better subtitle exists — unless it would
+// just echo the title (e.g. an LLM node titled "LLM").
 function nodeSubtitle(n: LayoutNode): string | null {
+  const raw = nodeSubtitleRaw(n)
+  if (raw) return raw
+  const label = nodeVisual(n).label
+  return label === nodeTitle(n) ? null : label
+}
+
+function nodeSubtitleRaw(n: LayoutNode): string | null {
   if (n.equation_type === 'tool_call' && n.tool_id) {
     // Title carries the *action* (e.g. "Generate Image"); subtitle deemphasizes
     // the *implementation* (e.g. "Flux.2 Klein 9B · ComfyUI"). When the title
@@ -1353,46 +1556,31 @@ function outputStatusForSource(status: string): string {
   }
 }
 
+// Footer words are quiet and written from the user's side of the screen.
+// Done says nothing — the header check already announces it.
 function statusLabel(n: LayoutNode): string {
   const actionable = hasTask(n.key)
   if (n.equation_type === 'flow_output' && n.status === 'pending') {
-    return 'waiting'
+    return 'Waiting…'
   }
   const status = n.status
   switch (status) {
-    case 'computing':      return 'running'
-    case 'completed':      return 'done'
-    case 'failed':         return 'failed'
-    case 'pending':        return 'queued'
-    case 'awaiting_input': return actionable ? 'your turn' : 'preparing…'
-    case 'skipped':        return 'skipped'
-    case 'invalidated':    return 'stale'
+    case 'computing':      return 'Running'
+    case 'completed':      return ''
+    case 'failed':         return "Didn't finish"
+    case 'pending':        return 'Waiting its turn'
+    case 'awaiting_input': return actionable ? 'Your turn' : 'Preparing…'
+    case 'skipped':        return 'Skipped'
+    case 'invalidated':    return 'Out of date'
     default:               return status
   }
 }
 
-// Edge color is a loose, static signal of what flows along it. Media flows
-// are detected directly from the source node's outputs — the most visually
-// meaningful thing happening in the graph gets the loudest color regardless
-// of which node type produced it. Everything else falls back to an
-// equation-type palette that mirrors the icon-box gradients. Status is
-// conveyed by the node borders.
-function edgeStroke(srcEq: FlowEquation | undefined): string {
-  if (srcEq && (srcEq.result_media_ids?.length ?? 0) > 0) {
-    return 'var(--color-flow-edge-media)'
-  }
-  switch (srcEq?.equation_type) {
-    case 'tool_call':    return 'var(--color-flow-edge-tool)'
-    case 'llm_call':
-    case 'llm_batch':
-    case 'llm_slot':     return 'var(--color-flow-edge-llm)'
-    case 'code':         return 'var(--color-flow-edge-code)'
-    case 'hitl':         return 'var(--color-flow-edge-hitl)'
-    case 'info':         return 'var(--color-flow-edge-info)'
-    case 'flow_input': return 'var(--color-flow-edge-input)'
-    case 'control':      return 'var(--color-flow-edge-control)'
-    default:             return 'var(--color-lineage-edge)'
-  }
+// Wires are plumbing, not content: every edge rests as a neutral hairline,
+// and only the paths currently flowing — edges feeding a running step —
+// light up with the animated accent dash. The old per-type rainbow is retired.
+function edgeActive(tgtKey: string): boolean {
+  return props.equationsByKey.get(tgtKey)?.status === 'computing'
 }
 
 function shortKey(key: string): string {
@@ -1480,6 +1668,31 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.flow-edge-dash {
+  stroke-dasharray: 5 9;
+  animation: flow-edge-dash 0.9s linear infinite;
+}
+@keyframes flow-edge-dash {
+  to { stroke-dashoffset: -14; }
+}
+.flow-shimmer {
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgb(var(--color-text-primary-rgb) / 0.05) 50%,
+    transparent 70%
+  );
+  background-size: 250% 100%;
+  animation: flow-shimmer 2.2s ease-in-out infinite;
+}
+@keyframes flow-shimmer {
+  0%   { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-edge-dash, .flow-shimmer { animation: none; }
+}
+
 .info-prose :deep(p) { margin: 0; }
 .info-prose :deep(p + p) { margin-top: 0.25em; }
 .info-prose :deep(strong) { font-weight: 600; color: rgb(var(--color-content) / 1); }

@@ -3,6 +3,7 @@
     :media-id="mediaId"
     :thumbnail="thumbnail"
     :thumbnail-size="thumbnailSize"
+    :thumbnail-mode="thumbnailMode"
     :contain="contain"
     :draggable="draggable"
     :enable-context-menu="enableContextMenu"
@@ -36,6 +37,7 @@ interface Props {
   index?: number
   thumbnail?: boolean
   thumbnailSize?: number
+  thumbnailMode?: 'crop' | 'fit'
   contain?: boolean
   draggable?: boolean | 'true' | 'false'
   enableContextMenu?: boolean
@@ -48,6 +50,7 @@ const props = withDefaults(defineProps<Props>(), {
   index: undefined,
   thumbnail: true,
   thumbnailSize: 256,
+  thumbnailMode: 'crop',
   contain: false,
   draggable: true,
   enableContextMenu: true,

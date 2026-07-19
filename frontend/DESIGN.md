@@ -568,6 +568,37 @@ parameter rows (§3.3) — value-first rows are ONE pattern app-wide:
   bordered inputs, and slot chrome never changes because of an unrelated
   feature flag (the ControlNet border-drop bug class).
 
+### 3.6 Flow-graph nodes — the quiet card (adopted 2026-07-19)
+
+The graph canvas nodes follow the same one-signal discipline as the rest of
+the app (supersedes the old tinted-card treatment; the §5 flow-graph
+carve-out is repealed for nodes/edges — the flow type/status token *values*
+in style.css remain the palette):
+
+- **One quiet surface for every node**: `bg-surface border-edge` at 12px
+  radius (canvas nodes are the sanctioned exception to the 8px container
+  radius; capsules are `rounded-full` pills). No status-tinted fills, no
+  flag stripes, no colored dividers. Icon tiles are circular coins.
+- **Type = icon tile**: a soft-tinted rounded-md square with a friendly
+  outline glyph (`utils/flowNodeVisuals.ts` is the single vocabulary; tool
+  nodes use the task-type glyph). ALL-CAPS type chips are retired.
+- **Status lives in exactly one place**: the header-corner glyph — ✓ done,
+  spinner + a 2px bottom progress hairline when running, ✕ failed, dashed
+  ring queued, pulsing accent dot for "your turn", refresh for stale.
+  Terminal states get no footer announcement; footer words are quiet,
+  sentence-case, user-side ("Waiting its turn", "Didn't finish").
+- **Only two states may touch the border**: failed (`border-flow-fail-soft`)
+  and actionable awaiting-input — the ONE raised card
+  (`bg-surface-raised border-accent/50` + soft accent glow), per §3.1
+  elevation = actionability. Pending/skipped dim instead.
+- **Wires are plumbing**: neutral `--color-lineage-edge` hairlines at rest;
+  only edges feeding a running step light up in accent. The per-type edge
+  rainbow is retired.
+- **Selection is indigo** (`ring-selection`), on nodes and super-nodes alike
+  — selection ≠ action, same as media tiles.
+- flow-* tokens are hex vars, NOT RGB channels — never use `/NN` opacity
+  modifiers on them (they silently break); use the -soft/-tint variants.
+
 ## 4. Greppable review rules
 
 A change is off-standard if it adds any of:
@@ -582,7 +613,8 @@ around read-only text.
 
 ## 5. What is deliberately NOT changing
 
-The flow-graph matte palette and node/edge tokens; slideshow matte;
+The flow type/status color *values* in style.css (the node treatment itself
+is §3.6); slideshow matte;
 cloud-gradient reservation and `.stimma-cloud-*` treatments; chat bubbles
 (restyled via kit, not removed); LoRA pool undo isolation; toolview volume
 scoping; segmented-control height matching rule; the RGB-channel alpha

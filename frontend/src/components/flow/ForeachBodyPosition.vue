@@ -2,7 +2,7 @@
   <div class="relative group" :style="{ width: NODE_W + 'px' }">
     <div
       v-if="selected"
-      class="absolute -inset-1 rounded-lg ring-2 ring-blue-400 pointer-events-none z-10"
+      class="absolute -inset-1 rounded-[14px] ring-2 ring-selection pointer-events-none z-10"
     />
     <div
       role="button"
@@ -14,12 +14,13 @@
     >
       <EquationNodeCard
         :status="cardStatus"
-        :chip-label="typeChipLabel"
-        :chip-class="typeChipClass"
+        :icon="visual.icon"
+        :tile-class="visual.tileClass"
         :title="resolvedTitle"
         :subtitle="runtimeSubtitle ? null : resolvedSubtitle"
         :status-label="statusLabel"
         :actionable="cardStatus === 'awaiting_input'"
+        :hero="hasHeroMedia"
       >
         <template v-if="runtimeSubtitle" #subtitle>
           <span v-if="runtimeModelLabel">{{ runtimeModelLabel }}</span>
@@ -45,27 +46,24 @@
           <template v-if="focusedIdx === null">
             <div
               v-if="sampledMediaIds.length > 0"
-              class="flex items-center w-full"
+              class="w-full h-full flex gap-px rounded-[2px] overflow-hidden bg-matte"
             >
-              <div
+              <MediaImage
                 v-for="(mid, i) in sampledMediaIds"
                 :key="i + '-' + mid"
-                class="relative flex-shrink-0 w-10 h-10 rounded border border-edge-subtle overflow-hidden bg-overlay-subtle"
-                :style="{ marginLeft: i === 0 ? '0' : '-14px', zIndex: sampledMediaIds.length - i }"
-              >
-                <MediaImage
-                  :media-id="mid"
-                  :thumbnail="true"
-                  :thumbnail-size="64"
-                  :draggable="false"
-                  container-class="w-full h-full"
-                  img-class="w-full h-full object-cover"
-                />
-              </div>
-              <span
+                :media-id="mid"
+                :thumbnail="true"
+                :thumbnail-size="256"
+                :draggable="false"
+                container-class="flex-1 min-w-0 h-full bg-matte"
+                img-class="w-full h-full object-cover"
+              />
+              <div
                 v-if="totalMediaCount > sampledMediaIds.length"
-                class="ml-2 text-[10px] text-content-muted tabular-nums"
-              >+{{ totalMediaCount - sampledMediaIds.length }}</span>
+                class="flex-none w-9 h-full flex items-center justify-center bg-overlay-subtle"
+              >
+                <span class="text-[10.5px] font-mono tabular-nums text-content-muted">+{{ totalMediaCount - sampledMediaIds.length }}</span>
+              </div>
             </div>
             <div
               v-else
@@ -90,34 +88,38 @@
                nothing otherwise. The header already says what this step is;
                we don't repeat it here. -->
           <template v-else>
-            <div v-if="focusedMediaIds.length > 0" class="flex items-center gap-1">
-              <div
+            <MediaImage
+              v-if="focusedMediaIds.length === 1"
+              :media-id="focusedMediaIds[0]"
+              :thumbnail="true"
+              :thumbnail-size="512"
+              thumbnail-mode="fit"
+              :contain="true"
+              :draggable="false"
+              container-class="w-full h-full rounded-[2px] overflow-hidden bg-matte"
+              img-class="w-full h-full object-contain"
+            />
+            <div
+              v-else-if="focusedMediaIds.length > 1"
+              class="w-full h-full flex gap-px rounded-[2px] overflow-hidden bg-matte"
+            >
+              <MediaImage
                 v-for="(mid, i) in focusedMediaIds.slice(0, 4)"
                 :key="i + '-' + mid"
-                class="w-8 h-8 flex-shrink-0 rounded overflow-hidden border border-edge-subtle"
-              >
-                <MediaImage
-                  :media-id="mid"
-                  :thumbnail="true"
-                  :thumbnail-size="64"
-                  :draggable="false"
-                  container-class="w-full h-full"
-                  img-class="w-full h-full object-cover"
-                />
-              </div>
-              <span
+                :media-id="mid"
+                :thumbnail="true"
+                :thumbnail-size="256"
+                :draggable="false"
+                container-class="flex-1 min-w-0 h-full bg-matte"
+                img-class="w-full h-full object-cover"
+              />
+              <div
                 v-if="focusedMediaIds.length > 4"
-                class="text-[10px] text-content-muted"
-              >+{{ focusedMediaIds.length - 4 }}</span>
+                class="flex-none w-9 h-full flex items-center justify-center bg-overlay-subtle"
+              >
+                <span class="text-[10.5px] font-mono tabular-nums text-content-muted">+{{ focusedMediaIds.length - 4 }}</span>
+              </div>
             </div>
-            <div
-              v-else-if="focusedStatus === 'failed'"
-              class="text-[10px] leading-tight line-clamp-2 self-start text-flow-fail-strong"
-            >This step failed.</div>
-            <div
-              v-else-if="focusedStatus === null"
-              class="text-[10px] text-content-muted/70 italic self-start"
-            >not in this iteration</div>
           </template>
         </template>
 
@@ -146,6 +148,7 @@ import EquationNodeCard from './EquationNodeCard.vue'
 import type { BodyPosition } from '../../composables/useForeachSuperNodes'
 import { useProvidersApi } from '../../composables/useProvidersApi'
 import { TASK_TYPE_LABELS } from '../../utils/taskTypeIcons'
+import { flowNodeVisual } from '../../utils/flowNodeVisuals'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
 
 interface Props {
@@ -171,7 +174,7 @@ defineEmits<{
 }>()
 
 const NODE_W = 240
-const NODE_H = 120
+const NODE_H = 176
 
 // Tool + provider display-name resolution (mirrors EquationGraph). Without
 // this, tool_call positions show the backend-slugified "comfyui — flux klein
@@ -248,7 +251,10 @@ const resolvedSubtitle = computed<string | null>(() => {
     if (name && provider && name !== provider) return `${name} · ${provider}`
     return name || provider
   }
-  return props.position.subtitle
+  if (props.position.subtitle) return props.position.subtitle
+  // Chips are retired; the sentence-case type word fills in, unless it
+  // would just echo the title.
+  return visual.value.label === resolvedTitle.value ? null : visual.value.label
 })
 
 const runtimeSubtitle = computed<string | null>(() => {
@@ -271,7 +277,7 @@ const runtimeProviderLabel = computed<string | null>(() => {
 
 // Sampled media thumbs for aggregate view. Evenly spaced across iterations
 // that have media, capped at SAMPLE_CAP tiles. Empty if nothing produced media.
-const SAMPLE_CAP = 6
+const SAMPLE_CAP = 3
 const sampledMediaIds = computed<number[]>(() => {
   const media = props.position.iterMediaIds
   const withMedia: number[] = []
@@ -326,18 +332,6 @@ const rollupStatus = computed<RollupStatus>(() => {
   return 'none'
 })
 
-const summaryLabel = computed(() => {
-  const c = counts.value
-  const parts: string[] = []
-  if (c.failed > 0) parts.push(`${c.failed} err`)
-  if (c.awaiting_input > 0) parts.push(`${c.awaiting_input} waiting`)
-  if (c.computing > 0) parts.push(`${c.computing} running`)
-  if (c.pending > 0) parts.push(`${c.pending} pending`)
-  if (c.completed > 0) parts.push(`${c.completed} ok`)
-  if (parts.length === 0) return props.position.optional ? '— not applied' : '—'
-  return parts.join(' · ')
-})
-
 // Aggregate count chips for the View-All middle-area display. One chip per
 // non-zero status, ordered by urgency so the eye lands on actionable counts.
 const aggregateChips = computed(() => {
@@ -382,64 +376,34 @@ const cardStatus = computed<string | null>(() => {
 
 const focusedStatusLabel = computed(() => {
   switch (focusedStatus.value) {
-    case 'computing':      return 'running'
-    case 'completed':      return 'done'
-    case 'failed':         return 'failed'
-    case 'pending':        return 'queued'
-    case 'awaiting_input': return 'your turn'
-    case 'skipped':        return 'skipped'
-    case 'invalidated':    return 'stale'
-    case null:             return props.position.optional ? 'not in this iteration' : '—'
+    case 'computing':      return 'Running'
+    case 'completed':      return ''
+    case 'failed':         return "Didn't finish"
+    case 'pending':        return 'Waiting its turn'
+    case 'awaiting_input': return 'Your turn'
+    case 'skipped':        return 'Skipped'
+    case 'invalidated':    return 'Out of date'
+    case null:             return props.position.optional ? 'Not in this iteration' : '—'
     default:               return String(focusedStatus.value)
   }
 })
 
 const statusLabel = computed(() => {
-  return props.focusedIdx !== null ? focusedStatusLabel.value : summaryLabel.value
+  // Aggregate view: the chip row / media strip already carries the counts —
+  // repeating them in the footer was the "1 done" dead band.
+  return props.focusedIdx !== null ? focusedStatusLabel.value : ''
 })
 
-// Type chip — same vocabulary as EquationGraph's chips.
-const typeChipClass = computed<string>(() => {
-  switch (props.position.equation_type) {
-    case 'tool_call':       return 'bg-flow-tool-tint text-flow-tool-strong'
-    case 'llm_call':
-    case 'llm_batch':
-    case 'llm_slot':        return 'bg-flow-llm-tint text-flow-llm-strong'
-    case 'code':            return 'bg-flow-code-tint text-flow-code-strong'
-    case 'hitl':            return 'bg-flow-hitl-tint text-flow-hitl-strong'
-    case 'info':            return 'bg-flow-info-tint text-flow-info-strong'
-    case 'flow_input':    return 'bg-flow-input-tint text-flow-input-strong'
-    case 'flow_output':   return 'bg-flow-output-tint text-flow-output-strong'
-    case 'control':         return 'bg-flow-control-tint text-flow-control-strong'
-    case 'create_set':
-    case 'create_grid':
-    case 'create_document': return 'bg-flow-create-tint text-flow-create-strong'
-    case 'web_search':
-    case 'fetch_media':     return 'bg-flow-tool-tint text-flow-tool-strong'
-    default: return 'bg-overlay-subtle text-content-muted'
-  }
-})
+const hasHeroMedia = computed(() =>
+  props.focusedIdx === null
+    ? sampledMediaIds.value.length > 0
+    : focusedMediaIds.value.length > 0,
+)
 
-const typeChipLabel = computed<string>(() => {
-  switch (props.position.equation_type) {
-    case 'tool_call':     return 'TOOL'
-    case 'llm_call':
-    case 'llm_batch':
-    case 'llm_slot':      return 'LLM'
-    case 'code':          return 'CODE'
-    case 'hitl':          return 'HUMAN'
-    case 'info':          return 'NOTE'
-    case 'flow_input':  return 'INPUT'
-    case 'flow_output': return 'OUTPUT'
-    case 'control':       return 'LOOP'
-    case 'create_set':    return 'SET'
-    case 'create_grid':   return 'GRID'
-    case 'create_document': return 'DOC'
-    case 'web_search':    return 'SEARCH'
-    case 'fetch_media':   return 'FETCH'
-    default: return 'STEP'
-  }
-})
+// Type icon tile — shared vocabulary with EquationGraph's nodes.
+const visual = computed(() =>
+  flowNodeVisual(props.position.equation_type, { taskType: props.position.task_type }),
+)
 
 defineExpose({ NODE_W, NODE_H })
 </script>

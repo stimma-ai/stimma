@@ -1,10 +1,10 @@
 <template>
   <div
     ref="rootRef"
-    class="relative group rounded-lg border border-slate-400/55 bg-overlay-light overflow-hidden outline-none transition-shadow hover:border-slate-400/75 hover:shadow-md"
+    class="relative group rounded-[12px] border border-edge bg-surface overflow-hidden outline-none transition-colors hover:border-edge-strong/60"
     :class="[
-      (selected && focusedIdx === null) ? 'ring-2 ring-blue-400' : '',
-      (!(selected && focusedIdx === null) && groupIsEchoed) ? 'ring-1 ring-blue-500/40' : '',
+      (selected && focusedIdx === null) ? 'ring-2 ring-selection' : '',
+      (!(selected && focusedIdx === null) && groupIsEchoed) ? 'ring-1 ring-selection/40' : '',
     ]"
     :style="{ backgroundImage: DOTS_BG, width: width + 'px', height: height + 'px' }"
     tabindex="0"
@@ -39,9 +39,20 @@
            subtitle, iteration count on the right, View All when focused. -->
       <div class="flex items-center gap-2 flex-shrink-0 min-w-0">
         <span
-          class="flex-shrink-0 inline-flex items-center px-[6px] py-[1px] rounded text-[9.5px] font-semibold tracking-wider leading-[14px]"
-          :class="headerChipClass"
-        >{{ headerChipLabel }}</span>
+          class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
+          :class="headerVisual.tileClass"
+        >
+          <svg
+            class="w-3.5 h-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            v-html="headerVisual.icon"
+          />
+        </span>
         <div class="flex-1 min-w-0">
           <div class="truncate text-[13px] font-medium text-content leading-tight">{{ headerTitle }}</div>
         </div>
@@ -111,7 +122,7 @@
               class="rounded-sm border transition-all cursor-pointer"
               :class="[
                 block.class,
-                block.isFocused ? 'ring-2 ring-blue-500' : '',
+                block.isFocused ? 'ring-2 ring-selection' : '',
               ]"
               :style="{ width: blockSize + 'px', height: blockSize + 'px' }"
               :title="block.title"
@@ -120,6 +131,24 @@
         </div>
       </div>
     </div>
+
+    <!-- Port dots above the body cards so they straddle card edges whole. -->
+    <svg
+      class="absolute inset-0 pointer-events-none z-20"
+      :width="width"
+      :height="height"
+    >
+      <circle
+        v-for="(p, i) in bodyPorts"
+        :key="'bp' + i"
+        :cx="p.x"
+        :cy="p.y"
+        r="3"
+        fill="var(--color-surface)"
+        :stroke="p.active ? 'rgb(var(--color-accent-rgb))' : 'rgb(var(--color-text-tertiary-rgb) / 0.7)'"
+        stroke-width="1.5"
+      />
+    </svg>
   </div>
 </template>
 
@@ -128,6 +157,7 @@ import { computed, ref, watch } from 'vue'
 import ForeachBodyPosition from './ForeachBodyPosition.vue'
 import FlowRefButton from './FlowRefButton.vue'
 import type { BodyPosition, ForeachSuperNodeData } from '../../composables/useForeachSuperNodes'
+import { flowNodeVisual } from '../../utils/flowNodeVisuals'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'
 
 interface Props {
@@ -148,14 +178,14 @@ const emit = defineEmits<{
 }>()
 
 const NODE_W = 240
-const NODE_H = 120
+const NODE_H = 176
 const EDGE_W = 44
 const SUPER_PAD = 16
 const SUPER_HEADER_H = 26
 const SUPER_BODY_GAP = 12
 
 const DOTS_BG =
-  'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.22) 1px, transparent 0)'
+  'radial-gradient(circle at 1px 1px, rgb(var(--color-text-primary-rgb) / 0.05) 1px, transparent 0)'
 
 const focusedIdx = ref<number | null>(null)
 // Mirror local focus changes up to the parent so the inspect panel can drill
@@ -245,22 +275,14 @@ const headerTitle = computed<string>(() => {
   return defaultLoopLabel.value
 })
 
-// Type chip — encodes whether this is a generic loop, an llm-batch
-// rollup, or a HITL "approve" multi-slot. Color matches the rollup kind
-// (control palette for loops, llm palette for batches, hitl for slots).
-const headerChipClass = computed<string>(() => {
+// Type icon tile — encodes whether this is a generic loop, an llm-batch
+// rollup, or a HITL "approve" multi-slot, via the shared node vocabulary
+// (llm sparkles for batches, hand for slots, repeat arrows for loops).
+const headerVisual = computed(() => {
   switch (rollupKind.value) {
-    case 'variants': return 'bg-flow-llm-tint text-flow-llm-strong'
-    case 'slots':    return 'bg-flow-hitl-tint text-flow-hitl-strong'
-    default:         return 'bg-flow-control-tint text-flow-control-strong'
-  }
-})
-
-const headerChipLabel = computed<string>(() => {
-  switch (rollupKind.value) {
-    case 'variants': return 'BATCH'
-    case 'slots':    return 'PICK'
-    default:         return 'LOOP'
+    case 'variants': return flowNodeVisual('llm_batch')
+    case 'slots':    return flowNodeVisual('hitl')
+    default:         return flowNodeVisual('control')
   }
 })
 
@@ -372,27 +394,19 @@ const bodyRowWidth = computed(() =>
     + Math.max(0, props.data.bodyPositions.length - 1) * EDGE_W,
 )
 
-interface EdgePath { key: string; d: string; stroke: string; width: number; dash: string; opacity: number }
+interface EdgePath { key: string; d: string; stroke: string; width: number; dash: string; opacity: number; sx: number; tx: number; y: number; active: boolean }
 
 function slotLeft(i: number): number { return i * (NODE_W + EDGE_W) }
 
-function edgeStrokeForPos(src: BodyPosition): string {
-  if (src.equation_type === 'tool_call') {
-    const t = (src.task_type || '').toLowerCase()
-    if (t.includes('image') || t.includes('video') || t.includes('upscale')) {
-      return 'rgba(244,114,182,0.95)'
-    }
-    return 'rgba(56,189,248,0.85)'
-  }
-  switch (src.equation_type) {
-    case 'llm_call':     return 'rgba(52,211,153,0.85)'
-    case 'code':         return 'rgba(251,191,36,0.85)'
-    case 'hitl':         return 'rgba(192,132,252,0.85)'
-    case 'info':         return 'rgba(45,212,191,0.8)'
-    case 'flow_input': return 'rgba(148,163,184,0.85)'
-    case 'control':      return 'rgba(129,140,248,0.85)'
-    default:             return 'rgba(148,163,184,0.65)'
-  }
+// Same wire rule as the outer graph: neutral hairline at rest, accent only
+// on paths feeding a running step (in aggregate view, a position with any
+// running iteration).
+function edgeStrokeForPos(tgt: BodyPosition, iterIdx: number | null): string {
+  const flowing = iterIdx === null
+    ? tgt.iterStatuses.includes('computing')
+    : tgt.iterStatuses[iterIdx] === 'computing'
+  if (flowing) return 'rgb(var(--color-accent-rgb))'
+  return 'var(--color-lineage-edge)'
 }
 
 // Body row's vertical center, relative to super-node origin. Used by the
@@ -445,11 +459,28 @@ const bodyEdgePaths = computed<EdgePath[]>(() => {
       else if (sStatus === 'completed' && tStatus) { opacity = 0.9; width = 2.6 }
       else { opacity = 0.6; width = 1.8 }
     }
-    paths.push({ key: `e-${edge.fromId}→${edge.toId}`, d, stroke: edgeStrokeForPos(src), width, dash, opacity })
+    const stroke = edgeStrokeForPos(tgt, idx)
+    const active = stroke.includes('accent')
+    paths.push({ key: `e-${edge.fromId}→${edge.toId}`, d, stroke, width, dash, opacity, sx, tx, y, active })
   }
   return paths
 })
 
+
+// Connection sockets for the intra-body wires — same treatment as the
+// outer graph, deduped per endpoint, lit when a wire through them flows.
+const bodyPorts = computed<{ x: number; y: number; active: boolean }[]>(() => {
+  const byKey = new Map<string, { x: number; y: number; active: boolean }>()
+  for (const e of bodyEdgePaths.value) {
+    for (const x of [e.sx, e.tx]) {
+      const key = `${Math.round(x)},${Math.round(e.y)}`
+      const prev = byKey.get(key)
+      if (prev) prev.active = prev.active || e.active
+      else byKey.set(key, { x, y: e.y, active: e.active })
+    }
+  }
+  return [...byKey.values()]
+})
 
 // --- Interactions ---
 const rootRef = ref<HTMLDivElement | null>(null)
