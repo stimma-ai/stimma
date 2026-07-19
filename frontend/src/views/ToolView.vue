@@ -75,7 +75,9 @@
            teleported up from the controls scope into #tool-header-slot so it
            sits above both columns regardless of the Studio/Stage layout. -->
       <div v-show="!slideshowState.active" class="flex-1 min-w-0 flex flex-col min-h-0">
-        <div id="tool-header-slot" class="flex-none m-3 mb-0 rounded-lg border border-edge-subtle bg-surface px-4 pt-3 pb-2.5"></div>
+        <!-- Plain page header (PageHeader grammar): no card — the content cards
+             below float on base; one hairline separates header from workspace. -->
+        <div id="tool-header-slot" class="flex-none px-6 pt-4 pb-3 border-b border-edge-subtle"></div>
         <!-- Transient run context (remix, resolution auto-change) lands here as
              its own card so the header card stays fixed-height. Hidden when the
              teleport delivers nothing. -->
