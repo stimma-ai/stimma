@@ -27,17 +27,6 @@
           </svg>
         </button>
         <button
-          v-if="hasAnyItems && enabledCount > 0"
-          @click="disableAll"
-          type="button"
-          class="w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
-          title="Disable all — empty the palette (keeps the list)"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1 0 12.728 0M12 3v9" />
-          </svg>
-        </button>
-        <button
           v-if="hasAnyItems"
           @click="showRaw = !showRaw"
           type="button"

@@ -16,7 +16,7 @@
     >
       <ModelVendorIcon v-if="showVendorIcons && selectedOption" :model="selectedOption.vendor" size="sm" />
       <span class="flex min-w-0 flex-1 items-baseline gap-1.5">
-        <span class="truncate font-medium text-content">{{ selectedOption?.triggerLabel || selectedOption?.label || placeholder || modelValue }}</span>
+        <span :class="['truncate', quiet ? 'text-xs font-mono tabular-nums' : 'font-medium text-content']">{{ selectedOption?.triggerLabel || selectedOption?.label || placeholder || modelValue }}</span>
         <span
           v-if="!hideTriggerDetails && selectedOption?.description"
           class="shrink-0 text-[11px]"
@@ -130,6 +130,10 @@ const props = defineProps<{
   control?: boolean
   fill?: boolean
   compact?: boolean
+  /** Value-row variant (§3.3 parameters grammar): the trigger label renders
+      as a quiet small value that inherits the secondary/hover color instead
+      of the bold bright settings-page treatment. */
+  quiet?: boolean
   hideTriggerDetails?: boolean
   menuWidth?: number
   placeholder?: string

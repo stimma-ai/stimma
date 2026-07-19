@@ -3,7 +3,7 @@
        hover controls · hairline. Row click expands; dot click toggles. -->
   <div
     :class="[
-      'group relative border-b border-edge-subtle last:border-b-0 transition-colors',
+      'group relative transition-colors',
       dragging ? 'opacity-30' : '',
     ]"
     draggable="true"

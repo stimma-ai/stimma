@@ -40,12 +40,15 @@
                   >
                   <span>Randomize</span>
                 </label>
+                <!-- Editable even while Randomize is on — typing a seed means
+                     you want that seed, so the first edit unchecks Randomize. -->
                 <input v-no-autocorrect
                   :value="values[param.name]"
-                  @input="emitParam(param.name, parseIntOrNull(($event.target as HTMLInputElement).value))"
+                  @input="onSeedInput(param.name, ($event.target as HTMLInputElement).value)"
                   type="number"
-                  :disabled="(values.randomizeSeed ?? true) || constraintState(param).disabled"
-                  class="w-24 text-right bg-transparent border-b border-transparent text-content-secondary font-mono tabular-nums text-xs disabled:opacity-40 focus:border-accent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  :disabled="constraintState(param).disabled"
+                  :class="['w-24 text-right bg-transparent border-b border-transparent font-mono tabular-nums text-xs disabled:opacity-40 focus:border-accent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
+                           (values.randomizeSeed ?? true) ? 'text-content-muted focus:text-content-secondary' : 'text-content-secondary']"
                 >
                               </div>
             </div>
@@ -61,6 +64,7 @@
                   @update:model-value="emitParam(param.name, $event)"
                   :options="param.enum.map((opt: string) => ({ value: opt, label: param.enumLabels?.[opt] || formatEnumOption(opt, param.format) }))"
                   :disabled="constraintState(param).disabled"
+                  quiet
                 />
               </div>
             </div>
@@ -246,6 +250,13 @@ function formatGenericParamValue(param: GenericParam, value: any): string {
     formatted += ` (~${seconds}s)`
   }
   return formatted
+}
+
+// Typing into the seed field claims the seed: commit the value and drop
+// Randomize so the typed seed actually takes effect on the next run.
+function onSeedInput(paramName: string, raw: string) {
+  emitParam(paramName, parseIntOrNull(raw))
+  if (props.values.randomizeSeed ?? true) emitParam('randomizeSeed', false)
 }
 
 function parseIntOrNull(value: string): number | null {

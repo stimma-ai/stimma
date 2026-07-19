@@ -1,27 +1,50 @@
 <template>
   <div class="mb-6">
-    <!-- Panel header -->
-    <div class="flex items-center justify-between pb-1 mb-1.5">
+    <!-- Panel header: label + icon strip (mirrors the LoRAs header). The
+         chain enable is the mock's quiet `On ▾` value dropdown, not a switch —
+         a bright toggle here outshone the whole column. -->
+    <div class="flex items-center gap-2 pb-1 mb-1.5">
       <span class="text-xs font-semibold text-content-secondary">Post-processing</span>
-      <label v-if="chain.steps.length" class="inline-flex items-center gap-2 cursor-pointer">
-        <span class="text-xs text-content-tertiary">{{ chain.enabled ? 'On' : 'Off' }}</span>
-        <input
-          type="checkbox"
-          :checked="chain.enabled"
-          @change="setChainEnabled(($event.target as HTMLInputElement).checked)"
-          class="sr-only peer"
+      <div class="ml-auto flex items-center gap-1.5">
+        <button
+          ref="addBtnRef"
+          @click="toggleAddMenu"
+          type="button"
+          class="w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
+          title="Add step"
         >
-        <div class="relative w-9 h-5 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent"></div>
-      </label>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+            <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+          </svg>
+        </button>
+        <SettingsDropdown
+          v-if="chain.steps.length"
+          :model-value="chain.enabled ? 'on' : 'off'"
+          @update:model-value="setChainEnabled($event === 'on')"
+          :options="[{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]"
+          quiet
+        />
+      </div>
     </div>
+    <AddStepMenu
+      v-if="addMenuOpen"
+      :anchor-rect="addMenuAnchor"
+      :tools="candidateTools"
+      :filters="candidateFilters"
+      @add-tool="addToolStep"
+      @add-filter="addFilterStep"
+      @close="addMenuOpen = false"
+    />
 
     <!-- Step stack -->
     <div :class="chain.enabled ? '' : 'opacity-60'">
       <template v-for="(step, index) in chain.steps" :key="step.id">
         <!-- Insertion indicator (drag reorder) -->
         <div v-if="drag.active && drag.overIndex === index" class="h-0.5 bg-accent-hi rounded my-1"></div>
+        <!-- Hairline lives on this wrapper, not the card: the card's own
+             last:border-b-0 would always fire (it's the sole child here). -->
         <div
-          :class="''"
+          class="border-b border-edge-subtle last:border-b-0"
           @dragover.prevent="onDragOver($event, index)"
           @drop.prevent="onDrop(index)"
         >
@@ -56,33 +79,6 @@
       <div v-if="drag.active && drag.overIndex === chain.steps.length" class="h-0.5 bg-accent-hi rounded my-1"></div>
     </div>
 
-    <!-- Add step (dashed row) — outside the disabled-dim wrapper: adding a step
-         auto-enables the chain, and an opacity ancestor would composite the
-         dropdown translucently over the controls behind it. -->
-    <div class="relative" :class="chain.steps.length ? 'mt-2' : ''" @dragover.prevent="onDragOver($event, chain.steps.length)" @drop.prevent="onDrop(chain.steps.length)">
-      <!-- Ghost text row, always. During reorder drags the insert line above
-           marks the end-drop position — Add step never dresses up as a target. -->
-      <button
-        ref="addBtnRef"
-        type="button"
-        class="w-full flex items-center gap-1.5 rounded-md px-1 py-1.5 text-xs text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
-        @click="toggleAddMenu"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-          <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-        </svg>
-        Add step
-      </button>
-      <AddStepMenu
-        v-if="addMenuOpen"
-        :anchor-rect="addMenuAnchor"
-        :tools="candidateTools"
-        :filters="candidateFilters"
-        @add-tool="addToolStep"
-        @add-filter="addFilterStep"
-        @close="addMenuOpen = false"
-      />
-    </div>
   </div>
 </template>
 
@@ -91,6 +87,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import ChainStepCard from './ChainStepCard.vue'
 import ChainStepSettings from './ChainStepSettings.vue'
 import AddStepMenu from './AddStepMenu.vue'
+import SettingsDropdown from '../../ui/SettingsDropdown.vue'
 import { useProvidersApi, type ProviderTool } from '../../../composables/useProvidersApi'
 import { isStimmaCloudTool } from '../../../utils/stimmaCloud'
 import {
@@ -330,12 +327,14 @@ function stepTitle(step: ChainStep): string {
 function stepSummary(step: ChainStep): string {
   if (step.kind === 'tool') return ''
   const def = getChainFilterDef(step.filter_id || '')
-  if (!def) return 'Built-in filter'
+  if (!def) return ''
+  // Only non-default settings are worth a subtitle — the filter's static
+  // description ("Unsharp mask") is noise next to its name.
   const parts = def.params
     .filter(p => step.settings[p.name] !== undefined && step.settings[p.name] !== p.default)
     .slice(0, 3)
     .map(p => `${p.label.toLowerCase()} ${step.settings[p.name]}`)
-  return parts.length ? parts.join(' · ') : def.description
+  return parts.join(' · ')
 }
 
 // Standard provider treatment for tool-step sub rows (Stimma Cloud gradient

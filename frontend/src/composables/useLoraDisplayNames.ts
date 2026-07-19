@@ -118,6 +118,9 @@ function getCleanPrimaryStem(stem: string, modelTokens: string[]): string {
   const normalized = stem
     .replace(/\((\d+)\)\s*$/g, '')
     .replace(/[.]+/g, '_')
+    // v1_1 means v1.1 — merge before tokenizing so the whole version is one
+    // token (and gets filtered as such) instead of shedding the ".1".
+    .replace(/(^|[_-])v(\d+)_(\d+)(?=$|[_-])/gi, '$1v$2.$3')
   const tokens = normalized.split(/[\s_-]+/).filter(Boolean)
 
   if (tokens.length === 0) return stem
@@ -156,9 +159,9 @@ function extractSecondaryChips(path: string, modelTokens: string[]): string[] {
       continue
     }
 
-    const versionMatches = Array.from(segment.matchAll(/(?:^|[_-])(v\d+(?:\.\d+)?)(?=$|[_-])/gi))
+    const versionMatches = Array.from(segment.matchAll(/(?:^|[_-])(v\d+(?:[._]\d+)?)(?=$|[_-])/gi))
     for (const match of versionMatches) {
-      const chip = match[1].toLowerCase()
+      const chip = match[1].toLowerCase().replace('_', '.')
       if (!seen.has(chip)) {
         seen.add(chip)
         chips.push(chip)
@@ -266,7 +269,31 @@ export function computeDisplayNames(paths: string[], modelName?: string): Record
       }
     }
 
-    const shouldAppendDifferentiator = uniqueDifferentiators.size > 1
+    let shouldAppendDifferentiator = uniqueDifferentiators.size > 1
+
+    // Fallback: directories didn't disambiguate — diff the filename stems.
+    // Identical display names for different files are never acceptable; RAW
+    // mode shouldn't be required just to tell items apart.
+    if (!shouldAppendDifferentiator) {
+      const stemTokens = group.map(entry => {
+        const fn = entry.path.split('/').pop() || entry.path
+        return fn.replace(/\.[^.]+$/, '').toLowerCase().split(/[\s._-]+/).filter(Boolean)
+      })
+      const shared = new Set(stemTokens[0].filter(t => stemTokens.every(ts => ts.includes(t))))
+      const diffs = stemTokens.map(ts => ts.filter(t => !shared.has(t)).join(' '))
+      const distinct = new Set(diffs.filter(Boolean))
+      if (distinct.size > 1 || (distinct.size === 1 && diffs.filter(Boolean).length < group.length)) {
+        group.forEach((entry, i) => groupDifferentiators.set(entry.path, diffs[i]))
+        shouldAppendDifferentiator = true
+      } else {
+        // Same filename entirely — fall back to the differing directory path.
+        group.forEach(entry => {
+          const dir = entry.path.split('/').slice(0, -1).join('/')
+          groupDifferentiators.set(entry.path, dir)
+        })
+        shouldAppendDifferentiator = new Set(group.map(e => groupDifferentiators.get(e.path))).size > 1
+      }
+    }
 
     for (const entry of group) {
       const differentiator = groupDifferentiators.get(entry.path) || ''
