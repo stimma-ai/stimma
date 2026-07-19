@@ -69,16 +69,18 @@
           :key="section.id"
           :ref="(el) => setSectionRef(section.id, el)"
           data-board-section="true"
-          class="relative overflow-hidden rounded-lg border border-edge-subtle shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors"
+          class="relative transition-colors"
           :class="[
             sectionDragCollapsed && dragState.sectionDragId === section.id ? 'opacity-40' : ''
           ]"
-          :style="getPitStyle(section.id)"
           @dragover.prevent="handleSectionContainerDragOver(section, $event)"
           @drop.prevent="handleSectionContainerDrop(section, $event)"
         >
+          <!-- Section micro-label row: same drag/rename handlers as the old
+               pill, restyled to the sentence-case label grammar with a mono
+               count on the right. -->
           <div
-            class="relative flex select-none items-center gap-2 px-4 py-3"
+            class="relative flex select-none items-baseline gap-2.5 px-0.5 pb-1.5"
             :class="!dragState.item ? 'cursor-grab active:cursor-grabbing' : ''"
             draggable="true"
             @dragstart.stop="onSectionDragStart(section, $event)"
@@ -86,41 +88,45 @@
             @dragover.stop.prevent="handleSectionHeaderDragOver(section, $event)"
             @drop.stop.prevent="commitSectionDrop()"
           >
-            <div class="flex flex-1 justify-start px-2">
+            <div class="flex min-w-0 flex-1 items-baseline justify-start">
               <input
                 v-if="sectionEditingId === section.id"
                 v-model="sectionNames[section.id]"
                 :ref="(el) => setSectionInputRef(section.id, el)"
                 :style="{ width: getSectionLabelWidth(section) }"
-                class="rounded-full border border-edge-subtle bg-surface-raised px-3 py-1 text-left text-xs font-medium text-content-secondary shadow-sm outline-none"
+                class="rounded-md bg-overlay-subtle px-1.5 text-left text-xs font-semibold text-content-secondary outline-none"
                 @blur="saveSection(section)"
                 @keydown.enter.prevent="saveSection(section)"
                 @keydown.esc.prevent="cancelSectionEdit(section)"
               />
               <button
                 v-else
-                :style="{ width: getSectionLabelWidth(section) }"
-                class="rounded-full border border-edge-subtle bg-surface-raised px-3 py-1 text-left text-xs font-medium text-content-secondary shadow-sm transition-colors hover:border-edge hover:bg-surface-hover"
+                class="min-w-0 truncate text-left text-xs font-semibold text-content-secondary transition-colors hover:text-content"
                 @click.stop="startSectionEdit(section)"
               >
                 <span v-if="section.name" class="truncate">{{ section.name }}</span>
-                <span v-else class="block h-[1.25rem] opacity-35">&nbsp;</span>
+                <span v-else class="font-normal italic text-content-muted">Name this section…</span>
               </button>
             </div>
+            <span class="flex-none whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ (section.items || []).length }} {{ (section.items || []).length === 1 ? 'asset' : 'assets' }}</span>
           </div>
 
           <div
             v-if="!(sectionDragCollapsed && dragState.sectionDragId === section.id)"
-            class="relative select-none"
-            :class="[sectionDragCollapsed ? 'pb-2' : 'min-h-[180px] pb-4', 'px-4']"
+            class="relative select-none rounded-media bg-matte p-0.5"
+            :class="[sectionDragCollapsed ? '' : 'min-h-[120px]']"
             @dragover.stop.prevent="handleSectionBodyDragOver(section, $event)"
             @drop.stop.prevent="commitSectionBodyDrop(section, $event)"
           >
-            <div class="space-y-3">
+            <div
+              v-if="!(layoutRows[section.id] || []).length"
+              class="flex h-[116px] items-center justify-center text-xs text-content-muted"
+            >Drop assets here</div>
+            <div class="space-y-0.5">
               <div
                 v-for="(row, rowIndex) in sectionDragCollapsed ? (layoutRows[section.id] || []).slice(0, 1) : (layoutRows[section.id] || [])"
                 :key="`${section.id}-${rowIndex}`"
-                class="flex gap-3"
+                class="flex gap-0.5"
               >
                 <div
                   v-for="item in row.items"
@@ -485,9 +491,9 @@ function aspectRatio(item) {
 }
 
 function buildRows(items, width) {
-  const maxWidth = Math.max(width - 32, 320)
+  const maxWidth = Math.max(width - 52, 320)
   const targetHeight = 190
-  const gap = 12
+  const gap = 2
   const rows = []
   let pending = []
   let ratioSum = 0
