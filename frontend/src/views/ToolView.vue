@@ -76,6 +76,10 @@
            sits above both columns regardless of the Studio/Stage layout. -->
       <div v-show="!slideshowState.active" class="flex-1 min-w-0 flex flex-col min-h-0">
         <div id="tool-header-slot" class="flex-none m-3 mb-0 rounded-lg border border-edge-subtle bg-surface px-4 pt-3 pb-2.5"></div>
+        <!-- Transient run context (remix, resolution auto-change) lands here as
+             its own card so the header card stays fixed-height. Hidden when the
+             teleport delivers nothing. -->
+        <div id="tool-context-slot" class="flex-none mx-3 mt-3 empty:hidden"></div>
         <div class="flex-1 min-w-0 flex min-h-0">
 
       <!-- Generation Controls. In Studio mode the primary column (left, wide); in
@@ -220,6 +224,12 @@
           </div>
         </div>
 
+        </Teleport>
+
+        <!-- Transient run context (teleported to #tool-context-slot below the
+             header): remix banners + resolution auto-change in their own card. -->
+        <Teleport defer to="#tool-context-slot">
+        <div v-if="remixSource || dismissedRemix || resAutoChange" class="rounded-lg border border-edge-subtle bg-surface px-4 pt-3">
         <!-- Inspiration Banner (active remix) -->
         <RemixBanner
           v-if="remixSource"
@@ -272,6 +282,7 @@
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
+        </div>
 
         </Teleport>
 
@@ -313,9 +324,6 @@
               :markers="jobsManager?.availableMarkers.value || []"
               v-model="globalPrefs.autoMarkerIds"
             />
-          </div>
-
-          <div class="flex items-center gap-2">
             <span class="flex-1"></span>
             <AutoDeletePicker
               :model-value="autoDeleteDuration"
