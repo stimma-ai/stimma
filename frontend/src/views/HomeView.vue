@@ -17,14 +17,14 @@
 
         <!-- Hero area — centered in space above content -->
         <div class="relative flex-1 flex flex-col items-center justify-center w-full pt-24 pb-16">
-          <!-- Soft ambient halo behind the greeting + prompt -->
+          <!-- Soft ambient halo, centered behind the greeting + prompt -->
           <div
-            class="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-[880px] max-w-full h-[420px]"
-            style="background: radial-gradient(50% 60% at 42% 45%, rgba(139, 92, 246, 0.13), transparent 70%), radial-gradient(45% 55% at 62% 50%, rgba(59, 130, 246, 0.09), transparent 70%); filter: blur(12px)"
+            class="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[880px] max-w-full -translate-x-1/2 -translate-y-1/2"
+            style="background: radial-gradient(50% 60% at 45% 40%, rgba(45, 212, 191, 0.10), transparent 70%), radial-gradient(45% 55% at 58% 55%, rgba(129, 140, 248, 0.10), transparent 70%); filter: blur(12px)"
           ></div>
 
-          <h1 class="relative font-brand text-4xl font-bold tracking-tight text-content mb-3 text-center">{{ greeting }}</h1>
-          <p class="relative text-[15px] text-content-secondary mb-10 text-center">{{ greetingSub }}</p>
+          <h1 class="relative font-brand text-[32px] font-bold tracking-tight text-content mb-2 text-center">{{ greetingParts.pre }}<span class="bg-gradient-to-br from-teal-400 via-cyan-400 to-indigo-400 bg-clip-text text-transparent">{{ greetingParts.word }}</span>{{ greetingParts.post }}</h1>
+          <p class="relative text-[13px] text-content-tertiary mb-10 text-center">{{ greetingSub }}</p>
 
           <div class="relative w-full max-w-[720px]">
             <div class="rounded-lg shadow-lg shadow-black/20">
@@ -56,7 +56,7 @@
                 v-for="tool in launcherTools"
                 :key="tool.full_tool_id"
                 @click="openToolById(tool.full_tool_id)"
-                class="flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-edge-subtle bg-overlay-faint hover:bg-overlay-subtle hover:border-edge transition-colors cursor-pointer"
+                class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-overlay-faint hover:bg-overlay-subtle transition-colors cursor-pointer"
                 :title="tool.name"
               >
                 <div class="w-5 h-5 flex-shrink-0 text-content-secondary"><ToolIcon :tool="tool" bare :ring="false" /></div>
@@ -65,7 +65,7 @@
               </button>
               <router-link
                 to="/tools"
-                class="flex items-center px-3.5 py-1.5 rounded-full border border-edge-subtle text-[13px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle hover:border-edge transition-colors"
+                class="flex items-center px-3 py-1.5 rounded-md text-[13px] text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
               >
                 All tools →
               </router-link>
@@ -141,20 +141,20 @@
                   : 'border-edge-subtle hover:bg-overlay-faint'"
               >
                 <!-- Art -->
-                <div class="w-full h-28 bg-overlay-subtle">
+                <div class="w-full h-28 bg-matte">
                   <!-- Board: filmstrip of tiles at natural aspect, full strip
-                       height, left-aligned on the gray backdrop. Widths follow
-                       each item's aspect ratio so sparse boards read as tiles
-                       on a shelf instead of stretched crops. -->
+                       height, left-aligned on matte with 2px media-grid
+                       gutters. Widths follow each item's aspect ratio so
+                       sparse boards read as tiles on a shelf. -->
                   <div
                     v-if="item.type === 'board' && getBoardPreviewItems(item.board).length > 0"
-                    class="h-full overflow-hidden px-2 py-2"
+                    class="h-full overflow-hidden p-0.5"
                   >
-                    <div class="flex h-full gap-1.5">
+                    <div class="flex h-full gap-0.5">
                       <div
                         v-for="(previewItem, index) in getBoardPreviewItems(item.board)"
                         :key="`${item.id}-${previewItem.id}-${index}`"
-                        class="h-full flex-shrink-0 max-w-[55%] overflow-hidden rounded-media border border-edge-subtle bg-overlay-faint"
+                        class="h-full flex-shrink-0 max-w-[55%] overflow-hidden bg-overlay-faint"
                         :style="getPreviewTileStyle(previewItem)"
                       >
                         <MediaImage
@@ -176,7 +176,7 @@
                   <!-- Flow: filmstrip of surfaced output media -->
                   <div
                     v-else-if="item.type === 'flow' && getFlowPreviewMediaIds(item.id).length > 0"
-                    class="flex w-full h-full gap-[2px]"
+                    class="flex w-full h-full gap-0.5"
                   >
                     <div
                       v-for="mid in getFlowPreviewMediaIds(item.id)"
@@ -242,12 +242,12 @@
                 View all
               </router-link>
             </div>
-            <div class="bg-matte rounded-lg p-2">
+            <div class="bg-matte rounded-media p-0.5">
               <div class="grid gap-0.5" :style="{ gridTemplateColumns: `repeat(${mediaColumns}, 1fr)` }">
                 <div
                   v-for="(media, index) in visibleMedia"
                   :key="media.id"
-                  class="aspect-square rounded-media overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                  class="aspect-square overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                   @click="openMediaSlideshow(index)"
                 >
                   <MediaImage
@@ -368,14 +368,16 @@ const isFirstRun = computed(() =>
   && recentMedia.value.length === 0
 )
 
-const greeting = computed(() => {
+// Split so the display voice can put the prism gradient on ONE word
+// (the brand-moment budget from the v3 mock).
+const greetingParts = computed(() => {
   const hour = new Date().getHours()
-  if (hour < 12) return "Good morning, let's make something."
-  if (hour < 18) return 'Good afternoon, what are we making?'
-  return 'Good evening, what are we making?'
+  if (hour < 12) return { pre: "Good morning, let's make ", word: 'something', post: '.' }
+  if (hour < 18) return { pre: 'Good afternoon, what are we ', word: 'making', post: '?' }
+  return { pre: 'Good evening, what are we ', word: 'making', post: '?' }
 })
 
-const greetingSub = computed(() => '')
+const greetingSub = computed(() => 'Drop media anywhere, or start from a prompt.')
 
 // ==================== Tools ====================
 
