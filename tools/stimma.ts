@@ -549,6 +549,9 @@ Commands:
   test cv2-parity Run cv2 parity proof (uses optional cv2-parity extra)
   doctor assets     Read-only Asset/Media integrity audit
   doctor assets --verify-hashes  Also hash every managed payload
+  rewrite prompts --replace OLD NEW [--replace OLD NEW ...]
+                  Dry-run a literal prompt/history rewrite across every profile DB
+                  and associated PNG/JPEG metadata; add --apply --yes to write
   tag beta [X.Y.Z]    Tag HEAD as the next beta (train = next production version)
                       (canary builds are automatic on push to main — not tag-driven)
   promote production  Promote the latest beta's commit to a production release
@@ -1973,6 +1976,39 @@ async function main(): Promise<void> {
           "python",
           "-m",
           "asset_doctor",
+          "--data-dir",
+          getDataDir(bundleId, sandbox),
+          ...rest,
+        ],
+        { cwd: join(repoRoot, "backend") },
+      );
+      break;
+    }
+
+    case "rewrite": {
+      if (sub !== "prompts") {
+        printUsage();
+      }
+      const applying = rest.includes("--apply");
+      if (applying) {
+        const ports = await getSandboxPorts(bundleId, sandbox);
+        for (const hostname of LOCALHOSTS) {
+          if (await isTcpPortOpen(hostname, ports.server, 200)) {
+            console.error(
+              `Refusing to rewrite while the backend is listening on ${hostname}:${ports.server}. ` +
+                "Stop Stimma for this sandbox first.",
+            );
+            Deno.exit(1);
+          }
+        }
+      }
+      await run(
+        "uv",
+        [
+          "run",
+          "python",
+          "-m",
+          "prompt_history_rewrite",
           "--data-dir",
           getDataDir(bundleId, sandbox),
           ...rest,
