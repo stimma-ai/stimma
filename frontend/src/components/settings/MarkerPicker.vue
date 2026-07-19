@@ -103,7 +103,7 @@
                 :key="c"
                 @click="selectColor(c)"
                 class="w-6 h-6 rounded-full border-2 transition-all flex-shrink-0"
-                :class="localColor.toLowerCase() === c.toLowerCase() ? 'border-white scale-110' : 'border-transparent hover:scale-110'"
+                :class="localColor.toLowerCase() === c.toLowerCase() ? 'border-white scale-110' : 'border-transparent hover:border-edge-strong'"
                 :style="{ backgroundColor: c }"
               ></button>
             </div>

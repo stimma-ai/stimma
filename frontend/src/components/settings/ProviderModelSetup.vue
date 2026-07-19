@@ -5,7 +5,7 @@
         <div class="min-w-[220px] flex-1">
           <h5 class="text-xs font-semibold text-content-secondary">Test Model</h5>
           <div v-if="!requiredFailed" class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            <span v-if="testing" class="text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-accent-hi animate-pulse"></span>Testing…</span>
+            <span v-if="testing" class="text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-accent-hi animate-pulse-soft"></span>Testing…</span>
             <span v-else-if="canAdd" class="text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-green-500"></span>Ready</span>
             <span v-else class="text-content-muted">Not tested</span>
           </div>

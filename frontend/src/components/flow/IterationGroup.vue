@@ -234,7 +234,7 @@
           <span
             v-for="it in group.iterations"
             :key="it.wrapperKey"
-            class="w-2.5 h-4 rounded-sm cursor-pointer transition hover:scale-110"
+            class="w-2.5 h-4 rounded-[2px] cursor-pointer transition-opacity hover:opacity-75"
             :class="ribbonCellClass(it)"
             :title="`#${it.iterKey} — ${it.status}`"
             @click="openIteration(it)"
