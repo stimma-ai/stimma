@@ -109,6 +109,31 @@
               @rename="renameInstance"
             />
           </div>
+          <!-- Subtitle: Provider, task types. Renamed instances condense the
+               tool name onto this row (mirrors the sidebar row contract). -->
+          <div class="font-mono text-[10.5px] mt-1 flex items-center gap-1.5 text-content-tertiary">
+            <template v-if="instanceCustomName">
+              <span>{{ tool.name }}</span>
+              <span>·</span>
+            </template>
+            <span v-if="isStimmaCloudTool" class="stimma-cloud-text font-medium">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
+            <span v-else class="text-content-muted">{{ providerDisplayName }}</span>
+            <template v-if="taskTypesDisplay">
+              <span>·</span>
+              <span>{{ taskTypesDisplay }}</span>
+            </template>
+            <template v-if="projectScopeId">
+              <span>·</span>
+              <span class="inline-flex items-center gap-1.5">
+                <span>Saving to</span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-overlay-subtle px-2 py-0.5 text-[11px] font-medium text-content-secondary">
+                  <ArchiveBoxIcon class="h-3.5 w-3.5 flex-shrink-0" />
+                  <span class="truncate max-w-[180px]">{{ projectScopeName }}</span>
+                </span>
+              </span>
+            </template>
+          </div>
+          </div>
           <div class="flex items-center gap-2">
             <!-- Edit (frozen-flow tools only): the tool's own page is the obvious
                  place to find "edit this tool". Matches the Presets trigger. -->
@@ -193,30 +218,6 @@
               @clear="handleResetToDefaults"
             />
           </div>
-        </div>
-        <!-- Subtitle: Provider, task types. Renamed instances condense the
-             tool name onto this row (mirrors the sidebar row contract). -->
-        <div class="font-mono text-[10.5px] mt-1 flex items-center gap-1.5 text-content-tertiary">
-          <template v-if="instanceCustomName">
-            <span>{{ tool.name }}</span>
-            <span>·</span>
-          </template>
-          <span v-if="isStimmaCloudTool" class="stimma-cloud-text font-medium">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
-          <span v-else class="text-content-muted">{{ providerDisplayName }}</span>
-          <template v-if="taskTypesDisplay">
-            <span>·</span>
-            <span>{{ taskTypesDisplay }}</span>
-          </template>
-          <template v-if="projectScopeId">
-            <span>·</span>
-            <span class="inline-flex items-center gap-1.5">
-              <span>Saving to</span>
-              <span class="inline-flex items-center gap-1.5 rounded-full bg-overlay-subtle px-2 py-0.5 text-[11px] font-medium text-content-secondary">
-                <ArchiveBoxIcon class="h-3.5 w-3.5 flex-shrink-0" />
-                <span class="truncate max-w-[180px]">{{ projectScopeName }}</span>
-              </span>
-            </span>
-          </template>
         </div>
 
         <!-- Inspiration Banner (active remix) -->
