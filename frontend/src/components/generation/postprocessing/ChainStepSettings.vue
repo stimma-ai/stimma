@@ -10,7 +10,7 @@
            including its inline sparkle chat (no page-level chat dock exists in
            the step config panel, so external-chat stays off). -->
       <div v-if="hasPrompt" class="px-1 py-2">
-        <div class="text-sm font-medium text-content mb-2">Prompt</div>
+        <div class="text-[13px] text-content mb-2">Prompt</div>
         <AIPromptEditor
           :model-value="step.settings.prompt ?? ''"
           @update:model-value="updateSetting('prompt', $event)"
@@ -38,7 +38,7 @@
            against the actual input; "Maintain current size" pins the dims. -->
       <div v-if="hasWidthHeight" class="flex items-center justify-between gap-4 px-1 py-2">
         <div class="min-w-0">
-          <div class="text-sm font-medium text-content">Resolution</div>
+          <div class="text-[13px] text-content">Resolution</div>
           <div class="text-xs text-content-muted">{{ resolutionHint }}</div>
         </div>
         <div class="flex-shrink-0">
@@ -58,7 +58,7 @@
            "match the input image" — the executor picks the nearest choice at
            run time; choosing a ratio pins it. -->
       <div v-if="hasAspectRatio && aspectRatioChoices.length" class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-sm font-medium text-content">Aspect Ratio</div>
+        <div class="text-[13px] text-content">Aspect Ratio</div>
         <div class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
             :model-value="String(step.settings.aspect_ratio ?? MATCH_INPUT)"
@@ -71,7 +71,7 @@
         </div>
       </div>
       <div v-if="imageSizeChoices.length" class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-sm font-medium text-content">Image Size</div>
+        <div class="text-[13px] text-content">Image Size</div>
         <div class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
             :model-value="String(step.settings.image_size ?? schemaDefault('image_size') ?? imageSizeChoices[0])"
@@ -81,28 +81,21 @@
         </div>
       </div>
       <div v-if="hasMegapixels" class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-sm font-medium text-content">Megapixels</div>
-        <div class="flex min-w-0 w-[55%] max-w-[360px] flex-shrink-0 items-center justify-end gap-2">
-          <input v-no-autocorrect
-            type="range"
-            :value="step.settings.megapixels ?? schemaDefault('megapixels') ?? 1"
-            @input="updateSetting('megapixels', Number(($event.target as HTMLInputElement).value))"
-            :min="schemaProp('megapixels')?.minimum ?? 0.25"
-            :max="schemaProp('megapixels')?.maximum ?? 4"
-            :step="schemaProp('megapixels')?.['x-step'] ?? 0.25"
-            class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
-          />
-          <span class="w-10 flex-shrink-0 text-sm text-content-tertiary text-right select-none">
-            {{ step.settings.megapixels ?? schemaDefault('megapixels') ?? 1 }}
-          </span>
-        </div>
+        <div class="text-[13px] text-content">Megapixels</div>
+        <ScrubValue
+          :model-value="Number(step.settings.megapixels ?? schemaDefault('megapixels') ?? 1)"
+          @update:model-value="updateSetting('megapixels', $event)"
+          :min="schemaProp('megapixels')?.minimum ?? 0.25"
+          :max="schemaProp('megapixels')?.maximum ?? 4"
+          :step="schemaProp('megapixels')?.['x-step'] ?? 0.25"
+        />
       </div>
 
       <!-- Duration / FPS (dedicated controls in ToolView; simple rows here).
            Unset values display videoParamDefaults — the same prefill ToolView
            applies — so the panel shows exactly what the step will run with. -->
       <div v-if="hasDuration" class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-sm font-medium text-content">Duration</div>
+        <div class="text-[13px] text-content">Duration</div>
         <div v-if="allowedDurations" class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
             :model-value="String(step.settings.duration ?? videoParamDefaults.duration)"
@@ -110,23 +103,18 @@
             :options="allowedDurations.map((d: number) => ({ value: String(d), label: `${d}s` }))"
           />
         </div>
-        <div v-else class="flex min-w-0 w-[55%] max-w-[360px] flex-shrink-0 items-center justify-end gap-2">
-          <input v-no-autocorrect
-            type="range"
-            :value="step.settings.duration ?? videoParamDefaults.duration"
-            @input="updateSetting('duration', Number(($event.target as HTMLInputElement).value))"
-            :min="durationConfig.min"
-            :max="durationConfig.max"
-            :step="durationConfig.step"
-            class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
-          />
-          <span class="w-10 flex-shrink-0 text-sm text-content-tertiary text-right select-none">
-            {{ Number(step.settings.duration ?? videoParamDefaults.duration).toFixed(1) }}s
-          </span>
-        </div>
+        <ScrubValue
+          v-else
+          :model-value="Number(step.settings.duration ?? videoParamDefaults.duration)"
+          @update:model-value="updateSetting('duration', $event)"
+          :min="durationConfig.min"
+          :max="durationConfig.max"
+          :step="durationConfig.step"
+          :format="(v: number) => v.toFixed(1) + 's'"
+        />
       </div>
       <div v-if="hasFps" class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-sm font-medium text-content">FPS</div>
+        <div class="text-[13px] text-content">FPS</div>
         <div class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
             :model-value="String(step.settings.fps ?? videoParamDefaults.fps ?? fpsOptions[0])"
@@ -140,7 +128,6 @@
         :groups="groupedGenericParams"
         :values="step.settings"
         flat
-        disable-collapse
         @update:param="updateSetting"
       />
       <div v-if="!groupedGenericParams.length && !hasPrompt && !showUpscalePicker && !hasWidthHeight && !hasAspectRatio && !hasMegapixels && !hasDuration && !hasFps" class="text-xs text-content-muted py-1">
@@ -154,7 +141,7 @@
     <template v-for="param in filterParams" :key="param.name">
       <!-- Enum -->
       <div v-if="param.type === 'enum'" class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-sm font-medium text-content">{{ param.label }}</div>
+        <div class="text-[13px] text-content">{{ param.label }}</div>
         <div class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
             :model-value="String(step.settings[param.name] ?? param.default)"
@@ -165,21 +152,15 @@
       </div>
       <!-- Number slider -->
       <div v-else class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-sm font-medium text-content">{{ param.label }}</div>
-        <div class="flex min-w-0 w-[55%] max-w-[360px] flex-shrink-0 items-center justify-end gap-2">
-          <input v-no-autocorrect
-            type="range"
-            :value="step.settings[param.name] ?? param.default"
-            @input="updateSetting(param.name, Number(($event.target as HTMLInputElement).value))"
-            :min="param.min ?? 0"
-            :max="param.max ?? 100"
-            :step="param.step ?? 1"
-            class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
-          />
-          <span class="w-10 flex-shrink-0 text-sm text-content-tertiary text-right select-none">
-            {{ step.settings[param.name] ?? param.default }}
-          </span>
-        </div>
+        <div class="text-[13px] text-content">{{ param.label }}</div>
+        <ScrubValue
+          :model-value="Number(step.settings[param.name] ?? param.default)"
+          @update:model-value="updateSetting(param.name, $event)"
+          :min="param.min ?? 0"
+          :max="param.max ?? 100"
+          :step="param.step ?? 1"
+          :non-default="(step.settings[param.name] ?? param.default) !== param.default"
+        />
       </div>
     </template>
     <div v-if="!filterParams.length" class="text-xs text-content-muted py-1">
@@ -193,6 +174,7 @@ import { computed, ref, watch } from 'vue'
 import AIPromptEditor from '../AIPromptEditor.vue'
 import ResolutionPicker from '../../ResolutionPicker.vue'
 import SchemaParamGroup from '../SchemaParamGroup.vue'
+import ScrubValue from '../../ui/ScrubValue.vue'
 import SettingsDropdown from '../../ui/SettingsDropdown.vue'
 import UpscaleResolutionPicker from '../UpscaleResolutionPicker.vue'
 import { useToolSchemaFeatures } from '../../../composables/useToolSchemaFeatures'
