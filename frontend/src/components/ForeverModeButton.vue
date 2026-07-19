@@ -1,11 +1,10 @@
 <template>
   <div class="relative" ref="containerRef">
-    <!-- Split button: always a contained control (a split dropdown needs a
-         body); idle = secondary, armed = accent wash. -->
+    <!-- Split Button -->
     <div
       :class="[
-        'flex rounded-md overflow-hidden transition-colors',
-        isActive ? 'bg-live/15 ring-1 ring-live/40' : 'bg-surface-raised'
+        'flex rounded-lg overflow-hidden',
+        isActive ? 'bg-pink-500' : 'bg-surface-raised'
       ]"
     >
       <!-- Main button (start/stop) -->
@@ -13,22 +12,22 @@
         @click="handleMainClick"
         :class="[
           'px-3 py-2 text-sm font-semibold cursor-pointer transition-colors',
-          isActive ? 'text-live hover:bg-live/20' : 'text-content-secondary hover:bg-surface-hover hover:text-content'
+          isActive ? 'text-white hover:bg-pink-600' : 'text-content hover:bg-surface-hover'
         ]"
         :title="isActive ? 'Stop forever mode' : 'Start forever mode'"
       >
-        <span :class="isActive ? 'inline-block animate-pulse-soft' : ''">∞</span>
+        ∞
       </button>
 
       <!-- Divider -->
-      <div :class="['w-px', isActive ? 'bg-live/30' : 'bg-edge']"></div>
+      <div :class="['w-px', isActive ? 'bg-pink-400' : 'bg-surface-hover']"></div>
 
       <!-- Dropdown chevron (settings) -->
       <button
         @click.stop="handleChevronClick"
         :class="[
           'px-2 py-2 cursor-pointer transition-colors flex items-center',
-          isActive ? 'text-live hover:bg-live/20' : 'text-content-secondary hover:bg-surface-hover hover:text-content'
+          isActive ? 'text-white hover:bg-pink-600' : 'text-content hover:bg-surface-hover'
         ]"
         title="Forever mode settings"
       >

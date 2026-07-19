@@ -518,10 +518,12 @@
                   >
                     Name this board...
                   </span>
-                  <StatusDot
+                  <!-- Working: spinner. The dot is reserved for "finished since
+                       you last looked". -->
+                  <Spinner
                     v-if="isTabGenerating(tab) && tab.type !== 'flow'"
-                    bucket="running"
-                    pulse
+                    size="sm"
+                    hue="border-t-blue-500"
                     class="self-center"
                   />
                   <StatusDot
@@ -832,10 +834,12 @@
                   >
                     Name this board...
                   </span>
-                  <StatusDot
+                  <!-- Working: spinner. The dot is reserved for "finished since
+                       you last looked". -->
+                  <Spinner
                     v-if="isTabGenerating(tab) && tab.type !== 'flow'"
-                    bucket="running"
-                    pulse
+                    size="sm"
+                    hue="border-t-blue-500"
                     class="self-center"
                   />
                   <StatusDot
@@ -1031,6 +1035,7 @@ import { MediaImage } from './media'
 import ToolIcon from './tools/ToolIcon.vue'
 import EntityIcon from './EntityIcon.vue'
 import StatusDot from './ui/StatusDot.vue'
+import Spinner from './ui/Spinner.vue'
 import Tooltip from './ui/Tooltip.vue'
 import WorkspaceTabsContextMenu from './WorkspaceTabsContextMenu.vue'
 // @ts-expect-error - distribution-aliased Vue component (see vite.config.js)

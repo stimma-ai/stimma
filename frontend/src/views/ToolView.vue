@@ -2076,7 +2076,7 @@ const jobsManager = useGenerationJobs({
   generatorInstanceId: generatorInstanceId,
   activeCap: activeJobsCap
 })
-const { beginInstanceWork } = useGenerationStatus()
+const { beginInstanceWork, setInstanceForeverMode } = useGenerationStatus()
 
 // Generation preferences composable - called at TOP LEVEL during setup
 // taskType is a placeholder - the real key is toolId which creates tool-specific storage
@@ -2101,6 +2101,16 @@ const {
 watch(
   () => uiState.value.generateForeverMode ? uiState.value.generateForeverConcurrency : null,
   (cap) => { activeJobsCap.value = cap ?? null },
+  { immediate: true }
+)
+
+// Mirror armed forever mode into the shared generation-status registry: the
+// sidebar spinner must run the entire time forever mode is on, including the
+// gaps where no job is queued (waiting for a slot, idle). Cleared on unmount
+// so a closed tab doesn't pin the spinner.
+watch(
+  () => uiState.value.generateForeverMode ?? false,
+  (armed) => { setInstanceForeverMode(generatorInstanceId, armed) },
   { immediate: true }
 )
 
@@ -6220,6 +6230,7 @@ onUnmounted(async () => {
   foreverModeSessionId.value++
   workRequestQueue.value = []
   foreverModeBatchSubmitInFlight.value = false
+  setInstanceForeverMode(generatorInstanceId, false)
 
   // Clean up profile change listeners
   window.removeEventListener('profile-will-change', handleProfileWillChange)

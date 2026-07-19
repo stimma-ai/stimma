@@ -5,6 +5,12 @@ import { useWebSocket } from './useWebSocket'
 const activeJobsByTaskType = ref({})
 const activeJobsByInstanceId = ref({})
 const pendingWorkByInstanceId = ref({})
+// Instances with forever mode armed. Forever mode counts as active the whole
+// time it is on — the job counts above transiently hit zero between
+// submissions (waiting for a slot, idle gap), and the sidebar must not read
+// that as "finished". Owned by the mounted ToolView, not derived from job
+// events, so a websocket drop does not clear it.
+const foreverModeByInstanceId = ref({})
 // Job ids currently counted in the maps above. The backend re-broadcasts
 // 'generation_job_queued' when it requeues a job (provider disconnect), so
 // counting raw events would inflate a count by one per requeue and leave the
@@ -172,10 +178,20 @@ export function useGenerationStatus() {
     return (activeJobsByTaskType.value[taskType] || 0) > 0
   }
 
+  // Mark/unmark an instance as forever-mode armed (see foreverModeByInstanceId).
+  const setInstanceForeverMode = (instanceId, active) => {
+    if (active) {
+      foreverModeByInstanceId.value[instanceId] = true
+    } else {
+      delete foreverModeByInstanceId.value[instanceId]
+    }
+  }
+
   // Check if a specific instance ID has active jobs (for tools)
   const isInstanceActive = (instanceId) => {
     return (activeJobsByInstanceId.value[instanceId] || 0) > 0 ||
-      (pendingWorkByInstanceId.value[instanceId] || 0) > 0
+      (pendingWorkByInstanceId.value[instanceId] || 0) > 0 ||
+      !!foreverModeByInstanceId.value[instanceId]
   }
 
   // Check if a specific tool has active jobs. Without the projectId scoping,
@@ -186,9 +202,12 @@ export function useGenerationStatus() {
       return count > 0 && instanceMatchesTool(instanceId, toolId, projectId)
     })
     if (hasActiveJob) return true
-    return Object.entries(pendingWorkByInstanceId.value).some(([instanceId, count]) => {
+    const hasPendingWork = Object.entries(pendingWorkByInstanceId.value).some(([instanceId, count]) => {
       return count > 0 && instanceMatchesTool(instanceId, toolId, projectId)
     })
+    if (hasPendingWork) return true
+    return Object.keys(foreverModeByInstanceId.value).some(instanceId =>
+      instanceMatchesTool(instanceId, toolId, projectId))
   }
 
   // Check activity for a specific tool-instance tab by its feedScope (the
@@ -198,7 +217,9 @@ export function useGenerationStatus() {
   const isFeedScopeActive = (feedScope) => {
     const matches = ([instanceId, count]) => count > 0 && instanceMatchesFeedScope(instanceId, feedScope)
     return Object.entries(activeJobsByInstanceId.value).some(matches) ||
-      Object.entries(pendingWorkByInstanceId.value).some(matches)
+      Object.entries(pendingWorkByInstanceId.value).some(matches) ||
+      Object.keys(foreverModeByInstanceId.value).some(instanceId =>
+        instanceMatchesFeedScope(instanceId, feedScope))
   }
 
   // Computed for total active jobs (backwards compatible)
@@ -212,7 +233,9 @@ export function useGenerationStatus() {
     activeJobsByTaskType,
     activeJobsByInstanceId,
     pendingWorkByInstanceId,
+    foreverModeByInstanceId,
     beginInstanceWork,
+    setInstanceForeverMode,
     isGenerating,
     isTaskTypeActive,
     isInstanceActive,
