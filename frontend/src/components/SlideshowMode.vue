@@ -364,7 +364,7 @@
         @select-cell="handleGridCellSelect"
         @selection-change="handleGridSelectionChange"
         @loaded="handleGridOverviewLoaded"
-        class="absolute inset-0 z-chrome"
+        class="absolute inset-0"
       />
 
       <!-- Wrapper fills container; w-full h-full + object-contain scales to fit -->
@@ -407,7 +407,7 @@
           :media-id="mediaIdOf(displayItem)"
           @select-item="handleSetItemSelect"
           @loaded="handleSetOverviewLoaded"
-          class="absolute inset-0 z-chrome"
+          class="absolute inset-0"
         />
 
         <!-- Layout viewer -->
@@ -415,7 +415,7 @@
           v-else-if="isLayout"
           :key="`layout-${displayItem?.id}-${refreshKey}`"
           :media-id="mediaIdOf(displayItem)"
-          class="absolute inset-0 z-chrome"
+          class="absolute inset-0"
         />
 
         <!-- Video -->
@@ -1621,15 +1621,15 @@ const CURSOR_HIDE_DELAY = 3000 // 3 seconds
 // Control bar dragging state
 const isDragging = ref(false)
 const isHovered = ref(false)
-// Default position: upper-left, below the top chrome row (Back/Exit pills,
-// title, close button sit at top-4 and are 48px tall → row ends at y=64).
+// New profiles start left-aligned and vertically centered in the usable viewer
+// area. Null anchors keep that default responsive until the first drag, when
+// startDrag captures the visual position and persists ordinary edge anchors.
 const CONTROL_BAR_DEFAULT_LEFT = 24
-const CONTROL_BAR_DEFAULT_TOP = 80
 const controlBarEdgeAnchors = ref({
-  horizontal: savedSettings.controlBarHorizontalEdge ?? 'left', // 'left' or 'right'
-  vertical: savedSettings.controlBarVerticalEdge ?? 'top', // 'top' or 'bottom'
-  horizontalDistance: savedSettings.controlBarHorizontalDistance ?? CONTROL_BAR_DEFAULT_LEFT,
-  verticalDistance: savedSettings.controlBarVerticalDistance ?? CONTROL_BAR_DEFAULT_TOP
+  horizontal: savedSettings.controlBarHorizontalEdge ?? null, // 'left', 'right', or null before first drag
+  vertical: savedSettings.controlBarVerticalEdge ?? null, // 'top', 'bottom', or null before first drag
+  horizontalDistance: savedSettings.controlBarHorizontalDistance ?? 0,
+  verticalDistance: savedSettings.controlBarVerticalDistance ?? 0
 })
 const dragStart = ref({ x: 0, y: 0 })
 const dragDistance = ref(0)
@@ -2223,18 +2223,15 @@ const controlBarStyle = computed(() => {
     return style
   }
 
-  // Default: center in available space (accounting for sidebar on right)
-  // Also account for related strip when visible
-  const defaultStyle = {
-    left: `calc((100% - ${sidebarWidth}px) / 2)`,
-    transform: 'translateX(-50%)'
+  // Default for profiles without a saved position: stay at the left edge and
+  // center vertically in the usable viewer area above the thumbnail strip.
+  return {
+    left: `${CONTROL_BAR_DEFAULT_LEFT}px`,
+    right: 'auto',
+    top: `calc((100% - ${relatedStripOffset}px) / 2)`,
+    bottom: 'auto',
+    transform: 'translateY(-50%)'
   }
-
-  if (relatedStripOffset > 0) {
-    defaultStyle.bottom = `${relatedStripOffset + 32}px` // 32px = default bottom-8
-  }
-
-  return defaultStyle
 })
 
 // Video transport bar: centered over the media area (sidebar-aware) and lifted
