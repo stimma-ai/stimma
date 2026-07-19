@@ -189,24 +189,20 @@ export function useAssetApi() {
 
   async function emptyTrash() {
     const manifest = (await axios.get(`${api()}/assets/trash-deletion-manifest`)).data
-    const results = []
     for (const item of manifest.items || []) {
       prepareAssetProjectDeletion(item.asset_id, item.media_ids || [])
-      const result = (
-        await axios.delete(`${api()}/assets/${item.asset_id}/permanent`)
-      ).data
+    }
+
+    // Queue the whole trash as one backend wave. Besides being substantially
+    // cheaper than one request per Asset, the shared group_id is what lets the
+    // global deletion indicator retain completed work in its running total.
+    const result = (await axios.delete(`${api()}/assets`)).data
+
+    for (const item of manifest.items || []) {
       await confirmAssetProjectDeletion(item.asset_id)
-      await scrubDeletedAssetProjects(result.media_ids || [])
-      results.push(result)
     }
-    return {
-      status: 'accepted',
-      accepted: results.length,
-      results,
-      media_ids: (manifest.items || []).flatMap(
-        (item: { media_ids?: number[] }) => item.media_ids || [],
-      ),
-    }
+    await scrubDeletedAssetProjects(result.media_ids || [])
+    return result
   }
 
   async function addToBoard(boardId: number, assetIds: number[], sectionId: number | null = null) {

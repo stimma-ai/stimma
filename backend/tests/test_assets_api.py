@@ -983,7 +983,9 @@ async def test_empty_asset_trash_permanently_deletes_all_roots(client, db_sessio
     response = await client.delete("/api/assets")
     assert response.status_code == 202
     assert response.json()["accepted"] == 2
-    for operation in response.json()["operations"]:
+    operations = response.json()["operations"]
+    assert len({operation["group_id"] for operation in operations}) == 1
+    for operation in operations:
         result = await _wait_for_delete(client, operation["id"])
         assert result["status"] == "completed"
 

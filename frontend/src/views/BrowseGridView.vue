@@ -49,22 +49,8 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
             <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
-          {{ isEmptyingTrash ? 'Emptying...' : 'Empty Trash' }}
+          Empty Trash
         </button>
-        <div v-if="isEmptyingTrash" class="relative w-9 h-9 shrink-0" :title="`${Math.round(trashEmptyProgress * 100)}%`">
-          <svg class="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
-            <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" class="text-white/10" />
-            <circle
-              cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"
-              class="text-red-500 transition-[stroke-dashoffset] duration-300"
-              stroke-dasharray="97.39"
-              :stroke-dashoffset="97.39 * (1 - trashEmptyProgress)"
-            />
-          </svg>
-          <span class="absolute inset-0 flex items-center justify-center text-[10px] font-medium text-content-secondary">
-            {{ Math.round(trashEmptyProgress * 100) }}
-          </span>
-        </div>
       </div>
     </div>
 
@@ -368,17 +354,7 @@ const isEmptyingTrash = computed(() => {
     && (summary.kinds || []).some(kind => kind === 'asset' || kind === 'empty_trash')
 })
 const trashHeaderSubtitle = computed(() => {
-  if (isEmptyingTrash.value) {
-    const summary = deleteSummary.value
-    return `Emptying trash: ${summary?.processed_items || 0} / ${summary?.total_items || totalCount.value}`
-  }
   return `${totalCount.value} deleted ${totalCount.value === 1 ? 'item' : 'items'}`
-})
-const trashEmptyProgress = computed(() => {
-  const summary = deleteSummary.value
-  const total = summary?.total_items || totalCount.value || 0
-  if (!total) return 0
-  return Math.min(1, (summary?.processed_items || 0) / total)
 })
 
 const route = useRoute()
