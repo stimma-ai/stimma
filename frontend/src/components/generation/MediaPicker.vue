@@ -205,7 +205,7 @@
             <template v-if="accept === 'image' && !item.isSet && item._videoSource">
               <div class="w-full">
                 <div
-                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-2.5 py-1 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'frame')"
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M3.25 4A2.25 2.25 0 0 0 1 6.25v7.5A2.25 2.25 0 0 0 3.25 16h7.5A2.25 2.25 0 0 0 13 13.75v-7.5A2.25 2.25 0 0 0 10.75 4h-7.5ZM19 4.75a.75.75 0 0 0-1.28-.53l-3 3a.75.75 0 0 0-.22.53v4.5c0 .199.079.39.22.53l3 3a.75.75 0 0 0 1.28-.53V4.75Z" /></svg>
@@ -287,10 +287,10 @@
                  Always offered — prep is baked client-side before submit, so it works
                  regardless of whether the tool declares x-allow-prep. -->
             <template v-if="accept === 'image' && !item.isSet">
-              <!-- Flip / Rotate row -->
-              <div class="w-full">
+              <!-- Flip / Rotate row: shown when active, or when the reveal row expands the rest -->
+              <div v-if="hasFlip(item) || expandedPrepRows.has(item.originalIndex)" class="w-full">
                 <div
-                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-2.5 py-1 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'flip')"
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"/></svg>
@@ -353,8 +353,8 @@
               </div>
 
               <!-- Crop row (opens the modal crop editor) -->
-              <div class="w-full">
-                <div class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle">
+              <div v-if="hasCrop(item) || expandedPrepRows.has(item.originalIndex)" class="w-full">
+                <div class="flex items-center gap-2 px-2.5 py-1 border-t border-edge-subtle">
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75V16.5a.75.75 0 0 0 .75.75h12.25M3.75 7.5H16.5a.75.75 0 0 1 .75.75v12.25"/></svg>
                   <span class="text-[11px] text-content-secondary flex-1">Crop</span>
                   <span v-if="hasCrop(item)" class="text-[10px] font-mono tabular-nums text-accent-hi font-medium">
@@ -385,9 +385,9 @@
               </div>
 
               <!-- Scale row -->
-              <div class="w-full">
+              <div v-if="hasScale(item) || expandedPrepRows.has(item.originalIndex)" class="w-full">
                 <div
-                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-2.5 py-1 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'scale')"
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75H4.5m0 0v3m0-3l3.75 3.75M7.5 20.25H4.5m0 0v-3m0 3l3.75-3.75M16.5 3.75h3m0 0v3m0-3l-3.75 3.75M16.5 20.25h3m0 0v-3m0 3l-3.75-3.75"/></svg>
@@ -459,9 +459,9 @@
               </div>
 
               <!-- Extend Canvas row -->
-              <div class="w-full">
+              <div v-if="hasExtendPadding(item) || expandedPrepRows.has(item.originalIndex)" class="w-full">
                 <div
-                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-2.5 py-1 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'extend')"
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
@@ -543,9 +543,9 @@
               </div>
 
               <!-- Preprocess row -->
-              <div v-if="hasControlnet" class="w-full">
+              <div v-if="hasControlnet && (item._preprocessor || expandedPrepRows.has(item.originalIndex))" class="w-full">
                 <div
-                  class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-2.5 py-1 border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'preprocess')"
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 13.5V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m12-3V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m-6-9V3.75m0 3.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 9.75V10.5"/></svg>
@@ -647,8 +647,8 @@
               </div>
 
               <!-- Paint row (hidden in batch mode — per-item painting can't apply uniformly) -->
-              <div v-if="!batchMode" class="w-full">
-                <div class="flex items-center gap-2 px-2.5 py-1.5 border-t border-edge-subtle">
+              <div v-if="!batchMode && (hasPaint(item) || expandedPrepRows.has(item.originalIndex))" class="w-full">
+                <div class="flex items-center gap-2 px-2.5 py-1 border-t border-edge-subtle">
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42"/></svg>
                   <span class="text-[11px] text-content-secondary flex-1">Paint</span>
                   <button
@@ -669,6 +669,29 @@
                     ]"
                   >Edit</button>
                 </div>
+              </div>
+
+              <!-- Reveal row: quiet toggle for the inactive (default-value) prep rows.
+                   Only shown when at least one row is currently hidden. -->
+              <div
+                v-if="!expandedPrepRows.has(item.originalIndex) && inactivePrepRowCount(item) > 0"
+                class="w-full border-t border-edge-subtle"
+              >
+                <button
+                  type="button"
+                  @click="togglePrepRowsExpanded(item.originalIndex)"
+                  class="w-full flex items-center gap-2 px-2.5 py-1 text-[11px] text-content-muted hover:text-content-secondary transition-colors"
+                >＋ {{ inactivePrepRowCount(item) }} adjustments</button>
+              </div>
+              <div
+                v-else-if="expandedPrepRows.has(item.originalIndex) && inactivePrepRowCount(item) > 0"
+                class="w-full border-t border-edge-subtle"
+              >
+                <button
+                  type="button"
+                  @click="togglePrepRowsExpanded(item.originalIndex)"
+                  class="w-full flex items-center gap-2 px-2.5 py-1 text-[11px] text-content-muted hover:text-content-secondary transition-colors"
+                >− Hide unused adjustments</button>
               </div>
 
               <!-- Output size footer — shows final pipeline dimensions, Use sets canvas -->
@@ -1993,6 +2016,35 @@ function togglePrepPanel(index: number, panel: string) {
   } else {
     openPrepPanel[index] = panel
   }
+}
+
+// --- Prep row collapse: by default only ACTIVE (non-default) rows show,
+// plus a quiet reveal row for the rest. Per-item, sticky until re-collapsed.
+const expandedPrepRows = reactive<Set<number>>(new Set())
+
+function togglePrepRowsExpanded(index: number) {
+  if (expandedPrepRows.has(index)) {
+    expandedPrepRows.delete(index)
+  } else {
+    expandedPrepRows.add(index)
+  }
+}
+
+function hasPaint(item: MediaItem): boolean {
+  return !!(item._paintLayerDataUrl || item._paintLayerPath)
+}
+
+// Count of inactive (hidden-by-default) prep rows for an item, given which
+// rows are actually rendered for it (crop/preprocess/paint are conditional).
+function inactivePrepRowCount(item: MediaItem): number {
+  let count = 0
+  if (!hasFlip(item)) count++
+  if (!hasCrop(item)) count++
+  if (!hasScale(item)) count++
+  if (!hasExtendPadding(item)) count++
+  if (hasControlnet.value && !item._preprocessor) count++
+  if (!props.batchMode && !hasPaint(item)) count++
+  return count
 }
 
 // --- Frame picker (for stills grabbed from a video) ---
