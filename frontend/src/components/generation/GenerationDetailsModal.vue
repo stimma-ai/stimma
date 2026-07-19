@@ -215,7 +215,7 @@
                   class="rounded-lg border border-amber-500/40 bg-overlay-light"
                 >
                   <div class="flex items-center gap-2 border-b border-amber-500/30 px-4 py-2.5">
-                    <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-sm">Dev</span>
+                    <span class="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded-md">Dev</span>
                     <span class="text-[12px] text-content-muted">raw step error</span>
                   </div>
                   <div class="px-4 py-3">

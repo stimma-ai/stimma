@@ -9,7 +9,7 @@
       >
         <span>{{ tag.tag }}</span>
         <button
-          class="w-[18px] h-[18px] flex items-center justify-center bg-transparent border-none text-content-tertiary hover:text-content hover:bg-overlay-light rounded-sm transition-colors text-base leading-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+          class="w-[18px] h-[18px] flex items-center justify-center bg-transparent border-none text-content-tertiary hover:text-content hover:bg-overlay-light rounded-md transition-colors text-base leading-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
           @click="removeTag(tag)"
           :disabled="disabled"
         >
