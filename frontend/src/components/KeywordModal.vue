@@ -2,7 +2,7 @@
   <Modal :show="true" size="custom" custom-class="max-w-[600px] w-full max-h-[80vh] flex flex-col overflow-hidden" @close="close">
     <template #header>
       <div class="flex justify-between items-center">
-        <h2 class="m-0 text-xl font-semibold text-content">Keywords</h2>
+        <h2 class="m-0 text-[16px] font-semibold text-content">Keywords</h2>
         <IconButton @click="close">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -11,8 +11,8 @@
       </div>
     </template>
 
-      <div class="relative px-6 py-6 border-b border-edge">
-        <svg class="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-content-muted pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+      <div class="relative px-4 py-3 border-b border-edge-subtle">
+        <svg class="absolute left-7 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted pointer-events-none" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
         </svg>
         <input v-no-autocorrect
@@ -20,7 +20,7 @@
           v-model="searchQuery"
           @input="handleSearchInput"
           placeholder="Search keywords..."
-          class="w-full bg-surface-raised border border-edge-strong rounded-lg py-3 pr-4 pl-11 text-content text-sm transition-all focus:outline-none focus:border-accent focus:bg-surface placeholder:text-content-muted"
+          class="w-full bg-overlay-subtle border border-transparent rounded-md py-2 pr-3 pl-9 text-content text-sm focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40 placeholder:text-content-muted"
           autofocus
         />
       </div>
@@ -32,7 +32,7 @@
       >
         <!-- Initial loading skeleton -->
         <div v-if="isInitialLoading" class="space-y-1">
-          <div v-for="i in 10" :key="`skeleton-${i}`" class="flex justify-between items-center py-3.5 px-4 rounded-lg bg-overlay-subtle animate-pulse">
+          <div v-for="i in 10" :key="`skeleton-${i}`" class="flex justify-between items-center py-2 px-3 rounded-md bg-overlay-subtle animate-pulse">
             <div class="h-4 bg-overlay-light rounded w-32"></div>
             <div class="h-3 bg-overlay-light rounded w-12"></div>
           </div>
@@ -45,19 +45,19 @@
             :key="kw.keyword"
             @click="toggleKeyword(kw.keyword)"
             :class="[
-              'flex justify-between items-center py-3.5 px-4 mb-1 rounded-lg cursor-pointer transition-all',
+              'flex justify-between items-center gap-2 py-1.5 px-3 rounded-md cursor-pointer transition-colors',
               isSelected(kw.keyword)
-                ? 'bg-selection/20 border border-selection hover:bg-selection/30'
-                : 'bg-transparent hover:bg-overlay-subtle'
+                ? 'bg-accent/10'
+                : 'hover:bg-overlay-subtle'
             ]"
           >
             <span :class="[
-              'text-[15px] font-medium',
-              isSelected(kw.keyword) ? 'text-selection font-semibold' : 'text-content'
+              'text-[13px]',
+              isSelected(kw.keyword) ? 'text-accent-hi font-medium' : 'text-content-secondary'
             ]">{{ kw.keyword }}</span>
             <span :class="[
-              'text-[13px] font-normal',
-              isSelected(kw.keyword) ? 'text-selection' : 'text-content-muted'
+              'text-xs font-mono tabular-nums',
+              isSelected(kw.keyword) ? 'text-content-tertiary' : 'text-content-muted'
             ]">({{ kw.count }})</span>
           </div>
 

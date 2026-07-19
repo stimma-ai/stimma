@@ -15,20 +15,31 @@
 
       <div class="flex gap-2 flex-wrap flex-1">
         <!-- Marker Toggle Buttons (Always First) - 3-state: none, positive (blue), negative (red) -->
+        <!-- 3-state marker toggles. Include is the PRIMARY active look: the
+             clean native-color chip (icon + wash of the marker's own color),
+             no adornment. Exclude is the louder variant: same native chip but
+             with an explicit red "−" sitting left of the icon inside the halo.
+             Off = gray ghost. The icon itself is never recolored. -->
         <button
           v-for="marker in markers"
           :key="marker.id"
           :class="[
-            'inline-flex items-center justify-center w-9 h-9 rounded-md transition-colors cursor-pointer',
-            isMarkerPositive(marker.id)
-              ? 'bg-blue-500/15 border border-blue-500/50 text-blue-500'
-              : isMarkerNegative(marker.id)
-              ? 'bg-red-500/15 border border-red-500/50 text-red-500'
+            'inline-flex items-center justify-center h-9 rounded-md transition-colors cursor-pointer',
+            isMarkerNegative(marker.id) ? 'px-2 gap-1' : 'w-9',
+            isMarkerPositive(marker.id) || isMarkerNegative(marker.id)
+              ? ''
               : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content'
           ]"
-          :title="marker.name"
+          :style="isMarkerPositive(marker.id) || isMarkerNegative(marker.id)
+            ? { color: markerColor(marker), backgroundColor: markerWash(marker) }
+            : {}"
+          :title="marker.name + (isMarkerPositive(marker.id) ? ' — filtering' : isMarkerNegative(marker.id) ? ' — excluded' : '')"
           @click="toggleMarker(marker.id)"
         >
+          <span
+            v-if="isMarkerNegative(marker.id)"
+            class="text-red-400 text-[16px] font-bold leading-none select-none"
+          >−</span>
           <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
         </button>
 
@@ -258,14 +269,20 @@
       <!-- Unified Pill Group -->
       <div class="flex items-center gap-1">
         <!-- Item count -->
-        <span v-if="totalCount !== null" class="px-3 py-2 text-sm text-content-tertiary font-medium whitespace-nowrap">{{ itemCountText }}</span>
+        <span v-if="totalCount !== null" class="px-3 py-2 text-xs font-mono tabular-nums text-content-tertiary whitespace-nowrap">{{ itemCountText }}</span>
         <!-- Sort dropdown (not shown in trash mode - trash always sorts by deleted date) -->
-        <select v-if="!isTrashMode" v-model="localSortBy" @change="emitUpdate" class="bg-transparent text-content px-3 py-2 text-sm cursor-pointer focus:outline-none appearance-none rounded-md pr-7 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMyA0LjVMNiA3LjVMOSA0LjUiIHN0cm9rZT0iIzg4OCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==')] bg-no-repeat bg-[right_0.5rem_center]">
-          <option value="similarity" :disabled="!similarSearchActive && !localSimilarToText">Similarity</option>
-          <option value="created_desc">Newest First</option>
-          <option value="created_asc">Oldest First</option>
-          <option value="random">Random</option>
-        </select>
+        <div v-if="!isTrashMode" class="px-1">
+          <SettingsDropdown
+            :model-value="localSortBy"
+            @update:model-value="localSortBy = $event; emitUpdate()"
+            :options="[
+              ...(similarSearchActive || localSimilarToText ? [{ value: 'similarity', label: 'Similarity' }] : []),
+              { value: 'created_desc', label: 'Newest First' },
+              { value: 'created_asc', label: 'Oldest First' },
+              { value: 'random', label: 'Random' },
+            ]"
+          />
+        </div>
         <!-- Shuffle button - only visible when in random mode (not in trash mode) -->
         <button v-if="!isTrashMode && localSortBy === 'random'" @click="handleShuffle" class="px-3 py-2 cursor-pointer flex items-center justify-center transition-colors hover:bg-overlay-subtle rounded-md text-content-secondary hover:text-accent" title="Shuffle order">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -289,20 +306,20 @@
             v-if="showSavedViewMenu"
             class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu py-1 min-w-[160px]"
           >
-            <div class="px-4 py-2 text-xs font-semibold text-content-secondary">Saved view</div>
+            <div class="px-3 py-2 text-xs font-semibold text-content-secondary">Saved view</div>
             <button
               @click="handleRenameView"
-              class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+              class="w-full px-3 py-2 text-left text-xs text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
               </svg>
               Rename
             </button>
-            <div class="border-t border-edge-strong my-1"></div>
+            <div class="border-t border-edge-subtle my-1"></div>
             <button
               @click="handleMoveUp"
-              class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+              class="w-full px-3 py-2 text-left text-xs text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
@@ -311,28 +328,28 @@
             </button>
             <button
               @click="handleMoveDown"
-              class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+              class="w-full px-3 py-2 text-left text-xs text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
               </svg>
               Move Down
             </button>
-            <div v-if="hasActiveFilters" class="border-t border-edge-strong my-1"></div>
+            <div v-if="hasActiveFilters" class="border-t border-edge-subtle my-1"></div>
             <button
               v-if="hasActiveFilters"
               @click="showSavedViewMenu = false; clearAllFilters()"
-              class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+              class="w-full px-3 py-2 text-left text-xs text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
               Clear Filters
             </button>
-            <div class="border-t border-edge-strong my-1"></div>
+            <div class="border-t border-edge-subtle my-1"></div>
             <button
               @click="handleDeleteView"
-              class="w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+              class="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10 cursor-pointer flex items-center gap-2"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -359,18 +376,18 @@
             <button
               v-if="canSaveView"
               @click="showBrowseMenu = false; emit('save-view')"
-              class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+              class="w-full px-3 py-2 text-left text-xs text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
               </svg>
               Save View
             </button>
-            <div v-if="canSaveView && hasActiveFilters" class="border-t border-edge-strong my-1"></div>
+            <div v-if="canSaveView && hasActiveFilters" class="border-t border-edge-subtle my-1"></div>
             <button
               v-if="hasActiveFilters"
               @click="showBrowseMenu = false; clearAllFilters()"
-              class="w-full px-4 py-2 text-left text-sm text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
+              class="w-full px-3 py-2 text-left text-xs text-content-secondary hover:bg-overlay-subtle cursor-pointer flex items-center gap-2"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -384,105 +401,105 @@
 
     <!-- Expandable Criteria Panel -->
     <transition name="slide-down">
-      <div v-if="showCriteriaPanel" class="border-t border-edge bg-overlay-faint relative">
+      <div v-if="showCriteriaPanel" class="border-t border-edge-subtle relative">
         <!-- Loading spinner -->
         <div v-if="isLoading" class="absolute top-0 left-0 right-0 bottom-0 bg-surface/80 flex items-center justify-center z-10 backdrop-blur-[2px]">
           <div class="w-8 h-8 border-[3px] border-edge border-t-accent rounded-full spinner"></div>
         </div>
         <div ref="criteriaScrollContainer" class="flex gap-8 px-4 py-3 overflow-x-auto overflow-y-hidden transition-opacity" :class="{ 'opacity-50 pointer-events-none': isLoading }" @wheel="handleHorizontalScroll">
           <!-- Created Column -->
-          <div v-if="visibleDateRanges.length > 0 || selectedDateRange === 'custom'" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="visibleDateRanges.length > 0 || selectedDateRange === 'custom'" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Created</h4>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-0.5">
               <button
                 v-for="range in visibleDateRanges"
                 :key="range.value"
                 @click="selectDateRange(range.value)"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all',
+                :class="['flex justify-between items-center px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all',
                          selectedDateRange === range.value
-                           ? (dateRangeExcluded ? 'bg-red-500/15 border border-red-500/50 px-3' : 'bg-overlay-light px-3')
+                           ? (dateRangeExcluded ? 'bg-red-500/10' : 'bg-accent/10')
                            : 'hover:bg-overlay-subtle']"
               >
-                <span :class="['text-sm', selectedDateRange === range.value ? (dateRangeExcluded ? 'text-red-400 font-semibold' : 'text-content font-semibold') : 'text-content-secondary']">{{ range.label }}</span>
+                <span :class="['text-[13px]', selectedDateRange === range.value ? (dateRangeExcluded ? 'text-red-400 font-medium' : 'text-accent-hi font-medium') : 'text-content-secondary']">{{ range.label }}</span>
                 <span :class="['text-xs font-mono tabular-nums', selectedDateRange === range.value ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.date_ranges[range.value] || 0 }})</span>
               </button>
-              <a @click="openCustomDatePicker" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
+              <a @click="openCustomDatePicker" class="text-xs text-accent-hi cursor-pointer mt-1 hover:text-accent hover:underline">
                 Custom range...
               </a>
             </div>
           </div>
 
           <!-- Asset Type Column -->
-          <div v-if="visibleMediaTypes.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="visibleMediaTypes.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Asset type</h4>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-0.5">
               <div
                 v-for="type in visibleMediaTypes"
                 :key="type.value"
                 @click="toggleMediaType(type.value)"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isMediaTypeSelected(type.value) }, isMediaTypeSelected(type.value) ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': isMediaTypeSelected(type.value) }, isMediaTypeSelected(type.value) ? '' : 'hover:bg-overlay-subtle']"
               >
-                <span :class="['text-sm', isMediaTypeSelected(type.value) ? 'text-content font-semibold' : 'text-content-secondary']">{{ type.label }}</span>
+                <span :class="['text-[13px]', isMediaTypeSelected(type.value) ? 'text-accent-hi font-medium' : 'text-content-secondary']">{{ type.label }}</span>
                 <span :class="['text-xs font-mono tabular-nums', isMediaTypeSelected(type.value) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.media_type[type.value] }})</span>
               </div>
             </div>
           </div>
 
           <!-- Folders Column -->
-          <div v-if="visibleFolders.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="visibleFolders.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Folders</h4>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-0.5">
               <div
                 v-for="folder in visibleFolders"
                 :key="folder"
                 @click="toggleFolder(folder)"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isFolderSelected(folder) }, isFolderSelected(folder) ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': isFolderSelected(folder) }, isFolderSelected(folder) ? '' : 'hover:bg-overlay-subtle']"
               >
-                <span :class="['text-sm', isFolderSelected(folder) ? 'text-content font-semibold' : 'text-content-secondary']">{{ getFolderName(folder) }}</span>
+                <span :class="['text-[13px]', isFolderSelected(folder) ? 'text-accent-hi font-medium' : 'text-content-secondary']">{{ getFolderName(folder) }}</span>
                 <span :class="['text-xs font-mono tabular-nums', isFolderSelected(folder) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.folders[folder] || 0 }})</span>
               </div>
-              <a v-if="folders.length > 5" @click="showFolderModal = true" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
+              <a v-if="folders.length > 5" @click="showFolderModal = true" class="text-xs text-accent-hi cursor-pointer mt-1 hover:text-accent hover:underline">
                 View more ({{ folders.length }})
               </a>
             </div>
           </div>
 
           <!-- Tags Column -->
-          <div v-if="visibleTags.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="visibleTags.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Tags</h4>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-0.5">
               <!-- Top tags (clickable) -->
               <div
                 v-for="tag in visibleTags"
                 :key="tag.id"
                 @click="toggleTag(tag.id)"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isTagSelected(tag.id) }, isTagSelected(tag.id) ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': isTagSelected(tag.id) }, isTagSelected(tag.id) ? '' : 'hover:bg-overlay-subtle']"
               >
-                <span :class="['text-sm', isTagSelected(tag.id) ? 'text-content font-semibold' : 'text-content-secondary']">{{ tag.tag }}</span>
+                <span :class="['text-[13px]', isTagSelected(tag.id) ? 'text-accent-hi font-medium' : 'text-content-secondary']">{{ tag.tag }}</span>
                 <span :class="['text-xs font-mono tabular-nums', isTagSelected(tag.id) ? 'text-content-tertiary' : 'text-content-muted']">({{ tag.usage_count || 0 }})</span>
               </div>
               <!-- View More Link -->
-              <a v-if="tags.length > 5" @click="showTagModal = true" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
+              <a v-if="tags.length > 5" @click="showTagModal = true" class="text-xs text-accent-hi cursor-pointer mt-1 hover:text-accent hover:underline">
                 View more
               </a>
             </div>
           </div>
 
           <!-- Projects Column (hidden in trash and when already scoped to a single project) -->
-          <div v-if="!isTrashMode && !inProjectScope && (showProjectMembershipChip || visibleProjects.length > 0)" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="!isTrashMode && !inProjectScope && (showProjectMembershipChip || visibleProjects.length > 0)" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Projects</h4>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-0.5">
               <!-- Membership existence chip: none → In a project (blue) → Not in a project (red) -->
               <div
                 v-if="showProjectMembershipChip"
                 @click="cycleProjectMembership"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all',
-                         projectMembership === 'any' ? 'bg-blue-500/15 border border-blue-500/50 px-3'
-                         : projectMembership === 'none' ? 'bg-red-500/15 border border-red-500/50 px-3'
+                :class="['flex justify-between items-center gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all',
+                         projectMembership === 'any' ? 'bg-accent/10'
+                         : projectMembership === 'none' ? 'bg-red-500/10'
                          : 'hover:bg-overlay-subtle']"
                 :title="'Cycle: no constraint → in any project → not in any project'"
               >
-                <span :class="['text-sm', projectMembership === 'any' ? 'text-blue-400 font-semibold' : projectMembership === 'none' ? 'text-red-400 font-semibold' : 'text-content-secondary']">
+                <span :class="['text-[13px]', projectMembership === 'any' ? 'text-accent-hi font-medium' : projectMembership === 'none' ? 'text-red-400 font-medium' : 'text-content-secondary']">
                   Any Project
                 </span>
                 <span :class="['text-xs font-mono tabular-nums', projectMembership ? 'text-content-tertiary' : 'text-content-muted']">({{ projectMembership === 'none' ? (filterCounts.project_membership?.none || 0) : (filterCounts.project_membership?.any || 0) }})</span>
@@ -492,68 +509,68 @@
                 v-for="project in visibleProjects"
                 :key="project.id"
                 @click="toggleProject(project.id)"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md transition-all',
+                :class="['flex justify-between items-center gap-2 px-2 -mx-2 py-1.5 rounded-md transition-all',
                          projectsDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
-                         { 'bg-overlay-light px-3': isProjectSelected(project.id) },
+                         { 'bg-accent/10': isProjectSelected(project.id) },
                          (isProjectSelected(project.id) || projectsDisabled) ? '' : 'hover:bg-overlay-subtle']"
               >
-                <span :class="['text-sm truncate', isProjectSelected(project.id) ? 'text-content font-semibold' : 'text-content-secondary']" :title="project.name">{{ project.name || 'Untitled' }}</span>
+                <span :class="['text-[13px] truncate', isProjectSelected(project.id) ? 'text-accent-hi font-medium' : 'text-content-secondary']" :title="project.name">{{ project.name || 'Untitled' }}</span>
                 <span :class="['text-xs flex-shrink-0 font-mono tabular-nums', isProjectSelected(project.id) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.projects?.[project.id] || 0 }})</span>
               </div>
-              <a v-if="projects.length > 5" @click="showAllProjects = !showAllProjects" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
+              <a v-if="projects.length > 5" @click="showAllProjects = !showAllProjects" class="text-xs text-accent-hi cursor-pointer mt-1 hover:text-accent hover:underline">
                 {{ showAllProjects ? 'Show less' : 'View more (' + projects.length + ')' }}
               </a>
             </div>
           </div>
 
           <!-- Tools Column -->
-          <div v-if="visibleTools.length > 0" class="flex flex-col gap-3 min-w-[240px] max-w-[340px] flex-[2] flex-shrink-0">
+          <div v-if="visibleTools.length > 0" class="flex flex-col gap-2 min-w-[240px] max-w-[340px] flex-[2] flex-shrink-0">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Tools</h4>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-0.5">
               <div
                 v-for="tool in visibleTools"
                 :key="tool.full_tool_id"
                 @click="toggleTool(tool.full_tool_id)"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isToolSelected(tool.full_tool_id) }, isToolSelected(tool.full_tool_id) ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': isToolSelected(tool.full_tool_id) }, isToolSelected(tool.full_tool_id) ? '' : 'hover:bg-overlay-subtle']"
               >
                 <span class="flex items-center gap-1.5 min-w-0">
-                  <span :class="['text-sm truncate', isToolSelected(tool.full_tool_id) ? 'text-content font-semibold' : 'text-content-secondary']" :title="getToolName(tool)">{{ getToolName(tool) }}</span>
+                  <span :class="['text-[13px] truncate', isToolSelected(tool.full_tool_id) ? 'text-accent-hi font-medium' : 'text-content-secondary']" :title="getToolName(tool)">{{ getToolName(tool) }}</span>
                   <span v-if="isToolStimmaCloud(tool)" class="text-[10px] leading-none font-medium stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
                   <span v-else-if="getToolProvider(tool)" class="text-[10px] leading-none px-1.5 py-0.5 rounded-full flex-shrink-0 text-content-muted bg-overlay-subtle">{{ getToolProvider(tool) }}</span>
                 </span>
                 <span :class="['text-xs flex-shrink-0 font-mono tabular-nums', isToolSelected(tool.full_tool_id) ? 'text-content-tertiary' : 'text-content-muted']">({{ tool.count || 0 }})</span>
               </div>
-              <a v-if="(filterCounts.tools || []).length > 5" @click="showToolModal = true" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
+              <a v-if="(filterCounts.tools || []).length > 5" @click="showToolModal = true" class="text-xs text-accent-hi cursor-pointer mt-1 hover:text-accent hover:underline">
                 View more
               </a>
             </div>
           </div>
 
           <!-- Keywords Column -->
-          <div v-if="captioningEnabledRef && visibleKeywords.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="captioningEnabledRef && visibleKeywords.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Keywords</h4>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-0.5">
               <!-- Top keywords (clickable) -->
               <div
                 v-for="kw in visibleKeywords"
                 :key="kw.keyword"
                 @click="toggleKeyword(kw.keyword)"
-                :class="['flex justify-between items-center gap-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isKeywordSelected(kw.keyword) }, isKeywordSelected(kw.keyword) ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center gap-2 px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': isKeywordSelected(kw.keyword) }, isKeywordSelected(kw.keyword) ? '' : 'hover:bg-overlay-subtle']"
               >
-                <span :class="['text-sm', isKeywordSelected(kw.keyword) ? 'text-content font-semibold' : 'text-content-secondary']">{{ kw.keyword }}</span>
+                <span :class="['text-[13px]', isKeywordSelected(kw.keyword) ? 'text-accent-hi font-medium' : 'text-content-secondary']">{{ kw.keyword }}</span>
                 <span :class="['text-xs font-mono tabular-nums', isKeywordSelected(kw.keyword) ? 'text-content-tertiary' : 'text-content-muted']">({{ kw.count }})</span>
               </div>
               <!-- View More Link -->
-              <a v-if="topKeywords.length > 0" @click="openKeywordModal" class="text-blue-500 text-sm cursor-pointer mt-1 hover:text-blue-500 hover:underline">
+              <a v-if="topKeywords.length > 0" @click="openKeywordModal" class="text-xs text-accent-hi cursor-pointer mt-1 hover:text-accent hover:underline">
                 View more
               </a>
             </div>
           </div>
 
           <!-- Text Filter Column -->
-          <div class="flex flex-col gap-3 min-w-[220px] max-w-[320px] flex-[2] flex-shrink-0">
+          <div class="flex flex-col gap-2 min-w-[220px] max-w-[320px] flex-[2] flex-shrink-0">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">AI search</h4>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-0.5">
               <input v-no-autocorrect
                 type="text"
                 v-model="localSimilarToText"
@@ -574,48 +591,48 @@
           </div>
 
           <!-- Utility Column - not shown in trash mode -->
-          <div v-if="!isTrashMode && showUtilityColumn" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="!isTrashMode && showUtilityColumn" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Utility</h4>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-0.5">
               <div
                 v-if="showImportedRow"
                 @click="toggleImportedFilter"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': localIsImported !== null }, localIsImported !== null ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': localIsImported !== null }, localIsImported !== null ? '' : 'hover:bg-overlay-subtle']"
               >
-                <span :class="['text-sm', localIsImported !== null ? 'text-content font-semibold' : 'text-content-secondary']">Imported</span>
+                <span :class="['text-[13px]', localIsImported !== null ? 'text-accent-hi font-medium' : 'text-content-secondary']">Imported</span>
                 <span :class="['text-xs font-mono tabular-nums', localIsImported !== null ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.imported || 0 }})</span>
               </div>
               <div
                 v-if="showExpiringRow"
                 @click="toggleExpiringFilter('expiring')"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isExpiringFilterSelected() }, isExpiringFilterSelected() ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': isExpiringFilterSelected() }, isExpiringFilterSelected() ? '' : 'hover:bg-overlay-subtle']"
               >
-                <span :class="['text-sm', isExpiringFilterSelected() ? 'text-content font-semibold' : 'text-content-secondary']">Expiring</span>
+                <span :class="['text-[13px]', isExpiringFilterSelected() ? 'text-accent-hi font-medium' : 'text-content-secondary']">Expiring</span>
                 <span :class="['text-xs font-mono tabular-nums', isExpiringFilterSelected() ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.expiring || 0 }})</span>
               </div>
               <div
                 v-if="showUnusedRow"
                 @click="toggleUnusedFilter"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': localIsUnused !== null }, localIsUnused !== null ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': localIsUnused !== null }, localIsUnused !== null ? '' : 'hover:bg-overlay-subtle']"
                 title="Generated items never remixed, organized, or referenced anywhere"
               >
-                <span :class="['text-sm', localIsUnused !== null ? 'text-content font-semibold' : 'text-content-secondary']">Unused</span>
+                <span :class="['text-[13px]', localIsUnused !== null ? 'text-accent-hi font-medium' : 'text-content-secondary']">Unused</span>
                 <span :class="['text-xs font-mono tabular-nums', localIsUnused !== null ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.unused || 0 }})</span>
               </div>
             </div>
           </div>
 
           <!-- Resolution Column - not shown in trash mode -->
-          <div v-if="!isTrashMode && visibleResolutions.length > 0" class="flex flex-col gap-3 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
+          <div v-if="!isTrashMode && visibleResolutions.length > 0" class="flex flex-col gap-2 min-w-[160px] max-w-[240px] flex-1 flex-shrink-0">
             <h4 class="m-0 text-xs font-semibold text-content-secondary">Resolution</h4>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-0.5">
               <div
                 v-for="res in visibleResolutions"
                 :key="res.value"
                 @click="toggleResolution(res.value)"
-                :class="['flex justify-between items-center py-1.5 rounded-md cursor-pointer transition-all', { 'bg-overlay-light px-3': isResolutionSelected(res.value) }, isResolutionSelected(res.value) ? '' : 'hover:bg-overlay-subtle']"
+                :class="['flex justify-between items-center px-2 -mx-2 py-1.5 rounded-md cursor-pointer transition-all', { 'bg-accent/10': isResolutionSelected(res.value) }, isResolutionSelected(res.value) ? '' : 'hover:bg-overlay-subtle']"
               >
-                <span :class="['text-sm', isResolutionSelected(res.value) ? 'text-content font-semibold' : 'text-content-secondary']">{{ res.label }}</span>
+                <span :class="['text-[13px]', isResolutionSelected(res.value) ? 'text-accent-hi font-medium' : 'text-content-secondary']">{{ res.label }}</span>
                 <span :class="['text-xs font-mono tabular-nums', isResolutionSelected(res.value) ? 'text-content-tertiary' : 'text-content-muted']">({{ filterCounts.resolution[res.value] }})</span>
               </div>
             </div>
@@ -704,6 +721,7 @@ import { MediaImage } from './media'
 const { track: trackTelemetry } = useTelemetry()
 
 import KeywordModal from './KeywordModal.vue'
+import SettingsDropdown from './ui/SettingsDropdown.vue'
 import ToolModal from './ToolModal.vue'
 
 const props = defineProps({
@@ -1995,6 +2013,19 @@ function isMarkerPositive(markerId) {
 
 function isMarkerNegative(markerId) {
   return (excludedMarkers.value || []).includes(markerId)
+}
+
+// Marker chips render in the marker's own color; fall back to the accent for
+// markers without one. Wash = ~12% alpha of the same color (hex only — the
+// accent fallback uses the rgb token form instead).
+function markerColor(marker) {
+  return marker.color || 'var(--color-accent-hi)'
+}
+
+function markerWash(marker) {
+  return marker.color?.startsWith('#')
+    ? marker.color + '1F'
+    : 'rgb(var(--color-accent-rgb) / 0.12)'
 }
 
 function toggleMarker(markerId) {
