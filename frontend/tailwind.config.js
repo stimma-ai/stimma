@@ -123,10 +123,15 @@ export default {
         chrome: '30',    // sticky headers, in-page floating chrome
         overlay: '50',   // full-screen in-app viewers (slideshow, compare) —
                          // above chrome, below teleported menus/modals/toasts
-        menu: '100',     // context menus, dropdowns, popovers, pickers
-        submenu: '110',  // hover submenus of the above
         modal: '200',    // modal dialogs + their backdrops
         confirm: '210',  // confirm launched from within a modal
+        menu: '220',     // context menus, dropdowns, popovers, pickers, tooltips.
+                         // ABOVE modals: menus teleport to body, so they compete
+                         // with modals in the root stacking context — and a menu
+                         // opened from inside a modal must paint over it. Safe
+                         // because menus are transient and close on any outside
+                         // interaction.
+        submenu: '230',  // hover submenus of the above
         toast: '300',    // toasts
         top: '400',      // boot/first-run overlays only
       },
