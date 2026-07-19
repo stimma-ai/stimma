@@ -26,7 +26,7 @@
             <!-- Seed control with randomize checkbox -->
             <div v-if="param.control === 'seed'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-[13px] text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <div class="flex items-center justify-end gap-3">
@@ -52,7 +52,7 @@
             <!-- Enum/Select -->
             <div v-else-if="param.enum" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-[13px] text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <div class="min-w-0 max-w-[45%] flex-shrink-0">
@@ -66,9 +66,9 @@
             </div>
             <!-- Number: compact value row — drag the mono value to scrub,
                  click to type (the mock's ValueRow grammar; no slider). -->
-            <div v-else-if="param.type === 'number' || param.type === 'integer'" class="py-2">
+            <div v-else-if="param.type === 'number' || param.type === 'integer'" class="py-1.5">
               <div class="flex items-center justify-between gap-4">
-                <div class="text-[13px] text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
                 <ScrubValue
                   :model-value="Number(values[param.name] ?? param.default ?? 0)"
                   @update:model-value="emitParam(param.name, $event)"
@@ -85,7 +85,7 @@
             <!-- Boolean/Checkbox -->
             <div v-else-if="param.type === 'boolean'" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
-                <div class="text-[13px] text-content" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
+                <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
               <input v-no-autocorrect
@@ -100,7 +100,7 @@
             <div v-else-if="param.type === 'string'" :class="rowPad">
               <div class="flex items-center justify-between gap-4 mb-2">
                 <div class="w-[55%] flex-shrink-0">
-                  <div class="text-sm font-medium text-content">{{ param.label }}</div>
+                  <div class="text-[13px] text-content-secondary">{{ param.label }}</div>
                   <div v-if="param.control !== 'textarea' && paramDescription(param, constraintState(param))" class="text-xs mt-0.5" :class="constraintState(param).disabled ? 'text-amber-500/80' : 'text-content-muted'">{{ paramDescription(param, constraintState(param)) }}</div>
                 </div>
               </div>
@@ -157,7 +157,7 @@ const props = defineProps<{
   onToggleGroupCollapsed?: (groupLabel: string | null) => void
 }>()
 
-const rowPad = computed(() => (props.flat ? 'px-0 py-2' : 'px-0 py-2'))
+const rowPad = computed(() => (props.flat ? 'px-0 py-1.5' : 'px-0 py-1.5'))
 
 const emit = defineEmits<{
   (e: 'update:param', name: string, value: any): void

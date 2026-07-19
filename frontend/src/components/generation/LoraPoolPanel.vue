@@ -1,50 +1,53 @@
 <template>
   <div class="my-6">
-    <!-- Header with label, add button, filter, and overflow menu -->
-    <div class="flex items-center justify-between pb-1 mb-1.5">
+    <!-- Header: label + count + compact icon strip (＋ · ⌕ · disable-all · RAW · ⋯) -->
+    <div class="flex items-center gap-2 pb-1 mb-1.5">
       <span class="text-xs font-semibold text-content-secondary">LoRAs</span>
-      <div class="flex items-center gap-2">
-        <!-- +Add button -->
+      <span v-if="hasAnyItems" class="text-[10px] font-mono tabular-nums text-content-tertiary">{{ enabledCount }}/{{ allItems.length }} on</span>
+      <div class="ml-auto flex items-center gap-0.5">
         <button
           v-if="availableLoras.length > 0 || uploadConfig"
           @click="showModal = true"
           type="button"
-          class="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] text-content-muted/50 hover:text-accent-hi transition-colors leading-none"
+          class="w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
           title="Add LoRA"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
             <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
           </svg>
-          <span class="font-medium">Add</span>
         </button>
-        <!-- Filter input -->
-        <div v-if="hasAnyItems" class="relative">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-content-muted/50 pointer-events-none">
+        <button
+          v-if="hasAnyItems"
+          @click="toggleFilter"
+          type="button"
+          :class="['w-6 h-6 flex items-center justify-center rounded-md transition-colors', filterOpen ? 'bg-accent/12 text-accent-hi' : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle']"
+          title="Filter pool"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
             <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
           </svg>
-          <input v-no-autocorrect
-            v-model="filterQuery"
-            type="text"
-            placeholder="Filter"
-            class="w-20 pl-5 pr-5 py-0.5 text-[11px] bg-transparent border border-edge-subtle rounded text-content-secondary focus:outline-none focus:border-accent focus:w-32 transition-all select-text"
-          />
-          <button
-            v-if="filterQuery"
-            @click="filterQuery = ''"
-            type="button"
-            class="absolute right-1 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-secondary"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
-              <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-            </svg>
-          </button>
-        </div>
-        <!-- Overflow menu (3 dots) -->
+        </button>
+        <button
+          v-if="hasAnyItems && enabledCount > 0"
+          @click="disableAll"
+          type="button"
+          class="w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
+          title="Disable all — empty the palette (keeps the list)"
+        >
+          <span class="w-2.5 h-2.5 rounded-full border-[1.5px] border-current"></span>
+        </button>
+        <button
+          v-if="hasAnyItems"
+          @click="showRaw = !showRaw"
+          type="button"
+          :class="['h-6 px-1.5 flex items-center justify-center rounded-md font-mono text-[9px] tracking-wide transition-colors', showRaw ? 'bg-accent/12 text-accent-hi' : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle']"
+          title="Show raw file names"
+        >RAW</button>
         <div v-if="hasAnyItems" class="relative">
           <button
             @click.stop="onHeaderMenuClick"
             type="button"
-            class="w-5 h-5 flex items-center justify-center rounded text-content-muted/50 hover:text-content-secondary transition-colors"
+            class="w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
             title="More options"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
@@ -60,6 +63,26 @@
           />
         </div>
       </div>
+    </div>
+
+    <!-- Filter row (full width, only when open) -->
+    <div v-if="filterOpen" class="flex items-center gap-2 mb-1.5 px-2 py-1 bg-overlay-subtle rounded-md">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted flex-shrink-0">
+        <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+      </svg>
+      <input v-no-autocorrect
+        ref="filterInputRef"
+        v-model="filterQuery"
+        type="text"
+        placeholder="Filter pool…"
+        class="flex-1 min-w-0 bg-transparent border-0 outline-none text-xs text-content placeholder:text-content-muted select-text"
+        @keydown.escape="toggleFilter"
+      />
+      <button @click="toggleFilter" type="button" class="text-content-muted hover:text-content-secondary">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
+          <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+        </svg>
+      </button>
     </div>
 
     <!-- Main container -->
@@ -189,7 +212,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, onUnmounted, nextTick } from 'vue'
 import LoraChip from './LoraChip.vue'
 import LoraGroupBox from './LoraGroupBox.vue'
 import LoraPickerModal from './LoraPickerModal.vue'
@@ -239,6 +262,22 @@ const {
 
 const showModal = ref(false)
 const showRaw = ref(localStorage.getItem(makeProfileKey('lora', 'show_raw')) === 'true')
+
+// Header strip state/actions (option D)
+const filterOpen = ref(false)
+const filterInputRef = ref<HTMLInputElement | null>(null)
+const enabledCount = computed(() => allItems.value.filter(i => i.enabled).length)
+function toggleFilter() {
+  filterOpen.value = !filterOpen.value
+  if (filterOpen.value) nextTick(() => filterInputRef.value?.focus())
+  else filterQuery.value = ''
+}
+function disableAll() {
+  if (!props.toolId) return
+  for (const item of allItems.value) {
+    if (item.enabled) toggleEnabled(props.toolId, item.lora)
+  }
+}
 const filterQuery = ref('')
 
 watch(showRaw, (v) => {
@@ -288,9 +327,6 @@ const smartNames = computed(() => {
 })
 
 function getChipDisplayName(path: string): LoraDisplayName {
-  if (showRaw.value) {
-    return { primary: getRawFileName(path), secondary: '' }
-  }
   // If the pool item carries an explicit name (cloud LoRAs do — `lora` is an
   // opaque UUID and `name` holds the human filename), prefer it over the
   // path-derived heuristic which would otherwise show UUID chunks.
@@ -786,14 +822,8 @@ const hasDisabledItems = computed(() => allItems.value.some(i => !i.enabled))
 const headerMenuActions = computed(() => {
   const actions: any[] = [
     {
-      id: 'toggle-raw',
-      label: showRaw.value ? 'Hide Raw Names' : 'Show Raw Names',
-      action: () => { showRaw.value = !showRaw.value }
-    },
-    { id: 'divider-1', divider: true },
-    {
       id: 'remove-unavailable',
-      label: unavailableCount.value > 0 ? `Remove Unavailable (${unavailableCount.value})` : 'Remove Unavailable',
+      label: unavailableCount.value > 0 ? `Remove unavailable (${unavailableCount.value})` : 'Remove unavailable',
       disabled: unavailableCount.value === 0,
       action: () => {
         if (!props.toolId) return
@@ -803,16 +833,17 @@ const headerMenuActions = computed(() => {
       }
     },
     {
-      id: 'clear-unselected',
-      label: 'Clear Unselected',
+      id: 'remove-disabled',
+      label: 'Remove disabled',
       disabled: !hasDisabledItems.value,
       action: () => {
         if (props.toolId) removeDisabled(props.toolId)
       }
     },
+    { id: 'divider-1', divider: true },
     {
-      id: 'clear-all',
-      label: 'Clear All',
+      id: 'remove-all',
+      label: 'Remove all',
       danger: true,
       action: () => {
         if (props.toolId) clearPool(props.toolId)

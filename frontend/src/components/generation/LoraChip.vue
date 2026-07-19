@@ -1,7 +1,7 @@
 <template>
   <div
     :class="[
-      'group flex items-center gap-1.5 py-1.5 border-b border-edge-subtle last:border-b-0 text-sm select-none cursor-pointer transition-colors',
+      'group flex items-center gap-1.5 py-1.5 border-b border-edge-subtle last:border-b-0 text-sm text-content select-none cursor-pointer transition-colors',
       unavailable ? 'opacity-60' : item.enabled ? '' : 'opacity-50'
     ]"
     @pointerdown="onPointerDown"
@@ -9,7 +9,7 @@
     @contextmenu.stop.prevent="$emit('contextmenu', $event)"
   >
     <!-- Enable dot -->
-    <div class="shrink-0 w-3 flex items-center justify-center">
+    <div class="shrink-0 w-3 flex items-center justify-center mt-[5px]">
       <div v-if="item.enabled && !unavailable" class="w-2.5 h-2.5 rounded-full bg-accent-hi" />
       <div v-else class="w-2.5 h-2.5 rounded-full border border-content-muted" />
     </div>
@@ -24,8 +24,8 @@
           class="shrink-0 text-[9px] leading-none px-1 py-0.5 rounded bg-overlay-subtle text-content-tertiary font-mono uppercase"
         >{{ chip }}</span>
       </div>
-      <div v-if="showRaw && directoryPath" class="text-[9px] text-content-muted truncate mt-0.5">
-        {{ directoryPath }}
+      <div v-if="showRaw" class="font-mono text-[10px] text-content-muted truncate mt-0.5">
+        {{ item.lora }}
       </div>
     </div>
 
@@ -35,9 +35,9 @@
       @click.stop="decrementWeight"
       @pointerdown.stop
       type="button"
-      class="shrink-0 w-4 h-4 flex items-center justify-center text-[11px] text-content-tertiary hover:text-content opacity-0 group-hover:opacity-100 transition-opacity"
+      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-[11px] text-content-tertiary hover:text-content opacity-0 group-hover:opacity-100 transition-opacity"
     >−</button>
-    <span @pointerdown.stop @click.stop class="shrink-0">
+    <span @pointerdown.stop @click.stop class="shrink-0 mt-[2px]">
       <ScrubValue
         :model-value="item.weight"
         @update:model-value="emitWeight"
@@ -51,13 +51,13 @@
       @click.stop="incrementWeight"
       @pointerdown.stop
       type="button"
-      class="shrink-0 w-4 h-4 flex items-center justify-center text-[11px] text-content-tertiary hover:text-content opacity-0 group-hover:opacity-100 transition-opacity"
+      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-[11px] text-content-tertiary hover:text-content opacity-0 group-hover:opacity-100 transition-opacity"
     >+</button>
     <button
       @click.stop="$emit('remove')"
       @pointerdown.stop
       type="button"
-      class="shrink-0 w-4 h-4 flex items-center justify-center text-content-muted hover:!text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+      class="shrink-0 w-4 h-4 mt-[2px] flex items-center justify-center text-content-muted hover:!text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
       title="Remove"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
