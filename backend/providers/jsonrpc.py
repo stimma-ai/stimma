@@ -1507,7 +1507,11 @@ class JsonRpcProvider(ToolProvider):
                             else:
                                 additional_outputs.append(blob)
 
-                    metadata = data.get("metadata", {})
+                    metadata = dict(data.get("metadata", {}) or {})
+                    if data.get("success") and assets:
+                        primary_asset_id = assets[0].get("asset_id") if isinstance(assets[0], dict) else None
+                        if primary_asset_id:
+                            metadata["_output_asset_id"] = primary_asset_id
                     # generation_time can be in metadata or output
                     generation_time = (
                         metadata.get("generation_time")

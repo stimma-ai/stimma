@@ -30,6 +30,10 @@ class TestNormalizeTaskType:
     def test_enum_alias_resolves_video_to_video(self):
         assert TaskType.from_string("v2v") == TaskType.VIDEO_TO_VIDEO
 
+    def test_audio_aliases_resolve(self):
+        assert TaskType.from_string("a2a") == TaskType.AUDIO_TO_AUDIO
+        assert TaskType.from_string("stt") == TaskType.SPEECH_TO_TEXT
+
 
 # ---------------------------------------------------------------------------
 # Schema requirements coverage
@@ -88,6 +92,13 @@ class TestValidateToolSchema:
         out = {"properties": {"assets": {}}}
         errors = validate_tool_schema("image-to-video", inp, out)
         assert any("input_images" in e for e in errors)
+
+    @pytest.mark.parametrize("task_type", ["audio-to-audio", "speech-to-text"])
+    def test_audio_input_tasks_require_audio(self, task_type):
+        out = {"properties": {"assets": {}}}
+        assert validate_tool_schema(task_type, {"properties": {"input_audios": {}}}, out) == []
+        errors = validate_tool_schema(task_type, {"properties": {}}, out)
+        assert any("input_audios" in e for e in errors)
 
     def test_video_to_video_requires_input_videos(self):
         inp = {"properties": {"input_videos": {}}}

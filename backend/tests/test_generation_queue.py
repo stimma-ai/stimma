@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, patch
 
 from asset_service import create_asset_from_media
 from database import Asset, GenerationJob, MediaItem
-from generation_queue import resolve_recorded_seed
+from generation_queue import preserve_remote_output_suffix, resolve_recorded_seed
 from tests.helpers.generation import create_generation_job
 from tests.helpers.media import create_media_item
 
@@ -44,6 +44,18 @@ def _make_timestamps(n: int) -> list[float]:
 def test_resolve_recorded_seed_falls_back_to_requested_when_provider_reports_none():
     assert resolve_recorded_seed(12345, None) == 12345
     assert resolve_recorded_seed(12345, 67890) == 67890
+
+
+def test_preserve_remote_output_suffix_for_audio_and_documents():
+    assert preserve_remote_output_suffix(
+        "/tmp/generated.flac", {"_output_asset_id": "result123.mp3"}
+    ) == "/tmp/generated.mp3"
+    assert preserve_remote_output_suffix(
+        "/tmp/generated.png", {"_output_asset_id": "result123.json"}
+    ) == "/tmp/generated.json"
+    assert preserve_remote_output_suffix(
+        "/tmp/generated.png", {"_output_asset_id": "../../bad.exe"}
+    ) == "/tmp/generated.png"
 
 
 # =============================================================================

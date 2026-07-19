@@ -46,6 +46,23 @@ def resolve_recorded_seed(requested_seed, actual_seed):
     return actual_seed if actual_seed is not None else requested_seed
 
 
+_REMOTE_OUTPUT_SUFFIXES = {
+    ".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm",
+    ".mp3", ".wav", ".flac", ".json", ".txt",
+}
+
+
+def preserve_remote_output_suffix(output_path: str, metadata: Dict[str, Any]) -> str:
+    """Use the validated extension carried by an STP primary asset ID."""
+    output_asset_id = metadata.get("_output_asset_id")
+    if not isinstance(output_asset_id, str):
+        return output_path
+    remote_suffix = Path(output_asset_id).suffix.lower()
+    if remote_suffix not in _REMOTE_OUTPUT_SUFFIXES:
+        return output_path
+    return str(Path(output_path).with_suffix(remote_suffix))
+
+
 def generation_job_payload(job: GenerationJob, asset: Asset | None = None) -> dict:
     """Project canonical Asset expiration onto generation-job responses."""
     payload = job.to_dict()
@@ -2746,7 +2763,7 @@ class GenerationQueue:
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
             if task_type in ["image-to-video", "text-to-video", "video-to-video", "upscale-video", "video-stitch", "video-extend"]:
                 file_extension = ".mp4"
-            elif task_type in ("text-to-audio", "text-to-music", "text-to-speech"):
+            elif task_type in ("text-to-audio", "text-to-music", "text-to-speech", "audio-to-audio"):
                 file_extension = ".flac"
             else:
                 file_extension = ".png"
@@ -2878,6 +2895,11 @@ class GenerationQueue:
             # Handle output - JSON-RPC providers return output_data, others write to output_path
             actual_output_path = output_path
             if exec_result.output_data:
+                # STP asset IDs carry the provider's real output extension.
+                # Preserve it so MP3/JSON outputs are not mislabeled by the
+                # task-type fallback chosen before the remote call completed.
+                output_path = preserve_remote_output_suffix(output_path, exec_result.metadata)
+                actual_output_path = output_path
                 # Write the downloaded asset data to the output path
                 with open(output_path, "wb") as f:
                     f.write(exec_result.output_data)

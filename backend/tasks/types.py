@@ -24,6 +24,8 @@ class TaskType(str, Enum):
     TEXT_TO_AUDIO = "text-to-audio"
     TEXT_TO_MUSIC = "text-to-music"
     TEXT_TO_SPEECH = "text-to-speech"
+    AUDIO_TO_AUDIO = "audio-to-audio"
+    SPEECH_TO_TEXT = "speech-to-text"
 
     @classmethod
     def from_string(cls, value: str) -> "TaskType":
@@ -51,6 +53,8 @@ class TaskType(str, Enum):
             "tts": cls.TEXT_TO_SPEECH,
             "text-to-speech": cls.TEXT_TO_SPEECH,
             "text-to-music": cls.TEXT_TO_MUSIC,
+            "a2a": cls.AUDIO_TO_AUDIO,
+            "stt": cls.SPEECH_TO_TEXT,
         }
 
         normalized = value.lower().strip()

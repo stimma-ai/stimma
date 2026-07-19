@@ -41,7 +41,7 @@ def _entitlement_http_exception(e) -> HTTPException:
 
 # Task types whose output is audio; mirrors the prompt enhancer routing used
 # by post-processing chain steps.
-_AUDIO_TASK_TYPES = {"text-to-audio", "text-to-music", "text-to-speech"}
+_AUDIO_TASK_TYPES = {"text-to-audio", "text-to-music", "text-to-speech", "audio-to-audio"}
 _IMAGE_INPUT_CONTROLS = {"image_picker"}
 _IMAGE_FILE_FORMATS = {"file-path", "image-file"}
 _NON_INPUT_IMAGE_FIELDS = {

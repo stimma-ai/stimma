@@ -600,7 +600,7 @@ async def _media_type(db, media_id: int) -> str:
 
 # Task types whose output is audio — mirrors AUDIO_TASK_TYPES in the
 # frontend's taskTypeIcons.ts (routes /prompt/improve to the sound style).
-_AUDIO_TASK_TYPES = {"text-to-audio", "text-to-music", "text-to-speech"}
+_AUDIO_TASK_TYPES = {"text-to-audio", "text-to-music", "text-to-speech", "audio-to-audio"}
 
 
 async def _apply_prompt_pipeline(

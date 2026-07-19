@@ -10,7 +10,7 @@ import type { MediaType } from './mediaTypes'
 // elsewhere (useToolSchemaFeatures, useGenerationPreferences) instead of a
 // `task_type.includes('audio')` substring match, which only matches
 // 'text-to-audio' and misses 'text-to-music' / 'text-to-speech'.
-export const AUDIO_TASK_TYPES = ['text-to-audio', 'text-to-music', 'text-to-speech'] as const
+export const AUDIO_TASK_TYPES = ['text-to-audio', 'text-to-music', 'text-to-speech', 'audio-to-audio'] as const
 
 /**
  * Improved task-generic glyphs (the 12 redrawn variants from the signed-off
@@ -46,6 +46,8 @@ export const TASK_TYPE_ICON_SVGS: Record<string, string> = {
   'text-to-audio': '<path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" stroke-linecap="round"/>',
   'text-to-music': '<path d="M9 17V5l11-2v12"/><circle cx="6" cy="17" r="3"/><circle cx="17" cy="15" r="3"/>',
   'text-to-speech': '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v4M9 21h6"/>',
+  'audio-to-audio': '<path d="M3 10v4M6 7v10M9 9v6M15 9v6M18 7v10M21 10v4"/><path d="M11 12h2M12 11l1 1-1 1"/>',
+  'speech-to-text': '<rect x="4" y="3" width="5" height="9" rx="2.5"/><path d="M2 10a4.5 4.5 0 0 0 9 0M6.5 14.5V17"/><path d="M14 7h8M14 12h8M14 17h6"/>',
   'lip-sync': '<circle cx="12" cy="12" r="9"/><path d="M8.5 15a4.5 4.5 0 0 0 7 0" stroke-linecap="round"/><circle cx="8.6" cy="9.4" r="0.9" fill="currentColor" stroke="none"/><circle cx="15.4" cy="9.4" r="0.9" fill="currentColor" stroke="none"/>',
   'filter': '<path d="M5 7h14M5 12h14M5 17h14"/><circle cx="9" cy="7" r="2" fill="#17171c"/><circle cx="15" cy="12" r="2" fill="#17171c"/><circle cx="8" cy="17" r="2" fill="#17171c"/>',
 }
@@ -79,6 +81,8 @@ export const TASK_TYPE_ICON_PATHS: Record<string, string> = {
   'text-to-audio': 'M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.833.112-1.64.322-2.406C2.806 8.747 3.63 8.25 4.51 8.25H6.75Z',
   'text-to-music': 'M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553z',
   'text-to-speech': 'M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z',
+  'audio-to-audio': 'M3 10v4m3-7v10m3-8v6m6-6v6m3-8v10m3-7v4M11 12h2m-1-1 1 1-1 1',
+  'speech-to-text': 'M6.5 14.5A4.5 4.5 0 0 1 2 10m4.5 4.5A4.5 4.5 0 0 0 11 10M6.5 14.5V17M14 7h8m-8 5h8m-8 5h6',
   'lip-sync': 'M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-5.25-4.5h.008v.008h-.008V7.5Zm-6.75 0h.008v.008H9V7.5Z',
 }
 
@@ -99,6 +103,8 @@ export const TASK_TYPE_GRADIENT_CLASSES: Record<string, string> = {
   'text-to-audio': 'bg-gradient-to-br from-fuchsia-500/80 to-fuchsia-700/80',
   'text-to-music': 'bg-gradient-to-br from-purple-500/80 to-purple-700/80',
   'text-to-speech': 'bg-gradient-to-br from-green-500/80 to-green-700/80',
+  'audio-to-audio': 'bg-gradient-to-br from-cyan-500/80 to-teal-700/80',
+  'speech-to-text': 'bg-gradient-to-br from-slate-500/80 to-slate-700/80',
   'lip-sync': 'bg-gradient-to-br from-yellow-500/80 to-yellow-700/80',
 }
 
@@ -131,6 +137,8 @@ export const TASK_TYPE_LABELS: Record<string, string> = {
   'text-to-audio': 'Text to Audio',
   'text-to-music': 'Text to Music',
   'text-to-speech': 'Text to Speech',
+  'audio-to-audio': 'Audio to Audio',
+  'speech-to-text': 'Speech to Text',
   'lip-sync': 'Lip Sync',
   'detect-objects': 'Detect Objects',
   'filter': 'Filter',
@@ -156,6 +164,8 @@ export const TASK_TYPE_ORDER = [
   'text-to-music',
   'text-to-speech',
   'text-to-audio',
+  'audio-to-audio',
+  'speech-to-text',
 ]
 
 // Media-input transform tasks → which media type(s) they consume as their
@@ -190,6 +200,8 @@ export const TASK_INPUT_MEDIA: Record<string, Array<'image' | 'video' | 'audio'>
   'text-to-audio': ['audio'],
   'text-to-music': ['audio'],
   'text-to-speech': ['audio'],
+  'audio-to-audio': ['audio'],
+  'speech-to-text': ['audio'],
 }
 
 function taskTypesAccepting(target: 'image' | 'video' | 'audio'): string[] {

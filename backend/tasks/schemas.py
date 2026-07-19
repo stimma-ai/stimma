@@ -118,6 +118,16 @@ TASK_SCHEMA_REQUIREMENTS: Dict[str, Dict[str, List[str]]] = {
         "optional_input": ["duration"],
         "required_output": ["assets"],
     },
+    TaskType.AUDIO_TO_AUDIO.value: {
+        "required_input": ["input_audios"],
+        "optional_input": [],
+        "required_output": ["assets"],
+    },
+    TaskType.SPEECH_TO_TEXT.value: {
+        "required_input": ["input_audios"],
+        "optional_input": ["language_code", "diarize", "tag_audio_events", "keyterms"],
+        "required_output": ["assets"],
+    },
 }
 
 

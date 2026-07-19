@@ -124,3 +124,40 @@ async def test_execute_sends_only_declared_parameters(monkeypatch):
             "steps": 4,
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_execute_preserves_primary_output_asset_extension(monkeypatch):
+    provider = JsonRpcProvider(StdioProviderConfig(id="stimma-cloud", command="noop"))
+    provider._status = ProviderStatus.CONNECTED
+    provider._tools = [
+        ToolDescriptor(
+            id="scribe",
+            name="Scribe",
+            parameter_schema={"type": "object", "properties": {}},
+            output_schema={},
+        )
+    ]
+
+    async def fake_send_request(_method, params=None, _timeout=30.0):
+        await provider._pending_executions[params["request_id"]].put((
+            "result",
+            {
+                "success": True,
+                "output": {"assets": [{"asset_id": "transcript123.json", "type": "document", "role": "primary"}]},
+                "metadata": {"model": "scribe_v2"},
+            },
+        ))
+        return {"accepted": True}
+
+    async def fake_download(asset_id):
+        assert asset_id == "transcript123.json"
+        return b'{"text":"hello"}'
+
+    monkeypatch.setattr(provider, "_send_request", fake_send_request)
+    monkeypatch.setattr(provider, "download_asset", fake_download)
+
+    results = [item async for item in provider.execute("scribe", {}, request_id="job-stt")]
+    assert results[-1].success
+    assert results[-1].metadata["_output_asset_id"] == "transcript123.json"
+    assert results[-1].output_data == b'{"text":"hello"}'
