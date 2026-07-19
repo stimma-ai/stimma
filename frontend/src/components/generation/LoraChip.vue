@@ -1,7 +1,7 @@
 <template>
   <div
     :class="[
-      'group flex items-center gap-1.5 py-1.5 border-b border-edge-subtle last:border-b-0 text-sm text-content select-none cursor-pointer transition-colors',
+      'group flex items-start gap-1.5 py-1.5 border-b border-edge-subtle last:border-b-0 text-sm text-content select-none cursor-pointer transition-colors',
       unavailable ? 'opacity-60' : item.enabled ? '' : 'opacity-50'
     ]"
     @pointerdown="onPointerDown"
