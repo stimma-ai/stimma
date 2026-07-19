@@ -7,7 +7,7 @@
       </div>
       <button
         @click="$emit('restore')"
-        class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-md text-purple-400 hover:text-purple-300 hover:bg-overlay-subtle transition-colors duration-150 cursor-pointer bg-transparent whitespace-nowrap"
+        class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-md text-indigo-400 hover:text-indigo-300 hover:bg-overlay-subtle transition-colors duration-150 cursor-pointer bg-transparent whitespace-nowrap"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3"><path fill-rule="evenodd" d="M2 8a6 6 0 1 1 10.735 3.697l-.001.002-.001.001-2.086 2.456a.75.75 0 1 1-1.143-.975l1.608-1.89A4.5 4.5 0 1 0 3.5 8a.75.75 0 0 1-1.5 0Z" clip-rule="evenodd" /></svg>
         Restore
@@ -23,14 +23,14 @@
       </button>
     </div>
     <!-- Countdown bar -->
-    <div class="absolute bottom-0 left-0 h-px bg-purple-500/40 transition-all duration-1000 ease-linear" :style="{ width: countdownPercent + '%' }" />
+    <div class="absolute bottom-0 left-0 h-px bg-indigo-500/40 transition-all duration-1000 ease-linear" :style="{ width: countdownPercent + '%' }" />
   </div>
 
   <!-- Normal remix banner: hairline row, no filled banner -->
   <div v-else class="relative mb-3">
-    <div class="flex items-start gap-3">
+    <div class="flex items-stretch gap-3">
       <div
-        class="flex-shrink-0 w-14 h-14 rounded-media bg-matte overflow-hidden hover:ring-1 hover:ring-purple-400/60 transition-shadow duration-150 cursor-pointer"
+        class="flex-shrink-0 self-stretch min-h-14 rounded-media bg-matte overflow-hidden hover:ring-1 hover:ring-indigo-400/60 transition-shadow duration-150 cursor-pointer"
         draggable="true"
         @dragstart="onDragStart"
         @dragend="handleDragEnd"
@@ -40,12 +40,12 @@
         <img
           :src="thumbnailUrl"
           alt="Inspiration source"
-          class="w-full h-full object-cover pointer-events-none"
+          class="h-full w-auto max-w-32 object-cover pointer-events-none"
         />
       </div>
 
       <div class="min-w-0 pt-1 pr-6 overflow-hidden" style="flex: 1 1 0%;">
-        <div class="text-xs font-medium text-purple-400 mb-0.5">Remix of</div>
+        <div class="text-xs font-medium text-indigo-400 mb-0.5">Remix of</div>
         <div v-if="promptSnippet" class="text-[11px] text-content-muted leading-tight line-clamp-3">{{ promptSnippet }}</div>
 
         <!-- Action chips -->

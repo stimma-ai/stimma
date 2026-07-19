@@ -229,7 +229,7 @@
         <!-- Transient run context (teleported to #tool-context-slot below the
              header): remix banners + resolution auto-change in their own card. -->
         <Teleport defer to="#tool-context-slot">
-        <div v-if="remixSource || dismissedRemix || resAutoChange" class="rounded-lg border border-edge-subtle bg-surface px-4 pt-3">
+        <div v-if="remixSource || dismissedRemix || resAutoChange" class="rounded-lg border border-edge-subtle bg-surface px-3 pt-3">
         <!-- Inspiration Banner (active remix) -->
         <RemixBanner
           v-if="remixSource"
