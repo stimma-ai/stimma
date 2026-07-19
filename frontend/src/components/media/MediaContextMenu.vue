@@ -719,15 +719,16 @@
       When complete, this {{ explodeSummary?.asset_type || 'container' }} will move to Trash so the operation can be undone.
     </ConfirmDialog>
 
-    <!-- Tag Editor Modal -->
-    <BulkTagEditor
+    <!-- Tag picker (submenu of this menu) -->
+    <TagPickerPopover
       :visible="showTagEditor"
+      :anchor="tagPickerAnchor"
+      :submenu-of="menuRef"
       :media-ids="targetMediaIds"
       :asset-ids="targetAssetIds"
       :current-tag-counts="currentTagCounts"
-      :selected-items="mediaItem ? [mediaItem] : []"
       @close="showTagEditor = false"
-      @saved="handleTagsSaved"
+      @changed="emit('refresh')"
     />
 
 
@@ -759,7 +760,7 @@ import { addToast } from '../../composables/useToasts'
 import { useProvidersApi, type ProviderTool } from '../../composables/useProvidersApi'
 import { useSendToTool } from '../../composables/useSendToTool'
 import { getCurrentProfileId } from '../../composables/useProfile'
-import BulkTagEditor from '../BulkTagEditor.vue'
+import TagPickerPopover from '../TagPickerPopover.vue'
 import ProjectPickerSubmenu from '../ProjectPickerSubmenu.vue'
 import ExportModal from '../ExportModal.vue'
 import ShareDialog from '../ShareDialog.vue'
@@ -963,6 +964,7 @@ const markers = ref<Marker[]>([])
 
 // Modal visibility
 const showTagEditor = ref(false)
+const tagPickerAnchor = ref<HTMLElement | null>(null)
 const showExportModal = ref(false)
 const exportMediaIds = ref<number[]>([])
 const exportMediaItems = ref<any[]>([])
@@ -1068,7 +1070,7 @@ function hasMarker(markerId: number): boolean {
   return itemMarkers.some((m: any) => m.id === markerId)
 }
 
-// Tag counts for BulkTagEditor (for single item, each tag is either 0 or 1)
+// Tag counts for the tag picker (for single item, each tag is either 0 or 1)
 const currentTagCounts = computed(() => {
   const counts: Record<number, number> = {}
   const itemTags = mediaItem.value?.tags || []
@@ -1426,6 +1428,8 @@ function handleClickOutside(event: MouseEvent) {
   if (chatSubmenuRef.value?.contains(target)) return
   if (boardSubmenuRef.value?.contains(target)) return
   if (projectSubmenuRef.value?.contains(target)) return
+  // The tag picker submenu lives in its own Teleport
+  if (target.closest?.('[data-tag-picker]')) return
   contextMenu.hide()
   activeSubmenu.value = null
 }
@@ -1475,6 +1479,7 @@ watch(() => contextMenu.state.value.visible, (visible) => {
     generateSearchQuery.value = ''
     boardSearchQuery.value = ''
     mediaFaces.value = []
+    showTagEditor.value = false
   }
 })
 
@@ -1597,15 +1602,10 @@ async function handleToggleMarker(marker: Marker) {
   }
 }
 
-// Tags handler
-function handleEditTags() {
-  contextMenu.hide()
+// Tags handler — opens the tag picker as a submenu; the parent menu stays up
+function handleEditTags(event: MouseEvent) {
+  tagPickerAnchor.value = event.currentTarget as HTMLElement
   showTagEditor.value = true
-}
-
-function handleTagsSaved() {
-  showTagEditor.value = false
-  emit('refresh')
 }
 
 // Boards handler

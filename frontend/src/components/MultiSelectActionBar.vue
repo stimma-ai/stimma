@@ -119,7 +119,7 @@
             <Tooltip text="Add tags">
               <button
                 class="icon-button flex items-center justify-center p-2 rounded-md bg-overlay-subtle text-content-secondary hover:bg-overlay-hover transition-colors"
-                @click="$emit('add-tags')"
+                @click="$emit('add-tags', $event.currentTarget)"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[18px] h-[18px]">
                   <path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />

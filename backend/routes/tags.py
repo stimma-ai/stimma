@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import AssetTag, MediaItem, MediaTag, Tag
+from database import Asset, AssetTag, MediaItem, MediaTag, Tag
 from core.dependencies import get_db_session
 from models.api_models import TagResponse, TagCreateRequest, BulkTagRequest
 from utils.websocket import ws_manager
@@ -63,13 +63,18 @@ async def get_tags(
     if with_counts:
         # Get tags with usage counts
         query = select(
-            Tag, func.count(AssetTag.asset_id).label("usage_count")
+            Tag, func.count(Asset.id).label("usage_count")
         ).outerjoin(
             AssetTag,
             (AssetTag.tag_id == Tag.id) & AssetTag.deleted_at.is_(None),
+        ).outerjoin(
+            Asset,
+            (Asset.id == AssetTag.asset_id)
+            & (Asset.state == "active")
+            & Asset.deleted_at.is_(None),
         )
 
-        query = query.group_by(Tag.id).order_by(func.count(AssetTag.asset_id).desc())
+        query = query.group_by(Tag.id).order_by(func.count(Asset.id).desc())
 
         result = await session.execute(query)
         tags_with_counts = result.all()

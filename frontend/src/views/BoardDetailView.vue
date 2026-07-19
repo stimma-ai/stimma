@@ -300,7 +300,7 @@
       @clear="selectNone"
       @select-all="selectAll"
       @toggle-marker="handleToggleMarker"
-      @add-tags="showTagEditor = true"
+      @add-tags="openTagPicker"
       @add-to-board="showBoardPicker = true"
       @download="handleExport"
       @delete="handleBulkMoveToTrash"
@@ -314,14 +314,13 @@
       @saved="handleBoardsAdded"
     />
 
-    <BulkTagEditor
+    <TagPickerPopover
       :visible="showTagEditor"
+      :anchor="tagPickerAnchor"
       :media-ids="selectedMediaIds"
       :asset-ids="selectedItemIds"
       :current-tag-counts="currentTagCounts"
-      :selected-items="selectedItems"
       @close="showTagEditor = false"
-      @saved="handleTagsSaved"
     />
 
     <ExportModal
@@ -339,7 +338,7 @@ import { useRoute, useRouter } from 'vue-router'
 import MarkerBadges from '../components/MarkerBadges.vue'
 import MultiSelectActionBar from '../components/MultiSelectActionBar.vue'
 import BoardPicker from '../components/BoardPicker.vue'
-import BulkTagEditor from '../components/BulkTagEditor.vue'
+import TagPickerPopover from '../components/TagPickerPopover.vue'
 import ExportModal from '../components/ExportModal.vue'
 import { MediaContextMenu, MediaImage } from '../components/media'
 import SlideshowMode from '../components/SlideshowMode.vue'
@@ -386,6 +385,12 @@ const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = 
 const markersData = ref([])
 const showBoardPicker = ref(false)
 const showTagEditor = ref(false)
+const tagPickerAnchor = ref(null)
+
+function openTagPicker(anchorEl = null) {
+  tagPickerAnchor.value = anchorEl instanceof HTMLElement ? anchorEl : null
+  showTagEditor.value = true
+}
 const showExportModal = ref(false)
 
 const loading = ref(false)
@@ -935,9 +940,6 @@ async function handleToggleMarker({ markerId, add }) {
   await bulkMarkerOperation(selectedItemIds.value, markerId, add)
 }
 
-function handleTagsSaved() {
-  showTagEditor.value = false
-}
 
 function handleBoardsAdded() {
   showBoardPicker.value = false

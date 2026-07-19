@@ -833,6 +833,33 @@ async def test_asset_organization_reads_and_expiration_are_asset_scoped(client, 
 
 
 @pytest.mark.asyncio
+async def test_asset_tag_counts_only_include_live_assets(client, db_session):
+    async with db_session() as session:
+        media = await create_media_item(session, file_path="/tmp/live-tag-count.png")
+        asset = await create_asset_from_media(session, media_id=media.id)
+        tag = Tag(tag_text="live-count")
+        session.add(tag)
+        await session.flush()
+        session.add(AssetTag(asset_id=asset.id, tag_id=tag.id))
+        asset_id = asset.id
+        tag_id = tag.id
+        await session.commit()
+
+    tags = await client.get("/api/assets/tags", params={"with_counts": True})
+    counted = next(entry for entry in tags.json() if entry["id"] == tag_id)
+    assert counted["usage_count"] == 1
+
+    trashed = await client.post(
+        "/api/assets/batch/trash", json={"asset_ids": [asset_id]}
+    )
+    assert trashed.status_code == 200
+
+    tags = await client.get("/api/assets/tags", params={"with_counts": True})
+    counted = next(entry for entry in tags.json() if entry["id"] == tag_id)
+    assert counted["usage_count"] == 0
+
+
+@pytest.mark.asyncio
 async def test_asset_facets_ignore_contextual_and_old_revision_media(client, db_session):
     before = (await client.get("/api/assets/filter-counts")).json()
     async with db_session() as session:

@@ -175,7 +175,7 @@
       @select-all="selectAll"
       @invert-selection="handleInvertSelection"
       @toggle-marker="handleToggleMarker"
-      @add-tags="showTagEditor = true"
+      @add-tags="openTagPicker"
       @add-to-board="showBoardPicker = true"
       @find-similar="searchSimilarToSelected"
       @compare="handleCompareSelected"
@@ -204,14 +204,14 @@
       @close="showExportModal = false"
     />
 
-    <!-- Tag Editor Modal -->
-    <BulkTagEditor
+    <!-- Tag picker popover -->
+    <TagPickerPopover
       :visible="showTagEditor"
+      :anchor="tagPickerAnchor"
       :asset-ids="selectedItemIds"
       :current-tag-counts="currentTagCounts"
-      :selected-items="selectedItems"
       @close="showTagEditor = false"
-      @saved="handleTagsSaved"
+      @changed="handleTagsChanged"
     />
 
     <!-- Save View Modal -->
@@ -269,7 +269,7 @@ import VirtualMediaGrid from '../components/VirtualMediaGrid.vue'
 import MultiSelectActionBar from '../components/MultiSelectActionBar.vue'
 import BoardPicker from '../components/BoardPicker.vue'
 import ExportModal from '../components/ExportModal.vue'
-import BulkTagEditor from '../components/BulkTagEditor.vue'
+import TagPickerPopover from '../components/TagPickerPopover.vue'
 import SlideshowMode from '../components/SlideshowMode.vue'
 import CompareMode from '../components/CompareMode.vue'
 import SaveViewModal from '../components/SaveViewModal.vue'
@@ -615,7 +615,13 @@ const showExportModal = ref(false)
 const exportMediaIds = ref([])
 const exportMediaItems = ref([])
 const showTagEditor = ref(false)
+const tagPickerAnchor = ref(null)
 const showSaveViewModal = ref(false)
+
+function openTagPicker(anchorEl = null) {
+  tagPickerAnchor.value = anchorEl instanceof HTMLElement ? anchorEl : null
+  showTagEditor.value = true
+}
 
 // Trash mode state
 const showDeleteConfirm = ref(false)
@@ -1360,8 +1366,7 @@ function handleBoardsAdded() {
   showBoardPicker.value = false
 }
 
-function handleTagsSaved() {
-  showTagEditor.value = false
+function handleTagsChanged() {
   filterBarRef.value?.refreshTags()
 }
 
@@ -1599,7 +1604,7 @@ async function handleContextMenuAction({ action, item, targetIds, inSelection })
       if (action === 'markers') {
         showMarkerSheet.value = true
       } else if (action === 'tags') {
-        showTagEditor.value = true
+        openTagPicker()
       } else if (action === 'boards') {
         showBoardPicker.value = true
       }

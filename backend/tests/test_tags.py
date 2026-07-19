@@ -112,6 +112,28 @@ class TestTagCRUD:
         assert counted_tag is not None
         assert counted_tag["usage_count"] >= 1
 
+    async def test_list_tags_with_counts_ignores_trashed_assets(
+        self, client: AsyncClient, seeded_media
+    ):
+        assignment = await client.post(
+            f"/api/media/{seeded_media[0].id}/tags",
+            json={"tags": ["trashed-only"]},
+        )
+        asset_id = assignment.json()["asset_id"]
+
+        response = await client.get("/api/tags", params={"with_counts": True})
+        counted_tag = next(t for t in response.json() if t["tag"] == "trashed-only")
+        assert counted_tag["usage_count"] == 1
+
+        trashed = await client.post(
+            "/api/assets/batch/trash", json={"asset_ids": [asset_id]}
+        )
+        assert trashed.status_code == 200
+
+        response = await client.get("/api/tags", params={"with_counts": True})
+        counted_tag = next(t for t in response.json() if t["tag"] == "trashed-only")
+        assert counted_tag["usage_count"] == 0
+
     async def test_delete_unused_tag(self, client: AsyncClient):
         """Test deleting an unused tag."""
         # Create tag

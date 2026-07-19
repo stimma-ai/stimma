@@ -2203,6 +2203,16 @@ function openKeywordModal() {
   showKeywordModal.value = true
 }
 
+// Stable tag order: usage count descending, alphabetical on ties — otherwise
+// equal-count tags jump around between count refreshes
+function sortTags(list) {
+  return [...(list || [])].sort((a, b) => {
+    const diff = (b.usage_count || 0) - (a.usage_count || 0)
+    if (diff !== 0) return diff
+    return (a.tag || '').localeCompare(b.tag || '')
+  })
+}
+
 function retainActiveTags(list) {
   const nextTags = [...(list || [])].sort((a, b) => {
     const diff = (b.usage_count || 0) - (a.usage_count || 0)
@@ -2219,7 +2229,7 @@ function retainActiveTags(list) {
 async function loadTags() {
   try {
     const response = await getAssetTags(true)
-    tags.value = response
+    tags.value = sortTags(response)
     console.log('Loaded tags:', tags.value.length)
   } catch (error) {
     console.error('Failed to load tags:', error)
