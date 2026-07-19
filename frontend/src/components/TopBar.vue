@@ -485,6 +485,7 @@ import { captioningEnabledRef } from '../appConfig'
 import GlobalSearchBox from './search/GlobalSearchBox.vue'
 import Spinner from './ui/Spinner.vue'
 import Modal from './ui/Modal.vue'
+import { formatEta } from '../utils/timeFormat'
 
 const router = useRouter()
 const route = useRoute()

@@ -26,6 +26,21 @@ export function formatRelativeTime(dateStr) {
 }
 
 /**
+ * Format an estimated number of seconds for compact progress UI.
+ *
+ * @param {number|string|null} seconds
+ * @returns {string} Compact ETA such as "12s", "3m", or "2h"
+ */
+export function formatEta(seconds) {
+  const totalSeconds = Math.max(0, Math.ceil(Number(seconds) || 0))
+  if (totalSeconds < 60) return `${totalSeconds}s`
+
+  const totalMinutes = Math.ceil(totalSeconds / 60)
+  if (totalMinutes < 60) return `${totalMinutes}m`
+  return `${Math.ceil(totalMinutes / 60)}h`
+}
+
+/**
  * Format remaining time for auto-delete badge display
  * Uses thresholds: < 60min = minutes, < 72h = hours, >= 72h = days
  *
