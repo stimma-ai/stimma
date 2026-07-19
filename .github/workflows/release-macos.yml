@@ -200,16 +200,16 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/apple-signing-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.keychain-db"
           echo "STIMMA_SIGNING_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
           KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
-          # Carry forward only real, still-existing keychains. RUNNER_TEMP is wiped
-          # between runs, so prior runs' apple-signing-*.keychain-db files are gone
-          # but their search-list entries linger; a search list full of dead
-          # keychains makes codesign fail with errSecInternalComponent ("unable to
-          # build chain to self-signed root"). Drop any nonexistent entry here.
+          # Carry forward only usable keychains. RUNNER_TEMP is wiped between runs,
+          # so prior runs' apple-signing-*.keychain-db files are gone but their
+          # search-list entries linger. Inaccessible keychains can likewise make
+          # codesign fail with errSecInternalComponent. Drop either here.
           ORIGINAL_KEYCHAINS=""
           while IFS= read -r kc; do
             kc="${kc//[\" ]/}"
             [ -z "$kc" ] && continue
             [ -f "$kc" ] || continue
+            security show-keychain-info "$kc" >/dev/null 2>&1 || continue
             ORIGINAL_KEYCHAINS="$ORIGINAL_KEYCHAINS $kc"
           done < <(security list-keychains -d user)
 
@@ -527,14 +527,15 @@ jobs:
           # Remove this run's keychain from the search list and delete it, so the
           # user-domain search list does not accumulate dead apple-signing-*
           # keychains across releases (the cause of errSecInternalComponent).
-          # Keep OTHER runs' still-existing apple-signing keychains: stripping
-          # them here yanks a concurrent release's keychain mid-codesign. Dead
-          # entries are dropped by the [ -f ] check once their files are gone.
+          # Keep OTHER runs' usable apple-signing keychains: stripping them here
+          # yanks a concurrent release's keychain mid-codesign. Dead or
+          # inaccessible entries are dropped from the search list.
           REMAINING=""
           while IFS= read -r kc; do
             kc="${kc//[\" ]/}"
             [ -z "$kc" ] && continue
             [ -f "$kc" ] || continue
+            security show-keychain-info "$kc" >/dev/null 2>&1 || continue
             [ "$kc" = "${STIMMA_SIGNING_KEYCHAIN:-}" ] && continue
             REMAINING="$REMAINING $kc"
           done < <(security list-keychains -d user)
