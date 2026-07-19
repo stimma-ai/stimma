@@ -1298,6 +1298,28 @@ class JsonRpcProvider(ToolProvider):
             log.error("failed to refresh tools", provider=self.provider_id, error=str(e))
             raise
 
+    async def search_options(
+        self,
+        tool_id: str,
+        parameter: str,
+        query: str,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """Query a large remote enum catalog without embedding it in tools.list."""
+        if self._status != ProviderStatus.CONNECTED:
+            raise RuntimeError("Provider not connected")
+        result = await self._send_request(
+            "tools.search_options",
+            {
+                "tool_id": tool_id,
+                "parameter": parameter,
+                "query": query,
+                "limit": max(1, min(int(limit), 100)),
+            },
+        )
+        options = result.get("options", []) if isinstance(result, dict) else []
+        return [option for option in options if isinstance(option, dict)]
+
     async def upload_prepare(
         self,
         tool_id: str,

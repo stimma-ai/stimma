@@ -46,6 +46,7 @@ export interface GenericParam {
   default?: any
   enum?: string[]
   enumLabels?: Record<string, string>
+  searchOptions?: boolean
   minimum?: number
   maximum?: number
   step?: number
@@ -454,6 +455,7 @@ export function useToolSchemaFeatures(options: UseToolSchemaFeaturesOptions): Us
         default: s.default,
         enum: s.enum,
         enumLabels: s['x-enum-labels'],
+        searchOptions: s['x-search-options'] === true,
         minimum: s.minimum,
         maximum: s.maximum,
         step: s['x-step'],

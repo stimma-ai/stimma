@@ -101,6 +101,14 @@ class SaveToolStateRequest(BaseModel):
     state: Dict
 
 
+class SearchToolOptionsRequest(BaseModel):
+    """Search a large provider-backed enum catalog."""
+    full_tool_id: str
+    parameter: str
+    query: str = ""
+    limit: int = 100
+
+
 class ExecuteToolRequest(BaseModel):
     """Request to execute a lightweight tool."""
     parameters: Dict = {}
@@ -535,6 +543,28 @@ async def get_provider_tool(
 # =============================================================================
 # Refresh Routes
 # =============================================================================
+
+@router.post("/options/search")
+async def search_tool_options(request: SearchToolOptionsRequest):
+    """Search options for a schema parameter marked ``x-search-options``."""
+    from providers import ProviderRegistry
+
+    registry = ProviderRegistry.get_instance()
+    tool_entry = registry.get_tool(request.full_tool_id)
+    if not tool_entry:
+        raise HTTPException(status_code=404, detail="Provider tool not found")
+    provider, tool = tool_entry
+    prop = (tool.parameter_schema or {}).get("properties", {}).get(request.parameter, {})
+    if prop.get("x-search-options") is not True:
+        raise HTTPException(status_code=400, detail="Parameter options are not searchable")
+
+    options = await provider.search_options(
+        tool.id,
+        request.parameter,
+        request.query[:100],
+        max(1, min(request.limit, 100)),
+    )
+    return {"options": options}
 
 @router.post("/refresh")
 async def refresh_all_tools():

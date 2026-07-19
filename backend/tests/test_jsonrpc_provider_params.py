@@ -1,5 +1,7 @@
 """Regression tests for STP JSON-RPC outbound parameter shaping."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 from providers.base import ProviderStatus, ToolDescriptor
@@ -55,6 +57,63 @@ def test_strip_undeclared_parameters_is_noop_without_schema_properties():
 
     assert _strip_undeclared_parameters(params, None) == params
     assert _strip_undeclared_parameters(params, {"type": "object"}) == params
+
+
+@pytest.mark.asyncio
+async def test_search_options_uses_stp_catalog_method(monkeypatch):
+    provider = JsonRpcProvider(StdioProviderConfig(id="stimma-cloud", command="noop"))
+    provider._status = ProviderStatus.CONNECTED
+    captured = {}
+
+    async def fake_send_request(method, params=None, timeout=30.0):
+        captured["method"] = method
+        captured["params"] = params
+        return {"options": [{"value": "voice-1", "label": "Voice One"}]}
+
+    monkeypatch.setattr(provider, "_send_request", fake_send_request)
+
+    options = await provider.search_options("eleven-v3", "voice", "warm", 500)
+
+    assert options == [{"value": "voice-1", "label": "Voice One"}]
+    assert captured == {
+        "method": "tools.search_options",
+        "params": {
+            "tool_id": "eleven-v3",
+            "parameter": "voice",
+            "query": "warm",
+            "limit": 100,
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_search_options_route_validates_schema_and_forwards_query():
+    from routes.tools import SearchToolOptionsRequest, search_tool_options
+
+    provider = MagicMock()
+    provider.search_options = AsyncMock(return_value=[{"value": "voice-1", "label": "Voice One"}])
+    tool = ToolDescriptor(
+        id="eleven-v3",
+        name="Eleven v3",
+        parameter_schema={
+            "type": "object",
+            "properties": {"voice": {"type": "string", "x-search-options": True}},
+        },
+        output_schema={},
+    )
+    registry = MagicMock()
+    registry.get_tool.return_value = (provider, tool)
+
+    with patch("providers.ProviderRegistry.get_instance", return_value=registry):
+        result = await search_tool_options(SearchToolOptionsRequest(
+            full_tool_id="stimma-cloud:eleven-v3",
+            parameter="voice",
+            query="warm",
+            limit=500,
+        ))
+
+    assert result == {"options": [{"value": "voice-1", "label": "Voice One"}]}
+    provider.search_options.assert_awaited_once_with("eleven-v3", "voice", "warm", 100)
 
 
 @pytest.mark.asyncio

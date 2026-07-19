@@ -595,6 +595,7 @@
 
         <!-- Generic Parameters (dynamic from tool schema, grouped) -->
         <SchemaParamGroup
+          :full-tool-id="fullToolIdFromProps"
           :groups="groupedGenericParams"
           :values="constraintValues"
           :is-group-collapsed="getGroupCollapsed"

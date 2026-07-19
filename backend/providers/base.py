@@ -220,6 +220,20 @@ class ToolProvider(ABC):
         """
         return await self.list_tools()
 
+    async def search_options(
+        self,
+        tool_id: str,
+        parameter: str,
+        query: str,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """Search a provider-backed parameter catalog.
+
+        Providers opt in by marking the schema property with
+        ``x-search-options`` and overriding this method.
+        """
+        return []
+
     # --- Execution ---
 
     @abstractmethod

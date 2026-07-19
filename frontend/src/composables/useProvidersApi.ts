@@ -68,6 +68,14 @@ export interface ProviderWithTools {
   tools: ProviderTool[]
 }
 
+export interface ProviderParameterOption {
+  value: string
+  label: string
+  description?: string
+  meta?: string
+  preview_url?: string
+}
+
 // Reactive state for caching
 const providersCache = ref<Provider[]>([])
 const toolsCache = ref<ProviderTool[]>([])
@@ -101,6 +109,21 @@ window.addEventListener('profile-changed', () => {
 })
 
 export function useProvidersApi() {
+  async function searchToolOptions(
+    fullToolId: string,
+    parameter: string,
+    query: string,
+    limit = 100,
+  ): Promise<ProviderParameterOption[]> {
+    const response = await axios.post(`${getToolsAPIBase()}/options/search`, {
+      full_tool_id: fullToolId,
+      parameter,
+      query,
+      limit,
+    })
+    return Array.isArray(response.data?.options) ? response.data.options : []
+  }
+
   /**
    * List all registered providers
    */
@@ -448,6 +471,7 @@ export function useProvidersApi() {
   }
 
   return {
+    searchToolOptions,
     // Provider API methods
     listProviders,
     getProvider,

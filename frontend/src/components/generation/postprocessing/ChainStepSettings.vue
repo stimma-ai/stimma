@@ -133,6 +133,7 @@
       </div>
 
       <SchemaParamGroup
+        :full-tool-id="stepTool?.full_tool_id"
         :groups="groupedGenericParams"
         :values="step.settings"
         flat

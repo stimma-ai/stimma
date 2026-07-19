@@ -7,7 +7,7 @@
       @keydown="handleButtonKeydown"
       class="flex items-center gap-1.5 text-content-secondary text-sm cursor-pointer hover:text-content transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-content-secondary"
       :class="[
-        control ? 'max-w-[min(28rem,calc(100vw-2rem))] justify-between rounded-md border border-edge bg-surface-raised px-3 py-2 text-left hover:border-accent/50' : '',
+        control ? 'max-w-[min(28rem,calc(100vw-2rem))] justify-between rounded-md border border-edge bg-surface-raised px-3 py-2 text-left hover:border-accent/50' : 'max-w-full',
         control && !compact ? 'min-w-52' : '',
         fill ? 'w-full' : '',
       ]"
@@ -59,13 +59,11 @@
           />
         </div>
         <div ref="optionsList" class="overflow-y-auto max-h-64 flex-1 min-h-0" tabindex="-1" @keydown="handleDropdownKeydown">
-          <button
+          <div
             v-for="(option, index) in filteredOptions"
             :key="option.value"
             :ref="el => setOptionRef(el, index)"
-            type="button"
-            :disabled="option.disabled"
-            @click="select(option.value)"
+            @click="option.disabled ? undefined : select(option.value)"
             @mouseenter="option.disabled ? null : highlightedIndex = index"
             class="flex w-full items-center gap-2 px-3 text-left text-sm transition-colors"
             :class="[
@@ -80,6 +78,7 @@
             ]"
             role="option"
             :aria-selected="option.value === modelValue"
+            :aria-disabled="option.disabled || undefined"
           >
             <ModelVendorIcon v-if="showVendorIcons" :model="option.vendor" size="sm" />
             <span class="min-w-0 flex-1">
@@ -93,11 +92,29 @@
                 :class="option.tone === 'cloud' ? 'stimma-cloud-text font-medium' : 'text-content-muted'"
               >{{ option.description }}</span>
             </span>
+            <button
+              v-if="option.previewUrl && !option.disabled"
+              type="button"
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-content-muted transition-colors duration-150 hover:bg-overlay-subtle hover:text-content focus-visible:outline-none focus-visible:ring-2 ring-accent/60"
+              :class="previewingValue === option.value ? 'text-accent-hi' : ''"
+              :aria-label="previewingValue === option.value ? `Stop ${option.label} preview` : `Preview ${option.label}`"
+              @click.stop="togglePreview(option)"
+            >
+              <svg v-if="previewingValue === option.value" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M7 6.75A.75.75 0 0 1 7.75 6h2.5a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1-.75-.75V6.75Zm6 0a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1-.75-.75V6.75Z" />
+              </svg>
+              <svg v-else class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M8.25 5.824v12.352a.75.75 0 0 0 1.125.65l10.696-6.176a.75.75 0 0 0 0-1.3L9.375 5.175a.75.75 0 0 0-1.125.65Z" />
+              </svg>
+            </button>
             <svg v-if="option.value === modelValue" class="h-3.5 w-3.5 shrink-0 text-accent-hi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
               <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
-          </button>
-          <div v-if="filteredOptions.length === 0" class="px-3 py-1.5 text-sm text-content-muted">
+          </div>
+          <div v-if="isSearching" class="px-3 py-1.5 text-sm text-content-muted">
+            Searching ElevenLabs…
+          </div>
+          <div v-if="filteredOptions.length === 0 && !isSearching" class="px-3 py-1.5 text-sm text-content-muted">
             No matches
           </div>
         </div>
@@ -121,6 +138,7 @@ interface Option {
   tone?: 'cloud'
   vendor?: ModelVendorId
   disabled?: boolean
+  previewUrl?: string
 }
 
 const props = defineProps<{
@@ -137,6 +155,8 @@ const props = defineProps<{
   hideTriggerDetails?: boolean
   menuWidth?: number
   placeholder?: string
+  /** Server-backed catalog search used when an enum is too large for the schema. */
+  searchOptions?: (query: string) => Promise<Option[]>
 }>()
 
 const emit = defineEmits<{
@@ -156,21 +176,41 @@ const dropdownStyle = ref<Record<string, string>>({})
 const highlightedIndex = ref(0)
 const searchQuery = ref('')
 const optionRefs = ref<(HTMLElement | null)[]>([])
+const remoteOptions = ref<Option[]>([])
+const selectedRemoteOption = ref<Option | null>(null)
+const isSearching = ref(false)
+const previewingValue = ref<string | null>(null)
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+let searchGeneration = 0
+let previewAudio: HTMLAudioElement | null = null
 
-const searchable = computed(() => props.options.length > SEARCH_THRESHOLD)
+const allOptions = computed(() => {
+  const seen = new Set<string>()
+  return [
+    ...(selectedRemoteOption.value ? [selectedRemoteOption.value] : []),
+    ...remoteOptions.value,
+    ...props.options,
+  ].filter((option) => {
+    if (seen.has(option.value)) return false
+    seen.add(option.value)
+    return true
+  })
+})
+
+const searchable = computed(() => !!props.searchOptions || allOptions.value.length > SEARCH_THRESHOLD)
 
 const filteredOptions = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  if (!searchable.value || !q) return props.options
-  return props.options.filter(o => [o.label, o.description, o.meta, o.value].some(value => value?.toLowerCase().includes(q)))
+  if (!searchable.value || !q) return allOptions.value
+  return allOptions.value.filter(o => [o.label, o.description, o.meta, o.value].some(value => value?.toLowerCase().includes(q)))
 })
 
 function setOptionRef(el: any, index: number) {
   optionRefs.value[index] = el
 }
 
-const selectedOption = computed(() => props.options.find(o => o.value === props.modelValue))
-const showVendorIcons = computed(() => props.options.some(option => option.vendor))
+const selectedOption = computed(() => allOptions.value.find(o => o.value === props.modelValue))
+const showVendorIcons = computed(() => allOptions.value.some(option => option.vendor))
 
 function toggle() {
   if (isOpen.value) {
@@ -188,6 +228,7 @@ function open() {
   const firstEnabled = filteredOptions.value.findIndex(o => !o.disabled)
   highlightedIndex.value = currentIndex >= 0 ? currentIndex : Math.max(0, firstEnabled)
   isOpen.value = true
+  scheduleRemoteSearch('')
   nextTick(() => {
     positionDropdown()
     // Focus the search box if present, otherwise the options list for keyboard events
@@ -203,12 +244,53 @@ function open() {
 
 function close() {
   isOpen.value = false
+  stopPreview()
 }
 
 function select(value: string) {
-  if (props.options.find(option => option.value === value)?.disabled) return
+  const option = allOptions.value.find(candidate => candidate.value === value)
+  if (option?.disabled) return
+  if (option && !props.options.some(candidate => candidate.value === value)) selectedRemoteOption.value = option
   emit('update:modelValue', value)
   close()
+}
+
+function scheduleRemoteSearch(query: string) {
+  if (!props.searchOptions) return
+  if (searchTimer) clearTimeout(searchTimer)
+  const generation = ++searchGeneration
+  searchTimer = setTimeout(async () => {
+    isSearching.value = true
+    try {
+      const options = await props.searchOptions!(query)
+      if (generation === searchGeneration) remoteOptions.value = options
+    } catch {
+      if (generation === searchGeneration) remoteOptions.value = []
+    } finally {
+      if (generation === searchGeneration) isSearching.value = false
+    }
+  }, query ? 220 : 0)
+}
+
+function stopPreview() {
+  previewAudio?.pause()
+  previewAudio = null
+  previewingValue.value = null
+}
+
+function togglePreview(option: Option) {
+  if (!option.previewUrl) return
+  if (previewingValue.value === option.value) {
+    stopPreview()
+    return
+  }
+  stopPreview()
+  const audio = new Audio(option.previewUrl)
+  previewAudio = audio
+  previewingValue.value = option.value
+  audio.addEventListener('ended', stopPreview, { once: true })
+  audio.addEventListener('error', stopPreview, { once: true })
+  void audio.play().catch(stopPreview)
 }
 
 function moveHighlight(direction: 1 | -1) {
@@ -266,7 +348,14 @@ function handleDropdownKeydown(e: KeyboardEvent) {
 watch(filteredOptions, () => {
   optionRefs.value = []
   highlightedIndex.value = Math.max(0, filteredOptions.value.findIndex(option => !option.disabled))
-  nextTick(scrollToHighlighted)
+  nextTick(() => {
+    scrollToHighlighted()
+    if (isOpen.value) positionDropdown()
+  })
+})
+
+watch(searchQuery, (query) => {
+  if (isOpen.value) scheduleRemoteSearch(query)
 })
 
 function positionDropdown() {
@@ -327,5 +416,7 @@ watch(isOpen, (open) => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown)
+  if (searchTimer) clearTimeout(searchTimer)
+  stopPreview()
 })
 </script>

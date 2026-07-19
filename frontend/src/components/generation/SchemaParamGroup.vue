@@ -60,11 +60,15 @@
                 <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
               </div>
-              <div class="min-w-0 max-w-[45%] flex-shrink-0">
+              <!-- Content-sized, capped at 75%: a long selected value (e.g. a
+                   TTS model blurb) shifts left into the label's free space
+                   instead of overflowing the card; the label keeps ≥25%. -->
+              <div class="min-w-0 max-w-[75%]">
                 <SettingsDropdown
                   :model-value="String(values[param.name] ?? param.default)"
                   @update:model-value="emitParam(param.name, $event)"
                   :options="param.enum.map((opt: string) => ({ value: opt, label: param.enumLabels?.[opt] || formatEnumOption(opt, param.format) }))"
+                  :search-options="remoteSearchFor(param)"
                   :disabled="constraintState(param).disabled"
                   quiet
                 />
@@ -143,6 +147,7 @@ import SettingsDropdown from '../ui/SettingsDropdown.vue'
 import ScrubValue from '../ui/ScrubValue.vue'
 import type { GenericParam, GenericParamGroup } from '../../composables/useToolSchemaFeatures'
 import { resolveParamConstraints, isSectionHidden, type ParamConstraintState } from '../../utils/paramConstraints'
+import { useProvidersApi, type ProviderParameterOption } from '../../composables/useProvidersApi'
 
 // Standalone, schema-driven settings renderer. Extracted from ToolView's
 // inline generic-params section so any tool's parameter schema can be hosted
@@ -161,7 +166,11 @@ const props = defineProps<{
   /** Optional external collapse persistence (ToolView persists per tool). */
   isGroupCollapsed?: (groupLabel: string | null) => boolean
   onToggleGroupCollapsed?: (groupLabel: string | null) => void
+  /** Full provider-scoped tool id used for x-search-options lookups. */
+  fullToolId?: string
 }>()
+
+const { searchToolOptions } = useProvidersApi()
 
 const rowPad = computed(() => (props.flat ? 'px-0 py-1.5' : 'px-0 py-1.5'))
 
@@ -171,6 +180,20 @@ const emit = defineEmits<{
 
 function emitParam(name: string, value: any) {
   emit('update:param', name, value)
+}
+
+function remoteSearchFor(param: GenericParam) {
+  if (!param.searchOptions || !props.fullToolId) return undefined
+  return async (query: string) => {
+    const options = await searchToolOptions(props.fullToolId!, param.name, query)
+    return options.map((option: ProviderParameterOption) => ({
+      value: option.value,
+      label: option.label,
+      description: option.description,
+      meta: option.meta,
+      previewUrl: option.preview_url,
+    }))
+  }
 }
 
 // Schema authors sometimes ship ALL-CAPS group labels; the UI voice is
