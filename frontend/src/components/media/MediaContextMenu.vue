@@ -596,6 +596,110 @@
           </div>
         </div>
 
+        <!-- Send to Flow - flow submenu, then destination submenu -->
+        <div
+          class="relative"
+          @mouseenter="openSubmenu('flow', $event)"
+          @mouseleave="closeSubmenuDelayed"
+        >
+          <button
+            ref="flowTriggerRef"
+            class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+          >
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+            </svg>
+            <span class="flex-1">Send to Flow</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 text-content-muted">
+              <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+            </svg>
+          </button>
+
+          <div
+            v-if="activeSubmenu === 'flow'"
+            class="fixed z-submenu"
+            :style="submenuBridgeStyle"
+            @mouseenter="cancelSubmenuClose"
+          />
+
+          <div
+            v-if="activeSubmenu === 'flow'"
+            ref="flowSubmenuRef"
+            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[220px] max-w-[300px] max-h-[400px] overflow-y-auto"
+            :style="submenuPosition"
+            @mouseenter="cancelSubmenuClose"
+            @mouseleave="closeSubmenuDelayed"
+            @click.stop
+          >
+            <div v-if="loadingFlows" class="px-3 py-2 text-xs text-content-tertiary">Loading flows...</div>
+            <template v-else>
+              <button
+                @click="sendToNewFlow"
+                @mouseenter="clearFlowDestination"
+                :class="['w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2', flows.length > 0 ? 'border-b border-edge-subtle' : '']"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary">
+                  <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+                </svg>
+                <span class="font-medium">New Flow</span>
+              </button>
+              <div
+                v-for="flow in flows"
+                :key="flow.id"
+                @mouseenter="openFlowDestination(flow, $event)"
+              >
+                <button class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2">
+                  <svg fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                  </svg>
+                  <span class="truncate flex-1">{{ flow.name || 'Untitled' }}</span>
+                  <svg viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 flex-shrink-0 text-content-muted">
+                    <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </div>
+
+          <div
+            v-if="activeSubmenu === 'flow' && activeFlowDestination"
+            class="fixed z-submenu"
+            :style="flowDestinationBridgeStyle"
+            @mouseenter="cancelSubmenuClose"
+          />
+
+          <div
+            v-if="activeSubmenu === 'flow' && activeFlowDestination"
+            ref="flowDestinationSubmenuRef"
+            class="fixed bg-surface border border-edge-subtle rounded-lg shadow-lg z-submenu py-1 min-w-[190px] max-w-[280px]"
+            :style="flowDestinationPosition"
+            @mouseenter="cancelSubmenuClose"
+            @mouseleave="closeSubmenuDelayed"
+            @click.stop
+          >
+            <button
+              @click="sendToFlowChat(activeFlowDestination)"
+              class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+            >
+              <svg fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM21 12c0 4.556-4.03 8.25-9 8.25a9.76 9.76 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+              </svg>
+              <span>Attach to Message</span>
+            </button>
+            <button
+              v-for="field in activeFlowInputFields"
+              :key="field.name"
+              @click="sendToFlowInput(activeFlowDestination, field)"
+              class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+            >
+              <svg fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor" class="w-3.5 h-3.5 flex-shrink-0 text-content-tertiary">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" />
+              </svg>
+              <span class="truncate">{{ field.label }}</span>
+            </button>
+          </div>
+        </div>
+
         <div v-if="hasExploreActions" class="border-t border-edge-subtle my-1"></div>
 
         <!-- Find Similar (up to 3 items) -->
@@ -753,7 +857,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMediaContextMenu } from '../../composables/useMediaContextMenu'
 import { setPendingMedia } from '../../composables/usePendingMedia'
-import { useContextMenuPosition, computeSubmenuX, computeBridgeStyle, computeSubmenuStyle, measureMenu } from '../../composables/useContextMenuPosition'
+import { useContextMenuPosition, useSubmenuPosition, computeSubmenuX, computeBridgeStyle, computeSubmenuStyle, measureMenu } from '../../composables/useContextMenuPosition'
 import { useMediaApi } from '../../composables/useMediaApi'
 import { useAssetApi } from '../../composables/useAssetApi'
 import { addToast } from '../../composables/useToasts'
@@ -778,6 +882,8 @@ import { useWorkspaceTabs, toolInstanceRoute, toolTabRoute, type WorkspaceTab } 
 import { usePrint } from '../../composables/usePrint'
 import { useTelemetry } from '../../composables/useTelemetry'
 import { mediaIdOf } from '../../utils/assetIdentity'
+import { useFlowsApi, type Flow } from '../../composables/useFlowsApi'
+import { flowMediaInputFields, fieldAcceptsDraggedType, type FlowMediaInputField } from '../../utils/flowMediaInputs'
 
 const { track: trackTelemetry } = useTelemetry()
 
@@ -829,23 +935,29 @@ const {
 } = useAssetApi()
 const { listAllTools } = useProvidersApi()
 const { sendToTool: sendToToolComposable } = useSendToTool()
+const flowsApi = useFlowsApi()
 
 const menuRef = ref<HTMLElement | null>(null)
 const generateTriggerRef = ref<HTMLElement | null>(null)
 const toolTriggerRef = ref<HTMLElement | null>(null)
 const chatTriggerRef = ref<HTMLElement | null>(null)
+const flowTriggerRef = ref<HTMLElement | null>(null)
 const boardTriggerRef = ref<HTMLElement | null>(null)
 const generateSubmenuRef = ref<HTMLElement | null>(null)
 const toolSubmenuRef = ref<HTMLElement | null>(null)
 const chatSubmenuRef = ref<HTMLElement | null>(null)
+const flowSubmenuRef = ref<HTMLElement | null>(null)
+const flowDestinationSubmenuRef = ref<HTMLElement | null>(null)
 const boardSubmenuRef = ref<HTMLElement | null>(null)
 const projectSubmenuRef = ref<HTMLElement | null>(null)
 const projectTriggerRef = ref<HTMLElement | null>(null)
 
-const activeSubmenu = ref<'generate' | 'tool' | 'chat' | 'board' | 'project' | null>(null)
+const activeSubmenu = ref<'generate' | 'tool' | 'chat' | 'flow' | 'board' | 'project' | null>(null)
 const submenuCloseTimeout = ref<number | null>(null)
 const submenuTriggerRect = ref<DOMRect | null>(null)
 const submenuClickLockUntil = ref(0)
+const activeFlowDestination = ref<Flow | null>(null)
+const flowDestinationTriggerRect = ref<DOMRect | null>(null)
 
 const toolListRef = ref<InstanceType<typeof TaskTypeToolList> | null>(null)
 
@@ -952,10 +1064,13 @@ const filteredRemixOpenInstances = computed(() => {
 // Chats data
 const loadingChats = ref(false)
 const chats = ref<Chat[]>([])
+const loadingFlows = ref(false)
+const flows = ref<Flow[]>([])
 const loadingBoards = ref(false)
 const boards = ref<any[]>([])
 const lastBoardsProjectId = ref<number | undefined>(undefined)
 const lastChatsProjectId = ref<number | undefined>(undefined)
+const lastFlowsProjectId = ref<number | undefined>(undefined)
 const savingBoardQuickAddId = ref<number | null>(null)
 const creatingBoardQuickAdd = ref(false)
 
@@ -1134,6 +1249,15 @@ const currentSelectionMediaTypes = computed((): MediaType[] => {
   return Array.from(new Set(selectedItems.value.map(item => getMediaType(item))))
 })
 
+const activeFlowInputFields = computed(() => {
+  const flow = activeFlowDestination.value
+  if (!flow) return []
+  return flowMediaInputFields(flow.input_schema).filter(field => {
+    const types = field.multi ? currentSelectionMediaTypes.value : [currentMediaType.value]
+    return types.every(type => fieldAcceptsDraggedType(field.accept, type))
+  })
+})
+
 // Filter tools for "Send to Tool" (image/video input tools)
 // Also filters by selection count validity for multi-selection
 // A tool is eligible if ANY of its task_types match the eligible types
@@ -1178,6 +1302,18 @@ const { menuStyle: menuPosition } = useContextMenuPosition(menuRef, menuCoords, 
 // Submenu positioning — measured after render so actual width is used, never overlaps parent
 const submenuPosition = ref<Record<string, string>>({ top: '0px', left: '0px' })
 const submenuBridgeStyle = ref<Record<string, string>>({ display: 'none' })
+const submenuOpensLeft = ref(false)
+const flowDestinationVisible = computed(() => activeSubmenu.value === 'flow' && activeFlowDestination.value !== null)
+const {
+  submenuStyle: flowDestinationPosition,
+  bridgeStyle: flowDestinationBridgeStyle,
+} = useSubmenuPosition(
+  flowSubmenuRef,
+  flowDestinationTriggerRect,
+  flowDestinationSubmenuRef,
+  flowDestinationVisible,
+  { preferLeft: submenuOpensLeft },
+)
 
 // Resolve the active submenu's element ref for measurement
 function getActiveSubmenuEl(): HTMLElement | null {
@@ -1186,6 +1322,7 @@ function getActiveSubmenuEl(): HTMLElement | null {
     case 'generate': return generateSubmenuRef.value
     case 'tool': return toolSubmenuRef.value
     case 'chat': return chatSubmenuRef.value
+    case 'flow': return flowSubmenuRef.value
     case 'project': return projectSubmenuRef.value
     default: return null
   }
@@ -1197,6 +1334,7 @@ function repositionSubmenu() {
   if (!submenuTriggerRect.value || !menuRef.value) {
     submenuPosition.value = { top: '0px', left: '0px' }
     submenuBridgeStyle.value = { display: 'none' }
+    submenuOpensLeft.value = false
     submenuAppliedCap = null
     return
   }
@@ -1209,6 +1347,7 @@ function repositionSubmenu() {
   const measured = submenuEl ? measureMenu(submenuEl, submenuAppliedCap) : { w: 260, h: 400 }
 
   const { x, opensLeft } = computeSubmenuX(menuRect, measured.w)
+  submenuOpensLeft.value = opensLeft
 
   const style = computeSubmenuStyle(x, triggerRect.top, measured.h)
   submenuAppliedCap = style.maxHeight ? parseInt(style.maxHeight, 10) : null
@@ -1328,6 +1467,21 @@ async function loadChats() {
   }
 }
 
+async function loadFlows() {
+  const projectChanged = lastFlowsProjectId.value !== currentProjectId.value
+  if (!projectChanged && (flows.value.length > 0 || loadingFlows.value)) return
+  lastFlowsProjectId.value = currentProjectId.value
+  loadingFlows.value = true
+  try {
+    const params = currentProjectId.value ? { project_id: currentProjectId.value } : {}
+    flows.value = await flowsApi.listFlows(params)
+  } catch (err) {
+    console.error('Failed to load flows:', err)
+  } finally {
+    loadingFlows.value = false
+  }
+}
+
 async function loadBoardsList(force = false) {
   const projectChanged = lastBoardsProjectId.value !== currentProjectId.value
   if (!force && !projectChanged && (boards.value.length > 0 || loadingBoards.value)) return
@@ -1357,7 +1511,7 @@ function handleMarkersChanged() {
   loadMarkers(true)
 }
 
-function openSubmenu(menu: 'generate' | 'tool' | 'chat' | 'board' | 'project', event: MouseEvent) {
+function openSubmenu(menu: 'generate' | 'tool' | 'chat' | 'flow' | 'board' | 'project', event: MouseEvent) {
   cancelSubmenuClose()
 
   // Capture the trigger element's position for submenu positioning
@@ -1381,12 +1535,27 @@ function openSubmenu(menu: 'generate' | 'tool' | 'chat' | 'board' | 'project', e
     }
   } else if (menu === 'chat') {
     loadChats()
+  } else if (menu === 'flow') {
+    if (!wasAlreadyOpen) clearFlowDestination()
+    loadFlows()
   } else if (menu === 'board') {
     boardSearchQuery.value = ''
     loadBoardsList()
   } else if (menu === 'project') {
     // ProjectPickerSubmenu loads data internally
   }
+}
+
+function openFlowDestination(flow: Flow, event: MouseEvent) {
+  cancelSubmenuClose()
+  const target = event.currentTarget as HTMLElement
+  if (target) flowDestinationTriggerRect.value = target.getBoundingClientRect()
+  activeFlowDestination.value = flow
+}
+
+function clearFlowDestination() {
+  activeFlowDestination.value = null
+  flowDestinationTriggerRect.value = null
 }
 
 function closeSubmenuDelayed() {
@@ -1398,6 +1567,8 @@ function closeSubmenuDelayed() {
       isMouseOverElement(generateSubmenuRef.value) ||
       isMouseOverElement(toolSubmenuRef.value) ||
       isMouseOverElement(chatSubmenuRef.value) ||
+      isMouseOverElement(flowSubmenuRef.value) ||
+      isMouseOverElement(flowDestinationSubmenuRef.value) ||
       isMouseOverElement(boardSubmenuRef.value) ||
       isMouseOverElement(projectSubmenuRef.value)
     ) return
@@ -1426,6 +1597,8 @@ function handleClickOutside(event: MouseEvent) {
   if (generateSubmenuRef.value?.contains(target)) return
   if (toolSubmenuRef.value?.contains(target)) return
   if (chatSubmenuRef.value?.contains(target)) return
+  if (flowSubmenuRef.value?.contains(target)) return
+  if (flowDestinationSubmenuRef.value?.contains(target)) return
   if (boardSubmenuRef.value?.contains(target)) return
   if (projectSubmenuRef.value?.contains(target)) return
   // The tag picker submenu lives in its own Teleport
@@ -1458,6 +1631,7 @@ onUnmounted(() => {
 
 // Auto-focus search inputs when submenus open
 watch(activeSubmenu, async (menu) => {
+  if (menu !== 'flow') clearFlowDestination()
   if (menu === 'generate') {
     await nextTick()
     generateSearchInputRef.value?.focus()
@@ -1479,6 +1653,7 @@ watch(() => contextMenu.state.value.visible, (visible) => {
     generateSearchQuery.value = ''
     boardSearchQuery.value = ''
     mediaFaces.value = []
+    clearFlowDestination()
     showTagEditor.value = false
   }
 })
@@ -1752,6 +1927,92 @@ function sendToChat(chat: Chat) {
   trackTelemetry('send_to_chat_used')
   setPendingMedia('chat', ids, chat.id)
   router.push({ name: 'chat', params: { id: chat.id } })
+}
+
+async function resolveFlowChatId(flowId: number): Promise<number | null> {
+  try {
+    const headers = { 'X-Profile-ID': getCurrentProfileId() }
+    const listResponse = await fetch(`/api/chats?flow_id=${flowId}&page=1&page_size=1`, { headers })
+    if (listResponse.ok) {
+      const list = await listResponse.json()
+      const existingId = list?.items?.[0]?.id
+      if (existingId != null) return Number(existingId)
+    }
+
+    const createResponse = await fetch('/api/chats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({ flow_id: flowId }),
+    })
+    if (!createResponse.ok) throw new Error('Failed to create flow chat')
+    const created = await createResponse.json()
+    return created?.id != null ? Number(created.id) : null
+  } catch (err) {
+    console.error('Failed to resolve flow chat:', err)
+    return null
+  }
+}
+
+async function sendToNewFlow() {
+  const ids = [...targetMediaIds.value]
+  const projectId = currentProjectId.value || null
+  contextMenu.hide()
+  activeSubmenu.value = null
+  clearFlowDestination()
+  if (ids.length === 0) return
+
+  try {
+    const flow = await flowsApi.createFlow({ project_id: projectId })
+    const chatId = await resolveFlowChatId(flow.id)
+    if (chatId != null) setPendingMedia('chat', ids, chatId)
+    router.push({ name: 'flow', params: { id: String(flow.id) } })
+  } catch (err) {
+    console.error('Failed to create flow with assets:', err)
+    addToast('Failed to create flow', 'warning')
+  }
+}
+
+async function sendToFlowChat(flow: Flow) {
+  const ids = [...targetMediaIds.value]
+  contextMenu.hide()
+  activeSubmenu.value = null
+  clearFlowDestination()
+  if (ids.length === 0) return
+
+  const chatId = await resolveFlowChatId(flow.id)
+  if (chatId != null) {
+    setPendingMedia('chat', ids, chatId)
+  } else {
+    addToast('Failed to send assets to the flow agent', 'warning')
+  }
+  router.push({ name: 'flow', params: { id: String(flow.id) } })
+}
+
+async function sendToFlowInput(flow: Flow, field: FlowMediaInputField) {
+  const ids = [...targetMediaIds.value]
+  contextMenu.hide()
+  activeSubmenu.value = null
+  clearFlowDestination()
+  if (ids.length === 0) return
+
+  try {
+    // Re-read before writing so a flow edit made while the menu was open is
+    // preserved. This mirrors the sidebar flow-drop behavior.
+    const latest = await flowsApi.getFlow(flow.id)
+    const inputs = { ...(latest.inputs || {}) }
+    if (field.multi) {
+      const existing = Array.isArray(inputs[field.name]) ? [...inputs[field.name]] : []
+      for (const id of ids) if (!existing.includes(id)) existing.push(id)
+      inputs[field.name] = existing
+    } else {
+      inputs[field.name] = ids[0]
+    }
+    await flowsApi.updateFlow(flow.id, { inputs })
+    router.push({ name: 'flow', params: { id: String(flow.id) } })
+  } catch (err) {
+    console.error('Failed to set flow input:', err)
+    addToast('Failed to set flow input', 'warning')
+  }
 }
 
 async function handleShareToCloud() {

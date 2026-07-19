@@ -211,9 +211,9 @@ const SUBMENU_GAP = 4
 /**
  * Compute submenu x-position that never overlaps the parent menu.
  *
- * Strategy:
- *   1. Try right of parent (parentRect.right + gap)
- *   2. Try left of parent (parentRect.left - submenuWidth - gap)
+ * Strategy (reversed when preferLeft is true):
+ *   1. Try the preferred side of the parent
+ *   2. Try the opposite side
  *   3. If neither fits, pick the side with more room and pin to viewport edge,
  *      but never cross into the parent's horizontal bounds.
  *
@@ -222,19 +222,28 @@ const SUBMENU_GAP = 4
 function computeSubmenuX(
   parentRect: DOMRect,
   submenuWidth: number,
-  gap: number = SUBMENU_GAP
+  gap: number = SUBMENU_GAP,
+  preferLeft: boolean = false,
 ): { x: number; opensLeft: boolean } {
   const availableRight = window.innerWidth - PADDING - parentRect.right - gap
   const availableLeft = parentRect.left - gap - PADDING
 
-  // 1. Fits to the right
-  if (submenuWidth <= availableRight) {
-    return { x: parentRect.right + gap, opensLeft: false }
-  }
-
-  // 2. Fits to the left
-  if (submenuWidth <= availableLeft) {
-    return { x: parentRect.left - submenuWidth - gap, opensLeft: true }
+  // Cascading menus should keep moving outward instead of folding back over
+  // an earlier menu layer when the first submenu had to open left.
+  if (preferLeft) {
+    if (submenuWidth <= availableLeft) {
+      return { x: parentRect.left - submenuWidth - gap, opensLeft: true }
+    }
+    if (submenuWidth <= availableRight) {
+      return { x: parentRect.right + gap, opensLeft: false }
+    }
+  } else {
+    if (submenuWidth <= availableRight) {
+      return { x: parentRect.right + gap, opensLeft: false }
+    }
+    if (submenuWidth <= availableLeft) {
+      return { x: parentRect.left - submenuWidth - gap, opensLeft: true }
+    }
   }
 
   // 3. Neither side has full room — pick the side with more space.
@@ -323,7 +332,8 @@ export function useSubmenuPosition(
   parentMenuRef: Ref<HTMLElement | null>,
   triggerRect: Ref<DOMRect | null>,
   submenuRef: Ref<HTMLElement | null>,
-  active: Ref<boolean>
+  active: Ref<boolean>,
+  opts: { preferLeft?: Ref<boolean> } = {},
 ) {
   const pos = ref<Record<string, string>>({ top: '0px', left: '0px' })
   const bridgeStyle = ref<Record<string, string>>({ display: 'none' })
@@ -343,7 +353,7 @@ export function useSubmenuPosition(
     const submenu = submenuRef.value
     const measured = submenu ? measureMenu(submenu, appliedCap) : { w: 260, h: 400 }
 
-    const { x, opensLeft } = computeSubmenuX(parentRect, measured.w)
+    const { x, opensLeft } = computeSubmenuX(parentRect, measured.w, SUBMENU_GAP, opts.preferLeft?.value ?? false)
 
     const style = computeSubmenuStyle(x, trigger.top, measured.h)
     appliedCap = style.maxHeight ? parseInt(style.maxHeight, 10) : null
@@ -358,6 +368,7 @@ export function useSubmenuPosition(
   watch(active, (v) => {
     if (!v) bridgeStyle.value = { display: 'none' }
   })
+  if (opts.preferLeft) watch(opts.preferLeft, reposition)
 
   return { submenuStyle: pos, bridgeStyle, reposition }
 }
