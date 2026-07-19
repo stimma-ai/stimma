@@ -829,7 +829,7 @@
              and Stage. Single Teleport target — no remount on layout toggle. -->
         <div
           id="agent-dock"
-          class="flex-none overflow-y-auto border-t border-edge bg-surface-overlay px-4 pt-3 pb-4 max-h-[45%] shadow-[0_-4px_12px_rgba(0,0,0,0.06)]"
+          class="flex-none overflow-y-auto mx-3 mb-3 rounded-lg border border-edge-subtle bg-surface px-4 pt-3 pb-4 max-h-[45%]"
         ></div>
       </div>
     </template>
