@@ -400,7 +400,7 @@
     </div>
 
     <!-- Expandable Criteria Panel -->
-    <transition name="slide-down">
+    <transition name="flow-expand">
       <div v-if="showCriteriaPanel" class="border-t border-edge-subtle relative">
         <!-- Loading spinner -->
         <div v-if="isLoading" class="absolute top-0 left-0 right-0 bottom-0 bg-surface/80 flex items-center justify-center z-10 backdrop-blur-[2px]">
@@ -2572,19 +2572,6 @@ defineExpose({
   background: var(--slider-thumb-hover);
 }
 
-/* Slide Down Animation */
-.slide-down-enter-active,
-.slide-down-leave-active {
-  transition: all 0.3s ease;
-  max-height: 500px;
-  overflow: hidden;
-}
-
-.slide-down-enter-from,
-.slide-down-leave-to {
-  max-height: 0;
-  opacity: 0;
-}
 
 /* Custom Scrollbar for Horizontal Overflow in Filter Panel */
 .overflow-x-auto::-webkit-scrollbar {

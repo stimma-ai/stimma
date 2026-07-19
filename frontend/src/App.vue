@@ -40,7 +40,7 @@
           </svg>
         </button>
 
-        <transition name="dropdown">
+        <transition name="menu">
           <div
             v-if="lockScreenProfileDropdownOpen"
             class="absolute top-[calc(100%+0.5rem)] right-0 bg-surface border border-edge-subtle rounded-lg shadow-[0_8px_16px_rgba(0,0,0,0.5)] z-menu min-w-[200px] overflow-hidden"
@@ -1018,15 +1018,4 @@ body.slideshow-cursor-hidden *:not([data-context-menu] *):not([data-context-menu
   cursor: none !important;
 }
 
-/* Lock screen profile dropdown transition */
-.dropdown-enter-active,
-.dropdown-leave-active {
-  transition: all 0.2s ease;
-}
-
-.dropdown-enter-from,
-.dropdown-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
 </style>
