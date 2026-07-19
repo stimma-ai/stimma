@@ -166,6 +166,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'
 import { isStimmaCloudTool, toolProviderDisplayName } from '../../utils/stimmaCloud'
 import { MediaImage } from '../media'
+import Modal from '../ui/Modal.vue'
+import IconButton from '../ui/IconButton.vue'
 import { useTheme } from '../../composables/useTheme'
 
 const props = defineProps<{
@@ -226,24 +228,6 @@ const displayName = computed(() => {
 const rawProviderName = computed(() => args.value._provider_name || '')
 const isStimmaCloud = computed(() => isStimmaCloudTool({ provider_name: rawProviderName.value }))
 const providerName = computed(() => toolProviderDisplayName({ provider_name: rawProviderName.value }, ''))
-const modalPanelClass = computed(() => isLight.value
-  ? 'border-edge bg-surface'
-  : 'border-edge-subtle bg-zinc-950'
-)
-const modalHeaderClass = computed(() => isLight.value
-  ? 'border-b border-edge'
-  : 'border-b border-edge-subtle'
-)
-const modalTitleClass = computed(() => isLight.value ? 'text-content' : 'text-white')
-const modalCloseButtonClass = computed(() => isLight.value
-  ? 'text-content-muted hover:bg-overlay-light hover:text-content'
-  : 'text-zinc-400 hover:bg-overlay-subtle hover:text-white'
-)
-const modalBodyClass = computed(() => isLight.value ? 'bg-surface' : 'bg-zinc-950')
-const modalFooterClass = computed(() => isLight.value
-  ? 'border-t border-edge'
-  : 'border-t border-edge-subtle'
-)
 const codeBlockClass = computed(() => isLight.value
   ? 'border-edge bg-surface-raised text-content'
   : 'border-edge-subtle bg-black/30 text-zinc-100'
