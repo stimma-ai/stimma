@@ -16,6 +16,14 @@ Each channel is a separate installable app — different bundle ID, different
 product name (`Stimma`, `Stimma Beta`, `Stimma Canary`, `Stimma Debug`), different
 updater feed — so multiple channels can coexist on one machine.
 
+Official builds check their updater feed once at startup and then on a
+channel-specific schedule: canary every 15 minutes, beta and production every
+6 hours. Automatic updates on macOS and Linux are installed in the background
+and take effect on restart; if another release lands while the app remains
+open, the newer package is installed over the previously staged package.
+Manual update mode disables scheduled checks. Debug/source builds normally
+have no updater endpoint and therefore do not schedule checks.
+
 There is no `alpha` channel and no `stimma tag alpha`/`stimma tag canary`/
 `stimma tag production` commands — the CLI rejects all three. Canary is a
 continuous build off `main`, not tag-driven. Production is never tagged

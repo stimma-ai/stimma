@@ -31,6 +31,7 @@ interface TauriUpdate {
   download: (onEvent?: (progress: any) => void) => Promise<void>
   install: () => Promise<void>
   downloadAndInstall: (onEvent?: (progress: any) => void) => Promise<void>
+  close: () => Promise<void>
 }
 
 // How a staged update is applied. On macOS / Linux-AppImage the package is
@@ -63,6 +64,7 @@ const downloadedVersion = ref<string | null>(null)
 const stagedVersion = ref<string | null>(null)
 const pendingApply = ref<ApplyAction | null>(null)
 const currentVersion = ref('0.0.0')
+let recheckAfterCurrentInstall = false
 
 async function getPreference<T>(key: string): Promise<T | null> {
   try {
@@ -139,7 +141,16 @@ async function saveLastCheckedAt(): Promise<void> {
 async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<void> {
   if (!isTauri() || isPrivacyLockdownActive()) return
   await loadPreferences()
-  if (isChecking.value || isPrivacyLockdownActive()) return
+  if (isPrivacyLockdownActive() || isChecking.value) return
+  // A canary package can still be downloading when the next scheduled check
+  // fires. Do not race two updater resources against the app bundle; check
+  // again as soon as the current background install finishes instead.
+  if (isDownloading.value) {
+    if (policy.value === 'automatic' && !isWindowsPlatform()) {
+      recheckAfterCurrentInstall = true
+    }
+    return
+  }
 
   isChecking.value = true
   try {
@@ -157,6 +168,7 @@ async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<voi
     track('update_available', { version: update.version })
 
     if (downloadedVersion.value && downloadedVersion.value === update.version) {
+      try { await update.close() } catch { /* best-effort */ }
       return
     }
     // A newer build superseded whatever we had staged — discard it and re-stage
@@ -167,6 +179,10 @@ async function checkForUpdates(trigger: 'manual' | 'auto' = 'auto'): Promise<voi
     }
     // This exact version is already staged and waiting on a restart.
     if (stagedVersion.value === update.version) {
+      // check() creates a fresh Rust resource each time. The staged package is
+      // already on disk (or, on Windows, retained by availableUpdate), so this
+      // duplicate handle must not accumulate while the old process stays open.
+      try { await update.close() } catch { /* best-effort */ }
       return
     }
 
@@ -230,6 +246,10 @@ async function stageUpdate(): Promise<void> {
     console.error('[updater] Background staging failed:', error)
   } finally {
     isDownloading.value = false
+    if (recheckAfterCurrentInstall) {
+      recheckAfterCurrentInstall = false
+      void checkForUpdates('auto')
+    }
   }
 }
 

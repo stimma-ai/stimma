@@ -17,6 +17,7 @@
     "test:handoff": "node --test --experimental-strip-types src/utils/toolHandoff.test.ts",
     "test:agent-unavailable": "node --test --experimental-strip-types src/utils/agentUnavailableState.test.ts",
     "test:settings-readiness": "node --test --experimental-strip-types src/utils/settingsReadiness.test.ts",
+    "test:update-schedule": "node --test --experimental-strip-types src/utils/updateCheckSchedule.test.ts",
     "test:database-cleanup": "node --test tests/databaseCleanupState.test.mjs"
   },
   "dependencies": {

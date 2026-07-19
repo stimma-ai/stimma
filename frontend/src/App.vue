@@ -234,6 +234,7 @@ import { useReleaseNotes } from './composables/useReleaseNotes'
 import { useStimpacksApi } from './composables/useStimpacksApi'
 import { setupLayoutRenderer } from './composables/useLayoutRenderer'
 import { makeGlobalKey } from './utils/storageKeys'
+import { updateCheckIntervalMs } from './utils/updateCheckSchedule'
 import { initEditorProjectPrivacyCleanup } from './utils/editorProjectPrivacy'
 import { setPrivacyLockdownActive, isPrivacyLockdownActive } from './composables/usePrivacyLockdown'
 
@@ -257,6 +258,7 @@ const { getLastProjectRoute } = useProjectRoute()
 const { addToast } = useToasts()
 const {
   updatesEnabled,
+  channel: updateChannel,
   policy: updatePolicy,
   loadPreferences: loadUpdatePreferences,
   checkForUpdates,
@@ -928,7 +930,7 @@ async function startUpdaterLoop(privacyLockdownActive) {
   }
   updateIntervalId = window.setInterval(() => {
     checkForUpdates('auto')
-  }, 6 * 60 * 60 * 1000)
+  }, updateCheckIntervalMs(updateChannel.value))
 }
 
 function handleOpenSettings(e) {
