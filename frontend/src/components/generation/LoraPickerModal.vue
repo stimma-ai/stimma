@@ -71,7 +71,7 @@
     <!-- Results List -->
     <div
       :class="[
-        'relative flex-1 custom-scrollbar overflow-y-auto p-2 min-h-[200px]',
+        'relative flex-1 custom-scrollbar overflow-y-auto py-1 min-h-[200px]',
         isDraggingFile ? 'bg-accent/5' : ''
       ]"
       @dragover.prevent="onFileDragOver"
@@ -87,7 +87,7 @@
 
       <div
         v-if="isUploading"
-        class="mb-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 flex items-center gap-2.5"
+        class="mx-4 my-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 flex items-center gap-2.5"
       >
         <Spinner size="sm" />
         <div class="flex-1 min-w-0">
@@ -107,7 +107,7 @@
         @click="addLora(lora)"
         type="button"
         :class="[
-          'w-full p-3 text-left rounded-md transition-colors flex items-center justify-between gap-2 mb-1',
+          'w-full px-4 py-2 text-left transition-colors flex items-center justify-between gap-2',
           isInPool(lora.path)
             ? 'bg-accent-selection/15 text-accent-selection'
             : index === selectedIndex
@@ -125,7 +125,7 @@
           <span
             v-for="chip in (smartNames[lora.path]?.secondary || '').split(' ').filter(Boolean)"
             :key="chip"
-            class="shrink-0 text-[10px] leading-none px-1.5 py-0.5 rounded bg-surface-raised/50 text-content-tertiary font-mono uppercase"
+            class="shrink-0 text-[10px] leading-none px-1.5 py-0.5 rounded bg-overlay-subtle text-content-tertiary font-mono lowercase"
           >{{ chip }}</span>
         </span>
         <!-- Checkmark for selected items -->
