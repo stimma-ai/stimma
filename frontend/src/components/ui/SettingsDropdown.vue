@@ -112,7 +112,7 @@
             </svg>
           </div>
           <div v-if="isSearching" class="px-3 py-1.5 text-sm text-content-muted">
-            Searching ElevenLabs…
+            Searching…
           </div>
           <div v-if="filteredOptions.length === 0 && !isSearching" class="px-3 py-1.5 text-sm text-content-muted">
             No matches

@@ -55,7 +55,7 @@
                               </div>
             </div>
             <!-- Enum/Select -->
-            <div v-else-if="param.enum" :class="['flex items-center justify-between gap-4', rowPad]">
+            <div v-else-if="param.enum || param.searchOptions" :class="['flex items-center justify-between gap-4', rowPad]">
               <div class="min-w-0 flex-1">
                 <div class="text-[13px] text-content-secondary" :title="constraintState(param).disabled ? undefined : param.description">{{ param.label }}</div>
                 <div v-if="constraintState(param).disabled && constraintState(param).reason" class="text-xs mt-0.5 text-amber-500/80">{{ constraintState(param).reason }}</div>
@@ -67,8 +67,9 @@
                 <SettingsDropdown
                   :model-value="String(values[param.name] ?? param.default)"
                   @update:model-value="emitParam(param.name, $event)"
-                  :options="param.enum.map((opt: string) => ({ value: opt, label: param.enumLabels?.[opt] || formatEnumOption(opt, param.format) }))"
+                  :options="(param.enum ?? []).map((opt: string) => ({ value: opt, label: param.enumLabels?.[opt] || formatEnumOption(opt, param.format) }))"
                   :search-options="remoteSearchFor(param)"
+                  :hide-trigger-details="param.searchOptions"
                   :disabled="constraintState(param).disabled"
                   quiet
                 />
