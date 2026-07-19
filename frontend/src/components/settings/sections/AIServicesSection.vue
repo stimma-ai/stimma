@@ -1209,6 +1209,10 @@ async function runLegacyTest() {
       if (legacyDraft.value.reasoning_method_source !== 'manual') legacyDraft.value.reasoning_method = response.data.detected.reasoning_method
     }
     legacyOverride.value = clone(legacyDraft.value)
+    // The profiler persists vision/tool capabilities used by the chat model
+    // catalog. Refresh immediately so open composers match the Settings checks.
+    invalidateCache()
+    await fetchModels(null, true)
   } catch (error) {
     legacyDraft.value.last_tested_at = new Date().toISOString()
     legacyDraft.value.last_test_passed = false

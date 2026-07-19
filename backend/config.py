@@ -199,6 +199,12 @@ class LLMEndpointConfig(BaseModel):
     # so the UI can show "tested N days ago" without re-testing on every startup.
     last_tested_at: Optional[str] = None
     last_test_passed: Optional[bool] = None
+    # Capabilities learned by the Settings connection profiler. ``None`` means
+    # this legacy endpoint has not been profiled by a version that persisted
+    # capabilities, so clients must treat support as unknown rather than
+    # assuming the model is text-only.
+    input_modalities: Optional[List[str]] = None
+    supports_tools: Optional[bool] = None
 
     # Provider/model abstraction fields. Legacy endpoints leave provider_kind
     # unset and keep using reasoning_method.

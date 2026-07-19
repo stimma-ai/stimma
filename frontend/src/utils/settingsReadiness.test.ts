@@ -5,9 +5,17 @@ import {
   hasUsableLlmModel,
   isCatalogSelectableModel,
   isSelectableModel,
+  modelRejectsImageInput,
   modelSelectionLabel,
   selectableModelForSlug,
 } from './settingsReadiness.ts'
+
+test('only explicit text-only metadata rejects image input', () => {
+  assert.equal(modelRejectsImageInput({ input_modalities: ['text'] }), true)
+  assert.equal(modelRejectsImageInput({ input_modalities: ['text', 'image'] }), false)
+  assert.equal(modelRejectsImageInput({}), false)
+  assert.equal(modelRejectsImageInput({ input_modalities: null }), false)
+})
 
 test('only explicitly available models are selectable', () => {
   assert.equal(isSelectableModel({ available: true }), true)

@@ -216,6 +216,8 @@ class LLMEndpointResponse(BaseModel):
     reasoning_output: Optional[str] = None
     last_tested_at: Optional[str] = None
     last_test_passed: Optional[bool] = None
+    input_modalities: Optional[List[str]] = None
+    supports_tools: Optional[bool] = None
 
 
 class LLMRoleResponse(BaseModel):
@@ -301,6 +303,8 @@ def _endpoint_response(ep: dict) -> LLMEndpointResponse:
         reasoning_output=ep.get("reasoning_output"),
         last_tested_at=ep.get("last_tested_at"),
         last_test_passed=ep.get("last_test_passed"),
+        input_modalities=ep.get("input_modalities"),
+        supports_tools=ep.get("supports_tools"),
     )
 
 
@@ -1771,7 +1775,7 @@ async def test_llm_connection(role: str):
         # Remember when this endpoint was last tested (pass or fail) so the UI can
         # show "tested N days ago" instead of re-testing on every startup.
         try:
-            _persist_test_meta(text_passed)
+            _persist_test_meta(text_passed, scenarios)
         except Exception as e:
             log.warning(f"failed to persist test meta: {e}")
     if detected:
@@ -2172,9 +2176,13 @@ def _persist_detection(reasoning_method, runtime, reasoning_mode, reasoning_outp
         _update_llm_config(r, {"source": rc.source, "endpoint": ep})
 
 
-def _persist_test_meta(passed: bool):
-    """Stamp last-tested time + result on every endpoint config (both roles share
-    the same endpoint). Independent of reasoning detection / manual overrides."""
+def _persist_test_meta(passed: bool, scenarios: dict[str, LLMScenarioResult]):
+    """Persist test metadata and learned capabilities for the shared endpoint.
+
+    Older builds only saved whether basic text completion passed. Persisting the
+    actual vision/tool results keeps the chat catalog aligned with the green
+    capability checks shown in Settings.
+    """
     from datetime import datetime, timezone
     now_iso = datetime.now(timezone.utc).isoformat()
     settings = get_settings()
@@ -2185,6 +2193,12 @@ def _persist_test_meta(passed: bool):
         ep = rc.endpoint.model_dump()
         ep["last_tested_at"] = now_iso
         ep["last_test_passed"] = bool(passed)
+        vision = scenarios.get("vision")
+        if vision is not None:
+            ep["input_modalities"] = ["text", "image"] if vision.passed else ["text"]
+        tools = scenarios.get("tools")
+        if tools is not None:
+            ep["supports_tools"] = bool(tools.passed)
         _update_llm_config(r, {"source": rc.source, "endpoint": ep})
 
 

@@ -1421,6 +1421,7 @@ import { devModeRef } from '../appConfig'
 import { escapeHtmlAttribute, sanitizeHtml } from '../utils/sanitizeHtml'
 import { formatTaskTypeLabel } from '../utils/taskTypeIcons'
 import { resolveAgentUnavailableState } from '../utils/agentUnavailableState'
+import { modelRejectsImageInput } from '../utils/settingsReadiness'
 import RedeemCodeLink from '../components/RedeemCodeLink.vue'
 
 const props = defineProps<{
@@ -3205,7 +3206,7 @@ watch(
 const imageUnsupportedMessage = computed(() => {
   if (inputAttachments.value.length === 0) return ''
   const model = selectedChatModel.value
-  if (!model || (model.input_modalities || ['text']).includes('image')) return ''
+  if (!model || !modelRejectsImageInput(model)) return ''
   return `${model.name} can't use images. Remove the image or choose another model.`
 })
 
@@ -3227,7 +3228,7 @@ async function sendMessage(queuedMessage = null) {
 
   const pendingAttachments = queuedMessage?.attachments || inputAttachments.value
   const model = selectedChatModel.value
-  if (pendingAttachments.length > 0 && model && !(model.input_modalities || ['text']).includes('image')) {
+  if (pendingAttachments.length > 0 && modelRejectsImageInput(model)) {
     addToast(`${model.name} can't use images. Choose another model.`, 'error')
     if (queuedMessage) messageQueue.value.unshift(queuedMessage)
     return

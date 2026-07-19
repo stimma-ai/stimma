@@ -304,6 +304,7 @@ import { pendingMedia, consumePendingMedia } from '../composables/usePendingMedi
 import { useAgentModelAvailability } from '../composables/useAgentModelAvailability'
 import { useAvailableModels } from '../composables/useAvailableModels'
 import { mediaIdOf } from '../utils/assetIdentity'
+import { modelRejectsImageInput } from '../utils/settingsReadiness'
 
 const router = useRouter()
 const { getBoards, getBoard, addMediaToBoard, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
@@ -328,7 +329,7 @@ const selectedNewChatModelInfo = computed(() => {
 const newChatImageUnsupported = computed(() => {
   if (inputAttachments.value.length === 0) return ''
   const model = selectedNewChatModelInfo.value
-  if (!model || (model.input_modalities || ['text']).includes('image')) return ''
+  if (!model || !modelRejectsImageInput(model)) return ''
   return `${model.name} can't use images. Remove the image or choose another model.`
 })
 const submitting = ref(false)

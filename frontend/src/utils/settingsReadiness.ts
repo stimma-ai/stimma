@@ -2,10 +2,21 @@ import { STIMMA_CLOUD_PROVIDER_ID } from './stimmaCloud.ts'
 
 type AvailableModel = {
   available?: boolean
+  input_modalities?: string[] | null
   name?: string
   slug?: string
   source?: string
   resolved_slug?: string | null
+}
+
+/**
+ * Return true only when the model catalog explicitly says image input is not
+ * supported. Missing capability metadata on legacy endpoints means unknown,
+ * not text-only; the endpoint itself remains authoritative in that case.
+ */
+export function modelRejectsImageInput(model: AvailableModel | null | undefined): boolean {
+  const modalities = model?.input_modalities
+  return Array.isArray(modalities) && modalities.length > 0 && !modalities.includes('image')
 }
 
 // A signed-in Stimma account with zero balance can still list cloud models

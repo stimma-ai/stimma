@@ -122,6 +122,8 @@ async def test_available_models_auto_describes_local_only_fallback(monkeypatch):
         url="http://localhost:8000/v1",
         model="local-model",
         max_context_tokens=64_000,
+        input_modalities=["text", "image"],
+        supports_tools=True,
     )
     settings = SimpleNamespace(
         cloud=SimpleNamespace(base_url="https://cloud.example"),
@@ -148,10 +150,49 @@ async def test_available_models_auto_describes_local_only_fallback(monkeypatch):
     assert auto_model["description"] == "Uses your configured model endpoint."
     assert auto_model["max_context_tokens"] == 64_000
     assert local_model["available"] is True
+    assert local_model["input_modalities"] == ["text", "image"]
+    assert local_model["supports_tools"] is True
 
     slugs = {model["slug"] for model in payload["models"]}
     assert "stimma:minimax-m3" not in slugs
     assert not {"gpt54", "kimi-k2", "opus", "sonnet"} & slugs
+
+
+def test_legacy_endpoint_profile_persists_capabilities_for_both_roles(monkeypatch):
+    from routes import settings as settings_route
+
+    endpoint = LLMEndpointConfig(
+        url="http://localhost:8000/v1",
+        model="vision-model",
+    )
+    settings = SimpleNamespace(
+        llms={
+            "agent": LLMRoleConfig(source="auto", endpoint=endpoint),
+            "agent-fast": LLMRoleConfig(source="auto", endpoint=endpoint),
+        },
+    )
+    writes = []
+    monkeypatch.setattr(settings_route, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        settings_route,
+        "_update_llm_config",
+        lambda role, data: writes.append((role, data)),
+    )
+
+    settings_route._persist_test_meta(
+        True,
+        {
+            "vision": SimpleNamespace(passed=True),
+            "tools": SimpleNamespace(passed=True),
+        },
+    )
+
+    assert {role for role, _data in writes} == {"agent", "agent-fast"}
+    assert all(
+        data["endpoint"]["input_modalities"] == ["text", "image"]
+        and data["endpoint"]["supports_tools"] is True
+        for _role, data in writes
+    )
 
 
 @pytest.mark.asyncio

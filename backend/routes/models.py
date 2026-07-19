@@ -1028,6 +1028,8 @@ async def get_available_models(project_id: Optional[int] = Query(None)):
             "available": True,
             "status": "available",
             "max_context_tokens": local_max_context_tokens,
+            "supports_tools": agent_config.endpoint.supports_tools,
+            "input_modalities": agent_config.endpoint.input_modalities,
         })
     else:
         local_max_context_tokens = 128_000
