@@ -97,7 +97,7 @@
             @click="handleToggleMarker(marker)"
             :title="hasMarker(marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
             :class="[
-              'w-6 h-6 rounded flex items-center justify-center transition-colors',
+              'w-7 h-7 rounded-md flex items-center justify-center transition-colors',
               hasMarker(marker.id) ? 'bg-overlay-light' : 'hover:bg-overlay-subtle'
             ]"
           >
@@ -265,8 +265,6 @@
           </button>
         </template>
 
-        <div class="border-t border-edge-subtle my-1"></div>
-
         <!-- Board-specific section -->
         <template v-if="inBoard">
           <button
@@ -278,61 +276,9 @@
             </svg>
             <span>{{ isMultiple ? `Remove ${targetCount} from Board` : 'Remove from Board' }}</span>
           </button>
-
-          <div class="border-t border-edge-subtle my-1"></div>
         </template>
 
-        <!-- Find Similar (up to 3 items) -->
-        <button
-          v-if="hasClipEmbedding && targetCount <= 3"
-          @click="handleFindSimilar"
-          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
-          </svg>
-          <span>Find Similar</span>
-        </button>
-
-        <button
-          v-if="hasFaceEmbeddings"
-          @click="handleFindSimilarFaces"
-          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path d="M10 2a6 6 0 00-6 6v1.5A4.5 4.5 0 008.5 14h3A4.5 4.5 0 0016 9.5V8a6 6 0 00-6-6Zm-2 7a1 1 0 110-2 1 1 0 010 2Zm4 0a1 1 0 110-2 1 1 0 010 2Zm-3.8 2.4a.75.75 0 011.06-.1c.42.35 1.06.35 1.48 0a.75.75 0 11.96 1.16 2.65 2.65 0 01-3.4 0 .75.75 0 01-.1-1.06Z" />
-            <path d="M15.25 14.25l2.5 2.5a.75.75 0 11-1.06 1.06l-2.5-2.5a.75.75 0 111.06-1.06Z" />
-          </svg>
-          <span>Find Similar Faces</span>
-        </button>
-
-        <!-- Compare (exactly 2 images) -->
-        <button
-          v-if="targetCount === 2 && !isVideo"
-          @click="handleCompare"
-          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path d="M8 16.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75ZM3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5Zm2-.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5V5a.5.5 0 0 0-.5-.5H5Z" />
-            <path d="M10 3v14" stroke="currentColor" stroke-width="1.5" />
-          </svg>
-          <span>Compare</span>
-        </button>
-
-        <!-- View Lineage (single item only) -->
-        <button
-          v-if="!isMultiple"
-          @click="handleViewLineage"
-          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
-        >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <circle cx="6" cy="4.5" r="1.75" stroke-width="1.5" />
-            <circle cx="14" cy="4.5" r="1.75" stroke-width="1.5" />
-            <circle cx="10" cy="15.5" r="1.75" stroke-width="1.5" />
-            <path d="M6 6.25V8.5C6 10 7.5 11 10 11M14 6.25V8.5C14 10 12.5 11 10 11M10 11V13.75" stroke-width="1.5" stroke-linecap="round" />
-          </svg>
-          <span>View Lineage</span>
-        </button>
+        <div class="border-t border-edge-subtle my-1"></div>
 
         <!-- Edit Image (single image only) -->
         <button
@@ -357,6 +303,18 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3" />
           </svg>
           <span>{{ creatingSet ? 'Creating...' : `Create Set (${targetCount} items)` }}</span>
+        </button>
+
+        <!-- Explode action - only for sets/grids -->
+        <button
+          v-if="!isMultiple && isSetOrGrid"
+          @click="handleExplode"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
+            <path d="M10 1a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 1zM5.05 3.05a.75.75 0 011.06 0l1.062 1.06A.75.75 0 116.11 5.173L5.05 4.11a.75.75 0 010-1.06zm9.9 0a.75.75 0 010 1.06l-1.06 1.062a.75.75 0 01-1.062-1.061l1.061-1.06a.75.75 0 011.06 0zM3 10a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 013 10zm11 0a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 0114 10zm-6.828 2.828a.75.75 0 010 1.061l-1.06 1.06a.75.75 0 01-1.061-1.06l1.06-1.06a.75.75 0 011.061 0zm5.656 0a.75.75 0 011.06 0l1.06 1.06a.75.75 0 01-1.06 1.061l-1.06-1.06a.75.75 0 010-1.061zM10 14a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 14z" />
+          </svg>
+          <span>Save {{ isSet ? 'members' : 'cells' }} as assets…</span>
         </button>
 
         <!-- Remix (single item only, not grids) - with submenu -->
@@ -638,19 +596,61 @@
           </div>
         </div>
 
-        <div class="border-t border-edge-subtle my-1"></div>
+        <div v-if="hasExploreActions" class="border-t border-edge-subtle my-1"></div>
 
-        <!-- Explode action - only for sets/grids -->
+        <!-- Find Similar (up to 3 items) -->
         <button
-          v-if="!isMultiple && isSetOrGrid"
-          @click="handleExplode"
+          v-if="hasClipEmbedding && targetCount <= 3"
+          @click="handleFindSimilar"
           class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path d="M10 1a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 1zM5.05 3.05a.75.75 0 011.06 0l1.062 1.06A.75.75 0 116.11 5.173L5.05 4.11a.75.75 0 010-1.06zm9.9 0a.75.75 0 010 1.06l-1.06 1.062a.75.75 0 01-1.062-1.061l1.061-1.06a.75.75 0 011.06 0zM3 10a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 013 10zm11 0a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5A.75.75 0 0114 10zm-6.828 2.828a.75.75 0 010 1.061l-1.06 1.06a.75.75 0 01-1.061-1.06l1.06-1.06a.75.75 0 011.061 0zm5.656 0a.75.75 0 011.06 0l1.06 1.06a.75.75 0 01-1.06 1.061l-1.06-1.06a.75.75 0 010-1.061zM10 14a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 14z" />
+            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
           </svg>
-          <span>Save {{ isSet ? 'members' : 'cells' }} as assets…</span>
+          <span>Find Similar</span>
         </button>
+
+        <button
+          v-if="hasFaceEmbeddings"
+          @click="handleFindSimilarFaces"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
+            <path d="M10 2a6 6 0 00-6 6v1.5A4.5 4.5 0 008.5 14h3A4.5 4.5 0 0016 9.5V8a6 6 0 00-6-6Zm-2 7a1 1 0 110-2 1 1 0 010 2Zm4 0a1 1 0 110-2 1 1 0 010 2Zm-3.8 2.4a.75.75 0 011.06-.1c.42.35 1.06.35 1.48 0a.75.75 0 11.96 1.16 2.65 2.65 0 01-3.4 0 .75.75 0 01-.1-1.06Z" />
+            <path d="M15.25 14.25l2.5 2.5a.75.75 0 11-1.06 1.06l-2.5-2.5a.75.75 0 111.06-1.06Z" />
+          </svg>
+          <span>Find Similar Faces</span>
+        </button>
+
+        <!-- Compare (exactly 2 images) -->
+        <button
+          v-if="targetCount === 2 && !isVideo"
+          @click="handleCompare"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
+            <path d="M8 16.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75ZM3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5Zm2-.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5V5a.5.5 0 0 0-.5-.5H5Z" />
+            <path d="M10 3v14" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          <span>Compare</span>
+        </button>
+
+        <!-- View Lineage (single item only) -->
+        <button
+          v-if="!isMultiple"
+          @click="handleViewLineage"
+          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
+            <circle cx="6" cy="4.5" r="1.75" stroke-width="1.5" />
+            <circle cx="14" cy="4.5" r="1.75" stroke-width="1.5" />
+            <circle cx="10" cy="15.5" r="1.75" stroke-width="1.5" />
+            <path d="M6 6.25V8.5C6 10 7.5 11 10 11M14 6.25V8.5C14 10 12.5 11 10 11M10 11V13.75" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          <span>View Lineage</span>
+        </button>
+
+        <div class="border-t border-edge-subtle my-1"></div>
 
         <!-- Share (single item only) -->
         <button
@@ -663,19 +663,6 @@
           </svg>
           <span>Share</span>
         </button>
-
-        <!-- Move to Trash -->
-        <button
-          @click="handleMoveToTrash"
-          class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle flex items-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-content-tertiary">
-            <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-          </svg>
-          <span>{{ isMultiple ? `Move ${targetCount} to Trash` : 'Move to Trash' }}</span>
-        </button>
-
-        <div class="border-t border-edge-subtle my-1"></div>
 
         <!-- Print -->
         <button
@@ -698,6 +685,19 @@
             <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
           </svg>
           <span>{{ isMultiple ? `Export ${targetCount}` : 'Export' }}</span>
+        </button>
+
+        <div class="border-t border-edge-subtle my-1"></div>
+
+        <!-- Move to Trash -->
+        <button
+          @click="handleMoveToTrash"
+          class="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-overlay-subtle flex items-center gap-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0">
+            <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+          </svg>
+          <span>{{ isMultiple ? `Move ${targetCount} to Trash` : 'Move to Trash' }}</span>
         </button>
       </template>
     </div>
@@ -1002,6 +1002,15 @@ const hasFaceEmbeddings = computed(() => (
   isImage.value &&
   !isMultiple.value &&
   mediaFaces.value.some((face: any) => face.has_embedding)
+))
+
+// Whether the explore group (find similar / faces / compare / lineage) has any
+// visible row — guards its leading separator so empty groups don't double rules.
+const hasExploreActions = computed(() => (
+  (hasClipEmbedding.value && targetCount.value <= 3)
+  || hasFaceEmbeddings.value
+  || (targetCount.value === 2 && !isVideo.value)
+  || !isMultiple.value
 ))
 
 // Visibility state computed properties
