@@ -138,7 +138,7 @@
             >
               {{ board.name || 'Name this board...' }}
             </h2>
-            <p class="flex-none whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ board.asset_count || 0 }}<span v-if="board.updated_at"> · {{ formatRelativeTime(board.updated_at) }}</span></p>
+            <p class="flex-none whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ board.asset_count || 0 }} {{ (board.asset_count || 0) === 1 ? 'asset' : 'assets' }}<span v-if="board.updated_at"> · {{ formatRelativeTime(board.updated_at) }}</span></p>
           </div>
         </button>
       </div>
