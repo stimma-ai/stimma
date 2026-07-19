@@ -3,7 +3,6 @@
     <!-- Header: label + count + compact icon strip (＋ · ⌕ · disable-all · RAW · ⋯) -->
     <div class="flex items-center gap-2 pb-1 mb-1.5">
       <span class="text-xs font-semibold text-content-secondary">LoRAs</span>
-      <span v-if="hasAnyItems" class="text-[10px] font-mono tabular-nums text-content-tertiary">{{ enabledCount }}/{{ allItems.length }} on</span>
       <div class="ml-auto flex items-center gap-0.5">
         <button
           v-if="availableLoras.length > 0 || uploadConfig"
@@ -34,7 +33,9 @@
           class="w-6 h-6 flex items-center justify-center rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
           title="Disable all — empty the palette (keeps the list)"
         >
-          <span class="w-2.5 h-2.5 rounded-full border-[1.5px] border-current"></span>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1 0 12.728 0M12 3v9" />
+          </svg>
         </button>
         <button
           v-if="hasAnyItems"
