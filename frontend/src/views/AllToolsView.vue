@@ -10,10 +10,10 @@
         <div v-if="availableProviders.length > 1" class="relative" ref="providerDropdownRef">
           <button
             @click="providerDropdownOpen = !providerDropdownOpen"
-            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors"
+            class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors"
             :class="activeProviderFilters.size > 0
-              ? 'bg-blue-500/15 border-blue-500/50 text-blue-500'
-              : 'bg-overlay-subtle border-edge-subtle text-content-tertiary hover:text-content-secondary hover:border-edge'"
+              ? 'bg-blue-500/15 text-blue-500'
+              : 'text-content-tertiary hover:text-content-secondary hover:bg-overlay-subtle'"
           >
             <span :class="providerFilterIsStimma ? 'stimma-cloud-text font-medium' : ''">{{ providerFilterLabel }}</span>
             <svg class="w-4 h-4 transition-transform" :class="providerDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -59,7 +59,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search tools..."
-            class="bg-overlay-subtle border border-edge-subtle rounded-lg pl-9 pr-3 py-1.5 text-sm text-content-secondary placeholder-white/30 focus:outline-none focus:border-accent w-48"
+            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48"
           />
         </div>
       </div>
@@ -71,10 +71,10 @@
         v-for="taskType in availableTaskTypes"
         :key="taskType"
         @click="toggleTaskFilter(taskType)"
-        class="px-3 py-1 text-xs rounded-full border transition-colors"
+        class="px-3 py-1 text-xs rounded-md transition-colors"
         :class="activeTaskFilters.has(taskType)
-          ? 'bg-blue-500/15 border-blue-500/50 text-blue-500'
-          : 'bg-overlay-subtle border-edge-subtle text-content-tertiary hover:text-content-secondary hover:border-edge'"
+          ? 'bg-blue-500/15 text-blue-500'
+          : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle'"
       >
         {{ formatTaskType(taskType) }}
       </button>
@@ -122,15 +122,12 @@
           </div>
 
           <!-- Tools grid for this task type -->
-          <div class="grid grid-cols-[repeat(auto-fill,minmax(432px,1fr))] gap-4">
+          <div class="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-2.5">
             <div
               v-for="tool in group.tools"
               :key="tool.full_tool_id"
-              class="relative group rounded-lg p-[18px] h-[136px] flex flex-col justify-between transition-colors cursor-pointer"
-              :class="[
-                tool.availability !== 'available' ? 'opacity-40 pointer-events-none' : '',
-                isStimmaCloudTool(tool) ? 'bg-overlay-faint stimma-cloud-border hover:bg-overlay-subtle' : 'bg-transparent border border-edge-subtle hover:bg-overlay-faint'
-              ]"
+              class="relative group rounded-lg p-4 h-[140px] flex flex-col gap-2 transition-colors cursor-pointer bg-surface hover:bg-surface-raised"
+              :class="tool.availability !== 'available' ? 'opacity-40 pointer-events-none' : ''"
               @click="openTool(tool)"
               @contextmenu.prevent="isUserTool(tool) ? openToolMenu($event, tool) : null"
             >
@@ -146,46 +143,41 @@
                 </svg>
               </button>
 
-              <!-- Top: Icon + Name/Description + Price -->
-              <div class="flex gap-4">
+              <!-- Top: Icon + Name/Provider + Price -->
+              <div class="flex items-start gap-2.5">
                 <!-- Tool icon (vendor mark / task-generic, cloud vs neutral tile) -->
                 <div class="flex items-center justify-center flex-shrink-0">
-                  <ToolIcon :tool="tool" size="xl" :ring="false" />
+                  <ToolIcon :tool="tool" size="sm" :ring="false" />
                 </div>
 
-                <!-- Name + Description -->
+                <!-- Name + Provider -->
                 <div class="flex-1 min-w-0">
-                  <div class="flex items-baseline justify-between gap-3">
-                    <h3 class="text-content text-sm font-semibold truncate">{{ tool.name }}</h3>
-                    <span v-if="getToolPrice(tool)" class="text-[11px] text-content-muted flex-shrink-0">{{ getToolPrice(tool) }}</span>
+                  <h3 class="text-content text-[14px] leading-tight font-brand font-semibold truncate">{{ tool.name }}</h3>
+                  <div class="mt-0.5 flex items-center gap-1.5 text-[11px] text-content-tertiary">
+                    <span
+                      class="w-[5px] h-[5px] rounded-full flex-shrink-0"
+                      :class="isStimmaCloudTool(tool) ? 'bg-accent' : 'bg-content-muted/70'"
+                    ></span>
+                    <span v-if="isUserTool(tool)" class="truncate">Custom tool</span>
+                    <span v-else-if="isStimmaCloudTool(tool)" class="stimma-cloud-text font-medium truncate">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
+                    <span v-else class="truncate">{{ tool.provider_name || tool.provider_id }}</span>
                   </div>
-                  <p class="text-xs text-content-secondary line-clamp-2 mt-1 leading-relaxed">{{ getToolDescription(tool) }}</p>
                 </div>
+
+                <span v-if="getToolPrice(tool)" class="text-[11px] font-mono tabular-nums text-content-tertiary flex-shrink-0 pt-0.5">{{ getToolPrice(tool) }}</span>
               </div>
 
-              <!-- Bottom: Badge row (provider + feature badges) -->
-              <div class="flex items-center gap-2 overflow-hidden">
-                <!-- "Custom Tool" badge for user-provided tools -->
-                <span v-if="isUserTool(tool)" class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-500/15 border border-blue-500/50 text-blue-400 flex-shrink-0">
-                  Custom Tool
-                </span>
-                <!-- Provider as a badge -->
-                <span v-if="isStimmaCloudTool(tool)" class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-teal-600/10 border border-teal-600/25 flex-shrink-0">
-                  <span class="stimma-cloud-text">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</span>
-                </span>
-                <span v-else-if="!isUserTool(tool)" class="px-2 py-0.5 text-[10px] font-medium rounded-full border border-edge text-content-secondary flex-shrink-0">
-                  {{ tool.provider_name || tool.provider_id }}
-                </span>
+              <!-- Description -->
+              <p class="text-xs text-content-tertiary line-clamp-2 leading-relaxed">{{ getToolDescription(tool) }}</p>
 
-                <!-- Feature badges -->
+              <!-- Bottom: capability facts in quiet mono -->
+              <div class="mt-auto flex items-center gap-2.5 overflow-hidden whitespace-nowrap text-[10.5px] font-mono">
                 <span
                   v-for="badge in getToolBadges(tool)"
                   :key="badge"
-                  class="px-2 py-0.5 text-[10px] font-medium rounded-full border flex-shrink-0"
-                  :class="getBadgeClass(badge)"
-                >
-                  {{ badge }}
-                </span>
+                  class="flex-shrink-0 lowercase"
+                  :class="badge === 'Fast' ? 'text-accent' : 'text-content-muted'"
+                >{{ badge === 'Fast' ? '⚡ fast' : badge }}</span>
               </div>
             </div>
           </div>
@@ -649,27 +641,6 @@ function getToolPrice(tool) {
 
 function getToolBadges(tool) {
   return tool.metadata?.badges || []
-}
-
-function getBadgeClass(badge) {
-  switch (badge) {
-    case 'New':
-      return 'bg-green-500/20 border-green-600/40 text-green-600 dark:text-green-400'
-    case 'Commercial Use':
-      return 'bg-blue-500/20 border-blue-600/40 text-blue-600 dark:text-blue-400'
-    case 'Fast':
-      return 'bg-yellow-500/20 border-yellow-600/40 text-yellow-700 dark:text-yellow-400'
-    case 'Highest Quality':
-    case 'HD':
-      return 'bg-purple-500/20 border-purple-600/40 text-purple-600 dark:text-purple-400'
-    case 'Open Weights':
-      return 'bg-teal-500/20 border-teal-600/40 text-teal-600 dark:text-teal-400'
-    case 'Beta':
-    case 'Experimental':
-      return 'bg-orange-500/20 border-orange-600/40 text-orange-600 dark:text-orange-400'
-    default:
-      return 'bg-gray-500/20 border-gray-600/40 text-content-secondary'
-  }
 }
 
 
