@@ -421,6 +421,8 @@ async def get_auth_status():
 
     auth_state = load_auth_state()
     if not auth_state or not auth_state.get('refresh_token'):
+        from routes.cloud import disconnect_cloud_internal
+        await disconnect_cloud_internal()
         return {"authenticated": False}
 
     return {
@@ -455,6 +457,8 @@ async def get_account_info():
 
     auth_state = load_auth_state()
     if not auth_state or not auth_state.get('refresh_token'):
+        from routes.cloud import disconnect_cloud_internal
+        await disconnect_cloud_internal()
         raise HTTPException(
             status_code=401,
             detail=_auth_error("sign_in_required", "Please sign in to your Stimma account."),
@@ -483,6 +487,8 @@ async def get_account_info():
         )
 
     if not id_token:
+        from routes.cloud import disconnect_cloud_internal
+        await disconnect_cloud_internal()
         raise HTTPException(
             status_code=401,
             detail=_auth_error("sign_in_required", "Please sign in to your Stimma account."),
@@ -547,6 +553,8 @@ async def get_account_info():
                 ),
             )
         if e.response.status_code in (401, 403):
+            from routes.cloud import disconnect_cloud_internal
+            await disconnect_cloud_internal()
             clear_auth_state()
             raise HTTPException(
                 status_code=401,

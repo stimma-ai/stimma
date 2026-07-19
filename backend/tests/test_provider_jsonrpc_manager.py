@@ -267,6 +267,21 @@ class TestCheckProviderHealth:
 
 
 class TestAddRemoveProvider:
+    async def test_auth_refresh_can_block_connection_attempt(self):
+        mgr = JsonRpcProviderManager()
+        refresh = AsyncMock(return_value=False)
+        state = ProviderState(
+            config={"id": "cloud", "type": "websocket"},
+            token_refresh_callback=refresh,
+        )
+        mgr._providers["cloud"] = state
+
+        connected = await mgr._connect_provider("cloud")
+
+        assert connected is False
+        assert state.error_message == "Authentication required"
+        refresh.assert_awaited_once_with(state.config)
+
     async def test_add_provider_no_id(self):
         mgr = JsonRpcProviderManager()
         result = await mgr.add_provider({})
@@ -285,6 +300,7 @@ class TestAddRemoveProvider:
     async def test_remove_provider_cancels_restart_task(self):
         mgr = JsonRpcProviderManager()
         mgr._registry = MagicMock()
+        mgr._registry.unregister = AsyncMock()
         mgr._backend_registry = MagicMock()
         mgr._backend_registry.unregister_backend = AsyncMock()
 
@@ -302,6 +318,22 @@ class TestAddRemoveProvider:
 
         assert "p1" not in mgr._providers
         assert state.restart_task.cancelled()
+        mgr._registry.unregister.assert_awaited_once_with("p1")
+
+    async def test_remove_provider_can_run_from_its_own_restart_task(self):
+        mgr = JsonRpcProviderManager()
+        mgr._registry = MagicMock()
+        mgr._registry.unregister = AsyncMock()
+        mgr._backend_registry = MagicMock()
+        mgr._backend_registry.unregister_backend = AsyncMock()
+
+        state = ProviderState(config={"id": "p1"})
+        state.restart_task = asyncio.current_task()
+        mgr._providers["p1"] = state
+
+        await mgr.remove_provider("p1")
+
+        assert "p1" not in mgr._providers
 
 
 # ---------------------------------------------------------------------------

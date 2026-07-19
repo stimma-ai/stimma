@@ -347,13 +347,15 @@ class TestFirebaseRefreshHandling:
         )
         error = httpx.HTTPStatusError("invalid refresh", request=request, response=response)
 
-        with patch("firebase_auth.refresh_id_token", new_callable=AsyncMock, side_effect=error):
+        with patch("firebase_auth.refresh_id_token", new_callable=AsyncMock, side_effect=error), \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as disconnect:
             with pytest.raises(AuthSessionExpiredError):
                 await get_valid_id_token(raise_on_failure=True)
 
         assert load_auth_state() is None
         assert not (data_dir / "cloud_auth.json").exists()
         assert store.token is None
+        disconnect.assert_awaited_once()
 
     async def test_network_refresh_error_does_not_clear_auth_state(self, auth_storage_env):
         """Transient Firebase network errors preserve local auth state."""
@@ -388,11 +390,13 @@ class TestAuthStatus:
 
     async def test_status_not_authenticated(self, auth_client: AsyncClient):
         """Test auth status when not logged in."""
-        with patch("auth_storage.load_auth_state", return_value=None):
+        with patch("auth_storage.load_auth_state", return_value=None), \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as disconnect:
             response = await auth_client.get("/api/auth/status")
 
         assert response.status_code == 200
         assert response.json()["authenticated"] is False
+        disconnect.assert_awaited_once()
 
     async def test_status_authenticated(self, auth_client: AsyncClient):
         """Test auth status when logged in."""
@@ -492,16 +496,20 @@ class TestAccountInfo:
 
     async def test_account_not_authenticated(self, auth_client: AsyncClient):
         """Test account info when not logged in returns 401."""
-        with patch("auth_storage.load_auth_state", return_value=None):
+        with patch("auth_storage.load_auth_state", return_value=None), \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as disconnect:
             response = await auth_client.get("/api/auth/account")
         assert response.status_code == 401
+        disconnect.assert_awaited_once()
 
     async def test_account_invalid_token(self, auth_client: AsyncClient):
         """Test account info when token refresh fails returns 401."""
         with patch("auth_storage.load_auth_state", return_value={"user": {}, "refresh_token": "refresh"}), \
-             patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value=None):
+             patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value=None), \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as disconnect:
             response = await auth_client.get("/api/auth/account")
         assert response.status_code == 401
+        disconnect.assert_awaited_once()
 
     async def test_account_success(self, auth_client: AsyncClient):
         """Test account info returns fresh data from cloud."""
@@ -564,6 +572,7 @@ class TestAccountInfo:
              patch("firebase_auth.get_valid_id_token", new_callable=AsyncMock, return_value="tok"), \
              patch("firebase_auth.force_refresh_id_token", new_callable=AsyncMock, return_value="fresh-tok"), \
              patch("cloud_api.fetch_user_account", new_callable=AsyncMock, side_effect=[first_error, second_error]), \
+             patch("routes.cloud.disconnect_cloud_internal", new_callable=AsyncMock) as mock_disconnect, \
              patch("auth_storage.clear_auth_state") as mock_clear:
             response = await auth_client.get("/api/auth/account")
 
@@ -573,6 +582,7 @@ class TestAccountInfo:
             "message": "Please sign in again.",
         }
         mock_clear.assert_called_once()
+        mock_disconnect.assert_awaited_once()
 
     async def test_account_cloud_failure(self, auth_client: AsyncClient):
         """Test account info when cloud API fails returns 502."""

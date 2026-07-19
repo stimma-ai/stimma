@@ -48,7 +48,7 @@ def _http_to_ws_url(http_url: str) -> str:
     return http_url
 
 
-async def _refresh_cloud_token(config: dict) -> None:
+async def _refresh_cloud_token(config: dict) -> bool:
     """Refresh the auth token for Stimma Cloud before reconnection.
 
     Called by the manager before each connection attempt to ensure
@@ -58,18 +58,64 @@ async def _refresh_cloud_token(config: dict) -> None:
 
     if is_privacy_lockdown_enabled():
         log.info("skipping cloud token refresh in Privacy Lockdown")
-        return
+        await disconnect_cloud_internal()
+        return False
 
     try:
         fresh_token = await get_valid_id_token()
         if fresh_token:
             config['auth_token'] = fresh_token
             log.debug("refreshed cloud auth token")
-        else:
-            log.warning("failed to refresh cloud auth token - no token returned")
+            return True
+
+        # get_valid_id_token() clears auth state when Firebase rejects the
+        # saved session. Do not fall back to a stale token for the operation
+        # that triggered this refresh.
+        from auth_storage import load_auth_state
+        if not (load_auth_state() or {}).get('refresh_token'):
+            log.info("cloud token refresh found no signed-in session")
+            await disconnect_cloud_internal()
+            return False
+
+        # A transient refresh failure preserves auth state. The cached token
+        # may still be accepted, so keep the connection alive.
+        return True
     except Exception as e:
         log.warning("failed to refresh cloud auth token", error=str(e))
         # Don't update config - try with existing token
+        return True
+
+
+async def reconcile_cloud_connection() -> bool:
+    """Make the cloud STP connection match the current account state."""
+    from auth_storage import load_auth_state
+    from firebase_auth import get_valid_id_token
+    from providers import ProviderRegistry
+
+    settings = get_settings()
+    cloud_config = next(
+        (p for p in settings.tool_providers if p.id == STIMMA_CLOUD_PROVIDER_ID),
+        None,
+    )
+    enabled = cloud_config is None or cloud_config.enabled
+    auth_state = load_auth_state()
+    signed_in = bool(auth_state and auth_state.get('refresh_token'))
+
+    if is_privacy_lockdown_enabled() or not enabled or not signed_in:
+        await disconnect_cloud_internal()
+        return False
+
+    if ProviderRegistry.get_instance().get_provider(STIMMA_CLOUD_PROVIDER_ID):
+        return True
+
+    id_token = await get_valid_id_token()
+    token_to_use = id_token or auth_state.get('id_token')
+    if not token_to_use:
+        if not (load_auth_state() or {}).get('refresh_token'):
+            await disconnect_cloud_internal()
+        return False
+
+    return await connect_cloud_internal(token_to_use)
 
 
 async def connect_cloud_internal(id_token: str) -> bool:
@@ -92,6 +138,16 @@ async def connect_cloud_internal(id_token: str) -> bool:
 
     if is_privacy_lockdown_enabled():
         log.info("stimma cloud connect blocked by Privacy Lockdown")
+        return False
+
+    # A caller-supplied ID token is not sufficient authority to create a
+    # desktop provider connection. Persisted account state is the source of
+    # truth for whether Stimma Cloud exists as a connection.
+    from auth_storage import load_auth_state
+    auth_state = load_auth_state()
+    if not auth_state or not auth_state.get('refresh_token'):
+        log.info("stimma cloud connect skipped because the user is signed out")
+        await disconnect_cloud_internal()
         return False
 
     settings = get_settings()
@@ -145,6 +201,11 @@ async def disconnect_cloud_internal() -> bool:
     try:
         # Remove from manager - handles unregistration and cleanup
         await jsonrpc_manager.remove_provider(STIMMA_CLOUD_PROVIDER_ID)
+
+        # Defensive cleanup for stale registry entries left by an interrupted
+        # reconnect whose manager state has already disappeared.
+        from providers import ProviderRegistry
+        await ProviderRegistry.get_instance().unregister(STIMMA_CLOUD_PROVIDER_ID)
 
         log.info("stimma cloud disconnected")
 
@@ -242,4 +303,3 @@ async def get_cloud_tools_status():
         "error_message": None,
         "tool_count": len(tools),
     }
-

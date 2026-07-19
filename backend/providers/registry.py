@@ -344,13 +344,25 @@ class ProviderRegistry:
 
         Includes:
         - Config-based providers with enabled=true
+        - Stimma Cloud when it has no explicit disabled config entry
         - Programmatically registered providers (builtin) that aren't in config
         """
         from config import get_settings
+        from tool_provider_identity import STIMMA_TOOL_PROVIDER_ID
         settings = get_settings()
 
         # Start with config-based enabled providers
         enabled = {p.id for p in settings.tool_providers if p.enabled}
+
+        # Stimma Cloud is account-managed and normally has no config row. It
+        # remains a known, enabled provider while signed out so its cached tools
+        # can render as disconnected; an explicit disabled row still hides it.
+        cloud_config = next(
+            (p for p in settings.tool_providers if p.id == STIMMA_TOOL_PROVIDER_ID),
+            None,
+        )
+        if cloud_config is None:
+            enabled.add(STIMMA_TOOL_PROVIDER_ID)
 
         # Also include connected providers that aren't in config (programmatic providers)
         # Copy keys to avoid "dict changed size during iteration"

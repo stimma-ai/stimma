@@ -200,6 +200,19 @@ class TestToolLookup:
         assert registry.get_tool("nope:missing") is None
 
 
+class TestEnabledProviderIds:
+    def test_cloud_is_known_when_no_config_row_exists(self, registry):
+        settings = MagicMock(tool_providers=[])
+        with patch("config.get_settings", return_value=settings):
+            assert "stimma-cloud" in registry.get_enabled_provider_ids()
+
+    def test_explicitly_disabled_cloud_is_not_enabled(self, registry):
+        cloud = MagicMock(id="stimma-cloud", enabled=False)
+        settings = MagicMock(tool_providers=[cloud])
+        with patch("config.get_settings", return_value=settings):
+            assert "stimma-cloud" not in registry.get_enabled_provider_ids()
+
+
 # ---------------------------------------------------------------------------
 # List Methods
 # ---------------------------------------------------------------------------

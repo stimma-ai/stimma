@@ -1429,22 +1429,14 @@ async def update_tool_provider_endpoint(
 
     # Handle stimma-cloud enable/disable - need to connect/disconnect immediately
     if provider_id == STIMMA_CLOUD_PROVIDER_ID and "enabled" in updates:
-        from routes.cloud import connect_cloud_internal, disconnect_cloud_internal
-        from firebase_auth import get_valid_id_token
+        from routes.cloud import reconcile_cloud_connection
 
-        if updates["enabled"]:
-            # Re-enable: try to connect
-            try:
-                id_token = await get_valid_id_token()
-                if id_token:
-                    await connect_cloud_internal(id_token)
-                    log.info("stimma-cloud re-enabled and reconnected")
-            except Exception as e:
-                log.warning("failed to reconnect stimma-cloud after enabling", error=str(e))
-        else:
-            # Disable: disconnect
-            await disconnect_cloud_internal()
-            log.info("stimma-cloud disabled and disconnected")
+        connected = await reconcile_cloud_connection()
+        log.info(
+            "stimma-cloud setting reconciled",
+            enabled=updates["enabled"],
+            connected=connected,
+        )
 
     return {"status": "success", "message": "Provider updated"}
 

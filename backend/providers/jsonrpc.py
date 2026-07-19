@@ -863,22 +863,26 @@ class JsonRpcProvider(ToolProvider):
         if not isinstance(self._config, WebSocketProviderConfig):
             return
 
+        # The callback updates config['auth_token'] in place. We pass a dict
+        # view of the config so it can be mutated.
+        config_dict = {
+            'auth_token': self._config.auth_token,
+        }
         try:
-            # The callback updates config['auth_token'] in place
-            # We pass a dict view of the config so it can be mutated
-            config_dict = {
-                'auth_token': self._config.auth_token,
-            }
-            await self._token_refresh_callback(config_dict)
-
-            # Update our config if token changed
-            new_token = config_dict.get('auth_token')
-            if new_token and new_token != self._config.auth_token:
-                self._config.auth_token = new_token
-                log.debug("refreshed auth token for http operations", provider=self.provider_id)
+            refresh_allowed = await self._token_refresh_callback(config_dict)
         except Exception as e:
             log.warning("failed to refresh auth token", provider=self.provider_id, error=str(e))
             # Continue with existing token - it might still be valid
+            return
+
+        if refresh_allowed is False:
+            raise RuntimeError("Provider authentication is no longer available")
+
+        # Update our config if token changed
+        new_token = config_dict.get('auth_token')
+        if new_token and new_token != self._config.auth_token:
+            self._config.auth_token = new_token
+            log.debug("refreshed auth token for http operations", provider=self.provider_id)
 
     async def _handle_messages(self) -> None:
         """Background task to handle incoming messages."""

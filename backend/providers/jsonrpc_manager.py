@@ -207,7 +207,11 @@ class JsonRpcProviderManager:
         # Refresh auth token if callback is set (e.g., for Stimma Cloud)
         if state.token_refresh_callback:
             try:
-                await state.token_refresh_callback(state.config)
+                refresh_allowed = await state.token_refresh_callback(state.config)
+                if refresh_allowed is False:
+                    state.is_healthy = False
+                    state.error_message = "Authentication required"
+                    return False
             except Exception as e:
                 log.warning(
                     "token refresh failed",
@@ -406,6 +410,9 @@ class JsonRpcProviderManager:
         retry_indefinitely = provider_type == 'websocket'
 
         while not self._shutdown:
+            if self._providers.get(provider_id) is not state:
+                return
+
             # For stdio: respect MAX_RETRIES limit
             if not retry_indefinitely and state.retry_count >= MAX_RETRIES:
                 break
@@ -432,6 +439,9 @@ class JsonRpcProviderManager:
 
             if self._shutdown:
                 break
+
+            if self._providers.get(provider_id) is not state:
+                return
 
             # Try to connect (handles cleanup internally)
             if await self._connect_provider(provider_id):
@@ -644,7 +654,12 @@ class JsonRpcProviderManager:
             return await self.add_provider(new_config)
 
         # Cancel any pending restart task
-        if state.restart_task and not state.restart_task.done():
+        current_task = asyncio.current_task()
+        if (
+            state.restart_task
+            and not state.restart_task.done()
+            and state.restart_task is not current_task
+        ):
             state.restart_task.cancel()
             try:
                 await state.restart_task
@@ -681,15 +696,22 @@ class JsonRpcProviderManager:
             return
 
         # Cancel any pending restart task
-        if state.restart_task and not state.restart_task.done():
+        current_task = asyncio.current_task()
+        if (
+            state.restart_task
+            and not state.restart_task.done()
+            and state.restart_task is not current_task
+        ):
             state.restart_task.cancel()
             try:
                 await state.restart_task
             except asyncio.CancelledError:
                 pass
 
-        # Disconnect provider and unregister from both registries
-        if state.provider:
+        # Always unregister by ID. A failed/restarting state may have already
+        # dropped its local provider reference while the registry still holds
+        # the last disconnected instance.
+        if self._registry:
             try:
                 await self._registry.unregister(provider_id)
             except Exception as e:

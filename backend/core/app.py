@@ -21,6 +21,7 @@ from core.logging import get_logger
 from utils.websocket import ws_manager
 from utils.background_tasks import monitor_media_changes, cleanup_expired_images, cleanup_ephemeral_media, monitor_processing_stats, monitor_system_warnings
 from utils.migrations import run_all_migrations, run_migrations_for_profile
+from tool_provider_identity import STIMMA_TOOL_PROVIDER_ID
 from sqlalchemy import select
 
 log = get_logger(__name__)
@@ -73,6 +74,19 @@ _rescan_event = None
 _process_pending_event = None
 _pause_event = None
 _reload_config_event = None
+
+
+def _saved_jsonrpc_provider_configs(settings) -> list[dict]:
+    """Configs owned by the generic provider manager at startup.
+
+    Stimma Cloud is deliberately excluded because its lifecycle is owned by
+    account authentication and ``reconcile_cloud_connection``.
+    """
+    return [
+        provider.model_dump()
+        for provider in settings.tool_providers
+        if provider.type != "builtin" and provider.id != STIMMA_TOOL_PROVIDER_ID
+    ]
 
 
 async def check_and_reset_stale_clip_embeddings(profile_id: str) -> int:
@@ -427,6 +441,7 @@ async def watch_config_file():
 
                             # Handle removed providers
                             removed_provider_ids = old_provider_ids - new_provider_ids
+                            removed_provider_ids.discard(STIMMA_TOOL_PROVIDER_ID)
                             if removed_provider_ids:
                                 log.info("providers removed from config", removed=list(removed_provider_ids))
                                 for provider_id in removed_provider_ids:
@@ -446,6 +461,8 @@ async def watch_config_file():
                             # Handle added providers
                             added_provider_ids = new_provider_ids - old_provider_ids
                             for provider_id in added_provider_ids:
+                                if provider_id == STIMMA_TOOL_PROVIDER_ID:
+                                    continue
                                 new_config = new_providers_by_id[provider_id]
                                 if new_config.type in ("stdio", "websocket") and new_config.enabled:
                                     log.info("connecting new provider", provider=provider_id)
@@ -458,6 +475,8 @@ async def watch_config_file():
                             # Handle changed providers (reconnect if connection settings changed)
                             common_provider_ids = old_provider_ids & new_provider_ids
                             for provider_id in common_provider_ids:
+                                if provider_id == STIMMA_TOOL_PROVIDER_ID:
+                                    continue
                                 old_config = old_providers_by_id[provider_id]
                                 new_config = new_providers_by_id[provider_id]
 
@@ -492,6 +511,11 @@ async def watch_config_file():
                                             await jsonrpc_manager.remove_provider(provider_id)
                                     except Exception as e:
                                         log.error("failed to reconnect provider", provider=provider_id, error=str(e))
+
+                            # Stimma Cloud follows account state rather than
+                            # the generic saved-provider lifecycle.
+                            from routes.cloud import reconcile_cloud_connection
+                            await reconcile_cloud_connection()
 
                             # Broadcast tools_updated so frontend refreshes
                             await ws_manager.broadcast("tools_updated", {}, include_profile=False)
@@ -837,10 +861,7 @@ async def lifespan(app: FastAPI):
             jsonrpc_manager = get_jsonrpc_manager()
 
             # Convert pydantic models to dicts, filter out builtin providers
-            provider_configs = [
-                p.model_dump() for p in settings.tool_providers
-                if p.type != "builtin"
-            ]
+            provider_configs = _saved_jsonrpc_provider_configs(settings)
 
             jsonrpc_count = await jsonrpc_manager.start(
                 provider_configs=provider_configs,
@@ -1265,36 +1286,10 @@ async def lifespan(app: FastAPI):
                     except Exception:
                         pass
 
-                # Auto-connect to Stimma Cloud for any signed-in account.
-                # Access is decided per-request by balance on the cloud side.
-                # The connection is added to the manager even if the network is
-                # down; the health monitor will retry it automatically.
+                # Stimma Cloud is auth-managed, unlike saved JSON-RPC providers.
                 try:
-                    from privacy_lockdown import is_privacy_lockdown_enabled
-                    from auth_storage import load_auth_state
-                    from firebase_auth import get_valid_id_token
-                    from routes.cloud import connect_cloud_internal, STIMMA_CLOUD_PROVIDER_ID
-
-                    # Check if stimma-cloud is explicitly disabled in config
-                    stimma_cloud_config = next(
-                        (p for p in settings.tool_providers if p.id == STIMMA_CLOUD_PROVIDER_ID),
-                        None
-                    )
-                    if is_privacy_lockdown_enabled():
-                        log.info("Privacy Lockdown enabled, skipping stimma cloud auto-connect")
-                    elif stimma_cloud_config and not stimma_cloud_config.enabled:
-                        log.info("stimma-cloud tools disabled in config, skipping auto-connect")
-                    else:
-                        auth_state = load_auth_state()
-                        if auth_state and auth_state.get('refresh_token'):
-                            log.info("signed in, connecting to stimma cloud")
-                            # Try to get a fresh token, but don't fail if we can't —
-                            # use whatever token we have; the callback refreshes it.
-                            id_token = await get_valid_id_token()
-                            token_to_use = id_token or auth_state.get('id_token', '')
-                            await connect_cloud_internal(token_to_use)
-                        else:
-                            log.debug("no stored auth state, skipping cloud auto-connect")
+                    from routes.cloud import reconcile_cloud_connection
+                    await reconcile_cloud_connection()
 
                 except Exception as e:
                     log.warning("failed to auto-connect to stimma cloud", error=str(e))

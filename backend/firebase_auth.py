@@ -110,13 +110,19 @@ async def _refresh_id_token_classified(refresh_token: str) -> TokenResult:
         raise AuthRefreshError(str(e) or type(e).__name__) from e
 
 
-def _clear_auth_after_session_expiry() -> None:
-    """Clear local auth material after Firebase rejects the refresh token."""
+async def _clear_auth_after_session_expiry() -> None:
+    """Clear local auth and disconnect cloud after session expiry."""
     try:
         from auth_storage import clear_auth_state
         clear_auth_state()
     except Exception as e:
         log.warning("failed to clear auth state after session expiry", error=str(e))
+
+    try:
+        from routes.cloud import disconnect_cloud_internal
+        await disconnect_cloud_internal()
+    except Exception as e:
+        log.warning("failed to disconnect cloud after session expiry", error=str(e))
 
 
 async def exchange_custom_token(custom_token: str) -> TokenResult:
@@ -277,7 +283,7 @@ async def get_valid_id_token(*, raise_on_failure: bool = False) -> Optional[str]
 
     except AuthSessionExpiredError:
         log.info("stored Stimma Cloud session is no longer valid")
-        _clear_auth_after_session_expiry()
+        await _clear_auth_after_session_expiry()
         if raise_on_failure:
             raise
     except AuthNetworkError as e:
@@ -334,7 +340,7 @@ async def force_refresh_id_token(*, raise_on_failure: bool = False) -> Optional[
 
     except AuthSessionExpiredError:
         log.info("stored Stimma Cloud session is no longer valid during force refresh")
-        _clear_auth_after_session_expiry()
+        await _clear_auth_after_session_expiry()
         if raise_on_failure:
             raise
     except AuthNetworkError as e:
