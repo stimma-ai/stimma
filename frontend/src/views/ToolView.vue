@@ -195,8 +195,8 @@
               >
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
               </button>
-              <div v-if="stageMenuOpen" class="fixed inset-0 z-40" @click="stageMenuOpen = false"></div>
-              <div v-if="stageMenuOpen" class="absolute right-0 top-full mt-2 z-50 bg-surface border border-edge-subtle rounded-md shadow-lg min-w-[160px] overflow-hidden py-1" @click.stop>
+              <div v-if="stageMenuOpen" class="fixed inset-0 z-menu" @click="stageMenuOpen = false"></div>
+              <div v-if="stageMenuOpen" class="absolute right-0 top-full mt-2 z-menu bg-surface border border-edge-subtle rounded-md shadow-lg min-w-[160px] overflow-hidden py-1" @click.stop>
                 <template v-if="isFromScratch">
                   <button
                     @click="setImageMode('fit'); stageMenuOpen = false"
