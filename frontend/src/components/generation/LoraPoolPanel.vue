@@ -155,14 +155,6 @@
         >
           Drop to create new group
         </div>
-
-        <!-- Empty state -->
-        <div
-          v-if="!hasAnyItems"
-          class="py-2 text-sm text-content-muted"
-        >
-          {{ availableLoras.length === 0 ? 'No LoRAs available' : 'No LoRAs selected' }}
-        </div>
       </div>
     </div>
 
