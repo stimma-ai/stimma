@@ -112,7 +112,6 @@
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
               {{ listValue(field.name).length ? 'Edit' : `Add ${field.itemLabel.toLowerCase()}s` }}
             </button>
-            <span v-if="listValue(field.name).length" class="text-[10px] font-mono tabular-nums text-content-tertiary">{{ listValue(field.name).length }}</span>
           </div>
         </div>
 
