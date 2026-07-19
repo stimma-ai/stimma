@@ -1138,7 +1138,7 @@ watch(isValid, (v) => emit('update:valid', v), { immediate: true })
 // control-right on a single line.
 function isStacked(f: Field): boolean {
   return f.kind === 'prompt' || f.kind === 'text' || f.kind === 'list'
-    || f.kind === 'table' || f.kind === 'media_list'
+    || f.kind === 'table' || f.kind === 'media' || f.kind === 'media_list'
 }
 
 function fieldInputClass(f: Field): string {
