@@ -24,7 +24,8 @@
           ></div>
 
           <h1 class="relative font-brand text-[32px] font-bold tracking-tight text-content mb-2 text-center">{{ greetingParts.pre }}<span class="bg-gradient-to-br from-teal-400 via-cyan-400 to-indigo-400 bg-clip-text text-transparent">{{ greetingParts.word }}</span>{{ greetingParts.post }}</h1>
-          <p class="relative text-[13px] text-content-tertiary mb-10 text-center">{{ greetingSub }}</p>
+          <!-- Spacer where the greeting subtitle used to sit — keeps the hero rhythm -->
+          <div class="relative h-[20px] mb-10" aria-hidden="true"></div>
 
           <div class="relative w-full max-w-[720px]">
             <div class="rounded-lg shadow-lg shadow-black/20">
@@ -242,23 +243,21 @@
                 View all
               </router-link>
             </div>
-            <div class="bg-matte rounded-media p-0.5">
-              <div class="grid gap-0.5" :style="{ gridTemplateColumns: `repeat(${mediaColumns}, 1fr)` }">
-                <div
-                  v-for="(media, index) in visibleMedia"
-                  :key="media.id"
-                  class="aspect-square overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-                  @click="openMediaSlideshow(index)"
-                >
-                  <MediaImage
-                    :media-id="mediaIdOf(media)"
-                    :file-hash="media.file_hash"
-                    :thumbnail="true"
-                    :thumbnail-size="256"
-                    container-class="w-full h-full"
-                    class="w-full h-full object-cover"
-                  />
-                </div>
+            <div class="grid gap-0.5" :style="{ gridTemplateColumns: `repeat(${mediaColumns}, 1fr)` }">
+              <div
+                v-for="(media, index) in visibleMedia"
+                :key="media.id"
+                class="aspect-square rounded-media overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                @click="openMediaSlideshow(index)"
+              >
+                <MediaImage
+                  :media-id="mediaIdOf(media)"
+                  :file-hash="media.file_hash"
+                  :thumbnail="true"
+                  :thumbnail-size="256"
+                  container-class="w-full h-full"
+                  class="w-full h-full object-cover"
+                />
               </div>
             </div>
           </div>
@@ -376,8 +375,6 @@ const greetingParts = computed(() => {
   if (hour < 18) return { pre: 'Good afternoon, what are we ', word: 'making', post: '?' }
   return { pre: 'Good evening, what are we ', word: 'making', post: '?' }
 })
-
-const greetingSub = computed(() => 'Drop media anywhere, or start from a prompt.')
 
 // ==================== Tools ====================
 

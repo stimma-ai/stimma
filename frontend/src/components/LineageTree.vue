@@ -31,8 +31,10 @@
             :key="idx"
             :d="edge.path"
             fill="none"
-            :stroke="edge.inspired ? 'var(--color-lineage-edge-inspired)' : 'var(--color-lineage-edge)'"
-            stroke-width="1.5"
+            :stroke="edge.onFocusPath
+              ? 'rgb(var(--color-selection-rgb) / 0.65)'
+              : edge.inspired ? 'var(--color-lineage-edge-inspired)' : 'var(--color-lineage-edge)'"
+            :stroke-width="edge.onFocusPath ? 1.5 : 1.25"
             :stroke-dasharray="edge.inspired ? '6 4' : 'none'"
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -56,18 +58,18 @@
             <!-- Placeholder node: trashed Asset or contextual intermediate on the provenance path -->
             <template v-if="node.placeholder">
               <div
-                class="relative rounded-lg border-2 border-dashed border-edge-subtle bg-overlay-light flex items-center justify-center"
+                class="relative rounded-media border border-dashed border-edge flex items-center justify-center"
                 :style="{ width: `${thumbSize}px`, height: `${thumbSize}px` }"
               >
-                <svg v-if="node.kind === 'trashed' || node.kind === 'expired'" class="w-5 h-5 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <svg v-if="node.kind === 'trashed' || node.kind === 'expired'" class="w-5 h-5 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                 </svg>
-                <svg v-else class="w-5 h-5 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <svg v-else class="w-5 h-5 text-content-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
                 </svg>
               </div>
               <div class="flex flex-col items-center gap-0 mt-1" :style="{ width: `${labelWidth}px` }">
-                <span class="text-[10px] text-content-muted leading-tight text-center">
+                <span class="text-[10px] text-content-muted italic leading-tight text-center">
                   {{ placeholderLabel(node) }}
                 </span>
               </div>
@@ -76,12 +78,12 @@
             <template v-else>
               <!-- Thumbnail -->
               <div
-                class="relative rounded-lg overflow-hidden border-2 transition-all"
+                class="relative rounded-media overflow-hidden outline transition-[outline-color] duration-150"
                 :class="node.id === focusedNodeId
-                  ? 'border-blue-500/70'
+                  ? 'outline-2 -outline-offset-2 outline-selection'
                   : node.id === selectedNodeId
-                    ? 'border-edge-strong'
-                    : 'border-transparent group-hover:border-edge-subtle'"
+                    ? 'outline-1 -outline-offset-1 outline-edge-strong'
+                    : 'outline-1 -outline-offset-1 outline-transparent group-hover:outline-edge'"
                 :style="{ width: `${thumbSize}px`, height: `${thumbSize}px` }"
               >
                 <MediaImage
@@ -107,14 +109,14 @@
               <div class="flex flex-col items-center gap-0 mt-1" :style="{ width: `${labelWidth}px` }">
                 <span
                   v-if="nodeSubtitle(node)"
-                  class="text-[10px] truncate leading-tight max-w-full text-center"
-                  :class="node.id === focusedNodeId ? 'text-blue-500 font-semibold' : 'text-content-tertiary font-medium'"
+                  class="text-[10px] truncate leading-tight max-w-full text-center font-medium"
+                  :class="node.id === focusedNodeId ? 'text-selection' : 'text-content-tertiary'"
                 >
                   {{ nodeSubtitle(node) }}
                 </span>
                 <span
                   v-if="node.media.created_date"
-                  class="text-[9px] text-content-muted leading-tight"
+                  class="text-[9px] font-mono tabular-nums text-content-muted leading-tight"
                 >
                   {{ formatDateShort(node.media.created_date) }}
                 </span>
@@ -127,7 +129,7 @@
 
     <!-- Loading state -->
     <div v-else-if="loading" class="flex-1 flex items-center justify-center">
-      <span class="text-content-tertiary text-sm animate-pulse">Loading lineage...</span>
+      <span class="text-content-tertiary text-sm animate-pulse-soft">Loading lineage...</span>
     </div>
 
     <!-- Error state -->
@@ -138,9 +140,9 @@
     <!-- Truncation notice -->
     <div
       v-if="!loading && !error && truncated"
-      class="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-full bg-overlay-strong backdrop-blur-md border border-edge-subtle text-content-tertiary text-xs"
+      class="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-md bg-black/55 backdrop-blur-sm text-white/85 text-xs"
     >
-      Lineage is very large — showing the closest {{ nodes.length }} items
+      Lineage is very large — showing the closest <span class="font-mono tabular-nums">{{ nodes.length }}</span> items
     </div>
 
     <!-- Detail modal -->
@@ -203,7 +205,7 @@
           :width="Math.max((thumbSize / canvasWidth) * minimapWidth, 5)"
           :height="Math.max((thumbSize / normalizedCanvasHeight) * minimapHeight, 5)"
           :rx="Math.max((thumbSize / normalizedCanvasHeight) * minimapHeight * 0.25, 1.5)"
-          :fill="node.id === focusedNodeId ? 'rgba(59,130,246,1)' : 'var(--color-lineage-minimap-node)'"
+          :fill="node.id === focusedNodeId ? 'rgb(var(--color-selection-rgb))' : 'var(--color-lineage-minimap-node)'"
         />
         <!-- Viewport rectangle -->
         <rect
@@ -211,42 +213,41 @@
           :y="minimapViewport.y"
           :width="minimapViewport.w"
           :height="minimapViewport.h"
-          :fill="'var(--color-lineage-minimap-viewport-fill)'"
-          :stroke="'var(--color-lineage-minimap-viewport-stroke)'"
-          stroke-width="1.5"
-          rx="3"
+          :fill="'rgb(var(--color-selection-rgb) / 0.12)'"
+          :stroke="'rgb(var(--color-selection-rgb) / 0.8)'"
+          stroke-width="1"
+          rx="2"
         />
       </svg>
     </div>
 
     <!-- Floating zoom controls -->
-    <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 backdrop-blur-md rounded-full px-2 py-1" style="background: var(--color-lineage-controls-bg)">
+    <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center rounded-md overflow-hidden bg-black/55 backdrop-blur-sm">
       <button
-        class="w-7 h-7 flex items-center justify-center rounded-full text-content-muted hover:text-content hover:bg-overlay-light transition-colors"
+        class="w-7 h-7 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
         title="Zoom out"
         @click="zoomBy(-0.2)"
       >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15" />
         </svg>
       </button>
-      <span class="text-content-muted text-[10px] w-8 text-center">{{ Math.round(zoom * 100) }}%</span>
+      <span class="text-white/70 text-[10px] font-mono tabular-nums w-9 text-center">{{ Math.round(zoom * 100) }}%</span>
       <button
-        class="w-7 h-7 flex items-center justify-center rounded-full text-content-muted hover:text-content hover:bg-overlay-light transition-colors"
+        class="w-7 h-7 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
         title="Zoom in"
         @click="zoomBy(0.2)"
       >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
       </button>
-      <div class="w-px h-4 bg-edge-subtle mx-0.5"></div>
       <button
-        class="w-7 h-7 flex items-center justify-center rounded-full text-content-muted hover:text-content hover:bg-overlay-light transition-colors"
+        class="w-7 h-7 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
         title="Fit to screen"
         @click="fitToScreen"
       >
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
         </svg>
       </button>
@@ -517,6 +518,32 @@ const canvasWidth = computed(() => dagreLayout.value.width)
 
 const normalizedCanvasHeight = computed(() => dagreLayout.value.height)
 
+// Edges on the direct ancestry path of the focused node (every edge reachable
+// by walking parents from the focus). Rendered in the selection color so the
+// provenance of "you are here" reads without tracing every wire.
+const focusPathEdgeKeys = computed(() => {
+  const keys = new Set()
+  if (focusedNodeId.value == null) return keys
+  const parentEdges = new Map() // target_id → [edges]
+  for (const e of edges.value) {
+    if (!parentEdges.has(e.target_id)) parentEdges.set(e.target_id, [])
+    parentEdges.get(e.target_id).push(e)
+  }
+  const seen = new Set([focusedNodeId.value])
+  const queue = [focusedNodeId.value]
+  while (queue.length > 0) {
+    const id = queue.pop()
+    for (const e of parentEdges.get(id) || []) {
+      keys.add(`${e.source_id}->${e.target_id}`)
+      if (!seen.has(e.source_id)) {
+        seen.add(e.source_id)
+        queue.push(e.source_id)
+      }
+    }
+  }
+  return keys
+})
+
 const layoutEdges = computed(() => {
   const thumbCenterY = thumbSize / 2
   const portSpacing = 8 // px between connection points when multiple edges share a side
@@ -585,7 +612,8 @@ const layoutEdges = computed(() => {
 
     return {
       path,
-      inspired: edge.relationship_type === 'inspired'
+      inspired: edge.relationship_type === 'inspired',
+      onFocusPath: focusPathEdgeKeys.value.has(`${edge.source_id}->${edge.target_id}`)
     }
   }).filter(Boolean)
 })
