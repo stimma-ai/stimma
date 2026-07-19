@@ -50,6 +50,11 @@ class DependentEditorSnapshotError(RuntimeError):
     """Legacy editor state still embeds Media selected for deletion."""
 
 
+class SourceOfflineError(OSError):
+    """An external file's source root is offline, so its absence proves
+    nothing; the unlink must retry after the source returns."""
+
+
 class RetainedMediaError(RuntimeError):
     """Media is still strongly retained by a new-model root."""
 
@@ -418,7 +423,7 @@ async def _finalize_staged_deletion(
         compatibility_paths = [
             item.file_path
             for item in staged_items
-            if item.file_path and item.storage_kind != "external"
+            if item.file_path
         ]
         protected_paths = (
             set(
@@ -455,6 +460,26 @@ async def _finalize_staged_deletion(
 
     def _unlink_manifests() -> None:
         from storage_service import object_path
+        from config import get_settings
+
+        # A missing external file under an offline source root is not evidence
+        # of deletion — the volume may simply be unmounted, and "success" here
+        # would let the file resurrect as new Media at remount. Defer instead.
+        offline_roots: list[Path] | None = None
+
+        def _under_offline_source_root(path_str: str) -> Path | None:
+            nonlocal offline_roots
+            if offline_roots is None:
+                offline_roots = []
+                for folder in get_settings().get_folders_for_profile(profile_id):
+                    root = Path(folder.path).expanduser()
+                    if not root.is_dir():
+                        offline_roots.append(root.resolve(strict=False))
+            resolved = Path(path_str).expanduser().resolve(strict=False)
+            for root in offline_roots:
+                if resolved.is_relative_to(root):
+                    return root
+            return None
 
         for item in staged_items:
             try:
@@ -463,11 +488,15 @@ async def _finalize_staged_deletion(
                 thumbnail_paths = []
             for thumbnail_path in thumbnail_paths:
                 Path(thumbnail_path).unlink(missing_ok=True)
-            if (
-                item.file_path
-                and item.storage_kind != "external"
-                and item.file_path not in protected_paths
-            ):
+            if item.file_path and item.file_path not in protected_paths:
+                target = Path(item.file_path)
+                if (
+                    item.storage_kind == "external"
+                    and not target.exists()
+                    and not target.is_symlink()
+                    and _under_offline_source_root(item.file_path) is not None
+                ):
+                    raise SourceOfflineError()
                 trash_service.permanently_delete(item.file_path)
             if (
                 item.storage_kind == "managed"
@@ -484,6 +513,14 @@ async def _finalize_staged_deletion(
         await asyncio.to_thread(_unlink_manifests)
     except Exception as exc:
         failure_payload = None
+        # Never copy exception text into operation records — it can carry
+        # filesystem paths. Only the known-safe offline case gets a specific
+        # message.
+        unlink_error = (
+            "source folder offline"
+            if isinstance(exc, SourceOfflineError)
+            else "permanent deletion failed"
+        )
         async with db.async_session_maker() as session:
             operation = await session.get(DeleteOperation, operation_id)
             if operation is not None:
@@ -491,7 +528,7 @@ async def _finalize_staged_deletion(
                 operation.status = "failed"
                 operation.failed_items += failure_count
                 operation.processed_items += failure_count
-                operation.last_error = "permanent deletion failed"
+                operation.last_error = unlink_error
                 operation.current_phase = "failed"
                 operation.completed_at = _utcnow()
                 operation.updated_at = operation.completed_at
@@ -511,7 +548,7 @@ async def _finalize_staged_deletion(
                         # row this operation deleted.
                         state="unlink_failed",
                         lease_expires_at=None,
-                        last_error="permanent deletion failed",
+                        last_error=unlink_error,
                         updated_at=_utcnow(),
                     )
                 )

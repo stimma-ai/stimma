@@ -1502,6 +1502,149 @@ class TestRestoreTrashedMediaSilently:
         await restore_trashed_media_silently([])
 
 
+class TestSourceFileDeletes:
+    """Emptying trash deletes source-folder (external) files from disk."""
+
+    async def _create_external_media(self, session, file_path):
+        from storage_service import register_external_media
+
+        media = await create_media_item(session, file_path=file_path)
+        await register_external_media(session, media=media)
+        asset = await create_asset_from_media(session, media_id=media.id)
+        return media, asset
+
+    async def test_permanent_delete_removes_external_file(
+        self, client: AsyncClient, db_session, tmp_path
+    ):
+        source = tmp_path / "watched.png"
+        source.write_bytes(b"watched bytes")
+        async with db_session() as session:
+            media, asset = await self._create_external_media(session, source)
+            media_id = media.id
+            await session.commit()
+
+        await client.delete(f"/api/media/{media_id}")
+        response = await client.delete(f"/api/trash/{media_id}")
+        assert response.status_code == 202
+        operation = await wait_for_delete_operation(
+            client, response.json()["operation"]["id"]
+        )
+        assert operation["status"] == "completed"
+        assert not source.exists()
+
+    async def test_external_path_shared_with_live_row_is_preserved(
+        self, client: AsyncClient, db_session, tmp_path
+    ):
+        # Modified-in-place sources leave an old unavailable Media row sharing
+        # its file_path with the live replacement. Deleting the old row must
+        # not take the live file with it.
+        source = tmp_path / "shared.png"
+        source.write_bytes(b"shared bytes")
+        async with db_session() as session:
+            media, asset = await self._create_external_media(session, source)
+            media_id = media.id
+            replacement = await create_media_item(session, file_path=source)
+            await create_asset_from_media(session, media_id=replacement.id)
+            await session.commit()
+
+        await client.delete(f"/api/media/{media_id}")
+        response = await client.delete(f"/api/trash/{media_id}")
+        assert response.status_code == 202
+        operation = await wait_for_delete_operation(
+            client, response.json()["operation"]["id"]
+        )
+        assert operation["status"] == "completed"
+        assert source.exists()
+
+    async def test_offline_source_defers_unlink(
+        self, client: AsyncClient, db_session, tmp_path
+    ):
+        from config import FolderConfig, Settings
+
+        offline_root = tmp_path / "unmounted"
+        missing_file = offline_root / "gone.png"
+        # Create the file only long enough to register it, then take the
+        # whole root away to simulate an unmounted volume.
+        missing_file.parent.mkdir()
+        missing_file.write_bytes(b"external bytes")
+        async with db_session() as session:
+            media, asset = await self._create_external_media(
+                session, missing_file
+            )
+            media_id = media.id
+            await session.commit()
+        missing_file.unlink()
+        offline_root.rmdir()
+
+        await client.delete(f"/api/media/{media_id}")
+        with patch.object(
+            Settings,
+            "get_folders_for_profile",
+            return_value=[FolderConfig(path=str(offline_root))],
+        ):
+            response = await client.delete(f"/api/trash/{media_id}")
+            assert response.status_code == 202
+            operation_id = response.json()["operation"]["id"]
+            operation = await wait_for_delete_operation(client, operation_id)
+            assert operation["status"] == "failed"
+            assert operation["last_error"] == "source folder offline"
+
+            async with db_session() as session:
+                row = await session.get(
+                    DeleteOperationItem, (operation_id, media_id)
+                )
+                assert row is not None
+                assert row.state == "unlink_failed"
+                assert row.last_error == "source folder offline"
+
+            # Source comes back online (still without the file): absence is
+            # now evidence of deletion, so the retry completes.
+            offline_root.mkdir()
+            retried = await client.post(
+                f"/api/delete-operations/{operation_id}/retry"
+            )
+            assert retried.status_code == 202
+            completed = await wait_for_delete_operation(client, operation_id)
+            assert completed["status"] == "completed"
+
+    async def test_deletion_preview_reports_source_file_count(
+        self, client: AsyncClient, db_session, tmp_path
+    ):
+        source = tmp_path / "previewed.png"
+        source.write_bytes(b"previewed bytes")
+        async with db_session() as session:
+            media, asset = await self._create_external_media(session, source)
+            asset_id = asset.id
+            await session.commit()
+
+        preview = await client.get(f"/api/assets/{asset_id}/deletion-preview")
+        assert preview.status_code == 200
+        assert preview.json()["source_file_count"] == 1
+
+    async def test_trash_source_file_count(
+        self, client: AsyncClient, db_session, tmp_path
+    ):
+        source = tmp_path / "counted.png"
+        source.write_bytes(b"counted bytes")
+        async with db_session() as session:
+            media, asset = await self._create_external_media(session, source)
+            media_id = media.id
+            managed = await create_media_item(
+                session, file_path=tmp_path / "managed.png"
+            )
+            await create_asset_from_media(session, media_id=managed.id)
+            managed_id = managed.id
+            await session.commit()
+
+        empty = await client.get("/api/trash/source-file-count")
+        assert empty.json()["count"] == 0
+
+        await client.delete(f"/api/media/{media_id}")
+        await client.delete(f"/api/media/{managed_id}")
+        counted = await client.get("/api/trash/source-file-count")
+        assert counted.json()["count"] == 1
+
+
 # Fixtures specific to this test module
 
 @pytest.fixture

@@ -48,10 +48,11 @@ payload. The staging location is server-owned and cannot be selected by clients.
 Legacy structured outputs under historical writable roots are adopted
 automatically and incrementally at startup.
 
-Settings calls watched folders **Sources**. Sources are optional, external, and
-read-only from Stimma's perspective: it records and verifies their paths but
-does not write to or delete source files during ordinary Asset deletion. New
-profiles have no Sources by default. Managed storage paths are implementation
+Settings calls watched folders **Sources**. Sources are optional and external.
+Stimma never writes new files into a Source and never uses one as a generation
+or upload destination. Deletion is the one mutation: emptying the trash
+permanently deletes a trashed source file from disk, the same as managed
+content. New profiles have no Sources by default. Managed storage paths are implementation
 details; user serviceability should come from source access for external files
 and explicit export/backup for managed content.
 

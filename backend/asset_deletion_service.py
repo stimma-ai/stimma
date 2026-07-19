@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from asset_service import AssetServiceError, clear_snapshot_source_bindings
@@ -46,6 +46,7 @@ class AssetDeletionPreview:
     collectible_media_ids: list[int]
     retained_media_ids: list[int]
     retained_by_kind: dict[str, int]
+    source_file_count: int
 
 
 async def preview_asset_deletion(
@@ -122,12 +123,31 @@ async def preview_asset_deletion(
                 retained_by_kind[kind] = retained_by_kind.get(kind, 0) + 1
         else:
             collectible.append(media_id)
+    source_file_count = 0
+    if collectible:
+        from database import StorageObject
+
+        source_file_count = (
+            await session.scalar(
+                select(func.count(func.distinct(MediaItem.id)))
+                .select_from(MediaItem)
+                .join(
+                    StorageObject,
+                    StorageObject.id == MediaItem.storage_object_id,
+                )
+                .where(
+                    MediaItem.id.in_(collectible),
+                    StorageObject.kind == "external",
+                )
+            )
+        ) or 0
     return AssetDeletionPreview(
         revision_count=len(revisions),
         candidate_media_ids=sorted(candidate_ids),
         collectible_media_ids=collectible,
         retained_media_ids=retained,
         retained_by_kind=retained_by_kind,
+        source_file_count=source_file_count,
     )
 
 

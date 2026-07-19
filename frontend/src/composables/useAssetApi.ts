@@ -183,6 +183,10 @@ export function useAssetApi() {
     return { accepted: results.length, results }
   }
 
+  async function getTrashSourceFileCount(): Promise<{ count: number }> {
+    return (await axios.get(`${api()}/trash/source-file-count`)).data
+  }
+
   async function emptyTrash() {
     const manifest = (await axios.get(`${api()}/assets/trash-deletion-manifest`)).data
     const results = []
@@ -277,6 +281,7 @@ export function useAssetApi() {
     permanentlyDelete,
     permanentlyDeleteMany,
     emptyTrash,
+    getTrashSourceFileCount,
     addToBoard,
     removeFromBoardSection,
     bulkRemoveFromBoard,

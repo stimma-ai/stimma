@@ -3,7 +3,7 @@
     <div v-if="!wizard" class="mb-3">
       <h3 class="text-xs font-semibold text-content-secondary">Folders</h3>
       <p class="mt-1 text-xs text-content-tertiary">
-        Add folders Stimma may scan for external media. Stimma never writes to or deletes files in these folders.
+        Add folders Stimma may scan for external media. Stimma never writes new files here; deleting an item and emptying the trash deletes its file from disk.
       </p>
     </div>
 
@@ -78,7 +78,7 @@
         </svg>
         <div>
           <div class="text-[13px] font-medium text-accent-hi">Add Folder</div>
-          <div class="mt-1 text-xs text-content-tertiary">Choose a folder to scan into your library — read-only, your files are never changed.</div>
+          <div class="mt-1 text-xs text-content-tertiary">Choose a folder to scan into your library. Stimma never writes new files here.</div>
         </div>
       </button>
 
@@ -95,7 +95,7 @@
         </div>
         <div class="min-w-0 flex-1">
           <div class="text-[13px] font-medium text-accent-hi">Add Folder</div>
-          <div class="mt-0.5 truncate text-xs text-content-tertiary">Scan an external folder for media, read-only.</div>
+          <div class="mt-0.5 truncate text-xs text-content-tertiary">Scan an external folder for media.</div>
         </div>
       </button>
     </div>

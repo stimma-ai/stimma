@@ -729,6 +729,40 @@ async def get_trash_filter_counts(
     }
 
 
+@router.get("/trash/source-file-count")
+async def get_trash_source_file_count(
+    session: AsyncSession = Depends(get_db_session)
+):
+    """Count trashed items whose payload is a file in a source folder.
+
+    Emptying the trash deletes these files from disk, so the confirmation
+    states it with this count.
+    """
+    from database import StorageObject
+
+    count = await session.scalar(
+        select(func.count(func.distinct(MediaItem.id)))
+        .select_from(MediaItem)
+        .join(AssetRevision, AssetRevision.primary_media_id == MediaItem.id)
+        .join(
+            Asset,
+            and_(
+                Asset.id == AssetRevision.asset_id,
+                Asset.current_revision_id == AssetRevision.id,
+            ),
+        )
+        .join(StorageObject, StorageObject.id == MediaItem.storage_object_id)
+        .where(
+            Asset.state == "trashed",
+            Asset.deleted_at.is_not(None),
+            AssetRevision.deleted_at.is_(None),
+            MediaItem.deleted_at.is_(None),
+            StorageObject.kind == "external",
+        )
+    )
+    return {"count": count or 0}
+
+
 # Batch operations must come BEFORE parameterized routes to avoid route conflicts
 @router.post("/trash/batch/restore")
 async def bulk_restore_from_trash(

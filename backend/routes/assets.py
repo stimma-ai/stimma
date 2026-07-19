@@ -1116,13 +1116,19 @@ async def get_asset_tags(
         return [tag.to_dict() for tag in tags]
     rows = (
         await session.execute(
-            select(Tag, func.count(AssetTag.asset_id).label("usage_count"))
+            select(Tag, func.count(Asset.id).label("usage_count"))
             .outerjoin(
                 AssetTag,
                 (AssetTag.tag_id == Tag.id) & AssetTag.deleted_at.is_(None),
             )
+            .outerjoin(
+                Asset,
+                (Asset.id == AssetTag.asset_id)
+                & (Asset.state == "active")
+                & Asset.deleted_at.is_(None),
+            )
             .group_by(Tag.id)
-            .order_by(func.count(AssetTag.asset_id).desc(), Tag.tag_text.asc())
+            .order_by(func.count(Asset.id).desc(), Tag.tag_text.asc())
         )
     ).all()
     return [
@@ -1909,6 +1915,7 @@ async def get_asset_deletion_preview(
         "collectible_media_ids": preview.collectible_media_ids,
         "retained_media_ids": preview.retained_media_ids,
         "retained_by_kind": preview.retained_by_kind,
+        "source_file_count": preview.source_file_count,
     }
 
 

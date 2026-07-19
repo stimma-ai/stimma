@@ -250,10 +250,8 @@
     <DeleteConfirmModal
       :visible="showEmptyTrashConfirm"
       title="Empty Trash?"
-      message="This will permanently delete all items in trash. This action cannot be undone."
+      :message="emptyTrashMessage"
       confirm-text="Empty Trash"
-      :count="totalCount"
-      :count-message="`This will permanently delete ${totalCount} ${totalCount === 1 ? 'item' : 'items'}.`"
       @close="showEmptyTrashConfirm = false"
       @confirm="emptyTrash"
     />
@@ -405,6 +403,7 @@ const {
   permanentlyDelete: permanentlyDeleteMedia,
   permanentlyDeleteMany: bulkPermanentlyDelete,
   emptyTrash: apiEmptyTrash,
+  getTrashSourceFileCount,
   getDeletionPreview,
 } = useAssetApi()
 
@@ -645,25 +644,29 @@ const showSaveViewModal = ref(false)
 // Trash mode state
 const showDeleteConfirm = ref(false)
 const showEmptyTrashConfirm = ref(false)
+const trashSourceFileCount = ref(0)
+const emptyTrashMessage = computed(() => {
+  const items = totalCount.value === 1 ? '1 item' : `${totalCount.value} items`
+  const n = trashSourceFileCount.value
+  const sourceText = n > 0
+    ? `, including ${n} ${n === 1 ? 'file' : 'files'} in your folders`
+    : ''
+  return `Permanently deletes ${items}${sourceText}. This can't be undone.`
+})
 const itemToDelete = ref(null)
 const deletionPreviews = ref([])
 const deletionPreviewLoading = ref(false)
 const permanentDeleteMessage = computed(() => {
   const count = itemToDelete.value?.length || 0
-  if (deletionPreviewLoading.value) return 'Checking versions and other content that still uses this media…'
-  if (!deletionPreviews.value.length) {
-    return count > 1
-      ? `This will permanently delete ${count} assets and their version history. This action cannot be undone.`
-      : 'This will permanently delete this asset and its version history. This action cannot be undone.'
+  const subject = count === 1 ? 'this item' : `${count} items`
+  if (deletionPreviewLoading.value || !deletionPreviews.value.length) {
+    return `Permanently deletes ${subject}. This can't be undone.`
   }
-  const versions = deletionPreviews.value.reduce((sum, item) => sum + item.revision_count, 0)
-  const collectible = deletionPreviews.value.reduce((sum, item) => sum + item.collectible_media_ids.length, 0)
-  const retained = deletionPreviews.value.reduce((sum, item) => sum + item.retained_media_ids.length, 0)
-  const subject = count === 1 ? 'this asset' : `${count} assets`
-  const retainedText = retained
-    ? ` ${retained} media ${retained === 1 ? 'payload is' : 'payloads are'} also used by other content and will remain.`
+  const sourceFiles = deletionPreviews.value.reduce((sum, item) => sum + (item.source_file_count || 0), 0)
+  const sourceText = sourceFiles
+    ? `, including ${sourceFiles} ${sourceFiles === 1 ? 'file' : 'files'} in your folders`
     : ''
-  return `This permanently removes ${subject} and ${versions} saved ${versions === 1 ? 'version' : 'versions'}. ${collectible} unreferenced media ${collectible === 1 ? 'payload' : 'payloads'} will be securely deleted.${retainedText} This action cannot be undone.`
+  return `Permanently deletes ${subject}${sourceText}. This can't be undone.`
 })
 
 // Get profile-specific localStorage key for filters
@@ -1561,9 +1564,16 @@ async function handleBulkPermanentDelete() {
 }
 
 // Confirm empty trash
-function confirmEmptyTrash() {
+async function confirmEmptyTrash() {
   if (isEmptyingTrash.value) return
+  trashSourceFileCount.value = 0
   showEmptyTrashConfirm.value = true
+  try {
+    const { count } = await getTrashSourceFileCount()
+    trashSourceFileCount.value = count || 0
+  } catch (error) {
+    console.error('Failed to fetch trash source file count:', error)
+  }
 }
 
 // Execute empty trash

@@ -148,7 +148,7 @@ async def test_structured_directory_is_managed_as_one_verified_payload(
 
 
 @pytest.mark.asyncio
-async def test_external_media_delete_never_deletes_user_owned_file(
+async def test_external_media_delete_removes_user_owned_file(
     client, db_session, tmp_path
 ):
     source = tmp_path / "watched.png"
@@ -167,7 +167,7 @@ async def test_external_media_delete_never_deletes_user_owned_file(
         await session.commit()
 
     await _delete_asset(client, asset_id)
-    assert source.exists()
+    assert not source.exists()
     async with db_session() as session:
         assert await session.get(MediaItem, media_id) is None
         assert await session.get(StorageObject, storage_id) is None
