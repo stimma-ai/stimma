@@ -3,19 +3,14 @@
     <!-- Header: label + count + compact icon strip (＋ · ⌕ · disable-all · RAW · ⋯) -->
     <div class="flex items-center gap-2 pb-1 mb-1.5">
       <span class="text-xs font-semibold text-content-secondary">LoRAs</span>
-      <span v-if="hasAnyItems" class="text-[10px] font-mono tabular-nums text-content-tertiary">{{ enabledCount }}/{{ allItems.length }} on</span>
       <button
         v-if="hasAnyItems"
         @click="disableAll"
         type="button"
         :disabled="enabledCount === 0"
-        :class="['w-5 h-5 flex items-center justify-center rounded-md transition-colors', enabledCount === 0 ? 'text-content-muted/40 cursor-default' : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle']"
-        title="Disable all — empty the palette (keeps the list)"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3.5 h-3.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      </button>
+        :class="['text-[10px] rounded-full px-2 py-0.5 transition-colors', enabledCount === 0 ? 'text-content-muted/40 bg-overlay-faint cursor-default' : 'text-content-tertiary bg-overlay-subtle hover:text-content hover:bg-overlay-light']"
+        title="Disable all LoRAs (keeps the list)"
+      >Clear all</button>
       <div class="ml-auto flex items-center gap-0.5">
         <button
           v-if="availableLoras.length > 0 || uploadConfig"
