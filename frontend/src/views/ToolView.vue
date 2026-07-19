@@ -645,7 +645,7 @@
            Stays mounted across the toggle so the matte/image tween smoothly. -->
       <div
         v-if="jobsManager"
-        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden p-3 pb-2"
+        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden pt-[21px] px-[21px] pb-2"
       >
         <!-- Empty state -->
         <div v-if="!stageCurrentJob" class="flex-1 self-center flex flex-col items-center justify-center gap-3 text-content-muted">
