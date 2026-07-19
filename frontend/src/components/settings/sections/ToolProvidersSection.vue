@@ -2,7 +2,7 @@
   <div>
     <template v-if="!showModal && !selectedProvider">
     <div v-if="!wizard" class="mb-4 flex items-center gap-3">
-      <h3 class="text-base font-medium text-content">Generation Tools</h3>
+      <h3 class="text-xs font-semibold text-content-secondary">Generation Tools</h3>
     </div>
 
     <p v-if="!wizard" class="mb-6 max-w-2xl text-sm leading-6 text-content-tertiary">
@@ -11,13 +11,13 @@
 
     <div
       v-if="setupRequired && !wizard"
-      class="mb-6 flex w-full items-center gap-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3"
+      class="mb-6 flex w-full items-center gap-3 border-b border-edge-subtle px-1 py-2"
     >
       <span class="h-2 w-2 shrink-0 rounded-full bg-amber-400"></span>
-      <p class="text-sm text-content-secondary">Connect generation tools to generate media.</p>
+      <p class="text-[13px] text-content-secondary">Connect generation tools to generate media.</p>
     </div>
 
-    <div class="space-y-0.5">
+    <div class="divide-y divide-edge-subtle">
       <button
         type="button"
         class="group flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-overlay-subtle"
@@ -25,7 +25,7 @@
       >
         <ToolProviderBrandIcon kind="stimma" />
         <div class="min-w-0 flex-1">
-          <div class="text-sm font-medium text-content">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</div>
+          <div class="text-[13px] text-content">{{ STIMMA_TOOL_PROVIDER_DISPLAY_NAME }}</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">
             {{ stimmaProviderDescription }}
           </div>
@@ -34,6 +34,7 @@
           <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 text-right text-xs" :class="cloudRowStatusClass">
             <Spinner v-if="isProviderConnecting(cloudProvider)" size="sm" />
             <ExclamationCircleIcon v-else-if="isProviderConnectionError(cloudProvider)" class="h-4 w-4" />
+            <span v-else-if="cloudRowStatusDot" class="h-2 w-2 shrink-0 rounded-full" :class="cloudRowStatusDot"></span>
             {{ cloudRowStatusLabel }}
           </div>
           <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -61,10 +62,10 @@
       >
         <ToolProviderBrandIcon kind="comfyui" />
         <div class="min-w-0 flex-1">
-          <div class="text-sm font-medium text-content">ComfyUI</div>
+          <div class="text-[13px] text-content">ComfyUI</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">Run generation workflows locally.</div>
         </div>
-        <div class="min-w-20 shrink-0 text-right text-xs text-blue-400">Configure</div>
+        <div class="min-w-20 shrink-0 text-right text-xs text-accent-hi">Configure</div>
         <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
         </svg>
@@ -79,12 +80,13 @@
       >
         <ToolProviderBrandIcon :provider="provider" />
         <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-medium" :class="provider.enabled === false ? 'text-content-muted' : 'text-content'">{{ provider.name }}</div>
+          <div class="truncate text-[13px]" :class="provider.enabled === false ? 'text-content-muted' : 'text-content'">{{ provider.name }}</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">ComfyUI · {{ provider.url || getProviderTypeLabel(provider.type) }}</div>
         </div>
         <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-right text-xs" :class="providerRowStatusClass(provider)">
           <Spinner v-if="isProviderConnecting(provider)" size="sm" />
           <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
+          <span v-else-if="providerStatusDotClass(provider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(provider)"></span>
           {{ providerStatusLabel(provider) }}
         </div>
         <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -101,12 +103,13 @@
       >
         <ToolProviderBrandIcon :provider="provider" />
         <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-medium" :class="provider.enabled === false ? 'text-content-muted' : 'text-content'">{{ provider.name }}</div>
+          <div class="truncate text-[13px]" :class="provider.enabled === false ? 'text-content-muted' : 'text-content'">{{ provider.name }}</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ getProviderTypeLabel(provider.type) }}</div>
         </div>
         <div class="flex min-w-20 shrink-0 items-center justify-end gap-1.5 whitespace-nowrap text-right text-xs" :class="providerRowStatusClass(provider)">
           <Spinner v-if="isProviderConnecting(provider)" size="sm" />
           <ExclamationCircleIcon v-else-if="isProviderConnectionError(provider)" class="h-4 w-4" />
+          <span v-else-if="providerStatusDotClass(provider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(provider)"></span>
           {{ providerStatusLabel(provider) }}
         </div>
         <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -116,19 +119,19 @@
 
       <button
         type="button"
-        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-blue-500/[0.04]"
+        class="flex w-full items-center gap-4 px-1 py-4 text-left hover:bg-accent/[0.04]"
         @click="openAddModal"
       >
-        <span class="flex h-10 w-10 shrink-0 items-center justify-center text-blue-400">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center text-accent-hi">
           <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
             <path stroke-linecap="round" d="M12 5v14M5 12h14" />
           </svg>
         </span>
         <span class="min-w-0 flex-1">
-          <span class="block text-sm font-medium text-blue-400">Add STP Provider</span>
+          <span class="block text-[13px] font-medium text-accent-hi">Add STP Provider</span>
           <span class="mt-0.5 block truncate text-xs text-content-tertiary">
             Connect any server that speaks the
-            <a :href="stpDocsUrl" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-400" @click.stop.prevent="openStpDocs">Stimma Tools Protocol ↗</a>.
+            <a :href="stpDocsUrl" target="_blank" rel="noopener noreferrer" class="text-accent-hi hover:text-accent" @click.stop.prevent="openStpDocs">Stimma Tools Protocol ↗</a>.
           </span>
         </span>
       </button>
@@ -142,7 +145,7 @@
         </button>
         <ToolProviderBrandIcon :provider="selectedProvider" />
         <div class="min-w-0 flex-1">
-          <h3 class="text-base font-medium text-content">Tools</h3>
+          <h3 class="text-xs font-semibold text-content-secondary">Tools</h3>
           <p class="truncate text-xs text-content-tertiary">{{ selectedProvider.name }}</p>
         </div>
         <span class="text-xs text-content-muted">{{ toolsModal.tools.length }} tool{{ toolsModal.tools.length === 1 ? '' : 's' }}</span>
@@ -157,7 +160,7 @@
       <div v-else>
         <div v-for="tool in filteredTools" :key="tool.full_tool_id" class="flex items-start gap-4 py-3.5">
           <div class="min-w-0 flex-1">
-            <div class="text-sm font-medium text-content">{{ tool.name }}</div>
+            <div class="text-[13px] text-content">{{ tool.name }}</div>
             <p v-if="tool.metadata?.description" class="mt-0.5 line-clamp-2 text-xs leading-5 text-content-tertiary">{{ tool.metadata.description }}</p>
             <div v-if="tool.task_types?.length || tool.task_type" class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-content-muted">
               <span v-for="taskType in (tool.task_types?.length ? tool.task_types : [tool.task_type])" :key="taskType">{{ formatTaskTypeLabel(taskType) }}</span>
@@ -178,10 +181,10 @@
         </button>
         <ToolProviderBrandIcon :provider="selectedProvider" />
         <div class="min-w-0 flex-1">
-          <h3 class="text-base font-medium text-content">Logs</h3>
+          <h3 class="text-xs font-semibold text-content-secondary">Logs</h3>
           <p class="truncate text-xs text-content-tertiary">{{ selectedProvider.name }}</p>
         </div>
-        <button type="button" :disabled="logsModal.loading" class="text-sm text-blue-500 hover:text-blue-400 disabled:opacity-50" @click="refreshLogs">Refresh</button>
+        <button type="button" :disabled="logsModal.loading" class="text-[13px] text-accent-hi hover:text-accent disabled:opacity-50" @click="refreshLogs">Refresh</button>
         <button type="button" class="text-sm text-content-tertiary hover:text-content" @click="clearLogsDisplay">Clear</button>
       </div>
 
@@ -206,7 +209,7 @@
         </button>
         <ToolProviderBrandIcon :provider="selectedProvider" />
         <div class="min-w-0 flex-1">
-          <h3 class="truncate text-base font-medium text-content">{{ selectedProvider.name }}</h3>
+          <h3 class="truncate text-[16px] font-semibold text-content">{{ selectedProvider.name }}</h3>
           <p class="truncate text-xs text-content-tertiary">
             {{ selectedProvider.id === 'stimma-cloud'
               ? 'Hosted generation tools'
@@ -218,11 +221,12 @@
         <span class="flex items-center gap-1.5 text-xs font-medium" :class="providerConnectionStatusClass(selectedProvider)">
           <Spinner v-if="isProviderConnecting(selectedProvider)" size="sm" />
           <ExclamationCircleIcon v-else-if="isProviderConnectionError(selectedProvider)" class="h-4 w-4" />
+          <span v-else-if="providerStatusDotClass(selectedProvider)" class="h-2 w-2 shrink-0 rounded-full" :class="providerStatusDotClass(selectedProvider)"></span>
           {{ providerConnectionStatus(selectedProvider) }}
         </span>
       </div>
 
-      <div v-if="selectedProvider.error_message" class="mb-7 flex max-w-2xl items-start gap-3 border border-red-500/25 bg-red-500/10 px-4 py-3.5">
+      <div v-if="selectedProvider.error_message" class="mb-7 flex max-w-2xl items-start gap-3 rounded-lg bg-red-500/10 px-4 py-3.5">
         <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-1.5a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12V16.5Z" />
         </svg>
@@ -247,12 +251,12 @@
         <div v-else class="max-w-2xl space-y-5">
           <div class="flex items-center justify-between gap-6 py-2">
             <div>
-              <div class="text-sm font-medium text-content">Credits</div>
+              <div class="text-[13px] text-content">Credits</div>
               <div class="mt-0.5 text-xs text-content-tertiary">Used across Stimma generation tools and hosted models.</div>
             </div>
             <div class="flex shrink-0 items-center gap-3">
-              <span class="text-sm font-medium text-content">{{ formatBalance(cloudUser?.credits) || '$0.00' }}</span>
-              <a :href="cloudBaseUrl + '/link/addcredits'" target="_blank" class="text-sm text-blue-500 hover:underline">Add credits</a>
+              <span class="text-[13px] text-content">{{ formatBalance(cloudUser?.credits) || '$0.00' }}</span>
+              <a :href="cloudBaseUrl + '/link/addcredits'" target="_blank" class="text-[13px] text-accent-hi hover:underline">Add credits</a>
             </div>
           </div>
         </div>
@@ -272,7 +276,7 @@
           <input :value="getEditValue(selectedProvider.id, 'auth_token') ?? selectedProvider.auth_token ?? ''" type="password" autocomplete="off" class="w-full border border-edge bg-surface-raised px-3 py-2 font-mono text-sm text-content focus:border-accent focus:outline-none" @input="setEditValue(selectedProvider.id, 'auth_token', $event.target.value)" @blur="saveInlineEdit(selectedProvider.id, 'auth_token')" />
         </div>
         <div class="flex justify-end">
-          <button type="button" :disabled="testing" class="text-sm text-blue-500 hover:text-blue-400 disabled:opacity-50" @click="testExistingProvider(selectedProvider)">{{ testing ? 'Testing…' : 'Test connection' }}</button>
+          <button type="button" :disabled="testing" class="text-[13px] text-accent-hi hover:text-accent disabled:opacity-50" @click="testExistingProvider(selectedProvider)">{{ testing ? 'Testing…' : 'Test connection' }}</button>
         </div>
       </div>
 
@@ -361,14 +365,14 @@
         </template>
 
         <div v-if="selectedProvider.type === 'stdio' || selectedProvider.type === 'websocket'" class="flex justify-end">
-          <button type="button" :disabled="testing" class="text-sm text-blue-500 hover:text-blue-400 disabled:opacity-50" @click="testExistingProvider(selectedProvider)">{{ testing ? 'Testing…' : 'Test connection' }}</button>
+          <button type="button" :disabled="testing" class="text-[13px] text-accent-hi hover:text-accent disabled:opacity-50" @click="testExistingProvider(selectedProvider)">{{ testing ? 'Testing…' : 'Test connection' }}</button>
         </div>
       </div>
 
       <div v-if="selectedProvider.id !== 'stimma-cloud' || isAuthenticated" class="mt-8 max-w-2xl space-y-1">
         <button type="button" class="flex w-full items-center gap-4 py-3 text-left hover:bg-overlay-subtle" @click="openProviderToolsPage(selectedProvider)">
           <div class="min-w-0 flex-1">
-            <div class="text-sm font-medium text-content">Tools</div>
+            <div class="text-[13px] text-content">Tools</div>
             <div class="mt-0.5 text-xs text-content-tertiary">{{ selectedProvider.tool_count || 0 }} available</div>
           </div>
           <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" /></svg>
@@ -376,7 +380,7 @@
 
         <button v-if="selectedProvider.type === 'stdio' || selectedProvider.type === 'websocket'" type="button" class="flex w-full items-center gap-4 py-3 text-left hover:bg-overlay-subtle" @click="openProviderLogsPage(selectedProvider)">
           <div class="min-w-0 flex-1">
-            <div class="text-sm font-medium text-content">Logs</div>
+            <div class="text-[13px] text-content">Logs</div>
             <div class="mt-0.5 text-xs text-content-tertiary">Connection and provider output</div>
           </div>
           <svg class="h-4 w-4 shrink-0 text-content-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" /></svg>
@@ -384,10 +388,10 @@
 
         <div v-if="isComfyUIProvider(selectedProvider)" class="flex items-center justify-between gap-6 py-3">
           <div>
-            <div class="text-sm font-medium text-content">ComfyUI setup</div>
+            <div class="text-[13px] text-content">ComfyUI setup</div>
             <div class="mt-0.5 text-xs text-content-tertiary">Install or update the Stimma extension.</div>
           </div>
-          <a :href="comfyUiDocsUrl" target="_blank" rel="noopener noreferrer" class="shrink-0 text-sm text-blue-500 hover:text-blue-400" @click.prevent="openComfyUiDocs">Setup guide ↗</a>
+          <a :href="comfyUiDocsUrl" target="_blank" rel="noopener noreferrer" class="shrink-0 text-[13px] text-accent-hi hover:text-accent" @click.prevent="openComfyUiDocs">Setup guide ↗</a>
         </div>
 
         <div v-if="!wizard" class="flex items-center justify-end gap-5 pt-6">
@@ -405,7 +409,7 @@
         </button>
         <ToolProviderBrandIcon :kind="addMode === 'comfy' ? 'comfyui' : 'custom'" />
         <div>
-          <h3 class="text-base font-medium text-content">{{ addMode === 'comfy' ? 'Set up ComfyUI' : 'Add Provider' }}</h3>
+          <h3 class="text-xs font-semibold text-content-secondary">{{ addMode === 'comfy' ? 'Set up ComfyUI' : 'Add Provider' }}</h3>
           <p class="text-xs text-content-tertiary">{{ addMode === 'comfy' ? 'Run generation tools on your own computer.' : 'For STP servers you’re developing or running yourself.' }}</p>
         </div>
       </div>
@@ -413,24 +417,24 @@
       <template v-if="addMode === 'comfy'">
         <div class="space-y-1">
           <div class="flex gap-4 py-3">
-            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-xs font-semibold text-blue-400">1</span>
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/10 text-xs font-semibold text-accent-hi">1</span>
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-medium text-content">Install the Stimma extension in ComfyUI</div>
+              <div class="text-[13px] text-content">Install the Stimma extension in ComfyUI</div>
               <p class="mt-1 text-sm leading-6 text-content-tertiary">The extension lets Stimma discover and run your ComfyUI workflows.</p>
-              <a :href="comfyUiDocsUrl" target="_blank" rel="noopener noreferrer" class="mt-2 inline-flex text-sm font-medium text-blue-500 hover:text-blue-400" @click.prevent="openComfyUiDocs">Open the ComfyUI setup guide ↗</a>
+              <a :href="comfyUiDocsUrl" target="_blank" rel="noopener noreferrer" class="mt-2 inline-flex text-sm font-medium text-accent-hi hover:text-accent" @click.prevent="openComfyUiDocs">Open the ComfyUI setup guide ↗</a>
             </div>
           </div>
           <div class="flex gap-4 py-3">
-            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-xs font-semibold text-blue-400">2</span>
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/10 text-xs font-semibold text-accent-hi">2</span>
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-medium text-content">Start ComfyUI</div>
+              <div class="text-[13px] text-content">Start ComfyUI</div>
               <p class="mt-1 text-sm leading-6 text-content-tertiary">Leave it running while Stimma connects.</p>
             </div>
           </div>
           <div class="flex gap-4 py-3">
-            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-xs font-semibold text-blue-400">3</span>
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/10 text-xs font-semibold text-accent-hi">3</span>
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-medium text-content">Connect</div>
+              <div class="text-[13px] text-content">Connect</div>
               <label class="mt-4 block text-xs text-content-tertiary">ComfyUI address</label>
               <input v-model="formData.url" type="text" class="mt-1.5 w-full border border-edge bg-surface-raised px-3 py-2.5 font-mono text-sm text-content focus:border-accent focus:outline-none" />
               <p class="mt-2 text-xs text-content-muted">The default works with ComfyUI running on this computer.</p>
@@ -449,8 +453,8 @@
           <div>
             <label class="mb-1 block text-xs text-content-tertiary">Connection</label>
             <div class="inline-flex border border-edge bg-surface-raised p-1 text-xs">
-              <button type="button" class="px-3 py-1.5" :class="formData.type === 'websocket' ? 'bg-blue-500/15 text-blue-300' : 'text-content-tertiary'" @click="formData.type = 'websocket'">WebSocket</button>
-              <button type="button" class="px-3 py-1.5" :class="formData.type === 'stdio' ? 'bg-blue-500/15 text-blue-300' : 'text-content-tertiary'" @click="formData.type = 'stdio'">Command</button>
+              <button type="button" class="px-3 py-1.5" :class="formData.type === 'websocket' ? 'bg-accent/10 text-accent-hi' : 'text-content-tertiary'" @click="formData.type = 'websocket'">WebSocket</button>
+              <button type="button" class="px-3 py-1.5" :class="formData.type === 'stdio' ? 'bg-accent/10 text-accent-hi' : 'text-content-tertiary'" @click="formData.type = 'stdio'">Command</button>
             </div>
           </div>
           <template v-if="formData.type === 'stdio'">
@@ -465,7 +469,7 @@
         </div>
       </template>
 
-      <div v-if="testResult" class="mt-5 border px-4 py-3" :class="testResult.success ? 'border-green-500/30 bg-green-500/15' : 'border-red-500/30 bg-red-500/15'">
+      <div v-if="testResult" class="mt-5 rounded-lg px-4 py-3" :class="testResult.success ? 'bg-green-500/10' : 'bg-red-500/10'">
             <div v-if="testResult.success" class="flex items-start gap-2">
               <svg class="w-5 h-5 text-green-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -517,7 +521,7 @@
         ref="deleteModalRef"
       >
         <div class="bg-surface border border-edge rounded-lg p-6 max-w-sm">
-          <h3 class="text-lg font-medium text-content mb-2">Remove Tool Provider</h3>
+          <h3 class="text-[16px] font-semibold text-content mb-2">Remove Tool Provider</h3>
           <p class="text-sm text-content-tertiary mb-4">
             Are you sure you want to remove <strong class="text-content">{{ deleteConfirm.name }}</strong>?
           </p>
@@ -554,7 +558,7 @@
           <!-- Header -->
           <div class="flex items-center justify-between px-4 py-3 border-b border-edge">
             <div>
-              <h3 class="text-lg font-medium text-content">Process Logs</h3>
+              <h3 class="text-[16px] font-semibold text-content">Process Logs</h3>
               <p class="text-xs text-content-tertiary">{{ logsModal.provider?.name }}</p>
             </div>
             <div class="flex items-center gap-2">
@@ -620,11 +624,11 @@
           <div class="flex items-center justify-between px-4 py-3 border-b border-edge">
             <div class="flex items-center gap-2">
               <div>
-                <h3 class="text-lg font-medium text-content">Available Tools</h3>
+                <h3 class="text-[16px] font-semibold text-content">Available Tools</h3>
                 <p class="text-xs text-content-tertiary">{{ toolsModal.provider?.name }}</p>
                 <!-- Dev mode: Provider registration info -->
                 <div v-if="devModeRef && toolsModal.provider" class="mt-1 text-xs font-mono text-content-muted bg-overlay-subtle rounded px-2 py-1">
-                  <span class="text-blue-500">max_concurrent:</span> {{ toolsModal.provider.max_concurrent ?? 'N/A' }}
+                  <span class="text-content-tertiary">max_concurrent:</span> {{ toolsModal.provider.max_concurrent ?? 'N/A' }}
                   <span v-if="toolsModal.provider.queue_status" class="ml-2">
                     <span class="text-content-muted">|</span>
                     <span class="text-green-500 ml-2">running:</span> {{ toolsModal.provider.queue_status.running ?? 0 }}
@@ -688,7 +692,7 @@
               >
                 <div class="flex items-start gap-3">
                   <div class="flex-1 min-w-0">
-                    <h4 class="text-sm font-medium text-content">{{ tool.name }}</h4>
+                    <h4 class="text-[13px] text-content">{{ tool.name }}</h4>
                     <p v-if="tool.metadata?.description" class="text-xs text-content-tertiary mt-0.5 line-clamp-2">
                       {{ tool.metadata.description }}
                     </p>
@@ -937,10 +941,15 @@ const cloudRowStatusLabel = computed(() => {
   if (cloudReady.value) return `Ready · ${providerStatusLabel(cloudProvider.value)}`
   return providerStatusLabel(cloudProvider.value)
 })
+// Status words stay neutral; the dot carries the color (no naked colored text).
 const cloudRowStatusClass = computed(() => {
-  if (cloudConnectedWithoutCredits.value) return 'text-amber-400'
-  if (cloudReady.value) return 'text-green-400'
+  if (cloudConnectedWithoutCredits.value || cloudReady.value) return 'text-content-tertiary'
   return providerRowStatusClass(cloudProvider.value)
+})
+const cloudRowStatusDot = computed(() => {
+  if (cloudConnectedWithoutCredits.value) return 'bg-amber-400'
+  if (cloudReady.value) return 'bg-green-500'
+  return null
 })
 
 const configurableProviders = computed(() => props.providers.filter(provider => provider.id !== 'stimma-cloud'))
@@ -1047,7 +1056,7 @@ function providerConnectionErrorTitle(provider) {
 
 function providerRowStatusClass(provider) {
   if (provider?.enabled === false) return 'text-content-muted'
-  if (provider?.status === 'connecting') return 'text-amber-300'
+  if (provider?.status === 'connecting') return 'text-content-tertiary'
   if (isProviderConnectionError(provider)) return 'text-red-400'
   return 'text-content-muted'
 }
@@ -1081,10 +1090,10 @@ function providerConnectionStatus(provider) {
 
 function providerConnectionStatusClass(provider) {
   if (provider?.enabled === false) return 'text-content-muted'
-  if (provider?.status === 'connected') return 'text-green-400'
-  if (provider?.status === 'connecting') return 'text-amber-300'
+  if (provider?.status === 'connected') return 'text-content-tertiary'
+  if (provider?.status === 'connecting') return 'text-content-tertiary'
   if (isProviderConnectionError(provider)) return 'text-red-400'
-  return provider?.id === 'stimma-cloud' && !isAuthenticated.value ? 'text-blue-400' : 'text-content-muted'
+  return provider?.id === 'stimma-cloud' && !isAuthenticated.value ? 'text-accent-hi' : 'text-content-muted'
 }
 
 async function openProviderToolsPage(provider) {
