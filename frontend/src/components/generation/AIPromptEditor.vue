@@ -20,7 +20,7 @@
             :class="[
               'flex items-center gap-1.5 text-[11px] transition-colors',
               promptOptions.autoImprove.enabled
-                ? 'text-content'
+                ? 'text-accent-hi'
                 : 'text-content-muted hover:text-content-secondary'
             ]"
             title="Enhance the prompt with AI when generating"
@@ -39,7 +39,7 @@
               :class="[
                 'flex items-center gap-1.5 text-[11px] transition-colors',
                 translateActive
-                  ? 'text-content'
+                  ? 'text-accent-hi'
                   : 'text-content-muted hover:text-content-secondary'
               ]"
               :title="translateActive
