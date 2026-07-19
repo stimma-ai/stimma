@@ -102,9 +102,7 @@
             @click="toggleVim"
             :class="[
               'text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-md transition-colors',
-              vimEnabled
-                ? 'text-content hover:bg-overlay-subtle'
-                : 'text-content-muted hover:text-content-secondary'
+              'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
             ]"
             :title="vimEnabled ? 'Switch to regular keybindings' : 'Switch to Vim keybindings'"
           >
@@ -116,9 +114,8 @@
             @click="toggleMonospace"
             :class="[
               'text-[10px] font-medium px-1.5 py-0.5 rounded-md transition-colors',
-              monospaceEnabled
-                ? 'text-content font-mono hover:bg-overlay-subtle'
-                : 'text-content-muted hover:text-content-secondary'
+              'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle',
+              monospaceEnabled ? 'font-mono' : ''
             ]"
             :title="monospaceEnabled ? 'Switch to proportional font' : 'Switch to monospace font'"
           >
