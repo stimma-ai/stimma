@@ -33,16 +33,16 @@
 
     <!-- Trash Header (only in trash mode) -->
     <div v-if="isTrashMode" class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
-      <div class="flex flex-col gap-1">
-        <h1 class="text-xl font-semibold leading-none text-content">Trash</h1>
-        <p class="text-sm text-content-tertiary">
+      <div class="flex items-baseline gap-3">
+        <h1 class="text-[16px] font-semibold leading-none text-content">Trash</h1>
+        <p class="text-xs font-mono tabular-nums text-content-tertiary">
           {{ trashHeaderSubtitle }}
         </p>
       </div>
       <div class="flex items-center gap-3">
         <button
           v-if="totalCount > 0"
-          class="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/15 px-2.5 py-1.5 text-sm text-red-500 transition-all hover:bg-red-500/25 hover:border-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-500/15 disabled:hover:border-red-500/30"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
           @click="confirmEmptyTrash"
           :disabled="isEmptyingTrash"
         >

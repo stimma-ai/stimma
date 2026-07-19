@@ -1,18 +1,30 @@
 <template>
   <div class="relative w-full h-full flex flex-col bg-base">
     <!-- View Modified Bar - above the grid -->
-    <div v-if="isModified && !slideshowActive" class="bg-amber-400/20 border-b border-amber-500/30 px-6 py-2 flex items-center justify-between gap-4 flex-shrink-0">
-      <span class="text-content-secondary text-sm whitespace-nowrap">Saved view "{{ savedViewName }}" modified</span>
-      <div class="flex items-center gap-2 flex-shrink-0">
-        <Button variant="secondary" size="sm" class="whitespace-nowrap" @click="restoreOriginal">
-          Restore
-        </Button>
-        <Button size="sm" class="whitespace-nowrap" @click="saveChanges">
-          Save
-        </Button>
-        <Button variant="secondary" size="sm" class="whitespace-nowrap" @click="showSaveAsModal = true">
-          Save As
-        </Button>
+    <!-- Modified bar = the RemixBanner grammar: a single hairline row, not a
+         filled banner. Amber dot carries the needs-attention signal; actions
+         are ghosts, Save reads accent. -->
+    <div v-if="isModified && !slideshowActive" class="border-b border-edge-subtle px-4 py-1.5 flex items-center justify-between gap-4 flex-shrink-0">
+      <span class="flex items-center gap-2 min-w-0 text-[13px] text-content-secondary">
+        <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+        <span class="truncate">Saved view "{{ savedViewName }}" modified</span>
+      </span>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-md text-xs text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors whitespace-nowrap"
+          @click="restoreOriginal"
+        >Restore</button>
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-md text-xs font-medium text-accent-hi hover:text-accent hover:bg-overlay-subtle transition-colors whitespace-nowrap"
+          @click="saveChanges"
+        >Save</button>
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-md text-xs text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors whitespace-nowrap"
+          @click="showSaveAsModal = true"
+        >Save As</button>
       </div>
     </div>
 
