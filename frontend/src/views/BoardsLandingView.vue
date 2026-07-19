@@ -78,7 +78,7 @@
         <p class="mb-2 text-content-muted">No boards match your search</p>
       </div>
 
-      <div v-else class="grid grid-cols-1 gap-6 pt-6 sm:grid-cols-2 xl:grid-cols-3">
+      <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6 pt-6">
         <button
           v-for="board in filteredBoards"
           :key="board.id"
@@ -89,7 +89,7 @@
           <!-- Contact-sheet cover: mini masonry on matte, 2px media-grid
                gutters, clipped by a fixed-height frame at radius-media.
                No card, no border — hover draws a hairline ring. -->
-          <div class="relative h-56 overflow-hidden rounded-media bg-matte transition-shadow group-hover:ring-1 group-hover:ring-edge">
+          <div class="relative aspect-[4/3] overflow-hidden rounded-media bg-matte transition-shadow group-hover:ring-1 group-hover:ring-edge">
             <div
               v-if="getBoardPreviewItems(board).length > 0"
               class="h-full overflow-hidden p-0.5"
