@@ -7,7 +7,7 @@
 
       <div class="flex items-center gap-3">
         <!-- Provider filter dropdown -->
-        <div v-if="availableProviders.length > 1" class="relative" ref="providerDropdownRef">
+        <div v-if="availableProviders.length > 1 || hasUnavailableTools" class="relative" ref="providerDropdownRef">
           <button
             @click="providerDropdownOpen = !providerDropdownOpen"
             class="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors"
@@ -45,6 +45,25 @@
               </svg>
               <span v-else class="w-4 flex-shrink-0"></span>
               <span :class="isStimmaCloudTool(provider) ? 'stimma-cloud-text font-medium' : ''">{{ toolProviderDisplayName(provider) }}</span>
+            </button>
+            <div class="border-t border-edge-subtle my-1"></div>
+            <button
+              @click="showUnavailable = !showUnavailable"
+              class="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors"
+              :class="showUnavailable ? 'text-blue-500' : 'text-content-secondary'"
+            >
+              <svg
+                v-if="showUnavailable"
+                class="w-4 h-4 flex-shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="2"
+                stroke="currentColor"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+              <span v-else class="w-4 flex-shrink-0"></span>
+              <span>Show unavailable</span>
             </button>
           </div>
         </div>
@@ -299,6 +318,10 @@ function getProviderFiltersKey() {
   return makeProfileKey('allTools', 'providerFilters')
 }
 
+function getShowUnavailableKey() {
+  return makeProfileKey('allTools', 'showUnavailable')
+}
+
 // State
 const providers = ref([])
 const tools = ref([])
@@ -314,6 +337,7 @@ watch(() => route.query.q, (q) => {
 
 const activeTaskFilters = ref(new Set())
 const activeProviderFilters = ref(new Set())
+const showUnavailable = ref(localStorage.getItem(getShowUnavailableKey()) === '1')
 const filtersInitialized = ref(false)
 
 // Persist state on changes. Wrapped in try/catch so a full localStorage quota
@@ -340,6 +364,10 @@ watch(activeProviderFilters, (val) => {
   safeSetItem(getProviderFiltersKey(), JSON.stringify([...val]))
 }, { deep: true })
 
+watch(showUnavailable, (val) => {
+  safeSetItem(getShowUnavailableKey(), val ? '1' : '0')
+})
+
 // Reload state when profile changes
 function handleProfileChanged() {
   searchQuery.value = localStorage.getItem(getSearchKey()) || ''
@@ -363,6 +391,7 @@ function handleProfileChanged() {
   } else {
     activeProviderFilters.value = new Set()
   }
+  showUnavailable.value = localStorage.getItem(getShowUnavailableKey()) === '1'
 }
 
 if (typeof window !== 'undefined') {
@@ -375,10 +404,17 @@ function formatTaskType(taskType) {
 }
 
 // Computed
+
+// Unavailable tools (e.g. cached cloud tools while signed out) are hidden
+// unless the user opts in via the providers menu.
+const visibleTools = computed(() => (
+  showUnavailable.value ? tools.value : tools.value.filter(t => t.availability === 'available')
+))
+
 const availableTaskTypes = computed(() => {
   // Count tools per task type (using all task_types, not just primary)
   const counts = {}
-  for (const tool of tools.value) {
+  for (const tool of visibleTools.value) {
     const taskTypes = tool.task_types?.length ? tool.task_types : (tool.task_type ? [tool.task_type] : [])
     if (taskTypes.length === 0) {
       // Tools without task types count as "utility"
@@ -397,11 +433,15 @@ const availableTaskTypes = computed(() => {
   })
 })
 
+const hasUnavailableTools = computed(() => (
+  tools.value.some(t => t.availability !== 'available')
+))
+
 const availableProviders = computed(() => {
   // Get unique providers from tools, with counts
   const providerCounts = {}
   const providerInfo = {}
-  for (const tool of tools.value) {
+  for (const tool of visibleTools.value) {
     providerCounts[tool.provider_id] = (providerCounts[tool.provider_id] || 0) + 1
     if (!providerInfo[tool.provider_id]) {
       providerInfo[tool.provider_id] = {
@@ -440,7 +480,7 @@ const providerFilterIsStimma = computed(() => (
 ))
 
 const filteredTools = computed(() => {
-  let result = [...tools.value]
+  let result = [...visibleTools.value]
 
   // Filter by task types (only if any are selected - empty means show all)
   // A tool matches if ANY of its task_types match the filter
