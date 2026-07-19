@@ -79,7 +79,7 @@
                 v-if="row.tab.projectName"
                 class="flex-shrink-0 text-[9px] text-content-tertiary bg-overlay-subtle rounded px-1 py-0.5 truncate max-w-[70px]"
               >{{ row.tab.projectName }}</span>
-              <span class="flex-shrink-0 rounded-full bg-blue-500/15 border border-blue-500/50 text-blue-400 px-1.5 py-0.5 text-[9px] font-semibold leading-none">Open</span>
+              <span class="flex-shrink-0 rounded-full bg-accent/15 text-accent-hi px-1.5 py-0.5 text-[9px] font-semibold leading-none">Open</span>
             </button>
             <div v-if="Object.keys(groupedTools).length > 0" class="border-t border-edge-subtle my-1"></div>
           </template>

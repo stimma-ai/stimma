@@ -48,7 +48,7 @@
               v-for="(s, i) in activeSteps"
               :key="s.id"
               class="w-[5px] h-[5px] rounded-full transition-colors"
-              :class="i === stepIndex ? 'bg-blue-500' : 'bg-overlay-strong'"
+              :class="i === stepIndex ? 'bg-accent-hi' : 'bg-overlay-strong'"
             />
           </div>
           <div class="flex items-center gap-1.5">
