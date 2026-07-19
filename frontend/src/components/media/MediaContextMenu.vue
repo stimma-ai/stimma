@@ -703,37 +703,21 @@
     </div>
     </Transition>
 
-    <div
-      v-if="showExplodeConfirm"
-      class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop p-4"
-      @click.self="closeExplodeConfirm"
+    <ConfirmDialog
+      :show="showExplodeConfirm"
+      :title="`Save ${explodeSummary?.asset_type === 'set' ? 'members' : 'cells'} as assets?`"
+      :confirm-label="explodingContainer ? 'Saving…' : 'Save as assets'"
+      :busy="explodingContainer"
+      @confirm="confirmExplode"
+      @cancel="closeExplodeConfirm"
     >
-      <div class="w-full max-w-md rounded-lg border border-edge-subtle bg-surface p-5 shadow-2xl">
-        <h3 class="mb-2 text-base font-semibold text-content">
-          Save {{ explodeSummary?.asset_type === 'set' ? 'members' : 'cells' }} as assets?
-        </h3>
-        <p class="mb-5 text-sm leading-relaxed text-content-secondary">
-          Create {{ explodeSummary?.to_create || 0 }} new
-          {{ explodeSummary?.to_create === 1 ? 'asset' : 'assets' }} from embedded
-          {{ explodeSummary?.asset_type === 'set' ? 'members' : 'cells' }}.
-          {{ (explodeSummary?.linked || 0) + (explodeSummary?.already_saved || 0) }} existing
-          {{ ((explodeSummary?.linked || 0) + (explodeSummary?.already_saved || 0)) === 1 ? 'asset will' : 'assets will' }} be reused.
-          When complete, this {{ explodeSummary?.asset_type || 'container' }} will move to Trash so the operation can be undone.
-        </p>
-        <div class="flex justify-end gap-2">
-          <button
-            class="rounded-md bg-surface-raised px-3 py-2 text-sm text-content-secondary hover:bg-surface-hover hover:text-content"
-            :disabled="explodingContainer"
-            @click="closeExplodeConfirm"
-          >Cancel</button>
-          <button
-            class="rounded-md bg-accent hover:bg-accent/90 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-            :disabled="explodingContainer"
-            @click="confirmExplode"
-          >{{ explodingContainer ? 'Saving…' : 'Save as assets' }}</button>
-        </div>
-      </div>
-    </div>
+      Create {{ explodeSummary?.to_create || 0 }} new
+      {{ explodeSummary?.to_create === 1 ? 'asset' : 'assets' }} from embedded
+      {{ explodeSummary?.asset_type === 'set' ? 'members' : 'cells' }}.
+      {{ (explodeSummary?.linked || 0) + (explodeSummary?.already_saved || 0) }} existing
+      {{ ((explodeSummary?.linked || 0) + (explodeSummary?.already_saved || 0)) === 1 ? 'asset will' : 'assets will' }} be reused.
+      When complete, this {{ explodeSummary?.asset_type || 'container' }} will move to Trash so the operation can be undone.
+    </ConfirmDialog>
 
     <!-- Tag Editor Modal -->
     <BulkTagEditor
@@ -779,6 +763,7 @@ import BulkTagEditor from '../BulkTagEditor.vue'
 import ProjectPickerSubmenu from '../ProjectPickerSubmenu.vue'
 import ExportModal from '../ExportModal.vue'
 import ShareDialog from '../ShareDialog.vue'
+import ConfirmDialog from '../ui/ConfirmDialog.vue'
 import TaskTypeToolList from '../TaskTypeToolList.vue'
 import ToolIcon from '../tools/ToolIcon.vue'
 import ToolProviderLabel from '../tools/ToolProviderLabel.vue'

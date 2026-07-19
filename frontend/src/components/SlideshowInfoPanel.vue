@@ -714,41 +714,35 @@
     </Teleport>
 
     <!-- External Metadata Modal -->
-    <Teleport to="body">
-      <div
-        v-if="showMetadataModal"
-        class="fixed inset-0 bg-overlay-strong flex items-center justify-center z-modal"
-        @click="showMetadataModal = false"
-      >
-        <div
-          class="relative bg-base rounded-lg border border-edge max-w-[80vw] max-h-[80vh] flex flex-col"
-          @click.stop
-        >
-          <!-- Header -->
-          <div class="flex items-center justify-between px-4 py-3 border-b border-edge">
-            <h3 class="text-sm font-semibold text-content m-0">External Metadata</h3>
-            <button
-              @click="showMetadataModal = false"
-              class="bg-transparent border-none text-content-tertiary cursor-pointer p-1 rounded hover:bg-surface hover:text-content"
-            >
-              <XMarkIcon class="w-5 h-5" />
-            </button>
-          </div>
-          <!-- Content -->
-          <div class="overflow-auto p-4 flex-1 min-h-0">
-            <pre
-              v-if="formatMetadataForDisplay(metadataModalContent).isJson"
-              class="text-sm text-content-secondary m-0 whitespace-pre font-mono json-highlighted select-text"
-              v-html="formatMetadataForDisplay(metadataModalContent).content"
-            ></pre>
-            <pre
-              v-else
-              class="text-sm text-content-tertiary m-0 whitespace-pre-wrap font-mono select-text"
-            >{{ metadataModalContent }}</pre>
-          </div>
+    <Modal
+      :show="showMetadataModal"
+      size="custom"
+      custom-class="max-w-[80vw] max-h-[80vh] flex flex-col"
+      @close="showMetadataModal = false"
+    >
+      <template #header>
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-content m-0">External metadata</h3>
+          <button
+            @click="showMetadataModal = false"
+            class="bg-transparent border-none text-content-tertiary cursor-pointer p-1 rounded hover:bg-surface hover:text-content"
+          >
+            <XMarkIcon class="w-5 h-5" />
+          </button>
         </div>
+      </template>
+      <div class="overflow-auto p-4 flex-1 min-h-0">
+        <pre
+          v-if="formatMetadataForDisplay(metadataModalContent).isJson"
+          class="text-sm text-content-secondary m-0 whitespace-pre font-mono json-highlighted select-text"
+          v-html="formatMetadataForDisplay(metadataModalContent).content"
+        ></pre>
+        <pre
+          v-else
+          class="text-sm text-content-tertiary m-0 whitespace-pre-wrap font-mono select-text"
+        >{{ metadataModalContent }}</pre>
       </div>
-    </Teleport>
+    </Modal>
 
   </div>
 </template>
@@ -772,6 +766,7 @@ import InspireMenu from './InspireMenu.vue'
 import { AppImage, MediaImage } from './media'
 import KeyValueList from './ui/KeyValueList.vue'
 import StatusDot from './ui/StatusDot.vue'
+import Modal from './ui/Modal.vue'
 import { captioningEnabledRef } from '../appConfig'
 import { getApiBase } from '../apiConfig'
 import { getCurrentProfileId } from '../composables/useProfile'

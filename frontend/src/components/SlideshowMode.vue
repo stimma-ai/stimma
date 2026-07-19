@@ -1097,22 +1097,26 @@
     </div>
 
     <!-- Project Picker Modal -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="showProjectPicker" class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop p-5" @click.self="closeProjectPicker">
-          <div class="flex max-h-[80vh] w-full max-w-[400px] flex-col rounded-lg border border-edge-subtle bg-surface shadow-2xl">
-            <div class="flex items-center justify-between border-b border-edge-subtle px-5 py-4">
-              <h2 class="text-lg font-semibold text-content">Projects</h2>
-              <button
-                class="rounded p-1 text-content-tertiary transition-colors hover:bg-overlay-light hover:text-content"
-                @click="closeProjectPicker"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
-                  <path d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div class="flex flex-col max-h-[420px]">
+    <Modal
+      :show="showProjectPicker"
+      size="custom"
+      custom-class="max-h-[80vh] w-full max-w-[400px] flex flex-col"
+      @close="closeProjectPicker"
+    >
+      <template #header>
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-content">Projects</h2>
+          <button
+            class="rounded p-1 text-content-tertiary transition-colors hover:bg-overlay-light hover:text-content"
+            @click="closeProjectPicker"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+              <path d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </template>
+      <div class="flex flex-col max-h-[420px]">
               <!-- Search -->
               <div class="px-4 py-3 border-b border-edge-subtle flex-shrink-0">
                 <input
@@ -1141,11 +1145,8 @@
                   <span class="text-xs text-content" :class="project.name ? '' : 'italic text-content-muted'">{{ project.name || 'Untitled' }}</span>
                 </label>
               </div>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+      </div>
+    </Modal>
 
     <!-- Board Picker Modal -->
     <BoardPicker
@@ -1202,6 +1203,7 @@ import {
   PauseIcon
 } from '@heroicons/vue/24/solid'
 import BoardPicker from './BoardPicker.vue'
+import Modal from './ui/Modal.vue'
 import ExportModal from './ExportModal.vue'
 import ShareDialog from './ShareDialog.vue'
 import HorizontalVirtualScroller from './HorizontalVirtualScroller.vue'

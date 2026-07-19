@@ -660,48 +660,38 @@
     />
 
     <!-- Custom Date Picker Modal -->
-    <div v-if="showDatePickerModal" class="fixed inset-0 bg-overlay-backdrop flex items-center justify-center z-modal" @click.self="showDatePickerModal = false">
-      <div class="bg-surface border border-edge rounded-lg p-6 w-96 max-w-[90vw] shadow-2xl" @click.stop>
-        <h3 class="text-lg font-semibold text-content mb-4">Custom Date Range</h3>
+    <Modal :show="showDatePickerModal" size="sm" @close="showDatePickerModal = false">
+      <template #header>
+        <h3 class="text-lg font-semibold text-content">Custom date range</h3>
+      </template>
 
-        <div class="flex flex-col gap-4">
-          <div>
-            <label class="block text-sm text-content-tertiary mb-2">From (optional)</label>
-            <input v-no-autocorrect
-              type="date"
-              v-model="customAfterDate"
-              @keyup.enter="applyCustomDateRange"
-              class="w-full bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm text-content-tertiary mb-2">To (optional)</label>
-            <input v-no-autocorrect
-              type="date"
-              v-model="customBeforeDate"
-              @keyup.enter="applyCustomDateRange"
-              class="w-full bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
-            />
-          </div>
+      <div class="px-6 py-5 flex flex-col gap-4">
+        <div>
+          <label class="block text-sm text-content-tertiary mb-2">From (optional)</label>
+          <input v-no-autocorrect
+            type="date"
+            v-model="customAfterDate"
+            @keyup.enter="applyCustomDateRange"
+            class="w-full bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
+          />
         </div>
 
-        <div class="flex gap-3 mt-6">
-          <button
-            @click="applyCustomDateRange"
-            class="flex-1 bg-accent text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all hover:bg-accent/90"
-          >
-            Apply
-          </button>
-          <button
-            @click="showDatePickerModal = false"
-            class="flex-1 bg-surface-raised hover:bg-surface-hover text-content-secondary px-4 py-2 rounded-md text-sm cursor-pointer transition-all"
-          >
-            Cancel
-          </button>
+        <div>
+          <label class="block text-sm text-content-tertiary mb-2">To (optional)</label>
+          <input v-no-autocorrect
+            type="date"
+            v-model="customBeforeDate"
+            @keyup.enter="applyCustomDateRange"
+            class="w-full bg-overlay-subtle border border-transparent text-content px-3 py-2 rounded-md text-sm focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 date-input"
+          />
         </div>
       </div>
-    </div>
+
+      <template #footer>
+        <Button variant="secondary" @click="showDatePickerModal = false">Cancel</Button>
+        <Button variant="primary" @click="applyCustomDateRange">Apply</Button>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -723,6 +713,8 @@ const { track: trackTelemetry } = useTelemetry()
 import KeywordModal from './KeywordModal.vue'
 import SettingsDropdown from './ui/SettingsDropdown.vue'
 import ToolModal from './ToolModal.vue'
+import Modal from './ui/Modal.vue'
+import Button from './ui/Button.vue'
 
 const props = defineProps({
   captionQuery: String,

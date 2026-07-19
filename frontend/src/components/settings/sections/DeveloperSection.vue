@@ -115,11 +115,16 @@
     />
 
     <!-- Request Metrics Modal -->
-    <div v-if="showRequestMetricsModal" class="fixed inset-0 z-modal bg-overlay-backdrop backdrop-blur-sm p-4 flex flex-col" @click.self="closeRequestMetricsModal">
-      <div class="w-full h-full bg-surface border border-edge rounded-lg shadow-2xl flex flex-col overflow-hidden">
-        <div class="px-5 py-4 border-b border-edge flex items-center justify-between">
+    <Modal
+      :show="showRequestMetricsModal"
+      size="custom"
+      custom-class="w-full h-[calc(100vh-2rem)] flex flex-col overflow-hidden"
+      @close="closeRequestMetricsModal"
+    >
+      <template #header>
+        <div class="flex items-center justify-between">
           <div>
-            <h3 class="text-[16px] font-semibold text-content">Request Latency Metrics</h3>
+            <h3 class="text-lg font-semibold text-content">Request latency metrics</h3>
             <p class="text-xs text-content-tertiary mt-0.5">
               {{ metricsSummary }}
             </p>
@@ -133,8 +138,9 @@
             </svg>
           </button>
         </div>
+      </template>
 
-        <div class="px-5 py-3 border-b border-edge flex flex-wrap items-center gap-2">
+      <div class="px-5 py-3 border-b border-edge flex flex-wrap items-center gap-2">
           <input
             v-model="metricsSearch"
             type="text"
@@ -236,8 +242,7 @@
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+    </Modal>
   </div>
 </template>
 
@@ -254,6 +259,7 @@ import { isTauri } from '../../../apiConfig'
 import DatabaseCleanupModal from '../DatabaseCleanupModal.vue'
 import SettingRow from '../SettingRow.vue'
 import Button from '../../ui/Button.vue'
+import Modal from '../../ui/Modal.vue'
 
 const props = defineProps({
   developerMode: {

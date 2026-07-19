@@ -15,40 +15,32 @@
       @unapprove="onSlideshowUnapprove"
     />
 
-    <div
-      v-if="showCodeIntroModal"
-      class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop px-4"
-      @click.self="dismissCodeIntro"
-    >
-      <div class="w-full max-w-md rounded-lg border border-edge bg-surface shadow-2xl">
-        <div class="px-5 py-4 border-b border-edge-subtle flex items-center gap-3">
+    <Modal :show="showCodeIntroModal" size="md" @close="dismissCodeIntro">
+      <template #header>
+        <div class="flex items-center gap-3">
           <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent/15 border border-accent/50">
             <BoltIcon class="h-5 w-5 text-accent" />
           </div>
           <div class="min-w-0">
-            <h2 class="text-sm font-semibold text-content">You can skip the code</h2>
+            <h2 class="text-lg font-semibold text-content">You can skip the code</h2>
             <p class="mt-0.5 text-xs text-content-muted">Most flow work happens in Steps and Workflow.</p>
           </div>
         </div>
-        <div class="px-5 py-4 text-sm leading-relaxed text-content-secondary space-y-3">
-          <p>
-            Use the Steps and Workflow tabs to build, run, and adjust your flow. That is the friendly way to work with flows.
-          </p>
-          <p>
-            The Code tab is just here in case you ever want to peek behind the scenes or make an advanced edit. You do not need to read it or understand it to use Stimma.
-          </p>
-        </div>
-        <div class="px-5 py-3 border-t border-edge-subtle flex justify-end">
-          <button
-            type="button"
-            class="rounded bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90"
-            @click="dismissCodeIntro"
-          >
-            Got it
-          </button>
-        </div>
+      </template>
+
+      <div class="px-6 py-5 text-sm leading-relaxed text-content-secondary space-y-3">
+        <p>
+          Use the Steps and Workflow tabs to build, run, and adjust your flow. That is the friendly way to work with flows.
+        </p>
+        <p>
+          The Code tab is just here in case you ever want to peek behind the scenes or make an advanced edit. You do not need to read it or understand it to use Stimma.
+        </p>
       </div>
-    </div>
+
+      <template #footer>
+        <Button variant="primary" @click="dismissCodeIntro">Got it</Button>
+      </template>
+    </Modal>
 
     <!-- Control strip -->
     <div class="relative flex items-center px-4 py-2 border-b border-edge-subtle flex-shrink-0 gap-3">
@@ -801,6 +793,8 @@ import { makeStorageKey } from '../utils/storageKeys'
 import { parseFlowError } from '../utils/flowErrors'
 import { bgClass, textClass } from '../utils/statusColors'
 import { BoltIcon } from '@heroicons/vue/24/solid'
+import Modal from '../components/ui/Modal.vue'
+import Button from '../components/ui/Button.vue'
 
 const props = defineProps<{ id?: string | number }>()
 const route = useRoute()
