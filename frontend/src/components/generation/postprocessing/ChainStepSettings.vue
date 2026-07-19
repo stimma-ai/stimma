@@ -5,12 +5,14 @@
       This tool is not available right now. Its saved settings are kept and will apply when it returns.
     </div>
     <div v-else-if="!stepTool" class="text-xs text-content-muted py-1">Loading tool schema…</div>
-    <template v-else>
+    <!-- Tall blocks (prompt, pickers) separate by whitespace; only the run of
+         single-line value rows below keeps per-row hairlines (§1.3b budget). -->
+    <div v-else>
       <!-- Prompt (img2img refine steps care about it) — the full AIPromptEditor,
            including its inline sparkle chat (no page-level chat dock exists in
            the step config panel, so external-chat stays off). -->
-      <div v-if="hasPrompt" class="px-1 py-2">
-        <div class="text-[13px] text-content mb-2">Prompt</div>
+      <div v-if="hasPrompt" class="px-0 py-1.5">
+        <div class="text-[13px] text-content-secondary mb-1.5">Prompt</div>
         <AIPromptEditor
           :model-value="step.settings.prompt ?? ''"
           @update:model-value="updateSetting('prompt', $event)"
@@ -36,9 +38,9 @@
            locking ToolView has. The step's input image only exists at run
            time, so the executor resolves "Use image size" / "Maintain area"
            against the actual input; "Maintain current size" pins the dims. -->
-      <div v-if="hasWidthHeight" class="flex items-center justify-between gap-4 px-1 py-2">
+      <div v-if="hasWidthHeight" class="flex items-center justify-between gap-4 px-0 py-1.5">
         <div class="min-w-0">
-          <div class="text-[13px] text-content">Resolution</div>
+          <div class="text-[13px] text-content-secondary">Resolution</div>
           <div class="text-xs text-content-muted">{{ resolutionHint }}</div>
         </div>
         <div class="flex-shrink-0">
@@ -57,10 +59,12 @@
            ToolView; rendered as simple rows here). Unset aspect_ratio means
            "match the input image" — the executor picks the nearest choice at
            run time; choosing a ratio pins it. -->
-      <div v-if="hasAspectRatio && aspectRatioChoices.length" class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-[13px] text-content">Aspect Ratio</div>
+      <div class="divide-y divide-edge-subtle">
+      <div v-if="hasAspectRatio && aspectRatioChoices.length" class="flex items-center justify-between gap-4 px-0 py-1.5">
+        <div class="text-[13px] text-content-secondary">Aspect Ratio</div>
         <div class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
+            quiet
             :model-value="String(step.settings.aspect_ratio ?? MATCH_INPUT)"
             @update:model-value="updateSetting('aspect_ratio', $event === MATCH_INPUT ? undefined : $event)"
             :options="[
@@ -70,18 +74,19 @@
           />
         </div>
       </div>
-      <div v-if="imageSizeChoices.length" class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-[13px] text-content">Image Size</div>
+      <div v-if="imageSizeChoices.length" class="flex items-center justify-between gap-4 px-0 py-1.5">
+        <div class="text-[13px] text-content-secondary">Image Size</div>
         <div class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
+            quiet
             :model-value="String(step.settings.image_size ?? schemaDefault('image_size') ?? imageSizeChoices[0])"
             @update:model-value="updateSetting('image_size', $event)"
             :options="imageSizeChoices.map((v: string) => ({ value: v, label: v }))"
           />
         </div>
       </div>
-      <div v-if="hasMegapixels" class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-[13px] text-content">Megapixels</div>
+      <div v-if="hasMegapixels" class="flex items-center justify-between gap-4 px-0 py-1.5">
+        <div class="text-[13px] text-content-secondary">Megapixels</div>
         <ScrubValue
           :model-value="Number(step.settings.megapixels ?? schemaDefault('megapixels') ?? 1)"
           @update:model-value="updateSetting('megapixels', $event)"
@@ -94,10 +99,11 @@
       <!-- Duration / FPS (dedicated controls in ToolView; simple rows here).
            Unset values display videoParamDefaults — the same prefill ToolView
            applies — so the panel shows exactly what the step will run with. -->
-      <div v-if="hasDuration" class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-[13px] text-content">Duration</div>
+      <div v-if="hasDuration" class="flex items-center justify-between gap-4 px-0 py-1.5">
+        <div class="text-[13px] text-content-secondary">Duration</div>
         <div v-if="allowedDurations" class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
+            quiet
             :model-value="String(step.settings.duration ?? videoParamDefaults.duration)"
             @update:model-value="updateSetting('duration', Number($event))"
             :options="allowedDurations.map((d: number) => ({ value: String(d), label: `${d}s` }))"
@@ -113,15 +119,17 @@
           :format="(v: number) => v.toFixed(1) + 's'"
         />
       </div>
-      <div v-if="hasFps" class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-[13px] text-content">FPS</div>
+      <div v-if="hasFps" class="flex items-center justify-between gap-4 px-0 py-1.5">
+        <div class="text-[13px] text-content-secondary">FPS</div>
         <div class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
+            quiet
             :model-value="String(step.settings.fps ?? videoParamDefaults.fps ?? fpsOptions[0])"
             @update:model-value="updateSetting('fps', Number($event))"
             :options="fpsOptions.map((fps: number) => ({ value: String(fps), label: `${fps} fps` }))"
           />
         </div>
+      </div>
       </div>
 
       <SchemaParamGroup
@@ -133,17 +141,18 @@
       <div v-if="!groupedGenericParams.length && !hasPrompt && !showUpscalePicker && !hasWidthHeight && !hasAspectRatio && !hasMegapixels && !hasDuration && !hasFps" class="text-xs text-content-muted py-1">
         This tool has no tunable settings.
       </div>
-    </template>
+    </div>
   </div>
 
   <!-- Built-in filter step: the small fixed control set from the shared defs -->
   <div v-else class="divide-y divide-edge-subtle">
     <template v-for="param in filterParams" :key="param.name">
       <!-- Enum -->
-      <div v-if="param.type === 'enum'" class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-[13px] text-content">{{ param.label }}</div>
+      <div v-if="param.type === 'enum'" class="flex items-center justify-between gap-4 px-0 py-1.5">
+        <div class="text-[13px] text-content-secondary">{{ param.label }}</div>
         <div class="min-w-0 max-w-[55%] flex-shrink-0">
           <SettingsDropdown
+            quiet
             :model-value="String(step.settings[param.name] ?? param.default)"
             @update:model-value="updateSetting(param.name, $event)"
             :options="param.options || []"
@@ -151,8 +160,8 @@
         </div>
       </div>
       <!-- Number slider -->
-      <div v-else class="flex items-center justify-between gap-4 px-1 py-2">
-        <div class="text-[13px] text-content">{{ param.label }}</div>
+      <div v-else class="flex items-center justify-between gap-4 px-0 py-1.5">
+        <div class="text-[13px] text-content-secondary">{{ param.label }}</div>
         <ScrubValue
           :model-value="Number(step.settings[param.name] ?? param.default)"
           @update:model-value="updateSetting(param.name, $event)"

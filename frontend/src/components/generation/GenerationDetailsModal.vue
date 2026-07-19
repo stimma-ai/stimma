@@ -93,30 +93,31 @@
             <div class="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
               <section class="space-y-3">
                 <slot name="preview">
-                  <div class="overflow-hidden rounded-lg border border-edge-subtle bg-overlay-faint">
+                  <!-- Media on matte, radius-media, no chrome borders (§3.3 hero rules) -->
+                  <div class="overflow-hidden rounded-media bg-matte">
                     <div
                       v-if="previewMediaIds && previewMediaIds.length"
-                      class="grid gap-2 p-3"
+                      class="grid gap-0.5 p-2"
                       :class="previewMediaIds.length === 1 ? 'grid-cols-1' : 'grid-cols-2'"
                     >
                       <div
                         v-for="mid in previewMediaIds"
                         :key="mid"
-                        class="overflow-hidden rounded-lg border border-edge-subtle bg-overlay-subtle"
+                        class="overflow-hidden rounded-media"
                       >
                         <MediaImage
                           :media-id="mid"
                           :thumbnail="true"
                           :thumbnail-size="512"
                           :contain="true"
-                          container-class="aspect-square w-full bg-overlay-subtle"
+                          container-class="aspect-square w-full"
                         />
                       </div>
                     </div>
                     <div
                       v-else
                       class="flex aspect-square items-center justify-center px-6 text-center"
-                      :class="previewPlaceholder?.class || 'bg-overlay-faint text-content-muted'"
+                      :class="previewPlaceholder?.class || 'text-content-muted'"
                     >
                       <div>
                         <div class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-overlay-subtle">
@@ -135,69 +136,47 @@
               </section>
 
               <section class="space-y-4">
-                <div class="rounded-lg border border-edge-subtle bg-base">
-                  <div class="border-b border-edge-subtle px-4 py-3">
-                    <div class="text-[13px] font-semibold text-content">Summary</div>
-                  </div>
-                  <div class="px-4 py-3">
-                    <div class="grid grid-cols-2 gap-2 text-xs">
-                      <div class="bg-overlay-subtle p-2 rounded">
-                        <div class="text-content-tertiary mb-0.5">Status</div>
-                        <div class="font-medium" :class="statusTextClass">{{ statusText || 'Unknown' }}</div>
-                      </div>
-                      <div v-if="durationLabel" class="bg-overlay-subtle p-2 rounded">
-                        <div class="text-content-tertiary mb-0.5">Generation time</div>
-                        <div class="text-content">{{ durationLabel }}</div>
-                      </div>
-                      <div class="bg-overlay-subtle p-2 rounded">
-                        <div class="text-content-tertiary mb-0.5">Tool</div>
-                        <div class="text-content">{{ toolTitle || 'Not recorded' }}</div>
-                      </div>
-                      <div v-if="providerLabel" class="bg-overlay-subtle p-2 rounded">
-                        <div class="text-content-tertiary mb-0.5">Provider</div>
-                        <div :class="providerIsStimmaCloud ? 'stimma-cloud-text font-medium' : 'text-content'">{{ providerLabel }}</div>
-                      </div>
-                    </div>
-                  </div>
+                <!-- Summary: micro-label + KeyValueList facts — no card, no
+                     field tiles (read-only facts never look like inputs). -->
+                <div>
+                  <div class="text-xs font-semibold text-content-secondary mb-1">Summary</div>
+                  <KeyValueList :rows="summaryRows" />
                 </div>
 
-                <div class="rounded-lg border border-edge-subtle bg-base">
-                  <div class="border-b border-edge-subtle px-4 py-3">
-                    <div class="text-[13px] font-semibold text-content">Inputs</div>
+                <div>
+                  <div class="text-xs font-semibold text-content-secondary mb-1">Inputs</div>
+                  <div v-if="loadingInputs" class="text-[12px] italic text-content-muted py-1.5">Loading inputs…</div>
+                  <div
+                    v-else-if="(prominentInputs?.length ?? 0) === 0 && (compactInputs?.length ?? 0) === 0"
+                    class="text-[12px] text-content-muted py-1.5"
+                  >
+                    No recorded inputs for this generation.
                   </div>
-                  <div class="px-4 py-3">
-                    <div v-if="loadingInputs" class="text-[12px] italic text-content-muted">Loading inputs…</div>
+                  <template v-else>
+                    <!-- Prose inputs (prompt…): quiet block, whitespace-separated -->
                     <div
-                      v-else-if="(prominentInputs?.length ?? 0) === 0 && (compactInputs?.length ?? 0) === 0"
-                      class="text-[12px] text-content-muted"
+                      v-for="entry in (prominentInputs || [])"
+                      :key="entry.key"
+                      class="py-1.5"
                     >
-                      No recorded inputs for this generation.
-                    </div>
-                    <div v-else class="space-y-3">
-                      <div
-                        v-for="entry in (prominentInputs || [])"
-                        :key="entry.key"
-                        class="bg-overlay-subtle p-2 rounded"
-                      >
-                        <div class="flex items-center justify-between mb-1">
-                          <span class="text-content-tertiary text-xs">{{ entry.label }}</span>
-                          <button
-                            @click="copyValue(entry.value)"
-                            class="bg-transparent border-none text-content-tertiary cursor-pointer p-0.5 rounded hover:bg-overlay-light hover:text-content"
-                            title="Copy to clipboard"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
-                              <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12A1.5 1.5 0 0117 6.622V12.5a1.5 1.5 0 01-1.5 1.5h-1v-3.379a3 3 0 00-.879-2.121L10.5 5.379A3 3 0 008.379 4.5H7v-1z" />
-                              <path d="M4.5 6A1.5 1.5 0 003 7.5v9A1.5 1.5 0 004.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L9.44 6.439A1.5 1.5 0 008.378 6H4.5z" />
-                            </svg>
-                          </button>
-                        </div>
-                        <p class="m-0 whitespace-pre-wrap break-words text-content-secondary text-xs leading-relaxed">{{ entry.value }}</p>
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-content-tertiary">{{ entry.label }}</span>
+                        <button
+                          @click="copyValue(entry.value)"
+                          class="bg-transparent border-none text-content-tertiary cursor-pointer p-0.5 rounded hover:bg-overlay-subtle hover:text-content"
+                          title="Copy to clipboard"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
+                            <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12A1.5 1.5 0 0117 6.622V12.5a1.5 1.5 0 01-1.5 1.5h-1v-3.379a3 3 0 00-.879-2.121L10.5 5.379A3 3 0 008.379 4.5H7v-1z" />
+                            <path d="M4.5 6A1.5 1.5 0 003 7.5v9A1.5 1.5 0 004.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L9.44 6.439A1.5 1.5 0 008.378 6H4.5z" />
+                          </svg>
+                        </button>
                       </div>
-
-                      <KeyValueList v-if="(compactInputs?.length ?? 0) > 0" :rows="compactInputRows" />
+                      <p class="m-0 whitespace-pre-wrap break-words text-content-secondary text-xs leading-relaxed select-text">{{ entry.value }}</p>
                     </div>
-                  </div>
+
+                    <KeyValueList v-if="(compactInputs?.length ?? 0) > 0" :rows="compactInputRows" />
+                  </template>
                 </div>
 
                 <div
@@ -369,6 +348,23 @@ const emit = defineEmits<{
 }>()
 
 const defaultPlaceholderIconPath = 'M3.375 3.375h17.25v17.25H3.375V3.375Zm3.375 11.25 3-3 2.25 2.25 4.5-4.5 2.25 2.25'
+
+const summaryRows = computed<KeyValueRow[]>(() => {
+  const rows: KeyValueRow[] = [
+    { label: 'Status', value: props.statusText || 'Unknown', mono: false, valueClass: props.statusTextClass || undefined },
+  ]
+  if (props.durationLabel) rows.push({ label: 'Generation time', value: props.durationLabel })
+  rows.push({ label: 'Tool', value: props.toolTitle || 'Not recorded', mono: false })
+  if (props.providerLabel) {
+    rows.push({
+      label: 'Provider',
+      value: props.providerLabel,
+      mono: false,
+      valueClass: props.providerIsStimmaCloud ? 'stimma-cloud-text font-medium' : undefined,
+    })
+  }
+  return rows
+})
 
 const compactInputRows = computed<KeyValueRow[]>(() => (props.compactInputs || []).map(entry => ({
   label: entry.label,

@@ -22,7 +22,7 @@
       :items="allItems"
       :item-size="itemHeight"
       :buffer="bufferSize"
-      class="flex-1 min-w-0 overflow-y-scroll overflow-x-hidden media-grid-container custom-scrollbar pt-2 bg-matte"
+      class="flex-1 min-w-0 overflow-y-scroll overflow-x-hidden media-grid-container custom-scrollbar pt-[2px] bg-matte"
       @scroll="handleScroll"
       @contextmenu.prevent="handleContainerContextMenu"
       key-field="id"

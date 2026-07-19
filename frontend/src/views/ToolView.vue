@@ -85,9 +85,8 @@
            so the toggle tweens. The border fades color, not presence. The
            transition is suppressed during seam drag so the resize stays 1:1. -->
       <div
-        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r transition-[width,border-color] duration-300 ease-out"
+        class="flex flex-col min-h-0 min-w-0 order-1 flex-none border-r border-transparent transition-[width,border-color] duration-300 ease-out"
         :class="[
-          layoutMode === 'stage' ? 'border-transparent' : 'border-surface',
           stageResizing ? '!transition-none' : ''
         ]"
         :style="{ width: layoutMode === 'stage' ? stageControlsWidth + 'px' : '66.6667%' }"
@@ -645,7 +644,8 @@
            Stays mounted across the toggle so the matte/image tween smoothly. -->
       <div
         v-if="jobsManager"
-        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden pt-[21px] px-[9px] pb-2"
+        class="order-3 flex-1 min-w-0 flex flex-col min-h-0 relative bg-matte overflow-hidden"
+        :class="layoutMode === 'stage' ? 'pt-[21px] px-[9px] pb-2' : 'p-0'"
       >
         <!-- Empty state -->
         <div v-if="!stageCurrentJob" class="flex-1 self-center flex flex-col items-center justify-center gap-3 text-content-muted">
@@ -790,7 +790,7 @@
         v-if="jobsManager"
         class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out"
         :class="[
-          layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent p-4',
+          layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent p-3',
           stageResizing ? '!transition-none' : ''
         ]"
         :style="{ width: layoutMode === 'stage' ? '160px' : '33.3333%' }"

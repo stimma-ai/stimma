@@ -3,8 +3,10 @@
     <!-- Skip the whole section if hidden_when is active -->
     <template v-if="!isSectionHidden(paramGroup.hiddenWhen, values)">
     <div :class="flat ? 'mb-3 last:mb-0' : 'mb-6 last:mb-0'">
-      <!-- Group header - collapsible if paramGroup.collapsible is true -->
-      <div v-if="paramGroup.label" class="mb-1">
+      <!-- Group header - collapsible if paramGroup.collapsible is true.
+           pt-2 keeps it off the preceding row's hairline when this group sits
+           inside a divide-y host (e.g. chain step settings). -->
+      <div v-if="paramGroup.label" class="pt-2 mb-1">
         <button
           v-if="paramGroup.collapsible && !disableCollapse"
           @click="toggleCollapsed(paramGroup.group)"

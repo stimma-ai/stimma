@@ -66,7 +66,11 @@
     </div>
 
     <!-- Expanded settings: the wash-inset disclosure -->
-    <div v-if="expanded" class="bg-overlay-faint rounded-md mb-2 px-3 py-2">
+    <!-- Expanded settings: §3.1 rail grammar — indent under the row with a
+         2px rail aligned to the enable dot. No wash card: a filled box inside
+         the hairline-separated list is a second boundary system (depth budget:
+         hairlines + whitespace inside a container, never another box). -->
+    <div v-if="expanded" class="ml-[5px] border-l-2 border-edge-subtle pl-3 mb-2">
       <slot name="settings"></slot>
     </div>
   </div>

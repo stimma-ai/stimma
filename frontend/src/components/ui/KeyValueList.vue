@@ -8,7 +8,8 @@
       <span class="text-xs text-content-tertiary flex-shrink-0">{{ row.label }}</span>
       <span
         :class="[
-          'text-xs text-content text-right min-w-0 select-text',
+          'text-xs text-right min-w-0 select-text',
+          row.valueClass || 'text-content',
           row.mono !== false ? 'font-mono tabular-nums' : '',
           row.truncate ? 'truncate' : 'break-words',
         ]"
@@ -31,6 +32,8 @@ export interface KeyValueRow {
   mono?: boolean
   /** single-line ellipsis with full value in the title tooltip */
   truncate?: boolean
+  /** semantic value color override (status green, cloud gradient…); replaces text-content */
+  valueClass?: string
 }
 
 defineProps<{ rows: KeyValueRow[] }>()

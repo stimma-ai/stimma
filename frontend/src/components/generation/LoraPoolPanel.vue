@@ -4,11 +4,10 @@
     <div class="flex items-center gap-2 pb-1 mb-1.5">
       <span class="text-xs font-semibold text-content-secondary">LoRAs</span>
       <button
-        v-if="hasAnyItems"
+        v-if="enabledCount > 0"
         @click="disableAll"
         type="button"
-        :disabled="enabledCount === 0"
-        :class="['text-[10px] rounded-full px-2 py-0.5 transition-colors', enabledCount === 0 ? 'text-content-muted/40 bg-overlay-faint cursor-default' : 'text-content-tertiary bg-overlay-subtle hover:text-content hover:bg-overlay-light']"
+        class="text-[10px] rounded-full px-2 py-0.5 text-content-tertiary bg-overlay-subtle hover:text-content hover:bg-overlay-light transition-colors"
         title="Disable all LoRAs (keeps the list)"
       >Clear all</button>
       <div class="ml-auto flex items-center gap-0.5">
