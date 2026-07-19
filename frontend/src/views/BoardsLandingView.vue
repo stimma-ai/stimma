@@ -78,29 +78,32 @@
         <p class="mb-2 text-content-muted">No boards match your search</p>
       </div>
 
-      <div v-else class="grid grid-cols-1 gap-5 pt-6 sm:grid-cols-2 xl:grid-cols-3">
+      <div v-else class="grid grid-cols-1 gap-6 pt-6 sm:grid-cols-2 xl:grid-cols-3">
         <button
           v-for="board in filteredBoards"
           :key="board.id"
-          class="group overflow-hidden rounded-lg border border-edge-subtle bg-transparent text-left transition-colors hover:bg-overlay-faint"
+          class="group text-left"
           @click="openBoard(board.id)"
           @contextmenu="handleBoardContextMenu($event, board)"
         >
-          <div class="relative h-56 overflow-hidden border-b border-edge-subtle bg-overlay-faint">
+          <!-- Contact-sheet cover: mini masonry on matte, 2px media-grid
+               gutters, clipped by a fixed-height frame at radius-media.
+               No card, no border — hover draws a hairline ring. -->
+          <div class="relative h-56 overflow-hidden rounded-media bg-matte transition-shadow group-hover:ring-1 group-hover:ring-edge">
             <div
               v-if="getBoardPreviewItems(board).length > 0"
-              class="h-full overflow-hidden px-3 py-3"
+              class="h-full overflow-hidden p-0.5"
             >
-              <div class="flex h-full items-start gap-2">
+              <div class="flex h-full items-start gap-0.5">
                 <div
                   v-for="(column, columnIndex) in getBoardPreviewColumns(board)"
                   :key="`${board.id}-column-${columnIndex}`"
-                  class="flex min-w-0 flex-1 flex-col gap-2"
+                  class="flex min-w-0 flex-1 flex-col gap-0.5"
                 >
                   <div
                     v-for="(item, index) in column"
                     :key="`${board.id}-${columnIndex}-${item.id}-${index}`"
-                    class="overflow-hidden rounded-media bg-overlay-faint"
+                    class="overflow-hidden bg-overlay-faint"
                     :style="getPreviewTileStyle(item)"
                   >
                     <MediaImage
@@ -121,26 +124,21 @@
               </div>
             </div>
             <div v-else class="flex h-full items-center justify-center">
-              <div class="flex h-14 w-14 items-center justify-center rounded-lg bg-overlay-subtle text-content-muted">
-                <svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M3.75 3A1.75 1.75 0 002 4.75v3.5C2 9.216 2.784 10 3.75 10h3.5C8.216 10 9 9.216 9 8.25v-3.5C9 3.784 8.216 3 7.25 3h-3.5zM3.75 11A1.75 1.75 0 002 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 009 16.25v-3.5A1.75 1.75 0 007.25 11h-3.5zM11 4.75A1.75 1.75 0 0112.75 3h3.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0116.25 10h-3.5A1.75 1.75 0 0111 8.25v-3.5zM12.75 11A1.75 1.75 0 0011 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 0018 16.25v-3.5A1.75 1.75 0 0016.25 11h-3.5z" />
-                </svg>
-              </div>
+              <svg class="h-6 w-6 text-content-muted" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M3.75 3A1.75 1.75 0 002 4.75v3.5C2 9.216 2.784 10 3.75 10h3.5C8.216 10 9 9.216 9 8.25v-3.5C9 3.784 8.216 3 7.25 3h-3.5zM3.75 11A1.75 1.75 0 002 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 009 16.25v-3.5A1.75 1.75 0 007.25 11h-3.5zM11 4.75A1.75 1.75 0 0112.75 3h3.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0116.25 10h-3.5A1.75 1.75 0 0111 8.25v-3.5zM12.75 11A1.75 1.75 0 0011 12.75v3.5c0 .966.784 1.75 1.75 1.75h3.5A1.75 1.75 0 0018 16.25v-3.5A1.75 1.75 0 0016.25 11h-3.5z" />
+              </svg>
             </div>
           </div>
 
-          <div class="p-5">
-            <div class="flex items-center gap-3">
-              <h2
-                class="min-w-0 flex-1 truncate text-sm font-medium"
-                :class="board.name ? 'text-content' : 'italic text-content-muted'"
-              >
-                {{ board.name || 'Name this board...' }}
-              </h2>
-            </div>
-            <p class="mt-0.5 text-xs text-content-tertiary truncate">
-              <span class="font-mono tabular-nums">{{ board.asset_count || 0 }}</span> {{ (board.asset_count || 0) === 1 ? 'item' : 'items' }}<span v-if="board.updated_at"> &bull; Updated {{ formatRelativeTime(board.updated_at) }}</span>
-            </p>
+          <!-- Print-label caption: name left, mono facts right, one baseline -->
+          <div class="flex items-baseline gap-2.5 px-0.5 pt-2">
+            <h2
+              class="min-w-0 flex-1 truncate text-[13px] font-medium"
+              :class="board.name ? 'text-content' : 'italic font-normal text-content-muted'"
+            >
+              {{ board.name || 'Name this board...' }}
+            </h2>
+            <p class="flex-none whitespace-nowrap font-mono text-[11px] tabular-nums text-content-tertiary">{{ board.asset_count || 0 }}<span v-if="board.updated_at"> · {{ formatRelativeTime(board.updated_at) }}</span></p>
           </div>
         </button>
       </div>
