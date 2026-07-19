@@ -2,17 +2,17 @@
   <div>
     <!-- Wildcards -->
     <div class="mb-3">
-      <h3 class="text-base font-medium text-content">Wildcards</h3>
+      <h3 class="text-xs font-semibold text-content-secondary">Wildcards</h3>
       <p class="mt-1 max-w-xl text-xs text-content-tertiary">
         Each time you generate, a random value from the list is picked — great for adding variety across batches.
       </p>
     </div>
 
-    <div class="space-y-1">
+    <div class="divide-y divide-edge-subtle">
       <div
         v-for="(wildcard, wIndex) in localWildcards"
         :key="wildcard._id"
-        class="group px-1 py-3 hover:bg-overlay-faint"
+        class="group px-1 py-3"
       >
         <div class="flex items-center justify-between gap-3">
           <!-- Editable name (double-click to edit) -->
@@ -27,12 +27,12 @@
               :class="nameError ? 'border-red-500' : 'border-edge focus:border-accent'"
               placeholder="Wildcard name"
             />
-            <span v-if="nameError" class="text-xs text-red-500 whitespace-nowrap">{{ nameError }}</span>
+            <span v-if="nameError" class="text-xs text-red-400 whitespace-nowrap">{{ nameError }}</span>
           </div>
           <span
             v-else
             @dblclick="startEditName(wIndex, 'wildcard')"
-            class="text-sm font-medium cursor-default select-none"
+            class="text-[13px] font-medium cursor-default select-none"
             :class="wildcard.name ? 'text-content' : 'text-content-muted italic'"
             title="Double-click to rename"
           >{{ wildcard.name || 'Name this wildcard...' }}</span>
@@ -81,7 +81,8 @@
         </div>
       </div>
 
-      <!-- Add wildcard row -->
+      <!-- Add wildcard row — last child of the divide-y: rule above it
+           separates it from the list, nothing trails it. -->
       <button
         type="button"
         @click="addWildcard"
@@ -91,24 +92,24 @@
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-sm font-medium text-accent">Add Wildcard</div>
+          <div class="text-[13px] font-medium text-accent">Add Wildcard</div>
         </div>
       </button>
     </div>
 
     <!-- Segments -->
     <div class="mt-12 mb-3">
-      <h3 class="text-base font-medium text-content">Segments</h3>
+      <h3 class="text-xs font-semibold text-content-secondary">Segments</h3>
       <p class="mt-1 max-w-xl text-xs text-content-tertiary">
         Fixed text blocks that expand in place. Content can include <code class="text-xs">[verbatim]</code>, <code class="text-xs"># comments</code>, and <code class="text-xs">{a|b|c}</code> wildcards.
       </p>
     </div>
 
-    <div class="space-y-1">
+    <div class="divide-y divide-edge-subtle">
       <div
         v-for="(segment, sIndex) in localSegments"
         :key="segment._id"
-        class="group px-1 py-3 hover:bg-overlay-faint"
+        class="group px-1 py-3"
       >
         <div class="flex items-center justify-between gap-3">
           <div v-if="editingNameIndex === sIndex && editingNameType === 'segment'" class="flex items-center gap-2 flex-1">
@@ -122,12 +123,12 @@
               :class="nameError ? 'border-red-500' : 'border-edge focus:border-accent'"
               placeholder="Segment name"
             />
-            <span v-if="nameError" class="text-xs text-red-500 whitespace-nowrap">{{ nameError }}</span>
+            <span v-if="nameError" class="text-xs text-red-400 whitespace-nowrap">{{ nameError }}</span>
           </div>
           <span
             v-else
             @dblclick="startEditName(sIndex, 'segment')"
-            class="text-sm font-medium cursor-default select-none"
+            class="text-[13px] font-medium cursor-default select-none"
             :class="segment.name ? 'text-content' : 'text-content-muted italic'"
             title="Double-click to rename"
           >{{ segment.name || 'Name this segment...' }}</span>
@@ -153,7 +154,7 @@
         </div>
       </div>
 
-      <!-- Add segment row -->
+      <!-- Add segment row — last child of the divide-y (see Add Wildcard). -->
       <button
         type="button"
         @click="addSegment"
@@ -163,26 +164,30 @@
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-sm font-medium text-accent">Add Segment</div>
+          <div class="text-[13px] font-medium text-accent">Add Segment</div>
         </div>
       </button>
     </div>
 
-    <!-- Delete confirmation -->
-    <ConfirmModal
-      :show="showDeleteConfirm"
-      :title="deleteConfirmTitle"
-      :message="deleteConfirmMessage"
-      confirm-text="Delete"
-      @confirm="executeDelete"
-      @cancel="cancelDelete"
-    />
+    <!-- Localized undo toast: deletes apply immediately; 5s to take it back. -->
+    <Transition
+      enter-active-class="transition-opacity duration-150"
+      enter-from-class="opacity-0"
+      leave-active-class="transition-opacity duration-150"
+      leave-to-class="opacity-0"
+    >
+      <div v-if="undoState" class="sticky bottom-4 z-chrome mt-4 flex justify-center pointer-events-none">
+        <div class="pointer-events-auto flex items-center gap-3 rounded-lg bg-surface border border-edge-subtle shadow-lg px-4 py-2">
+          <span class="text-xs text-content-secondary">Deleted &ldquo;{{ undoState.name || (undoState.type === 'wildcard' ? 'unnamed wildcard' : 'unnamed segment') }}&rdquo;</span>
+          <button type="button" class="text-xs font-medium text-accent-hi hover:text-accent" @click="undoDelete">Undo</button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, watch, nextTick } from 'vue'
-import ConfirmModal from '../../ConfirmModal.vue'
+import { ref, reactive, watch, nextTick, onBeforeUnmount } from 'vue'
 import SegmentEditor from './SegmentEditor.vue'
 
 const props = defineProps({
@@ -234,14 +239,31 @@ const editingNameValue = ref('')
 const nameInputRefs = ref([])
 const nameError = ref('')
 
-// --- Delete confirmation ---
-const showDeleteConfirm = ref(false)
-const deleteTargetIndex = ref(null)
-const deleteTargetType = ref(null) // 'wildcard' or 'segment'
-const deleteTargetName = ref('')
+// --- Delete + undo (no confirmation modal; 5s to take it back) ---
+const undoState = ref(null) // { type, item, index, name }
+let undoTimer = null
 
-const deleteConfirmTitle = ref('Delete?')
-const deleteConfirmMessage = ref('')
+function showUndo(type, item, index) {
+  if (undoTimer) clearTimeout(undoTimer)
+  undoState.value = { type, item, index, name: item.name }
+  undoTimer = setTimeout(() => { undoState.value = null }, 5000)
+}
+
+function undoDelete() {
+  if (undoTimer) clearTimeout(undoTimer)
+  const u = undoState.value
+  undoState.value = null
+  if (!u) return
+  if (u.type === 'wildcard') {
+    localWildcards.value.splice(Math.min(u.index, localWildcards.value.length), 0, u.item)
+    emitWildcardsUpdate()
+  } else {
+    localSegments.value.splice(Math.min(u.index, localSegments.value.length), 0, u.item)
+    emitSegmentsUpdate()
+  }
+}
+
+onBeforeUnmount(() => { if (undoTimer) clearTimeout(undoTimer) })
 
 // --- Cross-list name validation ---
 function isNameTaken(name, excludeType, excludeIndex) {
@@ -323,12 +345,9 @@ function cancelEditName() {
 }
 
 function confirmDeleteWildcard(index) {
-  deleteTargetIndex.value = index
-  deleteTargetType.value = 'wildcard'
-  deleteTargetName.value = localWildcards.value[index].name
-  deleteConfirmTitle.value = 'Delete Wildcard?'
-  deleteConfirmMessage.value = `Delete "${deleteTargetName.value || 'unnamed'}" and all its values? This cannot be undone.`
-  showDeleteConfirm.value = true
+  const [item] = localWildcards.value.splice(index, 1)
+  emitWildcardsUpdate()
+  showUndo('wildcard', item, index)
 }
 
 function commitTagInput(wIndex) {
@@ -401,33 +420,8 @@ function saveSegmentName(index) {
 }
 
 function confirmDeleteSegment(index) {
-  deleteTargetIndex.value = index
-  deleteTargetType.value = 'segment'
-  deleteTargetName.value = localSegments.value[index].name
-  deleteConfirmTitle.value = 'Delete Segment?'
-  deleteConfirmMessage.value = `Delete "${deleteTargetName.value || 'unnamed'}" and its content? This cannot be undone.`
-  showDeleteConfirm.value = true
-}
-
-// --- Shared delete execution ---
-function executeDelete() {
-  if (deleteTargetIndex.value !== null) {
-    if (deleteTargetType.value === 'wildcard') {
-      localWildcards.value.splice(deleteTargetIndex.value, 1)
-      emitWildcardsUpdate()
-    } else if (deleteTargetType.value === 'segment') {
-      localSegments.value.splice(deleteTargetIndex.value, 1)
-      emitSegmentsUpdate()
-    }
-  }
-  showDeleteConfirm.value = false
-  deleteTargetIndex.value = null
-  deleteTargetType.value = null
-}
-
-function cancelDelete() {
-  showDeleteConfirm.value = false
-  deleteTargetIndex.value = null
-  deleteTargetType.value = null
+  const [item] = localSegments.value.splice(index, 1)
+  emitSegmentsUpdate()
+  showUndo('segment', item, index)
 }
 </script>

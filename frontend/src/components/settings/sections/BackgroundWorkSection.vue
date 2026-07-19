@@ -2,7 +2,7 @@
   <div>
     <div class="mb-3">
       <div class="flex items-center gap-3">
-        <h3 class="text-base font-medium text-content">Background Work</h3>
+        <h3 class="text-xs font-semibold text-content-secondary">Background Work</h3>
       </div>
       <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">
         Stimma analyzes your media in the background to support many of its features. Background work uses CPU and GPU resources and impacts your energy usage.
@@ -14,6 +14,7 @@
       <SettingRow
         label="Face Detection"
         description="Automatically locates faces in your images. You can see detected faces on the Media Info pane, and face information is made available to the Chat system."
+        :divider="false"
       >
         <label class="relative inline-flex flex-shrink-0 cursor-pointer items-center">
           <input
@@ -26,7 +27,9 @@
         </label>
       </SettingRow>
 
-      <div v-if="localSettings.face_detection.enabled" class="py-2.5 pl-4 space-y-4 border-b border-edge-subtle">
+      <!-- Sub-settings read as children of the row above: indented, no rules
+           fencing them off (hairlines are separators between peers). -->
+      <div v-if="localSettings.face_detection.enabled" class="mb-2.5 pl-4 py-2 space-y-4">
         <div>
           <label class="mb-1 block text-xs text-content-tertiary">
             Parallelism: {{ localSettings.face_detection.parallelism }}

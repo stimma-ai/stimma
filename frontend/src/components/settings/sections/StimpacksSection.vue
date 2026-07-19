@@ -3,7 +3,7 @@
     <!-- Header (matches the boards/chats landing treatment) -->
     <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
       <div class="flex flex-col gap-1">
-        <span class="text-xl font-semibold leading-none text-content">Stimpacks</span>
+        <span class="text-[16px] font-semibold leading-none text-content">Stimpacks</span>
         <p class="text-sm text-content-tertiary">Stimpacks extend Stimma with new skills and capabilities.</p>
       </div>
       <div class="flex items-center gap-3">
@@ -57,11 +57,11 @@
           <div
             v-for="stimpack in stimpacks"
             :key="stimpack.name"
-            class="group rounded-lg border border-edge-subtle bg-overlay-faint p-5 transition-all hover:border-edge hover:bg-overlay-subtle"
+            class="group rounded-lg bg-overlay-faint p-5 transition-all hover:border-edge hover:bg-overlay-subtle"
           >
             <!-- Title + 3-dots -->
             <div class="flex items-start justify-between gap-2 mb-2">
-              <h4 class="truncate text-sm font-semibold text-content">{{ stimpack.display_name || stimpack.name }}</h4>
+              <h4 class="truncate text-[13px] font-semibold text-content">{{ stimpack.display_name || stimpack.name }}</h4>
               <div class="relative flex-shrink-0">
                 <button
                   @click.stop="toggleContextMenu(stimpack.name)"
@@ -104,7 +104,7 @@
                   <button
                     v-if="!stimpack.is_dev"
                     @click="handleRemoveStimpack(stimpack)"
-                    class="w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-surface-hover transition-colors"
+                    class="w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-red-500/10 transition-colors"
                   >
                     Remove
                   </button>
@@ -137,18 +137,18 @@
               </span>
               <span
                 v-if="stimpack.is_dev"
-                class="ml-2 rounded-full border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent"
+                class="ml-2 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent"
               >
                 Dev
               </span>
             </div>
 
             <!-- Tags -->
-            <div v-if="stimpack.tags?.length" class="flex flex-wrap gap-1.5 mt-2.5 pt-2.5 border-t border-edge">
+            <div v-if="stimpack.tags?.length" class="flex flex-wrap gap-1.5 mt-2.5 pt-2.5 border-t border-edge-subtle">
               <span
                 v-for="tag in stimpack.tags"
                 :key="tag"
-                class="px-2 py-0.5 rounded-md text-[11px] text-content-muted border border-edge-strong"
+                class="px-2 py-0.5 rounded-md text-[11px] text-content-muted "
               >{{ tag }}</span>
             </div>
           </div>
@@ -234,7 +234,7 @@
                     <button
                       v-else
                       @click="handleUninstallFromCatalog(stimpack)"
-                      class="flex-shrink-0 px-2.5 py-1 text-[11px] font-medium text-content-muted hover:text-red-400 border border-edge hover:border-red-500/30 rounded-lg transition-all"
+                      class="flex-shrink-0 px-2.5 py-1 text-[11px] font-medium text-content-muted hover:text-red-400 rounded-md text-red-400 hover:bg-red-500/10 transition-all"
                     >
                       Remove
                     </button>
@@ -266,7 +266,7 @@
                     <span
                       v-for="tag in stimpack.tags"
                       :key="tag"
-                      class="px-2 py-0.5 rounded-md text-[11px] text-content-muted border border-edge-strong"
+                      class="px-2 py-0.5 rounded-md text-[11px] text-content-muted "
                     >{{ tag }}</span>
                   </div>
                 </div>
@@ -316,7 +316,7 @@
           <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[560px] max-w-[90vw] max-h-[70vh] flex flex-col overflow-hidden">
             <div class="flex items-center justify-between px-5 py-3.5 border-b border-edge">
               <div class="flex items-center gap-2">
-                <span class="text-sm font-semibold text-content">Validation</span>
+                <span class="text-[13px] font-semibold text-content">Validation</span>
                 <span
                   class="px-2 py-0.5 rounded-full text-[10px] font-medium"
                   :class="validationResult.valid ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'"

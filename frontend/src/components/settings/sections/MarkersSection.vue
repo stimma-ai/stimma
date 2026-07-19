@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-base font-medium text-content">Markers</h3>
+      <h3 class="text-xs font-semibold text-content-secondary">Markers</h3>
       <p class="mt-1 max-w-xl text-xs text-content-tertiary">
         Markers are the fastest way to organize your library. One click to mark an image as a favorite,
         flag it for review, or sort it into any category you create.
@@ -9,11 +9,11 @@
     </div>
 
     <!-- Marker list -->
-    <div class="space-y-0.5">
+    <div class="divide-y divide-edge-subtle">
       <div
         v-for="(marker, index) in localMarkers"
         :key="marker.id || marker._tempId || index"
-        class="group flex items-center gap-3 px-1 py-1.5"
+        class="group flex items-center gap-3 px-1 py-2"
       >
         <!-- Unified marker picker (icon + color) -->
         <MarkerPicker
@@ -26,7 +26,7 @@
         <input
           :value="marker.name"
           @input="updateMarker(index, 'name', $event.target.value)"
-          class="flex-1 rounded-md border border-transparent bg-transparent px-3 py-1.5 text-sm text-content transition-colors hover:border-edge focus:border-accent focus:bg-surface-raised focus:outline-none"
+          class="flex-1 rounded-md border border-transparent bg-transparent px-3 py-1.5 text-[13px] text-content transition-colors hover:border-edge focus:border-accent focus:bg-surface-raised focus:outline-none"
           placeholder="Marker name"
         />
 
@@ -61,7 +61,7 @@
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-sm font-medium text-accent">Add Marker</div>
+          <div class="text-[13px] font-medium text-accent-hi">Add Marker</div>
         </div>
       </button>
     </div>

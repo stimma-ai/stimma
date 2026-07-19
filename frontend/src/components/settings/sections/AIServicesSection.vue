@@ -4,26 +4,26 @@
     <section>
       <div v-if="!wizard" class="mb-3">
         <div class="flex items-center gap-3">
-          <h3 class="text-base font-medium text-content">Chat Models</h3>
+          <h3 class="text-xs font-semibold text-content-secondary">Chat Models</h3>
         </div>
         <p class="mt-1 text-xs text-content-tertiary">Choose models from your Stimma account, API providers, or your own endpoints.</p>
       </div>
 
       <div
         v-if="setupRequired && !wizard"
-        class="mb-5 flex w-full items-center gap-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3"
+        class="mb-5 flex w-full items-center gap-3 border-b border-edge-subtle px-1 py-2"
       >
         <span class="h-2 w-2 shrink-0 rounded-full bg-amber-400"></span>
-        <p class="text-sm text-content-secondary">Connect a chat model to use chat, the agent, and AI-assisted features.</p>
+        <p class="text-[13px] text-content-secondary">Connect a chat model to use chat, the agent, and AI-assisted features.</p>
       </div>
 
-      <div class="space-y-0.5">
+      <div class="divide-y divide-edge-subtle">
         <button type="button" class="group flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-overlay-subtle" @click="cloudStatus === 'not_logged_in' ? handleCloudConnect() : cloudNeedsCredits ? openAddCredits() : openStimmaAccount()">
           <div class="flex h-9 w-9 shrink-0 items-center justify-center text-content-secondary" aria-hidden="true">
             <div class="h-7 w-7 bg-current [mask-image:url('/logo.png')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.png')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"></div>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="text-sm font-medium text-content">Stimma</div>
+            <div class="text-[13px] text-content">Stimma</div>
             <div v-if="cloudStatus === 'available' || cloudStatus === 'not_logged_in'" class="mt-0.5 truncate text-xs text-content-tertiary">Use a variety of models with one pool of credits.</div>
             <div v-else-if="cloudMessage" class="mt-1 truncate text-xs text-red-400">{{ cloudMessage }}</div>
             <div v-else-if="cloudConnectError" class="mt-1 truncate text-xs text-red-400">{{ cloudConnectError }}</div>
@@ -40,7 +40,8 @@
             <span class="h-4 w-4 shrink-0" aria-hidden="true"></span>
           </template>
           <template v-else>
-            <div class="min-w-20 shrink-0 text-right text-xs" :class="cloudStatus !== 'available' ? 'text-red-400' : cloudNeedsCredits ? 'text-amber-400' : 'text-green-400'">
+            <div class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs text-content-tertiary">
+              <span class="h-2 w-2 shrink-0 rounded-full" :class="cloudStatus !== 'available' ? 'bg-red-500' : cloudNeedsCredits ? 'bg-amber-400' : 'bg-green-500'"></span>
               {{ cloudStatus !== 'available' ? 'Unavailable' : cloudNeedsCredits ? 'Add credits' : `Ready · ${cloudModels.length} model${cloudModels.length === 1 ? '' : 's'}` }}
             </div>
             <ChevronIcon />
@@ -58,11 +59,12 @@
             <ProviderBrandIcon :provider="provider.kind" size="md" />
           </div>
           <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-medium text-content">{{ provider.name }}</div>
+            <div class="truncate text-[13px] text-content">{{ provider.name }}</div>
             <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ kindDescription(provider.kind) }}</div>
             <div v-if="provider.last_error" class="mt-1 truncate text-xs text-red-400">{{ provider.last_error }}</div>
           </div>
-          <div class="min-w-20 shrink-0 text-right text-xs" :class="provider._unconfigured ? 'text-blue-400' : provider.last_test_passed === false ? 'text-red-400' : 'text-content-muted'">
+          <div class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs" :class="provider._unconfigured ? 'text-accent-hi' : 'text-content-tertiary'">
+            <span v-if="!provider._unconfigured && provider.last_test_passed !== undefined && provider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="provider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
             {{ provider._unconfigured ? 'Configure' : provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? `${provider.models.length} model${provider.models.length === 1 ? '' : 's'}` : 'Not checked' }}
           </div>
           <ChevronIcon />
@@ -79,11 +81,12 @@
             <ProviderBrandIcon provider="local" size="md" />
           </div>
           <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-medium text-content">{{ provider.name }}</div>
+            <div class="truncate text-[13px] text-content">{{ provider.name }}</div>
             <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ modelSummary(provider.models) }}</div>
             <div v-if="provider.last_error" class="mt-1 truncate text-xs text-red-400">{{ provider.last_error }}</div>
           </div>
-          <div class="min-w-20 shrink-0 text-right text-xs" :class="provider.last_test_passed === false ? 'text-red-400' : 'text-content-muted'">
+          <div class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs text-content-tertiary">
+            <span v-if="provider.last_test_passed !== undefined && provider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="provider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
             {{ provider.last_test_passed === false ? 'Check failed' : provider.last_test_passed ? `${provider.models.length} model${provider.models.length === 1 ? '' : 's'}` : 'Not checked' }}
           </div>
           <ChevronIcon />
@@ -99,21 +102,22 @@
             <ProviderBrandIcon provider="local" size="md" />
           </div>
           <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-medium text-content">{{ legacyProvider.name }}</div>
+            <div class="truncate text-[13px] text-content">{{ legacyProvider.name }}</div>
             <div class="mt-0.5 truncate text-xs text-content-tertiary">{{ legacyProvider.model }}</div>
           </div>
-          <div class="min-w-20 shrink-0 text-right text-xs" :class="legacyProvider.last_test_passed === false ? 'text-red-400' : 'text-content-muted'">
+          <div class="min-w-20 shrink-0 flex items-center justify-end gap-1.5 text-xs text-content-tertiary">
+            <span v-if="legacyProvider.last_test_passed !== undefined && legacyProvider.last_test_passed !== null" class="h-2 w-2 shrink-0 rounded-full" :class="legacyProvider.last_test_passed === false ? 'bg-red-500' : 'bg-green-500'"></span>
             {{ legacyProvider.last_test_passed === false ? 'Check failed' : legacyProvider.last_test_passed ? '1 model' : 'Not checked' }}
           </div>
           <ChevronIcon />
         </button>
 
-        <button type="button" @click="openAddLocalProvider" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-blue-500/[0.04]">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400">
+        <button type="button" @click="openAddLocalProvider" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04]">
+          <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent-hi">
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="text-sm font-medium text-blue-400">Add OpenAI Compatible Endpoint</div>
+            <div class="text-[13px] font-medium text-accent-hi">Add OpenAI Compatible Endpoint</div>
             <div class="mt-0.5 truncate text-xs text-content-tertiary">Connect LM Studio, vLLM, llama.cpp, Ollama, or another compatible server.</div>
           </div>
         </button>
@@ -133,7 +137,7 @@
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
             </button>
             <div>
-              <h4 class="text-base font-medium text-content">Add OpenAI Compatible Endpoint</h4>
+              <h4 class="text-xs font-semibold text-content-secondary">Add OpenAI Compatible Endpoint</h4>
               <p class="mt-0.5 text-xs text-content-tertiary">{{ kindDescription('local') }}</p>
             </div>
           </div>
@@ -175,7 +179,7 @@
               <div class="flex items-center gap-3">
                 <ModelVendorIcon :model="selectedManagerModel" size="md" />
                 <div class="min-w-0">
-                  <h4 class="truncate text-base font-medium text-content">{{ selectedManagerModel.name }}</h4>
+                  <h4 class="truncate text-[16px] font-semibold text-content">{{ selectedManagerModel.name }}</h4>
                   <p class="mt-0.5 text-xs text-content-tertiary">{{ modelVendor(selectedManagerModel) }}<span v-if="selectedManagerModel.cost_tier"> · {{ selectedManagerModel.cost_tier }}</span></p>
                 </div>
               </div>
@@ -186,7 +190,7 @@
                 <div v-else class="h-7 w-7 bg-current [mask-image:url('/logo.png')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url('/logo.png')] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"></div>
               </div>
               <div class="min-w-0">
-                <h4 class="truncate text-base font-medium text-content">{{ modelAddStep === 'choose' ? 'Add a model' : managerTitle }}</h4>
+                <h4 class="truncate text-[16px] font-semibold text-content">{{ modelAddStep === 'choose' ? 'Add a model' : managerTitle }}</h4>
               </div>
             </div>
           </div>
@@ -198,7 +202,7 @@
               <div v-else-if="availableProviderModels.length" class="space-y-0.5">
                 <button v-for="model in availableProviderModels" :key="model.id" type="button" @click="chooseProviderModel(model)" class="flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-overlay-subtle">
                   <ModelVendorIcon :model="model" size="md" />
-                  <div class="min-w-0 flex-1"><div class="truncate text-sm font-medium text-content">{{ model.name }}</div><div class="mt-0.5 truncate text-[11px] text-content-muted">{{ model.id }}</div></div>
+                  <div class="min-w-0 flex-1"><div class="truncate text-[13px] text-content">{{ model.name }}</div><div class="mt-0.5 truncate text-[11px] text-content-muted">{{ model.id }}</div></div>
                   <ChevronIcon />
                 </button>
               </div>
@@ -209,14 +213,14 @@
             <template v-else>
             <template v-if="!selectedManagerModel && activeManager !== 'stimma' && activeProvider">
               <section v-if="isRemoteProvider(activeProvider)" class="max-w-2xl">
-                <h5 class="text-sm font-medium text-content">API key</h5>
+                <h5 class="text-[13px] text-content">API key</h5>
                 <p class="mt-1 text-xs leading-relaxed text-content-tertiary">
                   {{ activeProviderKind?.apiKeyHelp }}
-                  <button type="button" @click="openProviderKeyPage" class="ml-1 text-blue-400 hover:text-blue-300 hover:underline">Get an API key ↗</button>
+                  <button type="button" @click="openProviderKeyPage" class="ml-1 text-accent-hi hover:text-accent hover:underline">Get an API key ↗</button>
                 </p>
                 <div v-if="activeProvider.api_key_set && !editingProviderKey" class="mt-4 flex items-center gap-2">
                   <input type="text" value="••••••••••••••••" disabled aria-label="Saved API key" class="min-w-0 flex-1 cursor-not-allowed rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm tracking-wider text-content-muted opacity-70" />
-                  <button type="button" @click="beginProviderKeyEdit" class="rounded-md px-3 py-2 text-sm text-blue-400 hover:bg-overlay-subtle hover:text-blue-300">Change key</button>
+                  <button type="button" @click="beginProviderKeyEdit" class="rounded-md px-3 py-2 text-sm text-accent-hi hover:bg-overlay-subtle hover:text-accent">Change key</button>
                 </div>
                 <div v-else class="mt-4 flex items-center gap-2">
                   <input v-model="providerKeyDraft" type="password" autocomplete="off" class="min-w-0 flex-1 rounded-md border border-edge bg-surface-raised px-3 py-2 text-sm text-content focus:border-accent focus:outline-none" :placeholder="activeProvider.api_key_set ? '••••••••••••' : 'Paste API key'" />
@@ -251,7 +255,7 @@
 
             <div v-if="selectedManagerModel || activeManager === 'stimma' || managerModels.length || (isFlexibleProvider(activeProvider) && !activeProvider?._unconfigured)" :class="!selectedManagerModel && activeManager !== 'stimma' ? 'mt-8' : ''">
               <template v-if="!selectedManagerModel">
-                <h5 class="text-sm font-medium text-content">Models</h5>
+                <h5 class="text-[13px] text-content">Models</h5>
               </template>
               <div :class="selectedManagerModel ? '' : 'mt-3 space-y-0.5'">
                 <div v-for="model in managerPageModels" :key="model.slug || model.id">
@@ -268,8 +272,8 @@
                       <div class="truncate text-sm text-content">{{ model.name }}</div>
                       <div class="mt-0.5 text-[11px] text-content-muted">{{ modelVendor(model) }}<span v-if="model.cost_tier"> · {{ model.cost_tier }}</span></div>
                     </div>
-                    <span v-if="isFlexibleProvider(activeProvider) && model.last_test_passed === false" class="text-[11px] text-red-400">Failed</span>
-                    <span v-else-if="isFlexibleProvider(activeProvider) && model.last_test_passed" class="text-[11px] text-green-500">Ready</span>
+                    <span v-if="isFlexibleProvider(activeProvider) && model.last_test_passed === false" class="text-[11px] text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-red-500"></span>Failed</span>
+                    <span v-else-if="isFlexibleProvider(activeProvider) && model.last_test_passed" class="text-[11px] text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-green-500"></span>Ready</span>
                     <ChevronIcon v-if="activeManager !== 'stimma'" />
                   </component>
 
@@ -288,7 +292,7 @@
                     />
                     <template v-else>
                     <div v-if="activeProvider?.kind === 'local' && model.last_test_results && Object.keys(model.last_test_results).length" class="flex flex-wrap gap-1.5">
-                      <span v-for="(result, name) in model.last_test_results" :key="name" class="rounded-md border px-1.5 py-0.5 text-[11px]" :class="result.passed ? 'border-green-500/30 text-green-500' : 'border-red-500/30 text-red-400'">
+                      <span v-for="(result, name) in model.last_test_results" :key="name" class="rounded-md bg-overlay-subtle px-1.5 py-0.5 text-[11px]" :class="result.passed ? 'text-content-secondary' : 'text-red-400'">
                         {{ result.passed ? '✓' : '×' }} {{ name }}<span v-if="result.elapsed_ms" class="text-content-muted"> · {{ fmtMs(result.elapsed_ms) }}</span>
                       </span>
                     </div>
@@ -342,9 +346,9 @@
                             <div class="text-xs font-medium text-content">Reasoning control</div>
                             <div class="mt-0.5 text-[11px] text-content-muted">Testing can detect how this model toggles thinking.</div>
                           </div>
-                          <div class="inline-flex overflow-hidden rounded-md border border-edge text-[11px]">
-                            <button type="button" @click="setReasoningSource(model, 'auto')" class="px-2 py-1" :class="model.reasoning_control_source !== 'manual' ? 'bg-blue-500/15 text-blue-400' : 'text-content-tertiary'">Auto</button>
-                            <button type="button" @click="setReasoningSource(model, 'manual')" class="px-2 py-1" :class="model.reasoning_control_source === 'manual' ? 'bg-blue-500/15 text-blue-400' : 'text-content-tertiary'">Manual</button>
+                          <div class="inline-flex overflow-hidden rounded-md bg-overlay-subtle text-[11px]">
+                            <button type="button" @click="setReasoningSource(model, 'auto')" class="px-2 py-1" :class="model.reasoning_control_source !== 'manual' ? 'bg-accent/10 text-accent-hi' : 'text-content-tertiary'">Auto</button>
+                            <button type="button" @click="setReasoningSource(model, 'manual')" class="px-2 py-1" :class="model.reasoning_control_source === 'manual' ? 'bg-accent/10 text-accent-hi' : 'text-content-tertiary'">Manual</button>
                           </div>
                         </div>
                         <div v-if="model.reasoning_control_source !== 'manual'" class="mt-2 text-[11px] text-content-tertiary">Detected: {{ model.reasoning.control || 'none' }}<span v-if="model.detected_runtime"> · {{ model.detected_runtime }}</span></div>
@@ -377,9 +381,9 @@
                     </template>
                   </div>
                 </div>
-                <button v-if="!selectedManagerModel && canAddProviderModel" type="button" @click="startAddProviderModel" class="mt-1 flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-blue-500/[0.04]">
-                  <span class="flex h-9 w-9 shrink-0 items-center justify-center text-blue-400"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg></span>
-                  <span class="min-w-0 flex-1"><span class="block text-sm font-medium text-blue-400">Add a model</span></span>
+                <button v-if="!selectedManagerModel && canAddProviderModel" type="button" @click="startAddProviderModel" class="mt-1 flex w-full items-center gap-3 px-1 py-3 text-left hover:bg-accent/[0.04]">
+                  <span class="flex h-9 w-9 shrink-0 items-center justify-center text-accent-hi"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg></span>
+                  <span class="min-w-0 flex-1"><span class="block text-[13px] font-medium text-accent-hi">Add a model</span></span>
                 </button>
               </div>
             </div>
@@ -399,7 +403,7 @@
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
             </button>
             <div class="min-w-0">
-              <h4 class="truncate text-base font-medium text-content">{{ legacyProvider?.name || 'OpenAI-compatible endpoint' }}</h4>
+              <h4 class="truncate text-[16px] font-semibold text-content">{{ legacyProvider?.name || 'OpenAI-compatible endpoint' }}</h4>
               <p class="mt-0.5 truncate text-xs text-content-tertiary">{{ legacyDraft.model || 'No model selected' }}</p>
             </div>
           </div>
@@ -424,15 +428,15 @@
               <div class="flex items-center justify-between gap-3">
                 <div class="text-xs">
                   <span v-if="legacyTesting" class="text-content-secondary">Testing…</span>
-                  <span v-else-if="legacyDraft.last_test_passed" class="text-green-500">Ready</span>
+                  <span v-else-if="legacyDraft.last_test_passed" class="text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-green-500"></span>Ready</span>
                   <span v-else-if="legacyDraft.last_tested_at" class="text-red-400">{{ legacyTestError || 'Last test failed' }}</span>
                   <span v-else class="text-content-muted">Not tested yet</span>
                   <span v-if="legacyDraft.last_tested_at" class="ml-1 text-content-muted">· {{ timeAgo(legacyDraft.last_tested_at) }}</span>
                 </div>
-                <button type="button" @click="runLegacyTest" :disabled="legacyTesting || !legacyDraft.url || !legacyDraft.model" class="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50">{{ legacyDraft.last_tested_at ? 'Re-test' : 'Test connection' }}</button>
+                <button type="button" @click="runLegacyTest" :disabled="legacyTesting || !legacyDraft.url || !legacyDraft.model" class="text-xs text-accent-hi hover:text-accent disabled:opacity-50">{{ legacyDraft.last_tested_at ? 'Re-test' : 'Test connection' }}</button>
               </div>
               <div v-if="legacyScenarios" class="mt-2 flex flex-wrap gap-1.5">
-                <span v-for="(result, name) in legacyScenarios" :key="name" class="rounded-md border px-1.5 py-0.5 text-[11px]" :class="result.passed ? 'border-green-500/30 text-green-500' : 'border-red-500/30 text-red-400'">{{ result.passed ? '✓' : '×' }} {{ name }}<span v-if="result.elapsed_ms" class="text-content-muted"> · {{ fmtMs(result.elapsed_ms) }}</span></span>
+                <span v-for="(result, name) in legacyScenarios" :key="name" class="rounded-md bg-overlay-subtle px-1.5 py-0.5 text-[11px]" :class="result.passed ? 'text-content-secondary' : 'text-red-400'">{{ result.passed ? '✓' : '×' }} {{ name }}<span v-if="result.elapsed_ms" class="text-content-muted"> · {{ fmtMs(result.elapsed_ms) }}</span></span>
               </div>
             </div>
 
@@ -456,9 +460,9 @@
             <div class="py-2">
               <div class="flex items-start justify-between gap-4">
                 <div><div class="text-xs font-medium text-content">Reasoning control</div><div class="mt-0.5 text-[11px] text-content-muted">How thinking is toggled per request.</div></div>
-                <div class="inline-flex overflow-hidden rounded-md border border-edge text-[11px]">
-                  <button type="button" @click="setLegacyReasoningSource('auto')" class="px-2 py-1" :class="legacyDraft.reasoning_method_source !== 'manual' ? 'bg-blue-500/15 text-blue-400' : 'text-content-tertiary'">Auto</button>
-                  <button type="button" @click="setLegacyReasoningSource('manual')" class="px-2 py-1" :class="legacyDraft.reasoning_method_source === 'manual' ? 'bg-blue-500/15 text-blue-400' : 'text-content-tertiary'">Manual</button>
+                <div class="inline-flex overflow-hidden rounded-md bg-overlay-subtle text-[11px]">
+                  <button type="button" @click="setLegacyReasoningSource('auto')" class="px-2 py-1" :class="legacyDraft.reasoning_method_source !== 'manual' ? 'bg-accent/10 text-accent-hi' : 'text-content-tertiary'">Auto</button>
+                  <button type="button" @click="setLegacyReasoningSource('manual')" class="px-2 py-1" :class="legacyDraft.reasoning_method_source === 'manual' ? 'bg-accent/10 text-accent-hi' : 'text-content-tertiary'">Manual</button>
                 </div>
               </div>
               <div v-if="legacyDraft.reasoning_method_source !== 'manual'" class="mt-2 text-[11px] text-content-tertiary">Detected: {{ legacyDraft.reasoning_method || 'none' }}<span v-if="legacyDraft.detected_runtime"> · {{ legacyDraft.detected_runtime }}</span></div>

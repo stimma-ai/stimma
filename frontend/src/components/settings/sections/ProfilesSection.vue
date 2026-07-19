@@ -1,14 +1,14 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-base font-medium text-content">Profiles</h3>
+      <h3 class="text-xs font-semibold text-content-secondary">Profiles</h3>
       <p class="mt-1 text-xs text-content-tertiary">
         Manage workspace profiles. Each profile has its own media library, markers, and settings.
       </p>
     </div>
 
     <!-- Profile list -->
-    <div class="space-y-0.5">
+    <div class="divide-y divide-edge-subtle">
       <div
         v-for="profile in profiles"
         :key="profile.id"
@@ -22,12 +22,15 @@
           </svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-medium text-content">{{ profile.name }}</div>
+          <div class="truncate text-[13px] text-content">{{ profile.name }}</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">
             {{ profile.media_count?.toLocaleString() || 0 }} media file{{ profile.media_count !== 1 ? 's' : '' }}<template v-if="profile.has_pin"> · PIN</template>
           </div>
         </div>
-        <div v-if="profile.id === currentProfileId" class="shrink-0 text-xs text-accent">Current</div>
+        <div v-if="profile.id === currentProfileId" class="shrink-0 inline-flex items-center gap-1.5 text-[11px] text-content-tertiary">
+          <span class="w-2 h-2 rounded-full bg-accent-hi"></span>
+          Current
+        </div>
         <button
           :ref="el => setMenuButtonRef(profile.id, el)"
           @click.stop="toggleProfileMenu(profile.id)"
@@ -45,186 +48,122 @@
         No profiles configured
       </div>
 
-      <!-- Create profile row -->
+      <!-- Create profile row — last child of the divide-y: rule above it
+           separates it from the list, nothing trails it. -->
       <button type="button" @click="openCreateModal" class="flex w-full items-center gap-4 px-1 py-3 text-left hover:bg-accent/[0.04]">
         <div class="flex h-9 w-9 shrink-0 items-center justify-center text-accent">
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-sm font-medium text-accent">Create Profile</div>
+          <div class="text-[13px] font-medium text-accent-hi">Create Profile</div>
           <div class="mt-0.5 truncate text-xs text-content-tertiary">Start a separate library with its own markers and settings.</div>
         </div>
       </button>
     </div>
 
     <!-- Create profile modal -->
-    <Teleport to="body">
-      <div
-        v-if="showCreateModal"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="closeCreateModal"
-        @keydown.escape.stop="closeCreateModal"
-        tabindex="-1"
-        ref="createModalRef"
-      >
-        <div class="bg-surface border border-edge rounded-lg p-6 w-[400px] max-w-[90vw]">
-          <h3 class="text-lg font-medium text-content mb-4">Create Profile</h3>
+    <Modal :show="showCreateModal" size="sm" @close="closeCreateModal">
+      <template #header>
+        <h3 class="text-lg font-semibold text-content">Create profile</h3>
+      </template>
 
-          <!-- Name field -->
-          <div class="mb-4">
-            <label class="block text-xs text-content-tertiary mb-1">Name</label>
-            <input
-              v-model="newProfileName"
-              ref="newProfileInput"
-              type="text"
-              placeholder="Profile name"
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent"
-              @keydown.enter="createProfile"
-            />
-            <p v-if="nameError" class="text-xs text-red-500 mt-1">{{ nameError }}</p>
-          </div>
-
-          <!-- Form actions -->
-          <div class="flex justify-end gap-3">
-            <button
-              @click="closeCreateModal"
-              class="px-4 py-2 bg-surface-raised hover:bg-surface-hover text-content rounded-lg font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              @click="createProfile"
-              :disabled="!canCreate || saving"
-              class="px-4 py-2 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md font-medium transition-colors"
-            >
-              {{ saving ? 'Creating...' : 'Create' }}
-            </button>
-          </div>
-        </div>
+      <div class="px-6 py-5">
+        <label class="block text-xs text-content-tertiary mb-1">Name</label>
+        <input
+          v-model="newProfileName"
+          ref="newProfileInput"
+          type="text"
+          placeholder="Profile name"
+          class="w-full bg-overlay-subtle border border-transparent rounded-md px-3 py-2 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
+          @keydown.enter="createProfile"
+        />
+        <p v-if="nameError" class="text-xs text-red-400 mt-1">{{ nameError }}</p>
       </div>
-    </Teleport>
+
+      <template #footer>
+        <Button variant="secondary" @click="closeCreateModal">Cancel</Button>
+        <Button variant="primary" :disabled="!canCreate || saving" @click="createProfile">
+          {{ saving ? 'Creating...' : 'Create' }}
+        </Button>
+      </template>
+    </Modal>
 
     <!-- Rename profile modal -->
-    <Teleport to="body">
-      <div
-        v-if="renameProfile"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="closeRenameModal"
-        @keydown.escape.stop="closeRenameModal"
-        tabindex="-1"
-        ref="renameModalRef"
-      >
-        <div class="bg-surface border border-edge rounded-lg p-6 w-[400px] max-w-[90vw]">
-          <h3 class="text-lg font-medium text-content mb-4">Rename Profile</h3>
+    <Modal :show="!!renameProfile" size="sm" @close="closeRenameModal">
+      <template #header>
+        <h3 class="text-lg font-semibold text-content">Rename profile</h3>
+      </template>
 
-          <!-- Name field -->
-          <div class="mb-4">
-            <label class="block text-xs text-content-tertiary mb-1">Name</label>
-            <input
-              v-model="renameProfileName"
-              ref="renameProfileInput"
-              type="text"
-              placeholder="Profile name"
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent"
-              @keydown.enter="submitRename"
-            />
-            <p v-if="renameError" class="text-xs text-red-500 mt-1">{{ renameError }}</p>
-          </div>
-
-          <!-- Form actions -->
-          <div class="flex justify-end gap-3">
-            <button
-              @click="closeRenameModal"
-              class="px-4 py-2 bg-surface-raised hover:bg-surface-hover text-content rounded-lg font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              @click="submitRename"
-              :disabled="!canRename || saving"
-              class="px-4 py-2 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md font-medium transition-colors"
-            >
-              {{ saving ? 'Renaming...' : 'Rename' }}
-            </button>
-          </div>
-        </div>
+      <div class="px-6 py-5">
+        <label class="block text-xs text-content-tertiary mb-1">Name</label>
+        <input
+          v-model="renameProfileName"
+          ref="renameProfileInput"
+          type="text"
+          placeholder="Profile name"
+          class="w-full bg-overlay-subtle border border-transparent rounded-md px-3 py-2 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
+          @keydown.enter="submitRename"
+        />
+        <p v-if="renameError" class="text-xs text-red-400 mt-1">{{ renameError }}</p>
       </div>
-    </Teleport>
+
+      <template #footer>
+        <Button variant="secondary" @click="closeRenameModal">Cancel</Button>
+        <Button variant="primary" :disabled="!canRename || saving" @click="submitRename">
+          {{ saving ? 'Renaming...' : 'Rename' }}
+        </Button>
+      </template>
+    </Modal>
 
     <!-- Delete confirmation modal -->
-    <Teleport to="body">
-      <div
-        v-if="deleteConfirm"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="deleteConfirm = null"
-        @keydown.escape.stop="deleteConfirm = null"
-        tabindex="-1"
-        ref="deleteModalRef"
-      >
-        <div class="bg-surface border border-red-500/50 rounded-lg p-6 max-w-md">
-          <!-- Warning header -->
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-              <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-              </svg>
-            </div>
-            <div>
-              <h3 class="text-lg font-medium text-content">Delete Profile</h3>
-              <p class="text-sm text-red-500">This action cannot be undone</p>
-            </div>
+    <Modal :show="!!deleteConfirm" size="md" @close="deleteConfirm = null">
+      <template #header>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
           </div>
-
-          <!-- Warning content -->
-          <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-4">
-            <p class="text-sm text-content-secondary mb-2">
-              You are about to permanently delete <strong class="text-content">{{ deleteConfirm.name }}</strong>.
-            </p>
-            <p class="text-sm text-content-tertiary">
-              This will destroy:
-            </p>
-            <ul class="text-sm text-content-tertiary mt-2 ml-4 list-disc space-y-1">
-              <li>All asset metadata and thumbnails</li>
-              <li>Chat history and conversations</li>
-              <li>Markers and boards</li>
-              <li>Profile settings and folders</li>
-            </ul>
-          </div>
-
-          <div class="flex justify-end gap-3">
-            <button
-              @click="deleteConfirm = null"
-              class="px-4 py-2 bg-surface-raised hover:bg-surface-hover text-content rounded-lg font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              @click="deleteProfile"
-              :disabled="saving"
-              class="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
-            >
-              {{ saving ? 'Deleting...' : 'Delete Forever' }}
-            </button>
+          <div>
+            <h3 class="text-lg font-semibold text-content">Delete profile</h3>
+            <p class="text-xs text-content-tertiary">This action cannot be undone.</p>
           </div>
         </div>
+      </template>
+
+      <div v-if="deleteConfirm" class="px-6 py-5">
+        <p class="text-sm text-content-secondary mb-2">
+          You are about to permanently delete <strong class="text-content">{{ deleteConfirm.name }}</strong>.
+        </p>
+        <p class="text-sm text-content-tertiary">
+          This will destroy:
+        </p>
+        <ul class="text-sm text-content-tertiary mt-2 ml-4 list-disc space-y-1">
+          <li>All asset metadata and thumbnails</li>
+          <li>Chat history and conversations</li>
+          <li>Markers and boards</li>
+          <li>Profile settings and folders</li>
+        </ul>
       </div>
-    </Teleport>
+
+      <template #footer>
+        <Button variant="secondary" @click="deleteConfirm = null">Cancel</Button>
+        <Button variant="danger" :disabled="saving" @click="deleteProfile">
+          {{ saving ? 'Deleting...' : 'Delete Forever' }}
+        </Button>
+      </template>
+    </Modal>
 
     <!-- PIN settings modal -->
-    <Teleport to="body">
-      <div
-        v-if="pinSettingsProfile"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="closePinSettings"
-        @keydown.escape.stop="closePinSettings"
-        tabindex="-1"
-        ref="pinSettingsModalRef"
-      >
-        <div class="bg-surface border border-edge rounded-lg p-6 w-[400px] max-w-[90vw]">
-          <h3 class="text-lg font-medium text-content mb-4">
-            PIN Settings - {{ pinSettingsProfile.name }}
-          </h3>
+    <Modal :show="!!pinSettingsProfile" size="sm" @close="closePinSettings">
+      <template #header>
+        <h3 class="text-lg font-semibold text-content">
+          PIN settings — {{ pinSettingsProfile?.name }}
+        </h3>
+      </template>
 
+      <template v-if="pinSettingsProfile">
+        <div class="px-6 py-5">
           <!-- PIN Status -->
           <div class="mb-4 p-3 bg-surface-raised/50 rounded-lg">
             <div class="flex items-center justify-between">
@@ -289,7 +228,7 @@
               class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent mb-2"
               @keydown.enter="submitSetPin"
             />
-            <p v-if="pinError" class="text-xs text-red-500 mb-2">{{ pinError }}</p>
+            <p v-if="pinError" class="text-xs text-red-400 mb-2">{{ pinError }}</p>
             <div class="flex gap-2 justify-end">
               <button
                 @click="cancelPinForm"
@@ -337,7 +276,7 @@
               class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent mb-2"
               @keydown.enter="submitChangePin"
             />
-            <p v-if="pinError" class="text-xs text-red-500 mb-2">{{ pinError }}</p>
+            <p v-if="pinError" class="text-xs text-red-400 mb-2">{{ pinError }}</p>
             <div class="flex gap-2 justify-end">
               <button
                 @click="cancelPinForm"
@@ -356,7 +295,7 @@
           </div>
 
           <!-- Remove PIN form (inline) -->
-          <div v-if="showRemovePinForm" class="mb-4 p-3 bg-red-500/10 rounded-lg border border-red-500/30">
+          <div v-if="showRemovePinForm" class="mb-4 p-3 bg-red-500/10 rounded-lg">
             <p class="text-sm text-content-secondary mb-3">Enter your current PIN to remove protection.</p>
             <label class="block text-xs text-content-tertiary mb-1">Current PIN</label>
             <input
@@ -368,7 +307,7 @@
               class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent mb-2"
               @keydown.enter="submitRemovePin"
             />
-            <p v-if="pinError" class="text-xs text-red-500 mb-2">{{ pinError }}</p>
+            <p v-if="pinError" class="text-xs text-red-400 mb-2">{{ pinError }}</p>
             <div class="flex gap-2 justify-end">
               <button
                 @click="cancelPinForm"
@@ -404,18 +343,13 @@
             </div>
           </div>
 
-          <!-- Close button -->
-          <div class="flex justify-end">
-            <button
-              @click="closePinSettings"
-              class="px-4 py-2 bg-surface-raised hover:bg-surface-hover text-content rounded-lg font-medium transition-colors"
-            >
-              Close
-            </button>
-          </div>
         </div>
-      </div>
-    </Teleport>
+      </template>
+
+      <template #footer>
+        <Button variant="secondary" @click="closePinSettings">Close</Button>
+      </template>
+    </Modal>
 
     <!-- Profile menu dropdown (teleported to avoid overflow clipping) -->
     <Teleport to="body">

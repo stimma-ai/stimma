@@ -8,7 +8,7 @@
   >
     <template #header>
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-content">Settings</h2>
+        <h2 class="text-[16px] font-semibold text-content">Settings</h2>
         <IconButton aria-label="Close" title="Close" @click="close">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -39,7 +39,7 @@
 
         <!-- Error state -->
         <div v-else-if="error" class="text-center py-12">
-          <p class="text-red-500 mb-4">{{ error }}</p>
+          <p class="text-red-400 mb-4">{{ error }}</p>
           <Button variant="secondary" @click="loadSettings">
             Retry
           </Button>

@@ -3,7 +3,7 @@
     <section>
       <div class="mb-3">
         <div class="flex items-center gap-3">
-          <h3 class="text-base font-medium text-content">Preferences</h3>
+          <h3 class="text-xs font-semibold text-content-secondary">Preferences</h3>
         </div>
       </div>
 
@@ -14,10 +14,10 @@
               v-for="option in THEME_OPTIONS"
               :key="option.value"
               @click="selectTheme(option.value)"
-              class="flex items-center gap-1.5 px-3 h-8 rounded-md transition-colors duration-150 border text-xs font-medium"
+              class="flex items-center gap-1.5 px-3 h-8 rounded-md transition-colors duration-150 text-xs font-medium"
               :class="themePreference === option.value
-                ? 'bg-accent/15 border-accent/50 text-accent'
-                : 'bg-surface-raised border-edge text-content-tertiary hover:text-content hover:border-edge-strong'"
+                ? 'bg-accent/10 text-accent-hi'
+                : 'text-content-tertiary hover:text-content hover:bg-overlay-subtle'"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" :d="option.icon" />
@@ -39,16 +39,17 @@
             placeholder="Choose a model"
             @update:model-value="saveQuickTaskModel"
           />
-          <span v-else class="w-72 text-right text-sm text-content-muted">No models available</span>
+          <span v-else class="w-72 text-right text-[13px] text-content-muted">No models available</span>
         </SettingRow>
 
         <SettingRow v-if="voiceSupported" label="Voice Input Model">
           <template #description>
             Processed on this device. <span v-if="!voiceModelReady">{{ privacyLockdownActive ? 'Downloads are off during Privacy Lockdown.' : 'Downloads on first use.' }}</span>
           </template>
-          <svg v-if="voiceModelReady" class="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
+          <span v-if="voiceModelReady" class="inline-flex items-center gap-1.5 text-[11px] text-content-tertiary">
+            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+            Ready
+          </span>
           <SettingsDropdown
             v-model="voiceModel"
             control

@@ -3,14 +3,14 @@
     <section class="py-2">
       <div class="flex flex-wrap items-start gap-3">
         <div class="min-w-[220px] flex-1">
-          <h5 class="text-sm font-medium text-content">Test Model</h5>
+          <h5 class="text-xs font-semibold text-content-secondary">Test Model</h5>
           <div v-if="!requiredFailed" class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            <span v-if="testing" class="text-blue-400">Testing…</span>
-            <span v-else-if="canAdd" class="text-green-500">Ready</span>
+            <span v-if="testing" class="text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-accent-hi animate-pulse"></span>Testing…</span>
+            <span v-else-if="canAdd" class="text-content-tertiary"><span class="mr-1 inline-block h-2 w-2 rounded-full bg-green-500"></span>Ready</span>
             <span v-else class="text-content-muted">Not tested</span>
           </div>
         </div>
-        <button type="button" @click="$emit('test')" :disabled="testing" class="shrink-0 rounded-md border border-accent/50 bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/20 disabled:opacity-50">
+        <button type="button" @click="$emit('test')" :disabled="testing" class="shrink-0 rounded-md bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent-hi hover:bg-accent/20 disabled:opacity-50">
           {{ testing ? 'Testing…' : tested ? 'Re-test' : 'Run tests' }}
         </button>
       </div>
@@ -19,7 +19,7 @@
         <span
           v-for="check in checks"
           :key="check.key"
-          class="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px]"
+          class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px]"
           :class="check.classes"
           :title="check.title"
         >
@@ -34,7 +34,7 @@
     </section>
 
     <section class="py-2">
-      <h5 class="text-sm font-medium text-content">System prompt</h5>
+      <h5 class="text-xs font-semibold text-content-secondary">System prompt</h5>
       <label class="mt-3 flex cursor-pointer items-start gap-2.5">
         <input type="radio" :name="`policy-${model.id}`" :checked="model.content_policy_enabled !== false" @change="setPolicy(true)" class="mt-0.5" />
         <span>
@@ -57,7 +57,7 @@
 
     <section>
       <button type="button" @click="advancedOpen = !advancedOpen" class="flex w-full items-center justify-between py-3 text-left hover:text-content">
-        <span class="text-sm font-medium text-content">Advanced</span>
+        <span class="text-xs font-semibold text-content-secondary">Advanced</span>
         <svg class="h-4 w-4 text-content-muted transition-transform" :class="advancedOpen ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" /></svg>
       </button>
       <div v-if="advancedOpen" class="space-y-6 pt-2">
@@ -68,8 +68,8 @@
               <div class="mt-0.5 text-[11px] text-content-muted">How thinking is toggled per request.</div>
             </div>
             <div class="inline-flex overflow-hidden rounded-md border border-edge text-[11px]">
-              <button type="button" @click="setReasoningSource('auto')" class="px-2 py-1" :class="model.reasoning_control_source !== 'manual' ? 'bg-accent/15 text-accent' : 'text-content-tertiary'">Auto</button>
-              <button type="button" @click="setReasoningSource('manual')" class="px-2 py-1" :class="model.reasoning_control_source === 'manual' ? 'bg-accent/15 text-accent' : 'text-content-tertiary'">Manual</button>
+              <button type="button" @click="setReasoningSource('auto')" class="px-2 py-1" :class="model.reasoning_control_source !== 'manual' ? 'bg-accent/10 text-accent-hi' : 'text-content-tertiary'">Auto</button>
+              <button type="button" @click="setReasoningSource('manual')" class="px-2 py-1" :class="model.reasoning_control_source === 'manual' ? 'bg-accent/10 text-accent-hi' : 'text-content-tertiary'">Manual</button>
             </div>
           </div>
           <div v-if="model.reasoning_control_source !== 'manual'" class="mt-2 text-[11px] text-content-tertiary">
@@ -171,10 +171,10 @@ const checks = computed(() => [
     detail: detailFor(key, result),
     title: result?.detail || result?.error || '',
     classes: !result && props.testing
-      ? 'border-blue-500/30 bg-blue-500/10 text-blue-400'
+      ? 'bg-accent/10 text-accent-hi'
       : passed
-        ? 'border-green-500/30 bg-green-500/5 text-green-500'
-        : 'border-red-500/30 bg-red-500/5 text-red-400',
+        ? 'bg-green-500/10 text-green-500'
+        : 'bg-red-500/10 text-red-400',
   }
 }))
 

@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-base font-medium text-content">Agent</h3>
+      <h3 class="text-xs font-semibold text-content-secondary">Agent</h3>
       <p class="mt-1 max-w-xl text-xs text-content-tertiary">
         Configure default agent behavior for all chats in this profile. Per-chat settings can override these defaults.
       </p>
@@ -15,7 +15,7 @@
     <div v-else class="mt-8 space-y-9">
       <!-- Default Instructions -->
       <div>
-        <h4 class="text-sm font-medium text-content">Default Instructions</h4>
+        <h4 class="text-xs font-semibold text-content-secondary">Default Instructions</h4>
         <textarea
           v-model="localInstructions"
           placeholder="Give the agent default instructions..."
@@ -27,7 +27,7 @@
 
       <!-- Memory -->
       <div>
-        <h4 class="text-sm font-medium text-content">Memory</h4>
+        <h4 class="text-xs font-semibold text-content-secondary">Memory</h4>
         <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">
           Persistent context the agent remembers across all chats. The agent can also update this.
         </p>
@@ -47,9 +47,11 @@
 
       <!-- Tool Permissions -->
       <div v-else>
-        <h4 class="text-sm font-medium text-content">Tool Permissions</h4>
+        <h4 class="text-xs font-semibold text-content-secondary">Tool Permissions</h4>
         <p class="mt-1 max-w-xl text-xs leading-relaxed text-content-tertiary">The agent asks the first time it uses a tool. Tools you allow or block appear here.</p>
-        <div v-if="configuredTools.length > 0" class="mt-3">
+        <!-- -mx-3 cancels the rows' own px-3 so their text aligns with the
+             section headings; hairlines between rows only (divide-y). -->
+        <div v-if="configuredTools.length > 0" class="mt-3 -mx-3 divide-y divide-edge-subtle">
           <ToolConfigRow
             v-for="tool in configuredTools"
             :key="tool.full_tool_id"

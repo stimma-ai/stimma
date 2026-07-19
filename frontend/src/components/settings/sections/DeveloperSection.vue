@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-3">
-      <h3 class="text-base font-medium text-content">Developer</h3>
+      <h3 class="text-xs font-semibold text-content-secondary">Developer</h3>
       <p class="mt-1 text-xs text-content-tertiary">Debug tools and developer options</p>
     </div>
 
@@ -119,7 +119,7 @@
       <div class="w-full h-full bg-surface border border-edge rounded-lg shadow-2xl flex flex-col overflow-hidden">
         <div class="px-5 py-4 border-b border-edge flex items-center justify-between">
           <div>
-            <h3 class="text-base font-semibold text-content">Request Latency Metrics</h3>
+            <h3 class="text-[16px] font-semibold text-content">Request Latency Metrics</h3>
             <p class="text-xs text-content-tertiary mt-0.5">
               {{ metricsSummary }}
             </p>
@@ -155,44 +155,44 @@
           <button
             @click="loadRequestMetrics"
             :disabled="metricsLoading"
-            class="px-3 py-1.5 text-xs font-medium rounded border bg-surface-raised border-edge text-content-secondary hover:border-edge hover:bg-surface transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-3 py-1.5 text-xs font-medium rounded-md bg-surface-raised text-content-secondary hover:bg-surface-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {{ metricsLoading ? 'Loading...' : 'Refresh' }}
           </button>
           <button
             @click="toggleAutoRefresh"
-            class="px-3 py-1.5 text-xs font-medium rounded border transition-all"
-            :class="metricsAutoRefresh ? 'bg-accent/15 border-accent/50 text-accent' : 'bg-surface-raised border-edge text-content-secondary hover:border-edge hover:bg-surface'"
+            class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+            :class="metricsAutoRefresh ? 'bg-accent/10 text-accent-hi' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover'"
           >
             Auto-refresh {{ metricsAutoRefresh ? 'On' : 'Off' }}
           </button>
           <button
             @click="showResetConfirm = true"
-            class="ml-auto px-3 py-1.5 text-xs font-medium rounded border bg-red-500/15 border-red-500/50 text-red-500 hover:bg-red-500/20 transition-all"
+            class="ml-auto px-3 py-1.5 text-xs font-medium rounded-md text-red-400 hover:bg-red-500/10 transition-colors"
           >
             Reset Stats
           </button>
         </div>
 
         <div v-if="showResetConfirm" class="px-5 py-3 border-b border-edge bg-red-500/10 flex items-center gap-2">
-          <span class="text-xs text-red-500">Clear all in-memory request metric windows?</span>
+          <span class="text-xs text-red-400">Clear all in-memory request metric windows?</span>
           <button
             @click="confirmResetMetrics"
             :disabled="metricsResetting"
-            class="px-2.5 py-1 text-xs font-medium rounded border bg-red-500/15 border-red-500/50 text-red-500 hover:bg-red-500/20 disabled:opacity-50"
+            class="px-2.5 py-1 text-xs font-medium rounded-md bg-red-600 text-white hover:bg-red-500 disabled:opacity-50"
           >
             {{ metricsResetting ? 'Resetting...' : 'Confirm Reset' }}
           </button>
           <button
             @click="showResetConfirm = false"
-            class="px-2.5 py-1 text-xs font-medium rounded border bg-surface-raised border-edge text-content-secondary hover:bg-surface"
+            class="px-2.5 py-1 text-xs font-medium rounded-md bg-surface-raised text-content-secondary hover:bg-surface-hover"
           >
             Cancel
           </button>
         </div>
 
         <div class="flex-1 overflow-auto">
-          <div v-if="metricsError" class="p-4 text-sm text-red-500">
+          <div v-if="metricsError" class="p-4 text-sm text-red-400">
             {{ metricsError }}
           </div>
           <table v-else class="w-full text-xs table-fixed">
@@ -223,8 +223,8 @@
                 <td class="px-3 py-2 text-right text-content">{{ formatMs(row.max_ms) }}</td>
                 <td class="px-3 py-2 text-right">
                   <span
-                    class="inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded border"
-                    :class="row.status_5xx > 0 ? 'bg-red-500/15 border-red-500/50 text-red-500' : 'border-edge-subtle bg-overlay-light text-content-tertiary'"
+                    class="inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 rounded font-mono tabular-nums"
+                    :class="row.status_5xx > 0 ? 'bg-red-500/10 text-red-400' : 'bg-overlay-subtle text-content-tertiary'"
                   >
                     {{ row.status_5xx }}
                   </span>

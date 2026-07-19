@@ -1,9 +1,11 @@
 <template>
-  <div class="segment-editor rounded-md border border-edge overflow-hidden focus-within:border-accent transition-colors">
+  <!-- Fill-only input recipe: one wash, no border box, no internal rules —
+       the action bar is a quiet ghost row inside the same fill. -->
+  <div class="segment-editor rounded-md bg-overlay-subtle border border-transparent overflow-hidden focus-within:border-accent transition-colors">
     <div ref="editorMount"></div>
 
     <!-- Bottom Action Bar -->
-    <div class="px-3 py-1.5 flex items-center justify-end bg-surface border-t border-edge">
+    <div class="px-3 py-1.5 flex items-center justify-end">
       <div class="flex items-center gap-1.5">
         <!-- Vim/Reg toggle -->
         <button

@@ -37,7 +37,7 @@
     </div>
 
     <!-- Update status -->
-    <div class="rounded-lg border border-edge bg-surface px-4 py-3.5">
+    <div class="rounded-lg bg-overlay-faint px-4 py-3.5">
       <div class="flex items-center gap-3">
         <template v-if="updatesBlockedByPrivacyLockdown">
           <StatusDot bucket="queued" />
@@ -107,18 +107,18 @@
 
     <!-- Update behavior -->
     <div v-if="updatesEnabled" class="mt-7">
-      <div class="text-sm text-content mb-2.5">Update behavior</div>
+      <div class="text-xs font-semibold text-content-secondary mb-2.5">Update behavior</div>
       <div class="grid grid-cols-3 gap-2">
         <button
           v-for="option in policyOptions"
           :key="option.value"
           @click="setUpdatePolicy(option.value)"
           :disabled="updatesBlockedByPrivacyLockdown"
-          class="rounded-lg border px-3.5 py-3 text-left transition-colors"
+          class="rounded-lg px-3.5 py-3 text-left transition-colors"
           :class="[
             policy === option.value
-              ? 'border-accent/50 bg-accent/15'
-              : 'border-edge bg-surface hover:bg-overlay-subtle',
+              ? 'bg-accent/10 text-accent-hi'
+              : 'bg-overlay-subtle hover:bg-overlay-hover',
             updatesBlockedByPrivacyLockdown ? 'cursor-not-allowed opacity-60' : '',
           ]"
         >
@@ -129,7 +129,7 @@
             >
               <div v-if="policy === option.value" class="w-1.5 h-1.5 rounded-full bg-accent"></div>
             </div>
-            <span class="text-sm font-medium text-content">{{ option.label }}</span>
+            <span class="text-[13px] text-content">{{ option.label }}</span>
           </div>
           <div class="text-xs text-content-tertiary mt-1.5 leading-relaxed">{{ option.description }}</div>
         </button>
@@ -138,17 +138,17 @@
 
     <!-- Resources -->
     <div class="mt-7">
-      <div class="text-sm text-content mb-2.5">Resources</div>
-      <div class="-mx-2">
+      <div class="text-xs font-semibold text-content-secondary mb-2.5">Resources</div>
+      <div class="divide-y divide-edge-subtle">
         <button
           v-for="link in resourceLinks"
           :key="link.url"
           @click="openExternal(link.url)"
-          class="w-full flex items-center gap-3 px-2 py-2.5 text-left rounded-md hover:bg-overlay-subtle transition-colors duration-150"
+          class="w-full flex items-center gap-3 px-2 -mx-2 py-2.5 text-left rounded-md hover:bg-overlay-subtle transition-colors duration-150"
         >
           <svg class="w-4 h-4 text-content-tertiary shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" v-html="link.icon"></svg>
           <div class="flex-1 min-w-0">
-            <div class="text-sm text-content">{{ link.title }}</div>
+            <div class="text-[13px] text-content">{{ link.title }}</div>
             <div class="text-xs text-content-muted mt-0.5">{{ link.subtitle }}</div>
           </div>
           <svg class="w-3.5 h-3.5 text-content-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
