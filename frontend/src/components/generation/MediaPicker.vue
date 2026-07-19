@@ -202,9 +202,9 @@
             <!-- Frame picker: choose which frame of the source video to use as the still.
                  Shown for any video-grabbed item. -->
             <template v-if="accept === 'image' && !item.isSet && item._videoSource">
-              <div class="w-full">
+              <div class="w-full border-b border-edge-subtle">
                 <div
-                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'frame')"
                 >
                   <span class="text-[11px] text-content-secondary flex-1">Frame</span>
@@ -286,9 +286,9 @@
                  regardless of whether the tool declares x-allow-prep. -->
             <template v-if="accept === 'image' && !item.isSet">
               <!-- Flip / Rotate row: shown when active, or when the reveal row expands the rest -->
-              <div  class="w-full">
+              <div class="w-full border-b border-edge-subtle">
                 <div
-                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'flip')"
                 >
                   <span class="text-[11px] text-content-secondary flex-1">Flip / Rotate</span>
@@ -350,7 +350,7 @@
               </div>
 
               <!-- Crop row (opens the modal crop editor) -->
-              <div  class="w-full">
+              <div class="w-full border-b border-edge-subtle">
                 <div class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle">
                   <span class="text-[11px] text-content-secondary flex-1">Crop</span>
                   <span v-if="hasCrop(item)" class="text-[10px] font-mono tabular-nums text-accent-hi font-medium">
@@ -381,9 +381,9 @@
               </div>
 
               <!-- Scale row -->
-              <div  class="w-full">
+              <div class="w-full border-b border-edge-subtle">
                 <div
-                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'scale')"
                 >
                   <span class="text-[11px] text-content-secondary flex-1">Scale</span>
@@ -454,9 +454,9 @@
               </div>
 
               <!-- Extend Canvas row -->
-              <div  class="w-full">
+              <div class="w-full border-b border-edge-subtle">
                 <div
-                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'extend')"
                 >
                   <span class="text-[11px] text-content-secondary flex-1">Extend Canvas</span>
@@ -537,9 +537,9 @@
               </div>
 
               <!-- Preprocess row -->
-              <div v-if="hasControlnet" class="w-full">
+              <div v-if="hasControlnet" class="w-full border-b border-edge-subtle">
                 <div
-                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'preprocess')"
                 >
                   <span class="text-[11px] text-content-secondary flex-1">Control</span>
@@ -640,7 +640,7 @@
               </div>
 
               <!-- Paint row (hidden in batch mode — per-item painting can't apply uniformly) -->
-              <div v-if="!batchMode" class="w-full">
+              <div v-if="!batchMode" class="w-full border-b border-edge-subtle">
                 <div class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle">
                   <span class="text-[11px] text-content-secondary flex-1">Paint</span>
                   <button
@@ -664,7 +664,7 @@
               </div>
 
               <!-- Output size footer — shows final pipeline dimensions, Use sets canvas -->
-              <div class="w-full border-t border-edge-subtle">
+              <div class="w-full">
                 <div class="flex items-center gap-2 px-2.5 py-1.5">
                   <span class="text-[10px] text-content-muted flex-1 min-w-0 whitespace-nowrap tabular-nums">{{ getExtendedDimensions(item).width }} × {{ getExtendedDimensions(item).height }}</span>
                   <button
