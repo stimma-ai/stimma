@@ -773,7 +773,7 @@
         v-if="jobsManager"
         class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out"
         :class="[
-          layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent py-3 pl-3 pr-1',
+          layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent py-3 pl-0.5 pr-1',
           stageResizing ? '!transition-none' : ''
         ]"
         :style="{ width: layoutMode === 'stage' ? '160px' : '33.3333%' }"
