@@ -351,9 +351,16 @@ class MarkerUpdate(BaseModel):
     color: str
 
 
+class FolderRelocation(BaseModel):
+    """Explicit old/new root pair for an identity-preserving Source move."""
+    old_path: str
+    new_path: str
+
+
 class UpdateFoldersRequest(BaseModel):
     """Request to update profile folders."""
     folders: List[FolderUpdate]
+    relocation: Optional[FolderRelocation] = None
 
 
 class UpdateMarkersRequest(BaseModel):
@@ -1055,10 +1062,19 @@ async def update_folders(request: UpdateFoldersRequest):
     # Capture old folder paths for telemetry comparison
     settings = get_settings()
     old_folder_paths = set()
+    old_folders_data = []
     legacy_managed_roots = []
     for p in settings.profiles:
         if p.id == current_profile_id:
             old_folder_paths = {f.path for f in p.folders}
+            old_folders_data = [
+                {
+                    "path": f.path,
+                    "refresh_interval_seconds": f.refresh_interval_seconds,
+                    "markers": f.markers,
+                }
+                for f in p.folders
+            ]
             legacy_managed_roots = p.legacy_managed_roots
             break
 
@@ -1078,23 +1094,110 @@ async def update_folders(request: UpdateFoldersRequest):
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    try:
-        if legacy_managed_roots:
-            patch_profile_section(
-                current_profile_id,
-                "legacy_managed_roots",
-                legacy_managed_roots,
+    new_folder_paths = {f["path"] for f in folders_data}
+    removed_paths = old_folder_paths - new_folder_paths
+    added_paths = new_folder_paths - old_folder_paths
+    relocation = request.relocation
+    if relocation is None and len(old_folder_paths) == len(new_folder_paths):
+        if removed_paths and added_paths:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Changing a Source path requires relocation metadata so "
+                    "Stimma can preserve Asset and Media identity"
+                ),
             )
-        patch_profile_section(current_profile_id, "folders", folders_data)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+
+    relocation_result = None
+    if relocation is not None:
+        if (
+            len(old_folder_paths) != len(new_folder_paths)
+            or removed_paths != {relocation.old_path}
+            or added_paths != {relocation.new_path}
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Relocation must replace exactly the declared old Source path",
+            )
+
+        from source_relocation_service import (
+            SourceRelocationError,
+            canonical_source_root,
+            relocate_source_folder,
+        )
+
+        try:
+            new_root = canonical_source_root(relocation.new_path, must_exist=True)
+            for folder in old_folders_data:
+                if folder["path"] == relocation.old_path:
+                    continue
+                other_root = canonical_source_root(folder["path"])
+                if (
+                    new_root == other_root
+                    or new_root in other_root.parents
+                    or other_root in new_root.parents
+                ):
+                    raise SourceRelocationError(
+                        "The relocated Source must not overlap another configured Source"
+                    )
+
+            registry = get_database_registry()
+            db = registry.get_database(current_profile_id)
+            config_patched = False
+            async with db.async_session_maker() as session:
+                try:
+                    relocation_result = await relocate_source_folder(
+                        session,
+                        old_path=relocation.old_path,
+                        new_path=relocation.new_path,
+                    )
+                    if legacy_managed_roots:
+                        patch_profile_section(
+                            current_profile_id,
+                            "legacy_managed_roots",
+                            legacy_managed_roots,
+                        )
+                    patch_profile_section(current_profile_id, "folders", folders_data)
+                    config_patched = True
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+                    if config_patched:
+                        try:
+                            patch_profile_section(
+                                current_profile_id, "folders", old_folders_data
+                            )
+                        except Exception:
+                            log.exception(
+                                "failed to restore Source config after relocation rollback",
+                                profile=current_profile_id,
+                            )
+                    raise
+        except SourceRelocationError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    else:
+        try:
+            if legacy_managed_roots:
+                patch_profile_section(
+                    current_profile_id,
+                    "legacy_managed_roots",
+                    legacy_managed_roots,
+                )
+            patch_profile_section(current_profile_id, "folders", folders_data)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
 
     log.info("folders updated", profile=current_profile_id, count=len(folders_data))
 
     # Track folder add/remove telemetry
-    new_folder_paths = {f["path"] for f in folders_data}
     added_count = len(new_folder_paths - old_folder_paths)
     removed_count = len(old_folder_paths - new_folder_paths)
+    if relocation is not None:
+        added_count -= 1
+        removed_count -= 1
     if added_count > 0 or removed_count > 0:
         from telemetry import get_telemetry_client
         tc = get_telemetry_client()
@@ -1106,7 +1209,10 @@ async def update_folders(request: UpdateFoldersRequest):
     # Immediately sync auto-markers for all media in folders with markers
     await _sync_folder_auto_markers(current_profile_id, folders_data)
 
-    return {"status": "success", "message": "Folders updated"}
+    response = {"status": "success", "message": "Folders updated"}
+    if relocation_result is not None:
+        response["relocation"] = relocation_result.to_dict()
+    return response
 
 
 async def _sync_folder_auto_markers(profile_id: str, folders_data: list[dict]):

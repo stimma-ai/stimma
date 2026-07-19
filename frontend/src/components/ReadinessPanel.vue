@@ -430,15 +430,23 @@ function dismissWizard() {
   dismissPanel()
 }
 
-async function handleFoldersUpdate(folders) {
+async function handleFoldersUpdate(folders, relocation = null) {
+  const previousFolders = settings.value?.folders || []
   if (settings.value) {
     settings.value = { ...settings.value, folders }
   }
   try {
-    await updateFolders(folders)
+    const response = await updateFolders(folders, relocation)
+    if (response.relocation) {
+      const count = response.relocation.media_items_updated
+      addToast(`Relocated folder without reprocessing ${count.toLocaleString()} media item${count === 1 ? '' : 's'}`, 'success')
+    }
   } catch (error) {
     console.error('Failed to persist folders:', error)
-    addToast(error.message || 'Could not save folders', 'error')
+    if (settings.value) {
+      settings.value = { ...settings.value, folders: previousFolders }
+    }
+    addToast(error.response?.data?.detail || 'Could not save folders', 'error')
   }
 }
 

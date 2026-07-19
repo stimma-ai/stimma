@@ -194,6 +194,7 @@ import { usePinLock } from '../../composables/usePinLock'
 import { useAuth } from '../../composables/useAuth'
 import { useCloudAccount } from '../../composables/useCloudAccount'
 import { useAvailableModels } from '../../composables/useAvailableModels'
+import { addToast } from '../../composables/useToasts'
 import { hasUsableGenerationProvider, hasUsableLlmModel } from '../../utils/settingsReadiness'
 import SettingsSidebar from './SettingsSidebar.vue'
 import ProfilesSection from './sections/ProfilesSection.vue'
@@ -360,17 +361,25 @@ async function loadSettings() {
 // This avoids race conditions with the config file watcher and provides snappy UI.
 // We only reload from server when the modal first opens.
 
-async function handleFoldersUpdate(folders) {
+async function handleFoldersUpdate(folders, relocation = null) {
+  const previousFolders = settings.value?.folders || []
   // Update local state immediately (child already has optimistic state)
   if (settings.value) {
     settings.value = { ...settings.value, folders }
   }
   // Fire-and-forget: persist to server, don't reload
   try {
-    await updateFolders(folders)
+    const response = await updateFolders(folders, relocation)
+    if (response.relocation) {
+      const count = response.relocation.media_items_updated
+      addToast(`Relocated folder without reprocessing ${count.toLocaleString()} media item${count === 1 ? '' : 's'}`, 'success')
+    }
   } catch (err) {
     console.error('Failed to persist folders:', err)
-    // Could show a toast here, but don't reload - local state is authoritative
+    if (settings.value) {
+      settings.value = { ...settings.value, folders: previousFolders }
+    }
+    addToast(err.response?.data?.detail || 'Could not save folders', 'error')
   }
 }
 

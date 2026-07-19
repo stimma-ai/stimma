@@ -291,6 +291,7 @@ function handleFolderSettingsSave(updates) {
   showFolderSettings.value = false
   if (folderToEditIndex.value === null) return
 
+  const oldPath = props.folders[folderToEditIndex.value]?.path
   const updatedFolders = props.folders.map((folder, index) => {
     if (index === folderToEditIndex.value) {
       return {
@@ -303,7 +304,10 @@ function handleFolderSettingsSave(updates) {
     return folder
   })
 
-  immediateSave(updatedFolders)
+  const relocation = oldPath && oldPath !== updates.path
+    ? { old_path: oldPath, new_path: updates.path }
+    : null
+  immediateSave(updatedFolders, relocation)
   folderToEdit.value = null
   folderToEditIndex.value = null
 }
@@ -336,11 +340,11 @@ onUnmounted(() => {
 })
 
 // Immediate save for add/remove operations (no debounce)
-async function immediateSave(folders) {
+async function immediateSave(folders, relocation = null) {
   clearTimeout(saveTimer)
   saving.value = true
   try {
-    emit('update', folders)
+    emit('update', folders, relocation)
   } finally {
     saving.value = false
   }

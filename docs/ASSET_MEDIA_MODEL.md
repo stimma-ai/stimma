@@ -56,6 +56,12 @@ content. New profiles have no Sources by default. Managed storage paths are impl
 details; user serviceability should come from source access for external files
 and explicit export/backup for managed content.
 
+Changing an existing Source root is an explicit relocation operation. Stimma
+rebases indexed external locators by their path relative to the old root while
+preserving Asset, Revision, Media, StorageObject, ownership, organization, and
+processing identity. Relocation preflights the new files and rejects missing or
+colliding paths; it does not discover files or schedule metadata/AI work.
+
 ## Historical migration
 
 Startup automatically classifies historical Media using normalized structured

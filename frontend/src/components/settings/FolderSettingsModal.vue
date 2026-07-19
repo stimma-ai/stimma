@@ -42,6 +42,9 @@
           class="w-full px-3 py-2 bg-overlay-subtle border border-transparent rounded-md text-content placeholder:text-content-muted text-sm outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
           placeholder="/path/to/media/folder"
         />
+        <p class="mt-1.5 text-xs text-content-muted">
+          Choosing a new location rebinds existing assets by relative path. Stimma does not move files.
+        </p>
       </div>
 
       <!-- Scan Interval -->

@@ -30,8 +30,10 @@ export function useSettingsApi() {
    * Update folders for the current profile.
    * @param {Array} folders - Array of folder configurations
    */
-  async function updateFolders(folders) {
-    const response = await axios.patch(`${getAPIBase()}/settings/folders`, { folders })
+  async function updateFolders(folders, relocation = null) {
+    const payload = { folders }
+    if (relocation) payload.relocation = relocation
+    const response = await axios.patch(`${getAPIBase()}/settings/folders`, payload)
     return response.data
   }
 
