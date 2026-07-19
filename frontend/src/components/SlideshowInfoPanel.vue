@@ -416,11 +416,10 @@
                 <p class="text-content-secondary text-xs leading-relaxed m-0 select-text">{{ step.negative_prompt }}</p>
               </div>
 
-              <!-- Facts: typeset key·value rows -->
-              <KeyValueList :rows="stepFactRows(step)" />
-
-              <!-- Generic parameter display -->
-              <KeyValueList :rows="stepParamRows(step)" />
+              <!-- Facts + generic parameters: ONE KeyValueList so the hairline
+                   between the two groups exists (two adjacent lists drop the
+                   rule at the seam — last:border-0 meets a fresh first row) -->
+              <KeyValueList :rows="[...stepFactRows(step), ...stepParamRows(step)]" />
 
               <!-- LoRAs (handle both 'loras' and legacy 'selected_loras' field names) -->
               <div v-if="(step.parameters?.loras || step.parameters?.selected_loras)?.length > 0" class="bg-overlay-subtle p-2 rounded">
