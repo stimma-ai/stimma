@@ -64,6 +64,7 @@
         loaded ? 'opacity-100' : 'opacity-0',
         imgClass
       ]"
+      :style="objectPosition ? { objectPosition } : undefined"
       :loading="effectiveLoading"
       :draggable="draggable"
       @load="handleLoad"
@@ -128,6 +129,13 @@ interface Props {
   containerClass?: string
   /** Additional classes for the img element */
   imgClass?: string
+  /**
+   * CSS object-position for cover mode (e.g. "50% 20%"). Use with a fit-mode
+   * source to keep a focal point (e.g. a detected face) framed when the
+   * container aspect differs from the image. Ignored in contain mode (the
+   * whole image is already visible). Defaults to centered.
+   */
+  objectPosition?: string
   /** Loading attribute for lazy loading */
   loading?: 'lazy' | 'eager'
   /** Whether the image is draggable */

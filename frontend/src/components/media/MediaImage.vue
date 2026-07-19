@@ -13,6 +13,7 @@
     :has-alpha="hasAlpha"
     :container-class="containerClass"
     :img-class="imgClass"
+    :object-position="objectPosition"
     :loading="loading"
     :draggable="draggable"
     :retry-on-error="thumbnail || isAudio"
@@ -66,6 +67,12 @@ interface Props {
   containerClass?: string
   /** Additional classes for the img element */
   imgClass?: string
+  /**
+   * CSS object-position for cover mode (e.g. a face focal point "50% 20%").
+   * Pair with `thumbnailMode: 'fit'` so the full image is framed by the focal
+   * point instead of the baked square crop. Defaults to centered.
+   */
+  objectPosition?: string
   /** Loading attribute for lazy loading */
   loading?: 'lazy' | 'eager'
   /** Whether the image is draggable. Default: true */

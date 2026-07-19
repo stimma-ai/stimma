@@ -121,6 +121,8 @@
                           :is-video="isVideoFormat(previewItem.file_format)"
                           :thumbnail="true"
                           :thumbnail-size="256"
+                          thumbnail-mode="fit"
+                          :object-position="faceObjectPosition(mediaIdOf(previewItem))"
                           :draggable="false"
                           :enable-context-menu="false"
                           container-class="w-full h-full"
@@ -143,6 +145,8 @@
                         :media-id="mid"
                         :thumbnail="true"
                         :thumbnail-size="256"
+                        thumbnail-mode="fit"
+                        :object-position="faceObjectPosition(mid)"
                         :draggable="false"
                         :enable-context-menu="false"
                         container-class="w-full h-full"
@@ -157,6 +161,8 @@
                     :file-hash="item.chat.recent_media[0].file_hash"
                     :thumbnail="true"
                     :thumbnail-size="256"
+                    thumbnail-mode="fit"
+                    :object-position="faceObjectPosition(item.chat.recent_media[0].media_id)"
                     :draggable="false"
                     :enable-context-menu="false"
                     container-class="w-full h-full"
@@ -258,6 +264,7 @@ import { useAgentModelAvailability } from '../composables/useAgentModelAvailabil
 import { useAvailableModels } from '../composables/useAvailableModels'
 import { mediaIdOf } from '../utils/assetIdentity'
 import { modelRejectsImageInput } from '../utils/settingsReadiness'
+import { useFaceFocalPoints } from '../composables/useFaceFocalPoints'
 
 const props = defineProps({
   project: {
@@ -268,6 +275,8 @@ const props = defineProps({
 
 const router = useRouter()
 const { getBoards, getBoard, addMediaToBoard, deleteBoard, restoreBoard, updateBoard } = useMediaApi()
+// Face-aware framing for "Jump back in" cover art (see useFaceFocalPoints).
+const { request: requestFaceFocalPoints, positionOf: faceObjectPosition } = useFaceFocalPoints()
 const { fetchAssets, addToBoard: addAssetsToBoard } = useAssetApi()
 const { listFlows, listEquations, updateFlow, deleteFlow, restoreFlow } = useFlowsApi()
 const { slideshowState, enterSlideshow, exitSlideshow, updateCurrentMediaId } = useSlideshow()
@@ -463,6 +472,7 @@ async function loadRecentChats() {
     if (!response.ok) return
     const data = await response.json()
     recentChats.value = data.items || []
+    requestFaceFocalPoints(recentChats.value.map((c) => c.recent_media?.[0]?.media_id))
   } catch (err) {
     console.error('Failed to load project chats:', err)
   }
@@ -488,6 +498,7 @@ async function loadRecentFlows() {
       next.set(recentFlows.value[index].id, computeFlowOutputs(byKey).map((o) => o.mediaId))
     })
     flowOutputMedia.value = next
+    requestFaceFocalPoints([...next.values()].flatMap((ids) => ids.slice(0, 3)))
   } catch (err) {
     console.error('Failed to load project flows:', err)
   }
@@ -527,6 +538,11 @@ async function loadRecentBoards() {
       }
     })
     boardDetails.value = next
+    requestFaceFocalPoints(
+      [...next.values()].flatMap((detail) =>
+        (detail?.sections || []).flatMap((s) => s.items || []).slice(0, 6).map((it) => mediaIdOf(it))
+      )
+    )
   } catch (err) {
     console.error('Failed to load project boards:', err)
   }

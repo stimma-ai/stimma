@@ -455,6 +455,16 @@ export function useMediaApi() {
     return response.data
   }
 
+  // Batch face focal points for object-cover framing. Returns
+  // { [mediaId]: { x, y } | null } — CSS object-position percentages of the
+  // face centroid (null when no faces were detected).
+  async function getFaceObjectPositions(mediaIds) {
+    const ids = [...new Set((mediaIds || []).map(id => parseInt(id)).filter(Number.isFinite))]
+    if (!ids.length) return {}
+    const response = await axios.post(`${getAPIBase()}/media/face-positions`, { media_ids: ids })
+    return response.data
+  }
+
   // ===== Saved Views =====
   async function getSavedViews() {
     const response = await axios.get(`${getAPIBase()}/saved-views`)
@@ -628,6 +638,7 @@ export function useMediaApi() {
     bulkPermanentlyDelete,
     // Face Detection
     getMediaFaces,
+    getFaceObjectPositions,
     // Saved Views
     getSavedViews,
     getSavedView,

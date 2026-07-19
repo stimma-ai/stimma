@@ -1196,6 +1196,59 @@ def _face_crop_object_position(item: MediaItem, faces_data: list | None) -> dict
     }
 
 
+def _faces_centroid_object_position(faces_data: list | None) -> dict | None:
+    """Raw face centroid as CSS object-position percentages.
+
+    Container-agnostic focal point for a full (fit-mode) image displayed with
+    object-fit: cover. Setting `object-position: x% y%` aligns the face centroid
+    to that fraction of the container and the browser clamps to the edges, so
+    faces stay framed regardless of the container's aspect ratio.
+
+    Unlike `_face_crop_object_position` (tuned to the square baked crop, only
+    correct in a square container), this is just the normalized centroid, so it
+    frames faces correctly in wide/short containers like the "Jump back in"
+    cards. No source dimensions needed — the bbox is already normalized.
+    """
+    if not faces_data:
+        return None
+    total_x, total_y = 0.0, 0.0
+    for face in faces_data:
+        bbox = face['bbox']
+        total_x += bbox['x'] + bbox['width'] / 2
+        total_y += bbox['y'] + bbox['height'] / 2
+    n = len(faces_data)
+    return {"x": round(total_x / n * 100, 2), "y": round(total_y / n * 100, 2)}
+
+
+class FacePositionsRequest(BaseModel):
+    media_ids: List[int]
+
+
+@router.post("/media/face-positions")
+async def get_media_face_positions(
+    payload: FacePositionsRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, dict | None]:
+    """Batch face focal points for static-image framing.
+
+    Returns `{media_id: {x, y} | null}` where x/y are CSS object-position
+    percentages of the face centroid. Consumers serve the thumbnail in fit mode
+    and apply the position to an object-cover `<img>` so faces stay framed in
+    non-square containers. `null` means no detected faces (leave centered).
+    """
+    ids = list({int(mid) for mid in payload.media_ids})
+    if not ids:
+        return {}
+    result = await session.execute(select(Face).where(Face.media_id.in_(ids)))
+    faces_by_media: dict[int, list[dict]] = {}
+    for face in result.scalars().all():
+        faces_by_media.setdefault(face.media_id, []).append(face.to_dict())
+    return {
+        str(mid): _faces_centroid_object_position(faces_by_media.get(mid))
+        for mid in ids
+    }
+
+
 async def _normalized_thumbnail_content(session, item: MediaItem) -> dict | None:
     """Resolve container members before thumbnail work leaves the DB thread."""
     if item.file_format not in {"stimmaset.json", "stimmagrid.json"}:
