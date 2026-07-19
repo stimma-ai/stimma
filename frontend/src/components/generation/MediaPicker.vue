@@ -7,12 +7,12 @@
     @dragleave="onDragLeave"
     @drop.prevent="onDrop($event)"
   >
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2 pb-1 mb-1.5">
+    <div class="flex items-baseline justify-between pb-1 mb-1.5">
+      <div class="flex items-baseline gap-2 min-w-0">
         <label class="text-xs font-semibold text-content-secondary">{{ displayLabel }}</label>
-        <span v-if="props.description" class="text-xs text-content-muted">{{ props.description }}</span>
+        <span v-if="props.description" class="text-xs text-content-muted truncate">{{ props.description }}</span>
       </div>
-      <span v-if="!batchMode" class="text-xs text-content-muted">{{ items.length }}/{{ maxItems }}</span>
+      <span v-if="!batchMode" class="text-[10px] font-mono tabular-nums text-content-tertiary flex-shrink-0">{{ items.length }}/{{ maxItems }}</span>
     </div>
 
     <!-- Item Grid/Sequence -->
