@@ -43,7 +43,7 @@
               loaded ? 'opacity-100' : 'opacity-0',
               imgClass
             ]"
-            :loading="loading"
+            :loading="effectiveLoading"
             :draggable="draggable"
             @load="handleLoad"
             @error="handleError"
@@ -64,7 +64,7 @@
         loaded ? 'opacity-100' : 'opacity-0',
         imgClass
       ]"
-      :loading="loading"
+      :loading="effectiveLoading"
       :draggable="draggable"
       @load="handleLoad"
       @error="handleError"
@@ -108,6 +108,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
+import { enqueueThumbnail, type ThumbnailQueueHandle } from '../../composables/useThumbnailQueue'
 
 interface Props {
   src?: string
@@ -141,6 +142,14 @@ interface Props {
   retryOnError?: boolean
   /** Max auto-retry attempts when retryOnError is set. */
   maxRetries?: number
+  /**
+   * Route this load through the app-level thumbnail admission queue: the
+   * request doesn't start until a slot frees up, nearest-to-viewport first.
+   * Keeps big scroll bursts from flooding the connection pool and the
+   * backend's generation workers. Takes precedence over
+   * preservePreviousOnSrcChange.
+   */
+  queued?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -153,7 +162,8 @@ const props = withDefaults(defineProps<Props>(), {
   draggable: false,
   preservePreviousOnSrcChange: false,
   retryOnError: false,
-  maxRetries: 4
+  maxRetries: 4,
+  queued: false
 })
 
 const emit = defineEmits<{
@@ -169,6 +179,10 @@ const error = ref(false)
 // checker for opaque content, so there's no loading race to hide. Unknown
 // (null/undefined) keeps today's load-gated checker as a safe fallback.
 const showChecker = computed(() => props.hasAlpha !== false)
+// Queued loads must fetch as soon as their src is applied — admission control
+// has already decided the timing, and native lazy-loading deferring an
+// admitted request would hold its queue slot without making progress.
+const effectiveLoading = computed(() => (props.queued ? 'eager' : props.loading))
 const imgRef = ref<HTMLImageElement | null>(null)
 const containerRef = ref<HTMLElement | null>(null)
 const naturalWidth = ref(0)
@@ -186,6 +200,7 @@ let resizeObserver: ResizeObserver | null = null
 // flashing the broken-image icon.
 let retryCount = 0
 let retryTimer: ReturnType<typeof setTimeout> | null = null
+let queueHandle: ThumbnailQueueHandle | null = null
 
 function clearRetryTimer() {
   if (retryTimer !== null) {
@@ -243,6 +258,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearRetryTimer()
+  queueHandle?.cancel()
+  queueHandle = null
   resizeObserver?.disconnect()
   resizeObserver = null
 })
@@ -254,6 +271,29 @@ watch(() => props.src, (nextSrc) => {
   // A genuinely new source starts its retry budget fresh.
   clearRetryTimer()
   retryCount = 0
+
+  // The previous source's queue slot is stale either way: pending entries
+  // dequeue without ever issuing a request; an in-flight one frees its slot
+  // (the img unrenders when displaySrc clears, aborting the network request).
+  queueHandle?.cancel()
+  queueHandle = null
+
+  if (props.queued) {
+    displaySrc.value = ''
+    loaded.value = false
+    error.value = false
+    naturalWidth.value = 0
+    naturalHeight.value = 0
+    if (!normalizedSrc) return
+    const handle = enqueueThumbnail(() => containerRef.value)
+    queueHandle = handle
+    handle.admitted.then(() => {
+      // Bail if the src moved on (or the component unmounted) while queued.
+      if (queueHandle !== handle) return
+      displaySrc.value = normalizedSrc
+    })
+    return
+  }
 
   if (!props.preservePreviousOnSrcChange || !displaySrc.value || !normalizedSrc || normalizedSrc === displaySrc.value) {
     displaySrc.value = normalizedSrc
@@ -298,6 +338,7 @@ watch(() => props.src, (nextSrc) => {
 }, { immediate: true })
 
 function handleLoad(event: Event) {
+  queueHandle?.done()
   const img = event.target as HTMLImageElement
   const srcAtLoad = displaySrc.value
   naturalWidth.value = img.naturalWidth
@@ -322,6 +363,9 @@ function handleLoad(event: Event) {
 }
 
 function handleError(event: Event) {
+  // Free the admission slot either way; auto-retries are rare, backoff-spaced,
+  // and always for a visible tile, so they reload outside the queue.
+  queueHandle?.done()
   const baseSrc = props.src || ''
   if (props.retryOnError && baseSrc && retryCount < props.maxRetries) {
     retryCount += 1

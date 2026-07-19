@@ -68,6 +68,7 @@
                   :contain="rowItem.file_format === 'stimmalayout'"
                   :has-alpha="rowItem.has_alpha"
                   loading="eager"
+                  queued
                   container-class="w-full h-full"
                 />
                 <video
@@ -216,6 +217,7 @@ import ActionMenu from './ActionMenu.vue'
 import EmptyState from './EmptyState.vue'
 import { useMediaContextMenu } from '../composables/useMediaContextMenu'
 import { useExpirationClock } from '../composables/useExpirationClock'
+import { noteFastScroll } from '../composables/useThumbnailQueue'
 import { createDragPreview, preloadDragPreview, handleDragEnd as dragPreviewHandleDragEnd } from '../composables/useDragPreview'
 import { getMediaType, isVideo as isVideoType, isAudio, getBadgeConfig, formatDuration as formatMediaDuration } from '../utils/mediaTypes'
 import { makeProfileKey } from '../utils/storageKeys'
@@ -643,6 +645,11 @@ async function loadPage(pageNumber) {
 // Handle scroll to load pages as needed
 // Split into immediate (save scroll position) and frame-coalesced page loading.
 let scrollPageLoadRafId = null
+let lastScrollTop = null
+let lastScrollTime = 0
+// Above this velocity the user is flinging, not reading — pause thumbnail
+// admissions so tiles that merely transit the viewport never issue requests.
+const FAST_SCROLL_PX_PER_MS = 2.5
 
 function handleScroll() {
   if (!scroller.value) return
@@ -652,6 +659,16 @@ function handleScroll() {
   // Track latest known scroll position immediately, even if debounced storage
   // write hasn't executed yet.
   savedScrollPosition.value = scrollTop
+
+  const now = performance.now()
+  if (lastScrollTop !== null) {
+    const elapsed = now - lastScrollTime
+    if (elapsed > 0 && Math.abs(scrollTop - lastScrollTop) / elapsed > FAST_SCROLL_PX_PER_MS) {
+      noteFastScroll()
+    }
+  }
+  lastScrollTop = scrollTop
+  lastScrollTime = now
 
   // Save scroll position for persistence (debounced) - immediate path
   debouncedSaveScroll(scrollTop)

@@ -5,9 +5,9 @@ import uuid
 from typing import Optional, List
 from core.logging import get_logger
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
+import threading
 from queue import LifoQueue
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select, update, func
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -178,20 +178,149 @@ import logging as _logging
 _logging.getLogger('weasyprint').setLevel(_logging.CRITICAL)
 
 
-class LifoThreadPoolExecutor(ThreadPoolExecutor):
-    """ThreadPoolExecutor that processes newest requests first (LIFO).
+class _ThumbnailJob:
+    """One pending generation, shared by every request waiting on the same cache key.
 
-    This improves thumbnail loading UX when jumping to distant scroll positions -
-    visible items get processed first while scrolled-past items sink to the back.
+    `abandoned` is set (from the event loop) once no HTTP request is waiting on
+    the result anymore — a worker that pops an abandoned job skips the decode
+    entirely, so thumbnails for tiles the user scrolled past never run.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._work_queue = LifoQueue()
+    def __init__(self, loop: asyncio.AbstractEventLoop, fn, args):
+        self.loop = loop
+        self.future: asyncio.Future = loop.create_future()
+        self.fn = fn
+        self.args = args
+        self.waiters = 0
+        self.abandoned = threading.Event()
+
+    def _resolve(self, result=None, exc: BaseException | None = None):
+        def apply():
+            if self.future.done():
+                return
+            if exc is not None:
+                self.future.set_exception(exc)
+            else:
+                self.future.set_result(result)
+        self.loop.call_soon_threadsafe(apply)
 
 
-# Global thread pool for thumbnail generation (LIFO so newest requests processed first)
-thumbnail_executor = LifoThreadPoolExecutor(max_workers=16, thread_name_prefix="thumbnail")
+class ThumbnailWorkerPool:
+    """LIFO worker pool for thumbnail generation with abandonment shedding.
+
+    LIFO keeps the long-standing UX property that the most recently requested
+    (i.e. currently visible) thumbnails are generated first after a big scroll,
+    while jobs whose clients have all disconnected are dropped unexecuted.
+    """
+
+    def __init__(self, max_workers: int, thread_name_prefix: str):
+        self._queue: LifoQueue = LifoQueue()
+        self._threads = [
+            threading.Thread(target=self._worker, name=f"{thread_name_prefix}-{i}", daemon=True)
+            for i in range(max_workers)
+        ]
+        for t in self._threads:
+            t.start()
+
+    def submit(self, job: _ThumbnailJob):
+        self._queue.put(job)
+
+    def _worker(self):
+        while True:
+            job = self._queue.get()
+            if job.abandoned.is_set():
+                job._resolve(exc=asyncio.CancelledError())
+                continue
+            try:
+                result = job.fn(*job.args)
+            except BaseException as exc:  # noqa: BLE001 - propagate to the waiter
+                job._resolve(exc=exc)
+            else:
+                job._resolve(result=result)
+
+
+# Two pools so heavy decodes (ffmpeg video/audio, document rendering) can't
+# occupy every slot and starve the cheap PIL image resizes that make up the
+# bulk of scroll traffic.
+_light_thumbnail_pool = ThumbnailWorkerPool(max_workers=12, thread_name_prefix="thumbnail")
+_heavy_thumbnail_pool = ThumbnailWorkerPool(max_workers=4, thread_name_prefix="thumbnail-heavy")
+
+_HEAVY_THUMBNAIL_FORMATS = {
+    'mp4', 'webm', 'mov', 'avi', 'mkv',          # ffmpeg frame extraction
+    'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg',   # ffmpeg waveform decode
+    'md',                                         # document rendering
+}
+
+# In-flight generation keyed by cache_key: concurrent requests for the same
+# thumbnail share one decode instead of racing duplicate work.
+_inflight_thumbnails: dict[str, _ThumbnailJob] = {}
+
+
+class ThumbnailRequestAbandoned(Exception):
+    """Raised when every client waiting on a generation has disconnected."""
+
+
+async def _generate_thumbnail_in_pool(
+    request: Request,
+    cache_key: str,
+    file_path: str,
+    file_format: str,
+    cache_path: Path,
+    size: int,
+    faces_data,
+    palette,
+    mode: str,
+    normalized_content,
+) -> bool:
+    """Run _generate_thumbnail_sync in a worker pool with dedup + shedding.
+
+    Coalesces concurrent requests for the same cache_key onto one job, and
+    marks the job abandoned (skipped by workers) once every waiting client has
+    disconnected. Raises ThumbnailRequestAbandoned for a disconnected caller.
+    """
+    loop = asyncio.get_running_loop()
+    job = _inflight_thumbnails.get(cache_key)
+    if job is not None and job.abandoned.is_set():
+        # Stale entry: every earlier waiter left (e.g. scrolled past) and the
+        # worker will skip it. This is a fresh client — start a fresh job.
+        job = None
+    if job is None:
+        # Client already gone before any work was queued — don't enqueue at all.
+        if await request.is_disconnected():
+            raise ThumbnailRequestAbandoned()
+        job = _ThumbnailJob(
+            loop,
+            _generate_thumbnail_sync,
+            (file_path, file_format, cache_path, size, faces_data, palette, mode, normalized_content),
+        )
+        _inflight_thumbnails[cache_key] = job
+
+        def _clear_inflight(_f, key=cache_key, created=job):
+            # Only remove our own registration — an abandoned job may have
+            # been replaced by a fresh one under the same key.
+            if _inflight_thumbnails.get(key) is created:
+                _inflight_thumbnails.pop(key, None)
+
+        job.future.add_done_callback(_clear_inflight)
+        pool = _heavy_thumbnail_pool if file_format.lower() in _HEAVY_THUMBNAIL_FORMATS else _light_thumbnail_pool
+        pool.submit(job)
+
+    job.waiters += 1
+    try:
+        while True:
+            # Wake periodically to notice client disconnects while queued, so
+            # a fast scroll's worth of stale jobs gets shed instead of decoded.
+            done, _ = await asyncio.wait({job.future}, timeout=0.5)
+            if done:
+                return job.future.result()
+            if await request.is_disconnected():
+                raise ThumbnailRequestAbandoned()
+    except asyncio.CancelledError:
+        raise ThumbnailRequestAbandoned() from None
+    finally:
+        job.waiters -= 1
+        if job.waiters <= 0 and not job.future.done():
+            job.abandoned.set()
 
 def _generate_audio_waveform(file_path: str, size: int, palette=None) -> Image.Image:
     """Generate a waveform visualization for an audio file."""
@@ -1708,6 +1837,7 @@ async def export_layout(
 
 @router.get("/thumbnail/{file_hash}")
 async def get_thumbnail(
+    request: Request,
     file_hash: str,
     size: int = Query(512, ge=64, le=1024),
     mode: str = Query("crop", pattern="^(crop|fit)$"),
@@ -1815,19 +1945,27 @@ async def get_thumbnail(
         success = layout_status == LAYOUT_THUMB_OK
     else:
         faces_data = await _get_faces_data(session, media_id) if mode == "crop" and face_count > 0 else None
-        loop = asyncio.get_event_loop()
-        success = await loop.run_in_executor(
-            thumbnail_executor,
-            _generate_thumbnail_sync,
-            file_path,
-            file_format,
-            cache_path,
-            size,
-            faces_data,
-            palette,
-            mode,
-            normalized_content,
-        )
+        try:
+            success = await _generate_thumbnail_in_pool(
+                request,
+                cache_key,
+                file_path,
+                file_format,
+                cache_path,
+                size,
+                faces_data,
+                palette,
+                mode,
+                normalized_content,
+            )
+        except ThumbnailRequestAbandoned:
+            # Every client waiting on this thumbnail disconnected (scrolled
+            # past, closed the view) — nobody is listening for this response.
+            raise HTTPException(
+                status_code=503,
+                detail="Thumbnail request abandoned",
+                headers={"Retry-After": "1"},
+            )
 
     if not success:
         await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)
@@ -2298,6 +2436,7 @@ async def get_media_lineage_tree(
 
 @router.get("/db/{db_guid}/thumbnail/{file_hash}")
 async def get_thumbnail_by_db_guid(
+    request: Request,
     db_guid: str,
     file_hash: str,
     size: int = Query(512, ge=64, le=1024),
@@ -2389,19 +2528,27 @@ async def get_thumbnail_by_db_guid(
         success = layout_status == LAYOUT_THUMB_OK
     else:
         faces_data = await _get_faces_data(session, media_id) if mode == "crop" and face_count > 0 else None
-        loop = asyncio.get_event_loop()
-        success = await loop.run_in_executor(
-            thumbnail_executor,
-            _generate_thumbnail_sync,
-            file_path,
-            file_format,
-            cache_path,
-            size,
-            faces_data,
-            palette,
-            mode,
-            normalized_content,
-        )
+        try:
+            success = await _generate_thumbnail_in_pool(
+                request,
+                cache_key,
+                file_path,
+                file_format,
+                cache_path,
+                size,
+                faces_data,
+                palette,
+                mode,
+                normalized_content,
+            )
+        except ThumbnailRequestAbandoned:
+            # Every client waiting on this thumbnail disconnected (scrolled
+            # past, closed the view) — nobody is listening for this response.
+            raise HTTPException(
+                status_code=503,
+                detail="Thumbnail request abandoned",
+                headers={"Retry-After": "1"},
+            )
 
     if not success:
         await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)
@@ -2621,6 +2768,7 @@ async def get_thumbnail_by_media_id_and_db_guid(
 
 @router.get("/db/{db_guid}/media/{media_id}/thumbnail-path")
 async def get_thumbnail_path_by_media_id(
+    request: Request,
     db_guid: str,
     media_id: int,
     size: int = Query(128, ge=64, le=1024),
@@ -2704,19 +2852,27 @@ async def get_thumbnail_path_by_media_id(
         ) == LAYOUT_THUMB_OK
     else:
         faces_data = await _get_faces_data(session, media_id) if mode == "crop" and face_count > 0 else None
-        loop = asyncio.get_event_loop()
-        success = await loop.run_in_executor(
-            thumbnail_executor,
-            _generate_thumbnail_sync,
-            file_path,
-            file_format,
-            cache_path,
-            size,
-            faces_data,
-            palette,
-            mode,
-            normalized_content,
-        )
+        try:
+            success = await _generate_thumbnail_in_pool(
+                request,
+                cache_key,
+                file_path,
+                file_format,
+                cache_path,
+                size,
+                faces_data,
+                palette,
+                mode,
+                normalized_content,
+            )
+        except ThumbnailRequestAbandoned:
+            # Every client waiting on this thumbnail disconnected (scrolled
+            # past, closed the view) — nobody is listening for this response.
+            raise HTTPException(
+                status_code=503,
+                detail="Thumbnail request abandoned",
+                headers={"Retry-After": "1"},
+            )
 
     if not success:
         await _raise_if_thumbnail_deleted_after_generation(session, media_id, file_path, file_format, cache_path)

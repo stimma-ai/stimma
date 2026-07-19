@@ -459,6 +459,7 @@
             :key="`img-${displayItem?.id}-${refreshKey}`"
             :src="getMediaFileUrl(displayItem.file_hash)"
             :alt="displayItem.vlm_caption"
+            fetchpriority="high"
             :class="['w-full h-full select-none', hasExactDimensions ? '' : 'object-contain']"
             draggable="true"
             @dragstart="handleDragStart"
@@ -1192,6 +1193,7 @@ import { useGlobalKeyboardShortcuts } from '../composables/useGlobalKeyboardShor
 import { useBrowseFilters } from '../composables/useBrowseFilters'
 import { useMediaPlayback, useManagedMediaElement } from '../composables/useMediaPlayback'
 import { usePrint } from '../composables/usePrint'
+import { beginHeroLoad } from '../composables/useThumbnailQueue'
 import axios from 'axios'
 import {
   SpeakerWaveIcon,
@@ -1517,6 +1519,21 @@ const loadingPages = ref(new Map()) // Maps page number to loading promise
 let pageProviderCacheRevision = 0
 const displayItem = ref(null) // Item to display (stays visible while loading next)
 const mediaLoaded = ref(false) // Track whether current media has finished loading
+
+// While the hero (full-res main image) is loading, throttle thumbnail
+// admissions so the filmstrip and any grids underneath don't starve it of
+// connections. beginHeroLoad self-releases on a safety timeout if a load
+// event is ever lost.
+let releaseHeroLoad = null
+watch([displayItem, mediaLoaded], ([item, loadedNow]) => {
+  const heroPending = !!item && !loadedNow
+  if (heroPending && !releaseHeroLoad) {
+    releaseHeroLoad = beginHeroLoad()
+  } else if (!heroPending && releaseHeroLoad) {
+    releaseHeroLoad()
+    releaseHeroLoad = null
+  }
+})
 const stripRefreshKey = ref(0) // Force strip remount independently
 const stripScrollerRef = ref(null) // Reference to HorizontalVirtualScroller for manual refresh
 
@@ -5423,6 +5440,10 @@ onMounted(async () => {
 
 onUnmounted(() => {
   destroyMsePlayback()
+  if (releaseHeroLoad) {
+    releaseHeroLoad()
+    releaseHeroLoad = null
+  }
   // Clean up WebSocket handlers to prevent leaked handlers from accumulating
   for (const unsub of wsUnsubscribers) {
     unsub()
@@ -5459,6 +5480,12 @@ onUnmounted(() => {
 onDeactivated(() => {
   document.body.classList.remove('slideshow-focus-mode')
   cleanupCursorTimeout()
+  // Hidden by KeepAlive — a pending hero load must not keep throttling
+  // thumbnails elsewhere in the app.
+  if (releaseHeroLoad) {
+    releaseHeroLoad()
+    releaseHeroLoad = null
+  }
   // Pause the transport playhead poll while hidden by KeepAlive
   if (transportRaf != null) {
     cancelAnimationFrame(transportRaf)

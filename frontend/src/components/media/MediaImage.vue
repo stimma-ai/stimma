@@ -16,6 +16,7 @@
     :loading="loading"
     :draggable="draggable"
     :retry-on-error="thumbnail || isAudio"
+    :queued="effectiveQueued"
     @click="$emit('click', $event)"
     @load="$emit('load', $event)"
     @error="$emit('error', $event)"
@@ -82,6 +83,12 @@ interface Props {
    *  always show the waveform thumbnail (even in fit mode) instead of trying to
    *  load the raw audio into an <img> (which errors). */
   isAudio?: boolean
+  /**
+   * Route the load through the app-level thumbnail admission queue (bounded
+   * concurrency, nearest-to-viewport first). Defaults to on for thumbnail
+   * loads; full-file loads stay unqueued.
+   */
+  queued?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -105,6 +112,12 @@ const emit = defineEmits<{
 }>()
 
 const { getThumbnailUrl, getMediaFileUrl } = useMediaApi()
+
+// Thumbnail loads go through the admission queue unless explicitly opted out;
+// full-file loads (fit mode heroes etc.) are never queued behind thumbnails.
+const effectiveQueued = computed(() =>
+  props.queued !== undefined ? props.queued : (props.thumbnail || props.isAudio === true)
+)
 
 // Compute image source URL
 // Prefer fileHash for URLs (hash-based URLs are the standard, more cache-friendly)

@@ -90,8 +90,11 @@
         />
       </div>
 
-      <!-- Completed/failed items -->
-      <template v-for="item in completedDisplayItems" :key="item.key">
+      <!-- Completed/failed items. Rendered in capped chunks: this list is not
+           virtualized, and mounting every completed job's thumbnail at once
+           floods the thumbnail pipeline (and freezes slideshow-open) after a
+           long generation session. -->
+      <template v-for="item in visibleCompletedItems" :key="item.key">
 
         <!-- Completed batch output set - set tile -->
         <template v-if="item.type === 'completed-batch'">
@@ -222,12 +225,21 @@
         </template>
 
       </template>
+
+      <!-- Older completed items load on demand -->
+      <button
+        v-if="hiddenCompletedCount > 0"
+        class="w-full py-2 text-sm text-content-muted hover:text-content transition-colors"
+        @click="completedDisplayLimit += COMPLETED_DISPLAY_CHUNK"
+      >
+        Show {{ Math.min(hiddenCompletedCount, COMPLETED_DISPLAY_CHUNK) }} more ({{ hiddenCompletedCount }} older)
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { MediaImage, AppImage } from '../media'
 import PipelineProgressBar from './postprocessing/PipelineProgressBar.vue'
 import FailedJobRow from './FailedJobRow.vue'
@@ -650,6 +662,21 @@ const activeDisplayItems = computed(() =>
 const completedDisplayItems = computed(() =>
   unifiedDisplayItems.value.filter(item => !ACTIVE_ITEM_TYPES.has(item.type))
 )
+
+// Cap how many completed tiles are mounted at once. The list is newest-first,
+// so new results always appear; older history mounts on demand. Reset the cap
+// when the grid is pointed at a different tool's jobs.
+const COMPLETED_DISPLAY_CHUNK = 30
+const completedDisplayLimit = ref(COMPLETED_DISPLAY_CHUNK)
+const visibleCompletedItems = computed(() =>
+  completedDisplayItems.value.slice(0, completedDisplayLimit.value)
+)
+const hiddenCompletedCount = computed(() =>
+  Math.max(0, completedDisplayItems.value.length - completedDisplayLimit.value)
+)
+watch(() => props.toolDisplayName, () => {
+  completedDisplayLimit.value = COMPLETED_DISPLAY_CHUNK
+})
 
 // Generation slots currently occupied by active items. A post-processing
 // chain does NOT hold a slot — the backend frees the generation slot before
