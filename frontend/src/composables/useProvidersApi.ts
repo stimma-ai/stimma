@@ -72,7 +72,7 @@ export interface ProviderParameterOption {
   value: string
   label: string
   description?: string
-  meta?: string
+  category?: string
   preview_url?: string
 }
 

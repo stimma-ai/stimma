@@ -102,7 +102,7 @@ class SaveToolStateRequest(BaseModel):
 
 
 class SearchToolOptionsRequest(BaseModel):
-    """Search a large provider-backed enum catalog."""
+    """Search a dynamic provider-backed parameter catalog."""
     full_tool_id: str
     parameter: str
     query: str = ""

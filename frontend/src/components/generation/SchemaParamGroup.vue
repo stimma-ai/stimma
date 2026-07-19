@@ -64,7 +64,16 @@
                    TTS model blurb) shifts left into the label's free space
                    instead of overflowing the card; the label keeps ≥25%. -->
               <div class="min-w-0 max-w-[75%]">
+                <VoicePicker
+                  v-if="param.control === 'voice_picker'"
+                  :model-value="String(values[param.name] ?? param.default)"
+                  @update:model-value="emitParam(param.name, $event)"
+                  :options="(param.enum ?? []).map((opt: string) => ({ value: opt, label: param.enumLabels?.[opt] || formatEnumOption(opt, param.format) }))"
+                  :search-options="voiceSearchFor(param)"
+                  :disabled="constraintState(param).disabled"
+                />
                 <SettingsDropdown
+                  v-else
                   :model-value="String(values[param.name] ?? param.default)"
                   @update:model-value="emitParam(param.name, $event)"
                   :options="(param.enum ?? []).map((opt: string) => ({ value: opt, label: param.enumLabels?.[opt] || formatEnumOption(opt, param.format) }))"
@@ -145,6 +154,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import SettingsDropdown from '../ui/SettingsDropdown.vue'
+import VoicePicker from './VoicePicker.vue'
 import ScrubValue from '../ui/ScrubValue.vue'
 import type { GenericParam, GenericParamGroup } from '../../composables/useToolSchemaFeatures'
 import { resolveParamConstraints, isSectionHidden, type ParamConstraintState } from '../../utils/paramConstraints'
@@ -191,7 +201,21 @@ function remoteSearchFor(param: GenericParam) {
       value: option.value,
       label: option.label,
       description: option.description,
-      meta: option.meta,
+      meta: option.category,
+      previewUrl: option.preview_url,
+    }))
+  }
+}
+
+function voiceSearchFor(param: GenericParam) {
+  if (!param.searchOptions || !props.fullToolId) return undefined
+  return async (query: string) => {
+    const options = await searchToolOptions(props.fullToolId!, param.name, query)
+    return options.map((option: ProviderParameterOption) => ({
+      value: option.value,
+      label: option.label,
+      description: option.description,
+      category: option.category,
       previewUrl: option.preview_url,
     }))
   }

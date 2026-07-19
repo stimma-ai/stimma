@@ -1046,9 +1046,9 @@ class JsonRpcProvider(ToolProvider):
                 "jsonrpc": "2.0",
                 "result": {
                     "session_id": str(uuid.uuid4()),
-                    "stp_version": "1.0",
+                    "stp_version": "1.1",
                     "host_version": "1.0.0",
-                    "capabilities": {},
+                    "capabilities": {"parameter_options": True},
                 },
                 "id": message.get("id"),
             }
@@ -1305,9 +1305,11 @@ class JsonRpcProvider(ToolProvider):
         query: str,
         limit: int = 100,
     ) -> List[Dict[str, Any]]:
-        """Query a large remote enum catalog without embedding it in tools.list."""
+        """Query a dynamic parameter catalog without embedding it in tools.list."""
         if self._status != ProviderStatus.CONNECTED:
             raise RuntimeError("Provider not connected")
+        if not self._capabilities.get("parameter_options", False):
+            raise RuntimeError("Provider does not advertise parameter_options")
         result = await self._send_request(
             "tools.search_options",
             {
