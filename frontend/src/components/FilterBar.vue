@@ -38,7 +38,7 @@
         >
           <span
             v-if="isMarkerNegative(marker.id)"
-            class="text-red-400 text-[16px] font-bold leading-none select-none"
+            class="text-red-400 text-[16px] font-semibold leading-none select-none"
           >−</span>
           <span class="w-5 h-5 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
         </button>
