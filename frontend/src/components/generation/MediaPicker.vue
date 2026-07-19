@@ -16,13 +16,13 @@
     </div>
 
     <!-- Item Grid/Sequence -->
-    <div class="flex flex-wrap gap-3 items-start">
+    <div :class="reorderable ? 'flex flex-wrap gap-3 items-start' : 'grid gap-3 items-start [grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr))]'">
       <template v-for="(item, index) in displayItems" :key="item.originalIndex">
-        <div class="flex items-center gap-1">
+        <div class="flex items-center gap-1 min-w-0">
           <div
             :class="[
-              'flex flex-col flex-shrink-0',
-              reorderable ? 'w-[17rem]' : 'w-[26.5rem]',
+              'flex flex-col flex-shrink-0 min-w-0',
+              reorderable ? 'w-[17rem]' : 'w-full flex-1',
               reorderable ? 'gap-1.5' : 'gap-2'
             ]"
           >
@@ -719,36 +719,55 @@
         </div>
       </template>
 
-      <!-- Add button -->
+      <!-- Add: dashed tile only when EMPTY; ghost row once items exist.
+           Both stay live drop targets (accent chrome on drag-over). -->
       <div
-        v-if="!batchMode && items.length < maxItems"
+        v-if="!batchMode && items.length < maxItems && items.length === 0"
         ref="addTileRef"
         @click="onAddTileClick"
         @dragover.prevent.stop="onDragOver"
         @dragleave.stop="onDragLeave"
         @drop.prevent.stop="onDrop($event)"
         :class="[
-          'bg-surface border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer flex-shrink-0',
-          reorderable ? 'w-[17rem] h-[9.5rem]' : (accept === 'audio' ? 'w-[26.5rem] h-[7rem]' : 'w-[26.5rem] h-[18.5rem]'),
-          isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10 border-transparent' : 'border-edge hover:border-accent hover:bg-surface'
+          'border border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer h-24 w-full',
+          reorderable ? '' : 'col-span-full',
+          isDragging || pickerPopoverOpen ? 'ring-1 ring-accent/50 bg-accent/10 border-transparent' : 'border-edge text-content-muted hover:border-accent'
         ]"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-content-muted">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-        <span class="text-xs text-content-muted">
-          {{ isDragging ? 'Drop here' : (useSlotLabels ? slotName(items.length) : 'Add') }}
+        <span class="text-xs text-content-muted flex items-center gap-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          {{ isDragging ? 'Drop here' : (useSlotLabels ? slotName(items.length) : 'Add — drop, paste, or browse') }}
         </span>
-        <!-- Loop shortcut: reuse the first slot's image to fill this one -->
-        <button
-          v-if="useSlotLabels && items.length >= 1 && !isDragging"
-          @click.stop="duplicateFirstToFill"
-          class="mt-1 text-[10px] px-2 py-0.5 rounded text-content-muted bg-overlay-light hover:bg-accent/10 hover:text-accent-hi transition-colors"
-          :title="`Use the same image as ${slotName(0)} (for loops)`"
-        >
-          Same as {{ slotBadge(0) }}
-        </button>
       </div>
+    </div>
+
+    <!-- Add row (compact, once items exist) -->
+    <div
+      v-if="!batchMode && items.length < maxItems && items.length > 0"
+      ref="addTileRef"
+      @click="onAddTileClick"
+      @dragover.prevent.stop="onDragOver"
+      @dragleave.stop="onDragLeave"
+      @drop.prevent.stop="onDrop($event)"
+      :class="[
+        'mt-1.5 w-full flex items-center gap-1.5 rounded-md px-1 py-1.5 text-xs cursor-pointer transition-colors',
+        isDragging || pickerPopoverOpen ? 'border border-dashed border-accent/50 bg-accent/10 text-accent-hi justify-center' : 'text-content-muted hover:text-content-secondary hover:bg-overlay-subtle'
+      ]"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+        <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+      </svg>
+      {{ isDragging ? 'Drop here' : (useSlotLabels ? `Add ${slotName(items.length)}` : 'Add') }}
+      <button
+        v-if="useSlotLabels && items.length >= 1 && !isDragging"
+        @click.stop="duplicateFirstToFill"
+        class="ml-auto text-[10px] px-2 py-0.5 rounded text-content-muted bg-overlay-subtle hover:bg-accent/10 hover:text-accent-hi transition-colors"
+        :title="`Use the same image as ${slotName(0)} (for loops)`"
+      >
+        Same as {{ slotBadge(0) }}
+      </button>
     </div>
 
     <!-- Disabled reason takes priority over the min-items nag — no point telling
