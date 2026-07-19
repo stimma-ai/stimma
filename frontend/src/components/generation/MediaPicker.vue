@@ -205,7 +205,7 @@
             <template v-if="accept === 'image' && !item.isSet && item._videoSource">
               <div class="w-full">
                 <div
-                  class="flex items-center gap-2 px-1 py-[3px] border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'frame')"
                 >
                   <span class="text-[11px] text-content-secondary flex-1">Frame</span>
@@ -289,7 +289,7 @@
               <!-- Flip / Rotate row: shown when active, or when the reveal row expands the rest -->
               <div  class="w-full">
                 <div
-                  class="flex items-center gap-2 px-1 py-[3px] border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'flip')"
                 >
                   <span class="text-[11px] text-content-secondary flex-1">Flip / Rotate</span>
@@ -352,7 +352,7 @@
 
               <!-- Crop row (opens the modal crop editor) -->
               <div  class="w-full">
-                <div class="flex items-center gap-2 px-1 py-[3px] border-t border-edge-subtle">
+                <div class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle">
                   <span class="text-[11px] text-content-secondary flex-1">Crop</span>
                   <span v-if="hasCrop(item)" class="text-[10px] font-mono tabular-nums text-accent-hi font-medium">
                     {{ getCropStatusText(item) }}
@@ -384,7 +384,7 @@
               <!-- Scale row -->
               <div  class="w-full">
                 <div
-                  class="flex items-center gap-2 px-1 py-[3px] border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'scale')"
                 >
                   <span class="text-[11px] text-content-secondary flex-1">Scale</span>
@@ -457,7 +457,7 @@
               <!-- Extend Canvas row -->
               <div  class="w-full">
                 <div
-                  class="flex items-center gap-2 px-1 py-[3px] border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'extend')"
                 >
                   <span class="text-[11px] text-content-secondary flex-1">Extend Canvas</span>
@@ -540,7 +540,7 @@
               <!-- Preprocess row -->
               <div v-if="hasControlnet" class="w-full">
                 <div
-                  class="flex items-center gap-2 px-1 py-[3px] border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
+                  class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle cursor-pointer hover:bg-overlay-subtle transition-colors"
                   @click="togglePrepPanel(item.originalIndex, 'preprocess')"
                 >
                   <span class="text-[11px] text-content-secondary flex-1">Control</span>
@@ -642,7 +642,7 @@
 
               <!-- Paint row (hidden in batch mode — per-item painting can't apply uniformly) -->
               <div v-if="!batchMode" class="w-full">
-                <div class="flex items-center gap-2 px-1 py-[3px] border-t border-edge-subtle">
+                <div class="flex items-center gap-2 px-1 pt-[5px] pb-[4px] leading-none border-t border-edge-subtle">
                   <span class="text-[11px] text-content-secondary flex-1">Paint</span>
                   <button
                     v-if="item._paintLayerDataUrl"
