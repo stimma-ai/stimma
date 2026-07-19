@@ -425,10 +425,11 @@ const availableTaskTypes = computed(() => {
       }
     }
   }
-  // Sort by count descending, with "utility" at the end
+  // Sort by count descending, with "filter" and "utility" pinned to the end
+  // (filters are secondary post-processing tools, not what you come here for)
+  const endRank = (t) => (t === 'utility' ? 2 : t === 'filter' ? 1 : 0)
   return Object.keys(counts).sort((a, b) => {
-    if (a === 'utility') return 1
-    if (b === 'utility') return -1
+    if (endRank(a) !== endRank(b)) return endRank(a) - endRank(b)
     return counts[b] - counts[a]
   })
 })
