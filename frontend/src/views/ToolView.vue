@@ -84,7 +84,7 @@
         <!-- Top gap lives INSIDE the teleported card's animated wrapper so it
              eases open/closed with the card instead of snapping. -->
         <div id="tool-context-slot" class="flex-none mx-3 empty:hidden"></div>
-        <div class="flex-1 min-w-0 flex min-h-0">
+        <div ref="columnsRowEl" class="flex-1 min-w-0 flex min-h-0">
 
       <!-- Generation Controls. In Studio mode the primary column (left, wide); in
            Stage mode a narrow LEFT sidebar (on the left specifically, to read
@@ -97,7 +97,7 @@
         :class="[
           stageResizing ? '!transition-none' : ''
         ]"
-        :style="{ width: layoutMode === 'stage' ? stageControlsWidth + 'px' : '66.6667%' }"
+        :style="{ width: layoutMode === 'stage' ? stageControlsWidth + 'px' : studioControlsPct + '%' }"
       >
        <div class="flex-1 min-h-0 overflow-y-auto scrollbar-stable m-3 rounded-lg border border-edge-subtle bg-surface p-4 pb-6">
         <!-- Header (teleported full-width to #tool-header-slot) -->
@@ -496,7 +496,7 @@
                   :min="durationConfig.min"
                   :max="durationConfig.max"
                   :step="durationConfig.step"
-                  class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+                  class="min-w-24 flex-1 h-1 bg-surface-raised rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
                 >
                 <div class="text-sm text-content w-10 flex-shrink-0 text-right">{{ (modelParams.duration || durationConfig.default).toFixed(1) }}s</div>
               </div>
@@ -531,7 +531,7 @@
                   v-model.number="modelParams.frameCount"
                   :min="frameCountConfig.min"
                   :max="frameCountConfig.max"
-                  class="min-w-24 flex-1 h-1 bg-surface-raised rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+                  class="min-w-24 flex-1 h-1 bg-surface-raised rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
                 >
                 <div class="text-center flex-shrink-0">
                   <div class="text-sm text-content">{{ modelParams.frameCount }}</div>
@@ -623,15 +623,16 @@
        </div>
       </div>
 
-      <!-- Draggable seam between the controls sidebar and the hero (Stage only).
-           Zero-width in the flex layout so it adds no gap or gray line; the drag
-           zone is an overlay straddling the boundary. -->
+      <!-- Draggable seam on the controls column's right edge. In Stage it sizes
+           the sidebar against the hero; in Studio (hero collapsed to 0) it sits
+           on the controls/queue boundary and drags the column split. Zero-width
+           in the flex layout so it adds no gap or gray line; the drag zone is an
+           overlay straddling the boundary. -->
       <div
-        v-show="layoutMode === 'stage'"
         class="order-2 relative w-0 flex-none z-10"
       >
         <div
-          @pointerdown="startStageResize"
+          @pointerdown="layoutMode === 'stage' ? startStageResize($event) : startStudioResize($event)"
           class="group absolute inset-y-0 -left-1 w-2 cursor-col-resize"
           title="Drag to resize"
         >
@@ -800,7 +801,7 @@
           layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent py-3 px-0',
           stageResizing ? '!transition-none' : ''
         ]"
-        :style="{ width: layoutMode === 'stage' ? '160px' : '33.3333%' }"
+        :style="{ width: layoutMode === 'stage' ? '160px' : (100 - studioControlsPct) + '%' }"
       >
         <JobsGrid
           :jobs="allJobs"
@@ -1095,6 +1096,34 @@ function startStageResize(e: PointerEvent) {
   stageResizeStartW = stageControlsWidth.value
   window.addEventListener('pointermove', onStageResize)
   window.addEventListener('pointerup', endStageResize)
+  e.preventDefault()
+}
+
+// Studio: the same seam drags the controls/queue split, tracked as a percent
+// of the columns row so the layout keeps its proportional behavior on window
+// resize. Session-local, like the Stage width. stageResizing doubles as the
+// transition suppressor for both drags.
+const columnsRowEl = ref<HTMLElement | null>(null)
+const studioControlsPct = ref(66.6667)
+let studioResizeStartX = 0
+let studioResizeStartPct = 0
+let studioRowWidth = 1
+function onStudioResize(e: PointerEvent) {
+  const deltaPct = ((e.clientX - studioResizeStartX) / studioRowWidth) * 100
+  studioControlsPct.value = Math.max(35, Math.min(80, studioResizeStartPct + deltaPct))
+}
+function endStudioResize() {
+  stageResizing.value = false
+  window.removeEventListener('pointermove', onStudioResize)
+  window.removeEventListener('pointerup', endStudioResize)
+}
+function startStudioResize(e: PointerEvent) {
+  stageResizing.value = true
+  studioResizeStartX = e.clientX
+  studioResizeStartPct = studioControlsPct.value
+  studioRowWidth = columnsRowEl.value?.clientWidth || 1
+  window.addEventListener('pointermove', onStudioResize)
+  window.addEventListener('pointerup', endStudioResize)
   e.preventDefault()
 }
 function generationJobParams(job: any): any {
