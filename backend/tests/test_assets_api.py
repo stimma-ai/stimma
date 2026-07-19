@@ -996,6 +996,10 @@ async def test_expired_asset_is_absent_from_browse_and_facets(client, db_session
 
 @pytest.mark.asyncio
 async def test_empty_asset_trash_permanently_deletes_all_roots(client, db_session):
+    trashed_before = (
+        await client.get("/api/assets", params={"state": "trashed"})
+    ).json()["total"]
+
     async with db_session() as session:
         roots = []
         for _ in range(2):
@@ -1009,7 +1013,7 @@ async def test_empty_asset_trash_permanently_deletes_all_roots(client, db_sessio
     ).status_code == 200
     response = await client.delete("/api/assets")
     assert response.status_code == 202
-    assert response.json()["accepted"] == 2
+    assert response.json()["accepted"] == trashed_before + 2
     operations = response.json()["operations"]
     assert len({operation["group_id"] for operation in operations}) == 1
     for operation in operations:
