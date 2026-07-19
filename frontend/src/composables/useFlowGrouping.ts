@@ -302,6 +302,22 @@ export function classifyEquationBlock(
   return result
 }
 
+/**
+ * True when an equation is parked on an unavailable tool, or when a pending
+ * equation is blocked behind one. Keeping this traversal shared ensures a
+ * sequential flow retains the real cause instead of degrading to "Waiting"
+ * after the first phase.
+ */
+export function equationHasUnavailableTool(
+  eq: FlowEquation,
+  all: Map<string, FlowEquation>,
+  memo: Map<string, BlockReason> = new Map(),
+): boolean {
+  if (eq.status === 'waiting_for_tool') return true
+  if (eq.status !== 'pending') return false
+  return classifyEquationBlock(eq, all, memo) === 'tool'
+}
+
 // Iteration-level wrapper around classifyEquationBlock. For iterations whose
 // wrapper hasn't fired, classify the wrapper's upstream chain. For iterations
 // whose wrapper has fired but inner work is still pending, classify the first

@@ -49,6 +49,10 @@
         v-else-if="phaseStatus.kind === 'waiting'"
         class="flex-shrink-0 text-[10.5px] font-medium text-content-muted"
       >Waiting</span>
+      <span
+        v-else-if="phaseStatus.kind === 'unavailable'"
+        class="flex-shrink-0 text-[10.5px] font-medium text-amber-500"
+      >Tool unavailable</span>
 
       <span class="flex-1"></span>
 
@@ -495,6 +499,8 @@ import { equationDurationMs, formatEquationDurationMs } from '../../utils/equati
 import StatusDot from '../ui/StatusDot.vue'
 import Spinner from '../ui/Spinner.vue'
 import { textClass, mapEquationStatus, type StatusBucket } from '../../utils/statusColors'
+import { equationHasUnavailableTool } from '../../composables/useFlowGrouping'
+import type { BlockReason } from '../../composables/useFlowGrouping'
 
 interface Props {
   node: PhaseNodeType
@@ -601,14 +607,31 @@ function hasActionableTaskInSubtree(n: PhaseNodeType): boolean {
 }
 const hasActionableTask = computed(() => hasActionableTaskInSubtree(props.node))
 
+// A downstream pending phase should retain the cause of its block. Otherwise
+// phase two says only "Waiting" even when phase one is parked on a provider
+// that needs the person's attention.
+function hasUnavailableToolInSubtree(n: PhaseNodeType, memo: Map<string, BlockReason>): boolean {
+  for (const key of n.equation_keys || []) {
+    const eq = props.equationsByKey.get(key)
+    if (eq && equationHasUnavailableTool(eq, props.equationsByKey, memo)) return true
+  }
+  return (n.children || []).some((child) => hasUnavailableToolInSubtree(child, memo))
+}
+
+const hasUnavailableTool = computed(() =>
+  hasUnavailableToolInSubtree(props.node, new Map()),
+)
+
 // Phase-level status chip (replaces the icon soup).
 // Priority:
 //   1. error  — surface failures first; user must intervene
 //   2. active — something is actually running right now (LLM / tool / code)
 //   3. tasks  — an actionable HITL is ready for the user
-//   4. waiting — pending / blocked but nothing running
-//   5. done
-// Vocabulary mirrors useFlowStatus: Error > Your Turn > Running > Waiting > Done.
+//   4. unavailable — a tool is offline or the person needs to log in
+//   5. waiting — pending / blocked but nothing running
+//   6. done
+// Vocabulary mirrors useFlowStatus: Error > Your Turn > Tool unavailable >
+// Running > Waiting > Done.
 // `Running` keeps its spinner-only treatment (no inline label) so the existing
 // "Using LLM…" hint sits next to the spinner rather than fighting a redundant chip.
 const phaseStatus = computed(() => {
@@ -621,9 +644,9 @@ const phaseStatus = computed(() => {
   const completed = (s['completed'] || 0) as number
   if (failed > 0) return { kind: 'error', label: failed === 1 ? 'Error' : `${failed} errors` }
   if (awaiting > 0 || hasActionableTask.value) return { kind: 'tasks', label: 'Your Turn' }
+  if (waitingTool > 0 || hasUnavailableTool.value) return { kind: 'unavailable', label: 'Tool unavailable' }
   if (computing > 0) return { kind: 'running', label: '' }
   if (pending > 0) return { kind: 'waiting', label: 'Waiting' }
-  if (waitingTool > 0) return { kind: 'waiting', label: 'Waiting for tool' }
   if (completed > 0) return { kind: 'done', label: 'Done' }
   return { kind: 'empty', label: '' }
 })
@@ -634,6 +657,7 @@ const phaseStatusBucket = computed<StatusBucket>(() => {
     case 'error':   return 'failed'
     case 'tasks':   return 'awaiting'
     case 'running': return 'running'
+    case 'unavailable': return 'warning'
     case 'waiting': return 'warning'
     case 'done':    return 'done'
     default:        return 'queued'
@@ -919,7 +943,7 @@ function equationStatusLabel(eq: FlowEquation): string | null {
     case 'computing':      return 'Running'
     case 'failed':         return 'Failed'
     case 'awaiting_input': return isEquationActionable(eq) && getTasksForEquation(eq.equation_key).length > 0 ? 'Your Turn' : null
-    case 'waiting_for_tool': return 'Waiting for tool'
+    case 'waiting_for_tool': return 'Tool unavailable'
     case 'skipped':        return 'Skipped'
     case 'invalidated':    return 'Stale'
     case 'pending':        return isEquationActionable(eq) ? 'Queued' : null

@@ -12,7 +12,8 @@
   >
     <!-- Header: type + phase + unblocks -->
     <div class="flex items-center gap-2 mb-2">
-      <StatusDot v-if="task.task_type !== 'error'" bucket="awaiting" pulse />
+      <StatusDot v-if="task.task_type === 'waiting_for_tool'" bucket="warning" />
+      <StatusDot v-else-if="task.task_type !== 'error'" bucket="awaiting" pulse />
       <span
         class="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded"
         :class="typeBadgeClass"
@@ -67,16 +68,25 @@
       />
     </div>
 
-    <!-- Waiting for tool -->
+    <!-- Tool unavailable -->
     <div v-else-if="task.task_type === 'waiting_for_tool'" class="space-y-2">
-      <div class="bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 text-[12px] text-amber-400 flex items-start gap-2">
-        <Spinner size="sm" hue="border-t-amber-400" class="flex-shrink-0 mt-0.5" />
+      <div class="bg-amber-500/10 rounded-md px-2 py-1.5 text-[12px] text-amber-500 flex items-start gap-2">
+        <svg class="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.008v.008H12v-.008z" />
+        </svg>
         <div class="whitespace-pre-wrap flex-1">
-          <span v-if="waitingToolId">Waiting for tool <code class="text-amber-300">{{ waitingToolId }}</code> to become available.</span>
-          <span v-else>Waiting for a tool to become available.</span>
+          <span v-if="needsStimmaLogin">This Stimma tool is unavailable because you're signed out.</span>
+          <span v-else-if="waitingToolId">Tool <code>{{ waitingToolId }}</code> is unavailable. The flow will resume when it comes back online.</span>
+          <span v-else>A tool is unavailable. The flow will resume when it comes back online.</span>
         </div>
       </div>
       <div class="flex flex-wrap gap-2">
+        <button
+          v-if="needsStimmaLogin"
+          type="button"
+          class="rounded-md bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-3 py-1 text-xs font-medium text-white transition-colors hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400"
+          @click="openCloudLogin"
+        >Log in to Stimma</button>
         <button
           class="bg-overlay-subtle text-content text-xs font-medium px-3 py-1 rounded-md hover:bg-overlay-hover transition-colors"
           @click="submitErrorAction('skip')"
@@ -147,6 +157,8 @@ import type { FlowTask } from '../../composables/useFlowsApi'
 import { parseFlowError } from '../../utils/flowErrors'
 import { formatTaskTypeLabel } from '../../utils/taskTypeIcons'
 import { bgClass, textClass, type StatusBucket } from '../../utils/statusColors'
+import { useAuth } from '../../composables/useAuth'
+import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
 
 interface Props {
   task: FlowTask
@@ -177,7 +189,11 @@ const parsedTaskError = computed(() =>
 const devErrorClass = computed(() =>
   props.allowInnerScroll ? 'max-h-60 overflow-y-auto custom-scrollbar' : '',
 )
-const taskTypeLabel = computed(() => formatTaskTypeLabel(props.task.task_type))
+const taskTypeLabel = computed(() =>
+  props.task.task_type === 'waiting_for_tool'
+    ? 'Tool unavailable'
+    : formatTaskTypeLabel(props.task.task_type),
+)
 
 // ----- Select -----
 const selectCandidatesRaw = computed<any[]>(() => {
@@ -237,6 +253,16 @@ const waitingToolId = computed<string | null>(() => {
   const id = payload.tool_id
   return typeof id === 'string' && id ? id : null
 })
+
+const { isAuthenticated } = useAuth()
+const needsStimmaLogin = computed(() =>
+  waitingToolId.value?.split(':')[0] === STIMMA_CLOUD_PROVIDER_ID
+  && !isAuthenticated.value,
+)
+
+function openCloudLogin() {
+  window.dispatchEvent(new CustomEvent('open-settings', { detail: 'account' }))
+}
 
 const taskInLoop = computed(() => {
   // Heuristic mirror of backend _is_inside_foreach_iteration: iteration keys

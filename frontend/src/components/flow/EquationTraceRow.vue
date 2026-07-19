@@ -53,6 +53,14 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
       </svg>
       <svg
+        v-else-if="hasUnavailableTool"
+        class="w-3.5 h-3.5 text-amber-500 flex-shrink-0"
+        fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"
+      >
+        <title>Tool unavailable</title>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.008v.008H12v-.008z" />
+      </svg>
+      <svg
         v-else-if="equation.status === 'pending' && isQueued"
         class="w-3.5 h-3.5 text-content-muted flex-shrink-0"
         fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
@@ -142,6 +150,16 @@
       <span
         class="flex-shrink-0 font-mono text-[11px] text-content-tertiary tabular-nums w-14 text-right"
       >{{ durationLabel || '' }}</span>
+      <span
+        v-if="hasUnavailableTool"
+        class="flex-shrink-0 text-[10.5px] font-medium text-amber-500"
+      >Tool unavailable</span>
+      <button
+        v-if="showCloudLoginAction"
+        type="button"
+        class="flex-shrink-0 rounded-md bg-gradient-to-r from-teal-600 via-cyan-500 to-indigo-500 px-2 py-1 text-[10.5px] font-medium text-white transition-colors hover:from-teal-500 hover:via-cyan-400 hover:to-indigo-400"
+        @click.stop="openCloudLogin"
+      >Log in</button>
       <FlowRefButton
         :ref-key="equation.equation_key"
         kind="equation"
@@ -198,7 +216,8 @@ import EquationTraceBody from './EquationTraceBody.vue'
 import StatusDot from '../ui/StatusDot.vue'
 import { TASK_TYPE_LABELS } from '../../utils/taskTypeIcons'
 import { STIMMA_CLOUD_PROVIDER_ID } from '../../utils/stimmaCloud'
-import { equationIsReadyToSchedule } from '../../composables/useFlowGrouping'
+import { equationHasUnavailableTool, equationIsReadyToSchedule } from '../../composables/useFlowGrouping'
+import { useAuth } from '../../composables/useAuth'
 import FlowRefButton from './FlowRefButton.vue'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'
 import { shouldShowEquationDuration } from '../../utils/equationDuration'
@@ -283,6 +302,25 @@ const providerName = computed<string | null>(() => {
 })
 
 const isStimmaCloud = computed(() => providerIdFromTool.value === STIMMA_CLOUD_PROVIDER_ID)
+const { isAuthenticated } = useAuth()
+
+const hasUnavailableTool = computed<boolean>(() => {
+  if (!props.equationsByKey) return props.equation.status === 'waiting_for_tool'
+  return equationHasUnavailableTool(props.equation, props.equationsByKey)
+})
+
+// Only the equation actually parked on Stimma Cloud owns the login action;
+// downstream rows still inherit the unavailable label without repeating the
+// same button through every later phase.
+const showCloudLoginAction = computed<boolean>(() =>
+  props.equation.status === 'waiting_for_tool'
+  && isStimmaCloud.value
+  && !isAuthenticated.value,
+)
+
+function openCloudLogin() {
+  window.dispatchEvent(new CustomEvent('open-settings', { detail: 'account' }))
+}
 
 // Friendly model name (the tool catalog name) — the string that *used* to be
 // the row title. Now demoted into the runtime pill.
@@ -422,7 +460,9 @@ const isQueued = computed<boolean>(() => {
 // Elevation = actionability (STANDARDS §3.1): rows stay flat regardless of
 // status — the leftmost icon + pulsing dot already carry running/failed/
 // awaiting signal. Pending rows dim to read as not-yet-relevant.
-const rowOpacityClass = computed(() => (props.equation.status === 'pending' ? 'opacity-55' : ''))
+const rowOpacityClass = computed(() => (
+  props.equation.status === 'pending' && !hasUnavailableTool.value ? 'opacity-55' : ''
+))
 
 function toggle() {
   expandState.toggle('trace', props.equation.equation_key, expanded.value)

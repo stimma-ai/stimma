@@ -235,6 +235,12 @@ warning/paused amber     bg-amber-500   ← yellow is deleted; paused = amber
 skipped        zinc      at /50
 ```
 
+`waiting_for_tool` is presented as **Tool unavailable**, never as generic
+Waiting. Pending descendants blocked by that equation inherit the same
+unavailable signal so the cause remains visible through a sequential flow.
+It uses the warning/amber bucket; when the missing provider is Stimma Cloud
+and the person is signed out, show the cloud-branded Log in action.
+
 Never inline a status→color switch in a component again. Amber is
 warning-family ONLY: the boards-amber association, countdown badges, and the
 set/grid type icon migrate off amber in Phase 2 (countdown badges adopt the

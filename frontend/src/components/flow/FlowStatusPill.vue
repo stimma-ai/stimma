@@ -31,7 +31,7 @@ const { label, dotClass } = useFlowStatus(flowIdRef)
 const { countFor } = useFlowCounts()
 const pending = computed(() => countFor(props.flowId))
 const statusText = computed(() => {
-  if (!props.showPending || pending.value <= 0 || label.value === 'Error') return label.value
+  if (!props.showPending || pending.value <= 0 || label.value === 'Error' || label.value === 'Tool unavailable') return label.value
   return `${label.value} · ${pending.value} pending`
 })
 </script>

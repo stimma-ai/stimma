@@ -211,9 +211,9 @@ export function rowBgClass(bucket: StatusBucket, dimmed = false): string {
 }
 
 // Flow status vocabulary, as derived by useFlowStatus.ts's
-// deriveFlowStatusLabel: Idle / Paused / Running / Your Turn / Waiting /
-// Error / Done. 'Waiting' is the upstream-blocked-on-a-missing-tool case —
-// non-fatal, self-heals — so it maps to warning rather than awaiting.
+// deriveFlowStatusLabel: Idle / Paused / Running / Your Turn /
+// Tool unavailable / Error / Done. Tool unavailability is non-fatal and
+// self-heals, so it maps to warning rather than awaiting.
 export function mapFlowStatus(s: string): StatusBucket {
   switch (s) {
     case 'Idle':
@@ -224,7 +224,7 @@ export function mapFlowStatus(s: string): StatusBucket {
       return 'running'
     case 'Your Turn':
       return 'awaiting'
-    case 'Waiting':
+    case 'Tool unavailable':
       return 'warning'
     case 'Error':
       return 'failed'
