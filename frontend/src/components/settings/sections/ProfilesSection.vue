@@ -426,6 +426,8 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { getApiBase } from '../../../apiConfig'
 import { cachePin } from '../../../composables/usePinLock'
+import Modal from '../../ui/Modal.vue'
+import Button from '../../ui/Button.vue'
 
 const props = defineProps({
   profiles: {
@@ -554,19 +556,15 @@ onUnmounted(() => {
 const showCreateModal = ref(false)
 const newProfileName = ref('')
 const deleteConfirm = ref(null)
-const createModalRef = ref(null)
-const deleteModalRef = ref(null)
 const newProfileInput = ref(null)
 
 // Rename modal state
 const renameProfile = ref(null)
 const renameProfileName = ref('')
-const renameModalRef = ref(null)
 const renameProfileInput = ref(null)
 
 // PIN settings modal state
 const pinSettingsProfile = ref(null)
-const pinSettingsModalRef = ref(null)
 const showSetPinForm = ref(false)
 const showChangePinForm = ref(false)
 const showRemovePinForm = ref(false)
@@ -577,11 +575,10 @@ const pinError = ref('')
 const savingPin = ref(false)
 const pinIdleTimeout = ref(30)
 
-// Focus modals when opened
+// Focus modal inputs when opened (Modal focuses its card first)
 watch(showCreateModal, async (isOpen) => {
   if (isOpen) {
     await nextTick()
-    createModalRef.value?.focus()
     newProfileInput.value?.focus()
   }
 })
@@ -589,16 +586,8 @@ watch(showCreateModal, async (isOpen) => {
 watch(renameProfile, async (profile) => {
   if (profile) {
     await nextTick()
-    renameModalRef.value?.focus()
     renameProfileInput.value?.focus()
     renameProfileInput.value?.select()
-  }
-})
-
-watch(deleteConfirm, async (confirm) => {
-  if (confirm) {
-    await nextTick()
-    deleteModalRef.value?.focus()
   }
 })
 

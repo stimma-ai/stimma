@@ -511,56 +511,33 @@
     </div>
 
     <!-- Delete confirmation modal -->
-    <Teleport to="body">
-      <div
-        v-if="deleteConfirm"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="deleteConfirm = null"
-        @keydown.escape.stop="deleteConfirm = null"
-        tabindex="-1"
-        ref="deleteModalRef"
-      >
-        <div class="bg-surface border border-edge rounded-lg p-6 max-w-sm">
-          <h3 class="text-[16px] font-semibold text-content mb-2">Remove Tool Provider</h3>
-          <p class="text-sm text-content-tertiary mb-4">
-            Are you sure you want to remove <strong class="text-content">{{ deleteConfirm.name }}</strong>?
-          </p>
-          <div class="flex justify-end gap-3">
-            <button
-              @click="deleteConfirm = null"
-              class="px-4 py-2 bg-surface-raised hover:bg-surface-hover text-content rounded-lg font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              @click="deleteTool"
-              :disabled="saving"
-              class="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
-            >
-              {{ saving ? 'Removing...' : 'Remove' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <ConfirmDialog
+      :show="!!deleteConfirm"
+      title="Remove tool provider"
+      :confirm-label="saving ? 'Removing...' : 'Remove'"
+      danger
+      :busy="saving"
+      @confirm="deleteTool"
+      @cancel="deleteConfirm = null"
+    >
+      <template v-if="deleteConfirm">
+        Are you sure you want to remove <strong class="text-content">{{ deleteConfirm.name }}</strong>?
+      </template>
+    </ConfirmDialog>
 
     <!-- Logs modal -->
-    <Teleport to="body">
-      <div
-        v-if="logsModal.provider && detailView !== 'logs'"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="closeLogsModal"
-        @keydown.escape.stop="closeLogsModal"
-        tabindex="-1"
-        ref="logsModalRef"
-      >
-        <div class="bg-surface border border-edge rounded-lg w-[700px] max-w-[90vw] max-h-[80vh] flex flex-col">
-          <!-- Header -->
-          <div class="flex items-center justify-between px-4 py-3 border-b border-edge">
-            <div>
-              <h3 class="text-[16px] font-semibold text-content">Process Logs</h3>
-              <p class="text-xs text-content-tertiary">{{ logsModal.provider?.name }}</p>
-            </div>
+    <Modal
+      :show="!!logsModal.provider && detailView !== 'logs'"
+      size="custom"
+      custom-class="w-[700px] max-w-[90vw] max-h-[80vh] flex flex-col"
+      @close="closeLogsModal"
+    >
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-semibold text-content">Process logs</h3>
+            <p class="text-xs text-content-tertiary">{{ logsModal.provider?.name }}</p>
+          </div>
             <div class="flex items-center gap-2">
               <button
                 @click="refreshLogs"
@@ -588,41 +565,36 @@
                 </svg>
               </button>
             </div>
-          </div>
-
-          <!-- Log content -->
-          <div class="flex-1 overflow-auto p-4 min-h-[300px]" ref="logsContentRef">
-            <div v-if="logsModal.loading && logsModal.lines.length === 0" class="text-center text-content-tertiary py-8">
-              Loading logs...
-            </div>
-            <div v-else-if="logsModal.lines.length === 0" class="text-center text-content-tertiary py-8">
-              No logs available
-            </div>
-            <pre v-else class="text-xs font-mono text-content-secondary whitespace-pre-wrap break-words select-text">{{ logsModal.lines.join('\n') }}</pre>
-          </div>
-
-          <!-- Footer -->
-          <div class="px-4 py-2 border-t border-edge text-xs text-content-muted">
-            Showing {{ logsModal.lines.length }} of {{ logsModal.totalLines }} lines
-          </div>
         </div>
+      </template>
+
+      <!-- Log content -->
+      <div class="flex-1 overflow-auto p-4 min-h-[300px]" ref="logsContentRef">
+        <div v-if="logsModal.loading && logsModal.lines.length === 0" class="text-center text-content-tertiary py-8">
+          Loading logs...
+        </div>
+        <div v-else-if="logsModal.lines.length === 0" class="text-center text-content-tertiary py-8">
+          No logs available
+        </div>
+        <pre v-else class="text-xs font-mono text-content-secondary whitespace-pre-wrap break-words select-text">{{ logsModal.lines.join('\n') }}</pre>
       </div>
-    </Teleport>
+
+      <!-- Line count -->
+      <div class="px-4 py-2 border-t border-edge text-xs text-content-muted">
+        Showing {{ logsModal.lines.length }} of {{ logsModal.totalLines }} lines
+      </div>
+    </Modal>
 
     <!-- Tools modal -->
-    <Teleport to="body">
-      <div
-        v-if="toolsModal.provider && detailView !== 'tools'"
-        class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-        @click.self="closeToolsModal"
-        @keydown.escape.stop="closeToolsModal"
-        tabindex="-1"
-        ref="toolsModalRef"
-      >
-        <div class="bg-surface border border-edge rounded-lg w-[600px] max-w-[90vw] max-h-[80vh] flex flex-col">
-          <!-- Header -->
-          <div class="flex items-center justify-between px-4 py-3 border-b border-edge">
-            <div class="flex items-center gap-2">
+    <Modal
+      :show="!!toolsModal.provider && detailView !== 'tools'"
+      size="custom"
+      custom-class="w-[600px] max-w-[90vw] max-h-[80vh] flex flex-col"
+      @close="closeToolsModal"
+    >
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
               <div>
                 <h3 class="text-[16px] font-semibold text-content">Available Tools</h3>
                 <p class="text-xs text-content-tertiary">{{ toolsModal.provider?.name }}</p>
@@ -661,20 +633,21 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-          </div>
+        </div>
+      </template>
 
-          <!-- Search filter -->
-          <div class="px-4 py-2 border-b border-edge">
-            <input
-              v-model="toolsFilter"
-              type="text"
-              placeholder="Filter tools..."
-              class="w-full bg-surface-raised border border-edge rounded px-3 py-1.5 text-sm text-content placeholder-content-muted focus:outline-none focus:border-accent"
-            />
-          </div>
+      <!-- Search filter -->
+      <div class="px-4 py-2 border-b border-edge">
+        <input
+          v-model="toolsFilter"
+          type="text"
+          placeholder="Filter tools..."
+          class="w-full bg-overlay-subtle border border-transparent rounded-md px-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
+        />
+      </div>
 
-          <!-- Tools list -->
-          <div class="flex-1 overflow-auto min-h-[200px]">
+      <!-- Tools list -->
+      <div class="flex-1 overflow-auto min-h-[200px]">
             <div v-if="toolsModal.loading" class="text-center text-content-tertiary py-8">
               Loading tools...
             </div>
@@ -726,18 +699,16 @@
             </div>
           </div>
 
-          <!-- Footer -->
-          <div class="px-4 py-2 border-t border-edge text-xs text-content-muted">
-            <template v-if="toolsFilter && filteredTools.length !== toolsModal.tools.length">
-              {{ filteredTools.length }} of {{ toolsModal.tools.length }} tools
-            </template>
-            <template v-else>
-              {{ toolsModal.tools.length }} tool{{ toolsModal.tools.length !== 1 ? 's' : '' }}
-            </template>
-          </div>
-        </div>
+      <!-- Tool count -->
+      <div class="px-4 py-2 border-t border-edge text-xs text-content-muted">
+        <template v-if="toolsFilter && filteredTools.length !== toolsModal.tools.length">
+          {{ filteredTools.length }} of {{ toolsModal.tools.length }} tools
+        </template>
+        <template v-else>
+          {{ toolsModal.tools.length }} tool{{ toolsModal.tools.length !== 1 ? 's' : '' }}
+        </template>
       </div>
-    </Teleport>
+    </Modal>
 
     <!-- Cloud menu dropdown (teleported to avoid overflow clipping) -->
     <Teleport to="body">
@@ -840,6 +811,8 @@
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { ExclamationCircleIcon } from '@heroicons/vue/24/outline'
 import Spinner from '../../ui/Spinner.vue'
+import Modal from '../../ui/Modal.vue'
+import ConfirmDialog from '../../ui/ConfirmDialog.vue'
 import { useAuth } from '../../../composables/useAuth'
 import { useCloudAccount, formatBalance } from '../../../composables/useCloudAccount'
 import { copyToClipboard } from '../../../utils/clipboard'
@@ -990,10 +963,7 @@ const deleteConfirm = ref(null)
 const testing = ref(false)
 const testResult = ref(null)
 const addModalRef = ref(null)
-const deleteModalRef = ref(null)
-const logsModalRef = ref(null)
 const logsContentRef = ref(null)
-const toolsModalRef = ref(null)
 const nameInputRef = ref(null)
 
 const selectedProvider = computed(() => {
@@ -1204,32 +1174,11 @@ function getProviderById(providerId) {
   return props.providers.find(p => p.id === providerId)
 }
 
-// Focus modals when opened so they can capture Escape key
+// Focus the add-provider drilldown when opened so it can capture Escape
 watch(showModal, async (isOpen) => {
   if (isOpen) {
     await nextTick()
     addModalRef.value?.focus()
-  }
-})
-
-watch(deleteConfirm, async (confirm) => {
-  if (confirm) {
-    await nextTick()
-    deleteModalRef.value?.focus()
-  }
-})
-
-watch(() => logsModal.value.provider, async (provider) => {
-  if (provider) {
-    await nextTick()
-    logsModalRef.value?.focus()
-  }
-})
-
-watch(() => toolsModal.value.provider, async (provider) => {
-  if (provider) {
-    await nextTick()
-    toolsModalRef.value?.focus()
   }
 })
 

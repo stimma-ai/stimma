@@ -57,7 +57,7 @@
           <div
             v-for="stimpack in stimpacks"
             :key="stimpack.name"
-            class="group rounded-lg bg-overlay-faint p-5 transition-all hover:border-edge hover:bg-overlay-subtle"
+            class="group rounded-lg bg-overlay-faint p-5 transition-colors hover:bg-overlay-subtle"
           >
             <!-- Title + 3-dots -->
             <div class="flex items-start justify-between gap-2 mb-2">
@@ -148,7 +148,7 @@
               <span
                 v-for="tag in stimpack.tags"
                 :key="tag"
-                class="px-2 py-0.5 rounded-md text-[11px] text-content-muted "
+                class="px-2 py-0.5 rounded-md text-[11px] text-content-muted bg-overlay-subtle"
               >{{ tag }}</span>
             </div>
           </div>
@@ -162,31 +162,30 @@
     </div>
 
     <!-- Stimpack Library Modal -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div
-          v-if="showCatalog"
-          class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-          @click.self="showCatalog = false"
-        >
-          <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[920px] max-w-[92vw] h-[80vh] max-h-[820px] flex flex-col overflow-hidden">
-            <!-- Header -->
-            <div class="flex items-center justify-between px-6 py-4 border-b border-edge">
-              <div>
-                <h3 class="text-lg font-semibold text-content">Stimpack Library</h3>
-                <p class="text-xs text-content-muted mt-0.5">Browse and install community stimpacks from stimma.ai</p>
-              </div>
-              <button
-                @click="showCatalog = false"
-                class="w-8 h-8 flex items-center justify-center text-content-tertiary hover:text-content hover:bg-surface-raised rounded-lg transition-colors"
-              >
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+    <Modal
+      :show="showCatalog"
+      size="custom"
+      custom-class="w-[920px] max-w-[92vw] h-[80vh] max-h-[820px] flex flex-col overflow-hidden"
+      @close="showCatalog = false"
+    >
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-semibold text-content">Stimpack library</h3>
+            <p class="text-xs text-content-muted mt-0.5">Browse and install community stimpacks from stimma.ai</p>
+          </div>
+          <button
+            @click="showCatalog = false"
+            class="w-8 h-8 flex items-center justify-center text-content-tertiary hover:text-content hover:bg-surface-raised rounded-lg transition-colors"
+          >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </template>
 
-            <!-- Search + install from file -->
+      <!-- Search + install from file -->
             <div class="px-6 pt-4 flex items-center gap-2">
               <input
                 v-model="catalogSearch"
@@ -234,7 +233,7 @@
                     <button
                       v-else
                       @click="handleUninstallFromCatalog(stimpack)"
-                      class="flex-shrink-0 px-2.5 py-1 text-[11px] font-medium text-content-muted hover:text-red-400 rounded-md text-red-400 hover:bg-red-500/10 transition-all"
+                      class="flex-shrink-0 px-2.5 py-1 text-[11px] font-medium rounded-md text-red-400 hover:bg-red-500/10 transition-colors"
                     >
                       Remove
                     </button>
@@ -266,7 +265,7 @@
                     <span
                       v-for="tag in stimpack.tags"
                       :key="tag"
-                      class="px-2 py-0.5 rounded-md text-[11px] text-content-muted "
+                      class="px-2 py-0.5 rounded-md text-[11px] text-content-muted bg-overlay-subtle"
                     >{{ tag }}</span>
                   </div>
                 </div>
@@ -278,10 +277,7 @@
                   : catalogSearch ? 'No stimpacks matching your search.' : 'No community stimpacks available yet.' }}
               </div>
             </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    </Modal>
 
     <!-- Remove Stimpack Confirmation -->
     <ConfirmModal
@@ -306,40 +302,38 @@
     />
 
     <!-- Validation results -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div
-          v-if="validationResult"
-          class="fixed inset-0 z-modal flex items-center justify-center bg-overlay-backdrop backdrop-blur-sm"
-          @click.self="validationResult = null"
-        >
-          <div class="bg-surface border border-edge rounded-lg shadow-2xl w-[560px] max-w-[90vw] max-h-[70vh] flex flex-col overflow-hidden">
-            <div class="flex items-center justify-between px-5 py-3.5 border-b border-edge">
-              <div class="flex items-center gap-2">
-                <span class="text-[13px] font-semibold text-content">Validation</span>
-                <span
-                  class="px-2 py-0.5 rounded-full text-[10px] font-medium"
-                  :class="validationResult.valid ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'"
-                >{{ validationResult.valid ? 'Valid' : 'Invalid' }}</span>
-              </div>
-              <button
-                @click="validationResult = null"
-                class="w-6 h-6 flex items-center justify-center rounded text-content-muted hover:text-content transition-colors"
-              >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div class="flex-1 overflow-y-auto px-5 py-4 font-mono text-xs leading-relaxed">
-              <p v-for="(line, i) in validationResult.report" :key="'r' + i" class="text-content-secondary whitespace-pre-wrap">{{ line }}</p>
-              <p v-for="(line, i) in validationResult.warnings" :key="'w' + i" class="text-amber-400 whitespace-pre-wrap mt-1">warning: {{ line }}</p>
-              <p v-for="(line, i) in validationResult.errors" :key="'e' + i" class="text-red-400 whitespace-pre-wrap mt-1">error: {{ line }}</p>
-            </div>
+    <Modal
+      :show="!!validationResult"
+      size="custom"
+      custom-class="w-[560px] max-w-[90vw] max-h-[70vh] flex flex-col overflow-hidden"
+      @close="validationResult = null"
+    >
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-[13px] font-semibold text-content">Validation</span>
+            <span
+              class="px-2 py-0.5 rounded-full text-[10px] font-medium"
+              :class="validationResult?.valid ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'"
+            >{{ validationResult?.valid ? 'Valid' : 'Invalid' }}</span>
           </div>
+          <button
+            @click="validationResult = null"
+            class="w-6 h-6 flex items-center justify-center rounded text-content-muted hover:text-content transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-      </Transition>
-    </Teleport>
+      </template>
+
+      <div v-if="validationResult" class="flex-1 overflow-y-auto px-5 py-4 font-mono text-xs leading-relaxed">
+        <p v-for="(line, i) in validationResult.report" :key="'r' + i" class="text-content-secondary whitespace-pre-wrap">{{ line }}</p>
+        <p v-for="(line, i) in validationResult.warnings" :key="'w' + i" class="text-amber-400 whitespace-pre-wrap mt-1">warning: {{ line }}</p>
+        <p v-for="(line, i) in validationResult.errors" :key="'e' + i" class="text-red-400 whitespace-pre-wrap mt-1">error: {{ line }}</p>
+      </div>
+    </Modal>
 
   </div>
 </template>
@@ -352,6 +346,7 @@ import { getCurrentProfileId } from '../../../composables/useProfile'
 import { addToast } from '../../../composables/useToasts'
 import { usePrivacyLockdown } from '../../../composables/usePrivacyLockdown'
 import ConfirmModal from '../../ConfirmModal.vue'
+import Modal from '../../ui/Modal.vue'
 
 // Avatars proxy through the local backend, which attaches the Cloudflare
 // Access headers dev cloud targets require — a direct cloud URL renders as a
@@ -617,25 +612,3 @@ onUnmounted(() => {
   document.removeEventListener('mousedown', handleClickOutside)
 })
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-active > div,
-.modal-leave-active > div {
-  transition: transform 0.15s ease;
-}
-
-.modal-enter-from > div,
-.modal-leave-to > div {
-  transform: scale(0.95);
-}
-</style>
