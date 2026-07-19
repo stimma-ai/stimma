@@ -581,7 +581,22 @@
       <!-- File -->
       <div class="mb-6">
         <h4 class="m-0 mb-1 text-xs font-semibold text-content-secondary">File</h4>
-        <KeyValueList :rows="fileInfoRows" />
+        <KeyValueList :rows="fileInfoRows">
+          <template #actions="{ row }">
+            <template v-if="row.key === 'name'">
+              <Tooltip v-if="isTauriMode" text="Show in Finder">
+                <IconButton aria-label="Show in Finder" @click="revealFileInFinder">
+                  <FolderOpenIcon class="w-3.5 h-3.5" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip text="Copy path">
+                <IconButton aria-label="Copy path" @click="copyFilePath">
+                  <ClipboardDocumentIcon class="w-3.5 h-3.5" />
+                </IconButton>
+              </Tooltip>
+            </template>
+          </template>
+        </KeyValueList>
       </div>
 
       <!-- Processing status: a File fact row once everything completed (see
@@ -703,7 +718,7 @@ import {
   ArchiveBoxIcon,
   TagIcon
 } from '@heroicons/vue/24/solid'
-import { ClipboardDocumentIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ClipboardDocumentIcon, FolderOpenIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import TagEditor from './TagEditor.vue'
 import InlineTagEditor from './InlineTagEditor.vue'
 import SendToToolMenu from './SendToToolMenu.vue'
@@ -714,7 +729,7 @@ import KeyValueList from './ui/KeyValueList.vue'
 import StatusDot from './ui/StatusDot.vue'
 import Modal from './ui/Modal.vue'
 import { captioningEnabledRef } from '../appConfig'
-import { getApiBase } from '../apiConfig'
+import { getApiBase, isTauri } from '../apiConfig'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { getCachedPin } from '../composables/usePinLock'
 import { useProvidersApi } from '../composables/useProvidersApi'
@@ -734,6 +749,7 @@ import Tooltip from './ui/Tooltip.vue'
 import { ArrowDownTrayIcon, ShareIcon, EllipsisHorizontalIcon } from '@heroicons/vue/24/outline'
 
 const { formatRemainingTime } = useExpirationClock()
+const isTauriMode = isTauri()
 
 const props = defineProps({
   currentItem: {
@@ -1047,8 +1063,31 @@ function stepLoraRows(step) {
 async function copyPromptText(text) {
   const selection = window.getSelection()
   if (selection && !selection.isCollapsed) return
-  await copyToClipboard(text)
-  addToast('Prompt copied', 'success')
+  await copyTextWithToast(text)
+}
+
+async function copyTextWithToast(text) {
+  if (await copyToClipboard(text)) {
+    addToast('Copied to clipboard', 'success')
+  } else {
+    addToast('Could not copy to clipboard', 'error')
+  }
+}
+
+async function copyFilePath() {
+  if (!props.currentItem?.file_path) return
+  await copyTextWithToast(props.currentItem.file_path)
+}
+
+async function revealFileInFinder() {
+  if (!props.currentItem?.file_path || !isTauriMode) return
+  try {
+    const { revealItemInDir } = await import('@tauri-apps/plugin-opener')
+    await revealItemInDir(props.currentItem.file_path)
+  } catch (error) {
+    console.error('Failed to reveal in Finder:', error)
+    addToast('Could not show file in Finder', 'error')
+  }
 }
 
 // Atelier typeset file facts (KeyValueList) — replaces the field-tile grid
@@ -1056,8 +1095,7 @@ const fileInfoRows = computed(() => {
   const m = props.currentItem
   if (!m) return []
   const rows = []
-  if (m.file_path) rows.push({ label: 'Name', value: m.file_path.split('/').pop(), truncate: true })
-  if (m.file_path) rows.push({ label: 'Path', value: m.file_path, truncate: true })
+  if (m.file_path) rows.push({ key: 'name', label: 'Name', value: m.file_path.split('/').pop(), truncate: true, actions: true })
   if (m.file_format) rows.push({ label: 'Format', value: formatFileFormat(m.file_format) })
   if (m.file_size) rows.push({ label: 'Size', value: formatFileSize(m.file_size) })
   if (m.width > 0 && m.height > 0) rows.push({ label: 'Resolution', value: `${m.width} × ${m.height}` })
