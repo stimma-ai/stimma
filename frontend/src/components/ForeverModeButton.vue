@@ -53,11 +53,11 @@
       </div>
 
       <!-- Stimma Cloud Credits Warning -->
-      <div v-if="isStimmaCloud" class="px-4 py-3 bg-[#6366f1]/10 border-b border-surface-raised flex gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-indigo-600 dark:text-[#8b5cf6] flex-shrink-0 mt-0.5">
+      <div v-if="isStimmaCloud" class="px-4 py-3 bg-indigo-500/10 border-b border-surface-raised flex gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-indigo-600 dark:text-violet-500 flex-shrink-0 mt-0.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
         </svg>
-        <p class="text-xs text-indigo-700 dark:text-[#a5b4fc]">
+        <p class="text-xs text-indigo-700 dark:text-indigo-300">
           This can use significant <span class="stimma-cloud-text font-medium">Stimma credits</span> if left running. Monitor your usage.
         </p>
       </div>
