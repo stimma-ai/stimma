@@ -79,7 +79,9 @@
         <!-- Transient run context (remix, resolution auto-change) lands here as
              its own card so the header card stays fixed-height. Hidden when the
              teleport delivers nothing. -->
-        <div id="tool-context-slot" class="flex-none mx-3 mt-3 empty:hidden"></div>
+        <!-- Top gap lives INSIDE the teleported card's animated wrapper so it
+             eases open/closed with the card instead of snapping. -->
+        <div id="tool-context-slot" class="flex-none mx-3 empty:hidden"></div>
         <div class="flex-1 min-w-0 flex min-h-0">
 
       <!-- Generation Controls. In Studio mode the primary column (left, wide); in
@@ -229,7 +231,14 @@
         <!-- Transient run context (teleported to #tool-context-slot below the
              header): remix banners + resolution auto-change in their own card. -->
         <Teleport defer to="#tool-context-slot">
-        <div v-if="remixSource || dismissedRemix || resAutoChange" class="rounded-lg border border-edge-subtle bg-surface px-3 pt-3">
+        <!-- flow-expand (grid 0fr→1fr) so the card's height eases open/closed
+             instead of reflowing the whole column in one frame. The extra
+             wrapper is the overflow-hidden child the pattern requires; the
+             card carries its own mt-3 so the gap animates with it. -->
+        <Transition name="flow-expand">
+        <div v-if="remixSource || dismissedRemix || resAutoChange">
+        <div>
+        <div class="mt-3 rounded-lg border border-edge-subtle bg-surface px-3 pt-3">
         <!-- Inspiration Banner (active remix) -->
         <RemixBanner
           v-if="remixSource"
@@ -283,6 +292,9 @@
           </button>
         </div>
         </div>
+        </div>
+        </div>
+        </Transition>
 
         </Teleport>
 
