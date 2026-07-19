@@ -7,8 +7,10 @@
       class="relative flex items-center justify-center px-3 py-2 rounded-md bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content transition-colors"
       :title="displayName === 'Presets' ? 'Presets' : `Preset: ${displayName}`"
     >
+      <!-- Swatch icon: presets are saved looks. Bookmark is reserved for the
+           library marker, so the trigger can't share it. -->
       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" />
       </svg>
       <!-- Active/modified cue: corner dot (accent = active preset, amber = modified) -->
       <span v-if="isModified" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400"></span>
