@@ -6,7 +6,7 @@
 
       <div class="flex items-center gap-3">
         <button
-          class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
           @click="createNewChat"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -24,7 +24,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search chats..."
-            class="bg-overlay-subtle border border-edge-subtle rounded-lg pl-9 pr-3 py-1.5 text-sm text-content-secondary placeholder-white/30 focus:outline-none focus:border-accent w-48"
+            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48"
           />
         </div>
       </div>
@@ -65,7 +65,7 @@
         <div
           v-for="(chat, index) in filteredChats"
           :key="chat.id"
-          class="flex items-center gap-4 px-6 py-3.5 mx-2 rounded-lg transition-colors cursor-pointer group relative"
+          class="flex items-center gap-4 px-6 py-3 transition-colors cursor-pointer group relative"
           :class="isSelected(chat.id)
             ? 'bg-selection/15'
             : 'hover:bg-overlay-subtle'"
@@ -82,7 +82,7 @@
               class="w-5 h-5 rounded border flex items-center justify-center transition-colors"
               :class="isSelected(chat.id)
                 ? 'bg-selection border-selection'
-                : 'border-white/30 bg-black/30 hover:border-white/50'"
+                : 'border-content-tertiary bg-black/55 hover:border-content-secondary'"
             >
               <svg v-if="isSelected(chat.id)" class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -103,12 +103,16 @@
               class="w-full h-full object-cover"
             />
           </div>
-          <EntityIcon v-else type="chat" size="md" shape="rounded" />
+          <div v-else class="flex-shrink-0 w-10 h-10 rounded-media bg-matte flex items-center justify-center">
+            <svg class="w-5 h-5 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+            </svg>
+          </div>
 
-          <!-- Name + last message -->
+          <!-- Name + last message; time/counts share the same two lines -->
           <div class="flex-1 min-w-0">
             <!-- Name row -->
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-3">
               <template v-if="editingChatId === chat.id">
                 <input v-no-autocorrect
                   v-model="editingName"
@@ -140,34 +144,36 @@
 
               <!-- Generating indicator -->
               <div v-if="isChatGenerating(chat.id)" class="w-3 h-3 border-2 border-edge-strong border-t-white rounded-full animate-spin flex-shrink-0"></div>
+
+              <span class="flex-1"></span>
+              <span v-if="chat.updated_at" class="flex-shrink-0 text-xs font-mono tabular-nums text-content-tertiary whitespace-nowrap">
+                {{ formatRelativeTime(chat.updated_at) }}
+              </span>
             </div>
 
-            <!-- Last message preview -->
-            <p v-if="chat.last_message" class="text-[13px] text-content-muted truncate mt-1">
-              {{ chat.last_message }}
-            </p>
-            <p v-else-if="chat.generated_count > 0" class="text-[13px] text-content-muted truncate mt-1">
-              {{ chat.generated_count }} image{{ chat.generated_count !== 1 ? 's' : '' }} generated
-            </p>
-          </div>
+            <!-- Preview row -->
+            <div class="flex items-center gap-3 mt-1">
+              <p v-if="chat.last_message" class="flex-1 min-w-0 text-[13px] text-content-muted truncate">
+                {{ chat.last_message }}
+              </p>
+              <p v-else-if="chat.generated_count > 0" class="flex-1 min-w-0 text-[13px] text-content-muted truncate">
+                {{ chat.generated_count }} image{{ chat.generated_count !== 1 ? 's' : '' }} generated
+              </p>
+              <span v-else class="flex-1"></span>
 
-          <!-- Right side: stats + time -->
-          <div class="flex-shrink-0 flex flex-col items-end gap-1.5">
-            <span v-if="chat.updated_at" class="text-[13px] font-mono tabular-nums text-content-tertiary whitespace-nowrap">
-              {{ formatRelativeTime(chat.updated_at) }}
-            </span>
-            <div class="flex items-center gap-2.5">
-              <span v-if="chat.message_count > 0" class="text-xs font-mono tabular-nums text-content-tertiary flex items-center gap-1">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
-                </svg>
-                {{ chat.message_count }}
-              </span>
-              <span v-if="chat.generated_count > 0" class="text-xs font-mono tabular-nums text-content-tertiary flex items-center gap-1">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
-                </svg>
-                {{ chat.generated_count }}
+              <span class="flex-shrink-0 flex items-center gap-2.5 text-[11px] font-mono tabular-nums text-content-muted">
+                <span v-if="chat.message_count > 0" class="flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                  </svg>
+                  {{ chat.message_count }}
+                </span>
+                <span v-if="chat.generated_count > 0" class="flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+                  </svg>
+                  {{ chat.generated_count }}
+                </span>
               </span>
             </div>
           </div>
@@ -235,7 +241,6 @@ import { useEntityContextMenu } from '../composables/useEntityContextMenu'
 import { useToasts } from '../composables/useToasts'
 import ConnectionError from '../components/ConnectionError.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
-import EntityIcon from '../components/EntityIcon.vue'
 import EntitySelectionBar from '../components/EntitySelectionBar.vue'
 import { MediaImage } from '../components/media'
 
@@ -571,11 +576,13 @@ function formatRelativeTime(dateStr) {
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  return date.toLocaleDateString()
+  if (diffMins < 1) return 'now'
+  if (diffMins < 60) return `${diffMins}m`
+  if (diffHours < 24) return `${diffHours}h`
+  if (diffDays < 7) return `${diffDays}d`
+  const opts = { month: 'short', day: 'numeric' }
+  if (date.getFullYear() !== now.getFullYear()) opts.year = '2-digit'
+  return date.toLocaleDateString(undefined, opts)
 }
 
 // Inline editing functions

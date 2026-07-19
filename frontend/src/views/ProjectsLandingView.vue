@@ -5,7 +5,7 @@
 
       <div class="flex items-center gap-3">
         <button
-          class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
           @click="createNewProject"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -21,7 +21,7 @@
           v-model="searchQuery"
           type="text"
           placeholder="Search projects..."
-          class="w-48 rounded-lg border border-edge-subtle bg-overlay-subtle py-1.5 pl-9 pr-3 text-sm text-content-secondary placeholder-white/30 focus:border-accent focus:outline-none"
+          class="w-48 rounded-md border border-transparent bg-overlay-subtle py-1.5 pl-9 pr-3 text-sm text-content placeholder:text-content-muted focus:border-accent focus:outline-none"
         />
       </div>
       </div>
@@ -37,16 +37,16 @@
         <p class="mb-2 text-content-muted">No projects match your search</p>
       </div>
 
-      <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-2.5">
         <button
           v-for="project in filteredProjects"
           :key="project.id"
-          class="group rounded-lg border border-edge-subtle bg-transparent p-5 text-left transition-colors hover:bg-overlay-faint"
+          class="group relative rounded-lg p-4 h-[140px] flex flex-col gap-2 text-left transition-colors cursor-pointer bg-surface hover:bg-surface-raised"
           @click="handleCardClick($event, project)"
           @contextmenu="handleProjectContextMenu($event, project)"
         >
-          <div class="flex items-start gap-4">
-            <EntityIcon type="project" size="lg" />
+          <div class="flex items-start gap-2.5">
+            <EntityIcon type="project" size="md" />
 
             <!-- Title + timestamp -->
             <div class="min-w-0 flex-1">
@@ -56,7 +56,7 @@
                 v-model="editingName"
                 type="text"
                 placeholder="Name this project..."
-                class="w-full truncate rounded bg-transparent text-sm font-semibold text-content placeholder-content-muted/50 placeholder:italic focus:outline-none"
+                class="w-full truncate rounded bg-transparent text-[14px] leading-tight font-brand font-semibold text-content placeholder-content-muted/50 placeholder:italic focus:outline-none"
                 @click.stop
                 @blur="saveProjectName(project)"
                 @keydown.enter.prevent="saveProjectName(project)"
@@ -64,20 +64,20 @@
               />
               <h2
                 v-else
-                class="truncate text-sm font-semibold"
+                class="truncate text-[14px] leading-tight font-brand font-semibold"
                 :class="project.name ? 'text-content' : 'italic text-content-muted'"
                 @click.stop="!project.name && startEditing(project)"
               >
                 {{ project.name || 'Name this project...' }}
               </h2>
-              <p class="mt-0.5 text-xs font-mono tabular-nums text-content-tertiary">
+              <p class="mt-1.5 text-[11px] font-mono tabular-nums text-content-tertiary">
                 Updated {{ formatRelativeTime(project.updated_at) }}
               </p>
             </div>
           </div>
 
-          <!-- Stats with icons -->
-          <div class="mt-4 flex items-center gap-4 text-xs font-mono tabular-nums text-content-tertiary">
+          <!-- Bottom: stats in quiet mono -->
+          <div class="mt-auto flex items-center gap-4 text-[11px] font-mono tabular-nums text-content-muted">
             <span class="flex items-center gap-1.5">
               <!-- Image stack icon -->
               <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

@@ -3,14 +3,14 @@
     <!-- Header (matches the boards/chats landing treatment) -->
     <div class="flex items-center justify-between border-b border-edge-subtle px-6 py-5">
       <div class="flex flex-col gap-1">
-        <span class="text-[16px] font-semibold leading-none text-content">Stimpacks</span>
+        <h1 class="text-xl font-semibold leading-none text-content">Stimpacks</h1>
         <p class="text-sm text-content-tertiary">Stimpacks extend Stimma with new skills and capabilities.</p>
       </div>
       <div class="flex items-center gap-3">
         <button
           v-if="canOpenFolder"
           @click="openStimpacksFolder"
-          class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
           title="Open the profile's stimpacks folder — packs dropped or edited here load live"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -20,7 +20,7 @@
         </button>
         <button
           @click="showCatalog = true"
-          class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -53,102 +53,97 @@
 
       <!-- Installed stimpacks grid -->
       <template v-else>
-        <div v-if="stimpacks.length > 0" class="grid grid-cols-1 gap-5 pt-6 sm:grid-cols-2 xl:grid-cols-3">
+        <div v-if="stimpacks.length > 0" class="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-2.5 pt-6">
           <div
             v-for="stimpack in stimpacks"
             :key="stimpack.name"
-            class="group rounded-lg bg-overlay-faint p-5 transition-colors hover:bg-overlay-subtle"
+            class="relative group rounded-lg p-4 h-[140px] flex flex-col gap-2 transition-colors bg-surface hover:bg-surface-raised"
           >
-            <!-- Title + 3-dots -->
-            <div class="flex items-start justify-between gap-2 mb-2">
-              <h4 class="truncate text-[13px] font-semibold text-content">{{ stimpack.display_name || stimpack.name }}</h4>
-              <div class="relative flex-shrink-0">
-                <button
-                  @click.stop="toggleContextMenu(stimpack.name)"
-                  class="p-0.5 text-content-muted hover:text-content-secondary transition-colors rounded hover:bg-overlay-light"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-                  </svg>
-                </button>
+            <!-- 3-dots menu (hover-revealed) -->
+            <div class="absolute top-2 right-2">
+              <button
+                @click.stop="toggleContextMenu(stimpack.name)"
+                class="w-7 h-7 flex items-center justify-center rounded-md text-content-muted hover:text-content hover:bg-overlay-light opacity-0 group-hover:opacity-100 transition-opacity"
+                :class="openContextMenu === stimpack.name ? 'opacity-100' : ''"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+                </svg>
+              </button>
+              <div
+                v-if="openContextMenu === stimpack.name"
+                @mousedown.stop
+                class="absolute right-0 top-full mt-1 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu min-w-[176px] py-1"
+              >
                 <div
-                  v-if="openContextMenu === stimpack.name"
-                  @mousedown.stop
-                  class="absolute right-0 top-full mt-1 bg-surface border border-edge rounded-lg shadow-xl z-menu w-44 py-1 overflow-hidden"
+                  v-if="stimpack.is_dev"
+                  class="px-3 py-2 text-xs text-content-muted"
                 >
-                  <div
-                    v-if="stimpack.is_dev"
-                    class="px-3 py-1.5 text-xs text-content-muted"
-                  >
-                    Edit in dev repo
-                  </div>
-                  <button
-                    @click="handleValidateStimpack(stimpack)"
-                    class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-surface-hover transition-colors"
-                  >
-                    Validate
-                  </button>
-                  <button
-                    v-if="stimpack.tier === 'local' && !stimpack.is_dev"
-                    @click="handlePublishStimpack(stimpack)"
-                    class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-surface-hover transition-colors"
-                  >
-                    Publish to Marketplace
-                  </button>
-                  <button
-                    @click="handleDownloadStimpackZip(stimpack); openContextMenu = null"
-                    class="w-full px-3 py-1.5 text-left text-xs text-content hover:bg-surface-hover transition-colors"
-                  >
-                    Download as Zip
-                  </button>
-                  <button
-                    v-if="!stimpack.is_dev"
-                    @click="handleRemoveStimpack(stimpack)"
-                    class="w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-red-500/10 transition-colors"
-                  >
-                    Remove
-                  </button>
+                  Edit in dev repo
                 </div>
+                <button
+                  @click="handleValidateStimpack(stimpack)"
+                  class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle transition-colors"
+                >
+                  Validate
+                </button>
+                <button
+                  v-if="stimpack.tier === 'local' && !stimpack.is_dev"
+                  @click="handlePublishStimpack(stimpack)"
+                  class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle transition-colors"
+                >
+                  Publish to Marketplace
+                </button>
+                <button
+                  @click="handleDownloadStimpackZip(stimpack); openContextMenu = null"
+                  class="w-full px-3 py-2 text-left text-xs text-content hover:bg-overlay-subtle transition-colors"
+                >
+                  Download as Zip
+                </button>
+                <button
+                  v-if="!stimpack.is_dev"
+                  @click="handleRemoveStimpack(stimpack)"
+                  class="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  Remove
+                </button>
               </div>
             </div>
 
-            <!-- Description -->
-            <p v-if="stimpack.description" class="text-xs text-content-secondary leading-relaxed mb-3 line-clamp-2">{{ stimpack.description }}</p>
-
-            <!-- Author row -->
-            <div class="flex items-center text-[11px] text-content-muted">
-              <span class="inline-flex items-center gap-1.5">
+            <!-- Title + source -->
+            <div class="min-w-0 pr-8">
+              <h4 class="text-content text-[14px] leading-tight font-brand font-semibold truncate">{{ stimpack.display_name || stimpack.name }}</h4>
+              <div class="mt-1.5 flex items-center gap-1.5 text-[11px] text-content-tertiary">
+                <span
+                  class="w-[5px] h-[5px] rounded-full flex-shrink-0"
+                  :class="stimpack.is_dev || stimpack.tier === 'marketplace' ? 'bg-accent' : 'bg-content-muted/70'"
+                ></span>
                 <template v-if="stimpack.tier === 'marketplace' && marketplaceAuthor(stimpack)">
                   <img
                     v-if="marketplaceAvatarKey(stimpack) && !failedAvatars.has(marketplaceAvatarKey(stimpack))"
                     :src="avatarUrl(marketplaceAvatarKey(stimpack))"
                     alt=""
-                    class="w-4 h-4 rounded-full object-cover"
+                    class="w-3.5 h-3.5 rounded-full object-cover"
                     @error="handleAvatarError(marketplaceAvatarKey(stimpack))"
                   />
-                  <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  {{ marketplaceAuthor(stimpack) }}
+                  <span class="truncate">{{ marketplaceAuthor(stimpack) }}</span>
                 </template>
-                <template v-else>
+                <span v-else class="truncate">
                   {{ stimpack.is_dev ? 'Dev repo' : (stimpack.author === 'user' ? 'Custom' : stimpack.author) }}
-                </template>
-              </span>
-              <span
-                v-if="stimpack.is_dev"
-                class="ml-2 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent"
-              >
-                Dev
-              </span>
+                </span>
+              </div>
             </div>
 
-            <!-- Tags -->
-            <div v-if="stimpack.tags?.length" class="flex flex-wrap gap-1.5 mt-2.5 pt-2.5 border-t border-edge-subtle">
+            <!-- Description -->
+            <p v-if="stimpack.description" class="text-xs text-content-tertiary line-clamp-2 leading-relaxed">{{ stimpack.description }}</p>
+
+            <!-- Bottom: facts in quiet mono -->
+            <div class="mt-auto flex items-center gap-2.5 overflow-hidden whitespace-nowrap text-[10.5px] font-mono">
+              <span v-if="stimpack.is_dev" class="flex-shrink-0 text-accent">dev</span>
               <span
-                v-for="tag in stimpack.tags"
+                v-for="tag in stimpack.tags || []"
                 :key="tag"
-                class="px-2 py-0.5 rounded-md text-[11px] text-content-muted bg-overlay-subtle"
+                class="flex-shrink-0 lowercase text-content-muted"
               >{{ tag }}</span>
             </div>
           </div>
@@ -192,11 +187,11 @@
                 @input="loadCatalog()"
                 type="text"
                 placeholder="Search stimpacks..."
-                class="flex-1 px-3 py-2 text-sm bg-base border border-edge rounded-lg text-content placeholder-content-muted focus:outline-none focus:border-accent"
+                class="flex-1 px-3 py-2 text-sm bg-overlay-subtle border border-transparent rounded-md text-content placeholder:text-content-muted focus:outline-none focus:border-accent"
               />
               <label
                 title="Install from a .md or .zip file..."
-                class="flex-shrink-0 cursor-pointer flex items-center justify-center w-9 h-9 text-content-tertiary hover:text-content-secondary hover:bg-overlay-subtle border border-edge rounded-lg transition-colors"
+                class="flex-shrink-0 cursor-pointer flex items-center justify-center w-9 h-9 text-content-tertiary hover:text-content-secondary hover:bg-overlay-subtle rounded-md transition-colors"
               >
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
@@ -210,23 +205,35 @@
               <div v-if="catalogLoading" class="flex items-center justify-center py-12">
                 <div class="w-6 h-6 border-2 border-edge border-t-content-secondary rounded-full animate-spin"></div>
               </div>
-              <div v-else-if="catalogStimpacks.length > 0" class="grid grid-cols-3 gap-4">
+              <div v-else-if="catalogStimpacks.length > 0" class="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-2.5">
                 <div
                   v-for="stimpack in catalogStimpacks"
                   :key="stimpack.name"
-                  class="group border rounded-lg p-5 transition-all duration-200"
-                  :class="installedNames.has(stimpack.name)
-                    ? 'border-edge'
-                    : 'border-edge hover:border-edge-strong'"
+                  class="group rounded-lg p-4 h-[140px] flex flex-col gap-2 transition-colors bg-overlay-faint hover:bg-overlay-subtle"
                 >
-                  <!-- Title + action -->
-                  <div class="flex items-start justify-between gap-2 mb-2">
-                    <h4 class="text-sm font-bold text-content" style="letter-spacing: -0.01em;">{{ stimpack.displayName || stimpack.name }}</h4>
+                  <!-- Title + author + action -->
+                  <div class="flex items-start gap-2.5">
+                    <div class="flex-1 min-w-0">
+                      <h4 class="text-content text-[14px] leading-tight font-brand font-semibold truncate">{{ stimpack.displayName || stimpack.name }}</h4>
+                      <div class="mt-1.5 flex items-center gap-1.5 text-[11px] text-content-tertiary">
+                        <img
+                          v-if="stimpack.authorAvatarKey && !failedAvatars.has(stimpack.authorAvatarKey)"
+                          :src="avatarUrl(stimpack.authorAvatarKey)"
+                          alt=""
+                          class="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0"
+                          @error="failedAvatars.add(stimpack.authorAvatarKey)"
+                        />
+                        <svg v-else class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span class="truncate">{{ stimpack.authorUsername || 'unknown' }}</span>
+                      </div>
+                    </div>
                     <button
                       v-if="!installedNames.has(stimpack.name)"
                       @click="handleInstallStimpack(stimpack)"
                       :disabled="installingStimpack === stimpack.name"
-                      class="flex-shrink-0 px-2.5 py-1 text-[11px] font-medium text-accent hover:text-white bg-accent/10 hover:bg-accent rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      class="flex-shrink-0 px-2.5 py-1 text-[11px] font-medium text-accent hover:text-white bg-accent/10 hover:bg-accent rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {{ installingStimpack === stimpack.name ? '...' : 'Install' }}
                     </button>
@@ -240,32 +247,15 @@
                   </div>
 
                   <!-- Description -->
-                  <p class="text-xs text-content-secondary leading-relaxed mb-3">{{ stimpack.shortDescription }}</p>
+                  <p class="text-xs text-content-tertiary line-clamp-2 leading-relaxed">{{ stimpack.shortDescription }}</p>
 
-                  <!-- Author row -->
-                  <div class="flex items-center text-[11px] text-content-muted">
-                    <span class="inline-flex items-center gap-1.5">
-                      <img
-                        v-if="stimpack.authorAvatarKey && !failedAvatars.has(stimpack.authorAvatarKey)"
-                        :src="avatarUrl(stimpack.authorAvatarKey)"
-                        alt=""
-                        class="w-4 h-4 rounded-full object-cover"
-                        @error="failedAvatars.add(stimpack.authorAvatarKey)"
-                      />
-                      <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      {{ stimpack.authorUsername || 'unknown' }}
-                    </span>
-                    <span v-if="stimpack.nsfw" class="ml-2 px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded text-[9px] font-medium">NSFW</span>
-                  </div>
-
-                  <!-- Tags -->
-                  <div v-if="stimpack.tags?.length" class="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-edge">
+                  <!-- Bottom: facts in quiet mono -->
+                  <div class="mt-auto flex items-center gap-2.5 overflow-hidden whitespace-nowrap text-[10.5px] font-mono">
+                    <span v-if="stimpack.nsfw" class="flex-shrink-0 text-red-400">nsfw</span>
                     <span
-                      v-for="tag in stimpack.tags"
+                      v-for="tag in stimpack.tags || []"
                       :key="tag"
-                      class="px-2 py-0.5 rounded-md text-[11px] text-content-muted bg-overlay-subtle"
+                      class="flex-shrink-0 lowercase text-content-muted"
                     >{{ tag }}</span>
                   </div>
                 </div>

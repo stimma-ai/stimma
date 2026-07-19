@@ -6,7 +6,7 @@
 
       <div class="flex items-center gap-3">
         <button
-          class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
+          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-content-tertiary transition-colors hover:bg-overlay-subtle hover:text-content-secondary"
           @click="createFlow"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -22,7 +22,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Search flows..."
-            class="bg-overlay-subtle border border-edge-subtle rounded-lg pl-9 pr-3 py-1.5 text-sm text-content-secondary placeholder-white/30 focus:outline-none focus:border-accent w-48"
+            class="bg-overlay-subtle border border-transparent rounded-md pl-9 pr-3 py-1.5 text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-accent w-48"
           />
         </div>
       </div>
@@ -37,25 +37,6 @@
       </div>
 
       <template v-else>
-        <!-- Toolbar: count · sort -->
-        <div class="flex items-center gap-3 px-6 py-3 border-b border-edge-subtle text-[12px]">
-          <span class="text-content-muted">
-            {{ displayed.length }} of {{ flows.length }} {{ flows.length === 1 ? 'flow' : 'flows' }}
-          </span>
-          <div class="flex-1" />
-          <div class="flex items-center gap-1.5 text-content-muted">
-            <span>Sort</span>
-            <select
-              v-model="sortKey"
-              class="bg-overlay-subtle border border-edge-subtle rounded px-2 py-1 text-content-secondary focus:outline-none focus:border-accent"
-            >
-              <option value="updated">Recently updated</option>
-              <option value="name">Name</option>
-              <option value="status">Status</option>
-            </select>
-          </div>
-        </div>
-
         <!-- Unified list -->
         <div v-if="displayed.length === 0" class="px-6 py-16 text-center">
           <template v-if="flows.length === 0">
@@ -65,7 +46,7 @@
                 Flows are repeatable creative workflows — define inputs once, then run them again with different settings to generate new assets.
               </p>
               <button
-                class="mt-4 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-content-secondary bg-overlay-subtle border border-edge-subtle transition-colors hover:bg-overlay hover:text-content"
+                class="mt-4 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-content bg-surface-raised transition-colors hover:bg-surface-hover"
                 @click="createFlow"
               >
                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -111,17 +92,14 @@ import FlowCard from '../components/flow/FlowCard.vue'
 import ConnectionError from '../components/ConnectionError.vue'
 import EntityContextMenu from '../components/EntityContextMenu.vue'
 import { useFlowsApi, type Flow } from '../composables/useFlowsApi'
-import { useFlowCounts } from '../composables/useFlowCounts'
-import { deriveFlowStatusLabel, type FlowStatusLabel } from '../composables/useFlowStatus'
+
 import { useWebSocket } from '../composables/useWebSocket'
 import { useEntityContextMenu } from '../composables/useEntityContextMenu'
 import { useToasts } from '../composables/useToasts'
 
-type SortKey = 'updated' | 'name' | 'status'
 
 const router = useRouter()
 const api = useFlowsApi()
-const { stateFor: flowState, summaryFor: flowSummary, hasLoadErrorFor: flowHasLoadError } = useFlowCounts()
 const { on } = useWebSocket()
 const entityContextMenu = useEntityContextMenu()
 const { addToast } = useToasts()
@@ -140,7 +118,6 @@ watch(() => route.query.q, (q) => {
   if (typeof q === 'string' && q) searchQuery.value = q
 }, { immediate: true })
 const renamingId = ref<number | null>(null)
-const sortKey = ref<SortKey>('updated')
 const unsubs: Array<() => void> = []
 
 async function load() {
@@ -156,22 +133,6 @@ async function load() {
   }
 }
 
-function statusLabelFor(r: Flow): FlowStatusLabel {
-  return deriveFlowStatusLabel(flowState(r.id), flowSummary(r.id), flowHasLoadError(r.id))
-}
-
-// Sort priority mirrors the FlowStatusPill workflow order so a "Status"
-// sort surfaces what needs attention first: your turn > error > running >
-// paused > idle > done. Lower = earlier in the list.
-const STATUS_ORDER: Record<FlowStatusLabel, number> = {
-  'Your Turn': 0,
-  'Error':     1,
-  'Running':   2,
-  'Paused':    3,
-  'Idle':      4,
-  'Done':      5,
-}
-
 const displayed = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   let list = flows.value.filter(r => {
@@ -182,23 +143,7 @@ const displayed = computed(() => {
     return true
   })
   list = [...list]
-  switch (sortKey.value) {
-    case 'name':
-      list.sort((a, b) => (a.name || '').localeCompare(b.name || '') || a.id - b.id)
-      break
-    case 'status':
-      list.sort((a, b) => {
-        const sa = STATUS_ORDER[statusLabelFor(a)]
-        const sb = STATUS_ORDER[statusLabelFor(b)]
-        if (sa !== sb) return sa - sb
-        return (b.updated_at || '').localeCompare(a.updated_at || '')
-      })
-      break
-    case 'updated':
-    default:
-      list.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
-      break
-  }
+  list.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
   return list
 })
 

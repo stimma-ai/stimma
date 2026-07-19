@@ -1,13 +1,13 @@
 <template>
   <div
-    class="flex items-center gap-4 px-6 py-3.5 mx-2 rounded-lg transition-colors cursor-pointer hover:bg-overlay-subtle"
+    class="flex items-center gap-4 px-6 py-3 transition-colors cursor-pointer hover:bg-overlay-subtle"
     @click="handleClick"
     @contextmenu="$emit('contextmenu', $event, flow)"
   >
     <!-- Thumbnail / status -->
     <div
       v-if="heroMediaId != null"
-      class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden ring-1 ring-edge-subtle bg-surface-raised"
+      class="flex-shrink-0 w-10 h-10 rounded-media overflow-hidden bg-matte"
     >
       <MediaImage
         :media-id="heroMediaId"
@@ -19,11 +19,15 @@
         img-class="w-full h-full object-cover"
       />
     </div>
-    <EntityIcon v-else type="flow" size="md" />
+    <div v-else class="flex-shrink-0 w-10 h-10 rounded-media bg-matte flex items-center justify-center">
+      <svg class="w-5 h-5 text-content-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+      </svg>
+    </div>
 
-    <!-- Name + parent -->
+    <!-- Name + parent; time/outputs share the same two lines -->
     <div class="flex-1 min-w-0">
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-3">
         <template v-if="editing">
           <input
             v-no-autocorrect
@@ -56,52 +60,52 @@
             show-pending
             text-class="text-[11.5px] text-content-muted whitespace-nowrap"
           />
+          <span class="flex-1"></span>
+          <span v-if="flow.updated_at" class="flex-shrink-0 text-xs font-mono tabular-nums text-content-tertiary whitespace-nowrap">
+            {{ formatRelative(flow.updated_at) }}
+          </span>
         </template>
       </div>
-      <div v-if="!editing && parentName" class="text-[12px] text-content-muted truncate mt-0.5">
-        based on {{ parentName }}
-      </div>
-      <div v-else-if="!editing && flow.description" class="text-[12px] text-content-muted truncate mt-0.5">
-        {{ flow.description }}
-      </div>
-    </div>
+      <div v-if="!editing" class="flex items-center gap-3 mt-1">
+        <div v-if="parentName" class="flex-1 min-w-0 text-[12px] text-content-muted truncate">
+          based on {{ parentName }}
+        </div>
+        <div v-else-if="flow.description" class="flex-1 min-w-0 text-[12px] text-content-muted truncate">
+          {{ flow.description }}
+        </div>
+        <span v-else class="flex-1"></span>
 
-    <!-- Output asset strip: up to 3 tiles overlap stacked-avatar style,
-         mirrors the collapsed-header treatment in EquationTraceRow /
-         IterationGroup so a flow row reads as a live preview of its
-         surfaced outputs, not just a generic bolt glyph. -->
-    <div
-      v-if="stripMediaIds.length > 0"
-      class="hidden sm:flex flex-shrink-0 items-center justify-end"
-    >
-      <div
-        v-for="(mid, i) in stripMediaIds"
-        :key="mid"
-        class="w-7 h-7 rounded-media border border-surface overflow-hidden ring-1 ring-edge-subtle bg-surface-raised"
-        :class="i > 0 ? '-ml-2' : ''"
-        :style="{ zIndex: stripMediaIds.length - i }"
-      >
-        <MediaImage
-          :media-id="mid"
-          :thumbnail="true"
-          :thumbnail-size="128"
-          :draggable="false"
-          :enable-context-menu="false"
-          container-class="w-full h-full"
-          img-class="w-full h-full object-cover"
-        />
+        <!-- Output asset strip: up to 3 tiles overlap stacked-avatar style,
+             mirrors the collapsed-header treatment in EquationTraceRow /
+             IterationGroup so a flow row reads as a live preview of its
+             surfaced outputs, not just a generic bolt glyph. -->
+        <div
+          v-if="stripMediaIds.length > 0"
+          class="hidden sm:flex flex-shrink-0 items-center justify-end"
+        >
+          <div
+            v-for="(mid, i) in stripMediaIds"
+            :key="mid"
+            class="w-7 h-7 rounded-media border border-surface overflow-hidden bg-matte"
+            :class="i > 0 ? '-ml-2' : ''"
+            :style="{ zIndex: stripMediaIds.length - i }"
+          >
+            <MediaImage
+              :media-id="mid"
+              :thumbnail="true"
+              :thumbnail-size="128"
+              :draggable="false"
+              :enable-context-menu="false"
+              container-class="w-full h-full"
+              img-class="w-full h-full object-cover"
+            />
+          </div>
+          <span
+            v-if="extraCount > 0"
+            class="ml-1.5 text-[10.5px] font-mono text-content-muted tabular-nums"
+          >+{{ extraCount }}</span>
+        </div>
       </div>
-      <span
-        v-if="extraCount > 0"
-        class="ml-1.5 text-[10.5px] font-mono text-content-muted tabular-nums"
-      >+{{ extraCount }}</span>
-    </div>
-
-    <!-- Right side: time -->
-    <div class="flex-shrink-0 flex flex-col items-end gap-1.5">
-      <span v-if="flow.updated_at" class="text-[13px] font-mono tabular-nums text-content-muted whitespace-nowrap">
-        {{ formatRelative(flow.updated_at) }}
-      </span>
     </div>
   </div>
 </template>
@@ -113,7 +117,6 @@ import { computeFlowOutputs } from '../../composables/useFlowOutputs'
 import { useWebSocket } from '../../composables/useWebSocket'
 import FlowStatusPill from './FlowStatusPill.vue'
 import { MediaImage } from '../media'
-import EntityIcon from '../EntityIcon.vue'
 
 interface Props {
   flow: Flow
@@ -236,10 +239,12 @@ function cancelEdit() {
 function formatRelative(ts: string): string {
   const d = new Date(ts)
   const diff = (Date.now() - d.getTime()) / 1000
-  if (diff < 60) return 'just now'
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`
-  return d.toLocaleDateString()
+  if (diff < 60) return 'now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d`
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = '2-digit'
+  return d.toLocaleDateString(undefined, opts)
 }
 </script>
