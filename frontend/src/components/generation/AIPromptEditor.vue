@@ -141,10 +141,7 @@
               class="absolute top-full right-0 mt-2 p-4 bg-surface border border-edge-subtle rounded-lg shadow-lg z-menu w-80"
             >
               <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-1.5">
-                  <svg class="w-3 h-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
-                  <span class="text-xs font-medium text-content-secondary">Prompt Syntax</span>
-                </div>
+                <span class="text-xs font-medium text-content-secondary">Prompt Syntax</span>
                 <button @click="showHelp = false" class="text-content-muted hover:text-content-secondary p-0.5">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -178,7 +175,7 @@
                   <code class="text-gray-500 italic bg-zinc-500/10 px-1.5 py-0.5 rounded text-xs"># comment</code>
                 </div>
                 <p class="text-xs text-content-tertiary leading-relaxed">
-                  Comments are visible to the prompt improvement model and can be used to provide instructions and guidance. They are not sent to the generation tools.
+                  Comments are visible to the Prompt Enhancement Model and can be used to provide instructions and guidance. They are not sent to the generation tools.
                 </p>
               </div>
 
@@ -188,7 +185,7 @@
                   <code class="text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded text-xs">[verbatim text]</code>
                 </div>
                 <p class="text-xs text-content-tertiary leading-relaxed">
-                  Text in brackets is invisible to the prompt improvement model and will be preserved as-is.
+                  Text in brackets is invisible to the Prompt Enhancement Model and will be preserved as-is.
                 </p>
               </div>
 

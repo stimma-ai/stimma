@@ -64,10 +64,7 @@
         @click.stop
       >
         <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-1.5">
-            <svg class="w-3 h-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
-            <span class="text-xs font-medium text-content-secondary">Prompt Syntax</span>
-          </div>
+          <span class="text-xs font-medium text-content-secondary">Prompt Syntax</span>
           <button @click="showHelp = false" class="text-content-muted hover:text-content-secondary p-0.5">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -101,7 +98,7 @@
             <code class="text-gray-500 italic bg-zinc-500/10 px-1.5 py-0.5 rounded text-xs"># comment</code>
           </div>
           <p class="text-xs text-content-tertiary leading-relaxed">
-            Guide the AI improvement model. Stripped before generation.
+            Guide the Prompt Enhancement Model. Stripped before generation.
           </p>
         </div>
 
@@ -111,7 +108,7 @@
             <code class="text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded text-xs">[verbatim text]</code>
           </div>
           <p class="text-xs text-content-tertiary leading-relaxed">
-            Preserved as-is, invisible to the improvement model.
+            Preserved as-is and invisible to the Prompt Enhancement Model.
           </p>
         </div>
       </div>
