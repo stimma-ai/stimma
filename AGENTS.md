@@ -38,21 +38,21 @@ Config files are located at:
 - When building code that adds a new entity, don't pop up a modal asking the person to name it. Just create it with no name or Untitled or whatever makes sense and make it easy for the user to rename later.
 - Never use browser based "alert" sheets for confirmations or prompts to the user. Use modals instead.
 
-### Standard Colors
+### Design language — READ frontend/DESIGN.md FIRST
 
-Use these Tailwind color classes consistently across the UI:
-
-- **Primary Blue** (`blue-500`): Active/selected states, positive filter criteria, links, accents
-  - Background: `bg-blue-500/15` with `border-blue-500/50`
-  - Text: `text-blue-500` or `text-blue-400`
-- **Red** (`red-500`): Negative/excluded states, destructive actions
-  - Background: `bg-red-500/15` with `border-red-500/50`
-  - Text: `text-red-500` or `text-red-400`
-- **Neutral/Inactive**: `bg-white/[0.05]` with `border-white/10`, `text-[#888]`
+All UI work follows the Atelier v3 design language, specified in
+`frontend/DESIGN.md` (tokens, z-scale, radius roles, row grammars, separator
+law, greppable review rules). Read it before building or restyling anything.
+Quick anchors: teal `accent` = actions; indigo `selection` = selected state;
+magenta `live` = user-armed continuous modes; `matte` behind media;
+`rounded-media` (2px) on artwork; sentence-case section labels with no rule
+under headings; hairlines only BETWEEN peers; blue-500 is status-only (never
+an interactive accent). Use the kit in `frontend/src/components/ui/` instead
+of hand-rolling controls.
 
 ### Stimma Cloud Branding
 
-**All Stimma Cloud UI elements must use the Stimma Cloud gradient branding.** Do not use these colors (teal-600, cyan-500, indigo-500) for non-cloud features.
+**All Stimma Cloud UI elements must use the Stimma Cloud gradient branding.** The GRADIENT (and gradient text/borders) is cloud-reserved — never on non-cloud features. Solid teal via the `accent` token is the app-wide interactive accent and is fine everywhere; solid indigo via `selection` likewise. What is reserved is the teal→cyan→indigo gradient treatment, not the individual hues.
 
 **Core Gradient:** `teal-600` → `cyan-500` → `indigo-500`
 - CSS variables: `--stimma-cloud-start: #0d9488`, `--stimma-cloud-mid: #06b6d4`, `--stimma-cloud-end: #6366f1`
