@@ -303,12 +303,14 @@
 
       <!-- Profile picker: exists only when a second profile does -->
       <div v-if="profiles.length > 1" class="relative profile-menu">
+        <!-- Ghost trigger, not a pill — bordered+filled chips aren't Atelier
+             chrome; the menu carries the affordance. -->
         <button
-          class="flex items-center gap-1.5 h-7 pl-2.5 pr-2 rounded-full border border-edge bg-surface-raised text-sm text-content-secondary transition-all cursor-pointer hover:text-content hover:border-edge-strong"
+          class="flex items-center gap-1.5 h-7 px-2 rounded-md text-[13px] text-content-secondary transition-colors cursor-pointer hover:text-content hover:bg-overlay-subtle"
           @click="toggleProfileMenu"
           title="Switch profile"
         >
-          <span class="max-w-[140px] truncate font-medium">{{ currentProfileName }}</span>
+          <span class="max-w-[140px] truncate">{{ currentProfileName }}</span>
           <svg class="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
           </svg>
@@ -323,11 +325,11 @@
               <div
                 v-for="profile in profiles"
                 :key="profile.id"
-                class="w-full px-3 py-2 text-left text-sm transition-colors flex items-center gap-2 cursor-pointer"
-                :class="profile.id === currentProfileId ? 'bg-overlay-light text-content' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
+                class="w-full px-3 py-2 text-left text-xs transition-colors flex items-center gap-2 cursor-pointer"
+                :class="profile.id === currentProfileId ? 'bg-accent/10 text-content' : 'text-content-secondary hover:bg-overlay-subtle hover:text-content'"
                 @click="selectProfile(profile.id)"
               >
-                <svg v-if="profile.id === currentProfileId" class="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <svg v-if="profile.id === currentProfileId" class="w-4 h-4 text-accent-hi flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                 </svg>
                 <span v-else class="w-4 h-4 flex-shrink-0"></span>
