@@ -548,3 +548,51 @@ class TestSetCreationConstraints:
 
         assert response.status_code == 400
         assert "structured media" in response.json()["detail"].lower()
+
+
+class TestMacosPermissionDenied:
+    """macOS TCC denials (PermissionError on open) return 403 and notify the UI."""
+
+    async def test_file_and_thumbnail_endpoints_surface_denial(
+        self, client: AsyncClient, db_session, tmp_path, monkeypatch
+    ):
+        import asyncio
+        import sys
+
+        import utils.macos_permissions as macperm
+        import utils.websocket as ws_module
+        from tests.helpers.media import create_media_item, generate_test_image
+
+        img_path = tmp_path / "denied.png"
+        file_hash = generate_test_image(img_path)
+        async with db_session() as session:
+            item = await create_media_item(
+                session, file_path=img_path, file_hash=file_hash, materialize_asset=True
+            )
+            media_id = item.id
+
+        events = []
+
+        async def record_broadcast(event, data, include_profile=True):
+            events.append((event, data))
+
+        monkeypatch.setattr(sys, "platform", "darwin")
+        monkeypatch.setattr(macperm, "_last_notify", 0.0)
+        monkeypatch.setattr(ws_module.ws_manager, "broadcast", record_broadcast)
+
+        img_path.chmod(0o000)
+        try:
+            response = await client.get(f"/api/media/{media_id}/file")
+            assert response.status_code == 403
+
+            response = await client.get(f"/api/thumbnail/{file_hash}")
+            assert response.status_code == 403
+        finally:
+            img_path.chmod(0o644)
+
+        # The broadcast is scheduled as a task; let it run.
+        await asyncio.sleep(0)
+        assert events, "expected a macos_permission_denied broadcast"
+        event, data = events[0]
+        assert event == "macos_permission_denied"
+        assert data["path"] == str(img_path)

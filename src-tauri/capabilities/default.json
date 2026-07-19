@@ -45,7 +45,8 @@
       "identifier": "shell:allow-open",
       "allow": [
         { "url": "https://**" },
-        { "url": "http://**" }
+        { "url": "http://**" },
+        { "url": "x-apple.systempreferences:**" }
       ]
     },
     {

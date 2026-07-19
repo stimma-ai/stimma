@@ -23,6 +23,7 @@ from core.dependencies import get_db_session
 from core.profile_context import get_current_profile, set_current_profile
 from database_registry import get_database_registry
 from config import get_settings
+from utils.macos_permissions import notify_macos_permission_denied
 import metadata_embed
 
 router = APIRouter(prefix="/api", tags=["media_files"])
@@ -82,6 +83,23 @@ def _source_path_exists(file_path: str, file_format: str) -> bool:
     if file_format.lower() == 'stimmalayout':
         return path.is_dir() and (path / 'index.html').exists()
     return path.exists()
+
+
+def _ensure_readable(file_path: Path) -> None:
+    """Turn a macOS TCC read denial into a 403 before streaming starts.
+
+    FileResponse only opens the file after the response headers are sent, so an
+    EPERM there becomes a mid-stream connection drop and an unhandled traceback.
+    Probing up front lets us return a real status and notify the UI.
+    """
+    try:
+        with open(file_path, 'rb'):
+            pass
+    except PermissionError:
+        notify_macos_permission_denied(file_path)
+        raise HTTPException(status_code=403, detail="Read access to file denied by macOS") from None
+    except OSError:
+        pass  # anything else keeps its existing failure path
 
 
 def _remove_cache_file(cache_path: Path) -> None:
@@ -312,7 +330,14 @@ async def _generate_thumbnail_in_pool(
             # a fast scroll's worth of stale jobs gets shed instead of decoded.
             done, _ = await asyncio.wait({job.future}, timeout=0.5)
             if done:
-                return job.future.result()
+                try:
+                    return job.future.result()
+                except PermissionError as exc:
+                    notify_macos_permission_denied(file_path)
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Read access to source file denied by macOS",
+                    ) from exc
             if await request.is_disconnected():
                 raise ThumbnailRequestAbandoned()
     except asyncio.CancelledError:
@@ -1331,6 +1356,10 @@ def _generate_thumbnail_sync(
     except (FileNotFoundError, NotADirectoryError) as e:
         log.debug(f"Thumbnail source disappeared before generation for {file_path}: {e}")
         return False
+    except PermissionError:
+        # macOS TCC denial — propagate so the endpoint can answer 403 and
+        # notify the UI instead of a generic 500.
+        raise
     except Exception as e:
         log.error(f"Error generating thumbnail for {file_path}: {e}", exc_info=True)
         return False
@@ -1486,6 +1515,7 @@ async def get_media_file(
     # Extract filename from path and set Content-Disposition header
     # This preserves the original filename when dragging/downloading from browser
     filename = file_path.name
+    _ensure_readable(file_path)
     return FileResponse(
         file_path,
         media_type=media_type,
@@ -1566,6 +1596,7 @@ async def get_file_by_media_id(
         }
         media_type = format_map.get(item.file_format.lower(), 'application/octet-stream')
 
+    _ensure_readable(file_path)
     return FileResponse(
         file_path,
         media_type=media_type,
@@ -2671,6 +2702,7 @@ async def get_media_file_by_db_guid(
         **CACHE_HEADERS,
         'Content-Disposition': f'inline; filename="{filename}"'
     }
+    _ensure_readable(file_path)
     return FileResponse(file_path, media_type=media_type, headers=headers)
 
 
@@ -2738,6 +2770,7 @@ async def get_file_by_media_id_and_db_guid(
         **CACHE_HEADERS,
         'Content-Disposition': f'inline; filename="{filename}"'
     }
+    _ensure_readable(file_path)
     return FileResponse(file_path, media_type=media_type, headers=headers)
 
 

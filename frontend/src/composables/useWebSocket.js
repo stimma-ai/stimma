@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { getCurrentProfileId } from './useProfile'
 import { getWsBase, isInitialized as isApiInitialized } from '../apiConfig'
-import { addToast } from './useToasts'
+import { addToast, removeToast } from './useToasts'
 
 /**
  * Singleton WebSocket connection shared across all components
@@ -246,6 +246,32 @@ export function useWebSocket() {
       if (message) {
         addToast(message, type, duration)
       }
+    })
+
+    // Register global handler for macOS TCC file-permission denials. The
+    // backend rate-limits the event; we also keep at most one toast alive.
+    let macosPermToastId = null
+    on('macos_permission_denied', (data) => {
+      if (macosPermToastId !== null) {
+        removeToast(macosPermToastId)
+      }
+      const where = data.folder ? `your ${data.folder} folder` : 'some of your files'
+      macosPermToastId = addToast(
+        `macOS is blocking Stimma's access to ${where}. In System Settings → Privacy & Security → Files & Folders, toggle Stimma's access off and on, then restart Stimma.`,
+        'warning',
+        0,
+        {
+          label: 'Open Settings',
+          onClick: async () => {
+            try {
+              const { open } = await import('@tauri-apps/plugin-shell')
+              await open('x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders')
+            } catch (error) {
+              console.error('[WebSocket] Failed to open System Settings:', error)
+            }
+          }
+        }
+      )
     })
 
     // Register global handler for markers_updated (config hot-reload)
