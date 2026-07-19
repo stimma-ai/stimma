@@ -22,13 +22,12 @@
           <div
             :class="[
               'flex flex-col flex-shrink-0 min-w-0',
-              reorderable ? 'w-[17rem]' : 'w-full flex-1',
-              reorderable ? 'gap-1.5' : 'gap-2'
+              reorderable ? 'w-[17rem]' : 'w-full flex-1'
             ]"
           >
             <div
               :class="[
-                'relative bg-matte overflow-hidden group flex-shrink-0 rounded-media',
+                'relative bg-matte overflow-hidden group flex-shrink-0 rounded-media mb-1.5',
                 reorderable
                   ? 'w-[17rem] h-[9.5rem] cursor-grab'
                   : (accept === 'audio' ? 'w-full h-[7rem]' : 'w-full h-[18.5rem]'),
