@@ -35,18 +35,22 @@ function showLoadingScreen() {
   logo.src = '/logo.png'
   logo.alt = 'Stimma'
 
-  const status = document.createElement('p')
-  status.id = 'startup-status'
-  status.className = 'text-sm text-content-tertiary'
-  status.textContent = 'Starting Stimma...'
-
-  screen.append(dragRegion, logo, status)
+  screen.append(dragRegion, logo)
   appDiv.appendChild(screen)
 }
 
 function updateLoadingStatus(message) {
-  const status = document.getElementById('startup-status')
-  if (status) status.textContent = message
+  const screen = document.querySelector('.startup-screen')
+  if (!screen || !message) return
+
+  let status = document.getElementById('startup-status')
+  if (!status) {
+    status = document.createElement('p')
+    status.id = 'startup-status'
+    status.className = 'absolute left-6 right-6 top-[calc(50%+58px)] text-center text-sm text-content-tertiary'
+    screen.appendChild(status)
+  }
+  status.textContent = message
 }
 
 function showError(message) {

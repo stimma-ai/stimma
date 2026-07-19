@@ -1,4 +1,11 @@
 const DEFAULT_RETRY_DELAY_MS = 500
+const LONG_STARTUP_THRESHOLD_MS = 15_000
+
+export function getStartupWaitMessage(elapsedMs) {
+  if (elapsedMs < LONG_STARTUP_THRESHOLD_MS) return null
+
+  return 'Upgrading your library. Large libraries may take several minutes.'
+}
 
 const sleep = (delayMs) => new Promise(resolve => setTimeout(resolve, delayMs))
 

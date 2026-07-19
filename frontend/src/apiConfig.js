@@ -5,7 +5,7 @@
  * In Tauri production: Uses dynamic port from sidecar
  */
 import axios from 'axios'
-import { waitForBackendHealth } from './utils/backendStartup'
+import { getStartupWaitMessage, waitForBackendHealth } from './utils/backendStartup'
 
 let apiBaseUrl = '/api'
 let wsBaseUrl = '/ws'
@@ -128,7 +128,6 @@ export async function initApiConfig() {
       const { invoke } = tauriCore
 
       // Step 1: Get the port from Tauri (retry up to 30 seconds)
-      updateStartupStatus?.('Starting backend...')
       const maxAttempts = 60
       const delayMs = 500
       let port = null
@@ -156,7 +155,6 @@ export async function initApiConfig() {
       // supervisor has supplied a port, there is deliberately no fixed
       // readiness deadline: a large one-time migration can legitimately take
       // several minutes and remains transactional until startup completes.
-      updateStartupStatus?.('Waiting for backend...')
       console.log('[apiConfig] Health checking', backendOrigin)
       const response = await waitForBackendHealth(backendOrigin, {
         retryDelayMs: delayMs,
@@ -168,15 +166,11 @@ export async function initApiConfig() {
               'seconds elapsed',
             )
           }
-          updateStartupStatus?.(
-            elapsedMs >= 30_000
-              ? 'Upgrading your library. Large libraries may take several minutes.'
-              : 'Preparing your library...',
-          )
+          const message = getStartupWaitMessage(elapsedMs)
+          if (message) updateStartupStatus?.(message)
         },
       })
       console.log('[apiConfig] Health check response:', response.status)
-      updateStartupStatus?.('Ready')
       initialized = true
       return
     } else {

@@ -1,7 +1,22 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { waitForBackendHealth } from '../src/utils/backendStartup.js'
+import {
+  getStartupWaitMessage,
+  waitForBackendHealth,
+} from '../src/utils/backendStartup.js'
+
+test('routine startup waits do not show status text', () => {
+  assert.equal(getStartupWaitMessage(0), null)
+  assert.equal(getStartupWaitMessage(14_999), null)
+})
+
+test('long startup waits explain the exceptional library upgrade', () => {
+  assert.equal(
+    getStartupWaitMessage(15_000),
+    'Upgrading your library. Large libraries may take several minutes.',
+  )
+})
 
 test('backend readiness keeps waiting past the former 30-second attempt limit', async () => {
   let attempts = 0
