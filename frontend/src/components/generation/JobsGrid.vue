@@ -193,6 +193,7 @@
               :media-hashes="mediaHashes"
               :media-has-alpha="mediaHasAlpha"
               :media-generation-times="mediaGenerationTimes"
+              :media-data="mediaData"
               :current-media-id="currentMediaId"
               :compact-overlays="compactOverlays"
               :thumbnail-size="thumbnailSize"

@@ -1,13 +1,19 @@
 <template>
-  <div
-    :class="[
-      'group relative aspect-square rounded-media overflow-hidden cursor-pointer bg-matte',
-      currentMediaId != null && job.result_media_id === currentMediaId
-        ? 'ring-2 ring-selection ring-inset'
-        : ''
-    ]"
-    @click="handleJobClick"
-  >
+  <div class="group flex flex-col">
+    <!-- Artwork: natural aspect ratio at full rail width when dimensions are
+         known (fit mode) — the image IS the tile, no matte letterbox. Falls
+         back to the square matte until dims load / in cover mode. -->
+    <div
+      :class="[
+        'relative w-full rounded-media overflow-hidden cursor-pointer bg-matte',
+        naturalAspect === null ? 'aspect-square' : '',
+        currentMediaId != null && job.result_media_id === currentMediaId
+          ? 'ring-2 ring-selection ring-inset'
+          : ''
+      ]"
+      :style="naturalAspect !== null ? { aspectRatio: String(naturalAspect) } : {}"
+      @click="handleJobClick"
+    >
     <!-- Video display: a static poster (the video's first-frame thumbnail) is
          shown by default; the real <video> is mounted only while the tile is
          hovered and torn down again on leave. Mounting a live <video> for every
@@ -31,6 +37,7 @@
         :has-alpha="false"
         container-class="w-full h-full"
         retry-on-error
+        @load="onImageLoad"
       />
       <video
         v-if="videoActive"
@@ -57,53 +64,58 @@
       :contain="imageMode === 'fit'"
       :has-alpha="mediaHasAlpha[job.result_media_id]"
       container-class="w-full h-full"
+      @load="onImageLoad"
       @error="$emit('media-load-error', job.result_media_id)"
     />
     <div v-else-if="job.result_media_id" class="w-full h-full flex items-center justify-center bg-surface">
       <Spinner size="lg" />
     </div>
-    <!-- Auto-delete time remaining badge (upper left) -->
-    <div v-if="!compactOverlays && job.expires_at && formatRemainingTime(job.expires_at)" class="absolute top-2 left-2 z-chrome bg-black/55 backdrop-blur-sm rounded px-1.5 py-1 flex items-center gap-1">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3 text-amber-400">
-        <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
-      </svg>
-      <span class="text-[11px] font-mono font-semibold text-amber-400 leading-none whitespace-nowrap">{{ formatRemainingTime(job.expires_at) }}</span>
+      <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+        <div class="text-xs text-white line-clamp-2">{{ getJobPrompt(job) }}</div>
+      </div>
     </div>
-    <!-- Gen-time + info (upper right): click opens generation details -->
-    <button
-      v-if="!compactOverlays"
-      @click.stop="$emit('show-job-info', job)"
-      class="absolute top-2 right-2 z-chrome h-7 flex items-center justify-center gap-1 px-2 bg-black/55 backdrop-blur-sm hover:bg-accent/80 rounded text-[11px] font-mono font-bold text-white transition-colors"
-      title="Generation details"
-    >
-      <span v-if="getGenerationTime(job)">{{ getGenerationTime(job) }}s</span>
-      <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
-      </svg>
-    </button>
-    <!-- Marker toggle buttons (bottom left) -->
-    <div v-if="!compactOverlays && job.result_media_id && markers.length > 0" class="absolute bottom-2 left-2 z-chrome flex gap-0.5">
+    <!-- Control strip below the artwork: markers left; facts + actions right.
+         Ghost buttons on the rail surface — nothing occludes the image. -->
+    <div v-if="!compactOverlays && job.result_media_id" class="flex items-center gap-0.5 pt-1 pb-3">
+      <!-- Marker toggles -->
       <button
         v-for="marker in markers"
         :key="marker.id"
         @click.stop="$emit('toggle-marker', { mediaId: job.result_media_id, assetId: job.result_asset_id, marker })"
         :class="[
-          'w-7 h-7 rounded backdrop-blur-sm flex items-center justify-center transition-all border-2',
-          hasMarker(job.result_media_id, marker.id)
-            ? 'bg-black/55'
-            : 'bg-black/55 border-transparent hover:bg-black/70 text-white/50 hover:text-white'
+          'w-6 h-6 rounded-md flex items-center justify-center transition-colors hover:bg-overlay-subtle',
+          hasMarker(job.result_media_id, marker.id) ? '' : 'text-content-muted/60 hover:text-content-secondary'
         ]"
-        :style="hasMarker(job.result_media_id, marker.id) ? { borderColor: marker.color, color: marker.color } : {}"
+        :style="hasMarker(job.result_media_id, marker.id) ? { color: marker.color } : {}"
         :title="hasMarker(job.result_media_id, marker.id) ? `Remove ${marker.name}` : `Add ${marker.name}`"
       >
         <span class="w-4 h-4 flex items-center justify-center icon-container" v-html="sanitizeSvg(marker.icon_svg)" />
       </button>
-    </div>
-    <!-- Trash + remix actions (bottom right) -->
-    <div v-if="!compactOverlays && job.result_media_id" class="absolute bottom-2 right-2 z-chrome flex gap-0.5">
+      <div class="flex-1" />
+      <!-- Auto-delete time remaining -->
+      <span
+        v-if="job.expires_at && formatRemainingTime(job.expires_at)"
+        class="flex items-center gap-1 px-1 text-[11px] font-mono text-amber-400 leading-none whitespace-nowrap"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-3 h-3">
+          <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
+        </svg>
+        {{ formatRemainingTime(job.expires_at) }}
+      </span>
+      <!-- Gen-time + info: click opens generation details -->
+      <button
+        @click.stop="$emit('show-job-info', job)"
+        class="h-6 flex items-center justify-center gap-1 px-1.5 rounded-md text-[11px] font-mono text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
+        title="Generation details"
+      >
+        <span v-if="getGenerationTime(job)">{{ getGenerationTime(job) }}s</span>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+        </svg>
+      </button>
       <button
         @click.stop="$emit('remix-media', job.result_media_id)"
-        class="w-7 h-7 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-accent/80 text-white/50 hover:text-white transition-all"
+        class="w-6 h-6 rounded-md flex items-center justify-center text-content-muted/60 hover:text-content hover:bg-overlay-subtle transition-colors"
         title="Remix: load this image's settings"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
@@ -112,7 +124,7 @@
       </button>
       <button
         @click.stop="$emit('trash-media', { mediaId: job.result_media_id, assetId: job.result_asset_id })"
-        class="w-7 h-7 rounded backdrop-blur-sm flex items-center justify-center bg-black/55 hover:bg-red-500/80 text-white/50 hover:text-white transition-all"
+        class="w-6 h-6 rounded-md flex items-center justify-center text-content-muted/60 hover:text-red-400 hover:bg-red-500/10 transition-colors"
         title="Move to Trash"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
@@ -120,14 +132,11 @@
         </svg>
       </button>
     </div>
-    <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-      <div class="text-xs text-white line-clamp-2">{{ getJobPrompt(job) }}</div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, nextTick, onBeforeUnmount } from 'vue'
 import { useExpirationClock } from '../../composables/useExpirationClock'
 import { MediaImage, AppImage } from '../media'
 import Spinner from '../ui/Spinner.vue'
@@ -160,6 +169,9 @@ const props = withDefaults(defineProps<{
   currentMediaId?: number | null
   compactOverlays?: boolean
   thumbnailSize?: number
+  // Full media records by id (width/height) — lets fit-mode tiles reserve
+  // their exact natural aspect box instead of letterboxing on a square matte.
+  mediaData?: Record<number, any>
 }>(), {
   isVideo: false,
   isAudio: false,
@@ -172,6 +184,32 @@ const props = withDefaults(defineProps<{
   currentMediaId: null,
   compactOverlays: false,
   thumbnailSize: 256,
+  mediaData: () => ({}),
+})
+
+// Natural width/height ratio for the fit-mode tile box; null (→ square matte
+// fallback) in cover mode or for audio. Sources, most→least authoritative:
+// the media record's dims, the loaded image's natural dims, then the job's
+// requested width/height (the jobs list inlines hashes but not dims, so the
+// request params carry the box until a pixel-true source arrives).
+const loadedAspect = ref<number | null>(null)
+function onImageLoad(e: Event) {
+  const img = e?.target as HTMLImageElement | null
+  if (img?.naturalWidth && img?.naturalHeight) {
+    loadedAspect.value = img.naturalWidth / img.naturalHeight
+  }
+}
+const paramAspect = computed<number | null>(() => {
+  try {
+    const p = props.job.parameters ? JSON.parse(props.job.parameters) : null
+    return p?.width && p?.height ? p.width / p.height : null
+  } catch { return null }
+})
+const naturalAspect = computed<number | null>(() => {
+  if (props.imageMode !== 'fit' || props.isAudio) return null
+  const m = props.job.result_media_id ? props.mediaData[props.job.result_media_id] : null
+  if (m?.width && m?.height) return m.width / m.height
+  return loadedAspect.value ?? paramAspect.value
 })
 
 const emit = defineEmits<{
