@@ -95,6 +95,7 @@
         <!-- Header (teleported full-width to #tool-header-slot) -->
         <Teleport defer to="#tool-header-slot">
         <div class="flex items-center justify-between">
+          <div class="min-w-0">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-7 h-7 rounded-md bg-accent/12 flex items-center justify-center flex-shrink-0 text-accent-hi p-1.5"><ToolIcon :tool="tool" bare :ring="false" /></div>
             <HopToToolMenu
@@ -773,7 +774,7 @@
         v-if="jobsManager"
         class="order-4 flex-none overflow-y-auto scrollbar-stable bg-matte border-l transition-[width,padding,border-color] duration-300 ease-out"
         :class="[
-          layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent py-3 pl-0.5 pr-1',
+          layoutMode === 'stage' ? 'border-surface p-2' : 'border-transparent py-3 px-0',
           stageResizing ? '!transition-none' : ''
         ]"
         :style="{ width: layoutMode === 'stage' ? '160px' : '33.3333%' }"
