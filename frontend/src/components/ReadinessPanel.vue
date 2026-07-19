@@ -349,7 +349,7 @@ const WizardBrandChip = defineComponent({
       return h('span', {
         class: [
           'inline-flex items-center gap-1.5 rounded-lg border py-1 pl-1 pr-2 backdrop-blur-[3px]',
-          props.side === 'chat' ? 'border-cyan-500/15 bg-[#171b24]/60' : 'border-indigo-500/20 bg-[#171b24]/60',
+          props.side === 'chat' ? 'border-cyan-500/15 bg-surface-raised/60' : 'border-indigo-500/20 bg-surface-raised/60',
         ],
       }, [tile, h('span', { class: 'whitespace-nowrap text-[11px] font-medium text-content-secondary' }, props.chip.label)])
     }
