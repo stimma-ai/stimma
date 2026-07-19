@@ -217,7 +217,6 @@ let sectionPreviewCleanup: ReturnType<typeof setTimeout> | null = null
 
 const SECTION_W = 220
 const SECTION_H = 80
-const SECTION_R = 20
 const SECTION_DPR = 2 // render at 2x for retina clarity
 
 /**
@@ -252,65 +251,46 @@ export function createSectionDragPreview(
 
   const isLight = theme === 'light'
 
-  // Draw rounded rect background
+  // Matte-band ghost: sentence-case label above a matte slab with faint
+  // tile hints at 2px gutters — the section's actual on-page grammar.
+  const label = sectionName || 'Name this section…'
+  const labelH = 18 * s
+  ctx.font = `${sectionName ? '600' : 'italic 400'} ${11 * s}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
+  ctx.fillStyle = sectionName ? (isLight ? '#52525b' : '#9aa3b4') : (isLight ? '#8c8c94' : '#60687a')
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(label, 1 * s, labelH / 2, (SECTION_W - 2) * s)
+
+  // Matte slab (radius-media)
+  const slabY = labelH
+  const slabH = SECTION_H * s - slabY
   ctx.save()
   ctx.beginPath()
-  ctx.roundRect(0, 0, SECTION_W * s, SECTION_H * s, SECTION_R * s)
+  ctx.roundRect(0, slabY, SECTION_W * s, slabH, 2 * s)
   ctx.clip()
+  ctx.fillStyle = isLight ? '#f5f5f4' : '#07090d'
+  ctx.fillRect(0, slabY, SECTION_W * s, slabH)
 
-  // Fill background
-  ctx.fillStyle = isLight ? '#fcfcfd' : 'rgba(255,255,255,0.06)'
-  ctx.fillRect(0, 0, SECTION_W * s, SECTION_H * s)
-
-  // Draw dot grid
-  const dotSpacing = 16 * s
-  const dotRadius = 1 * s
-  ctx.fillStyle = isLight ? 'rgba(0,0,0,0.13)' : 'rgba(255,255,255,0.13)'
-  for (let y = dotSpacing; y < SECTION_H * s; y += dotSpacing) {
-    for (let x = dotSpacing; x < SECTION_W * s; x += dotSpacing) {
-      ctx.beginPath()
-      ctx.arc(x, y, dotRadius, 0, Math.PI * 2)
-      ctx.fill()
-    }
+  // Tile hints: three cells with 2px gutters
+  const gutter = 2 * s
+  const tileY = slabY + gutter
+  const tileH = slabH - gutter * 2
+  const widths = [0.32, 0.42, 0.26]
+  let x = gutter
+  ctx.fillStyle = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.07)'
+  for (const w of widths) {
+    const tileW = (SECTION_W * s - gutter * 4) * w
+    ctx.fillRect(x, tileY, tileW, tileH)
+    x += tileW + gutter
   }
-
-  // Draw border
-  ctx.beginPath()
-  ctx.roundRect(0.5 * s, 0.5 * s, (SECTION_W - 1) * s, (SECTION_H - 1) * s, SECTION_R * s)
-  ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'
-  ctx.lineWidth = 1 * s
-  ctx.stroke()
-
   ctx.restore()
 
-  // Draw label pill
-  const label = sectionName || ''
-  if (label) {
-    ctx.font = `500 ${11 * s}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
-    const metrics = ctx.measureText(label)
-    const pillPadX = 12 * s
-    const pillPadY = 3 * s
-    const pillH = 11 * s + pillPadY * 2
-    const pillW = Math.min(metrics.width + pillPadX * 2, 180 * s)
-    const pillX = 12 * s
-    const pillY = 12 * s
-    const pillR = pillH / 2
-
-    // Pill background
-    ctx.beginPath()
-    ctx.roundRect(pillX, pillY, pillW, pillH, pillR)
-    ctx.fillStyle = isLight ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.9)'
-    ctx.fill()
-    ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'
-    ctx.lineWidth = 1 * s
-    ctx.stroke()
-
-    // Pill text
-    ctx.fillStyle = '#71717a'
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(label, pillX + pillPadX, pillY + pillH / 2, 160 * s)
-  }
+  // Hairline on the slab
+  ctx.beginPath()
+  ctx.roundRect(0.5 * s, slabY + 0.5 * s, (SECTION_W - 1) * s, slabH - 1 * s, 2 * s)
+  ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(148,163,184,0.12)'
+  ctx.lineWidth = 1 * s
+  ctx.stroke()
 
   event.dataTransfer.setDragImage(sectionPreviewCanvas, SECTION_W / 2, SECTION_H / 2)
 
