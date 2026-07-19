@@ -129,6 +129,54 @@
                 ? 'stimma-cloud-border-solid stimma-cloud-text font-medium bg-overlay-subtle'
                 : 'text-content-tertiary bg-overlay-subtle border border-edge-subtle'"
             >{{ tool.metadata.display_price }}</span>
+            <BatchRunButton
+              :batch-size="uiState.batchSize"
+              :disabled="!canSubmit"
+              :is-mac="isMac"
+              :media-batch-count="globalPrefs.batchMode ? mediaInputItems.length : 0"
+              @run="submitJob"
+              @update:batch-size="uiState.batchSize = $event"
+            />
+            <ForeverModeButton
+              :is-active="uiState.generateForeverMode"
+              :concurrency="uiState.generateForeverConcurrency"
+              :idle-limit="uiState.generateForeverIdleLimit"
+              :is-stimma-cloud="isStimmaCloudTool"
+              @toggle="stopForeverMode"
+              @start="startForeverMode"
+              @update:concurrency="uiState.generateForeverConcurrency = $event"
+              @update:idle-limit="uiState.generateForeverIdleLimit = $event"
+            />
+            <button
+              @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
+              class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md"
+              :class="layoutMode === 'stage' ? 'bg-surface-raised text-accent-hi hover:bg-surface-hover' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content'"
+              :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Studio — controls primary'"
+            >
+              <PhotoIcon class="w-5 h-5" />
+            </button>
+            <div v-if="jobsManager && isFromScratch" class="relative flex items-center">
+              <button
+                @click="stageMenuOpen = !stageMenuOpen"
+                class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content"
+                title="Queue options"
+              >
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
+              </button>
+              <div v-if="stageMenuOpen" class="fixed inset-0 z-40" @click="stageMenuOpen = false"></div>
+              <div v-if="stageMenuOpen" class="absolute right-0 top-full mt-2 z-50 bg-surface border border-edge-subtle rounded-md shadow-lg min-w-[160px] overflow-hidden py-1" @click.stop>
+                <template v-if="isFromScratch">
+                  <button
+                    @click="setImageMode('fit'); stageMenuOpen = false"
+                    :class="['w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors', uiState.imageMode === 'fit' ? 'text-accent-hi' : 'text-content-secondary']"
+                  ><span class="w-4">{{ uiState.imageMode === 'fit' ? '✓' : '' }}</span>Fit</button>
+                  <button
+                    @click="setImageMode('cover'); stageMenuOpen = false"
+                    :class="['w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors', uiState.imageMode === 'cover' ? 'text-accent-hi' : 'text-content-secondary']"
+                  ><span class="w-4">{{ uiState.imageMode === 'cover' ? '✓' : '' }}</span>Cover</button>
+                </template>
+              </div>
+            </div>
             <PresetPicker
               v-if="tool.full_tool_id"
               :tool-id="tool.full_tool_id"
@@ -147,7 +195,7 @@
         </div>
         <!-- Subtitle: Provider, task types. Renamed instances condense the
              tool name onto this row (mirrors the sidebar row contract). -->
-        <div class="font-mono text-[10.5px] mt-1 mb-3 flex items-center gap-1.5 text-content-tertiary">
+        <div class="font-mono text-[10.5px] mt-1 flex items-center gap-1.5 text-content-tertiary">
           <template v-if="instanceCustomName">
             <span>{{ tool.name }}</span>
             <span>·</span>
@@ -223,10 +271,10 @@
           </button>
         </div>
 
-        <!-- Row 2: Resolution + Markers | Generate + Forever + Auto-delete -->
-        <div class="flex items-center justify-between border-t border-edge-subtle pt-2.5">
-          <div class="flex items-center gap-3">
-            <!-- Constrained resolution picker (for tools with x-allowed-dimensions) -->
+        </Teleport>
+
+        <!-- Params-card top row: resolution + markers | auto-trash -->
+        <div class="flex items-center gap-2 mb-3">
             <ConstrainedResolutionPicker
               v-if="allowedDimensions"
               :allowed-dimensions="allowedDimensions"
@@ -266,78 +314,13 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <!-- Generate/Process Button (split: Run + batch-size dropdown) -->
-            <BatchRunButton
-              :batch-size="uiState.batchSize"
-              :disabled="!canSubmit"
-              :is-mac="isMac"
-              :media-batch-count="globalPrefs.batchMode ? mediaInputItems.length : 0"
-              @run="submitJob"
-              @update:batch-size="uiState.batchSize = $event"
-            />
-
-            <!-- Forever Mode Toggle -->
-            <ForeverModeButton
-              :is-active="uiState.generateForeverMode"
-              :concurrency="uiState.generateForeverConcurrency"
-              :idle-limit="uiState.generateForeverIdleLimit"
-              :is-stimma-cloud="isStimmaCloudTool"
-              @toggle="stopForeverMode"
-              @start="startForeverMode"
-              @update:concurrency="uiState.generateForeverConcurrency = $event"
-              @update:idle-limit="uiState.generateForeverIdleLimit = $event"
-            />
-
-            <!-- Auto-delete duration selector -->
+            <span class="flex-1"></span>
             <AutoDeletePicker
               :model-value="autoDeleteDuration"
               @update:model-value="setAutoDeleteDuration"
             />
-
-            <!-- Layout mode toggle: off = Studio (controls primary), on = Stage
-                 (image primary, steer by chat). -->
-            <button
-              @click="layoutMode = layoutMode === 'stage' ? 'studio' : 'stage'"
-              class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md"
-              :class="layoutMode === 'stage' ? 'bg-surface-raised text-accent-hi hover:bg-surface-hover' : 'bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content'"
-              :title="layoutMode === 'stage' ? 'Stage — image primary, steer by chat' : 'Studio — controls primary'"
-            >
-              <PhotoIcon class="w-5 h-5" />
-            </button>
-
-            <!-- Queue options (both modes): lifted onto the header button strip so
-                 the queue itself has no heading/floating menu. -->
-            <div v-if="jobsManager" class="relative flex items-center">
-              <button
-                @click="stageMenuOpen = !stageMenuOpen"
-                class="cursor-pointer transition-colors flex items-center justify-center px-3 py-2 rounded-md bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content"
-                title="Queue options"
-              >
-                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
-              </button>
-              <div v-if="stageMenuOpen" class="fixed inset-0 z-40" @click="stageMenuOpen = false"></div>
-              <div v-if="stageMenuOpen" class="absolute right-0 top-full mt-2 z-50 bg-surface border border-edge-subtle rounded-md shadow-lg min-w-[160px] overflow-hidden py-1" @click.stop>
-                <template v-if="isFromScratch">
-                  <button
-                    @click="setImageMode('fit'); stageMenuOpen = false"
-                    :class="['w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors', uiState.imageMode === 'fit' ? 'text-accent-hi' : 'text-content-secondary']"
-                  ><span class="w-4">{{ uiState.imageMode === 'fit' ? '✓' : '' }}</span>Fit</button>
-                  <button
-                    @click="setImageMode('cover'); stageMenuOpen = false"
-                    :class="['w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-overlay-subtle transition-colors', uiState.imageMode === 'cover' ? 'text-accent-hi' : 'text-content-secondary']"
-                  ><span class="w-4">{{ uiState.imageMode === 'cover' ? '✓' : '' }}</span>Cover</button>
-                  <div class="border-t border-edge-subtle my-1"></div>
-                </template>
-                <button
-                  @click="clearQueue(); stageMenuOpen = false"
-                  :disabled="queuedJobsCount === 0"
-                  :class="['w-full px-3 py-2 text-left text-sm transition-colors', queuedJobsCount > 0 ? 'text-red-500 hover:bg-red-500/10' : 'text-content-muted cursor-not-allowed']"
-                >Clear Queue{{ queuedJobsCount > 0 ? ` (${queuedJobsCount})` : '' }}</button>
-              </div>
-            </div>
-          </div>
         </div>
-        </Teleport>
+
 
         <!-- Prompt (for task types that need it). external-chat: the editor is a
              plain editor here — the page-level chat lives in the dock below and
