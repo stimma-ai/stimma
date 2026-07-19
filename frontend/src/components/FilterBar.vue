@@ -704,6 +704,11 @@ import { useAssetApi } from '../composables/useAssetApi'
 import { getCurrentProfileId } from '../composables/useProfile'
 import { STIMMA_CLOUD_PROVIDER_ID, STIMMA_TOOL_PROVIDER_DISPLAY_NAME } from '../utils/stimmaCloud'
 import { sanitizeSvg } from '../utils/sanitizeHtml'
+import {
+  buildFilterCountParams,
+  createLatestRequestGate,
+  getFilterCountWatchValues,
+} from '../utils/filterFacetState'
 import { captioningEnabledRef } from '../appConfig'
 import { useTelemetry } from '../composables/useTelemetry'
 import { MediaImage } from './media'
@@ -880,6 +885,8 @@ const hasLoadedCounts = ref(false)  // Track if counts have been loaded
 const canToggle = true // Allow toggling inclusion/exclusion
 const isLoading = ref(true)
 const unfilteredTotalCount = ref(null)  // Total count with no filters applied
+const filterCountsRequestGate = createLatestRequestGate()
+const topKeywordsRequestGate = createLatestRequestGate()
 
 const similarSearchReferenceIds = computed(() => {
   const faceIds = props.similarFaceTo || []
@@ -994,7 +1001,10 @@ const topKeywordsLimited = computed(() => {
   // Add top keywords that aren't already selected, up to 5 total
   const remainingSlots = 5 - result.length
   if (remainingSlots > 0) {
-    const topKws = topKeywords.value
+    const keywordCandidates = hasLoadedCounts.value
+      ? Object.entries(filterCounts.value.keywords || {}).map(([keyword, count]) => ({ keyword, count }))
+      : topKeywords.value
+    const topKws = keywordCandidates
       .filter(kw => !allSelectedKws.includes(kw.keyword))
       .slice(0, remainingSlots)
       .map(kw => ({
@@ -1051,10 +1061,12 @@ const allTags = computed(() => {
 const tagsLimited = computed(() => {
   const selectedIds = selectedTags.value || []
   const excludedIds = excludedTags.value || []
-  const allSelectedIds = [...selectedIds, ...excludedIds]
+  const allSelectedIds = [...new Set([...selectedIds, ...excludedIds])]
 
   // Start with all selected tags
-  const result = tags.value.filter(tag => allSelectedIds.includes(tag.id))
+  const result = allSelectedIds.map(id => (
+    tags.value.find(tag => tag.id === id) || { id, tag: `Tag #${id}`, usage_count: 0 }
+  ))
 
   // Add more tags up to 5 total
   const remainingSlots = 5 - result.length
@@ -1117,11 +1129,13 @@ const allTools = computed(() => {
 const toolsLimited = computed(() => {
   const selectedIds = selectedTools.value || []
   const excludedIds = excludedTools.value || []
-  const allSelectedIds = [...selectedIds, ...excludedIds]
+  const allSelectedIds = [...new Set([...selectedIds, ...excludedIds])]
   const tools = filterCounts.value.tools || []
 
   // Start with all selected tools
-  const result = tools.filter(t => allSelectedIds.includes(t.full_tool_id))
+  const result = allSelectedIds.map(id => (
+    tools.find(t => t.full_tool_id === id) || { full_tool_id: id, name: id.split(':').pop() || id, count: 0 }
+  ))
 
   // Add more tools up to 5 total
   const remainingSlots = 5 - result.length
@@ -1165,7 +1179,12 @@ const visibleDateRanges = computed(() => {
 
 const visibleFolders = computed(() => {
   if (!hasLoadedCounts.value) return foldersLimited.value
-  return foldersLimited.value.filter(f => (filterCounts.value.folders[f] || 0) > 0 || isFolderSelected(f))
+  const activeFolders = [...new Set([...(selectedFolders.value || []), ...(excludedFolders.value || [])])]
+  const remainingSlots = Math.max(0, 5 - activeFolders.length)
+  const availableFolders = folders.value
+    .filter(folder => !activeFolders.includes(folder) && (filterCounts.value.folders[folder] || 0) > 0)
+    .slice(0, remainingSlots)
+  return [...activeFolders, ...availableFolders]
 })
 
 const visibleTags = computed(() => {
@@ -1189,7 +1208,7 @@ const visibleTools = computed(() => {
 
 const visibleKeywords = computed(() => {
   if (!hasLoadedCounts.value) return topKeywordsLimited.value
-  return topKeywordsLimited.value.filter(kw => (kw.count || 0) > 0 || isKeywordSelected(kw.keyword))
+  return topKeywordsLimited.value.filter(kw => (kw.count || 0) > 0 || isKeywordSelected(kw.keyword) || isExcluded(kw.keyword))
 })
 
 const visibleResolutions = computed(() => {
@@ -1261,6 +1280,7 @@ const modalFilterParams = computed(() => {
   if (props.isImported !== null && props.isImported !== undefined) {
     params.is_imported = props.isImported
   }
+  if (props.similarToText?.trim()) params.similar_to_text = props.similarToText.trim()
   if (props.similarSearchActive) {
     if (props.similarFaceTo && props.similarFaceTo.length > 0) {
       params.similar_face_to = props.similarFaceTo.join(',')
@@ -1783,7 +1803,6 @@ async function toggleCriteriaPanel() {
 
   // Load keywords and counts on first open (tags and folders already loaded on mount)
   if (showCriteriaPanel.value && !hasLoadedCounts.value) {
-    hasLoadedCounts.value = true
     isLoading.value = true
     try {
       await Promise.all([
@@ -2162,6 +2181,7 @@ function handleClickOutside(event) {
 
 // Load top keywords
 async function loadTopKeywords() {
+  const requestId = topKeywordsRequestGate.begin()
   try {
     const params = {
       ...modalFilterParams.value,
@@ -2169,9 +2189,11 @@ async function loadTopKeywords() {
       state: props.isTrashMode ? 'trashed' : 'active'
     }
     const response = await getAssetTopKeywords(params)
+    if (!topKeywordsRequestGate.isCurrent(requestId)) return
     topKeywords.value = response.keywords
     console.log('Loaded keywords:', topKeywords.value.length)
   } catch (error) {
+    if (!topKeywordsRequestGate.isCurrent(requestId)) return
     console.error('Failed to load keywords:', error)
   }
 }
@@ -2179,6 +2201,18 @@ async function loadTopKeywords() {
 // Open keyword modal (loading happens inside the modal now)
 function openKeywordModal() {
   showKeywordModal.value = true
+}
+
+function retainActiveTags(list) {
+  const nextTags = [...(list || [])].sort((a, b) => {
+    const diff = (b.usage_count || 0) - (a.usage_count || 0)
+    if (diff !== 0) return diff
+    return (a.tag || '').localeCompare(b.tag || '')
+  })
+  const nextIds = new Set(nextTags.map(tag => tag.id))
+  const activeIds = new Set([...(selectedTags.value || []), ...(excludedTags.value || [])])
+  const retained = tags.value.filter(tag => activeIds.has(tag.id) && !nextIds.has(tag.id))
+  return [...nextTags, ...retained]
 }
 
 // Load tags from API
@@ -2233,96 +2267,26 @@ async function loadUnfilteredCount() {
 
 // Load filter counts
 async function loadFilterCounts() {
+  const requestId = filterCountsRequestGate.begin()
   try {
-    const params = {
-      keyword_limit: 50,  // Get preview counts for top 50 keywords to ensure we cover the top 5 displayed
-      state: props.isTrashMode ? 'trashed' : 'active'
-    }
-
-    // Pass current filter state
-    if (props.captionQuery) params.caption_query = props.captionQuery
-    if (props.promptQuery) params.prompt_query = props.promptQuery
-    if (props.mediaTypes && props.mediaTypes.length > 0) {
-      params.media_types = props.mediaTypes.join(',')
-    }
-    if (props.excludedMediaTypes && props.excludedMediaTypes.length > 0) {
-      params.excluded_media_types = props.excludedMediaTypes.join(',')
-    }
-    if (props.resolutions && props.resolutions.length > 0) {
-      params.resolutions = props.resolutions.join(',')
-    }
-    if (props.excludedResolutions && props.excludedResolutions.length > 0) {
-      params.excluded_resolutions = props.excludedResolutions.join(',')
-    }
-    if (props.selectedKeywords && props.selectedKeywords.length > 0) {
-      params.keywords = props.selectedKeywords.join(',')
-    }
-    if (props.excludedKeywords && props.excludedKeywords.length > 0) {
-      params.excluded_keywords = props.excludedKeywords.join(',')
-    }
-    if (props.selectedFolders && props.selectedFolders.length > 0) {
-      params.folders = props.selectedFolders.join(',')
-    }
-    if (props.excludedFolders && props.excludedFolders.length > 0) {
-      params.excluded_folders = props.excludedFolders.join(',')
-    }
-    if (props.selectedTags && props.selectedTags.length > 0) {
-      params.tag_ids = props.selectedTags.join(',')
-    }
-    if (props.excludedTags && props.excludedTags.length > 0) {
-      params.excluded_tag_ids = props.excludedTags.join(',')
-    }
-    if (props.selectedProjects && props.selectedProjects.length > 0) {
-      params.project_ids = props.selectedProjects.join(',')
-    }
-    if (props.excludedProjects && props.excludedProjects.length > 0) {
-      params.excluded_project_ids = props.excludedProjects.join(',')
-    }
-    if (props.projectMembership === 'any') params.has_project = true
-    else if (props.projectMembership === 'none') params.has_project = false
-    if (props.selectedTools && props.selectedTools.length > 0) {
-      params.tool_ids = props.selectedTools.join(',')
-    }
-    if (props.excludedTools && props.excludedTools.length > 0) {
-      params.excluded_tool_ids = props.excludedTools.join(',')
-    }
-    if (props.selectedMarkers && props.selectedMarkers.length > 0) {
-      params.marker_ids = props.selectedMarkers.join(',')
-    }
-    if (props.excludedMarkers && props.excludedMarkers.length > 0) {
-      params.excluded_marker_ids = props.excludedMarkers.join(',')
-    }
-    if (props.isImported !== null && props.isImported !== undefined) {
-      params.is_imported = props.isImported
-    }
-    if (props.isUnused !== null && props.isUnused !== undefined) {
-      params.is_unused = props.isUnused
-    }
-    if (props.showExpiring) params.show_expiring = true
-    if (props.excludeExpiring) params.exclude_expiring = true
-    if (props.createdAfter) params.created_after = props.createdAfter
-    if (props.createdBefore) params.created_before = props.createdBefore
-
-    // Include similarity filter if active (not applicable in trash mode)
-    if (!props.isTrashMode && props.similarSearchActive) {
-      if (props.similarFaceTo && props.similarFaceTo.length > 0) {
-        params.similar_face_to = props.similarFaceTo.join(',')
-      } else if (props.similarTo && props.similarTo.length > 0) {
-        params.similar_to = props.similarTo.join(',')
-      } else if (props.similarSearchSourceItems && props.similarSearchSourceItems.length > 0) {
-        params.similar_to = props.similarSearchSourceItems.map(item => item.media_id || item.id).join(',')
-      }
-    }
+    const params = buildFilterCountParams(props, {
+      isTrashMode: props.isTrashMode,
+      similarSearchActive: !props.isTrashMode && props.similarSearchActive,
+      similarSearchSourceItems: props.similarSearchSourceItems,
+    })
 
     const response = await getAssetFilterCounts(params)
+    if (!filterCountsRequestGate.isCurrent(requestId)) return
     filterCounts.value = response
+    hasLoadedCounts.value = true
     // Update tags from filter counts (includes filtered usage_count)
     if (response.tags) {
-      tags.value = response.tags
+      tags.value = retainActiveTags(response.tags)
     }
     console.log('Loaded filter counts:', filterCounts.value)
     console.log('Keyword preview counts:', filterCounts.value.keywords)
   } catch (error) {
+    if (!filterCountsRequestGate.isCurrent(requestId)) return
     console.error('Failed to load filter counts:', error)
   }
 }
@@ -2374,11 +2338,6 @@ watch(() => props.isImported, (val) => localIsImported.value = val ?? null)
 watch(() => props.isUnused, (val) => localIsUnused.value = val ?? null)
 watch(() => props.showExpiring, (val) => localShowExpiring.value = val || false)
 watch(() => props.excludeExpiring, (val) => localExcludeExpiring.value = val || false)
-// Reload counts when similarity search changes
-watch(() => props.similarSearchActive, () => {
-  loadFilterCounts()
-})
-
 // Auto-switch to similarity sort when text search is entered
 watch(localSimilarToText, (newVal, oldVal) => {
   if (newVal && newVal.trim() && (!oldVal || !oldVal.trim())) {
@@ -2395,33 +2354,10 @@ watch(localSimilarToText, (newVal, oldVal) => {
 // Debounced watcher for filter changes to reload preview counts
 let filterCountsDebounceTimer = null
 watch(
-  () => [
-    props.captionQuery,
-    props.promptQuery,
-    props.mediaTypes,
-    props.excludedMediaTypes,
-    props.resolutions,
-    props.excludedResolutions,
-    props.selectedKeywords,
-    props.excludedKeywords,
-    props.selectedFolders,
-    props.excludedFolders,
-    props.selectedTags,
-    props.excludedTags,
-    props.selectedProjects,
-    props.excludedProjects,
-    props.projectMembership,
-    props.selectedTools,
-    props.excludedTools,
-    props.selectedMarkers,
-    props.excludedMarkers,
-    props.isImported,
-    props.isUnused,
-    props.similarTo,
-    props.similarFaceTo,
-    props.similarSearchSourceItems,
-    props.similarityThreshold
-  ],
+  () => getFilterCountWatchValues(props, {
+    similarSearchActive: props.similarSearchActive,
+    similarSearchSourceItems: props.similarSearchSourceItems,
+  }),
   () => {
     // Clear existing timer
     if (filterCountsDebounceTimer) {
@@ -2440,6 +2376,9 @@ watch(
 // Handle profile changes - reload all filter data for new profile
 async function handleProfileChanged() {
   console.log('[FilterBar] Profile changed, reloading filter data')
+  filterCountsRequestGate.invalidate()
+  topKeywordsRequestGate.invalidate()
+  if (filterCountsDebounceTimer) clearTimeout(filterCountsDebounceTimer)
 
   // Reset local state
   topKeywords.value = []
@@ -2471,7 +2410,6 @@ async function handleProfileChanged() {
 
   // If panel is open, also reload keywords and counts
   if (showCriteriaPanel.value) {
-    hasLoadedCounts.value = true
     isLoading.value = true
     try {
       await Promise.all([
@@ -2502,7 +2440,6 @@ onMounted(async () => {
   // If panel is already open, load keywords and counts immediately
   // Otherwise they'll load when panel is first opened
   if (showCriteriaPanel.value) {
-    hasLoadedCounts.value = true
     isLoading.value = true
     try {
       await Promise.all([
@@ -2521,6 +2458,10 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  clearTimeout(debounceTimer)
+  clearTimeout(filterCountsDebounceTimer)
+  filterCountsRequestGate.invalidate()
+  topKeywordsRequestGate.invalidate()
   window.removeEventListener('profile-changed', handleProfileChanged)
   document.removeEventListener('click', handleClickOutside)
 })
