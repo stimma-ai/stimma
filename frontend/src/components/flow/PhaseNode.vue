@@ -5,12 +5,14 @@
   >
     <!-- Header row. Always-expanded: no chevron, no click toggle. Structure =
          indentation + a status rail, never a nested box (STANDARDS §3.1):
-         mono phase index + title + StatusDot, mono rollup right. -->
+         mono phase index + title + StatusDot, mono rollup right. Top-level
+         pr matches the step rows' px-2.5 so the duration/ref/re-run columns
+         align between the phase header and its rail rows. -->
     <div
       v-if="node.name || depth > 0"
       class="relative flex items-baseline gap-2.5 group"
       :class="[
-        isTopLevelPhase ? 'pb-2' : 'py-1.5 px-2 rounded',
+        isTopLevelPhase ? 'pb-2 pr-2.5' : 'py-1.5 px-2 rounded',
         phaseIsEchoed ? 'ring-1 ring-blue-500/40 bg-blue-500/5' : '',
       ]"
     >
