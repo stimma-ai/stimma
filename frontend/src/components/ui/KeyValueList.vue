@@ -1,8 +1,8 @@
 <template>
   <div>
     <div
-      v-for="row in rows"
-      :key="row.label"
+      v-for="(row, i) in rows"
+      :key="i"
       class="flex items-baseline justify-between gap-4 py-1.5 border-b border-edge-subtle last:border-b-0"
     >
       <span class="text-xs text-content-tertiary flex-shrink-0">{{ row.label }}</span>

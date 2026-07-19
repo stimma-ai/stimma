@@ -3,115 +3,83 @@
     class="bg-surface-elevated backdrop-blur-[10px] overflow-y-auto overflow-x-visible z-chrome flex flex-col relative sidebar-scroll order-2 transition-all duration-300"
     :class="focusMode ? 'w-0 opacity-0 pointer-events-none border-l-0' : 'w-[384px] max-w-[90vw] border-l border-edge-subtle'"
   >
-    <!-- Header: markers (pinned) -->
-    <div v-if="currentItem && !isTrashView && !isCurrentItemTrashed && availableMarkers.length > 0" class="px-3 pt-3 pb-2 flex-shrink-0">
-      <div class="flex flex-wrap gap-2" :key="'markers-' + markerUpdateTrigger">
+    <!-- Header (pinned): markers + utility rail, then the two core-loop verbs.
+         Grammar: labels stay on the two actions whose icons don't carry
+         themselves and which open menus (Remix, Send to Tool); everything
+         icon-conventional is a ghost on the rail. Export-original lives in
+         the Export modal (format defaults to Original). -->
+    <div v-if="currentItem && !isTrashView && !isCurrentItemTrashed" class="px-3 pt-3 pb-2 flex-shrink-0">
+      <div class="flex flex-wrap items-center gap-0.5" :key="'markers-' + markerUpdateTrigger">
         <button
           v-for="marker in availableMarkers"
           :key="marker.id"
           @click="toggleMarker(marker.id)"
           :class="[
-            'p-2 rounded-lg border text-xs cursor-pointer transition-colors flex items-center',
-            isMarkerActive(marker.id)
-              ? ''
-              : 'bg-overlay-faint border-edge-subtle text-content-tertiary hover:bg-overlay-light hover:text-content-secondary'
+            'inline-flex items-center justify-center w-7 h-7 rounded-md cursor-pointer border-none bg-transparent transition-colors duration-150',
+            isMarkerActive(marker.id) ? '' : 'text-content-tertiary hover:bg-overlay-subtle hover:text-content-secondary'
           ]"
-          :style="isMarkerActive(marker.id) ? { backgroundColor: marker.color + '22', borderColor: marker.color + '66', color: marker.color } : {}"
+          :style="isMarkerActive(marker.id) ? { backgroundColor: marker.color + '22', color: marker.color } : {}"
           :title="marker.name"
         >
           <span v-html="sanitizeSvg(marker.icon_svg)" class="w-5 h-5 flex-shrink-0 icon-container"></span>
         </button>
+        <div class="flex-1"></div>
+        <Tooltip text="Export">
+          <IconButton @click="$emit('download')">
+            <ArrowDownTrayIcon class="w-4 h-4" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip text="Share">
+          <IconButton @click="$emit('share-to-cloud')">
+            <ShareIcon class="w-4 h-4" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip text="More actions">
+          <IconButton @click.stop="openContextMenu($event)">
+            <EllipsisHorizontalIcon class="w-4 h-4" />
+          </IconButton>
+        </Tooltip>
+      </div>
+      <div class="grid grid-cols-2 gap-1.5 mt-2">
+        <InspireMenu
+          :media-id="mediaIdOf(currentItem)"
+          @sent="$emit('menu-sent')"
+          class="action-pair-wrap"
+        />
+        <SendToToolMenu
+          :media-item="currentItem"
+          :media-type="currentMediaType"
+          @sent="$emit('menu-sent')"
+          class="action-pair-wrap"
+        />
       </div>
     </div>
 
     <div v-if="currentItem" class="p-3 overflow-y-auto overflow-x-hidden">
-      <!-- Actions -->
-      <h4 class="m-0 mb-2 text-xs font-semibold text-content-secondary">Actions</h4>
-      <div class="flex flex-col gap-1.5 mb-6">
-        <template v-if="isTrashView || isCurrentItemTrashed">
-          <button
-            @click="$emit('restore')"
-            class="w-full bg-overlay-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-md text-xs font-medium transition-all hover:bg-green-500/15"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-emerald-500">
-              <path fill-rule="evenodd" d="M2 4.25A2.25 2.25 0 014.25 2h6.5A2.25 2.25 0 0113 4.25V5.5H9.25A3.75 3.75 0 005.5 9.25v6.08a3.75 3.75 0 01-3.5.67V4.25zM9.25 7A2.25 2.25 0 007 9.25v6.5A2.25 2.25 0 009.25 18h6.5A2.25 2.25 0 0018 15.75v-6.5A2.25 2.25 0 0015.75 7h-6.5z" clip-rule="evenodd" />
-            </svg>
-            <span>Restore</span>
-          </button>
-          <button
-            @click="$emit('permanent-delete')"
-            class="w-full bg-overlay-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-md text-xs font-medium transition-all hover:bg-red-500/15"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-red-500">
-              <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-            </svg>
-            <span>Delete Permanently</span>
-          </button>
-        </template>
-        <template v-else>
-          <InspireMenu
-            v-if="currentItem"
-            :media-id="mediaIdOf(currentItem)"
-            @sent="$emit('menu-sent')"
-            class="action-stack-wrap"
-          />
-          <SendToToolMenu
-            v-if="currentItem"
-            :media-item="currentItem"
-            :media-type="currentMediaType"
-            @sent="$emit('menu-sent')"
-            class="action-stack-wrap"
-          />
-          <button
-            v-if="currentItem"
-            @click="$emit('share-to-cloud')"
-            class="w-full bg-overlay-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-md text-xs font-medium transition-all hover:bg-overlay-light"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-violet-500 flex-shrink-0">
-              <path d="M13 4.5a2.5 2.5 0 1 1 .702 1.737L6.97 9.604a2.518 2.518 0 0 1 0 .792l6.733 3.367a2.5 2.5 0 1 1-.671 1.341l-6.733-3.367a2.5 2.5 0 1 1 0-3.475l6.733-3.366A2.52 2.52 0 0 1 13 4.5Z" />
-            </svg>
-            Share
-          </button>
-          <!-- Export (split button: Export opens modal, dropdown arrow for original) -->
-          <div class="flex w-full gap-px">
-            <button
-              @click="$emit('download')"
-              class="flex-1 bg-overlay-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-l-md text-xs font-medium transition-all hover:bg-overlay-light"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-content-tertiary flex-shrink-0">
-                <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
-                <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
-              </svg>
-              Export
-            </button>
-            <button
-              @click="$emit('download-original')"
-              class="bg-overlay-subtle text-content-tertiary cursor-pointer px-2 py-2 flex items-center rounded-r-md text-xs transition-all hover:bg-overlay-light hover:text-content ml-px"
-              title="Download original"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-                <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
-                <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
-              </svg>
-            </button>
-          </div>
-          <button
-            ref="moreButtonRef"
-            @click.stop="openContextMenu($event)"
-            class="w-full bg-overlay-subtle text-content-secondary cursor-pointer px-3 py-2 flex items-center gap-2 rounded-md text-xs font-medium transition-all hover:bg-overlay-light hover:text-content"
-            title="More actions"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0">
-              <path d="M3 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM8.5 10a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zM15.5 8.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" />
-            </svg>
-            More
-          </button>
-        </template>
+      <!-- Trash actions -->
+      <div v-if="isTrashView || isCurrentItemTrashed" class="flex flex-col gap-1.5 mb-6">
+        <button
+          @click="$emit('restore')"
+          class="w-full bg-overlay-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-md text-xs font-medium transition-colors duration-150 hover:bg-green-500/15"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-emerald-500">
+            <path fill-rule="evenodd" d="M2 4.25A2.25 2.25 0 014.25 2h6.5A2.25 2.25 0 0113 4.25V5.5H9.25A3.75 3.75 0 005.5 9.25v6.08a3.75 3.75 0 01-3.5.67V4.25zM9.25 7A2.25 2.25 0 007 9.25v6.5A2.25 2.25 0 009.25 18h6.5A2.25 2.25 0 0018 15.75v-6.5A2.25 2.25 0 0015.75 7h-6.5z" clip-rule="evenodd" />
+          </svg>
+          <span>Restore</span>
+        </button>
+        <button
+          @click="$emit('permanent-delete')"
+          class="w-full bg-overlay-subtle text-content cursor-pointer px-3 py-2 flex items-center gap-2 rounded-md text-xs font-medium transition-colors duration-150 hover:bg-red-500/15"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 flex-shrink-0 text-red-500">
+            <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+          </svg>
+          <span>Delete Permanently</span>
+        </button>
       </div>
 
-      <!-- Organization section -->
+      <!-- Organization: chips are self-describing, no heading -->
       <div class="mb-6">
-        <h4 class="m-0 mb-2 text-xs font-semibold text-content-secondary">Organization</h4>
         <div v-if="!isTrashView && !isCurrentItemTrashed" class="flex items-center gap-1.5 flex-wrap text-xs">
           <a
             v-for="project in mediaProjects"
@@ -236,43 +204,52 @@
               <circle cx="10" cy="15.5" r="1.75" stroke-width="1.5" />
               <path d="M6 6.25V8.5C6 10 7.5 11 10 11M14 6.25V8.5C14 10 12.5 11 10 11M10 11V13.75" stroke-width="1.5" stroke-linecap="round" />
             </svg>
-            View
+            View graph
           </button>
         </div>
-        <div class="space-y-4">
-          <!-- Each history step -->
+        <!-- Timeline rail (§3.1 grammar): steps separate by the rail + dots
+             when history stacks; a single step renders flat — a lone dot on
+             a rail would be structure separating nothing. -->
+        <div :class="effectiveGenerationHistory.length > 1 ? 'relative pl-4' : ''">
+          <div
+            v-if="effectiveGenerationHistory.length > 1"
+            class="absolute left-[3px] top-2 bottom-2 w-[2px] rounded-full bg-edge-subtle"
+          ></div>
           <div
             v-for="(step, idx) in effectiveGenerationHistory"
             :key="idx"
-            class="border border-edge rounded-lg overflow-hidden"
+            class="relative"
+            :class="idx > 0 ? 'mt-5' : ''"
           >
-            <!-- Step Header -->
-            <div class="bg-surface/50 px-3 py-2 flex items-center justify-between">
-              <span class="text-content-secondary text-xs font-medium px-2 py-0.5 bg-overlay-subtle rounded">
-                {{ getToolDisplayName(step) }}
-              </span>
-              <button
-                @click.stop="openContextMenu($event)"
-                class="p-1 text-content-tertiary hover:text-content hover:bg-overlay-light rounded transition-colors bg-transparent border-none cursor-pointer"
-                title="More actions"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-                  <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
-                </svg>
-              </button>
+            <span
+              v-if="effectiveGenerationHistory.length > 1"
+              class="absolute -left-[16.5px] top-[9.5px] w-[9px] h-[9px] rounded-full bg-surface border-2 border-content-tertiary"
+            ></span>
+            <!-- Step header: display name + relative time; facts indent under it -->
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-[13px] font-semibold text-content truncate">{{ getToolDisplayName(step) }}</span>
+              <span
+                v-if="step.generated_at"
+                class="font-mono tabular-nums text-[10px] text-content-muted flex-shrink-0"
+                :title="formatDate(step.generated_at)"
+              >{{ (step.is_imported ? 'imported ' : '') + formatRelativeTime(step.generated_at) }}</span>
+              <div class="flex-1"></div>
+              <IconButton title="More actions" @click.stop="openContextMenu($event)">
+                <EllipsisHorizontalIcon class="w-4 h-4" />
+              </IconButton>
             </div>
 
             <!-- Step Content -->
-            <div class="p-3 space-y-3">
+            <div class="mt-1.5 space-y-2.5">
               <!-- Source Images for this step -->
-              <div v-if="step.source_inputs?.length > 0" class="bg-overlay-subtle p-2 rounded">
-                <div class="text-content-tertiary text-xs mb-2">Input Assets</div>
+              <div v-if="step.source_inputs?.length > 0">
+                <div class="text-content-tertiary text-xs mb-1.5">Inputs</div>
                 <div class="flex flex-wrap gap-3">
                   <template v-for="(source, sourceIdx) in step.source_inputs" :key="sourceIdx">
                     <div v-if="source.media_id" class="flex flex-col">
                       <button
                         @click="source.preprocessor && getPreprocessedUrl(source) ? openExternalImageModal(getPreprocessedUrl(source), true) : $emit('navigate-to-source-media', source.media_id)"
-                        class="relative w-32 h-32 rounded-lg overflow-hidden border border-edge hover:border-blue-500 transition-colors p-0 cursor-pointer"
+                        class="relative w-24 h-24 rounded-media overflow-hidden bg-matte hover:ring-1 hover:ring-accent/60 transition-shadow p-0 cursor-pointer border-none"
                         :title="formatSourceRole(source.role)"
                       >
                         <!-- Preprocessed inputs show a derived preview URL, not the stored library asset. -->
@@ -348,7 +325,7 @@
                     <div v-else class="flex flex-col">
                       <button
                         @click="openExternalImageModal(source.preprocessor && getPreprocessedUrl(source) ? getPreprocessedUrl(source) : source.file_path, !!getPreprocessedUrl(source))"
-                        class="relative w-32 h-32 rounded-lg overflow-hidden border border-edge hover:border-amber-500 transition-colors bg-checker p-0 cursor-pointer"
+                        class="relative w-24 h-24 rounded-media overflow-hidden bg-checker hover:ring-1 hover:ring-accent/60 transition-shadow p-0 cursor-pointer border-none"
                         :title="source.file_path"
                       >
                         <img
@@ -388,63 +365,38 @@
                 </div>
               </div>
 
-              <!-- Prompt: typeset, not boxed -->
-              <div v-if="step.prompt">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-content-tertiary text-xs">Prompt</span>
-                  <button
-                    @click="copyToClipboard(step.prompt)"
-                    class="bg-transparent border-none text-content-tertiary cursor-pointer p-0.5 rounded hover:bg-overlay-light hover:text-content"
-                  >
-                    <ClipboardDocumentIcon class="w-3 h-3" />
-                  </button>
-                </div>
-                <p class="text-content-secondary text-xs leading-relaxed m-0 select-text">{{ step.prompt }}</p>
-              </div>
+              <!-- Prompt: typeset in full; clicking it copies (easter egg,
+                   skipped when the click is really a text selection) -->
+              <p
+                v-if="step.prompt"
+                @click="copyPromptText(step.prompt)"
+                class="text-content-secondary text-xs leading-relaxed m-0 select-text"
+              >{{ step.prompt }}</p>
 
               <!-- Negative Prompt -->
               <div v-if="step.negative_prompt">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-content-tertiary text-xs">Negative Prompt</span>
-                  <button
-                    @click="copyToClipboard(step.negative_prompt)"
-                    class="bg-transparent border-none text-content-tertiary cursor-pointer p-0.5 rounded hover:bg-overlay-light hover:text-content"
-                  >
-                    <ClipboardDocumentIcon class="w-3 h-3" />
-                  </button>
-                </div>
-                <p class="text-content-secondary text-xs leading-relaxed m-0 select-text">{{ step.negative_prompt }}</p>
+                <div class="text-content-tertiary text-xs mb-1">Negative prompt</div>
+                <p
+                  @click="copyPromptText(step.negative_prompt)"
+                  class="text-content-secondary text-xs leading-relaxed m-0 select-text"
+                >{{ step.negative_prompt }}</p>
               </div>
 
-              <!-- Facts + generic parameters: ONE KeyValueList so the hairline
-                   between the two groups exists (two adjacent lists drop the
-                   rule at the seam — last:border-0 meets a fresh first row) -->
-              <KeyValueList :rows="[...stepFactRows(step), ...stepParamRows(step)]" />
-
-              <!-- LoRAs (handle both 'loras' and legacy 'selected_loras' field names) -->
-              <div v-if="(step.parameters?.loras || step.parameters?.selected_loras)?.length > 0" class="bg-overlay-subtle p-2 rounded">
-                <div class="text-content-tertiary text-xs mb-1">LoRAs</div>
-                <div class="flex flex-wrap gap-1">
-                  <span
-                    v-for="(lora, loraIdx) in (step.parameters.loras || step.parameters.selected_loras)"
-                    :key="loraIdx"
-                    class="bg-overlay-subtle text-content-secondary px-2 py-0.5 rounded text-xs"
-                  >
-                    {{ getLoraDisplayName(lora) }} ({{ formatLoraWeight(lora.weight) }})
-                  </span>
-                </div>
-              </div>
+              <!-- Facts + generic parameters + LoRAs: ONE KeyValueList so the
+                   hairline between groups exists (two adjacent lists drop the
+                   rule at the seam — last:border-0 meets a fresh first row).
+                   LoRAs are fact rows, not a boxed sub-panel. -->
+              <KeyValueList :rows="[...stepFactRows(step), ...stepParamRows(step), ...stepLoraRows(step)]" />
 
               <!-- Raw Metadata (opens modal for imported items) -->
-              <div v-if="step.is_imported && step.raw_metadata" class="bg-overlay-subtle p-2 rounded">
-                <div
-                  class="text-content-tertiary text-xs cursor-pointer select-none flex justify-between items-center hover:text-content"
-                  @click="openMetadataModal(step.raw_metadata)"
-                >
-                  <span>External Metadata</span>
-                  <span class="text-[10px]">&#9654;</span>
-                </div>
-              </div>
+              <button
+                v-if="step.is_imported && step.raw_metadata"
+                class="flex w-full items-center justify-between bg-transparent border-none p-0 text-xs text-content-tertiary cursor-pointer hover:text-content"
+                @click="openMetadataModal(step.raw_metadata)"
+              >
+                <span>External metadata</span>
+                <span class="text-[10px]">&#9654;</span>
+              </button>
             </div>
           </div>
         </div>
@@ -610,40 +562,6 @@
         <p class="text-content-secondary text-sm leading-relaxed m-0 select-text">{{ currentItem.vlm_caption }}</p>
       </div>
 
-      <!-- Detected Faces -->
-      <div v-if="faces.length > 0" class="mb-8 last:mb-0">
-        <h4 class="m-0 mb-3 text-xs font-semibold text-content-secondary">
-          Detected Faces ({{ faces.length }})
-        </h4>
-        <div class="grid grid-cols-1 gap-2">
-          <div v-for="(face, index) in faces" :key="face.id"
-               class="bg-overlay-subtle p-2 rounded">
-            <div class="text-xs space-y-1">
-              <div class="flex justify-between items-center mb-1">
-                <span class="text-content font-semibold">Face {{ index + 1 }}</span>
-                <div class="flex items-center gap-2">
-                  <button
-                    @click="toggleFaceOverlay(face.id)"
-                    :class="[
-                      'bg-transparent border-none p-1 rounded cursor-pointer transition-all',
-                      visibleFaceOverlays.has(face.id) ? 'text-green-500 hover:text-green-500' : 'text-content-tertiary hover:text-content'
-                    ]"
-                    :title="visibleFaceOverlays.has(face.id) ? 'Hide face overlay' : 'Show face overlay'"
-                  >
-                    <EyeIcon class="w-4 h-4" />
-                  </button>
-                  <span class="text-content-tertiary">{{ (face.confidence * 100).toFixed(1) }}%</span>
-                </div>
-              </div>
-              <div class="text-content-tertiary font-mono text-[0.65rem]">
-                <div>x: {{ face.bbox.x.toFixed(3) }}, y: {{ face.bbox.y.toFixed(3) }}</div>
-                <div>w: {{ face.bbox.width.toFixed(3) }}, h: {{ face.bbox.height.toFixed(3) }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Keywords -->
       <div v-if="keywordsArray.length > 0 && captioningEnabledRef" class="mb-8 last:mb-0">
         <h4 class="m-0 mb-3 text-xs font-semibold text-content-secondary">Keywords</h4>
@@ -666,8 +584,10 @@
         <KeyValueList :rows="fileInfoRows" />
       </div>
 
-      <!-- Processing Status (only for visual media - images and videos) -->
-      <div v-if="isVisualMedia" class="mb-8 last:mb-0">
+      <!-- Processing status: a File fact row once everything completed (see
+           fileInfoRows); this per-stage section appears only while something
+           is pending, running, or failed -->
+      <div v-if="isVisualMedia && !allProcessingDone" class="mb-8 last:mb-0">
         <h4 class="m-0 mb-1 text-xs font-semibold text-content-secondary">Processing status</h4>
         <div>
           <div class="flex items-center gap-2 py-1.5 border-b border-edge-subtle">
@@ -681,6 +601,33 @@
           <div v-if="captioningEnabledRef" class="flex items-center gap-2 py-1.5">
             <StatusDot :bucket="processingStatusBucket(currentItem.vlm_caption_status)" :pulse="isProcessingStatusPulsing(currentItem.vlm_caption_status)" />
             <span class="text-xs text-content-tertiary">Visual analysis</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detected faces: typeset rows, last section -->
+      <div v-if="faces.length > 0" class="mb-8 last:mb-0">
+        <h4 class="m-0 mb-1 text-xs font-semibold text-content-secondary">Detected faces</h4>
+        <div>
+          <div
+            v-for="(face, index) in faces"
+            :key="face.id"
+            class="py-1.5 border-b border-edge-subtle last:border-b-0"
+          >
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-content">Face {{ index + 1 }}</span>
+              <div class="flex-1"></div>
+              <IconButton
+                :title="visibleFaceOverlays.has(face.id) ? 'Hide face overlay' : 'Show face overlay'"
+                @click="toggleFaceOverlay(face.id)"
+              >
+                <EyeIcon class="w-4 h-4" :class="visibleFaceOverlays.has(face.id) ? 'text-accent-hi' : ''" />
+              </IconButton>
+              <span class="font-mono tabular-nums text-xs text-content-tertiary">{{ (face.confidence * 100).toFixed(1) }}%</span>
+            </div>
+            <div class="font-mono tabular-nums text-[10px] text-content-muted">
+              {{ face.bbox.x.toFixed(3) }}, {{ face.bbox.y.toFixed(3) }} · {{ face.bbox.width.toFixed(3) }} × {{ face.bbox.height.toFixed(3) }}
+            </div>
           </div>
         </div>
       </div>
@@ -781,6 +728,10 @@ import { isImage as isImageType, hasVisualContent, getMediaType } from '../utils
 import { sanitizeSvg } from '../utils/sanitizeHtml'
 import { useAssetApi } from '../composables/useAssetApi'
 import { hasAssetIdentity, mediaIdOf } from '../utils/assetIdentity'
+
+import IconButton from './ui/IconButton.vue'
+import Tooltip from './ui/Tooltip.vue'
+import { ArrowDownTrayIcon, ShareIcon, EllipsisHorizontalIcon } from '@heroicons/vue/24/outline'
 
 const { formatRemainingTime } = useExpirationClock()
 
@@ -889,7 +840,6 @@ const { cachedTools } = useProvidersApi()
 const contextMenu = useMediaContextMenu()
 const { getRevisions, restoreRevision, getContainers } = useAssetApi()
 
-const moreButtonRef = ref(null)
 const editingTags = ref(false)
 const versions = ref([])
 const versionsExpanded = ref(false)
@@ -963,8 +913,7 @@ function contextAssetId() {
 
 function openContextMenu(event) {
   if (!props.currentItem) return
-  // Use event target position if ref not available
-  const el = event?.currentTarget || moreButtonRef.value
+  const el = event?.currentTarget
   if (!el) return
   const rect = el.getBoundingClientRect()
   const assetId = contextAssetId()
@@ -1058,18 +1007,48 @@ const keywordsArray = computed(() => {
   return props.currentItem.keywords.split(',').map(k => k.trim()).filter(k => k)
 })
 
-// Atelier generation-step facts as KeyValueList rows
+// Atelier generation-step facts as KeyValueList rows.
+// Generated/Imported time lives in the step header now, not the fact list.
 function stepFactRows(step) {
   const rows = []
-  if (step.generated_at && !step.is_imported) rows.push({ label: 'Generated', value: formatRelativeTime(step.generated_at) })
-  if (step.generated_at && step.is_imported) rows.push({ label: 'Imported', value: formatRelativeTime(step.generated_at) })
-  if (step.model) rows.push({ label: 'Model', value: step.model, mono: false, truncate: true })
+  // Skip the Model row when it just repeats the step header's display name
+  if (step.model && step.model.toLowerCase() !== getToolDisplayName(step).toLowerCase()) {
+    rows.push({ label: 'Model', value: step.model, mono: false, truncate: true })
+  }
   return rows
 }
 function stepParamRows(step) {
-  return getDisplayableStepParams(step.parameters).map(p => ({
+  const rows = getDisplayableStepParams(step.parameters).map(p => ({
     label: p.label, value: p.value, truncate: p.fullWidth,
   }))
+  // Dedupe: the current item's own output Size repeats the File section's
+  // Resolution row — generation facts describe the run, file facts the artifact.
+  const m = props.currentItem
+  if (m && step.media_id === mediaIdOf(m) && m.width > 0 && m.height > 0) {
+    const fileRes = `${m.width}×${m.height}`
+    return rows.filter(r => !(r.label === 'Size' && r.value === fileRes))
+  }
+  return rows
+}
+// LoRAs as fact rows (handles both 'loras' and legacy 'selected_loras');
+// weight reads accent when non-default, per the §3.4 modified signal.
+function stepLoraRows(step) {
+  const loras = step.parameters?.loras || step.parameters?.selected_loras || []
+  return loras.map(lora => ({
+    label: 'LoRA',
+    value: `${getLoraDisplayName(lora)} · ${formatLoraWeight(lora.weight)}`,
+    truncate: true,
+    valueClass: lora.weight !== 1 ? 'text-accent-hi' : undefined,
+  }))
+}
+
+// Click-to-copy easter egg on prompts. A click that ends a text selection
+// isn't a copy request — skip it so manual select-and-copy still works.
+async function copyPromptText(text) {
+  const selection = window.getSelection()
+  if (selection && !selection.isCollapsed) return
+  await copyToClipboard(text)
+  addToast('Prompt copied', 'success')
 }
 
 // Atelier typeset file facts (KeyValueList) — replaces the field-tile grid
@@ -1088,6 +1067,11 @@ const fileInfoRows = computed(() => {
   if (m.audio_channels) rows.push({ label: 'Channels', value: formatChannels(m.audio_channels), mono: false })
   if (m.audio_bitrate) rows.push({ label: 'Bitrate', value: formatBitrate(m.audio_bitrate) })
   if (m.created_date) rows.push({ label: 'Created', value: formatDate(m.created_date) })
+  // Processing status rides along as a fact row once everything completed;
+  // while anything is pending/running/failed it renders as its own section.
+  if (hasVisualContent(m) && allProcessingDone.value) {
+    rows.push({ label: 'Processing', value: processingSummary.value, valueClass: 'text-content-tertiary' })
+  }
   return rows
 })
 
@@ -1578,6 +1562,22 @@ function isProcessingStatusPulsing(status) {
   return status === 'processing' || status === 'reprocessing'
 }
 
+// All-clear check for the collapsed one-line footer. Caption status only
+// counts when captioning is enabled.
+const allProcessingDone = computed(() => {
+  const m = props.currentItem
+  if (!m) return false
+  const statuses = [m.clip_status, m.face_detection_status]
+  if (captioningEnabledRef.value) statuses.push(m.vlm_caption_status)
+  return statuses.every(s => s === 'completed')
+})
+
+const processingSummary = computed(() => {
+  const parts = ['indexed', 'faces analyzed']
+  if (captioningEnabledRef.value) parts.push('captioned')
+  return parts.join(' · ')
+})
+
 function getFilename(filePath) {
   if (!filePath) return 'Unknown'
   return filePath.split('/').pop()
@@ -1636,52 +1636,39 @@ defineExpose({
   scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
 }
 
-/* Component pill wrappers (InspireMenu, SendToToolMenu) - scale to fill */
-.action-pill-wrap {
-  flex: 1 1 0;
+/* Action-pair wrappers (InspireMenu, SendToToolMenu): restyle each menu's
+   own trigger into the kit secondary-button look — centered icon+label,
+   no border, no trailing chevron. Only the TRIGGER button (direct child);
+   the teleported dropdown contents are untouched. */
+.action-pair-wrap {
   min-width: 0;
 }
-.action-pill-wrap :deep(> div),
-.action-pill-wrap :deep(> div > button) {
+.action-pair-wrap :deep(button) {
   width: 100%;
-}
-.action-pill-wrap :deep(button) {
-  padding: 5px 6px;
-  font-size: 11px;
+  background: rgb(var(--color-surface-raised-rgb));
+  border: none;
   border-radius: 6px;
-  justify-content: center;
-  gap: 4px;
-}
-.action-pill-wrap :deep(button svg:first-child) {
-  width: 12px;
-  height: 12px;
-}
-.action-pill-wrap :deep(button svg:last-child) {
-  display: none;
-}
-.action-pill-wrap :deep(button span) {
-  white-space: nowrap;
-}
-
-/* Vertical action button wrappers (InspireMenu, SendToToolMenu) */
-.action-stack-wrap :deep(> div),
-.action-stack-wrap :deep(> div > button) {
-  width: 100%;
-}
-.action-stack-wrap :deep(button) {
-  width: 100%;
   padding: 8px 12px;
   font-size: 12px;
-  border-radius: 8px;
-  justify-content: flex-start;
-  gap: 8px;
+  font-weight: 500;
+  justify-content: center;
+  gap: 6px;
+  color: rgb(var(--color-text-primary-rgb));
+  transition: background-color 150ms;
 }
-.action-stack-wrap :deep(button svg:first-child) {
-  width: 16px;
-  height: 16px;
+.action-pair-wrap :deep(button:hover) {
+  background: rgb(var(--color-surface-hover-rgb));
 }
-.action-stack-wrap :deep(button svg:last-child) {
+.action-pair-wrap :deep(button svg:first-child) {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.action-pair-wrap :deep(button svg:last-child) {
   display: none;
+}
+.action-pair-wrap :deep(button span) {
+  white-space: nowrap;
 }
 
 /* Marker button SVG styling */
