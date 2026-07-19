@@ -1,14 +1,10 @@
 <template>
-  <div v-if="groups.length > 0">
-    <div class="flex items-center gap-2 py-2.5">
-      <span class="text-sm font-semibold text-content">Outputs</span>
-    </div>
-
-    <div class="py-1 space-y-4">
+  <!-- Outputs card (headingless, ToolView card shell; self-hides when empty) -->
+  <div v-if="groups.length > 0" class="rounded-lg border border-edge-subtle bg-surface px-4 py-3">
+    <div class="py-1 space-y-8">
       <div
         v-for="group in groups"
         :key="group.key"
-        class="border-t border-edge-subtle first:border-t-0 pt-3 first:pt-0"
       >
         <div class="flex items-center gap-2 px-2 pb-1.5">
           <span class="text-xs font-semibold text-content-secondary truncate">{{ group.label }}</span>
@@ -35,7 +31,7 @@
         </div>
         <div
           v-else
-          class="grid gap-2 p-2"
+          class="grid gap-0.5 p-2"
           :class="gridColsClass(group)"
           :style="groupLayout(group) === 'compact' ? 'max-height: 420px; overflow-y: auto;' : undefined"
         >

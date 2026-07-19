@@ -65,64 +65,54 @@
     >
       <div :class="isStacked(field) ? '' : 'flex items-center justify-between gap-4'">
       <div :class="isStacked(field) ? 'mb-2' : 'min-w-0 flex-1'">
-        <label class="block text-sm text-content" :title="field.label">
+        <label class="block text-[13px] text-content-secondary" :title="field.label">
           {{ field.label }}<span v-if="field.required" class="text-red-400 ml-0.5">*</span>
         </label>
-        <div v-if="field.description" class="text-xs text-content-tertiary mt-0.5 leading-snug">
+        <div v-if="field.description" class="text-xs text-content-muted mt-0.5 leading-snug">
           {{ field.description }}
         </div>
       </div>
       <div :class="isStacked(field) ? 'w-full' : 'flex-shrink-0'">
-        <select
+        <SettingsDropdown
           v-if="field.kind === 'enum'"
-          v-model="values[field.name]"
-          class="w-56 max-w-full bg-overlay-subtle border border-transparent rounded-md px-3 py-2 text-sm text-content focus:outline-none focus-visible:ring-2 ring-accent/40"
-          :class="fieldInputClass(field)"
-        >
-          <option v-for="opt in field.options" :key="String(opt)" :value="opt">{{ formatOption(field, opt) }}</option>
-        </select>
+          :model-value="String(values[field.name] ?? '')"
+          @update:model-value="values[field.name] = coerceEnumValue(field, $event)"
+          :options="(field.options || []).map((opt) => ({ value: String(opt), label: formatOption(field, opt) }))"
+          quiet
+        />
 
-        <div
-          v-else-if="field.kind === 'list'"
-          class="w-full text-sm"
-        >
-          <div v-if="listValue(field.name).length === 0" class="text-content-muted text-center py-2 italic text-xs">
-            No items yet.
-          </div>
-          <div v-else class="divide-y divide-edge-subtle">
-            <div v-for="(_item, idx) in listValue(field.name)" :key="idx" class="group flex items-center gap-1.5 py-1.5">
-              <input
-                :value="String(listValue(field.name)[idx] ?? '')"
-                type="text"
-                class="flex-1 min-w-0 bg-overlay-subtle border border-transparent rounded-md px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
-                :placeholder="field.itemLabel"
-                @input="setListItem(field, idx, ($event.target as HTMLInputElement).value)"
-                @paste="(event) => onPasteList(field, idx, event)"
-              />
-              <button type="button" class="w-6 h-6 flex-shrink-0 rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle opacity-0 group-hover:opacity-100 transition-opacity" title="Move up" @click="moveListItem(field.name, idx, -1)">↑</button>
-              <button type="button" class="w-6 h-6 flex-shrink-0 rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle opacity-0 group-hover:opacity-100 transition-opacity" title="Move down" @click="moveListItem(field.name, idx, 1)">↓</button>
-              <button type="button" class="w-6 h-6 flex-shrink-0 rounded-md text-content-tertiary hover:text-red-400 hover:bg-overlay-subtle opacity-0 group-hover:opacity-100 transition-opacity" title="Remove" @click="removeListItem(field.name, idx)">×</button>
-            </div>
-          </div>
-          <div class="mt-2 flex flex-wrap items-center gap-3">
-            <button type="button" class="text-xs text-content-secondary hover:text-content" @click="addListItem(field)">
-              + Add {{ field.itemLabel.toLowerCase() }}
+        <!-- List: compact chip wrap panel; the popup editor handles reorder,
+             fast entry, and bulk paste. -->
+        <div v-else-if="field.kind === 'list'" class="w-full">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button
+              v-for="(item, idx) in listValue(field.name)"
+              :key="idx"
+              type="button"
+              class="group/chip inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 bg-surface-raised rounded-full text-xs text-content-secondary hover:text-content transition-colors max-w-full"
+              @click="openListEditor(field, $event)"
+            >
+              <span class="truncate">{{ String(item) }}</span>
+              <span
+                role="button"
+                class="w-3.5 h-3.5 flex items-center justify-center rounded-full text-content-muted hover:text-red-400 opacity-0 group-hover/chip:opacity-100 transition-opacity"
+                title="Remove"
+                @click.stop="removeListItem(field.name, idx)"
+              >
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </span>
             </button>
-            <button type="button" class="text-xs text-content-secondary hover:text-content" @click="showPaste[field.name] = !showPaste[field.name]">
-              Paste items
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs text-content-muted hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+              @click="openListEditor(field, $event)"
+            >
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+              {{ listValue(field.name).length ? 'Edit' : `Add ${field.itemLabel.toLowerCase()}s` }}
             </button>
-            <span class="text-xs font-mono tabular-nums text-content-tertiary">{{ listValue(field.name).length }} item{{ listValue(field.name).length === 1 ? '' : 's' }}</span>
-          </div>
-          <div v-if="showPaste[field.name]" class="mt-2 space-y-1.5">
-            <textarea
-              v-model="pasteText[field.name]"
-              rows="3"
-              class="w-full bg-overlay-subtle border border-transparent rounded-md px-3 py-1.5 text-sm text-content focus:outline-none focus:border-accent focus-visible:ring-2 ring-accent/40"
-              placeholder="Paste one item per line, or comma-separated items"
-            />
-            <button type="button" class="px-3 py-1.5 rounded-md bg-accent text-white text-xs hover:bg-accent/90" @click="importPastedList(field)">
-              Import
-            </button>
+            <span v-if="listValue(field.name).length" class="text-[10px] font-mono tabular-nums text-content-tertiary">{{ listValue(field.name).length }}</span>
           </div>
         </div>
 
@@ -175,20 +165,20 @@
           </div>
         </div>
 
-        <!-- Seed: committed value + dice (reroll). No auto-randomize on flows. -->
-        <div v-else-if="field.kind === 'seed'" class="flex items-center gap-2">
+        <!-- Seed: committed mono value + dice (reroll). No auto-randomize on flows. -->
+        <div v-else-if="field.kind === 'seed'" class="flex items-center justify-end gap-1.5">
           <input
             v-model.number="values[field.name]"
             type="number"
-            class="w-32 bg-overlay-subtle border border-transparent rounded-md px-3 py-2 text-sm font-mono tabular-nums text-content focus:outline-none focus-visible:ring-2 ring-accent/40"
-            :class="fieldInputClass(field)"
+            class="w-24 text-right bg-transparent border-b border-transparent font-mono tabular-nums text-xs text-content-secondary focus:border-accent focus:text-content outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            :class="errors[field.name] ? 'border-red-500/60' : ''"
             :min="field.min"
             :max="field.max"
             :step="field.step ?? 1"
           />
           <button
             type="button"
-            class="flex items-center justify-center w-8 h-8 rounded-md text-content-secondary hover:text-content hover:bg-overlay-subtle transition-colors"
+            class="flex items-center justify-center w-6 h-6 rounded-md text-content-tertiary hover:text-content hover:bg-overlay-subtle transition-colors"
             title="Roll a new seed"
             @click="rerollSeed(field)"
           >
@@ -203,61 +193,62 @@
           </button>
         </div>
 
-        <div v-else-if="field.kind === 'number'" class="flex items-center gap-2">
-          <input
-            v-if="field.control === 'slider'"
-            v-model.number="values[field.name]"
-            type="range"
-            class="w-48 h-1 bg-overlay-subtle rounded-sm appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-full"
-            :min="field.min ?? 0"
-            :max="field.max ?? 100"
-            :step="field.step ?? (field.type === 'int' ? 1 : 0.1)"
-          />
-          <input
-            v-model.number="values[field.name]"
-            type="number"
-            class="w-32 bg-overlay-subtle border border-transparent rounded-md px-3 py-2 text-sm font-mono tabular-nums text-content focus:outline-none focus-visible:ring-2 ring-accent/40"
-            :class="fieldInputClass(field)"
-            :min="field.min"
-            :max="field.max"
-            :step="field.step"
-          />
-        </div>
+        <!-- Number: the ToolView value-row grammar — drag the mono value to
+             scrub, click to open the slider/text popover. -->
+        <ScrubValue
+          v-else-if="field.kind === 'number'"
+          :model-value="Number(values[field.name] ?? field.default ?? field.min ?? 0)"
+          @update:model-value="values[field.name] = $event"
+          :min="field.min ?? 0"
+          :max="field.max ?? 100"
+          :step="field.step ?? (field.type === 'int' || field.type === 'integer' ? 1 : 0.1)"
+          :non-default="field.default !== undefined && values[field.name] !== field.default"
+        />
 
         <input
           v-else-if="field.kind === 'boolean'"
           v-model="values[field.name]"
           type="checkbox"
-          class="w-4 h-4 rounded accent-accent"
+          class="w-4 h-4 rounded accent-[rgb(var(--color-accent-rgb))] cursor-pointer"
         />
 
+        <!-- Media (single): ToolView reference-slot grammar — tall tile on
+             matte when filled, dashed add tile when empty. -->
         <div
           v-else-if="field.kind === 'media'"
-          class="w-20 h-20 relative group rounded-media bg-matte overflow-hidden flex-shrink-0 transition-colors"
+          class="w-full transition-colors rounded-md"
           :class="mediaTileClass(field)"
           @dragover.prevent="() => (dragHover[field.name] = true)"
           @dragleave="() => (dragHover[field.name] = false)"
           @drop.prevent="(e) => onDropMedia(field.name, e, false)"
         >
-          <button
+          <div
             v-if="!values[field.name]"
-            type="button"
-            class="w-full h-full flex items-center justify-center text-content-muted text-[11px] italic text-center px-1 cursor-pointer hover:text-content-secondary hover:bg-overlay-subtle transition-colors"
+            class="border border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer h-24 w-full border-edge text-content-muted hover:border-accent"
             @click="openPicker(field, false, $event)"
           >
-            Click or drop {{ fieldAccept(field) }}
-          </button>
-          <template v-else>
+            <span class="text-xs text-content-muted flex items-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              {{ dragHover[field.name] ? 'Drop here' : `Add ${fieldAccept(field)} — drop or browse` }}
+            </span>
+          </div>
+          <div v-else class="relative group bg-matte overflow-hidden rounded-media w-full h-[18.5rem]">
             <MediaImage :mediaId="values[field.name]" :contain="true" container-class="w-full h-full" />
             <button
               type="button"
-              class="absolute top-1 right-1 w-6 h-6 bg-black/55 backdrop-blur hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
+              class="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               @click.prevent="values[field.name] = null"
               title="Remove"
-            >×</button>
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-white">
+                <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+              </svg>
+            </button>
             <button
               type="button"
-              class="absolute bottom-1 right-1 w-6 h-6 bg-black/55 backdrop-blur hover:bg-accent/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
+              class="absolute bottom-1 right-1 w-6 h-6 bg-black/60 hover:bg-accent/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
               title="Replace from library"
               @click.prevent="openPicker(field, false, $event)"
             >
@@ -265,38 +256,66 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
               </svg>
             </button>
-          </template>
+          </div>
         </div>
 
+        <!-- Media list: ToolView reference-images grammar — tile grid on
+             matte, order badges, hover remove; dashed tile when empty and a
+             compact ghost Add row once items exist. -->
         <div
           v-else-if="field.kind === 'media_list'"
-          class="w-full text-sm transition-colors rounded-md"
+          class="w-full transition-colors rounded-md"
           :class="mediaTileClass(field)"
           @dragover.prevent="() => (dragHover[field.name] = true)"
           @dragleave="() => (dragHover[field.name] = false)"
           @drop.prevent="(e) => onDropMedia(field.name, e, true)"
         >
-          <div class="flex flex-wrap gap-2">
-            <div v-for="(mid, idx) in (values[field.name] || [])" :key="mid" class="relative group">
-              <MediaImage :mediaId="mid" :contain="true" container-class="w-12 h-12 rounded-media" />
-              <button
-                type="button"
-                class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
-                @click.prevent="removeMediaAt(field.name, idx)"
-                title="Remove"
-              >×</button>
+          <div
+            v-if="!(values[field.name] && values[field.name].length)"
+            class="border border-dashed rounded-lg flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer h-24 w-full border-edge text-content-muted hover:border-accent"
+            @click="openPicker(field, true, $event)"
+          >
+            <span class="text-xs text-content-muted flex items-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              {{ dragHover[field.name] ? 'Drop here' : `Add ${fieldAccept(field)}s — drop or browse` }}
+            </span>
+          </div>
+          <template v-else>
+            <div class="grid gap-3 items-start [grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr))]">
+              <div
+                v-for="(mid, idx) in (values[field.name] || [])"
+                :key="mid"
+                class="relative group bg-matte overflow-hidden rounded-media w-full h-[18.5rem]"
+              >
+                <MediaImage :mediaId="mid" :contain="true" container-class="w-full h-full" />
+                <div v-if="(values[field.name] || []).length > 1" class="absolute top-1 left-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center pointer-events-none">
+                  <span class="text-xs text-white font-medium">{{ idx + 1 }}</span>
+                </div>
+                <button
+                  type="button"
+                  class="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-red-500/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  @click.prevent="removeMediaAt(field.name, idx)"
+                  title="Remove"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-white">
+                    <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                  </svg>
+                </button>
+              </div>
             </div>
             <button
               type="button"
-              class="w-12 h-12 rounded-media border border-dashed border-edge text-content-muted hover:text-content-secondary hover:border-edge-strong hover:bg-overlay-subtle flex items-center justify-center text-lg cursor-pointer transition-colors"
-              title="Add from library"
+              class="mt-1.5 w-full flex items-center gap-1.5 rounded-md px-1 py-1.5 text-xs cursor-pointer transition-colors text-content-muted hover:text-content-secondary hover:bg-overlay-subtle"
               @click="openPicker(field, true, $event)"
-            >+</button>
-            <span
-              v-if="!(values[field.name] && values[field.name].length)"
-              class="self-center text-content-muted italic text-xs"
-            >Click + or drop media items here.</span>
-          </div>
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+                <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+              </svg>
+              {{ dragHover[field.name] ? 'Drop here' : 'Add' }}
+            </button>
+          </template>
         </div>
 
         <textarea
@@ -336,6 +355,68 @@
     </div>
     </div>
 
+    <!-- List popup editor: drag to reorder, fast Enter-to-add entry (the
+         settings-wildcards pattern), multi-line/comma paste import. -->
+    <Teleport to="body">
+      <template v-if="listEditor">
+        <div class="fixed inset-0 z-menu" @click="closeListEditor" @contextmenu.prevent="closeListEditor"></div>
+        <div
+          class="fixed z-submenu w-80 bg-surface border border-edge-subtle rounded-lg shadow-lg flex flex-col"
+          :style="listEditorStyle"
+          @keydown.escape.stop="closeListEditor"
+        >
+          <div class="px-3 pt-2.5 pb-1.5 flex items-baseline justify-between gap-2">
+            <span class="text-xs font-semibold text-content-secondary truncate">{{ listEditorField?.label }}</span>
+            <span class="text-[10px] font-mono tabular-nums text-content-tertiary">{{ listValue(listEditor.field).length }} item{{ listValue(listEditor.field).length === 1 ? '' : 's' }}</span>
+          </div>
+          <div class="max-h-72 overflow-y-auto custom-scrollbar px-1.5">
+            <div
+              v-for="(item, idx) in listValue(listEditor.field)"
+              :key="idx"
+              class="group flex items-center gap-1 py-0.5 rounded-md"
+              :class="listDropIdx === idx && listDragIdx !== null && listDragIdx !== idx ? 'ring-1 ring-accent/50' : ''"
+              draggable="true"
+              @dragstart="onListDragStart(idx, $event)"
+              @dragover.prevent="listDropIdx = idx"
+              @dragend="onListDragEnd"
+              @drop.prevent="onListDrop(idx)"
+            >
+              <span class="w-4 flex-shrink-0 text-content-muted/60 cursor-grab text-center select-none" title="Drag to reorder">⠿</span>
+              <input
+                :value="String(item ?? '')"
+                type="text"
+                class="flex-1 min-w-0 bg-transparent border-b border-transparent rounded-none px-1 py-1 text-xs text-content focus:outline-none focus:border-accent"
+                :placeholder="listEditorField?.itemLabel"
+                @input="listEditorField && setListItem(listEditorField, idx, ($event.target as HTMLInputElement).value)"
+              />
+              <button
+                type="button"
+                class="w-5 h-5 flex-shrink-0 rounded-md flex items-center justify-center text-content-tertiary hover:text-red-400 hover:bg-overlay-subtle opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Remove"
+                @click="removeListItem(listEditor.field, idx)"
+              >
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="px-3 py-2 border-t border-edge-subtle">
+            <input
+              ref="listEntryInput"
+              v-model="listEntryText"
+              type="text"
+              class="w-full bg-transparent text-xs text-content py-0.5 focus:outline-none placeholder:text-content-muted"
+              placeholder="Type and press Enter…"
+              @keydown.enter.prevent="commitListEntry"
+              @keydown.delete="onListEntryBackspace"
+              @paste="onListEntryPaste"
+            />
+          </div>
+        </div>
+      </template>
+    </Teleport>
+
     <!-- In-app library picker anchored to the clicked media tile; its
          "Browse Files…" footer falls through to the OS dialog below. -->
     <MediaPickerPopover
@@ -363,6 +444,8 @@ import axios from 'axios'
 import { MediaImage } from '../media'
 import MediaPickerPopover from '../generation/MediaPickerPopover.vue'
 import AIPromptEditor from '../generation/AIPromptEditor.vue'
+import SettingsDropdown from '../ui/SettingsDropdown.vue'
+import ScrubValue from '../ui/ScrubValue.vue'
 import ResolutionPicker from '../ResolutionPicker.vue'
 import MegapixelsPicker from '../generation/MegapixelsPicker.vue'
 import GeminiResolutionPicker from '../generation/GeminiResolutionPicker.vue'
@@ -433,8 +516,6 @@ interface Field {
 
 const values = reactive<Record<string, any>>({})
 const dragHover = reactive<Record<string, boolean>>({})
-const showPaste = reactive<Record<string, boolean>>({})
-const pasteText = reactive<Record<string, string>>({})
 const promptExpanded = reactive<Record<string, boolean>>({})
 const promptOptions = reactive<Record<string, any>>({})
 let savedSnapshot = '{}'
@@ -637,8 +718,6 @@ function applyInitial() {
     if ((f.kind === 'list' || f.kind === 'table' || f.kind === 'media_list') && !Array.isArray(values[f.name])) {
       values[f.name] = []
     }
-    pasteText[f.name] = ''
-    showPaste[f.name] = false
     if (f.kind === 'prompt') {
       promptExpanded[f.name] = false
       promptOptions[f.name] = defaultPromptOptions()
@@ -709,22 +788,93 @@ function parsePastedItems(text: string): string[] {
     .filter(Boolean)
 }
 
-function importPastedList(field: Field) {
-  const parsed = parsePastedItems(pasteText[field.name] || '').map(item => coerceListItem(field, item))
-  if (!parsed.length) return
-  values[field.name] = [...listValue(field.name), ...parsed]
-  pasteText[field.name] = ''
-  showPaste[field.name] = false
+// ----- List popup editor (chips panel opens this) -----
+
+const listEditor = ref<{ field: string } | null>(null)
+const listEditorStyle = ref<Record<string, string>>({})
+const listEntryText = ref('')
+const listEntryInput = ref<HTMLInputElement | null>(null)
+const listDragIdx = ref<number | null>(null)
+const listDropIdx = ref<number | null>(null)
+
+const listEditorField = computed<Field | null>(() =>
+  listEditor.value ? fields.value.find(f => f.name === listEditor.value!.field) || null : null)
+
+function openListEditor(field: Field, event: MouseEvent) {
+  const anchor = (event.currentTarget as HTMLElement).closest('.flex-wrap') || (event.currentTarget as HTMLElement)
+  const r = anchor.getBoundingClientRect()
+  const W = 320
+  const left = Math.max(8, Math.min(window.innerWidth - W - 8, r.left))
+  // Below the panel by default; flip above when the lower half is tight.
+  const top = r.bottom + 320 > window.innerHeight && r.top > window.innerHeight / 2
+    ? Math.max(8, r.top - 328)
+    : Math.min(window.innerHeight - 328, r.bottom + 6)
+  listEditorStyle.value = { left: `${left}px`, top: `${Math.max(8, top)}px` }
+  listEditor.value = { field: field.name }
+  listEntryText.value = ''
+  nextTick(() => listEntryInput.value?.focus())
 }
 
-function onPasteList(field: Field, idx: number, event: ClipboardEvent) {
-  const text = event.clipboardData?.getData('text') || ''
-  const parsed = parsePastedItems(text)
+function closeListEditor() {
+  commitListEntry()
+  listEditor.value = null
+  listDragIdx.value = null
+  listDropIdx.value = null
+}
+
+function commitListEntry() {
+  const f = listEditorField.value
+  const text = listEntryText.value.trim()
+  if (!f || !text) return
+  values[f.name] = [...listValue(f.name), coerceListItem(f, text)]
+  listEntryText.value = ''
+}
+
+// Backspace in an empty entry field removes the last item (wildcards behavior).
+function onListEntryBackspace(event: KeyboardEvent) {
+  const f = listEditorField.value
+  if (!f || listEntryText.value !== '') return
+  const arr = listValue(f.name)
+  if (!arr.length) return
+  event.preventDefault()
+  removeListItem(f.name, arr.length - 1)
+}
+
+// Pasting multiple lines / comma-separated text imports them as items.
+function onListEntryPaste(event: ClipboardEvent) {
+  const f = listEditorField.value
+  if (!f) return
+  const parsed = parsePastedItems(event.clipboardData?.getData('text') || '')
   if (parsed.length <= 1) return
   event.preventDefault()
-  const arr = [...listValue(field.name)]
-  arr.splice(idx, 1, ...parsed.map(item => coerceListItem(field, item)))
-  values[field.name] = arr
+  values[f.name] = [...listValue(f.name), ...parsed.map(item => coerceListItem(f, item))]
+}
+
+function onListDragStart(idx: number, event: DragEvent) {
+  listDragIdx.value = idx
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+}
+
+function onListDragEnd() {
+  listDragIdx.value = null
+  listDropIdx.value = null
+}
+
+function onListDrop(idx: number) {
+  const f = listEditorField.value
+  if (!f || listDragIdx.value === null || listDragIdx.value === idx) { onListDragEnd(); return }
+  const arr = [...listValue(f.name)]
+  const [item] = arr.splice(listDragIdx.value, 1)
+  arr.splice(idx, 0, item)
+  values[f.name] = arr
+  onListDragEnd()
+}
+
+// SettingsDropdown round-trips strings; map back to the original option so
+// numeric enums keep their type.
+function coerceEnumValue(field: Field, raw: string): any {
+  const match = (field.options || []).find(opt => String(opt) === raw)
+  return match !== undefined ? match : raw
 }
 
 function emptyTableRow(field: Field): Record<string, any> {

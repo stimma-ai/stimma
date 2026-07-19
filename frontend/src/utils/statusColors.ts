@@ -7,7 +7,7 @@
 //   queued          zinc     not started yet / idle
 //   running         blue     actively working
 //   special         purple   llm/agent steps (enhancing, thinking, etc.)
-//   awaiting        purple   "your turn" — same family as special, pulses
+//   awaiting        teal     "your turn" — the accent: actionable, pulses
 //   done            green    terminal success
 //   failed          red      terminal failure
 //   warning         amber    non-fatal trouble (timed out, partial, waiting)
@@ -29,7 +29,7 @@ const DOT_CLASS: Record<StatusBucket, string> = {
   queued: 'bg-zinc-500',
   running: 'bg-blue-500',
   special: 'bg-purple-500',
-  awaiting: 'bg-purple-500',
+  awaiting: 'bg-accent',
   done: 'bg-green-500',
   failed: 'bg-red-500',
   warning: 'bg-amber-500',
@@ -41,7 +41,7 @@ const TEXT_CLASS: Record<StatusBucket, string> = {
   queued: 'text-content-muted',
   running: 'text-blue-400',
   special: 'text-purple-400',
-  awaiting: 'text-purple-400',
+  awaiting: 'text-accent-hi',
   done: 'text-green-400',
   failed: 'text-red-400',
   warning: 'text-amber-400',
@@ -53,7 +53,7 @@ const BG_CLASS: Record<StatusBucket, string> = {
   queued: 'bg-zinc-500/15',
   running: 'bg-blue-500/15',
   special: 'bg-purple-500/15',
-  awaiting: 'bg-purple-500/15',
+  awaiting: 'bg-accent/15',
   done: 'bg-green-500/15',
   failed: 'bg-red-500/15',
   warning: 'bg-amber-500/15',
@@ -131,7 +131,7 @@ export function mapEquationStatus(status: string | null | undefined): StatusBuck
 // second dimension layered on top of 'pending' status in IterationCard /
 // FlowIterationRow / SlotApproveRow. Mapped to the same bucket vocabulary so
 // a pending row's tint still comes from one map: 'human' reads as the
-// upstream HITL it's waiting on (awaiting/purple), 'error' as the upstream
+// upstream HITL it's waiting on (awaiting/accent), 'error' as the upstream
 // failure it's blocked behind (failed/red), 'tool' as the non-fatal
 // provider wait (warning/amber), 'cap' as "ready, just waiting for a slot"
 // (running/blue, dimmed), and plain upstream compute as the default queued
@@ -157,7 +157,7 @@ const CARD_FRAME_STRONG: Record<StatusBucket, string> = {
   queued:   'border-edge-subtle hover:border-content-muted/60',
   running:  'border-blue-500/40',
   special:  'border-purple-500/50 ring-1 ring-purple-500/30',
-  awaiting: 'border-purple-500/50 ring-1 ring-purple-500/30',
+  awaiting: 'border-accent/50 ring-1 ring-accent/30',
   done:     'border-edge-subtle hover:border-content-muted/60',
   failed:   'border-red-500/50',
   warning:  'border-amber-500/30 hover:border-amber-500/45',
@@ -168,7 +168,7 @@ const CARD_FRAME_DIMMED: Record<StatusBucket, string> = {
   queued:   'border-edge-subtle hover:border-content-muted/60',
   running:  'border-blue-500/25 hover:border-blue-500/40',
   special:  'border-purple-500/25 hover:border-purple-500/40',
-  awaiting: 'border-purple-500/25 hover:border-purple-500/40',
+  awaiting: 'border-accent/25 hover:border-accent/40',
   done:     'border-edge-subtle hover:border-content-muted/60',
   failed:   'border-red-500/25 hover:border-red-500/40',
   warning:  'border-amber-500/30 hover:border-amber-500/45',
@@ -183,12 +183,12 @@ export function cardFrameClass(bucket: StatusBucket, dimmed = false): string {
 // the row's own state, a faint /[0.06] for a dimmed pending tile.
 const TILE_BG_STRONG: Record<StatusBucket, string> = {
   queued: 'bg-overlay-faint', running: 'bg-overlay-faint', special: 'bg-purple-500/10',
-  awaiting: 'bg-purple-500/10', done: 'bg-overlay-faint', failed: 'bg-red-500/10',
+  awaiting: 'bg-accent/10', done: 'bg-overlay-faint', failed: 'bg-red-500/10',
   warning: 'bg-overlay-faint', paused: 'bg-overlay-faint', skipped: 'bg-overlay-faint',
 }
 const TILE_BG_DIMMED: Record<StatusBucket, string> = {
   queued: 'bg-overlay-faint', running: 'bg-blue-500/[0.06]', special: 'bg-purple-500/[0.06]',
-  awaiting: 'bg-purple-500/[0.06]', done: 'bg-overlay-faint', failed: 'bg-red-500/[0.06]',
+  awaiting: 'bg-accent/[0.06]', done: 'bg-overlay-faint', failed: 'bg-red-500/[0.06]',
   warning: 'bg-amber-500/[0.06]', paused: 'bg-amber-500/[0.06]', skipped: 'bg-overlay-faint',
 }
 export function tileBgClass(bucket: StatusBucket, dimmed = false): string {
@@ -199,11 +199,11 @@ export function tileBgClass(bucket: StatusBucket, dimmed = false): string {
 // frame) — /5 for the row's own state, a faint /[0.04] for a dimmed
 // pending row.
 const ROW_BG_STRONG: Record<StatusBucket, string> = {
-  queued: '', running: 'bg-blue-500/5', special: 'bg-purple-500/5', awaiting: 'bg-purple-500/5',
+  queued: '', running: 'bg-blue-500/5', special: 'bg-purple-500/5', awaiting: 'bg-accent/5',
   done: '', failed: 'bg-red-500/5', warning: 'bg-amber-500/5', paused: 'bg-amber-500/5', skipped: '',
 }
 const ROW_BG_DIMMED: Record<StatusBucket, string> = {
-  queued: '', running: 'bg-blue-500/[0.04]', special: 'bg-purple-500/[0.04]', awaiting: 'bg-purple-500/[0.04]',
+  queued: '', running: 'bg-blue-500/[0.04]', special: 'bg-purple-500/[0.04]', awaiting: 'bg-accent/[0.04]',
   done: '', failed: 'bg-red-500/[0.04]', warning: 'bg-amber-500/[0.04]', paused: 'bg-amber-500/[0.04]', skipped: '',
 }
 export function rowBgClass(bucket: StatusBucket, dimmed = false): string {

@@ -494,34 +494,32 @@
             <div v-if="viewMode === 'compact'" class="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
               <div class="space-y-4">
                 <div class="relative">
+                  <!-- Headingless sections as ToolView-style cards: one raised
+                       card each for inputs, steps, and outputs. -->
                   <div
-                    class="space-y-4"
+                    class="space-y-3"
                     :class="programAttentionError ? 'opacity-40 grayscale pointer-events-none' : ''"
                   >
-                <!-- Inputs section -->
-                <section v-if="hasInputFields">
-                  <div class="flex items-center gap-2 py-1.5 min-h-[40px]">
-                    <span class="text-sm font-semibold text-content">Inputs</span>
-                    <div class="ml-auto flex items-center gap-1.5">
-                      <template v-if="hasInputFields && inputsDirty">
-                        <button
-                          type="button"
-                          class="text-[11px] px-2 py-1 rounded border border-edge-subtle text-content-secondary hover:bg-overlay-subtle disabled:opacity-40"
-                          :disabled="submittingInputs"
-                          @click="inputFormRef?.discardChanges()"
-                          title="Discard unsaved input changes"
-                        >Revert</button>
-                        <button
-                          type="button"
-                          class="text-[11px] px-2 py-1 rounded bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
-                          :disabled="!inputsValid || submittingInputs"
-                          @click="inputFormRef?.applyChanges()"
-                          title="Apply the changed inputs to this flow"
-                        >{{ submittingInputs ? 'Applying…' : 'Apply inputs' }}</button>
-                      </template>
-                    </div>
+                <!-- Inputs card (headingless — the Revert/Apply cluster pins
+                     to the card's top-right corner so it never reflows) -->
+                <section v-if="hasInputFields" class="relative rounded-lg border border-edge-subtle bg-surface px-4 py-3">
+                  <div v-if="inputsDirty" class="absolute top-3 right-3 z-chrome flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      class="text-[11px] px-2 py-1 rounded-md bg-surface text-content-secondary hover:text-content hover:bg-overlay-subtle disabled:opacity-40 disabled:cursor-not-allowed"
+                      :disabled="submittingInputs"
+                      @click="inputFormRef?.discardChanges()"
+                      title="Discard unsaved input changes"
+                    >Revert</button>
+                    <button
+                      type="button"
+                      class="text-[11px] px-2 py-1 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                      :disabled="!inputsValid || submittingInputs"
+                      @click="inputFormRef?.applyChanges()"
+                      title="Apply the changed inputs to this flow"
+                    >{{ submittingInputs ? 'Applying…' : 'Apply inputs' }}</button>
                   </div>
-                  <div class="py-3">
+                  <div class="py-1">
                     <FlowInputForm
                       ref="inputFormRef"
                       :schema="flow?.input_schema || null"
@@ -560,12 +558,9 @@
                 </div>
 
                 <template v-else>
-                    <!-- Steps section -->
-                    <section>
-                      <div class="flex items-center gap-2 py-2.5">
-                        <span class="text-sm font-semibold text-content">Steps</span>
-                      </div>
-                      <div class="py-3">
+                    <!-- Steps card (headingless) -->
+                    <section class="rounded-lg border border-edge-subtle bg-surface px-4 py-3">
+                      <div class="py-1">
                         <ConnectionError v-if="state.loadError.value" @retry="state.loadAll" />
                         <div v-else-if="state.loading.value && !state.phaseTree.value" class="text-content-muted text-sm py-8 text-center">
                           Loading flow…

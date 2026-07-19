@@ -345,7 +345,7 @@
               <button
                 v-for="idx in actionableIterIdxs"
                 :key="idx"
-                class="text-[11px] px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/40 text-purple-400 hover:bg-purple-500/20"
+                class="text-[11px] px-2 py-0.5 rounded bg-accent/10 border border-accent/40 text-accent-hi hover:bg-accent/20"
                 @click="$emit('focus-iteration', superNode!.foreachKey, idx)"
               >#{{ idx + 1 }}</button>
             </div>
@@ -822,7 +822,7 @@ const iconBgClass = computed<string>(() => {
     case 'llm_batch':
     case 'llm_slot':  return 'bg-gradient-to-br from-blue-500/80 to-blue-700/80'
     case 'code':      return 'bg-gradient-to-br from-emerald-500/80 to-emerald-700/80'
-    case 'hitl':      return 'bg-gradient-to-br from-purple-500/80 to-purple-700/80'
+    case 'hitl':      return 'bg-gradient-to-br from-teal-500/80 to-teal-700/80'
     case 'info':      return 'bg-gradient-to-br from-teal-500/80 to-teal-700/80'
     case 'flow_input': return 'bg-gradient-to-br from-zinc-500/80 to-zinc-700/80'
     case 'flow_output': return 'bg-gradient-to-br from-pink-500/80 to-pink-700/80'
@@ -1368,7 +1368,7 @@ const statusBuckets = computed(() => {
   return [
     { label: 'Done',      count: counts.completed, chipClass: `border-green-500/40 ${bgClass('done')} ${textClass('done')}`,     dotClass: dotClass('done') },
     { label: 'Running',   count: counts.computing, chipClass: `border-blue-500/40 ${bgClass('running')} ${textClass('running')}`, dotClass: `${dotClass('running')} animate-pulse-soft` },
-    { label: 'Your turn', count: counts.awaiting,  chipClass: `border-purple-500/40 ${bgClass('awaiting')} ${textClass('awaiting')}`, dotClass: dotClass('awaiting') },
+    { label: 'Your turn', count: counts.awaiting,  chipClass: `border-accent/40 ${bgClass('awaiting')} ${textClass('awaiting')}`, dotClass: dotClass('awaiting') },
     { label: 'Failed',    count: counts.failed,    chipClass: `border-red-500/40 ${bgClass('failed')} ${textClass('failed')}`,    dotClass: dotClass('failed') },
     { label: 'Pending',   count: counts.pending,   chipClass: 'border-edge-subtle bg-overlay-subtle text-content-muted', dotClass: dotClass('queued') },
     { label: 'Skipped',   count: counts.skipped,   chipClass: 'border-edge-subtle bg-overlay-subtle text-content-muted/80', dotClass: dotClass('skipped') },

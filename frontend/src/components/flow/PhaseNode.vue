@@ -1,7 +1,7 @@
 <template>
   <div
     class="phase-node"
-    :class="isTopLevelPhase ? 'border-t border-edge-subtle pt-3 first:border-t-0 first:pt-0' : ''"
+    :class="isTopLevelPhase ? 'pt-6 first:pt-0' : ''"
   >
     <!-- Header row. Always-expanded: no chevron, no click toggle. Structure =
          indentation + a status rail, never a nested box (STANDARDS §3.1):
@@ -37,7 +37,7 @@
       </span>
       <span
         v-else-if="phaseStatus.kind === 'tasks'"
-        class="flex-shrink-0 text-[10.5px] font-medium text-purple-500"
+        class="flex-shrink-0 text-[10.5px] font-medium text-accent-hi"
       >Your Turn</span>
       <span
         v-else-if="phaseStatus.kind === 'error'"

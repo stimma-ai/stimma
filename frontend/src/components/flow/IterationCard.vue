@@ -1,7 +1,7 @@
 <template>
   <div
-    class="relative border overflow-hidden transition group/iteration-card"
-    :class="[primaryMediaId ? 'rounded-media' : 'rounded-md', rootClass, isRunning ? 'cursor-default' : 'cursor-pointer', isEchoed ? 'ring-2 ring-blue-500/60' : '']"
+    class="relative overflow-hidden transition group/iteration-card rounded-media"
+    :class="[rootClass, isRunning ? 'cursor-default' : 'cursor-pointer', isEchoed ? 'ring-2 ring-blue-500/60' : '']"
     :title="cardTitle"
     :role="isRunning ? undefined : 'button'"
     :tabindex="isRunning ? undefined : 0"
@@ -44,10 +44,10 @@
         </svg>
       </template>
       <template v-else-if="iteration.status === 'awaiting_input'">
-        <!-- Person glyph in solid purple — this iteration itself is the
+        <!-- Person glyph in the accent — this iteration itself is the
              one waiting on the human. Border treatment from rootClass
              handles the framing; this is the in-tile signal. -->
-        <svg class="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
+        <svg class="w-5 h-5 text-accent-hi" fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a7.5 7.5 0 0115 0v.75H4.5v-.75z" />
         </svg>
       </template>
@@ -56,7 +56,7 @@
              clock for vanilla "waiting on upstream work". -->
         <svg
           v-if="iteration.blockReason === 'human'"
-          class="w-5 h-5 text-purple-400/70"
+          class="w-5 h-5 text-accent-hi/70"
           fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"
         >
           <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a7.5 7.5 0 0115 0v.75H4.5v-.75z" />
@@ -70,10 +70,12 @@
         </svg>
         <svg
           v-else-if="iteration.blockReason === 'tool'"
-          class="w-5 h-5 text-amber-400/80"
-          fill="none" viewBox="0 0 24 24" stroke-width="1.75" stroke="currentColor"
+          class="w-4 h-4 text-amber-400/80"
+          fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
         >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M2.25 12c0-4.97 4.03-9 9-9 2.46 0 4.69.99 6.31 2.59M21.75 12a9 9 0 01-9 9 8.96 8.96 0 01-6.31-2.59M8.25 12a3.75 3.75 0 015.96-3.04m1.54 1.54A3.75 3.75 0 0115.75 12" />
+          <!-- Stalled on an offline provider: same clock as vanilla waiting —
+               the amber tint + tooltip carry the "provider" nuance. -->
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m5-2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <svg
           v-else-if="iteration.blockReason === 'cap'"
@@ -147,7 +149,7 @@ import type { GroupedIteration } from '../../composables/useFlowGrouping'
 import { useFlowReferences, injectFlowChatIdRef } from '../../composables/useFlowReferences'
 import { shouldShowEquationDuration } from '../../utils/equationDuration'
 import { parseFlowError } from '../../utils/flowErrors'
-import { mapEquationStatus, mapBlockReason, cardFrameClass, tileBgClass } from '../../utils/statusColors'
+import { mapEquationStatus, mapBlockReason, tileBgClass } from '../../utils/statusColors'
 
 interface Props {
   iteration: GroupedIteration
@@ -239,15 +241,13 @@ const placeholderBgClass = computed(() => {
   return tileBgClass(mapEquationStatus(status))
 })
 
-// Border / ring color. Actionable (this node awaiting human) wins because
-// it's the only state that demands user attention; downstream-blocked
-// tiles use a desaturated form of the same color family so they read as
-// related-but-not-actionable.
+// Tile emphasis. Browser-grid treatment: tiles carry no border chrome; only
+// the two states that demand attention get an inset ring (actionable wins),
+// everything else reads through the placeholder tint + glyph alone.
 const rootClass = computed(() => {
-  if (props.iteration.isActionable) return cardFrameClass('awaiting')
-  if (props.iteration.hasError) return cardFrameClass('failed')
-  if (props.iteration.status === 'pending') return cardFrameClass(mapBlockReason(props.iteration.blockReason), true)
-  return cardFrameClass(mapEquationStatus(props.iteration.status))
+  if (props.iteration.isActionable) return 'ring-1 ring-inset ring-accent/60'
+  if (props.iteration.hasError) return 'ring-1 ring-inset ring-red-500/50'
+  return ''
 })
 
 // Tooltip on the placeholder so the reason is discoverable on hover.

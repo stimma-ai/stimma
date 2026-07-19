@@ -22,7 +22,7 @@
       />
       <span
         v-else-if="aggregateStatus === 'actionable'"
-        class="w-2.5 h-2.5 rounded-full bg-purple-500 flex-shrink-0 animate-pulse-soft"
+        class="w-2.5 h-2.5 rounded-full bg-accent flex-shrink-0 animate-pulse-soft"
         :title="'Your Turn'"
       />
       <svg
@@ -156,7 +156,7 @@
            expand/collapse follows the row's lock-open state. -->
       <div
         v-if="group.instructions"
-        class="px-3 py-2 border-b border-edge-subtle bg-purple-500/10 text-[12px] text-content whitespace-pre-wrap"
+        class="px-3 py-2 border-b border-edge-subtle bg-accent/10 text-[12px] text-content whitespace-pre-wrap"
       >{{ group.instructions }}</div>
 
       <!-- HITL approve cells: layout depends on contentKind. Media
@@ -180,7 +180,7 @@
       </div>
       <div
         v-else-if="group.cellMode === 'hitl-approve'"
-        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 p-2"
+        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-0.5 p-2"
       >
         <SlotApproveCell
           v-for="(it, i) in sortedIterations"
@@ -213,7 +213,7 @@
       </div>
       <div
         v-else-if="layoutMode !== 'summary'"
-        class="grid gap-2 p-2"
+        class="grid gap-0.5 p-2"
         :class="gridColsClass"
         :style="layoutMode === 'compact' ? 'max-height: 420px; overflow-y: auto;' : undefined"
       >
@@ -389,12 +389,12 @@ const aggregateStatus = computed<'completed' | 'failed' | 'computing' | 'actiona
 })
 
 // Color for the inline aggregate-exception text ("1 failed" / "2 awaiting
-// you"). Tints to match the aggregate state so the row reads as red/purple
+// you"). Tints to match the aggregate state so the row reads as red/accent
 // at a glance without a separate label column.
 const aggregateExceptionColor = computed<string>(() => {
   const a = props.group.aggregate
   if (a.failed > 0) return 'text-red-500'
-  if (a.actionable > 0) return 'text-purple-500'
+  if (a.actionable > 0) return 'text-accent-hi'
   return 'text-content-muted'
 })
 

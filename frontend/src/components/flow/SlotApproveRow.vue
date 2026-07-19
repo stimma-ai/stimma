@@ -13,7 +13,7 @@
     <div class="flex-shrink-0 w-7 flex items-start justify-center pt-2 border-r border-edge-subtle">
       <span
         v-if="cellState === 'awaiting'"
-        class="w-2 h-2 mt-1 rounded-full bg-purple-400"
+        class="w-2 h-2 mt-1 rounded-full bg-accent"
       />
       <svg
         v-else-if="cellState === 'approved'"
