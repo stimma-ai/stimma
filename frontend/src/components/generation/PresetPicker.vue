@@ -4,17 +4,15 @@
     <button
       ref="buttonRef"
       @click="toggleDropdown"
-      class="flex items-center gap-2 px-3 py-1.5 bg-overlay-subtle hover:bg-overlay-light border border-edge-subtle rounded text-sm text-content-secondary transition-colors"
+      class="relative flex items-center justify-center px-3 py-2 rounded-md bg-surface-raised text-content-secondary hover:bg-surface-hover hover:text-content transition-colors"
+      :title="displayName === 'Presets' ? 'Presets' : `Preset: ${displayName}`"
     >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
       </svg>
-      <span>{{ displayName }}</span>
-      <!-- Modified indicator dot -->
-      <span v-if="isModified" class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-      <svg class="w-3 h-3 ml-1" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-      </svg>
+      <!-- Active/modified cue: corner dot (accent = active preset, amber = modified) -->
+      <span v-if="isModified" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+      <span v-else-if="hasActivePreset" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-accent-hi"></span>
     </button>
 
     <!-- Dropdown menu (teleported to escape overflow stacking context) -->
