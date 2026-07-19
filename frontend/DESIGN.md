@@ -57,7 +57,11 @@ z-chrome    30   sticky headers, in-page floating chrome
 z-menu      100  context menus, dropdowns, popovers, pickers (+1 for submenus)
 z-modal     200  modal dialogs & their backdrops (nested confirm: 210)
 z-toast     300  toasts
-z-top       400  boot/first-run overlays only
+z-top       400  boot/first-run overlays; full-screen takeover modes
+                 (slideshow, compare). Compare must be able to open OVER a
+                 running slideshow: both sit at z-top and compare teleports
+                 to body, so it paints later. Never put a takeover on
+                 z-modal — it will lose to slideshow.
 ```
 
 Arbitrary `z-[NNNN]` is banned. Known bugs this fixes: DeleteConfirmModal at
