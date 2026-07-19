@@ -2,7 +2,7 @@
   <Teleport to="body">
     <div
       ref="overlay"
-      class="fixed inset-0 bg-black flex z-top"
+      class="fixed inset-0 bg-black flex z-overlay"
       @keydown="handleKeyDown"
       tabindex="0"
     >

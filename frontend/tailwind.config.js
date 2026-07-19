@@ -121,6 +121,8 @@ export default {
       // z-[NNNN] is banned in new code; migrate stragglers onto these tiers.
       zIndex: {
         chrome: '30',    // sticky headers, in-page floating chrome
+        overlay: '50',   // full-screen in-app viewers (slideshow, compare) —
+                         // above chrome, below teleported menus/modals/toasts
         menu: '100',     // context menus, dropdowns, popovers, pickers
         submenu: '110',  // hover submenus of the above
         modal: '200',    // modal dialogs + their backdrops

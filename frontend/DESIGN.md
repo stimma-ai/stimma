@@ -54,15 +54,19 @@ Rules:
 
 ```
 z-chrome    30   sticky headers, in-page floating chrome
+z-overlay   50   full-screen takeover modes (slideshow, compare). Compare
+                 must be able to open OVER a running slideshow: both sit at
+                 z-overlay and compare teleports to body, so it paints later.
 z-menu      100  context menus, dropdowns, popovers, pickers (+1 for submenus)
 z-modal     200  modal dialogs & their backdrops (nested confirm: 210)
 z-toast     300  toasts
-z-top       400  boot/first-run overlays; full-screen takeover modes
-                 (slideshow, compare). Compare must be able to open OVER a
-                 running slideshow: both sit at z-top and compare teleports
-                 to body, so it paints later. Never put a takeover on
-                 z-modal — it will lose to slideshow.
+z-top       400  boot/first-run overlays only (lock screen, first-run tour)
 ```
+
+Takeovers must sit BELOW z-menu, never at z-top: context menus, pickers,
+and modals teleport to body at their own tiers, and a takeover parked above
+them swallows every popover opened from inside it (the slideshow
+"More menu shows nothing" bug).
 
 Arbitrary `z-[NNNN]` is banned. Known bugs this fixes: DeleteConfirmModal at
 z-2000 rendering behind modals; TopBar's unexplained z-[20000]; three identical

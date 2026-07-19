@@ -2,7 +2,7 @@
   <div
     ref="overlay"
     data-drop-zone
-    :class="inline ? 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-top' : 'fixed inset-0 bg-slideshow-matt flex z-top'"
+    :class="inline ? 'absolute inset-0 w-full h-full bg-slideshow-matt flex z-overlay' : 'fixed inset-0 bg-slideshow-matt flex z-overlay'"
     @dragover.prevent
     @drop.prevent
   >
