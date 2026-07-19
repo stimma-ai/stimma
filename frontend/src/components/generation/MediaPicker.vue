@@ -549,7 +549,7 @@
                   @click="togglePrepPanel(item.originalIndex, 'preprocess')"
                 >
                   <svg class="w-3.5 h-3.5 text-content-muted flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 13.5V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m12-3V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m-6-9V3.75m0 3.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 9.75V10.5"/></svg>
-                  <span class="text-[11px] text-content-secondary flex-1">Preprocess</span>
+                  <span class="text-[11px] text-content-secondary flex-1">Control</span>
                   <span :class="['text-[10px] font-mono', item._preprocessor ? 'text-accent-hi font-medium' : 'text-content-muted']">
                     {{ item._preprocessor ? (controlnetLabels[item._preprocessor] || item._preprocessor) : 'Original' }}
                   </span>
