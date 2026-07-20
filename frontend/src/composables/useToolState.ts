@@ -353,13 +353,28 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
     }
   }
 
+  // Apply a state blob and take the baseline from what the UI SETTLES on, not
+  // from the blob itself. Applying is lossy in both directions: params the blob
+  // omits keep their old value, and post-apply watchers (x-constraint
+  // force_value, prompt-option normalization) rewrite params right after. A
+  // baseline captured from the blob therefore disagrees with buildToolState()
+  // on those keys forever — the tool reads as modified the instant it's reset
+  // or a preset is loaded, and Revert can't clear it because it re-applies the
+  // same blob and lands in the same place.
+  function applyStateAndRebaseline(state: ToolState) {
+    applyToolState(state)
+    baseState.value = { ...state }
+    nextTick(() => {
+      baseState.value = buildToolState()
+    })
+  }
+
   function handlePresetSelect(preset: any) {
     activePreset.value = preset
     saveActivePresetId(preset.id)
 
     if (preset.state) {
-      applyToolState(preset.state)
-      baseState.value = { ...preset.state }
+      applyStateAndRebaseline(preset.state)
     }
 
     clearLocalStorageState()
@@ -410,14 +425,22 @@ export function useToolState(options: UseToolStateOptions): UseToolStateReturn {
       }
     }
 
-    applyToolState(defaultState)
-    baseState.value = { ...defaultState }
+    // A reset must clear params the schema has no default for — applyToolState
+    // only writes the keys it's given, so anything the user set that isn't in
+    // defaultState would otherwise survive a "Reset to Defaults".
+    for (const key of Object.keys(modelParams.value)) {
+      if (!(key in defaultState) && !EPHEMERAL_STATE_KEYS.has(key)) {
+        delete (modelParams.value as any)[key]
+      }
+    }
+
+    applyStateAndRebaseline(defaultState)
 
     clearLocalStorageState()
   }
 
   function revertToBaseState() {
-    applyToolState(baseState.value)
+    applyStateAndRebaseline(baseState.value)
     clearLocalStorageState()
   }
 
