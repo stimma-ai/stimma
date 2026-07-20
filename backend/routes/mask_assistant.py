@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from PIL import Image
 
 from core.logging import get_logger
-from config import get_settings
 from prompts import get_prompt
 from llm import llm_complete_text
 from sam3_service import get_sam3_service
@@ -133,8 +132,15 @@ async def interpret_mask_command(request: InterpretRequest):
     Interpret a natural language mask editing command using the agent-fast LLM.
     Returns structured commands for the frontend to execute.
     """
-    settings = get_settings()
-    llm_config = settings.agent_fast_llm
+    from llm_resolver import LLMUnavailableError, get_effective_llm_config
+
+    try:
+        llm_config = await get_effective_llm_config('agent-fast')
+    except LLMUnavailableError as e:
+        raise HTTPException(
+            status_code=e.status_code,
+            detail={"code": e.code, "message": str(e)},
+        )
 
     # Build messages
     messages = [{"role": "system", "content": _get_mask_interpreter_prompt()}]
