@@ -5,9 +5,11 @@
     :options="mergedOptions"
     :search-options="searchDropdownOptions"
     :disabled="disabled"
+    :menu-width="760"
     placeholder="Select voice"
     hide-trigger-details
     quiet
+    spacious
   />
 </template>
 

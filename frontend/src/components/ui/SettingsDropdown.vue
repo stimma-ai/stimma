@@ -48,26 +48,40 @@
         :style="dropdownStyle"
         role="listbox"
       >
-        <div v-if="searchable" class="px-2 pt-1 pb-1.5 border-b border-edge shrink-0">
+        <div
+          v-if="searchable"
+          class="shrink-0 border-b border-edge"
+          :class="spacious ? 'px-3 py-2' : 'px-2 pt-1 pb-1.5'"
+        >
           <input
             ref="searchInput"
             v-model="searchQuery"
             type="text"
             placeholder="Search..."
-            class="w-full px-2 py-1 text-sm bg-overlay-faint border border-edge-subtle rounded text-content placeholder:text-content-muted focus:outline-none focus:border-accent/50"
+            class="w-full rounded border border-edge-subtle bg-overlay-faint text-sm text-content placeholder:text-content-muted focus:border-accent/50 focus:outline-none"
+            :class="spacious ? 'px-3 py-2' : 'px-2 py-1'"
             @keydown="handleDropdownKeydown"
           />
         </div>
-        <div ref="optionsList" class="overflow-y-auto max-h-64 flex-1 min-h-0" tabindex="-1" @keydown="handleDropdownKeydown">
+        <div
+          ref="optionsList"
+          class="flex-1 min-h-0 overflow-y-auto"
+          :class="spacious ? 'max-h-80' : 'max-h-64'"
+          tabindex="-1"
+          @keydown="handleDropdownKeydown"
+        >
           <div
             v-for="(option, index) in filteredOptions"
             :key="option.value"
             :ref="el => setOptionRef(el, index)"
             @click="option.disabled ? undefined : select(option.value)"
             @mouseenter="option.disabled ? null : highlightedIndex = index"
-            class="flex w-full items-center gap-2 px-3 text-left text-sm transition-colors"
+            class="flex w-full items-center text-left text-sm transition-colors"
             :class="[
-              option.description || option.meta ? 'py-2' : 'py-1.5',
+              spacious ? 'gap-3 px-4' : 'gap-2 px-3',
+              option.description || option.meta
+                ? spacious ? 'py-3' : 'py-2'
+                : spacious ? 'py-2.5' : 'py-1.5',
               option.disabled
                 ? 'cursor-not-allowed text-content-muted opacity-60'
                 : index === highlightedIndex
@@ -153,6 +167,8 @@ const props = defineProps<{
       of the bold bright settings-page treatment. */
   quiet?: boolean
   hideTriggerDetails?: boolean
+  /** More generous search and option spacing for rich option catalogs. */
+  spacious?: boolean
   menuWidth?: number
   placeholder?: string
   /** Server-backed catalog search used when an enum is too large for the schema. */
