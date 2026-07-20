@@ -1,9 +1,8 @@
 <template>
   <div class="w-full mb-6">
-    <!-- Container matching AIPromptEditor style -->
-    <div class="p-3 bg-surface-overlay border border-edge-subtle rounded-md">
+    <div>
       <!-- Debug Panel (above input) -->
-      <div v-if="showDebug" class="mb-3 bg-surface-overlay border border-edge-subtle rounded-lg overflow-hidden">
+      <div v-if="showDebug" class="mb-3 bg-overlay-subtle rounded-md overflow-hidden">
         <div class="max-h-80 overflow-y-auto p-3 space-y-3">
           <div v-if="debugHistory.length === 0" class="text-xs text-content-muted italic py-4 text-center">
             Submit a command to see requests/responses
@@ -68,7 +67,7 @@
           @keydown="handleKeydown"
           type="text"
           placeholder="e.g., mask the lights, unmask the plant, expand, shrink, invert, clear, ..."
-          class="flex-1 bg-surface border border-edge-subtle rounded-md px-3 py-2 text-sm text-content-secondary placeholder-content-muted focus:outline-none focus:border-accent"
+          class="flex-1 bg-overlay-subtle rounded-md px-3 py-2 text-sm text-content placeholder:text-content-muted border border-transparent focus:border-accent focus-visible:ring-2 ring-accent/40 outline-none"
         />
         <button
           @click="handleSubmit"
@@ -86,10 +85,10 @@
         <button
           @click="showDebug = !showDebug"
           :class="[
-            'px-3 py-2 rounded-md text-sm font-medium transition-colors border',
+            'px-3 py-2 rounded-md text-sm font-medium transition-colors',
             showDebug
-              ? 'bg-surface-raised text-content border-edge'
-              : 'bg-surface text-content-tertiary border-edge-subtle hover:text-content hover:border-edge'
+              ? 'bg-overlay-subtle text-content'
+              : 'text-content-secondary hover:text-content hover:bg-overlay-subtle'
           ]"
           title="Show debug log"
         >
@@ -367,11 +366,15 @@ async function processMessage(input: string) {
 
   } catch (err: any) {
     console.error('AI mask assistant error:', err)
-    addDebugEntry('error', err.response?.data?.detail || err.message)
-    statusMessage.value = { type: 'error', text: err.response?.data?.detail || 'Failed to process command' }
+    // detail is a string for plain HTTPExceptions and {code, message} for
+    // LLMUnavailableError.
+    const detail = err.response?.data?.detail
+    const message = (typeof detail === 'string' ? detail : detail?.message) || err.message
+    addDebugEntry('error', message)
+    statusMessage.value = { type: 'error', text: message || 'Failed to process command' }
 
     // Add error to conversation history
-    conversationHistory.value.push({ role: 'assistant', content: `Error: ${err.response?.data?.detail || err.message}` })
+    conversationHistory.value.push({ role: 'assistant', content: `Error: ${message}` })
   } finally {
     isProcessing.value = false
     // Focus input for next command

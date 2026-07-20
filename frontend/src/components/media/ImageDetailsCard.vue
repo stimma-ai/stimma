@@ -41,8 +41,8 @@
       </h4>
 
       <!-- Input Assets (source images used to create this) -->
-      <div v-if="resolvedSourceInputs.length > 0" class="bg-overlay-subtle p-2 rounded">
-        <div class="text-content-tertiary text-xs mb-2">Input Assets</div>
+      <div v-if="resolvedSourceInputs.length > 0">
+        <div class="text-xs font-semibold text-content-secondary mb-2">Input Assets</div>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="(source, si) in resolvedSourceInputs"
@@ -72,8 +72,8 @@
       </div>
 
       <!-- Sources from lineage edges (parents not in source_inputs) -->
-      <div v-if="parentNodes.length > 0" class="bg-overlay-subtle p-2 rounded">
-        <div class="text-content-tertiary text-xs mb-2">{{ inspiredParentCount > 0 ? 'Remix Of' : 'Source' }}</div>
+      <div v-if="parentNodes.length > 0">
+        <div class="text-xs font-semibold text-content-secondary mb-2">{{ inspiredParentCount > 0 ? 'Remix Of' : 'Source' }}</div>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="parent in parentNodes"
@@ -137,8 +137,8 @@
       </div>
 
       <!-- LoRAs -->
-      <div v-if="genMetaLoras?.length > 0" class="bg-overlay-subtle p-2 rounded">
-        <div class="text-content-tertiary text-xs mb-1">LoRAs</div>
+      <div v-if="genMetaLoras?.length > 0">
+        <div class="text-xs font-semibold text-content-secondary mb-1">LoRAs</div>
         <div class="flex flex-wrap gap-1">
           <span
             v-for="(lora, i) in genMetaLoras"
@@ -152,8 +152,8 @@
       </div>
 
       <!-- Derivatives (children of this node) -->
-      <div v-if="childNodes.length > 0" class="bg-overlay-subtle p-2 rounded">
-        <div class="text-content-tertiary text-xs mb-2">Made From This</div>
+      <div v-if="childNodes.length > 0">
+        <div class="text-xs font-semibold text-content-secondary mb-2">Made From This</div>
         <div class="flex flex-wrap gap-2">
           <button
             v-for="child in childNodes"
