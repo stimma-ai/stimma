@@ -404,63 +404,66 @@
 
       <!-- Versions are saved states of this Asset; Media remains implementation detail. -->
       <div v-if="currentItem.asset_id && versions.length > 1" class="mb-6">
-        <button
-          class="flex w-full items-center justify-between bg-transparent p-0 text-left"
-          @click="versionsExpanded = !versionsExpanded"
-        >
-          <h4 class="m-0 text-xs font-semibold text-content-secondary">
-            Versions <span class="normal-case tracking-normal text-content-muted">{{ versions.length }}</span>
-          </h4>
-          <span class="text-xs text-content-muted">{{ versionsExpanded ? 'Hide' : 'Show' }}</span>
-        </button>
-        <div v-if="versionsExpanded" class="mt-2 space-y-2">
+        <h4 class="m-0 text-xs font-semibold text-content-secondary">
+          Versions <span class="normal-case tracking-normal text-content-muted">{{ versions.length }}</span>
+        </h4>
+        <div class="mt-2">
           <div
-            v-for="version in versions"
+            v-for="version in visibleVersions"
             :key="version.id"
-            class="rounded-lg border p-2"
-            :class="version.id === currentRevisionId ? 'border-blue-500/50 bg-blue-500/15' : 'border-edge-subtle bg-overlay-subtle'"
+            class="group flex cursor-pointer items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left"
+            :class="version.id === viewedRevisionId ? 'bg-selection/15' : 'hover:bg-overlay-faint'"
+            role="button"
+            tabindex="0"
+            title="View this version"
+            @click="viewVersion(version)"
+            @keydown.enter.prevent="viewVersion(version)"
+            @keydown.space.prevent="viewVersion(version)"
           >
-            <div class="flex gap-2">
-              <button
-                class="h-14 w-14 flex-shrink-0 overflow-hidden rounded border border-edge-subtle bg-black/20 p-0"
-                title="View this version"
-                @click="$emit('navigate-to-source-media', version.media.id)"
-              >
-                <MediaImage
-                  :media-id="version.media.id"
-                  :file-hash="version.media.file_hash"
-                  :thumbnail-size="128"
-                  :contain="true"
-                  container-class="h-full w-full"
-                />
-              </button>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center justify-between gap-2 text-xs">
-                  <span class="font-medium text-content">Version {{ version.revision_number }}</span>
-                  <span v-if="version.id === currentRevisionId" class="text-blue-400">Current</span>
-                </div>
-                <div class="mt-0.5 truncate text-[11px] text-content-muted">
-                  {{ formatVersionDate(version.created_at) }}
-                  <span v-if="version.parent_revision_id && version.parent_revision_id !== previousRevisionId(version)"> · branched</span>
-                </div>
-                <div class="mt-2 flex flex-wrap gap-1">
-                  <button class="rounded bg-overlay-subtle px-2 py-1 text-[11px] text-content-secondary hover:bg-overlay-hover" @click="$emit('navigate-to-source-media', version.media.id)">View</button>
-                  <button v-if="isImageType(version.media)" class="rounded bg-overlay-subtle px-2 py-1 text-[11px] text-content-secondary hover:bg-overlay-hover" @click="$emit('edit-image', version.media.id)">Edit from</button>
-                  <button class="rounded bg-overlay-subtle px-2 py-1 text-[11px] text-content-secondary hover:bg-overlay-hover" @click="$emit('download-version', version.media.id)">Export</button>
-                  <button
-                    v-if="version.id !== currentRevisionId"
-                    class="rounded px-2 py-1 text-[11px]"
-                    :class="confirmRestoreId === version.id ? 'bg-accent text-white' : 'bg-overlay-subtle text-content-secondary hover:bg-overlay-hover'"
-                    @click="requestRestore(version)"
-                  >{{ confirmRestoreId === version.id ? 'Confirm restore' : 'Restore as latest' }}</button>
-                </div>
+            <div class="h-10 w-10 flex-shrink-0 overflow-hidden rounded-media bg-matte">
+              <MediaImage
+                :media-id="version.media.id"
+                :file-hash="version.media.file_hash"
+                :thumbnail-size="128"
+                :contain="true"
+                container-class="h-full w-full"
+              />
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-baseline gap-1.5 text-xs">
+                <span class="flex-shrink-0 text-content">Version {{ version.revision_number }}</span>
+                <span v-if="version.id === currentRevisionId" class="flex-shrink-0 font-mono text-[10px] uppercase tracking-wide text-content-tertiary">Current</span>
+                <div class="flex-1"></div>
+                <span
+                  class="flex-shrink-0 font-mono tabular-nums text-[10px] text-content-muted"
+                  :title="formatVersionDate(version.created_at)"
+                >{{ formatRelativeTime(version.created_at) }}</span>
+                <button
+                  class="-my-1 -mr-1 flex-shrink-0 rounded-md p-1 text-content-tertiary opacity-0 transition-opacity hover:bg-overlay-subtle hover:text-content group-hover:opacity-100 group-focus-within:opacity-100"
+                  :class="versionMenu.revisionId === version.id ? 'opacity-100' : ''"
+                  title="More actions"
+                  @click.stop="openVersionMenu($event, version)"
+                >
+                  <EllipsisHorizontalIcon class="h-4 w-4" />
+                </button>
+              </div>
+              <div class="mt-0.5 truncate text-[11px] text-content-tertiary" :title="version.note || ''">
+                {{ version.note || '—' }}
               </div>
             </div>
           </div>
           <button
-            class="w-full rounded-lg border border-edge-subtle bg-overlay-subtle px-3 py-2 text-xs text-content-secondary hover:bg-overlay-hover hover:text-content"
-            @click="$emit('download-versions', versions.map(version => version.media.id))"
-          >Export all versions</button>
+            v-if="versions.length > VERSION_PREVIEW_COUNT"
+            class="mt-1 rounded-md px-1.5 py-1 text-[11px] text-content-tertiary hover:bg-overlay-subtle hover:text-content"
+            @click="showAllVersions = !showAllVersions"
+          >{{ showAllVersions ? 'Show less' : `Show ${versions.length - VERSION_PREVIEW_COUNT} more` }}</button>
+          <ActionMenu
+            v-if="versionMenu.revisionId"
+            :x="versionMenu.x"
+            :y="versionMenu.y"
+            :actions="versionMenuActions"
+            @close="versionMenu.revisionId = null"
+          />
         </div>
       </div>
 
@@ -719,6 +722,7 @@ import {
   TagIcon
 } from '@heroicons/vue/24/solid'
 import { ClipboardDocumentIcon, FolderOpenIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import ActionMenu from './ActionMenu.vue'
 import TagEditor from './TagEditor.vue'
 import InlineTagEditor from './InlineTagEditor.vue'
 import SendToToolMenu from './SendToToolMenu.vue'
@@ -848,8 +852,7 @@ const emit = defineEmits([
   'manage-tags',
   'tags-updated',
   'edit-image',
-  'download-version',
-  'download-versions'
+  'download-version'
 ])
 
 const { cachedTools } = useProvidersApi()
@@ -858,47 +861,110 @@ const { getRevisions, restoreRevision, getContainers } = useAssetApi()
 
 const editingTags = ref(false)
 const versions = ref([])
-const versionsExpanded = ref(false)
-const confirmRestoreId = ref(null)
+// Recent versions are visible on arrival; deep history stays one click away.
+const VERSION_PREVIEW_COUNT = 5
+const showAllVersions = ref(false)
 const currentRevisionId = ref(null)
 const assetContainers = ref([])
 
+// Guards against an older in-flight load landing after a newer one.
+let versionsLoadToken = 0
+
 async function loadVersions() {
-  versions.value = []
-  currentRevisionId.value = null
-  assetContainers.value = []
-  confirmRestoreId.value = null
-  if (!props.currentItem?.asset_id) return
+  const assetId = props.currentItem?.asset_id
+  const token = ++versionsLoadToken
+  if (!assetId) {
+    versions.value = []
+    currentRevisionId.value = null
+    assetContainers.value = []
+    return
+  }
   try {
-    const result = await getRevisions(props.currentItem.asset_id)
+    // The list is NOT cleared first: blanking it collapses the section's height
+    // and shoves the rest of the panel around for a frame on every reload.
+    const result = await getRevisions(assetId)
+    if (token !== versionsLoadToken) return
     versions.value = result.items || []
-    currentRevisionId.value = result.current_revision_id || props.currentItem.revision_id
-    assetContainers.value = await getContainers(props.currentItem.asset_id)
+    currentRevisionId.value = result.current_revision_id || props.currentItem?.revision_id
+    const containers = await getContainers(assetId)
+    if (token !== versionsLoadToken) return
+    assetContainers.value = containers
   } catch (error) {
     console.error('Failed to load asset versions:', error)
   }
 }
 
+// Which version is on screen right now — not necessarily the asset's current
+// revision, since viewing an older version navigates the stage to that payload.
+const viewedRevisionId = computed(() => {
+  const item = props.currentItem
+  if (!item) return currentRevisionId.value
+  const match = versions.value.find(version => version.media?.id === (item.media_id ?? item.id))
+  return match?.id ?? item.revision_id ?? currentRevisionId.value
+})
+
+const visibleVersions = computed(() => {
+  if (showAllVersions.value) return versions.value
+  const preview = versions.value.slice(0, VERSION_PREVIEW_COUNT)
+  // Never hide the version being viewed — the panel reloads on navigation, and
+  // collapsing the row you just opened out of the list reads as a disappearance.
+  if (preview.some(version => version.id === viewedRevisionId.value)) return preview
+  const viewed = versions.value.find(version => version.id === viewedRevisionId.value)
+  return viewed ? [...preview, viewed] : preview
+})
+
+const versionMenu = ref({ revisionId: null, x: 0, y: 0 })
+
+function openVersionMenu(event, version) {
+  const rect = event.currentTarget.getBoundingClientRect()
+  versionMenu.value = { revisionId: version.id, x: rect.right - 200, y: rect.bottom + 4 }
+}
+
+const versionMenuActions = computed(() => {
+  const version = versions.value.find(item => item.id === versionMenu.value.revisionId)
+  if (!version) return []
+  const actions = []
+  if (version.id !== currentRevisionId.value) {
+    actions.push({
+      id: 'make-current',
+      label: 'Make current',
+      action: () => makeVersionCurrent(version),
+    })
+  }
+  if (isImageType(version.media)) {
+    actions.push({
+      id: 'edit-from',
+      label: 'Edit from this version',
+      action: () => emit('edit-image', version.media.id),
+    })
+  }
+  actions.push({
+    id: 'export',
+    label: 'Export…',
+    action: () => emit('download-version', version.media),
+  })
+  return actions
+})
+
+function viewVersion(version) {
+  if (!version?.media?.id) return
+  if (version.id === viewedRevisionId.value) return
+  emit('navigate-to-source-media', version.media.id)
+}
+
 function formatVersionDate(value) {
   if (!value) return ''
+  // Exact timestamp — the row shows relative time and keeps this as its tooltip.
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
-function previousRevisionId(version) {
-  const previous = versions.value.find(item => item.revision_number === version.revision_number - 1)
-  return previous?.id || null
-}
-
-async function requestRestore(version) {
-  if (confirmRestoreId.value !== version.id) {
-    confirmRestoreId.value = version.id
-    return
-  }
+// Additive: commits this version's content as a new revision on top. Nothing is
+// deleted, so it needs no confirmation — doing it again undoes it.
+async function makeVersionCurrent(version) {
   try {
     await restoreRevision(props.currentItem.asset_id, version.id)
-    confirmRestoreId.value = null
     await loadVersions()
-    addToast(`Version ${version.revision_number} restored as the latest version`, 'success')
+    addToast(`Version ${version.revision_number} saved as the current version`, 'success')
   } catch (error) {
     addToast(error.response?.data?.detail || 'Could not restore version', 'error')
   }
@@ -907,6 +973,12 @@ async function requestRestore(version) {
 // Reset tag editor when switching slides
 watch(() => [props.currentItem?.asset_id, props.currentItem?.revision_id], () => {
   editingTags.value = false
+}, { immediate: true })
+
+// Reload on revision changes too — a newly committed revision has to appear —
+// but the list is replaced in place, so switching versions never blanks it.
+watch(() => [props.currentItem?.asset_id, props.currentItem?.revision_id], (next, prev) => {
+  if (!prev || next[0] !== prev[0]) showAllVersions.value = false
   loadVersions()
 }, { immediate: true })
 

@@ -57,7 +57,6 @@
       @compare-with-source="handleCompareWithSource"
       @edit-image="handleEditImage"
       @download-version="downloadVersion"
-      @download-versions="downloadVersions"
       @view-lineage="handleViewLineage"
       @share-to-cloud="showShareDialog = true"
     />
@@ -1161,9 +1160,9 @@
     <!-- Export Modal -->
     <ExportModal
       :show="showExportModal"
-      :media-ids="currentPayloadId ? [currentPayloadId] : []"
-      :media-items="currentPayloadItem ? [currentPayloadItem] : []"
-      @close="showExportModal = false"
+      :media-ids="exportTargetIds"
+      :media-items="exportTargetItems"
+      @close="closeExportModal"
     />
 
     <!-- Share Dialog -->
@@ -1812,6 +1811,20 @@ const currentPayloadItem = computed(() => (
       }
     : null
 ))
+
+// Set when exporting a specific asset version; otherwise the modal targets the
+// payload on screen.
+const exportTargetOverride = ref(null)
+
+const exportTargetIds = computed(() => {
+  if (exportTargetOverride.value) return [exportTargetOverride.value.id]
+  return currentPayloadId.value ? [currentPayloadId.value] : []
+})
+
+const exportTargetItems = computed(() => {
+  if (exportTargetOverride.value) return [exportTargetOverride.value]
+  return currentPayloadItem.value ? [currentPayloadItem.value] : []
+})
 
 function itemIdentity(item) {
   return item ? assetIdOf(item) : null
@@ -4437,22 +4450,17 @@ function handleEditImage(mediaId = null) {
   router.push({ name: 'edit-image', params: { editorId: nextEditorId(), mediaId: targetMediaId } })
 }
 
-async function downloadVersion(mediaId) {
-  if (!mediaId) return
-  try {
-    await downloadMediaApi([mediaId])
-  } catch (error) {
-    console.error('Failed to download asset version:', error)
-  }
+// Exporting a specific version routes through the same Export modal as the
+// current payload, just aimed at that revision's media instead.
+function downloadVersion(media) {
+  if (!media?.id) return
+  exportTargetOverride.value = media
+  showExportModal.value = true
 }
 
-async function downloadVersions(mediaIds) {
-  if (!mediaIds?.length) return
-  try {
-    await downloadMediaApi(mediaIds)
-  } catch (error) {
-    console.error('Failed to download asset versions:', error)
-  }
+function closeExportModal() {
+  showExportModal.value = false
+  exportTargetOverride.value = null
 }
 
 function handleViewLineage() {
