@@ -255,6 +255,43 @@ async def commit_revision(
     return revision
 
 
+async def commit_artifact_revision(
+    session: AsyncSession,
+    *,
+    media_id: int,
+    revises: int,
+    note: Optional[str] = None,
+    parent_revision_id: Optional[int] = None,
+) -> AssetRevision:
+    """Commit ``media_id`` as the next revision of the Asset ``revises`` names.
+
+    ``revises`` is an Asset id. Asset ids and Media ids are independent
+    integer spaces, so a Media id must never be tried here as a fallback —
+    that would risk silently landing the revision on an unrelated Asset that
+    happens to share the number. The one Media-id case handled is when
+    ``revises`` names Media that's already a revision's primary payload
+    (e.g. the caller only had a Media id on hand): that's unambiguous, since
+    no Asset claims that id, so its Asset is used instead.
+    """
+    asset = await session.get(Asset, revises)
+    if asset is None or asset.deleted_at is not None:
+        prior_revision = await session.scalar(
+            select(AssetRevision).where(AssetRevision.primary_media_id == revises)
+        )
+        if prior_revision is None:
+            raise AssetServiceError(f"No asset with id {revises}")
+        asset = await session.get(Asset, prior_revision.asset_id)
+        if asset is None or asset.deleted_at is not None:
+            raise AssetServiceError(f"No asset with id {revises}")
+    return await commit_revision(
+        session,
+        asset_id=asset.id,
+        media_id=media_id,
+        parent_revision_id=parent_revision_id,
+        note=note,
+    )
+
+
 async def restore_revision_as_latest(
     session: AsyncSession,
     *,

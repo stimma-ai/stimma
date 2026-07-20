@@ -465,6 +465,7 @@ async def _execute_tool_call(
     if tool:
         try:
             kwargs = json.loads(fn_arguments) if fn_arguments else {}
+            kwargs["_tool_scope"] = scope
             kwargs["session_media_ids"] = session_media_ids if session_media_ids is not None else []
             if shown_media_ids is not None:
                 kwargs["_shown_media_ids"] = shown_media_ids
@@ -812,11 +813,15 @@ async def run_agent(
     selected_media_ids: Optional[List[int]] = None,
     max_turns: Optional[int] = None,
     force_plan: bool = False,
+    artifact_context: Optional[dict] = None,
 ) -> None:
     """Run the v2 agentic loop for a chat.
 
     Iteratively calls the LLM, executes tool calls, and continues until
     the model produces a text response or max_turns is reached.
+
+    artifact_context: {asset_id, revision_id, revision_number} the user was
+    viewing in the artifact stage when they sent this message, if any.
     """
     chat_id = chat.id
     if max_turns is None:
@@ -894,7 +899,10 @@ async def run_agent(
     await ws_manager.broadcast("agent_started", {"chat_id": chat_id})
 
     try:
-        await _run_agentic_loop(chat, session, ws_manager, max_turns, start_turn=0, turn_stats=turn_stats)
+        await _run_agentic_loop(
+            chat, session, ws_manager, max_turns, start_turn=0, turn_stats=turn_stats,
+            artifact_context=artifact_context,
+        )
         await ws_manager.broadcast("agent_stopped", {"chat_id": chat_id, "reason": "completed"})
 
         # Refusal classification (shared classifier, all agent surfaces) —
@@ -1063,6 +1071,7 @@ async def _run_agentic_loop(
     pending_tool_calls: Optional[list] = None,
     session_media_ids: Optional[list[int]] = None,
     turn_stats: Optional[dict] = None,
+    artifact_context: Optional[dict] = None,
 ) -> None:
     """Run the core loop inside a correlation scope.
 
@@ -1079,6 +1088,7 @@ async def _run_agentic_loop(
             turn_stats=turn_stats,
             pending_tool_calls=pending_tool_calls,
             session_media_ids=session_media_ids,
+            artifact_context=artifact_context,
         )
 
 
@@ -1091,6 +1101,7 @@ async def _run_agentic_loop_inner(
     pending_tool_calls: Optional[list] = None,
     session_media_ids: Optional[list[int]] = None,
     turn_stats: Optional[dict] = None,
+    artifact_context: Optional[dict] = None,
 ) -> None:
     """Core agentic loop. Extracted so resume_after_hitl can re-enter.
 
@@ -1102,6 +1113,9 @@ async def _run_agentic_loop_inner(
         turn_stats: Optional mutable dict the caller uses for the
             agent_turn_completed telemetry event (tool count, resolved LLM
             config, last visible content for refusal classification).
+        artifact_context: {asset_id, revision_id, revision_number} the user
+            was viewing when they sent this message, if any — surfaced to
+            the model as a system reminder when it's not the current revision.
     """
     from ..hitl import HumanActionRequired
 
@@ -1132,7 +1146,11 @@ async def _run_agentic_loop_inner(
     # Build system prompt once — stimpacks and other volatile context are delivered
     # via system reminders (injected into the last user message per turn)
     from .stimpacks import list_skills
-    from .system_reminders import build_skills_reminder, build_user_program_edit_reminder
+    from .system_reminders import (
+        build_artifact_context_reminder,
+        build_skills_reminder,
+        build_user_program_edit_reminder,
+    )
     all_skills = list_skills()
     notepad_state = format_notepad_for_prompt(str(workspace_dir))
     # Flow chats get a specialized system prompt + the flow directory as
@@ -1338,6 +1356,10 @@ async def _run_agentic_loop_inner(
             program_edit_reminder = build_user_program_edit_reminder(chat.flow_id)
             if program_edit_reminder:
                 system_reminders.append(program_edit_reminder)
+        if artifact_context:
+            artifact_reminder = await build_artifact_context_reminder(session, artifact_context)
+            if artifact_reminder:
+                system_reminders.append(artifact_reminder)
 
         # Resolve LLM config first so build_messages knows the window size and
         # we don't leave a dangling "thinking.." if no model is configured.

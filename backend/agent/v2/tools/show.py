@@ -60,6 +60,27 @@ log = get_logger(__name__)
             description="Optional title for the display",
             required=False,
         ),
+        ToolParameter(
+            name="revises",
+            type="integer",
+            description="Asset id of the artifact being revised — get it from the asset_id in an earlier show result or artifact: line. role must be 'final' and only one item may be shown. Commits this media as the next revision of that artifact so the user can step through versions, instead of a new library item.",
+            required=False,
+            scopes=frozenset({"agent"}),
+        ),
+        ToolParameter(
+            name="revision_note",
+            type="string",
+            description="Short note describing what changed in this revision. Only meaningful with revises.",
+            required=False,
+            scopes=frozenset({"agent"}),
+        ),
+        ToolParameter(
+            name="parent_revision",
+            type="integer",
+            description="Revision id to branch this revision from, if not the artifact's current revision (e.g. the user was viewing an older version). Only meaningful with revises.",
+            required=False,
+            scopes=frozenset({"agent"}),
+        ),
     ],
     scope="both",
 )
@@ -70,6 +91,9 @@ async def show(
     path: str | None = None,
     paths: list[str] | None = None,
     title: str | None = None,
+    revises: int | None = None,
+    revision_note: str | None = None,
+    parent_revision: int | None = None,
     **kwargs,
 ) -> str:
     from utils.websocket import ws_manager
@@ -86,6 +110,14 @@ async def show(
 
     if not normalized_media_ids and not normalized_paths:
         return "Error: Provide media_id/media_ids and/or path/paths"
+
+    if revises is not None:
+        if kwargs.get("_tool_scope") == "flow":
+            return "Error: revises is not available in flow chats"
+        if len(normalized_media_ids) + len(normalized_paths) != 1:
+            return "Error: revises requires exactly one media_id or path"
+        if role != "final":
+            return "Error: revises requires role='final'"
 
     # Guard: skip media_ids that were already displayed this turn
     shown: set[int] | None = kwargs.get("_shown_media_ids")
@@ -136,12 +168,40 @@ async def show(
     if shown is not None:
         shown.update(normalized_media_ids)
 
-    asset_ids = await _apply_show_disposition(
-        session=session,
-        chat_id=chat_id,
-        media_ids=normalized_media_ids,
-        role=role,
-    )
+    artifact_info: dict[str, Any] | None = None
+    if revises is not None and normalized_media_ids:
+        revise_media_id = normalized_media_ids[0]
+        if format_map.get(revise_media_id) in {"stimmaset.json", "stimmagrid.json"}:
+            return "Error: revises does not support sets or grids"
+        revision_or_error = await _commit_show_artifact(
+            session=session,
+            chat_id=chat_id,
+            media_id=revise_media_id,
+            revises=revises,
+            revision_note=revision_note,
+            parent_revision=parent_revision,
+        )
+        if isinstance(revision_or_error, str):
+            return revision_or_error
+        revision = revision_or_error
+        from database import Asset
+
+        asset = await session.get(Asset, revision.asset_id)
+        asset_ids = [revision.asset_id]
+        artifact_info = {
+            "asset_id": revision.asset_id,
+            "revision_id": revision.id,
+            "revision_number": revision.revision_number,
+            "note": revision.note,
+            "title": asset.title if asset else None,
+        }
+    else:
+        asset_ids = await _apply_show_disposition(
+            session=session,
+            chat_id=chat_id,
+            media_ids=normalized_media_ids,
+            role=role,
+        )
     asset_by_media = dict(zip(normalized_media_ids, asset_ids))
     for row in rows:
         row_media_id = row.get("output", {}).get("media_id")
@@ -149,7 +209,7 @@ async def show(
         if asset_id is not None:
             row["output"]["asset_id"] = asset_id
 
-    return await _create_display_item(
+    result = await _create_display_item(
         session=session,
         chat_id=chat_id,
         rows=rows,
@@ -158,7 +218,65 @@ async def show(
         media_ids=normalized_media_ids,
         asset_ids=[asset_id for asset_id in asset_ids if asset_id is not None],
         ws_manager=ws_manager,
+        artifact_info=artifact_info,
+        asset_by_media=asset_by_media,
     )
+    if artifact_info:
+        result = (
+            f"{result}\n"
+            f"artifact: asset_id={artifact_info['asset_id']} "
+            f"revision=v{artifact_info['revision_number']} "
+            f"revision_id={artifact_info['revision_id']}"
+        )
+    return result
+
+
+async def _commit_show_artifact(
+    *,
+    session: AsyncSession,
+    chat_id: int | None,
+    media_id: int,
+    revises: int,
+    revision_note: str | None,
+    parent_revision: int | None,
+):
+    """Commit media_id as the next revision of the `revises` artifact.
+
+    Returns the new AssetRevision on success, or a facts-only error string.
+    """
+    from datetime import datetime
+
+    from asset_association_service import mirror_media_associations_to_asset
+    from asset_service import AssetServiceError, commit_artifact_revision
+    from database import MediaOwner
+
+    try:
+        revision = await commit_artifact_revision(
+            session,
+            media_id=media_id,
+            revises=revises,
+            note=revision_note,
+            parent_revision_id=parent_revision,
+        )
+    except AssetServiceError as e:
+        return f"Error: Could not commit revision: {e}"
+
+    await mirror_media_associations_to_asset(session, media_id=media_id, asset_id=revision.asset_id)
+    owners = list(
+        await session.scalars(
+            select(MediaOwner).where(
+                MediaOwner.media_id == media_id,
+                MediaOwner.root_kind == "chat",
+                MediaOwner.root_id == str(chat_id),
+                MediaOwner.deleted_at.is_(None),
+            )
+        )
+    )
+    now = datetime.utcnow()
+    for owner in owners:
+        owner.deleted_at = now
+    await session.flush()
+    return revision
 
 
 async def _apply_show_disposition(
@@ -388,7 +506,8 @@ async def _auto_save_path(
 
 
 async def _create_display_item(
-    session, chat_id, rows, title, role, media_ids, asset_ids, ws_manager
+    session, chat_id, rows, title, role, media_ids, asset_ids, ws_manager,
+    artifact_info=None, asset_by_media=None,
 ):
     from database import ChatItem
 
@@ -398,6 +517,8 @@ async def _create_display_item(
         "status": "complete",
         "rows": rows,
     }
+    if artifact_info:
+        display_data["artifact"] = artifact_info
 
     display_item = ChatItem(
         chat_id=chat_id,
@@ -431,13 +552,28 @@ async def _create_display_item(
         "chat_id": chat_id,
         "item": display_item.to_dict(),
     })
-    if role == "final":
+    if role == "final" and artifact_info:
+        await ws_manager.broadcast("asset_current_revision_changed", {
+            "asset_id": artifact_info["asset_id"],
+            "revision_id": artifact_info["revision_id"],
+        })
+    elif role == "final":
         for index, asset_id in enumerate(asset_ids):
             await ws_manager.broadcast("asset_created", {
                 "asset_id": asset_id,
                 "media_id": media_ids[index] if index < len(media_ids) else None,
             })
 
-    if len(rows) == 1:
-        return "Displayed 1 item to user."
-    return f"Displayed {len(rows)} items to user."
+    base = "Displayed 1 item to user." if len(rows) == 1 else f"Displayed {len(rows)} items to user."
+    if role != "final" or not asset_by_media:
+        return base
+
+    # role='final' always creates an Asset — report its id so a follow-up
+    # show(revises=...) call has an unambiguous handle instead of a media_id
+    # that might collide with an unrelated asset's id.
+    pairs = [(mid, aid) for mid, aid in asset_by_media.items() if aid is not None]
+    if not pairs:
+        return base
+    if len(pairs) == 1:
+        return f"{base} asset_id={pairs[0][1]}"
+    return base + " " + ", ".join(f"media_id={mid} asset_id={aid}" for mid, aid in pairs)

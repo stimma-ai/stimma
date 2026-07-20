@@ -15,8 +15,34 @@
       @rename="renameChatFromStrip"
     />
 
-    <!-- Content area: chat + settings row, with optional image strip below -->
-    <div class="flex flex-1 flex-col min-h-0">
+    <!-- Content area: artifact stage (standalone only) + chat column -->
+    <div class="flex flex-1 min-h-0">
+      <template v-if="!embedded">
+        <ArtifactStage
+          v-if="artifactStage.stageOpen.value"
+          :asset="artifactStage.asset.value"
+          :revisions="artifactStage.revisions.value"
+          :viewed-revision-id="artifactStage.viewedRevisionId.value"
+          :viewed-revision="artifactStage.viewedRevision.value"
+          :latest-revision-id="artifactStage.latestRevisionId.value"
+          :on-newest="artifactStage.onNewest.value"
+          :loading="artifactStage.loading.value"
+          :class="artifactStage.resizing.value ? '!transition-none' : ''"
+          @close="artifactStage.close"
+          @select-revision="artifactStage.viewRevision"
+          @jump-newest="artifactStage.jumpToNewest"
+          @set-latest="artifactStage.setAsLatest"
+          @open-slideshow="(mediaId) => openSlideshow(mediaId, 0)"
+          @open-library="openArtifactInLibrary"
+        />
+        <div
+          v-if="artifactStage.stageOpen.value"
+          class="w-1 flex-shrink-0 cursor-col-resize select-none hover:bg-accent/40 active:bg-accent/60 transition-colors"
+          @mousedown="artifactStage.startResize"
+        />
+      </template>
+
+    <div class="flex flex-1 flex-col min-h-0" :style="!embedded && artifactStage.stageOpen.value ? { flex: `0 0 ${artifactStage.width.value}px`, minWidth: 0 } : {}">
       <!-- Chat + Settings horizontal row -->
       <div class="flex flex-1 min-h-0">
         <!-- Main chat area -->
@@ -896,17 +922,29 @@
           </div>
           <template v-else-if="item.item_type === 'tool_result'"></template>
 
-          <!-- Media Display: left-aligned, expands as needed -->
-          <div v-else-if="item.item_type === 'media_display'" class="flex justify-start">
+          <!-- Media Display: left-aligned, expands as needed. Artifact revisions
+               belonging to this chat's staged asset collapse to a compact
+               version chip (Mock A/B) — clicking navigates the stage, or
+               reopens it if the user closed it. -->
+          <div v-else-if="item.item_type === 'media_display'" class="flex justify-start" :class="{ 'w-full': !getStagedItemArtifact(item) }">
             <ChatItemWrapper
-              class="w-full"
+              :class="getStagedItemArtifact(item) ? '' : 'w-full'"
               :item-id="item.id"
               align="left"
               @branch="branchFromHere(item.id)" @delete-from-here="deleteFromHere(item.id)"
               @delete="deleteItem(item.id)"
               @debug="showDebugForItem(item.id)"
             >
+              <ArtifactVersionChip
+                v-if="getStagedItemArtifact(item)"
+                :artifact="getStagedItemArtifact(item)"
+                :revision="artifactStage.findRevision(getStagedItemArtifact(item).revision_id)"
+                :is-current="artifactStage.viewedRevisionId.value === getStagedItemArtifact(item).revision_id"
+                :is-latest="artifactStage.latestRevisionId.value === getStagedItemArtifact(item).revision_id"
+                @click="artifactStage.selectFromChip(getStagedItemArtifact(item))"
+              />
               <MediaDisplay
+                v-else
                 :display-data="parseMediaDisplayData(item)"
                 :chat-item-id="item.id"
                 :show-role="item.show_role"
@@ -1334,6 +1372,7 @@
         @drag-media="handleStripDragStart"
       />
     </div>
+    </div>
 
     <!-- Context Menu (teleports to body) -->
     <!-- No @refresh handler - chat doesn't need to reload when media is trashed/restored -->
@@ -1372,6 +1411,9 @@ defineOptions({
   name: 'ChatView'
 })
 import MediaDisplay from '../components/chat/MediaDisplay.vue'
+import ArtifactStage from '../components/chat/ArtifactStage.vue'
+import ArtifactVersionChip from '../components/chat/ArtifactVersionChip.vue'
+import { useArtifactStage, parseArtifactMeta } from '../composables/useArtifactStage'
 import GridGenerationDisplay from '../components/chat/GridGenerationDisplay.vue'
 import ProgressDisplay from '../components/chat/ProgressDisplay.vue'
 import AnalysisResult from '../components/chat/AnalysisResult.vue'
@@ -1450,6 +1492,10 @@ const { compareState, enterCompare, exitCompare, swapImages: swapCompareImages }
 const chatId = ref(null)
 const chat = ref(null)
 const items = ref([])
+// Artifact stage: standalone chats only (see props.embedded guard in template
+// and sendMessage). Instantiated unconditionally — cheap when there's no
+// artifact in the chat — so embedded usage never has to special-case it.
+const artifactStage = useArtifactStage(chatId, items)
 const loading = ref(true)
 const loadError = ref(false)
 const brokenMediaIds = ref(new Set<number>()) // Track media that failed to load (404/deleted)
@@ -1676,6 +1722,15 @@ function parseMediaDisplayData(item) {
     console.error('Failed to parse media display data:', e)
     return { rows: [], status: 'pending' }
   }
+}
+
+// Artifact chip collapse: only in standalone chats, and only once this chat's
+// active artifact asset is known (composable loads it lazily on first sight).
+function getStagedItemArtifact(item) {
+  if (props.embedded || artifactStage.assetId.value == null) return null
+  const meta = parseArtifactMeta(item)
+  if (!meta || meta.asset_id !== artifactStage.assetId.value) return null
+  return meta
 }
 
 function parseProgressDisplayData(item) {
@@ -3353,7 +3408,17 @@ async function sendMessage(queuedMessage = null) {
         // Selected media IDs are passed to the agent for "that one" / "the third one" references
         selected_media_ids: allSelectedIds.length > 0 ? allSelectedIds : null,
         // Attachments include both library items and uploaded files
-        attachments: attachments.length > 0 ? attachments : null
+        attachments: attachments.length > 0 ? attachments : null,
+        // Sent while pinned to an older artifact revision: tells the agent
+        // which version the user means so an edit branches from there
+        // instead of continuing off the latest.
+        artifact_context: (!props.embedded && artifactStage.stageOpen.value && !artifactStage.onNewest.value && artifactStage.assetId.value != null)
+          ? {
+              asset_id: artifactStage.assetId.value,
+              revision_id: artifactStage.viewedRevisionId.value,
+              revision_number: artifactStage.viewedRevision.value?.revision_number ?? null,
+            }
+          : null
       })
     })
 
@@ -3877,6 +3942,10 @@ function parseMarkdownSegments(text) {
 }
 
 // Open slideshow at a specific media ID
+function openArtifactInLibrary(assetId) {
+  router.push({ name: 'browse', query: { slideshowAsset: assetId } })
+}
+
 function openSlideshow(mediaId, indexInGrid) {
   if (liveChatMediaIds.value.length === 0) return
 

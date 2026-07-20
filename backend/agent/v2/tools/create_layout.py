@@ -25,7 +25,7 @@ log = get_logger(__name__)
 
 @tool(
     name="create_layout",
-    description="Create a fixed-size layout from HTML/CSS and save it to the library. Think of width/height as your canvas/artboard — the HTML must fill this canvas exactly, like choosing dimensions for image generation. Returns the media_id of the saved layout. Preferred workflow: write HTML to a workspace file with write_file, then pass the file path here. Image src paths are resolved relative to the workspace directory only — use exact filenames for files already in the workspace. For library media, copy it into the workspace first via library(action='get', media_id=...). Do not use guessed filenames or absolute filesystem paths in img src.",
+    description="Create a fixed-size layout from HTML/CSS and save it to the library. Think of width/height as your canvas/artboard — the HTML must fill this canvas exactly, like choosing dimensions for image generation. Returns the media_id of the saved layout. Preferred workflow: write HTML to a workspace file with write_file, then pass the file path here. Image src paths are resolved relative to the workspace directory only — use exact filenames for files already in the workspace. For library media, copy it into the workspace first via library(action='get', media_id=...). Do not use guessed filenames or absolute filesystem paths in img src. To display the render as the next version of an existing artifact, call show with revises=<asset_id> afterward — this tool only renders and saves.",
     parameters=[
         ToolParameter(
             name="file",

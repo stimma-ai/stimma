@@ -69,6 +69,7 @@ class ChatItemCreateRequest(PydanticBaseModel):
     item_metadata: Optional[str] = None
     selected_media_ids: Optional[List[int]] = None  # Media IDs user selected before sending
     attachments: Optional[List[AttachmentInfo]] = None  # Images attached to message
+    artifact_context: Optional[dict] = None  # {asset_id, revision_id, revision_number} user is viewing
 
 
 class ChatResponse(PydanticBaseModel):
@@ -449,6 +450,7 @@ async def _run_agent_background(
     user_message: Optional[str],
     profile_id: Optional[str],
     selected_media_ids: Optional[List[int]] = None,
+    artifact_context: Optional[dict] = None,
 ):
     """Run the agent loop in the background with its own database session.
 
@@ -495,6 +497,7 @@ async def _run_agent_background(
                 session=session,
                 ws_manager=ws_manager,
                 selected_media_ids=selected_media_ids,
+                artifact_context=artifact_context,
             )
             log.info(f"run_agent completed for chat {chat_id}")
     except Exception as e:
@@ -1680,6 +1683,7 @@ async def create_chat_item(
                 user_message=request.message_text,
                 profile_id=get_current_profile(),
                 selected_media_ids=request.selected_media_ids,
+                artifact_context=request.artifact_context,
             )
         )
 

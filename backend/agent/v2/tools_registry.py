@@ -43,6 +43,7 @@ class ToolParameter:
     default: Any = None
     enum: Optional[List[str]] = None
     items: Optional[Dict[str, Any]] = None  # For array types: schema of each item
+    scopes: Optional[frozenset] = None  # None = visible in every scope the tool is; else restrict to these
 
 
 @dataclass
@@ -64,11 +65,18 @@ class Tool:
             return True
         return self.scope == scope
 
-    def to_openai_schema(self) -> dict:
-        """Convert to OpenAI function-calling tool schema."""
+    def to_openai_schema(self, scope: str = "agent") -> dict:
+        """Convert to OpenAI function-calling tool schema.
+
+        Parameters whose ``scopes`` restricts them to a different scope than
+        the caller's are omitted, so e.g. a "both" tool can offer a param
+        only in agent chats without needing a second tool registration.
+        """
         properties = {}
         required = []
         for p in self.parameters:
+            if p.scopes is not None and scope not in p.scopes:
+                continue
             prop = {
                 "type": p.type,
                 "description": p.description,
@@ -145,7 +153,7 @@ def get_tools_schema(scope: str = "agent") -> List[dict]:
             f"{sorted(VALID_SCOPES)}"
         )
     return [
-        t.to_openai_schema()
+        t.to_openai_schema(scope=scope)
         for t in _tools.values()
         if t.visible_in(scope) and t.name not in RETIRED_TOOLS
     ]

@@ -70,6 +70,12 @@ saved to the library as a new asset (with lineage) rather than pointing at a wor
 Showing existing or found material (e.g. images downloaded from the web at the user's request) is display, not production — \
 show those with `role="intermediate"`, and only save them as assets if the user asks to keep them.
 
+**Iterating on one deliverable**: When you and the user are iterating on a single deliverable — refining one layout, image, \
+or video across turns — commit each iteration as a revision of the same asset by passing `revises=` with the asset id from \
+your earlier tool result, plus a brief `revision_note`, so the user can step through versions. When exploring alternatives \
+or producing unrelated outputs, show them separately. If the user picks one alternative to refine, that pick becomes the \
+asset you revise.
+
 **Reference image**: When the user attaches a file, the `[Attached files …]` annotation shows the exact media_id to use.
 
 **When to pass `input_images`**: If the user approved, selected, or referenced specific images and wants them preserved \

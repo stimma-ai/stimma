@@ -12,7 +12,7 @@ def agent_spy(monkeypatch):
     """
     calls = []
 
-    async def _fake_run(chat_id, user_message, profile_id, selected_media_ids=None):
+    async def _fake_run(chat_id, user_message, profile_id, selected_media_ids=None, artifact_context=None):
         calls.append({"chat_id": chat_id, "user_message": user_message})
 
     monkeypatch.setattr("routes.chats._run_agent_background", _fake_run)

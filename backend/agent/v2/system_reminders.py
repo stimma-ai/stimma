@@ -12,6 +12,8 @@ passes them to build_messages().
 
 from typing import List, Optional, Set
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from .stimpacks import SkillInfo
 
 
@@ -62,6 +64,43 @@ def build_skills_reminder(
         )
     lines.append("</system-reminder>")
     return "\n".join(lines)
+
+
+async def build_artifact_context_reminder(
+    session: AsyncSession,
+    artifact_context: Optional[dict],
+) -> Optional[str]:
+    """Tell the agent which artifact revision the user is currently looking at.
+
+    ``artifact_context`` comes from the chat send-message payload as
+    ``{asset_id, revision_id, revision_number}``. Silent (returns None) when
+    the user is viewing the current revision — nothing to say — or the
+    revision no longer exists.
+    """
+    if not artifact_context:
+        return None
+    asset_id = artifact_context.get("asset_id")
+    revision_id = artifact_context.get("revision_id")
+    revision_number = artifact_context.get("revision_number")
+    if not asset_id or not revision_id:
+        return None
+
+    from database import Asset
+
+    asset = await session.get(Asset, asset_id)
+    if asset is None or asset.deleted_at is not None:
+        return None
+    if asset.current_revision_id == revision_id:
+        return None
+
+    return (
+        "<system-reminder>\n"
+        f"The user is currently viewing revision {revision_number} (revision_id={revision_id}) "
+        f"of asset {asset_id}, not its latest version. If they ask for changes, commit the "
+        f"result with revises={asset_id} and parent_revision={revision_id} so the new revision "
+        "branches from what they're looking at.\n"
+        "</system-reminder>"
+    )
 
 
 def build_user_program_edit_reminder(flow_id: int) -> Optional[str]:

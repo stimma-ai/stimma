@@ -1851,6 +1851,22 @@ async def get_asset(asset_id: int, session: AsyncSession = Depends(get_db_sessio
     return _projection(*row)
 
 
+def _revision_entry(revision: AssetRevision, media: MediaItem) -> dict:
+    """Flattened revision + primary-media projection used by revision pickers."""
+    return {
+        "id": revision.id,
+        "revision_number": revision.revision_number,
+        "parent_revision_id": revision.parent_revision_id,
+        "note": revision.note,
+        "created_at": revision.created_at.isoformat(),
+        "media_id": media.id,
+        "media_hash": media.file_hash,
+        "file_format": media.file_format,
+        "width": media.width,
+        "height": media.height,
+    }
+
+
 @router.get("/{asset_id}/revisions")
 async def list_asset_revisions(
     asset_id: int, session: AsyncSession = Depends(get_db_session)
@@ -1867,11 +1883,23 @@ async def list_asset_revisions(
         )
     ).all()
     return {
+        # Legacy shape (descending, nested media) — kept for existing consumers
+        # (ImageEditorView, SlideshowInfoPanel version pickers).
         "current_revision_id": asset.current_revision_id,
         "items": [
             {**revision.to_dict(), "media": media.to_dict()}
             for revision, media in rows
-        ]
+        ],
+        # Artifact-revisions shape: ascending, flattened.
+        "asset": {
+            "id": asset.id,
+            "title": asset.title,
+            "current_revision_id": asset.current_revision_id,
+        },
+        "revisions": [
+            _revision_entry(revision, media)
+            for revision, media in sorted(rows, key=lambda pair: pair[0].revision_number)
+        ],
     }
 
 
@@ -1895,7 +1923,11 @@ async def restore_asset_revision_route(
         "asset_current_revision_changed",
         {"asset_id": asset_id, "revision_id": revision.id, "asset": item},
     )
-    return {"revision": revision.to_dict(), "asset": item}
+    restored_media = await session.get(MediaItem, revision.primary_media_id)
+    revision_payload = revision.to_dict()
+    if restored_media is not None:
+        revision_payload.update(_revision_entry(revision, restored_media))
+    return {"revision": revision_payload, "asset": item}
 
 
 @router.get("/{asset_id}/deletion-preview")
