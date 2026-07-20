@@ -3,7 +3,7 @@ from .context import WorkingContext, MediaRef, ToolOutput
 from .hitl import HumanActionRequest, HumanActionRequired
 
 
-async def run_agent(chat, user_message, session, ws_manager, selected_media_ids=None, max_turns=None, force_plan=False):
+async def run_agent(chat, user_message, session, ws_manager, selected_media_ids=None, max_turns=None, force_plan=False, artifact_context=None):
     """Run the agent (v2 agentic loop).
 
     ``max_turns=None`` lets the v2 loop derive the cap from the chat
@@ -12,7 +12,7 @@ async def run_agent(chat, user_message, session, ws_manager, selected_media_ids=
     the v2 ``if max_turns is None`` fall-through dead — so leave it None.
     """
     from .v2 import run_agent as _v2_run_agent
-    await _v2_run_agent(chat, user_message, session, ws_manager, selected_media_ids, max_turns, force_plan)
+    await _v2_run_agent(chat, user_message, session, ws_manager, selected_media_ids, max_turns, force_plan, artifact_context=artifact_context)
 
 
 async def abort_plan(chat, session, ws_manager):
