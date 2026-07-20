@@ -62,14 +62,17 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
   const width = ref(STAGE_DEFAULT_WIDTH)
   const resizing = ref(false)
 
-  function closedKey(id: number | string) {
-    return makeStorageKey('chat', id, 'artifact_stage_closed')
+  // Closed-state is per chat AND asset: dismissing one artifact must not
+  // suppress the next one the agent starts in the same chat.
+  function closedKey(id: number | string, forAssetId: number) {
+    return makeStorageKey('chat', id, 'artifact_stage_closed', forAssetId)
   }
   function widthKey(id: number | string) {
     return makeStorageKey('chat', id, 'artifact_stage_width')
   }
-  function isUserClosed(): boolean {
-    return chatId.value != null && localStorage.getItem(closedKey(chatId.value)) === 'true'
+  function isUserClosed(forAssetId: number | null = assetId.value): boolean {
+    return chatId.value != null && forAssetId != null
+      && localStorage.getItem(closedKey(chatId.value, forAssetId)) === 'true'
   }
 
   // The most recent artifact-bearing item in the chat wins identity — this
@@ -129,12 +132,16 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
       viewedRevisionId.value = revisionId
     }
     stageOpen.value = true
-    if (chatId.value != null) localStorage.removeItem(closedKey(chatId.value))
+    if (chatId.value != null && assetId.value != null) {
+      localStorage.removeItem(closedKey(chatId.value, assetId.value))
+    }
   }
 
   function close() {
     stageOpen.value = false
-    if (chatId.value != null) localStorage.setItem(closedKey(chatId.value), 'true')
+    if (chatId.value != null && assetId.value != null) {
+      localStorage.setItem(closedKey(chatId.value, assetId.value), 'true')
+    }
   }
 
   // Chip click: navigates within an open stage, or reopens a closed one.
@@ -167,11 +174,13 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
   watch(latestArtifactAssetId, (id) => {
     if (id == null) return
     if (assetId.value === id) {
-      if (!isUserClosed()) stageOpen.value = true
+      if (!isUserClosed(id)) stageOpen.value = true
       return
     }
     syncAsset(id).then(() => {
-      if (!isUserClosed()) stageOpen.value = true
+      if (!isUserClosed(id)) stageOpen.value = true
+    }).catch((err) => {
+      console.error('[artifact-stage] failed to load revisions for asset', id, err)
     })
   }, { immediate: true })
 
@@ -180,9 +189,11 @@ export function useArtifactStage(chatId: Ref<number | string | null>, items: Ref
   // item is simpler and cheaper than reconciling WS payloads by hand.
   watch(() => items.value.length, () => {
     const meta = latestArtifactMeta.value
-    if (!meta || meta.asset_id !== assetId.value) return
+    if (!meta || meta.asset_id == null || meta.asset_id !== assetId.value) return
     if (!revisions.value.some(r => r.id === meta.revision_id)) {
-      syncAsset(assetId.value, { keepViewed: true })
+      // On the latest revision → the new one always jumps into view; pinned
+      // to an older one → stay put (the Jump to newest pill covers the gap).
+      syncAsset(assetId.value, { keepViewed: !onNewest.value })
     }
   })
 

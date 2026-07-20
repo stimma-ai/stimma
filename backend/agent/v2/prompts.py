@@ -74,7 +74,9 @@ show those with `role="intermediate"`, and only save them as assets if the user 
 or video across turns — commit each iteration as a revision of the same asset by passing `revises=` with the asset id from \
 your earlier tool result, plus a brief `revision_note`, so the user can step through versions. When exploring alternatives \
 or producing unrelated outputs, show them separately. If the user picks one alternative to refine, that pick becomes the \
-asset you revise.
+asset you revise. When the request is for a single work-product from the start — a poster, a business card, one video — \
+rather than exploration, mark that first `show(..., role="final")` with `artifact=True` so the user can start iterating from \
+v1 immediately.
 
 **Reference image**: When the user attaches a file, the `[Attached files …]` annotation shows the exact media_id to use.
 

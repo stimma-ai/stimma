@@ -68,9 +68,16 @@ log = get_logger(__name__)
             scopes=frozenset({"agent"}),
         ),
         ToolParameter(
+            name="artifact",
+            type="boolean",
+            description="Mark this as the first version of a single deliverable the user will iterate on, so the stage opens on it immediately instead of only appearing once you later call revises=. role must be 'final' and only one item may be shown; mutually exclusive with revises (which is for the follow-up iterations, not the first version).",
+            required=False,
+            scopes=frozenset({"agent"}),
+        ),
+        ToolParameter(
             name="revision_note",
             type="string",
-            description="Short note describing what changed in this revision. Only meaningful with revises.",
+            description="Short note describing what changed in this revision. Only meaningful with revises or artifact.",
             required=False,
             scopes=frozenset({"agent"}),
         ),
@@ -92,6 +99,7 @@ async def show(
     paths: list[str] | None = None,
     title: str | None = None,
     revises: int | None = None,
+    artifact: bool = False,
     revision_note: str | None = None,
     parent_revision: int | None = None,
     **kwargs,
@@ -111,6 +119,8 @@ async def show(
     if not normalized_media_ids and not normalized_paths:
         return "Error: Provide media_id/media_ids and/or path/paths"
 
+    if revises is not None and artifact:
+        return "Error: revises and artifact are mutually exclusive"
     if revises is not None:
         if kwargs.get("_tool_scope") == "flow":
             return "Error: revises is not available in flow chats"
@@ -118,6 +128,13 @@ async def show(
             return "Error: revises requires exactly one media_id or path"
         if role != "final":
             return "Error: revises requires role='final'"
+    elif artifact:
+        if kwargs.get("_tool_scope") == "flow":
+            return "Error: artifact is not available in flow chats"
+        if len(normalized_media_ids) + len(normalized_paths) != 1:
+            return "Error: artifact requires exactly one media_id or path"
+        if role != "final":
+            return "Error: artifact requires role='final'"
 
     # Guard: skip media_ids that were already displayed this turn
     shown: set[int] | None = kwargs.get("_shown_media_ids")
@@ -196,12 +213,38 @@ async def show(
             "title": asset.title if asset else None,
         }
     else:
+        if artifact and normalized_media_ids:
+            artifact_media_id = normalized_media_ids[0]
+            if format_map.get(artifact_media_id) in {"stimmaset.json", "stimmagrid.json"}:
+                return "Error: artifact does not support sets or grids"
         asset_ids = await _apply_show_disposition(
             session=session,
             chat_id=chat_id,
             media_ids=normalized_media_ids,
             role=role,
         )
+        if artifact and normalized_media_ids and asset_ids and asset_ids[0] is not None:
+            from database import Asset, AssetRevision
+
+            asset = await session.get(Asset, asset_ids[0])
+            current_revision = (
+                await session.get(AssetRevision, asset.current_revision_id)
+                if asset and asset.current_revision_id
+                else None
+            )
+            if current_revision is not None:
+                # The display title is the artifact's natural name; the plain
+                # disposition path leaves Asset.title empty.
+                if asset is not None and not asset.title and title:
+                    asset.title = title
+                    await session.flush()
+                artifact_info = {
+                    "asset_id": asset.id,
+                    "revision_id": current_revision.id,
+                    "revision_number": current_revision.revision_number,
+                    "note": revision_note,
+                    "title": asset.title,
+                }
     asset_by_media = dict(zip(normalized_media_ids, asset_ids))
     for row in rows:
         row_media_id = row.get("output", {}).get("media_id")
@@ -220,6 +263,7 @@ async def show(
         ws_manager=ws_manager,
         artifact_info=artifact_info,
         asset_by_media=asset_by_media,
+        artifact_is_new_asset=bool(artifact),
     )
     if artifact_info:
         result = (
@@ -507,7 +551,7 @@ async def _auto_save_path(
 
 async def _create_display_item(
     session, chat_id, rows, title, role, media_ids, asset_ids, ws_manager,
-    artifact_info=None, asset_by_media=None,
+    artifact_info=None, asset_by_media=None, artifact_is_new_asset=False,
 ):
     from database import ChatItem
 
@@ -552,7 +596,7 @@ async def _create_display_item(
         "chat_id": chat_id,
         "item": display_item.to_dict(),
     })
-    if role == "final" and artifact_info:
+    if role == "final" and artifact_info and not artifact_is_new_asset:
         await ws_manager.broadcast("asset_current_revision_changed", {
             "asset_id": artifact_info["asset_id"],
             "revision_id": artifact_info["revision_id"],
