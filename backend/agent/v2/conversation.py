@@ -1,7 +1,6 @@
 """V2 conversation builder — maps ChatItems to LLM messages."""
 
 import base64
-import io
 import json
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import ChatItem
 from core.logging import get_logger
+from .vision_payload import encode_agent_jpeg
 
 log = get_logger(__name__)
 
@@ -19,6 +19,7 @@ log = get_logger(__name__)
 STALE_TURN_THRESHOLD = 3       # Tool results older than this many user turns get compressed
 TRUNCATION_MIN_CHARS = 500     # Only compress tool results larger than this
 RECENT_TURNS_TO_KEEP = 5       # User turns to preserve in token-budget backstop
+MAX_ACTIVE_VIEW_IMAGES = 4     # Hard multimodal budget; older images stay tool-retrievable
 COMPACTION_PCT = 0.80          # Fraction of the context window we're willing to fill
 
 
@@ -319,6 +320,7 @@ def _build_view_image_result(tool_call_id: str, marker: dict) -> dict:
         from utils.image_ops import open_oriented
         img = open_oriented(resolved)
         w, h = img.size
+        resized_for_payload = False
         # Markers written by current view_image point at a pre-rendered
         # snapshot and carry the source's native size. Older markers point at
         # the source file itself, so its pre-resize size IS the native size.
@@ -327,14 +329,21 @@ def _build_view_image_result(tool_call_id: str, marker: dict) -> dict:
             scale = max_side / max(w, h)
             w, h = int(w * scale), int(h * scale)
             img = img.resize((w, h), Image.LANCZOS)
+            resized_for_payload = True
 
-        # Convert to RGB if necessary (e.g. RGBA, P mode)
-        if img.mode not in ("RGB", "L"):
-            img = img.convert("RGB")
-
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+        # New markers already point at a cached JPEG snapshot. Read those bytes
+        # directly so rebuilding a conversation does not repeat image encoding.
+        if (
+            marker.get("media_type") == "image/jpeg"
+            and resolved.suffix.lower() in {".jpg", ".jpeg"}
+            and not resized_for_payload
+        ):
+            encoded = resolved.read_bytes()
+        else:
+            # Legacy PNG markers are still accepted, but all model-bound bytes
+            # use the same JPEG-85 policy as newly created snapshots.
+            encoded = encode_agent_jpeg(img)
+        b64 = base64.b64encode(encoded).decode("ascii")
     except Exception as e:
         log.warning(f"Failed to load image for view_image: {e}")
         return {
@@ -371,7 +380,7 @@ def _build_view_image_result(tool_call_id: str, marker: dict) -> dict:
         "tool_call_id": tool_call_id,
         "content": [
             {"type": "text", "text": text},
-            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
         ],
     }
 
@@ -446,17 +455,29 @@ async def _compress_stale_items(
 
     - Replaces large tool results older than STALE_TURN_THRESHOLD user turns
     - Replaces superseded run_code arguments with a line-count summary
-    - Replaces view_image markers older than STALE_TURN_THRESHOLD user turns
-      with a text placeholder (they'd otherwise re-embed full image bytes as
-      base64 on every build_messages call, regardless of their tiny stored
-      JSON length)
+    - Keeps at most MAX_ACTIVE_VIEW_IMAGES raw images, all from within the most
+      recent STALE_TURN_THRESHOLD user turns. Older markers become lightweight
+      placeholders and remain retrievable by calling view_image again.
     """
     # Find user turn boundaries in the items list
     user_turn_indices = [i for i, item in enumerate(items) if item.item_type == "user_message"]
-    if len(user_turn_indices) <= STALE_TURN_THRESHOLD:
-        return
+    cutoff_idx = (
+        user_turn_indices[-STALE_TURN_THRESHOLD]
+        if len(user_turn_indices) > STALE_TURN_THRESHOLD
+        else 0
+    )
 
-    cutoff_idx = user_turn_indices[-STALE_TURN_THRESHOLD]
+    view_image_indices: list[int] = []
+    for i, item in enumerate(items):
+        if item.item_type != "tool_result" or not item.tool_result:
+            continue
+        try:
+            parsed = json.loads(item.tool_result)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if isinstance(parsed, dict) and parsed.get("__view_image__"):
+            view_image_indices.append(i)
+    retained_image_indices = set(view_image_indices[-MAX_ACTIVE_VIEW_IMAGES:])
 
     # Build tool_call_id -> tool_name mapping and find the last run_code call
     call_id_to_name: Dict[str, str] = {}
@@ -470,9 +491,6 @@ async def _compress_stale_items(
     dirty = False
 
     for i, item in enumerate(items):
-        if i >= cutoff_idx:
-            break
-
         # Compress old tool results
         if item.item_type == "tool_result":
             content = item.tool_result or item.tool_error or ""
@@ -488,13 +506,17 @@ async def _compress_stale_items(
                 except (json.JSONDecodeError, TypeError):
                     parsed = None
 
-                if isinstance(parsed, dict) and parsed.get("__view_image__"):
+                if (
+                    isinstance(parsed, dict)
+                    and parsed.get("__view_image__")
+                    and (i < cutoff_idx or i not in retained_image_indices)
+                ):
                     if item.tool_result:
                         item.tool_result = "[Image shown earlier in this conversation — call view_image again if you need to see it]"
                         dirty = True
                     continue
 
-            if isinstance(content, str) and len(content) > TRUNCATION_MIN_CHARS:
+            if i < cutoff_idx and isinstance(content, str) and len(content) > TRUNCATION_MIN_CHARS:
                 tool_name = call_id_to_name.get(item.tool_call_id or "", "tool")
                 placeholder = f"[{tool_name} result: {len(content)} chars — use the tool again if you need this data]"
                 if item.tool_result and len(item.tool_result) > TRUNCATION_MIN_CHARS:
@@ -505,7 +527,7 @@ async def _compress_stale_items(
                     dirty = True
 
         # Compress superseded run_code arguments
-        if item.item_type == "tool_call" and item.tool_name == "run_code":
+        if i < cutoff_idx and item.item_type == "tool_call" and item.tool_name == "run_code":
             if item.tool_call_id != last_run_code_call_id:
                 args_str = item.tool_args or "{}"
                 try:

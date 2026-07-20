@@ -79,6 +79,7 @@ from core.logging import get_logger
 
 from project_service import infer_project_id_from_workspace_path
 from .code_lint import lint_code, format_lint_errors
+from .vision_payload import encode_agent_jpeg
 from .tools.call_tool import execute_call_tool, _json_safe_pathlikes
 from .tools.delegate import _run_delegate_loop
 from .tools.library import get_media_for_workspace, save_workspace_file
@@ -1256,8 +1257,8 @@ class StimmaSDK:
         llm_config = await get_chat_llm_config(self._effective_model_slug, role="agent")
         text_part: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
         # Cap to the same max side as view_image's "high" detail — full-resolution
-        # photos base64-encode to megabytes each, which silently blows past the
-        # cloud LLM proxy's 4MB request cap and its per-request cost estimate.
+        # photos base64-encode to megabytes each and waste the multimodal body
+        # budget without improving the model's visual embeddings.
         max_side = 1024
         for image in images or []:
             image_path = self._resolve_path(image)
@@ -1270,9 +1271,8 @@ class StimmaSDK:
                     scale = max_side / max(img.size)
                     w, h = int(img.width * scale), int(img.height * scale)
                     img = img.resize((w, h), Image.LANCZOS)
-                buf = io.BytesIO()
-                img.save(buf, format="JPEG", quality=90)
-            b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+                encoded = encode_agent_jpeg(img)
+            b64 = base64.b64encode(encoded).decode("ascii")
             text_part.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
         messages = [{"role": "user", "content": text_part if len(text_part) > 1 else prompt}]
         resp = await llm_completion(llm_config, messages)

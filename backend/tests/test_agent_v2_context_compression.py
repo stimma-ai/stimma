@@ -3,6 +3,7 @@ import json
 import pytest
 
 from agent.v2.conversation import (
+    MAX_ACTIVE_VIEW_IMAGES,
     STALE_TURN_THRESHOLD,
     TRUNCATION_MIN_CHARS,
     _compress_stale_items,
@@ -79,6 +80,21 @@ async def test_only_view_image_results_older_than_the_threshold_are_compressed()
     )
     parsed = json.loads(recent_view_image.tool_result)
     assert parsed["__view_image__"] is True
+
+
+@pytest.mark.asyncio
+async def test_view_image_budget_applies_within_one_user_turn():
+    images = [_view_image_result(f"image-{i}") for i in range(MAX_ACTIVE_VIEW_IMAGES + 2)]
+    items = [_user_turn(), *images]
+
+    await _compress_stale_items(items, _NoopSession())
+
+    for image in images[:-MAX_ACTIVE_VIEW_IMAGES]:
+        assert image.tool_result == (
+            "[Image shown earlier in this conversation — call view_image again if you need to see it]"
+        )
+    for image in images[-MAX_ACTIVE_VIEW_IMAGES:]:
+        assert json.loads(image.tool_result)["__view_image__"] is True
 
 
 class TestToolCallArgsSanitized:

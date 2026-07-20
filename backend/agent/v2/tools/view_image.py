@@ -2,7 +2,6 @@
 
 import json
 import shutil
-import tempfile
 from pathlib import Path
 
 from PIL import Image
@@ -10,6 +9,7 @@ from PIL import Image
 from ..tools_registry import tool, ToolParameter
 
 from core.logging import get_logger
+from ..vision_payload import media_agent_jpeg_cache_path, write_agent_jpeg
 
 log = get_logger(__name__)
 
@@ -154,49 +154,72 @@ async def view_image(path: str = None, media_id: int = None, detail: str = "low"
         if workspace_dir:
             workspace_bundle = _copy_layout_to_workspace(resolved, workspace_dir)
 
-        # Save rasterized PNG to temp file for the conversation builder
-        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-        img.save(tmp.name, format="PNG")
+        # Layouts are mutable, so keep an immutable per-view JPEG snapshot.
+        snapshot_path = write_agent_jpeg(img)
         w, h = img.size
 
         result_data = {
             "__view_image__": True,
-            "path": tmp.name,
+            "path": str(snapshot_path),
             "size": [w, h],
             "detail": detail,
+            "media_type": "image/jpeg",
         }
         if workspace_bundle:
             result_data["layout_source"] = f"{workspace_bundle}/index.html"
 
         return json.dumps(result_data)
 
+    cache_path = None
+    if media_item is not None:
+        cache_path = media_agent_jpeg_cache_path(
+            media_id=media_item.id,
+            file_hash=media_item.file_hash,
+            max_side=max_side,
+        )
+
     try:
-        from utils.image_ops import open_oriented
-        img = open_oriented(resolved)
-        native_w, native_h = img.size
-        img = _downscale(img, max_side)
-        w, h = img.size
-        # Snapshot the rendered pixels to a temp file and point the marker at
-        # the snapshot, not the source. The conversation builder re-reads the
-        # marker path at every message build, so pointing at the live file
-        # means an overwrite silently rewrites what earlier views appear to
-        # show — the agent then sees "the same image" and invents cache bugs.
-        if img.mode not in ("RGB", "RGBA", "L", "LA", "P", "1"):
-            img = img.convert("RGB")
-        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-        img.save(tmp.name, format="PNG")
+        if cache_path is not None and cache_path.exists():
+            # Library Media is immutable, so this conversion is valid anywhere
+            # the same Media is viewed and across every continuation turn.
+            native_w, native_h = media_item.width, media_item.height
+            with Image.open(cache_path) as cached:
+                w, h = cached.size
+            snapshot_path = cache_path
+        else:
+            from utils.image_ops import open_oriented
+            img = open_oriented(resolved)
+            native_w, native_h = img.size
+            img = _downscale(img, max_side)
+            w, h = img.size
+            # Workspace paths can change in place, so they receive an immutable
+            # per-view snapshot. Library Media uses a persistent content cache.
+            snapshot_path = write_agent_jpeg(img, cache_path)
     except Exception as e:
         return f"Error opening image: {e}"
+
+    if media_item is not None and session is not None:
+        # Reuse the existing cache locator table so permanent Media deletion
+        # also removes this derived vision payload from disk.
+        from database import MediaThumbnailCache
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+        await session.execute(
+            sqlite_insert(MediaThumbnailCache)
+            .values(media_id=media_item.id, cache_path=str(snapshot_path))
+            .on_conflict_do_nothing(index_elements=["media_id", "cache_path"])
+        )
 
     # Return a JSON marker — the conversation builder will read the file
     # and inject it as multimodal content at message-build time.
     result_data = {
         "__view_image__": True,
-        "path": tmp.name,
+        "path": str(snapshot_path),
         "source_path": str(resolved),
         "size": [w, h],
         "native_size": [native_w, native_h],
         "detail": detail,
+        "media_type": "image/jpeg",
     }
 
     # Include face bounding boxes if available (coordinates normalized 0-1)
