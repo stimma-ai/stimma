@@ -125,18 +125,30 @@ class CleanupService:
                 ),
             )
         )
-        repaired_expiration = await db.execute(
-            update(Asset)
+        curated_expiring_asset_id = await db.scalar(
+            select(Asset.id)
             .where(
                 Asset.state == "active",
                 Asset.deleted_at.is_(None),
                 Asset.expires_at.is_not(None),
                 Asset.id.in_(curated_asset_ids),
             )
-            .values(expires_at=None)
+            .limit(1)
         )
-        if repaired_expiration.rowcount and repaired_expiration.rowcount > 0:
-            await db.commit()
+        await db.commit()
+        if curated_expiring_asset_id is not None:
+            repaired_expiration = await db.execute(
+                update(Asset)
+                .where(
+                    Asset.state == "active",
+                    Asset.deleted_at.is_(None),
+                    Asset.expires_at.is_not(None),
+                    Asset.id.in_(curated_asset_ids),
+                )
+                .values(expires_at=None)
+            )
+            if repaired_expiration.rowcount and repaired_expiration.rowcount > 0:
+                await db.commit()
 
         expired_assets = list(
             await db.scalars(
@@ -169,17 +181,24 @@ class CleanupService:
         # Historical Media deadlines are inert. Scrub them automatically so
         # old profiles converge on the Asset-only lifecycle without presenting
         # stale status in legacy payloads.
-        scrubbed_media = await db.execute(
-            update(MediaItem)
+        legacy_deadline_media_id = await db.scalar(
+            select(MediaItem.id)
             .where(MediaItem.auto_delete_at.is_not(None))
-            .values(auto_delete_at=None)
+            .limit(1)
         )
-        if scrubbed_media.rowcount and scrubbed_media.rowcount > 0:
-            log.info(
-                "CLEANUP: Cleared %s legacy Media auto-delete deadlines",
-                scrubbed_media.rowcount,
+        await db.commit()
+        if legacy_deadline_media_id is not None:
+            scrubbed_media = await db.execute(
+                update(MediaItem)
+                .where(MediaItem.auto_delete_at.is_not(None))
+                .values(auto_delete_at=None)
             )
-            await db.commit()
+            if scrubbed_media.rowcount and scrubbed_media.rowcount > 0:
+                log.info(
+                    "CLEANUP: Cleared %s legacy Media auto-delete deadlines",
+                    scrubbed_media.rowcount,
+                )
+                await db.commit()
 
         # Find the next expiration time for scheduling
         next_expiration = await self._get_next_expiration(db)
