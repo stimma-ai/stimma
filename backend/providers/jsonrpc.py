@@ -347,7 +347,10 @@ class WebSocketTransport(Transport):
         if self._session:
             await self._session.close()
             self._session = None
-        log.info("websocket disconnected")
+        # The manager logs meaningful provider state transitions. Keep this
+        # transport-level cleanup at debug so failed retry attempts do not
+        # produce an extra info line every few seconds.
+        log.debug("websocket disconnected")
 
     async def send(self, message: dict) -> None:
         """Send a JSON-RPC message."""

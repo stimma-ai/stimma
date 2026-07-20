@@ -511,8 +511,9 @@ Usage: stimma [FLAGS] <command> <subcommand>
 
 Flags:
   --prod              Shorthand for --channel=production
-  --channel=CHANNEL   Release channel: debug (default), sandbox, canary, beta, production
-  --sandbox=NAME      Sandbox name (default: "default")
+  --channel CHANNEL   Release channel: debug (default), sandbox, canary, beta, production
+                      (--channel=CHANNEL is also accepted)
+  --sandbox NAME      Sandbox name (default: "default"; --sandbox=NAME also accepted)
   --official          dev/run only: set STIMMA_DISTRIBUTION=official in the child
                       process so telemetry, consent UI, thumbs, and crash reports
                       behave like an official build (events go to the configured
@@ -858,6 +859,35 @@ async function copyDir(src: string, dest: string): Promise<void> {
       await Deno.copyFile(srcPath, destPath);
     }
   }
+}
+
+async function copyDataDirBackup(src: string, dest: string): Promise<void> {
+  if (await pathExists(dest)) {
+    throw new Error(`Backup destination already exists: ${dest}`);
+  }
+
+  if (Deno.build.os === "darwin") {
+    // ditto preserves file hard links as well as macOS-specific metadata that
+    // Deno.copyFile cannot represent (resource forks, xattrs, and ACLs).
+    await run("ditto", [
+      "--rsrc",
+      "--extattr",
+      "--acl",
+      "--qtn",
+      "--preserveHFSCompression",
+      src,
+      dest,
+    ]);
+    return;
+  }
+
+  if (Deno.build.os === "linux") {
+    // GNU cp --archive includes --preserve=links and full recursive metadata.
+    await run("cp", ["--archive", "--", src, dest]);
+    return;
+  }
+
+  throw new Error(`Hard-link-preserving backups are not supported on ${Deno.build.os} yet.`);
 }
 
 async function copyDirFiltered(src: string, dest: string, shouldExclude: (relativePath: string, entry: Deno.DirEntry) => boolean, prefix = ""): Promise<void> {
@@ -1736,18 +1766,28 @@ async function main(): Promise<void> {
       args = args.slice(1);
       continue;
     }
-    if (args[0].startsWith("--channel=")) {
-      channel = args[0].slice("--channel=".length);
+    if (args[0] === "--channel" || args[0].startsWith("--channel=")) {
+      const value = args[0] === "--channel" ? args[1] : args[0].slice("--channel=".length);
+      if (!value) {
+        console.error("--channel requires a value.");
+        Deno.exit(1);
+      }
+      channel = value;
       if (!(channel in CHANNEL_BUNDLE_IDS)) {
         console.error(`Unknown channel: ${channel}. Valid: ${Object.keys(CHANNEL_BUNDLE_IDS).join(", ")}`);
         Deno.exit(1);
       }
-      args = args.slice(1);
+      args = args.slice(args[0] === "--channel" ? 2 : 1);
       continue;
     }
-    if (args[0].startsWith("--sandbox=")) {
-      sandbox = args[0].slice("--sandbox=".length);
-      args = args.slice(1);
+    if (args[0] === "--sandbox" || args[0].startsWith("--sandbox=")) {
+      const value = args[0] === "--sandbox" ? args[1] : args[0].slice("--sandbox=".length);
+      if (!value) {
+        console.error("--sandbox requires a value.");
+        Deno.exit(1);
+      }
+      sandbox = value;
+      args = args.slice(args[0] === "--sandbox" ? 2 : 1);
       continue;
     }
     if (args[0] === "--official") {
@@ -1931,7 +1971,8 @@ async function main(): Promise<void> {
       }
       const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "").replace("T", "-");
       const backupDir = `${dataDir}-backup-${stamp}`;
-      await copyDir(dataDir, backupDir);
+      console.log(`Backing up ${dataDir} → ${backupDir}...`);
+      await copyDataDirBackup(dataDir, backupDir);
       console.log(`Backup complete: ${backupDir}`);
       break;
     }

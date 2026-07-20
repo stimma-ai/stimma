@@ -282,6 +282,57 @@ class TestAddRemoveProvider:
         assert state.error_message == "Authentication required"
         refresh.assert_awaited_once_with(state.config)
 
+    @pytest.mark.parametrize(
+        ("retry_count", "expected_method"),
+        [(0, "warning"), (1, "debug")],
+    )
+    async def test_connection_failure_only_warns_on_initial_attempt(
+        self, retry_count, expected_method
+    ):
+        mgr = JsonRpcProviderManager()
+        mgr._registry = MagicMock()
+        mgr._registry.unregister = AsyncMock()
+        mgr._backend_registry = MagicMock()
+        mgr._backend_registry.unregister_backend = AsyncMock()
+
+        state = ProviderState(
+            config={"id": "p1", "type": "websocket"},
+            retry_count=retry_count,
+        )
+        mgr._providers["p1"] = state
+        provider = MagicMock()
+        provider.connect = AsyncMock(side_effect=ConnectionError("not there"))
+
+        with (
+            patch(
+                "providers.jsonrpc_manager.create_provider_from_config",
+                return_value=provider,
+            ),
+            patch("providers.jsonrpc_manager.log") as mock_log,
+        ):
+            connected = await mgr._connect_provider("p1")
+
+        assert connected is False
+        connection_method = "info" if retry_count == 0 else "debug"
+        getattr(mock_log, connection_method).assert_any_call(
+            "connecting jsonrpc provider",
+            provider_id="p1",
+            attempt=retry_count + 1,
+        )
+        getattr(mock_log, expected_method).assert_any_call(
+            "jsonrpc provider connection failed",
+            provider_id="p1",
+            attempt=retry_count + 1,
+            error="not there",
+        )
+        unexpected_method = "debug" if expected_method == "warning" else "warning"
+        failure_calls = [
+            call
+            for call in getattr(mock_log, unexpected_method).call_args_list
+            if call.args == ("jsonrpc provider connection failed",)
+        ]
+        assert failure_calls == []
+
     async def test_add_provider_no_id(self):
         mgr = JsonRpcProviderManager()
         result = await mgr.add_provider({})
@@ -405,6 +456,36 @@ class TestRestartLogic:
     async def test_restart_nonexistent_provider_is_noop(self):
         mgr = JsonRpcProviderManager()
         await mgr._restart_provider("ghost")  # Should not raise
+
+    async def test_websocket_restart_attempts_are_debug_only(self):
+        mgr = JsonRpcProviderManager()
+        state = ProviderState(config={"id": "p1", "type": "websocket"})
+        mgr._providers["p1"] = state
+
+        async def fail_then_stop(provider_id):
+            mgr._shutdown = True
+            return False
+
+        mgr._connect_provider = fail_then_stop
+
+        with (
+            patch("providers.jsonrpc_manager.asyncio.sleep", new_callable=AsyncMock),
+            patch("providers.jsonrpc_manager.log") as mock_log,
+        ):
+            await mgr._restart_provider("p1")
+
+        mock_log.debug.assert_any_call(
+            "restarting jsonrpc provider",
+            provider_id="p1",
+            attempt=1,
+            mode="indefinite (websocket)",
+        )
+        info_calls = [
+            call
+            for call in mock_log.info.call_args_list
+            if call.args == ("restarting jsonrpc provider",)
+        ]
+        assert info_calls == []
 
 
 # ---------------------------------------------------------------------------

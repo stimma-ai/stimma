@@ -221,7 +221,8 @@ class JsonRpcProviderManager:
                 # Continue anyway - maybe the token is still valid
 
         try:
-            log.info(
+            connection_log = log.info if state.retry_count == 0 else log.debug
+            connection_log(
                 "connecting jsonrpc provider",
                 provider_id=provider_id,
                 attempt=state.retry_count + 1,
@@ -379,7 +380,8 @@ class JsonRpcProviderManager:
 
         except Exception as e:
             error_msg = str(e)
-            log.warning(
+            failure_log = log.warning if state.retry_count == 0 else log.debug
+            failure_log(
                 "jsonrpc provider connection failed",
                 provider_id=provider_id,
                 attempt=state.retry_count + 1,
@@ -420,7 +422,10 @@ class JsonRpcProviderManager:
             state.retry_count += 1
 
             if retry_indefinitely:
-                log.info(
+                # An unavailable WebSocket service may retry for hours. The
+                # initial failure and eventual recovery remain visible at the
+                # normal log level; individual background attempts are debug.
+                log.debug(
                     "restarting jsonrpc provider",
                     provider_id=provider_id,
                     attempt=state.retry_count,
