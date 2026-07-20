@@ -1389,20 +1389,44 @@ async def restore_assets(
     return {"status": "success", "asset_ids": changed}
 
 
+@router.post("/batch/deletion-manifest")
+async def get_asset_batch_deletion_manifest(
+    request: AssetIdsRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Return editor-project cleanup keys for one delete selection."""
+    asset_ids = list(dict.fromkeys(request.asset_ids))
+    rows = (
+        await session.execute(
+            select(AssetRevision.asset_id, AssetRevision.primary_media_id)
+            .join(Asset, Asset.id == AssetRevision.asset_id)
+            .where(
+                AssetRevision.asset_id.in_(asset_ids),
+                Asset.state.in_(("trashed", "deleting")),
+            )
+            .order_by(AssetRevision.asset_id, AssetRevision.id)
+        )
+    ).all()
+    grouped: dict[int, list[int]] = defaultdict(list)
+    for asset_id, media_id in rows:
+        grouped[asset_id].append(media_id)
+    return {
+        "items": [
+            {"asset_id": asset_id, "media_ids": grouped.get(asset_id, [])}
+            for asset_id in asset_ids
+        ]
+    }
+
+
 @router.post("/batch/permanent", status_code=202)
 async def permanently_delete_assets(
     request: AssetIdsRequest, session: AsyncSession = Depends(get_db_session)
 ):
     """Permanently delete selected Asset roots through the global queue."""
-    from asset_deletion_service import (
-        permanently_delete_asset,
-        prepare_asset_reference_deletion,
-    )
     from delete_operations import (
+        broadcast_asset_delete_queue_enqueued,
+        enqueue_asset_delete_operations,
         ensure_delete_worker_started,
-        prepare_asset_delete_queue,
-        prestage_delete_operation_items,
-        prescrub_delete_operation_items,
     )
 
     asset_ids = list(dict.fromkeys(request.asset_ids))
@@ -1415,7 +1439,8 @@ async def permanently_delete_assets(
     invalid_ids = [
         asset_id
         for asset_id in asset_ids
-        if asset_id not in assets or assets[asset_id].state != "trashed"
+        if asset_id not in assets
+        or assets[asset_id].state not in {"trashed", "deleting"}
     ]
     if invalid_ids:
         raise HTTPException(
@@ -1424,104 +1449,35 @@ async def permanently_delete_assets(
         )
 
     profile_id = get_current_profile()
-    await prepare_asset_delete_queue(session, profile_id)
-    await prepare_asset_reference_deletion(session, asset_ids)
-    revisions_by_asset: dict[int, list[AssetRevision]] = defaultdict(list)
-    for revision in await session.scalars(
+    revisions = list(await session.scalars(
         select(AssetRevision).where(AssetRevision.asset_id.in_(asset_ids))
-    ):
-        revisions_by_asset[revision.asset_id].append(revision)
-    operations = []
-    results = []
-    all_media_ids: list[int] = []
-    for asset_id in asset_ids:
-        asset_revisions = revisions_by_asset[asset_id]
-        revision_media_ids = [
-            revision.primary_media_id for revision in asset_revisions
-        ]
-        deletion = await permanently_delete_asset(
-            session,
-            asset_id=asset_id,
-            profile_id=profile_id,
-            queue_prepared=True,
-            references_prepared=True,
-            commit=False,
-            known_revisions=asset_revisions,
-        )
-        operation = deletion.operation
-        operation_pending = (
-            operation is not None
-            and operation.status in {"queued", "running"}
-        )
-        if operation is not None:
-            operations.append(operation.to_dict())
-        all_media_ids.extend(revision_media_ids)
-        results.append(
-            {
-                "asset_id": asset_id,
-                "status": "accepted" if operation_pending else "completed",
-                "identity_status": "completed",
-                "cleanup_status": "pending" if operation_pending else "completed",
-                "privacy_status": (
-                    "retained"
-                    if deletion.retained_media_ids
-                    else ("pending" if operation_pending else "completed")
-                ),
-                "retained_media_ids": deletion.retained_media_ids,
-                "media_ids": revision_media_ids,
-                "operation": operation.to_dict() if operation is not None else None,
-            }
-        )
-
-    await prescrub_delete_operation_items(
+    ))
+    all_media_ids = [revision.primary_media_id for revision in revisions]
+    queued = await enqueue_asset_delete_operations(
         session,
-        [operation["id"] for operation in operations],
+        profile_id=profile_id,
+        asset_ids=asset_ids,
     )
-    await prestage_delete_operation_items(
-        session,
-        [operation["id"] for operation in operations],
-    )
-    await session.commit()
-    has_pending_operations = any(
-        operation["status"] in {"queued", "running"}
-        for operation in operations
-    )
-    if has_pending_operations:
+    await broadcast_asset_delete_queue_enqueued(session, queued)
+    if queued:
         await ensure_delete_worker_started()
-    if asset_ids:
-        event_payload = {"asset_ids": asset_ids, "media_ids": all_media_ids}
-        await ws_manager.broadcast("asset_identities_deleted", event_payload)
-        await ws_manager.broadcast("assets_permanently_deleted", event_payload)
-
-    retained_media_ids = sorted(
-        {
-            media_id
-            for result in results
-            for media_id in result["retained_media_ids"]
-        }
-    )
     return {
-        "status": "accepted" if has_pending_operations else "completed",
-        "accepted": len(results),
+        "status": "accepted",
+        "accepted": len(asset_ids),
         "total": len(asset_ids),
-        "results": results,
-        "operations": operations,
-        "retained_media_ids": retained_media_ids,
+        "asset_ids": asset_ids,
+        "operation": queued[-1].to_dict() if queued else None,
+        "retained_media_ids": [],
         "media_ids": all_media_ids,
     }
 
 
 @router.delete("", status_code=202)
 async def empty_asset_trash(session: AsyncSession = Depends(get_db_session)):
-    from asset_deletion_service import (
-        permanently_delete_asset,
-        prepare_asset_reference_deletion,
-    )
     from delete_operations import (
+        broadcast_asset_delete_queue_enqueued,
+        enqueue_asset_delete_operations,
         ensure_delete_worker_started,
-        prepare_asset_delete_queue,
-        prestage_delete_operation_items,
-        prescrub_delete_operation_items,
     )
 
     asset_ids = list(
@@ -1531,65 +1487,30 @@ async def empty_asset_trash(session: AsyncSession = Depends(get_db_session)):
             )
         )
     )
-    revisions_by_asset: dict[int, list[AssetRevision]] = defaultdict(list)
     revisions = list(
         await session.scalars(
             select(AssetRevision).where(AssetRevision.asset_id.in_(asset_ids))
         )
     ) if asset_ids else []
-    for revision in revisions:
-        revisions_by_asset[revision.asset_id].append(revision)
     revision_media_ids = [revision.primary_media_id for revision in revisions]
-    operations = []
-    retained_media_ids: list[int] = []
     profile_id = get_current_profile()
-    await prepare_asset_delete_queue(session, profile_id)
-    await prepare_asset_reference_deletion(session, asset_ids)
-    for asset_id in asset_ids:
-        result = await permanently_delete_asset(
-            session,
-            asset_id=asset_id,
-            profile_id=profile_id,
-            queue_prepared=True,
-            references_prepared=True,
-            commit=False,
-            known_revisions=revisions_by_asset[asset_id],
-        )
-        if result.operation is not None:
-            operations.append(result.operation.to_dict())
-        retained_media_ids.extend(result.retained_media_ids)
-    await prescrub_delete_operation_items(
+    queued = await enqueue_asset_delete_operations(
         session,
-        [operation["id"] for operation in operations],
+        profile_id=profile_id,
+        asset_ids=asset_ids,
     )
-    await prestage_delete_operation_items(
-        session,
-        [operation["id"] for operation in operations],
-    )
-    await session.commit()
-    has_pending_operations = any(
-        operation["status"] in {"queued", "running"}
-        for operation in operations
-    )
-    if has_pending_operations:
+    await broadcast_asset_delete_queue_enqueued(session, queued)
+    if queued:
         await ensure_delete_worker_started()
-    await ws_manager.broadcast(
-        "asset_identities_deleted",
-        {"asset_ids": asset_ids, "media_ids": revision_media_ids},
-    )
-    await ws_manager.broadcast(
-        "assets_permanently_deleted",
-        {"asset_ids": asset_ids, "media_ids": revision_media_ids},
-    )
     return {
-        "status": "accepted" if has_pending_operations else "completed",
-        "identity_status": "completed",
-        "cleanup_status": "pending" if has_pending_operations else "completed",
-        "privacy_status": "retained" if retained_media_ids else ("pending" if has_pending_operations else "completed"),
-        "retained_media_ids": sorted(set(retained_media_ids)),
+        "status": "accepted" if queued else "completed",
+        "identity_status": "pending" if queued else "completed",
+        "cleanup_status": "pending" if queued else "completed",
+        "privacy_status": "pending" if queued else "completed",
+        "retained_media_ids": [],
         "media_ids": revision_media_ids,
         "accepted": len(asset_ids),
-        "operations": operations,
+        "operation": queued[-1].to_dict() if queued else None,
     }
 
 
@@ -2132,8 +2053,17 @@ async def restore_asset_route(
 async def permanently_delete_asset_route(
     asset_id: int, session: AsyncSession = Depends(get_db_session)
 ):
-    from asset_deletion_service import permanently_delete_asset
-    from delete_operations import ensure_delete_worker_started
+    from delete_operations import (
+        broadcast_asset_delete_queue_enqueued,
+        enqueue_asset_delete_operations,
+        ensure_delete_worker_started,
+    )
+    asset = await session.get(Asset, asset_id)
+    if asset is None or asset.state not in {"trashed", "deleting"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Asset must be in Trash before permanent deletion",
+        )
     revision_media_ids = list(
         await session.scalars(
             select(AssetRevision.primary_media_id).where(
@@ -2141,36 +2071,21 @@ async def permanently_delete_asset_route(
             )
         )
     )
-    try:
-        result = await permanently_delete_asset(
-            session,
-            asset_id=asset_id,
-            profile_id=get_current_profile(),
-        )
-    except AssetServiceError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    operation = result.operation
-    operation_pending = operation is not None and operation.status in {"queued", "running"}
-    if operation_pending:
+    queued = await enqueue_asset_delete_operations(
+        session,
+        profile_id=get_current_profile(),
+        asset_ids=[asset_id],
+    )
+    await broadcast_asset_delete_queue_enqueued(session, queued)
+    operation = queued[0]
+    if queued:
         await ensure_delete_worker_started()
-    await ws_manager.broadcast(
-        "asset_identity_deleted",
-        {"asset_id": asset_id, "media_ids": revision_media_ids},
-    )
-    await ws_manager.broadcast(
-        "asset_permanently_deleted",
-        {"asset_id": asset_id, "media_ids": revision_media_ids},
-    )
     return {
-        "status": "accepted" if operation_pending else "completed",
-        "identity_status": "completed",
-        "cleanup_status": "pending" if operation_pending else "completed",
-        "privacy_status": (
-            "retained"
-            if result.retained_media_ids
-            else ("pending" if operation_pending else "completed")
-        ),
-        "retained_media_ids": result.retained_media_ids,
+        "status": "accepted",
+        "identity_status": "pending",
+        "cleanup_status": "pending",
+        "privacy_status": "pending",
+        "retained_media_ids": [],
         "media_ids": revision_media_ids,
-        "operation": operation.to_dict() if operation is not None else None,
+        "operation": operation.to_dict(),
     }

@@ -644,7 +644,8 @@ class TestPermanentDelete:
         data = response.json()
         assert data["status"] == "accepted"
         operations = await wait_for_delete_operations(client, data)
-        assert sum(operation["deleted_items"] for operation in operations) >= 3
+        assert data["accepted"] >= 3
+        assert all(operation["status"] == "completed" for operation in operations)
 
         # Verify trash is empty
         trash_after = await client.get("/api/trash")
@@ -936,7 +937,10 @@ class TestTrashWebSocketEvents:
 
         mock_ws = MockWebSocketManager()
 
-        with patch("routes.assets.ws_manager", mock_ws):
+        with (
+            patch("routes.assets.ws_manager", mock_ws),
+            patch("delete_operations.ws_manager", mock_ws),
+        ):
             response = await client.delete("/api/trash")
             assert response.status_code == 202
             operations = await wait_for_delete_operations(client, response.json())

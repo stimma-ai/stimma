@@ -49,7 +49,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
             <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
-          Empty Trash
+          {{ emptyTrashSubmitting ? 'Queueing…' : 'Empty Trash' }}
         </button>
       </div>
     </div>
@@ -347,11 +347,11 @@ const isTrashMode = computed(() => props.isTrashMode)
 const savedViewId = computed(() => props.savedViewId)
 const savedViewName = computed(() => props.savedViewName)
 const { deleteSummary } = useDeleteOperations()
+const emptyTrashSubmitting = ref(false)
 const isEmptyingTrash = computed(() => {
   const summary = deleteSummary.value
   return props.isTrashMode
-    && summary?.status === 'running'
-    && (summary.kinds || []).some(kind => kind === 'asset' || kind === 'empty_trash')
+    && (emptyTrashSubmitting.value || summary?.status === 'running')
 })
 const trashHeaderSubtitle = computed(() => {
   return `${totalCount.value} deleted ${totalCount.value === 1 ? 'item' : 'items'}`
@@ -1493,7 +1493,8 @@ async function permanentDelete() {
   if (!itemToDelete.value || itemToDelete.value.length === 0) return
 
   try {
-    const idsToDelete = itemToDelete.value
+    const idsToDelete = [...itemToDelete.value]
+    showDeleteConfirm.value = false
     let response
     if (idsToDelete.length === 1) {
       response = await permanentlyDeleteMedia(idsToDelete[0])
@@ -1506,21 +1507,9 @@ async function permanentDelete() {
       multiSelectMode.value = false
     }
     itemToDelete.value = null
-    showDeleteConfirm.value = false
+    void reconcileRemoval(idsToDelete)
     const accepted = response?.accepted ?? idsToDelete.length
-    const results = response?.results || [response]
-    const retainedCount = results.reduce(
-      (count, result) => count + (result?.retained_media_ids?.length || 0),
-      0,
-    )
-    if (retainedCount > 0) {
-      addToast(
-        `Removed ${accepted} ${accepted === 1 ? 'asset' : 'assets'}; ${retainedCount} media ${retainedCount === 1 ? 'revision is' : 'revisions are'} still retained by other content`,
-        'info',
-      )
-    } else {
-      addToast(`Permanent deletion started for ${accepted} ${accepted === 1 ? 'item' : 'items'}`, 'info')
-    }
+    addToast(`Permanent deletion started for ${accepted} ${accepted === 1 ? 'item' : 'items'}`, 'info')
   } catch (error) {
     console.error('Failed to permanently delete:', error)
     addToast('Failed to permanently delete item(s)', 'error')
@@ -1536,8 +1525,9 @@ async function handleBulkPermanentDelete() {
     const response = await bulkPermanentlyDelete(idsToDelete)
     selectedItemIds.value = []
     multiSelectMode.value = false
+    void reconcileRemoval(idsToDelete)
     const accepted = response?.accepted ?? idsToDelete.length
-    addToast(`Deleted ${accepted} items permanently`, 'info')
+    addToast(`Permanent deletion started for ${accepted} items`, 'info')
   } catch (error) {
     console.error('Failed to permanently delete items:', error)
     addToast('Failed to permanently delete items', 'error')
@@ -1559,18 +1549,24 @@ async function confirmEmptyTrash() {
 
 // Execute empty trash
 async function emptyTrash() {
+  if (emptyTrashSubmitting.value) return
+  emptyTrashSubmitting.value = true
+  showEmptyTrashConfirm.value = false
   try {
     const response = await apiEmptyTrash()
     const accepted = response?.accepted ?? 0
-    showEmptyTrashConfirm.value = false
     if (accepted > 0) {
       selectedItemIds.value = []
       multiSelectMode.value = false
-      addToast(`Deleted ${accepted} ${accepted === 1 ? 'item' : 'items'} permanently`, 'info')
+      void reconcileRemoval(response.asset_ids || [])
+      addToast(`Permanent deletion started for ${accepted} ${accepted === 1 ? 'item' : 'items'}`, 'info')
     }
   } catch (error) {
     console.error('Failed to empty trash:', error)
     addToast('Failed to empty trash', 'error')
+    void softReloadMedia()
+  } finally {
+    emptyTrashSubmitting.value = false
   }
 }
 

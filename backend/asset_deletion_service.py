@@ -29,7 +29,11 @@ from database import (
     ProjectAsset,
     WorkingDocument,
 )
-from delete_operations import create_delete_operation, prepare_asset_delete_queue
+from delete_operations import (
+    create_delete_operation,
+    populate_delete_operation,
+    prepare_asset_delete_queue,
+)
 
 
 @dataclass
@@ -280,12 +284,18 @@ async def permanently_delete_asset(
     references_prepared: bool = False,
     commit: bool = True,
     known_revisions: list[AssetRevision] | None = None,
+    existing_operation: DeleteOperation | None = None,
 ):
     """Destroy an Asset identity and queue only newly-unowned Media collection."""
     asset = await session.get(Asset, asset_id)
     if asset is None:
         raise AssetServiceError("Asset not found")
-    if asset.state != "trashed":
+    allowed_states = (
+        {"trashed", "deleting"}
+        if existing_operation is not None
+        else {"trashed"}
+    )
+    if asset.state not in allowed_states:
         raise AssetServiceError("Asset must be in Trash before permanent deletion")
     if not queue_prepared:
         await prepare_asset_delete_queue(session, profile_id)
@@ -405,23 +415,39 @@ async def permanently_delete_asset(
 
     collectible_ids = {media.id for media in collectible}
     retained_media_ids = sorted(candidate_media_ids - collectible_ids)
-    operation = await create_delete_operation(
-        session,
-        profile_id=profile_id,
-        kind="asset",
-        media_items=collectible,
-        managed_artifacts=artifacts,
-        commit=commit,
-    )
+    if existing_operation is None:
+        operation = await create_delete_operation(
+            session,
+            profile_id=profile_id,
+            kind="asset",
+            asset_id=asset_id,
+            media_items=collectible,
+            managed_artifacts=artifacts,
+            commit=commit,
+        )
+    else:
+        operation = existing_operation
+        await populate_delete_operation(
+            session,
+            operation=operation,
+            media_items=collectible,
+            managed_artifacts=artifacts,
+        )
     if not collectible and not artifacts:
-        # The identity deletion is already complete and there is no worker
-        # payload, but this Asset still contributes one completed queue unit.
+        # The identity deletion is complete and there is no unlink payload.
+        # A durably queued Asset still waits at the shared privacy checkpoint;
+        # a direct service call keeps its historical synchronous completion.
         now = datetime.utcnow()
-        operation.status = "completed"
-        operation.current_phase = "completed"
+        operation.status = (
+            "checkpointing" if existing_operation is not None else "completed"
+        )
+        operation.current_phase = operation.status
         operation.started_at = now
-        operation.completed_at = now
+        operation.completed_at = (
+            None if existing_operation is not None else now
+        )
         operation.updated_at = now
+    if existing_operation is not None or (not collectible and not artifacts):
         if commit:
             await session.commit()
             await session.refresh(operation)

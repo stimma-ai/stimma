@@ -842,15 +842,10 @@ async def bulk_permanently_delete(
     errors = []
     operations = []
     accepted_asset_ids: set[int] = set()
-    from asset_deletion_service import (
-        permanently_delete_asset,
-        prepare_asset_reference_deletion,
-    )
     from database import Asset
     from delete_operations import (
-        prepare_asset_delete_queue,
-        prestage_delete_operation_items,
-        prescrub_delete_operation_items,
+        broadcast_asset_delete_queue_enqueued,
+        enqueue_asset_delete_operations,
     )
 
     candidates: list[tuple[int, int]] = []
@@ -892,33 +887,17 @@ async def bulk_permanently_delete(
         candidate_asset_ids.add(asset_id)
 
     profile_id = get_current_profile()
-    await prepare_asset_delete_queue(session, profile_id)
-    await prepare_asset_reference_deletion(
+    queued = await enqueue_asset_delete_operations(
         session,
-        [asset_id for _, asset_id in candidates],
+        profile_id=profile_id,
+        asset_ids=[asset_id for _, asset_id in candidates],
     )
-    for _media_id, asset_id in candidates:
-        deletion = await permanently_delete_asset(
-            session,
-            asset_id=asset_id,
-            profile_id=profile_id,
-            queue_prepared=True,
-            references_prepared=True,
-            commit=False,
-        )
-        accepted_asset_ids.add(asset_id)
-        if deletion.operation is not None:
-            operations.append(deletion.operation.to_dict())
-    await prescrub_delete_operation_items(
-        session,
-        [operation["id"] for operation in operations],
+    await broadcast_asset_delete_queue_enqueued(session, queued)
+    accepted_asset_ids.update(
+        operation.asset_id for operation in queued if operation.asset_id is not None
     )
-    await prestage_delete_operation_items(
-        session,
-        [operation["id"] for operation in operations],
-    )
-    await session.commit()
-    if any(operation["status"] in {"queued", "running"} for operation in operations):
+    operations = [operation.to_dict() for operation in queued]
+    if queued:
         await ensure_delete_worker_started()
 
     return {
@@ -995,28 +974,24 @@ async def permanently_delete_media(
         raise HTTPException(status_code=404, detail="Asset not found")
     if asset.state != "trashed":
         raise HTTPException(status_code=400, detail="Asset is not in trash")
-    from asset_deletion_service import permanently_delete_asset
-
-    deletion = await permanently_delete_asset(
+    from delete_operations import (
+        broadcast_asset_delete_queue_enqueued,
+        enqueue_asset_delete_operations,
+    )
+    queued = await enqueue_asset_delete_operations(
         session,
-        asset_id=asset_revision.asset_id,
         profile_id=get_current_profile(),
+        asset_ids=[asset_revision.asset_id],
     )
-    operation_pending = (
-        deletion.operation is not None
-        and deletion.operation.status in {"queued", "running"}
-    )
-    if operation_pending:
+    await broadcast_asset_delete_queue_enqueued(session, queued)
+    operation = queued[0]
+    if queued:
         await ensure_delete_worker_started()
 
     return {
-        "status": "accepted" if operation_pending else "completed",
-        "operation": deletion.operation.to_dict() if deletion.operation else None,
-        "message": (
-            "Permanent delete queued"
-            if operation_pending
-            else "Permanent delete completed"
-        ),
+        "status": "accepted",
+        "operation": operation.to_dict(),
+        "message": "Permanent delete queued",
     }
 
 
@@ -1028,8 +1003,6 @@ async def empty_trash(
     from routes.assets import empty_asset_trash
 
     result = await empty_asset_trash(session=session)
-    operations = result.get("operations") or []
-    result["operation"] = operations[0] if len(operations) == 1 else None
     if result.get("accepted") == 0:
         result["message"] = "Trash is already empty"
     return result

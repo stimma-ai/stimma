@@ -1226,6 +1226,9 @@ class DeleteOperation(Base):
     id = Column(Integer, primary_key=True, index=True)
     kind = Column(String, nullable=False)  # asset | chat
     profile_id = Column(String, nullable=False, index=True)
+    # Durable identity target for Asset operations. No FK: successful
+    # permanent deletion removes the Asset before the operation completes.
+    asset_id = Column(Integer, nullable=True, index=True)
     # queued | running | checkpointing | completed | failed | superseded
     status = Column(String, nullable=False, default='queued', index=True)
     current_phase = Column(String, nullable=True)
@@ -1246,6 +1249,7 @@ class DeleteOperation(Base):
             "id": self.id,
             "kind": self.kind,
             "profile_id": self.profile_id,
+            "asset_id": self.asset_id,
             "status": self.status,
             "current_phase": self.current_phase,
             "total_items": self.total_items,

@@ -453,7 +453,7 @@ class TestContainersAndOwnership:
             first_id, second_id = first.id, second.id
 
         payload = await _permanently_delete(client, first_id)
-        assert shared_id in payload.get("retained_media_ids", [shared_id])
+        assert payload["privacy_status"] == "pending"
 
         async with db_session() as session:
             survivor = await session.get(MediaItem, shared_id)

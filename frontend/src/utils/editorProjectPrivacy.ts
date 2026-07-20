@@ -140,26 +140,47 @@ export function prepareAssetProjectDeletion(
   assetId: number,
   mediaIds: number[],
 ): void {
-  const projectKeys = [...new Set(mediaIds.map(Number).filter(Number.isFinite))]
-    .map(projectKey)
-  if (!projectKeys.length) return
-  const remaining = pendingIntents().filter((intent) => intent.assetId !== assetId)
-  writeIntents([...remaining, { assetId, projectKeys }])
+  prepareAssetProjectDeletions([{ assetId, mediaIds }])
 }
 
-export async function confirmAssetProjectDeletion(assetId: number): Promise<void> {
+export function prepareAssetProjectDeletions(
+  items: Array<{ assetId: number; mediaIds: number[] }>,
+): void {
+  const prepared = items.flatMap(({ assetId, mediaIds }) => {
+    const projectKeys = [...new Set(
+      mediaIds.map(Number).filter(Number.isFinite),
+    )].map(projectKey)
+    return projectKeys.length ? [{ assetId, projectKeys }] : []
+  })
+  if (!prepared.length) return
+  const assetIds = new Set(prepared.map((intent) => intent.assetId))
+  const remaining = pendingIntents().filter(
+    (intent) => !assetIds.has(intent.assetId),
+  )
+  writeIntents([...remaining, ...prepared])
+}
+
+export async function confirmAssetProjectDeletions(
+  assetIds: number[],
+): Promise<void> {
+  const accepted = new Set(assetIds.map(Number).filter(Number.isFinite))
   const intents = pendingIntents()
-  const intent = intents.find((candidate) => candidate.assetId === assetId)
-  if (!intent) return
-  writePending([...pendingProjectKeys(), ...intent.projectKeys])
+  const completedIntents = intents.filter((intent) => accepted.has(intent.assetId))
+  if (!completedIntents.length) return
+  const projectKeys = completedIntents.flatMap((intent) => intent.projectKeys)
+  writePending([...pendingProjectKeys(), ...projectKeys])
   try {
-    await deleteProjectKeys(intent.projectKeys)
-    const completed = new Set(intent.projectKeys)
+    await deleteProjectKeys(projectKeys)
+    const completed = new Set(projectKeys)
     writePending(pendingProjectKeys().filter((key) => !completed.has(key)))
-    writeIntents(intents.filter((candidate) => candidate.assetId !== assetId))
+    writeIntents(intents.filter((candidate) => !accepted.has(candidate.assetId)))
   } catch (error) {
     console.warn('[ImageEditor] Confirmed Asset cleanup remains queued:', error)
   }
+}
+
+export async function confirmAssetProjectDeletion(assetId: number): Promise<void> {
+  await confirmAssetProjectDeletions([assetId])
 }
 
 export function prepareMediaProjectDeletion(mediaIds: number[]): void {
@@ -197,12 +218,18 @@ async function confirmMediaProjectDeletion(mediaIds: number[]): Promise<void> {
 async function reconcileAssetDeletionIntents(): Promise<void> {
   for (const intent of pendingIntents()) {
     try {
-      await axios.get(`${getApiBase()}/assets/${intent.assetId}`)
-      writeIntents(
-        pendingIntents().filter(
-          (candidate) => candidate.assetId !== intent.assetId,
-        ),
+      const response = await axios.get(
+        `${getApiBase()}/assets/${intent.assetId}`,
       )
+      if (response.data?.asset?.state === 'deleting') {
+        await confirmAssetProjectDeletion(intent.assetId)
+      } else {
+        writeIntents(
+          pendingIntents().filter(
+            (candidate) => candidate.assetId !== intent.assetId,
+          ),
+        )
+      }
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 404) {
         await confirmAssetProjectDeletion(intent.assetId)

@@ -2,8 +2,9 @@ import axios from 'axios'
 import { getApiBase } from '../apiConfig'
 import {
   confirmAssetProjectDeletion,
+  confirmAssetProjectDeletions,
   prepareAssetProjectDeletion,
-  scrubDeletedAssetProjects,
+  prepareAssetProjectDeletions,
 } from '../utils/editorProjectPrivacy'
 
 export interface AssetBrowserItem {
@@ -173,27 +174,21 @@ export function useAssetApi() {
       (revisions.items || []).map((revision: { primary_media_id: number }) => revision.primary_media_id),
     )
     const result = (await axios.delete(`${api()}/assets/${assetId}/permanent`)).data
-    await confirmAssetProjectDeletion(assetId)
-    await scrubDeletedAssetProjects(result.media_ids || [])
+    void confirmAssetProjectDeletion(assetId)
     return result
   }
 
   async function permanentlyDeleteMany(assetIds: number[]) {
     const uniqueAssetIds = [...new Set(assetIds)]
-    const revisionLists = await Promise.all(
-      uniqueAssetIds.map(async (assetId) => ({
-        assetId,
-        revisions: (await axios.get(`${api()}/assets/${assetId}/revisions`)).data,
-      })),
-    )
-    for (const { assetId, revisions } of revisionLists) {
-      prepareAssetProjectDeletion(
-        assetId,
-        (revisions.items || []).map(
-          (revision: { primary_media_id: number }) => revision.primary_media_id,
-        ),
-      )
-    }
+    const manifest = (await axios.post(`${api()}/assets/batch/deletion-manifest`, {
+      asset_ids: uniqueAssetIds,
+    })).data
+    prepareAssetProjectDeletions((manifest.items || []).map(
+      (item: { asset_id: number; media_ids: number[] }) => ({
+        assetId: item.asset_id,
+        mediaIds: item.media_ids || [],
+      }),
+    ))
 
     // Submit the selection in one request; the global deletion queue reports
     // progress in Asset units regardless of how deletion was triggered.
@@ -201,10 +196,7 @@ export function useAssetApi() {
       asset_ids: uniqueAssetIds,
     })).data
 
-    for (const item of result.results || []) {
-      await confirmAssetProjectDeletion(item.asset_id)
-    }
-    await scrubDeletedAssetProjects(result.media_ids || [])
+    void confirmAssetProjectDeletions(uniqueAssetIds)
     return result
   }
 
@@ -214,18 +206,25 @@ export function useAssetApi() {
 
   async function emptyTrash() {
     const manifest = (await axios.get(`${api()}/assets/trash-deletion-manifest`)).data
-    for (const item of manifest.items || []) {
-      prepareAssetProjectDeletion(item.asset_id, item.media_ids || [])
-    }
+    prepareAssetProjectDeletions((manifest.items || []).map(
+      (item: { asset_id: number; media_ids: number[] }) => ({
+        assetId: item.asset_id,
+        mediaIds: item.media_ids || [],
+      }),
+    ))
 
     // Queue the whole Trash in one request rather than one request per Asset.
     const result = (await axios.delete(`${api()}/assets`)).data
 
-    for (const item of manifest.items || []) {
-      await confirmAssetProjectDeletion(item.asset_id)
+    void confirmAssetProjectDeletions(
+      (manifest.items || []).map((item: { asset_id: number }) => item.asset_id),
+    )
+    return {
+      ...result,
+      asset_ids: (manifest.items || []).map(
+        (item: { asset_id: number }) => item.asset_id,
+      ),
     }
-    await scrubDeletedAssetProjects(result.media_ids || [])
-    return result
   }
 
   async function addToBoard(boardId: number, assetIds: number[], sectionId: number | null = null) {
