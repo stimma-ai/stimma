@@ -25,6 +25,7 @@ from core.profile_context import get_current_profile
 from database_registry import get_database_registry
 from models.api_models import StatsResponse
 from config import get_settings
+from background_work_filters import media_eligible_for_background_work
 from utils.query_builder import build_filtered_query, VIDEO_FORMATS, IMAGE_FORMATS, RESOLUTION_MAP
 from utils.similarity import filter_media_query_by_face_similarity, parse_similarity_ids
 
@@ -205,10 +206,7 @@ async def get_processing_stats(session: AsyncSession = Depends(get_db_session)):
 
     ingestion = get_ingestion()
 
-    # Base condition to exclude trashed and unavailable items
-    not_trashed = MediaItem.deleted_at.is_(None)
-    available = or_(MediaItem.file_unavailable == False, MediaItem.file_unavailable.is_(None))
-    base_filter = and_(not_trashed, available)
+    base_filter = media_eligible_for_background_work()
 
     stats = {}
     for phase in PHASES:

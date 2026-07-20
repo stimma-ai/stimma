@@ -7,13 +7,13 @@ root returns — never get buried permanently or re-ingested from scratch.
 
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from config import FolderConfig
-from database import MediaItem
+from database import DeleteOperation, MediaItem
 from ingestion import MediaIngestion
 from tests.helpers.media import create_media_item
 
@@ -94,6 +94,40 @@ async def _items_at_path(session_maker, file_path: Path) -> list[MediaItem]:
 async def _run_scan(ingestion):
     with patch("app_dirs.get_source_excluded_roots", return_value=[]):
         return await ingestion._scan_and_sync_profile("default")
+
+
+@pytest.mark.asyncio
+async def test_source_scan_defers_to_active_permanent_deletion(
+    db_session,
+    tmp_path,
+):
+    source = tmp_path / "source"
+    source.mkdir()
+    ingestion = _build_ingestion(db_session, [source])
+    async with db_session() as session:
+        operation = DeleteOperation(
+            kind="asset",
+            profile_id="default",
+            status="running",
+            current_phase="unlinking_artifacts",
+            total_items=1,
+        )
+        session.add(operation)
+        await session.commit()
+        operation_id = operation.id
+
+    with patch(
+        "ingestion.fast_scan_directories",
+        new_callable=AsyncMock,
+    ) as scan:
+        assert await ingestion._scan_and_sync_profile("default") == 0
+    scan.assert_not_awaited()
+
+    async with db_session() as session:
+        await session.execute(
+            delete(DeleteOperation).where(DeleteOperation.id == operation_id)
+        )
+        await session.commit()
 
 
 @pytest.mark.asyncio

@@ -40,9 +40,11 @@ log = get_logger(__name__)
 
 DELETE_BATCH_SIZE = 500
 ASSET_IDENTITY_BATCH_SIZE = 25
+ASSET_REFERENCE_BATCH_SIZE = 1000
 ASSET_FINALIZE_BATCH_SIZE = 100
 LEASE_SECONDS = 60
 WORKER_IDLE_SECONDS = 1.0
+WORKER_BUSY_YIELD_SECONDS = 0.01
 PROGRESS_BROADCAST_INTERVAL_SECONDS = 0.25
 LEASE_RECOVERY_INTERVAL_SECONDS = 5.0
 
@@ -429,10 +431,12 @@ async def _delete_worker_loop() -> None:
                     did_work = did_work or worked
                 except Exception as exc:
                     log.error("DELETE OPS: profile processing failed", profile_id=profile_id, error=str(exc), exc_info=True)
-            # Yield without imposing a fixed per-operation delay while the
-            # queue is busy. Large deletes otherwise pay this sleep tens of
-            # thousands of times.
-            await asyncio.sleep(0 if did_work else WORKER_IDLE_SECONDS)
+            # Leave a small writer-fairness window between deletion batches.
+            # The ingestion worker lives in another process and otherwise can
+            # lose the SQLite writer race indefinitely to this tight loop.
+            await asyncio.sleep(
+                WORKER_BUSY_YIELD_SECONDS if did_work else WORKER_IDLE_SECONDS
+            )
     except asyncio.CancelledError:
         log.info("DELETE OPS: worker stopped")
         raise
@@ -1157,6 +1161,81 @@ async def _checkpoint_asset_queue_if_drained(db, profile_id: str) -> bool:
     return True
 
 
+async def _prepare_queued_asset_references(db, profile_id: str) -> bool:
+    """Scrub weak Asset references once for a large queue slice.
+
+    Identity staging stays deliberately small to keep SQLite write-lock
+    windows short. Reference discovery, especially recursive chat JSON, is
+    queue-shaped work and must not be repeated for every identity slice.
+    """
+    async with db.async_session_maker() as session:
+        operations = list(
+            await session.scalars(
+                select(DeleteOperation)
+                .where(
+                    DeleteOperation.profile_id == profile_id,
+                    DeleteOperation.kind == "asset",
+                    DeleteOperation.status == "queued",
+                    DeleteOperation.current_phase == "identity_queued",
+                )
+                .order_by(DeleteOperation.id.asc())
+                .limit(ASSET_REFERENCE_BATCH_SIZE)
+            )
+        )
+        if not operations:
+            return False
+
+        operation_by_asset = {
+            operation.asset_id: operation
+            for operation in operations
+            if operation.asset_id is not None
+        }
+        assets = {
+            asset.id: asset
+            for asset in await session.scalars(
+                select(Asset).where(Asset.id.in_(operation_by_asset))
+            )
+        }
+        valid_asset_ids: list[int] = []
+        now = _utcnow()
+        for asset_id, operation in operation_by_asset.items():
+            asset = assets.get(asset_id)
+            if asset is None:
+                # The identity commit won a crash race; only the shared privacy
+                # checkpoint remains.
+                operation.status = "checkpointing"
+                operation.current_phase = "checkpointing"
+                operation.started_at = operation.started_at or now
+                operation.updated_at = now
+            elif asset.state not in {"trashed", "deleting"}:
+                operation.status = "failed"
+                operation.current_phase = "failed"
+                operation.failed_items = 1
+                operation.last_error = "Asset is no longer in Trash"
+                operation.started_at = operation.started_at or now
+                operation.completed_at = now
+                operation.updated_at = now
+            else:
+                valid_asset_ids.append(asset_id)
+
+        if valid_asset_ids:
+            from asset_deletion_service import prepare_asset_reference_deletion
+
+            await prepare_asset_reference_deletion(session, valid_asset_ids)
+            for asset_id in valid_asset_ids:
+                operation = operation_by_asset[asset_id]
+                operation.current_phase = "identity_refs_scrubbed"
+                operation.updated_at = now
+
+        await session.commit()
+        await _broadcast_operation_update(
+            session,
+            "delete_operation_progress",
+            operations[-1],
+        )
+    return True
+
+
 async def _stage_queued_asset_identities(db, profile_id: str) -> bool:
     """Convert a bounded set of durable Asset targets into unlink work."""
     async with db.async_session_maker() as session:
@@ -1167,7 +1246,7 @@ async def _stage_queued_asset_identities(db, profile_id: str) -> bool:
                     DeleteOperation.profile_id == profile_id,
                     DeleteOperation.kind == "asset",
                     DeleteOperation.status == "queued",
-                    DeleteOperation.current_phase == "identity_queued",
+                    DeleteOperation.current_phase == "identity_refs_scrubbed",
                 )
                 .order_by(DeleteOperation.id.asc())
                 .limit(ASSET_IDENTITY_BATCH_SIZE)
@@ -1225,12 +1304,8 @@ async def _stage_queued_asset_identities(db, profile_id: str) -> bool:
                 revisions_by_asset[revision.asset_id].append(revision)
                 revision_media_ids.append(revision.primary_media_id)
 
-            from asset_deletion_service import (
-                permanently_delete_asset,
-                prepare_asset_reference_deletion,
-            )
+            from asset_deletion_service import permanently_delete_asset
 
-            await prepare_asset_reference_deletion(session, valid_asset_ids)
             for asset_id in valid_asset_ids:
                 await permanently_delete_asset(
                     session,
@@ -1316,50 +1391,85 @@ async def _process_profile(profile_id: str) -> bool:
         )
 
     identity_staged = await _stage_queued_asset_identities(db, profile_id)
+    references_prepared = False
+    if not identity_staged:
+        references_prepared = await _prepare_queued_asset_references(
+            db,
+            profile_id,
+        )
+        if references_prepared:
+            identity_staged = await _stage_queued_asset_identities(
+                db,
+                profile_id,
+            )
 
     async with db.async_session_maker() as session:
         recovery_now = time.monotonic()
         previous_recovery = _last_lease_recovery_at.get(profile_id, 0.0)
         if recovery_now - previous_recovery >= LEASE_RECOVERY_INTERVAL_SECONDS:
             _last_lease_recovery_at[profile_id] = recovery_now
-            await session.execute(
-                update(DeleteOperationItem)
+            expired_lease = await session.scalar(
+                select(DeleteOperationItem.media_id)
                 .where(
                     DeleteOperationItem.state.in_(
-                        ["claimed", "refs_scrubbed", "cache_purged"]
+                        [
+                            "claimed",
+                            "refs_scrubbed",
+                            "cache_purged",
+                            "unlinking",
+                            "unlinking_retry",
+                        ]
                     ),
                     DeleteOperationItem.lease_expires_at.is_not(None),
                     DeleteOperationItem.lease_expires_at < now,
                 )
-                .values(state="pending", lease_expires_at=None, updated_at=now)
+                .limit(1)
             )
-            await session.execute(
-                update(DeleteOperationItem)
-                .where(
-                    DeleteOperationItem.state == "unlinking",
-                    DeleteOperationItem.lease_expires_at.is_not(None),
-                    DeleteOperationItem.lease_expires_at < now,
+            if expired_lease is not None:
+                await session.execute(
+                    update(DeleteOperationItem)
+                    .where(
+                        DeleteOperationItem.state.in_(
+                            ["claimed", "refs_scrubbed", "cache_purged"]
+                        ),
+                        DeleteOperationItem.lease_expires_at.is_not(None),
+                        DeleteOperationItem.lease_expires_at < now,
+                    )
+                    .values(
+                        state="pending",
+                        lease_expires_at=None,
+                        updated_at=now,
+                    )
                 )
-                .values(
-                    state="media_deleted",
-                    lease_expires_at=None,
-                    updated_at=now,
+                await session.execute(
+                    update(DeleteOperationItem)
+                    .where(
+                        DeleteOperationItem.state == "unlinking",
+                        DeleteOperationItem.lease_expires_at.is_not(None),
+                        DeleteOperationItem.lease_expires_at < now,
+                    )
+                    .values(
+                        state="media_deleted",
+                        lease_expires_at=None,
+                        updated_at=now,
+                    )
                 )
-            )
-            await session.execute(
-                update(DeleteOperationItem)
-                .where(
-                    DeleteOperationItem.state == "unlinking_retry",
-                    DeleteOperationItem.lease_expires_at.is_not(None),
-                    DeleteOperationItem.lease_expires_at < now,
+                await session.execute(
+                    update(DeleteOperationItem)
+                    .where(
+                        DeleteOperationItem.state == "unlinking_retry",
+                        DeleteOperationItem.lease_expires_at.is_not(None),
+                        DeleteOperationItem.lease_expires_at < now,
+                    )
+                    .values(
+                        state="unlink_retry",
+                        lease_expires_at=None,
+                        updated_at=now,
+                    )
                 )
-                .values(
-                    state="unlink_retry",
-                    lease_expires_at=None,
-                    updated_at=now,
-                )
-            )
-            await session.commit()
+                await session.commit()
+            else:
+                await session.rollback()
 
         ready_asset_operation_ids = list(
             await session.scalars(
@@ -1406,6 +1516,7 @@ async def _process_profile(profile_id: str) -> bool:
             return (
                 checkpointed
                 or identity_staged
+                or references_prepared
                 or chat_result.finalized_chats > 0
             )
 

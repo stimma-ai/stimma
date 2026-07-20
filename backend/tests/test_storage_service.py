@@ -374,8 +374,12 @@ async def test_concurrent_delete_workers_claim_each_media_once(db_session, tmp_p
         _process_profile("default"),
         _process_profile("default"),
     )
-    for _ in range(4):
+    for _ in range(8):
         await _process_profile("default")
+        async with db_session() as session:
+            operation = await session.get(DeleteOperation, operation_id)
+            if operation.status == "completed":
+                break
 
     async with db_session() as session:
         operation = await session.get(DeleteOperation, operation_id)
@@ -501,8 +505,12 @@ async def test_asset_editor_artifacts_retry_without_resurrecting_deleted_root(
         assert len(remaining) == 2
         await retry_delete_operation(session, operation_id)
 
-    assert await _process_profile("default") is True
-    assert await _process_profile("default") is True
+    for _ in range(8):
+        await _process_profile("default")
+        async with db_session() as session:
+            operation = await session.get(DeleteOperation, operation_id)
+            if operation.status == "completed":
+                break
     assert not project_path.exists()
     assert not preview_path.exists()
     async with db_session() as session:
@@ -521,8 +529,15 @@ async def test_asset_editor_artifacts_retry_without_resurrecting_deleted_root(
             profile_id="default",
         )
 
-    for _ in range(4):
+    for _ in range(8):
         await _process_profile("default")
+        async with db_session() as session:
+            cleanup = await session.get(
+                DeleteOperation,
+                cleanup_result.operation.id,
+            )
+            if cleanup.status == "completed":
+                break
     async with db_session() as session:
         cleanup = await session.get(DeleteOperation, cleanup_result.operation.id)
         assert cleanup.status == "completed"

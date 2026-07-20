@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import and_, case, delete, exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from asset_service import AssetServiceError
@@ -194,15 +194,80 @@ async def _scrub_chat_asset_references(
 ) -> None:
     if not asset_ids:
         return
+
+    target_ids_json = json.dumps(sorted(asset_ids))
+
+    def _json_contains_target(
+        column,
+        *,
+        alias: str,
+        root_asset_ids: bool = False,
+    ):
+        # SQL prefiltering avoids materializing and parsing every historical
+        # chat payload in Python for every deletion slice. Invalid JSON remains
+        # a candidate so the fail-closed cleanup below keeps its old behavior.
+        safe_json = case(
+            (func.json_valid(column) == 1, column),
+            else_="{}",
+        )
+        tree = func.json_tree(safe_json).table_valued(
+            "key",
+            "atom",
+            "path",
+        ).alias(f"{alias}_tree")
+        targets = func.json_each(target_ids_json).table_valued(
+            "value"
+        ).alias(f"{alias}_targets")
+        reference_shape = (
+            True
+            if root_asset_ids
+            else or_(
+                tree.c.key == "asset_id",
+                tree.c.path.like("%asset_ids"),
+            )
+        )
+        return or_(
+            and_(
+                column.is_not(None),
+                func.json_valid(column) == 0,
+            ),
+            exists(
+                select(1)
+                .select_from(tree)
+                .where(
+                    tree.c.atom.in_(select(targets.c.value)),
+                    reference_shape,
+                )
+            ),
+        )
+
     items = list(
         await session.scalars(
             select(ChatItem).where(
-                ChatItem.asset_id.in_(asset_ids)
-                | ChatItem.asset_ids.is_not(None)
-                | ChatItem.item_metadata.is_not(None)
-                | ChatItem.tool_args.is_not(None)
-                | ChatItem.tool_result.is_not(None)
-                | ChatItem.grid_layout.is_not(None)
+                or_(
+                    ChatItem.asset_id.in_(asset_ids),
+                    _json_contains_target(
+                        ChatItem.asset_ids,
+                        alias="chat_asset_ids",
+                        root_asset_ids=True,
+                    ),
+                    _json_contains_target(
+                        ChatItem.item_metadata,
+                        alias="chat_item_metadata",
+                    ),
+                    _json_contains_target(
+                        ChatItem.tool_args,
+                        alias="chat_tool_args",
+                    ),
+                    _json_contains_target(
+                        ChatItem.tool_result,
+                        alias="chat_tool_result",
+                    ),
+                    _json_contains_target(
+                        ChatItem.grid_layout,
+                        alias="chat_grid_layout",
+                    ),
+                )
             )
         )
     )

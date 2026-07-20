@@ -8,7 +8,14 @@ Tests cover:
 """
 
 import pytest
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+
+from sqlalchemy import select
+
+from database import DeleteOperation, DeleteOperationItem, MediaItem
+from tests.helpers.media import create_media_item
+from asset_service import create_asset_from_media
 
 
 class TestEnabledFlagChecks:
@@ -274,3 +281,67 @@ class TestConfigReload:
         # Settings should be updated
         assert mock_ingestion.settings == mock_settings_new
         assert mock_ingestion.settings.clip.enabled == True
+
+
+@pytest.mark.asyncio
+async def test_background_work_excludes_trashed_and_deleting_asset_media(
+    db_session,
+):
+    from background_work_filters import media_eligible_for_background_work
+
+    async with db_session() as session:
+        active_media = await create_media_item(session)
+        trashed_media = await create_media_item(session)
+        deleting_media = await create_media_item(session)
+        queued_media = await create_media_item(session)
+        active_asset = await create_asset_from_media(
+            session,
+            media_id=active_media.id,
+        )
+        trashed_asset = await create_asset_from_media(
+            session,
+            media_id=trashed_media.id,
+        )
+        deleting_asset = await create_asset_from_media(
+            session,
+            media_id=deleting_media.id,
+        )
+        trashed_asset.state = "trashed"
+        trashed_asset.deleted_at = datetime.utcnow()
+        deleting_asset.state = "deleting"
+        deleting_asset.deleted_at = datetime.utcnow()
+        operation = DeleteOperation(
+            kind="asset",
+            profile_id="default",
+            status="running",
+            current_phase="unlinking_artifacts",
+            total_items=1,
+        )
+        session.add(operation)
+        await session.flush()
+        session.add(
+            DeleteOperationItem(
+                operation_id=operation.id,
+                media_id=queued_media.id,
+                state="media_deleted",
+            )
+        )
+        await session.commit()
+        candidate_ids = [
+            active_media.id,
+            trashed_media.id,
+            deleting_media.id,
+            queued_media.id,
+        ]
+
+        eligible_ids = set(
+            await session.scalars(
+                select(MediaItem.id).where(
+                    MediaItem.id.in_(candidate_ids),
+                    media_eligible_for_background_work(),
+                )
+            )
+        )
+
+    assert active_asset.state == "active"
+    assert eligible_ids == {active_media.id}

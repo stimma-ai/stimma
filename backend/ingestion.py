@@ -8,7 +8,16 @@ from concurrent.futures import ThreadPoolExecutor
 import random
 import json
 
-from database import AssetMarker, MediaItem, Keyword, MediaKeyword, Face, MediaMarker, Marker
+from database import (
+    AssetMarker,
+    DeleteOperation,
+    Face,
+    Keyword,
+    Marker,
+    MediaItem,
+    MediaKeyword,
+    MediaMarker,
+)
 from database_registry import get_database_registry
 from media_scanner import (
     scan_directories, fast_scan_directories, extract_metadata,
@@ -22,6 +31,7 @@ from config_version import get_config_version_manager
 from core.logging import get_logger
 from prompts import get_prompt
 from PIL import Image
+from background_work_filters import media_eligible_for_background_work
 
 log = get_logger(__name__)
 
@@ -111,8 +121,8 @@ async def sync_auto_markers_for_items(
             folder_markers[folder.path] = set(folder.markers)
             all_marker_names.update(folder.markers)
 
-    log.info(f"AUTO-MARKERS: Folder markers config: {folder_markers}")
-    log.info(f"AUTO-MARKERS: All marker names needed: {all_marker_names}")
+    log.debug(f"AUTO-MARKERS: Folder markers config: {folder_markers}")
+    log.debug(f"AUTO-MARKERS: All marker names needed: {all_marker_names}")
 
     # Get marker IDs from database (for adding new auto-markers)
     markers_by_name = {}
@@ -121,7 +131,7 @@ async def sync_auto_markers_for_items(
             select(Marker).where(Marker.name.in_(all_marker_names))
         )
         markers_by_name = {m.name: m.id for m in result.scalars().all()}
-        log.info(f"AUTO-MARKERS: Found markers in DB: {markers_by_name}")
+        log.debug(f"AUTO-MARKERS: Found markers in DB: {markers_by_name}")
 
         if not markers_by_name and not remove_only:
             log.warning(f"AUTO-MARKERS: None of configured markers found in DB: {all_marker_names}")
@@ -197,7 +207,7 @@ async def sync_auto_markers_for_items(
                     await session.delete(media_marker)
                 removed_count += 1
 
-    log.info(f"AUTO-MARKERS: Added {added_count}, removed {removed_count} auto-markers")
+    log.debug(f"AUTO-MARKERS: Added {added_count}, removed {removed_count} auto-markers")
 
 
 class IngestionProgress:
@@ -781,7 +791,11 @@ class MediaIngestion:
                             func.sum(case((status_col == status, 1), else_=0)).label(f"{phase}_{status}")
                         )
 
-                result = await session.execute(select(*columns))
+                result = await session.execute(
+                    select(*columns).where(
+                        media_eligible_for_background_work()
+                    )
+                )
                 row = result.one()
 
                 # Parse results back into phase_stats
@@ -823,6 +837,14 @@ class MediaIngestion:
             log.debug(f"FAST DISCOVERY [{profile_id}]: No folders configured, skipping")
             return 0
 
+        db = await self._get_profile_db(profile_id)
+        if await self._profile_has_active_delete_queue(db, profile_id):
+            log.info(
+                f"FAST DISCOVERY [{profile_id}]: Deferring source scan while "
+                "permanent deletion is active"
+            )
+            return 0
+
         folder_paths = [f.path for f in profile_folders]
         import app_dirs
 
@@ -850,8 +872,14 @@ class MediaIngestion:
                 f"{sorted(untrusted_folder_paths)}"
             )
 
-        # Step 2: Get database for this profile
-        db = await self._get_profile_db(profile_id)
+        # The filesystem walk can take long enough for a delete request to
+        # arrive. Recheck before opening the database work transaction.
+        if await self._profile_has_active_delete_queue(db, profile_id):
+            log.info(
+                f"FAST DISCOVERY [{profile_id}]: Deferring database sync while "
+                "permanent deletion is active"
+            )
+            return 0
 
         async with db.async_session_maker() as session:
             # Get all existing files in this profile's DB
@@ -948,16 +976,6 @@ class MediaIngestion:
                 await self._insert_batch(session, new_files)
                 log.debug(f"FAST DISCOVERY [{profile_id}]: Batch insert complete ✓")
 
-                # Apply auto-markers to new files
-                new_file_paths = [f['file_path'] for f in new_files]
-                result = await session.execute(
-                    select(MediaItem.id, MediaItem.file_path).where(MediaItem.file_path.in_(new_file_paths))
-                )
-                new_media_items = [(row[0], row[1]) for row in result.fetchall()]
-                if new_media_items:
-                    log.debug(f"FAST DISCOVERY [{profile_id}]: Applying auto-markers to {len(new_media_items)} new files...")
-                    await sync_auto_markers_for_items(session, new_media_items, profile_folders)
-
             # Step 5: Reset modified files
             if modified_files:
                 log.info(f"FAST DISCOVERY [{profile_id}]: Marking {len(modified_files)} modified files for re-processing...")
@@ -1046,6 +1064,11 @@ class MediaIngestion:
                             restored_count += 1
                             log.info(f"RESTORED: {item.file_path}")
 
+            # Publish discovery/availability changes before the expensive
+            # marker reconciliation. Keeping those in one transaction let a
+            # no-op scan hold SQLite's only writer for tens of seconds.
+            await session.commit()
+
             # Step 8: Sync auto-markers for all existing files (handles config changes)
             # Only sync if any folder has markers configured
             has_folder_markers = any(f.markers for f in profile_folders)
@@ -1063,7 +1086,25 @@ class MediaIngestion:
                     )
                     existing_media_items.extend([(row[0], row[1]) for row in result.fetchall()])
                 if existing_media_items:
-                    await sync_auto_markers_for_items(session, existing_media_items, profile_folders)
+                    marker_batch_size = 100
+                    for i in range(0, len(existing_media_items), marker_batch_size):
+                        if await self._profile_has_active_delete_queue(
+                            db,
+                            profile_id,
+                            session=session,
+                        ):
+                            log.info(
+                                f"FAST DISCOVERY [{profile_id}]: Pausing "
+                                "auto-marker sync for permanent deletion"
+                            )
+                            break
+                        await sync_auto_markers_for_items(
+                            session,
+                            existing_media_items[i:i + marker_batch_size],
+                            profile_folders,
+                        )
+                        await session.commit()
+                        await asyncio.sleep(0)
                     log.debug(f"FAST DISCOVERY [{profile_id}]: Auto-marker sync complete for {len(existing_media_items)} files")
 
             await session.commit()
@@ -1074,6 +1115,32 @@ class MediaIngestion:
             else:
                 log.debug(f"FAST DISCOVERY [{profile_id}]: No changes")
             return len(new_files) + len(modified_files)
+
+    async def _profile_has_active_delete_queue(
+        self,
+        db,
+        profile_id: str,
+        *,
+        session: AsyncSession | None = None,
+    ) -> bool:
+        async def _query(active_session: AsyncSession) -> bool:
+            operation_id = await active_session.scalar(
+                select(DeleteOperation.id)
+                .where(
+                    DeleteOperation.profile_id == profile_id,
+                    DeleteOperation.kind == "asset",
+                    DeleteOperation.status.in_(
+                        ("queued", "running", "checkpointing")
+                    ),
+                )
+                .limit(1)
+            )
+            return operation_id is not None
+
+        if session is not None:
+            return await _query(session)
+        async with db.async_session_maker() as active_session:
+            return await _query(active_session)
 
     def _check_file_modified_simple(self, file_path: Path, db_mtime: Optional[datetime]) -> tuple[bool, Optional[datetime]]:
         """Quick timestamp check - runs in thread pool. Returns (modified, mtime)."""
@@ -1205,9 +1272,8 @@ class MediaIngestion:
                     select(MediaItem)
                     .where(and_(
                         MediaItem.metadata_status == 'pending',
-                        MediaItem.deleted_at.is_(None),  # Skip trashed items
+                        media_eligible_for_background_work(),
                         MediaItem.ephemeral_run_id.is_(None),  # Skip ephemeral one-shot-run media
-                        MediaItem.file_unavailable != True,  # Skip missing files
                     ))
                     .limit(available_slots)
                 )
@@ -1415,9 +1481,8 @@ class MediaIngestion:
                         and_(
                             # DEPENDENCY: Only process items with completed metadata
                             MediaItem.metadata_status == 'completed',
-                            MediaItem.deleted_at.is_(None),  # Skip trashed items
+                            media_eligible_for_background_work(),
                             MediaItem.ephemeral_run_id.is_(None),  # Skip ephemeral one-shot-run media
-                            MediaItem.file_unavailable != True,  # Skip missing files
                             or_(
                                 # Process pending items regardless of version
                                 MediaItem.clip_status == 'pending',
@@ -1580,9 +1645,8 @@ class MediaIngestion:
                         and_(
                             # DEPENDENCY: Only process items with completed metadata
                             MediaItem.metadata_status == 'completed',
-                            MediaItem.deleted_at.is_(None),  # Skip trashed items
+                            media_eligible_for_background_work(),
                             MediaItem.ephemeral_run_id.is_(None),  # Skip ephemeral one-shot-run media
-                            MediaItem.file_unavailable != True,  # Skip missing files
                             or_(
                                 # Process pending items regardless of version
                                 MediaItem.face_detection_status == 'pending',
@@ -1767,9 +1831,8 @@ class MediaIngestion:
                         and_(
                             MediaItem.metadata_status == 'completed',  # Dependency: need metadata first
                             MediaItem.clip_status == 'completed',  # Dependency
-                            MediaItem.deleted_at.is_(None),  # Skip trashed items
+                            media_eligible_for_background_work(),
                             MediaItem.ephemeral_run_id.is_(None),  # Skip ephemeral one-shot-run media
-                            MediaItem.file_unavailable != True,  # Skip missing files
                             or_(
                                 # Process pending items regardless of version
                                 MediaItem.vlm_caption_status == 'pending',

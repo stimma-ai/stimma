@@ -1177,6 +1177,10 @@ async def test_large_asset_batch_prescrubs_and_checkpoints_once(
             wraps=_truncate_privacy_wal,
         ) as checkpoint,
         patch(
+            "asset_deletion_service._scrub_chat_asset_references",
+            wraps=_scrub_chat_asset_references,
+        ) as repeated_asset_scrub,
+        patch(
             "delete_operations._batch_scrub_references",
             wraps=_batch_scrub_references,
         ) as worker_scrub,
@@ -1196,6 +1200,7 @@ async def test_large_asset_batch_prescrubs_and_checkpoints_once(
                 break
 
     assert worker_scrub.await_count == 3
+    assert repeated_asset_scrub.await_count == 0
     assert checkpoint.await_count == 1
     assert time.monotonic() - worker_started < 10
     async with db_session() as session:
@@ -1289,7 +1294,11 @@ async def test_asset_identity_batches_release_sqlite_for_thumbnail_writers(
 ):
     from asset_deletion_service import permanently_delete_asset
     from database_registry import get_database_registry
-    from delete_operations import _process_profile, _stage_queued_asset_identities
+    from delete_operations import (
+        _prepare_queued_asset_references,
+        _process_profile,
+        _stage_queued_asset_identities,
+    )
 
     async with db_session() as session:
         roots = []
@@ -1313,6 +1322,8 @@ async def test_asset_identity_batches_release_sqlite_for_thumbnail_writers(
             json={"asset_ids": asset_ids},
         )
     assert response.status_code == 202
+    db = get_database_registry().get_database("default")
+    await _prepare_queued_asset_references(db, "default")
 
     entered = asyncio.Event()
     release = asyncio.Event()
@@ -1322,7 +1333,6 @@ async def test_asset_identity_batches_release_sqlite_for_thumbnail_writers(
         await release.wait()
         return await permanently_delete_asset(*args, **kwargs)
 
-    db = get_database_registry().get_database("default")
     with patch(
         "asset_deletion_service.permanently_delete_asset",
         side_effect=pause_inside_writer_transaction,
@@ -1358,10 +1368,10 @@ async def test_asset_identity_batches_release_sqlite_for_thumbnail_writers(
         remaining_identities = await session.scalar(
             select(func.count())
             .select_from(DeleteOperation)
-            .where(
-                DeleteOperation.asset_id.in_(asset_ids),
-                DeleteOperation.current_phase == "identity_queued",
-            )
+                .where(
+                    DeleteOperation.asset_id.in_(asset_ids),
+                    DeleteOperation.current_phase == "identity_refs_scrubbed",
+                )
         )
         assert cached is not None
         assert remaining_identities == 5

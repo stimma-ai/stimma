@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import Asset, AssetRevision, MediaItem
 from database_registry import get_database_registry
 from config import get_settings
+from background_work_filters import media_eligible_for_background_work
 
 log = get_logger(__name__)
 
@@ -320,7 +321,11 @@ async def monitor_processing_stats(ws_manager):
                                 func.sum(case((status_col == status, 1), else_=0)).label(f"{phase}_{status}")
                             )
 
-                    result = await session.execute(select(*columns))
+                    result = await session.execute(
+                        select(*columns).where(
+                            media_eligible_for_background_work()
+                        )
+                    )
                     row = result.one()
 
                     # Aggregate results from this profile
