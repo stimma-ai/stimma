@@ -42,7 +42,7 @@
         />
       </template>
 
-    <div class="flex flex-1 flex-col min-h-0" :style="!embedded && artifactStage.stageOpen.value ? { flex: `0 0 ${artifactStage.width.value}px`, minWidth: 0 } : {}">
+    <div class="flex flex-1 flex-col min-h-0 min-w-0" :style="!embedded && artifactStage.stageOpen.value ? { flex: `0 0 ${artifactStage.width.value}px` } : {}">
       <!-- Chat + Settings horizontal row -->
       <div class="flex flex-1 min-h-0">
         <!-- Main chat area -->
