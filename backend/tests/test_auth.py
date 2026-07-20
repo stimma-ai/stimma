@@ -129,6 +129,89 @@ class TestHtmlPage:
 class TestAuthStorage:
     """Tests for local auth persistence and token migration."""
 
+    def test_macos_keychain_store_targets_default_keychain(self, monkeypatch):
+        """Auth survives signing jobs that temporarily replace the Keychain search list."""
+        import auth_storage
+
+        calls = []
+
+        def fake_run(command, **kwargs):
+            calls.append(command)
+            operation = command[1]
+            if operation == "default-keychain":
+                return auth_storage.subprocess.CompletedProcess(
+                    command,
+                    0,
+                    stdout='    "/test/login.keychain-db"\n',
+                    stderr="",
+                )
+            if operation == "find-generic-password":
+                return auth_storage.subprocess.CompletedProcess(
+                    command,
+                    0,
+                    stdout="refresh-secret\n",
+                    stderr="",
+                )
+            return auth_storage.subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="",
+                stderr="",
+            )
+
+        monkeypatch.setattr(auth_storage.shutil, "which", lambda _: "/usr/bin/security")
+        monkeypatch.setattr(auth_storage.subprocess, "run", fake_run)
+        monkeypatch.setattr(auth_storage, "get_bundle_id", lambda: "ai.stimma.stimma.debug")
+        monkeypatch.setattr(auth_storage, "get_sandbox", lambda: "oobe5")
+
+        store = auth_storage.MacOSKeychainRefreshTokenStore()
+
+        assert store.get_refresh_token() == "refresh-secret"
+        store.set_refresh_token("new-refresh-secret")
+        store.clear_refresh_token()
+
+        credential_calls = [
+            command for command in calls
+            if command[1] in {
+                "find-generic-password",
+                "add-generic-password",
+                "delete-generic-password",
+            }
+        ]
+        assert len(credential_calls) == 3
+        assert all(command[-1] == "/test/login.keychain-db" for command in credential_calls)
+
+    def test_macos_keychain_store_uses_search_list_without_default(self, monkeypatch):
+        """Older or unusual macOS setups still use the existing search-list behavior."""
+        import auth_storage
+
+        calls = []
+
+        def fake_run(command, **kwargs):
+            calls.append(command)
+            if command[1] == "default-keychain":
+                return auth_storage.subprocess.CompletedProcess(
+                    command,
+                    44,
+                    stdout="",
+                    stderr="not found",
+                )
+            return auth_storage.subprocess.CompletedProcess(
+                command,
+                44,
+                stdout="",
+                stderr="not found",
+            )
+
+        monkeypatch.setattr(auth_storage.shutil, "which", lambda _: "/usr/bin/security")
+        monkeypatch.setattr(auth_storage.subprocess, "run", fake_run)
+
+        store = auth_storage.MacOSKeychainRefreshTokenStore()
+
+        assert store.get_refresh_token() is None
+        find_call = next(command for command in calls if command[1] == "find-generic-password")
+        assert find_call[-1] == "-w"
+
     def test_token_store_uses_windows_credential_manager(self, monkeypatch):
         """Windows uses Credential Manager for refresh-token persistence."""
         import auth_storage

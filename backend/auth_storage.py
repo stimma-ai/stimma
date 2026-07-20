@@ -75,6 +75,7 @@ class MacOSKeychainRefreshTokenStore:
         self._security_bin = shutil.which("security")
         if not self._security_bin:
             raise SecureTokenStorageUnavailable("security command not found")
+        self._default_keychain = self._resolve_default_keychain()
 
     @property
     def _account(self) -> str:
@@ -94,12 +95,25 @@ class MacOSKeychainRefreshTokenStore:
         except Exception as e:
             raise SecureTokenStorageUnavailable(str(e)) from e
 
+    def _resolve_default_keychain(self) -> Optional[str]:
+        """Resolve the user keychain independently of the mutable search list."""
+        result = self._run(["default-keychain", "-d", "user"])
+        if result.returncode != 0:
+            return None
+        keychain = result.stdout.strip().strip('"')
+        return keychain or None
+
+    def _keychain_args(self) -> list[str]:
+        """Target the default keychain when macOS reports one."""
+        return [self._default_keychain] if self._default_keychain else []
+
     def get_refresh_token(self) -> Optional[str]:
         result = self._run([
             "find-generic-password",
             "-s", KEYCHAIN_SERVICE,
             "-a", self._account,
             "-w",
+            *self._keychain_args(),
         ])
         if result.returncode == 44:
             return None
@@ -118,6 +132,7 @@ class MacOSKeychainRefreshTokenStore:
             "-s", KEYCHAIN_SERVICE,
             "-a", self._account,
             "-w", token,
+            *self._keychain_args(),
         ])
         if result.returncode != 0:
             message = (result.stderr or result.stdout or "").strip()
@@ -128,6 +143,7 @@ class MacOSKeychainRefreshTokenStore:
             "delete-generic-password",
             "-s", KEYCHAIN_SERVICE,
             "-a", self._account,
+            *self._keychain_args(),
         ])
         if result.returncode in (0, 44):
             return

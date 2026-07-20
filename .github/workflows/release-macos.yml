@@ -204,13 +204,20 @@ jobs:
           # so prior runs' apple-signing-*.keychain-db files are gone but their
           # search-list entries linger. Inaccessible keychains can likewise make
           # codesign fail with errSecInternalComponent. Drop either here.
-          ORIGINAL_KEYCHAINS=""
+          DEFAULT_KEYCHAIN="$(security default-keychain -d user 2>/dev/null | sed -E 's/^[[:space:]]*"//; s/"[[:space:]]*$//')"
+          ORIGINAL_KEYCHAINS=()
+          # The default login keychain may be locked in the runner session, but it
+          # must remain searchable for desktop apps running under the same user.
+          if [ -n "$DEFAULT_KEYCHAIN" ] && [ -f "$DEFAULT_KEYCHAIN" ]; then
+            ORIGINAL_KEYCHAINS+=("$DEFAULT_KEYCHAIN")
+          fi
           while IFS= read -r kc; do
-            kc="${kc//[\" ]/}"
+            kc="$(printf '%s' "$kc" | sed -E 's/^[[:space:]]*"//; s/"[[:space:]]*$//')"
             [ -z "$kc" ] && continue
+            [ "$kc" = "$DEFAULT_KEYCHAIN" ] && continue
             [ -f "$kc" ] || continue
             security show-keychain-info "$kc" >/dev/null 2>&1 || continue
-            ORIGINAL_KEYCHAINS="$ORIGINAL_KEYCHAINS $kc"
+            ORIGINAL_KEYCHAINS+=("$kc")
           done < <(security list-keychains -d user)
 
           security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
@@ -230,7 +237,7 @@ jobs:
           security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$KEYCHAIN_PATH" -T /usr/bin/codesign || true
           security import "$RUNNER_TEMP/DeveloperIDCA.cer" -k "$KEYCHAIN_PATH" -T /usr/bin/codesign || true
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychains -d user -s $ORIGINAL_KEYCHAINS "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "${ORIGINAL_KEYCHAINS[@]}" "$KEYCHAIN_PATH"
           security find-identity -v -p codesigning "$KEYCHAIN_PATH" | tee "$RUNNER_TEMP/codesigning-identities.txt"
           if ! grep -qE '[1-9][0-9]* valid identities found' "$RUNNER_TEMP/codesigning-identities.txt"; then
             echo "No codesigning identities are available after importing Apple certificate."
@@ -530,16 +537,22 @@ jobs:
           # Keep OTHER runs' usable apple-signing keychains: stripping them here
           # yanks a concurrent release's keychain mid-codesign. Dead or
           # inaccessible entries are dropped from the search list.
-          REMAINING=""
+          DEFAULT_KEYCHAIN="$(security default-keychain -d user 2>/dev/null | sed -E 's/^[[:space:]]*"//; s/"[[:space:]]*$//')"
+          REMAINING=()
+          # Restore the default even if this background runner cannot unlock it.
+          if [ -n "$DEFAULT_KEYCHAIN" ] && [ -f "$DEFAULT_KEYCHAIN" ]; then
+            REMAINING+=("$DEFAULT_KEYCHAIN")
+          fi
           while IFS= read -r kc; do
-            kc="${kc//[\" ]/}"
+            kc="$(printf '%s' "$kc" | sed -E 's/^[[:space:]]*"//; s/"[[:space:]]*$//')"
             [ -z "$kc" ] && continue
+            [ "$kc" = "$DEFAULT_KEYCHAIN" ] && continue
             [ -f "$kc" ] || continue
             security show-keychain-info "$kc" >/dev/null 2>&1 || continue
             [ "$kc" = "${STIMMA_SIGNING_KEYCHAIN:-}" ] && continue
-            REMAINING="$REMAINING $kc"
+            REMAINING+=("$kc")
           done < <(security list-keychains -d user)
-          security list-keychains -d user -s $REMAINING
+          security list-keychains -d user -s "${REMAINING[@]}"
           if [ -n "${STIMMA_SIGNING_KEYCHAIN:-}" ]; then
             security delete-keychain "$STIMMA_SIGNING_KEYCHAIN" 2>/dev/null
             rm -f "$STIMMA_SIGNING_KEYCHAIN" "$STIMMA_SIGNING_KEYCHAIN"-shm "$STIMMA_SIGNING_KEYCHAIN"-wal
