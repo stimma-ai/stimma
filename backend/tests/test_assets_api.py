@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
-from sqlalchemy import delete, func, insert, select
+from sqlalchemy import delete, func, insert, select, update
 
 from asset_service import (
     acquire_media_owner,
@@ -1088,11 +1088,15 @@ async def test_large_asset_batch_prescrubs_and_checkpoints_once(
     client, db_session
 ):
     from asset_deletion_service import _scrub_chat_asset_references
-    from delete_operations import _process_profile, _truncate_privacy_wal
+    from delete_operations import (
+        _batch_scrub_references,
+        _process_profile,
+        _truncate_privacy_wal,
+    )
 
     async with db_session() as session:
         roots = []
-        for _ in range(20):
+        for _ in range(100):
             media = await create_media_item(session)
             roots.append(await create_asset_from_media(session, media_id=media.id))
         asset_ids = [asset.id for asset in roots]
@@ -1139,12 +1143,23 @@ async def test_large_asset_batch_prescrubs_and_checkpoints_once(
         )
         assert asset_states == ["deleting"] * len(asset_ids)
 
+    worker_started = time.monotonic()
     with patch(
         "asset_deletion_service._scrub_chat_asset_references",
         wraps=_scrub_chat_asset_references,
     ) as worker_asset_scrub:
         await _process_profile("default")
     assert worker_asset_scrub.await_count == 1
+    async with db_session() as session:
+        checkpointing_after_one_pass = await session.scalar(
+            select(func.count())
+            .select_from(DeleteOperation)
+            .where(
+                DeleteOperation.id.in_(operation_ids),
+                DeleteOperation.status == "checkpointing",
+            )
+        )
+    assert checkpointing_after_one_pass == 25
     async with db_session() as session:
         states = list(
             await session.scalars(
@@ -1156,13 +1171,15 @@ async def test_large_asset_batch_prescrubs_and_checkpoints_once(
         )
         assert all(state == "media_deleted" for state in states)
 
-    worker_scrub = AsyncMock()
     with (
         patch(
             "delete_operations._truncate_privacy_wal",
             wraps=_truncate_privacy_wal,
         ) as checkpoint,
-        patch("delete_operations._batch_scrub_references", worker_scrub),
+        patch(
+            "delete_operations._batch_scrub_references",
+            wraps=_batch_scrub_references,
+        ) as worker_scrub,
     ):
         for _ in range(len(asset_ids) * 2 + 5):
             await _process_profile("default")
@@ -1178,8 +1195,9 @@ async def test_large_asset_batch_prescrubs_and_checkpoints_once(
             if remaining is None:
                 break
 
-    assert worker_scrub.await_count == 0
+    assert worker_scrub.await_count == 3
     assert checkpoint.await_count == 1
+    assert time.monotonic() - worker_started < 10
     async with db_session() as session:
         statuses = list(
             await session.scalars(
@@ -1348,6 +1366,45 @@ async def test_asset_identity_batches_release_sqlite_for_thumbnail_writers(
         assert cached is not None
         assert remaining_identities == 5
 
+        leased_item = await session.scalar(
+            select(DeleteOperationItem)
+            .join(
+                DeleteOperation,
+                DeleteOperation.id == DeleteOperationItem.operation_id,
+            )
+            .where(
+                DeleteOperation.asset_id.in_(asset_ids),
+                DeleteOperationItem.state == "media_deleted",
+            )
+            .limit(1)
+        )
+        leased_operation_id = leased_item.operation_id
+        leased_media_id = leased_item.media_id
+        leased_item.state = "unlinking"
+        leased_item.lease_expires_at = datetime.utcnow() + timedelta(minutes=1)
+        await session.commit()
+
+    await _process_profile("default")
+    async with db_session() as session:
+        leased_operation = await session.get(
+            DeleteOperation, leased_operation_id
+        )
+        leased_item = await session.get(
+            DeleteOperationItem,
+            (leased_operation_id, leased_media_id),
+        )
+        assert leased_operation.status == "running"
+        assert leased_item.state == "unlinking"
+        await session.execute(
+            update(DeleteOperationItem)
+            .where(
+                DeleteOperationItem.operation_id == leased_operation_id,
+                DeleteOperationItem.media_id == leased_media_id,
+            )
+            .values(state="media_deleted", lease_expires_at=None)
+        )
+        await session.commit()
+
     for _ in range(100):
         await _process_profile("default")
         async with db_session() as session:
@@ -1362,3 +1419,80 @@ async def test_asset_identity_batches_release_sqlite_for_thumbnail_writers(
         if unfinished is None:
             break
     assert unfinished is None
+
+
+@pytest.mark.asyncio
+async def test_asset_finalize_batch_isolates_one_unlink_failure(
+    client, db_session, tmp_path
+):
+    from delete_operations import _process_profile, retry_delete_operation
+    from trash_service import TrashService
+
+    paths = [tmp_path / "batch-ok.png", tmp_path / "batch-fails.png"]
+    for path in paths:
+        path.write_bytes(b"asset")
+    async with db_session() as session:
+        roots = []
+        for path in paths:
+            media = await create_media_item(session, file_path=path)
+            roots.append(await create_asset_from_media(session, media_id=media.id))
+        asset_ids = [asset.id for asset in roots]
+        for asset in roots:
+            asset.state = "trashed"
+            asset.deleted_at = datetime.utcnow()
+        await session.commit()
+
+    with patch(
+        "delete_operations.ensure_delete_worker_started",
+        new=AsyncMock(),
+    ):
+        response = await client.post(
+            "/api/assets/batch/permanent",
+            json={"asset_ids": asset_ids},
+        )
+    assert response.status_code == 202
+
+    original_delete = TrashService.permanently_delete
+
+    def selective_failure(service, file_path):
+        if str(file_path) == str(paths[1]):
+            raise PermissionError("denied")
+        return original_delete(service, file_path)
+
+    with patch.object(
+        TrashService,
+        "permanently_delete",
+        autospec=True,
+        side_effect=selective_failure,
+    ):
+        await _process_profile("default")
+
+    async with db_session() as session:
+        operations = list(
+            await session.scalars(
+                select(DeleteOperation)
+                .where(DeleteOperation.asset_id.in_(asset_ids))
+                .order_by(DeleteOperation.asset_id)
+            )
+        )
+        assert [operation.status for operation in operations] == [
+            "checkpointing",
+            "failed",
+        ]
+        failed_operation_id = operations[1].id
+        await retry_delete_operation(session, failed_operation_id)
+    assert not paths[0].exists()
+    assert paths[1].exists()
+
+    for _ in range(5):
+        await _process_profile("default")
+    assert not paths[1].exists()
+    async with db_session() as session:
+        statuses = list(
+            await session.scalars(
+                select(DeleteOperation.status)
+                .where(DeleteOperation.asset_id.in_(asset_ids))
+                .order_by(DeleteOperation.asset_id)
+            )
+        )
+    assert statuses == ["completed", "completed"]

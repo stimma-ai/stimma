@@ -40,6 +40,7 @@ log = get_logger(__name__)
 
 DELETE_BATCH_SIZE = 500
 ASSET_IDENTITY_BATCH_SIZE = 25
+ASSET_FINALIZE_BATCH_SIZE = 100
 LEASE_SECONDS = 60
 WORKER_IDLE_SECONDS = 1.0
 PROGRESS_BROADCAST_INTERVAL_SECONDS = 0.25
@@ -457,6 +458,63 @@ async def _truncate_privacy_wal(db) -> bool:
         return False
 
 
+def _unlink_staged_manifests(
+    *,
+    profile_id: str,
+    staged_items: list[DeleteOperationItem],
+    artifacts: list[ManagedArtifact],
+    protected_paths: set[str],
+    retained_storage_ids: set[int],
+) -> None:
+    from config import get_settings
+    from storage_service import object_path
+
+    trash_service = TrashService()
+    offline_roots: list[Path] | None = None
+
+    def _under_offline_source_root(path_str: str) -> Path | None:
+        nonlocal offline_roots
+        if offline_roots is None:
+            offline_roots = []
+            for folder in get_settings().get_folders_for_profile(profile_id):
+                root = Path(folder.path).expanduser()
+                if not root.is_dir():
+                    offline_roots.append(root.resolve(strict=False))
+        resolved = Path(path_str).expanduser().resolve(strict=False)
+        for root in offline_roots:
+            if resolved.is_relative_to(root):
+                return root
+        return None
+
+    for item in staged_items:
+        try:
+            thumbnail_paths = json.loads(item.thumbnail_paths or "[]")
+        except (json.JSONDecodeError, TypeError):
+            thumbnail_paths = []
+        for thumbnail_path in thumbnail_paths:
+            Path(thumbnail_path).unlink(missing_ok=True)
+        if item.file_path and item.file_path not in protected_paths:
+            target = Path(item.file_path)
+            if (
+                item.storage_kind == "external"
+                and not target.exists()
+                and not target.is_symlink()
+                and _under_offline_source_root(item.file_path) is not None
+            ):
+                raise SourceOfflineError()
+            trash_service.permanently_delete(item.file_path)
+        if (
+            item.storage_kind == "managed"
+            and item.storage_object_key
+            and item.storage_object_id not in retained_storage_ids
+        ):
+            trash_service.permanently_delete(
+                str(object_path(profile_id, item.storage_object_key))
+            )
+    for artifact in artifacts:
+        trash_service.permanently_delete(artifact.locator)
+
+
 async def _finalize_staged_deletion(
     db,
     *,
@@ -597,61 +655,15 @@ async def _finalize_staged_deletion(
     if not staged_items and not artifacts:
         return False, []
 
-    trash_service = TrashService()
-
-    def _unlink_manifests() -> None:
-        from storage_service import object_path
-        from config import get_settings
-
-        # A missing external file under an offline source root is not evidence
-        # of deletion — the volume may simply be unmounted, and "success" here
-        # would let the file resurrect as new Media at remount. Defer instead.
-        offline_roots: list[Path] | None = None
-
-        def _under_offline_source_root(path_str: str) -> Path | None:
-            nonlocal offline_roots
-            if offline_roots is None:
-                offline_roots = []
-                for folder in get_settings().get_folders_for_profile(profile_id):
-                    root = Path(folder.path).expanduser()
-                    if not root.is_dir():
-                        offline_roots.append(root.resolve(strict=False))
-            resolved = Path(path_str).expanduser().resolve(strict=False)
-            for root in offline_roots:
-                if resolved.is_relative_to(root):
-                    return root
-            return None
-
-        for item in staged_items:
-            try:
-                thumbnail_paths = json.loads(item.thumbnail_paths or "[]")
-            except (json.JSONDecodeError, TypeError):
-                thumbnail_paths = []
-            for thumbnail_path in thumbnail_paths:
-                Path(thumbnail_path).unlink(missing_ok=True)
-            if item.file_path and item.file_path not in protected_paths:
-                target = Path(item.file_path)
-                if (
-                    item.storage_kind == "external"
-                    and not target.exists()
-                    and not target.is_symlink()
-                    and _under_offline_source_root(item.file_path) is not None
-                ):
-                    raise SourceOfflineError()
-                trash_service.permanently_delete(item.file_path)
-            if (
-                item.storage_kind == "managed"
-                and item.storage_object_key
-                and item.storage_object_id not in retained_storage_ids
-            ):
-                trash_service.permanently_delete(
-                    str(object_path(profile_id, item.storage_object_key))
-                )
-        for artifact in artifacts:
-            trash_service.permanently_delete(artifact.locator)
-
     try:
-        await asyncio.to_thread(_unlink_manifests)
+        await asyncio.to_thread(
+            _unlink_staged_manifests,
+            profile_id=profile_id,
+            staged_items=staged_items,
+            artifacts=artifacts,
+            protected_paths=protected_paths,
+            retained_storage_ids=retained_storage_ids,
+        )
     except Exception as exc:
         failure_payload = None
         # Never copy exception text into operation records — it can carry
@@ -796,6 +808,286 @@ async def _finalize_staged_deletion(
         payload: dict[str, Any] = {"count": len(broadcast_ids)}
         if len(broadcast_ids) <= 500:
             payload["media_ids"] = broadcast_ids
+        await ws_manager.broadcast(
+            "media_permanently_deleted", payload, include_profile=False
+        )
+    return True, completed_ids
+
+
+async def _finalize_staged_asset_batch(
+    db,
+    *,
+    profile_id: str,
+    operation_ids: list[int],
+) -> tuple[bool, list[int]]:
+    """Finalize clean, pre-staged Asset operations with two batch commits."""
+    if not operation_ids:
+        return False, []
+    now = _utcnow()
+    async with db.async_session_maker() as session:
+        claimed_rows = (
+            await session.execute(
+                update(DeleteOperationItem)
+                .where(
+                    DeleteOperationItem.operation_id.in_(operation_ids),
+                    DeleteOperationItem.state == "media_deleted",
+                )
+                .values(
+                    state="unlinking",
+                    lease_expires_at=now + timedelta(seconds=LEASE_SECONDS),
+                    updated_at=now,
+                )
+                .returning(
+                    DeleteOperationItem.operation_id,
+                    DeleteOperationItem.media_id,
+                )
+            )
+        ).all()
+        claimed_operation_ids = {row.operation_id for row in claimed_rows}
+        staged_items = (
+            list(
+                await session.scalars(
+                    select(DeleteOperationItem).where(
+                        DeleteOperationItem.operation_id.in_(
+                            claimed_operation_ids
+                        ),
+                        DeleteOperationItem.state == "unlinking",
+                    )
+                )
+            )
+            if claimed_operation_ids
+            else []
+        )
+        artifacts = list(
+            await session.scalars(
+                select(ManagedArtifact).where(
+                    ManagedArtifact.owner_kind == "delete_operation",
+                    ManagedArtifact.owner_id.in_(
+                        [str(value) for value in operation_ids]
+                    ),
+                    ManagedArtifact.state == "deleting",
+                    ManagedArtifact.deleted_at.is_(None),
+                )
+            )
+        )
+        artifact_operation_ids = {
+            int(artifact.owner_id) for artifact in artifacts
+        }
+        operations_with_media_items = set(
+            await session.scalars(
+                select(DeleteOperationItem.operation_id)
+                .where(
+                    DeleteOperationItem.operation_id.in_(operation_ids)
+                )
+                .distinct()
+            )
+        )
+        eligible_operation_ids = (
+            claimed_operation_ids
+            | (artifact_operation_ids - operations_with_media_items)
+        )
+        if not eligible_operation_ids:
+            await session.rollback()
+            return False, []
+
+        compatibility_paths = [
+            item.file_path for item in staged_items if item.file_path
+        ]
+        protected_paths = (
+            set(
+                await session.scalars(
+                    select(MediaItem.file_path).where(
+                        MediaItem.file_path.in_(compatibility_paths)
+                    )
+                )
+            )
+            if compatibility_paths
+            else set()
+        )
+        storage_ids = {
+            item.storage_object_id
+            for item in staged_items
+            if item.storage_object_id is not None
+        }
+        retained_storage_ids = (
+            set(
+                await session.scalars(
+                    select(MediaItem.storage_object_id).where(
+                        MediaItem.storage_object_id.in_(storage_ids)
+                    )
+                )
+            )
+            if storage_ids
+            else set()
+        )
+        await session.commit()
+
+    items_by_operation: dict[int, list[DeleteOperationItem]] = {}
+    for item in staged_items:
+        items_by_operation.setdefault(item.operation_id, []).append(item)
+    artifacts_by_operation: dict[int, list[ManagedArtifact]] = {}
+    for artifact in artifacts:
+        artifacts_by_operation.setdefault(
+            int(artifact.owner_id), []
+        ).append(artifact)
+
+    def _unlink_operations():
+        results = []
+        for operation_id in sorted(eligible_operation_ids):
+            try:
+                _unlink_staged_manifests(
+                    profile_id=profile_id,
+                    staged_items=items_by_operation.get(operation_id, []),
+                    artifacts=artifacts_by_operation.get(operation_id, []),
+                    protected_paths=protected_paths,
+                    retained_storage_ids=retained_storage_ids,
+                )
+                results.append((operation_id, None))
+            except Exception as exc:
+                results.append((operation_id, exc))
+        return results
+
+    unlink_results = await asyncio.to_thread(_unlink_operations)
+    failures = {
+        operation_id: exc
+        for operation_id, exc in unlink_results
+        if exc is not None
+    }
+    successful_operation_ids = eligible_operation_ids - set(failures)
+    completed_ids = [
+        item.media_id
+        for item in staged_items
+        if item.operation_id in successful_operation_ids
+    ]
+
+    async with db.async_session_maker() as session:
+        successful_storage_ids = {
+            item.storage_object_id
+            for item in staged_items
+            if item.operation_id in successful_operation_ids
+            and item.storage_object_id is not None
+        }
+        still_retained_storage_ids = (
+            set(
+                await session.scalars(
+                    select(MediaItem.storage_object_id).where(
+                        MediaItem.storage_object_id.in_(successful_storage_ids)
+                    )
+                )
+            )
+            if successful_storage_ids
+            else set()
+        )
+        deletable_storage_ids = (
+            successful_storage_ids - still_retained_storage_ids
+        )
+        if deletable_storage_ids:
+            await session.execute(
+                delete(StorageObject).where(
+                    StorageObject.id.in_(deletable_storage_ids),
+                    StorageObject.state == "deleting",
+                )
+            )
+        if still_retained_storage_ids:
+            await session.execute(
+                update(StorageObject)
+                .where(
+                    StorageObject.id.in_(still_retained_storage_ids),
+                    StorageObject.state == "deleting",
+                )
+                .values(state="available", deleted_at=None)
+            )
+
+        successful_artifact_ids = [
+            artifact.id
+            for artifact in artifacts
+            if int(artifact.owner_id) in successful_operation_ids
+        ]
+        if successful_artifact_ids:
+            await session.execute(
+                delete(ManagedArtifact).where(
+                    ManagedArtifact.id.in_(successful_artifact_ids)
+                )
+            )
+        if successful_operation_ids:
+            await session.execute(
+                delete(DeleteOperationItem).where(
+                    DeleteOperationItem.operation_id.in_(
+                        successful_operation_ids
+                    ),
+                    DeleteOperationItem.state == "unlinking",
+                )
+            )
+
+        safe_failure_errors: dict[int, str] = {}
+        for operation_id, exc in failures.items():
+            unlink_error = (
+                "source folder offline"
+                if isinstance(exc, SourceOfflineError)
+                else "permanent deletion failed"
+            )
+            safe_failure_errors[operation_id] = unlink_error
+            await session.execute(
+                update(DeleteOperationItem)
+                .where(
+                    DeleteOperationItem.operation_id == operation_id,
+                    DeleteOperationItem.state == "unlinking",
+                )
+                .values(
+                    state="unlink_failed",
+                    lease_expires_at=None,
+                    last_error=unlink_error,
+                    updated_at=_utcnow(),
+                )
+            )
+
+        operations = list(
+            await session.scalars(
+                select(DeleteOperation).where(
+                    DeleteOperation.id.in_(eligible_operation_ids)
+                )
+            )
+        )
+        completed_count_by_operation: dict[int, int] = {}
+        for item in staged_items:
+            completed_count_by_operation[item.operation_id] = (
+                completed_count_by_operation.get(item.operation_id, 0) + 1
+            )
+        for operation in operations:
+            item_count = completed_count_by_operation.get(operation.id, 0)
+            operation.processed_items += item_count
+            operation.updated_at = _utcnow()
+            if operation.id in failures:
+                operation.status = "failed"
+                operation.failed_items += item_count
+                operation.last_error = safe_failure_errors[operation.id]
+                operation.current_phase = "failed"
+                operation.completed_at = operation.updated_at
+            else:
+                operation.deleted_items += item_count
+                operation.last_error = None
+                operation.status = "checkpointing"
+                operation.current_phase = "checkpointing"
+        await session.commit()
+
+        for operation in operations:
+            if operation.id not in failures:
+                continue
+            log.error(
+                "DELETE OPS: durable artifact unlink failed",
+                operation_id=operation.id,
+                error_type=type(failures[operation.id]).__name__,
+            )
+            await ws_manager.broadcast(
+                "delete_operation_failed",
+                await _operation_event_payload(session, operation),
+                include_profile=False,
+            )
+
+    if completed_ids:
+        payload: dict[str, Any] = {"count": len(completed_ids)}
+        if len(completed_ids) <= 500:
+            payload["media_ids"] = completed_ids
         await ws_manager.broadcast(
             "media_permanently_deleted", payload, include_profile=False
         )
@@ -962,6 +1254,20 @@ async def _stage_queued_asset_identities(db, profile_id: str) -> bool:
                 session,
                 valid_operation_ids,
             )
+            staged_at = _utcnow()
+            for asset_id in valid_asset_ids:
+                operation = operation_by_asset[asset_id]
+                if (
+                    operation.total_items == 0
+                    and operation.status == "queued"
+                    and operation.current_phase == "queued"
+                ):
+                    # Zero-Media operations can still own Asset/editor
+                    # artifacts. Send them through the same batch finalizer.
+                    operation.status = "running"
+                    operation.current_phase = "unlinking_artifacts"
+                    operation.started_at = operation.started_at or staged_at
+                    operation.updated_at = staged_at
 
         await session.commit()
         representative = operations[-1]
@@ -1054,6 +1360,29 @@ async def _process_profile(profile_id: str) -> bool:
                 )
             )
             await session.commit()
+
+        ready_asset_operation_ids = list(
+            await session.scalars(
+                select(DeleteOperation.id)
+                .where(
+                    DeleteOperation.profile_id == profile_id,
+                    DeleteOperation.kind == "asset",
+                    DeleteOperation.status == "running",
+                    DeleteOperation.current_phase == "unlinking_artifacts",
+                )
+                .order_by(DeleteOperation.id.asc())
+                .limit(ASSET_FINALIZE_BATCH_SIZE)
+            )
+        )
+        if ready_asset_operation_ids:
+            await session.rollback()
+            finalized, _ = await _finalize_staged_asset_batch(
+                db,
+                profile_id=profile_id,
+                operation_ids=ready_asset_operation_ids,
+            )
+            if finalized:
+                return True
 
         result = await session.execute(
             select(DeleteOperation)
