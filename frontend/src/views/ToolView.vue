@@ -1049,8 +1049,8 @@ const instanceScopeId = (() => {
   const value = Array.isArray(raw) ? raw[0] : raw
   return value ? String(value) : null
 })()
-// Layout mode: 'studio' = controls primary (default), 'stage' = current image
-// primary with controls demoted to a rail. Persisted per-tool via uiState
+// Layout mode: 'stage' = current image primary with controls demoted to a rail
+// (default), 'studio' = controls primary. Persisted per-tool via uiState
 // (makeToolProfileKey 'ui'), like imageMode — see useGenerationPreferences.
 const layoutMode = computed<'studio' | 'stage'>({
   get: () => uiState.value.layoutMode,

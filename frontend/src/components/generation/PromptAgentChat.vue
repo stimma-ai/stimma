@@ -158,9 +158,17 @@
          timer. These are terse confirmations of what the agent did, not a
          back-and-forth transcript. -->
     <template v-if="agent">
+      <!-- Height shell: the row appears, disappears and re-wraps as chips come
+           and go, and the dock card resizes around it. Tween the measured
+           height so the card grows and shrinks instead of snapping. -->
+      <div
+        class="overflow-hidden transition-[height] duration-200 ease-out motion-reduce:transition-none"
+        :style="{ height: flashRowHeight }"
+      >
+      <div ref="flashRowRef" class="pb-2">
       <TransitionGroup
         tag="div"
-        class="mb-2 flex flex-wrap items-start gap-1"
+        class="flex flex-wrap items-start gap-1"
         enter-active-class="transition duration-200 ease-out"
         enter-from-class="opacity-0 -translate-x-1"
         leave-active-class="transition duration-[600ms] ease-in"
@@ -209,6 +217,8 @@
           </button>
         </div>
       </TransitionGroup>
+      </div>
+      </div>
     </template>
 
     <!-- Per-tool settings drawer (toggled by the wrench in the toolbar below):
@@ -647,6 +657,35 @@ function isLlmSetupCode(code: string | null | undefined): boolean {
 function openChatModelSettings() {
   window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai-services' }))
 }
+
+// Measured height of the flash row, driving the shell's height tween. Chips
+// leave on their own fade timer, so the row's height has to follow the live
+// content (append, wrap to a second line, empty out) rather than a v-if.
+const flashRowRef = ref<HTMLElement | null>(null)
+const flashRowHeight = ref('0px')
+let flashRowObserver: ResizeObserver | null = null
+
+watch(flashRowRef, (el) => {
+  flashRowObserver?.disconnect()
+  flashRowObserver = null
+  if (!el) {
+    flashRowHeight.value = '0px'
+    return
+  }
+  flashRowObserver = new ResizeObserver(() => {
+    flashRowHeight.value = agentFlashes.value.length === 0 ? '0px' : `${el.offsetHeight}px`
+  })
+  flashRowObserver.observe(el)
+})
+
+watch(() => agentFlashes.value.length, (count) => {
+  if (count === 0) flashRowHeight.value = '0px'
+})
+
+onUnmounted(() => {
+  flashRowObserver?.disconnect()
+  flashRowObserver = null
+})
 
 function pushAgentFlash(kind: 'reply' | 'error', text: string, ms: number, code: string | null = null) {
   const id = agentFlashSeq++
