@@ -15,7 +15,7 @@ from datetime import datetime
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from unittest.mock import patch
 
 from asset_service import create_asset_from_media
@@ -583,15 +583,8 @@ class TestPermanentDelete:
         operations = await wait_for_delete_operations(client, response.json())
         failed = [operation for operation in operations if operation["status"] == "failed"]
         completed = [operation for operation in operations if operation["status"] == "completed"]
-        assert len(failed) == 1
-        assert sum(operation["deleted_items"] for operation in completed) == 1
-
-        # Once the dependent edit is gone, the retained source cleanup can be
-        # retried and completes.
-        retried = await client.post(f"/api/delete-operations/{failed[0]['id']}/retry")
-        assert retried.status_code == 202
-        source_cleanup = await wait_for_delete_operation(client, failed[0]["id"])
-        assert source_cleanup["status"] == "completed"
+        assert failed == []
+        assert sum(operation["deleted_items"] for operation in completed) == 2
         assert not sidecar.exists()
 
     async def test_permanent_delete_not_in_trash(self, client: AsyncClient, seeded_media):
@@ -733,9 +726,9 @@ class TestPermanentDelete:
 
 
 class TestDeleteProgressSummary:
-    """Wave-level progress aggregation across grouped delete operations."""
+    """Profile-wide progress aggregation in Asset units."""
 
-    async def test_bulk_delete_operations_share_group(self, client: AsyncClient, seeded_media):
+    async def test_bulk_delete_queues_one_operation_per_asset(self, client: AsyncClient, seeded_media):
         media_ids = [m.id for m in seeded_media[:3]]
         await client.post("/api/media/batch/delete", json={"media_ids": media_ids})
 
@@ -746,62 +739,73 @@ class TestDeleteProgressSummary:
         data = response.json()
         operations = data["operations"]
         assert len(operations) == 3
-        group_ids = {operation["group_id"] for operation in operations}
-        assert len(group_ids) == 1
-        assert None not in group_ids
         await wait_for_delete_operations(client, data)
 
-    async def test_summary_aggregates_active_wave(self, client: AsyncClient, db_session):
+    async def test_summary_tracks_global_asset_queue(self, client: AsyncClient, db_session):
         from delete_operations import get_delete_progress_summary
 
         now = datetime.utcnow()
         async with db_session() as session:
-            # Failed operations are inert (the worker skips them), so a
-            # synthetic wave can be asserted against without racing the worker.
-            wave = [
+            await session.execute(
+                update(DeleteOperation)
+                .where(
+                    DeleteOperation.profile_id == "default",
+                    DeleteOperation.kind == "asset",
+                    DeleteOperation.status == "completed",
+                )
+                .values(status="superseded", updated_at=now)
+            )
+            # Failed operations are inert, so the global queue can be asserted
+            # without racing the worker. Trigger sources and Media counts do
+            # not affect the Asset counter.
+            queue = [
                 DeleteOperation(
-                    kind="asset", profile_id="default", group_id="wave-under-test",
+                    kind="asset", profile_id="default",
                     status="failed", current_phase="failed",
                     total_items=5, claimed_items=5, processed_items=5,
                     deleted_items=3, failed_items=2,
                     started_at=now, updated_at=now, completed_at=now,
                 ),
                 DeleteOperation(
-                    kind="asset", profile_id="default", group_id="wave-under-test",
+                    kind="asset", profile_id="default",
                     status="completed", current_phase="completed",
                     total_items=10, claimed_items=10, processed_items=10,
                     deleted_items=10, failed_items=0,
                     started_at=now, updated_at=now, completed_at=now,
                 ),
-                # A finished wave from an earlier action must not be counted.
+                # A completed prior queue has already been retired.
                 DeleteOperation(
-                    kind="asset", profile_id="default", group_id="older-wave",
-                    status="completed", current_phase="completed",
+                    kind="asset", profile_id="default",
+                    status="superseded", current_phase="completed",
                     total_items=100, claimed_items=100, processed_items=100,
                     deleted_items=100, failed_items=0,
                     started_at=now, updated_at=now, completed_at=now,
                 ),
+                # Chat privacy cleanup is not an Asset deletion.
+                DeleteOperation(
+                    kind="chat", profile_id="default", status="failed",
+                    current_phase="failed", total_items=20, claimed_items=20,
+                    processed_items=20, deleted_items=20, failed_items=1,
+                    started_at=now, updated_at=now, completed_at=now,
+                ),
             ]
-            session.add_all(wave)
+            session.add_all(queue)
             await session.commit()
-            operation_ids = [operation.id for operation in wave]
+            operation_ids = [operation.id for operation in queue]
 
         try:
             async with db_session() as session:
                 summary = await get_delete_progress_summary(session, "default")
             assert summary is not None
             assert summary["status"] == "failed"
-            assert summary["total_items"] == 15
-            assert summary["processed_items"] == 15
-            assert summary["failed_items"] == 2
-            assert summary["operations_total"] == 2
-            assert summary["operations_completed"] == 2
-            assert summary["kinds"] == ["asset"]
+            assert summary["total_assets"] == 2
+            assert summary["processed_assets"] == 2
+            assert summary["failed_assets"] == 1
 
             response = await client.get("/api/delete-operations/active")
             assert response.status_code == 200
             payload = response.json()
-            assert payload["summary"]["total_items"] == 15
+            assert payload["summary"]["total_assets"] == 2
             assert payload["operation"] is not None
         finally:
             async with db_session() as session:
@@ -812,7 +816,7 @@ class TestDeleteProgressSummary:
                 )
                 await session.commit()
 
-    async def test_retry_failed_endpoint_recovers_wave(
+    async def test_retry_failed_endpoint_recovers_queue(
         self, client: AsyncClient, seeded_media
     ):
         media_id = seeded_media[0].id

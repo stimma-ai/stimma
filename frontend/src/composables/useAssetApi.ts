@@ -179,8 +179,33 @@ export function useAssetApi() {
   }
 
   async function permanentlyDeleteMany(assetIds: number[]) {
-    const results = await Promise.all(assetIds.map(permanentlyDelete))
-    return { accepted: results.length, results }
+    const uniqueAssetIds = [...new Set(assetIds)]
+    const revisionLists = await Promise.all(
+      uniqueAssetIds.map(async (assetId) => ({
+        assetId,
+        revisions: (await axios.get(`${api()}/assets/${assetId}/revisions`)).data,
+      })),
+    )
+    for (const { assetId, revisions } of revisionLists) {
+      prepareAssetProjectDeletion(
+        assetId,
+        (revisions.items || []).map(
+          (revision: { primary_media_id: number }) => revision.primary_media_id,
+        ),
+      )
+    }
+
+    // Submit the selection in one request; the global deletion queue reports
+    // progress in Asset units regardless of how deletion was triggered.
+    const result = (await axios.post(`${api()}/assets/batch/permanent`, {
+      asset_ids: uniqueAssetIds,
+    })).data
+
+    for (const item of result.results || []) {
+      await confirmAssetProjectDeletion(item.asset_id)
+    }
+    await scrubDeletedAssetProjects(result.media_ids || [])
+    return result
   }
 
   async function getTrashSourceFileCount(): Promise<{ count: number }> {
@@ -193,9 +218,7 @@ export function useAssetApi() {
       prepareAssetProjectDeletion(item.asset_id, item.media_ids || [])
     }
 
-    // Queue the whole trash as one backend wave. Besides being substantially
-    // cheaper than one request per Asset, the shared group_id is what lets the
-    // global deletion indicator retain completed work in its running total.
+    // Queue the whole Trash in one request rather than one request per Asset.
     const result = (await axios.delete(`${api()}/assets`)).data
 
     for (const item of manifest.items || []) {

@@ -2080,14 +2080,17 @@ onMounted(async () => {
     }
   }))
 
-  // Handle trash emptied event (large bulk deletes where IDs aren't sent)
-  wsUnsubscribers.push(wsOn('asset_identities_deleted', () => {
+  // Handle permanent deletion of a selected batch or the whole Trash.
+  wsUnsubscribers.push(wsOn('asset_identities_deleted', (data) => {
     if (!props.isTrashMode) return
-    // Full reload — all items are gone
-    totalCount.value = 0
-    selectedItemIds.value = []
-    multiSelectMode.value = false
-    filterKey.value++
+    const { asset_ids } = data
+    if (asset_ids?.length && mediaList) {
+      removeFromSelection(asset_ids)
+      reconcileRemoval(asset_ids)
+    } else {
+      // Compatibility fallback for senders that omit exact identities.
+      softReloadMedia()
+    }
   }))
 
   wsUnsubscribers.push(wsOn('asset_current_revision_changed', () => {

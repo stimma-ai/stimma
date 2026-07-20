@@ -14,7 +14,6 @@ from core.profile_context import get_current_profile
 from database import Asset, AssetRevision, AssetTag, DeleteOperation, MediaItem, MediaKeyword, Keyword, Tag
 from asset_association_service import media_compatibility_projections
 from core.dependencies import get_db_session
-import uuid
 
 from delete_operations import (
     RetainedMediaError,
@@ -843,34 +842,83 @@ async def bulk_permanently_delete(
     errors = []
     operations = []
     accepted_asset_ids: set[int] = set()
-    from asset_deletion_service import permanently_delete_asset
+    from asset_deletion_service import (
+        permanently_delete_asset,
+        prepare_asset_reference_deletion,
+    )
     from database import Asset
+    from delete_operations import (
+        prepare_asset_delete_queue,
+        prestage_delete_operation_items,
+        prescrub_delete_operation_items,
+    )
 
-    group_id = uuid.uuid4().hex
+    candidates: list[tuple[int, int]] = []
+    candidate_asset_ids: set[int] = set()
+    revision_by_media = dict(
+        (
+            await session.execute(
+                select(
+                    AssetRevision.primary_media_id,
+                    AssetRevision.asset_id,
+                ).where(
+                    AssetRevision.primary_media_id.in_(request.media_ids),
+                    AssetRevision.deleted_at.is_(None),
+                )
+            )
+        ).all()
+    )
+    assets_by_id = {
+        asset.id: asset
+        for asset in await session.scalars(
+            select(Asset).where(Asset.id.in_(set(revision_by_media.values())))
+        )
+    }
     for media_id in request.media_ids:
-        revision = await _asset_revision_for_media(session, media_id)
-        if revision is None:
+        asset_id = revision_by_media.get(media_id)
+        if asset_id is None:
             errors.append({
                 "media_id": media_id,
                 "error": "Contextual Media has no Trash lifecycle",
             })
             continue
-        if revision.asset_id in accepted_asset_ids:
+        if asset_id in candidate_asset_ids:
             continue
-        asset = await session.get(Asset, revision.asset_id)
+        asset = assets_by_id.get(asset_id)
         if asset is None or asset.state != "trashed":
             errors.append({"media_id": media_id, "error": "Not in trash"})
             continue
+        candidates.append((media_id, asset_id))
+        candidate_asset_ids.add(asset_id)
+
+    profile_id = get_current_profile()
+    await prepare_asset_delete_queue(session, profile_id)
+    await prepare_asset_reference_deletion(
+        session,
+        [asset_id for _, asset_id in candidates],
+    )
+    for _media_id, asset_id in candidates:
         deletion = await permanently_delete_asset(
             session,
-            asset_id=revision.asset_id,
-            profile_id=get_current_profile(),
-            group_id=group_id,
+            asset_id=asset_id,
+            profile_id=profile_id,
+            queue_prepared=True,
+            references_prepared=True,
+            commit=False,
         )
-        accepted_asset_ids.add(revision.asset_id)
+        accepted_asset_ids.add(asset_id)
         if deletion.operation is not None:
             operations.append(deletion.operation.to_dict())
-    if operations:
+    await prescrub_delete_operation_items(
+        session,
+        [operation["id"] for operation in operations],
+    )
+    await prestage_delete_operation_items(
+        session,
+        [operation["id"] for operation in operations],
+    )
+    await session.commit()
+    if any(operation["status"] in {"queued", "running"} for operation in operations):
         await ensure_delete_worker_started()
 
     return {
@@ -954,13 +1002,21 @@ async def permanently_delete_media(
         asset_id=asset_revision.asset_id,
         profile_id=get_current_profile(),
     )
-    if deletion.operation is not None:
+    operation_pending = (
+        deletion.operation is not None
+        and deletion.operation.status in {"queued", "running"}
+    )
+    if operation_pending:
         await ensure_delete_worker_started()
 
     return {
-        "status": "accepted",
+        "status": "accepted" if operation_pending else "completed",
         "operation": deletion.operation.to_dict() if deletion.operation else None,
-        "message": "Permanent delete queued",
+        "message": (
+            "Permanent delete queued"
+            if operation_pending
+            else "Permanent delete completed"
+        ),
     }
 
 
@@ -986,6 +1042,8 @@ async def get_active_delete_operation_route(
     profile_id = get_current_profile()
     operation = await get_active_delete_operation(session, profile_id)
     summary = await get_delete_progress_summary(session, profile_id)
+    if summary and summary["status"] == "completed":
+        summary = None
     return {
         "operation": operation.to_dict() if operation else None,
         "summary": summary,

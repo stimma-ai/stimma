@@ -2,15 +2,13 @@ import { computed, ref } from 'vue'
 import { useMediaApi } from './useMediaApi'
 import { useWebSocket } from './useWebSocket'
 
-// Per-operation payload from the most recent event (one user action can fan
-// out into many single-asset operations) and the wave-level summary the
-// backend aggregates across all of them. UI reads the summary.
+// Per-operation payload from the most recent event and the profile-wide Asset
+// deletion queue summary. UI progress reads only the Asset summary.
 const activeDeleteOperation = ref(null)
 const deleteSummary = ref(null)
 let initialized = false
 let clearTimer = null
-// Last summary seen while the wave was running, so the completion state can
-// show the final wave totals instead of the last operation's 1/1.
+// Last running summary supports the older-backend completion fallback.
 let lastRunningSummary = null
 
 export function useDeleteOperations() {
@@ -56,31 +54,34 @@ export function useDeleteOperations() {
     refreshActiveDeleteOperation()
 
     on('delete_operation_started', (data) => {
+      if (data?.kind !== 'asset') return
       if (clearTimer) { clearTimeout(clearTimer); clearTimer = null }
       applyOperationUpdate(data)
     })
-    on('delete_operation_progress', (data) => applyOperationUpdate(data))
+    on('delete_operation_progress', (data) => {
+      if (data?.kind === 'asset') applyOperationUpdate(data)
+    })
     on('delete_operation_completed', (data) => {
+      if (data?.kind !== 'asset') return
       applyOperationUpdate(data)
-      if (!data?.summary) {
-        // No summary means no queued/running/failed operations remain: the
-        // whole wave is done. Show its final totals briefly, then clear.
+      if (data?.summary?.status === 'completed') {
+        clearAfterDelay()
+      } else if (!data?.summary) {
+        // Compatibility fallback for an older backend that omits the final
+        // queue summary.
         const finished = lastRunningSummary
         deleteSummary.value = {
           status: 'completed',
-          total_items: finished?.total_items ?? data?.total_items ?? 0,
-          processed_items: finished?.total_items ?? data?.processed_items ?? 0,
-          failed_items: 0,
-          operations_total: finished?.operations_total ?? 1,
-          operations_completed: finished?.operations_total ?? 1,
-          kinds: finished?.kinds ?? (data?.kind ? [data.kind] : []),
+          total_assets: finished?.total_assets ?? 1,
+          processed_assets: finished?.total_assets ?? 1,
+          failed_assets: 0,
           eta_seconds: null,
         }
         clearAfterDelay()
       }
     })
     on('delete_operation_failed', (data) => {
-      applyOperationUpdate(data)
+      if (data?.kind === 'asset') applyOperationUpdate(data)
     })
     on('websocket_reconnected', () => {
       // Re-fetch server state in case we missed events while disconnected
@@ -89,20 +90,15 @@ export function useDeleteOperations() {
   }
 
   const hasActiveDeleteOperation = computed(() => {
-    // Show as long as we have wave state (including briefly after completion)
+    // Keep the completed queue visible briefly after it drains.
     return deleteSummary.value != null
   })
 
   const deleteProgressPercent = computed(() => {
     const summary = deleteSummary.value
     if (!summary) return 0
-    if (summary.total_items) {
-      return Math.round(((summary.processed_items || 0) / summary.total_items) * 100)
-    }
-    if (summary.operations_total) {
-      return Math.round(((summary.operations_completed || 0) / summary.operations_total) * 100)
-    }
-    return 0
+    if (!summary.total_assets) return 0
+    return Math.round(((summary.processed_assets || 0) / summary.total_assets) * 100)
   })
 
   async function retryFailedDeleteOperation() {

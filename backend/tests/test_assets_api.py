@@ -3,9 +3,11 @@
 import asyncio
 import json
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
+from sqlalchemy import select
 
 from asset_service import (
     acquire_media_owner,
@@ -22,6 +24,8 @@ from database import (
     Chat,
     ChatItem,
     ContainerMember,
+    DeleteOperation,
+    DeleteOperationItem,
     Keyword,
     Marker,
     MediaItem,
@@ -621,7 +625,7 @@ async def test_source_asset_delete_preserves_dependent_snapshot_media(client, db
     assert response.json()["status"] == "completed"
     assert response.json()["identity_status"] == "completed"
     assert response.json()["privacy_status"] == "retained"
-    assert response.json()["operation"] is None
+    assert response.json()["operation"]["status"] == "completed"
 
     async with db_session() as session:
         assert await session.get(Asset, source_id) is None
@@ -1015,7 +1019,7 @@ async def test_empty_asset_trash_permanently_deletes_all_roots(client, db_sessio
     assert response.status_code == 202
     assert response.json()["accepted"] == trashed_before + 2
     operations = response.json()["operations"]
-    assert len({operation["group_id"] for operation in operations}) == 1
+    assert len(operations) == trashed_before + 2
     for operation in operations:
         result = await _wait_for_delete(client, operation["id"])
         assert result["status"] == "completed"
@@ -1023,3 +1027,114 @@ async def test_empty_asset_trash_permanently_deletes_all_roots(client, db_sessio
     async with db_session() as session:
         for asset_id in asset_ids:
             assert await session.get(Asset, asset_id) is None
+
+
+@pytest.mark.asyncio
+async def test_batch_permanent_delete_queues_one_operation_per_asset(
+    client, db_session
+):
+    async with db_session() as session:
+        roots = []
+        for _ in range(3):
+            media = await create_media_item(session)
+            roots.append(await create_asset_from_media(session, media_id=media.id))
+        asset_ids = [asset.id for asset in roots]
+        deleted_at = datetime.utcnow()
+        for asset in roots:
+            asset.state = "trashed"
+            asset.deleted_at = deleted_at
+        await session.commit()
+    response = await client.post(
+        "/api/assets/batch/permanent", json={"asset_ids": asset_ids}
+    )
+    assert response.status_code == 202, response.text
+    payload = response.json()
+    assert payload["accepted"] == 3
+    assert [result["asset_id"] for result in payload["results"]] == asset_ids
+    assert len(payload["operations"]) == 3
+
+    for operation in payload["operations"]:
+        completed = await _wait_for_delete(client, operation["id"])
+        assert completed["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_large_asset_batch_prescrubs_and_checkpoints_once(
+    client, db_session
+):
+    from asset_deletion_service import _scrub_chat_asset_references
+    from delete_operations import _process_profile, _truncate_privacy_wal
+
+    async with db_session() as session:
+        roots = []
+        for _ in range(20):
+            media = await create_media_item(session)
+            roots.append(await create_asset_from_media(session, media_id=media.id))
+        asset_ids = [asset.id for asset in roots]
+        for asset in roots:
+            asset.state = "trashed"
+            asset.deleted_at = datetime.utcnow()
+        await session.commit()
+
+    with (
+        patch(
+            "asset_deletion_service._scrub_chat_asset_references",
+            wraps=_scrub_chat_asset_references,
+        ) as asset_scrub,
+        patch(
+            "delete_operations.ensure_delete_worker_started",
+            new=AsyncMock(),
+        ),
+    ):
+        response = await client.post(
+            "/api/assets/batch/permanent",
+            json={"asset_ids": asset_ids},
+        )
+    assert response.status_code == 202
+    assert asset_scrub.await_count == 1
+    operation_ids = [item["id"] for item in response.json()["operations"]]
+    assert len(operation_ids) == len(asset_ids)
+
+    async with db_session() as session:
+        states = list(
+            await session.scalars(
+                select(DeleteOperationItem.state).where(
+                    DeleteOperationItem.operation_id.in_(operation_ids)
+                )
+            )
+        )
+        assert states == ["media_deleted"] * len(asset_ids)
+
+    worker_scrub = AsyncMock()
+    with (
+        patch(
+            "delete_operations._truncate_privacy_wal",
+            wraps=_truncate_privacy_wal,
+        ) as checkpoint,
+        patch("delete_operations._batch_scrub_references", worker_scrub),
+    ):
+        for _ in range(len(asset_ids) * 2 + 5):
+            await _process_profile("default")
+            async with db_session() as session:
+                remaining = await session.scalar(
+                    select(DeleteOperation.id)
+                    .where(
+                        DeleteOperation.id.in_(operation_ids),
+                        DeleteOperation.status.not_in(["completed", "failed"]),
+                    )
+                    .limit(1)
+                )
+            if remaining is None:
+                break
+
+    assert worker_scrub.await_count == 0
+    assert checkpoint.await_count == 1
+    async with db_session() as session:
+        statuses = list(
+            await session.scalars(
+                select(DeleteOperation.status).where(
+                    DeleteOperation.id.in_(operation_ids)
+                )
+            )
+        )
+    assert statuses == ["completed"] * len(asset_ids)

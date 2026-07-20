@@ -802,17 +802,16 @@ const hasDeleteCompleted = computed(() => {
   return deleteSummary.value?.status === 'completed'
 })
 
-// Zero-item waves (e.g. chat privacy deletions) fall back to operation counts.
 const deleteTotalCount = computed(() => {
   const summary = deleteSummary.value
   if (!summary) return 0
-  return summary.total_items || summary.operations_total || 0
+  return summary.total_assets || 0
 })
 
 const deleteDoneCount = computed(() => {
   const summary = deleteSummary.value
   if (!summary) return 0
-  return summary.total_items ? (summary.processed_items || 0) : (summary.operations_completed || 0)
+  return summary.processed_assets || 0
 })
 
 const isActivelyProcessing = computed(() => {
@@ -839,7 +838,7 @@ const deleteOperationLabel = computed(() => {
   const summary = deleteSummary.value
   if (!summary) return ''
   if (summary.status === 'completed') return 'Complete'
-  if (summary.status === 'failed') return `${summary.failed_items || summary.operations_total || 0} failed`
+  if (summary.status === 'failed') return `${summary.failed_assets || 0} failed`
   const remaining = deleteTotalCount.value - deleteDoneCount.value
   return `${remaining} remaining`
 })

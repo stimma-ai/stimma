@@ -10,8 +10,7 @@ from typing import Any
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from asset_service import AssetServiceError, clear_snapshot_source_bindings
-from container_service import tombstone_linked_asset_references
+from asset_service import AssetServiceError
 from database import (
     Asset,
     AssetMarker,
@@ -30,7 +29,7 @@ from database import (
     ProjectAsset,
     WorkingDocument,
 )
-from delete_operations import create_delete_operation
+from delete_operations import create_delete_operation, prepare_asset_delete_queue
 
 
 @dataclass
@@ -151,41 +150,50 @@ async def preview_asset_deletion(
     )
 
 
-def _scrub_asset_refs(value: Any, asset_id: int) -> bool:
+def _scrub_asset_refs(value: Any, deleted_asset_ids: set[int]) -> bool:
     changed = False
     if isinstance(value, dict):
         matching_keys = [
             key
             for key, child in value.items()
             if (key == "asset_id" or key.endswith("_asset_id"))
-            and child == asset_id
+            and isinstance(child, int)
+            and child in deleted_asset_ids
         ]
         if matching_keys:
             for key in matching_keys:
                 value.pop(key, None)
             value["asset_unavailable"] = True
             changed = True
-        for key, asset_ids in list(value.items()):
+        for key, referenced_ids in list(value.items()):
             if key != "asset_ids" and not key.endswith("_asset_ids"):
                 continue
-            if isinstance(asset_ids, list):
-                filtered = [item for item in asset_ids if item != asset_id]
-                if filtered != asset_ids:
+            if isinstance(referenced_ids, list):
+                filtered = [
+                    item for item in referenced_ids
+                    if not isinstance(item, int) or item not in deleted_asset_ids
+                ]
+                if filtered != referenced_ids:
                     value[key] = filtered
                     changed = True
         for child in value.values():
-            changed = _scrub_asset_refs(child, asset_id) or changed
+            changed = _scrub_asset_refs(child, deleted_asset_ids) or changed
     elif isinstance(value, list):
         for child in value:
-            changed = _scrub_asset_refs(child, asset_id) or changed
+            changed = _scrub_asset_refs(child, deleted_asset_ids) or changed
     return changed
 
 
-async def _scrub_chat_asset_references(session: AsyncSession, asset_id: int) -> None:
+async def _scrub_chat_asset_references(
+    session: AsyncSession,
+    asset_ids: set[int],
+) -> None:
+    if not asset_ids:
+        return
     items = list(
         await session.scalars(
             select(ChatItem).where(
-                (ChatItem.asset_id == asset_id)
+                ChatItem.asset_id.in_(asset_ids)
                 | ChatItem.asset_ids.is_not(None)
                 | ChatItem.item_metadata.is_not(None)
                 | ChatItem.tool_args.is_not(None)
@@ -195,7 +203,7 @@ async def _scrub_chat_asset_references(session: AsyncSession, asset_id: int) -> 
         )
     )
     for item in items:
-        if item.asset_id == asset_id:
+        if item.asset_id in asset_ids:
             item.asset_id = None
         if item.asset_ids:
             try:
@@ -204,7 +212,9 @@ async def _scrub_chat_asset_references(session: AsyncSession, asset_id: int) -> 
                 item.asset_ids = "[]"
                 ids = None
             if isinstance(ids, list):
-                item.asset_ids = json.dumps([value for value in ids if value != asset_id])
+                item.asset_ids = json.dumps(
+                    [value for value in ids if value not in asset_ids]
+                )
         for field in ("item_metadata", "tool_args", "tool_result", "grid_layout"):
             raw = getattr(item, field)
             if not raw:
@@ -217,8 +227,48 @@ async def _scrub_chat_asset_references(session: AsyncSession, asset_id: int) -> 
                 # privacy-complete deletion while retaining it.
                 setattr(item, field, None)
                 metadata = None
-            if metadata is not None and _scrub_asset_refs(metadata, asset_id):
+            if metadata is not None and _scrub_asset_refs(metadata, asset_ids):
                 setattr(item, field, json.dumps(metadata))
+
+
+async def prepare_asset_reference_deletion(
+    session: AsyncSession,
+    asset_ids: list[int],
+) -> None:
+    """Scrub weak Asset references once for an entire enqueue request."""
+    deleted_asset_ids = set(asset_ids)
+    if not deleted_asset_ids:
+        return
+
+    await session.execute(
+        update(AssetSnapshot)
+        .where(AssetSnapshot.source_asset_id.in_(deleted_asset_ids))
+        .values(source_asset_id=None, source_revision_id=None)
+    )
+    await session.execute(
+        update(ContainerMember)
+        .where(ContainerMember.linked_asset_id.in_(deleted_asset_ids))
+        .values(
+            linked_asset_id=None,
+            missing_linked_asset=True,
+            member_metadata=None,
+        )
+    )
+    await _scrub_chat_asset_references(session, deleted_asset_ids)
+    await session.execute(
+        update(Asset)
+        .where(
+            Asset.origin_type.in_(("editor_save_as_new", "container_explode")),
+            Asset.origin_id.in_([str(value) for value in deleted_asset_ids]),
+        )
+        .values(origin_id=None)
+    )
+    await session.execute(
+        update(GenerationJob)
+        .where(GenerationJob.result_asset_id.in_(deleted_asset_ids))
+        .values(result_asset_id=None)
+    )
+    await session.flush()
 
 
 async def permanently_delete_asset(
@@ -226,7 +276,10 @@ async def permanently_delete_asset(
     *,
     asset_id: int,
     profile_id: str,
-    group_id: str | None = None,
+    queue_prepared: bool = False,
+    references_prepared: bool = False,
+    commit: bool = True,
+    known_revisions: list[AssetRevision] | None = None,
 ):
     """Destroy an Asset identity and queue only newly-unowned Media collection."""
     asset = await session.get(Asset, asset_id)
@@ -234,12 +287,22 @@ async def permanently_delete_asset(
         raise AssetServiceError("Asset not found")
     if asset.state != "trashed":
         raise AssetServiceError("Asset must be in Trash before permanent deletion")
+    if not queue_prepared:
+        await prepare_asset_delete_queue(session, profile_id)
+    if not references_prepared:
+        await prepare_asset_reference_deletion(session, [asset_id])
     asset.state = "deleting"
     asset.updated_at = datetime.utcnow()
     await session.flush()
 
-    revisions = list(
-        await session.scalars(select(AssetRevision).where(AssetRevision.asset_id == asset_id))
+    revisions = (
+        known_revisions
+        if known_revisions is not None
+        else list(
+            await session.scalars(
+                select(AssetRevision).where(AssetRevision.asset_id == asset_id)
+            )
+        )
     )
     revision_ids = [revision.id for revision in revisions]
     documents = list(
@@ -281,23 +344,6 @@ async def permanently_delete_asset(
                 ContainerMember.embedded_media_id.is_not(None),
             )
         )
-    )
-
-    await clear_snapshot_source_bindings(session, source_asset_id=asset_id)
-    await tombstone_linked_asset_references(session, asset_id=asset_id)
-    await _scrub_chat_asset_references(session, asset_id)
-    await session.execute(
-        update(Asset)
-        .where(
-            Asset.origin_type.in_(("editor_save_as_new", "container_explode")),
-            Asset.origin_id == str(asset_id),
-        )
-        .values(origin_id=None)
-    )
-    await session.execute(
-        update(GenerationJob)
-        .where(GenerationJob.result_asset_id == asset_id)
-        .values(result_asset_id=None)
     )
 
     root_filters = []
@@ -359,21 +405,29 @@ async def permanently_delete_asset(
 
     collectible_ids = {media.id for media in collectible}
     retained_media_ids = sorted(candidate_media_ids - collectible_ids)
-    if collectible or artifacts:
-        operation = await create_delete_operation(
-            session,
-            profile_id=profile_id,
-            kind="asset",
-            media_items=collectible,
-            managed_artifacts=artifacts,
-            group_id=group_id,
-        )
-        return AssetDeletionResult(
-            operation=operation,
-            retained_media_ids=retained_media_ids,
-        )
-    await session.commit()
+    operation = await create_delete_operation(
+        session,
+        profile_id=profile_id,
+        kind="asset",
+        media_items=collectible,
+        managed_artifacts=artifacts,
+        commit=commit,
+    )
+    if not collectible and not artifacts:
+        # The identity deletion is already complete and there is no worker
+        # payload, but this Asset still contributes one completed queue unit.
+        now = datetime.utcnow()
+        operation.status = "completed"
+        operation.current_phase = "completed"
+        operation.started_at = now
+        operation.completed_at = now
+        operation.updated_at = now
+        if commit:
+            await session.commit()
+            await session.refresh(operation)
+        else:
+            await session.flush()
     return AssetDeletionResult(
-        operation=None,
+        operation=operation,
         retained_media_ids=retained_media_ids,
     )

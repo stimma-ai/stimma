@@ -1224,12 +1224,10 @@ class DeleteOperation(Base):
     __tablename__ = "delete_operations"
 
     id = Column(Integer, primary_key=True, index=True)
-    kind = Column(String, nullable=False)  # single | batch | empty_trash
+    kind = Column(String, nullable=False)  # asset | chat
     profile_id = Column(String, nullable=False, index=True)
-    # Operations enqueued by one user action share a group_id so progress can
-    # be reported for the whole wave rather than per single-asset operation.
-    group_id = Column(String, nullable=True, index=True)
-    status = Column(String, nullable=False, default='queued', index=True)  # queued | running | completed | failed | superseded
+    # queued | running | checkpointing | completed | failed | superseded
+    status = Column(String, nullable=False, default='queued', index=True)
     current_phase = Column(String, nullable=True)
     total_items = Column(Integer, nullable=False, default=0)
     claimed_items = Column(Integer, nullable=False, default=0)
@@ -1248,7 +1246,6 @@ class DeleteOperation(Base):
             "id": self.id,
             "kind": self.kind,
             "profile_id": self.profile_id,
-            "group_id": self.group_id,
             "status": self.status,
             "current_phase": self.current_phase,
             "total_items": self.total_items,

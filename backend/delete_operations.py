@@ -1,11 +1,11 @@
 import asyncio
 import json
-import uuid
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import and_, case, delete, func, or_, select, text, update
+from sqlalchemy import case, delete, func, or_, select, text, update
 
 from core.logging import get_logger
 from database import (
@@ -40,10 +40,13 @@ log = get_logger(__name__)
 DELETE_BATCH_SIZE = 500
 LEASE_SECONDS = 60
 WORKER_IDLE_SECONDS = 1.0
-WORKER_BUSY_SECONDS = 0.1
+PROGRESS_BROADCAST_INTERVAL_SECONDS = 0.25
+LEASE_RECOVERY_INTERVAL_SECONDS = 5.0
 
 _worker_task: asyncio.Task | None = None
 _worker_lock = asyncio.Lock()
+_last_progress_broadcast_at: dict[str, float] = {}
+_last_lease_recovery_at: dict[str, float] = {}
 
 
 class DependentEditorSnapshotError(RuntimeError):
@@ -79,112 +82,84 @@ def _operation_payload(operation: DeleteOperation) -> dict[str, Any]:
     return payload
 
 
-ACTIVE_STATUSES = ("queued", "running", "failed")
+ASSET_QUEUE_ACTIVE_STATUSES = ("queued", "running", "checkpointing", "failed")
+ASSET_QUEUE_VISIBLE_STATUSES = (*ASSET_QUEUE_ACTIVE_STATUSES, "completed")
 
 
 async def get_delete_progress_summary(session, profile_id: str) -> dict[str, Any] | None:
-    """Aggregate progress across every operation in the active deletion wave.
+    """Report the one profile-wide permanent Asset deletion queue.
 
-    One user action (empty trash, bulk delete) enqueues one operation per
-    asset, all sharing a group_id. Progress is reported for the whole wave:
-    completed operations in an active group still count toward the totals so
-    the denominator stays stable while the wave drains.
+    Each Asset has one durable operation. Completed operations stay visible
+    until the queue drains, so the total never decreases during processing.
+    Trigger source and Media payload count are deliberately irrelevant.
     """
-    active_rows = (
-        await session.execute(
-            select(DeleteOperation.group_id, DeleteOperation.status)
-            .where(
-                DeleteOperation.profile_id == profile_id,
-                DeleteOperation.status.in_(ACTIVE_STATUSES),
-            )
-            .distinct()
-        )
-    ).all()
-    if not active_rows:
-        return None
-
-    group_ids = {group_id for group_id, _status in active_rows if group_id}
-    has_ungrouped = any(group_id is None for group_id, _status in active_rows)
-    wave_filters = []
-    if group_ids:
-        wave_filters.append(DeleteOperation.group_id.in_(group_ids))
-    if has_ungrouped:
-        wave_filters.append(
-            and_(
-                DeleteOperation.group_id.is_(None),
-                DeleteOperation.status.in_(ACTIVE_STATUSES),
-            )
-        )
-
-    (
-        ops_total,
-        total_items,
-        processed_items,
-        failed_items,
-        ops_finished,
-        earliest_started_at,
-    ) = (
+    total_assets, processed_assets, failed_assets, earliest_started_at = (
         await session.execute(
             select(
                 func.count(),
-                func.coalesce(func.sum(DeleteOperation.total_items), 0),
-                func.coalesce(func.sum(DeleteOperation.processed_items), 0),
-                func.coalesce(func.sum(DeleteOperation.failed_items), 0),
                 func.coalesce(
                     func.sum(
                         case(
-                            (DeleteOperation.status.in_(["completed", "failed"]), 1),
+                            (
+                                DeleteOperation.status.in_(
+                                    ["completed", "checkpointing", "failed"]
+                                ),
+                                1,
+                            ),
                             else_=0,
                         )
+                    ),
+                    0,
+                ),
+                func.coalesce(
+                    func.sum(
+                        case((DeleteOperation.status == "failed", 1), else_=0)
                     ),
                     0,
                 ),
                 func.min(DeleteOperation.started_at),
             ).where(
                 DeleteOperation.profile_id == profile_id,
-                or_(*wave_filters),
+                DeleteOperation.kind == "asset",
+                DeleteOperation.status.in_(ASSET_QUEUE_VISIBLE_STATUSES),
             )
         )
     ).one()
+    if not total_assets:
+        return None
 
-    kinds = sorted(
-        (
-            await session.scalars(
-                select(DeleteOperation.kind)
-                .where(
-                    DeleteOperation.profile_id == profile_id,
-                    or_(*wave_filters),
-                )
-                .distinct()
+    statuses = set(
+        await session.scalars(
+            select(DeleteOperation.status)
+            .where(
+                DeleteOperation.profile_id == profile_id,
+                DeleteOperation.kind == "asset",
+                DeleteOperation.status.in_(ASSET_QUEUE_VISIBLE_STATUSES),
             )
-        ).all()
+            .distinct()
+        )
     )
-
-    statuses = {status for _group_id, status in active_rows}
-    status = "running" if statuses & {"queued", "running"} else "failed"
+    status = (
+        "running"
+        if statuses & {"queued", "running", "checkpointing"}
+        else "failed"
+    )
+    if statuses == {"completed"}:
+        status = "completed"
 
     eta = None
     if status == "running" and earliest_started_at is not None:
         if isinstance(earliest_started_at, str):
             earliest_started_at = datetime.fromisoformat(earliest_started_at)
         elapsed = max((_utcnow() - earliest_started_at).total_seconds(), 0.001)
-        # Zero-item operations (e.g. chat privacy deletions) still do real
-        # work, so fall back to operation counts when there are no items.
-        done_units = processed_items if total_items else ops_finished
-        remaining_units = (
-            (total_items - processed_items) if total_items else (ops_total - ops_finished)
-        )
-        rate = done_units / elapsed
-        eta = remaining_units / rate if rate > 0 else None
+        rate = processed_assets / elapsed
+        eta = (total_assets - processed_assets) / rate if rate > 0 else None
 
     return {
         "status": status,
-        "total_items": total_items,
-        "processed_items": processed_items,
-        "failed_items": failed_items,
-        "operations_total": ops_total,
-        "operations_completed": ops_finished,
-        "kinds": kinds,
+        "total_assets": total_assets,
+        "processed_assets": processed_assets,
+        "failed_assets": failed_assets,
         "eta_seconds": eta,
     }
 
@@ -196,6 +171,57 @@ async def _operation_event_payload(session, operation: DeleteOperation) -> dict[
     )
     return payload
 
+
+async def _broadcast_operation_update(
+    session,
+    event_name: str,
+    operation: DeleteOperation,
+    *,
+    force: bool = False,
+) -> None:
+    """Rate-limit expensive queue aggregation and websocket progress events."""
+    if not force and event_name in {
+        "delete_operation_started",
+        "delete_operation_progress",
+    }:
+        now = time.monotonic()
+        previous = _last_progress_broadcast_at.get(operation.profile_id, 0.0)
+        if now - previous < PROGRESS_BROADCAST_INTERVAL_SECONDS:
+            return
+        _last_progress_broadcast_at[operation.profile_id] = now
+    await ws_manager.broadcast(
+        event_name,
+        await _operation_event_payload(session, operation),
+        include_profile=False,
+    )
+
+
+async def prepare_asset_delete_queue(session, profile_id: str) -> None:
+    """Start a new Asset queue only when the profile is currently idle."""
+    active_asset_operation = await session.scalar(
+        select(DeleteOperation.id)
+        .where(
+            DeleteOperation.profile_id == profile_id,
+            DeleteOperation.kind == "asset",
+            DeleteOperation.status.in_(ASSET_QUEUE_ACTIVE_STATUSES),
+        )
+        .limit(1)
+    )
+    if active_asset_operation is not None:
+        return
+    # Completed rows remain part of a queue until it drains. Retire them once,
+    # immediately before the next enqueue request starts.
+    await session.execute(
+        update(DeleteOperation)
+        .where(
+            DeleteOperation.profile_id == profile_id,
+            DeleteOperation.kind == "asset",
+            DeleteOperation.status == "completed",
+        )
+        .values(status="superseded", updated_at=_utcnow())
+    )
+
+
 async def create_delete_operation(
     session,
     *,
@@ -203,7 +229,7 @@ async def create_delete_operation(
     kind: str,
     media_items: list[MediaItem],
     managed_artifacts: list[ManagedArtifact] | None = None,
-    group_id: str | None = None,
+    commit: bool = True,
 ) -> DeleteOperation:
     media_ids = [item.id for item in media_items]
     await _assert_no_live_media_owners(session, media_ids)
@@ -216,7 +242,6 @@ async def create_delete_operation(
     operation = DeleteOperation(
         kind=kind,
         profile_id=profile_id,
-        group_id=group_id or uuid.uuid4().hex,
         status="queued",
         current_phase="queued",
         total_items=len(media_items),
@@ -255,8 +280,11 @@ async def create_delete_operation(
         artifact.media_id = None
         artifact.state = "deleting"
 
-    await session.commit()
-    await session.refresh(operation)
+    if commit:
+        await session.commit()
+        await session.refresh(operation)
+    else:
+        await session.flush()
     return operation
 
 
@@ -290,7 +318,10 @@ async def _delete_worker_loop() -> None:
                     did_work = did_work or worked
                 except Exception as exc:
                     log.error("DELETE OPS: profile processing failed", profile_id=profile_id, error=str(exc), exc_info=True)
-            await asyncio.sleep(WORKER_BUSY_SECONDS if did_work else WORKER_IDLE_SECONDS)
+            # Yield without imposing a fixed per-operation delay while the
+            # queue is busy. Large deletes otherwise pay this sleep tens of
+            # thousands of times.
+            await asyncio.sleep(0 if did_work else WORKER_IDLE_SECONDS)
     except asyncio.CancelledError:
         log.info("DELETE OPS: worker stopped")
         raise
@@ -612,8 +643,34 @@ async def _finalize_staged_deletion(
             operation.processed_items += len(completed_ids)
             operation.deleted_items += len(completed_ids)
             operation.last_error = None
-            operation.current_phase = "finalizing"
             operation.updated_at = _utcnow()
+            remaining_item = await session.scalar(
+                select(DeleteOperationItem.media_id)
+                .where(
+                    DeleteOperationItem.operation_id == operation_id,
+                    DeleteOperationItem.state != "failed",
+                )
+                .limit(1)
+            )
+            remaining_artifact = await session.scalar(
+                select(ManagedArtifact.id)
+                .where(
+                    ManagedArtifact.owner_kind == "delete_operation",
+                    ManagedArtifact.owner_id == str(operation_id),
+                    ManagedArtifact.state == "deleting",
+                    ManagedArtifact.deleted_at.is_(None),
+                )
+                .limit(1)
+            )
+            if (
+                operation.kind == "asset"
+                and remaining_item is None
+                and remaining_artifact is None
+            ):
+                operation.status = "checkpointing"
+                operation.current_phase = "checkpointing"
+            else:
+                operation.current_phase = "finalizing"
         await session.commit()
 
     # A delayed unlink retry may run after SQLite has reused the old integer
@@ -635,6 +692,69 @@ async def _finalize_staged_deletion(
     return True, completed_ids
 
 
+async def _checkpoint_asset_queue_if_drained(db, profile_id: str) -> bool:
+    """Checkpoint once after all queued Asset operations reach the barrier."""
+    async with db.async_session_maker() as session:
+        remaining = await session.scalar(
+            select(DeleteOperation.id)
+            .where(
+                DeleteOperation.profile_id == profile_id,
+                DeleteOperation.kind == "asset",
+                DeleteOperation.status.in_(["queued", "running"]),
+            )
+            .limit(1)
+        )
+        if remaining is not None:
+            return False
+        checkpoint_ids = list(
+            await session.scalars(
+                select(DeleteOperation.id)
+                .where(
+                    DeleteOperation.profile_id == profile_id,
+                    DeleteOperation.kind == "asset",
+                    DeleteOperation.status == "checkpointing",
+                )
+                .order_by(DeleteOperation.id.asc())
+            )
+        )
+    if not checkpoint_ids or not await _truncate_privacy_wal(db):
+        return False
+
+    async with db.async_session_maker() as session:
+        operations = list(
+            await session.scalars(
+                select(DeleteOperation)
+                .where(
+                    DeleteOperation.id.in_(checkpoint_ids),
+                    DeleteOperation.status == "checkpointing",
+                )
+                .order_by(DeleteOperation.id.asc())
+            )
+        )
+        if not operations:
+            return False
+        completed_at = _utcnow()
+        for operation in operations:
+            operation.current_phase = "completed"
+            operation.status = "failed" if operation.failed_items else "completed"
+            operation.completed_at = completed_at
+            operation.updated_at = completed_at
+        await session.commit()
+        representative = operations[-1]
+        event_name = (
+            "delete_operation_failed"
+            if any(operation.failed_items for operation in operations)
+            else "delete_operation_completed"
+        )
+        await _broadcast_operation_update(
+            session,
+            event_name,
+            representative,
+            force=True,
+        )
+    return True
+
+
 async def _process_profile(profile_id: str) -> bool:
     registry = get_database_registry()
     db = registry.get_database(profile_id)
@@ -653,42 +773,48 @@ async def _process_profile(profile_id: str) -> bool:
         )
 
     async with db.async_session_maker() as session:
-        await session.execute(
-            update(DeleteOperationItem)
-            .where(
-                DeleteOperationItem.state.in_(["claimed", "refs_scrubbed", "cache_purged"]),
-                DeleteOperationItem.lease_expires_at.is_not(None),
-                DeleteOperationItem.lease_expires_at < now,
+        recovery_now = time.monotonic()
+        previous_recovery = _last_lease_recovery_at.get(profile_id, 0.0)
+        if recovery_now - previous_recovery >= LEASE_RECOVERY_INTERVAL_SECONDS:
+            _last_lease_recovery_at[profile_id] = recovery_now
+            await session.execute(
+                update(DeleteOperationItem)
+                .where(
+                    DeleteOperationItem.state.in_(
+                        ["claimed", "refs_scrubbed", "cache_purged"]
+                    ),
+                    DeleteOperationItem.lease_expires_at.is_not(None),
+                    DeleteOperationItem.lease_expires_at < now,
+                )
+                .values(state="pending", lease_expires_at=None, updated_at=now)
             )
-            .values(state="pending", lease_expires_at=None, updated_at=now)
-        )
-        await session.execute(
-            update(DeleteOperationItem)
-            .where(
-                DeleteOperationItem.state == "unlinking",
-                DeleteOperationItem.lease_expires_at.is_not(None),
-                DeleteOperationItem.lease_expires_at < now,
+            await session.execute(
+                update(DeleteOperationItem)
+                .where(
+                    DeleteOperationItem.state == "unlinking",
+                    DeleteOperationItem.lease_expires_at.is_not(None),
+                    DeleteOperationItem.lease_expires_at < now,
+                )
+                .values(
+                    state="media_deleted",
+                    lease_expires_at=None,
+                    updated_at=now,
+                )
             )
-            .values(
-                state="media_deleted",
-                lease_expires_at=None,
-                updated_at=now,
+            await session.execute(
+                update(DeleteOperationItem)
+                .where(
+                    DeleteOperationItem.state == "unlinking_retry",
+                    DeleteOperationItem.lease_expires_at.is_not(None),
+                    DeleteOperationItem.lease_expires_at < now,
+                )
+                .values(
+                    state="unlink_retry",
+                    lease_expires_at=None,
+                    updated_at=now,
+                )
             )
-        )
-        await session.execute(
-            update(DeleteOperationItem)
-            .where(
-                DeleteOperationItem.state == "unlinking_retry",
-                DeleteOperationItem.lease_expires_at.is_not(None),
-                DeleteOperationItem.lease_expires_at < now,
-            )
-            .values(
-                state="unlink_retry",
-                lease_expires_at=None,
-                updated_at=now,
-            )
-        )
-        await session.commit()
+            await session.commit()
 
         result = await session.execute(
             select(DeleteOperation)
@@ -697,7 +823,12 @@ async def _process_profile(profile_id: str) -> bool:
         )
         operation = result.scalars().first()
         if not operation:
-            return chat_result.finalized_chats > 0
+            await session.rollback()
+            checkpointed = await _checkpoint_asset_queue_if_drained(
+                db,
+                profile_id,
+            )
+            return checkpointed or chat_result.finalized_chats > 0
 
         if operation.status == "queued":
             operation.status = "running"
@@ -705,12 +836,16 @@ async def _process_profile(profile_id: str) -> bool:
             operation.current_phase = "claiming"
             operation.updated_at = now
             await session.commit()
-            await ws_manager.broadcast("delete_operation_started", await _operation_event_payload(session, operation), include_profile=False)
+            await _broadcast_operation_update(
+                session,
+                "delete_operation_started",
+                operation,
+            )
 
         pending_logical_work = await session.scalar(
             select(DeleteOperationItem.media_id).where(
                 DeleteOperationItem.operation_id == operation.id,
-                DeleteOperationItem.state == "pending",
+                DeleteOperationItem.state.in_(["pending", "refs_scrubbed"]),
             ).limit(1)
         )
         if pending_logical_work is None:
@@ -723,15 +858,21 @@ async def _process_profile(profile_id: str) -> bool:
                 return True
 
         claim_result = await session.execute(
-            select(DeleteOperationItem.media_id)
+            select(DeleteOperationItem.media_id, DeleteOperationItem.state)
             .where(
                 DeleteOperationItem.operation_id == operation.id,
-                DeleteOperationItem.state == "pending",
+                DeleteOperationItem.state.in_(["pending", "refs_scrubbed"]),
             )
             .order_by(DeleteOperationItem.media_id.asc())
             .limit(DELETE_BATCH_SIZE)
         )
-        media_ids = list(claim_result.scalars().all())
+        claim_rows = claim_result.all()
+        media_ids = [media_id for media_id, _state in claim_rows]
+        prescrubbed_ids = {
+            media_id
+            for media_id, state in claim_rows
+            if state == "refs_scrubbed"
+        }
 
         if not media_ids:
             unfinished = await session.execute(
@@ -744,6 +885,20 @@ async def _process_profile(profile_id: str) -> bool:
             )
             if unfinished.scalars().first():
                 return False
+
+            if operation.kind == "asset":
+                operation.current_phase = "checkpointing"
+                operation.status = "checkpointing"
+                operation.updated_at = _utcnow()
+                await session.commit()
+                await _broadcast_operation_update(
+                    session,
+                    "delete_operation_progress",
+                    operation,
+                )
+                await session.rollback()
+                await _checkpoint_asset_queue_if_drained(db, profile_id)
+                return True
 
             # secure_delete clears freed records in the live pages. A truncate
             # checkpoint also removes older WAL frames before the operation is
@@ -778,7 +933,7 @@ async def _process_profile(profile_id: str) -> bool:
             .where(
                 DeleteOperationItem.operation_id == operation.id,
                 DeleteOperationItem.media_id.in_(media_ids),
-                DeleteOperationItem.state == "pending",
+                DeleteOperationItem.state.in_(["pending", "refs_scrubbed"]),
             )
             .values(
                 state="claimed",
@@ -804,27 +959,31 @@ async def _process_profile(profile_id: str) -> bool:
     failed_ids: list[int] = []
 
     # Phase 1: Batch scrub all references in a single session
-    async with db.async_session_maker() as session:
-        try:
-            await _batch_scrub_references(session, media_ids)
-        except Exception as exc:
-            log.error("DELETE OPS: batch scrub failed, falling back to individual", error=str(exc), exc_info=True)
-            await session.rollback()
-            # Fallback to individual scrubbing
-            for media_id in media_ids:
-                try:
-                    async with db.async_session_maker() as fallback_session:
-                        await _scrub_references(fallback_session, media_id)
-                        await fallback_session.commit()
-                except Exception as exc2:
-                    log.error(
-                        "DELETE OPS: scrub failed",
-                        media_id=media_id,
-                        error_type=type(exc2).__name__,
-                        exc_info=True,
-                    )
-                    failed_ids.append(media_id)
-        await session.commit()
+    media_ids_to_scrub = [
+        media_id for media_id in media_ids if media_id not in prescrubbed_ids
+    ]
+    if media_ids_to_scrub:
+        async with db.async_session_maker() as session:
+            try:
+                await _batch_scrub_references(session, media_ids_to_scrub)
+            except Exception as exc:
+                log.error("DELETE OPS: batch scrub failed, falling back to individual", error=str(exc), exc_info=True)
+                await session.rollback()
+                # Fallback to individual scrubbing
+                for media_id in media_ids_to_scrub:
+                    try:
+                        async with db.async_session_maker() as fallback_session:
+                            await _scrub_references(fallback_session, media_id)
+                            await fallback_session.commit()
+                    except Exception as exc2:
+                        log.error(
+                            "DELETE OPS: scrub failed",
+                            media_id=media_id,
+                            error_type=type(exc2).__name__,
+                            exc_info=True,
+                        )
+                        failed_ids.append(media_id)
+            await session.commit()
 
     # Phase 2: Commit logical deletion and a durable unlink manifest. No bytes
     # are removed until this transaction succeeds.
@@ -1014,7 +1173,11 @@ async def _process_profile(profile_id: str) -> bool:
     async with db.async_session_maker() as session:
         refreshed = await session.get(DeleteOperation, operation.id)
         if refreshed:
-            await ws_manager.broadcast("delete_operation_progress", await _operation_event_payload(session, refreshed), include_profile=False)
+            await _broadcast_operation_update(
+                session,
+                "delete_operation_progress",
+                refreshed,
+            )
 
     if completed_ids:
         payload = {"count": len(completed_ids)}
@@ -1063,6 +1226,196 @@ async def _batch_scrub_references(session, media_ids: list[int]) -> None:
     # attachment / file_path / params text sitting in the DB — that violates
     # "permanent delete leaves no trace." Strip them here.
     await _scrub_chat_item_references(session, media_ids)
+
+
+async def prescrub_delete_operation_items(
+    session,
+    operation_ids: list[int],
+) -> int:
+    """Scrub one bulk enqueue's Media references in a single database pass.
+
+    A savepoint keeps enqueue semantics unchanged if a legacy dependency or
+    another scrub failure requires the normal per-operation retry path.
+    """
+    if not operation_ids:
+        return 0
+    media_ids = list(
+        await session.scalars(
+            select(DeleteOperationItem.media_id).where(
+                DeleteOperationItem.operation_id.in_(operation_ids),
+                DeleteOperationItem.state == "pending",
+            )
+        )
+    )
+    if not media_ids:
+        return 0
+    try:
+        async with session.begin_nested():
+            await _batch_scrub_references(session, media_ids)
+            await session.execute(
+                update(DeleteOperationItem)
+                .where(
+                    DeleteOperationItem.operation_id.in_(operation_ids),
+                    DeleteOperationItem.state == "pending",
+                )
+                .values(state="refs_scrubbed", updated_at=_utcnow())
+            )
+    except Exception as exc:
+        log.info(
+            "DELETE OPS: bulk pre-scrub deferred to worker",
+            error_type=type(exc).__name__,
+        )
+        return 0
+    return len(media_ids)
+
+
+async def prestage_delete_operation_items(
+    session,
+    operation_ids: list[int],
+) -> int:
+    """Stage a successfully pre-scrubbed bulk enqueue in set-based SQL."""
+    if not operation_ids:
+        return 0
+    items = list(
+        await session.scalars(
+            select(DeleteOperationItem).where(
+                DeleteOperationItem.operation_id.in_(operation_ids),
+                DeleteOperationItem.state == "refs_scrubbed",
+            )
+        )
+    )
+    if not items:
+        return 0
+    media_ids = [item.media_id for item in items]
+    await _assert_no_live_media_owners(session, media_ids)
+
+    media_rows = {
+        media.id: media
+        for media in await session.scalars(
+            select(MediaItem).where(MediaItem.id.in_(media_ids))
+        )
+    }
+    thumbs_by_media: dict[int, list[str]] = {}
+    for media_id, cache_path in (
+        await session.execute(
+            select(
+                MediaThumbnailCache.media_id,
+                MediaThumbnailCache.cache_path,
+            ).where(MediaThumbnailCache.media_id.in_(media_ids))
+        )
+    ).all():
+        thumbs_by_media.setdefault(media_id, []).append(cache_path)
+
+    storage_ids = {
+        media.storage_object_id
+        for media in media_rows.values()
+        if media.storage_object_id is not None
+    }
+    storage_by_id = {
+        storage.id: storage
+        for storage in await session.scalars(
+            select(StorageObject).where(StorageObject.id.in_(storage_ids))
+        )
+    } if storage_ids else {}
+    retained_storage_ids = (
+        set(
+            await session.scalars(
+                select(MediaItem.storage_object_id).where(
+                    MediaItem.storage_object_id.in_(storage_ids),
+                    MediaItem.id.not_in(media_ids),
+                )
+            )
+        )
+        if storage_ids
+        else set()
+    )
+    item_by_media = {item.media_id: item for item in items}
+    for item in items:
+        media = media_rows.get(item.media_id)
+        if media is None:
+            continue
+        item.file_path = media.file_path
+        item.file_hash = media.file_hash
+        item.thumbnail_paths = json.dumps(thumbs_by_media.get(item.media_id, []))
+        if media.storage_object_id is None:
+            continue
+        storage = storage_by_id.get(media.storage_object_id)
+        item.storage_object_id = media.storage_object_id
+        item.storage_kind = storage.kind if storage is not None else None
+        if storage is not None and storage.id not in retained_storage_ids:
+            storage.state = "deleting"
+            item.storage_object_key = storage.object_key
+
+    media_artifacts = list(
+        await session.scalars(
+            select(ManagedArtifact).where(
+                ManagedArtifact.owner_kind == "media",
+                ManagedArtifact.owner_id.in_([str(value) for value in media_ids]),
+                ManagedArtifact.deleted_at.is_(None),
+            )
+        )
+    )
+    for artifact in media_artifacts:
+        item = item_by_media.get(artifact.media_id)
+        if item is None:
+            continue
+        artifact.owner_kind = "delete_operation"
+        artifact.owner_id = str(item.operation_id)
+        artifact.media_id = None
+        artifact.state = "deleting"
+
+    await session.execute(delete(MediaOwner).where(MediaOwner.media_id.in_(media_ids)))
+    await session.execute(
+        delete(AssetSnapshot).where(AssetSnapshot.media_id.in_(media_ids))
+    )
+    await session.execute(
+        delete(ContainerMember).where(
+            ContainerMember.embedded_media_id.in_(media_ids),
+            ContainerMember.deleted_at.is_not(None),
+        )
+    )
+    await session.execute(
+        delete(AssetRevision).where(
+            AssetRevision.primary_media_id.in_(media_ids),
+            AssetRevision.deleted_at.is_not(None),
+        )
+    )
+    await session.execute(
+        delete(MediaThumbnailCache).where(
+            MediaThumbnailCache.media_id.in_(media_ids)
+        )
+    )
+    await session.execute(
+        delete(MediaLineage).where(MediaLineage.media_id.in_(media_ids))
+    )
+    await session.execute(delete(MediaItem).where(MediaItem.id.in_(media_ids)))
+    now = _utcnow()
+    await session.execute(
+        update(DeleteOperationItem)
+        .where(
+            DeleteOperationItem.operation_id.in_(operation_ids),
+            DeleteOperationItem.state == "refs_scrubbed",
+        )
+        .values(
+            state="media_deleted",
+            lease_expires_at=None,
+            updated_at=now,
+        )
+    )
+    operations = list(
+        await session.scalars(
+            select(DeleteOperation).where(DeleteOperation.id.in_(operation_ids))
+        )
+    )
+    for operation in operations:
+        if operation.total_items:
+            operation.status = "running"
+            operation.current_phase = "unlinking_artifacts"
+            operation.claimed_items = operation.total_items
+            operation.started_at = operation.started_at or now
+            operation.updated_at = now
+    await session.flush()
+    return len(media_ids)
 
 
 async def _scrub_references(session, media_id: int) -> None:
@@ -1457,12 +1810,13 @@ async def retry_delete_operation(session, operation_id: int) -> DeleteOperation:
 
 
 async def retry_failed_delete_operations(session, profile_id: str) -> int:
-    """Retry every failed operation for a profile. Returns the retried count."""
+    """Retry every failed Asset deletion for a profile."""
     operation_ids = list(
         await session.scalars(
             select(DeleteOperation.id)
             .where(
                 DeleteOperation.profile_id == profile_id,
+                DeleteOperation.kind == "asset",
                 DeleteOperation.status == "failed",
             )
             .order_by(DeleteOperation.id.asc())
@@ -1484,7 +1838,10 @@ async def get_active_delete_operation(session, profile_id: str) -> DeleteOperati
         select(DeleteOperation)
         .where(
             DeleteOperation.profile_id == profile_id,
-            DeleteOperation.status.in_(["queued", "running", "failed"]),
+            DeleteOperation.kind == "asset",
+            DeleteOperation.status.in_(
+                ["queued", "running", "checkpointing", "failed"]
+            ),
         )
         .order_by(DeleteOperation.id.desc())
     )
