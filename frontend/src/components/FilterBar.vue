@@ -279,6 +279,7 @@
               ...(similarSearchActive || localSimilarToText ? [{ value: 'similarity', label: 'Similarity' }] : []),
               { value: 'created_desc', label: 'Newest First' },
               { value: 'created_asc', label: 'Oldest First' },
+              { value: 'indexed_desc', label: 'Recently Imported' },
               { value: 'random', label: 'Random' },
             ]"
           />

@@ -25,7 +25,7 @@ export function useUrlState() {
    * - xmt: excluded media types
    * - r: resolutions (s=small, m=medium, l=large)
    * - xr: excluded resolutions
-   * - s: sort by (cd=created_desc, ca=created_asc, r=random, sim=similarity)
+   * - s: sort by (cd=created_desc, ca=created_asc, ri=indexed_desc, r=random, sim=similarity)
    * - k: keywords (comma-separated)
    * - xk: excluded keywords
    * - f: folders (comma-separated)
@@ -66,7 +66,7 @@ export function useUrlState() {
 
     // Sort - compact encoding
     if (filters.sortBy && filters.sortBy !== 'created_desc') {
-      const sortMap = { created_asc: 'ca', random: 'r', created_desc: 'cd', similarity: 'sim' }
+      const sortMap = { created_asc: 'ca', indexed_desc: 'ri', random: 'r', created_desc: 'cd', similarity: 'sim' }
       params.set('s', sortMap[filters.sortBy] || filters.sortBy)
     }
 
@@ -208,7 +208,7 @@ export function useUrlState() {
 
     // Sort
     if (queryParams.s) {
-      const sortMap = { ca: 'created_asc', r: 'random', cd: 'created_desc', sim: 'similarity' }
+      const sortMap = { ca: 'created_asc', ri: 'indexed_desc', r: 'random', cd: 'created_desc', sim: 'similarity' }
       filters.sortBy = sortMap[queryParams.s] || queryParams.s
     }
 
