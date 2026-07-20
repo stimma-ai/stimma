@@ -174,6 +174,31 @@ async def test_external_media_delete_removes_user_owned_file(
 
 
 @pytest.mark.asyncio
+async def test_tombstoned_duplicate_does_not_protect_deleted_source_file(
+    client, db_session, tmp_path
+):
+    source = tmp_path / "tombstoned-duplicate.png"
+    source.write_bytes(b"delete despite historical row")
+    async with db_session() as session:
+        historical = await create_media_item(session, file_path=source)
+        historical.deleted_at = datetime.utcnow()
+        current = await create_media_item(session, file_path=source)
+        asset = await create_asset_from_media(session, media_id=current.id)
+        historical_id = historical.id
+        asset_id = asset.id
+        await session.commit()
+
+    await _delete_asset(client, asset_id)
+
+    assert not source.exists()
+    async with db_session() as session:
+        historical = await session.get(MediaItem, historical_id)
+        assert historical is not None
+        await session.delete(historical)
+        await session.commit()
+
+
+@pytest.mark.asyncio
 async def test_managed_bytes_unlink_only_after_logical_delete_commit(
     db_session, tmp_path
 ):

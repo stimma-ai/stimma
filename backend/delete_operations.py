@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import case, delete, func, or_, select, text, update
+from sqlalchemy import case, delete, exists, func, or_, select, text, update
 
 from core.logging import get_logger
 from database import (
@@ -65,6 +65,70 @@ class SourceOfflineError(OSError):
 
 class RetainedMediaError(RuntimeError):
     """Media is still strongly retained by a new-model root."""
+
+
+def _media_has_live_root():
+    """Return the fail-closed ownership condition for a Media row.
+
+    A historical or tombstoned Media row sharing a locator is not a reason to
+    keep the payload. Only a surviving strong root may protect it from unlink.
+    """
+    return or_(
+        exists(
+            select(MediaOwner.id).where(
+                MediaOwner.media_id == MediaItem.id,
+                MediaOwner.deleted_at.is_(None),
+            )
+        ),
+        exists(
+            select(AssetRevision.id).where(
+                AssetRevision.primary_media_id == MediaItem.id,
+                AssetRevision.deleted_at.is_(None),
+            )
+        ),
+        exists(
+            select(AssetSnapshot.id).where(
+                AssetSnapshot.media_id == MediaItem.id,
+                AssetSnapshot.deleted_at.is_(None),
+            )
+        ),
+        exists(
+            select(ContainerMember.id).where(
+                ContainerMember.embedded_media_id == MediaItem.id,
+                ContainerMember.deleted_at.is_(None),
+            )
+        ),
+    )
+
+
+async def _retained_file_paths(session, paths: list[str]) -> set[str]:
+    if not paths:
+        return set()
+    return set(
+        await session.scalars(
+            select(MediaItem.file_path)
+            .where(
+                MediaItem.file_path.in_(paths),
+                _media_has_live_root(),
+            )
+            .distinct()
+        )
+    )
+
+
+async def _retained_storage_ids(session, storage_ids: set[int]) -> set[int]:
+    if not storage_ids:
+        return set()
+    return set(
+        await session.scalars(
+            select(MediaItem.storage_object_id)
+            .where(
+                MediaItem.storage_object_id.in_(storage_ids),
+                _media_has_live_root(),
+            )
+            .distinct()
+        )
+    )
 
 
 def _utcnow() -> datetime:
@@ -628,32 +692,18 @@ async def _finalize_staged_deletion(
             for item in staged_items
             if item.file_path
         ]
-        protected_paths = (
-            set(
-                await session.scalars(
-                    select(MediaItem.file_path).where(
-                        MediaItem.file_path.in_(compatibility_paths)
-                    )
-                )
-            )
-            if compatibility_paths
-            else set()
+        protected_paths = await _retained_file_paths(
+            session,
+            compatibility_paths,
         )
         storage_ids = {
             item.storage_object_id
             for item in staged_items
             if item.storage_object_id is not None
         }
-        retained_storage_ids = (
-            set(
-                await session.scalars(
-                    select(MediaItem.storage_object_id).where(
-                        MediaItem.storage_object_id.in_(storage_ids)
-                    )
-                )
-            )
-            if storage_ids
-            else set()
+        retained_storage_ids = await _retained_storage_ids(
+            session,
+            storage_ids,
         )
         await session.commit()
     if not staged_items and not artifacts:
@@ -897,32 +947,18 @@ async def _finalize_staged_asset_batch(
         compatibility_paths = [
             item.file_path for item in staged_items if item.file_path
         ]
-        protected_paths = (
-            set(
-                await session.scalars(
-                    select(MediaItem.file_path).where(
-                        MediaItem.file_path.in_(compatibility_paths)
-                    )
-                )
-            )
-            if compatibility_paths
-            else set()
+        protected_paths = await _retained_file_paths(
+            session,
+            compatibility_paths,
         )
         storage_ids = {
             item.storage_object_id
             for item in staged_items
             if item.storage_object_id is not None
         }
-        retained_storage_ids = (
-            set(
-                await session.scalars(
-                    select(MediaItem.storage_object_id).where(
-                        MediaItem.storage_object_id.in_(storage_ids)
-                    )
-                )
-            )
-            if storage_ids
-            else set()
+        retained_storage_ids = await _retained_storage_ids(
+            session,
+            storage_ids,
         )
         await session.commit()
 
@@ -971,16 +1007,9 @@ async def _finalize_staged_asset_batch(
             if item.operation_id in successful_operation_ids
             and item.storage_object_id is not None
         }
-        still_retained_storage_ids = (
-            set(
-                await session.scalars(
-                    select(MediaItem.storage_object_id).where(
-                        MediaItem.storage_object_id.in_(successful_storage_ids)
-                    )
-                )
-            )
-            if successful_storage_ids
-            else set()
+        still_retained_storage_ids = await _retained_storage_ids(
+            session,
+            successful_storage_ids,
         )
         deletable_storage_ids = (
             successful_storage_ids - still_retained_storage_ids
@@ -2007,17 +2036,9 @@ async def prestage_delete_operation_items(
             select(StorageObject).where(StorageObject.id.in_(storage_ids))
         )
     } if storage_ids else {}
-    retained_storage_ids = (
-        set(
-            await session.scalars(
-                select(MediaItem.storage_object_id).where(
-                    MediaItem.storage_object_id.in_(storage_ids),
-                    MediaItem.id.not_in(media_ids),
-                )
-            )
-        )
-        if storage_ids
-        else set()
+    retained_storage_ids = await _retained_storage_ids(
+        session,
+        storage_ids,
     )
     item_by_media = {item.media_id: item for item in items}
     for item in items:
