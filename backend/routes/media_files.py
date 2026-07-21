@@ -582,6 +582,7 @@ def _generate_placeholder_thumbnail(size: int, icon_type: str = 'default', palet
     bg_colors = {
         'set': palette['placeholder_set_bg'],
         'grid': palette['placeholder_grid_bg'],
+        'timeline': palette['placeholder_set_bg'],
         'default': palette['placeholder_default_bg'],
     }
 
@@ -589,6 +590,7 @@ def _generate_placeholder_thumbnail(size: int, icon_type: str = 'default', palet
     icon_colors = {
         'set': '#f59e0b',   # Amber
         'grid': '#06b6d4',  # Cyan
+        'timeline': '#f43f5e',  # Rose, matching the frontend badge
         'default': '#6b7280'
     }
 
@@ -608,6 +610,21 @@ def _generate_placeholder_thumbnail(size: int, icon_type: str = 'default', palet
                 center - 3*unit + offset, center - 2*unit + offset,
                 center + 2*unit + offset, center + 3*unit + offset
             ], outline=color, width=max(1, size // 64))
+    elif icon_type == 'timeline':
+        # Filmstrip: outer frame, sprocket rows, two frame dividers
+        stroke = max(1, size // 64)
+        left, right = center - 3 * unit, center + 3 * unit
+        top, bottom = center - 2 * unit, center + 2 * unit
+        draw.rectangle([left, top, right, bottom], outline=color, width=stroke)
+        hole = max(2, unit // 2)
+        x = left + hole
+        while x + hole <= right - hole // 2:
+            draw.rectangle([x, top + hole, x + hole, top + 2 * hole], outline=color, width=stroke)
+            draw.rectangle([x, bottom - 2 * hole, x + hole, bottom - hole], outline=color, width=stroke)
+            x += 2 * hole
+        inner_top, inner_bottom = top + 3 * hole, bottom - 3 * hole
+        for fx in (left + 2 * unit, right - 2 * unit):
+            draw.line([fx, inner_top, fx, inner_bottom], fill=color, width=stroke)
     elif icon_type == 'grid':
         # Draw a 3x3 grid
         for row in range(3):
@@ -676,6 +693,88 @@ def _generate_set_preview(
     except Exception as e:
         log.warning(f"Failed to generate set preview for {file_path}: {e}")
         return _generate_placeholder_thumbnail(size, 'set', palette=palette)
+
+
+def _generate_timeline_preview(
+    file_path: str,
+    size: int,
+    palette=None,
+    normalized_content: dict | None = None,
+) -> Image.Image:
+    """Filmstrip preview for a timeline: clip frames in a sprocketed strip."""
+    import json
+    from pathlib import Path as PathLib
+    from PIL import ImageDraw
+
+    palette = palette or THEME_PALETTES['dark']
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        items = (normalized_content or data).get('items', [])
+        base_path = PathLib(file_path).parent
+
+        image_paths = []
+        for item in items:
+            resolved = item.get('resolved') or {}
+            ref_path = resolved.get('file_path') or item.get('path')
+            if not ref_path:
+                continue
+            ref = PathLib(ref_path)
+            full_path = ref if ref.is_absolute() else (base_path / ref).resolve()
+            if full_path.exists() and full_path.suffix.lower() in {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}:
+                image_paths.append(str(full_path))
+            if len(image_paths) == 3:
+                break
+
+        if not image_paths:
+            return _generate_placeholder_thumbnail(size, 'timeline', palette=palette)
+
+        img = Image.new('RGB', (size, size), palette['placeholder_set_bg'])
+        draw = ImageDraw.Draw(img)
+
+        strip_height = size // 2
+        strip_top = (size - strip_height) // 2
+        draw.rectangle([0, strip_top, size, strip_top + strip_height], fill='#15171c')
+
+        hole = max(2, size // 28)
+        pad = max(2, size // 56)
+        x = pad
+        while x + hole <= size:
+            draw.rectangle([x, strip_top + pad, x + hole, strip_top + pad + hole], fill=palette['placeholder_set_bg'])
+            draw.rectangle([x, strip_top + strip_height - pad - hole, x + hole, strip_top + strip_height - pad], fill=palette['placeholder_set_bg'])
+            x += 2 * hole
+
+        frame_top = strip_top + 2 * pad + hole
+        frame_bottom = strip_top + strip_height - 2 * pad - hole
+        frame_height = frame_bottom - frame_top
+        gap = pad
+        count = len(image_paths)
+        frame_width = (size - gap * (count + 1)) // count
+
+        for i, path in enumerate(image_paths):
+            try:
+                thumb = Image.open(path)
+                thumb.load()
+                thumb = ImageOps.exif_transpose(thumb)
+                if thumb.mode == 'RGBA':
+                    bg = Image.new('RGB', thumb.size, '#FFFFFF')
+                    bg.paste(thumb, mask=thumb.split()[3])
+                    thumb = bg
+                elif thumb.mode != 'RGB':
+                    thumb = thumb.convert('RGB')
+                thumb = ImageOps.fit(thumb, (frame_width, frame_height), Image.Resampling.LANCZOS)
+                img.paste(thumb, (gap + i * (frame_width + gap), frame_top))
+                thumb.close()
+            except Exception as e:
+                log.warning(f"Failed to load timeline frame {path}: {e}")
+
+        return img
+
+    except Exception as e:
+        log.warning(f"Failed to generate timeline preview for {file_path}: {e}")
+        return _generate_placeholder_thumbnail(size, 'timeline', palette=palette)
 
 
 def _generate_grid_preview(
@@ -1303,7 +1402,17 @@ def _generate_thumbnail_sync(
             _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
             return True
 
-        if format_lower in ('stimmaset.json', 'stimmatimeline.json'):
+        if format_lower == 'stimmatimeline.json':
+            img = _generate_timeline_preview(
+                file_path,
+                size,
+                palette=palette,
+                normalized_content=normalized_content,
+            )
+            _atomic_save(img, cache_path, 'JPEG', quality=85, optimize=True)
+            return True
+
+        if format_lower == 'stimmaset.json':
             img = _generate_set_preview(
                 file_path,
                 size,
@@ -1976,7 +2085,7 @@ async def get_thumbnail(
 
     # Cache key based on file path, size, face count, and algorithm version
     # Increment THUMBNAIL_VERSION when the cropping/generation algorithm changes
-    THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
+    THUMBNAIL_VERSION = 32  # v32: filmstrip previews for timeline documents
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
@@ -2564,7 +2673,7 @@ async def get_thumbnail_by_db_guid(
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     # Cache key includes db_guid for profile isolation in cache
-    THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
+    THUMBNAIL_VERSION = 32  # v32: filmstrip previews for timeline documents
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
@@ -2890,7 +2999,7 @@ async def get_thumbnail_path_by_media_id(
     cache_dir = settings.get_thumbnail_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    THUMBNAIL_VERSION = 31  # v31: apply EXIF orientation when generating thumbnails
+    THUMBNAIL_VERSION = 32  # v32: filmstrip previews for timeline documents
     # For text files and sets, include mtime so edits invalidate the thumbnail cache
     mtime_suffix = ""
     fmt_lower = file_format.lower()
