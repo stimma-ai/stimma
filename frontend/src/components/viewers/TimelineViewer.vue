@@ -278,7 +278,8 @@ import {
 } from '../../utils/timelineEval'
 
 const props = defineProps({
-  mediaId: { type: Number, required: true },
+  mediaId: { type: Number, default: null },
+  initialAssetId: { type: Number, default: null },
 })
 const emit = defineEmits(['loaded'])
 
@@ -639,7 +640,10 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const { data } = await axios.get(`/api/timelines/by-media/${props.mediaId}`)
+    const url = props.initialAssetId
+      ? `/api/timelines/${props.initialAssetId}`
+      : `/api/timelines/by-media/${props.mediaId}`
+    const { data } = await axios.get(url)
     assetId.value = data.asset_id
     adoptResult(data)
     emit('loaded', { title: data.state?.title })

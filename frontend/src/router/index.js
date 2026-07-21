@@ -26,6 +26,7 @@ import ProjectToolsView from '../views/ProjectToolsView.vue'
 import OnboardingView from '../views/OnboardingView.vue'
 import SearchResultsView from '../views/SearchResultsView.vue'
 import ForeachMockView from '../views/ForeachMockView.vue'
+import CutView from '../views/CutView.vue'
 import { useTelemetry } from '../composables/useTelemetry'
 
 const routes = [
@@ -144,6 +145,12 @@ const routes = [
     path: '/flows/:id',
     name: 'flow',
     component: FlowView,
+    props: true
+  },
+  {
+    path: '/cut/:id',
+    name: 'cut',
+    component: CutView,
     props: true
   },
   {

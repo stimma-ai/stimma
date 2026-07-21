@@ -2201,7 +2201,7 @@ async function createNewCut() {
     })
     if (!response.ok) throw new Error('Failed to create cut')
     const created = await response.json()
-    router.push({ name: 'browse', query: { slideshowAsset: String(created.asset_id) } })
+    router.push({ name: 'cut', params: { id: String(created.asset_id) } })
     if (props.isMobile) emit('close')
   } catch (error) {
     console.error('Failed to create cut:', error)
